@@ -9,12 +9,12 @@ export async function GET() {
       status: "healthy",
       timestamp: new Date().toISOString(),
     });
-  } catch {
+  } catch (err) {
     return NextResponse.json(
       {
         status: "unhealthy",
         timestamp: new Date().toISOString(),
-        error: "Database connection failed",
+        error: err instanceof Error ? err.message : "Database connection failed",
       },
       { status: 503 },
     );
