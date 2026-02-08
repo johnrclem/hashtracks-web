@@ -1,0 +1,248 @@
+// HashTracks — Full data model from PRD Section 4
+// Source of truth for all application types
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── USERS ──
+
+model User {
+  id          String       @id @default(cuid())
+  clerkId     String       @unique
+  hashName    String?      // Public display name (primary identity)
+  nerdName    String?      // Real name (private by default)
+  email       String       @unique
+  bio         String?
+  homeKennels UserKennel[]
+  attendances Attendance[]
+  hareCredits EventHare[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model UserKennel {
+  id        String         @id @default(cuid())
+  userId    String
+  kennelId  String
+  role      UserKennelRole @default(MEMBER)
+  user      User           @relation(fields: [userId], references: [id])
+  kennel    Kennel         @relation(fields: [kennelId], references: [id])
+  createdAt DateTime       @default(now())
+
+  @@unique([userId, kennelId])
+}
+
+enum UserKennelRole {
+  MEMBER // Subscribed hasher
+  ADMIN  // Can edit kennel details (v2)
+  SCRIBE // Can verify attendance (v2)
+}
+
+// ── KENNELS ──
+
+model Kennel {
+  id          String         @id @default(cuid())
+  shortName   String         @unique // "NYCH3"
+  fullName    String         // "New York City Hash House Harriers"
+  region      String         // "New York City, NY"
+  country     String         @default("USA")
+  description String?
+  website     String?
+  aliases     KennelAlias[]
+  sources     SourceKennel[]
+  events      Event[]
+  members     UserKennel[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model KennelAlias {
+  id       String @id @default(cuid())
+  kennelId String
+  alias    String // "NYC Hash", "HashNYC", "NYC", etc.
+  kennel   Kennel @relation(fields: [kennelId], references: [id])
+
+  @@unique([kennelId, alias])
+  @@index([alias])
+}
+
+// ── SOURCES ──
+
+model Source {
+  id            String       @id @default(cuid())
+  name          String       // "HashNYC Website"
+  url           String       // "https://hashnyc.com"
+  type          SourceType
+  config        Json?        // Adapter-specific config (CSS selectors, calendar ID, etc.)
+  trustLevel    Int          @default(5) // 1-10 scale
+  scrapeFreq    String       @default("daily") // "hourly", "daily", "weekly"
+  lastScrapeAt  DateTime?
+  lastSuccessAt DateTime?
+  healthStatus  SourceHealth @default(UNKNOWN)
+  kennels       SourceKennel[]
+  rawEvents     RawEvent[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+enum SourceType {
+  HTML_SCRAPER    // hashnyc.com, hashnj.com
+  GOOGLE_CALENDAR // bostonhash@gmail.com
+  GOOGLE_SHEETS   // Summit H3 spreadsheet
+  ICAL_FEED       // .ics URL
+  RSS_FEED        // RSS/Atom feed
+  JSON_API        // HashRego API
+  MANUAL          // User-submitted events
+}
+
+enum SourceHealth {
+  HEALTHY  // Last scrape succeeded
+  DEGRADED // Fewer events than expected
+  FAILING  // Last N scrapes failed
+  STALE    // No scrape attempted in >7 days
+  UNKNOWN  // Never scraped
+}
+
+model SourceKennel {
+  id       String @id @default(cuid())
+  sourceId String
+  kennelId String
+  source   Source @relation(fields: [sourceId], references: [id])
+  kennel   Kennel @relation(fields: [kennelId], references: [id])
+
+  @@unique([sourceId, kennelId])
+}
+
+// ── EVENTS ──
+
+model RawEvent {
+  id          String   @id @default(cuid())
+  sourceId    String
+  rawData     Json     // Exact data as scraped — immutable
+  fingerprint String   // Hash of key fields for change detection
+  scrapedAt   DateTime @default(now())
+  processed   Boolean  @default(false)
+  eventId     String?  // Link to canonical Event after processing
+  source      Source   @relation(fields: [sourceId], references: [id])
+  event       Event?   @relation(fields: [eventId], references: [id])
+
+  @@index([sourceId, scrapedAt])
+  @@index([fingerprint])
+}
+
+model Event {
+  id              String      @id @default(cuid())
+  kennelId        String
+  date            DateTime    // Event date (UTC noon to avoid DST issues)
+  dateUtc         DateTime?   // Same moment in UTC (for cross-timezone queries)
+  timezone        String?     // IANA timezone (e.g., "America/New_York")
+  runNumber       Int?        // Kennel-specific sequential number
+  title           String?     // Trail/event name
+  description     String?
+  haresText       String?     // Display text: "Mudflap, Just Simon"
+  locationName    String?     // Start location name
+  locationAddress String?
+  latitude        Float?
+  longitude       Float?
+  startTime       String?     // Local time string "HH:MM" — NOT a timestamp
+  sourceUrl       String?     // Link to original event page
+  trustLevel      Int         @default(5)
+  isSeriesParent  Boolean     @default(false)
+  parentEventId   String?
+  status          EventStatus @default(CONFIRMED)
+
+  kennel      Kennel      @relation(fields: [kennelId], references: [id])
+  parentEvent Event?      @relation("EventSeries", fields: [parentEventId], references: [id])
+  childEvents Event[]     @relation("EventSeries")
+  rawEvents   RawEvent[]
+  hares       EventHare[]
+  attendances Attendance[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([kennelId, date]) // De-duplication key
+  @@index([date])
+  @@index([kennelId, date])
+}
+
+enum EventStatus {
+  CONFIRMED
+  TENTATIVE
+  CANCELLED
+}
+
+model EventHare {
+  id       String   @id @default(cuid())
+  eventId  String
+  hareName String   // Display name (always populated)
+  userId   String?  // Optional link to User record
+  role     HareRole @default(HARE)
+  event    Event    @relation(fields: [eventId], references: [id])
+  user     User?    @relation(fields: [userId], references: [id])
+
+  @@index([eventId])
+}
+
+enum HareRole {
+  HARE
+  CO_HARE
+  LIVE_HARE
+}
+
+// ── ATTENDANCE ──
+
+model Attendance {
+  id                 String             @id @default(cuid())
+  userId             String
+  eventId            String
+  participationLevel ParticipationLevel @default(RUN)
+  stravaUrl          String?
+  beezThere          Boolean            @default(false)
+  notes              String?            // User's personal notes
+  isVerified         Boolean            @default(false) // Verified by scribe (v2)
+  verifiedBy         String?            // Scribe user ID (v2)
+
+  user    User    @relation(fields: [userId], references: [id])
+  event   Event   @relation(fields: [eventId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, eventId])
+}
+
+enum ParticipationLevel {
+  RUN         // R - Standard trail participation
+  HARE        // H - Set the trail
+  BAG_HERO    // BH - Carried the beer
+  DRINK_CHECK // DC - Manned a beer stop
+  BEER_MILE   // BM - Beer mile event
+  WALK        // W - Walk/Crawl
+  CIRCLE_ONLY // C - Circle only (no trail)
+}
+
+// ── KENNEL REQUESTS ──
+
+model KennelRequest {
+  id         String        @id @default(cuid())
+  userId     String
+  kennelName String
+  region     String?
+  country    String?
+  sourceUrl  String?       // Website, Facebook page, etc.
+  notes      String?
+  status     RequestStatus @default(PENDING)
+  resolvedAt DateTime?
+  createdAt  DateTime      @default(now())
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
