@@ -42,7 +42,7 @@ calendar + personal logbook + kennel directory.
 - Dates stored as UTC noon to avoid DST issues (see PRD Appendix F.4)
 - `startTime` is a string "HH:MM" not a DateTime (many sources lack full timestamps)
 - Kennel resolution: shortName exact match → alias case-insensitive match → flag for admin
-- All scraper adapters will implement the `SourceAdapter` interface in `src/adapters/types.ts` (Sprint 3+)
+- All scraper adapters implement the `SourceAdapter` interface in `src/adapters/types.ts`
 - API routes return consistent shapes: `{ data, error?, meta? }`
 
 ## Environment Variables
@@ -60,8 +60,13 @@ calendar + personal logbook + kennel directory.
 - `prisma/seed.ts` — Launch kennel + alias data
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
-- `src/lib/auth.ts` — `getOrCreateUser()` on-demand Clerk→DB sync
+- `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` (Clerk→DB sync + admin role check)
 - `src/middleware.ts` — Clerk route protection (public vs authenticated routes)
+- `src/adapters/types.ts` — SourceAdapter interface + RawEventData types
+- `src/adapters/registry.ts` — Adapter factory (SourceType → adapter instance)
+- `src/adapters/html-scraper/hashnyc.ts` — hashnyc.com HTML scraper (Cheerio)
+- `src/pipeline/merge.ts` — Raw→Canonical merge pipeline (fingerprint dedup)
+- `src/pipeline/kennel-resolver.ts` — Alias-based kennel name resolution
 
 ## What NOT To Do
 - Don't use Playwright for scraping (Cheerio is sufficient, 100x lighter)
