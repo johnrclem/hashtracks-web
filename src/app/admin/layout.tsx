@@ -25,6 +25,9 @@ export default async function AdminLayout({
           <TabsTrigger value="kennels" asChild>
             <Link href="/admin/kennels">Kennels</Link>
           </TabsTrigger>
+          <TabsTrigger value="sources" asChild>
+            <Link href="/admin/sources">Sources</Link>
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
