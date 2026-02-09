@@ -29,9 +29,22 @@ function extractKennelTag(summary: string): string {
   return "BoH3";
 }
 
-function extractRunNumber(summary: string): number | undefined {
-  const match = summary.match(/#(\d+)/);
-  return match ? parseInt(match[1], 10) : undefined;
+function extractRunNumber(summary: string, description?: string): number | undefined {
+  // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781")
+  const summaryMatch = summary.match(/#(\d+)/);
+  if (summaryMatch) return parseInt(summaryMatch[1], 10);
+
+  if (!description) return undefined;
+
+  // 2. Fall back to description — BH3 run numbers like "BH3 #2784"
+  const descMatch = description.match(/BH3\s*#\s*(\d+)/i);
+  if (descMatch) return parseInt(descMatch[1], 10);
+
+  // 3. Standalone run number in description (e.g., "#2792" on its own line)
+  const standaloneMatch = description.match(/(?:^|\n)\s*#(\d{3,})\s*(?:\n|$)/m);
+  if (standaloneMatch) return parseInt(standaloneMatch[1], 10);
+
+  return undefined;
 }
 
 function extractTitle(summary: string): string {
@@ -40,18 +53,37 @@ function extractTitle(summary: string): string {
   return stripped || summary;
 }
 
-function stripHtml(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#0?39;/gi, "'")
-    .replace(/\s+/g, " ")
-    .trim();
+/**
+ * Extract hare names from the event description.
+ * Boston Hash Calendar uses: "Hare: X", "Hares: X & Y", "Who: X and Y"
+ */
+function extractHares(description: string): string | undefined {
+  // Try each pattern, return first match
+  const patterns = [
+    /(?:^|\n)\s*Hares?:\s*(.+)/im,
+    /(?:^|\n)\s*Who:\s*(.+)/im,
+  ];
+
+  for (const pattern of patterns) {
+    const match = description.match(pattern);
+    if (match) {
+      let hares = match[1].trim();
+      // Clean up trailing punctuation/whitespace
+      hares = hares.split("\n")[0].trim();
+      // Skip generic/non-hare "Who:" answers
+      if (/^(?:that be you|your|all|everyone)/i.test(hares)) continue;
+      if (hares.length > 0 && hares.length < 200) return hares;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Generate a Google Maps search URL from a location string.
+ */
+function mapsUrl(location: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 }
 
 /** Subset of the Google Calendar API v3 event shape */
@@ -154,18 +186,37 @@ export class GoogleCalendarAdapter implements SourceAdapter {
             dateStr = item.start.date!;
           }
 
-          // Strip HTML from description
-          const description = item.description
-            ? stripHtml(item.description).substring(0, 2000) || undefined
+          // Strip HTML from description (preserve newlines for hare extraction)
+          const rawDescription = item.description
+            ? item.description
+                .replace(/<br\s*\/?>/gi, "\n")
+                .replace(/<[^>]+>/g, " ")
+                .replace(/&nbsp;/gi, " ")
+                .replace(/&amp;/gi, "&")
+                .replace(/&lt;/gi, "<")
+                .replace(/&gt;/gi, ">")
+                .replace(/&quot;/gi, '"')
+                .replace(/&#0?39;/gi, "'")
+            : undefined;
+
+          const description = rawDescription
+            ? rawDescription.replace(/[ \t]+/g, " ").trim().substring(0, 2000) || undefined
+            : undefined;
+
+          // Extract hares from description (before collapsing newlines for display)
+          const hares = rawDescription
+            ? extractHares(rawDescription)
             : undefined;
 
           events.push({
             date: dateStr,
             kennelTag: extractKennelTag(item.summary),
-            runNumber: extractRunNumber(item.summary),
+            runNumber: extractRunNumber(item.summary, rawDescription),
             title: extractTitle(item.summary),
             description,
+            hares,
             location: item.location,
+            locationUrl: item.location ? mapsUrl(item.location) : undefined,
             startTime,
             sourceUrl: item.htmlLink,
           });
