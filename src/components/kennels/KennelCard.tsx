@@ -22,11 +22,19 @@ export function KennelCard({ kennel }: KennelCardProps) {
     <Link href={`/kennels/${kennel.slug}`}>
       <Card className="transition-colors hover:border-primary/50">
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">{kennel.shortName}</CardTitle>
-          <p className="text-sm text-muted-foreground">{kennel.fullName}</p>
+          <CardTitle className="text-base leading-tight">
+            {kennel.fullName}
+          </CardTitle>
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-sm font-medium text-muted-foreground">
+              {kennel.shortName}
+            </span>
+            <Badge variant="secondary" className="text-xs">
+              {kennel.region}
+            </Badge>
+          </div>
         </CardHeader>
-        <CardContent className="flex items-center gap-2">
-          <Badge variant="secondary">{kennel.region}</Badge>
+        <CardContent>
           <span className="text-xs text-muted-foreground">
             {kennel._count.members}{" "}
             {kennel._count.members === 1 ? "subscriber" : "subscribers"}
