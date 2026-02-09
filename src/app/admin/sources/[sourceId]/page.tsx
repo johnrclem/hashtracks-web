@@ -11,6 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+import { SourceDetailActions } from "@/components/admin/SourceDetailActions";
 
 const healthColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   HEALTHY: "default",
@@ -40,7 +46,7 @@ export default async function SourceDetailPage({
     where: { id: sourceId },
     include: {
       kennels: {
-        include: { kennel: { select: { shortName: true, slug: true } } },
+        include: { kennel: { select: { shortName: true, fullName: true, slug: true } } },
       },
     },
   });
@@ -48,20 +54,24 @@ export default async function SourceDetailPage({
   if (!source) notFound();
 
   // Get scrape logs (most recent first)
-  const scrapeLogs = await prisma.scrapeLog.findMany({
-    where: { sourceId },
-    orderBy: { startedAt: "desc" },
-    take: 25,
-  });
-
-  // Get stats
-  const rawEventCount = await prisma.rawEvent.count({
-    where: { sourceId },
-  });
-
-  const linkedEventCount = await prisma.rawEvent.count({
-    where: { sourceId, processed: true },
-  });
+  const [scrapeLogs, rawEventCount, linkedEventCount, allKennels] =
+    await Promise.all([
+      prisma.scrapeLog.findMany({
+        where: { sourceId },
+        orderBy: { startedAt: "desc" },
+        take: 25,
+      }),
+      prisma.rawEvent.count({
+        where: { sourceId },
+      }),
+      prisma.rawEvent.count({
+        where: { sourceId, processed: true },
+      }),
+      prisma.kennel.findMany({
+        orderBy: { shortName: "asc" },
+        select: { id: true, shortName: true },
+      }),
+    ]);
 
   return (
     <div className="space-y-8">
@@ -85,6 +95,20 @@ export default async function SourceDetailPage({
         <p className="text-sm text-muted-foreground">{source.url}</p>
       </div>
 
+      {/* Actions */}
+      <SourceDetailActions
+        source={{
+          id: source.id,
+          name: source.name,
+          url: source.url,
+          type: source.type,
+          trustLevel: source.trustLevel,
+          scrapeFreq: source.scrapeFreq,
+          linkedKennelIds: source.kennels.map((sk) => sk.kennelId),
+        }}
+        allKennels={allKennels}
+      />
+
       {/* Stats grid */}
       <div className="grid gap-4 sm:grid-cols-4">
         <StatCard label="Type" value={source.type} />
@@ -98,11 +122,16 @@ export default async function SourceDetailPage({
         <h2 className="mb-2 text-lg font-semibold">Linked Kennels</h2>
         <div className="flex flex-wrap gap-2">
           {source.kennels.map((sk) => (
-            <Link key={sk.id} href={`/kennels/${sk.kennel.slug}`}>
-              <Badge variant="outline" className="hover:bg-accent">
-                {sk.kennel.shortName}
-              </Badge>
-            </Link>
+            <Tooltip key={sk.id}>
+              <TooltipTrigger asChild>
+                <Link href={`/kennels/${sk.kennel.slug}`}>
+                  <Badge variant="outline" className="hover:bg-accent">
+                    {sk.kennel.shortName}
+                  </Badge>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent>{sk.kennel.fullName}</TooltipContent>
+            </Tooltip>
           ))}
           {source.kennels.length === 0 && (
             <p className="text-sm text-muted-foreground">No linked kennels</p>

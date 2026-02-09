@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EventCard, getDayOfWeek, type HarelineEvent } from "./EventCard";
 import { EventFilters } from "./EventFilters";
@@ -12,25 +13,110 @@ interface HarelineViewProps {
   isAuthenticated: boolean;
 }
 
+function parseList(value: string | null): string[] {
+  if (!value) return [];
+  return value.split(",").filter(Boolean);
+}
+
 export function HarelineView({
   events,
   subscribedKennelIds,
   isAuthenticated,
 }: HarelineViewProps) {
+  const searchParams = useSearchParams();
   const hasSubscriptions = subscribedKennelIds.length > 0;
 
-  // View state
-  const [view, setView] = useState<"list" | "calendar">("list");
-  const [density, setDensity] = useState<"medium" | "compact">("medium");
-  const [timeFilter, setTimeFilter] = useState<"upcoming" | "past">("upcoming");
+  // Default scope depends on auth state
+  const defaultScope = isAuthenticated && hasSubscriptions ? "my" : "all";
 
-  // Filter state
-  const [scope, setScope] = useState<"my" | "all">(
-    isAuthenticated && hasSubscriptions ? "my" : "all",
+  // Initialize state from URL search params
+  const [view, setViewState] = useState<"list" | "calendar">(
+    (searchParams.get("view") as "list" | "calendar") || "list",
   );
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
-  const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
-  const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [density, setDensityState] = useState<"medium" | "compact">(
+    (searchParams.get("density") as "medium" | "compact") || "medium",
+  );
+  const [timeFilter, setTimeFilterState] = useState<"upcoming" | "past">(
+    (searchParams.get("time") as "upcoming" | "past") || "upcoming",
+  );
+  const [scope, setScopeState] = useState<"my" | "all">(
+    (searchParams.get("scope") as "my" | "all") || defaultScope,
+  );
+  const [selectedRegions, setSelectedRegionsState] = useState<string[]>(
+    parseList(searchParams.get("regions")),
+  );
+  const [selectedKennels, setSelectedKennelsState] = useState<string[]>(
+    parseList(searchParams.get("kennels")),
+  );
+  const [selectedDays, setSelectedDaysState] = useState<string[]>(
+    parseList(searchParams.get("days")),
+  );
+
+  // Sync state to URL via replaceState (no re-render, no history entry)
+  const syncUrl = useCallback(
+    (overrides: Record<string, string | string[]>) => {
+      const params = new URLSearchParams();
+      const state: Record<string, string | string[]> = {
+        time: timeFilter,
+        view,
+        density,
+        scope,
+        regions: selectedRegions,
+        kennels: selectedKennels,
+        days: selectedDays,
+        ...overrides,
+      };
+
+      for (const [key, val] of Object.entries(state)) {
+        const str = Array.isArray(val) ? val.join(",") : val;
+        // Only add non-default values to keep URL clean
+        const isDefault =
+          (key === "time" && str === "upcoming") ||
+          (key === "view" && str === "list") ||
+          (key === "density" && str === "medium") ||
+          (key === "scope" && str === defaultScope) ||
+          str === "";
+        if (!isDefault) {
+          params.set(key, str);
+        }
+      }
+
+      const qs = params.toString();
+      const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+      window.history.replaceState(window.history.state, "", newUrl);
+    },
+    [timeFilter, view, density, scope, selectedRegions, selectedKennels, selectedDays, defaultScope],
+  );
+
+  // Wrapper setters that sync to URL
+  function setView(v: "list" | "calendar") {
+    setViewState(v);
+    syncUrl({ view: v });
+  }
+  function setDensity(v: "medium" | "compact") {
+    setDensityState(v);
+    syncUrl({ density: v });
+  }
+  function setTimeFilter(v: "upcoming" | "past") {
+    setTimeFilterState(v);
+    syncUrl({ time: v });
+  }
+  function setScope(v: "my" | "all") {
+    setScopeState(v);
+    syncUrl({ scope: v });
+  }
+  function setSelectedRegions(v: string[]) {
+    setSelectedRegionsState(v);
+    syncUrl({ regions: v });
+  }
+  function setSelectedKennels(v: string[]) {
+    setSelectedKennelsState(v);
+    syncUrl({ kennels: v });
+  }
+  function setSelectedDays(v: string[]) {
+    setSelectedDaysState(v);
+    syncUrl({ days: v });
+  }
 
   // Filter events
   const filteredEvents = useMemo(() => {

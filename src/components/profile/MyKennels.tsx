@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import { unsubscribeFromKennel } from "@/app/kennels/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 interface MyKennelsProps {
@@ -66,12 +71,17 @@ function KennelRow({
   return (
     <div className="flex items-center justify-between rounded-md border px-4 py-3">
       <div className="flex items-center gap-3">
-        <Link
-          href={`/kennels/${kennel.slug}`}
-          className="font-medium hover:underline"
-        >
-          {kennel.shortName}
-        </Link>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href={`/kennels/${kennel.slug}`}
+              className="font-medium hover:underline"
+            >
+              {kennel.shortName}
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent>{kennel.fullName}</TooltipContent>
+        </Tooltip>
         <Badge variant="secondary" className="text-xs">
           {kennel.region}
         </Badge>

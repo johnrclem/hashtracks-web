@@ -9,7 +9,7 @@ export default async function AdminSourcesPage() {
     include: {
       kennels: {
         include: {
-          kennel: { select: { id: true, shortName: true } },
+          kennel: { select: { id: true, shortName: true, fullName: true } },
         },
       },
       _count: { select: { rawEvents: true } },
@@ -34,6 +34,7 @@ export default async function AdminSourcesPage() {
     linkedKennels: s.kennels.map((sk) => ({
       id: sk.kennel.id,
       shortName: sk.kennel.shortName,
+      fullName: sk.kennel.fullName,
     })),
     rawEventCount: s._count.rawEvents,
   }));

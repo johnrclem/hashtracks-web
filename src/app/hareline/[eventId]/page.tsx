@@ -3,6 +3,12 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+import { formatTime } from "@/components/hareline/EventCard";
 
 export default async function EventDetailPage({
   params,
@@ -73,7 +79,7 @@ export default async function EventDetailPage({
           <DetailItem label="Run Number" value={`#${event.runNumber}`} />
         )}
         {event.startTime && (
-          <DetailItem label="Start Time" value={event.startTime} />
+          <DetailItem label="Start Time" value={formatTime(event.startTime)} />
         )}
         {event.haresText && (
           <DetailItem label="Hares" value={event.haresText} />
@@ -82,18 +88,18 @@ export default async function EventDetailPage({
           <div>
             <dt className="text-sm font-medium text-muted-foreground">Location</dt>
             <dd className="mt-0.5">
-              {event.locationAddress && /^https?:\/\//.test(event.locationAddress) ? (
-                <a
-                  href={event.locationAddress}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  {event.locationName}
-                </a>
-              ) : (
-                event.locationName
-              )}
+              <a
+                href={
+                  event.locationAddress && /^https?:\/\//.test(event.locationAddress)
+                    ? event.locationAddress
+                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.locationName)}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                {event.locationName}
+              </a>
             </dd>
           </div>
         )}
@@ -117,11 +123,16 @@ export default async function EventDetailPage({
             </a>
           </Button>
         )}
-        <Button variant="outline" size="sm" asChild>
-          <Link href={`/kennels/${event.kennel.slug}`}>
-            View {event.kennel.shortName}
-          </Link>
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/kennels/${event.kennel.slug}`}>
+                View {event.kennel.shortName}
+              </Link>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{event.kennel.fullName}</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );

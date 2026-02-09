@@ -16,6 +16,11 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import type { HarelineEvent } from "./EventCard";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -54,12 +59,13 @@ export function EventFilters({
   }, [events]);
 
   const kennels = useMemo(() => {
-    const kennelMap = new Map<string, { id: string; shortName: string; region: string }>();
+    const kennelMap = new Map<string, { id: string; shortName: string; fullName: string; region: string }>();
     for (const e of events) {
       if (!kennelMap.has(e.kennel.id)) {
         kennelMap.set(e.kennel.id, {
           id: e.kennel.id,
           shortName: e.kennel.shortName,
+          fullName: e.kennel.fullName,
           region: e.kennel.region,
         });
       }
@@ -201,7 +207,12 @@ export function EventFilters({
                       >
                         {selectedKennels.includes(kennel.id) && "✓"}
                       </span>
-                      {kennel.shortName}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>{kennel.shortName}</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">{kennel.fullName}</TooltipContent>
+                      </Tooltip>
                     </CommandItem>
                   ))}
                 </CommandGroup>

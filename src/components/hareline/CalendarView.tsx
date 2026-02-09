@@ -3,6 +3,11 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { EventCard, type HarelineEvent } from "./EventCard";
 
 const MONTH_NAMES = [
@@ -143,13 +148,17 @@ export function CalendarView({ events }: CalendarViewProps) {
                 <div className="mt-0.5 flex flex-wrap gap-0.5">
                   {dayEvents.length <= 3 ? (
                     dayEvents.map((e) => (
-                      <Badge
-                        key={e.id}
-                        variant="secondary"
-                        className="max-w-full truncate px-1 text-[10px] leading-tight"
-                      >
-                        {e.kennel.shortName}
-                      </Badge>
+                      <Tooltip key={e.id}>
+                        <TooltipTrigger asChild>
+                          <Badge
+                            variant="secondary"
+                            className="max-w-full truncate px-1 text-[10px] leading-tight"
+                          >
+                            {e.kennel.shortName}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>{e.kennel.fullName}</TooltipContent>
+                      </Tooltip>
                     ))
                   ) : (
                     <Badge variant="secondary" className="text-[10px]">

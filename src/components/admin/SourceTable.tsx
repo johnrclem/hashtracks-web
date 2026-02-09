@@ -29,7 +29,7 @@ type SourceData = {
   healthStatus: string;
   lastScrapeAt: string | null;
   lastSuccessAt: string | null;
-  linkedKennels: { id: string; shortName: string }[];
+  linkedKennels: { id: string; shortName: string; fullName: string }[];
   rawEventCount: number;
 };
 

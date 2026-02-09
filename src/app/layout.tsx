@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,12 +33,14 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
-          <Header />
-          <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8">
-            {children}
-          </main>
-          <Footer />
-          <Toaster />
+          <TooltipProvider>
+            <Header />
+            <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8">
+              {children}
+            </main>
+            <Footer />
+            <Toaster />
+          </TooltipProvider>
         </body>
       </html>
     </ClerkProvider>

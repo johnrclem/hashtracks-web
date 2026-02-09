@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 export type HarelineEvent = {
   id: string;
@@ -52,7 +57,14 @@ function getDayOfWeek(iso: string): string {
   return d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
 }
 
-export { formatDate, formatDateLong, getDayOfWeek };
+function formatTime(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${m.toString().padStart(2, "0")} ${suffix}`;
+}
+
+export { formatDate, formatDateLong, getDayOfWeek, formatTime };
 
 interface EventCardProps {
   event: HarelineEvent;
@@ -68,13 +80,18 @@ export function EventCard({ event, density }: EventCardProps) {
             {formatDate(event.date)}
           </span>
           <span className="w-20 shrink-0">
-            <Link
-              href={`/kennels/${event.kennel.slug}`}
-              className="text-primary hover:underline"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {event.kennel.shortName}
-            </Link>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href={`/kennels/${event.kennel.slug}`}
+                  className="text-primary hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {event.kennel.shortName}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent>{event.kennel.fullName}</TooltipContent>
+            </Tooltip>
           </span>
           {event.runNumber && (
             <span className="w-12 shrink-0 text-muted-foreground">
@@ -86,7 +103,7 @@ export function EventCard({ event, density }: EventCardProps) {
           </span>
           {event.startTime && (
             <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-              {event.startTime}
+              {formatTime(event.startTime)}
             </span>
           )}
         </div>
@@ -107,7 +124,7 @@ export function EventCard({ event, density }: EventCardProps) {
                 </Badge>
                 {event.startTime && (
                   <span className="text-xs text-muted-foreground">
-                    {event.startTime}
+                    {formatTime(event.startTime)}
                   </span>
                 )}
                 {event.status === "CANCELLED" && (
@@ -123,13 +140,18 @@ export function EventCard({ event, density }: EventCardProps) {
               </div>
 
               <div className="flex items-center gap-2">
-                <Link
-                  href={`/kennels/${event.kennel.slug}`}
-                  className="text-sm font-medium text-primary hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {event.kennel.shortName}
-                </Link>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={`/kennels/${event.kennel.slug}`}
+                      className="text-sm font-medium text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {event.kennel.shortName}
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>{event.kennel.fullName}</TooltipContent>
+                </Tooltip>
                 <Badge variant="outline" className="text-xs">
                   {event.kennel.region}
                 </Badge>
@@ -154,19 +176,19 @@ export function EventCard({ event, density }: EventCardProps) {
               {event.locationName && (
                 <p className="text-sm">
                   <span className="text-muted-foreground">Location: </span>
-                  {event.locationAddress && /^https?:\/\//.test(event.locationAddress) ? (
-                    <a
-                      href={event.locationAddress}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {event.locationName}
-                    </a>
-                  ) : (
-                    event.locationName
-                  )}
+                  <a
+                    href={
+                      event.locationAddress && /^https?:\/\//.test(event.locationAddress)
+                        ? event.locationAddress
+                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.locationName)}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {event.locationName}
+                  </a>
                 </p>
               )}
             </div>

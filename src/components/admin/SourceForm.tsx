@@ -160,6 +160,7 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="hourly">Hourly</SelectItem>
+                <SelectItem value="every_6h">Every 6 Hours</SelectItem>
                 <SelectItem value="daily">Daily</SelectItem>
                 <SelectItem value="weekly">Weekly</SelectItem>
               </SelectContent>

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/auth";
 import { HarelineView } from "@/components/hareline/HarelineView";
@@ -49,11 +50,13 @@ export default async function HarelinePage() {
         </p>
       </div>
 
-      <HarelineView
-        events={serializedEvents}
-        subscribedKennelIds={subscribedKennelIds}
-        isAuthenticated={!!user}
-      />
+      <Suspense>
+        <HarelineView
+          events={serializedEvents}
+          subscribedKennelIds={subscribedKennelIds}
+          isAuthenticated={!!user}
+        />
+      </Suspense>
     </div>
   );
 }
