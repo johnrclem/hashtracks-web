@@ -47,4 +47,11 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Project Status
 
-Sprint 1 complete — scaffold, database schema, Clerk auth, seeded data, deployment. See [HASHTRACKS_IMPLEMENTATION_PLAN.md](HASHTRACKS_IMPLEMENTATION_PLAN.md) for the full roadmap.
+**Sprints 1-4 complete.** See [HASHTRACKS_IMPLEMENTATION_PLAN.md](HASHTRACKS_IMPLEMENTATION_PLAN.md) for the full roadmap.
+
+### Completed
+- **Sprint 1:** Scaffold — Prisma 7, Clerk auth, seeded DB, Vercel deployment
+- **Sprint 2:** Kennel directory — browse, search, subscribe, profiles, admin tools
+- **Sprint 3:** Source engine — adapter framework, hashnyc.com HTML scraper, merge pipeline, admin scrape tools
+- **Sprint 4:** Hareline — event list & calendar views, filters (time/region/kennel/day), event detail pages
+- **Post-sprint polish:** Kennel full-name tooltips, AM/PM time format, filter URL persistence, kennel events page, NYC timezone display, Google Calendar adapter (Boston Hash)
