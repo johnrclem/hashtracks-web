@@ -88,6 +88,7 @@ model Source {
   healthStatus  SourceHealth @default(UNKNOWN)
   kennels       SourceKennel[]
   rawEvents     RawEvent[]
+  scrapeLogs    ScrapeLog[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 }
@@ -100,6 +101,31 @@ enum SourceType {
   RSS_FEED        // RSS/Atom feed
   JSON_API        // HashRego API
   MANUAL          // User-submitted events
+}
+
+model ScrapeLog {
+  id            String       @id @default(cuid())
+  sourceId      String
+  status        ScrapeStatus @default(RUNNING)
+  startedAt     DateTime     @default(now())
+  completedAt   DateTime?
+  durationMs    Int?
+  eventsFound   Int          @default(0)
+  eventsCreated Int          @default(0)
+  eventsUpdated Int          @default(0)
+  eventsSkipped Int          @default(0)
+  unmatchedTags String[]
+  errors        String[]
+  forced        Boolean      @default(false)
+  source        Source       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, startedAt])
+}
+
+enum ScrapeStatus {
+  RUNNING
+  SUCCESS
+  FAILED
 }
 
 enum SourceHealth {

@@ -93,11 +93,13 @@ export async function processRawEvents(
             where: { id: existingEvent.id },
             data: {
               runNumber: event.runNumber ?? existingEvent.runNumber,
-              title: event.title ?? existingEvent.title,
-              description: event.description ?? existingEvent.description,
-              haresText: event.hares ?? existingEvent.haresText,
-              locationName: event.location ?? existingEvent.locationName,
-              locationAddress: event.locationUrl ?? existingEvent.locationAddress,
+              // Use ?? null for text fields: scraper always attempts these,
+              // so undefined means "clear it" (not "I didn't try")
+              title: event.title ?? null,
+              description: event.description ?? null,
+              haresText: event.hares ?? null,
+              locationName: event.location ?? null,
+              locationAddress: event.locationUrl ?? null,
               startTime: event.startTime ?? existingEvent.startTime,
               sourceUrl: event.sourceUrl ?? existingEvent.sourceUrl,
               trustLevel,

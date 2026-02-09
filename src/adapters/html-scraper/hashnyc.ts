@@ -242,8 +242,9 @@ function extractSourceUrl(
   links.each((_i, el) => {
     const href = $(el).attr("href");
     if (!href) return;
-    // Skip Google Maps links — those are locationUrl
+    // Skip Google Maps links (those are locationUrl) and mailto links
     if (/maps\./i.test(href) || /google\.\w+\/maps/i.test(href)) return;
+    if (/^mailto:/i.test(href)) return;
     if (!fallback) {
       try {
         fallback = new URL(href, baseUrl).toString();
@@ -300,8 +301,9 @@ function parseDetailsCell(
     const designation = runNumber ? `${kennelTag} #${runNumber}` : kennelTag;
     title = `${eventName} - ${designation}`;
   } else {
-    // Fallback: use old extractTitle logic
-    title = extractTitle(cellText);
+    // Fallback: strip Start:/Transit: blocks before extracting title
+    const fallbackText = cellText.replace(/Start:[\s\S]*/i, "").trim();
+    title = extractTitle(fallbackText) || undefined;
   }
 
   // 4. Location from "Start:" block (NYCHashEventParser pattern)
@@ -330,7 +332,8 @@ function parseDetailsCell(
       if (/^TBD/i.test(locationText)) {
         location = "TBD";
       } else {
-        location = locationText;
+        // Clean extra spaces around punctuation (from stripped HTML tags)
+        location = locationText.replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
       }
     }
   }
@@ -358,30 +361,35 @@ function parseDetailsCell(
   if (paragraphs.length > 0) {
     description = paragraphs.join("\n\n");
   } else {
-    // Fallback: extract text after Transit line
-    const transitMatch = cellHtml.match(/Transit:\s*([\s\S]*?)$/i);
-    if (transitMatch) {
-      const afterTransit = decodeHtmlEntities(transitMatch[1]).trim();
-      // Remove the transit directions themselves — get any text after
-      const restMatch = cellHtml.match(/Transit:.*?(?:<br\s*\/?>|<\/p>)([\s\S]*)/i);
-      if (restMatch) {
-        const rest = decodeHtmlEntities(restMatch[1]).trim();
-        if (rest) description = rest;
-      } else if (afterTransit) {
-        description = undefined; // Transit info alone isn't a description
-      }
+    // Fallback: get text after Transit line (skip the transit directions themselves)
+    const restMatch = cellHtml.match(/Transit:[^<]*(?:<span[^>]*>[^<]*<\/span>[^<]*)*(?:<br\s*\/?>)([\s\S]*)/i);
+    if (restMatch) {
+      const rest = decodeHtmlEntities(restMatch[1]).trim();
+      if (rest) description = rest;
+    } else if (!cellHtml.match(/Transit:/i) && !cellHtml.match(/Start:/i)) {
+      // No Start/Transit structure — try getting text after kennel/run# boilerplate
+      let raw = cellText;
+      // Strip kennel + run number prefix
+      raw = raw.replace(/^[\s\S]*?(?:Run|Trail|#)\s*\d+\s*[:\-–—]?\s*/i, "").trim();
+      // Strip Start:/Transit: blocks if somehow present in text
+      raw = raw.replace(/Start:[\s\S]*/i, "").trim();
+      if (raw && raw.length > 5) description = raw;
     }
   }
 
   // Clean description: remove duplicate title/kennel/location info
   if (description && eventName) {
-    // Remove the event name if it appears at the start of description
     if (description.startsWith(eventName)) {
       description = description.substring(eventName.length).trim();
       if (description.startsWith("-") || description.startsWith("–")) {
         description = description.substring(1).trim();
       }
     }
+  }
+  // Strip descriptions that are just kennel boilerplate (e.g., "NYC #2136")
+  if (description) {
+    const stripped = description.replace(/^[\w\s]+#\d+\s*/, "").trim();
+    if (!stripped) description = undefined;
   }
   if (description && !description.trim()) description = undefined;
 
@@ -451,13 +459,13 @@ function parseRows(
       const dateCellText = decodeHtmlEntities(dateCellHtml);
 
       let year: number | null;
-      let startTime: string | undefined;
+
+      // Extract start time from date cell (works for both past and future)
+      const startTime = extractTime(dateCellText);
 
       if (isFuture) {
-        // Future table: date cell is like "SundayFebruary 84:00 pm"
-        // Year is the current year (or next year if month < current month)
+        // Future table: year is current year (or next if month < current)
         year = currentYear;
-        startTime = extractTime(dateCellText);
       } else {
         // Past table: row IDs encode date, e.g. "2024oct30"
         const rowId = $(row).attr("id") ?? undefined;
@@ -491,6 +499,11 @@ function parseRows(
         hares = decodeHtmlEntities(cells.eq(2).html() ?? "").trim();
       } else {
         hares = extractHares($, row);
+      }
+
+      // Filter out "Sign up to hare!" placeholder text
+      if (hares && /sign up to hare/i.test(hares)) {
+        hares = "N/A";
       }
 
       events.push({

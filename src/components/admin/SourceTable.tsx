@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { deleteSource } from "@/app/admin/sources/actions";
 import {
   Table,
@@ -104,7 +105,10 @@ function SourceRow({
     });
   }
 
-  async function handleScrape() {
+  async function handleScrape(force = false) {
+    if (force && !confirm("Force re-scrape will delete all existing raw events for this source and re-scrape from scratch. Continue?")) {
+      return;
+    }
     setIsScraping(true);
     try {
       const res = await fetch("/api/admin/scrape", {
@@ -113,6 +117,7 @@ function SourceRow({
         body: JSON.stringify({
           sourceId: source.id,
           days: parseInt(scrapeDays, 10) || 90,
+          force,
         }),
       });
 
@@ -122,7 +127,7 @@ function SourceRow({
         toast.error(data.error || "Scrape failed");
       } else {
         toast.success(
-          `Scrape complete: ${data.scrape.eventsFound} found, ${data.merge.created} created, ${data.merge.updated} updated, ${data.merge.skipped} skipped` +
+          `${force ? "Force re-scrape" : "Scrape"} complete: ${data.scrape.eventsFound} found, ${data.merge.created} created, ${data.merge.updated} updated, ${data.merge.skipped} skipped` +
             (data.merge.unmatched.length > 0
               ? `, ${data.merge.unmatched.length} unmatched tags`
               : ""),
@@ -145,7 +150,9 @@ function SourceRow({
     <TableRow>
       <TableCell>
         <div>
-          <span className="font-medium">{source.name}</span>
+          <Link href={`/admin/sources/${source.id}`} className="font-medium hover:underline">
+            {source.name}
+          </Link>
           <p className="text-xs text-muted-foreground">{source.url}</p>
         </div>
       </TableCell>
@@ -194,9 +201,17 @@ function SourceRow({
               size="sm"
               variant="outline"
               disabled={isScraping}
-              onClick={handleScrape}
+              onClick={() => handleScrape(false)}
             >
               {isScraping ? "..." : "Scrape"}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={isScraping}
+              onClick={() => handleScrape(true)}
+            >
+              Force
             </Button>
           </div>
           <SourceForm
