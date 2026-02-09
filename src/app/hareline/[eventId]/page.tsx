@@ -62,6 +62,11 @@ export default async function EventDetailPage({
         </div>
       </div>
 
+      {/* Event title */}
+      {event.title && (
+        <h2 className="text-xl font-semibold">{event.title}</h2>
+      )}
+
       {/* Details grid */}
       <div className="grid gap-4 sm:grid-cols-2">
         {event.runNumber && (
@@ -73,14 +78,24 @@ export default async function EventDetailPage({
         {event.haresText && (
           <DetailItem label="Hares" value={event.haresText} />
         )}
-        {event.title && (
-          <DetailItem label="Trail Name" value={event.title} />
-        )}
         {event.locationName && (
-          <DetailItem label="Location" value={event.locationName} />
-        )}
-        {event.locationAddress && (
-          <DetailItem label="Address" value={event.locationAddress} />
+          <div>
+            <dt className="text-sm font-medium text-muted-foreground">Location</dt>
+            <dd className="mt-0.5">
+              {event.locationAddress && /^https?:\/\//.test(event.locationAddress) ? (
+                <a
+                  href={event.locationAddress}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  {event.locationName}
+                </a>
+              ) : (
+                event.locationName
+              )}
+            </dd>
+          </div>
         )}
       </div>
 

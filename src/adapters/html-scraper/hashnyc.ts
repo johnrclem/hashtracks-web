@@ -221,25 +221,179 @@ function extractHares($: cheerio.CheerioAPI, row: AnyNode): string {
 }
 
 /**
- * Extract source URL from a row's HTML.
+ * Extract source URL from a row's deeplink anchor or fallback to first link.
+ * Prefers the hashnyc.com page link over Google Maps links.
  */
 function extractSourceUrl(
   $: cheerio.CheerioAPI,
   row: AnyNode,
   baseUrl: string,
 ): string | undefined {
-  const link = $(row).find("a[href]").first();
-  if (!link.length) return undefined;
-
-  const href = link.attr("href");
-  if (!href) return undefined;
-
-  // Resolve relative URLs
-  try {
-    return new URL(href, baseUrl).toString();
-  } catch {
-    return href;
+  // Prefer deeplink anchors (e.g. <a class="deeplink" id="2026February13">)
+  const deeplink = $(row).find("a.deeplink[id]").first();
+  if (deeplink.length) {
+    const id = deeplink.attr("id");
+    if (id) return `${baseUrl}/#${id}`;
   }
+
+  // Fallback: first non-maps link
+  const links = $(row).find("a[href]");
+  let fallback: string | undefined;
+  links.each((_i, el) => {
+    const href = $(el).attr("href");
+    if (!href) return;
+    // Skip Google Maps links — those are locationUrl
+    if (/maps\./i.test(href) || /google\.\w+\/maps/i.test(href)) return;
+    if (!fallback) {
+      try {
+        fallback = new URL(href, baseUrl).toString();
+      } catch {
+        fallback = href;
+      }
+    }
+  });
+
+  return fallback;
+}
+
+/** Parsed fields from a details cell */
+interface ParsedDetails {
+  kennelTag: string;
+  runNumber?: number;
+  eventName?: string;
+  title?: string;
+  location?: string;
+  locationUrl?: string;
+  description?: string;
+}
+
+/**
+ * Parse the details cell HTML structurally (ported from NYCHashEventParser).
+ * Extracts: eventName from <b> tags, location from Start:...Transit: block,
+ * locationUrl from maps links, description from <p> paragraphs.
+ */
+function parseDetailsCell(
+  $: cheerio.CheerioAPI,
+  cell: cheerio.Cheerio<AnyNode>,
+): ParsedDetails {
+  const cellHtml = cell.html() ?? "";
+  const cellText = decodeHtmlEntities(cellHtml);
+
+  // 1. Kennel tag and run number from text (existing logic)
+  const kennelTag = extractKennelTag(cellText);
+  const runNumber = extractRunNumber(cellText);
+
+  // 2. Event name from first <b> tag (NYCHashEventParser pattern)
+  let eventName: string | undefined;
+  const boldTag = cell.find("b").first();
+  if (boldTag.length) {
+    const boldText = boldTag.text().trim();
+    // Only use if it's a real title (not just the kennel name or run number)
+    if (boldText && !/^(Run|Trail|#)\s*\d+$/i.test(boldText) && boldText.length > 1) {
+      eventName = boldText;
+    }
+  }
+
+  // 3. Build structured title: "{eventName} - {kennelTag} #{runNumber}"
+  let title: string | undefined;
+  if (eventName) {
+    const designation = runNumber ? `${kennelTag} #${runNumber}` : kennelTag;
+    title = `${eventName} - ${designation}`;
+  } else {
+    // Fallback: use old extractTitle logic
+    title = extractTitle(cellText);
+  }
+
+  // 4. Location from "Start:" block (NYCHashEventParser pattern)
+  let location: string | undefined;
+  let locationUrl: string | undefined;
+
+  const startMatch = cellHtml.match(/Start:\s*([\s\S]*?)(?:Transit:|$)/i);
+  if (startMatch) {
+    const locationBlock = startMatch[1];
+
+    // Extract maps link from the location block
+    const $block = cheerio.load(`<div>${locationBlock}</div>`);
+    const mapsLink = $block("a[href]").filter((_i, el) => {
+      const href = $block(el).attr("href") ?? "";
+      return /maps\./i.test(href) || /google\.\w+\/maps/i.test(href);
+    }).first();
+
+    if (mapsLink.length) {
+      locationUrl = mapsLink.attr("href");
+    }
+
+    // Get clean text for location
+    const locationText = decodeHtmlEntities(locationBlock).trim();
+    if (locationText && !/^\s*$/.test(locationText)) {
+      // Handle TBD
+      if (/^TBD/i.test(locationText)) {
+        location = "TBD";
+      } else {
+        location = locationText;
+      }
+    }
+  }
+
+  // Also check for maps links anywhere in the cell if not found in Start block
+  if (!locationUrl) {
+    cell.find("a[href]").each((_i, el) => {
+      const href = $(el).attr("href") ?? "";
+      if (/maps\./i.test(href) || /google\.\w+\/maps/i.test(href)) {
+        locationUrl = href;
+        return false; // break
+      }
+    });
+  }
+
+  // 5. Description from <p> tags and text after Transit line
+  let description: string | undefined;
+  const paragraphs: string[] = [];
+
+  cell.find("p").each((_i, el) => {
+    const pText = $(el).text().trim();
+    if (pText) paragraphs.push(pText);
+  });
+
+  if (paragraphs.length > 0) {
+    description = paragraphs.join("\n\n");
+  } else {
+    // Fallback: extract text after Transit line
+    const transitMatch = cellHtml.match(/Transit:\s*([\s\S]*?)$/i);
+    if (transitMatch) {
+      const afterTransit = decodeHtmlEntities(transitMatch[1]).trim();
+      // Remove the transit directions themselves — get any text after
+      const restMatch = cellHtml.match(/Transit:.*?(?:<br\s*\/?>|<\/p>)([\s\S]*)/i);
+      if (restMatch) {
+        const rest = decodeHtmlEntities(restMatch[1]).trim();
+        if (rest) description = rest;
+      } else if (afterTransit) {
+        description = undefined; // Transit info alone isn't a description
+      }
+    }
+  }
+
+  // Clean description: remove duplicate title/kennel/location info
+  if (description && eventName) {
+    // Remove the event name if it appears at the start of description
+    if (description.startsWith(eventName)) {
+      description = description.substring(eventName.length).trim();
+      if (description.startsWith("-") || description.startsWith("–")) {
+        description = description.substring(1).trim();
+      }
+    }
+  }
+  if (description && !description.trim()) description = undefined;
+
+  return {
+    kennelTag,
+    runNumber,
+    eventName,
+    title,
+    location,
+    locationUrl,
+    description,
+  };
 }
 
 /**
@@ -326,13 +480,9 @@ function parseRows(
       );
       const dateStr = eventDate.toISOString().split("T")[0];
 
-      // Extract details (cell 1 for both table types)
-      const detailsHtml = cells.eq(1).html() ?? "";
-      const detailsText = decodeHtmlEntities(detailsHtml);
-
-      const kennelTag = extractKennelTag(detailsText);
-      const runNumber = extractRunNumber(detailsText);
-      const title = extractTitle(detailsText);
+      // Extract details structurally from cell HTML
+      const detailsCell = cells.eq(1);
+      const parsed = parseDetailsCell($, detailsCell);
       const sourceUrl = extractSourceUrl($, row, baseUrl);
 
       // Hares: in future table, hares are in cell 2 directly
@@ -345,11 +495,13 @@ function parseRows(
 
       events.push({
         date: dateStr,
-        kennelTag,
-        runNumber,
-        title,
-        description: detailsText,
+        kennelTag: parsed.kennelTag,
+        runNumber: parsed.runNumber,
+        title: parsed.title,
+        description: parsed.description,
         hares: hares && hares !== "N/A" ? hares : undefined,
+        location: parsed.location,
+        locationUrl: parsed.locationUrl,
         startTime,
         sourceUrl,
       });

@@ -20,6 +20,7 @@ export type HarelineEvent = {
   haresText: string | null;
   startTime: string | null;
   locationName: string | null;
+  locationAddress: string | null;
   description: string | null;
   sourceUrl: string | null;
   status: string;
@@ -147,6 +148,25 @@ export function EventCard({ event, density }: EventCardProps) {
                 <p className="text-sm">
                   <span className="text-muted-foreground">Hares: </span>
                   {event.haresText}
+                </p>
+              )}
+
+              {event.locationName && (
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Location: </span>
+                  {event.locationAddress && /^https?:\/\//.test(event.locationAddress) ? (
+                    <a
+                      href={event.locationAddress}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {event.locationName}
+                    </a>
+                  ) : (
+                    event.locationName
+                  )}
                 </p>
               )}
             </div>

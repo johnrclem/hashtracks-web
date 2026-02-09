@@ -34,6 +34,7 @@ export default async function HarelinePage() {
     haresText: e.haresText,
     startTime: e.startTime,
     locationName: e.locationName,
+    locationAddress: e.locationAddress,
     description: e.description,
     sourceUrl: e.sourceUrl,
     status: e.status,

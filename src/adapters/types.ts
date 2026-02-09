@@ -9,6 +9,7 @@ export interface RawEventData {
   description?: string;
   hares?: string;
   location?: string;
+  locationUrl?: string; // Google Maps or other maps URL
   startTime?: string; // HH:MM (local time)
   sourceUrl?: string;
 }
