@@ -6,6 +6,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EventCard, getDayOfWeek, type HarelineEvent } from "./EventCard";
 import { EventFilters } from "./EventFilters";
 import { CalendarView } from "./CalendarView";
+import { EventDetailPanel } from "./EventDetailPanel";
 
 interface HarelineViewProps {
   events: HarelineEvent[];
@@ -51,6 +52,9 @@ export function HarelineView({
   const [selectedDays, setSelectedDaysState] = useState<string[]>(
     parseList(searchParams.get("days")),
   );
+
+  // Selected event for detail panel (desktop only)
+  const [selectedEvent, setSelectedEvent] = useState<HarelineEvent | null>(null);
 
   // Sync state to URL via replaceState (no re-render, no history entry)
   const syncUrl = useCallback(
@@ -99,22 +103,27 @@ export function HarelineView({
   }
   function setTimeFilter(v: "upcoming" | "past") {
     setTimeFilterState(v);
+    setSelectedEvent(null);
     syncUrl({ time: v });
   }
   function setScope(v: "my" | "all") {
     setScopeState(v);
+    setSelectedEvent(null);
     syncUrl({ scope: v });
   }
   function setSelectedRegions(v: string[]) {
     setSelectedRegionsState(v);
+    setSelectedEvent(null);
     syncUrl({ regions: v });
   }
   function setSelectedKennels(v: string[]) {
     setSelectedKennelsState(v);
+    setSelectedEvent(null);
     syncUrl({ kennels: v });
   }
   function setSelectedDays(v: string[]) {
     setSelectedDaysState(v);
+    setSelectedEvent(null);
     syncUrl({ days: v });
   }
 
@@ -164,6 +173,32 @@ export function HarelineView({
     }
     return sorted;
   }, [filteredEvents, timeFilter]);
+
+  const listContent = (
+    <>
+      {sortedEvents.length === 0 ? (
+        <div className="py-12 text-center">
+          <p className="text-muted-foreground">
+            {scope === "my"
+              ? "No events from your subscribed kennels. Try switching to \"All Kennels\"."
+              : "No events match your filters."}
+          </p>
+        </div>
+      ) : (
+        <div className={density === "compact" ? "space-y-1" : "space-y-2"}>
+          {sortedEvents.map((event) => (
+            <EventCard
+              key={event.id}
+              event={event}
+              density={density}
+              onSelect={setSelectedEvent}
+              isSelected={selectedEvent?.id === event.id}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div className="mt-6 space-y-4">
@@ -231,23 +266,19 @@ export function HarelineView({
         {scope === "my" ? " from your kennels" : ""}
       </p>
 
-      {/* Content */}
+      {/* Content: master-detail on desktop, single column on mobile */}
       {view === "list" ? (
-        sortedEvents.length === 0 ? (
-          <div className="py-12 text-center">
-            <p className="text-muted-foreground">
-              {scope === "my"
-                ? "No events from your subscribed kennels. Try switching to \"All Kennels\"."
-                : "No events match your filters."}
-            </p>
+        <div className="lg:grid lg:grid-cols-[1fr,380px] lg:gap-6">
+          {/* Left: event list */}
+          <div>{listContent}</div>
+
+          {/* Right: detail panel (desktop only) */}
+          <div className="hidden lg:block">
+            <div className="sticky top-8">
+              <EventDetailPanel event={selectedEvent} />
+            </div>
           </div>
-        ) : (
-          <div className={density === "compact" ? "space-y-1" : "space-y-3"}>
-            {sortedEvents.map((event) => (
-              <EventCard key={event.id} event={event} density={density} />
-            ))}
-          </div>
-        )
+        </div>
       ) : (
         <CalendarView events={filteredEvents} />
       )}

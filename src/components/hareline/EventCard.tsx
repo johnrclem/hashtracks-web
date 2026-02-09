@@ -60,16 +60,34 @@ function getDayOfWeek(iso: string): string {
 
 export { formatDate, formatDateLong, getDayOfWeek };
 
+// lg breakpoint (1024px) — matches Tailwind's lg:
+const LG_BREAKPOINT = 1024;
+
 interface EventCardProps {
   event: HarelineEvent;
   density: "medium" | "compact";
+  onSelect?: (event: HarelineEvent) => void;
+  isSelected?: boolean;
 }
 
-export function EventCard({ event, density }: EventCardProps) {
+export function EventCard({ event, density, onSelect, isSelected }: EventCardProps) {
+  function handleClick(e: React.MouseEvent) {
+    // On desktop (lg+), intercept to show detail panel instead of navigating
+    if (onSelect && window.innerWidth >= LG_BREAKPOINT) {
+      e.preventDefault();
+      onSelect(event);
+    }
+    // On mobile (<lg), let the Link navigate normally
+  }
+
   if (density === "compact") {
     return (
-      <Link href={`/hareline/${event.id}`} className="block">
-        <div className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50">
+      <Link href={`/hareline/${event.id}`} className="block" onClick={handleClick}>
+        <div
+          className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50 ${
+            isSelected ? "border-primary bg-primary/5" : ""
+          }`}
+        >
           <span className="w-24 shrink-0 font-medium">
             {formatDate(event.date)}
           </span>
@@ -105,87 +123,76 @@ export function EventCard({ event, density }: EventCardProps) {
     );
   }
 
+  // Medium density
   return (
-    <Link href={`/hareline/${event.id}`} className="block">
-      <Card className="transition-colors hover:border-foreground/20">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">{formatDate(event.date)}</span>
-                <Badge variant="secondary" className="text-xs">
-                  {getDayOfWeek(event.date)}
-                </Badge>
-                {event.startTime && (
-                  <span className="text-xs text-muted-foreground">
-                    {formatTime(event.startTime)}
-                  </span>
-                )}
-                {event.status === "CANCELLED" && (
-                  <Badge variant="destructive" className="text-xs">
-                    Cancelled
-                  </Badge>
-                )}
-                {event.status === "TENTATIVE" && (
-                  <Badge variant="outline" className="text-xs">
-                    Tentative
-                  </Badge>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      href={`/kennels/${event.kennel.slug}`}
-                      className="text-sm font-medium text-primary hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {event.kennel.shortName}
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>{event.kennel.fullName}</TooltipContent>
-                </Tooltip>
-                <Badge variant="outline" className="text-xs">
-                  {event.kennel.region}
-                </Badge>
-                {event.runNumber && (
-                  <span className="text-sm text-muted-foreground">
-                    Run #{event.runNumber}
-                  </span>
-                )}
-              </div>
-
-              {event.title && (
-                <p className="text-sm text-muted-foreground">{event.title}</p>
-              )}
-
-              {event.haresText && (
-                <p className="text-sm">
-                  <span className="text-muted-foreground">Hares: </span>
-                  {event.haresText}
-                </p>
-              )}
-
-              {event.locationName && (
-                <p className="text-sm">
-                  <span className="text-muted-foreground">Location: </span>
-                  <a
-                    href={
-                      event.locationAddress && /^https?:\/\//.test(event.locationAddress)
-                        ? event.locationAddress
-                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.locationName)}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
+    <Link href={`/hareline/${event.id}`} className="block" onClick={handleClick}>
+      <Card className={`transition-colors hover:border-foreground/20 ${
+        isSelected ? "border-primary bg-primary/5" : ""
+      }`}>
+        <CardContent className="px-3 py-2.5">
+          <div className="min-w-0 space-y-0.5">
+            {/* Line 1: date · kennel · run# · time — all on one line */}
+            <div className="flex items-center gap-1.5 text-sm">
+              <span className="font-medium">{formatDate(event.date)}</span>
+              <span className="text-muted-foreground">·</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={`/kennels/${event.kennel.slug}`}
+                    className="font-medium text-primary hover:underline"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {event.locationName}
-                  </a>
-                </p>
+                    {event.kennel.shortName}
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>{event.kennel.fullName}</TooltipContent>
+              </Tooltip>
+              {event.runNumber && (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-muted-foreground">
+                    Run #{event.runNumber}
+                  </span>
+                </>
+              )}
+              {event.startTime && (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-muted-foreground">
+                    {formatTime(event.startTime)}
+                  </span>
+                </>
+              )}
+              {event.status === "CANCELLED" && (
+                <Badge variant="destructive" className="ml-1 text-xs">
+                  Cancelled
+                </Badge>
+              )}
+              {event.status === "TENTATIVE" && (
+                <Badge variant="outline" className="ml-1 text-xs">
+                  Tentative
+                </Badge>
               )}
             </div>
+
+            {/* Line 2 (optional): title */}
+            {event.title && (
+              <p className="truncate text-sm">{event.title}</p>
+            )}
+
+            {/* Line 3 (optional): hares */}
+            {event.haresText && (
+              <p className="truncate text-sm text-muted-foreground">
+                Hares: {event.haresText}
+              </p>
+            )}
+
+            {/* Line 4 (optional): location */}
+            {event.locationName && (
+              <p className="truncate text-sm text-muted-foreground">
+                {event.locationName}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
