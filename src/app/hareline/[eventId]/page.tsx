@@ -8,7 +8,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { formatTime } from "@/components/hareline/EventCard";
+import { formatTime } from "@/lib/format";
 
 export default async function EventDetailPage({
   params,

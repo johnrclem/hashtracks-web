@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
+import { formatTime } from "@/lib/format";
 
 export type HarelineEvent = {
   id: string;
@@ -57,14 +58,7 @@ function getDayOfWeek(iso: string): string {
   return d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
 }
 
-function formatTime(time: string): string {
-  const [h, m] = time.split(":").map(Number);
-  const suffix = h >= 12 ? "PM" : "AM";
-  const hour12 = h % 12 || 12;
-  return `${hour12}:${m.toString().padStart(2, "0")} ${suffix}`;
-}
-
-export { formatDate, formatDateLong, getDayOfWeek, formatTime };
+export { formatDate, formatDateLong, getDayOfWeek };
 
 interface EventCardProps {
   event: HarelineEvent;
