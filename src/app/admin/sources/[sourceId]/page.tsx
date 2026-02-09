@@ -32,6 +32,17 @@ const statusColors: Record<string, "default" | "secondary" | "destructive" | "ou
   FAILED: "destructive",
 };
 
+function formatNYC(date: Date): string {
+  return date.toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }) + " ET";
+}
+
 export default async function SourceDetailPage({
   params,
 }: {
@@ -168,7 +179,7 @@ export default async function SourceDetailPage({
               {scrapeLogs.map((log) => (
                 <TableRow key={log.id}>
                   <TableCell className="text-xs whitespace-nowrap">
-                    {log.startedAt.toLocaleString()}
+                    {formatNYC(log.startedAt)}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
@@ -223,8 +234,8 @@ export default async function SourceDetailPage({
 
       {/* Last scrape info */}
       <div className="text-xs text-muted-foreground">
-        <p>Last scrape: {source.lastScrapeAt ? source.lastScrapeAt.toLocaleString() : "Never"}</p>
-        <p>Last success: {source.lastSuccessAt ? source.lastSuccessAt.toLocaleString() : "Never"}</p>
+        <p>Last scrape: {source.lastScrapeAt ? formatNYC(source.lastScrapeAt) : "Never"}</p>
+        <p>Last success: {source.lastSuccessAt ? formatNYC(source.lastSuccessAt) : "Never"}</p>
         <p>Scrape frequency: {source.scrapeFreq}</p>
       </div>
     </div>

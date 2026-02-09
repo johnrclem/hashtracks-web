@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { SubscribeButton } from "@/components/kennels/SubscribeButton";
+import { EventCard, type HarelineEvent } from "@/components/hareline/EventCard";
 
 export default async function KennelDetailPage({
   params,
@@ -21,7 +22,19 @@ export default async function KennelDetailPage({
 
   if (!kennel) notFound();
 
-  const user = await getOrCreateUser();
+  const [user, events] = await Promise.all([
+    getOrCreateUser(),
+    prisma.event.findMany({
+      where: { kennelId: kennel.id },
+      include: {
+        kennel: {
+          select: { id: true, shortName: true, fullName: true, slug: true, region: true },
+        },
+      },
+      orderBy: { date: "asc" },
+    }),
+  ]);
+
   let isSubscribed = false;
   if (user) {
     const subscription = await prisma.userKennel.findUnique({
@@ -29,6 +42,33 @@ export default async function KennelDetailPage({
     });
     isSubscribed = !!subscription;
   }
+
+  // Split events into upcoming and past
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
+
+  const serialized: HarelineEvent[] = events.map((e) => ({
+    id: e.id,
+    date: e.date.toISOString(),
+    kennelId: e.kennelId,
+    kennel: e.kennel,
+    runNumber: e.runNumber,
+    title: e.title,
+    haresText: e.haresText,
+    startTime: e.startTime,
+    locationName: e.locationName,
+    locationAddress: e.locationAddress,
+    description: e.description,
+    sourceUrl: e.sourceUrl,
+    status: e.status,
+  }));
+
+  const upcoming = serialized.filter(
+    (e) => new Date(e.date).getTime() >= todayUtc,
+  );
+  const past = serialized
+    .filter((e) => new Date(e.date).getTime() < todayUtc)
+    .reverse(); // most recent first
 
   return (
     <div className="space-y-6">
@@ -79,6 +119,37 @@ export default async function KennelDetailPage({
                 {a.alias}
               </Badge>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming Events */}
+      <div>
+        <h2 className="mb-3 text-lg font-semibold">Upcoming Events</h2>
+        {upcoming.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No upcoming events.</p>
+        ) : (
+          <div className="space-y-3">
+            {upcoming.map((event) => (
+              <EventCard key={event.id} event={event} density="medium" />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Past Events */}
+      {past.length > 0 && (
+        <div>
+          <h2 className="mb-3 text-lg font-semibold">Past Events</h2>
+          <div className="space-y-3">
+            {past.slice(0, 10).map((event) => (
+              <EventCard key={event.id} event={event} density="medium" />
+            ))}
+            {past.length > 10 && (
+              <p className="text-sm text-muted-foreground">
+                And {past.length - 10} more past events.
+              </p>
+            )}
           </div>
         </div>
       )}
