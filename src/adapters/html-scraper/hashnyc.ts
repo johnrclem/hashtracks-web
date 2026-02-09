@@ -242,6 +242,127 @@ function extractSourceUrl(
   }
 }
 
+/**
+ * Extract time from date cell text.
+ * Matches patterns like "4:00 pm", "7:15 pm", "12:00 pm"
+ */
+function extractTime(text: string): string | undefined {
+  const match = text.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
+  if (!match) return undefined;
+
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2];
+  const ampm = match[3].toLowerCase();
+
+  if (ampm === "pm" && hours !== 12) hours += 12;
+  if (ampm === "am" && hours === 12) hours = 0;
+
+  return `${hours.toString().padStart(2, "0")}:${minutes}`;
+}
+
+/**
+ * Fetch a page from hashnyc.com and return the HTML.
+ */
+async function fetchPage(url: string): Promise<string> {
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+  return response.text();
+}
+
+/**
+ * Parse rows from a hashnyc.com table (works for both past_hashes and future_hashes).
+ */
+function parseRows(
+  $: cheerio.CheerioAPI,
+  rows: cheerio.Cheerio<AnyNode>,
+  baseUrl: string,
+  isFuture: boolean,
+): { events: RawEventData[]; errors: string[] } {
+  const events: RawEventData[] = [];
+  const errors: string[] = [];
+  const currentYear = new Date().getFullYear();
+
+  rows.each((_i, row) => {
+    try {
+      const cells = $(row).find("td");
+      if (cells.length < 2) return; // Skip header or malformed rows
+
+      const dateCellHtml = cells.eq(0).html() ?? "";
+      const dateCellText = decodeHtmlEntities(dateCellHtml);
+
+      let year: number | null;
+      let startTime: string | undefined;
+
+      if (isFuture) {
+        // Future table: date cell is like "SundayFebruary 84:00 pm"
+        // Year is the current year (or next year if month < current month)
+        year = currentYear;
+        startTime = extractTime(dateCellText);
+      } else {
+        // Past table: row IDs encode date, e.g. "2024oct30"
+        const rowId = $(row).attr("id") ?? undefined;
+        year = extractYear(rowId, dateCellHtml);
+      }
+
+      if (!year || year < 2016) return;
+
+      const monthDay = extractMonthDay(dateCellText);
+      if (!monthDay) return;
+
+      // For future events, handle year rollover
+      if (isFuture && monthDay.month < new Date().getMonth()) {
+        year = currentYear + 1;
+      }
+
+      // Build UTC noon date
+      const eventDate = new Date(
+        Date.UTC(year, monthDay.month, monthDay.day, 12, 0, 0),
+      );
+      const dateStr = eventDate.toISOString().split("T")[0];
+
+      // Extract details (cell 1 for both table types)
+      const detailsHtml = cells.eq(1).html() ?? "";
+      const detailsText = decodeHtmlEntities(detailsHtml);
+
+      const kennelTag = extractKennelTag(detailsText);
+      const runNumber = extractRunNumber(detailsText);
+      const title = extractTitle(detailsText);
+      const sourceUrl = extractSourceUrl($, row, baseUrl);
+
+      // Hares: in future table, hares are in cell 2 directly
+      let hares: string;
+      if (isFuture && cells.length >= 3) {
+        hares = decodeHtmlEntities(cells.eq(2).html() ?? "").trim();
+      } else {
+        hares = extractHares($, row);
+      }
+
+      events.push({
+        date: dateStr,
+        kennelTag,
+        runNumber,
+        title,
+        description: detailsText,
+        hares: hares && hares !== "N/A" ? hares : undefined,
+        startTime,
+        sourceUrl,
+      });
+    } catch (err) {
+      errors.push(
+        `Row parse error: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  });
+
+  return { events, errors };
+}
+
 export class HashNYCAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -251,90 +372,40 @@ export class HashNYCAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const days = options?.days ?? 90;
     const baseUrl = source.url || "https://hashnyc.com";
-    const url = `${baseUrl}/?days=${days}&backwards=true`;
 
-    const events: RawEventData[] = [];
-    const errors: string[] = [];
+    const allEvents: RawEventData[] = [];
+    const allErrors: string[] = [];
 
-    let html: string;
+    // 1. Scrape past events
     try {
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
-        },
-      });
-      if (!response.ok) {
-        return {
-          events: [],
-          errors: [`HTTP ${response.status}: ${response.statusText}`],
-        };
-      }
-      html = await response.text();
+      const pastHtml = await fetchPage(
+        `${baseUrl}/?days=${days}&backwards=true`,
+      );
+      const $past = cheerio.load(pastHtml);
+      const pastRows = $past("table.past_hashes tr");
+      const past = parseRows($past, pastRows, baseUrl, false);
+      allEvents.push(...past.events);
+      allErrors.push(...past.errors);
     } catch (err) {
-      return {
-        events: [],
-        errors: [
-          `Fetch failed: ${err instanceof Error ? err.message : String(err)}`,
-        ],
-      };
+      allErrors.push(
+        `Past fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
-    const $ = cheerio.load(html);
-    const rows = $("table.past_hashes tr");
+    // 2. Scrape upcoming events
+    try {
+      const futureHtml = await fetchPage(`${baseUrl}/?days=${days}`);
+      const $future = cheerio.load(futureHtml);
+      const futureRows = $future("table.future_hashes tr");
+      const future = parseRows($future, futureRows, baseUrl, true);
+      allEvents.push(...future.events);
+      allErrors.push(...future.errors);
+    } catch (err) {
+      allErrors.push(
+        `Upcoming fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
 
-    // Calculate date range for early termination
-    const now = new Date();
-    const startDate = new Date(now);
-    startDate.setDate(startDate.getDate() - days);
-
-    rows.each((_i, row) => {
-      try {
-        const cells = $(row).find("td");
-        if (cells.length < 2) return; // Skip header or malformed rows
-
-        // Extract date
-        const rowId = $(row).attr("id") ?? undefined;
-        const dateCellHtml = cells.eq(0).html() ?? "";
-        const dateCellText = decodeHtmlEntities(dateCellHtml);
-
-        const year = extractYear(rowId, dateCellHtml);
-        if (!year || year < 2016) return; // Skip very old rows or headers
-
-        const monthDay = extractMonthDay(dateCellText);
-        if (!monthDay) return; // Can't parse date
-
-        // Build UTC noon date
-        const eventDate = new Date(
-          Date.UTC(year, monthDay.month, monthDay.day, 12, 0, 0),
-        );
-        const dateStr = eventDate.toISOString().split("T")[0]; // YYYY-MM-DD
-
-        // Extract details
-        const detailsHtml = cells.eq(1).html() ?? "";
-        const detailsText = decodeHtmlEntities(detailsHtml);
-
-        const kennelTag = extractKennelTag(detailsText);
-        const runNumber = extractRunNumber(detailsText);
-        const title = extractTitle(detailsText);
-        const hares = extractHares($, row);
-        const sourceUrl = extractSourceUrl($, row, baseUrl);
-
-        events.push({
-          date: dateStr,
-          kennelTag,
-          runNumber,
-          title,
-          description: detailsText,
-          hares: hares !== "N/A" ? hares : undefined,
-          sourceUrl,
-        });
-      } catch (err) {
-        errors.push(
-          `Row parse error: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    });
-
-    return { events, errors };
+    return { events: allEvents, errors: allErrors };
   }
 }
