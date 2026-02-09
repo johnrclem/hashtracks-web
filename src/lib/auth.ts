@@ -24,3 +24,14 @@ export async function getOrCreateUser(): Promise<User | null> {
     },
   });
 }
+
+export async function getAdminUser(): Promise<User | null> {
+  const clerkUser = await currentUser();
+  if (!clerkUser) return null;
+
+  const metadata = clerkUser.publicMetadata as { role?: string } | null;
+  if (metadata?.role !== "admin") return null;
+
+  // Admin is authenticated and has the role — ensure DB user exists
+  return getOrCreateUser();
+}

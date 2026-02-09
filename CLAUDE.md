@@ -12,10 +12,9 @@ calendar + personal logbook + kennel directory.
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
 - `npx prisma db seed` — Seed launch kennels and aliases
-- `npm run test:scraper -- --source=hashnyc` — Test a specific scraper adapter
 
 ## Architecture
-- **Framework:** Next.js 15 App Router, TypeScript strict mode
+- **Framework:** Next.js 16 App Router, TypeScript strict mode
 - **Database:** PostgreSQL via Prisma ORM (Railway hosted)
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS + shadcn/ui components
@@ -43,23 +42,26 @@ calendar + personal logbook + kennel directory.
 - Dates stored as UTC noon to avoid DST issues (see PRD Appendix F.4)
 - `startTime` is a string "HH:MM" not a DateTime (many sources lack full timestamps)
 - Kennel resolution: shortName exact match → alias case-insensitive match → flag for admin
-- All scraper adapters implement the `SourceAdapter` interface in `src/adapters/types.ts`
+- All scraper adapters will implement the `SourceAdapter` interface in `src/adapters/types.ts` (Sprint 3+)
 - API routes return consistent shapes: `{ data, error?, meta? }`
 
 ## Environment Variables
 - DATABASE_URL=           # Railway PostgreSQL connection string
 - CLERK_SECRET_KEY=       # Clerk backend key
 - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=  # Clerk frontend key
-- GEMINI_API_KEY=         # Google AI API key
-- CRON_SECRET=            # Secret for Vercel Cron auth
-- GOOGLE_CALENDAR_API_KEY= # For public calendar reads
+- NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+- NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+- GEMINI_API_KEY=         # Google AI API key (Sprint 10+)
+- CRON_SECRET=            # Secret for Vercel Cron auth (Sprint 6+)
+- GOOGLE_CALENDAR_API_KEY= # For public calendar reads (Sprint 6+)
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model (THE source of truth for types)
 - `prisma/seed.ts` — Launch kennel + alias data
-- `src/adapters/types.ts` — SourceAdapter interface all adapters implement
-- `src/pipeline/merge.ts` — Core dedup logic (kennel + date key)
-- `src/pipeline/kennel-resolver.ts` — Alias-based kennel name resolution
+- `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
+- `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
+- `src/lib/auth.ts` — `getOrCreateUser()` on-demand Clerk→DB sync
+- `src/middleware.ts` — Clerk route protection (public vs authenticated routes)
 
 ## What NOT To Do
 - Don't use Playwright for scraping (Cheerio is sufficient, 100x lighter)

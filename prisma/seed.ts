@@ -1,6 +1,15 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 
+function toSlug(shortName: string): string {
+  return shortName
+    .toLowerCase()
+    .replace(/[()]/g, "")    // Remove parens
+    .replace(/\s+/g, "-")    // Spaces to hyphens
+    .replace(/-+/g, "-")     // Collapse multiple hyphens
+    .replace(/^-|-$/g, "");  // Trim leading/trailing hyphens
+}
+
 // Dynamic import of the generated client to handle ESM
 async function main() {
   const { PrismaClient } = await import("../src/generated/prisma/client.js");
@@ -88,14 +97,17 @@ async function main() {
   // Upsert all kennels
   const kennelRecords: Record<string, { id: string }> = {};
   for (const kennel of kennels) {
+    const slug = toSlug(kennel.shortName);
     const record = await prisma.kennel.upsert({
       where: { shortName: kennel.shortName },
       update: {
         fullName: kennel.fullName,
         region: kennel.region,
+        slug,
       },
       create: {
         shortName: kennel.shortName,
+        slug,
         fullName: kennel.fullName,
         region: kennel.region,
         country: "USA",

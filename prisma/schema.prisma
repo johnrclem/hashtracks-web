@@ -49,6 +49,7 @@ enum UserKennelRole {
 model Kennel {
   id          String         @id @default(cuid())
   shortName   String         @unique // "NYCH3"
+  slug        String         @unique // URL-safe: "nych3", "bos-moon"
   fullName    String         // "New York City Hash House Harriers"
   region      String         // "New York City, NY"
   country     String         @default("USA")
