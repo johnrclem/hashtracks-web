@@ -11,12 +11,16 @@ import {
 } from "@/components/ui/tooltip";
 import { formatTime } from "@/lib/format";
 import { formatDateLong, type HarelineEvent } from "./EventCard";
+import { CheckInButton } from "@/components/logbook/CheckInButton";
+import type { AttendanceData } from "@/components/logbook/CheckInButton";
 
 interface EventDetailPanelProps {
   event: HarelineEvent | null;
+  attendance?: AttendanceData | null;
+  isAuthenticated?: boolean;
 }
 
-export function EventDetailPanel({ event }: EventDetailPanelProps) {
+export function EventDetailPanel({ event, attendance, isAuthenticated }: EventDetailPanelProps) {
   if (!event) {
     return (
       <Card>
@@ -64,6 +68,16 @@ export function EventDetailPanel({ event }: EventDetailPanelProps) {
         {event.title && (
           <h3 className="text-base font-semibold">{event.title}</h3>
         )}
+
+        {/* Check-in */}
+        <div className="flex items-center gap-2">
+          <CheckInButton
+            eventId={event.id}
+            eventDate={event.date}
+            isAuthenticated={!!isAuthenticated}
+            attendance={attendance ?? null}
+          />
+        </div>
 
         {/* Detail fields */}
         <dl className="space-y-2 text-sm">

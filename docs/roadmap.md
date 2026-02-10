@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-09
+Last updated: 2026-02-10
 
 ---
 
@@ -82,13 +82,23 @@ Last updated: 2026-02-09
 
 ## Mid-Term: User Features
 
-### The Logbook (Attendance Tracking)
-- [ ] "I Was There" check-in on event detail page
-- [ ] Participation level: R / H / BH / DC / BM / W / C
-- [ ] "My Runs" page with filters
-- [ ] Stats dashboard: total runs, per-kennel, per-region, hare count
-- [ ] Milestone markers (25th, 50th, 69th, 100th runs)
-- [ ] Notes field and Strava URL attachment
+### The Logbook (Attendance Tracking) — Sprint 5 COMPLETE
+- [x] "I Was There" one-click check-in (past events only, defaults to RUN)
+- [x] Participation level selector: R / H / BH / DC / BM / W / C
+- [x] Edit/delete attendance with dialog
+- [x] Activity link field (any URL — Strava, Garmin, AllTrails, etc.)
+- [x] Notes field for personal trail notes
+- [x] Attendance badges on hareline event cards and detail panel
+- [x] Check-in from both event detail page and master-detail panel
+- [x] "My Runs" page (`/logbook`) with filters (region, kennel, level)
+- [x] Stats dashboard (`/logbook/stats`): totals, per-kennel, per-region, per-level breakdowns
+- [x] Milestone markers (25, 50, 69 "Nice.", 100, 150, 200, 250, 300, 400, 500, 666 "Devilish", 700, 800, 900, 1000)
+
+### Logbook — Next Up
+- [ ] **"I'm Going" RSVP** (Sprint 5.5): Toggle model — pre-creates Attendance with INTENDING status, user confirms after event passes. Future events show "I'm Going" button.
+- [ ] **Log Unlisted Run**: Manual event entry for runs not in the database (one-off events, traveling, etc.)
+- [ ] **Admin-editable participation levels**: Migrate enum to reference table for custom levels per community
+- [ ] **"Beez There" checkbox**: Optional flag on attendance (nice-to-have, deferred from Sprint 5)
 
 ### CSV Import (Bulk History)
 - [ ] Upload CSV of past attendance

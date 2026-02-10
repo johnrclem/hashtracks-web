@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { getOrCreateUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +10,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { formatTime } from "@/lib/format";
+import { CheckInButton } from "@/components/logbook/CheckInButton";
 
 export default async function EventDetailPage({
   params,
@@ -27,6 +29,24 @@ export default async function EventDetailPage({
   });
 
   if (!event) notFound();
+
+  // Query current user + their attendance for this event
+  const user = await getOrCreateUser();
+  let attendance: { id: string; participationLevel: string; stravaUrl: string | null; notes: string | null } | null = null;
+
+  if (user) {
+    const record = await prisma.attendance.findUnique({
+      where: { userId_eventId: { userId: user.id, eventId } },
+      select: { id: true, participationLevel: true, stravaUrl: true, notes: true },
+    });
+    if (record) {
+      attendance = { ...record, participationLevel: record.participationLevel as string };
+    }
+  }
+
+  const attendanceCount = await prisma.attendance.count({
+    where: { eventId },
+  });
 
   const dateFormatted = event.date.toLocaleDateString("en-US", {
     weekday: "long",
@@ -72,6 +92,21 @@ export default async function EventDetailPage({
       {event.title && (
         <h2 className="text-xl font-semibold">{event.title}</h2>
       )}
+
+      {/* Check-in */}
+      <div className="flex items-center gap-3">
+        <CheckInButton
+          eventId={event.id}
+          eventDate={event.date.toISOString()}
+          isAuthenticated={!!user}
+          attendance={attendance}
+        />
+        {attendanceCount > 0 && (
+          <span className="text-sm text-muted-foreground">
+            {attendanceCount} {attendanceCount === 1 ? "hasher" : "hashers"} checked in
+          </span>
+        )}
+      </div>
 
       {/* Details grid */}
       <div className="grid gap-4 sm:grid-cols-2">

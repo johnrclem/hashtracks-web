@@ -13,15 +13,29 @@ export default async function HarelinePage() {
     orderBy: { date: "asc" },
   });
 
-  // Get user's subscribed kennels (if authenticated)
+  // Get user's subscribed kennels + attendance (if authenticated)
   const user = await getOrCreateUser();
   let subscribedKennelIds: string[] = [];
+  let attendanceMap: Record<string, { id: string; participationLevel: string; stravaUrl: string | null; notes: string | null }> = {};
   if (user) {
     const subscriptions = await prisma.userKennel.findMany({
       where: { userId: user.id },
       select: { kennelId: true },
     });
     subscribedKennelIds = subscriptions.map((s) => s.kennelId);
+
+    const attendances = await prisma.attendance.findMany({
+      where: { userId: user.id },
+      select: { eventId: true, id: true, participationLevel: true, stravaUrl: true, notes: true },
+    });
+    for (const a of attendances) {
+      attendanceMap[a.eventId] = {
+        id: a.id,
+        participationLevel: a.participationLevel as string,
+        stravaUrl: a.stravaUrl,
+        notes: a.notes,
+      };
+    }
   }
 
   // Serialize dates for client component
@@ -55,6 +69,7 @@ export default async function HarelinePage() {
           events={serializedEvents}
           subscribedKennelIds={subscribedKennelIds}
           isAuthenticated={!!user}
+          attendanceMap={attendanceMap}
         />
       </Suspense>
     </div>

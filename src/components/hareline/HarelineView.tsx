@@ -7,11 +7,13 @@ import { EventCard, getDayOfWeek, type HarelineEvent } from "./EventCard";
 import { EventFilters } from "./EventFilters";
 import { CalendarView } from "./CalendarView";
 import { EventDetailPanel } from "./EventDetailPanel";
+import type { AttendanceData } from "@/components/logbook/CheckInButton";
 
 interface HarelineViewProps {
   events: HarelineEvent[];
   subscribedKennelIds: string[];
   isAuthenticated: boolean;
+  attendanceMap?: Record<string, AttendanceData>;
 }
 
 function parseList(value: string | null): string[] {
@@ -23,6 +25,7 @@ export function HarelineView({
   events,
   subscribedKennelIds,
   isAuthenticated,
+  attendanceMap = {},
 }: HarelineViewProps) {
   const searchParams = useSearchParams();
   const hasSubscriptions = subscribedKennelIds.length > 0;
@@ -193,6 +196,7 @@ export function HarelineView({
               density={density}
               onSelect={setSelectedEvent}
               isSelected={selectedEvent?.id === event.id}
+              attendance={attendanceMap[event.id] ?? null}
             />
           ))}
         </div>
@@ -275,7 +279,11 @@ export function HarelineView({
           {/* Right: detail panel (desktop only) */}
           <div className="hidden lg:block">
             <div className="sticky top-8">
-              <EventDetailPanel event={selectedEvent} />
+              <EventDetailPanel
+                event={selectedEvent}
+                attendance={selectedEvent ? (attendanceMap[selectedEvent.id] ?? null) : null}
+                isAuthenticated={isAuthenticated}
+              />
             </div>
           </div>
         </div>

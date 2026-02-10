@@ -9,6 +9,8 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { formatTime } from "@/lib/format";
+import { AttendanceBadge } from "@/components/logbook/AttendanceBadge";
+import type { AttendanceData } from "@/components/logbook/CheckInButton";
 
 export type HarelineEvent = {
   id: string;
@@ -68,9 +70,10 @@ interface EventCardProps {
   density: "medium" | "compact";
   onSelect?: (event: HarelineEvent) => void;
   isSelected?: boolean;
+  attendance?: AttendanceData | null;
 }
 
-export function EventCard({ event, density, onSelect, isSelected }: EventCardProps) {
+export function EventCard({ event, density, onSelect, isSelected, attendance }: EventCardProps) {
   const router = useRouter();
 
   function handleClick() {
@@ -119,6 +122,11 @@ export function EventCard({ event, density, onSelect, isSelected }: EventCardPro
           {event.startTime && (
             <span className="ml-auto shrink-0 text-xs text-muted-foreground">
               {formatTime(event.startTime)}
+            </span>
+          )}
+          {attendance && (
+            <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
+              <AttendanceBadge level={attendance.participationLevel} size="sm" />
             </span>
           )}
         </div>
@@ -176,6 +184,11 @@ export function EventCard({ event, density, onSelect, isSelected }: EventCardPro
               <Badge variant="outline" className="ml-1 text-xs">
                 Tentative
               </Badge>
+            )}
+            {attendance && (
+              <span className="ml-1" onClick={(e) => e.stopPropagation()}>
+                <AttendanceBadge level={attendance.participationLevel} size="sm" />
+              </span>
             )}
           </div>
 
