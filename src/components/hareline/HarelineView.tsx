@@ -274,7 +274,7 @@ export function HarelineView({
       {view === "list" ? (
         <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-6">
           {/* Left: event list */}
-          <div>{listContent}</div>
+          <div className="min-w-0">{listContent}</div>
 
           {/* Right: detail panel (desktop only) */}
           <div className="hidden lg:block">
