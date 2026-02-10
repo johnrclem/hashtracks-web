@@ -11,6 +11,7 @@ import {
 import { formatTime } from "@/lib/format";
 import { AttendanceBadge } from "@/components/logbook/AttendanceBadge";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
+import { RegionBadge } from "./RegionBadge";
 
 export type HarelineEvent = {
   id: string;
@@ -111,6 +112,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
               <TooltipContent>{event.kennel.fullName}</TooltipContent>
             </Tooltip>
           </span>
+          <RegionBadge region={event.kennel.region} size="sm" />
           {event.runNumber && (
             <span className="w-12 shrink-0 text-muted-foreground">
               #{event.runNumber}
@@ -159,6 +161,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
               </TooltipTrigger>
               <TooltipContent>{event.kennel.fullName}</TooltipContent>
             </Tooltip>
+            <RegionBadge region={event.kennel.region} size="sm" />
             {event.runNumber && (
               <>
                 <span className="text-muted-foreground">·</span>

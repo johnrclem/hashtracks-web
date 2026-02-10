@@ -26,6 +26,7 @@ import { AttendanceBadge } from "./AttendanceBadge";
 import { EditAttendanceDialog } from "./EditAttendanceDialog";
 import type { AttendanceData } from "./CheckInButton";
 import { formatTime, participationLevelLabel, PARTICIPATION_LEVELS } from "@/lib/format";
+import { RegionBadge } from "@/components/hareline/RegionBadge";
 
 export interface LogbookEntry {
   attendance: AttendanceData;
@@ -296,6 +297,7 @@ export function LogbookList({ entries }: LogbookListProps) {
                 <TooltipContent>{entry.event.kennel.fullName}</TooltipContent>
               </Tooltip>
             </span>
+            <RegionBadge region={entry.event.kennel.region} size="sm" />
             {entry.event.runNumber && (
               <span className="w-12 shrink-0 text-muted-foreground">
                 #{entry.event.runNumber}
