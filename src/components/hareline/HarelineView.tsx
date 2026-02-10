@@ -268,7 +268,7 @@ export function HarelineView({
 
       {/* Content: master-detail on desktop, single column on mobile */}
       {view === "list" ? (
-        <div className="lg:grid lg:grid-cols-[1fr,380px] lg:gap-6">
+        <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-6">
           {/* Left: event list */}
           <div>{listContent}</div>
 
