@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Tooltip,
   TooltipTrigger,
@@ -71,18 +71,21 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, density, onSelect, isSelected }: EventCardProps) {
-  function handleClick(e: React.MouseEvent) {
-    // On desktop (lg+), intercept to show detail panel instead of navigating
-    if (onSelect && window.innerWidth >= LG_BREAKPOINT) {
-      e.preventDefault();
+  const router = useRouter();
+
+  function handleClick() {
+    // On desktop (lg+), select the event for the detail panel
+    if (onSelect && typeof window !== "undefined" && window.innerWidth >= LG_BREAKPOINT) {
       onSelect(event);
+      return;
     }
-    // On mobile (<lg), let the Link navigate normally
+    // On mobile (<lg), navigate to the detail page
+    router.push(`/hareline/${event.id}`);
   }
 
   if (density === "compact") {
     return (
-      <Link href={`/hareline/${event.id}`} className="block" onClick={handleClick}>
+      <div className="cursor-pointer" onClick={handleClick}>
         <div
           className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50 ${
             isSelected ? "border-primary bg-primary/5" : ""
@@ -119,83 +122,83 @@ export function EventCard({ event, density, onSelect, isSelected }: EventCardPro
             </span>
           )}
         </div>
-      </Link>
+      </div>
     );
   }
 
-  // Medium density
+  // Medium density — plain div instead of Card (which has py-6 baked in)
   return (
-    <Link href={`/hareline/${event.id}`} className="block" onClick={handleClick}>
-      <Card className={`transition-colors hover:border-foreground/20 ${
-        isSelected ? "border-primary bg-primary/5" : ""
-      }`}>
-        <CardContent className="px-3 py-2.5">
-          <div className="min-w-0 space-y-0.5">
-            {/* Line 1: date · kennel · run# · time — all on one line */}
-            <div className="flex items-center gap-1.5 text-sm">
-              <span className="font-medium">{formatDate(event.date)}</span>
-              <span className="text-muted-foreground">·</span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href={`/kennels/${event.kennel.slug}`}
-                    className="font-medium text-primary hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {event.kennel.shortName}
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>{event.kennel.fullName}</TooltipContent>
-              </Tooltip>
-              {event.runNumber && (
-                <>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="text-muted-foreground">
-                    Run #{event.runNumber}
-                  </span>
-                </>
-              )}
-              {event.startTime && (
-                <>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="text-muted-foreground">
-                    {formatTime(event.startTime)}
-                  </span>
-                </>
-              )}
-              {event.status === "CANCELLED" && (
-                <Badge variant="destructive" className="ml-1 text-xs">
-                  Cancelled
-                </Badge>
-              )}
-              {event.status === "TENTATIVE" && (
-                <Badge variant="outline" className="ml-1 text-xs">
-                  Tentative
-                </Badge>
-              )}
-            </div>
-
-            {/* Line 2 (optional): title */}
-            {event.title && (
-              <p className="truncate text-sm">{event.title}</p>
+    <div className="cursor-pointer" onClick={handleClick}>
+      <div
+        className={`rounded-lg border px-3 py-2 shadow-sm transition-colors hover:border-foreground/20 ${
+          isSelected ? "border-primary bg-primary/5" : ""
+        }`}
+      >
+        <div className="min-w-0 space-y-0.5">
+          {/* Line 1: date · kennel · run# · time — all on one line */}
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="font-medium">{formatDate(event.date)}</span>
+            <span className="text-muted-foreground">·</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href={`/kennels/${event.kennel.slug}`}
+                  className="font-medium text-primary hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {event.kennel.shortName}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent>{event.kennel.fullName}</TooltipContent>
+            </Tooltip>
+            {event.runNumber && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">
+                  Run #{event.runNumber}
+                </span>
+              </>
             )}
-
-            {/* Line 3 (optional): hares */}
-            {event.haresText && (
-              <p className="truncate text-sm text-muted-foreground">
-                Hares: {event.haresText}
-              </p>
+            {event.startTime && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">
+                  {formatTime(event.startTime)}
+                </span>
+              </>
             )}
-
-            {/* Line 4 (optional): location */}
-            {event.locationName && (
-              <p className="truncate text-sm text-muted-foreground">
-                {event.locationName}
-              </p>
+            {event.status === "CANCELLED" && (
+              <Badge variant="destructive" className="ml-1 text-xs">
+                Cancelled
+              </Badge>
+            )}
+            {event.status === "TENTATIVE" && (
+              <Badge variant="outline" className="ml-1 text-xs">
+                Tentative
+              </Badge>
             )}
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+
+          {/* Line 2 (optional): title */}
+          {event.title && (
+            <p className="truncate text-sm">{event.title}</p>
+          )}
+
+          {/* Line 3 (optional): hares */}
+          {event.haresText && (
+            <p className="truncate text-sm text-muted-foreground">
+              Hares: {event.haresText}
+            </p>
+          )}
+
+          {/* Line 4 (optional): location */}
+          {event.locationName && (
+            <p className="truncate text-sm text-muted-foreground">
+              {event.locationName}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
