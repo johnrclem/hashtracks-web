@@ -23,7 +23,7 @@ calendar + personal logbook + kennel directory.
 - **Deployment:** Vercel (auto-deploy from main branch)
 
 ## Data Flow
-1. **Sources** (hashnyc.com, Google Calendar, etc.) are scraped on cron schedule
+1. **Sources** (hashnyc.com, Google Calendar, Google Sheets, etc.) are scraped on cron schedule
 2. Each scrape produces **RawEvents** (immutable — never edit scraped data)
 3. **Merge Pipeline** deduplicates RawEvents into **Canonical Events** using `kennel + date`
 4. Users see Canonical Events in the **Hareline** (calendar)
@@ -53,7 +53,7 @@ calendar + personal logbook + kennel directory.
 - NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 - GEMINI_API_KEY=         # Google AI API key (Sprint 10+)
 - CRON_SECRET=            # Secret for Vercel Cron auth (Sprint 6+)
-- GOOGLE_CALENDAR_API_KEY= # For public calendar reads (Sprint 6+)
+- GOOGLE_CALENDAR_API_KEY= # For Google Calendar + Sheets APIs
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model (THE source of truth for types)
@@ -65,8 +65,22 @@ calendar + personal logbook + kennel directory.
 - `src/adapters/types.ts` — SourceAdapter interface + RawEventData types
 - `src/adapters/registry.ts` — Adapter factory (SourceType → adapter instance)
 - `src/adapters/html-scraper/hashnyc.ts` — hashnyc.com HTML scraper (Cheerio)
+- `src/adapters/google-calendar/adapter.ts` — Google Calendar API v3 adapter (Boston Hash)
+- `src/adapters/google-sheets/adapter.ts` — Google Sheets CSV adapter (Summit H3, config-driven)
 - `src/pipeline/merge.ts` — Raw→Canonical merge pipeline (fingerprint dedup)
 - `src/pipeline/kennel-resolver.ts` — Alias-based kennel name resolution
+
+## Documentation
+- `docs/source-onboarding-playbook.md` — Step-by-step guide for adding new data sources
+- `docs/roadmap.md` — Implementation roadmap for source scaling, historical import, monitoring
+
+## Active Sources (3)
+- **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
+- **Boston Hash Calendar** → GOOGLE_CALENDAR → 5 Boston kennels
+- **Summit H3 Spreadsheet** → GOOGLE_SHEETS → 3 NJ kennels (Summit, SFM, ASSSH3)
+
+See `docs/source-onboarding-playbook.md` for how to add new sources.
+See `docs/roadmap.md` for implementation roadmap.
 
 ## What NOT To Do
 - Don't use Playwright for scraping (Cheerio is sufficient, 100x lighter)
