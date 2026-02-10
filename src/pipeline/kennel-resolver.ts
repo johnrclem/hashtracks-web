@@ -133,7 +133,10 @@ function mapKennelTag(input: string): string | null {
   // Chicago
   if (input.startsWith("ch3") || input.includes("chicago")) return "CH3";
 
-  // Summit / Rumson (NJ)
+  // Summit / NJ area
+  if (input.includes("asssh3") || input.includes("all seasons summit shiggy"))
+    return "ASSSH3";
+  if (input.includes("summit full moon") || input === "sfm") return "SFM";
   if (input.includes("summit")) return "Summit";
   if (input.includes("rumson")) return "Rumson";
 

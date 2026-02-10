@@ -40,7 +40,9 @@ async function main() {
     { shortName: "Bos Moon", fullName: "Boston Moon Hash", region: "Boston, MA" },
     { shortName: "Pink Taco", fullName: "Pink Taco Hash House Harriers", region: "Boston, MA" },
     // New Jersey
-    { shortName: "Summit", fullName: "Summit Hash House Harriers", region: "New Jersey" },
+    { shortName: "Summit", fullName: "Summit Hash House Harriers", region: "North NJ" },
+    { shortName: "SFM", fullName: "Summit Full Moon H3", region: "North NJ" },
+    { shortName: "ASSSH3", fullName: "All Seasons Summit Shiggy H3", region: "North NJ" },
     { shortName: "Rumson", fullName: "Rumson Hash House Harriers", region: "New Jersey" },
     // Philadelphia
     { shortName: "BFM", fullName: "Ben Franklin Mob H3", region: "Philadelphia, PA" },
@@ -69,6 +71,9 @@ async function main() {
     "Harriettes": ["Harriettes", "Harriettes Hash"],
     "SI": ["Staten Island", "SI", "SI Hash", "Staten Island Hash"],
     "Drinking Practice (NYC)": ["Drinking Practice", "NYC Drinking Practice", "NYC DP", "DP"],
+    "Summit": ["Summit", "Summit H3", "Summit Hash", "SH3"],
+    "SFM": ["SFM", "SFM H3", "Summit Full Moon", "Summit Full Moon H3"],
+    "ASSSH3": ["ASSSH3", "ASSS H3", "All Seasons Summit Shiggy"],
   };
 
   // ── SOURCE DATA (PRD Section 8) ──
@@ -89,6 +94,20 @@ async function main() {
       trustLevel: 7,
       scrapeFreq: "daily",
       kennelShortNames: ["BoH3", "BoBBH3", "Beantown", "Bos Moon", "Pink Taco"],
+    },
+    {
+      name: "Summit H3 Spreadsheet",
+      url: "https://docs.google.com/spreadsheets/d/1wG-BNb5ekMHM5euiPJT1nxQXZ3UxNqFZMdQtCBbYaMk",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      config: {
+        sheetId: "1wG-BNb5ekMHM5euiPJT1nxQXZ3UxNqFZMdQtCBbYaMk",
+        columns: { runNumber: 0, specialRun: 1, date: 2, hares: 3, location: 4, title: 6, description: 9 },
+        kennelTagRules: { default: "Summit", specialRunMap: { "ASSSH3": "ASSSH3" }, numericSpecialTag: "SFM" },
+        startTimeRules: { byDayOfWeek: { "Mon": "19:00", "Sat": "15:00", "Fri": "19:00" }, default: "15:00" },
+      },
+      kennelShortNames: ["Summit", "SFM", "ASSSH3"],
     },
   ];
 
@@ -144,6 +163,7 @@ async function main() {
   // Upsert sources and source-kennel links
   console.log("Seeding sources...");
   for (const source of sources) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { kennelShortNames, ...sourceData } = source;
 
     let existingSource = await prisma.source.findFirst({
@@ -152,10 +172,18 @@ async function main() {
 
     if (!existingSource) {
       existingSource = await prisma.source.create({
-        data: sourceData,
+        // Cast needed because Prisma's InputJsonValue doesn't accept deep object literals
+        data: sourceData as Parameters<typeof prisma.source.create>[0]["data"],
       });
       console.log(`  ✓ Created source: ${sourceData.name}`);
     } else {
+      // Update config if present (e.g., column mapping changes)
+      if ("config" in sourceData && sourceData.config) {
+        await prisma.source.update({
+          where: { id: existingSource.id },
+          data: sourceData as Parameters<typeof prisma.source.update>[0]["data"],
+        });
+      }
       console.log(`  ✓ Source already exists: ${sourceData.name}`);
     }
 
