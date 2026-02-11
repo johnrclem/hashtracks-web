@@ -150,6 +150,8 @@ Last updated: 2026-02-10
 
 ## Technical Debt & Polish
 
+- [ ] **"Add to Calendar" button**: Export event to Google Calendar / iCal (.ics download). Calendar icon button on event detail page and detail panel.
+- [ ] **Detail panel dismiss button**: Add X/close button to the sticky sidebar detail panel so users can collapse it back to the empty state, especially important on narrower desktop screens.
 - [ ] Mobile responsiveness pass
 - [ ] Error handling and loading states for all pages
 - [ ] SEO basics (page titles, meta descriptions, OG tags)
