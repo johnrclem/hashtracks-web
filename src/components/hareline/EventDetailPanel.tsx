@@ -13,14 +13,16 @@ import { formatTime } from "@/lib/format";
 import { formatDateLong, type HarelineEvent } from "./EventCard";
 import { CheckInButton } from "@/components/logbook/CheckInButton";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
+import { CalendarExportButton } from "./CalendarExportButton";
 
 interface EventDetailPanelProps {
   event: HarelineEvent | null;
   attendance?: AttendanceData | null;
   isAuthenticated?: boolean;
+  onDismiss?: () => void;
 }
 
-export function EventDetailPanel({ event, attendance, isAuthenticated }: EventDetailPanelProps) {
+export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss }: EventDetailPanelProps) {
   if (!event) {
     return (
       <Card>
@@ -44,7 +46,18 @@ export function EventDetailPanel({ event, attendance, isAuthenticated }: EventDe
       <CardContent className="space-y-4 p-5">
         {/* Header */}
         <div className="space-y-1">
-          <h2 className="text-lg font-bold">{formatDateLong(event.date)}</h2>
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="text-lg font-bold">{formatDateLong(event.date)}</h2>
+            {onDismiss && (
+              <button
+                onClick={onDismiss}
+                className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+                aria-label="Close detail panel"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/kennels/${event.kennel.slug}`}
@@ -132,6 +145,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated }: EventDe
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 pt-2">
+          <CalendarExportButton event={event} />
           {event.sourceUrl && (
             <Button variant="outline" size="sm" asChild>
               <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer">

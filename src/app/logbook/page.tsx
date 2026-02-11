@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { LogbookList } from "@/components/logbook/LogbookList";
+
+export const metadata: Metadata = {
+  title: "My Logbook · HashTracks",
+};
 
 export default async function LogbookPage() {
   const user = await getOrCreateUser();

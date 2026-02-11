@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+
+export const metadata: Metadata = {
+  title: "Kennels · HashTracks",
+};
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { Button } from "@/components/ui/button";
 

@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-10
+Last updated: 2026-02-11
 
 ---
 
@@ -106,8 +106,10 @@ Last updated: 2026-02-10
 - [ ] Kennel name normalization during import (alias matching)
 - [ ] Preview matched events before saving
 
-### Cron Scheduling
-- [ ] Vercel Cron for automated daily scrapes
+### Cron Scheduling — COMPLETE
+- [x] Vercel Cron for automated daily scrapes (6:00 AM UTC)
+- [x] Shared `scrapeSource()` for cron and admin routes
+- [x] CRON_SECRET auth on cron endpoint
 - [ ] Per-source schedule configuration
 - [ ] Staggered timing to avoid rate limits
 
@@ -150,11 +152,14 @@ Last updated: 2026-02-10
 
 ## Technical Debt & Polish
 
-- [ ] **"Add to Calendar" button**: Export event to Google Calendar / iCal (.ics download). Calendar icon button on event detail page and detail panel.
-- [ ] **Detail panel dismiss button**: Add X/close button to the sticky sidebar detail panel so users can collapse it back to the empty state, especially important on narrower desktop screens.
+### Sprint 6: UX Polish — COMPLETE
+- [x] **Detail panel dismiss button**: X button + Escape key to close sidebar panel
+- [x] **"Add to Calendar" button**: Google Calendar URL + .ics download on event detail page and panel
+- [x] **Loading skeletons**: Hareline, logbook, and kennel detail pages
+- [x] **Dynamic page titles**: Context-aware browser tab titles for all pages
+
+### Remaining Polish
 - [ ] Mobile responsiveness pass
-- [ ] Error handling and loading states for all pages
-- [ ] SEO basics (page titles, meta descriptions, OG tags)
 - [ ] Performance: pagination, React Query caching
 - [ ] Rate limiting on public API routes
 - [ ] Double-header handling (same kennel, same day, two events)

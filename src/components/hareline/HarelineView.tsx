@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EventCard, getDayOfWeek, type HarelineEvent } from "./EventCard";
@@ -58,6 +58,17 @@ export function HarelineView({
 
   // Selected event for detail panel (desktop only)
   const [selectedEvent, setSelectedEvent] = useState<HarelineEvent | null>(null);
+
+  // Escape key dismisses detail panel
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && selectedEvent) {
+        setSelectedEvent(null);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedEvent]);
 
   // Sync state to URL via replaceState (no re-render, no history entry)
   const syncUrl = useCallback(
@@ -283,6 +294,7 @@ export function HarelineView({
                 event={selectedEvent}
                 attendance={selectedEvent ? (attendanceMap[selectedEvent.id] ?? null) : null}
                 isAuthenticated={isAuthenticated}
+                onDismiss={() => setSelectedEvent(null)}
               />
             </div>
           </div>

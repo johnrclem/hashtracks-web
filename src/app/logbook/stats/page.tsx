@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { LogbookStats } from "@/components/logbook/LogbookStats";
+
+export const metadata: Metadata = {
+  title: "Stats · HashTracks",
+};
 
 const MILESTONES = [
   { target: 25, label: "" },

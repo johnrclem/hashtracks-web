@@ -1,5 +1,20 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const kennel = await prisma.kennel.findUnique({
+    where: { slug },
+    select: { shortName: true },
+  });
+  if (!kennel) return { title: "Kennel · HashTracks" };
+  return { title: `${kennel.shortName} · Kennels · HashTracks` };
+}
 import { getOrCreateUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { SubscribeButton } from "@/components/kennels/SubscribeButton";
