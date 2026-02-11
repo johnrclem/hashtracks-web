@@ -17,6 +17,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { SourceDetailActions } from "@/components/admin/SourceDetailActions";
+import { TYPE_LABELS } from "@/components/admin/SourceTable";
 
 const healthColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   HEALTHY: "default",
@@ -99,6 +100,7 @@ export default async function SourceDetailPage({
       <div className="space-y-2">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">{source.name}</h1>
+          <Badge variant="outline">{TYPE_LABELS[source.type] ?? source.type}</Badge>
           <Badge variant={healthColors[source.healthStatus]}>
             {source.healthStatus}
           </Badge>
@@ -122,8 +124,8 @@ export default async function SourceDetailPage({
 
       {/* Stats grid */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <StatCard label="Type" value={source.type} />
         <StatCard label="Trust Level" value={`${source.trustLevel}/10`} />
+        <StatCard label="Frequency" value={source.scrapeFreq} />
         <StatCard label="Raw Events" value={rawEventCount.toString()} />
         <StatCard label="Linked Events" value={linkedEventCount.toString()} />
       </div>
@@ -236,7 +238,6 @@ export default async function SourceDetailPage({
       <div className="text-xs text-muted-foreground">
         <p>Last scrape: {source.lastScrapeAt ? formatNYC(source.lastScrapeAt) : "Never"}</p>
         <p>Last success: {source.lastSuccessAt ? formatNYC(source.lastSuccessAt) : "Never"}</p>
-        <p>Scrape frequency: {source.scrapeFreq}</p>
       </div>
     </div>
   );

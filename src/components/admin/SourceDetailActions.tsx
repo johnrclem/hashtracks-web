@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { deleteSource } from "@/app/admin/sources/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { SourceForm } from "./SourceForm";
 import { toast } from "sonner";
 
@@ -96,53 +100,79 @@ export function SourceDetailActions({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1">
-        <Label htmlFor="scrape-days" className="sr-only">
-          Days
-        </Label>
-        <Input
-          id="scrape-days"
-          value={scrapeDays}
-          onChange={(e) => setScrapeDays(e.target.value)}
-          className="h-8 w-16 text-xs"
-          type="number"
-          min="1"
-        />
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={isScraping}
-          onClick={() => handleScrape(false)}
-        >
-          {isScraping ? "..." : "Scrape"}
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          disabled={isScraping}
-          onClick={() => handleScrape(true)}
-        >
-          Force
-        </Button>
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex items-center gap-1.5">
+        <span className="text-sm text-muted-foreground">Lookback:</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Input
+              id="scrape-days"
+              value={scrapeDays}
+              onChange={(e) => setScrapeDays(e.target.value)}
+              className="h-8 w-16 text-xs"
+              type="number"
+              min="1"
+            />
+          </TooltipTrigger>
+          <TooltipContent>Number of days to look back when scraping</TooltipContent>
+        </Tooltip>
+        <span className="text-sm text-muted-foreground">days</span>
       </div>
-      <SourceForm
-        source={source}
-        allKennels={allKennels}
-        trigger={
-          <Button size="sm" variant="outline">
-            Edit
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isScraping}
+            onClick={() => handleScrape(false)}
+          >
+            {isScraping ? "..." : "Scrape"}
           </Button>
-        }
-      />
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={isPending}
-        onClick={handleDelete}
-      >
-        {isPending ? "..." : "Delete"}
-      </Button>
+        </TooltipTrigger>
+        <TooltipContent>Run scraper (skips unchanged events)</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={isScraping}
+            onClick={() => handleScrape(true)}
+          >
+            Force
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Re-scrape all events from scratch</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span>
+            <SourceForm
+              source={source}
+              allKennels={allKennels}
+              trigger={
+                <Button size="sm" variant="outline">
+                  Edit
+                </Button>
+              }
+            />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>Edit source configuration</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isPending}
+            onClick={handleDelete}
+          >
+            {isPending ? "..." : "Delete"}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Delete source and scrape history</TooltipContent>
+      </Tooltip>
     </div>
   );
 }

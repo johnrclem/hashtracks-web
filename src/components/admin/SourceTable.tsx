@@ -14,8 +14,11 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { SourceForm } from "./SourceForm";
 import { toast } from "sonner";
 
@@ -46,6 +49,29 @@ const healthColors: Record<string, string> = {
   UNKNOWN: "outline",
 };
 
+export const TYPE_LABELS: Record<string, string> = {
+  HTML_SCRAPER: "HTML Scraper",
+  GOOGLE_CALENDAR: "Google Calendar",
+  GOOGLE_SHEETS: "Google Sheets",
+  ICAL_FEED: "iCal Feed",
+  RSS_FEED: "RSS Feed",
+  JSON_API: "JSON API",
+  MANUAL: "Manual",
+};
+
+function relativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay}d ago`;
+}
+
 export function SourceTable({ sources, allKennels }: SourceTableProps) {
   if (sources.length === 0) {
     return <p className="text-sm text-muted-foreground">No sources yet.</p>;
@@ -59,9 +85,9 @@ export function SourceTable({ sources, allKennels }: SourceTableProps) {
           <TableHead>Type</TableHead>
           <TableHead>Health</TableHead>
           <TableHead>Last Scrape</TableHead>
-          <TableHead className="text-center">Kennels</TableHead>
+          <TableHead className="text-center">Linked</TableHead>
           <TableHead className="text-center">Raw Events</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
+          <TableHead className="w-10"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -85,8 +111,7 @@ function SourceRow({
   allKennels: { id: string; shortName: string }[];
 }) {
   const [isPending, startTransition] = useTransition();
-  const [isScraping, setIsScraping] = useState(false);
-  const [scrapeDays, setScrapeDays] = useState("90");
+  const [menuOpen, setMenuOpen] = useState(false);
   const router = useRouter();
 
   function handleDelete() {
@@ -94,6 +119,7 @@ function SourceRow({
       return;
     }
 
+    setMenuOpen(false);
     startTransition(async () => {
       const result = await deleteSource(source.id);
       if (result.error) {
@@ -105,60 +131,33 @@ function SourceRow({
     });
   }
 
-  async function handleScrape(force = false) {
-    if (force && !confirm("Force re-scrape will delete all existing raw events for this source and re-scrape from scratch. Continue?")) {
-      return;
-    }
-    setIsScraping(true);
-    try {
-      const res = await fetch("/api/admin/scrape", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceId: source.id,
-          days: parseInt(scrapeDays, 10) || 90,
-          force,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        toast.error(data.error || "Scrape failed");
-      } else {
-        toast.success(
-          `${force ? "Force re-scrape" : "Scrape"} complete: ${data.scrape.eventsFound} found, ${data.merge.created} created, ${data.merge.updated} updated, ${data.merge.skipped} skipped` +
-            (data.merge.unmatched.length > 0
-              ? `, ${data.merge.unmatched.length} unmatched tags`
-              : ""),
-        );
-        if (data.merge.unmatched.length > 0) {
-          toast.info(
-            `Unmatched tags: ${data.merge.unmatched.join(", ")}`,
-          );
-        }
-      }
-      router.refresh();
-    } catch {
-      toast.error("Scrape request failed");
-    } finally {
-      setIsScraping(false);
-    }
-  }
+  const fullDate = source.lastScrapeAt
+    ? new Date(source.lastScrapeAt).toLocaleString("en-US", {
+        timeZone: "America/New_York",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+    : null;
 
   return (
     <TableRow>
       <TableCell>
-        <div>
+        <div className="max-w-[280px]">
           <Link href={`/admin/sources/${source.id}`} className="font-medium hover:underline">
             {source.name}
           </Link>
-          <p className="text-xs text-muted-foreground">{source.url}</p>
+          <p className="truncate text-xs text-muted-foreground" title={source.url}>
+            {source.url}
+          </p>
         </div>
       </TableCell>
       <TableCell>
         <Badge variant="outline" className="text-xs">
-          {source.type}
+          {TYPE_LABELS[source.type] ?? source.type}
         </Badge>
       </TableCell>
       <TableCell>
@@ -175,71 +174,56 @@ function SourceRow({
         </Badge>
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">
-        {source.lastScrapeAt
-          ? new Date(source.lastScrapeAt).toLocaleString()
-          : "Never"}
+        {source.lastScrapeAt ? (
+          <span title={fullDate ?? undefined}>
+            {relativeTime(source.lastScrapeAt)}
+          </span>
+        ) : (
+          "Never"
+        )}
       </TableCell>
       <TableCell className="text-center">
         {source.linkedKennels.length}
       </TableCell>
       <TableCell className="text-center">{source.rawEventCount}</TableCell>
-      <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-2">
-          <div className="flex items-center gap-1">
-            <Label htmlFor={`days-${source.id}`} className="sr-only">
-              Days
-            </Label>
-            <Input
-              id={`days-${source.id}`}
-              value={scrapeDays}
-              onChange={(e) => setScrapeDays(e.target.value)}
-              className="h-8 w-16 text-xs"
-              type="number"
-              min="1"
+      <TableCell>
+        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+              <span className="sr-only">Actions</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-36 p-1">
+            <SourceForm
+              source={{
+                id: source.id,
+                name: source.name,
+                url: source.url,
+                type: source.type,
+                trustLevel: source.trustLevel,
+                scrapeFreq: source.scrapeFreq,
+                linkedKennelIds: source.linkedKennels.map((k) => k.id),
+              }}
+              allKennels={allKennels}
+              trigger={
+                <button
+                  className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Edit
+                </button>
+              }
             />
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isScraping}
-              onClick={() => handleScrape(false)}
+            <button
+              className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-accent"
+              onClick={handleDelete}
+              disabled={isPending}
             >
-              {isScraping ? "..." : "Scrape"}
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              disabled={isScraping}
-              onClick={() => handleScrape(true)}
-            >
-              Force
-            </Button>
-          </div>
-          <SourceForm
-            source={{
-              id: source.id,
-              name: source.name,
-              url: source.url,
-              type: source.type,
-              trustLevel: source.trustLevel,
-              scrapeFreq: source.scrapeFreq,
-              linkedKennelIds: source.linkedKennels.map((k) => k.id),
-            }}
-            allKennels={allKennels}
-            trigger={
-              <Button size="sm" variant="outline">
-                Edit
-              </Button>
-            }
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={isPending}
-            onClick={handleDelete}
-          >
-            {isPending ? "..." : "Delete"}
-          </Button>
-        </div>
+              {isPending ? "Deleting..." : "Delete"}
+            </button>
+          </PopoverContent>
+        </Popover>
       </TableCell>
     </TableRow>
   );
