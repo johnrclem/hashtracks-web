@@ -43,20 +43,22 @@ Last updated: 2026-02-12
 - [ ] Add admin "Import Full History" button per source
 - [ ] Quality metrics dashboard: show per-source event counts by year, unmatched kennel tags, missing fields
 
-### Source Change Detection & Monitoring
+### Source Change Detection & Monitoring — COMPLETE
 **Goal**: Detect when a source changes format and alert for human review.
 
-- [ ] **Scrape health scoring**: Track success rate, event count trends, and field fill rates per scrape
-  - If event count drops >50% compared to rolling average, flag as potential format change
-  - If field fill rate drops (e.g., locations suddenly all empty), flag specific field
-- [ ] **Structural change detection for HTML sources**: Hash the HTML structure (tag hierarchy) separately from content
-  - Compare structural fingerprint between scrapes
-  - If structure changes but content doesn't parse, trigger alert
-- [ ] **Admin alerts page**: `/admin/alerts` showing flagged sources that need human review
-  - Alert types: format change suspected, event count anomaly, new unmatched kennel tags, scrape failures
-  - One-click actions: acknowledge, snooze, investigate (links to source detail + recent scrape logs)
-- [ ] **Email/notification integration**: Send alerts to admin email when source health degrades
-- [ ] **Graceful degradation**: When a scrape partially fails (some events parse, some don't), save what works and flag the rest rather than failing the entire scrape
+- [x] **Scrape health scoring**: Rolling-window analysis (last 10 scrapes) for event count trends and field fill rates
+  - Event count drop >50% → WARNING alert; drop to 0 → CRITICAL alert
+  - Field fill rate drop >30pp from baseline → WARNING alert (per-field)
+- [x] **Structural change detection for HTML sources**: SHA-256 hash of tag hierarchy (table structure, CSS classes, child tag patterns)
+  - Compares fingerprint between scrapes, alerts on structural changes
+- [x] **Admin alerts page**: `/admin/alerts` with filter tabs (Active, Open, Acknowledged, Snoozed, Resolved, All)
+  - 6 alert types: event count anomaly, field fill drop, structure change, scrape failure, consecutive failures, unmatched tags
+  - Actions: acknowledge, snooze (24h/7d), resolve, investigate (link to source detail)
+  - Alert badge count on admin nav tab
+- [x] **Graceful degradation**: Per-event error tracking in merge pipeline (capped at 50 errors), partial success saves what works
+- [x] **Alert deduplication**: Upserts against existing open alerts; respects snooze windows
+- [x] **Source detail integration**: Open alerts stat card + recent alerts section on source detail page
+- [ ] **Email/notification integration**: Send alerts to admin email when source health degrades (deferred)
 
 ### Config-Driven Source Onboarding (Admin UI)
 **Goal**: Add new Google Sheets sources without code changes.
