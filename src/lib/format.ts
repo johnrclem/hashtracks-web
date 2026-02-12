@@ -53,6 +53,16 @@ export function participationLevelAbbrev(level: string): string {
 /** All participation levels in display order. */
 export const PARTICIPATION_LEVELS = Object.keys(LEVEL_LABELS);
 
+const VALID_LEVELS = new Set(PARTICIPATION_LEVELS);
+
+type ParticipationLevel = "RUN" | "HARE" | "BAG_HERO" | "DRINK_CHECK" | "BEER_MILE" | "WALK" | "CIRCLE_ONLY";
+
+/** Validate and return a ParticipationLevel, or default to "RUN" if invalid/missing. */
+export function parseParticipationLevel(value: string | undefined): ParticipationLevel {
+  if (value && VALID_LEVELS.has(value)) return value as ParticipationLevel;
+  return "RUN";
+}
+
 // ── Region display ──
 
 const REGION_CONFIG: Record<string, { abbrev: string; classes: string }> = {

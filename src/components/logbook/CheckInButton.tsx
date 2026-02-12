@@ -34,7 +34,7 @@ export function CheckInButton({
   const [editOpen, setEditOpen] = useState(false);
   const router = useRouter();
 
-  // Determine if event is in the past (client-side check)
+  // Determine if event is today or in the past (client-side check)
   const now = new Date();
   const todayUtcNoon = Date.UTC(
     now.getUTCFullYear(),
@@ -43,7 +43,7 @@ export function CheckInButton({
     12, 0, 0,
   );
   const eventTime = new Date(eventDate).getTime();
-  const isPast = eventTime < todayUtcNoon;
+  const isPast = eventTime <= todayUtcNoon;
 
   // Not authenticated
   if (!isAuthenticated) {
