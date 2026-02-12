@@ -18,7 +18,8 @@ export async function generateMetadata({
 import { getOrCreateUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { SubscribeButton } from "@/components/kennels/SubscribeButton";
-import { EventCard, type HarelineEvent } from "@/components/hareline/EventCard";
+import type { HarelineEvent } from "@/components/hareline/EventCard";
+import { CollapsibleEventList } from "@/components/kennels/CollapsibleEventList";
 
 export default async function KennelDetailPage({
   params,
@@ -144,11 +145,7 @@ export default async function KennelDetailPage({
         {upcoming.length === 0 ? (
           <p className="text-sm text-muted-foreground">No upcoming events.</p>
         ) : (
-          <div className="space-y-3">
-            {upcoming.map((event) => (
-              <EventCard key={event.id} event={event} density="medium" />
-            ))}
-          </div>
+          <CollapsibleEventList events={upcoming} defaultLimit={4} label="upcoming" />
         )}
       </div>
 
@@ -156,16 +153,7 @@ export default async function KennelDetailPage({
       {past.length > 0 && (
         <div>
           <h2 className="mb-3 text-lg font-semibold">Past Events</h2>
-          <div className="space-y-3">
-            {past.slice(0, 10).map((event) => (
-              <EventCard key={event.id} event={event} density="medium" />
-            ))}
-            {past.length > 10 && (
-              <p className="text-sm text-muted-foreground">
-                And {past.length - 10} more past events.
-              </p>
-            )}
-          </div>
+          <CollapsibleEventList events={past} defaultLimit={10} label="past" />
         </div>
       )}
     </div>
