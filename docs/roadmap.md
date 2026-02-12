@@ -29,17 +29,18 @@ Last updated: 2026-02-12
 
 ## Near-Term: Source Scaling & Data Quality
 
-### Historical Event Import
+### Historical Event Import — Sprint 7 (Infra COMPLETE)
 **Goal**: Import full event history from existing sources, not just recent events.
 
-- [ ] Increase default scrape window from 90 days to 365 days for all sources
-- [ ] Add `days` parameter to source config to allow per-source window customization
+- [x] Add `scrapeDays` field to Source model for per-source window configuration
+- [x] Cron uses per-source `scrapeDays` instead of hardcoded 90 days
+- [x] Admin UI pre-fills lookback from source config
+- [x] Seed: hashnyc/Boston → 365 days, Summit → 9999 (all tabs)
 - [ ] hashnyc.com: Test `?days=all` for full 8+ year archive import
   - Quality control: spot-check events from each year for correct parsing
   - Consider batch processing (1 year at a time) to manage memory and error isolation
-- [ ] Boston Calendar: API v3 supports `timeMin`/`timeMax` — extend to 2+ years
-- [ ] Summit Sheets: Already processes all tabs; confirm data quality for older tabs (1980s-era data may have different column formats)
-- [ ] Add admin UI controls: "Import full history" button per source with progress indicator
+- [ ] Boston Calendar: Verify 365-day window captures sufficient history
+- [ ] Add admin "Import Full History" button per source
 - [ ] Quality metrics dashboard: show per-source event counts by year, unmatched kennel tags, missing fields
 
 ### Source Change Detection & Monitoring
@@ -94,8 +95,16 @@ Last updated: 2026-02-12
 - [x] Stats dashboard (`/logbook/stats`): totals, per-kennel, per-region, per-level breakdowns
 - [x] Milestone markers (25, 50, 69 "Nice.", 100, 150, 200, 250, 300, 400, 500, 666 "Devilish", 700, 800, 900, 1000)
 
+### "I'm Going" RSVP — Sprint 7 COMPLETE
+- [x] **AttendanceStatus enum**: INTENDING / CONFIRMED — separate from ParticipationLevel
+- [x] **"I'm Going" toggle button** on future events (authenticated users)
+- [x] **"Going" blue badge** on event cards and logbook entries
+- [x] **"Confirm" button** appears after event passes for INTENDING records
+- [x] **checkIn() auto-upgrade**: Existing INTENDING → CONFIRMED on check-in
+- [x] **Stats filter**: Only CONFIRMED records counted in stats/milestones
+- [x] **Event detail counts**: Separate "X checked in · Y going" display
+
 ### Logbook — Next Up
-- [ ] **"I'm Going" RSVP** (Sprint 5.5): Toggle model — pre-creates Attendance with INTENDING status, user confirms after event passes. Future events show "I'm Going" button.
 - [ ] **Log Unlisted Run**: Manual event entry for runs not in the database (one-off events, traveling, etc.)
 - [ ] **Admin-editable participation levels**: Migrate enum to reference table for custom levels per community
 - [ ] **"Beez There" checkbox**: Optional flag on attendance (nice-to-have, deferred from Sprint 5)
