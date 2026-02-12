@@ -52,7 +52,7 @@ calendar + personal logbook + kennel directory.
 - NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 - NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 - GEMINI_API_KEY=         # Google AI API key (Sprint 10+)
-- CRON_SECRET=            # Secret for Vercel Cron auth (Sprint 6+)
+- CRON_SECRET=            # Secret for Vercel Cron auth (set in Vercel dashboard)
 - GOOGLE_CALENDAR_API_KEY= # For Google Calendar + Sheets APIs
 
 ## Important Files
@@ -61,6 +61,8 @@ calendar + personal logbook + kennel directory.
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` (Clerk→DB sync + admin role check)
+- `src/lib/format.ts` — Shared utilities: time formatting, region config/colors, participation levels
+- `src/lib/calendar.ts` — Google Calendar URL + .ics file generation (client-side)
 - `src/middleware.ts` — Clerk route protection (public vs authenticated routes)
 - `src/adapters/types.ts` — SourceAdapter interface + RawEventData types
 - `src/adapters/registry.ts` — Adapter factory (SourceType → adapter instance)
@@ -69,6 +71,8 @@ calendar + personal logbook + kennel directory.
 - `src/adapters/google-sheets/adapter.ts` — Google Sheets CSV adapter (Summit H3, config-driven)
 - `src/pipeline/merge.ts` — Raw→Canonical merge pipeline (fingerprint dedup)
 - `src/pipeline/kennel-resolver.ts` — Alias-based kennel name resolution
+- `src/pipeline/scrape.ts` — Shared `scrapeSource()` used by cron + admin routes
+- `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
 
 ## Documentation
 - `docs/source-onboarding-playbook.md` — Step-by-step guide for adding new data sources

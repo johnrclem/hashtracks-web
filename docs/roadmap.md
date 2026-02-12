@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-11
+Last updated: 2026-02-12
 
 ---
 
@@ -157,6 +157,20 @@ Last updated: 2026-02-11
 - [x] **"Add to Calendar" button**: Google Calendar URL + .ics download on event detail page and panel
 - [x] **Loading skeletons**: Hareline, logbook, and kennel detail pages
 - [x] **Dynamic page titles**: Context-aware browser tab titles for all pages
+- [x] **Color-coded region badges**: Curated color palette per region on event cards and logbook
+
+### Admin Sources Polish — COMPLETE
+- [x] **Slimmed list table**: Truncated URLs, friendly type labels, relative timestamps, kebab overflow menu
+- [x] **Detail page tooltips**: All action buttons labeled, "Lookback: 90 days" visible label
+- [x] **Detail page layout**: Type badge in header, frequency surfaced in stats grid
+
+### Calendar View Improvements — COMPLETE
+- [x] **Show all events**: Calendar bypasses upcoming/past filter — navigate freely to any month
+- [x] **Region color coding**: Calendar badges match list view region colors
+- [x] **Dim past days**: Past days rendered at 50% opacity for visual distinction
+- [x] **Vertical badge stacking**: Max 2 badges per cell + "+N more" overflow indicator
+- [x] **Grid lines**: Subtle 1px lines between calendar cells via gap-as-border technique
+- [x] **Side panel on desktop**: Day detail panel as sticky sidebar on large screens
 
 ### Remaining Polish
 - [ ] Mobile responsiveness pass
