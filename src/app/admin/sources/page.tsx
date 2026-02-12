@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { SourceTable } from "@/components/admin/SourceTable";
 import { SourceForm } from "@/components/admin/SourceForm";
+import { RefreshAllButton } from "@/components/admin/RefreshAllButton";
 import { Button } from "@/components/ui/button";
 
 export default async function AdminSourcesPage() {
@@ -43,10 +44,13 @@ export default async function AdminSourcesPage() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Manage Sources</h2>
-        <SourceForm
-          allKennels={allKennels}
-          trigger={<Button size="sm">Add Source</Button>}
-        />
+        <div className="flex items-center gap-2">
+          <RefreshAllButton />
+          <SourceForm
+            allKennels={allKennels}
+            trigger={<Button size="sm">Add Source</Button>}
+          />
+        </div>
       </div>
 
       <SourceTable sources={serialized} allKennels={allKennels} />
