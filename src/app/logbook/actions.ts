@@ -2,6 +2,7 @@
 
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { parseParticipationLevel } from "@/lib/format";
 import { revalidatePath } from "next/cache";
 
 export async function checkIn(
@@ -18,7 +19,7 @@ export async function checkIn(
   });
   if (!event) return { error: "Event not found" };
 
-  // Validate event is in the past (UTC noon comparison)
+  // Validate event is today or in the past (UTC noon comparison)
   const now = new Date();
   const todayUtcNoon = Date.UTC(
     now.getUTCFullYear(),
@@ -26,8 +27,8 @@ export async function checkIn(
     now.getUTCDate(),
     12, 0, 0,
   );
-  if (event.date.getTime() >= todayUtcNoon) {
-    return { error: "Can only check in to past events" };
+  if (event.date.getTime() > todayUtcNoon) {
+    return { error: "Can only check in to today's or past events" };
   }
 
   // Check for existing attendance (handle race conditions + RSVP upgrade)
@@ -41,7 +42,7 @@ export async function checkIn(
         where: { id: existing.id },
         data: {
           status: "CONFIRMED",
-          participationLevel: (participationLevel as "RUN" | "HARE" | "BAG_HERO" | "DRINK_CHECK" | "BEER_MILE" | "WALK" | "CIRCLE_ONLY") ?? "RUN",
+          participationLevel: parseParticipationLevel(participationLevel),
         },
       });
       revalidatePath("/hareline");
@@ -55,7 +56,7 @@ export async function checkIn(
       userId: user.id,
       eventId,
       status: "CONFIRMED",
-      participationLevel: (participationLevel as "RUN" | "HARE" | "BAG_HERO" | "DRINK_CHECK" | "BEER_MILE" | "WALK" | "CIRCLE_ONLY") ?? "RUN",
+      participationLevel: parseParticipationLevel(participationLevel),
     },
   });
 
@@ -86,7 +87,7 @@ export async function updateAttendance(
     where: { id: attendanceId },
     data: {
       ...(data.participationLevel !== undefined && {
-        participationLevel: data.participationLevel as "RUN" | "HARE" | "BAG_HERO" | "DRINK_CHECK" | "BEER_MILE" | "WALK" | "CIRCLE_ONLY",
+        participationLevel: parseParticipationLevel(data.participationLevel),
       }),
       ...(data.stravaUrl !== undefined && { stravaUrl: data.stravaUrl }),
       ...(data.notes !== undefined && { notes: data.notes }),
@@ -109,7 +110,7 @@ export async function rsvp(eventId: string) {
   });
   if (!event) return { error: "Event not found" };
 
-  // Validate event is in the future (UTC noon comparison)
+  // Validate event is in the future — today's events can be checked in, not RSVP'd
   const now = new Date();
   const todayUtcNoon = Date.UTC(
     now.getUTCFullYear(),
@@ -117,7 +118,7 @@ export async function rsvp(eventId: string) {
     now.getUTCDate(),
     12, 0, 0,
   );
-  if (event.date.getTime() < todayUtcNoon) {
+  if (event.date.getTime() <= todayUtcNoon) {
     return { error: "Can only RSVP to future events" };
   }
 
@@ -165,7 +166,7 @@ export async function confirmAttendance(
   if (attendance.userId !== user.id) return { error: "Not authorized" };
   if (attendance.status !== "INTENDING") return { error: "Already confirmed" };
 
-  // Validate event is now in the past
+  // Validate event is today or in the past
   const now = new Date();
   const todayUtcNoon = Date.UTC(
     now.getUTCFullYear(),
@@ -173,7 +174,7 @@ export async function confirmAttendance(
     now.getUTCDate(),
     12, 0, 0,
   );
-  if (attendance.event.date.getTime() >= todayUtcNoon) {
+  if (attendance.event.date.getTime() > todayUtcNoon) {
     return { error: "Event hasn't happened yet" };
   }
 
@@ -181,7 +182,7 @@ export async function confirmAttendance(
     where: { id: attendanceId },
     data: {
       status: "CONFIRMED",
-      participationLevel: (participationLevel as "RUN" | "HARE" | "BAG_HERO" | "DRINK_CHECK" | "BEER_MILE" | "WALK" | "CIRCLE_ONLY") ?? attendance.participationLevel,
+      participationLevel: participationLevel ? parseParticipationLevel(participationLevel) : attendance.participationLevel,
     },
   });
 
