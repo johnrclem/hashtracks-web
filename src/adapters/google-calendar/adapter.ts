@@ -22,14 +22,14 @@ const BOSTON_KENNEL_PATTERNS: [RegExp, string][] = [
   [/BH3/i, "BoH3"],
 ];
 
-function extractKennelTag(summary: string): string {
+export function extractKennelTag(summary: string): string {
   for (const [pattern, tag] of BOSTON_KENNEL_PATTERNS) {
     if (pattern.test(summary)) return tag;
   }
   return "BoH3";
 }
 
-function extractRunNumber(summary: string, description?: string): number | undefined {
+export function extractRunNumber(summary: string, description?: string): number | undefined {
   // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781")
   const summaryMatch = summary.match(/#(\d+)/);
   if (summaryMatch) return parseInt(summaryMatch[1], 10);
@@ -47,7 +47,7 @@ function extractRunNumber(summary: string, description?: string): number | undef
   return undefined;
 }
 
-function extractTitle(summary: string): string {
+export function extractTitle(summary: string): string {
   // Strip "Kennel: " or "Kennel #123: " prefix to get the event name
   const stripped = summary.replace(/^[^:]+:\s*/, "").trim();
   return stripped || summary;
@@ -57,7 +57,7 @@ function extractTitle(summary: string): string {
  * Extract hare names from the event description.
  * Boston Hash Calendar uses: "Hare: X", "Hares: X & Y", "Who: X and Y"
  */
-function extractHares(description: string): string | undefined {
+export function extractHares(description: string): string | undefined {
   // Try each pattern, return first match
   const patterns = [
     /(?:^|\n)\s*Hares?:\s*(.+)/im,

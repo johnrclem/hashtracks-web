@@ -81,7 +81,7 @@ export async function resolveKennelTag(
  * Multi-word patterns first, then shorter patterns.
  * Returns the canonical shortName or null.
  */
-function mapKennelTag(input: string): string | null {
+export function mapKennelTag(input: string): string | null {
   // Multi-word patterns FIRST (longer before shorter)
   if (input.includes("ballbuster") || input.includes("bobbh3"))
     return "BoBBH3";

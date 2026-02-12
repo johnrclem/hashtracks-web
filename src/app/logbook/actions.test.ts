@@ -301,3 +301,71 @@ describe("deleteAttendance", () => {
     expect(mockAttDelete).toHaveBeenCalledWith({ where: { id: "att_1" } });
   });
 });
+
+// ── updateAttendance ──
+
+import { updateAttendance } from "./actions";
+
+describe("updateAttendance", () => {
+  it("returns error when not authenticated", async () => {
+    mockAuth.mockResolvedValueOnce(null);
+    const result = await updateAttendance("att_1", { participationLevel: "HARE" });
+    expect(result).toEqual({ error: "Not authenticated" });
+  });
+
+  it("returns error when attendance not found", async () => {
+    mockAttFind.mockResolvedValueOnce(null);
+    const result = await updateAttendance("att_missing", {});
+    expect(result).toEqual({ error: "Attendance not found" });
+  });
+
+  it("returns error when not owner", async () => {
+    mockAttFind.mockResolvedValueOnce({
+      id: "att_1", userId: "other_user",
+    } as never);
+    const result = await updateAttendance("att_1", {});
+    expect(result).toEqual({ error: "Not authorized" });
+  });
+
+  it("updates participationLevel only", async () => {
+    mockAttFind.mockResolvedValueOnce({ id: "att_1", userId: "user_1" } as never);
+    mockAttUpdate.mockResolvedValueOnce({} as never);
+    const result = await updateAttendance("att_1", { participationLevel: "HARE" });
+    expect(result).toEqual({ success: true });
+    expect(mockAttUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ participationLevel: "HARE" }),
+      }),
+    );
+  });
+
+  it("updates stravaUrl only", async () => {
+    mockAttFind.mockResolvedValueOnce({ id: "att_1", userId: "user_1" } as never);
+    mockAttUpdate.mockResolvedValueOnce({} as never);
+    const result = await updateAttendance("att_1", { stravaUrl: "https://strava.com/123" });
+    expect(result).toEqual({ success: true });
+    expect(mockAttUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ stravaUrl: "https://strava.com/123" }),
+      }),
+    );
+  });
+
+  it("updates notes only", async () => {
+    mockAttFind.mockResolvedValueOnce({ id: "att_1", userId: "user_1" } as never);
+    mockAttUpdate.mockResolvedValueOnce({} as never);
+    const result = await updateAttendance("att_1", { notes: "Great trail" });
+    expect(result).toEqual({ success: true });
+  });
+
+  it("validates invalid participationLevel falls back to RUN", async () => {
+    mockAttFind.mockResolvedValueOnce({ id: "att_1", userId: "user_1" } as never);
+    mockAttUpdate.mockResolvedValueOnce({} as never);
+    await updateAttendance("att_1", { participationLevel: "INVALID" });
+    expect(mockAttUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ participationLevel: "RUN" }),
+      }),
+    );
+  });
+});

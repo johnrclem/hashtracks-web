@@ -43,7 +43,7 @@ const KENNEL_PATTERNS: [RegExp, string][] = [
  * 3. Decimal numeric entities (&#8217;)
  * Then strip HTML tags.
  */
-function decodeHtmlEntities(text: string): string {
+export function decodeHtmlEntities(text: string): string {
   // 1. Named entities
   let result = text
     .replace(/&nbsp;/gi, " ")
@@ -79,7 +79,7 @@ function decodeHtmlEntities(text: string): string {
  * Extract year from row ID or date cell.
  * Row IDs look like "2024oct30".
  */
-function extractYear(rowId: string | undefined, dateCellHtml: string): number | null {
+export function extractYear(rowId: string | undefined, dateCellHtml: string): number | null {
   // Try row ID first
   if (rowId) {
     const match = rowId.match(/^(\d{4})/);
@@ -102,7 +102,7 @@ function extractYear(rowId: string | undefined, dateCellHtml: string): number | 
  * Extract month and day from date text.
  * Matches: "October 30", "Jan 5th", "December 1st"
  */
-function extractMonthDay(
+export function extractMonthDay(
   dateText: string,
 ): { month: number; day: number } | null {
   const match = dateText.match(/(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?/i);
@@ -120,7 +120,7 @@ function extractMonthDay(
  * Extract kennel tag from the details cell text.
  * Two-stage: anchored to start → anywhere in text → fallback to NYCH3.
  */
-function extractKennelTag(text: string): string {
+export function extractKennelTag(text: string): string {
   // Stage 1: Anchored to start of text
   for (const [pattern, tag] of KENNEL_PATTERNS) {
     const anchored = new RegExp(`^\\s*${pattern.source}`, "i");
@@ -145,7 +145,7 @@ function extractKennelTag(text: string): string {
 /**
  * Extract run number from text.
  */
-function extractRunNumber(text: string): number | undefined {
+export function extractRunNumber(text: string): number | undefined {
   const match = text.match(/(?:Run|Trail|#)\s*(\d+)/i);
   return match ? parseInt(match[1], 10) : undefined;
 }
@@ -154,7 +154,7 @@ function extractRunNumber(text: string): number | undefined {
  * Extract title from the details cell.
  * The title is everything after the kennel/run number prefix.
  */
-function extractTitle(text: string): string | undefined {
+export function extractTitle(text: string): string | undefined {
   // Remove kennel prefix and run number
   let title = text
     .replace(
@@ -177,7 +177,7 @@ function extractTitle(text: string): string | undefined {
 /**
  * Extract hares from row HTML (PRD Appendix A.3 three-tier extraction).
  */
-function extractHares($: cheerio.CheerioAPI, row: AnyNode): string {
+export function extractHares($: cheerio.CheerioAPI, row: AnyNode): string {
   const cells = $(row).find("td");
   const cellCount = cells.length;
 
@@ -224,7 +224,7 @@ function extractHares($: cheerio.CheerioAPI, row: AnyNode): string {
  * Extract source URL from a row's deeplink anchor or fallback to first link.
  * Prefers the hashnyc.com page link over Google Maps links.
  */
-function extractSourceUrl(
+export function extractSourceUrl(
   $: cheerio.CheerioAPI,
   row: AnyNode,
   baseUrl: string,
@@ -273,7 +273,7 @@ interface ParsedDetails {
  * Extracts: eventName from <b> tags, location from Start:...Transit: block,
  * locationUrl from maps links, description from <p> paragraphs.
  */
-function parseDetailsCell(
+export function parseDetailsCell(
   $: cheerio.CheerioAPI,
   cell: cheerio.Cheerio<AnyNode>,
 ): ParsedDetails {
@@ -408,7 +408,7 @@ function parseDetailsCell(
  * Extract time from date cell text.
  * Matches patterns like "4:00 pm", "7:15 pm", "12:00 pm"
  */
-function extractTime(text: string): string | undefined {
+export function extractTime(text: string): string | undefined {
   const match = text.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
   if (!match) return undefined;
 
