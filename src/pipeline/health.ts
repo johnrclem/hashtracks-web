@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { SourceHealth, AlertType, AlertSeverity } from "@/generated/prisma/client";
+import type { SourceHealth, AlertType, AlertSeverity, Prisma } from "@/generated/prisma/client";
 import type { FieldFillRates } from "./fill-rates";
 
 interface AlertCandidate {
@@ -7,6 +7,7 @@ interface AlertCandidate {
   severity: AlertSeverity;
   title: string;
   details: string;
+  context?: Record<string, unknown>;
 }
 
 export interface HealthAnalysis {
@@ -66,6 +67,7 @@ export async function analyzeHealth(
       severity: "WARNING",
       title: "Scrape failed",
       details: input.errors.slice(0, 5).join("; "),
+      context: { errorMessages: input.errors.slice(0, 10), consecutiveCount: 1 },
     });
   }
 
@@ -79,6 +81,7 @@ export async function analyzeHealth(
         title: `${prevFailures + 1} consecutive scrape failures`,
         details:
           "Multiple consecutive scrapes have failed. The source may be down or its format may have changed.",
+        context: { errorMessages: input.errors.slice(0, 10), consecutiveCount: prevFailures + 1 },
       });
     }
   }
@@ -96,6 +99,7 @@ export async function analyzeHealth(
         severity: "CRITICAL",
         title: "Zero events found",
         details: `Expected ~${Math.round(avgEvents)} events based on rolling average of last ${recentSuccessful.length} scrapes, but found 0.`,
+        context: { currentCount: 0, baselineAvg: Math.round(avgEvents), baselineWindow: recentSuccessful.length, dropPercent: 100 },
       });
     } else if (
       avgEvents > 5 &&
@@ -109,6 +113,7 @@ export async function analyzeHealth(
         severity: "WARNING",
         title: `Event count dropped ${dropPct}%`,
         details: `Found ${input.eventsFound} events vs rolling average of ${Math.round(avgEvents)} (last ${recentSuccessful.length} scrapes).`,
+        context: { currentCount: input.eventsFound, baselineAvg: Math.round(avgEvents), baselineWindow: recentSuccessful.length, dropPercent: dropPct },
       });
     }
 
@@ -140,6 +145,7 @@ export async function analyzeHealth(
           severity: "WARNING",
           title: `${key} fill rate dropped from ${Math.round(avgRate)}% to ${currentRate}%`,
           details: `The "${key}" field was populated in ~${Math.round(avgRate)}% of events on average but is now at ${currentRate}%.`,
+          context: { field: key, currentRate, baselineAvg: Math.round(avgRate) },
         });
       }
     }
@@ -155,6 +161,7 @@ export async function analyzeHealth(
           severity: "WARNING",
           title: "HTML structure changed",
           details: `Structural fingerprint changed from ${prevHash.slice(0, 12)}... to ${input.structureHash.slice(0, 12)}.... The site template may have been updated.`,
+          context: { previousHash: prevHash, currentHash: input.structureHash },
         });
       }
     }
@@ -173,6 +180,7 @@ export async function analyzeHealth(
           severity: "INFO",
           title: `${novelTags.length} new unmatched kennel tag${novelTags.length !== 1 ? "s" : ""}`,
           details: `New tags: ${novelTags.join(", ")}. These need alias mapping in the kennel resolver.`,
+          context: { tags: novelTags },
         });
       }
     }
@@ -220,6 +228,7 @@ export async function persistAlerts(
           details: candidate.details,
           severity: candidate.severity,
           scrapeLogId,
+          ...(candidate.context ? { context: candidate.context as Prisma.InputJsonValue } : {}),
         },
       });
       continue;
@@ -245,6 +254,7 @@ export async function persistAlerts(
             severity: candidate.severity,
             scrapeLogId,
             snoozedUntil: null,
+            ...(candidate.context ? { context: candidate.context as Prisma.InputJsonValue } : {}),
           },
         });
       }
@@ -261,6 +271,7 @@ export async function persistAlerts(
         severity: candidate.severity,
         title: candidate.title,
         details: candidate.details,
+        ...(candidate.context ? { context: candidate.context as Prisma.InputJsonValue } : {}),
       },
     });
   }

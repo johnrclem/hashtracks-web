@@ -3,6 +3,26 @@
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { scrapeSource } from "@/pipeline/scrape";
+import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
+import type { Prisma } from "@/generated/prisma/client";
+
+interface RepairLogEntry {
+  action: string;
+  timestamp: string;
+  adminId: string;
+  details: Record<string, unknown>;
+  result: "success" | "error";
+  resultMessage?: string;
+}
+
+function appendRepairLog(
+  existing: Prisma.JsonValue | null,
+  entry: RepairLogEntry,
+): Prisma.InputJsonValue {
+  const log = Array.isArray(existing) ? existing : [];
+  return [...log, entry] as Prisma.InputJsonValue;
+}
 
 export async function acknowledgeAlert(alertId: string) {
   const admin = await getAdminUser();
@@ -83,4 +103,389 @@ export async function resolveAllForSource(sourceId: string) {
   revalidatePath("/admin/alerts");
   revalidatePath(`/admin/sources/${sourceId}`);
   return { success: true };
+}
+
+// ── Repair Actions ──
+
+export async function rescrapeFromAlert(alertId: string, force = false) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Unauthorized" };
+
+  const alert = await prisma.alert.findUnique({ where: { id: alertId } });
+  if (!alert) return { error: "Alert not found" };
+
+  const result = await scrapeSource(alert.sourceId, { force });
+
+  await prisma.alert.update({
+    where: { id: alertId },
+    data: {
+      repairLog: appendRepairLog(alert.repairLog, {
+        action: "rescrape",
+        timestamp: new Date().toISOString(),
+        adminId: admin.id,
+        details: { forced: force, eventsFound: result.eventsFound, created: result.created },
+        result: result.success ? "success" : "error",
+        resultMessage: result.errors.length > 0 ? result.errors.slice(0, 3).join("; ") : undefined,
+      }),
+    },
+  });
+
+  revalidatePath("/admin/alerts");
+  revalidatePath(`/admin/sources/${alert.sourceId}`);
+  return {
+    success: true,
+    eventsFound: result.eventsFound,
+    created: result.created,
+    updated: result.updated,
+  };
+}
+
+export async function createAliasFromAlert(
+  alertId: string,
+  tag: string,
+  kennelId: string,
+  rescrapeAfter: boolean,
+) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Unauthorized" };
+
+  const alert = await prisma.alert.findUnique({ where: { id: alertId } });
+  if (!alert) return { error: "Alert not found" };
+
+  // Check alias doesn't already exist
+  const existing = await prisma.kennelAlias.findFirst({
+    where: { alias: { equals: tag, mode: "insensitive" } },
+  });
+  if (existing) return { error: `Alias "${tag}" already exists` };
+
+  // Create alias
+  await prisma.kennelAlias.create({
+    data: { kennelId, alias: tag },
+  });
+
+  // Record repair
+  const kennel = await prisma.kennel.findUnique({
+    where: { id: kennelId },
+    select: { shortName: true },
+  });
+  await prisma.alert.update({
+    where: { id: alertId },
+    data: {
+      repairLog: appendRepairLog(alert.repairLog, {
+        action: "create_alias",
+        timestamp: new Date().toISOString(),
+        adminId: admin.id,
+        details: { tag, kennelId, kennelName: kennel?.shortName },
+        result: "success",
+      }),
+    },
+  });
+
+  // Optionally re-scrape
+  if (rescrapeAfter) {
+    clearResolverCache();
+    await scrapeSource(alert.sourceId);
+  }
+
+  // Auto-resolve if all context tags are now matched
+  const ctx = alert.context as { tags?: string[] } | null;
+  if (ctx?.tags) {
+    clearResolverCache();
+    const remaining: string[] = [];
+    for (const t of ctx.tags) {
+      const result = await resolveKennelTag(t);
+      if (!result.matched) remaining.push(t);
+    }
+    if (remaining.length === 0) {
+      await prisma.alert.update({
+        where: { id: alertId },
+        data: { status: "RESOLVED", resolvedAt: new Date(), resolvedBy: admin.id },
+      });
+    }
+  }
+
+  revalidatePath("/admin/alerts");
+  revalidatePath(`/admin/sources/${alert.sourceId}`);
+  revalidatePath("/admin/kennels");
+  return { success: true };
+}
+
+export async function createKennelFromAlert(
+  alertId: string,
+  tag: string,
+  kennelData: { shortName: string; fullName: string; region: string },
+  rescrapeAfter: boolean,
+) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Unauthorized" };
+
+  const alert = await prisma.alert.findUnique({ where: { id: alertId } });
+  if (!alert) return { error: "Alert not found" };
+
+  // Generate slug
+  const slug = kennelData.shortName
+    .toLowerCase()
+    .replace(/[()]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  // Check uniqueness
+  const existingKennel = await prisma.kennel.findFirst({
+    where: {
+      OR: [
+        { shortName: { equals: kennelData.shortName, mode: "insensitive" } },
+        { slug },
+      ],
+    },
+  });
+  if (existingKennel) return { error: `Kennel "${kennelData.shortName}" already exists` };
+
+  // Create kennel + alias + source link in transaction
+  await prisma.$transaction([
+    prisma.kennel.create({
+      data: {
+        shortName: kennelData.shortName,
+        fullName: kennelData.fullName || kennelData.shortName,
+        slug,
+        region: kennelData.region || "Unknown",
+        aliases: {
+          create: tag !== kennelData.shortName ? [{ alias: tag }] : [],
+        },
+      },
+    }),
+    // Link to the alert's source
+    prisma.sourceKennel.create({
+      data: {
+        sourceId: alert.sourceId,
+        kennelId: "", // Placeholder — filled below
+      },
+    }),
+  ].slice(0, 1)); // Only create kennel in transaction
+
+  // Get the new kennel ID and create the source link
+  const newKennel = await prisma.kennel.findFirst({
+    where: { slug },
+    select: { id: true },
+  });
+  if (newKennel) {
+    await prisma.sourceKennel.create({
+      data: { sourceId: alert.sourceId, kennelId: newKennel.id },
+    });
+  }
+
+  // Record repair
+  await prisma.alert.update({
+    where: { id: alertId },
+    data: {
+      repairLog: appendRepairLog(alert.repairLog, {
+        action: "create_kennel",
+        timestamp: new Date().toISOString(),
+        adminId: admin.id,
+        details: { tag, shortName: kennelData.shortName, slug },
+        result: "success",
+      }),
+    },
+  });
+
+  // Optionally re-scrape
+  if (rescrapeAfter) {
+    clearResolverCache();
+    await scrapeSource(alert.sourceId);
+  }
+
+  // Auto-resolve if all context tags are now matched
+  const ctx = alert.context as { tags?: string[] } | null;
+  if (ctx?.tags) {
+    clearResolverCache();
+    const remaining: string[] = [];
+    for (const t of ctx.tags) {
+      const result = await resolveKennelTag(t);
+      if (!result.matched) remaining.push(t);
+    }
+    if (remaining.length === 0) {
+      await prisma.alert.update({
+        where: { id: alertId },
+        data: { status: "RESOLVED", resolvedAt: new Date(), resolvedBy: admin.id },
+      });
+    }
+  }
+
+  revalidatePath("/admin/alerts");
+  revalidatePath(`/admin/sources/${alert.sourceId}`);
+  revalidatePath("/admin/kennels");
+  return { success: true };
+}
+
+export async function createIssueFromAlert(alertId: string) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Unauthorized" };
+
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return { error: "GITHUB_TOKEN not configured" };
+
+  const alert = await prisma.alert.findUnique({
+    where: { id: alertId },
+    include: { source: { select: { name: true, url: true, type: true } } },
+  });
+  if (!alert) return { error: "Alert not found" };
+
+  const ctx = alert.context as Record<string, unknown> | null;
+  const typeName = alert.type.replace(/_/g, " ").toLowerCase();
+  const title = `[Alert] ${alert.title} — ${alert.source.name}`;
+
+  // Build body based on alert type
+  let contextSection = "";
+  if (ctx) {
+    switch (alert.type) {
+      case "UNMATCHED_TAGS":
+        contextSection = `### Unmatched Tags\n${(ctx.tags as string[]).map((t) => `- \`${t}\``).join("\n")}\n\nThese tags appeared in scraped events but couldn't be resolved to any kennel.\nThe kennel resolver checked: shortName → alias → pattern match → no match.`;
+        break;
+      case "EVENT_COUNT_ANOMALY":
+        contextSection = `### Event Count\n- **Baseline avg:** ${ctx.baselineAvg} (last ${ctx.baselineWindow} scrapes)\n- **Current:** ${ctx.currentCount}\n- **Drop:** ${ctx.dropPercent}%`;
+        break;
+      case "FIELD_FILL_DROP":
+        contextSection = `### Field Quality\n- **Field:** ${ctx.field}\n- **Baseline:** ${ctx.baselineAvg}%\n- **Current:** ${ctx.currentRate}%\n- **Drop:** ${(ctx.baselineAvg as number) - (ctx.currentRate as number)}pp`;
+        break;
+      case "STRUCTURE_CHANGE":
+        contextSection = `### Structure Change\n- **Previous hash:** \`${(ctx.previousHash as string)?.slice(0, 16)}...\`\n- **Current hash:** \`${(ctx.currentHash as string)?.slice(0, 16)}...\`\n\nThe HTML tag hierarchy changed between scrapes, which may break field extraction.`;
+        break;
+      case "SCRAPE_FAILURE":
+      case "CONSECUTIVE_FAILURES":
+        contextSection = `### Errors\n${((ctx.errorMessages as string[]) ?? []).slice(0, 5).map((e) => `- ${e}`).join("\n")}${ctx.consecutiveCount ? `\n\n**Consecutive failures:** ${ctx.consecutiveCount}` : ""}`;
+        break;
+    }
+  }
+
+  const relevantFiles = getRelevantFiles(alert.type, alert.source.type);
+
+  const body = `## Source Alert: ${typeName}
+
+**Source:** ${alert.source.name} (${alert.source.type})
+**URL:** ${alert.source.url}
+**Severity:** ${alert.severity}
+**Alert ID:** ${alert.id}
+
+${contextSection}
+
+### Relevant Files
+${relevantFiles.map((f) => `- \`${f}\``).join("\n")}
+
+### Suggested Approach
+${getSuggestedApproach(alert.type)}
+
+---
+*Created from HashTracks admin alert panel*`;
+
+  // Map alert type to label
+  const typeLabel = `alert:${alert.type.toLowerCase().replace(/_/g, "-")}`;
+  const severityLabel = `severity:${alert.severity.toLowerCase()}`;
+
+  try {
+    const res = await fetch(
+      "https://api.github.com/repos/johnrclem/hashtracks-web/issues",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title,
+          body,
+          labels: ["alert", typeLabel, severityLabel],
+        }),
+      },
+    );
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      return { error: `GitHub API ${res.status}: ${errBody.slice(0, 200)}` };
+    }
+
+    const issue = await res.json();
+    const issueUrl = issue.html_url as string;
+
+    // Record in repair log
+    await prisma.alert.update({
+      where: { id: alertId },
+      data: {
+        repairLog: appendRepairLog(alert.repairLog, {
+          action: "create_issue",
+          timestamp: new Date().toISOString(),
+          adminId: admin.id,
+          details: { issueUrl, issueNumber: issue.number },
+          result: "success",
+        }),
+      },
+    });
+
+    revalidatePath("/admin/alerts");
+    return { success: true, issueUrl };
+  } catch (err) {
+    return { error: `Failed to create issue: ${err instanceof Error ? err.message : "Unknown error"}` };
+  }
+}
+
+function getRelevantFiles(alertType: string, sourceType: string): string[] {
+  const files: string[] = [];
+
+  switch (alertType) {
+    case "UNMATCHED_TAGS":
+      files.push("src/pipeline/kennel-resolver.ts");
+      if (sourceType === "HTML_SCRAPER")
+        files.push("src/adapters/html-scraper/hashnyc.ts");
+      if (sourceType === "GOOGLE_CALENDAR")
+        files.push("src/adapters/google-calendar/adapter.ts");
+      files.push("prisma/seed.ts");
+      break;
+    case "STRUCTURE_CHANGE":
+      files.push("src/adapters/html-scraper/hashnyc.ts");
+      files.push("src/pipeline/structure-hash.ts");
+      break;
+    case "FIELD_FILL_DROP":
+      if (sourceType === "HTML_SCRAPER")
+        files.push("src/adapters/html-scraper/hashnyc.ts");
+      if (sourceType === "GOOGLE_CALENDAR")
+        files.push("src/adapters/google-calendar/adapter.ts");
+      if (sourceType === "GOOGLE_SHEETS")
+        files.push("src/adapters/google-sheets/adapter.ts");
+      files.push("src/pipeline/fill-rates.ts");
+      break;
+    case "SCRAPE_FAILURE":
+    case "CONSECUTIVE_FAILURES":
+      files.push("src/pipeline/scrape.ts");
+      if (sourceType === "HTML_SCRAPER")
+        files.push("src/adapters/html-scraper/hashnyc.ts");
+      if (sourceType === "GOOGLE_CALENDAR")
+        files.push("src/adapters/google-calendar/adapter.ts");
+      if (sourceType === "GOOGLE_SHEETS")
+        files.push("src/adapters/google-sheets/adapter.ts");
+      break;
+    case "EVENT_COUNT_ANOMALY":
+      files.push("src/pipeline/scrape.ts");
+      files.push("src/pipeline/merge.ts");
+      break;
+  }
+
+  return files;
+}
+
+function getSuggestedApproach(alertType: string): string {
+  switch (alertType) {
+    case "UNMATCHED_TAGS":
+      return "Add aliases in the database mapping these tags to existing kennels, or create new kennels if these are genuinely new organizations. Update kennel resolver patterns if a code-level mapping is needed.";
+    case "STRUCTURE_CHANGE":
+      return "Fetch the current page and compare HTML structure to the expected format. Update CSS selectors and extraction patterns in the adapter. Re-scrape to verify the fix.";
+    case "FIELD_FILL_DROP":
+      return "Examine sample raw events to identify which extraction patterns stopped matching. For config-driven adapters, update Source.config. For HTML adapters, update extraction regex patterns.";
+    case "EVENT_COUNT_ANOMALY":
+      return "Check if the source website is accessible. Verify the scrape window (days) is appropriate. Check for structural changes that may have broken event detection.";
+    case "SCRAPE_FAILURE":
+    case "CONSECUTIVE_FAILURES":
+      return "Check source URL accessibility. Review error messages for network, auth, or parsing failures. Verify API keys are valid.";
+    default:
+      return "Investigate the alert context and relevant files.";
+  }
 }

@@ -10,7 +10,12 @@ import {
   acknowledgeAlert,
   snoozeAlert,
   resolveAlert,
+  rescrapeFromAlert,
+  createIssueFromAlert,
 } from "@/app/admin/alerts/actions";
+import { AlertContextDisplay } from "./AlertContextDisplay";
+import { UnmatchedTagResolver } from "./UnmatchedTagResolver";
+import type { KennelOption } from "./UnmatchedTagResolver";
 
 export interface AlertData {
   id: string;
@@ -19,11 +24,28 @@ export interface AlertData {
   severity: string;
   title: string;
   details: string | null;
+  context: Record<string, unknown> | null;
+  repairLog: RepairLogEntry[] | null;
   status: string;
   createdAt: string;
   updatedAt: string;
   snoozedUntil: string | null;
   sourceName: string;
+}
+
+interface RepairLogEntry {
+  action: string;
+  timestamp: string;
+  adminId: string;
+  details: Record<string, unknown>;
+  result: "success" | "error";
+  resultMessage?: string;
+}
+
+interface AlertCardProps {
+  alert: AlertData;
+  allKennels?: { id: string; shortName: string }[];
+  suggestions?: Record<string, KennelOption[]>;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -35,7 +57,10 @@ const TYPE_LABELS: Record<string, string> = {
   UNMATCHED_TAGS: "New Tags",
 };
 
-const SEVERITY_STYLES: Record<string, { border: string; badge: "default" | "secondary" | "destructive" | "outline" }> = {
+const SEVERITY_STYLES: Record<
+  string,
+  { border: string; badge: "default" | "secondary" | "destructive" | "outline" }
+> = {
   CRITICAL: { border: "border-l-4 border-l-red-500", badge: "destructive" },
   WARNING: { border: "border-l-4 border-l-amber-500", badge: "secondary" },
   INFO: { border: "border-l-4 border-l-blue-500", badge: "outline" },
@@ -51,12 +76,41 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-export function AlertCard({ alert }: { alert: AlertData }) {
+const REPAIR_LABELS: Record<string, string> = {
+  rescrape: "Re-scraped",
+  create_alias: "Created alias",
+  create_kennel: "Created kennel",
+  create_issue: "Filed issue",
+};
+
+function formatRepairEntry(entry: RepairLogEntry): string {
+  const label = REPAIR_LABELS[entry.action] ?? entry.action;
+  const d = entry.details;
+  switch (entry.action) {
+    case "create_alias":
+      return `${label}: "${String(d.tag ?? "")}" → ${String(d.kennelName ?? "")}`;
+    case "create_kennel":
+      return `${label}: ${String(d.shortName ?? "")}`;
+    case "rescrape":
+      return `${label}: ${String(d.eventsFound ?? 0)} found, ${String(d.created ?? 0)} created`;
+    case "create_issue":
+      return `${label}: #${String(d.issueNumber ?? "")}`;
+    default:
+      return label;
+  }
+}
+
+export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
   const [isPending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
 
   const style = SEVERITY_STYLES[alert.severity] ?? SEVERITY_STYLES.INFO;
+  const isActive = alert.status === "OPEN" || alert.status === "ACKNOWLEDGED";
+  const ctx = alert.context;
+  const repairLog = Array.isArray(alert.repairLog)
+    ? (alert.repairLog as RepairLogEntry[])
+    : null;
 
   function handleAcknowledge() {
     startTransition(async () => {
@@ -85,14 +139,43 @@ export function AlertCard({ alert }: { alert: AlertData }) {
     });
   }
 
+  function handleRescrape() {
+    startTransition(async () => {
+      const result = await rescrapeFromAlert(alert.id);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(
+          `Re-scraped: ${result.eventsFound} found, ${result.created} created, ${result.updated} updated`,
+        );
+      }
+      router.refresh();
+    });
+  }
+
+  function handleFileIssue() {
+    startTransition(async () => {
+      const result = await createIssueFromAlert(alert.id);
+      if (result.error) {
+        toast.error(result.error);
+      } else if (result.issueUrl) {
+        toast.success("GitHub issue created", {
+          action: {
+            label: "View",
+            onClick: () => window.open(result.issueUrl, "_blank"),
+          },
+        });
+      }
+      router.refresh();
+    });
+  }
+
   return (
     <div className={`rounded-md border bg-card p-4 ${style.border}`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={style.badge}>
-            {alert.severity}
-          </Badge>
+          <Badge variant={style.badge}>{alert.severity}</Badge>
           <Badge variant="outline">
             {TYPE_LABELS[alert.type] ?? alert.type}
           </Badge>
@@ -106,15 +189,25 @@ export function AlertCard({ alert }: { alert: AlertData }) {
             {timeAgo(alert.createdAt)}
           </span>
           {alert.status === "ACKNOWLEDGED" && (
-            <Badge variant="outline" className="text-xs">Acknowledged</Badge>
+            <Badge variant="outline" className="text-xs">
+              Acknowledged
+            </Badge>
           )}
           {alert.status === "SNOOZED" && (
             <Badge variant="outline" className="text-xs">
-              Snoozed{alert.snoozedUntil ? ` until ${new Date(alert.snoozedUntil).toLocaleDateString()}` : ""}
+              Snoozed
+              {alert.snoozedUntil
+                ? ` until ${new Date(alert.snoozedUntil).toLocaleDateString()}`
+                : ""}
             </Badge>
           )}
           {alert.status === "RESOLVED" && (
-            <Badge variant="outline" className="text-xs text-muted-foreground">Resolved</Badge>
+            <Badge
+              variant="outline"
+              className="text-xs text-muted-foreground"
+            >
+              Resolved
+            </Badge>
           )}
         </div>
       </div>
@@ -122,11 +215,30 @@ export function AlertCard({ alert }: { alert: AlertData }) {
       {/* Title */}
       <p className="mt-2 text-sm font-medium">{alert.title}</p>
 
-      {/* Details (expandable) */}
-      {alert.details && (
+      {/* Expandable context/details */}
+      {(ctx || alert.details) && (
         <div className="mt-1">
           {expanded ? (
-            <p className="text-xs text-muted-foreground whitespace-pre-wrap">{alert.details}</p>
+            <>
+              {/* UNMATCHED_TAGS: show resolver UI */}
+              {alert.type === "UNMATCHED_TAGS" &&
+                ctx &&
+                Array.isArray(ctx.tags) &&
+                allKennels ? (
+                <UnmatchedTagResolver
+                  alertId={alert.id}
+                  tags={ctx.tags as string[]}
+                  suggestions={suggestions ?? {}}
+                  allKennels={allKennels}
+                />
+              ) : (
+                <AlertContextDisplay
+                  type={alert.type}
+                  context={ctx}
+                  details={alert.details}
+                />
+              )}
+            </>
           ) : (
             <button
               onClick={() => setExpanded(true)}
@@ -138,9 +250,47 @@ export function AlertCard({ alert }: { alert: AlertData }) {
         </div>
       )}
 
+      {/* Repair history */}
+      {repairLog && repairLog.length > 0 && (
+        <div className="mt-2 border-t pt-2 space-y-1">
+          {repairLog.slice(-3).map((entry, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 text-[11px] text-muted-foreground"
+            >
+              <span
+                className={`inline-block w-1.5 h-1.5 rounded-full ${entry.result === "success" ? "bg-green-500" : "bg-red-500"}`}
+              />
+              <span>
+                {formatRepairEntry(entry)}
+              </span>
+              <span className="opacity-60">{timeAgo(entry.timestamp)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Actions */}
-      {(alert.status === "OPEN" || alert.status === "ACKNOWLEDGED") && (
+      {isActive && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            disabled={isPending}
+            onClick={handleRescrape}
+          >
+            {isPending ? "..." : "Re-scrape"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            disabled={isPending}
+            onClick={handleFileIssue}
+          >
+            File Issue
+          </Button>
           {alert.status === "OPEN" && (
             <Button
               size="sm"

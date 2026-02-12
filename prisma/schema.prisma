@@ -279,6 +279,8 @@ model Alert {
   severity     AlertSeverity @default(WARNING)
   title        String        // Short summary: "Event count dropped 65%"
   details      String?       // Longer explanation with data
+  context      Json?         // Structured data that triggered this alert (type-specific shape)
+  repairLog    Json?         // Array of repair actions taken: [{action, timestamp, adminId, details, result}]
   status       AlertStatus   @default(OPEN)
   snoozedUntil DateTime?
   resolvedAt   DateTime?

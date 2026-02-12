@@ -53,12 +53,26 @@ Last updated: 2026-02-12
   - Compares fingerprint between scrapes, alerts on structural changes
 - [x] **Admin alerts page**: `/admin/alerts` with filter tabs (Active, Open, Acknowledged, Snoozed, Resolved, All)
   - 6 alert types: event count anomaly, field fill drop, structure change, scrape failure, consecutive failures, unmatched tags
-  - Actions: acknowledge, snooze (24h/7d), resolve, investigate (link to source detail)
   - Alert badge count on admin nav tab
 - [x] **Graceful degradation**: Per-event error tracking in merge pipeline (capped at 50 errors), partial success saves what works
 - [x] **Alert deduplication**: Upserts against existing open alerts; respects snooze windows
 - [x] **Source detail integration**: Open alerts stat card + recent alerts section on source detail page
 - [ ] **Email/notification integration**: Send alerts to admin email when source health degrades (deferred)
+
+### Self-Healing Alert Actions — COMPLETE
+**Goal**: Make alert actions actually fix problems, not just change status.
+
+- [x] **Structured context**: Each alert carries machine-readable context (baseline vs current values, unmatched tags, error messages)
+- [x] **Re-scrape from alert**: One-click re-scrape directly from any alert card
+- [x] **Unmatched tag resolver**: Map unmatched kennel tags to existing kennels (fuzzy suggestions) or create new kennels — inline from the alert card
+  - Auto-resolves alert when all context tags are matched
+  - Optional re-scrape after mapping
+- [x] **File GitHub Issue**: Create pre-populated issue with structured context, relevant file paths, and suggested approach — bridge for AI coding agents
+- [x] **Repair history**: Compact timeline on alert cards showing actions taken (alias created, re-scraped, issue filed)
+- [x] **Structured context display**: Per-type rendering (stat grids, fill rate arrows, error lists) replacing freetext details
+- **Future phases**:
+  - Phase 2: AI-assisted diagnosis via Gemini (structure diffs, field fill analysis, config-driven repair)
+  - Phase 3: Autonomous repair with sandbox preview + source onboarding convergence
 
 ### Config-Driven Source Onboarding (Admin UI)
 **Goal**: Add new Google Sheets sources without code changes.
