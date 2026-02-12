@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   acknowledgeAlert,
@@ -273,68 +274,103 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
       {/* Actions */}
       {isActive && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            disabled={isPending}
-            onClick={handleRescrape}
-          >
-            {isPending ? "..." : "Re-scrape"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            disabled={isPending}
-            onClick={handleFileIssue}
-          >
-            File Issue
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                disabled={isPending}
+                onClick={handleRescrape}
+              >
+                {isPending ? "..." : "Re-scrape"}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Try fetching this source again — good first step for transient errors</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                disabled={isPending}
+                onClick={handleFileIssue}
+              >
+                File Issue
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Create a GitHub issue with alert context for code-level investigation</TooltipContent>
+          </Tooltip>
           {alert.status === "OPEN" && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs"
-              disabled={isPending}
-              onClick={handleAcknowledge}
-            >
-              Acknowledge
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  disabled={isPending}
+                  onClick={handleAcknowledge}
+                >
+                  Acknowledge
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Mark as seen — keeps the alert visible but signals you're aware</TooltipContent>
+            </Tooltip>
           )}
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            disabled={isPending}
-            onClick={() => handleSnooze(24)}
-          >
-            Snooze 24h
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            disabled={isPending}
-            onClick={() => handleSnooze(168)}
-          >
-            Snooze 7d
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            disabled={isPending}
-            onClick={handleResolve}
-          >
-            Resolve
-          </Button>
-          <Link
-            href={`/admin/sources/${alert.sourceId}`}
-            className="text-xs text-primary hover:underline"
-          >
-            Investigate
-          </Link>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                disabled={isPending}
+                onClick={() => handleSnooze(24)}
+              >
+                Snooze 24h
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Hide this alert for 24 hours — it will reappear if still unresolved</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                disabled={isPending}
+                onClick={() => handleSnooze(168)}
+              >
+                Snooze 7d
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Hide this alert for 7 days</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                disabled={isPending}
+                onClick={handleResolve}
+              >
+                Resolve
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Mark as fixed — moves to resolved tab</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href={`/admin/sources/${alert.sourceId}`}
+                className="text-xs text-primary hover:underline"
+              >
+                Investigate
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>Go to source detail page for deeper investigation</TooltipContent>
+          </Tooltip>
         </div>
       )}
     </div>

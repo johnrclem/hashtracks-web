@@ -56,6 +56,7 @@ calendar + personal logbook + kennel directory.
 - GEMINI_API_KEY=         # Google AI API key (Sprint 10+)
 - CRON_SECRET=            # Secret for Vercel Cron auth (set in Vercel dashboard)
 - GOOGLE_CALENDAR_API_KEY= # For Google Calendar + Sheets APIs
+- GITHUB_TOKEN=           # GitHub PAT with repo scope (for filing issues from alerts)
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model (THE source of truth for types)
@@ -77,6 +78,9 @@ calendar + personal logbook + kennel directory.
 - `src/pipeline/health.ts` — Rolling-window health analysis + alert generation
 - `src/pipeline/fill-rates.ts` — Per-field fill rate computation for RawEvents
 - `src/pipeline/structure-hash.ts` — HTML structural fingerprinting (SHA-256)
+- `src/app/admin/alerts/actions.ts` — Alert repair actions (re-scrape, create alias/kennel, file GitHub issue)
+- `src/components/admin/AlertCard.tsx` — Alert card with repair actions, context display, repair history
+- `src/lib/fuzzy.ts` — Levenshtein-based fuzzy string matching for kennel tag resolution
 - `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
 - `vitest.config.ts` — Test runner config (globals, path aliases)
 - `src/test/factories.ts` — Shared test data builders
