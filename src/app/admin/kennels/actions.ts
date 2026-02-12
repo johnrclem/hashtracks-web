@@ -93,10 +93,24 @@ export async function updateKennel(kennelId: string, formData: FormData) {
     return { error: "A kennel with that short name already exists" };
   }
 
+  // If shortName changed, auto-add the old name as an alias so the resolver can still match it
+  const current = await prisma.kennel.findUnique({
+    where: { id: kennelId },
+    select: { shortName: true },
+  });
+
   const newAliases = aliasesRaw
     .split(",")
     .map((a) => a.trim())
     .filter(Boolean);
+
+  if (current && current.shortName !== shortName) {
+    const oldNameLower = current.shortName.toLowerCase();
+    const alreadyIncluded = newAliases.some((a) => a.toLowerCase() === oldNameLower);
+    if (!alreadyIncluded) {
+      newAliases.push(current.shortName);
+    }
+  }
 
   // Replace all aliases: delete existing, create new
   await prisma.$transaction([

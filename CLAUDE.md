@@ -41,7 +41,8 @@ calendar + personal logbook + kennel directory.
 - Use `cuid()` for all IDs (Prisma default)
 - Dates stored as UTC noon to avoid DST issues (see PRD Appendix F.4)
 - `startTime` is a string "HH:MM" not a DateTime (many sources lack full timestamps)
-- Kennel resolution: shortName exact match → alias case-insensitive match → flag for admin
+- Kennel resolution: shortName exact match → alias match → pattern match (retries shortName + alias) → flag for admin
+- Kennel rename safety: renaming a kennel auto-adds the old shortName as an alias
 - All scraper adapters implement the `SourceAdapter` interface in `src/adapters/types.ts`
 - API routes return consistent shapes: `{ data, error?, meta? }`
 
@@ -70,8 +71,11 @@ calendar + personal logbook + kennel directory.
 - `src/adapters/google-calendar/adapter.ts` — Google Calendar API v3 adapter (Boston Hash)
 - `src/adapters/google-sheets/adapter.ts` — Google Sheets CSV adapter (Summit H3, config-driven)
 - `src/pipeline/merge.ts` — Raw→Canonical merge pipeline (fingerprint dedup)
-- `src/pipeline/kennel-resolver.ts` — Alias-based kennel name resolution
+- `src/pipeline/kennel-resolver.ts` — Alias-based kennel name resolution (with pattern fallback)
 - `src/pipeline/scrape.ts` — Shared `scrapeSource()` used by cron + admin routes
+- `src/pipeline/health.ts` — Rolling-window health analysis + alert generation
+- `src/pipeline/fill-rates.ts` — Per-field fill rate computation for RawEvents
+- `src/pipeline/structure-hash.ts` — HTML structural fingerprinting (SHA-256)
 - `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
 
 ## Documentation

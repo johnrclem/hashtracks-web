@@ -68,6 +68,17 @@ export async function resolveKennelTag(
       cache.set(cacheKey, result);
       return result;
     }
+
+    // Retry step 2 with the mapped name as alias (handles renamed kennels)
+    const mappedAlias = await prisma.kennelAlias.findFirst({
+      where: { alias: { equals: mapped, mode: "insensitive" } },
+      select: { kennelId: true },
+    });
+    if (mappedAlias) {
+      const result = { kennelId: mappedAlias.kennelId, matched: true };
+      cache.set(cacheKey, result);
+      return result;
+    }
   }
 
   // Step 4: No match

@@ -81,14 +81,14 @@ export function SourceDetailActions({
         toast.error(data.error || "Scrape failed");
       } else {
         toast.success(
-          `${force ? "Force re-scrape" : "Scrape"} complete: ${data.scrape.eventsFound} found, ${data.merge.created} created, ${data.merge.updated} updated, ${data.merge.skipped} skipped` +
-            (data.merge.unmatched.length > 0
-              ? `, ${data.merge.unmatched.length} unmatched tags`
+          `${force ? "Force re-scrape" : "Scrape"} complete: ${data.eventsFound} found, ${data.created} created, ${data.updated} updated, ${data.skipped} skipped` +
+            (data.unmatched?.length > 0
+              ? `, ${data.unmatched.length} unmatched tags`
               : ""),
         );
-        if (data.merge.unmatched.length > 0) {
+        if (data.unmatched?.length > 0) {
           toast.info(
-            `Unmatched tags: ${data.merge.unmatched.join(", ")}`,
+            `Unmatched tags: ${data.unmatched.join(", ")}`,
           );
         }
       }
