@@ -149,9 +149,11 @@ export function HarelineView({
     return events.filter((event) => {
       const eventDate = new Date(event.date).getTime();
 
-      // Time filter
-      if (timeFilter === "upcoming" && eventDate < todayUtc) return false;
-      if (timeFilter === "past" && eventDate >= todayUtc) return false;
+      // Time filter — skip for calendar view (calendar shows all months)
+      if (view !== "calendar") {
+        if (timeFilter === "upcoming" && eventDate < todayUtc) return false;
+        if (timeFilter === "past" && eventDate >= todayUtc) return false;
+      }
 
       // Scope filter (My Kennels)
       if (scope === "my" && !subscribedKennelIds.includes(event.kennelId)) {
@@ -175,7 +177,7 @@ export function HarelineView({
 
       return true;
     });
-  }, [events, timeFilter, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays]);
+  }, [events, view, timeFilter, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays]);
 
   // Sort: upcoming = ascending (nearest first), past = descending (most recent first)
   const sortedEvents = useMemo(() => {
@@ -219,17 +221,19 @@ export function HarelineView({
     <div className="mt-6 space-y-4">
       {/* Controls bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Time toggle */}
-        <ToggleGroup
-          type="single"
-          value={timeFilter}
-          onValueChange={(v) => v && setTimeFilter(v as "upcoming" | "past")}
-          variant="outline"
-          size="sm"
-        >
-          <ToggleGroupItem value="upcoming">Upcoming</ToggleGroupItem>
-          <ToggleGroupItem value="past">Past</ToggleGroupItem>
-        </ToggleGroup>
+        {/* Time toggle (hidden in calendar view — calendar shows all months) */}
+        {view !== "calendar" && (
+          <ToggleGroup
+            type="single"
+            value={timeFilter}
+            onValueChange={(v) => v && setTimeFilter(v as "upcoming" | "past")}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="upcoming">Upcoming</ToggleGroupItem>
+            <ToggleGroupItem value="past">Past</ToggleGroupItem>
+          </ToggleGroup>
+        )}
 
         <div className="flex items-center gap-2">
           {/* View toggle */}
@@ -277,7 +281,7 @@ export function HarelineView({
 
       {/* Results count */}
       <p className="text-sm text-muted-foreground">
-        {sortedEvents.length} {sortedEvents.length === 1 ? "event" : "events"}
+        {filteredEvents.length} {filteredEvents.length === 1 ? "event" : "events"}
         {scope === "my" ? " from your kennels" : ""}
       </p>
 
