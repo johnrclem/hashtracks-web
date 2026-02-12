@@ -52,8 +52,8 @@ export async function scrapeSource(
       });
     }
 
-    // Get the adapter for this source type
-    const adapter = getAdapter(source.type);
+    // Get the adapter for this source type (URL used for HTML scraper routing)
+    const adapter = getAdapter(source.type, source.url);
 
     // Run the scrape
     const scrapeResult = await adapter.fetch(source, { days });

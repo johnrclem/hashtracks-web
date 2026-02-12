@@ -208,11 +208,16 @@ export class GoogleCalendarAdapter implements SourceAdapter {
             ? extractHares(rawDescription)
             : undefined;
 
+          // Use defaultKennelTag from config for single-kennel calendars,
+          // otherwise fall back to SUMMARY-based pattern matching (Boston)
+          const sourceConfig = source.config as { defaultKennelTag?: string } | null;
+          const kennelTag = sourceConfig?.defaultKennelTag ?? extractKennelTag(item.summary);
+
           events.push({
             date: dateStr,
-            kennelTag: extractKennelTag(item.summary),
+            kennelTag,
             runNumber: extractRunNumber(item.summary, rawDescription),
-            title: extractTitle(item.summary),
+            title: sourceConfig?.defaultKennelTag ? item.summary : extractTitle(item.summary),
             description,
             hares,
             location: item.location,

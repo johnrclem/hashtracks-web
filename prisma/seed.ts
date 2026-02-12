@@ -46,6 +46,7 @@ async function main() {
     { shortName: "Rumson", fullName: "Rumson Hash House Harriers", region: "New Jersey" },
     // Philadelphia
     { shortName: "BFM", fullName: "Ben Franklin Mob H3", region: "Philadelphia, PA" },
+    { shortName: "Philly H3", fullName: "Philly Hash House Harriers", region: "Philadelphia, PA" },
     // Chicago
     { shortName: "CH3", fullName: "Chicago Hash House Harriers", region: "Chicago, IL" },
   ];
@@ -61,7 +62,8 @@ async function main() {
     "NAH3": ["New Amsterdam", "NAH3", "NASS", "New Amsterdam Hash"],
     "QBK": ["Queens Black Knights", "QBK", "QBK Hash", "Queens", "Queens Hash"],
     "LIL": ["Long Island Lunatics", "LIL", "Long Island", "LI Hash", "Lunatics"],
-    "BFM": ["Ben Franklin Mob", "BFM", "BFM H3", "Philadelphia Hash"],
+    "BFM": ["Ben Franklin Mob", "BFM", "BFM H3"],
+    "Philly H3": ["Philly Hash", "Philly H3", "Philadelphia H3", "Philadelphia Hash", "hashphilly"],
     "Bos Moon": ["Moon", "Moom", "Boston Moon", "Bos Moon", "Bos Moom"],
     "Pink Taco": ["Pink Taco", "Pink Taco Hash"],
     "Beantown": ["Beantown", "Beantown Hash"],
@@ -111,6 +113,44 @@ async function main() {
         startTimeRules: { byDayOfWeek: { "Mon": "19:00", "Sat": "15:00", "Fri": "19:00" }, default: "15:00" },
       },
       kennelShortNames: ["Summit", "SFM", "ASSSH3"],
+    },
+    {
+      name: "BFM Google Calendar",
+      url: "bfmhash@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { defaultKennelTag: "BFM" },
+      kennelShortNames: ["BFM"],
+    },
+    {
+      name: "Philly H3 Google Calendar",
+      url: "36ed6654c946ca632f71f400c1236c45d1bdd4e38c88c7c4da57619a72bfd7f8@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { defaultKennelTag: "Philly H3" },
+      kennelShortNames: ["Philly H3"],
+    },
+    {
+      name: "BFM Website",
+      url: "https://benfranklinmob.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelShortNames: ["BFM"],
+    },
+    {
+      name: "Philly H3 Website",
+      url: "https://hashphilly.com/nexthash/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelShortNames: ["Philly H3"],
     },
   ];
 

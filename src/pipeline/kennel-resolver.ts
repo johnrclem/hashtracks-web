@@ -138,8 +138,9 @@ export function mapKennelTag(input: string): string | null {
   if (input.includes("si hash") || input === "si") return "SI";
   if (input.includes("special")) return "Special (NYC)";
 
-  // Ben Franklin / Philadelphia
+  // Philadelphia
   if (input.includes("ben franklin") || input.includes("bfm")) return "BFM";
+  if (input.includes("philly") || input.includes("hashphilly")) return "Philly H3";
 
   // Chicago
   if (input.startsWith("ch3") || input.includes("chicago")) return "CH3";

@@ -26,9 +26,10 @@ Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent
 |---------|-------------|----------------|--------------|
 | Data access | HTTP GET + Cheerio parse | Calendar API v3 | Sheets API (tabs) + CSV export (data) |
 | Auth needed | None | API key | API key (tab discovery only) |
-| Kennel tags | Regex patterns on event text | Regex patterns on SUMMARY field | Column-based rules from config JSON |
+| Kennel tags | Regex patterns on event text | Regex on SUMMARY (multi-kennel) or `config.defaultKennelTag` (single-kennel) | Column-based rules from config JSON |
 | Date format | Row IDs like "2024oct30" | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY |
-| Complexity | High (structural HTML) | Medium (clean API) | Low (column mapping) |
+| Routing | URL-based (`htmlScrapersByUrl` in registry) | Shared adapter (single class) | Shared adapter (config-driven) |
+| Complexity | High (structural HTML, site-specific) | Medium (clean API) | Low (column mapping) |
 
 ---
 
@@ -193,6 +194,21 @@ git add . && git commit && git push
 - **Key lesson**: Tab discovery via Sheets API is more robust than guessing tab names
 - **Key lesson**: Column positions are consistent even when headers vary between tabs
 
+### Source #4 & #5: BFM + Philly H3 (Multi-Source Philadelphia)
+
+- **Type**: `GOOGLE_CALENDAR` (x2) + `HTML_SCRAPER` (x2)
+- **Coverage**: BFM and Philly H3 (Philadelphia)
+- **Adapters**:
+  - `src/adapters/google-calendar/adapter.ts` — reused with `defaultKennelTag` config
+  - `src/adapters/html-scraper/bfm.ts` — WordPress site: current trail + special events page
+  - `src/adapters/html-scraper/hashphilly.ts` — simple label:value page, one event at a time
+- **Multi-source strategy**: Calendar provides schedule backbone; website scraper enriches with location, hares, trail numbers. Merge pipeline deduplicates via fingerprint.
+- **Key lesson**: WordPress Gutenberg text runs together without newlines — use known field labels (`When:`, `Where:`, `Hare:`) as delimiters via lookahead regex, not `\n`
+- **Key lesson**: `defaultKennelTag` in `Source.config` avoids hardcoding kennel patterns for single-kennel calendars — zero code change to add another single-kennel calendar
+- **Key lesson**: URL-based routing in the adapter registry (`htmlScrapersByUrl`) allows multiple HTML scrapers to coexist under the same `HTML_SCRAPER` source type
+- **Key lesson**: Instagram scraping is not viable (auth required, ToS violation, actively blocked) — manual CSV import is the practical backfill approach
+- **Key lesson**: Some sites only show one event (hashphilly.com/nexthash/) — still worth scraping for fields the calendar lacks (trail number, venue name)
+
 ---
 
 ## Lessons Learned
@@ -204,3 +220,7 @@ git add . && git commit && git push
 5. **Kennel resolver pattern order matters** — specific patterns before general (ASSSH3 before Summit)
 6. **Multi-format date parsing** is common; build flexible parsers that handle variations
 7. **`new Date()` is dangerous for date-only strings** — use string comparison for date filtering
+8. **WordPress text lacks newlines between fields** — use label-based delimiters, not line breaks
+9. **`defaultKennelTag` config** eliminates per-calendar regex patterns for single-kennel calendars
+10. **URL-based adapter routing** (`htmlScrapersByUrl` in registry) scales HTML_SCRAPER to multiple sites
+11. **Multi-source enrichment** works well — calendar for schedule, website for details, merge pipeline handles dedup

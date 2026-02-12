@@ -16,14 +16,19 @@ Last updated: 2026-02-12
 - [x] Master-detail layout: event list + detail panel on desktop, full-page on mobile
 - [x] Admin UI: source management, manual scrape trigger, scrape logs, source health
 
-### Data Sources (3 live)
+### Data Sources (7 live)
 - [x] **hashnyc.com** (HTML Scraper) — 11 NYC-area kennels
 - [x] **Boston Hash Calendar** (Google Calendar API) — 5 Boston kennels
 - [x] **Summit H3 Spreadsheet** (Google Sheets) — 3 NJ kennels (Summit, SFM, ASSSH3)
+- [x] **BFM Google Calendar** (Google Calendar API) — BFM (Philadelphia)
+- [x] **Philly H3 Google Calendar** (Google Calendar API) — Philly H3
+- [x] **BFM Website** (HTML Scraper) — benfranklinmob.com + special events page
+- [x] **Philly H3 Website** (HTML Scraper) — hashphilly.com/nexthash/
 
 ### Current Stats
-- 23 kennels, 74 aliases, 3 sources, 19 source-kennel links
+- 24 kennels, 79 aliases, 7 sources, 23 source-kennel links
 - 3 adapter types: HTML_SCRAPER, GOOGLE_CALENDAR, GOOGLE_SHEETS
+- Multi-source merge: BFM calendar + website combined via fingerprint dedup
 
 ---
 
