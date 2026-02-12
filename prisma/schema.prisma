@@ -90,6 +90,7 @@ model Source {
   kennels       SourceKennel[]
   rawEvents     RawEvent[]
   scrapeLogs    ScrapeLog[]
+  alerts        Alert[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 }
@@ -118,7 +119,15 @@ model ScrapeLog {
   unmatchedTags String[]
   errors        String[]
   forced        Boolean      @default(false)
+  // Quality metrics
+  fillRateTitle     Int?     // % of events with non-empty title (0-100)
+  fillRateLocation  Int?     // % of events with non-empty location
+  fillRateHares     Int?     // % of events with non-empty hares
+  fillRateStartTime Int?     // % of events with non-empty startTime
+  fillRateRunNumber Int?     // % of events with non-empty runNumber
+  structureHash     String?  // HTML structural fingerprint (HTML sources only)
   source        Source       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  alerts        Alert[]
 
   @@index([sourceId, startedAt])
 }
@@ -258,6 +267,51 @@ enum ParticipationLevel {
   BEER_MILE   // BM - Beer mile event
   WALK        // W - Walk/Crawl
   CIRCLE_ONLY // C - Circle only (no trail)
+}
+
+// ── ALERTS ──
+
+model Alert {
+  id           String        @id @default(cuid())
+  sourceId     String
+  scrapeLogId  String?
+  type         AlertType
+  severity     AlertSeverity @default(WARNING)
+  title        String        // Short summary: "Event count dropped 65%"
+  details      String?       // Longer explanation with data
+  status       AlertStatus   @default(OPEN)
+  snoozedUntil DateTime?
+  resolvedAt   DateTime?
+  resolvedBy   String?       // User ID who resolved
+  source       Source        @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  scrapeLog    ScrapeLog?    @relation(fields: [scrapeLogId], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([sourceId, status])
+  @@index([status, createdAt])
+}
+
+enum AlertType {
+  EVENT_COUNT_ANOMALY   // Event count dropped >50% vs rolling avg
+  FIELD_FILL_DROP       // Field fill rate dropped significantly
+  STRUCTURE_CHANGE      // HTML structure fingerprint changed
+  SCRAPE_FAILURE        // Scrape failed entirely
+  CONSECUTIVE_FAILURES  // Multiple consecutive failures
+  UNMATCHED_TAGS        // New unmatched kennel tags appeared
+}
+
+enum AlertSeverity {
+  INFO     // Noteworthy but not actionable
+  WARNING  // Needs review soon
+  CRITICAL // Needs immediate attention
+}
+
+enum AlertStatus {
+  OPEN         // Needs attention
+  ACKNOWLEDGED // Admin has seen it but not resolved
+  SNOOZED      // Temporarily silenced
+  RESOLVED     // Addressed
 }
 
 // ── KENNEL REQUESTS ──

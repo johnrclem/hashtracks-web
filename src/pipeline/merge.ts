@@ -22,6 +22,8 @@ export async function processRawEvents(
     updated: 0,
     skipped: 0,
     unmatched: [],
+    eventErrors: 0,
+    eventErrorMessages: [],
   };
 
   // Get source trust level
@@ -143,45 +145,16 @@ export async function processRawEvents(
         result.created++;
       }
     } catch (err) {
-      // Log error but continue processing other events
-      console.error(
-        `Merge error for event ${event.date}/${event.kennelTag}:`,
-        err,
-      );
+      // Log error but continue processing other events (graceful degradation)
+      const msg = `${event.date}/${event.kennelTag}: ${err instanceof Error ? err.message : String(err)}`;
+      console.error(`Merge error: ${msg}`);
+      result.eventErrors++;
+      if (result.eventErrorMessages.length < 50) {
+        result.eventErrorMessages.push(msg);
+      }
     }
   }
 
   return result;
 }
 
-/**
- * Update source health after a scrape run.
- */
-export async function updateSourceHealth(
-  sourceId: string,
-  mergeResult: MergeResult,
-  scrapeErrors: string[],
-) {
-  const now = new Date();
-  const totalProcessed =
-    mergeResult.created + mergeResult.updated + mergeResult.skipped;
-  const hasErrors = scrapeErrors.length > 0;
-
-  let healthStatus: "HEALTHY" | "DEGRADED" | "FAILING";
-  if (totalProcessed === 0 && hasErrors) {
-    healthStatus = "FAILING";
-  } else if (hasErrors) {
-    healthStatus = "DEGRADED";
-  } else {
-    healthStatus = "HEALTHY";
-  }
-
-  await prisma.source.update({
-    where: { id: sourceId },
-    data: {
-      lastScrapeAt: now,
-      lastSuccessAt: healthStatus !== "FAILING" ? now : undefined,
-      healthStatus,
-    },
-  });
-}

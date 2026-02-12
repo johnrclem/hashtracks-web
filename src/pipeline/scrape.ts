@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { getAdapter } from "@/adapters/registry";
-import { processRawEvents, updateSourceHealth } from "./merge";
+import { processRawEvents } from "./merge";
+import { computeFillRates } from "./fill-rates";
+import { analyzeHealth, persistAlerts } from "./health";
 
 export interface ScrapeSourceResult {
   success: boolean;
@@ -15,7 +17,7 @@ export interface ScrapeSourceResult {
 }
 
 /**
- * Scrape a single source: fetch → merge → update health → log.
+ * Scrape a single source: fetch → fill rates → merge → health analysis → alerts → log.
  * Used by both the admin scrape API and the cron endpoint.
  */
 export async function scrapeSource(
@@ -56,13 +58,19 @@ export async function scrapeSource(
     // Run the scrape
     const scrapeResult = await adapter.fetch(source, { days });
 
+    // Compute field fill rates
+    const fillRates = computeFillRates(scrapeResult.events);
+
     // Process raw events through the merge pipeline
     const mergeResult = await processRawEvents(sourceId, scrapeResult.events);
 
-    // Update source health
-    await updateSourceHealth(sourceId, mergeResult, scrapeResult.errors);
+    // Combine scrape errors with merge event errors
+    const allErrors = [
+      ...scrapeResult.errors,
+      ...mergeResult.eventErrorMessages,
+    ];
 
-    // Update ScrapeLog with results
+    // Update ScrapeLog with results + quality metrics
     const completedAt = new Date();
     const hasErrors = scrapeResult.errors.length > 0;
     await prisma.scrapeLog.update({
@@ -76,9 +84,40 @@ export async function scrapeSource(
         eventsUpdated: mergeResult.updated,
         eventsSkipped: mergeResult.skipped,
         unmatchedTags: mergeResult.unmatched,
-        errors: scrapeResult.errors,
+        errors: allErrors,
+        fillRateTitle: fillRates.title,
+        fillRateLocation: fillRates.location,
+        fillRateHares: fillRates.hares,
+        fillRateStartTime: fillRates.startTime,
+        fillRateRunNumber: fillRates.runNumber,
+        structureHash: scrapeResult.structureHash,
       },
     });
+
+    // Analyze health and create/update alerts
+    const health = await analyzeHealth(sourceId, scrapeLog.id, {
+      eventsFound: scrapeResult.events.length,
+      scrapeFailed: hasErrors,
+      errors: allErrors,
+      unmatchedTags: mergeResult.unmatched,
+      fillRates,
+      structureHash: scrapeResult.structureHash,
+    });
+
+    // Update source health status
+    await prisma.source.update({
+      where: { id: sourceId },
+      data: {
+        lastScrapeAt: completedAt,
+        lastSuccessAt: health.healthStatus !== "FAILING" ? completedAt : undefined,
+        healthStatus: health.healthStatus,
+      },
+    });
+
+    // Persist alerts
+    if (health.alerts.length > 0) {
+      await persistAlerts(sourceId, scrapeLog.id, health.alerts);
+    }
 
     return {
       success: true,
@@ -89,29 +128,44 @@ export async function scrapeSource(
       updated: mergeResult.updated,
       skipped: mergeResult.skipped,
       unmatched: mergeResult.unmatched,
-      errors: scrapeResult.errors,
+      errors: allErrors,
     };
   } catch (err) {
     // Update ScrapeLog as failed
     const completedAt = new Date();
+    const errorMsg = err instanceof Error ? err.message : String(err);
     await prisma.scrapeLog.update({
       where: { id: scrapeLog.id },
       data: {
         status: "FAILED",
         completedAt,
         durationMs: completedAt.getTime() - startedAt.getTime(),
-        errors: [err instanceof Error ? err.message : String(err)],
+        errors: [errorMsg],
       },
     });
 
-    // Update source as failing
+    // Run health analysis for the failure case
+    const health = await analyzeHealth(sourceId, scrapeLog.id, {
+      eventsFound: 0,
+      scrapeFailed: true,
+      errors: [errorMsg],
+      unmatchedTags: [],
+      fillRates: { title: 0, location: 0, hares: 0, startTime: 0, runNumber: 0 },
+    });
+
+    // Update source health
     await prisma.source.update({
       where: { id: sourceId },
       data: {
-        lastScrapeAt: new Date(),
-        healthStatus: "FAILING",
+        lastScrapeAt: completedAt,
+        healthStatus: health.healthStatus,
       },
     });
+
+    // Persist alerts
+    if (health.alerts.length > 0) {
+      await persistAlerts(sourceId, scrapeLog.id, health.alerts);
+    }
 
     return {
       success: false,
@@ -122,7 +176,7 @@ export async function scrapeSource(
       updated: 0,
       skipped: 0,
       unmatched: [],
-      errors: [err instanceof Error ? err.message : String(err)],
+      errors: [errorMsg],
     };
   }
 }

@@ -18,6 +18,7 @@ export interface RawEventData {
 export interface ScrapeResult {
   events: RawEventData[];
   errors: string[];
+  structureHash?: string; // HTML structural fingerprint (HTML adapters only)
 }
 
 /** All adapters implement this interface */
@@ -32,4 +33,6 @@ export interface MergeResult {
   updated: number;
   skipped: number;
   unmatched: string[]; // kennel tags that couldn't be resolved
+  eventErrors: number; // count of individual events that failed to process
+  eventErrorMessages: string[]; // error messages (capped at 50)
 }

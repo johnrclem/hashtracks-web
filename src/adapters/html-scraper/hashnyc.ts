@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
+import { generateStructureHash } from "@/pipeline/structure-hash";
 
 // Month name → 0-indexed month number
 const MONTH_MAP: Record<string, number> = {
@@ -540,12 +541,15 @@ export class HashNYCAdapter implements SourceAdapter {
 
     const allEvents: RawEventData[] = [];
     const allErrors: string[] = [];
+    let structureHash: string | undefined;
 
     // 1. Scrape past events
     try {
       const pastHtml = await fetchPage(
         `${baseUrl}/?days=${days}&backwards=true`,
       );
+      // Generate structural fingerprint from past page (most stable structure)
+      structureHash = generateStructureHash(pastHtml);
       const $past = cheerio.load(pastHtml);
       const pastRows = $past("table.past_hashes tr");
       const past = parseRows($past, pastRows, baseUrl, false);
@@ -571,6 +575,6 @@ export class HashNYCAdapter implements SourceAdapter {
       );
     }
 
-    return { events: allEvents, errors: allErrors };
+    return { events: allEvents, errors: allErrors, structureHash };
   }
 }

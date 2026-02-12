@@ -65,8 +65,8 @@ export default async function SourceDetailPage({
 
   if (!source) notFound();
 
-  // Get scrape logs (most recent first)
-  const [scrapeLogs, rawEventCount, linkedEventCount, allKennels] =
+  // Get scrape logs, counts, alerts (most recent first)
+  const [scrapeLogs, rawEventCount, linkedEventCount, allKennels, openAlertCount, recentAlerts] =
     await Promise.all([
       prisma.scrapeLog.findMany({
         where: { sourceId },
@@ -82,6 +82,14 @@ export default async function SourceDetailPage({
       prisma.kennel.findMany({
         orderBy: { shortName: "asc" },
         select: { id: true, shortName: true },
+      }),
+      prisma.alert.count({
+        where: { sourceId, status: { in: ["OPEN", "ACKNOWLEDGED"] } },
+      }),
+      prisma.alert.findMany({
+        where: { sourceId },
+        orderBy: { createdAt: "desc" },
+        take: 5,
       }),
     ]);
 
@@ -124,11 +132,12 @@ export default async function SourceDetailPage({
       />
 
       {/* Stats grid */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-5">
         <StatCard label="Trust Level" value={`${source.trustLevel}/10`} />
         <StatCard label="Frequency" value={source.scrapeFreq} />
         <StatCard label="Raw Events" value={rawEventCount.toString()} />
         <StatCard label="Linked Events" value={linkedEventCount.toString()} />
+        <StatCard label="Open Alerts" value={openAlertCount.toString()} />
       </div>
 
       {/* Linked Kennels */}
@@ -152,6 +161,53 @@ export default async function SourceDetailPage({
           )}
         </div>
       </div>
+
+      {/* Recent Alerts */}
+      {recentAlerts.length > 0 && (
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Recent Alerts</h2>
+            <Link
+              href={`/admin/alerts?source=${sourceId}`}
+              className="text-sm text-primary hover:underline"
+            >
+              View all
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {recentAlerts.map((alert) => {
+              const severityColors: Record<string, string> = {
+                CRITICAL: "border-l-red-500",
+                WARNING: "border-l-amber-500",
+                INFO: "border-l-blue-500",
+              };
+              const statusBadge: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+                OPEN: "destructive",
+                ACKNOWLEDGED: "secondary",
+                SNOOZED: "outline",
+                RESOLVED: "outline",
+              };
+              return (
+                <div
+                  key={alert.id}
+                  className={`flex items-center gap-3 rounded-md border border-l-4 px-3 py-2 text-sm ${severityColors[alert.severity] ?? ""}`}
+                >
+                  <Badge variant={statusBadge[alert.status] ?? "outline"} className="text-xs">
+                    {alert.status}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {alert.type.replace(/_/g, " ")}
+                  </Badge>
+                  <span className="truncate">{alert.title}</span>
+                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                    {formatNYC(alert.createdAt)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Scrape History */}
       <div>
