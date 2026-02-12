@@ -8,7 +8,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { EventCard, type HarelineEvent } from "./EventCard";
-import { regionColorClasses } from "@/lib/format";
+import { regionColorClasses, formatTimeCompact } from "@/lib/format";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -32,7 +32,7 @@ export function CalendarView({ events }: CalendarViewProps) {
   const [month, setMonth] = useState(today.getUTCMonth());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-  // Group events by date key
+  // Group events by date key, sorted chronologically within each day
   const eventsByDate = useMemo(() => {
     const map = new Map<string, HarelineEvent[]>();
     for (const event of events) {
@@ -40,6 +40,14 @@ export function CalendarView({ events }: CalendarViewProps) {
       const existing = map.get(key) || [];
       existing.push(event);
       map.set(key, existing);
+    }
+    for (const dayEvents of map.values()) {
+      dayEvents.sort((a, b) => {
+        if (!a.startTime && !b.startTime) return 0;
+        if (!a.startTime) return 1;
+        if (!b.startTime) return -1;
+        return a.startTime.localeCompare(b.startTime);
+      });
     }
     return map;
   }, [events]);
@@ -161,6 +169,11 @@ export function CalendarView({ events }: CalendarViewProps) {
                             <span
                               className={`inline-flex w-fit max-w-full items-center truncate rounded-full px-1 py-0.5 text-[10px] font-medium leading-tight ${regionColorClasses(e.kennel.region)}`}
                             >
+                              {e.startTime && (
+                                <span className="mr-0.5 font-normal opacity-70">
+                                  {formatTimeCompact(e.startTime)}
+                                </span>
+                              )}
                               {e.kennel.shortName}
                             </span>
                           </TooltipTrigger>
