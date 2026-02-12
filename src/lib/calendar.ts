@@ -3,7 +3,7 @@
  * Both work client-side from event data already in the page.
  */
 
-interface CalendarEvent {
+export interface CalendarEvent {
   title?: string | null;
   date: string; // ISO string (UTC noon)
   startTime?: string | null; // "HH:MM"
@@ -15,14 +15,14 @@ interface CalendarEvent {
   runNumber?: number | null;
 }
 
-function buildTitle(event: CalendarEvent): string {
+export function buildTitle(event: CalendarEvent): string {
   const parts = [event.kennel.shortName];
   if (event.runNumber) parts.push(`Run #${event.runNumber}`);
   if (event.title) parts.push(event.title);
   return parts.join(" — ");
 }
 
-function buildDetails(event: CalendarEvent): string {
+export function buildDetails(event: CalendarEvent): string {
   const lines: string[] = [];
   if (event.haresText) lines.push(`Hares: ${event.haresText}`);
   if (event.description) lines.push(event.description);
@@ -31,7 +31,7 @@ function buildDetails(event: CalendarEvent): string {
 }
 
 /** Parse ISO date + optional "HH:MM" into YYYYMMDD and HHMMSS strings */
-function parseDateParts(date: string, startTime?: string | null) {
+export function parseDateParts(date: string, startTime?: string | null) {
   // date is ISO like "2026-02-14T12:00:00.000Z" — extract YYYY-MM-DD
   const ymd = date.slice(0, 10).replace(/-/g, "");
 
@@ -111,11 +111,11 @@ export function buildIcsContent(event: CalendarEvent): string {
   return lines.join("\r\n");
 }
 
-function escapeIcs(text: string): string {
+export function escapeIcs(text: string): string {
   return text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
 
-function incrementDate(ymd: string): string {
+export function incrementDate(ymd: string): string {
   // ymd = "YYYYMMDD"
   const y = parseInt(ymd.slice(0, 4), 10);
   const m = parseInt(ymd.slice(4, 6), 10) - 1;

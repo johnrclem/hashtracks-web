@@ -8,6 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
+- `npm test` — Run test suite (Vitest, 304 tests)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -77,6 +78,8 @@ calendar + personal logbook + kennel directory.
 - `src/pipeline/fill-rates.ts` — Per-field fill rate computation for RawEvents
 - `src/pipeline/structure-hash.ts` — HTML structural fingerprinting (SHA-256)
 - `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
+- `vitest.config.ts` — Test runner config (globals, path aliases)
+- `src/test/factories.ts` — Shared test data builders
 
 ## Documentation
 - `docs/source-onboarding-playbook.md` — Step-by-step guide for adding new data sources
@@ -89,6 +92,20 @@ calendar + personal logbook + kennel directory.
 
 See `docs/source-onboarding-playbook.md` for how to add new sources.
 See `docs/roadmap.md` for implementation roadmap.
+
+## Testing
+- **Framework:** Vitest with `globals: true` (no explicit imports needed)
+- **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
+- **Run:** `npm test` (304 tests across 18 files)
+- **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
+- **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
+- **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
+- **Convention:** Test files live next to source files as `*.test.ts`
+- **Coverage areas:**
+  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing
+  - Pipeline: merge dedup + trust levels, kennel resolution (4-stage), fingerprinting, scrape orchestration
+  - Server actions: logbook CRUD, profile, kennel subscriptions, admin CRUD
+  - Utilities: format helpers, calendar URL/ICS generation, auth (Clerk→DB sync)
 
 ## What NOT To Do
 - Don't use Playwright for scraping (Cheerio is sufficient, 100x lighter)

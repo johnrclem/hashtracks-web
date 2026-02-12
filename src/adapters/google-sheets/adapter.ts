@@ -30,7 +30,7 @@ interface GoogleSheetsConfig {
  * - "7/1/2024" (M/D/YYYY with slashes)
  * - "6/13/22" (M/DD/YY with slashes)
  */
-function parseDate(dateStr: string): string | null {
+export function parseDate(dateStr: string): string | null {
   const trimmed = dateStr.trim();
   if (!trimmed) return null;
 
@@ -50,7 +50,7 @@ function parseDate(dateStr: string): string | null {
  * Infer start time from day of week using config rules.
  * Summit schedule: Mon evenings (summer) = 19:00, Sat afternoons (fall-May) = 15:00
  */
-function inferStartTime(
+export function inferStartTime(
   dateStr: string,
   rules?: GoogleSheetsConfig["startTimeRules"],
 ): string | undefined {
@@ -67,7 +67,7 @@ function inferStartTime(
  * Minimal CSV parser for Google Sheets export.
  * Handles quoted fields with escaped double-quotes ("").
  */
-function parseCSV(text: string): string[][] {
+export function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
   let i = 0;
   const len = text.length;
