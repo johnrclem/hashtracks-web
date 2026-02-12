@@ -86,6 +86,23 @@ function mapsUrl(location: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 }
 
+/** Config shape for Google Calendar sources */
+interface CalendarSourceConfig {
+  kennelPatterns?: [string, string][];  // [[regex, kennelTag], ...]
+  defaultKennelTag?: string;            // fallback for unrecognized events
+}
+
+/**
+ * Match event summary against config-driven kennel patterns.
+ * Returns the kennel tag for the first matching pattern, or null.
+ */
+function matchConfigPatterns(summary: string, patterns: [string, string][]): string | null {
+  for (const [regex, tag] of patterns) {
+    if (new RegExp(regex, "i").test(summary)) return tag;
+  }
+  return null;
+}
+
 /** Subset of the Google Calendar API v3 event shape */
 interface GCalEvent {
   summary?: string;
@@ -208,16 +225,27 @@ export class GoogleCalendarAdapter implements SourceAdapter {
             ? extractHares(rawDescription)
             : undefined;
 
-          // Use defaultKennelTag from config for single-kennel calendars,
-          // otherwise fall back to SUMMARY-based pattern matching (Boston)
-          const sourceConfig = source.config as { defaultKennelTag?: string } | null;
-          const kennelTag = sourceConfig?.defaultKennelTag ?? extractKennelTag(item.summary);
+          // Kennel tag resolution: config patterns → defaultKennelTag → Boston fallback
+          const sourceConfig = source.config as CalendarSourceConfig | null;
+          let kennelTag: string;
+          if (sourceConfig?.kennelPatterns) {
+            kennelTag = matchConfigPatterns(item.summary, sourceConfig.kennelPatterns)
+              ?? sourceConfig.defaultKennelTag
+              ?? extractKennelTag(item.summary);
+          } else if (sourceConfig?.defaultKennelTag) {
+            kennelTag = sourceConfig.defaultKennelTag;
+          } else {
+            kennelTag = extractKennelTag(item.summary);
+          }
+
+          // Use full summary as title when config-driven (not Boston pattern-based)
+          const useFullTitle = !!(sourceConfig?.kennelPatterns || sourceConfig?.defaultKennelTag);
 
           events.push({
             date: dateStr,
             kennelTag,
             runNumber: extractRunNumber(item.summary, rawDescription),
-            title: sourceConfig?.defaultKennelTag ? item.summary : extractTitle(item.summary),
+            title: useFullTitle ? item.summary : extractTitle(item.summary),
             description,
             hares,
             location: item.location,

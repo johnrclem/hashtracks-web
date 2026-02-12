@@ -121,8 +121,16 @@ async function main() {
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { defaultKennelTag: "BFM" },
-      kennelShortNames: ["BFM"],
+      config: {
+        kennelPatterns: [
+          ["BFM|Ben Franklin|BFMH3", "BFM"],
+          ["Philly Hash|hashphilly|Philly H3", "Philly H3"],
+          ["Main Line", "Main Line H3"],
+          ["TTH3", "TTH3"],
+        ],
+        defaultKennelTag: "BFM",
+      },
+      kennelShortNames: ["BFM", "Philly H3"],
     },
     {
       name: "Philly H3 Google Calendar",
@@ -131,8 +139,14 @@ async function main() {
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { defaultKennelTag: "Philly H3" },
-      kennelShortNames: ["Philly H3"],
+      config: {
+        kennelPatterns: [
+          ["BFM|Ben Franklin|BFMH3", "BFM"],
+          ["Philly Hash|hashphilly|Philly H3", "Philly H3"],
+        ],
+        defaultKennelTag: "Philly H3",
+      },
+      kennelShortNames: ["BFM", "Philly H3"],
     },
     {
       name: "BFM Website",
