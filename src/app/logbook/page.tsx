@@ -31,6 +31,7 @@ export default async function LogbookPage() {
     attendance: {
       id: a.id,
       participationLevel: a.participationLevel as string,
+      status: a.status as string,
       stravaUrl: a.stravaUrl,
       notes: a.notes,
     },
@@ -44,13 +45,17 @@ export default async function LogbookPage() {
     },
   }));
 
+  const confirmedCount = entries.filter((e) => e.attendance.status === "CONFIRMED").length;
+  const goingCount = entries.filter((e) => e.attendance.status === "INTENDING").length;
+
   return (
     <div>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">My Logbook</h1>
           <p className="mt-1 text-muted-foreground">
-            {entries.length} {entries.length === 1 ? "run" : "runs"} logged
+            {confirmedCount} {confirmedCount === 1 ? "run" : "runs"} logged
+            {goingCount > 0 && ` · ${goingCount} upcoming`}
           </p>
         </div>
         <Link

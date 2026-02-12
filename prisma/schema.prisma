@@ -86,6 +86,7 @@ model Source {
   lastScrapeAt  DateTime?
   lastSuccessAt DateTime?
   healthStatus  SourceHealth @default(UNKNOWN)
+  scrapeDays    Int          @default(90) // Lookback window in days for cron
   kennels       SourceKennel[]
   rawEvents     RawEvent[]
   scrapeLogs    ScrapeLog[]
@@ -228,6 +229,7 @@ model Attendance {
   id                 String             @id @default(cuid())
   userId             String
   eventId            String
+  status             AttendanceStatus   @default(CONFIRMED)
   participationLevel ParticipationLevel @default(RUN)
   stravaUrl          String?
   beezThere          Boolean            @default(false)
@@ -241,6 +243,11 @@ model Attendance {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, eventId])
+}
+
+enum AttendanceStatus {
+  INTENDING // "I'm going" — pre-event RSVP
+  CONFIRMED // "I was there" — post-event check-in
 }
 
 enum ParticipationLevel {

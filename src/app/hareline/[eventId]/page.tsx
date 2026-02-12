@@ -57,21 +57,22 @@ export default async function EventDetailPage({
 
   // Query current user + their attendance for this event
   const user = await getOrCreateUser();
-  let attendance: { id: string; participationLevel: string; stravaUrl: string | null; notes: string | null } | null = null;
+  let attendance: { id: string; participationLevel: string; status: string; stravaUrl: string | null; notes: string | null } | null = null;
 
   if (user) {
     const record = await prisma.attendance.findUnique({
       where: { userId_eventId: { userId: user.id, eventId } },
-      select: { id: true, participationLevel: true, stravaUrl: true, notes: true },
+      select: { id: true, participationLevel: true, status: true, stravaUrl: true, notes: true },
     });
     if (record) {
-      attendance = { ...record, participationLevel: record.participationLevel as string };
+      attendance = { ...record, participationLevel: record.participationLevel as string, status: record.status as string };
     }
   }
 
-  const attendanceCount = await prisma.attendance.count({
-    where: { eventId },
-  });
+  const [confirmedCount, goingCount] = await Promise.all([
+    prisma.attendance.count({ where: { eventId, status: "CONFIRMED" } }),
+    prisma.attendance.count({ where: { eventId, status: "INTENDING" } }),
+  ]);
 
   const dateFormatted = event.date.toLocaleDateString("en-US", {
     weekday: "long",
@@ -126,9 +127,11 @@ export default async function EventDetailPage({
           isAuthenticated={!!user}
           attendance={attendance}
         />
-        {attendanceCount > 0 && (
+        {(confirmedCount > 0 || goingCount > 0) && (
           <span className="text-sm text-muted-foreground">
-            {attendanceCount} {attendanceCount === 1 ? "hasher" : "hashers"} checked in
+            {confirmedCount > 0 && `${confirmedCount} checked in`}
+            {confirmedCount > 0 && goingCount > 0 && " · "}
+            {goingCount > 0 && `${goingCount} going`}
           </span>
         )}
       </div>

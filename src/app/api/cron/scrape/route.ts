@@ -9,15 +9,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Query all sources
+  // Query all sources with per-source scrape window
   const sources = await prisma.source.findMany({
-    select: { id: true, name: true },
+    select: { id: true, name: true, scrapeDays: true },
   });
 
   // Scrape each source sequentially to avoid rate-limiting external APIs
   const results = [];
   for (const source of sources) {
-    const result = await scrapeSource(source.id, { days: 90 });
+    const result = await scrapeSource(source.id, { days: source.scrapeDays });
     results.push({ sourceId: source.id, name: source.name, ...result });
   }
 

@@ -128,7 +128,11 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
           )}
           {attendance && (
             <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
-              <AttendanceBadge level={attendance.participationLevel} size="sm" />
+              {attendance.status === "INTENDING" ? (
+                <Badge variant="outline" className="border-blue-300 text-blue-700 text-[10px] px-1.5 py-0">Going</Badge>
+              ) : (
+                <AttendanceBadge level={attendance.participationLevel} size="sm" />
+              )}
             </span>
           )}
         </div>
@@ -190,7 +194,11 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
             )}
             {attendance && (
               <span className="ml-1" onClick={(e) => e.stopPropagation()}>
-                <AttendanceBadge level={attendance.participationLevel} size="sm" />
+                {attendance.status === "INTENDING" ? (
+                  <Badge variant="outline" className="border-blue-300 text-blue-700 text-[10px] px-1.5 py-0">Going</Badge>
+                ) : (
+                  <AttendanceBadge level={attendance.participationLevel} size="sm" />
+                )}
               </span>
             )}
           </div>

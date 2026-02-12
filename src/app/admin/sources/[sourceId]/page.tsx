@@ -117,6 +117,7 @@ export default async function SourceDetailPage({
           type: source.type,
           trustLevel: source.trustLevel,
           scrapeFreq: source.scrapeFreq,
+          scrapeDays: source.scrapeDays,
           linkedKennelIds: source.kennels.map((sk) => sk.kennelId),
         }}
         allKennels={allKennels}

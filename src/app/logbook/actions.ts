@@ -30,16 +30,31 @@ export async function checkIn(
     return { error: "Can only check in to past events" };
   }
 
-  // Check for existing attendance (handle race conditions)
+  // Check for existing attendance (handle race conditions + RSVP upgrade)
   const existing = await prisma.attendance.findUnique({
     where: { userId_eventId: { userId: user.id, eventId } },
   });
-  if (existing) return { success: true, attendanceId: existing.id };
+  if (existing) {
+    // If INTENDING, upgrade to CONFIRMED
+    if (existing.status === "INTENDING") {
+      await prisma.attendance.update({
+        where: { id: existing.id },
+        data: {
+          status: "CONFIRMED",
+          participationLevel: (participationLevel as "RUN" | "HARE" | "BAG_HERO" | "DRINK_CHECK" | "BEER_MILE" | "WALK" | "CIRCLE_ONLY") ?? "RUN",
+        },
+      });
+      revalidatePath("/hareline");
+      revalidatePath("/logbook");
+    }
+    return { success: true, attendanceId: existing.id };
+  }
 
   const attendance = await prisma.attendance.create({
     data: {
       userId: user.id,
       eventId,
+      status: "CONFIRMED",
       participationLevel: (participationLevel as "RUN" | "HARE" | "BAG_HERO" | "DRINK_CHECK" | "BEER_MILE" | "WALK" | "CIRCLE_ONLY") ?? "RUN",
     },
   });
@@ -75,6 +90,98 @@ export async function updateAttendance(
       }),
       ...(data.stravaUrl !== undefined && { stravaUrl: data.stravaUrl }),
       ...(data.notes !== undefined && { notes: data.notes }),
+    },
+  });
+
+  revalidatePath("/hareline");
+  revalidatePath("/logbook");
+  return { success: true };
+}
+
+export async function rsvp(eventId: string) {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  // Validate event exists
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true, date: true },
+  });
+  if (!event) return { error: "Event not found" };
+
+  // Validate event is in the future (UTC noon comparison)
+  const now = new Date();
+  const todayUtcNoon = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    12, 0, 0,
+  );
+  if (event.date.getTime() < todayUtcNoon) {
+    return { error: "Can only RSVP to future events" };
+  }
+
+  // Toggle: if already INTENDING, remove it
+  const existing = await prisma.attendance.findUnique({
+    where: { userId_eventId: { userId: user.id, eventId } },
+  });
+  if (existing) {
+    if (existing.status === "INTENDING") {
+      await prisma.attendance.delete({ where: { id: existing.id } });
+      revalidatePath("/hareline");
+      revalidatePath("/logbook");
+      return { success: true, toggled: "off" };
+    }
+    // Already confirmed — don't allow toggling off
+    return { success: true, attendanceId: existing.id };
+  }
+
+  const attendance = await prisma.attendance.create({
+    data: {
+      userId: user.id,
+      eventId,
+      status: "INTENDING",
+      participationLevel: "RUN",
+    },
+  });
+
+  revalidatePath("/hareline");
+  revalidatePath("/logbook");
+  return { success: true, attendanceId: attendance.id, toggled: "on" };
+}
+
+export async function confirmAttendance(
+  attendanceId: string,
+  participationLevel?: string,
+) {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const attendance = await prisma.attendance.findUnique({
+    where: { id: attendanceId },
+    include: { event: { select: { date: true } } },
+  });
+  if (!attendance) return { error: "Attendance not found" };
+  if (attendance.userId !== user.id) return { error: "Not authorized" };
+  if (attendance.status !== "INTENDING") return { error: "Already confirmed" };
+
+  // Validate event is now in the past
+  const now = new Date();
+  const todayUtcNoon = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    12, 0, 0,
+  );
+  if (attendance.event.date.getTime() >= todayUtcNoon) {
+    return { error: "Event hasn't happened yet" };
+  }
+
+  await prisma.attendance.update({
+    where: { id: attendanceId },
+    data: {
+      status: "CONFIRMED",
+      participationLevel: (participationLevel as "RUN" | "HARE" | "BAG_HERO" | "DRINK_CHECK" | "BEER_MILE" | "WALK" | "CIRCLE_ONLY") ?? attendance.participationLevel,
     },
   });
 

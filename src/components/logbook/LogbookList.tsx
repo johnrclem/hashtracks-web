@@ -317,11 +317,21 @@ export function LogbookList({ entries }: LogbookListProps) {
                   Activity
                 </a>
               )}
-              <AttendanceBadge
-                level={entry.attendance.participationLevel}
-                size="sm"
-                onClick={() => setEditingAttendance(entry.attendance)}
-              />
+              {entry.attendance.status === "INTENDING" ? (
+                <Badge
+                  variant="outline"
+                  className="cursor-pointer border-blue-300 text-blue-700"
+                  onClick={() => setEditingAttendance(entry.attendance)}
+                >
+                  Going
+                </Badge>
+              ) : (
+                <AttendanceBadge
+                  level={entry.attendance.participationLevel}
+                  size="sm"
+                  onClick={() => setEditingAttendance(entry.attendance)}
+                />
+              )}
             </span>
           </div>
         ))}

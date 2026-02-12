@@ -32,7 +32,7 @@ export default async function StatsPage() {
   if (!user) redirect("/sign-in");
 
   const attendances = await prisma.attendance.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, status: "CONFIRMED" },
     include: {
       event: {
         include: {

@@ -85,6 +85,7 @@ async function main() {
       type: "HTML_SCRAPER" as const,
       trustLevel: 8,
       scrapeFreq: "daily",
+      scrapeDays: 365,
       kennelShortNames: ["NYCH3", "BrH3", "NAH3", "Knick", "LIL", "QBK", "SI", "Columbia", "Harriettes", "GGFM", "NAWWH3"],
     },
     {
@@ -93,6 +94,7 @@ async function main() {
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
+      scrapeDays: 365,
       kennelShortNames: ["BoH3", "BoBBH3", "Beantown", "Bos Moon", "Pink Taco"],
     },
     {
@@ -101,6 +103,7 @@ async function main() {
       type: "GOOGLE_SHEETS" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
+      scrapeDays: 9999,
       config: {
         sheetId: "1wG-BNb5ekMHM5euiPJT1nxQXZ3UxNqFZMdQtCBbYaMk",
         columns: { runNumber: 0, specialRun: 1, date: 2, hares: 3, location: 4, title: 6, description: 9 },
@@ -177,13 +180,11 @@ async function main() {
       });
       console.log(`  ✓ Created source: ${sourceData.name}`);
     } else {
-      // Update config if present (e.g., column mapping changes)
-      if ("config" in sourceData && sourceData.config) {
-        await prisma.source.update({
-          where: { id: existingSource.id },
-          data: sourceData as Parameters<typeof prisma.source.update>[0]["data"],
-        });
-      }
+      // Update config and scrapeDays if present
+      await prisma.source.update({
+        where: { id: existingSource.id },
+        data: sourceData as Parameters<typeof prisma.source.update>[0]["data"],
+      });
       console.log(`  ✓ Source already exists: ${sourceData.name}`);
     }
 

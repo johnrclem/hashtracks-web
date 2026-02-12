@@ -20,6 +20,7 @@ type SourceDetailData = {
   type: string;
   trustLevel: number;
   scrapeFreq: string;
+  scrapeDays: number;
   linkedKennelIds: string[];
 };
 
@@ -34,7 +35,7 @@ export function SourceDetailActions({
 }: SourceDetailActionsProps) {
   const [isPending, startTransition] = useTransition();
   const [isScraping, setIsScraping] = useState(false);
-  const [scrapeDays, setScrapeDays] = useState("90");
+  const [scrapeDays, setScrapeDays] = useState(String(source.scrapeDays));
   const router = useRouter();
 
   function handleDelete() {
