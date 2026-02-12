@@ -180,13 +180,20 @@ export function HarelineView({
   }, [events, view, timeFilter, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays]);
 
   // Sort: upcoming = ascending (nearest first), past = descending (most recent first)
+  // Secondary sort by startTime within the same day (events without time go last)
   const sortedEvents = useMemo(() => {
     const sorted = [...filteredEvents];
-    if (timeFilter === "upcoming") {
-      sorted.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    } else {
-      sorted.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }
+    sorted.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      const dateDiff = timeFilter === "upcoming" ? dateA - dateB : dateB - dateA;
+      if (dateDiff !== 0) return dateDiff;
+      // Same date — sort by startTime ("HH:MM" string), nulls last
+      if (!a.startTime && !b.startTime) return 0;
+      if (!a.startTime) return 1;
+      if (!b.startTime) return -1;
+      return a.startTime.localeCompare(b.startTime);
+    });
     return sorted;
   }, [filteredEvents, timeFilter]);
 
