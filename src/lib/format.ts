@@ -45,13 +45,13 @@ export const PARTICIPATION_LEVELS = Object.keys(LEVEL_LABELS);
 // ── Region display ──
 
 const REGION_CONFIG: Record<string, { abbrev: string; classes: string }> = {
-  "New York City, NY": { abbrev: "NYC", classes: "bg-blue-100 text-blue-800" },
-  "Long Island, NY":   { abbrev: "LI",  classes: "bg-cyan-100 text-cyan-800" },
-  "Boston, MA":        { abbrev: "BOS", classes: "bg-red-100 text-red-800" },
-  "North NJ":          { abbrev: "NNJ", classes: "bg-emerald-100 text-emerald-800" },
-  "New Jersey":        { abbrev: "NJ",  classes: "bg-green-100 text-green-800" },
-  "Philadelphia, PA":  { abbrev: "PHI", classes: "bg-amber-100 text-amber-800" },
-  "Chicago, IL":       { abbrev: "CHI", classes: "bg-purple-100 text-purple-800" },
+  "New York City, NY": { abbrev: "NYC", classes: "bg-blue-200 text-blue-800" },
+  "Long Island, NY":   { abbrev: "LI",  classes: "bg-cyan-200 text-cyan-800" },
+  "Boston, MA":        { abbrev: "BOS", classes: "bg-red-200 text-red-800" },
+  "North NJ":          { abbrev: "NNJ", classes: "bg-emerald-200 text-emerald-800" },
+  "New Jersey":        { abbrev: "NJ",  classes: "bg-green-200 text-green-800" },
+  "Philadelphia, PA":  { abbrev: "PHI", classes: "bg-amber-200 text-amber-800" },
+  "Chicago, IL":       { abbrev: "CHI", classes: "bg-purple-200 text-purple-800" },
 };
 
 /** Short abbreviation for a region. "New York City, NY" → "NYC" */
@@ -61,5 +61,5 @@ export function regionAbbrev(region: string): string {
 
 /** Tailwind color classes for a region badge. Falls back to gray. */
 export function regionColorClasses(region: string): string {
-  return REGION_CONFIG[region]?.classes ?? "bg-gray-100 text-gray-800";
+  return REGION_CONFIG[region]?.classes ?? "bg-gray-200 text-gray-800";
 }

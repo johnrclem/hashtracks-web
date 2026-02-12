@@ -140,7 +140,7 @@ export function CalendarView({ events }: CalendarViewProps) {
                     isSelected
                       ? "ring-2 ring-inset ring-primary bg-primary/5"
                       : isToday
-                        ? "bg-primary/5"
+                        ? "border border-primary/50 bg-primary/10"
                         : isPast
                           ? "opacity-50"
                           : "hover:bg-muted/50"
