@@ -36,28 +36,33 @@ No roadmap dependencies — this feature is independent of the unfinished source
 
 ---
 
-### Sprint 8b: Misman Dashboard + Role Assignment + Request Flow
+### Sprint 8b: Misman Dashboard + Role Assignment + Request Flow ✅
 
 **Goal**: Users can request misman access, admins/mismans approve, mismans see a dashboard.
 
 **Routes**:
-- `/misman` — Dashboard: kennel cards for each misman kennel, pending requests
-- `/misman/layout.tsx` — Auth guard (at least one MISMAN/ADMIN UserKennel)
+- `/misman` — Dashboard: kennel cards for each misman kennel, pending requests (site admins see ALL pending requests)
+- `/misman/layout.tsx` — Simple metadata layout (no auth guard — page handles access)
+- `/admin/misman-requests` — Admin panel tab showing all misman requests with approve/reject
 
 **Server actions** (`src/app/misman/actions.ts`):
 - `requestMismanAccess(kennelId, message?)` — validates no duplicate PENDING, no existing MISMAN role
-- `approveMismanRequest(requestId)` — upserts UserKennel with MISMAN role
-- `rejectMismanRequest(requestId)`
+- `approveMismanRequest(requestId)` — upserts UserKennel with MISMAN role (reused by both `/misman` and `/admin`)
+- `rejectMismanRequest(requestId)` — (reused by both `/misman` and `/admin`)
 
 **Admin role management** (`src/app/admin/kennels/actions.ts`):
 - `assignMismanRole(kennelId, userId)` — site admin direct assignment
 - `revokeMismanRole(kennelId, userId)` — downgrade to MEMBER
 
+**Admin panel** (`src/app/admin/layout.tsx`):
+- Added "Misman" tab with pending count badge (between Requests and Kennels)
+- `MismanRequestQueue` component in `src/components/admin/` — approve/reject UI reusing existing server actions
+
 **UI modifications**:
 - `/kennels/[slug]/page.tsx` — Add `MismanAccessButton` (visible to subscribed users without MISMAN/ADMIN)
 - `Header.tsx` — Add "Misman" link for authenticated users (page handles access check)
 
-**Components**: `MismanDashboard`, `MismanKennelCard`, `MismanRequestQueue`, `MismanAccessButton`, `RoleManager`
+**Components**: `MismanDashboard`, `MismanKennelCard`, `MismanAccessButton`, `MismanRequestQueue` (admin)
 
 ---
 
@@ -184,6 +189,8 @@ Sprints 8d and 8e can run in parallel after 8c.
 | `src/app/kennels/[slug]/page.tsx` | 8b | MismanAccessButton |
 | `src/components/layout/Header.tsx` | 8b | Misman nav link |
 | `src/app/admin/kennels/actions.ts` | 8b, 8f | Role mgmt, deletion guard |
+| `src/app/admin/misman-requests/page.tsx` | 8b | Admin misman request approval page |
+| `src/components/admin/MismanRequestQueue.tsx` | 8b | Admin request queue (reuses misman actions) |
 | `src/lib/misman/suggestions.ts` | 8e | Scoring algorithm (pure function) |
 | `src/lib/misman/verification.ts` | 8e | Derived verification status |
 | `src/app/logbook/page.tsx` | 8e | Pending confirmations section |

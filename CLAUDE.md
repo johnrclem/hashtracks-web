@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 337 tests)
+- `npm test` — Run test suite (Vitest, 402 tests)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -81,7 +81,11 @@ calendar + personal logbook + kennel directory.
 - `src/pipeline/structure-hash.ts` — HTML structural fingerprinting (SHA-256)
 - `src/app/admin/alerts/actions.ts` — Alert repair actions (re-scrape, create alias/kennel, link kennel to source, file GitHub issue)
 - `src/app/admin/events/actions.ts` — Admin event management (delete, bulk delete with cascade)
+- `src/app/admin/misman-requests/page.tsx` — Admin misman request approval (reuses misman server actions)
 - `src/components/admin/AlertCard.tsx` — Alert card with repair actions, context display, repair history
+- `src/app/misman/actions.ts` — Misman request/approve/reject server actions (used by both /misman and /admin)
+- `src/app/misman/[slug]/roster/actions.ts` — Roster CRUD + search (roster group scope)
+- `src/app/misman/[slug]/attendance/actions.ts` — Attendance recording, polling, quick-add
 - `src/lib/fuzzy.ts` — Levenshtein-based fuzzy string matching for kennel tag resolution
 - `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
 - `vitest.config.ts` — Test runner config (globals, path aliases)
@@ -91,6 +95,7 @@ calendar + personal logbook + kennel directory.
 - `docs/source-onboarding-playbook.md` — Step-by-step guide for adding new data sources
 - `docs/roadmap.md` — Implementation roadmap for source scaling, historical import, monitoring
 - `docs/misman-attendance-requirements.md` — Kennel attendance management (misman tool) requirements
+- `docs/misman-implementation-plan.md` — Sprint plan for misman feature (8a-8f)
 
 ## Active Sources (7)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -107,7 +112,7 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (337 tests across 20 files)
+- **Run:** `npm test` (402 tests across 23 files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)

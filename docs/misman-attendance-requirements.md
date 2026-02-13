@@ -392,12 +392,18 @@ Multiple mismans (typically 2-4 per kennel) may record attendance for the same e
 - Can approve or reject requests
 - Approval changes the requester's `UserKennel.role` to MISMAN
 
+**Path 2b: Site Admin Approves Request via Admin Panel**
+- Site admins see all pending misman requests in the admin panel (`/admin/misman-requests`)
+- "Misman" tab in admin nav shows a count badge for pending requests
+- Can approve or reject any kennel's requests from this view
+- Site admins also see all pending requests on the `/misman` dashboard (not limited to their own kennel roles)
+
 **Path 3: Self-Service Request**
 - Any authenticated user visits a kennel's detail page (`/kennels/[slug]`)
 - If they are a MEMBER (subscribed) but not MISMAN/ADMIN, they see a **"Request Misman Access"** link
 - Clicking opens a simple form with an optional message field ("I'm the misman for this kennel")
 - Creates a `MismanRequest` record (status: PENDING)
-- Existing mismans and site admins are notified (via the misman dashboard; push notifications deferred)
+- Existing mismans and site admins are notified (via the misman dashboard and admin panel; push notifications deferred)
 
 **Bootstrap**: For a kennel with no existing mismans, only a site admin can assign the first misman (Path 1). Once at least one misman exists, they can approve subsequent requests (Path 2). This is by design — prevents unauthorized self-assignment.
 
@@ -497,6 +503,7 @@ Within a Roster Group, misman from any kennel in the group can see all roster da
 
 /kennels/[slug]                      — Existing kennel detail page (add "Request Misman Access" link)
 
+/admin/misman-requests               — All misman access requests (approve/reject, pending count badge)
 /admin/kennels/[id]                  — Existing admin kennel edit (add "Manage Roles" section)
 /admin/roster-groups                 — Roster Group management (create, assign kennels)
 ```
