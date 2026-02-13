@@ -20,7 +20,7 @@ Give mismanagement a dedicated tool to capture and track attendance tied to even
 - Optional contact fields: **email** and **mobile phone** (private to misman only) — useful for future communication features (e.g., trail announcements, payment reminders)
 - A KennelHasher can optionally be **linked to a site User** (see User Linking below)
 - Roster entries are editable: fix spelling, add hash name after someone gets named, update nerd name, add contact info, etc.
-- **Roster seeding**: pre-populate from existing hare data in the database (anyone who has hared for the kennel in the last year). Could also do a targeted scrape of hashnyc.com hare data if needed. Future option to import from an attendance spreadsheet with smart name matching.
+- **Roster seeding**: pre-populate from existing hare data in the database (anyone who has hared for the kennel — or any kennel in the same Roster Group — in the last year). Could also do a targeted scrape of hashnyc.com hare data if needed. Future option to import from an attendance spreadsheet with smart name matching.
 
 ### Kennel Permissions (Misman Role)
 - **Replaces the existing `SCRIBE` role** in `UserKennelRole` — MISMAN is the canonical name for kennel-level attendance managers
@@ -189,6 +189,7 @@ model RosterGroupKennel {
   kennel   Kennel      @relation(fields: [kennelId], references: [id])
 
   @@unique([groupId, kennelId])
+  @@unique([kennelId]) // A kennel can only be in one Roster Group
 }
 ```
 
@@ -243,7 +244,7 @@ The primary interface — designed for use at trail on a phone.
 
 ### 3. User Linking
 - System **suggests** links between KennelHasher entries and site Users based on name matching (fuzzy match on hash name and nerd name against `User.hashName` and `User.nerdName`)
-- Link suggestions are generated during page load of the roster management page (query Users who are members of the kennel via `UserKennel` and compare names)
+- Link suggestions are generated during page load of the roster management page (query Users who are members of the kennel — or any kennel in the same Roster Group — via `UserKennel` and compare names against unlinked KennelHasher entries)
 - Misman can **manually trigger** a link suggestion or confirm a system suggestion
 - Linked user sees a "pending confirmations" section at the top of their `/logbook` page ("NYCH3 misman recorded you at Run #2045 — confirm?")
 - User **accepts** (creates/confirms Attendance record in their logbook) or **dismisses** the suggestion
@@ -297,8 +298,9 @@ The existing `Attendance.isVerified` and `Attendance.verifiedBy` fields remain i
 When misman opens the attendance form for an event, the system suggests hashers most likely to be present. The goal: **the form should feel like checking names off a list, not searching from scratch.**
 
 ### Inputs
-- KennelAttendance history for this kennel (last 6 months). For kennels in a Roster Group, attendance at **any kennel in the group** counts toward a hasher's score.
-- Total kennel events in the same period (for frequency normalization) — scoped to the specific kennel, not the entire group
+- KennelAttendance history for this kennel (last 6 months)
+- For kennels in a Roster Group: attendance at any kennel in the group informs **recency** (are they still active?), but **frequency** and **streak** are scoped to this kennel only (how often do they come to *our* trail?)
+- Total kennel events in the same period (for frequency normalization) — scoped to this kennel only
 - KennelHasher roster for the kennel (or the entire shared roster pool, if the kennel is in a Roster Group)
 
 ### Scoring Formula
@@ -309,9 +311,9 @@ score = (0.5 × frequency) + (0.3 × recency) + (0.2 × streak)
 
 | Factor | Calculation | Rationale |
 |---|---|---|
-| **Frequency** | `events_attended_last_6mo / total_kennel_events_last_6mo` | Catches regulars who come most weeks |
-| **Recency** | `max(0, 1 - (days_since_last_attendance / 180))` | Boosts people who attended recently; decays to 0 after 6 months of absence |
-| **Streak** | `min(1, consecutive_recent_events / 4)` | Starting from the most recent kennel event and counting backward: how many events in a row did this person attend without a gap? (e.g., attended last 3 of 3 → streak=3; attended last 2, missed one → streak=2). Maxes out at 4. |
+| **Frequency** | `events_attended_last_6mo / total_kennel_events_last_6mo` | Scoped to **this kennel only**. Catches regulars who come to *this* trail most weeks. |
+| **Recency** | `max(0, 1 - (days_since_last_attendance / 180))` | For grouped kennels, considers attendance at **any kennel in the group**. A GGFM regular who hasn't been to NYC H3 in months still shows as "recently active" if they were at GGFM last week. |
+| **Streak** | `min(1, consecutive_recent_events / 4)` | Scoped to **this kennel only**. Starting from the most recent kennel event and counting backward: how many events in a row did this person attend without a gap? (e.g., attended last 3 of 3 → streak=3; attended last 2, missed one → streak=2). Maxes out at 4. |
 
 ### Display
 - **Top suggestions** (score > 0.3): shown as a tap-to-add list at the top of the form — fast one-tap check-off. For kennels in a Roster Group, this draws from the entire shared roster pool.
