@@ -27,6 +27,7 @@ export async function deleteEvent(eventId: string) {
     // Delete dependent records
     prisma.eventHare.deleteMany({ where: { eventId } }),
     prisma.attendance.deleteMany({ where: { eventId } }),
+    prisma.kennelAttendance.deleteMany({ where: { eventId } }),
     // Delete the event itself
     prisma.event.delete({ where: { id: eventId } }),
   ]);
@@ -120,6 +121,7 @@ export async function bulkDeleteEvents(filters: {
     // Delete dependent records
     prisma.eventHare.deleteMany({ where: { eventId: { in: eventIds } } }),
     prisma.attendance.deleteMany({ where: { eventId: { in: eventIds } } }),
+    prisma.kennelAttendance.deleteMany({ where: { eventId: { in: eventIds } } }),
     // Delete events
     prisma.event.deleteMany({ where: { id: { in: eventIds } } }),
   ]);
@@ -146,6 +148,7 @@ export async function deleteSelectedEvents(eventIds: string[]) {
     }),
     prisma.eventHare.deleteMany({ where: { eventId: { in: eventIds } } }),
     prisma.attendance.deleteMany({ where: { eventId: { in: eventIds } } }),
+    prisma.kennelAttendance.deleteMany({ where: { eventId: { in: eventIds } } }),
     prisma.event.deleteMany({ where: { id: { in: eventIds } } }),
   ]);
 

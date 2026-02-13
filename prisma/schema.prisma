@@ -22,6 +22,10 @@ model User {
   homeKennels UserKennel[]
   attendances Attendance[]
   hareCredits EventHare[]
+  // Misman relations
+  kennelHasherLinks   KennelHasherLink[]
+  mismanRequests      MismanRequest[]
+  recordedAttendances KennelAttendance[] @relation("RecordedAttendances")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -40,8 +44,8 @@ model UserKennel {
 
 enum UserKennelRole {
   MEMBER // Subscribed hasher
-  ADMIN  // Can edit kennel details (v2)
-  SCRIBE // Can verify attendance (v2)
+  ADMIN  // Can edit kennel details + all MISMAN permissions
+  MISMAN // Can manage roster + attendance for this kennel
 }
 
 // ── KENNELS ──
@@ -59,6 +63,10 @@ model Kennel {
   sources     SourceKennel[]
   events      Event[]
   members     UserKennel[]
+  // Misman relations
+  kennelHashers  KennelHasher[]
+  mismanRequests MismanRequest[]
+  rosterGroups   RosterGroupKennel[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 }
@@ -200,6 +208,8 @@ model Event {
   rawEvents   RawEvent[]
   hares       EventHare[]
   attendances Attendance[]
+  // Misman relations
+  kennelAttendances KennelAttendance[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -243,8 +253,8 @@ model Attendance {
   stravaUrl          String?
   beezThere          Boolean            @default(false)
   notes              String?            // User's personal notes
-  isVerified         Boolean            @default(false) // Verified by scribe (v2)
-  verifiedBy         String?            // Scribe user ID (v2)
+  isVerified         Boolean            @default(false) // Verified by misman (v2)
+  verifiedBy         String?            // Misman user ID (v2)
 
   user    User    @relation(fields: [userId], references: [id])
   event   Event   @relation(fields: [eventId], references: [id])
@@ -336,4 +346,130 @@ enum RequestStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+// ── MISMAN ENUMS ──
+
+enum HasherLinkStatus {
+  SUGGESTED  // System or misman suggested link; awaiting user confirmation
+  CONFIRMED  // User accepted the link
+  DISMISSED  // User dismissed the suggestion
+}
+
+enum ReferralSource {
+  WORD_OF_MOUTH
+  SOCIAL_MEDIA
+  REDDIT
+  MEETUP
+  GOOGLE_SEARCH
+  OTHER
+}
+
+// ── KENNEL ROSTER ──
+
+model KennelHasher {
+  id        String   @id @default(cuid())
+  kennelId  String
+  hashName  String?  // Public display name (primary identifier)
+  nerdName  String?  // Real name (private, visible to misman only)
+  email     String?  // Contact email (private, visible to misman only)
+  phone     String?  // Mobile phone (private, visible to misman only)
+  notes     String?  // Internal misman notes
+
+  kennel      Kennel              @relation(fields: [kennelId], references: [id])
+  attendances KennelAttendance[]
+  userLink    KennelHasherLink?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  // At least one of hashName or nerdName must be provided (enforced in app logic)
+  @@index([kennelId])
+  @@index([kennelId, hashName])
+  @@index([kennelId, nerdName])
+}
+
+// ── USER ↔ KENNEL HASHER LINKING ──
+
+model KennelHasherLink {
+  id             String           @id @default(cuid())
+  kennelHasherId String           @unique // One link per KennelHasher
+  userId         String
+  status         HasherLinkStatus @default(SUGGESTED)
+  suggestedBy    String?          // "system" or misman user ID who suggested
+  confirmedBy    String?          // User ID who confirmed (always the linked user)
+  dismissedBy    String?          // User ID or misman ID who dismissed
+
+  kennelHasher KennelHasher @relation(fields: [kennelHasherId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([userId, status])
+}
+
+// ── MISMAN-RECORDED ATTENDANCE ──
+
+model KennelAttendance {
+  id              String          @id @default(cuid())
+  kennelHasherId  String
+  eventId         String
+  paid            Boolean         @default(false)
+  haredThisTrail  Boolean         @default(false)
+  isVirgin        Boolean         @default(false)
+  isVisitor       Boolean         @default(false)
+  visitorLocation String?         // Where they're visiting from
+  referralSource  ReferralSource? // How they found the hash
+  referralOther   String?         // Freetext when referralSource is OTHER
+  recordedBy      String          // Misman user ID who created this record
+
+  kennelHasher   KennelHasher @relation(fields: [kennelHasherId], references: [id])
+  event          Event        @relation(fields: [eventId], references: [id])
+  recordedByUser User         @relation("RecordedAttendances", fields: [recordedBy], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([kennelHasherId, eventId]) // One attendance per hasher per event
+  @@index([eventId])
+  @@index([kennelHasherId])
+}
+
+// ── MISMAN ACCESS REQUESTS ──
+
+model MismanRequest {
+  id         String        @id @default(cuid())
+  userId     String
+  kennelId   String
+  message    String?       // "I'm the misman for GGFM, please grant access"
+  status     RequestStatus @default(PENDING) // Reuses existing enum
+  resolvedBy String?       // User ID of admin or misman who approved/rejected
+  resolvedAt DateTime?
+
+  user    User    @relation(fields: [userId], references: [id])
+  kennel  Kennel  @relation(fields: [kennelId], references: [id])
+  createdAt DateTime @default(now())
+
+  // No unique constraint — allows re-requests after rejection.
+  // App logic prevents duplicate PENDING requests for the same user+kennel.
+  @@index([userId, kennelId, status])
+}
+
+// ── ROSTER GROUPS (Cross-Kennel Roster Sharing) ──
+
+model RosterGroup {
+  id      String              @id @default(cuid())
+  name    String              // "NYC Metro", "Philly Area"
+  kennels RosterGroupKennel[]
+  createdAt DateTime          @default(now())
+}
+
+model RosterGroupKennel {
+  id       String      @id @default(cuid())
+  groupId  String
+  kennelId String
+  group    RosterGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  kennel   Kennel      @relation(fields: [kennelId], references: [id])
+
+  @@unique([groupId, kennelId])
+  @@unique([kennelId]) // A kennel can only be in one Roster Group
 }

@@ -1,0 +1,319 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+const mockMisman = { id: "misman_1", email: "misman@test.com" };
+
+vi.mock("@/lib/auth", () => ({
+  getMismanUser: vi.fn(),
+  getRosterKennelIds: vi.fn(),
+}));
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    event: { findUnique: vi.fn() },
+    kennelHasher: { findUnique: vi.fn(), create: vi.fn() },
+    kennelAttendance: {
+      upsert: vi.fn(),
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
+      create: vi.fn(),
+    },
+  },
+}));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+
+import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import {
+  recordAttendance,
+  removeAttendance,
+  updateAttendance,
+  clearEventAttendance,
+  getEventAttendance,
+  quickAddHasher,
+} from "./actions";
+
+const mockMismanAuth = vi.mocked(getMismanUser);
+const mockRosterKennelIds = vi.mocked(getRosterKennelIds);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockMismanAuth.mockResolvedValue(mockMisman as never);
+  mockRosterKennelIds.mockResolvedValue(["kennel_1"]);
+});
+
+describe("recordAttendance", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(
+      await recordAttendance("kennel_1", "event_1", "kh_1"),
+    ).toEqual({ error: "Not authorized" });
+  });
+
+  it("returns error when event not found", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce(null);
+    expect(
+      await recordAttendance("kennel_1", "event_1", "kh_1"),
+    ).toEqual({ error: "Event not found" });
+  });
+
+  it("returns error when event not in roster scope", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      id: "event_1",
+      kennelId: "other_kennel",
+      date: new Date(),
+    } as never);
+
+    expect(
+      await recordAttendance("kennel_1", "event_1", "kh_1"),
+    ).toEqual({ error: "Event does not belong to this kennel or roster group" });
+  });
+
+  it("returns error when event is older than 1 year", async () => {
+    const oldDate = new Date();
+    oldDate.setFullYear(oldDate.getFullYear() - 2);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      id: "event_1",
+      kennelId: "kennel_1",
+      date: oldDate,
+    } as never);
+
+    expect(
+      await recordAttendance("kennel_1", "event_1", "kh_1"),
+    ).toEqual({ error: "Cannot record attendance for events older than 1 year" });
+  });
+
+  it("returns error when hasher not found", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      id: "event_1",
+      kennelId: "kennel_1",
+      date: new Date(),
+    } as never);
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce(null);
+
+    expect(
+      await recordAttendance("kennel_1", "event_1", "kh_1"),
+    ).toEqual({ error: "Hasher not found" });
+  });
+
+  it("returns error when hasher not in roster scope", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      id: "event_1",
+      kennelId: "kennel_1",
+      date: new Date(),
+    } as never);
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      kennelId: "other_kennel",
+    } as never);
+
+    expect(
+      await recordAttendance("kennel_1", "event_1", "kh_1"),
+    ).toEqual({ error: "Hasher is not in this kennel's roster scope" });
+  });
+
+  it("records attendance successfully via upsert", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      id: "event_1",
+      kennelId: "kennel_1",
+      date: new Date(),
+    } as never);
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      kennelId: "kennel_1",
+    } as never);
+    vi.mocked(prisma.kennelAttendance.upsert).mockResolvedValueOnce({} as never);
+
+    const result = await recordAttendance("kennel_1", "event_1", "kh_1", {
+      paid: true,
+      haredThisTrail: true,
+    });
+    expect(result).toEqual({ success: true });
+
+    expect(prisma.kennelAttendance.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          kennelHasherId_eventId: { kennelHasherId: "kh_1", eventId: "event_1" },
+        },
+        create: expect.objectContaining({
+          kennelHasherId: "kh_1",
+          eventId: "event_1",
+          paid: true,
+          haredThisTrail: true,
+          recordedBy: "misman_1",
+        }),
+      }),
+    );
+  });
+});
+
+describe("removeAttendance", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(await removeAttendance("kennel_1", "ka_1")).toEqual({
+      error: "Not authorized",
+    });
+  });
+
+  it("returns error when record not found", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(null);
+    expect(await removeAttendance("kennel_1", "ka_1")).toEqual({
+      error: "Attendance record not found",
+    });
+  });
+
+  it("removes attendance successfully", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
+      id: "ka_1",
+    } as never);
+    vi.mocked(prisma.kennelAttendance.delete).mockResolvedValueOnce({} as never);
+
+    expect(await removeAttendance("kennel_1", "ka_1")).toEqual({
+      success: true,
+    });
+  });
+});
+
+describe("updateAttendance", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(await updateAttendance("kennel_1", "ka_1", { paid: true })).toEqual(
+      { error: "Not authorized" },
+    );
+  });
+
+  it("returns error when record not found", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(null);
+    expect(await updateAttendance("kennel_1", "ka_1", { paid: true })).toEqual(
+      { error: "Attendance record not found" },
+    );
+  });
+
+  it("updates specific fields", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
+      id: "ka_1",
+    } as never);
+
+    // Need to mock the update - import the actual function
+    vi.mocked(prisma.kennelAttendance as unknown as { update: ReturnType<typeof vi.fn> }).update =
+      vi.fn().mockResolvedValueOnce({});
+
+    const result = await updateAttendance("kennel_1", "ka_1", {
+      paid: true,
+      haredThisTrail: false,
+    });
+    expect(result).toEqual({ success: true });
+  });
+});
+
+describe("clearEventAttendance", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(await clearEventAttendance("kennel_1", "event_1")).toEqual({
+      error: "Not authorized",
+    });
+  });
+
+  it("deletes all attendance for event", async () => {
+    vi.mocked(prisma.kennelAttendance.deleteMany).mockResolvedValueOnce({
+      count: 15,
+    } as never);
+
+    const result = await clearEventAttendance("kennel_1", "event_1");
+    expect(result).toEqual({ success: true, deleted: 15 });
+    expect(prisma.kennelAttendance.deleteMany).toHaveBeenCalledWith({
+      where: { eventId: "event_1" },
+    });
+  });
+});
+
+describe("getEventAttendance", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(await getEventAttendance("kennel_1", "event_1")).toEqual({
+      error: "Not authorized",
+    });
+  });
+
+  it("returns serialized attendance records", async () => {
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([
+      {
+        id: "ka_1",
+        kennelHasherId: "kh_1",
+        paid: true,
+        haredThisTrail: false,
+        isVirgin: false,
+        isVisitor: false,
+        visitorLocation: null,
+        referralSource: null,
+        referralOther: null,
+        createdAt: new Date("2026-02-13"),
+        kennelHasher: {
+          id: "kh_1",
+          hashName: "Mudflap",
+          nerdName: "John",
+          kennelId: "kennel_1",
+        },
+        recordedByUser: { hashName: "Trail Boss", email: "boss@test.com" },
+      },
+    ] as never);
+
+    const result = await getEventAttendance("kennel_1", "event_1");
+    expect(result.data).toHaveLength(1);
+    expect(result.data![0]).toEqual(
+      expect.objectContaining({
+        id: "ka_1",
+        hashName: "Mudflap",
+        nerdName: "John",
+        paid: true,
+        recordedBy: "Trail Boss",
+      }),
+    );
+  });
+});
+
+describe("quickAddHasher", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(
+      await quickAddHasher("kennel_1", "event_1", { hashName: "New" }),
+    ).toEqual({ error: "Not authorized" });
+  });
+
+  it("returns error when no name provided", async () => {
+    expect(
+      await quickAddHasher("kennel_1", "event_1", {}),
+    ).toEqual({ error: "Either hash name or nerd name is required" });
+  });
+
+  it("creates hasher and records attendance in one step", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      id: "event_1",
+      kennelId: "kennel_1",
+      date: new Date(),
+    } as never);
+    vi.mocked(prisma.kennelHasher.create).mockResolvedValueOnce({
+      id: "kh_new",
+    } as never);
+    vi.mocked(prisma.kennelAttendance.create).mockResolvedValueOnce({} as never);
+
+    const result = await quickAddHasher("kennel_1", "event_1", {
+      hashName: "Newbie",
+      isVirgin: true,
+    });
+    expect(result).toEqual({ success: true, hasherId: "kh_new" });
+
+    expect(prisma.kennelHasher.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        kennelId: "kennel_1",
+        hashName: "Newbie",
+      }),
+    });
+    expect(prisma.kennelAttendance.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        kennelHasherId: "kh_new",
+        eventId: "event_1",
+        isVirgin: true,
+        recordedBy: "misman_1",
+      }),
+    });
+  });
+});

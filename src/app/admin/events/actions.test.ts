@@ -15,6 +15,7 @@ vi.mock("@/lib/db", () => ({
     rawEvent: { updateMany: vi.fn() },
     eventHare: { deleteMany: vi.fn() },
     attendance: { deleteMany: vi.fn() },
+    kennelAttendance: { deleteMany: vi.fn() },
     $transaction: vi.fn((arr: unknown[]) => Promise.all(arr)),
   },
 }));
@@ -79,7 +80,7 @@ describe("deleteEvent", () => {
     // Verify transaction was called
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     const txArgs = vi.mocked(prisma.$transaction).mock.calls[0][0] as unknown[];
-    expect(txArgs).toHaveLength(4); // unlink rawEvents, delete hares, delete attendance, delete event
+    expect(txArgs).toHaveLength(5); // unlink rawEvents, delete hares, delete attendance, delete kennelAttendance, delete event
   });
 });
 
@@ -205,7 +206,7 @@ describe("deleteSelectedEvents", () => {
     expect(result).toEqual({ success: true, deletedCount: 3 });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     const txArgs = vi.mocked(prisma.$transaction).mock.calls[0][0] as unknown[];
-    expect(txArgs).toHaveLength(4); // unlink rawEvents, delete hares, delete attendance, delete events
+    expect(txArgs).toHaveLength(5); // unlink rawEvents, delete hares, delete attendance, delete kennelAttendance, delete events
   });
 
   it("unlinks raw events and deletes dependents before events", async () => {
@@ -219,6 +220,9 @@ describe("deleteSelectedEvents", () => {
       where: { eventId: { in: ["evt_1"] } },
     });
     expect(prisma.attendance.deleteMany).toHaveBeenCalledWith({
+      where: { eventId: { in: ["evt_1"] } },
+    });
+    expect(prisma.kennelAttendance.deleteMany).toHaveBeenCalledWith({
       where: { eventId: { in: ["evt_1"] } },
     });
     expect(prisma.event.deleteMany).toHaveBeenCalledWith({

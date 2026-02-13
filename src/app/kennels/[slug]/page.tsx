@@ -18,6 +18,7 @@ export async function generateMetadata({
 import { getOrCreateUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { SubscribeButton } from "@/components/kennels/SubscribeButton";
+import { MismanAccessButton } from "@/components/kennels/MismanAccessButton";
 import type { HarelineEvent } from "@/components/hareline/EventCard";
 import { CollapsibleEventList } from "@/components/kennels/CollapsibleEventList";
 
@@ -52,11 +53,20 @@ export default async function KennelDetailPage({
   ]);
 
   let isSubscribed = false;
+  let userRole: string | null = null;
+  let hasPendingMismanRequest = false;
   if (user) {
     const subscription = await prisma.userKennel.findUnique({
       where: { userId_kennelId: { userId: user.id, kennelId: kennel.id } },
     });
     isSubscribed = !!subscription;
+    userRole = subscription?.role ?? null;
+
+    // Check for pending misman request
+    const pendingRequest = await prisma.mismanRequest.findFirst({
+      where: { userId: user.id, kennelId: kennel.id, status: "PENDING" },
+    });
+    hasPendingMismanRequest = !!pendingRequest;
   }
 
   // Split events into upcoming and past
@@ -103,11 +113,20 @@ export default async function KennelDetailPage({
         </div>
       </div>
 
-      <SubscribeButton
-        kennelId={kennel.id}
-        isSubscribed={isSubscribed}
-        isAuthenticated={!!user}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <SubscribeButton
+          kennelId={kennel.id}
+          isSubscribed={isSubscribed}
+          isAuthenticated={!!user}
+        />
+        <MismanAccessButton
+          kennelId={kennel.id}
+          kennelShortName={kennel.shortName}
+          userRole={userRole}
+          hasPendingRequest={hasPendingMismanRequest}
+          isAuthenticated={!!user}
+        />
+      </div>
 
       {kennel.description && (
         <p className="text-muted-foreground">{kennel.description}</p>

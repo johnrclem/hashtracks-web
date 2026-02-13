@@ -174,3 +174,60 @@ export async function deleteKennel(kennelId: string) {
   revalidatePath("/kennels");
   return { success: true };
 }
+
+/**
+ * Assign misman role to a user for a kennel (site admin only).
+ */
+export async function assignMismanRole(kennelId: string, userId: string) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const kennel = await prisma.kennel.findUnique({
+    where: { id: kennelId },
+    select: { slug: true },
+  });
+  if (!kennel) return { error: "Kennel not found" };
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+  if (!user) return { error: "User not found" };
+
+  await prisma.userKennel.upsert({
+    where: { userId_kennelId: { userId, kennelId } },
+    update: { role: "MISMAN" },
+    create: { userId, kennelId, role: "MISMAN" },
+  });
+
+  revalidatePath("/admin/kennels");
+  revalidatePath(`/kennels/${kennel.slug}`);
+  revalidatePath("/misman");
+  return { success: true };
+}
+
+/**
+ * Revoke misman role from a user (downgrade to MEMBER). Site admin only.
+ */
+export async function revokeMismanRole(kennelId: string, userId: string) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const membership = await prisma.userKennel.findUnique({
+    where: { userId_kennelId: { userId, kennelId } },
+  });
+  if (!membership) return { error: "User is not a member of this kennel" };
+
+  if (membership.role === "MEMBER") {
+    return { error: "User does not have misman access" };
+  }
+
+  await prisma.userKennel.update({
+    where: { userId_kennelId: { userId, kennelId } },
+    data: { role: "MEMBER" },
+  });
+
+  revalidatePath("/admin/kennels");
+  revalidatePath("/misman");
+  return { success: true };
+}

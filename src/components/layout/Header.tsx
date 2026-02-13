@@ -35,6 +35,14 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          {user && (
+            <Link
+              href="/misman"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Misman
+            </Link>
+          )}
           {isAdmin && (
             <Link
               href="/admin"
@@ -93,6 +101,15 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          {user && (
+            <Link
+              href="/misman"
+              className="block py-2 text-sm font-medium text-muted-foreground"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Misman
+            </Link>
+          )}
           {isAdmin && (
             <Link
               href="/admin"

@@ -1,5 +1,11 @@
 import type { RawEventData } from "@/adapters/types";
 import type { CalendarEvent } from "@/lib/calendar";
+import type {
+  KennelHasher,
+  KennelAttendance,
+  MismanRequest,
+  KennelHasherLink,
+} from "@/generated/prisma/client";
 
 export function buildRawEvent(overrides?: Partial<RawEventData>): RawEventData {
   return {
@@ -43,3 +49,83 @@ export const mockUser = {
 };
 
 export const mockAdminUser = { ...mockUser, id: "admin_1", clerkId: "clerk_admin" };
+
+export const mockMismanUser = {
+  ...mockUser,
+  id: "misman_1",
+  clerkId: "clerk_misman",
+  email: "misman@test.com",
+  hashName: "Trail Boss",
+  nerdName: "Mike Manager",
+};
+
+export function buildKennelHasher(
+  overrides?: Partial<KennelHasher>,
+): KennelHasher {
+  return {
+    id: "kh_1",
+    kennelId: "kennel_1",
+    hashName: "Mudflap",
+    nerdName: "John Doe",
+    email: null,
+    phone: null,
+    notes: null,
+    createdAt: new Date("2026-01-01"),
+    updatedAt: new Date("2026-01-01"),
+    ...overrides,
+  };
+}
+
+export function buildKennelAttendance(
+  overrides?: Partial<KennelAttendance>,
+): KennelAttendance {
+  return {
+    id: "ka_1",
+    kennelHasherId: "kh_1",
+    eventId: "event_1",
+    paid: false,
+    haredThisTrail: false,
+    isVirgin: false,
+    isVisitor: false,
+    visitorLocation: null,
+    referralSource: null,
+    referralOther: null,
+    recordedBy: "misman_1",
+    createdAt: new Date("2026-01-01"),
+    updatedAt: new Date("2026-01-01"),
+    ...overrides,
+  };
+}
+
+export function buildMismanRequest(
+  overrides?: Partial<MismanRequest>,
+): MismanRequest {
+  return {
+    id: "mr_1",
+    userId: "user_1",
+    kennelId: "kennel_1",
+    message: "I'm the misman for this kennel",
+    status: "PENDING",
+    resolvedBy: null,
+    resolvedAt: null,
+    createdAt: new Date("2026-01-01"),
+    ...overrides,
+  };
+}
+
+export function buildKennelHasherLink(
+  overrides?: Partial<KennelHasherLink>,
+): KennelHasherLink {
+  return {
+    id: "khl_1",
+    kennelHasherId: "kh_1",
+    userId: "user_1",
+    status: "SUGGESTED",
+    suggestedBy: "system",
+    confirmedBy: null,
+    dismissedBy: null,
+    createdAt: new Date("2026-01-01"),
+    updatedAt: new Date("2026-01-01"),
+    ...overrides,
+  };
+}
