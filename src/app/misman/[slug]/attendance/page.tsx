@@ -41,14 +41,17 @@ export default async function AttendancePage({ params }: Props) {
     orderBy: { date: "desc" },
   });
 
-  // Find today's event (if any) to default to
-  const today = new Date();
-  today.setUTCHours(12, 0, 0, 0);
-  const todayStr = today.toISOString().split("T")[0];
-
-  const todayEvent = events.find(
-    (e) => e.date.toISOString().split("T")[0] === todayStr,
-  );
+  // Default to the event closest to today
+  const now = Date.now();
+  let closestEvent = events[0] ?? null;
+  let closestDiff = closestEvent ? Math.abs(closestEvent.date.getTime() - now) : Infinity;
+  for (const e of events) {
+    const diff = Math.abs(e.date.getTime() - now);
+    if (diff < closestDiff) {
+      closestDiff = diff;
+      closestEvent = e;
+    }
+  }
 
   const serializedEvents = events.map((e) => ({
     id: e.id,
@@ -61,7 +64,7 @@ export default async function AttendancePage({ params }: Props) {
   return (
     <AttendanceForm
       events={serializedEvents}
-      defaultEventId={todayEvent?.id ?? events[0]?.id ?? null}
+      defaultEventId={closestEvent?.id ?? null}
       kennelId={kennel.id}
       kennelSlug={kennel.slug}
       kennelShortName={kennel.shortName}
