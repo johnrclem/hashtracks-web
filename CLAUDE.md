@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 402 tests)
+- `npm test` — Run test suite (Vitest, 416 tests)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -86,6 +86,7 @@ calendar + personal logbook + kennel directory.
 - `src/app/misman/actions.ts` — Misman request/approve/reject server actions (used by both /misman and /admin)
 - `src/app/misman/[slug]/roster/actions.ts` — Roster CRUD + search (roster group scope)
 - `src/app/misman/[slug]/attendance/actions.ts` — Attendance recording, polling, quick-add
+- `src/app/misman/[slug]/history/actions.ts` — Attendance history, hasher detail, roster seeding from hares
 - `src/lib/fuzzy.ts` — Levenshtein-based fuzzy string matching for kennel tag resolution
 - `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
 - `vitest.config.ts` — Test runner config (globals, path aliases)
@@ -112,7 +113,7 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (402 tests across 23 files)
+- **Run:** `npm test` (416 tests across 24 files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)

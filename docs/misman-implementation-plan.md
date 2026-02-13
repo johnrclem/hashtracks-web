@@ -101,21 +101,33 @@ No roadmap dependencies — this feature is independent of the unfinished source
 
 ---
 
-### Sprint 8d: History + Hasher Detail + Roster Seeding
+### Sprint 8d: History + Hasher Detail + Roster Seeding ✅
 
 **Goal**: Complete data views and seed rosters from existing hare data.
 
 **Routes**:
-- `/misman/[slug]/history` — Per-event attendance history, filterable by date range
-- `/misman/[slug]/roster/[hasherId]` — Hasher detail: attendance history, stats, edit form, link status
+- `/misman/[slug]/history` — Per-event attendance history, filterable by date range, paginated (25 per page)
+- `/misman/[slug]/roster/[hasherId]` — Hasher detail: stats grid, contact info, user link status, full attendance history, edit/delete
 
-**Actions**:
-- `getAttendanceHistory(kennelId, filters?)` — paginated history
-- `getHasherDetail(hasherId)` — hasher + attendance + stats
-- `seedRosterFromHares(kennelId)` — queries EventHare (last year, roster scope), fuzzy-dedupes against existing roster, creates KennelHasher entries
+**Server actions** (`src/app/misman/[slug]/history/actions.ts`):
+- `getAttendanceHistory(kennelId, filters?)` — paginated event summaries with attendee counts, date filtering, roster group scope
+- `getHasherDetail(kennelId, hasherId)` — full hasher profile with computed stats (total runs, hare count, paid count, first/last run), attendance history, user link data
+- `seedRosterFromHares(kennelId)` — scans EventHare (last year, roster group scope), case-insensitive dedup against existing roster (hash names + nerd names), creates KennelHasher entries via `createMany`
+
+**Key UI components**:
+- `HistoryList` — Client component with expandable event cards (click to reveal attendee list with $ H V Vis indicators), date range filters, Previous/Next pagination
+- `HasherDetail` — Client component with stats grid (total runs, times hared, times paid, hare rate), contact section, attendance history list, edit/delete actions
+- `SeedRosterButton` — "Seed from Hares" button shown when roster is empty; confirmation dialog before seeding
+
+**UI modifications**:
+- `RosterTable` — Hash names now link to `/misman/[slug]/roster/[hasherId]` detail page
+- `roster/page.tsx` — Shows `SeedRosterButton` when roster is empty
 
 **Seed data** (`prisma/seed.ts`):
-- Add RosterGroup seeding: "NYC Metro" (NYCH3, BrH3, NAH3, Knick, QBK, SI, Columbia, Harriettes, GGFM, NAWWH3), "Philly Area" (BFM, Philly H3)
+- RosterGroup seeding: "NYC Metro" (NYCH3, BrH3, NAH3, Knick, QBK, SI, Columbia, Harriettes, GGFM, NAWWH3), "Philly Area" (BFM, Philly H3)
+- Upsert pattern: idempotent re-run safe
+
+**Tests**: 14 new tests (getAttendanceHistory 4, getHasherDetail 5, seedRosterFromHares 5)
 
 ---
 
@@ -191,6 +203,11 @@ Sprints 8d and 8e can run in parallel after 8c.
 | `src/app/admin/kennels/actions.ts` | 8b, 8f | Role mgmt, deletion guard |
 | `src/app/admin/misman-requests/page.tsx` | 8b | Admin misman request approval page |
 | `src/components/admin/MismanRequestQueue.tsx` | 8b | Admin request queue (reuses misman actions) |
+| `src/app/misman/[slug]/history/actions.ts` | 8d | History query, hasher detail, roster seeding actions |
+| `src/components/misman/HistoryList.tsx` | 8d | Expandable event history with date filters + pagination |
+| `src/components/misman/HasherDetail.tsx` | 8d | Hasher profile with stats, attendance history, edit/delete |
+| `src/components/misman/SeedRosterButton.tsx` | 8d | One-click roster seeding from hare data |
+| `src/app/misman/[slug]/roster/[hasherId]/page.tsx` | 8d | Hasher detail page (server component) |
 | `src/lib/misman/suggestions.ts` | 8e | Scoring algorithm (pure function) |
 | `src/lib/misman/verification.ts` | 8e | Derived verification status |
 | `src/app/logbook/page.tsx` | 8e | Pending confirmations section |
