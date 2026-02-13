@@ -14,12 +14,26 @@ vi.mock("@/adapters/registry", () => ({
 
 vi.mock("./merge", () => ({
   processRawEvents: vi.fn(),
-  updateSourceHealth: vi.fn(),
+}));
+
+vi.mock("./fill-rates", () => ({
+  computeFillRates: vi.fn(() => ({
+    title: 100, location: 80, hares: 50, startTime: 90, runNumber: 70,
+  })),
+}));
+
+vi.mock("./health", () => ({
+  analyzeHealth: vi.fn(() => Promise.resolve({
+    healthStatus: "HEALTHY",
+    alerts: [],
+  })),
+  persistAlerts: vi.fn(() => Promise.resolve()),
 }));
 
 import { prisma } from "@/lib/db";
 import { getAdapter } from "@/adapters/registry";
-import { processRawEvents, updateSourceHealth } from "./merge";
+import { processRawEvents } from "./merge";
+import { analyzeHealth } from "./health";
 import { scrapeSource } from "./scrape";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
@@ -29,10 +43,14 @@ const mockLogCreate = vi.mocked(prisma.scrapeLog.create);
 const mockLogUpdate = vi.mocked(prisma.scrapeLog.update);
 const mockGetAdapter = vi.mocked(getAdapter);
 const mockProcessRaw = vi.mocked(processRawEvents);
-const mockUpdateHealth = vi.mocked(updateSourceHealth);
+const mockAnalyzeHealth = vi.mocked(analyzeHealth);
 
 const fakeSource = { id: "src_1", type: "HTML_SCRAPER", url: "https://test.com" };
-const fakeMergeResult = { created: 3, updated: 1, skipped: 2, unmatched: [] };
+const fakeMergeResult = {
+  created: 3, updated: 1, skipped: 2, blocked: 0,
+  unmatched: [], blockedTags: [],
+  eventErrors: 0, eventErrorMessages: [],
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -45,7 +63,6 @@ beforeEach(() => {
     fetch: vi.fn().mockResolvedValue({ events: [{ date: "2026-02-14", kennelTag: "NYCH3" }], errors: [] }),
   } as never);
   mockProcessRaw.mockResolvedValue(fakeMergeResult);
-  mockUpdateHealth.mockResolvedValue(undefined);
   mockRawEventDeleteMany.mockResolvedValue({} as never);
 });
 
@@ -117,6 +134,10 @@ describe("scrapeSource", () => {
       type: "HTML_SCRAPER",
       fetch: vi.fn().mockRejectedValue(new Error("Network error")),
     } as never);
+    mockAnalyzeHealth.mockResolvedValueOnce({
+      healthStatus: "FAILING",
+      alerts: [],
+    });
 
     const result = await scrapeSource("src_1");
     expect(result.success).toBe(false);
@@ -133,9 +154,11 @@ describe("scrapeSource", () => {
       success: true,
       scrapeLogId: "log_1",
       forced: false,
+      eventsFound: 1,
       created: 3,
       updated: 1,
       skipped: 2,
+      blocked: 0,
     });
   });
 });

@@ -22,7 +22,7 @@ vi.mock("./kennel-resolver", () => ({
 import { prisma } from "@/lib/db";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, updateSourceHealth } from "./merge";
+import { processRawEvents } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -210,41 +210,3 @@ describe("source-kennel guard", () => {
   });
 });
 
-describe("updateSourceHealth", () => {
-  it("sets HEALTHY when no errors", async () => {
-    mockSourceUpdate.mockResolvedValueOnce({} as never);
-    await updateSourceHealth("src_1", { created: 5, updated: 0, skipped: 0, unmatched: [] }, []);
-    expect(mockSourceUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ healthStatus: "HEALTHY" }),
-      }),
-    );
-  });
-
-  it("sets DEGRADED when has errors but also processed events", async () => {
-    mockSourceUpdate.mockResolvedValueOnce({} as never);
-    await updateSourceHealth("src_1", { created: 3, updated: 0, skipped: 0, unmatched: [] }, ["some error"]);
-    expect(mockSourceUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ healthStatus: "DEGRADED" }),
-      }),
-    );
-  });
-
-  it("sets FAILING when no events processed and has errors", async () => {
-    mockSourceUpdate.mockResolvedValueOnce({} as never);
-    await updateSourceHealth("src_1", { created: 0, updated: 0, skipped: 0, unmatched: [] }, ["error"]);
-    expect(mockSourceUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ healthStatus: "FAILING" }),
-      }),
-    );
-  });
-
-  it("does not set lastSuccessAt when FAILING", async () => {
-    mockSourceUpdate.mockResolvedValueOnce({} as never);
-    await updateSourceHealth("src_1", { created: 0, updated: 0, skipped: 0, unmatched: [] }, ["error"]);
-    const updateData = (mockSourceUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
-    expect(updateData.lastSuccessAt).toBeUndefined();
-  });
-});
