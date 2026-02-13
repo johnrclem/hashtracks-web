@@ -7,19 +7,52 @@ interface PageProps {
     sourceId?: string;
     dateStart?: string;
     dateEnd?: string;
+    sortBy?: string;
+    sortDir?: string;
+    page?: string;
+    pageSize?: string;
   }>;
+}
+
+const VALID_PAGE_SIZES = [25, 50, 100, 200];
+const DEFAULT_PAGE_SIZE = 50;
+
+function buildOrderBy(sortBy?: string, sortDir?: string) {
+  const dir: "asc" | "desc" = sortDir === "asc" ? "asc" : "desc";
+  switch (sortBy) {
+    case "kennelName":
+      return { kennel: { shortName: dir } };
+    case "title":
+      return { title: dir };
+    case "runNumber":
+      return { runNumber: dir };
+    case "attendanceCount":
+      return { attendances: { _count: dir } };
+    case "date":
+    default:
+      return { date: dir };
+  }
 }
 
 export default async function AdminEventsPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const { kennelId, sourceId, dateStart, dateEnd } = params;
+  const { kennelId, sourceId, dateStart, dateEnd, sortBy, sortDir } = params;
+
+  // Pagination
+  const pageSize = VALID_PAGE_SIZES.includes(parseInt(params.pageSize ?? "", 10))
+    ? parseInt(params.pageSize!, 10)
+    : DEFAULT_PAGE_SIZE;
+  const currentPage = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
+  const skip = (currentPage - 1) * pageSize;
 
   const hasFilters = !!(kennelId || sourceId || dateStart || dateEnd);
 
   // Build where clause from filters
   const conditions: Record<string, unknown>[] = [];
   if (kennelId) conditions.push({ kennelId });
-  if (sourceId) {
+  if (sourceId === "none") {
+    conditions.push({ rawEvents: { none: {} } });
+  } else if (sourceId) {
     conditions.push({ rawEvents: { some: { sourceId } } });
   }
   if (dateStart) {
@@ -30,6 +63,7 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
   }
 
   const where = conditions.length > 0 ? { AND: conditions } : {};
+  const orderBy = buildOrderBy(sortBy, sortDir);
 
   const [events, kennels, sources, totalCount] = await Promise.all([
     prisma.event.findMany({
@@ -45,8 +79,9 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
         },
         _count: { select: { attendances: true, hares: true } },
       },
-      orderBy: { date: "desc" },
-      take: 100,
+      orderBy,
+      skip,
+      take: pageSize,
     }),
     prisma.kennel.findMany({
       orderBy: { shortName: "asc" },
@@ -58,6 +93,8 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
     }),
     prisma.event.count({ where }),
   ]);
+
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   // Serialize dates for client component
   const serializedEvents = events.map((e) => ({
@@ -76,13 +113,20 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
     hareCount: e._count.hares,
   }));
 
+  const rangeStart = totalCount > 0 ? skip + 1 : 0;
+  const rangeEnd = Math.min(skip + pageSize, totalCount);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">
           Events
           <span className="ml-2 text-sm font-normal text-muted-foreground">
-            {totalCount} {hasFilters ? "matching" : "total"}
+            {totalCount > 0
+              ? `Showing ${rangeStart}–${rangeEnd} of ${totalCount}${hasFilters ? " matching" : ""}`
+              : hasFilters
+                ? "0 matching"
+                : "0 total"}
           </span>
         </h2>
       </div>
@@ -91,9 +135,12 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
         events={serializedEvents}
         kennels={kennels}
         sources={sources}
-        filters={{ kennelId, sourceId, dateStart, dateEnd }}
+        filters={{ kennelId, sourceId, dateStart, dateEnd, sortBy, sortDir }}
         hasFilters={hasFilters}
         totalCount={totalCount}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        totalPages={totalPages}
       />
     </div>
   );

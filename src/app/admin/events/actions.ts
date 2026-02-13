@@ -130,6 +130,31 @@ export async function bulkDeleteEvents(filters: {
 }
 
 /**
+ * Delete specific events by ID (for multi-select bulk delete).
+ */
+export async function deleteSelectedEvents(eventIds: string[]) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  if (eventIds.length === 0) return { success: true, deletedCount: 0 };
+  if (eventIds.length > 500) return { error: "Too many events selected (max 500)" };
+
+  await prisma.$transaction([
+    prisma.rawEvent.updateMany({
+      where: { eventId: { in: eventIds } },
+      data: { eventId: null, processed: false },
+    }),
+    prisma.eventHare.deleteMany({ where: { eventId: { in: eventIds } } }),
+    prisma.attendance.deleteMany({ where: { eventId: { in: eventIds } } }),
+    prisma.event.deleteMany({ where: { id: { in: eventIds } } }),
+  ]);
+
+  revalidatePath("/admin/events");
+  revalidatePath("/hareline");
+  return { success: true, deletedCount: eventIds.length };
+}
+
+/**
  * Build Prisma where clause from filters.
  * Returns null if no filters are provided (safety guard against accidental mass delete).
  */
@@ -145,7 +170,9 @@ function buildEventWhere(filters: {
     conditions.push({ kennelId: filters.kennelId });
   }
 
-  if (filters.sourceId) {
+  if (filters.sourceId === "none") {
+    conditions.push({ rawEvents: { none: {} } });
+  } else if (filters.sourceId) {
     conditions.push({
       rawEvents: { some: { sourceId: filters.sourceId } },
     });

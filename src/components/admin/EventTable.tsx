@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { ArrowUp, ArrowDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -31,7 +33,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   deleteEvent,
+  deleteSelectedEvents,
   bulkDeleteEvents,
   previewBulkDelete,
 } from "@/app/admin/events/actions";
@@ -61,10 +70,17 @@ interface EventTableProps {
     sourceId?: string;
     dateStart?: string;
     dateEnd?: string;
+    sortBy?: string;
+    sortDir?: string;
   };
   hasFilters: boolean;
   totalCount: number;
+  currentPage: number;
+  pageSize: number;
+  totalPages: number;
 }
+
+type SortableColumn = "date" | "kennelName" | "title" | "runNumber" | "attendanceCount";
 
 export function EventTable({
   events,
@@ -73,16 +89,26 @@ export function EventTable({
   filters,
   hasFilters,
   totalCount,
+  currentPage,
+  pageSize,
+  totalPages,
 }: EventTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDialog, setShowBulkDialog] = useState(false);
+  const [showSelectedDialog, setShowSelectedDialog] = useState(false);
   const [bulkPreview, setBulkPreview] = useState<{
     count: number;
     totalAttendances: number;
     sampleEvents: { id: string; date: string; kennelName: string; title: string | null; attendanceCount: number }[];
   } | null>(null);
-  const [showBulkDialog, setShowBulkDialog] = useState(false);
+
+  // Clear selection when URL params change (page navigation, filter change)
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [searchParams]);
 
   function updateFilter(key: string, value: string | undefined) {
     const params = new URLSearchParams(searchParams.toString());
@@ -91,9 +117,56 @@ export function EventTable({
     } else {
       params.delete(key);
     }
+    params.set("page", "1");
     router.push(`/admin/events?${params.toString()}`);
   }
 
+  function updateSort(column: SortableColumn) {
+    const params = new URLSearchParams(searchParams.toString());
+    const currentSort = filters.sortBy ?? "date";
+    const currentDir = filters.sortDir ?? "desc";
+    if (currentSort === column) {
+      params.set("sortDir", currentDir === "asc" ? "desc" : "asc");
+    } else {
+      params.set("sortBy", column);
+      params.set("sortDir", column === "date" ? "desc" : "asc");
+    }
+    params.set("page", "1");
+    router.push(`/admin/events?${params.toString()}`);
+  }
+
+  function updatePage(page: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", String(page));
+    router.push(`/admin/events?${params.toString()}`);
+  }
+
+  function updatePageSize(size: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("pageSize", size);
+    params.set("page", "1");
+    router.push(`/admin/events?${params.toString()}`);
+  }
+
+  // Selection helpers
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === events.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(events.map((e) => e.id)));
+    }
+  }
+
+  // Delete handlers
   function handleDelete(event: EventData) {
     if (
       !confirm(
@@ -147,231 +220,419 @@ export function EventTable({
     });
   }
 
+  function handleSelectedDelete() {
+    startTransition(async () => {
+      const result = await deleteSelectedEvents(Array.from(selectedIds));
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(`Deleted ${result.deletedCount} event(s)`);
+        setSelectedIds(new Set());
+        setShowSelectedDialog(false);
+      }
+      router.refresh();
+    });
+  }
+
+  // Sort header helper
+  const activeSortBy = filters.sortBy ?? "date";
+  const activeSortDir = filters.sortDir ?? "desc";
+
+  function SortHeader({ column, label, className }: { column: SortableColumn; label: string; className?: string }) {
+    const isActive = activeSortBy === column;
+    return (
+      <TableHead className={className}>
+        <button
+          className="flex items-center gap-1 cursor-pointer select-none hover:text-foreground"
+          onClick={() => updateSort(column)}
+        >
+          {label}
+          {isActive && (
+            activeSortDir === "asc"
+              ? <ArrowUp className="size-3" />
+              : <ArrowDown className="size-3" />
+          )}
+        </button>
+      </TableHead>
+    );
+  }
+
+  // Checkbox state
+  const allSelected = events.length > 0 && selectedIds.size === events.length;
+  const someSelected = selectedIds.size > 0 && selectedIds.size < events.length;
+
   return (
-    <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs">Kennel</Label>
-          <Select
-            value={filters.kennelId ?? "all"}
-            onValueChange={(v) => updateFilter("kennelId", v)}
-          >
-            <SelectTrigger className="w-[160px] h-8 text-xs">
-              <SelectValue placeholder="All kennels" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All kennels</SelectItem>
-              {kennels.map((k) => (
-                <SelectItem key={k.id} value={k.id}>
-                  {k.shortName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1">
-          <Label className="text-xs">Source</Label>
-          <Select
-            value={filters.sourceId ?? "all"}
-            onValueChange={(v) => updateFilter("sourceId", v)}
-          >
-            <SelectTrigger className="w-[200px] h-8 text-xs">
-              <SelectValue placeholder="All sources" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All sources</SelectItem>
-              {sources.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1">
-          <Label className="text-xs">From</Label>
-          <Input
-            type="date"
-            className="w-[140px] h-8 text-xs"
-            value={filters.dateStart ?? ""}
-            onChange={(e) => updateFilter("dateStart", e.target.value || undefined)}
-          />
-        </div>
-
-        <div className="space-y-1">
-          <Label className="text-xs">To</Label>
-          <Input
-            type="date"
-            className="w-[140px] h-8 text-xs"
-            value={filters.dateEnd ?? ""}
-            onChange={(e) => updateFilter("dateEnd", e.target.value || undefined)}
-          />
-        </div>
-
-        {hasFilters && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => router.push("/admin/events")}
+    <TooltipProvider>
+      <div className="space-y-4">
+        {/* Filters */}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Kennel</Label>
+            <Select
+              value={filters.kennelId ?? "all"}
+              onValueChange={(v) => updateFilter("kennelId", v)}
             >
-              Clear
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="h-8 text-xs"
-              disabled={isPending}
-              onClick={handleBulkPreview}
-            >
-              {isPending ? "..." : `Delete ${totalCount} matching`}
-            </Button>
-          </>
-        )}
-      </div>
+              <SelectTrigger className="w-[160px] h-8 text-xs">
+                <SelectValue placeholder="All kennels" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All kennels</SelectItem>
+                {kennels.map((k) => (
+                  <SelectItem key={k.id} value={k.id}>
+                    {k.shortName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      {/* Table */}
-      {events.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">
-          {hasFilters
-            ? "No events match these filters."
-            : "No events in the database."}
-        </p>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Kennel</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead className="text-right">Run #</TableHead>
-              <TableHead>Source(s)</TableHead>
-              <TableHead className="text-right">Att.</TableHead>
-              <TableHead className="w-16"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {events.map((event) => (
-              <TableRow key={event.id}>
-                <TableCell className="text-xs whitespace-nowrap">
-                  {formatDate(event.date)}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="text-xs">
-                    {event.kennelName}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-xs max-w-[200px] truncate">
-                  {event.title || "—"}
-                </TableCell>
-                <TableCell className="text-xs text-right">
-                  {event.runNumber ?? "—"}
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">
-                  {event.sources.join(", ") || "—"}
-                </TableCell>
-                <TableCell className="text-xs text-right">
-                  {event.attendanceCount > 0 ? event.attendanceCount : "—"}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs text-destructive hover:text-destructive"
-                    disabled={isPending}
-                    onClick={() => handleDelete(event)}
-                  >
-                    Delete
-                  </Button>
-                </TableCell>
+          <div className="space-y-1">
+            <Label className="text-xs">Source</Label>
+            <Select
+              value={filters.sourceId ?? "all"}
+              onValueChange={(v) => updateFilter("sourceId", v)}
+            >
+              <SelectTrigger className="w-[200px] h-8 text-xs">
+                <SelectValue placeholder="All sources" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sources</SelectItem>
+                <SelectItem value="none">No source</SelectItem>
+                {sources.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">From</Label>
+            <Input
+              type="date"
+              className="w-[140px] h-8 text-xs"
+              value={filters.dateStart ?? ""}
+              onChange={(e) => updateFilter("dateStart", e.target.value || undefined)}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">To</Label>
+            <Input
+              type="date"
+              className="w-[140px] h-8 text-xs"
+              value={filters.dateEnd ?? ""}
+              onChange={(e) => updateFilter("dateEnd", e.target.value || undefined)}
+            />
+          </div>
+
+          {hasFilters && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => router.push("/admin/events")}
+              >
+                Clear
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={isPending}
+                onClick={handleBulkPreview}
+              >
+                {isPending ? "..." : `Delete ${totalCount} matching`}
+              </Button>
+            </>
+          )}
+        </div>
+
+        {/* Table */}
+        {events.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-8 text-center">
+            {hasFilters
+              ? "No events match these filters."
+              : "No events in the database."}
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Select all"
+                  />
+                </TableHead>
+                <SortHeader column="date" label="Date" />
+                <SortHeader column="kennelName" label="Kennel" />
+                <SortHeader column="title" label="Title" />
+                <SortHeader column="runNumber" label="Run #" className="text-right w-16" />
+                <TableHead>Source(s)</TableHead>
+                <SortHeader column="attendanceCount" label="Att." className="text-right w-16" />
+                <TableHead className="w-16"></TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+            </TableHeader>
+            <TableBody>
+              {events.map((event) => (
+                <TableRow
+                  key={event.id}
+                  className="cursor-pointer"
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest("button") || target.closest("[role=checkbox]")) return;
+                    router.push(`/hareline/${event.id}`);
+                  }}
+                >
+                  <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds.has(event.id)}
+                      onCheckedChange={() => toggleSelect(event.id)}
+                      aria-label={`Select ${event.title || "event"}`}
+                    />
+                  </TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">
+                    {formatDate(event.date)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">
+                      {event.kennelName}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs max-w-[300px] truncate">
+                    {event.title ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="block truncate">{event.title}</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-sm">
+                          {event.title}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs text-right w-16">
+                    {event.runNumber ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
+                    {event.sources.length > 0 ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="block truncate">{event.sources.join(", ")}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {event.sources.join(", ")}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs text-right w-16">
+                    {event.attendanceCount > 0 ? event.attendanceCount : "—"}
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-destructive hover:text-destructive"
+                      disabled={isPending}
+                      onClick={() => handleDelete(event)}
+                    >
+                      Delete
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
 
-      {totalCount > 100 && (
-        <p className="text-xs text-muted-foreground text-center">
-          Showing first 100 of {totalCount} events. Use filters to narrow results.
-        </p>
-      )}
+        {/* Selection action bar */}
+        {selectedIds.size > 0 && (
+          <div className="sticky bottom-4 flex items-center justify-between rounded-lg border bg-background p-3 shadow-md">
+            <span className="text-sm text-muted-foreground">
+              {selectedIds.size} event{selectedIds.size !== 1 ? "s" : ""} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Clear
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={isPending}
+                onClick={() => setShowSelectedDialog(true)}
+              >
+                {isPending ? "Deleting..." : `Delete selected (${selectedIds.size})`}
+              </Button>
+            </div>
+          </div>
+        )}
 
-      {/* Bulk delete confirmation dialog */}
-      <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Bulk Delete</DialogTitle>
-            <DialogDescription>
-              This action cannot be undone. RawEvents will be preserved but
-              unlinked.
-            </DialogDescription>
-          </DialogHeader>
+        {/* Pagination controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground">Per page</Label>
+              <Select
+                value={String(pageSize)}
+                onValueChange={updatePageSize}
+              >
+                <SelectTrigger className="w-[70px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[25, 50, 100, 200].map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {bulkPreview && (
-            <div className="space-y-3 text-sm">
-              <div className="flex gap-4">
-                <div>
-                  <div className="text-muted-foreground text-xs">Events</div>
-                  <div className="text-lg font-semibold">{bulkPreview.count}</div>
-                </div>
-                {bulkPreview.totalAttendances > 0 && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={currentPage <= 1}
+                onClick={() => updatePage(currentPage - 1)}
+              >
+                Previous
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={currentPage >= totalPages}
+                onClick={() => updatePage(currentPage + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk delete (filter-based) confirmation dialog */}
+        <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Bulk Delete</DialogTitle>
+              <DialogDescription>
+                This action cannot be undone. RawEvents will be preserved but
+                unlinked.
+              </DialogDescription>
+            </DialogHeader>
+
+            {bulkPreview && (
+              <div className="space-y-3 text-sm">
+                <div className="flex gap-4">
                   <div>
-                    <div className="text-muted-foreground text-xs">
-                      Attendance records
+                    <div className="text-muted-foreground text-xs">Events</div>
+                    <div className="text-lg font-semibold">{bulkPreview.count}</div>
+                  </div>
+                  {bulkPreview.totalAttendances > 0 && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">
+                        Attendance records
+                      </div>
+                      <div className="text-lg font-semibold text-destructive">
+                        {bulkPreview.totalAttendances}
+                      </div>
                     </div>
-                    <div className="text-lg font-semibold text-destructive">
-                      {bulkPreview.totalAttendances}
+                  )}
+                </div>
+
+                {bulkPreview.sampleEvents.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground">
+                      Sample events:
                     </div>
+                    {bulkPreview.sampleEvents.map((e) => (
+                      <div
+                        key={e.id}
+                        className="text-xs flex gap-2 text-muted-foreground"
+                      >
+                        <span>{formatDate(e.date)}</span>
+                        <span className="font-medium">{e.kennelName}</span>
+                        <span className="truncate">{e.title || "Untitled"}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
+            )}
 
-              {bulkPreview.sampleEvents.length > 0 && (
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">
-                    Sample events:
-                  </div>
-                  {bulkPreview.sampleEvents.map((e) => (
-                    <div
-                      key={e.id}
-                      className="text-xs flex gap-2 text-muted-foreground"
-                    >
-                      <span>{formatDate(e.date)}</span>
-                      <span className="font-medium">{e.kennelName}</span>
-                      <span className="truncate">{e.title || "Untitled"}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBulkDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={isPending}
+                onClick={handleBulkDelete}
+              >
+                {isPending
+                  ? "Deleting..."
+                  : `Delete ${bulkPreview?.count ?? 0} events`}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowBulkDialog(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={isPending}
-              onClick={handleBulkDelete}
-            >
-              {isPending
-                ? "Deleting..."
-                : `Delete ${bulkPreview?.count ?? 0} events`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        {/* Selected delete confirmation dialog */}
+        <Dialog open={showSelectedDialog} onOpenChange={setShowSelectedDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Selected Events</DialogTitle>
+              <DialogDescription>
+                This will delete {selectedIds.size} selected event{selectedIds.size !== 1 ? "s" : ""}.
+                RawEvents will be preserved but unlinked. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowSelectedDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={isPending}
+                onClick={handleSelectedDelete}
+              >
+                {isPending
+                  ? "Deleting..."
+                  : `Delete ${selectedIds.size} event${selectedIds.size !== 1 ? "s" : ""}`}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </TooltipProvider>
   );
 }
 
