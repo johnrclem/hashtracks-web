@@ -34,6 +34,9 @@ export default async function AdminLayout({
           <TabsTrigger value="sources" asChild>
             <Link href="/admin/sources">Sources</Link>
           </TabsTrigger>
+          <TabsTrigger value="events" asChild>
+            <Link href="/admin/events">Events</Link>
+          </TabsTrigger>
           <TabsTrigger value="alerts" asChild>
             <Link href="/admin/alerts" className="flex items-center gap-1">
               Alerts

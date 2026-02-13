@@ -30,6 +30,8 @@ export function AlertContextDisplay({
     case "SCRAPE_FAILURE":
     case "CONSECUTIVE_FAILURES":
       return <ScrapeFailureContext context={context} />;
+    case "SOURCE_KENNEL_MISMATCH":
+      return <SourceKennelMismatchContext context={context} details={details} />;
     default:
       return details ? (
         <p className="text-xs text-muted-foreground whitespace-pre-wrap">
@@ -135,6 +137,42 @@ function ScrapeFailureContext({
           )}
         </ul>
       )}
+    </div>
+  );
+}
+
+function SourceKennelMismatchContext({
+  context,
+  details,
+}: {
+  context: Record<string, unknown>;
+  details: string | null;
+}) {
+  const tags = (context.tags as string[]) ?? [];
+
+  return (
+    <div className="text-xs mt-1 space-y-2">
+      {details && (
+        <p className="text-muted-foreground">{details}</p>
+      )}
+      {tags.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-muted-foreground font-medium">Blocked tags:</div>
+          <div className="flex flex-wrap gap-1">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-block rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      <p className="text-muted-foreground">
+        To allow these tags, link the corresponding kennels to this source.
+      </p>
     </div>
   );
 }

@@ -56,6 +56,7 @@ const TYPE_LABELS: Record<string, string> = {
   SCRAPE_FAILURE: "Scrape Failed",
   CONSECUTIVE_FAILURES: "Repeated Failures",
   UNMATCHED_TAGS: "New Tags",
+  SOURCE_KENNEL_MISMATCH: "Kennel Mismatch",
 };
 
 const SEVERITY_STYLES: Record<
@@ -82,6 +83,7 @@ const REPAIR_LABELS: Record<string, string> = {
   create_alias: "Created alias",
   create_kennel: "Created kennel",
   create_issue: "Filed issue",
+  link_kennel: "Linked kennel",
 };
 
 function formatRepairEntry(entry: RepairLogEntry): string {
@@ -96,6 +98,8 @@ function formatRepairEntry(entry: RepairLogEntry): string {
       return `${label}: ${String(d.eventsFound ?? 0)} found, ${String(d.created ?? 0)} created`;
     case "create_issue":
       return `${label}: #${String(d.issueNumber ?? "")}`;
+    case "link_kennel":
+      return `${label}: "${String(d.tag ?? "")}" → ${String(d.kennelName ?? "")}`;
     default:
       return label;
   }

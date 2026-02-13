@@ -11,11 +11,12 @@ Every source flows through the same pipeline regardless of adapter type:
 ```
 Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent (immutable)
                                                 ↓
-                                        kennel resolver → Event upsert
+                                        kennel resolver → source-kennel guard → Event upsert
 ```
 
 - **Fingerprint dedup**: SHA-256 of `date|kennelTag|runNumber|title` prevents duplicate RawEvents
 - **Kennel resolver**: `shortName exact match → alias case-insensitive → pattern fallback → flag unmatched`
+- **Source-kennel guard**: Resolved kennel must be linked to the source via `SourceKennel` — blocks events for unlinked kennels and generates a `SOURCE_KENNEL_MISMATCH` alert
 - **ScrapeLog**: Every scrape run is audited with timing, event counts, and error details
 - **Force rescrape**: `force` param deletes existing RawEvents and re-processes from scratch
 - **`RawEventData`** is the universal contract between any adapter and the pipeline
@@ -26,7 +27,7 @@ Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent
 |---------|-------------|----------------|--------------|
 | Data access | HTTP GET + Cheerio parse | Calendar API v3 | Sheets API (tabs) + CSV export (data) |
 | Auth needed | None | API key | API key (tab discovery only) |
-| Kennel tags | Regex patterns on event text | Regex on SUMMARY (multi-kennel) or `config.defaultKennelTag` (single-kennel) | Column-based rules from config JSON |
+| Kennel tags | Regex patterns on event text | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON |
 | Date format | Row IDs like "2024oct30" | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY |
 | Routing | URL-based (`htmlScrapersByUrl` in registry) | Shared adapter (single class) | Shared adapter (config-driven) |
 | Complexity | High (structural HTML, site-specific) | Medium (clean API) | Low (column mapping) |
@@ -125,7 +126,20 @@ In `prisma/seed.ts`, add to the `sources` array:
   trustLevel: 7,          // 1-10
   scrapeFreq: "daily",
   config: { ... },         // adapter-specific config (optional)
-  kennelShortNames: [...], // linked kennels
+  kennelShortNames: [...], // linked kennels — CRITICAL for source-kennel guard
+}
+```
+
+**Important**: `kennelShortNames` controls which kennels the source can create events for. The merge pipeline **blocks** events for any kennel not in this list. If a source covers multiple kennels, list them all. If you're unsure, add the kennel and verify — the `SOURCE_KENNEL_MISMATCH` alert will tell you if events are being blocked.
+
+For multi-kennel Google Calendar sources, use `kennelPatterns` config:
+```typescript
+config: {
+  kennelPatterns: [
+    ["BFM|Ben Franklin|BFMH3", "BFM"],
+    ["Philly Hash|hashphilly", "Philly H3"],
+  ],
+  defaultKennelTag: "BFM",  // fallback for unrecognized events
 }
 ```
 
@@ -199,15 +213,16 @@ git add . && git commit && git push
 - **Type**: `GOOGLE_CALENDAR` (x2) + `HTML_SCRAPER` (x2)
 - **Coverage**: BFM and Philly H3 (Philadelphia)
 - **Adapters**:
-  - `src/adapters/google-calendar/adapter.ts` — reused with `defaultKennelTag` config
+  - `src/adapters/google-calendar/adapter.ts` — reused with `kennelPatterns` config (multi-kennel calendars)
   - `src/adapters/html-scraper/bfm.ts` — WordPress site: current trail + special events page
   - `src/adapters/html-scraper/hashphilly.ts` — simple label:value page, one event at a time
 - **Multi-source strategy**: Calendar provides schedule backbone; website scraper enriches with location, hares, trail numbers. Merge pipeline deduplicates via fingerprint.
 - **Key lesson**: WordPress Gutenberg text runs together without newlines — use known field labels (`When:`, `Where:`, `Hare:`) as delimiters via lookahead regex, not `\n`
-- **Key lesson**: `defaultKennelTag` in `Source.config` avoids hardcoding kennel patterns for single-kennel calendars — zero code change to add another single-kennel calendar
+- **Key lesson**: Regional aggregate calendars contain events from MULTIPLE kennels — don't use `defaultKennelTag` alone. Use `kennelPatterns` config with regex→tag tuples for SUMMARY-based matching, with `defaultKennelTag` as fallback only.
 - **Key lesson**: URL-based routing in the adapter registry (`htmlScrapersByUrl`) allows multiple HTML scrapers to coexist under the same `HTML_SCRAPER` source type
 - **Key lesson**: Instagram scraping is not viable (auth required, ToS violation, actively blocked) — manual CSV import is the practical backfill approach
 - **Key lesson**: Some sites only show one event (hashphilly.com/nexthash/) — still worth scraping for fields the calendar lacks (trail number, venue name)
+- **Key lesson**: `kennelShortNames` in seed is critical — it controls the source-kennel guard. Missing a kennel link means events get silently blocked with a `SOURCE_KENNEL_MISMATCH` alert.
 
 ---
 
@@ -221,6 +236,9 @@ git add . && git commit && git push
 6. **Multi-format date parsing** is common; build flexible parsers that handle variations
 7. **`new Date()` is dangerous for date-only strings** — use string comparison for date filtering
 8. **WordPress text lacks newlines between fields** — use label-based delimiters, not line breaks
-9. **`defaultKennelTag` config** eliminates per-calendar regex patterns for single-kennel calendars
+9. **`kennelPatterns` config** for multi-kennel calendars — regex→tag tuples in `Source.config` for SUMMARY-based matching, with `defaultKennelTag` as fallback. `defaultKennelTag` alone is only safe for truly single-kennel calendars.
 10. **URL-based adapter routing** (`htmlScrapersByUrl` in registry) scales HTML_SCRAPER to multiple sites
 11. **Multi-source enrichment** works well — calendar for schedule, website for details, merge pipeline handles dedup
+12. **Source-kennel guard** blocks events for kennels not linked via `SourceKennel` — prevents cross-contamination between sources. Always verify `kennelShortNames` in seed covers ALL kennels the source produces.
+13. **Admin event management** (`/admin/events`) enables bulk cleanup of misattributed events — filter by kennel + source + date range, preview before delete
+14. **Regional aggregate calendars are common** — don't assume a calendar named after one kennel only contains that kennel's events. Query real data first.

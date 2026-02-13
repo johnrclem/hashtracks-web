@@ -4,6 +4,7 @@ import { buildRawEvent } from "@/test/factories";
 vi.mock("@/lib/db", () => ({
   prisma: {
     source: { findUnique: vi.fn(), update: vi.fn() },
+    sourceKennel: { findMany: vi.fn() },
     rawEvent: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     event: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   },
@@ -25,6 +26,7 @@ import { processRawEvents, updateSourceHealth } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const mockSourceUpdate = vi.mocked(prisma.source.update);
+const mockSourceKennelFind = vi.mocked(prisma.sourceKennel.findMany);
 const mockRawEventFind = vi.mocked(prisma.rawEvent.findFirst);
 const mockRawEventCreate = vi.mocked(prisma.rawEvent.create);
 const mockRawEventUpdate = vi.mocked(prisma.rawEvent.update);
@@ -37,6 +39,7 @@ const mockFingerprint = vi.mocked(generateFingerprint);
 beforeEach(() => {
   vi.clearAllMocks();
   mockSourceFind.mockResolvedValue({ trustLevel: 5 } as never);
+  mockSourceKennelFind.mockResolvedValue([{ kennelId: "kennel_1" }] as never);
   mockRawEventCreate.mockResolvedValue({ id: "raw_1" } as never);
   mockRawEventUpdate.mockResolvedValue({} as never);
   mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
@@ -122,7 +125,10 @@ describe("processRawEvents", () => {
 
   it("handles empty events array", async () => {
     const result = await processRawEvents("src_1", []);
-    expect(result).toEqual({ created: 0, updated: 0, skipped: 0, unmatched: [] });
+    expect(result).toEqual({
+      created: 0, updated: 0, skipped: 0, blocked: 0,
+      unmatched: [], blockedTags: [], eventErrors: 0, eventErrorMessages: [],
+    });
   });
 
   it("parses date correctly as UTC noon", async () => {
@@ -150,6 +156,57 @@ describe("processRawEvents", () => {
         data: expect.objectContaining({ processed: true, eventId: "evt_existing" }),
       }),
     );
+  });
+});
+
+describe("source-kennel guard", () => {
+  it("blocks event when resolved kennel is not linked to source", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockResolve.mockResolvedValueOnce({ kennelId: "kennel_other", matched: true });
+    // Source is only linked to kennel_1 (default mock)
+
+    const result = await processRawEvents("src_1", [buildRawEvent({ kennelTag: "OtherH3" })]);
+    expect(result.blocked).toBe(1);
+    expect(result.blockedTags).toEqual(["OtherH3"]);
+    expect(result.created).toBe(0);
+    expect(mockEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("allows event when resolved kennel IS linked to source", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFind.mockResolvedValueOnce(null);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    // kennel_1 is in the linked set (default mock)
+
+    const result = await processRawEvents("src_1", [buildRawEvent()]);
+    expect(result.blocked).toBe(0);
+    expect(result.created).toBe(1);
+  });
+
+  it("deduplicates blocked tags", async () => {
+    mockRawEventFind.mockResolvedValue(null);
+    mockResolve.mockResolvedValue({ kennelId: "kennel_other", matched: true });
+    mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ kennelTag: "OtherH3" }),
+      buildRawEvent({ kennelTag: "OtherH3" }),
+    ]);
+    expect(result.blocked).toBe(2);
+    expect(result.blockedTags).toEqual(["OtherH3"]);
+  });
+
+  it("fetches SourceKennel links only once per batch", async () => {
+    mockRawEventFind.mockResolvedValue(null);
+    mockEventFind.mockResolvedValue(null);
+    mockEventCreate.mockResolvedValue({ id: "evt_1" } as never);
+    mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-02-14" }),
+      buildRawEvent({ date: "2026-02-15" }),
+    ]);
+    expect(mockSourceKennelFind).toHaveBeenCalledTimes(1);
   });
 });
 

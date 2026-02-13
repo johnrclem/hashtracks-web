@@ -20,6 +20,7 @@ interface AnalyzeInput {
   scrapeFailed: boolean;
   errors: string[];
   unmatchedTags: string[];
+  blockedTags?: string[];
   fillRates: FieldFillRates;
   structureHash?: string;
 }
@@ -184,6 +185,17 @@ export async function analyzeHealth(
         });
       }
     }
+  }
+
+  // ── 7. Source-kennel mismatches (always check, even without baseline) ──
+  if (input.blockedTags && input.blockedTags.length > 0) {
+    alerts.push({
+      type: "SOURCE_KENNEL_MISMATCH",
+      severity: "WARNING",
+      title: `${input.blockedTags.length} kennel tag${input.blockedTags.length !== 1 ? "s" : ""} blocked: not linked to source`,
+      details: `Tags [${input.blockedTags.join(", ")}] resolved to valid kennels but are not in this source's SourceKennel links.`,
+      context: { tags: input.blockedTags },
+    });
   }
 
   // ── Determine overall health status ──

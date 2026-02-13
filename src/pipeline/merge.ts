@@ -22,6 +22,8 @@ export async function processRawEvents(
     updated: 0,
     skipped: 0,
     unmatched: [],
+    blocked: 0,
+    blockedTags: [],
     eventErrors: 0,
     eventErrorMessages: [],
   };
@@ -32,6 +34,13 @@ export async function processRawEvents(
     select: { trustLevel: true },
   });
   const trustLevel = source?.trustLevel ?? 5;
+
+  // Fetch SourceKennel links once for the entire batch
+  const sourceKennels = await prisma.sourceKennel.findMany({
+    where: { sourceId },
+    select: { kennelId: true },
+  });
+  const linkedKennelIds = new Set(sourceKennels.map(sk => sk.kennelId));
 
   // Clear resolver cache for fresh lookups
   clearResolverCache();
@@ -66,6 +75,15 @@ export async function processRawEvents(
         // Flag for review — leave unprocessed
         if (!result.unmatched.includes(event.kennelTag)) {
           result.unmatched.push(event.kennelTag);
+        }
+        continue;
+      }
+
+      // Guard: block events for kennels not linked to this source
+      if (!linkedKennelIds.has(kennelId)) {
+        result.blocked++;
+        if (!result.blockedTags.includes(event.kennelTag)) {
+          result.blockedTags.push(event.kennelTag);
         }
         continue;
       }

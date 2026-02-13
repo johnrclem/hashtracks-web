@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 304 tests)
+- `npm test` — Run test suite (Vitest, 322 tests)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -43,6 +43,7 @@ calendar + personal logbook + kennel directory.
 - Dates stored as UTC noon to avoid DST issues (see PRD Appendix F.4)
 - `startTime` is a string "HH:MM" not a DateTime (many sources lack full timestamps)
 - Kennel resolution: shortName exact match → alias match → pattern match (retries shortName + alias) → flag for admin
+- Source-kennel guard: merge pipeline blocks events for kennels not linked via `SourceKennel` → generates `SOURCE_KENNEL_MISMATCH` alert
 - Kennel rename safety: renaming a kennel auto-adds the old shortName as an alias
 - All scraper adapters implement the `SourceAdapter` interface in `src/adapters/types.ts`
 - API routes return consistent shapes: `{ data, error?, meta? }`
@@ -72,13 +73,14 @@ calendar + personal logbook + kennel directory.
 - `src/adapters/html-scraper/hashnyc.ts` — hashnyc.com HTML scraper (Cheerio)
 - `src/adapters/google-calendar/adapter.ts` — Google Calendar API v3 adapter (Boston Hash)
 - `src/adapters/google-sheets/adapter.ts` — Google Sheets CSV adapter (Summit H3, config-driven)
-- `src/pipeline/merge.ts` — Raw→Canonical merge pipeline (fingerprint dedup)
+- `src/pipeline/merge.ts` — Raw→Canonical merge pipeline (fingerprint dedup + source-kennel guard)
 - `src/pipeline/kennel-resolver.ts` — Alias-based kennel name resolution (with pattern fallback)
 - `src/pipeline/scrape.ts` — Shared `scrapeSource()` used by cron + admin routes
 - `src/pipeline/health.ts` — Rolling-window health analysis + alert generation
 - `src/pipeline/fill-rates.ts` — Per-field fill rate computation for RawEvents
 - `src/pipeline/structure-hash.ts` — HTML structural fingerprinting (SHA-256)
-- `src/app/admin/alerts/actions.ts` — Alert repair actions (re-scrape, create alias/kennel, file GitHub issue)
+- `src/app/admin/alerts/actions.ts` — Alert repair actions (re-scrape, create alias/kennel, link kennel to source, file GitHub issue)
+- `src/app/admin/events/actions.ts` — Admin event management (delete, bulk delete with cascade)
 - `src/components/admin/AlertCard.tsx` — Alert card with repair actions, context display, repair history
 - `src/lib/fuzzy.ts` — Levenshtein-based fuzzy string matching for kennel tag resolution
 - `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
@@ -89,10 +91,14 @@ calendar + personal logbook + kennel directory.
 - `docs/source-onboarding-playbook.md` — Step-by-step guide for adding new data sources
 - `docs/roadmap.md` — Implementation roadmap for source scaling, historical import, monitoring
 
-## Active Sources (3)
+## Active Sources (7)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
 - **Boston Hash Calendar** → GOOGLE_CALENDAR → 5 Boston kennels
 - **Summit H3 Spreadsheet** → GOOGLE_SHEETS → 3 NJ kennels (Summit, SFM, ASSSH3)
+- **BFM Google Calendar** → GOOGLE_CALENDAR → BFM, Philly H3 (config-driven kennelPatterns)
+- **Philly H3 Google Calendar** → GOOGLE_CALENDAR → BFM, Philly H3 (config-driven kennelPatterns)
+- **BFM Website** → HTML_SCRAPER → BFM
+- **Philly H3 Website** → HTML_SCRAPER → Philly H3
 
 See `docs/source-onboarding-playbook.md` for how to add new sources.
 See `docs/roadmap.md` for implementation roadmap.
@@ -100,14 +106,14 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (304 tests across 18 files)
+- **Run:** `npm test` (322 tests across 20 files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
 - **Convention:** Test files live next to source files as `*.test.ts`
 - **Coverage areas:**
   - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing
-  - Pipeline: merge dedup + trust levels, kennel resolution (4-stage), fingerprinting, scrape orchestration
+  - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation
   - Server actions: logbook CRUD, profile, kennel subscriptions, admin CRUD
   - Utilities: format helpers, calendar URL/ICS generation, auth (Clerk→DB sync)
 

@@ -317,6 +317,91 @@ export async function createKennelFromAlert(
   return { success: true };
 }
 
+export async function linkKennelToSource(
+  alertId: string,
+  kennelTag: string,
+  rescrapeAfter: boolean,
+) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Unauthorized" };
+
+  const alert = await prisma.alert.findUnique({ where: { id: alertId } });
+  if (!alert) return { error: "Alert not found" };
+
+  // Resolve the tag to a kennel
+  clearResolverCache();
+  const { kennelId, matched } = await resolveKennelTag(kennelTag);
+  if (!matched || !kennelId) {
+    return { error: `Cannot resolve "${kennelTag}" to a kennel` };
+  }
+
+  // Check if link already exists
+  const existing = await prisma.sourceKennel.findUnique({
+    where: { sourceId_kennelId: { sourceId: alert.sourceId, kennelId } },
+  });
+  if (existing) {
+    return { error: `Kennel is already linked to this source` };
+  }
+
+  // Create the SourceKennel link
+  await prisma.sourceKennel.create({
+    data: { sourceId: alert.sourceId, kennelId },
+  });
+
+  const kennel = await prisma.kennel.findUnique({
+    where: { id: kennelId },
+    select: { shortName: true },
+  });
+
+  // Record repair
+  await prisma.alert.update({
+    where: { id: alertId },
+    data: {
+      repairLog: appendRepairLog(alert.repairLog, {
+        action: "link_kennel",
+        timestamp: new Date().toISOString(),
+        adminId: admin.id,
+        details: { tag: kennelTag, kennelId, kennelName: kennel?.shortName },
+        result: "success",
+      }),
+    },
+  });
+
+  // Optionally re-scrape
+  if (rescrapeAfter) {
+    clearResolverCache();
+    await scrapeSource(alert.sourceId, { force: true });
+  }
+
+  // Auto-resolve if all blocked tags are now linked
+  const ctx = alert.context as { tags?: string[] } | null;
+  if (ctx?.tags) {
+    clearResolverCache();
+    const sourceKennels = await prisma.sourceKennel.findMany({
+      where: { sourceId: alert.sourceId },
+      select: { kennelId: true },
+    });
+    const linkedIds = new Set(sourceKennels.map(sk => sk.kennelId));
+    const remaining: string[] = [];
+    for (const t of ctx.tags) {
+      const result = await resolveKennelTag(t);
+      if (!result.matched || !result.kennelId || !linkedIds.has(result.kennelId)) {
+        remaining.push(t);
+      }
+    }
+    if (remaining.length === 0) {
+      await prisma.alert.update({
+        where: { id: alertId },
+        data: { status: "RESOLVED", resolvedAt: new Date(), resolvedBy: admin.id },
+      });
+    }
+  }
+
+  revalidatePath("/admin/alerts");
+  revalidatePath(`/admin/sources/${alert.sourceId}`);
+  return { success: true, kennelName: kennel?.shortName };
+}
+
 export async function createIssueFromAlert(alertId: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };
@@ -353,6 +438,9 @@ export async function createIssueFromAlert(alertId: string) {
       case "SCRAPE_FAILURE":
       case "CONSECUTIVE_FAILURES":
         contextSection = `### Errors\n${((ctx.errorMessages as string[]) ?? []).slice(0, 5).map((e) => `- ${e}`).join("\n")}${ctx.consecutiveCount ? `\n\n**Consecutive failures:** ${ctx.consecutiveCount}` : ""}`;
+        break;
+      case "SOURCE_KENNEL_MISMATCH":
+        contextSection = `### Blocked Tags\n${(ctx.tags as string[]).map((t) => `- \`${t}\``).join("\n")}\n\nThese tags resolved to valid kennels but those kennels are not linked to this source via SourceKennel.`;
         break;
     }
   }
@@ -467,6 +555,11 @@ function getRelevantFiles(alertType: string, sourceType: string): string[] {
       files.push("src/pipeline/scrape.ts");
       files.push("src/pipeline/merge.ts");
       break;
+    case "SOURCE_KENNEL_MISMATCH":
+      files.push("src/pipeline/merge.ts");
+      files.push("src/pipeline/kennel-resolver.ts");
+      files.push("prisma/seed.ts");
+      break;
   }
 
   return files;
@@ -485,6 +578,8 @@ function getSuggestedApproach(alertType: string): string {
     case "SCRAPE_FAILURE":
     case "CONSECUTIVE_FAILURES":
       return "Check source URL accessibility. Review error messages for network, auth, or parsing failures. Verify API keys are valid.";
+    case "SOURCE_KENNEL_MISMATCH":
+      return "The kennel tag resolved to a valid kennel, but that kennel is not linked to this source via SourceKennel. Either add the SourceKennel link (if the source legitimately provides events for that kennel) or update the adapter/config to produce the correct tag.";
     default:
       return "Investigate the alert context and relevant files.";
   }

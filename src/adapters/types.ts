@@ -33,6 +33,8 @@ export interface MergeResult {
   updated: number;
   skipped: number;
   unmatched: string[]; // kennel tags that couldn't be resolved
+  blocked: number; // events skipped due to source-kennel mismatch
+  blockedTags: string[]; // kennel tags that resolved but weren't linked to source
   eventErrors: number; // count of individual events that failed to process
   eventErrorMessages: string[]; // error messages (capped at 50)
 }

@@ -12,7 +12,9 @@ export interface ScrapeSourceResult {
   created: number;
   updated: number;
   skipped: number;
+  blocked: number;
   unmatched: string[];
+  blockedTags: string[];
   errors: string[];
 }
 
@@ -100,6 +102,7 @@ export async function scrapeSource(
       scrapeFailed: hasErrors,
       errors: allErrors,
       unmatchedTags: mergeResult.unmatched,
+      blockedTags: mergeResult.blockedTags,
       fillRates,
       structureHash: scrapeResult.structureHash,
     });
@@ -127,7 +130,9 @@ export async function scrapeSource(
       created: mergeResult.created,
       updated: mergeResult.updated,
       skipped: mergeResult.skipped,
+      blocked: mergeResult.blocked,
       unmatched: mergeResult.unmatched,
+      blockedTags: mergeResult.blockedTags,
       errors: allErrors,
     };
   } catch (err) {
@@ -175,7 +180,9 @@ export async function scrapeSource(
       created: 0,
       updated: 0,
       skipped: 0,
+      blocked: 0,
       unmatched: [],
+      blockedTags: [],
       errors: [errorMsg],
     };
   }
