@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -116,9 +117,14 @@ export function RosterTable({
               filtered.map((h) => (
                 <tr key={h.id} className="border-b last:border-0">
                   <td className="px-3 py-2 font-medium">
-                    {h.hashName || (
-                      <span className="text-muted-foreground italic">—</span>
-                    )}
+                    <Link
+                      href={`/misman/${kennelSlug}/roster/${h.id}`}
+                      className="hover:underline"
+                    >
+                      {h.hashName || (
+                        <span className="text-muted-foreground italic">—</span>
+                      )}
+                    </Link>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {h.nerdName || "—"}

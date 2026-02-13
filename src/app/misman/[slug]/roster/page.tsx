@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { RosterTable } from "@/components/misman/RosterTable";
+import { SeedRosterButton } from "@/components/misman/SeedRosterButton";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -45,11 +46,18 @@ export default async function RosterPage({ params }: Props) {
   const isSharedRoster = rosterKennelIds.length > 1;
 
   return (
-    <RosterTable
-      hashers={serialized}
-      kennelId={kennel.id}
-      kennelSlug={slug}
-      isSharedRoster={isSharedRoster}
-    />
+    <div className="space-y-4">
+      <RosterTable
+        hashers={serialized}
+        kennelId={kennel.id}
+        kennelSlug={slug}
+        isSharedRoster={isSharedRoster}
+      />
+      {hashers.length === 0 && (
+        <div className="flex justify-center">
+          <SeedRosterButton kennelId={kennel.id} />
+        </div>
+      )}
+    </div>
   );
 }

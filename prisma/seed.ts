@@ -264,6 +264,56 @@ async function main() {
     console.log(`  ✓ Linked ${kennelShortNames.length} kennels to ${sourceData.name}`);
   }
 
+  // ── ROSTER GROUPS ──
+
+  const rosterGroups = [
+    {
+      name: "NYC Metro",
+      kennelShortNames: [
+        "NYCH3", "BrH3", "NAH3", "Knick", "QBK", "SI",
+        "Columbia", "Harriettes", "GGFM", "NAWWH3",
+      ],
+    },
+    {
+      name: "Philly Area",
+      kennelShortNames: ["BFM", "Philly H3"],
+    },
+  ];
+
+  console.log("Seeding roster groups...");
+  for (const group of rosterGroups) {
+    let rosterGroup = await prisma.rosterGroup.findFirst({
+      where: { name: group.name },
+    });
+
+    if (!rosterGroup) {
+      rosterGroup = await prisma.rosterGroup.create({
+        data: { name: group.name },
+      });
+      console.log(`  ✓ Created roster group: ${group.name}`);
+    } else {
+      console.log(`  ✓ Roster group already exists: ${group.name}`);
+    }
+
+    for (const shortName of group.kennelShortNames) {
+      const kennel = kennelRecords[shortName];
+      if (!kennel) {
+        console.warn(`  ⚠ Kennel "${shortName}" not found, skipping roster group link`);
+        continue;
+      }
+
+      await prisma.rosterGroupKennel.upsert({
+        where: { kennelId: kennel.id },
+        update: { groupId: rosterGroup.id },
+        create: {
+          groupId: rosterGroup.id,
+          kennelId: kennel.id,
+        },
+      });
+    }
+    console.log(`  ✓ Linked ${group.kennelShortNames.length} kennels to ${group.name}`);
+  }
+
   console.log("\nSeed complete!");
   await prisma.$disconnect();
 }
