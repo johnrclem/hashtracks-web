@@ -12,9 +12,10 @@ Give mismanagement a dedicated tool to capture and track attendance tied to even
 
 ## Core Concepts
 
-### KennelHasher (Kennel-Specific Roster)
-- Each kennel maintains its own roster of hashers
-- A hasher who runs with both NYCH3 and EWH3 has **separate entries** in each kennel's roster
+### KennelHasher (Roster Entry)
+- By default, each kennel maintains its own roster of hashers
+- Kennels that share a community (e.g., NYC H3 and GGFM H3) can be grouped into a **Roster Group** — all kennels in the group share one combined roster pool (see [Roster Sharing](#13-roster-sharing))
+- A hasher who runs with kennels in **different** Roster Groups (e.g., NYCH3 and Boston H3) has **separate entries** in each group's roster
 - Each entry has: **hash name** (primary, public display) and **nerd name** (real name, private to misman only)
 - Optional contact fields: **email** and **mobile phone** (private to misman only) — useful for future communication features (e.g., trail announcements, payment reminders)
 - A KennelHasher can optionally be **linked to a site User** (see User Linking below)
@@ -139,8 +140,9 @@ model KennelAttendance {
   referralOther   String?         // Freetext when referralSource is OTHER
   recordedBy      String          // Misman user ID who created this record
 
-  kennelHasher KennelHasher @relation(fields: [kennelHasherId], references: [id])
-  event        Event        @relation(fields: [eventId], references: [id])
+  kennelHasher   KennelHasher @relation(fields: [kennelHasherId], references: [id])
+  event          Event        @relation(fields: [eventId], references: [id])
+  recordedByUser User         @relation("RecordedAttendances", fields: [recordedBy], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -165,7 +167,9 @@ model MismanRequest {
   kennel  Kennel  @relation(fields: [kennelId], references: [id])
   createdAt DateTime @default(now())
 
-  @@unique([userId, kennelId]) // One pending request per user per kennel
+  // No unique constraint — allows re-requests after rejection.
+  // App logic prevents duplicate PENDING requests for the same user+kennel.
+  @@index([userId, kennelId, status])
 }
 
 // ── ROSTER GROUPS (Cross-Kennel Suggestion Sharing) ──
@@ -192,8 +196,9 @@ model RosterGroupKennel {
 
 ```prisma
 // Add to User model:
-  kennelHasherLinks KennelHasherLink[]
-  mismanRequests    MismanRequest[]
+  kennelHasherLinks    KennelHasherLink[]
+  mismanRequests       MismanRequest[]
+  recordedAttendances  KennelAttendance[] @relation("RecordedAttendances")
 
 // Add to Kennel model:
   kennelHashers    KennelHasher[]
@@ -209,8 +214,9 @@ model RosterGroupKennel {
 - `KennelHasher`: at least one of `hashName` or `nerdName` must be non-null
 - `KennelAttendance.referralOther`: only set when `referralSource` is `OTHER`
 - `KennelAttendance.visitorLocation`: only relevant when `isVisitor` is `true`
-- `KennelAttendance.eventId`: event must belong to the same kennel as the `KennelHasher`'s kennel, and the event date must be within 1 year of today
-- `MismanRequest`: cannot request if user already has MISMAN or ADMIN role for that kennel
+- `KennelAttendance.eventId`: the event's kennel and the KennelHasher's kennel must be in the same **Roster Group** (or be the same kennel, for standalone kennels not in any group). The event date must be within 1 year of today.
+- `KennelHasherLink`: when creating or confirming a link, check if the same `userId` is already linked (CONFIRMED) to another KennelHasher in the same kennel (or same Roster Group). If so, flag both entries and suggest merging them — two KennelHashers linked to the same User in the same roster pool is a strong duplicate signal.
+- `MismanRequest`: cannot request if user already has MISMAN or ADMIN role for that kennel. Cannot create a new request if a PENDING request already exists for the same user+kennel.
 
 ---
 
@@ -221,8 +227,7 @@ The primary interface — designed for use at trail on a phone.
 
 - Misman selects an event (defaults to today's kennel event if one exists, but can pick **any event up to 1 year in the past** for catch-up)
 - **Autocomplete search** for both hash name and nerd name (hash name is primary display)
-- **Smart suggestions**: surface frequent, regular, and recent attendees at the top (see [Smart Suggestions Algorithm](#8-smart-suggestions-algorithm))
-- **Roster group suggestions**: if the kennel belongs to a roster group, suggestions also pull from sibling kennels' rosters (see [Roster Sharing](#13-roster-sharing))
+- **Smart suggestions**: surface frequent, regular, and recent attendees at the top (see [Smart Suggestions Algorithm](#8-smart-suggestions-algorithm)). For kennels in a Roster Group, suggestions draw from the entire shared roster pool (see [Roster Sharing](#13-roster-sharing)).
 - Quick-add: if the hasher isn't in the roster, create a new KennelHasher inline from the form
 - Per-hasher toggles: paid, hare, virgin, visitor
 - Visitor sub-fields: location and referral source (shown only when visitor or virgin is checked)
@@ -279,7 +284,7 @@ When a KennelHasher is linked to a site User, the system can cross-reference `Ke
 
 1. **Misman records attendance at trail** → creates `KennelAttendance` record
 2. If the KennelHasher has a confirmed `KennelHasherLink` → system shows a prompt on the linked user's `/logbook` page: *"NYCH3 misman recorded you at Run #2045 — confirm?"*
-3. User **accepts** → system creates an `Attendance` record (status: `CONFIRMED`) in their logbook → status becomes **Verified**
+3. User **accepts** → system creates an `Attendance` record (status: `CONFIRMED`, participationLevel: `HARE` if `haredThisTrail=true`, otherwise `RUN`) in their logbook → status becomes **Verified**. The user can edit their Attendance record afterward to adjust the participation level.
 4. User **dismisses** → no Attendance record created; KennelAttendance remains as **Misman-only**
 5. Alternatively, if user checks in first (via the existing hareline check-in flow), misman later records them → status becomes **Verified** automatically
 
@@ -292,9 +297,9 @@ The existing `Attendance.isVerified` and `Attendance.verifiedBy` fields remain i
 When misman opens the attendance form for an event, the system suggests hashers most likely to be present. The goal: **the form should feel like checking names off a list, not searching from scratch.**
 
 ### Inputs
-- KennelAttendance history for this kennel (last 6 months)
-- Total kennel events in the same period (for frequency normalization)
-- KennelHasher roster for the kennel (and sibling kennels in the same roster group)
+- KennelAttendance history for this kennel (last 6 months). For kennels in a Roster Group, attendance at **any kennel in the group** counts toward a hasher's score.
+- Total kennel events in the same period (for frequency normalization) — scoped to the specific kennel, not the entire group
+- KennelHasher roster for the kennel (or the entire shared roster pool, if the kennel is in a Roster Group)
 
 ### Scoring Formula
 
@@ -306,12 +311,11 @@ score = (0.5 × frequency) + (0.3 × recency) + (0.2 × streak)
 |---|---|---|
 | **Frequency** | `events_attended_last_6mo / total_kennel_events_last_6mo` | Catches regulars who come most weeks |
 | **Recency** | `max(0, 1 - (days_since_last_attendance / 180))` | Boosts people who attended recently; decays to 0 after 6 months of absence |
-| **Streak** | `min(1, consecutive_recent_events / 4)` | Rewards people on a current run of consecutive events (maxes out at 4) |
+| **Streak** | `min(1, consecutive_recent_events / 4)` | Starting from the most recent kennel event and counting backward: how many events in a row did this person attend without a gap? (e.g., attended last 3 of 3 → streak=3; attended last 2, missed one → streak=2). Maxes out at 4. |
 
 ### Display
-- **Top suggestions** (score > 0.3): shown as a tap-to-add list at the top of the form — fast one-tap check-off
+- **Top suggestions** (score > 0.3): shown as a tap-to-add list at the top of the form — fast one-tap check-off. For kennels in a Roster Group, this draws from the entire shared roster pool.
 - **Remaining roster**: available via autocomplete search (hash name or nerd name)
-- **Roster group suggestions**: hashers from sibling kennels with score > 0.5 shown in a separate "Also runs with [sibling kennel]" section (see [Roster Sharing](#13-roster-sharing))
 - **New hasher**: always available via "Add new" quick-add at the bottom
 
 ### Notes
@@ -338,7 +342,7 @@ Merging KennelHasher entries is a common operation — misman discover that "Mud
 
 | Scenario | Resolution |
 |---|---|
-| **Both attended same event** | Keep one KennelAttendance record. Boolean flags merge with OR logic: if either was `paid=true`, result is `paid=true`. Same for `haredThisTrail`, `isVirgin`, `isVisitor`. Keep `visitorLocation` and `referralSource` from whichever record has them. |
+| **Both attended same event** | Keep one KennelAttendance record. Boolean flags merge with OR logic: if either was `paid=true`, result is `paid=true`. Same for `haredThisTrail`, `isVirgin`, `isVisitor`. Keep `visitorLocation` and `referralSource` from whichever record has them. Keep `recordedBy` from the earlier record (first-to-record wins for audit trail). |
 | **Conflicting boolean flags** | `true` wins (conservative: if someone was marked as paid in either record, they paid) |
 | **One has a user link, other doesn't** | Transfer the link to the surviving KennelHasher entry |
 | **Both have user links to different Users** | **Block the merge.** Display error: *"These roster entries are linked to different site users ([User A] and [User B]). Unlink one before merging."* This is a data integrity safeguard — two different people should not be merged. |
@@ -393,6 +397,8 @@ Multiple mismans (typically 2-4 per kennel) may record attendance for the same e
 - Creates a `MismanRequest` record (status: PENDING)
 - Existing mismans and site admins are notified (via the misman dashboard; push notifications deferred)
 
+**Bootstrap**: For a kennel with no existing mismans, only a site admin can assign the first misman (Path 1). Once at least one misman exists, they can approve subsequent requests (Path 2). This is by design — prevents unauthorized self-assignment.
+
 ### Permission Checks
 
 A new auth helper is needed alongside the existing `getOrCreateUser()` and `getAdminUser()`:
@@ -421,45 +427,59 @@ async function getMismanUser(kennelId: string): Promise<User | null>
 | KennelAttendance records | Yes | No | No |
 | Per-hasher stats (run count, etc.) | Yes | No (future: opt-in public profiles) | No |
 
+**Roster Group visibility**: within a Roster Group, misman from **any kennel in the group** can see all roster data (nerd name, contact info, notes) for all hashers in the group. This is intentional — these kennels share a community.
+
 **User profile privacy is separate**: a User's `nerdName` on their profile has its own privacy settings. The `nerdName` on a `KennelHasher` is kennel-specific data recorded by misman — it does not automatically sync with or override the User's profile privacy settings, even when linked.
 
 ---
 
-## 13. Roster Sharing (Cross-Kennel Suggestions)
+## 13. Roster Sharing (Shared Rosters via Roster Groups)
 
 ### Problem
-Some kennels have heavily overlapping communities — e.g., NYC H3 and GGFM H3 share nearly all their regulars. When GGFM misman records attendance, they shouldn't have to re-enter everyone from scratch — the NYC H3 roster should inform their suggestions.
+Some kennels have heavily overlapping communities — e.g., NYC H3 and GGFM H3 share nearly all their regulars. Maintaining separate rosters for each kennel creates duplicate data that gets stale. When GGFM misman records attendance, they shouldn't have to re-enter everyone — they should see the same "Mudflap" that NYC H3's misman already added.
 
 But not all kennels overlap — Boston H3 and NYC H3 are largely separate communities.
 
-### Approach: Roster Groups
+### Approach: Shared Rosters via Roster Groups
 
-A **Roster Group** is an admin-created grouping of kennels that share a community. Examples:
+A **Roster Group** is an admin-created grouping of kennels that share a community and a single combined roster pool. Examples:
 - "NYC Metro" → NYC H3, GGFM H3, EWH3, LIH3, etc.
 - "Philly Area" → Philly H3, BFM H3
 
 ### How It Works
 
-1. **Site admin** creates a Roster Group and assigns kennels to it (via admin panel)
-2. **Autocomplete**: when misman types a name, the search queries:
-   - **First**: the current kennel's roster (exact + fuzzy match)
-   - **Then**: sibling kennels in the same roster group (same search, but results shown in a separate "Also runs with [sibling]" section)
-3. **Adding from sibling**: if misman selects a hasher from a sibling kennel's roster, the system creates a **new KennelHasher entry** in the current kennel, pre-populated with the source entry's data (hash name, nerd name, contact info). The entries are independent after creation — edits to one don't affect the other.
-4. **Suggestions**: the smart suggestions algorithm (Section 8) runs on the current kennel's roster only. Sibling roster matches are a secondary signal, shown separately.
+1. **Shared roster pool**: all kennels in a group share one roster. There is one "Mudflap" entry used by both NYC H3 and GGFM mismans — no duplication.
+2. **Origin kennel**: `KennelHasher.kennelId` marks which kennel's misman originally added the entry. This is informational, not a permission boundary.
+3. **Roster queries**: when loading the roster for any kennel in the group, the query expands to include KennelHashers from all kennels in the group: `WHERE kennelId IN (all kennel IDs in the group)`.
+4. **Cross-kennel attendance**: KennelAttendance can link a KennelHasher to an event from any kennel in the same group. GGFM misman records "Mudflap" (a NYC H3-origin hasher) attending a GGFM event — no copy needed.
+5. **Cross-kennel editing**: any misman of any kennel in the group can edit any KennelHasher in the group. Since these communities overlap, this is practical — "Mudflap" is the same person at both kennels.
+6. **Standalone kennels**: kennels not in any Roster Group behave exactly as before — their roster is scoped to `kennelId` only, and KennelAttendance requires matching `kennelId`.
+7. **Smart suggestions**: the scoring algorithm (Section 8) runs across the entire shared roster pool. Attendance at any kennel in the group counts toward a hasher's frequency/recency/streak scores.
 
-### What This Does NOT Do
-- Does not merge rosters or share attendance data bidirectionally
-- Does not allow misman of one kennel to see another kennel's full roster — only autocomplete matches
-- Does not automatically create entries — misman must explicitly select a suggestion
-- Does not sync changes between linked entries after creation
+### Kennel Joins a Group
+When a kennel is added to an existing Roster Group, the system runs a **duplicate scan** across the newly combined roster (fuzzy match on hash names and nerd names) and surfaces potential merge candidates to the admin. This is a one-time action at group formation.
 
-### Why Not a Shared Roster?
-A truly shared roster (one KennelHasher entry used by multiple kennels) would require:
-- Cross-kennel permission negotiation (who can edit shared entries?)
-- Attendance records spanning multiple kennels (breaks the kennel-specific model)
-- Complex merge semantics when kennels disagree on names
+### Kennel Leaves a Group
+KennelHashers with that `kennelId` become standalone again. KennelAttendance records from the shared period remain valid — the attendance happened and should not be deleted.
 
-The Roster Group approach gives 80% of the benefit (fast suggestions, reduced data entry) with none of the complexity.
+### Roster Group Management
+
+**Where it lives**: `/admin/roster-groups` (site admin only for MVP)
+
+**Admin capabilities:**
+- Create a new Roster Group (name it, e.g., "NYC Metro")
+- Add kennels to a group — triggers duplicate scan, surfaces merge candidates
+- Remove a kennel from a group — hasher entries with that kennelId become standalone; no data loss
+- View all groups with their member kennels
+- Delete a group entirely — all kennels become standalone; KennelHasher entries and KennelAttendance records are preserved
+
+**Future: MISMAN self-service (deferred)**
+- Misman can request that their kennel be added to an existing group (or request forming a new group with another kennel)
+- Similar to `MismanRequest` flow: creates a request, reviewed by site admin
+- Deferred for MVP — admin-only management is sufficient since initial groupings (NYC Metro, Philly Area) are known and can be set up directly
+
+### Privacy Within a Group
+Within a Roster Group, misman from any kennel in the group can see all roster data (hash name, nerd name, contact info, notes) for all hashers in the group. This is intentional — these kennels share a real-world community and their mismans are managing the same people.
 
 ---
 
@@ -493,6 +513,8 @@ The Roster Group approach gives 80% of the benefit (fast suggestions, reduced da
 | **User account deleted** | Unlink from KennelHasher (delete `KennelHasherLink`), but **keep the KennelHasher roster entry and all attendance records** | The roster entry represents the real-world person, not their site account |
 | **KennelHasherLink deleted/dismissed** | Delete the link record; KennelHasher and all KennelAttendance records are unaffected | Unlinking doesn't erase history |
 | **MismanRequest resolved** | Keep the request record (soft archive via status change to APPROVED/REJECTED) | Audit trail for role assignments |
+| **RosterGroup deleted** | Cascade delete `RosterGroupKennel` entries. All KennelHasher entries remain (they keep their `kennelId`). KennelAttendance records remain valid. Rosters simply stop being shared — each kennel's hashers become standalone. | No data loss; only the grouping is removed |
+| **Kennel removed from RosterGroup** | Delete the `RosterGroupKennel` entry. KennelHashers with that `kennelId` become standalone. Cross-kennel KennelAttendance records from the shared period remain valid. | Historical attendance should not be retroactively invalidated |
 
 ### Event Deletion Update
 
@@ -525,6 +547,7 @@ await prisma.$transaction([
 | Edit history / audit log | Deferred | `updatedAt` provides basic "last modified" for MVP; full audit trail comes later if needed |
 | WebSocket / SSE real-time | Deferred | Polling (3-5s) is sufficient for MVP; upgrade if users report sluggish multi-misman experience |
 | Misman contacting hashers | Deferred | Contact fields (email, phone) stored for future use; no messaging/notification features in MVP |
+| Roster Group self-service | Deferred | Misman can request group formation/membership; admin-only for MVP |
 
 ---
 
@@ -535,7 +558,7 @@ await prisma.$transaction([
 | 1 | MISMAN vs SCRIBE role? | MISMAN replaces SCRIBE. Single role name for kennel-level attendance management. ADMIN implicitly includes MISMAN permissions. |
 | 2 | Hash cash tracking | Boolean "paid" flag per attendance; amounts/balances deferred |
 | 3 | Logbook sync | Pending confirmations on `/logbook` page; no auto-sync. Verification is derived from cross-referencing KennelAttendance and Attendance records. |
-| 4 | Roster scope | Kennel-specific (each kennel owns their list). Roster Groups provide cross-kennel suggestions without shared ownership. |
+| 4 | Roster scope | Kennel-specific origin, but shared within Roster Groups. Mismans in the same group share one roster pool — no data duplication. |
 | 5 | Virgin tracking | Manual per-event annotation; auto-detection deferred |
 | 6 | Form timing | Any kennel event up to 1 year in the past |
 | 7 | Hare visibility | Internal to misman records for MVP; EventHare sync deferred |
@@ -552,9 +575,16 @@ await prisma.$transaction([
 | 18 | Concurrency | Optimistic UI + polling (3-5s); `@@unique` constraint prevents duplicate entries |
 | 19 | Privacy | Nerd name, email, phone, notes visible to misman only; not to other members or public |
 | 20 | Misman assignment | Three paths: site admin direct, existing misman approves request, self-service request from kennel page |
-| 21 | Roster sharing | Roster Groups allow cross-kennel autocomplete suggestions; entries are copied (not shared) when selected |
+| 21 | Roster sharing | Roster Groups enable true shared rosters — hashers are referenced directly across sibling kennels, not copied. Managed by site admin for MVP; MISMAN self-service requests deferred. |
 | 22 | CSV export | Deferred — not implementing at this time |
 | 23 | Edit history | Deferred — `updatedAt` only for MVP |
 | 24 | Contact fields | Optional email and phone on KennelHasher; private to misman; messaging features deferred |
 | 25 | Link revocation | Both user and misman can revoke a confirmed link; does not delete attendance history |
 | 26 | Smart suggestions | Weighted score: 50% frequency + 30% recency + 20% streak. Thresholds tunable post-launch. |
+| 27 | MismanRequest re-requests | Allowed after rejection; only one PENDING request per user/kennel (app logic, not DB constraint) |
+| 28 | Duplicate user links | Flagged and merge suggested at both kennel and Roster Group level; enforced in app logic on link creation |
+| 29 | Misman bootstrap | First misman must be site-admin-assigned; subsequent via self-service request |
+| 30 | Merge recordedBy | First-to-record wins when merging overlapping attendance for the same event |
+| 31 | Verification participationLevel | haredThisTrail→HARE, else RUN; user can edit their Attendance record afterward |
+| 32 | Roster Group management | Site admin only for MVP; MISMAN self-service group requests deferred |
+| 33 | Group formation | Duplicate scan run when a kennel joins a group; merge candidates surfaced to admin |
