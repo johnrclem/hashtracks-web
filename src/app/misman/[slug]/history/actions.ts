@@ -185,10 +185,46 @@ export async function getHasherDetail(kennelId: string, hasherId: string) {
   };
 }
 
+/** Placeholder patterns to skip when parsing hare names */
+const HARE_IGNORE_PATTERNS = [
+  /^n\/?a$/i,
+  /^tbd$/i,
+  /^tba$/i,
+  /sign up/i,
+  /^-+$/,
+  /^\?+$/,
+  /^unknown$/i,
+  /^none$/i,
+];
+
 /**
- * Seed the roster from existing EventHare data.
- * Queries hare names from events in the roster scope (last year),
- * fuzzy-deduplicates against existing roster, creates new KennelHasher entries.
+ * Split a haresText string into individual hare names.
+ * Handles comma, ampersand, and "and" delimiters.
+ */
+function splitHareNames(haresText: string): string[] {
+  const parts = haresText.split(",");
+  const names: string[] = [];
+
+  for (const part of parts) {
+    const subParts = part
+      .split(/\s+&\s+/i)
+      .flatMap((s) => s.split(/\s+and\s+/i));
+
+    for (const name of subParts) {
+      const trimmed = name.replace(/\s+/g, " ").trim();
+      if (!trimmed) continue;
+      if (HARE_IGNORE_PATTERNS.some((p) => p.test(trimmed))) continue;
+      names.push(trimmed);
+    }
+  }
+
+  return names;
+}
+
+/**
+ * Seed the roster from Event.haresText data.
+ * Queries events in the roster scope (last year), parses comma-separated
+ * hare names, deduplicates against existing roster, creates new KennelHasher entries.
  */
 export async function seedRosterFromHares(kennelId: string) {
   const user = await getMismanUser(kennelId);
@@ -197,23 +233,26 @@ export async function seedRosterFromHares(kennelId: string) {
   const rosterKennelIds = await getRosterKennelIds(kennelId);
   const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
 
-  // Get all hare names from events in the roster scope (last year)
-  const hares = await prisma.eventHare.findMany({
+  // Get all events with hare data in the roster scope (last year)
+  const events = await prisma.event.findMany({
     where: {
-      event: {
-        kennelId: { in: rosterKennelIds },
-        date: { gte: oneYearAgo },
-      },
+      kennelId: { in: rosterKennelIds },
+      date: { gte: oneYearAgo },
+      haresText: { not: null },
     },
-    select: { hareName: true },
+    select: { haresText: true },
   });
 
-  // Deduplicate hare names (case-insensitive)
+  // Parse and deduplicate hare names (case-insensitive)
   const uniqueNames = new Map<string, string>();
-  for (const h of hares) {
-    const key = h.hareName.toLowerCase().trim();
-    if (key && !uniqueNames.has(key)) {
-      uniqueNames.set(key, h.hareName.trim());
+  for (const e of events) {
+    if (!e.haresText) continue;
+    const names = splitHareNames(e.haresText);
+    for (const name of names) {
+      const key = name.toLowerCase();
+      if (!uniqueNames.has(key)) {
+        uniqueNames.set(key, name);
+      }
     }
   }
 

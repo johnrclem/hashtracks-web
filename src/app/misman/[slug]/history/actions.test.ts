@@ -9,7 +9,6 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     event: { findMany: vi.fn(), count: vi.fn() },
-    eventHare: { findMany: vi.fn() },
     kennelHasher: { findUnique: vi.fn(), findMany: vi.fn(), createMany: vi.fn() },
   },
 }));
@@ -234,9 +233,8 @@ describe("seedRosterFromHares", () => {
   });
 
   it("returns message when all names already exist", async () => {
-    vi.mocked(prisma.eventHare.findMany).mockResolvedValueOnce([
-      { hareName: "Mudflap" },
-      { hareName: "Skippy" },
+    vi.mocked(prisma.event.findMany).mockResolvedValueOnce([
+      { haresText: "Mudflap, Skippy" },
     ] as never);
 
     vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
@@ -251,11 +249,9 @@ describe("seedRosterFromHares", () => {
   });
 
   it("creates new hashers from unique hare names", async () => {
-    vi.mocked(prisma.eventHare.findMany).mockResolvedValueOnce([
-      { hareName: "Mudflap" },
-      { hareName: "Skippy" },
-      { hareName: "New Hasher" },
-      { hareName: "mudflap" }, // duplicate (case-insensitive)
+    vi.mocked(prisma.event.findMany).mockResolvedValueOnce([
+      { haresText: "Mudflap, Skippy" },
+      { haresText: "New Hasher, mudflap" }, // mudflap is case-insensitive duplicate
     ] as never);
 
     vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
@@ -276,9 +272,51 @@ describe("seedRosterFromHares", () => {
     });
   });
 
+  it("parses ampersand and 'and' delimiters", async () => {
+    vi.mocked(prisma.event.findMany).mockResolvedValueOnce([
+      { haresText: "Mudflap & Just Simon, Skippy and Trail Boss" },
+    ] as never);
+
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([] as never);
+
+    vi.mocked(prisma.kennelHasher.createMany).mockResolvedValueOnce({
+      count: 4,
+    } as never);
+
+    const result = await seedRosterFromHares("kennel_1");
+
+    expect(result.success).toBe(true);
+    expect(result.created).toBe(4);
+    const createCall = vi.mocked(prisma.kennelHasher.createMany).mock.calls[0][0];
+    const names = (createCall as { data: { hashName: string }[] }).data.map(
+      (d) => d.hashName,
+    );
+    expect(names).toEqual(["Mudflap", "Just Simon", "Skippy", "Trail Boss"]);
+  });
+
+  it("ignores placeholder values like N/A and TBD", async () => {
+    vi.mocked(prisma.event.findMany).mockResolvedValueOnce([
+      { haresText: "Mudflap, N/A, TBD, ???, unknown" },
+    ] as never);
+
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([] as never);
+
+    vi.mocked(prisma.kennelHasher.createMany).mockResolvedValueOnce({
+      count: 1,
+    } as never);
+
+    const result = await seedRosterFromHares("kennel_1");
+
+    expect(result.success).toBe(true);
+    expect(result.created).toBe(1);
+    expect(vi.mocked(prisma.kennelHasher.createMany)).toHaveBeenCalledWith({
+      data: [{ kennelId: "kennel_1", hashName: "Mudflap" }],
+    });
+  });
+
   it("deduplicates against nerd names", async () => {
-    vi.mocked(prisma.eventHare.findMany).mockResolvedValueOnce([
-      { hareName: "John Doe" },
+    vi.mocked(prisma.event.findMany).mockResolvedValueOnce([
+      { haresText: "John Doe" },
     ] as never);
 
     vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
@@ -291,11 +329,11 @@ describe("seedRosterFromHares", () => {
     expect(result.created).toBe(0);
   });
 
-  it("uses roster group scope for existing name check", async () => {
+  it("uses roster group scope for queries", async () => {
     mockRosterKennelIds.mockResolvedValueOnce(["kennel_1", "kennel_2"]);
 
-    vi.mocked(prisma.eventHare.findMany).mockResolvedValueOnce([
-      { hareName: "Mudflap" },
+    vi.mocked(prisma.event.findMany).mockResolvedValueOnce([
+      { haresText: "Mudflap" },
     ] as never);
 
     vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
@@ -304,13 +342,11 @@ describe("seedRosterFromHares", () => {
 
     await seedRosterFromHares("kennel_1");
 
-    // Should query hares from both kennels
-    expect(vi.mocked(prisma.eventHare.findMany)).toHaveBeenCalledWith(
+    // Should query events from both kennels
+    expect(vi.mocked(prisma.event.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          event: expect.objectContaining({
-            kennelId: { in: ["kennel_1", "kennel_2"] },
-          }),
+          kennelId: { in: ["kennel_1", "kennel_2"] },
         }),
       }),
     );
