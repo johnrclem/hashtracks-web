@@ -13,9 +13,14 @@ export default async function AdminLayout({
   const admin = await getAdminUser();
   if (!admin) redirect("/");
 
-  const openAlertCount = await prisma.alert.count({
-    where: { status: { in: ["OPEN", "ACKNOWLEDGED"] } },
-  });
+  const [openAlertCount, pendingMismanCount] = await Promise.all([
+    prisma.alert.count({
+      where: { status: { in: ["OPEN", "ACKNOWLEDGED"] } },
+    }),
+    prisma.mismanRequest.count({
+      where: { status: "PENDING" },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -27,6 +32,16 @@ export default async function AdminLayout({
         <TabsList>
           <TabsTrigger value="requests" asChild>
             <Link href="/admin/requests">Requests</Link>
+          </TabsTrigger>
+          <TabsTrigger value="misman-requests" asChild>
+            <Link href="/admin/misman-requests" className="flex items-center gap-1">
+              Misman
+              {pendingMismanCount > 0 && (
+                <Badge variant="destructive" className="ml-1 text-xs">
+                  {pendingMismanCount}
+                </Badge>
+              )}
+            </Link>
           </TabsTrigger>
           <TabsTrigger value="kennels" asChild>
             <Link href="/admin/kennels">Kennels</Link>

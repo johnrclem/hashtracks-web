@@ -34,21 +34,19 @@ export default async function MismanPage() {
   const isSiteAdmin =
     (clerkUser?.publicMetadata as { role?: string } | null)?.role === "admin";
 
-  // Get pending requests for kennels this user manages
+  // Get pending requests — site admins see all, mismans see their kennels
   const managedKennelIds = mismanKennels.map((mk) => mk.kennel.id);
-  const pendingRequests = managedKennelIds.length > 0
-    ? await prisma.mismanRequest.findMany({
-        where: {
-          kennelId: { in: managedKennelIds },
-          status: "PENDING",
-        },
-        include: {
-          user: { select: { id: true, email: true, hashName: true, nerdName: true } },
-          kennel: { select: { shortName: true, slug: true } },
-        },
-        orderBy: { createdAt: "desc" },
-      })
-    : [];
+  const pendingRequests = await prisma.mismanRequest.findMany({
+    where: {
+      status: "PENDING",
+      ...(isSiteAdmin ? {} : { kennelId: { in: managedKennelIds } }),
+    },
+    include: {
+      user: { select: { id: true, email: true, hashName: true, nerdName: true } },
+      kennel: { select: { shortName: true, slug: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
   // Get user's own pending requests
   const myPendingRequests = await prisma.mismanRequest.findMany({
