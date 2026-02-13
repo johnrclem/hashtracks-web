@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 322 tests)
+- `npm test` — Run test suite (Vitest, 337 tests)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -90,6 +90,7 @@ calendar + personal logbook + kennel directory.
 ## Documentation
 - `docs/source-onboarding-playbook.md` — Step-by-step guide for adding new data sources
 - `docs/roadmap.md` — Implementation roadmap for source scaling, historical import, monitoring
+- `docs/misman-attendance-requirements.md` — Kennel attendance management (misman tool) requirements
 
 ## Active Sources (7)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -106,7 +107,7 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (322 tests across 20 files)
+- **Run:** `npm test` (337 tests across 20 files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)

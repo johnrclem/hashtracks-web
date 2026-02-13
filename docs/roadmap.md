@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-12
+Last updated: 2026-02-13
 
 ---
 
@@ -130,6 +130,23 @@ Last updated: 2026-02-12
 - [ ] **Admin-editable participation levels**: Migrate enum to reference table for custom levels per community
 - [ ] **"Beez There" checkbox**: Optional flag on attendance (nice-to-have, deferred from Sprint 5)
 
+### Kennel Attendance Management (Misman Tool) — NEW
+**Goal**: Replace kennel mismanagement's Google Sheet attendance tracking with a dedicated tool tied to HashTracks events.
+
+See [misman-attendance-requirements.md](misman-attendance-requirements.md) for full requirements and decisions log.
+
+- [ ] **Data model**: KennelHasher (kennel-specific roster), KennelAttendance (misman-recorded attendance), KennelRole (misman permission per kennel)
+- [ ] **Kennel permissions**: Misman role per kennel (below site admin), multiple misman per kennel, site admin assigns/revokes
+- [ ] **Kennel roster**: Per-kennel hasher directory with hash name + nerd name, editable, merge duplicates, per-hasher stats
+- [ ] **Roster seeding**: Pre-populate from existing hare data in DB (last year of hares per kennel)
+- [ ] **Mobile attendance form**: Event selector (defaults to today, any recent event), autocomplete search by hash/nerd name, quick-add new hashers inline
+- [ ] **Smart suggestions**: Surface frequent/regular/recent attendees at top of form for fast population
+- [ ] **Per-attendance fields**: paid (boolean), hare (boolean), virgin (manual annotation), visitor (with location), referral source (dropdown)
+- [ ] **User linking**: Fuzzy-match suggestions for linking KennelHasher → site User, misman manually confirms
+- [ ] **Logbook sync**: Pending confirmations section on `/logbook` for linked users (suggest-and-confirm, no auto-sync)
+- [ ] **Attendance history**: Per-event and per-hasher views, CSV export
+- **Deferred**: Hash cash amounts, auto-detect virgins, hare→EventHare sync, cross-kennel directory, historical CSV import, notification system
+
 ### CSV Import (Bulk History)
 - [ ] Upload CSV of past attendance
 - [ ] Column mapping UI
@@ -213,5 +230,6 @@ Last updated: 2026-02-12
 ## Reference
 
 - [Source Onboarding Playbook](source-onboarding-playbook.md) — step-by-step guide for adding sources
+- [Misman Attendance Requirements](misman-attendance-requirements.md) — kennel attendance management tool requirements and decisions
 - [HASHTRACKS_PRD.md](../HASHTRACKS_PRD.md) — original product requirements document
 - [HASHTRACKS_IMPLEMENTATION_PLAN.md](../HASHTRACKS_IMPLEMENTATION_PLAN.md) — original sprint plan (Sprints 1-4 complete, evolved beyond this plan)
