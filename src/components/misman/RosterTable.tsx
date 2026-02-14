@@ -6,6 +6,16 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { deleteKennelHasher } from "@/app/misman/[slug]/roster/actions";
 import { HasherForm } from "./HasherForm";
@@ -29,6 +39,9 @@ interface RosterTableProps {
   isSharedRoster: boolean;
 }
 
+type SortKey = "hashName" | "kennelShortName" | "attendanceCount";
+type SortDir = "asc" | "desc";
+
 export function RosterTable({
   hashers,
   kennelId,
@@ -38,7 +51,10 @@ export function RosterTable({
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [editHasher, setEditHasher] = useState<HasherRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<HasherRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("hashName");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -52,25 +68,47 @@ export function RosterTable({
     );
   });
 
-  function handleDelete(hasher: HasherRow) {
-    if (
-      !confirm(
-        `Delete ${hasher.hashName || hasher.nerdName} from the roster?`,
-      )
-    )
-      return;
+  const sorted = [...filtered].sort((a, b) => {
+    let cmp = 0;
+    if (sortKey === "hashName") {
+      cmp = (a.hashName ?? "").localeCompare(b.hashName ?? "");
+    } else if (sortKey === "kennelShortName") {
+      cmp = a.kennelShortName.localeCompare(b.kennelShortName);
+    } else if (sortKey === "attendanceCount") {
+      cmp = a.attendanceCount - b.attendanceCount;
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
-    setDeletingId(hasher.id);
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  function handleDelete() {
+    if (!deleteTarget) return;
+
+    setDeletingId(deleteTarget.id);
     startTransition(async () => {
-      const result = await deleteKennelHasher(hasher.id);
+      const result = await deleteKennelHasher(deleteTarget.id);
       if (result.error) {
         toast.error(result.error);
       } else {
         toast.success("Hasher removed from roster");
       }
       setDeletingId(null);
+      setDeleteTarget(null);
       router.refresh();
     });
+  }
+
+  function sortIndicator(key: SortKey) {
+    if (sortKey === key) return sortDir === "asc" ? " \u25B2" : " \u25BC";
+    return " \u21C5";
   }
 
   return (
@@ -92,17 +130,45 @@ export function RosterTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-3 py-2 text-left font-medium">Hash Name</th>
+              <th className="px-3 py-2 text-left font-medium">
+                <button
+                  className="flex items-center gap-1 hover:text-foreground"
+                  onClick={() => toggleSort("hashName")}
+                >
+                  Hash Name
+                  <span className="text-xs">{sortIndicator("hashName")}</span>
+                </button>
+              </th>
               <th className="px-3 py-2 text-left font-medium">Nerd Name</th>
               {isSharedRoster && (
-                <th className="px-3 py-2 text-left font-medium">Kennel</th>
+                <th className="px-3 py-2 text-left font-medium">
+                  <button
+                    className="flex items-center gap-1 hover:text-foreground"
+                    onClick={() => toggleSort("kennelShortName")}
+                  >
+                    Kennel
+                    <span className="text-xs">
+                      {sortIndicator("kennelShortName")}
+                    </span>
+                  </button>
+                </th>
               )}
-              <th className="px-3 py-2 text-right font-medium">Runs</th>
+              <th className="px-3 py-2 text-right font-medium">
+                <button
+                  className="flex items-center gap-1 ml-auto hover:text-foreground"
+                  onClick={() => toggleSort("attendanceCount")}
+                >
+                  Runs
+                  <span className="text-xs">
+                    {sortIndicator("attendanceCount")}
+                  </span>
+                </button>
+              </th>
               <th className="px-3 py-2 text-right font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {sorted.length === 0 ? (
               <tr>
                 <td
                   colSpan={isSharedRoster ? 5 : 4}
@@ -114,7 +180,7 @@ export function RosterTable({
                 </td>
               </tr>
             ) : (
-              filtered.map((h) => (
+              sorted.map((h) => (
                 <tr key={h.id} className="border-b last:border-0">
                   <td className="px-3 py-2 font-medium">
                     <Link
@@ -152,7 +218,7 @@ export function RosterTable({
                         size="sm"
                         variant="ghost"
                         className="text-destructive"
-                        onClick={() => handleDelete(h)}
+                        onClick={() => setDeleteTarget(h)}
                         disabled={isPending && deletingId === h.id}
                       >
                         {isPending && deletingId === h.id
@@ -186,6 +252,37 @@ export function RosterTable({
           hasher={editHasher}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from roster?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove{" "}
+              <strong>
+                {deleteTarget?.hashName || deleteTarget?.nerdName}
+              </strong>{" "}
+              from the roster? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isPending && deletingId === deleteTarget?.id
+                ? "Removing..."
+                : "Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

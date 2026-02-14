@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
+import { getMismanUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { HistoryList } from "@/components/misman/HistoryList";
 
@@ -21,11 +21,9 @@ export default async function HistoryPage({ params }: Props) {
   const user = await getMismanUser(kennel.id);
   if (!user) notFound();
 
-  const rosterKennelIds = await getRosterKennelIds(kennel.id);
-
   const where = {
     kennelAttendances: { some: {} },
-    kennelId: { in: rosterKennelIds },
+    kennelId: kennel.id,
   };
 
   const [events, total] = await Promise.all([

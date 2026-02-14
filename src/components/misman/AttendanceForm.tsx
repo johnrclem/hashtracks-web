@@ -4,6 +4,16 @@ import { useState, useEffect, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
   recordAttendance,
@@ -60,6 +70,7 @@ export function AttendanceForm({
   const [selectedEventId, setSelectedEventId] = useState(defaultEventId);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -142,16 +153,8 @@ export function AttendanceForm({
     });
   }
 
-  function handleClear() {
+  function executeClear() {
     if (!selectedEventId) return;
-    const count = records.length;
-    if (
-      !confirm(
-        `This will delete ${count} attendance record${count !== 1 ? "s" : ""} for this event. This cannot be undone. Continue?`,
-      )
-    )
-      return;
-
     startTransition(async () => {
       const result = await clearEventAttendance(kennelId, selectedEventId);
       if (result.error) {
@@ -160,6 +163,7 @@ export function AttendanceForm({
         toast.success(`Cleared ${result.deleted} record(s)`);
         setRecords([]);
       }
+      setShowClearConfirm(false);
     });
   }
 
@@ -243,13 +247,50 @@ export function AttendanceForm({
                 variant="ghost"
                 size="sm"
                 className="text-destructive"
-                onClick={handleClear}
+                onClick={() => setShowClearConfirm(true)}
                 disabled={isPending}
               >
                 Clear All Attendance
               </Button>
             </div>
           )}
+
+          {/* Clear All Confirmation Dialog */}
+          <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear all attendance?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete{" "}
+                  <strong>
+                    {records.length} attendance record
+                    {records.length !== 1 ? "s" : ""}
+                  </strong>{" "}
+                  for{" "}
+                  <strong>
+                    {selectedEvent?.kennelShortName}
+                    {selectedEvent?.runNumber
+                      ? ` #${selectedEvent.runNumber}`
+                      : ""}
+                    {selectedEvent?.title ? ` — ${selectedEvent.title}` : ""}
+                  </strong>
+                  . This cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isPending}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={executeClear}
+                  disabled={isPending}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isPending ? "Clearing..." : "Clear All"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
       )}
     </div>
