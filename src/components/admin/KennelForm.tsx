@@ -33,11 +33,21 @@ interface KennelFormProps {
   trigger: React.ReactNode;
 }
 
+interface SimilarKennel {
+  id: string;
+  shortName: string;
+  slug: string;
+  fullName: string;
+  score: number;
+}
+
 export function KennelForm({ kennel, trigger }: KennelFormProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [aliases, setAliases] = useState<string[]>(kennel?.aliases ?? []);
   const [aliasInput, setAliasInput] = useState("");
+  const [similarKennels, setSimilarKennels] = useState<SimilarKennel[]>([]);
+  const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const router = useRouter();
 
   function addAlias() {
@@ -52,20 +62,26 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
     setAliases(aliases.filter((a) => a !== alias));
   }
 
-  function handleSubmit(formData: FormData) {
+  function handleSubmit(formData: FormData, force = false) {
     // Inject aliases as comma-separated string
     formData.set("aliases", aliases.join(","));
 
     startTransition(async () => {
       const result = kennel
         ? await updateKennel(kennel.id, formData)
-        : await createKennel(formData);
+        : await createKennel(formData, force);
 
       if (result.error) {
         toast.error(result.error);
+      } else if ("warning" in result && result.similarKennels) {
+        // Similar kennels found - show confirmation
+        setSimilarKennels(result.similarKennels);
+        setPendingFormData(formData);
       } else {
         toast.success(kennel ? "Kennel updated" : "Kennel created");
         setOpen(false);
+        setSimilarKennels([]);
+        setPendingFormData(null);
         if (!kennel) {
           setAliases([]);
         }
@@ -74,8 +90,25 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
     });
   }
 
+  function handleForceCreate() {
+    if (pendingFormData) {
+      handleSubmit(pendingFormData, true);
+    }
+  }
+
+  function handleCancelDuplicateWarning() {
+    setSimilarKennels([]);
+    setPendingFormData(null);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (!isOpen) {
+        setSimilarKennels([]);
+        setPendingFormData(null);
+      }
+    }}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
@@ -84,7 +117,55 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <form action={handleSubmit} className="space-y-4">
+        {similarKennels.length > 0 ? (
+          // Duplicate warning view
+          <div className="space-y-4 py-4">
+            <div className="rounded-lg border border-yellow-500 bg-yellow-500/10 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">⚠️</span>
+                <h3 className="font-semibold">Similar kennel(s) found</h3>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                We found existing kennels with similar names. Are you sure you want to create a new kennel?
+              </p>
+              <div className="space-y-2">
+                {similarKennels.map((similar) => (
+                  <div
+                    key={similar.id}
+                    className="flex items-center justify-between p-3 rounded-lg border bg-background"
+                  >
+                    <div>
+                      <div className="font-medium">{similar.shortName}</div>
+                      <div className="text-sm text-muted-foreground">{similar.fullName}</div>
+                    </div>
+                    <Badge variant="secondary">
+                      {Math.round(similar.score * 100)}% match
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancelDuplicateWarning}
+              >
+                Go Back
+              </Button>
+              <Button
+                type="button"
+                onClick={handleForceCreate}
+                disabled={isPending}
+              >
+                {isPending ? "Creating..." : "Create Anyway"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          // Normal form view
+          <form action={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="shortName">Short Name *</Label>
@@ -194,23 +275,24 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
           {/* Hidden field to carry aliases through FormData */}
           <input type="hidden" name="aliases" value={aliases.join(",")} />
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending
-                ? "Saving..."
-                : kennel
-                  ? "Save Changes"
-                  : "Create Kennel"}
-            </Button>
-          </div>
-        </form>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending
+                  ? "Saving..."
+                  : kennel
+                    ? "Save Changes"
+                    : "Create Kennel"}
+              </Button>
+            </div>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

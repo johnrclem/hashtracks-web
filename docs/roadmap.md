@@ -224,16 +224,16 @@ See [misman-implementation-plan.md](misman-implementation-plan.md) for detailed 
 
 ### Remaining Polish
 - [x] Mobile responsiveness pass (attendance form: responsive row layout, name truncation fix)
+- [x] **Admin kennel merge UI**: Reusable tool for merging duplicate kennel records (2026-02-14)
+  - [x] Select source and target kennels (dropdown selectors)
+  - [x] Preview record counts to reassign (events, subscriptions, roster, misman, source links, aliases)
+  - [x] Conflict detection (date collisions with detailed list)
+  - [x] Multi-step dialog (select → preview → execute with spinner)
+  - [x] One-click execution with atomic transaction (mergeKennels server action)
+  - [x] Fuzzy duplicate detection in kennel creation form (warns before creating similar kennels with 60%+ match score)
 - [ ] Performance: pagination, React Query caching
 - [ ] Rate limiting on public API routes
 - [ ] Double-header handling (same kennel, same day, two events)
-- [ ] **Admin kennel merge UI**: Reusable tool for merging duplicate kennel records
-  - Select source and target kennels
-  - Preview record counts to reassign (events, subscriptions, roster, misman)
-  - Conflict detection and resolution UI (date collisions, duplicate subscriptions)
-  - Dry-run mode with detailed report
-  - One-click execution with atomic transaction
-  - _Note: Script-based merge exists (`scripts/merge-nych3-kennels.ts`) — build UI if duplicates become common_
 
 ---
 

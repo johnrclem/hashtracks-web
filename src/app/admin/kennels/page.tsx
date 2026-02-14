@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { KennelTable } from "@/components/admin/KennelTable";
 import { KennelForm } from "@/components/admin/KennelForm";
+import { KennelMergeDialog } from "@/components/admin/KennelMergeDialog";
 import { Button } from "@/components/ui/button";
 
 export default async function AdminKennelsPage() {
@@ -24,13 +25,26 @@ export default async function AdminKennelsPage() {
     _count: k._count,
   }));
 
+  // Simplified kennel list for merge dialog
+  const kennelsForMerge = kennels.map((k) => ({
+    id: k.id,
+    shortName: k.shortName,
+    slug: k.slug,
+  }));
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Manage Kennels</h2>
-        <KennelForm
-          trigger={<Button size="sm">Add Kennel</Button>}
-        />
+        <div className="flex items-center gap-2">
+          <KennelMergeDialog
+            kennels={kennelsForMerge}
+            trigger={<Button size="sm" variant="outline">Merge Kennels</Button>}
+          />
+          <KennelForm
+            trigger={<Button size="sm">Add Kennel</Button>}
+          />
+        </div>
       </div>
 
       <KennelTable kennels={serialized} />

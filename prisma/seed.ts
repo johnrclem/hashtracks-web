@@ -56,7 +56,7 @@ async function main() {
   const kennelAliases: Record<string, string[]> = {
     "NYCH3": ["NYC", "HashNYC", "NYC Hash", "NYCH3", "New York Hash", "NYC H3"],
     "BoH3": ["Boston", "BH3", "BoH3", "Boston Hash"],
-    "BrH3": ["Brooklyn", "BrH3", "Brooklyn Hash"],
+    "BrH3": ["Brooklyn", "BrH3", "Brooklyn Hash", "Brooklyn H3"],
     "BoBBH3": ["Ballbuster", "BoBBH3", "Boston Ballbuster", "Ballbuster Hash"],
     "NAWWH3": ["NAWW", "NAWWH3", "NAWW Hash"],
     "NAH3": ["New Amsterdam", "NAH3", "NASS", "New Amsterdam Hash"],
@@ -70,7 +70,7 @@ async function main() {
     "Knick": ["Knick", "Knickerbocker", "Knickerbocker Hash"],
     "Columbia": ["Columbia", "Columbia Hash"],
     "GGFM": ["GGFM", "GGFM Hash"],
-    "Harriettes": ["Harriettes", "Harriettes Hash"],
+    "Harriettes": ["Harriettes", "Harriettes Hash", "Harriettes (NYC)", "Harriettes NYC"],
     "SI": ["Staten Island", "SI", "SI Hash", "Staten Island Hash"],
     "Drinking Practice (NYC)": ["Drinking Practice", "NYC Drinking Practice", "NYC DP", "DP"],
     "Summit": ["Summit", "Summit H3", "Summit Hash", "SH3"],
