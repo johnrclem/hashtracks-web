@@ -232,6 +232,8 @@ The primary interface — designed for use at trail on a phone.
 - Quick-add: if the hasher isn't in the roster, create a new KennelHasher inline from the form
 - Per-hasher toggles: paid, hare, virgin, visitor
 - Visitor sub-fields: location and referral source (shown only when visitor or virgin is checked)
+- **Responsive row layout**: on mobile (<640px), attendee rows wrap into two lines — full name on the first line (no truncation), toggle switches on the second line. On larger screens, single-line layout with truncation.
+- **Accessible toggles**: $, H, V, Vis toggle switches have `title` tooltips and contextual `aria-label` attributes for screen readers
 - **Live view**: multiple mismans recording the same event see each other's additions in near real-time via polling (see [Concurrency](#10-concurrency))
 
 ### 2. Kennel Roster Management
@@ -597,3 +599,4 @@ await prisma.$transaction([
 | 31 | Verification participationLevel | haredThisTrail→HARE, else RUN; user can edit their Attendance record afterward |
 | 32 | Roster Group management | Site admin only for MVP; MISMAN self-service group requests deferred |
 | 33 | Group formation | Duplicate scan run when a kennel joins a group; merge candidates surfaced to admin |
+| 34 | Event dropdown scope on attendance page | Event selector on `/misman/[slug]/attendance` shows only events for the kennel in the URL, not all roster group kennels. Prevents confusion when managing a kennel that shares a roster group (e.g., NYCH3 page only shows NYCH3 events). Roster group scope is still used for roster/search — this change only affects the event dropdown. |

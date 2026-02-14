@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
+import { getMismanUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AttendanceForm } from "@/components/misman/AttendanceForm";
 
@@ -19,20 +19,19 @@ export default async function EventAttendancePage({ params }: Props) {
   const user = await getMismanUser(kennel.id);
   if (!user) notFound();
 
-  // Verify the event exists and belongs to roster scope
-  const rosterKennelIds = await getRosterKennelIds(kennel.id);
+  // Verify the event exists and belongs to this kennel
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     select: { id: true, kennelId: true },
   });
-  if (!event || !rosterKennelIds.includes(event.kennelId)) notFound();
+  if (!event || event.kennelId !== kennel.id) notFound();
 
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
   const events = await prisma.event.findMany({
     where: {
-      kennelId: { in: rosterKennelIds },
+      kennelId: kennel.id,
       date: { gte: oneYearAgo },
     },
     select: {

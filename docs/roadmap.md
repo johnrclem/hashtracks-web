@@ -220,7 +220,7 @@ See [misman-attendance-requirements.md](misman-attendance-requirements.md) for f
 - [x] **Side panel on desktop**: Day detail panel as sticky sidebar on large screens
 
 ### Remaining Polish
-- [ ] Mobile responsiveness pass
+- [x] Mobile responsiveness pass (attendance form: responsive row layout, name truncation fix)
 - [ ] Performance: pagination, React Query caching
 - [ ] Rate limiting on public API routes
 - [ ] Double-header handling (same kennel, same day, two events)
