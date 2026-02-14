@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -45,25 +44,21 @@ export function AttendanceRow({
   onRemove,
   disabled,
 }: AttendanceRowProps) {
-  const [expanded, setExpanded] = useState(false);
   const displayName = record.hashName || record.nerdName || "Unknown";
-  const showVisitorFields = record.isVirgin || record.isVisitor;
+  const isExpanded = record.isVirgin || record.isVisitor;
 
   return (
-    <div className="rounded-lg border p-3 space-y-2">
+    <div className={`rounded-lg border p-3 space-y-2${isExpanded ? (record.isVisitor ? " border-l-2 border-l-blue-400" : " border-l-2 border-l-pink-400") : ""}`}>
       {/* Main row */}
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          className="w-full sm:w-auto sm:flex-1 text-left text-sm font-medium sm:truncate"
-          onClick={() => setExpanded(!expanded)}
-        >
+        <span className="w-full sm:w-auto sm:flex-1 text-left text-sm font-medium sm:truncate">
           {displayName}
           {record.hashName && record.nerdName && (
             <span className="ml-1 text-muted-foreground font-normal">
               ({record.nerdName})
             </span>
           )}
-        </button>
+        </span>
 
         {/* Quick toggles */}
         <div className="flex items-center gap-3 text-xs">
@@ -133,7 +128,7 @@ export function AttendanceRow({
       </div>
 
       {/* Expanded visitor/referral fields */}
-      {expanded && showVisitorFields && (
+      {isExpanded && (
         <div className="pl-2 space-y-2 text-sm border-l-2 ml-1">
           {record.isVisitor && (
             <div className="flex items-center gap-2">
