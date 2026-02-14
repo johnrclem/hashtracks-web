@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import type { RawEventData, MergeResult } from "@/adapters/types";
+import type { RawEventData, MergeResult, EventSample } from "@/adapters/types";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
 
@@ -26,6 +26,8 @@ export async function processRawEvents(
     blockedTags: [],
     eventErrors: 0,
     eventErrorMessages: [],
+    sampleBlocked: [], // Phase 2B: Sample blocked events
+    sampleSkipped: [], // Phase 2B: Sample skipped events
   };
 
   // Get source trust level
@@ -76,6 +78,15 @@ export async function processRawEvents(
         if (!result.unmatched.includes(event.kennelTag)) {
           result.unmatched.push(event.kennelTag);
         }
+        // Phase 2B: Capture sample skipped events (first 3)
+        if (result.sampleSkipped && result.sampleSkipped.length < 3) {
+          result.sampleSkipped.push({
+            reason: "UNMATCHED_TAG",
+            kennelTag: event.kennelTag,
+            event,
+            suggestedAction: `Create kennel or alias for "${event.kennelTag}"`,
+          });
+        }
         continue;
       }
 
@@ -84,6 +95,19 @@ export async function processRawEvents(
         result.blocked++;
         if (!result.blockedTags.includes(event.kennelTag)) {
           result.blockedTags.push(event.kennelTag);
+        }
+        // Phase 2B: Capture sample blocked events (first 3)
+        if (result.sampleBlocked && result.sampleBlocked.length < 3) {
+          const kennel = await prisma.kennel.findUnique({
+            where: { id: kennelId },
+            select: { shortName: true },
+          });
+          result.sampleBlocked.push({
+            reason: "SOURCE_KENNEL_MISMATCH",
+            kennelTag: event.kennelTag,
+            event,
+            suggestedAction: `Link ${kennel?.shortName ?? kennelId} to this source`,
+          });
         }
         continue;
       }

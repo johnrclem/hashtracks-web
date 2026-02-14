@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-13
+Last updated: 2026-02-14
 
 ---
 
@@ -26,9 +26,10 @@ Last updated: 2026-02-13
 - [x] **Philly H3 Website** (HTML Scraper) — hashphilly.com/nexthash/
 
 ### Current Stats
-- 24 kennels, 79 aliases, 7 sources, 23 source-kennel links
+- 24 kennels, 82 aliases, 7 sources, 25 source-kennel links
 - 3 adapter types: HTML_SCRAPER, GOOGLE_CALENDAR, GOOGLE_SHEETS
 - Multi-source merge: BFM calendar + website combined via fingerprint dedup
+- Scrape logging: 5 fill rate metrics per run, 3 error categories, sample event capture (3 per category)
 
 ---
 
@@ -78,6 +79,31 @@ Last updated: 2026-02-13
 - **Future phases**:
   - Phase 2: AI-assisted diagnosis via Gemini (structure diffs, field fill analysis, config-driven repair)
   - Phase 3: Autonomous repair with sandbox preview + source onboarding convergence
+
+### Scrape Logging Improvements — Phase 1 + Phase 2B COMPLETE (2026-02-14)
+**Goal**: Improve troubleshooting visibility for scrape failures and data quality issues.
+
+- [x] **Schema extensions**: Added errorDetails, sampleBlocked, sampleSkipped JSON fields to ScrapeLog
+- [x] **Phase 1 (Display existing data)**:
+  - [x] Fill rate columns in scrape history table (Title%, Location%, Hares%, StartTime%, RunNumber%)
+  - [x] Color-coded fill rates: green >90%, yellow 70-90%, red <70%
+  - [x] Structure hash history section showing last 10 hashes with change highlights
+  - [x] Hash change rows linked to STRUCTURE_CHANGE alerts
+  - [x] Grouped errors by category (📡 Fetch, 🔨 Parse, 🔀 Merge) with expand/collapse
+- [x] **Phase 2B (Event samples)**:
+  - [x] Merge pipeline captures first 3 blocked events (SOURCE_KENNEL_MISMATCH) and first 3 skipped events (UNMATCHED_TAG)
+  - [x] Sample UI displays colored cards (red for blocked, amber for skipped) with kennel tag, event details, reason, suggested action
+  - [x] EventSample interface with reason, kennelTag, event, suggestedAction fields
+- [ ] **Phase 2A (Structured errors)** — deferred:
+  - [ ] ParseError interface with row/section/field context + partial event data
+  - [ ] hashnyc adapter returns structured ParseError[] instead of flat string[]
+  - [ ] ErrorDetails JSON breakdown stored in ScrapeLog.errorDetails
+  - [ ] Structured error table in UI with row/field filtering
+- [ ] **Phase 3 (Advanced diagnostics)** — future:
+  - [ ] Per-adapter diagnostic context (table names for HTML, calendar IDs for Google Calendar, sheet tabs for Sheets)
+  - [ ] Event-level audit trail linking RawEvent → decision (merged/blocked/skipped) with full reasoning
+  - [ ] Performance metrics with per-stage timing breakdown (fetch, parse, resolve, merge)
+  - [ ] HTML diff viewer for structure changes (visual before/after comparison)
 
 ### Config-Driven Source Onboarding (Admin UI)
 **Goal**: Add new Google Sheets sources without code changes.

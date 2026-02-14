@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
 import { computeFillRates } from "./fill-rates";
@@ -93,6 +94,9 @@ export async function scrapeSource(
         fillRateStartTime: fillRates.startTime,
         fillRateRunNumber: fillRates.runNumber,
         structureHash: scrapeResult.structureHash,
+        // Phase 2B: Store sample blocked/skipped events
+        sampleBlocked: mergeResult.sampleBlocked as unknown as Prisma.InputJsonValue | undefined,
+        sampleSkipped: mergeResult.sampleSkipped as unknown as Prisma.InputJsonValue | undefined,
       },
     });
 

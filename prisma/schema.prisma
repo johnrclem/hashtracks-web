@@ -134,6 +134,10 @@ model ScrapeLog {
   fillRateStartTime Int?     // % of events with non-empty startTime
   fillRateRunNumber Int?     // % of events with non-empty runNumber
   structureHash     String?  // HTML structural fingerprint (HTML sources only)
+  // Enhanced logging (Phase 2)
+  errorDetails      Json?    // Structured error breakdown: {fetch: [], parse: [], merge: []}
+  sampleBlocked     Json?    // 3-5 example blocked events with reason + suggested action
+  sampleSkipped     Json?    // 3-5 example skipped events with reason + suggested action
   source        Source       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   alerts        Alert[]
 
