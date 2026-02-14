@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
+import { getMismanUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AttendanceForm } from "@/components/misman/AttendanceForm";
 
@@ -19,15 +19,13 @@ export default async function AttendancePage({ params }: Props) {
   const user = await getMismanUser(kennel.id);
   if (!user) notFound();
 
-  const rosterKennelIds = await getRosterKennelIds(kennel.id);
-
-  // Get events for the last year across roster scope
+  // Get events for the last year for this kennel
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
   const events = await prisma.event.findMany({
     where: {
-      kennelId: { in: rosterKennelIds },
+      kennelId: kennel.id,
       date: { gte: oneYearAgo },
     },
     select: {

@@ -52,9 +52,9 @@ export function AttendanceRow({
   return (
     <div className="rounded-lg border p-3 space-y-2">
       {/* Main row */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
-          className="flex-1 text-left text-sm font-medium truncate"
+          className="w-full sm:w-auto sm:flex-1 text-left text-sm font-medium sm:truncate"
           onClick={() => setExpanded(!expanded)}
         >
           {displayName}
@@ -67,48 +67,52 @@ export function AttendanceRow({
 
         {/* Quick toggles */}
         <div className="flex items-center gap-3 text-xs">
-          <label className="flex items-center gap-1 cursor-pointer">
+          <label className="flex items-center gap-1 cursor-pointer" title="Paid">
             <Switch
               checked={record.paid}
               onCheckedChange={(v) => onUpdate({ paid: v })}
               disabled={disabled}
               className="scale-75"
+              aria-label={`Mark ${displayName} as paid`}
             />
             <span className={record.paid ? "text-green-600 font-medium" : "text-muted-foreground"}>
               $
             </span>
           </label>
 
-          <label className="flex items-center gap-1 cursor-pointer">
+          <label className="flex items-center gap-1 cursor-pointer" title="Hare">
             <Switch
               checked={record.haredThisTrail}
               onCheckedChange={(v) => onUpdate({ haredThisTrail: v })}
               disabled={disabled}
               className="scale-75"
+              aria-label={`Mark ${displayName} as hare`}
             />
             <span className={record.haredThisTrail ? "text-orange-600 font-medium" : "text-muted-foreground"}>
               H
             </span>
           </label>
 
-          <label className="flex items-center gap-1 cursor-pointer">
+          <label className="flex items-center gap-1 cursor-pointer" title="Virgin">
             <Switch
               checked={record.isVirgin}
               onCheckedChange={(v) => onUpdate({ isVirgin: v })}
               disabled={disabled}
               className="scale-75"
+              aria-label={`Mark ${displayName} as virgin`}
             />
             <span className={record.isVirgin ? "text-pink-600 font-medium" : "text-muted-foreground"}>
               V
             </span>
           </label>
 
-          <label className="flex items-center gap-1 cursor-pointer">
+          <label className="flex items-center gap-1 cursor-pointer" title="Visitor">
             <Switch
               checked={record.isVisitor}
               onCheckedChange={(v) => onUpdate({ isVisitor: v })}
               disabled={disabled}
               className="scale-75"
+              aria-label={`Mark ${displayName} as visitor`}
             />
             <span className={record.isVisitor ? "text-blue-600 font-medium" : "text-muted-foreground"}>
               Vis

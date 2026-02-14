@@ -99,6 +99,11 @@ No roadmap dependencies — this feature is independent of the unfinished source
 
 **Polling**: `useEffect` + `setInterval(4000)` calling `getEventAttendance`, silent on failure (mobile network tolerance)
 
+**UX Fixes (post-MVP polish):**
+- `AttendanceRow` — Responsive two-line layout on mobile (name on first line, toggles on second) to prevent name truncation
+- `AttendanceRow` — Tooltip (`title`) and `aria-label` attributes on $, H, V, Vis toggle switches for accessibility
+- `EventSelector` — Event dropdown filtered to current kennel only (not full roster group scope); keeps event selection focused when managing a specific kennel
+
 ---
 
 ### Sprint 8d: History + Hasher Detail + Roster Seeding ✅
