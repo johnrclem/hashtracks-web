@@ -67,7 +67,7 @@ export function AttendanceRow({
               checked={record.paid}
               onCheckedChange={(v) => onUpdate({ paid: v })}
               disabled={disabled}
-              className="scale-75"
+              className="scale-75 data-[state=checked]:bg-green-500"
               aria-label={`Mark ${displayName} as paid`}
             />
             <span className={record.paid ? "text-green-600 font-medium" : "text-muted-foreground"}>
@@ -80,7 +80,7 @@ export function AttendanceRow({
               checked={record.haredThisTrail}
               onCheckedChange={(v) => onUpdate({ haredThisTrail: v })}
               disabled={disabled}
-              className="scale-75"
+              className="scale-75 data-[state=checked]:bg-orange-500"
               aria-label={`Mark ${displayName} as hare`}
             />
             <span className={record.haredThisTrail ? "text-orange-600 font-medium" : "text-muted-foreground"}>
@@ -93,7 +93,7 @@ export function AttendanceRow({
               checked={record.isVirgin}
               onCheckedChange={(v) => onUpdate({ isVirgin: v })}
               disabled={disabled}
-              className="scale-75"
+              className="scale-75 data-[state=checked]:bg-pink-500"
               aria-label={`Mark ${displayName} as virgin`}
             />
             <span className={record.isVirgin ? "text-pink-600 font-medium" : "text-muted-foreground"}>
@@ -106,7 +106,7 @@ export function AttendanceRow({
               checked={record.isVisitor}
               onCheckedChange={(v) => onUpdate({ isVisitor: v })}
               disabled={disabled}
-              className="scale-75"
+              className="scale-75 data-[state=checked]:bg-blue-500"
               aria-label={`Mark ${displayName} as visitor`}
             />
             <span className={record.isVisitor ? "text-blue-600 font-medium" : "text-muted-foreground"}>

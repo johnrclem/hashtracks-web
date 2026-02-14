@@ -130,21 +130,24 @@ Last updated: 2026-02-13
 - [ ] **Admin-editable participation levels**: Migrate enum to reference table for custom levels per community
 - [ ] **"Beez There" checkbox**: Optional flag on attendance (nice-to-have, deferred from Sprint 5)
 
-### Kennel Attendance Management (Misman Tool) — NEW
+### Kennel Attendance Management (Misman Tool) — Sprints 8a-8d COMPLETE
 **Goal**: Replace kennel mismanagement's Google Sheet attendance tracking with a dedicated tool tied to HashTracks events.
 
 See [misman-attendance-requirements.md](misman-attendance-requirements.md) for full requirements and decisions log.
+See [misman-implementation-plan.md](misman-implementation-plan.md) for detailed sprint plan.
 
-- [ ] **Data model**: KennelHasher (kennel-specific roster), KennelAttendance (misman-recorded attendance), KennelRole (misman permission per kennel)
-- [ ] **Kennel permissions**: Misman role per kennel (below site admin), multiple misman per kennel, site admin assigns/revokes
-- [ ] **Kennel roster**: Per-kennel hasher directory with hash name + nerd name, editable, merge duplicates, per-hasher stats
-- [ ] **Roster seeding**: Pre-populate from existing hare data in DB (last year of hares per kennel)
-- [ ] **Mobile attendance form**: Event selector (defaults to today, any recent event), autocomplete search by hash/nerd name, quick-add new hashers inline
+- [x] **Data model**: KennelHasher (kennel-specific roster), KennelAttendance (misman-recorded attendance), KennelRole (misman permission per kennel)
+- [x] **Kennel permissions**: Misman role per kennel (below site admin), multiple misman per kennel, site admin assigns/revokes
+- [x] **Kennel roster**: Per-kennel hasher directory with hash name + nerd name, editable, per-hasher stats, sortable columns (Hash Name, Kennel, Runs)
+- [x] **Roster seeding**: Pre-populate from existing hare data in DB (last year of hares per kennel)
+- [x] **Mobile attendance form**: Event selector (defaults to closest event, filtered to current kennel), autocomplete search by hash/nerd name, quick-add new hashers inline
+- [x] **Per-attendance fields**: paid (boolean), hare (boolean), virgin (manual annotation), visitor (with location), referral source (dropdown)
+- [x] **Attendance history**: Per-event and per-hasher views with date filtering and pagination
+- [x] **UX polish**: Confirmation dialogs (AlertDialog) for destructive actions, kennel switcher dropdown, History links on dashboard, semantic toggle colors
 - [ ] **Smart suggestions**: Surface frequent/regular/recent attendees at top of form for fast population
-- [ ] **Per-attendance fields**: paid (boolean), hare (boolean), virgin (manual annotation), visitor (with location), referral source (dropdown)
 - [ ] **User linking**: Fuzzy-match suggestions for linking KennelHasher → site User, misman manually confirms
 - [ ] **Logbook sync**: Pending confirmations section on `/logbook` for linked users (suggest-and-confirm, no auto-sync)
-- [ ] **Attendance history**: Per-event and per-hasher views, CSV export
+- [ ] **CSV export**: Export attendance history to CSV
 - **Deferred**: Hash cash amounts, auto-detect virgins, hare→EventHare sync, cross-kennel directory, historical CSV import, notification system
 
 ### CSV Import (Bulk History)

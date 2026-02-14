@@ -103,6 +103,13 @@ No roadmap dependencies — this feature is independent of the unfinished source
 - `AttendanceRow` — Responsive two-line layout on mobile (name on first line, toggles on second) to prevent name truncation
 - `AttendanceRow` — Tooltip (`title`) and `aria-label` attributes on $, H, V, Vis toggle switches for accessibility
 - `EventSelector` — Event dropdown filtered to current kennel only (not full roster group scope); keeps event selection focused when managing a specific kennel
+- `HistoryList` — History page filtered to current kennel only (not roster group scope); matches attendance dropdown fix
+- `RosterTable` — Column sorting on Hash Name, Kennel, and Runs headers (click-to-sort with arrow indicators)
+- `RosterTable` — Delete confirmation uses AlertDialog instead of native `confirm()`
+- `AttendanceForm` — Clear All Attendance uses AlertDialog with event info instead of native `confirm()`
+- `MismanDashboard` — History button added to kennel cards alongside Attendance and Roster
+- `MismanKennelLayout` — Kennel switcher dropdown in heading for quick navigation between managed kennels
+- `AttendanceRow` — Semantic toggle track colors (green=paid, orange=hare, pink=virgin, blue=visitor)
 
 ---
 
@@ -212,6 +219,8 @@ Sprints 8d and 8e can run in parallel after 8c.
 | `src/components/misman/HistoryList.tsx` | 8d | Expandable event history with date filters + pagination |
 | `src/components/misman/HasherDetail.tsx` | 8d | Hasher profile with stats, attendance history, edit/delete |
 | `src/components/misman/SeedRosterButton.tsx` | 8d | One-click roster seeding from hare data |
+| `src/components/misman/KennelSwitcher.tsx` | 8d | Kennel dropdown switcher in misman layout |
+| `src/components/ui/alert-dialog.tsx` | 8d | Radix AlertDialog (confirmation dialogs for destructive actions) |
 | `src/app/misman/[slug]/roster/[hasherId]/page.tsx` | 8d | Hasher detail page (server component) |
 | `src/lib/misman/suggestions.ts` | 8e | Scoring algorithm (pure function) |
 | `src/lib/misman/verification.ts` | 8e | Derived verification status |

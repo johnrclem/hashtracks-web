@@ -142,6 +142,9 @@ function KennelCard({ kennel }: { kennel: MismanKennel }) {
         <Button size="sm" variant="outline" asChild>
           <Link href={`/misman/${kennel.slug}/roster`}>Roster</Link>
         </Button>
+        <Button size="sm" variant="outline" asChild>
+          <Link href={`/misman/${kennel.slug}/history`}>History</Link>
+        </Button>
       </div>
     </div>
   );

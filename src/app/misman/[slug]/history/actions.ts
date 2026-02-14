@@ -19,7 +19,6 @@ export async function getAttendanceHistory(
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const rosterKennelIds = await getRosterKennelIds(kennelId);
   const page = filters?.page ?? 1;
   const pageSize = filters?.pageSize ?? 25;
   const skip = (page - 1) * pageSize;
@@ -34,7 +33,7 @@ export async function getAttendanceHistory(
 
   const where = {
     kennelAttendances: { some: {} },
-    kennelId: { in: rosterKennelIds },
+    kennelId,
     ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
   };
 

@@ -95,6 +95,18 @@ describe("getAttendanceHistory", () => {
     expect(findManyCall?.where).toHaveProperty("date");
   });
 
+  it("filters by single kennelId, not roster group scope", async () => {
+    mockRosterKennelIds.mockResolvedValueOnce(["kennel_1", "kennel_2"]);
+
+    vi.mocked(prisma.event.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.event.count).mockResolvedValueOnce(0);
+
+    await getAttendanceHistory("kennel_1");
+
+    const findManyCall = vi.mocked(prisma.event.findMany).mock.calls[0][0];
+    expect(findManyCall?.where?.kennelId).toBe("kennel_1");
+  });
+
   it("paginates correctly", async () => {
     vi.mocked(prisma.event.findMany).mockResolvedValueOnce([] as never);
     vi.mocked(prisma.event.count).mockResolvedValueOnce(50);

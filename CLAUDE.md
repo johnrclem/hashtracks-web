@@ -87,6 +87,8 @@ calendar + personal logbook + kennel directory.
 - `src/app/misman/[slug]/roster/actions.ts` — Roster CRUD + search (roster group scope)
 - `src/app/misman/[slug]/attendance/actions.ts` — Attendance recording, polling, quick-add
 - `src/app/misman/[slug]/history/actions.ts` — Attendance history, hasher detail, roster seeding from hares
+- `src/components/misman/KennelSwitcher.tsx` — Kennel dropdown switcher for misman layout (preserves active tab)
+- `src/components/ui/alert-dialog.tsx` — Radix AlertDialog wrapper (confirmation dialogs)
 - `src/lib/fuzzy.ts` — Levenshtein-based fuzzy string matching for kennel tag resolution
 - `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
 - `vitest.config.ts` — Test runner config (globals, path aliases)
