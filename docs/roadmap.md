@@ -224,6 +224,13 @@ See [misman-attendance-requirements.md](misman-attendance-requirements.md) for f
 - [ ] Performance: pagination, React Query caching
 - [ ] Rate limiting on public API routes
 - [ ] Double-header handling (same kennel, same day, two events)
+- [ ] **Admin kennel merge UI**: Reusable tool for merging duplicate kennel records
+  - Select source and target kennels
+  - Preview record counts to reassign (events, subscriptions, roster, misman)
+  - Conflict detection and resolution UI (date collisions, duplicate subscriptions)
+  - Dry-run mode with detailed report
+  - One-click execution with atomic transaction
+  - _Note: Script-based merge exists (`scripts/merge-nych3-kennels.ts`) — build UI if duplicates become common_
 
 ---
 
