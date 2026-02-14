@@ -54,7 +54,7 @@ async function main() {
   // ── ALIAS DATA (PRD Appendix D.3) ──
 
   const kennelAliases: Record<string, string[]> = {
-    "NYCH3": ["NYC", "HashNYC", "NYC Hash", "NYCH3", "New York Hash"],
+    "NYCH3": ["NYC", "HashNYC", "NYC Hash", "NYCH3", "New York Hash", "NYC H3"],
     "BoH3": ["Boston", "BH3", "BoH3", "Boston Hash"],
     "BrH3": ["Brooklyn", "BrH3", "Brooklyn Hash"],
     "BoBBH3": ["Ballbuster", "BoBBH3", "Boston Ballbuster", "Ballbuster Hash"],

@@ -21,7 +21,7 @@ export default async function AttendancePage({ params }: Props) {
 
   const rosterKennelIds = await getRosterKennelIds(kennel.id);
 
-  // Get events for the last year for this kennel
+  // Get events for the last year across roster scope
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
