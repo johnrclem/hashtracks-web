@@ -210,3 +210,118 @@ export async function deleteAttendance(attendanceId: string) {
   revalidatePath("/logbook");
   return { success: true };
 }
+
+// ── PENDING CONFIRMATIONS (from misman attendance records) ──
+
+/**
+ * Get misman-recorded attendance that the user hasn't checked into their logbook.
+ * Requires a CONFIRMED KennelHasherLink between the user and a KennelHasher.
+ */
+export async function getPendingConfirmations() {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  // Get all CONFIRMED links for this user
+  const links = await prisma.kennelHasherLink.findMany({
+    where: { userId: user.id, status: "CONFIRMED" },
+    select: { kennelHasherId: true },
+  });
+
+  if (links.length === 0) return { data: [] };
+
+  const kennelHasherIds = links.map((l) => l.kennelHasherId);
+
+  // Get misman attendance records for those hashers
+  const mismanRecords = await prisma.kennelAttendance.findMany({
+    where: { kennelHasherId: { in: kennelHasherIds } },
+    include: {
+      event: {
+        select: {
+          id: true,
+          date: true,
+          title: true,
+          runNumber: true,
+          kennel: { select: { shortName: true } },
+        },
+      },
+    },
+    orderBy: { event: { date: "desc" } },
+    take: 50,
+  });
+
+  if (mismanRecords.length === 0) return { data: [] };
+
+  // Get user's existing attendance event IDs
+  const eventIds = mismanRecords.map((r) => r.eventId);
+  const userAttendances = await prisma.attendance.findMany({
+    where: { userId: user.id, eventId: { in: eventIds } },
+    select: { eventId: true },
+  });
+  const attendedEventIds = new Set(userAttendances.map((a) => a.eventId));
+
+  // Filter to only those without a matching user attendance
+  const pending = mismanRecords
+    .filter((r) => !attendedEventIds.has(r.eventId))
+    .map((r) => ({
+      kennelAttendanceId: r.id,
+      eventId: r.eventId,
+      eventDate: r.event.date.toISOString(),
+      eventTitle: r.event.title,
+      runNumber: r.event.runNumber,
+      kennelShortName: r.event.kennel.shortName,
+      haredThisTrail: r.haredThisTrail,
+    }));
+
+  return { data: pending };
+}
+
+/**
+ * Confirm a misman attendance record into the user's logbook.
+ * Creates an Attendance record with participation level based on haredThisTrail.
+ */
+export async function confirmMismanAttendance(kennelAttendanceId: string) {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  // Verify the misman record exists and belongs to a linked hasher
+  const mismanRecord = await prisma.kennelAttendance.findUnique({
+    where: { id: kennelAttendanceId },
+    include: {
+      kennelHasher: {
+        include: {
+          userLink: { select: { userId: true, status: true } },
+        },
+      },
+    },
+  });
+
+  if (!mismanRecord) return { error: "Attendance record not found" };
+
+  const link = mismanRecord.kennelHasher.userLink;
+  if (!link || link.status !== "CONFIRMED" || link.userId !== user.id) {
+    return { error: "Not authorized — no confirmed link to this hasher" };
+  }
+
+  // Check for existing logbook entry (idempotent)
+  const existing = await prisma.attendance.findUnique({
+    where: { userId_eventId: { userId: user.id, eventId: mismanRecord.eventId } },
+  });
+  if (existing) {
+    return { success: true, attendanceId: existing.id };
+  }
+
+  // Create logbook entry
+  const attendance = await prisma.attendance.create({
+    data: {
+      userId: user.id,
+      eventId: mismanRecord.eventId,
+      status: "CONFIRMED",
+      participationLevel: mismanRecord.haredThisTrail ? "HARE" : "RUN",
+      isVerified: true,
+      verifiedBy: mismanRecord.recordedBy,
+    },
+  });
+
+  revalidatePath("/logbook");
+  return { success: true, attendanceId: attendance.id };
+}

@@ -143,26 +143,43 @@ No roadmap dependencies — this feature is independent of the unfinished source
 
 ---
 
-### Sprint 8e: Smart Suggestions + User Linking + Verification
+### Sprint 8e: Smart Suggestions + User Linking + Verification ✅
 
 **Goal**: Make the attendance form faster with scoring algorithm; connect misman attendance to user logbooks.
 
 **Smart suggestions** (`src/lib/misman/suggestions.ts`):
 - Pure function: `computeSuggestionScores()` — frequency (0.5) + recency (0.3) + streak (0.2)
 - Frequency/streak scoped to this kennel; recency considers roster group
-- Threshold > 0.3 = top suggestion; fallback to alphabetical if < 3 events of data
+- Threshold ≥ 0.3 = top suggestion; returns empty if < 3 events of data
+- Streak caps at 4, lookback window 180 days
+- `getSuggestions(kennelId)` server action in attendance actions — fetches data, calls pure function, enriches with hasher names
+- `SuggestionList` component renders horizontally-wrapped chips above HasherSearch; fetched once on mount
+
+**Fuzzy name matching** (`src/lib/fuzzy.ts`):
+- Added `fuzzyNameMatch(a, b)` — pairwise name comparison using existing Levenshtein, returns 0–1 similarity score
+- Case-insensitive, whitespace-trimmed, used by user linking
 
 **User linking** (roster actions):
-- `suggestUserLinks(kennelId)` — fuzzy match KennelHashers against kennel member Users
-- `createUserLink`, `confirmUserLink`, `dismissUserLink`, `revokeUserLink`
+- `suggestUserLinks(kennelId)` — fuzzy match unlinked KennelHashers against roster-scope Users (hash name, nerd name, cross-compare); threshold ≥ 0.7
+- `createUserLink(kennelId, hasherId, userId)` — creates SUGGESTED link; validates no existing active link, detects duplicate user in roster scope
+- `confirmUserLink(linkId, userId)` — user confirms from logbook side; sets status to CONFIRMED
+- `dismissUserLink(kennelId, linkId)` — misman dismisses suggestion
+- `revokeUserLink(kennelId, linkId)` — misman revokes confirmed link; preserves attendance records
+- `UserLinkSection` component on HasherDetail page: find match, dismiss, revoke actions
+- `RosterTable` link status indicator (L=linked, P=pending) next to hasher names
 
 **Logbook integration** (`src/app/logbook/`):
-- `getPendingConfirmations(userId)` — KennelAttendance where linked user has no Attendance record
-- "Pending Confirmations" section at top of `/logbook` page
-- Accept creates Attendance (CONFIRMED, level from haredThisTrail); dismiss hides it
+- `getPendingConfirmations()` — finds KennelAttendance for CONFIRMED-linked hashers where user has no Attendance record
+- `confirmMismanAttendance(kennelAttendanceId)` — creates Attendance (CONFIRMED, HARE if haredThisTrail else RUN, isVerified=true)
+- `PendingConfirmations` component at top of `/logbook` page — confirm or dismiss (localStorage for MVP)
 
 **Verification** (`src/lib/misman/verification.ts`):
-- Derived status: verified / misman-only / user-only / none (no stored state)
+- `deriveVerificationStatus()` — pure function: verified / misman-only / user-only / none
+- `computeVerificationStatuses()` — batch computation for event lists
+- `VerificationBadge` component (V=green, M=yellow, U=blue) on HasherDetail attendance rows
+- HasherDetail page fetches linked user's Attendance records to derive status per event
+
+**Tests**: ~35 new tests (fuzzy 7, suggestions 12, getSuggestions 3, user linking 16, logbook 7, verification 6)
 
 ---
 

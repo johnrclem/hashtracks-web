@@ -8,8 +8,8 @@ vi.mock("@/lib/auth", () => ({
 }));
 vi.mock("@/lib/db", () => ({
   prisma: {
-    event: { findUnique: vi.fn() },
-    kennelHasher: { findUnique: vi.fn(), create: vi.fn() },
+    event: { findUnique: vi.fn(), findMany: vi.fn() },
+    kennelHasher: { findUnique: vi.fn(), create: vi.fn(), findMany: vi.fn() },
     kennelAttendance: {
       upsert: vi.fn(),
       findUnique: vi.fn(),
@@ -31,6 +31,7 @@ import {
   clearEventAttendance,
   getEventAttendance,
   quickAddHasher,
+  getSuggestions,
 } from "./actions";
 
 const mockMismanAuth = vi.mocked(getMismanUser);
@@ -315,5 +316,68 @@ describe("quickAddHasher", () => {
         recordedBy: "misman_1",
       }),
     });
+  });
+});
+
+describe("getSuggestions", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(await getSuggestions("kennel_1")).toEqual({
+      error: "Not authorized",
+    });
+  });
+
+  it("returns enriched suggestions with hasher names", async () => {
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const threeWeeksAgo = new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000);
+
+    // 3 events (minimum for suggestions)
+    vi.mocked(prisma.event.findMany).mockResolvedValueOnce([
+      { id: "e1", date: weekAgo },
+      { id: "e2", date: twoWeeksAgo },
+      { id: "e3", date: threeWeeksAgo },
+    ] as never);
+
+    // Attendance: hasher attended all 3
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([
+      { kennelHasherId: "kh_1", eventId: "e1", event: { date: weekAgo, kennelId: "kennel_1" } },
+      { kennelHasherId: "kh_1", eventId: "e2", event: { date: twoWeeksAgo, kennelId: "kennel_1" } },
+      { kennelHasherId: "kh_1", eventId: "e3", event: { date: threeWeeksAgo, kennelId: "kennel_1" } },
+    ] as never);
+
+    // Roster: 1 hasher
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      { id: "kh_1", hashName: "Mudflap", nerdName: "John" },
+    ] as never);
+
+    const result = await getSuggestions("kennel_1");
+    expect(result.data).toBeDefined();
+    expect(result.data).toHaveLength(1);
+    expect(result.data![0]).toEqual(
+      expect.objectContaining({
+        kennelHasherId: "kh_1",
+        hashName: "Mudflap",
+        nerdName: "John",
+      }),
+    );
+    expect(result.data![0].score).toBeGreaterThan(0.5);
+  });
+
+  it("returns empty when too few events", async () => {
+    // Only 2 events (below minimum of 3)
+    vi.mocked(prisma.event.findMany).mockResolvedValueOnce([
+      { id: "e1", date: new Date() },
+      { id: "e2", date: new Date() },
+    ] as never);
+
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      { id: "kh_1", hashName: "Mudflap", nerdName: null },
+    ] as never);
+
+    const result = await getSuggestions("kennel_1");
+    expect(result.data).toEqual([]);
   });
 });

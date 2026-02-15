@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { deleteKennelHasher } from "@/app/misman/[slug]/roster/actions";
 import { HasherForm } from "./HasherForm";
+import { UserLinkSection } from "./UserLinkSection";
+import { VerificationBadge } from "./VerificationBadge";
+import type { VerificationStatus } from "@/lib/misman/verification";
 
 interface AttendanceEntry {
   id: string;
@@ -20,6 +23,7 @@ interface AttendanceEntry {
   isVirgin: boolean;
   isVisitor: boolean;
   createdAt: string;
+  verificationStatus?: VerificationStatus;
 }
 
 interface HasherData {
@@ -33,6 +37,7 @@ interface HasherData {
   notes: string | null;
   createdAt: string;
   userLink: {
+    id: string;
     status: string;
     userHashName: string | null;
     userEmail: string;
@@ -179,13 +184,18 @@ export function HasherDetail({ hasher, kennelSlug }: HasherDetailProps) {
         </div>
       )}
 
-      {/* Linked user info */}
-      {hasher.userLink && hasher.userLink.status === "CONFIRMED" && (
-        <div className="rounded-lg border p-3 text-sm">
-          <span className="text-muted-foreground">Linked to user:</span>{" "}
-          {hasher.userLink.userHashName || hasher.userLink.userEmail}
-        </div>
-      )}
+      {/* User linking */}
+      <UserLinkSection
+        kennelId={hasher.kennelId}
+        kennelHasherId={hasher.id}
+        userLink={hasher.userLink ? {
+          id: hasher.userLink.id,
+          status: hasher.userLink.status,
+          userHashName: hasher.userLink.userHashName,
+          userEmail: hasher.userLink.userEmail,
+        } : null}
+        hasherDisplayName={displayName}
+      />
 
       {/* Attendance history */}
       <div>
@@ -219,6 +229,9 @@ export function HasherDetail({ hasher, kennelSlug }: HasherDetailProps) {
                   </div>
                 </div>
                 <div className="flex gap-1 shrink-0">
+                  {a.verificationStatus && a.verificationStatus !== "none" && (
+                    <VerificationBadge status={a.verificationStatus} />
+                  )}
                   {a.paid && (
                     <span className="text-xs text-green-600" title="Paid">
                       $

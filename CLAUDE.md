@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 416 tests)
+- `npm test` — Run test suite (Vitest, 471 tests)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -84,12 +84,18 @@ calendar + personal logbook + kennel directory.
 - `src/app/admin/misman-requests/page.tsx` — Admin misman request approval (reuses misman server actions)
 - `src/components/admin/AlertCard.tsx` — Alert card with repair actions, context display, repair history
 - `src/app/misman/actions.ts` — Misman request/approve/reject server actions (used by both /misman and /admin)
-- `src/app/misman/[slug]/roster/actions.ts` — Roster CRUD + search (roster group scope)
-- `src/app/misman/[slug]/attendance/actions.ts` — Attendance recording, polling, quick-add
+- `src/app/misman/[slug]/roster/actions.ts` — Roster CRUD + search + user linking (roster group scope)
+- `src/app/misman/[slug]/attendance/actions.ts` — Attendance recording, polling, quick-add, smart suggestions
 - `src/app/misman/[slug]/history/actions.ts` — Attendance history, hasher detail, roster seeding from hares
+- `src/lib/misman/suggestions.ts` — Smart suggestion scoring algorithm (pure function: frequency/recency/streak)
+- `src/lib/misman/verification.ts` — Derived verification status (verified/misman-only/user-only/none)
 - `src/components/misman/KennelSwitcher.tsx` — Kennel dropdown switcher for misman layout (preserves active tab)
+- `src/components/misman/UserLinkSection.tsx` — User linking UI (suggest, dismiss, revoke) on hasher detail
+- `src/components/misman/SuggestionList.tsx` — Tap-to-add suggestion chips on attendance form
+- `src/components/misman/VerificationBadge.tsx` — Verification status badge (V/M/U) on attendance rows
+- `src/components/logbook/PendingConfirmations.tsx` — Pending misman confirmations on logbook page
 - `src/components/ui/alert-dialog.tsx` — Radix AlertDialog wrapper (confirmation dialogs)
-- `src/lib/fuzzy.ts` — Levenshtein-based fuzzy string matching for kennel tag resolution
+- `src/lib/fuzzy.ts` — Levenshtein-based fuzzy string matching for kennel tag resolution + pairwise name matching
 - `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
 - `vitest.config.ts` — Test runner config (globals, path aliases)
 - `src/test/factories.ts` — Shared test data builders
@@ -115,7 +121,7 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (416 tests across 24 files)
+- **Run:** `npm test` (471 tests across 30 files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)

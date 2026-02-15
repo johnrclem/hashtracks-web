@@ -13,9 +13,15 @@ vi.mock("@/lib/db", () => ({
     event: { findUnique: vi.fn() },
     attendance: {
       findUnique: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+    },
+    kennelHasherLink: { findMany: vi.fn() },
+    kennelAttendance: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
     },
   },
 }));
@@ -26,7 +32,14 @@ vi.mock("next/cache", () => ({
 
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { checkIn, rsvp, confirmAttendance, deleteAttendance } from "./actions";
+import {
+  checkIn,
+  rsvp,
+  confirmAttendance,
+  deleteAttendance,
+  getPendingConfirmations,
+  confirmMismanAttendance,
+} from "./actions";
 
 const mockAuth = vi.mocked(getOrCreateUser);
 const mockEventFind = vi.mocked(prisma.event.findUnique);
@@ -367,5 +380,151 @@ describe("updateAttendance", () => {
         data: expect.objectContaining({ participationLevel: "RUN" }),
       }),
     );
+  });
+});
+
+// ── getPendingConfirmations ──
+
+describe("getPendingConfirmations", () => {
+  it("returns error when not authenticated", async () => {
+    mockAuth.mockResolvedValueOnce(null);
+    const result = await getPendingConfirmations();
+    expect(result).toEqual({ error: "Not authenticated" });
+  });
+
+  it("returns empty when user has no confirmed links", async () => {
+    vi.mocked(prisma.kennelHasherLink.findMany).mockResolvedValueOnce([]);
+    const result = await getPendingConfirmations();
+    expect(result.data).toEqual([]);
+  });
+
+  it("returns pending records for linked hashers, excluding already-confirmed", async () => {
+    vi.mocked(prisma.kennelHasherLink.findMany).mockResolvedValueOnce([
+      { kennelHasherId: "kh_1" },
+    ] as never);
+
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([
+      {
+        id: "ka_1",
+        kennelHasherId: "kh_1",
+        eventId: "evt_1",
+        haredThisTrail: false,
+        event: {
+          id: "evt_1",
+          date: new Date("2026-02-10"),
+          title: "Monday Hash",
+          runNumber: 100,
+          kennel: { shortName: "NYCH3" },
+        },
+      },
+      {
+        id: "ka_2",
+        kennelHasherId: "kh_1",
+        eventId: "evt_2",
+        haredThisTrail: true,
+        event: {
+          id: "evt_2",
+          date: new Date("2026-02-03"),
+          title: "Super Bowl Hash",
+          runNumber: 99,
+          kennel: { shortName: "NYCH3" },
+        },
+      },
+    ] as never);
+
+    // User already checked in to evt_1
+    vi.mocked(prisma.attendance.findMany).mockResolvedValueOnce([
+      { eventId: "evt_1" },
+    ] as never);
+
+    const result = await getPendingConfirmations();
+    expect(result.data).toHaveLength(1);
+    expect(result.data![0]).toEqual(
+      expect.objectContaining({
+        kennelAttendanceId: "ka_2",
+        eventId: "evt_2",
+        kennelShortName: "NYCH3",
+        haredThisTrail: true,
+      }),
+    );
+  });
+});
+
+// ── confirmMismanAttendance ──
+
+describe("confirmMismanAttendance", () => {
+  it("returns error when not authenticated", async () => {
+    mockAuth.mockResolvedValueOnce(null);
+    const result = await confirmMismanAttendance("ka_1");
+    expect(result).toEqual({ error: "Not authenticated" });
+  });
+
+  it("returns error when misman record not found", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(null);
+    const result = await confirmMismanAttendance("ka_missing");
+    expect(result).toEqual({ error: "Attendance record not found" });
+  });
+
+  it("returns error when no confirmed link to hasher", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
+      id: "ka_1",
+      eventId: "evt_1",
+      haredThisTrail: false,
+      recordedBy: "misman_1",
+      kennelHasher: {
+        userLink: { userId: "other_user", status: "CONFIRMED" },
+      },
+    } as never);
+
+    const result = await confirmMismanAttendance("ka_1");
+    expect(result).toEqual({ error: "Not authorized — no confirmed link to this hasher" });
+  });
+
+  it("creates logbook entry with correct participation level", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
+      id: "ka_1",
+      eventId: "evt_1",
+      haredThisTrail: true,
+      recordedBy: "misman_1",
+      kennelHasher: {
+        userLink: { userId: "user_1", status: "CONFIRMED" },
+      },
+    } as never);
+
+    // No existing logbook entry
+    mockAttFind.mockResolvedValueOnce(null);
+    mockAttCreate.mockResolvedValueOnce({ id: "att_new" } as never);
+
+    const result = await confirmMismanAttendance("ka_1");
+    expect(result).toEqual({ success: true, attendanceId: "att_new" });
+    expect(mockAttCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: "user_1",
+        eventId: "evt_1",
+        status: "CONFIRMED",
+        participationLevel: "HARE",
+        isVerified: true,
+        verifiedBy: "misman_1",
+      }),
+    });
+  });
+
+  it("is idempotent when logbook entry already exists", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
+      id: "ka_1",
+      eventId: "evt_1",
+      haredThisTrail: false,
+      recordedBy: "misman_1",
+      kennelHasher: {
+        userLink: { userId: "user_1", status: "CONFIRMED" },
+      },
+    } as never);
+
+    // Already has logbook entry
+    mockAttFind.mockResolvedValueOnce({ id: "att_existing" } as never);
+
+    const result = await confirmMismanAttendance("ka_1");
+    expect(result).toEqual({ success: true, attendanceId: "att_existing" });
+    expect(mockAttCreate).not.toHaveBeenCalled();
   });
 });

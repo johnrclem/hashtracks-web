@@ -3,6 +3,11 @@
 import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import {
+  computeSuggestionScores,
+  LOOKBACK_DAYS,
+  type SuggestionScore,
+} from "@/lib/misman/suggestions";
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
@@ -288,4 +293,78 @@ export async function quickAddHasher(
   });
 
   return { success: true, hasherId: hasher.id };
+}
+
+/**
+ * Get suggestion scores for hashers most likely to attend.
+ * Uses weighted algorithm: 50% frequency + 30% recency + 20% streak.
+ */
+export async function getSuggestions(kennelId: string) {
+  const user = await getMismanUser(kennelId);
+  if (!user) return { error: "Not authorized" };
+
+  const rosterKennelIds = await getRosterKennelIds(kennelId);
+  const lookbackDate = new Date(
+    Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
+
+  // Fetch kennel events (this kennel only, within lookback)
+  const kennelEvents = await prisma.event.findMany({
+    where: { kennelId, date: { gte: lookbackDate } },
+    select: { id: true, date: true },
+    orderBy: { date: "desc" },
+  });
+
+  // Fetch all attendance in roster scope (within lookback)
+  const attendanceRecords = await prisma.kennelAttendance.findMany({
+    where: {
+      event: {
+        kennelId: { in: rosterKennelIds },
+        date: { gte: lookbackDate },
+      },
+    },
+    select: {
+      kennelHasherId: true,
+      eventId: true,
+      event: { select: { date: true, kennelId: true } },
+    },
+  });
+
+  // Fetch all hasher IDs in roster scope
+  const hashers = await prisma.kennelHasher.findMany({
+    where: { kennelId: { in: rosterKennelIds } },
+    select: { id: true, hashName: true, nerdName: true },
+  });
+
+  const eventKennelMap = new Map<string, string>();
+  for (const e of kennelEvents) eventKennelMap.set(e.id, kennelId);
+  for (const r of attendanceRecords) {
+    eventKennelMap.set(r.eventId, r.event.kennelId);
+  }
+
+  const scores = computeSuggestionScores({
+    kennelId,
+    rosterKennelIds,
+    kennelEvents,
+    attendanceRecords: attendanceRecords.map((r) => ({
+      kennelHasherId: r.kennelHasherId,
+      eventId: r.eventId,
+      eventDate: r.event.date,
+    })),
+    rosterHasherIds: hashers.map((h) => h.id),
+    eventKennelMap,
+  });
+
+  // Enrich with hasher names
+  const hasherMap = new Map(hashers.map((h) => [h.id, h]));
+  const enriched = scores.map((s) => {
+    const hasher = hasherMap.get(s.kennelHasherId);
+    return {
+      ...s,
+      hashName: hasher?.hashName ?? null,
+      nerdName: hasher?.nerdName ?? null,
+    };
+  });
+
+  return { data: enriched };
 }

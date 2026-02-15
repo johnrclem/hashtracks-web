@@ -1,6 +1,7 @@
 /**
- * Simple fuzzy string matching for kennel tag resolution.
+ * Fuzzy string matching utilities.
  * Levenshtein distance + substring boost, no external deps.
+ * Used for kennel tag resolution and user-to-hasher name matching.
  */
 
 function levenshtein(a: string, b: string): number {
@@ -25,6 +26,19 @@ function levenshtein(a: string, b: string): number {
   }
 
   return dp[la][lb];
+}
+
+/**
+ * Compare two names for similarity. Returns 0–1 (1 = exact match).
+ * Case-insensitive, trims whitespace. Used for user-to-hasher matching.
+ */
+export function fuzzyNameMatch(a: string, b: string): number {
+  const na = a.toLowerCase().trim();
+  const nb = b.toLowerCase().trim();
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  const maxLen = Math.max(na.length, nb.length);
+  return 1 - levenshtein(na, nb) / maxLen;
 }
 
 export interface FuzzyCandidate {

@@ -27,6 +27,7 @@ export default async function RosterPage({ params }: Props) {
     include: {
       _count: { select: { attendances: true } },
       kennel: { select: { shortName: true } },
+      userLink: { select: { status: true } },
     },
     orderBy: [{ hashName: "asc" }, { nerdName: "asc" }],
   });
@@ -41,6 +42,7 @@ export default async function RosterPage({ params }: Props) {
     phone: h.phone,
     notes: h.notes,
     attendanceCount: h._count.attendances,
+    linkStatus: h.userLink?.status ?? null,
   }));
 
   const isSharedRoster = rosterKennelIds.length > 1;
