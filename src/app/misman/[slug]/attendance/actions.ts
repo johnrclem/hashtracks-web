@@ -372,3 +372,28 @@ export async function getSuggestions(kennelId: string) {
 
   return { data: enriched };
 }
+
+/**
+ * Fetch full hasher data for inline editing from the attendance page.
+ * Returns all editable fields so HasherForm can be pre-filled without
+ * accidentally clearing existing email/phone/notes.
+ */
+export async function getHasherForEdit(kennelId: string, hasherId: string) {
+  const user = await getMismanUser(kennelId);
+  if (!user) return { error: "Not authorized" };
+
+  const hasher = await prisma.kennelHasher.findUnique({
+    where: { id: hasherId },
+    select: {
+      id: true,
+      hashName: true,
+      nerdName: true,
+      email: true,
+      phone: true,
+      notes: true,
+    },
+  });
+  if (!hasher) return { error: "Hasher not found" };
+
+  return { data: hasher };
+}

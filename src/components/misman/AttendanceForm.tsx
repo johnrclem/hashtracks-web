@@ -23,11 +23,13 @@ import {
   getEventAttendance,
   quickAddHasher,
   getSuggestions,
+  getHasherForEdit,
 } from "@/app/misman/[slug]/attendance/actions";
 import { searchRoster } from "@/app/misman/[slug]/roster/actions";
 import { EventSelector } from "./EventSelector";
 import { AttendanceRow } from "./AttendanceRow";
 import { HasherSearch } from "./HasherSearch";
+import { HasherForm } from "./HasherForm";
 import { SuggestionList } from "./SuggestionList";
 
 interface EventOption {
@@ -76,6 +78,14 @@ export function AttendanceForm({
   const [suggestions, setSuggestions] = useState<
     Array<{ kennelHasherId: string; hashName: string | null; nerdName: string | null; score: number }>
   >([]);
+  const [editingHasher, setEditingHasher] = useState<{
+    id: string;
+    hashName: string | null;
+    nerdName: string | null;
+    email: string | null;
+    phone: string | null;
+    notes: string | null;
+  } | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -130,6 +140,22 @@ export function AttendanceForm({
         await fetchAttendance();
       }
     });
+  }
+
+  async function handleEdit(record: AttendanceRecord) {
+    const result = await getHasherForEdit(kennelId, record.kennelHasherId);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    if (result.data) {
+      setEditingHasher(result.data);
+    }
+  }
+
+  function handleEditClose() {
+    setEditingHasher(null);
+    fetchAttendance();
   }
 
   function handleRemove(attendanceId: string) {
@@ -257,6 +283,7 @@ export function AttendanceForm({
                 record={record}
                 onUpdate={(data) => handleUpdate(record.id, data)}
                 onRemove={() => handleRemove(record.id)}
+                onEdit={() => handleEdit(record)}
                 disabled={isPending}
               />
             ))}
@@ -275,6 +302,17 @@ export function AttendanceForm({
                 Clear All Attendance
               </Button>
             </div>
+          )}
+
+          {/* Edit hasher dialog */}
+          {editingHasher && (
+            <HasherForm
+              open={true}
+              onClose={handleEditClose}
+              kennelId={kennelId}
+              kennelSlug={kennelSlug}
+              hasher={editingHasher}
+            />
           )}
 
           {/* Clear All Confirmation Dialog */}

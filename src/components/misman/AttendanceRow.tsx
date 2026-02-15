@@ -1,5 +1,6 @@
 "use client";
 
+import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ interface AttendanceRowProps {
   record: AttendanceRecord;
   onUpdate: (data: AttendanceUpdateData) => void;
   onRemove: () => void;
+  onEdit: () => void;
   disabled?: boolean;
 }
 
@@ -42,6 +44,7 @@ export function AttendanceRow({
   record,
   onUpdate,
   onRemove,
+  onEdit,
   disabled,
 }: AttendanceRowProps) {
   const displayName = record.hashName || record.nerdName || "Unknown";
@@ -51,14 +54,26 @@ export function AttendanceRow({
     <div className={`rounded-lg border p-3 space-y-2${isExpanded ? (record.isVisitor ? " border-l-2 border-l-blue-400" : " border-l-2 border-l-pink-400") : ""}`}>
       {/* Main row */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="w-full sm:w-auto sm:flex-1 text-left text-sm font-medium sm:truncate">
-          {displayName}
-          {record.hashName && record.nerdName && (
-            <span className="ml-1 text-muted-foreground font-normal">
-              ({record.nerdName})
-            </span>
-          )}
-        </span>
+        <div className="flex items-center gap-1 w-full sm:w-auto sm:flex-1 sm:min-w-0">
+          <span className="text-left text-sm font-medium truncate">
+            {displayName}
+            {record.hashName && record.nerdName && (
+              <span className="ml-1 text-muted-foreground font-normal">
+                ({record.nerdName})
+              </span>
+            )}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={onEdit}
+            disabled={disabled}
+            title="Edit hasher"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        </div>
 
         {/* Quick toggles */}
         <div className="flex items-center gap-3 text-xs">

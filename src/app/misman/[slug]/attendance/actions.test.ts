@@ -33,6 +33,7 @@ import {
   getEventAttendance,
   quickAddHasher,
   getSuggestions,
+  getHasherForEdit,
 } from "./actions";
 
 const mockMismanAuth = vi.mocked(getMismanUser);
@@ -383,5 +384,42 @@ describe("getSuggestions", () => {
 
     const result = await getSuggestions("kennel_1");
     expect(result.data).toEqual([]);
+  });
+});
+
+describe("getHasherForEdit", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(await getHasherForEdit("kennel_1", "kh_1")).toEqual({
+      error: "Not authorized",
+    });
+  });
+
+  it("returns error when hasher not found", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce(null);
+    expect(await getHasherForEdit("kennel_1", "kh_missing")).toEqual({
+      error: "Hasher not found",
+    });
+  });
+
+  it("returns full hasher data for editing", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      id: "kh_1",
+      hashName: "Mudflap",
+      nerdName: "John",
+      email: "john@test.com",
+      phone: "555-1234",
+      notes: "Original runner",
+    } as never);
+
+    const result = await getHasherForEdit("kennel_1", "kh_1");
+    expect(result.data).toEqual({
+      id: "kh_1",
+      hashName: "Mudflap",
+      nerdName: "John",
+      email: "john@test.com",
+      phone: "555-1234",
+      notes: "Original runner",
+    });
   });
 });

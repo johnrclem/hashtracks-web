@@ -2,7 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 
-interface SuggestionItem {
+const MAX_VISIBLE = 10;
+
+export interface SuggestionItem {
   kennelHasherId: string;
   hashName: string | null;
   nerdName: string | null;
@@ -16,23 +18,41 @@ interface SuggestionListProps {
   disabled?: boolean;
 }
 
+export function getVisibleSuggestions(
+  suggestions: SuggestionItem[],
+  attendedHasherIds: Set<string>,
+  maxVisible = MAX_VISIBLE,
+): { visible: SuggestionItem[]; hiddenCount: number } {
+  const available = suggestions.filter(
+    (s) => !attendedHasherIds.has(s.kennelHasherId),
+  );
+  const visible = available.slice(0, maxVisible);
+  return { visible, hiddenCount: available.length - visible.length };
+}
+
 export function SuggestionList({
   suggestions,
   attendedHasherIds,
   onSelect,
   disabled,
 }: SuggestionListProps) {
-  const available = suggestions.filter(
-    (s) => !attendedHasherIds.has(s.kennelHasherId),
+  const { visible, hiddenCount } = getVisibleSuggestions(
+    suggestions,
+    attendedHasherIds,
   );
 
-  if (available.length === 0) return null;
+  if (visible.length === 0) return null;
 
   return (
     <div className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground">Suggestions</p>
+      <p className="text-xs font-medium text-muted-foreground">
+        Suggestions
+        {hiddenCount > 0 && (
+          <span className="ml-1 font-normal">(+{hiddenCount} more)</span>
+        )}
+      </p>
       <div className="flex flex-wrap gap-1.5">
-        {available.map((s) => (
+        {visible.map((s) => (
           <Button
             key={s.kennelHasherId}
             variant="outline"
