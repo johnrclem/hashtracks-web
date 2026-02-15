@@ -1,6 +1,6 @@
 "use server";
 
-import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
+import { getMismanUser, getRosterGroupId, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { fuzzyNameMatch } from "@/lib/fuzzy";
 import { revalidatePath } from "next/cache";
@@ -30,8 +30,11 @@ export async function createKennelHasher(
     return { error: "Either hash name or nerd name is required" };
   }
 
+  const rosterGroupId = await getRosterGroupId(kennelId);
+
   const hasher = await prisma.kennelHasher.create({
     data: {
+      rosterGroupId,
       kennelId,
       hashName,
       nerdName,
@@ -66,14 +69,17 @@ export async function updateKennelHasher(
 ) {
   const hasher = await prisma.kennelHasher.findUnique({
     where: { id: hasherId },
-    include: { kennel: { select: { slug: true } } },
+    include: {
+      kennel: { select: { slug: true } },
+      rosterGroup: { include: { kennels: { select: { kennelId: true } } } },
+    },
   });
   if (!hasher) return { error: "Hasher not found" };
 
   // Check authorization via roster group scope
-  const rosterKennelIds = await getRosterKennelIds(hasher.kennelId);
+  const groupKennelIds = hasher.rosterGroup.kennels.map((k) => k.kennelId);
   let authorized = false;
-  for (const kid of rosterKennelIds) {
+  for (const kid of groupKennelIds) {
     const u = await getMismanUser(kid);
     if (u) { authorized = true; break; }
   }
@@ -97,7 +103,7 @@ export async function updateKennelHasher(
     },
   });
 
-  revalidatePath(`/misman/${hasher.kennel.slug}/roster`);
+  if (hasher.kennel) revalidatePath(`/misman/${hasher.kennel.slug}/roster`);
   return { success: true };
 }
 
@@ -109,13 +115,20 @@ export async function deleteKennelHasher(hasherId: string) {
     where: { id: hasherId },
     include: {
       kennel: { select: { slug: true } },
+      rosterGroup: { include: { kennels: { select: { kennelId: true } } } },
       _count: { select: { attendances: true } },
     },
   });
   if (!hasher) return { error: "Hasher not found" };
 
-  const user = await getMismanUser(hasher.kennelId);
-  if (!user) return { error: "Not authorized" };
+  // Check authorization via roster group scope
+  const groupKennelIds = hasher.rosterGroup.kennels.map((k) => k.kennelId);
+  let authorized = false;
+  for (const kid of groupKennelIds) {
+    const u = await getMismanUser(kid);
+    if (u) { authorized = true; break; }
+  }
+  if (!authorized) return { error: "Not authorized" };
 
   if (hasher._count.attendances > 0) {
     return {
@@ -129,7 +142,7 @@ export async function deleteKennelHasher(hasherId: string) {
     prisma.kennelHasher.delete({ where: { id: hasherId } }),
   ]);
 
-  revalidatePath(`/misman/${hasher.kennel.slug}/roster`);
+  if (hasher.kennel) revalidatePath(`/misman/${hasher.kennel.slug}/roster`);
   return { success: true };
 }
 
@@ -144,12 +157,12 @@ export async function searchRoster(
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const rosterKennelIds = await getRosterKennelIds(kennelId);
+  const rosterGroupId = await getRosterGroupId(kennelId);
   const trimmed = query.trim();
 
   const hashers = await prisma.kennelHasher.findMany({
     where: {
-      kennelId: { in: rosterKennelIds },
+      rosterGroupId,
       ...(trimmed
         ? {
             OR: [
@@ -190,12 +203,13 @@ export async function suggestUserLinks(kennelId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
+  const rosterGroupId = await getRosterGroupId(kennelId);
   const rosterKennelIds = await getRosterKennelIds(kennelId);
 
   // Get unlinked hashers (no link, or link is DISMISSED)
   const hashers = await prisma.kennelHasher.findMany({
     where: {
-      kennelId: { in: rosterKennelIds },
+      rosterGroupId,
       OR: [
         { userLink: null },
         { userLink: { status: "DISMISSED" } },
@@ -310,14 +324,14 @@ export async function createUserLink(
   if (!user) return { error: "Not authorized" };
 
   // Verify hasher is in roster scope
+  const rosterGroupId = await getRosterGroupId(kennelId);
   const hasher = await prisma.kennelHasher.findUnique({
     where: { id: kennelHasherId },
     include: { userLink: true, kennel: { select: { slug: true } } },
   });
   if (!hasher) return { error: "Hasher not found" };
 
-  const rosterKennelIds = await getRosterKennelIds(kennelId);
-  if (!rosterKennelIds.includes(hasher.kennelId)) {
+  if (hasher.rosterGroupId !== rosterGroupId) {
     return { error: "Hasher is not in this kennel's roster scope" };
   }
 
@@ -331,7 +345,7 @@ export async function createUserLink(
     where: {
       userId,
       status: "CONFIRMED",
-      kennelHasher: { kennelId: { in: rosterKennelIds } },
+      kennelHasher: { rosterGroupId },
     },
   });
   if (existingLink) {
@@ -357,7 +371,7 @@ export async function createUserLink(
     });
   }
 
-  revalidatePath(`/misman/${hasher.kennel.slug}/roster`);
+  if (hasher.kennel) revalidatePath(`/misman/${hasher.kennel.slug}/roster`);
   return { success: true };
 }
 
@@ -378,7 +392,9 @@ export async function confirmUserLink(linkId: string, userId: string) {
     data: { status: "CONFIRMED", confirmedBy: userId },
   });
 
-  revalidatePath(`/misman/${link.kennelHasher.kennel.slug}/roster`);
+  if (link.kennelHasher.kennel) {
+    revalidatePath(`/misman/${link.kennelHasher.kennel.slug}/roster`);
+  }
   revalidatePath("/logbook");
   return { success: true };
 }
@@ -401,7 +417,9 @@ export async function dismissUserLink(kennelId: string, linkId: string) {
     data: { status: "DISMISSED", dismissedBy: user.id },
   });
 
-  revalidatePath(`/misman/${link.kennelHasher.kennel.slug}/roster`);
+  if (link.kennelHasher.kennel) {
+    revalidatePath(`/misman/${link.kennelHasher.kennel.slug}/roster`);
+  }
   return { success: true };
 }
 
@@ -428,7 +446,364 @@ export async function revokeUserLink(kennelId: string, linkId: string) {
     data: { status: "DISMISSED", dismissedBy: user.id },
   });
 
-  revalidatePath(`/misman/${link.kennelHasher.kennel.slug}/roster`);
+  if (link.kennelHasher.kennel) {
+    revalidatePath(`/misman/${link.kennelHasher.kennel.slug}/roster`);
+  }
   revalidatePath("/logbook");
   return { success: true };
+}
+
+// ── MERGE DUPLICATES ──
+
+const DUPLICATE_MATCH_THRESHOLD = 0.7;
+
+/**
+ * Scan the roster for potential duplicate entries.
+ * Uses pairwise fuzzy matching across all hashers in the roster group.
+ */
+export async function scanDuplicates(kennelId: string) {
+  const user = await getMismanUser(kennelId);
+  if (!user) return { error: "Not authorized" };
+
+  const rosterGroupId = await getRosterGroupId(kennelId);
+
+  const hashers = await prisma.kennelHasher.findMany({
+    where: { rosterGroupId },
+    select: { id: true, hashName: true, nerdName: true },
+  });
+
+  const pairs: Array<{
+    hasherId1: string;
+    name1: string;
+    hasherId2: string;
+    name2: string;
+    score: number;
+    matchField: string;
+  }> = [];
+
+  for (let i = 0; i < hashers.length; i++) {
+    for (let j = i + 1; j < hashers.length; j++) {
+      const a = hashers[i];
+      const b = hashers[j];
+
+      let bestScore = 0;
+      let matchField = "";
+
+      // hashName ↔ hashName
+      if (a.hashName && b.hashName) {
+        const s = fuzzyNameMatch(a.hashName, b.hashName);
+        if (s > bestScore) { bestScore = s; matchField = "hashName"; }
+      }
+
+      // nerdName ↔ nerdName
+      if (a.nerdName && b.nerdName) {
+        const s = fuzzyNameMatch(a.nerdName, b.nerdName);
+        if (s > bestScore) { bestScore = s; matchField = "nerdName"; }
+      }
+
+      // hashName ↔ nerdName (cross)
+      if (a.hashName && b.nerdName) {
+        const s = fuzzyNameMatch(a.hashName, b.nerdName);
+        if (s > bestScore) { bestScore = s; matchField = "hashName↔nerdName"; }
+      }
+      if (a.nerdName && b.hashName) {
+        const s = fuzzyNameMatch(a.nerdName, b.hashName);
+        if (s > bestScore) { bestScore = s; matchField = "nerdName↔hashName"; }
+      }
+
+      if (bestScore >= DUPLICATE_MATCH_THRESHOLD) {
+        pairs.push({
+          hasherId1: a.id,
+          name1: a.hashName || a.nerdName || "",
+          hasherId2: b.id,
+          name2: b.hashName || b.nerdName || "",
+          score: Math.round(bestScore * 1000) / 1000,
+          matchField,
+        });
+      }
+    }
+  }
+
+  return { data: pairs.sort((a, b) => b.score - a.score) };
+}
+
+/**
+ * Preview a merge operation: show combined attendance stats and potential conflicts.
+ */
+export async function previewMerge(
+  kennelId: string,
+  primaryId: string,
+  secondaryIds: string[],
+) {
+  const user = await getMismanUser(kennelId);
+  if (!user) return { error: "Not authorized" };
+
+  const rosterGroupId = await getRosterGroupId(kennelId);
+  const allIds = [primaryId, ...secondaryIds];
+
+  const hashers = await prisma.kennelHasher.findMany({
+    where: { id: { in: allIds } },
+    include: {
+      userLink: { select: { id: true, userId: true, status: true } },
+      _count: { select: { attendances: true } },
+    },
+  });
+
+  if (hashers.length !== allIds.length) {
+    return { error: "One or more hashers not found" };
+  }
+
+  // Verify all are in same roster group
+  for (const h of hashers) {
+    if (h.rosterGroupId !== rosterGroupId) {
+      return { error: "All hashers must be in the same roster group" };
+    }
+  }
+
+  // Check for conflicting user links (different users)
+  const activeLinks = hashers
+    .map((h) => h.userLink)
+    .filter((l) => l && l.status !== "DISMISSED");
+  const linkedUserIds = new Set(activeLinks.map((l) => l!.userId));
+  const hasConflictingLinks = linkedUserIds.size > 1;
+
+  // Count total and overlapping attendance
+  const attendances = await prisma.kennelAttendance.findMany({
+    where: { kennelHasherId: { in: allIds } },
+    select: { kennelHasherId: true, eventId: true },
+  });
+
+  const eventSets = new Map<string, Set<string>>();
+  for (const a of attendances) {
+    if (!eventSets.has(a.kennelHasherId)) {
+      eventSets.set(a.kennelHasherId, new Set());
+    }
+    eventSets.get(a.kennelHasherId)!.add(a.eventId);
+  }
+
+  const allEventIds = new Set(attendances.map((a) => a.eventId));
+  let overlapCount = 0;
+  for (const eventId of allEventIds) {
+    const hashersWithEvent = allIds.filter((id) =>
+      eventSets.get(id)?.has(eventId),
+    );
+    if (hashersWithEvent.length > 1) overlapCount++;
+  }
+
+  const primary = hashers.find((h) => h.id === primaryId)!;
+  const secondaries = hashers.filter((h) => h.id !== primaryId);
+
+  return {
+    data: {
+      primary: {
+        id: primary.id,
+        hashName: primary.hashName,
+        nerdName: primary.nerdName,
+        email: primary.email,
+        phone: primary.phone,
+        notes: primary.notes,
+        attendanceCount: primary._count.attendances,
+        hasLink: !!primary.userLink && primary.userLink.status !== "DISMISSED",
+      },
+      secondaries: secondaries.map((s) => ({
+        id: s.id,
+        hashName: s.hashName,
+        nerdName: s.nerdName,
+        email: s.email,
+        phone: s.phone,
+        notes: s.notes,
+        attendanceCount: s._count.attendances,
+        hasLink: !!s.userLink && s.userLink.status !== "DISMISSED",
+      })),
+      totalAttendance: allEventIds.size,
+      overlapCount,
+      hasConflictingLinks,
+    },
+  };
+}
+
+/**
+ * Execute a merge: consolidate secondary hashers into the primary.
+ *
+ * - Overlapping attendance: OR-merge boolean flags.
+ * - Non-overlapping attendance: reassign to primary.
+ * - User links: transfer from secondary if primary has none (blocked if different users).
+ * - Deletes secondary hasher records.
+ * - Writes mergeLog on surviving entry.
+ */
+export async function executeMerge(
+  kennelId: string,
+  primaryId: string,
+  secondaryIds: string[],
+  choices: {
+    hashName?: string;
+    nerdName?: string;
+    email?: string;
+    phone?: string;
+    notes?: string;
+  },
+) {
+  const user = await getMismanUser(kennelId);
+  if (!user) return { error: "Not authorized" };
+
+  const rosterGroupId = await getRosterGroupId(kennelId);
+  const allIds = [primaryId, ...secondaryIds];
+
+  const hashers = await prisma.kennelHasher.findMany({
+    where: { id: { in: allIds } },
+    include: {
+      userLink: true,
+      kennel: { select: { slug: true } },
+    },
+  });
+
+  if (hashers.length !== allIds.length) {
+    return { error: "One or more hashers not found" };
+  }
+
+  for (const h of hashers) {
+    if (h.rosterGroupId !== rosterGroupId) {
+      return { error: "All hashers must be in the same roster group" };
+    }
+  }
+
+  // Check for conflicting user links
+  const activeLinks = hashers
+    .map((h) => ({ hasherId: h.id, link: h.userLink }))
+    .filter((x) => x.link && x.link.status !== "DISMISSED");
+  const linkedUserIds = new Set(activeLinks.map((x) => x.link!.userId));
+  if (linkedUserIds.size > 1) {
+    return {
+      error: "Cannot merge: hashers are linked to different users. Revoke one link first.",
+    };
+  }
+
+  const primary = hashers.find((h) => h.id === primaryId)!;
+
+  // Build merge log
+  const mergeLog = {
+    mergedAt: new Date().toISOString(),
+    mergedBy: user.id,
+    merged: hashers
+      .filter((h) => h.id !== primaryId)
+      .map((h) => ({
+        id: h.id,
+        hashName: h.hashName,
+        nerdName: h.nerdName,
+      })),
+  };
+
+  // Get all attendance for all hashers
+  const allAttendances = await prisma.kennelAttendance.findMany({
+    where: { kennelHasherId: { in: allIds } },
+  });
+
+  // Group primary's attendance by eventId
+  const primaryAttendanceByEvent = new Map(
+    allAttendances
+      .filter((a) => a.kennelHasherId === primaryId)
+      .map((a) => [a.eventId, a]),
+  );
+
+  // Prepare operations
+  const updateOps: Array<ReturnType<typeof prisma.kennelAttendance.update>> = [];
+  const reassignOps: Array<ReturnType<typeof prisma.kennelAttendance.update>> = [];
+  const deleteAttendanceIds: string[] = [];
+
+  for (const att of allAttendances) {
+    if (att.kennelHasherId === primaryId) continue;
+
+    const existing = primaryAttendanceByEvent.get(att.eventId);
+    if (existing) {
+      // Overlap: OR-merge boolean flags into primary's record
+      updateOps.push(
+        prisma.kennelAttendance.update({
+          where: { id: existing.id },
+          data: {
+            paid: existing.paid || att.paid,
+            haredThisTrail: existing.haredThisTrail || att.haredThisTrail,
+            isVirgin: existing.isVirgin || att.isVirgin,
+            isVisitor: existing.isVisitor || att.isVisitor,
+            visitorLocation: existing.visitorLocation || att.visitorLocation,
+          },
+        }),
+      );
+      deleteAttendanceIds.push(att.id);
+    } else {
+      // No overlap: reassign to primary
+      reassignOps.push(
+        prisma.kennelAttendance.update({
+          where: { id: att.id },
+          data: { kennelHasherId: primaryId },
+        }),
+      );
+    }
+  }
+
+  // Transfer user link if primary has none but a secondary does
+  const primaryHasLink =
+    primary.userLink && primary.userLink.status !== "DISMISSED";
+  const secondaryLink = !primaryHasLink
+    ? activeLinks.find((x) => x.hasherId !== primaryId)?.link
+    : null;
+
+  // Execute everything in a transaction
+  await prisma.$transaction([
+    // OR-merge overlapping attendance
+    ...updateOps,
+    // Reassign non-overlapping attendance
+    ...reassignOps,
+    // Delete duplicate attendance records
+    ...(deleteAttendanceIds.length > 0
+      ? [
+          prisma.kennelAttendance.deleteMany({
+            where: { id: { in: deleteAttendanceIds } },
+          }),
+        ]
+      : []),
+    // Transfer user link
+    ...(secondaryLink
+      ? [
+          prisma.kennelHasherLink.update({
+            where: { id: secondaryLink.id },
+            data: { kennelHasherId: primaryId },
+          }),
+        ]
+      : []),
+    // Delete secondary user links (non-transferred)
+    prisma.kennelHasherLink.deleteMany({
+      where: {
+        kennelHasherId: { in: secondaryIds },
+        ...(secondaryLink ? { id: { not: secondaryLink.id } } : {}),
+      },
+    }),
+    // Delete secondary hashers
+    prisma.kennelHasher.deleteMany({
+      where: { id: { in: secondaryIds } },
+    }),
+    // Update primary with chosen fields + mergeLog
+    prisma.kennelHasher.update({
+      where: { id: primaryId },
+      data: {
+        hashName: choices.hashName?.trim() || primary.hashName,
+        nerdName: choices.nerdName?.trim() || primary.nerdName,
+        email: choices.email?.trim() || primary.email,
+        phone: choices.phone?.trim() || primary.phone,
+        notes: choices.notes?.trim() || primary.notes,
+        mergeLog: JSON.parse(JSON.stringify(
+          primary.mergeLog
+            ? [...(primary.mergeLog as unknown[]), mergeLog]
+            : [mergeLog],
+        )),
+      },
+    }),
+  ]);
+
+  const kennel = await prisma.kennel.findUnique({
+    where: { id: kennelId },
+    select: { slug: true },
+  });
+  if (kennel) revalidatePath(`/misman/${kennel.slug}/roster`);
+
+  return { success: true, mergedCount: secondaryIds.length };
 }

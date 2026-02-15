@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminUser } from "@/lib/auth";
+import { getAdminUser, getRosterGroupId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { fuzzyMatch } from "@/lib/fuzzy";
@@ -193,7 +193,7 @@ export async function deleteKennel(kennelId: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  // Check for events or members
+  // Check for events, members, or attendance
   const kennel = await prisma.kennel.findUnique({
     where: { id: kennelId },
     include: {
@@ -215,8 +215,29 @@ export async function deleteKennel(kennelId: string) {
     };
   }
 
-  // Delete aliases, source links, then kennel
+  // Check for attendance records via events (events belong to kennels)
+  const attendanceCount = await prisma.kennelAttendance.count({
+    where: { event: { kennelId } },
+  });
+  if (attendanceCount > 0) {
+    return {
+      error: `Cannot delete: kennel has ${attendanceCount} attendance record(s). Remove attendance first.`,
+    };
+  }
+
+  // Clean up misman-related records, then delete kennel
   await prisma.$transaction([
+    // Delete hasher links for hashers created via this kennel
+    prisma.kennelHasherLink.deleteMany({
+      where: { kennelHasher: { kennelId } },
+    }),
+    // Delete hashers created via this kennel
+    prisma.kennelHasher.deleteMany({ where: { kennelId } }),
+    // Delete roster group membership
+    prisma.rosterGroupKennel.deleteMany({ where: { kennelId } }),
+    // Delete misman requests
+    prisma.mismanRequest.deleteMany({ where: { kennelId } }),
+    // Delete aliases and source links
     prisma.kennelAlias.deleteMany({ where: { kennelId } }),
     prisma.sourceKennel.deleteMany({ where: { kennelId } }),
     prisma.kennel.delete({ where: { id: kennelId } }),
@@ -518,6 +539,7 @@ export async function mergeKennels(
   }
 
   // 8. Execute transaction for remaining reassignments
+  const targetRosterGroupId = await getRosterGroupId(targetKennel.id);
   await prisma.$transaction([
     prisma.event.updateMany({
       where: { kennelId: sourceKennel.id },
@@ -529,7 +551,7 @@ export async function mergeKennels(
     }),
     prisma.kennelHasher.updateMany({
       where: { kennelId: sourceKennel.id },
-      data: { kennelId: targetKennel.id },
+      data: { kennelId: targetKennel.id, rosterGroupId: targetRosterGroupId },
     }),
     prisma.mismanRequest.updateMany({
       where: { kennelId: sourceKennel.id },

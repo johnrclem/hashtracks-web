@@ -64,12 +64,14 @@ export function buildKennelHasher(
 ): KennelHasher {
   return {
     id: "kh_1",
+    rosterGroupId: "rg_1",
     kennelId: "kennel_1",
     hashName: "Mudflap",
     nerdName: "John Doe",
     email: null,
     phone: null,
     notes: null,
+    mergeLog: null,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
     ...overrides,

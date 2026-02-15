@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
-import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
+import { getMismanUser, getRosterGroupId, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { RosterTable } from "@/components/misman/RosterTable";
 import { SeedRosterButton } from "@/components/misman/SeedRosterButton";
+import { DuplicateScanResults } from "@/components/misman/DuplicateScanResults";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -20,10 +21,11 @@ export default async function RosterPage({ params }: Props) {
   const user = await getMismanUser(kennel.id);
   if (!user) notFound();
 
+  const rosterGroupId = await getRosterGroupId(kennel.id);
   const rosterKennelIds = await getRosterKennelIds(kennel.id);
 
   const hashers = await prisma.kennelHasher.findMany({
-    where: { kennelId: { in: rosterKennelIds } },
+    where: { rosterGroupId },
     include: {
       _count: { select: { attendances: true } },
       kennel: { select: { shortName: true } },
@@ -35,7 +37,7 @@ export default async function RosterPage({ params }: Props) {
   const serialized = hashers.map((h) => ({
     id: h.id,
     kennelId: h.kennelId,
-    kennelShortName: h.kennel.shortName,
+    kennelShortName: h.kennel?.shortName ?? null,
     hashName: h.hashName,
     nerdName: h.nerdName,
     email: h.email,
@@ -55,6 +57,9 @@ export default async function RosterPage({ params }: Props) {
         kennelSlug={slug}
         isSharedRoster={isSharedRoster}
       />
+      {hashers.length > 1 && (
+        <DuplicateScanResults kennelId={kennel.id} kennelSlug={slug} />
+      )}
       {hashers.length === 0 && (
         <div className="flex justify-center">
           <SeedRosterButton kennelId={kennel.id} />

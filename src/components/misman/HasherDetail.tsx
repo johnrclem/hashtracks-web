@@ -28,8 +28,8 @@ interface AttendanceEntry {
 
 interface HasherData {
   id: string;
-  kennelId: string;
-  kennelShortName: string;
+  kennelId: string | null;
+  kennelShortName: string | null;
   hashName: string | null;
   nerdName: string | null;
   email: string | null;
@@ -54,10 +54,11 @@ interface HasherData {
 
 interface HasherDetailProps {
   hasher: HasherData;
+  kennelId: string;
   kennelSlug: string;
 }
 
-export function HasherDetail({ hasher, kennelSlug }: HasherDetailProps) {
+export function HasherDetail({ hasher, kennelId, kennelSlug }: HasherDetailProps) {
   const [showEdit, setShowEdit] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -103,7 +104,9 @@ export function HasherDetail({ hasher, kennelSlug }: HasherDetailProps) {
             <p className="text-muted-foreground">{hasher.nerdName}</p>
           )}
           <div className="mt-1 flex items-center gap-2">
-            <Badge variant="outline">{hasher.kennelShortName}</Badge>
+            {hasher.kennelShortName && (
+              <Badge variant="outline">{hasher.kennelShortName}</Badge>
+            )}
             {hasher.userLink && (
               <Badge
                 variant={
@@ -186,7 +189,7 @@ export function HasherDetail({ hasher, kennelSlug }: HasherDetailProps) {
 
       {/* User linking */}
       <UserLinkSection
-        kennelId={hasher.kennelId}
+        kennelId={kennelId}
         kennelHasherId={hasher.id}
         userLink={hasher.userLink ? {
           id: hasher.userLink.id,
@@ -268,7 +271,7 @@ export function HasherDetail({ hasher, kennelSlug }: HasherDetailProps) {
       <HasherForm
         open={showEdit}
         onClose={() => setShowEdit(false)}
-        kennelId={hasher.kennelId}
+        kennelId={kennelId}
         kennelSlug={kennelSlug}
         hasher={{
           id: hasher.id,

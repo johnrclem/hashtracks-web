@@ -156,7 +156,7 @@ Last updated: 2026-02-15
 - [ ] **Admin-editable participation levels**: Migrate enum to reference table for custom levels per community
 - [ ] **"Beez There" checkbox**: Optional flag on attendance (nice-to-have, deferred from Sprint 5)
 
-### Kennel Attendance Management (Misman Tool) — Sprints 8a-8e COMPLETE
+### Kennel Attendance Management (Misman Tool) — Sprints 8a-8f COMPLETE
 **Goal**: Replace kennel mismanagement's Google Sheet attendance tracking with a dedicated tool tied to HashTracks events.
 
 See [misman-attendance-requirements.md](misman-attendance-requirements.md) for full requirements and decisions log.
@@ -174,8 +174,11 @@ See [misman-implementation-plan.md](misman-implementation-plan.md) for detailed 
 - [x] **User linking**: Fuzzy-match (Levenshtein, ≥0.7 threshold) for linking KennelHasher → site User; suggest/confirm/dismiss/revoke workflow
 - [x] **Logbook sync**: Pending confirmations section on `/logbook` for linked users (confirm creates logbook entry with isVerified=true)
 - [x] **Verification badges**: Derived verification status (verified/misman-only/user-only) shown on hasher detail attendance rows
+- [x] **rosterGroupId migration**: KennelHasher scoped by `rosterGroupId` instead of `kennelId`; `kennelId` nullable as metadata; `getRosterGroupId()` auth helper
+- [x] **Merge duplicates**: Pairwise fuzzy scan, preview with stats/conflicts, OR-merge attendance in transaction, mergeLog audit trail
+- [x] **Roster groups admin**: CRUD for roster groups at `/admin/roster-groups` (create, add/remove kennels, rename, dissolve)
+- [x] **Kennel deletion guard**: Block deletion when attendance records exist; cascade-delete misman records when safe
 - [ ] **CSV export**: Export attendance history to CSV
-- **Pending**: Sprint 8f — roster group admin UI, duplicate merge workflow
 - **Deferred**: Hash cash amounts, auto-detect virgins, hare→EventHare sync, cross-kennel directory, historical CSV import, notification system
 
 ### CSV Import (Bulk History)

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
+import { getMismanUser, getRosterGroupId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { HasherDetail } from "@/components/misman/HasherDetail";
 import { deriveVerificationStatus, type VerificationStatus } from "@/lib/misman/verification";
@@ -20,7 +20,7 @@ export default async function HasherDetailPage({ params }: Props) {
   const user = await getMismanUser(kennel.id);
   if (!user) notFound();
 
-  const rosterKennelIds = await getRosterKennelIds(kennel.id);
+  const rosterGroupId = await getRosterGroupId(kennel.id);
 
   const hasher = await prisma.kennelHasher.findUnique({
     where: { id: hasherId },
@@ -49,7 +49,7 @@ export default async function HasherDetailPage({ params }: Props) {
   });
 
   if (!hasher) notFound();
-  if (!rosterKennelIds.includes(hasher.kennelId)) notFound();
+  if (hasher.rosterGroupId !== rosterGroupId) notFound();
 
   const totalRuns = hasher.attendances.length;
   const hareCount = hasher.attendances.filter((a) => a.haredThisTrail).length;
@@ -61,7 +61,7 @@ export default async function HasherDetailPage({ params }: Props) {
   const serialized = {
     id: hasher.id,
     kennelId: hasher.kennelId,
-    kennelShortName: hasher.kennel.shortName,
+    kennelShortName: hasher.kennel?.shortName ?? null,
     hashName: hasher.hashName,
     nerdName: hasher.nerdName,
     email: hasher.email,
@@ -117,5 +117,5 @@ export default async function HasherDetailPage({ params }: Props) {
     }
   }
 
-  return <HasherDetail hasher={serialized} kennelSlug={slug} />;
+  return <HasherDetail hasher={serialized} kennelId={kennel.id} kennelSlug={slug} />;
 }

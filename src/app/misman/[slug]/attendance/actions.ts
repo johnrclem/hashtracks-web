@@ -1,6 +1,6 @@
 "use server";
 
-import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
+import { getMismanUser, getRosterGroupId, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import {
@@ -65,12 +65,12 @@ export async function recordAttendance(
   // Verify the hasher is in the roster scope
   const hasher = await prisma.kennelHasher.findUnique({
     where: { id: kennelHasherId },
-    select: { kennelId: true },
+    select: { rosterGroupId: true },
   });
   if (!hasher) return { error: "Hasher not found" };
 
-  const rosterKennelIds = await getRosterKennelIds(kennelId);
-  if (!rosterKennelIds.includes(hasher.kennelId)) {
+  const rosterGroupId = await getRosterGroupId(kennelId);
+  if (hasher.rosterGroupId !== rosterGroupId) {
     return { error: "Hasher is not in this kennel's roster scope" };
   }
 
@@ -268,8 +268,10 @@ export async function quickAddHasher(
   if (validation.error) return { error: validation.error };
 
   // Create hasher
+  const rosterGroupId = await getRosterGroupId(kennelId);
   const hasher = await prisma.kennelHasher.create({
     data: {
+      rosterGroupId,
       kennelId,
       hashName,
       nerdName,
@@ -303,6 +305,7 @@ export async function getSuggestions(kennelId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
+  const rosterGroupId = await getRosterGroupId(kennelId);
   const rosterKennelIds = await getRosterKennelIds(kennelId);
   const lookbackDate = new Date(
     Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
@@ -316,6 +319,7 @@ export async function getSuggestions(kennelId: string) {
   });
 
   // Fetch all attendance in roster scope (within lookback)
+  // Events belong to kennels, so we still use getRosterKennelIds here
   const attendanceRecords = await prisma.kennelAttendance.findMany({
     where: {
       event: {
@@ -330,9 +334,9 @@ export async function getSuggestions(kennelId: string) {
     },
   });
 
-  // Fetch all hasher IDs in roster scope
+  // Fetch all hasher IDs in roster scope (via rosterGroupId)
   const hashers = await prisma.kennelHasher.findMany({
-    where: { kennelId: { in: rosterKennelIds } },
+    where: { rosterGroupId },
     select: { id: true, hashName: true, nerdName: true },
   });
 

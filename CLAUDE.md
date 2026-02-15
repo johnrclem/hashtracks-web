@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 471 tests)
+- `npm test` — Run test suite (Vitest, 498 tests)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -64,7 +64,7 @@ calendar + personal logbook + kennel directory.
 - `prisma/seed.ts` — Launch kennel + alias data
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
-- `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` (Clerk→DB sync + admin role check)
+- `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
 - `src/lib/format.ts` — Shared utilities: time formatting, region config/colors, participation levels
 - `src/lib/calendar.ts` — Google Calendar URL + .ics file generation (client-side)
 - `src/middleware.ts` — Clerk route protection (public vs authenticated routes)
@@ -84,7 +84,7 @@ calendar + personal logbook + kennel directory.
 - `src/app/admin/misman-requests/page.tsx` — Admin misman request approval (reuses misman server actions)
 - `src/components/admin/AlertCard.tsx` — Alert card with repair actions, context display, repair history
 - `src/app/misman/actions.ts` — Misman request/approve/reject server actions (used by both /misman and /admin)
-- `src/app/misman/[slug]/roster/actions.ts` — Roster CRUD + search + user linking (roster group scope)
+- `src/app/misman/[slug]/roster/actions.ts` — Roster CRUD + search + user linking + merge duplicates (roster group scope)
 - `src/app/misman/[slug]/attendance/actions.ts` — Attendance recording, polling, quick-add, smart suggestions
 - `src/app/misman/[slug]/history/actions.ts` — Attendance history, hasher detail, roster seeding from hares
 - `src/lib/misman/suggestions.ts` — Smart suggestion scoring algorithm (pure function: frequency/recency/streak)
@@ -93,7 +93,11 @@ calendar + personal logbook + kennel directory.
 - `src/components/misman/UserLinkSection.tsx` — User linking UI (suggest, dismiss, revoke) on hasher detail
 - `src/components/misman/SuggestionList.tsx` — Tap-to-add suggestion chips on attendance form
 - `src/components/misman/VerificationBadge.tsx` — Verification status badge (V/M/U) on attendance rows
+- `src/components/misman/DuplicateScanResults.tsx` — Scan for duplicate hashers + merge trigger
+- `src/components/misman/MergePreviewDialog.tsx` — Side-by-side merge preview with stats/conflicts
 - `src/components/logbook/PendingConfirmations.tsx` — Pending misman confirmations on logbook page
+- `src/components/admin/RosterGroupsAdmin.tsx` — Admin roster group management (shared/standalone display, rename, dissolve)
+- `src/app/admin/roster-groups/actions.ts` — Roster group CRUD (create, add/remove kennels, rename, dissolve)
 - `src/components/ui/alert-dialog.tsx` — Radix AlertDialog wrapper (confirmation dialogs)
 - `src/lib/fuzzy.ts` — Levenshtein-based fuzzy string matching for kennel tag resolution + pairwise name matching
 - `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
@@ -121,7 +125,7 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (471 tests across 30 files)
+- **Run:** `npm test` (498 tests across 30 files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)

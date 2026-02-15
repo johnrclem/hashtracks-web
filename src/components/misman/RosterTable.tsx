@@ -22,8 +22,8 @@ import { HasherForm } from "./HasherForm";
 
 interface HasherRow {
   id: string;
-  kennelId: string;
-  kennelShortName: string;
+  kennelId: string | null;
+  kennelShortName: string | null;
   hashName: string | null;
   nerdName: string | null;
   email: string | null;
@@ -74,7 +74,7 @@ export function RosterTable({
     if (sortKey === "hashName") {
       cmp = (a.hashName ?? "").localeCompare(b.hashName ?? "");
     } else if (sortKey === "kennelShortName") {
-      cmp = a.kennelShortName.localeCompare(b.kennelShortName);
+      cmp = (a.kennelShortName ?? "").localeCompare(b.kennelShortName ?? "");
     } else if (sortKey === "attendanceCount") {
       cmp = a.attendanceCount - b.attendanceCount;
     }
@@ -207,7 +207,7 @@ export function RosterTable({
                   {isSharedRoster && (
                     <td className="px-3 py-2">
                       <Badge variant="outline" className="text-xs">
-                        {h.kennelShortName}
+                        {h.kennelShortName ?? "—"}
                       </Badge>
                     </td>
                   )}

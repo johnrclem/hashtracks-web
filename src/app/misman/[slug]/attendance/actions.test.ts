@@ -4,6 +4,7 @@ const mockMisman = { id: "misman_1", email: "misman@test.com" };
 
 vi.mock("@/lib/auth", () => ({
   getMismanUser: vi.fn(),
+  getRosterGroupId: vi.fn(),
   getRosterKennelIds: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
@@ -22,7 +23,7 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
+import { getMismanUser, getRosterGroupId, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
   recordAttendance,
@@ -35,11 +36,13 @@ import {
 } from "./actions";
 
 const mockMismanAuth = vi.mocked(getMismanUser);
+const mockRosterGroupId = vi.mocked(getRosterGroupId);
 const mockRosterKennelIds = vi.mocked(getRosterKennelIds);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockMismanAuth.mockResolvedValue(mockMisman as never);
+  mockRosterGroupId.mockResolvedValue("rg_1");
   mockRosterKennelIds.mockResolvedValue(["kennel_1"]);
 });
 
@@ -104,7 +107,7 @@ describe("recordAttendance", () => {
       date: new Date(),
     } as never);
     vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
-      kennelId: "other_kennel",
+      rosterGroupId: "other_rg",
     } as never);
 
     expect(
@@ -119,7 +122,7 @@ describe("recordAttendance", () => {
       date: new Date(),
     } as never);
     vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
-      kennelId: "kennel_1",
+      rosterGroupId: "rg_1",
     } as never);
     vi.mocked(prisma.kennelAttendance.upsert).mockResolvedValueOnce({} as never);
 
@@ -304,6 +307,7 @@ describe("quickAddHasher", () => {
 
     expect(prisma.kennelHasher.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        rosterGroupId: "rg_1",
         kennelId: "kennel_1",
         hashName: "Newbie",
       }),

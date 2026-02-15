@@ -70,6 +70,7 @@ export async function getMismanUser(kennelId: string): Promise<User | null> {
 /**
  * Get all kennel IDs in the same Roster Group as the given kennel.
  * Returns [kennelId] if the kennel is not in any group (standalone).
+ * Still needed for event validation (events belong to kennels, not groups).
  */
 export async function getRosterKennelIds(
   kennelId: string,
@@ -85,4 +86,22 @@ export async function getRosterKennelIds(
 
   if (!groupKennel) return [kennelId];
   return groupKennel.group.kennels.map((k) => k.kennelId);
+}
+
+/**
+ * Get the rosterGroupId for a kennel.
+ * Every kennel has exactly one RosterGroup (standalone or shared).
+ * Throws if not found — this is a data integrity violation after migration.
+ */
+export async function getRosterGroupId(kennelId: string): Promise<string> {
+  const groupKennel = await prisma.rosterGroupKennel.findUnique({
+    where: { kennelId },
+    select: { groupId: true },
+  });
+  if (!groupKennel) {
+    throw new Error(
+      `Kennel ${kennelId} has no RosterGroup — data integrity error`,
+    );
+  }
+  return groupKennel.groupId;
 }
