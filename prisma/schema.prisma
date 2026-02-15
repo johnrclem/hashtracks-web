@@ -229,14 +229,16 @@ enum EventStatus {
 }
 
 model EventHare {
-  id       String   @id @default(cuid())
-  eventId  String
-  hareName String   // Display name (always populated)
-  userId   String?  // Optional link to User record
-  role     HareRole @default(HARE)
-  event    Event    @relation(fields: [eventId], references: [id])
-  user     User?    @relation(fields: [userId], references: [id])
+  id         String         @id @default(cuid())
+  eventId    String
+  hareName   String         // Display name (always populated)
+  userId     String?        // Optional link to User record
+  role       HareRole       @default(HARE)
+  sourceType HareSourceType @default(SCRAPED)
+  event      Event          @relation(fields: [eventId], references: [id])
+  user       User?          @relation(fields: [userId], references: [id])
 
+  @@unique([eventId, hareName]) // Prevent duplicate hare entries
   @@index([eventId])
 }
 
@@ -244,6 +246,11 @@ enum HareRole {
   HARE
   CO_HARE
   LIVE_HARE
+}
+
+enum HareSourceType {
+  SCRAPED      // From scraper pipeline (haresText parsing)
+  MISMAN_SYNC  // From misman attendance hare flag
 }
 
 // ── ATTENDANCE ──
@@ -429,6 +436,7 @@ model KennelAttendance {
   referralSource  ReferralSource? // How they found the hash
   referralOther   String?         // Freetext when referralSource is OTHER
   recordedBy      String          // Misman user ID who created this record
+  editLog         Json?           // Array of AuditLogEntry objects (edit history)
 
   kennelHasher   KennelHasher @relation(fields: [kennelHasherId], references: [id])
   event          Event        @relation(fields: [eventId], references: [id])

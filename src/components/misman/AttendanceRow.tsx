@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil } from "lucide-react";
+import { Pencil, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -73,6 +73,11 @@ export function AttendanceRow({
           >
             <Pencil className="h-3.5 w-3.5" />
           </Button>
+          {record.hasEdits && (
+            <span title="This record has been edited" className="text-muted-foreground">
+              <History className="h-3 w-3" />
+            </span>
+          )}
         </div>
 
         {/* Quick toggles */}

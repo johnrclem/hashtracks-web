@@ -12,7 +12,7 @@ No roadmap dependencies — this feature is independent of the unfinished source
 
 ## Sprint Breakdown
 
-### Sprint 8a: Schema + Auth Foundation
+### Sprint 8a: Schema + Auth Foundation ✅
 
 **Goal**: All database models, enum changes, auth helper. No UI — data layer only.
 
@@ -66,7 +66,7 @@ No roadmap dependencies — this feature is independent of the unfinished source
 
 ---
 
-### Sprint 8c: Core Attendance Form + Roster CRUD (MVP)
+### Sprint 8c: Core Attendance Form + Roster CRUD (MVP) ✅
 
 **Goal**: The primary mobile-first attendance form + roster management. This is the **MVP deployment point** — it replaces the Google Sheet.
 
@@ -278,6 +278,78 @@ Sprints 8d and 8e can run in parallel after 8c.
 - **Roster Group query perf**: Indexes on `KennelHasher(kennelId)` handle it; monitor for large groups
 - **Mobile polling at trail**: Optimistic UI + silent poll failures; "last synced" indicator
 - **Merge irreversibility**: Full `$transaction` + audit log on surviving entry
+
+---
+
+### Sprint 9b: Attendance Edit History / Audit Log ✅
+
+**Goal**: Track who changed what on KennelAttendance records via inline JSON audit log.
+
+**Schema change**: Added `editLog Json?` to KennelAttendance.
+
+**New files**:
+- `src/lib/misman/audit.ts` — `AuditLogEntry` type, `appendAuditLog()`, `buildFieldChanges()`, `TRACKED_ATTENDANCE_FIELDS`
+- `src/lib/misman/audit.test.ts` — 6 tests for pure functions
+- `src/components/misman/EditHistoryTimeline.tsx` — compact vertical timeline for audit entries
+
+**Modified files**:
+- `src/app/misman/[slug]/attendance/actions.ts` — audit logging in `recordAttendance`, `updateAttendance`, `quickAddHasher`, `getEventAttendance` (hasEdits flag), new `getAttendanceEditLog` action
+- `src/app/misman/[slug]/history/actions.ts` — `hasEdits` flag in `getHasherDetail` attendance entries
+- `src/components/misman/AttendanceForm.tsx` — `hasEdits` on `AttendanceRecord` type
+- `src/components/misman/AttendanceRow.tsx` — subtle edit history indicator (History icon)
+- `src/components/misman/HasherDetail.tsx` — expandable edit history section per attendance row
+
+---
+
+### Sprint 9a: Hare → EventHare Sync ✅
+
+**Goal**: Automatically sync misman-recorded hare data into structured EventHare records for public hareline display.
+
+**Schema changes**: Added `HareSourceType` enum (SCRAPED/MISMAN_SYNC), `sourceType` field on EventHare, `@@unique([eventId, hareName])` constraint.
+
+**New files**:
+- `src/lib/misman/hare-sync.ts` — `syncEventHares(eventId)` idempotent sync function
+- `src/lib/misman/hare-sync.test.ts` — 8 tests covering create/remove/idempotency
+- `src/test/factories.ts` — added `buildEventHare` factory
+
+**Modified files**:
+- `src/app/misman/[slug]/attendance/actions.ts` — calls `syncEventHares` after `recordAttendance`, `removeAttendance`, `updateAttendance` (when hare flag changes), `clearEventAttendance`
+- `src/app/hareline/[eventId]/page.tsx` — queries EventHare records, displays structured hare list with user profile links (falls back to haresText)
+
+---
+
+### Sprint 9c: Historical CSV Import ✅
+
+**Goal**: Import attendance data from existing Google Sheets into KennelAttendance records. CLI script + admin UI.
+
+**Design decisions**: No lookback limit for imports. Matrix format (rows=hashers, cols=dates). Hasher resolution: exact → fuzzy (0.85 threshold) → create new. Integrates with Sprint 9b audit log and Sprint 9a hare sync.
+
+**New files**:
+- `src/lib/misman/csv-import.ts` — `parseAttendanceCSV`, `parseCellValue`, `matchHasherNames`, `matchColumnHeaders`, `buildImportRecords` (pure functions)
+- `src/lib/misman/csv-import.test.ts` — tests for parsing, matching, and record building
+- `scripts/import-attendance-csv.ts` — CLI script (--file, --kennel, --dry-run, --create-hashers, --fuzzy-threshold)
+- `src/app/misman/[slug]/import/page.tsx` — import page (server component)
+- `src/app/misman/[slug]/import/actions.ts` — `previewCSVImport`, `executeCSVImport` server actions
+- `src/components/misman/ImportWizard.tsx` — step-by-step wizard (upload → configure → preview → execute → summary)
+
+**Modified files**:
+- `src/components/misman/MismanKennelNav.tsx` — added "Import" tab
+
+---
+
+## Sprint Dependencies (Updated)
+
+```
+8a (Schema + Auth)
+ └→ 8b (Dashboard + Roles)
+     └→ 8c (Attendance + Roster) ← MVP deployable here
+         ├→ 8d (History + Seeding)
+         └→ 8e (Suggestions + Linking)
+              └→ 8f (Groups + Merge)
+                   └→ 9b (Audit Log)
+                        ├→ 9a (Hare Sync)
+                        └→ 9c (CSV Import)
+```
 
 ## Verification
 

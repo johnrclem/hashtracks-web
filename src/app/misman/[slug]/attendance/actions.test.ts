@@ -19,9 +19,13 @@ vi.mock("@/lib/db", () => ({
       deleteMany: vi.fn(),
       create: vi.fn(),
     },
+    eventHare: { deleteMany: vi.fn() },
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/misman/hare-sync", () => ({
+  syncEventHares: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { getMismanUser, getRosterGroupId, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";

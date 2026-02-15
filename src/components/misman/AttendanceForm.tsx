@@ -54,6 +54,7 @@ export interface AttendanceRecord {
   referralOther: string | null;
   recordedBy: string;
   createdAt: string;
+  hasEdits?: boolean;
 }
 
 interface AttendanceFormProps {

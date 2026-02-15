@@ -2,14 +2,18 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { deleteKennelHasher } from "@/app/misman/[slug]/roster/actions";
+import { getAttendanceEditLog } from "@/app/misman/[slug]/attendance/actions";
 import { HasherForm } from "./HasherForm";
 import { UserLinkSection } from "./UserLinkSection";
 import { VerificationBadge } from "./VerificationBadge";
+import { EditHistoryTimeline } from "./EditHistoryTimeline";
 import type { VerificationStatus } from "@/lib/misman/verification";
+import type { AuditLogEntry } from "@/lib/misman/audit";
 
 interface AttendanceEntry {
   id: string;
@@ -24,6 +28,7 @@ interface AttendanceEntry {
   isVisitor: boolean;
   createdAt: string;
   verificationStatus?: VerificationStatus;
+  hasEdits?: boolean;
 }
 
 interface HasherData {
@@ -61,7 +66,26 @@ interface HasherDetailProps {
 export function HasherDetail({ hasher, kennelId, kennelSlug }: HasherDetailProps) {
   const [showEdit, setShowEdit] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [editLogs, setEditLogs] = useState<Record<string, AuditLogEntry[]>>({});
   const router = useRouter();
+
+  function handleToggleEditLog(attendanceId: string) {
+    if (expandedLogId === attendanceId) {
+      setExpandedLogId(null);
+      return;
+    }
+    setExpandedLogId(attendanceId);
+    // Lazy-load the edit log if not already fetched
+    if (!editLogs[attendanceId]) {
+      startTransition(async () => {
+        const result = await getAttendanceEditLog(kennelId, attendanceId);
+        if (result.data) {
+          setEditLogs((prev) => ({ ...prev, [attendanceId]: result.data! }));
+        }
+      });
+    }
+  }
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString("en-US", {
@@ -212,50 +236,68 @@ export function HasherDetail({ hasher, kennelId, kennelSlug }: HasherDetailProps
         ) : (
           <div className="space-y-1">
             {hasher.attendances.map((a) => (
-              <div
-                key={a.id}
-                className="flex items-center gap-3 rounded-lg border px-3 py-2 text-sm"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">
-                      {a.runNumber ? `#${a.runNumber}` : ""}
-                      {a.runNumber && a.title ? " — " : ""}
-                      {a.title || (a.runNumber ? "" : "Untitled")}
-                    </span>
-                    <Badge variant="outline" className="text-xs shrink-0">
-                      {a.kennelShortName}
-                    </Badge>
+              <div key={a.id}>
+                <div className="flex items-center gap-3 rounded-lg border px-3 py-2 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">
+                        {a.runNumber ? `#${a.runNumber}` : ""}
+                        {a.runNumber && a.title ? " — " : ""}
+                        {a.title || (a.runNumber ? "" : "Untitled")}
+                      </span>
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {a.kennelShortName}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatDate(a.date)}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatDate(a.date)}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {a.hasEdits && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleEditLog(a.id)}
+                        className="text-muted-foreground hover:text-foreground p-0.5"
+                        title="View edit history"
+                      >
+                        <History className="h-3 w-3" />
+                      </button>
+                    )}
+                    {a.verificationStatus && a.verificationStatus !== "none" && (
+                      <VerificationBadge status={a.verificationStatus} />
+                    )}
+                    {a.paid && (
+                      <span className="text-xs text-green-600" title="Paid">
+                        $
+                      </span>
+                    )}
+                    {a.haredThisTrail && (
+                      <span className="text-xs text-orange-600" title="Hare">
+                        H
+                      </span>
+                    )}
+                    {a.isVirgin && (
+                      <span className="text-xs text-purple-600" title="Virgin">
+                        V
+                      </span>
+                    )}
+                    {a.isVisitor && (
+                      <span className="text-xs text-blue-600" title="Visitor">
+                        Vis
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  {a.verificationStatus && a.verificationStatus !== "none" && (
-                    <VerificationBadge status={a.verificationStatus} />
-                  )}
-                  {a.paid && (
-                    <span className="text-xs text-green-600" title="Paid">
-                      $
-                    </span>
-                  )}
-                  {a.haredThisTrail && (
-                    <span className="text-xs text-orange-600" title="Hare">
-                      H
-                    </span>
-                  )}
-                  {a.isVirgin && (
-                    <span className="text-xs text-purple-600" title="Virgin">
-                      V
-                    </span>
-                  )}
-                  {a.isVisitor && (
-                    <span className="text-xs text-blue-600" title="Visitor">
-                      Vis
-                    </span>
-                  )}
-                </div>
+                {expandedLogId === a.id && (
+                  <div className="ml-4 mt-1 mb-2 pl-3 border-l-2">
+                    {editLogs[a.id] ? (
+                      <EditHistoryTimeline log={editLogs[a.id]} />
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Loading...</p>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

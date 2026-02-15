@@ -5,6 +5,7 @@ import type {
   KennelAttendance,
   MismanRequest,
   KennelHasherLink,
+  EventHare,
 } from "@/generated/prisma/client";
 
 export function buildRawEvent(overrides?: Partial<RawEventData>): RawEventData {
@@ -93,6 +94,7 @@ export function buildKennelAttendance(
     referralSource: null,
     referralOther: null,
     recordedBy: "misman_1",
+    editLog: null,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
     ...overrides,
@@ -128,6 +130,20 @@ export function buildKennelHasherLink(
     dismissedBy: null,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
+    ...overrides,
+  };
+}
+
+export function buildEventHare(
+  overrides?: Partial<EventHare>,
+): EventHare {
+  return {
+    id: "eh_1",
+    eventId: "event_1",
+    hareName: "Mudflap",
+    userId: null,
+    role: "HARE",
+    sourceType: "MISMAN_SYNC",
     ...overrides,
   };
 }
