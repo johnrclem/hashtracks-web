@@ -33,11 +33,14 @@ import {
 const mockAdminAuth = vi.mocked(getAdminUser);
 const mockKennelFindFirst = vi.mocked(prisma.kennel.findFirst);
 const mockKennelFindUnique = vi.mocked(prisma.kennel.findUnique);
+const mockKennelFindMany = vi.mocked(prisma.kennel.findMany);
 const mockKennelCreate = vi.mocked(prisma.kennel.create);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockAdminAuth.mockResolvedValue(mockAdmin as never);
+  // findSimilarKennels() in createKennel needs this
+  mockKennelFindMany.mockResolvedValue([] as never);
 });
 
 describe("createKennel", () => {

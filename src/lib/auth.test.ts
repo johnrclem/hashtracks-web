@@ -5,7 +5,9 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     user: { findUnique: vi.fn(), create: vi.fn() },
     userKennel: { findUnique: vi.fn() },
-    rosterGroupKennel: { findUnique: vi.fn() },
+    kennel: { findUnique: vi.fn() },
+    rosterGroup: { create: vi.fn() },
+    rosterGroupKennel: { findUnique: vi.fn(), create: vi.fn() },
   },
 }));
 
@@ -168,12 +170,24 @@ describe("getRosterGroupId", () => {
     expect(result).toBe("rg_1");
   });
 
-  it("throws when kennel has no roster group", async () => {
+  it("auto-creates standalone group when kennel has no roster group", async () => {
     mockRosterGroupKennelFind.mockResolvedValueOnce(null);
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({
+      shortName: "TestH3",
+    } as never);
+    vi.mocked(prisma.rosterGroup.create).mockResolvedValueOnce({
+      id: "rg_new",
+    } as never);
+    vi.mocked(prisma.rosterGroupKennel.create).mockResolvedValueOnce({} as never);
 
-    await expect(getRosterGroupId("kennel_missing")).rejects.toThrow(
-      "Kennel kennel_missing has no RosterGroup",
-    );
+    const result = await getRosterGroupId("kennel_missing");
+    expect(result).toBe("rg_new");
+    expect(prisma.rosterGroup.create).toHaveBeenCalledWith({
+      data: { name: "TestH3" },
+    });
+    expect(prisma.rosterGroupKennel.create).toHaveBeenCalledWith({
+      data: { groupId: "rg_new", kennelId: "kennel_missing" },
+    });
   });
 });
 

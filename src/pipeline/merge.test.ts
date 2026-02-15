@@ -128,6 +128,7 @@ describe("processRawEvents", () => {
     expect(result).toEqual({
       created: 0, updated: 0, skipped: 0, blocked: 0,
       unmatched: [], blockedTags: [], eventErrors: 0, eventErrorMessages: [],
+      sampleBlocked: [], sampleSkipped: [],
     });
   });
 

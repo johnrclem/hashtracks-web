@@ -91,17 +91,25 @@ export async function getRosterKennelIds(
 /**
  * Get the rosterGroupId for a kennel.
  * Every kennel has exactly one RosterGroup (standalone or shared).
- * Throws if not found — this is a data integrity violation after migration.
+ * Self-healing: auto-creates a standalone group if none exists.
  */
 export async function getRosterGroupId(kennelId: string): Promise<string> {
   const groupKennel = await prisma.rosterGroupKennel.findUnique({
     where: { kennelId },
     select: { groupId: true },
   });
-  if (!groupKennel) {
-    throw new Error(
-      `Kennel ${kennelId} has no RosterGroup — data integrity error`,
-    );
-  }
-  return groupKennel.groupId;
+  if (groupKennel) return groupKennel.groupId;
+
+  // Auto-create standalone group (self-healing for missing entries)
+  const kennel = await prisma.kennel.findUnique({
+    where: { id: kennelId },
+    select: { shortName: true },
+  });
+  const group = await prisma.rosterGroup.create({
+    data: { name: kennel?.shortName ?? "Unknown" },
+  });
+  await prisma.rosterGroupKennel.create({
+    data: { groupId: group.id, kennelId },
+  });
+  return group.id;
 }
