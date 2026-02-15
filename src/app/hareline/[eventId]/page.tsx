@@ -50,6 +50,17 @@ export default async function EventDetailPage({
       kennel: {
         select: { shortName: true, fullName: true, slug: true, region: true },
       },
+      hares: {
+        select: {
+          id: true,
+          hareName: true,
+          userId: true,
+          role: true,
+          sourceType: true,
+          user: { select: { hashName: true } },
+        },
+        orderBy: { hareName: "asc" },
+      },
     },
   });
 
@@ -144,9 +155,34 @@ export default async function EventDetailPage({
         {event.startTime && (
           <DetailItem label="Start Time" value={formatTime(event.startTime)} />
         )}
-        {event.haresText && (
+        {event.hares.length > 0 ? (
+          <div>
+            <dt className="text-sm font-medium text-muted-foreground">Hares</dt>
+            <dd className="mt-0.5 flex flex-wrap gap-1">
+              {event.hares.map((hare) => (
+                <span key={hare.id} className="inline-flex items-center">
+                  {hare.userId ? (
+                    <Link
+                      href={`/hashers/${hare.userId}`}
+                      className="text-primary hover:underline"
+                    >
+                      {hare.hareName}
+                    </Link>
+                  ) : (
+                    <span>{hare.hareName}</span>
+                  )}
+                  {hare.role !== "HARE" && (
+                    <span className="ml-0.5 text-xs text-muted-foreground">
+                      ({hare.role === "CO_HARE" ? "Co-Hare" : "Live"})
+                    </span>
+                  )}
+                </span>
+              ))}
+            </dd>
+          </div>
+        ) : event.haresText ? (
           <DetailItem label="Hares" value={event.haresText} />
-        )}
+        ) : null}
         {event.locationName && (
           <div>
             <dt className="text-sm font-medium text-muted-foreground">Location</dt>

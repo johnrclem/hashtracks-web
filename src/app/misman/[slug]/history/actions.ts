@@ -180,6 +180,7 @@ export async function getHasherDetail(kennelId: string, hasherId: string) {
         isVirgin: a.isVirgin,
         isVisitor: a.isVisitor,
         createdAt: a.createdAt.toISOString(),
+        hasEdits: Array.isArray(a.editLog) && a.editLog.length > 1,
       })),
     },
   };

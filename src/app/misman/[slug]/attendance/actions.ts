@@ -2,12 +2,20 @@
 
 import { getMismanUser, getRosterGroupId, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import {
   computeSuggestionScores,
   LOOKBACK_DAYS,
   type SuggestionScore,
 } from "@/lib/misman/suggestions";
+import {
+  appendAuditLog,
+  buildFieldChanges,
+  TRACKED_ATTENDANCE_FIELDS,
+  type AuditLogEntry,
+} from "@/lib/misman/audit";
+import { syncEventHares } from "@/lib/misman/hare-sync";
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
@@ -74,6 +82,18 @@ export async function recordAttendance(
     return { error: "Hasher is not in this kennel's roster scope" };
   }
 
+  const initialAuditEntry: AuditLogEntry = {
+    action: "record",
+    timestamp: new Date().toISOString(),
+    userId: user.id,
+  };
+
+  // Check for existing record to build proper audit log on re-record (upsert update path)
+  const existing = await prisma.kennelAttendance.findUnique({
+    where: { kennelHasherId_eventId: { kennelHasherId, eventId } },
+    select: { editLog: true },
+  });
+
   await prisma.kennelAttendance.upsert({
     where: {
       kennelHasherId_eventId: { kennelHasherId, eventId },
@@ -87,6 +107,7 @@ export async function recordAttendance(
       referralSource: (data?.isVirgin || data?.isVisitor) ? (data?.referralSource as never) ?? null : null,
       referralOther: data?.referralSource === "OTHER" ? (data?.referralOther?.trim() || null) : null,
       recordedBy: user.id,
+      editLog: appendAuditLog(existing?.editLog ?? null, { ...initialAuditEntry, action: "record" }),
     },
     create: {
       kennelHasherId,
@@ -99,8 +120,12 @@ export async function recordAttendance(
       referralSource: (data?.isVirgin || data?.isVisitor) ? (data?.referralSource as never) ?? null : null,
       referralOther: data?.referralSource === "OTHER" ? (data?.referralOther?.trim() || null) : null,
       recordedBy: user.id,
+      editLog: [initialAuditEntry] as unknown as Prisma.InputJsonValue,
     },
   });
+
+  // Sync EventHare records for this event
+  await syncEventHares(eventId);
 
   return { success: true };
 }
@@ -117,7 +142,11 @@ export async function removeAttendance(kennelId: string, attendanceId: string) {
   });
   if (!record) return { error: "Attendance record not found" };
 
+  const { eventId: removedEventId } = record;
   await prisma.kennelAttendance.delete({ where: { id: attendanceId } });
+
+  // Sync EventHare records (removed hare will be cleaned up)
+  await syncEventHares(removedEventId);
 
   return { success: true };
 }
@@ -146,6 +175,12 @@ export async function updateAttendance(
   });
   if (!record) return { error: "Attendance record not found" };
 
+  // Snapshot current values for audit log
+  const before: Record<string, unknown> = {};
+  for (const field of TRACKED_ATTENDANCE_FIELDS) {
+    before[field] = record[field];
+  }
+
   const updateData: Record<string, unknown> = {};
 
   if (data.paid !== undefined) updateData.paid = data.paid;
@@ -170,10 +205,27 @@ export async function updateAttendance(
     updateData.referralOther = data.referralOther?.trim() || null;
   }
 
+  // Build field changes for audit log
+  const after = { ...before, ...updateData };
+  const changes = buildFieldChanges(before, after, [...TRACKED_ATTENDANCE_FIELDS]);
+  if (changes) {
+    updateData.editLog = appendAuditLog(record.editLog, {
+      action: "update",
+      timestamp: new Date().toISOString(),
+      userId: user.id,
+      changes,
+    });
+  }
+
   await prisma.kennelAttendance.update({
     where: { id: attendanceId },
     data: updateData,
   });
+
+  // Sync EventHare records when hare flag changes
+  if (data.haredThisTrail !== undefined) {
+    await syncEventHares(record.eventId);
+  }
 
   return { success: true };
 }
@@ -187,6 +239,11 @@ export async function clearEventAttendance(kennelId: string, eventId: string) {
 
   const result = await prisma.kennelAttendance.deleteMany({
     where: { eventId },
+  });
+
+  // Remove all misman-synced EventHare records for this event
+  await prisma.eventHare.deleteMany({
+    where: { eventId, sourceType: "MISMAN_SYNC" },
   });
 
   return { success: true, deleted: result.count };
@@ -232,6 +289,7 @@ export async function getEventAttendance(kennelId: string, eventId: string) {
       referralOther: r.referralOther,
       recordedBy: r.recordedByUser.hashName || r.recordedByUser.email,
       createdAt: r.createdAt.toISOString(),
+      hasEdits: Array.isArray(r.editLog) && r.editLog.length > 1,
     })),
   };
 }
@@ -278,7 +336,7 @@ export async function quickAddHasher(
     },
   });
 
-  // Record attendance
+  // Record attendance with initial audit entry
   await prisma.kennelAttendance.create({
     data: {
       kennelHasherId: hasher.id,
@@ -291,8 +349,12 @@ export async function quickAddHasher(
       referralSource: (data.isVirgin || data.isVisitor) ? (data.referralSource as never) ?? null : null,
       referralOther: data.referralSource === "OTHER" ? (data.referralOther?.trim() || null) : null,
       recordedBy: user.id,
+      editLog: [{ action: "record", timestamp: new Date().toISOString(), userId: user.id }] as unknown as Prisma.InputJsonValue,
     },
   });
+
+  // Sync EventHare records for this event
+  await syncEventHares(eventId);
 
   return { success: true, hasherId: hasher.id };
 }
@@ -396,4 +458,28 @@ export async function getHasherForEdit(kennelId: string, hasherId: string) {
   if (!hasher) return { error: "Hasher not found" };
 
   return { data: hasher };
+}
+
+/**
+ * Fetch the edit history log for a single attendance record.
+ * Used for lazy-loading the full audit trail in the UI.
+ */
+export async function getAttendanceEditLog(
+  kennelId: string,
+  attendanceId: string,
+): Promise<{ data?: AuditLogEntry[]; error?: string }> {
+  const user = await getMismanUser(kennelId);
+  if (!user) return { error: "Not authorized" };
+
+  const record = await prisma.kennelAttendance.findUnique({
+    where: { id: attendanceId },
+    select: { editLog: true },
+  });
+  if (!record) return { error: "Attendance record not found" };
+
+  const log = Array.isArray(record.editLog)
+    ? (record.editLog as unknown as AuditLogEntry[])
+    : [];
+
+  return { data: log };
 }

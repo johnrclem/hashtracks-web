@@ -7,6 +7,7 @@ const tabs = [
   { href: "attendance", label: "Attendance" },
   { href: "roster", label: "Roster" },
   { href: "history", label: "History" },
+  { href: "import", label: "Import" },
 ];
 
 export function MismanKennelNav({ slug }: { slug: string }) {
