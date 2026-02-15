@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-14
+Last updated: 2026-02-15
 
 ---
 
@@ -156,7 +156,7 @@ Last updated: 2026-02-14
 - [ ] **Admin-editable participation levels**: Migrate enum to reference table for custom levels per community
 - [ ] **"Beez There" checkbox**: Optional flag on attendance (nice-to-have, deferred from Sprint 5)
 
-### Kennel Attendance Management (Misman Tool) — Sprints 8a-8d COMPLETE
+### Kennel Attendance Management (Misman Tool) — Sprints 8a-8e COMPLETE
 **Goal**: Replace kennel mismanagement's Google Sheet attendance tracking with a dedicated tool tied to HashTracks events.
 
 See [misman-attendance-requirements.md](misman-attendance-requirements.md) for full requirements and decisions log.
@@ -170,10 +170,12 @@ See [misman-implementation-plan.md](misman-implementation-plan.md) for detailed 
 - [x] **Per-attendance fields**: paid (boolean), hare (boolean), virgin (manual annotation), visitor (with location), referral source (dropdown)
 - [x] **Attendance history**: Per-event and per-hasher views with date filtering and pagination
 - [x] **UX polish**: Confirmation dialogs (AlertDialog) for destructive actions, kennel switcher dropdown, History links on dashboard, semantic toggle colors
-- [ ] **Smart suggestions**: Surface frequent/regular/recent attendees at top of form for fast population
-- [ ] **User linking**: Fuzzy-match suggestions for linking KennelHasher → site User, misman manually confirms
-- [ ] **Logbook sync**: Pending confirmations section on `/logbook` for linked users (suggest-and-confirm, no auto-sync)
+- [x] **Smart suggestions**: Weighted scoring (50% frequency + 30% recency + 20% streak) surfaces likely attendees as tap-to-add chips on attendance form
+- [x] **User linking**: Fuzzy-match (Levenshtein, ≥0.7 threshold) for linking KennelHasher → site User; suggest/confirm/dismiss/revoke workflow
+- [x] **Logbook sync**: Pending confirmations section on `/logbook` for linked users (confirm creates logbook entry with isVerified=true)
+- [x] **Verification badges**: Derived verification status (verified/misman-only/user-only) shown on hasher detail attendance rows
 - [ ] **CSV export**: Export attendance history to CSV
+- **Pending**: Sprint 8f — roster group admin UI, duplicate merge workflow
 - **Deferred**: Hash cash amounts, auto-detect virgins, hare→EventHare sync, cross-kennel directory, historical CSV import, notification system
 
 ### CSV Import (Bulk History)

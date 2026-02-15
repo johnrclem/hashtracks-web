@@ -22,11 +22,13 @@ import {
   clearEventAttendance,
   getEventAttendance,
   quickAddHasher,
+  getSuggestions,
 } from "@/app/misman/[slug]/attendance/actions";
 import { searchRoster } from "@/app/misman/[slug]/roster/actions";
 import { EventSelector } from "./EventSelector";
 import { AttendanceRow } from "./AttendanceRow";
 import { HasherSearch } from "./HasherSearch";
+import { SuggestionList } from "./SuggestionList";
 
 interface EventOption {
   id: string;
@@ -71,8 +73,18 @@ export function AttendanceForm({
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [suggestions, setSuggestions] = useState<
+    Array<{ kennelHasherId: string; hashName: string | null; nerdName: string | null; score: number }>
+  >([]);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  // Fetch suggestions once on mount (stable within a session)
+  useEffect(() => {
+    getSuggestions(kennelId).then((result) => {
+      if (result.data) setSuggestions(result.data);
+    });
+  }, [kennelId]);
 
   // Fetch attendance data for selected event
   const fetchAttendance = useCallback(async () => {
@@ -217,6 +229,16 @@ export function AttendanceForm({
               </span>
             )}
           </div>
+
+          {/* Smart suggestions */}
+          {suggestions.length > 0 && (
+            <SuggestionList
+              suggestions={suggestions}
+              attendedHasherIds={attendedHasherIds}
+              onSelect={handleAddHasher}
+              disabled={isPending || !selectedEventId}
+            />
+          )}
 
           {/* Hasher search / add */}
           <HasherSearch

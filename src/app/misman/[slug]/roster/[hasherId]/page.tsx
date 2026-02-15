@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { HasherDetail } from "@/components/misman/HasherDetail";
+import { deriveVerificationStatus, type VerificationStatus } from "@/lib/misman/verification";
 
 interface Props {
   params: Promise<{ slug: string; hasherId: string }>;
@@ -69,6 +70,7 @@ export default async function HasherDetailPage({ params }: Props) {
     createdAt: hasher.createdAt.toISOString(),
     userLink: hasher.userLink
       ? {
+          id: hasher.userLink.id,
           status: hasher.userLink.status,
           userHashName: hasher.userLink.user.hashName,
           userEmail: hasher.userLink.user.email,
@@ -93,8 +95,27 @@ export default async function HasherDetailPage({ params }: Props) {
       isVirgin: a.isVirgin,
       isVisitor: a.isVisitor,
       createdAt: a.createdAt.toISOString(),
+      verificationStatus: "none" as VerificationStatus,
     })),
   };
+
+  // Compute verification statuses when hasher is linked to a user
+  if (hasher.userLink?.status === "CONFIRMED") {
+    const linkedUserId = hasher.userLink.userId;
+    const eventIds = hasher.attendances.map((a) => a.eventId);
+    const userAttendances = await prisma.attendance.findMany({
+      where: { userId: linkedUserId, eventId: { in: eventIds } },
+      select: { eventId: true },
+    });
+    const userEventIds = new Set(userAttendances.map((a) => a.eventId));
+
+    for (const entry of serialized.attendances) {
+      entry.verificationStatus = deriveVerificationStatus({
+        hasKennelAttendance: true, // All entries here are misman-recorded
+        hasUserAttendance: userEventIds.has(entry.eventId),
+      });
+    }
+  }
 
   return <HasherDetail hasher={serialized} kennelSlug={slug} />;
 }

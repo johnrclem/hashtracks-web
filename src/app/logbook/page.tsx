@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { LogbookList } from "@/components/logbook/LogbookList";
+import { PendingConfirmations } from "@/components/logbook/PendingConfirmations";
 
 export const metadata: Metadata = {
   title: "My Logbook · HashTracks",
@@ -66,7 +67,8 @@ export default async function LogbookPage() {
         </Link>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 space-y-6">
+        <PendingConfirmations />
         <LogbookList entries={entries} />
       </div>
     </div>

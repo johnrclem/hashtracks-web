@@ -15,7 +15,14 @@ vi.mock("@/lib/db", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
-    kennelHasherLink: { deleteMany: vi.fn() },
+    kennelHasherLink: {
+      deleteMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+    },
+    userKennel: { findMany: vi.fn() },
     kennel: { findUnique: vi.fn() },
     $transaction: vi.fn((arr: unknown[]) => Promise.all(arr)),
   },
@@ -29,6 +36,10 @@ import {
   updateKennelHasher,
   deleteKennelHasher,
   searchRoster,
+  suggestUserLinks,
+  createUserLink,
+  dismissUserLink,
+  revokeUserLink,
 } from "./actions";
 
 const mockMismanAuth = vi.mocked(getMismanUser);
@@ -237,5 +248,204 @@ describe("searchRoster", () => {
         where: { kennelId: { in: ["kennel_1"] } },
       }),
     );
+  });
+});
+
+// ── USER LINKING TESTS ──
+
+describe("suggestUserLinks", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(await suggestUserLinks("kennel_1")).toEqual({
+      error: "Not authorized",
+    });
+  });
+
+  it("returns matches above threshold", async () => {
+    // Unlinked hasher with name "Mudflap"
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      { id: "kh_1", hashName: "Mudflap", nerdName: "John Doe" },
+    ] as never);
+
+    // User with matching hash name
+    vi.mocked(prisma.userKennel.findMany).mockResolvedValueOnce([
+      {
+        user: { id: "user_1", hashName: "Mudflap", nerdName: "John D.", email: "mud@test.com" },
+      },
+    ] as never);
+
+    const result = await suggestUserLinks("kennel_1");
+    expect(result.data).toHaveLength(1);
+    expect(result.data![0]).toEqual(
+      expect.objectContaining({
+        kennelHasherId: "kh_1",
+        userId: "user_1",
+        matchField: "hashName",
+      }),
+    );
+    expect(result.data![0].matchScore).toBe(1);
+  });
+
+  it("returns empty when no hashers are unlinked", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([] as never);
+
+    const result = await suggestUserLinks("kennel_1");
+    expect(result.data).toEqual([]);
+  });
+
+  it("ignores matches below threshold", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      { id: "kh_1", hashName: "Mudflap", nerdName: null },
+    ] as never);
+
+    vi.mocked(prisma.userKennel.findMany).mockResolvedValueOnce([
+      {
+        user: { id: "user_1", hashName: "Zephyr", nerdName: null, email: "z@test.com" },
+      },
+    ] as never);
+
+    const result = await suggestUserLinks("kennel_1");
+    expect(result.data).toEqual([]);
+  });
+});
+
+describe("createUserLink", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(await createUserLink("kennel_1", "kh_1", "user_1")).toEqual({
+      error: "Not authorized",
+    });
+  });
+
+  it("returns error when hasher not found", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce(null);
+    expect(await createUserLink("kennel_1", "kh_1", "user_1")).toEqual({
+      error: "Hasher not found",
+    });
+  });
+
+  it("returns error when hasher already has an active link", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      id: "kh_1",
+      kennelId: "kennel_1",
+      userLink: { id: "link_1", status: "SUGGESTED" },
+      kennel: { slug: "nych3" },
+    } as never);
+
+    expect(await createUserLink("kennel_1", "kh_1", "user_1")).toEqual({
+      error: "This hasher already has an active link",
+    });
+  });
+
+  it("creates a SUGGESTED link successfully", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      id: "kh_1",
+      kennelId: "kennel_1",
+      userLink: null,
+      kennel: { slug: "nych3" },
+    } as never);
+    vi.mocked(prisma.kennelHasherLink.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.kennelHasherLink.create).mockResolvedValueOnce({} as never);
+
+    const result = await createUserLink("kennel_1", "kh_1", "user_1");
+    expect(result).toEqual({ success: true });
+    expect(prisma.kennelHasherLink.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        kennelHasherId: "kh_1",
+        userId: "user_1",
+        status: "SUGGESTED",
+        suggestedBy: "misman_1",
+      }),
+    });
+  });
+
+  it("blocks when user is already linked in roster scope", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      id: "kh_1",
+      kennelId: "kennel_1",
+      userLink: null,
+      kennel: { slug: "nych3" },
+    } as never);
+    vi.mocked(prisma.kennelHasherLink.findFirst).mockResolvedValueOnce({
+      id: "existing_link",
+    } as never);
+
+    const result = await createUserLink("kennel_1", "kh_1", "user_1");
+    expect(result.error).toContain("already linked to another hasher");
+  });
+});
+
+describe("dismissUserLink", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(await dismissUserLink("kennel_1", "link_1")).toEqual({
+      error: "Not authorized",
+    });
+  });
+
+  it("returns error when link not found", async () => {
+    vi.mocked(prisma.kennelHasherLink.findUnique).mockResolvedValueOnce(null);
+    expect(await dismissUserLink("kennel_1", "link_1")).toEqual({
+      error: "Link not found",
+    });
+  });
+
+  it("updates link status to DISMISSED", async () => {
+    vi.mocked(prisma.kennelHasherLink.findUnique).mockResolvedValueOnce({
+      id: "link_1",
+      kennelHasher: { kennel: { slug: "nych3" } },
+    } as never);
+    vi.mocked(prisma.kennelHasherLink.update).mockResolvedValueOnce({} as never);
+
+    const result = await dismissUserLink("kennel_1", "link_1");
+    expect(result).toEqual({ success: true });
+    expect(prisma.kennelHasherLink.update).toHaveBeenCalledWith({
+      where: { id: "link_1" },
+      data: { status: "DISMISSED", dismissedBy: "misman_1" },
+    });
+  });
+});
+
+describe("revokeUserLink", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(await revokeUserLink("kennel_1", "link_1")).toEqual({
+      error: "Not authorized",
+    });
+  });
+
+  it("returns error when link not found", async () => {
+    vi.mocked(prisma.kennelHasherLink.findUnique).mockResolvedValueOnce(null);
+    expect(await revokeUserLink("kennel_1", "link_1")).toEqual({
+      error: "Link not found",
+    });
+  });
+
+  it("returns error when link is not CONFIRMED", async () => {
+    vi.mocked(prisma.kennelHasherLink.findUnique).mockResolvedValueOnce({
+      id: "link_1",
+      status: "SUGGESTED",
+      kennelHasher: { kennel: { slug: "nych3" } },
+    } as never);
+
+    expect(await revokeUserLink("kennel_1", "link_1")).toEqual({
+      error: "Can only revoke confirmed links",
+    });
+  });
+
+  it("revokes a confirmed link by setting to DISMISSED", async () => {
+    vi.mocked(prisma.kennelHasherLink.findUnique).mockResolvedValueOnce({
+      id: "link_1",
+      status: "CONFIRMED",
+      kennelHasher: { kennel: { slug: "nych3" } },
+    } as never);
+    vi.mocked(prisma.kennelHasherLink.update).mockResolvedValueOnce({} as never);
+
+    const result = await revokeUserLink("kennel_1", "link_1");
+    expect(result).toEqual({ success: true });
+    expect(prisma.kennelHasherLink.update).toHaveBeenCalledWith({
+      where: { id: "link_1" },
+      data: { status: "DISMISSED", dismissedBy: "misman_1" },
+    });
   });
 });

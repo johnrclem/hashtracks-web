@@ -30,6 +30,7 @@ interface HasherRow {
   phone: string | null;
   notes: string | null;
   attendanceCount: number;
+  linkStatus?: string | null;
 }
 
 interface RosterTableProps {
@@ -183,14 +184,22 @@ export function RosterTable({
               sorted.map((h) => (
                 <tr key={h.id} className="border-b last:border-0">
                   <td className="px-3 py-2 font-medium">
-                    <Link
-                      href={`/misman/${kennelSlug}/roster/${h.id}`}
-                      className="hover:underline"
-                    >
-                      {h.hashName || (
-                        <span className="text-muted-foreground italic">—</span>
+                    <div className="flex items-center gap-1.5">
+                      <Link
+                        href={`/misman/${kennelSlug}/roster/${h.id}`}
+                        className="hover:underline"
+                      >
+                        {h.hashName || (
+                          <span className="text-muted-foreground italic">—</span>
+                        )}
+                      </Link>
+                      {h.linkStatus === "CONFIRMED" && (
+                        <span className="text-xs text-green-600" title="Linked to user">L</span>
                       )}
-                    </Link>
+                      {h.linkStatus === "SUGGESTED" && (
+                        <span className="text-xs text-yellow-600" title="Link pending">P</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {h.nerdName || "—"}
