@@ -6,6 +6,7 @@ import type {
   MismanRequest,
   KennelHasherLink,
   EventHare,
+  MismanInvite,
 } from "@/generated/prisma/client";
 
 export function buildRawEvent(overrides?: Partial<RawEventData>): RawEventData {
@@ -144,6 +145,25 @@ export function buildEventHare(
     userId: null,
     role: "HARE",
     sourceType: "MISMAN_SYNC",
+    ...overrides,
+  };
+}
+
+export function buildMismanInvite(
+  overrides?: Partial<MismanInvite>,
+): MismanInvite {
+  return {
+    id: "mi_1",
+    kennelId: "kennel_1",
+    inviterId: "misman_1",
+    inviteeEmail: null,
+    token: "test-token-abc123",
+    status: "PENDING",
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    acceptedBy: null,
+    acceptedAt: null,
+    revokedAt: null,
+    createdAt: new Date("2026-01-01"),
     ...overrides,
   };
 }

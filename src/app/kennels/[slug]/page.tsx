@@ -21,6 +21,7 @@ import { SubscribeButton } from "@/components/kennels/SubscribeButton";
 import { MismanAccessButton } from "@/components/kennels/MismanAccessButton";
 import type { HarelineEvent } from "@/components/hareline/EventCard";
 import { CollapsibleEventList } from "@/components/kennels/CollapsibleEventList";
+import { MismanManagementSection } from "@/components/kennels/MismanManagementSection";
 
 export default async function KennelDetailPage({
   params,
@@ -127,6 +128,14 @@ export default async function KennelDetailPage({
           isAuthenticated={!!user}
         />
       </div>
+
+      {/* Misman Management — visible only to mismans/admins */}
+      {(userRole === "MISMAN" || userRole === "ADMIN") && (
+        <MismanManagementSection
+          kennelId={kennel.id}
+          kennelShortName={kennel.shortName}
+        />
+      )}
 
       {kennel.description && (
         <p className="text-muted-foreground">{kennel.description}</p>

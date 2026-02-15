@@ -58,6 +58,7 @@ calendar + personal logbook + kennel directory.
 - CRON_SECRET=            # Secret for Vercel Cron auth (set in Vercel dashboard)
 - GOOGLE_CALENDAR_API_KEY= # For Google Calendar + Sheets APIs
 - GITHUB_TOKEN=           # GitHub PAT with repo scope (for filing issues from alerts)
+- NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model (THE source of truth for types)
