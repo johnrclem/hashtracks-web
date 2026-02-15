@@ -15,6 +15,7 @@ import {
   getOrCreateUser,
   getAdminUser,
   getMismanUser,
+  getRosterGroupId,
   getRosterKennelIds,
 } from "./auth";
 
@@ -154,6 +155,25 @@ describe("getMismanUser", () => {
     mockUserKennelFind.mockResolvedValueOnce(null);
 
     expect(await getMismanUser("kennel_1")).toBeNull();
+  });
+});
+
+describe("getRosterGroupId", () => {
+  it("returns groupId for a kennel in a roster group", async () => {
+    mockRosterGroupKennelFind.mockResolvedValueOnce({
+      groupId: "rg_1",
+    } as never);
+
+    const result = await getRosterGroupId("kennel_1");
+    expect(result).toBe("rg_1");
+  });
+
+  it("throws when kennel has no roster group", async () => {
+    mockRosterGroupKennelFind.mockResolvedValueOnce(null);
+
+    await expect(getRosterGroupId("kennel_missing")).rejects.toThrow(
+      "Kennel kennel_missing has no RosterGroup",
+    );
   });
 });
 

@@ -372,24 +372,28 @@ enum ReferralSource {
 // ── KENNEL ROSTER ──
 
 model KennelHasher {
-  id        String   @id @default(cuid())
-  kennelId  String
-  hashName  String?  // Public display name (primary identifier)
-  nerdName  String?  // Real name (private, visible to misman only)
-  email     String?  // Contact email (private, visible to misman only)
-  phone     String?  // Mobile phone (private, visible to misman only)
-  notes     String?  // Internal misman notes
+  id             String   @id @default(cuid())
+  rosterGroupId  String   // Primary scope — every hasher belongs to a RosterGroup
+  kennelId       String?  // "Created via" metadata — which kennel's misman added this entry
+  hashName       String?  // Public display name (primary identifier)
+  nerdName       String?  // Real name (private, visible to misman only)
+  email          String?  // Contact email (private, visible to misman only)
+  phone          String?  // Mobile phone (private, visible to misman only)
+  notes          String?  // Internal misman notes
+  mergeLog       Json?    // Audit trail for merge operations
 
-  kennel      Kennel              @relation(fields: [kennelId], references: [id])
+  rosterGroup RosterGroup         @relation(fields: [rosterGroupId], references: [id])
+  kennel      Kennel?             @relation(fields: [kennelId], references: [id])
   attendances KennelAttendance[]
   userLink    KennelHasherLink?
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
   // At least one of hashName or nerdName must be provided (enforced in app logic)
+  @@index([rosterGroupId])
+  @@index([rosterGroupId, hashName])
+  @@index([rosterGroupId, nerdName])
   @@index([kennelId])
-  @@index([kennelId, hashName])
-  @@index([kennelId, nerdName])
 }
 
 // ── USER ↔ KENNEL HASHER LINKING ──
@@ -461,10 +465,11 @@ model MismanRequest {
 // ── ROSTER GROUPS (Cross-Kennel Roster Sharing) ──
 
 model RosterGroup {
-  id      String              @id @default(cuid())
-  name    String              // "NYC Metro", "Philly Area"
-  kennels RosterGroupKennel[]
-  createdAt DateTime          @default(now())
+  id             String              @id @default(cuid())
+  name           String              // "NYC Metro", "Philly Area"
+  kennels        RosterGroupKennel[]
+  kennelHashers  KennelHasher[]
+  createdAt      DateTime            @default(now())
 }
 
 model RosterGroupKennel {

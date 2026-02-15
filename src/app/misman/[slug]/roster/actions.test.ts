@@ -4,6 +4,7 @@ const mockMisman = { id: "misman_1", email: "misman@test.com" };
 
 vi.mock("@/lib/auth", () => ({
   getMismanUser: vi.fn(),
+  getRosterGroupId: vi.fn(),
   getRosterKennelIds: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
@@ -14,6 +15,7 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      deleteMany: vi.fn(),
     },
     kennelHasherLink: {
       deleteMany: vi.fn(),
@@ -22,6 +24,11 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(),
       findFirst: vi.fn(),
     },
+    kennelAttendance: {
+      findMany: vi.fn(),
+      update: vi.fn(),
+      deleteMany: vi.fn(),
+    },
     userKennel: { findMany: vi.fn() },
     kennel: { findUnique: vi.fn() },
     $transaction: vi.fn((arr: unknown[]) => Promise.all(arr)),
@@ -29,7 +36,7 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
+import { getMismanUser, getRosterGroupId, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
   createKennelHasher,
@@ -40,14 +47,19 @@ import {
   createUserLink,
   dismissUserLink,
   revokeUserLink,
+  scanDuplicates,
+  previewMerge,
+  executeMerge,
 } from "./actions";
 
 const mockMismanAuth = vi.mocked(getMismanUser);
+const mockRosterGroupId = vi.mocked(getRosterGroupId);
 const mockRosterKennelIds = vi.mocked(getRosterKennelIds);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockMismanAuth.mockResolvedValue(mockMisman as never);
+  mockRosterGroupId.mockResolvedValue("rg_1");
   mockRosterKennelIds.mockResolvedValue(["kennel_1"]);
 });
 
@@ -88,6 +100,7 @@ describe("createKennelHasher", () => {
     expect(result).toEqual({ success: true, hasherId: "kh_new" });
     expect(prisma.kennelHasher.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        rosterGroupId: "rg_1",
         kennelId: "kennel_1",
         hashName: "Mudflap",
         email: "mud@test.com",
@@ -123,8 +136,8 @@ describe("updateKennelHasher", () => {
       id: "kh_1",
       kennelId: "kennel_1",
       kennel: { slug: "nych3" },
+      rosterGroup: { kennels: [{ kennelId: "kennel_1" }] },
     } as never);
-    mockRosterKennelIds.mockResolvedValueOnce(["kennel_1"]);
     mockMismanAuth.mockReset();
     mockMismanAuth.mockResolvedValue(null);
 
@@ -138,6 +151,7 @@ describe("updateKennelHasher", () => {
       id: "kh_1",
       kennelId: "kennel_1",
       kennel: { slug: "nych3" },
+      rosterGroup: { kennels: [{ kennelId: "kennel_1" }] },
     } as never);
     mockMismanAuth.mockResolvedValue(mockMisman as never);
 
@@ -169,6 +183,7 @@ describe("deleteKennelHasher", () => {
       id: "kh_1",
       kennelId: "kennel_1",
       kennel: { slug: "nych3" },
+      rosterGroup: { kennels: [{ kennelId: "kennel_1" }] },
       _count: { attendances: 0 },
     } as never);
     mockMismanAuth.mockResolvedValueOnce(null);
@@ -183,6 +198,7 @@ describe("deleteKennelHasher", () => {
       id: "kh_1",
       kennelId: "kennel_1",
       kennel: { slug: "nych3" },
+      rosterGroup: { kennels: [{ kennelId: "kennel_1" }] },
       _count: { attendances: 5 },
     } as never);
 
@@ -195,6 +211,7 @@ describe("deleteKennelHasher", () => {
       id: "kh_1",
       kennelId: "kennel_1",
       kennel: { slug: "nych3" },
+      rosterGroup: { kennels: [{ kennelId: "kennel_1" }] },
       _count: { attendances: 0 },
     } as never);
 
@@ -212,7 +229,6 @@ describe("searchRoster", () => {
   });
 
   it("searches across roster group scope", async () => {
-    mockRosterKennelIds.mockResolvedValueOnce(["kennel_1", "kennel_2"]);
     vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
       {
         id: "kh_1",
@@ -233,7 +249,7 @@ describe("searchRoster", () => {
     expect(prisma.kennelHasher.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          kennelId: { in: ["kennel_1", "kennel_2"] },
+          rosterGroupId: "rg_1",
         }),
       }),
     );
@@ -245,7 +261,7 @@ describe("searchRoster", () => {
     await searchRoster("kennel_1", "");
     expect(prisma.kennelHasher.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { kennelId: { in: ["kennel_1"] } },
+        where: { rosterGroupId: "rg_1" },
       }),
     );
   });
@@ -327,6 +343,7 @@ describe("createUserLink", () => {
   it("returns error when hasher already has an active link", async () => {
     vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
       id: "kh_1",
+      rosterGroupId: "rg_1",
       kennelId: "kennel_1",
       userLink: { id: "link_1", status: "SUGGESTED" },
       kennel: { slug: "nych3" },
@@ -340,6 +357,7 @@ describe("createUserLink", () => {
   it("creates a SUGGESTED link successfully", async () => {
     vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
       id: "kh_1",
+      rosterGroupId: "rg_1",
       kennelId: "kennel_1",
       userLink: null,
       kennel: { slug: "nych3" },
@@ -362,6 +380,7 @@ describe("createUserLink", () => {
   it("blocks when user is already linked in roster scope", async () => {
     vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
       id: "kh_1",
+      rosterGroupId: "rg_1",
       kennelId: "kennel_1",
       userLink: null,
       kennel: { slug: "nych3" },
@@ -447,5 +466,253 @@ describe("revokeUserLink", () => {
       where: { id: "link_1" },
       data: { status: "DISMISSED", dismissedBy: "misman_1" },
     });
+  });
+});
+
+// ── MERGE DUPLICATES TESTS ──
+
+describe("scanDuplicates", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(await scanDuplicates("kennel_1")).toEqual({
+      error: "Not authorized",
+    });
+  });
+
+  it("finds duplicate pairs above threshold", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      { id: "kh_1", hashName: "Mudflap", nerdName: null },
+      { id: "kh_2", hashName: "Mudfllap", nerdName: null }, // Typo variant
+      { id: "kh_3", hashName: "Zephyr", nerdName: null },
+    ] as never);
+
+    const result = await scanDuplicates("kennel_1");
+    expect(result.data).toHaveLength(1);
+    expect(result.data![0]).toEqual(
+      expect.objectContaining({
+        hasherId1: "kh_1",
+        hasherId2: "kh_2",
+        matchField: "hashName",
+      }),
+    );
+    expect(result.data![0].score).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it("returns empty when no duplicates", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      { id: "kh_1", hashName: "Mudflap", nerdName: null },
+      { id: "kh_2", hashName: "Zephyr", nerdName: null },
+    ] as never);
+
+    const result = await scanDuplicates("kennel_1");
+    expect(result.data).toEqual([]);
+  });
+
+  it("detects cross-field matches (hashName vs nerdName)", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      { id: "kh_1", hashName: "John Doe", nerdName: null },
+      { id: "kh_2", hashName: null, nerdName: "John Doe" },
+    ] as never);
+
+    const result = await scanDuplicates("kennel_1");
+    expect(result.data).toHaveLength(1);
+    expect(result.data![0].matchField).toBe("hashName↔nerdName");
+  });
+});
+
+describe("previewMerge", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(await previewMerge("kennel_1", "kh_1", ["kh_2"])).toEqual({
+      error: "Not authorized",
+    });
+  });
+
+  it("returns combined stats and no conflict", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      {
+        id: "kh_1", rosterGroupId: "rg_1", hashName: "Mudflap",
+        nerdName: null, email: "a@t.com", phone: null, notes: null,
+        userLink: null, _count: { attendances: 5 },
+      },
+      {
+        id: "kh_2", rosterGroupId: "rg_1", hashName: "Mudfllap",
+        nerdName: null, email: null, phone: null, notes: null,
+        userLink: null, _count: { attendances: 3 },
+      },
+    ] as never);
+
+    // 1 overlapping event, 5 unique total
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([
+      { kennelHasherId: "kh_1", eventId: "e1" },
+      { kennelHasherId: "kh_1", eventId: "e2" },
+      { kennelHasherId: "kh_1", eventId: "e3" },
+      { kennelHasherId: "kh_2", eventId: "e3" }, // overlap
+      { kennelHasherId: "kh_2", eventId: "e4" },
+      { kennelHasherId: "kh_2", eventId: "e5" },
+    ] as never);
+
+    const result = await previewMerge("kennel_1", "kh_1", ["kh_2"]);
+    expect(result.data).toBeDefined();
+    expect(result.data!.totalAttendance).toBe(5);
+    expect(result.data!.overlapCount).toBe(1);
+    expect(result.data!.hasConflictingLinks).toBe(false);
+    expect(result.data!.primary.id).toBe("kh_1");
+  });
+
+  it("detects conflicting user links", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      {
+        id: "kh_1", rosterGroupId: "rg_1", hashName: "A", nerdName: null,
+        email: null, phone: null, notes: null,
+        userLink: { id: "l1", userId: "user_1", status: "CONFIRMED" },
+        _count: { attendances: 0 },
+      },
+      {
+        id: "kh_2", rosterGroupId: "rg_1", hashName: "B", nerdName: null,
+        email: null, phone: null, notes: null,
+        userLink: { id: "l2", userId: "user_2", status: "CONFIRMED" },
+        _count: { attendances: 0 },
+      },
+    ] as never);
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([] as never);
+
+    const result = await previewMerge("kennel_1", "kh_1", ["kh_2"]);
+    expect(result.data!.hasConflictingLinks).toBe(true);
+  });
+
+  it("allows merge when linked to same user", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      {
+        id: "kh_1", rosterGroupId: "rg_1", hashName: "A", nerdName: null,
+        email: null, phone: null, notes: null,
+        userLink: { id: "l1", userId: "user_1", status: "CONFIRMED" },
+        _count: { attendances: 0 },
+      },
+      {
+        id: "kh_2", rosterGroupId: "rg_1", hashName: "B", nerdName: null,
+        email: null, phone: null, notes: null,
+        userLink: { id: "l2", userId: "user_1", status: "SUGGESTED" },
+        _count: { attendances: 0 },
+      },
+    ] as never);
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([] as never);
+
+    const result = await previewMerge("kennel_1", "kh_1", ["kh_2"]);
+    expect(result.data!.hasConflictingLinks).toBe(false);
+  });
+});
+
+describe("executeMerge", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    expect(
+      await executeMerge("kennel_1", "kh_1", ["kh_2"], {}),
+    ).toEqual({ error: "Not authorized" });
+  });
+
+  it("blocks merge when linked to different users", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      {
+        id: "kh_1", rosterGroupId: "rg_1", hashName: "A",
+        userLink: { id: "l1", userId: "user_1", status: "CONFIRMED" },
+        kennel: { slug: "nych3" }, mergeLog: null,
+      },
+      {
+        id: "kh_2", rosterGroupId: "rg_1", hashName: "B",
+        userLink: { id: "l2", userId: "user_2", status: "CONFIRMED" },
+        kennel: { slug: "nych3" }, mergeLog: null,
+      },
+    ] as never);
+
+    const result = await executeMerge("kennel_1", "kh_1", ["kh_2"], {});
+    expect(result.error).toContain("linked to different users");
+  });
+
+  it("merges successfully with OR-merged attendance and reassignment", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      {
+        id: "kh_1", rosterGroupId: "rg_1", hashName: "Mudflap",
+        nerdName: null, email: "a@t.com", phone: null, notes: null,
+        userLink: null, kennel: { slug: "nych3" }, mergeLog: null,
+      },
+      {
+        id: "kh_2", rosterGroupId: "rg_1", hashName: "Mudfllap",
+        nerdName: "John", email: null, phone: null, notes: null,
+        userLink: null, kennel: { slug: "nych3" }, mergeLog: null,
+      },
+    ] as never);
+
+    // Primary has e1 (paid=false), secondary has e1 (paid=true) + e2
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([
+      {
+        id: "ka_1", kennelHasherId: "kh_1", eventId: "e1",
+        paid: false, haredThisTrail: false, isVirgin: false,
+        isVisitor: false, visitorLocation: null,
+      },
+      {
+        id: "ka_2", kennelHasherId: "kh_2", eventId: "e1",
+        paid: true, haredThisTrail: true, isVirgin: false,
+        isVisitor: false, visitorLocation: null,
+      },
+      {
+        id: "ka_3", kennelHasherId: "kh_2", eventId: "e2",
+        paid: true, haredThisTrail: false, isVirgin: false,
+        isVisitor: false, visitorLocation: null,
+      },
+    ] as never);
+
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({
+      slug: "nych3",
+    } as never);
+
+    const result = await executeMerge("kennel_1", "kh_1", ["kh_2"], {
+      hashName: "Mudflap",
+    });
+    expect(result).toEqual({ success: true, mergedCount: 1 });
+
+    // Verify $transaction was called
+    expect(prisma.$transaction).toHaveBeenCalled();
+  });
+
+  it("transfers user link from secondary to primary", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      {
+        id: "kh_1", rosterGroupId: "rg_1", hashName: "A",
+        nerdName: null, email: null, phone: null, notes: null,
+        userLink: null, kennel: { slug: "nych3" }, mergeLog: null,
+      },
+      {
+        id: "kh_2", rosterGroupId: "rg_1", hashName: "B",
+        nerdName: null, email: null, phone: null, notes: null,
+        userLink: { id: "l1", userId: "user_1", status: "CONFIRMED" },
+        kennel: { slug: "nych3" }, mergeLog: null,
+      },
+    ] as never);
+
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({
+      slug: "nych3",
+    } as never);
+
+    const result = await executeMerge("kennel_1", "kh_1", ["kh_2"], {});
+    expect(result).toEqual({ success: true, mergedCount: 1 });
+    expect(prisma.$transaction).toHaveBeenCalled();
+  });
+
+  it("returns error when hasher not in roster group", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      {
+        id: "kh_1", rosterGroupId: "rg_1", hashName: "A",
+        userLink: null, kennel: null, mergeLog: null,
+      },
+      {
+        id: "kh_2", rosterGroupId: "other_rg", hashName: "B",
+        userLink: null, kennel: null, mergeLog: null,
+      },
+    ] as never);
+
+    const result = await executeMerge("kennel_1", "kh_1", ["kh_2"], {});
+    expect(result.error).toContain("same roster group");
   });
 });

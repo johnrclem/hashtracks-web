@@ -1,6 +1,6 @@
 "use server";
 
-import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
+import { getMismanUser, getRosterGroupId, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 /**
@@ -94,7 +94,7 @@ export async function getHasherDetail(kennelId: string, hasherId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const rosterKennelIds = await getRosterKennelIds(kennelId);
+  const rosterGroupId = await getRosterGroupId(kennelId);
 
   const hasher = await prisma.kennelHasher.findUnique({
     where: { id: hasherId },
@@ -124,7 +124,7 @@ export async function getHasherDetail(kennelId: string, hasherId: string) {
   });
 
   if (!hasher) return { error: "Hasher not found" };
-  if (!rosterKennelIds.includes(hasher.kennelId)) {
+  if (hasher.rosterGroupId !== rosterGroupId) {
     return { error: "Hasher is not in this kennel's roster scope" };
   }
 
@@ -146,7 +146,8 @@ export async function getHasherDetail(kennelId: string, hasherId: string) {
     data: {
       id: hasher.id,
       kennelId: hasher.kennelId,
-      kennelShortName: hasher.kennel.shortName,
+      rosterGroupId: hasher.rosterGroupId,
+      kennelShortName: hasher.kennel?.shortName ?? null,
       hashName: hasher.hashName,
       nerdName: hasher.nerdName,
       email: hasher.email,
@@ -229,6 +230,7 @@ export async function seedRosterFromHares(kennelId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
+  const rosterGroupId = await getRosterGroupId(kennelId);
   const rosterKennelIds = await getRosterKennelIds(kennelId);
   const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
 
@@ -257,7 +259,7 @@ export async function seedRosterFromHares(kennelId: string) {
 
   // Get existing roster entries for fuzzy dedup
   const existing = await prisma.kennelHasher.findMany({
-    where: { kennelId: { in: rosterKennelIds } },
+    where: { rosterGroupId },
     select: { hashName: true, nerdName: true },
   });
 
@@ -282,6 +284,7 @@ export async function seedRosterFromHares(kennelId: string) {
   // Create new KennelHasher entries
   const created = await prisma.kennelHasher.createMany({
     data: newNames.map((name) => ({
+      rosterGroupId,
       kennelId,
       hashName: name,
     })),

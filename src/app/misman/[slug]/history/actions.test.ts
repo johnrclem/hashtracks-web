@@ -4,6 +4,7 @@ const mockMisman = { id: "misman_1", email: "misman@test.com" };
 
 vi.mock("@/lib/auth", () => ({
   getMismanUser: vi.fn(),
+  getRosterGroupId: vi.fn(),
   getRosterKennelIds: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
@@ -14,7 +15,7 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { getMismanUser, getRosterKennelIds } from "@/lib/auth";
+import { getMismanUser, getRosterGroupId, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
   getAttendanceHistory,
@@ -23,11 +24,13 @@ import {
 } from "./actions";
 
 const mockMismanAuth = vi.mocked(getMismanUser);
+const mockRosterGroupId = vi.mocked(getRosterGroupId);
 const mockRosterKennelIds = vi.mocked(getRosterKennelIds);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockMismanAuth.mockResolvedValue(mockMisman as never);
+  mockRosterGroupId.mockResolvedValue("rg_1");
   mockRosterKennelIds.mockResolvedValue(["kennel_1"]);
 });
 
@@ -144,6 +147,7 @@ describe("getHasherDetail", () => {
   it("returns error when hasher not in roster scope", async () => {
     vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
       id: "kh_1",
+      rosterGroupId: "other_rg",
       kennelId: "other_kennel",
       hashName: "Mudflap",
       nerdName: null,
@@ -165,6 +169,7 @@ describe("getHasherDetail", () => {
     const eventDate = new Date("2026-01-15T12:00:00Z");
     vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
       id: "kh_1",
+      rosterGroupId: "rg_1",
       kennelId: "kennel_1",
       hashName: "Mudflap",
       nerdName: "John Doe",
@@ -209,6 +214,7 @@ describe("getHasherDetail", () => {
   it("includes user link data when present", async () => {
     vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
       id: "kh_1",
+      rosterGroupId: "rg_1",
       kennelId: "kennel_1",
       hashName: "Mudflap",
       nerdName: null,
@@ -280,7 +286,7 @@ describe("seedRosterFromHares", () => {
     expect(result.success).toBe(true);
     expect(result.created).toBe(1);
     expect(vi.mocked(prisma.kennelHasher.createMany)).toHaveBeenCalledWith({
-      data: [{ kennelId: "kennel_1", hashName: "New Hasher" }],
+      data: [{ rosterGroupId: "rg_1", kennelId: "kennel_1", hashName: "New Hasher" }],
     });
   });
 
@@ -322,7 +328,7 @@ describe("seedRosterFromHares", () => {
     expect(result.success).toBe(true);
     expect(result.created).toBe(1);
     expect(vi.mocked(prisma.kennelHasher.createMany)).toHaveBeenCalledWith({
-      data: [{ kennelId: "kennel_1", hashName: "Mudflap" }],
+      data: [{ rosterGroupId: "rg_1", kennelId: "kennel_1", hashName: "Mudflap" }],
     });
   });
 
@@ -363,10 +369,10 @@ describe("seedRosterFromHares", () => {
       }),
     );
 
-    // Should query existing hashers from both kennels
+    // Should query existing hashers by roster group
     expect(vi.mocked(prisma.kennelHasher.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { kennelId: { in: ["kennel_1", "kennel_2"] } },
+        where: { rosterGroupId: "rg_1" },
       }),
     );
   });

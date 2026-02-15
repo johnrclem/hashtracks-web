@@ -314,6 +314,30 @@ async function main() {
     console.log(`  ✓ Linked ${group.kennelShortNames.length} kennels to ${group.name}`);
   }
 
+  // Ensure every kennel has a RosterGroup (standalone kennels get single-member groups)
+  console.log("Ensuring all kennels have a roster group...");
+  for (const [shortName, record] of Object.entries(kennelRecords)) {
+    const existing = await prisma.rosterGroupKennel.findUnique({
+      where: { kennelId: record.id },
+    });
+    if (!existing) {
+      let group = await prisma.rosterGroup.findFirst({
+        where: { name: shortName },
+      });
+      if (!group) {
+        group = await prisma.rosterGroup.create({
+          data: { name: shortName },
+        });
+      }
+      await prisma.rosterGroupKennel.upsert({
+        where: { kennelId: record.id },
+        update: { groupId: group.id },
+        create: { groupId: group.id, kennelId: record.id },
+      });
+      console.log(`  + Created standalone group for ${shortName}`);
+    }
+  }
+
   console.log("\nSeed complete!");
   await prisma.$disconnect();
 }

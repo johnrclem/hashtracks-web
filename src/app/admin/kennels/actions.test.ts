@@ -5,9 +5,14 @@ const mockAdmin = { id: "admin_1", clerkId: "clerk_admin", email: "admin@test.co
 vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
-    kennel: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    kennel: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     kennelAlias: { deleteMany: vi.fn() },
     sourceKennel: { deleteMany: vi.fn() },
+    kennelAttendance: { count: vi.fn() },
+    kennelHasher: { deleteMany: vi.fn() },
+    kennelHasherLink: { deleteMany: vi.fn() },
+    rosterGroupKennel: { deleteMany: vi.fn() },
+    mismanRequest: { deleteMany: vi.fn() },
     userKennel: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
     user: { findUnique: vi.fn() },
     $transaction: vi.fn((arr: unknown[]) => Promise.all(arr)),
@@ -146,10 +151,20 @@ describe("deleteKennel", () => {
     expect(result.error).toContain("3 subscriber(s)");
   });
 
-  it("deletes kennel when no events or members", async () => {
+  it("returns error when kennel has attendance records", async () => {
     mockKennelFindUnique.mockResolvedValueOnce({
       id: "k1", _count: { events: 0, members: 0 },
     } as never);
+    vi.mocked(prisma.kennelAttendance.count).mockResolvedValueOnce(12);
+    const result = await deleteKennel("k1");
+    expect(result.error).toContain("12 attendance record(s)");
+  });
+
+  it("deletes kennel when no events, members, or attendance", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce({
+      id: "k1", _count: { events: 0, members: 0 },
+    } as never);
+    vi.mocked(prisma.kennelAttendance.count).mockResolvedValueOnce(0);
     const result = await deleteKennel("k1");
     expect(result).toEqual({ success: true });
   });

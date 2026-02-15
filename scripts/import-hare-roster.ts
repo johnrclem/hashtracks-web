@@ -86,9 +86,23 @@ async function main() {
       continue;
     }
 
+    // Look up roster group for this kennel
+    const rosterGroupKennel = await prisma.rosterGroupKennel.findUnique({
+      where: { kennelId: kennel.id },
+      select: { groupId: true },
+    });
+
+    if (!rosterGroupKennel) {
+      console.warn(`  ⚠ Kennel "${kennelShortName}" has no RosterGroup — skipping ${data.count} hares`);
+      totalSkipped += data.count;
+      continue;
+    }
+
+    const rosterGroupId = rosterGroupKennel.groupId;
+
     // Get existing roster entries (case-insensitive dedup)
     const existing = await prisma.kennelHasher.findMany({
-      where: { kennelId: kennel.id },
+      where: { rosterGroupId },
       select: { hashName: true, nerdName: true },
     });
 
@@ -112,6 +126,7 @@ async function main() {
     // Create new KennelHasher entries
     const result = await prisma.kennelHasher.createMany({
       data: newHares.map((h) => ({
+        rosterGroupId,
         kennelId: kennel.id,
         hashName: h.name,
       })),

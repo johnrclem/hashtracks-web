@@ -49,6 +49,9 @@ export default async function AdminLayout({
           <TabsTrigger value="sources" asChild>
             <Link href="/admin/sources">Sources</Link>
           </TabsTrigger>
+          <TabsTrigger value="roster-groups" asChild>
+            <Link href="/admin/roster-groups">Roster Groups</Link>
+          </TabsTrigger>
           <TabsTrigger value="events" asChild>
             <Link href="/admin/events">Events</Link>
           </TabsTrigger>

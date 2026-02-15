@@ -183,22 +183,45 @@ No roadmap dependencies — this feature is independent of the unfinished source
 
 ---
 
-### Sprint 8f: Roster Groups Admin + Merge Duplicates
+### Sprint 8f: rosterGroupId Migration + Merge Duplicates + Roster Groups Admin ✅
 
-**Goal**: Admin roster group management and the duplicate merge workflow.
+**Goal**: Migrate KennelHasher scoping from `kennelId` to `rosterGroupId`, add merge duplicates workflow, admin roster group management, and kennel deletion guard.
 
-**Roster Groups** (`src/app/admin/roster-groups/`):
-- CRUD: create group, add/remove kennels, delete group
-- Duplicate scan on kennel addition (fuzzy match across combined roster)
-- Tab in admin layout
+**Schema migration** (`prisma/schema.prisma`):
+- Added `rosterGroupId` (required) to KennelHasher — explicit roster group scoping
+- Added `mergeLog Json?` to KennelHasher — audit trail for merge operations
+- Made `kennelId` nullable — kept as "created via" metadata
+- Backfill: auto-created single-member RosterGroups for standalone kennels
+- New indexes: `rosterGroupId`, `[rosterGroupId, hashName]`, `[rosterGroupId, nerdName]`
 
-**Merge duplicates** (roster actions):
-- `previewMerge(primaryId, secondaryIds[])` — preview combined stats, conflicts, link status
-- `executeMerge(primaryId, secondaryIds[], choices)` — transaction: reassign attendance (OR-merge for same-event dupes), transfer link, delete losers, log audit
+**Auth** (`src/lib/auth.ts`):
+- Added `getRosterGroupId(kennelId)` — looks up RosterGroupKennel, returns groupId
+
+**Core refactoring** (all roster/attendance/history actions):
+- All hasher queries switched from `kennelId: { in: getRosterKennelIds() }` to `rosterGroupId`
+- `createKennelHasher`, `quickAddHasher`, `seedRosterFromHares` all set `rosterGroupId` on new records
+- Auth checks for update/delete use `rosterGroup.kennels` relation instead of `getRosterKennelIds`
+- Nullable `kennelId` handled in UI components (HasherDetail, RosterTable)
+
+**Merge duplicates** (`src/app/misman/[slug]/roster/actions.ts`):
+- `scanDuplicates(kennelId)` — pairwise fuzzy matching across roster group (threshold ≥ 0.7)
+- `previewMerge(kennelId, primaryId, secondaryIds[])` — combined stats, overlap count, conflicting link detection
+- `executeMerge(kennelId, primaryId, secondaryIds[], choices)` — transaction: OR-merge booleans for overlapping events, reassign non-overlapping, transfer user link, write mergeLog, delete secondaries
 - Block merge if linked to different Users
 
+**Merge UI**:
+- `DuplicateScanResults` — scan button + results list with similarity scores + merge dialog trigger
+- `MergePreviewDialog` — side-by-side comparison, primary selector, stats, conflict warning, confirm
+
+**Roster Groups admin** (`src/app/admin/roster-groups/`):
+- CRUD: getRosterGroups, createRosterGroup, addKennelToGroup, removeKennelFromGroup, renameRosterGroup, deleteRosterGroup
+- Admin page with shared/standalone group display, rename, dissolve, remove kennel
+- Tab in admin layout (between Sources and Events)
+
 **Kennel deletion guard** (`src/app/admin/kennels/actions.ts`):
-- Block deletion if KennelAttendance exists; cascade clean if no attendance data
+- Block deletion if KennelAttendance exists; cascade-delete misman records (KennelHasherLink, KennelHasher, RosterGroupKennel, MismanRequest) when safe
+
+**Tests**: 28 new tests (auth 2, roster merge 17, admin roster groups 12, kennel deletion guard 2; net +27 after updating existing tests)
 
 ---
 
@@ -242,8 +265,12 @@ Sprints 8d and 8e can run in parallel after 8c.
 | `src/lib/misman/suggestions.ts` | 8e | Scoring algorithm (pure function) |
 | `src/lib/misman/verification.ts` | 8e | Derived verification status |
 | `src/app/logbook/page.tsx` | 8e | Pending confirmations section |
-| `src/app/admin/roster-groups/` | 8f | New admin page |
-| `prisma/seed.ts` | 8d | RosterGroup seeding |
+| `src/app/admin/roster-groups/` | 8f | New admin page (CRUD) |
+| `src/components/admin/RosterGroupsAdmin.tsx` | 8f | Client component for roster group management |
+| `src/components/misman/DuplicateScanResults.tsx` | 8f | Scan button + results list + merge trigger |
+| `src/components/misman/MergePreviewDialog.tsx` | 8f | Side-by-side merge preview + confirm |
+| `scripts/import-hare-roster.ts` | 8f | Updated for rosterGroupId |
+| `prisma/seed.ts` | 8d, 8f | RosterGroup seeding + standalone group auto-creation |
 
 ## Risks
 
