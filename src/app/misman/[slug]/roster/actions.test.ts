@@ -601,6 +601,65 @@ describe("previewMerge", () => {
     const result = await previewMerge("kennel_1", "kh_1", ["kh_2"]);
     expect(result.data!.hasConflictingLinks).toBe(false);
   });
+
+  it("recommends linked hasher as primary when only secondary is linked", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      {
+        id: "kh_1", rosterGroupId: "rg_1", hashName: "A", nerdName: null,
+        email: null, phone: null, notes: null,
+        userLink: null, _count: { attendances: 5 },
+      },
+      {
+        id: "kh_2", rosterGroupId: "rg_1", hashName: "B", nerdName: null,
+        email: null, phone: null, notes: null,
+        userLink: { id: "l1", userId: "user_1", status: "CONFIRMED" },
+        _count: { attendances: 2 },
+      },
+    ] as never);
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([] as never);
+
+    const result = await previewMerge("kennel_1", "kh_1", ["kh_2"]);
+    expect(result.data!.recommendedPrimaryId).toBe("kh_2");
+  });
+
+  it("recommends linked hasher as primary when only primary is linked", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      {
+        id: "kh_1", rosterGroupId: "rg_1", hashName: "A", nerdName: null,
+        email: null, phone: null, notes: null,
+        userLink: { id: "l1", userId: "user_1", status: "CONFIRMED" },
+        _count: { attendances: 2 },
+      },
+      {
+        id: "kh_2", rosterGroupId: "rg_1", hashName: "B", nerdName: null,
+        email: null, phone: null, notes: null,
+        userLink: null, _count: { attendances: 5 },
+      },
+    ] as never);
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([] as never);
+
+    const result = await previewMerge("kennel_1", "kh_1", ["kh_2"]);
+    expect(result.data!.recommendedPrimaryId).toBe("kh_1");
+  });
+
+  it("recommends hasher with more attendance when neither is linked", async () => {
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValueOnce([
+      {
+        id: "kh_1", rosterGroupId: "rg_1", hashName: "A", nerdName: null,
+        email: null, phone: null, notes: null,
+        userLink: null, _count: { attendances: 2 },
+      },
+      {
+        id: "kh_2", rosterGroupId: "rg_1", hashName: "B", nerdName: null,
+        email: null, phone: null, notes: null,
+        userLink: null, _count: { attendances: 7 },
+      },
+    ] as never);
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([] as never);
+
+    const result = await previewMerge("kennel_1", "kh_1", ["kh_2"]);
+    expect(result.data!.recommendedPrimaryId).toBe("kh_2");
+  });
 });
 
 describe("executeMerge", () => {

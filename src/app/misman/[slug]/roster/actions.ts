@@ -593,6 +593,23 @@ export async function previewMerge(
   const primary = hashers.find((h) => h.id === primaryId)!;
   const secondaries = hashers.filter((h) => h.id !== primaryId);
 
+  // Recommend the linked hasher as primary (prefer preserving user links)
+  const linkedHashers = hashers.filter(
+    (h) => h.userLink && h.userLink.status !== "DISMISSED",
+  );
+  let recommendedPrimaryId = primaryId;
+  if (linkedHashers.length === 1) {
+    // Exactly one is linked → recommend it
+    recommendedPrimaryId = linkedHashers[0].id;
+  } else if (linkedHashers.length === 0) {
+    // Neither linked → prefer the one with more attendance
+    const sorted = [...hashers].sort(
+      (a, b) => b._count.attendances - a._count.attendances,
+    );
+    recommendedPrimaryId = sorted[0].id;
+  }
+  // If both are linked (same user), keep the caller's choice
+
   return {
     data: {
       primary: {
@@ -618,6 +635,7 @@ export async function previewMerge(
       totalAttendance: allEventIds.size,
       overlapCount,
       hasConflictingLinks,
+      recommendedPrimaryId,
     },
   };
 }

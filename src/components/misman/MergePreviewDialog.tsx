@@ -43,6 +43,7 @@ interface PreviewData {
   totalAttendance: number;
   overlapCount: number;
   hasConflictingLinks: boolean;
+  recommendedPrimaryId?: string;
 }
 
 export function MergePreviewDialog({
@@ -63,8 +64,14 @@ export function MergePreviewDialog({
 
   const secondaryId = primaryId === hasherId1 ? hasherId2 : hasherId1;
 
+  // On open, fetch preview with initial primary; apply recommendation once
+  const [recommendationApplied, setRecommendationApplied] = useState(false);
+
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setRecommendationApplied(false);
+      return;
+    }
     setLoading(true);
     previewMerge(kennelId, primaryId, [secondaryId]).then((result) => {
       if (result.error) {
@@ -72,10 +79,16 @@ export function MergePreviewDialog({
         onClose();
         return;
       }
-      setPreview(result.data ?? null);
+      const data = result.data ?? null;
+      setPreview(data);
+      // Apply recommendation on first load (before user has interacted)
+      if (data?.recommendedPrimaryId && !recommendationApplied) {
+        setPrimaryId(data.recommendedPrimaryId);
+        setRecommendationApplied(true);
+      }
       setLoading(false);
     });
-  }, [open, kennelId, primaryId, secondaryId, onClose]);
+  }, [open, kennelId, primaryId, secondaryId, onClose, recommendationApplied]);
 
   function handleMerge() {
     if (!preview) return;
@@ -121,6 +134,7 @@ export function MergePreviewDialog({
                   onClick={() => setPrimaryId(hasherId1)}
                 >
                   {name1}
+                  {preview.recommendedPrimaryId === hasherId1 && " *"}
                 </Button>
                 <Button
                   size="sm"
@@ -128,8 +142,14 @@ export function MergePreviewDialog({
                   onClick={() => setPrimaryId(hasherId2)}
                 >
                   {name2}
+                  {preview.recommendedPrimaryId === hasherId2 && " *"}
                 </Button>
               </div>
+              {preview.recommendedPrimaryId && preview.recommendedPrimaryId !== hasherId1 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  * Recommended — has user link
+                </p>
+              )}
             </div>
 
             {/* Stats */}
