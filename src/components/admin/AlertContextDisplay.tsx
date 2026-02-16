@@ -90,20 +90,89 @@ function StructureChangeContext({
 }) {
   const prev = (context.previousHash as string)?.slice(0, 16);
   const curr = (context.currentHash as string)?.slice(0, 16);
+  const qualityImpacted = context.qualityImpacted as boolean | undefined;
+  const prevEventCount = context.previousEventCount as number | undefined;
+  const currEventCount = context.currentEventCount as number | undefined;
+  const fillBaseline = context.fillRateBaseline as Record<string, number> | undefined;
+  const fillCurrent = context.fillRateCurrent as Record<string, number> | undefined;
+
+  // Legacy context (before quality enrichment) — fall back to hash-only display
+  const hasQualityData = prevEventCount !== undefined;
 
   return (
-    <div className="text-xs mt-1 space-y-1">
-      <div className="flex gap-2">
-        <span className="text-muted-foreground">Previous:</span>
-        <code className="text-[10px] bg-muted px-1 rounded">{prev}...</code>
-      </div>
-      <div className="flex gap-2">
-        <span className="text-muted-foreground">Current:</span>
-        <code className="text-[10px] bg-muted px-1 rounded">{curr}...</code>
-      </div>
+    <div className="text-xs mt-1 space-y-2">
+      {/* Impact badge */}
+      {hasQualityData && (
+        <div
+          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+            qualityImpacted
+              ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+              : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+          }`}
+        >
+          {qualityImpacted
+            ? "Data quality may be affected"
+            : "No impact on data quality"}
+        </div>
+      )}
+
+      {/* Metrics comparison */}
+      {hasQualityData && (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-md bg-muted/50 p-2">
+            <div className="text-muted-foreground">Events</div>
+            <div className="text-sm">
+              <span className="text-muted-foreground">{prevEventCount}</span>
+              <span className="mx-1">→</span>
+              <span className="font-semibold">{currEventCount}</span>
+            </div>
+          </div>
+          {fillBaseline && fillCurrent && (
+            <div className="rounded-md bg-muted/50 p-2">
+              <div className="text-muted-foreground">Fill rates</div>
+              <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px]">
+                {(["title", "location", "hares", "startTime", "runNumber"] as const).map(
+                  (field) => {
+                    const base = fillBaseline[field] ?? 0;
+                    const curr = fillCurrent[field] ?? 0;
+                    const changed = base !== curr;
+                    return (
+                      <span key={field} className={changed ? "font-medium" : "text-muted-foreground"}>
+                        <span className="capitalize">{field === "startTime" ? "ST" : field === "runNumber" ? "R#" : field.charAt(0).toUpperCase()}</span>
+                        {changed ? (
+                          <span className={curr < base ? " text-red-600" : " text-green-600"}>
+                            {" "}{base}→{curr}%
+                          </span>
+                        ) : (
+                          <span> {curr}%</span>
+                        )}
+                      </span>
+                    );
+                  },
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Guidance */}
       <p className="text-muted-foreground">
-        The site template may have been updated. Check if event extraction still works.
+        {qualityImpacted
+          ? "The source HTML changed and data quality has degraded. Investigate the source page for template changes that may require adapter updates."
+          : hasQualityData
+            ? "The source HTML changed but event extraction is working normally. This alert will auto-resolve on the next stable scrape."
+            : "The site template may have been updated. Check if event extraction still works."}
       </p>
+
+      {/* Hash fingerprints (secondary detail) */}
+      <div className="flex gap-3 text-muted-foreground/60">
+        <span>
+          <code className="text-[10px] bg-muted px-1 rounded">{prev}</code>
+          {" → "}
+          <code className="text-[10px] bg-muted px-1 rounded">{curr}</code>
+        </span>
+      </div>
     </div>
   );
 }

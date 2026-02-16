@@ -156,13 +156,54 @@ export async function analyzeHealth(
       const prevHash = recentSuccessful.find(
         (l) => l.structureHash,
       )?.structureHash;
-      if (prevHash && prevHash !== input.structureHash) {
+
+      if (prevHash && prevHash === input.structureHash) {
+        // Hash is stable — auto-resolve any open STRUCTURE_CHANGE alerts
+        await autoResolveStructureAlerts(sourceId);
+      } else if (prevHash && prevHash !== input.structureHash) {
+        // Compute quality impact by comparing current metrics to baseline
+        const prevEventCount = Math.round(
+          recentSuccessful.reduce((sum, l) => sum + l.eventsFound, 0) /
+            recentSuccessful.length,
+        );
+        const fillRateBaseline = {
+          title: avgFillRate(recentSuccessful, "fillRateTitle"),
+          location: avgFillRate(recentSuccessful, "fillRateLocation"),
+          hares: avgFillRate(recentSuccessful, "fillRateHares"),
+          startTime: avgFillRate(recentSuccessful, "fillRateStartTime"),
+          runNumber: avgFillRate(recentSuccessful, "fillRateRunNumber"),
+        };
+
+        const eventCountDropPct =
+          prevEventCount > 0
+            ? Math.round(((prevEventCount - input.eventsFound) / prevEventCount) * 100)
+            : 0;
+        const maxFillDrop = Math.max(
+          ...Object.entries(fillRateBaseline).map(([key, baseline]) => {
+            const current = input.fillRates[key as keyof typeof input.fillRates];
+            return baseline >= 50 ? baseline - current : 0;
+          }),
+        );
+        const qualityImpacted = eventCountDropPct > 20 || maxFillDrop > 15;
+
         alerts.push({
           type: "STRUCTURE_CHANGE",
-          severity: "WARNING",
-          title: "HTML structure changed",
-          details: `Structural fingerprint changed from ${prevHash.slice(0, 12)}... to ${input.structureHash.slice(0, 12)}.... The site template may have been updated.`,
-          context: { previousHash: prevHash, currentHash: input.structureHash },
+          severity: qualityImpacted ? "WARNING" : "INFO",
+          title: qualityImpacted
+            ? "HTML structure changed — data quality may be affected"
+            : "HTML structure changed (no impact on data quality)",
+          details: qualityImpacted
+            ? `Structural fingerprint changed and scrape quality has degraded. Event count: ${prevEventCount} → ${input.eventsFound}. Investigate the source page for template changes.`
+            : `Structural fingerprint changed but event extraction is working normally. Event count: ${prevEventCount} → ${input.eventsFound}.`,
+          context: {
+            previousHash: prevHash,
+            currentHash: input.structureHash,
+            previousEventCount: prevEventCount,
+            currentEventCount: input.eventsFound,
+            fillRateBaseline,
+            fillRateCurrent: input.fillRates,
+            qualityImpacted,
+          },
         });
       }
     }
@@ -284,6 +325,38 @@ export async function persistAlerts(
         title: candidate.title,
         details: candidate.details,
         ...(candidate.context ? { context: candidate.context as Prisma.InputJsonValue } : {}),
+      },
+    });
+  }
+}
+
+/** Compute average fill rate from recent scrape logs for a given field. */
+function avgFillRate(
+  logs: { fillRateTitle: number | null; fillRateLocation: number | null; fillRateHares: number | null; fillRateStartTime: number | null; fillRateRunNumber: number | null }[],
+  field: "fillRateTitle" | "fillRateLocation" | "fillRateHares" | "fillRateStartTime" | "fillRateRunNumber",
+): number {
+  const rates = logs.map((l) => l[field]).filter((v): v is number => v != null);
+  if (rates.length === 0) return 0;
+  return Math.round(rates.reduce((sum, v) => sum + v, 0) / rates.length);
+}
+
+/** Auto-resolve open STRUCTURE_CHANGE alerts when structure hash stabilizes. */
+async function autoResolveStructureAlerts(sourceId: string): Promise<void> {
+  const openAlerts = await prisma.alert.findMany({
+    where: {
+      sourceId,
+      type: "STRUCTURE_CHANGE",
+      status: { in: ["OPEN", "ACKNOWLEDGED"] },
+    },
+  });
+
+  for (const alert of openAlerts) {
+    await prisma.alert.update({
+      where: { id: alert.id },
+      data: {
+        status: "RESOLVED",
+        resolvedAt: new Date(),
+        details: (alert.details ?? "") + " [Auto-resolved: structure stabilized on subsequent scrape]",
       },
     });
   }
