@@ -2,7 +2,6 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { redeemMismanInvite } from "@/app/misman/invite/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -17,11 +16,50 @@ export default async function InvitePage({ params }: Props) {
   const user = await getOrCreateUser();
 
   if (user) {
-    // Authenticated: attempt to redeem immediately
-    const result = await redeemMismanInvite(token);
+    // Authenticated: redeem invite inline (can't call server actions during render)
+    const invite = await prisma.mismanInvite.findUnique({
+      where: { token },
+      include: { kennel: { select: { slug: true } } },
+    });
 
-    if (result.success) {
-      redirect(`/kennels/${result.kennelSlug}?invited=true`);
+    let error: string | null = null;
+    if (!invite) {
+      error = "Invite not found";
+    } else if (invite.status === "ACCEPTED") {
+      error = "This invite has already been used";
+    } else if (invite.status === "REVOKED") {
+      error = "This invite was cancelled";
+    } else if (invite.status !== "PENDING") {
+      error = "This invite is no longer valid";
+    } else if (invite.expiresAt <= new Date()) {
+      error = "This invite has expired";
+    }
+
+    if (!error && invite) {
+      // Grant MISMAN role
+      await prisma.userKennel.upsert({
+        where: {
+          userId_kennelId: { userId: user.id, kennelId: invite.kennelId },
+        },
+        update: { role: "MISMAN" },
+        create: {
+          userId: user.id,
+          kennelId: invite.kennelId,
+          role: "MISMAN",
+        },
+      });
+
+      // Mark invite accepted
+      await prisma.mismanInvite.update({
+        where: { id: invite.id },
+        data: {
+          status: "ACCEPTED",
+          acceptedBy: user.id,
+          acceptedAt: new Date(),
+        },
+      });
+
+      redirect(`/kennels/${invite.kennel.slug}?invited=true`);
     }
 
     // Redemption failed — show error
@@ -29,7 +67,7 @@ export default async function InvitePage({ params }: Props) {
       <div className="mx-auto max-w-md space-y-6 py-12">
         <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center">
           <h1 className="text-xl font-bold">Unable to accept invite</h1>
-          <p className="mt-2 text-muted-foreground">{result.error}</p>
+          <p className="mt-2 text-muted-foreground">{error}</p>
           <Button asChild className="mt-4" variant="outline">
             <Link href="/hareline">Go to Hareline</Link>
           </Button>
