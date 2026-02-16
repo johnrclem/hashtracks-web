@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  addKennelToGroup,
   removeKennelFromGroup,
   renameRosterGroup,
   deleteRosterGroup,
@@ -59,6 +60,7 @@ interface RosterGroupsAdminProps {
 
 export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroupsAdminProps) {
   const [deleteTarget, setDeleteTarget] = useState<RosterGroupData | null>(null);
+  const [editTarget, setEditTarget] = useState<RosterGroupData | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -227,6 +229,14 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
                     <Button
                       size="sm"
                       variant="ghost"
+                      onClick={() => setEditTarget(group)}
+                      disabled={isPending}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       onClick={() => handleRename(group.id, group.name)}
                       disabled={isPending}
                     >
@@ -311,6 +321,18 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
           .filter((g) => g.kennels.length === 1)
           .map((g) => g.kennels[0])}
       />
+
+      {/* Edit Group dialog */}
+      {editTarget && (
+        <EditGroupDialog
+          group={editTarget}
+          standaloneKennels={standaloneGroups
+            .filter((g) => g.kennels.length === 1)
+            .map((g) => g.kennels[0])}
+          open={!!editTarget}
+          onClose={() => setEditTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -419,6 +441,139 @@ function CreateGroupDialog({
             disabled={isPending || !name.trim() || selectedIds.size < 2}
           >
             {isPending ? "Creating..." : "Create Group"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditGroupDialog({
+  group,
+  standaloneKennels,
+  open,
+  onClose,
+}: {
+  group: RosterGroupData;
+  standaloneKennels: Array<{ id: string; shortName: string }>;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const currentIds = new Set(group.kennels.map((k) => k.id));
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(currentIds));
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  // All available kennels: current group members + standalone
+  const allKennels = [
+    ...group.kennels.map((k) => ({ id: k.id, shortName: k.shortName })),
+    ...standaloneKennels,
+  ].sort((a, b) => a.shortName.localeCompare(b.shortName));
+
+  function handleToggle(kennelId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(kennelId)) {
+        next.delete(kennelId);
+      } else {
+        next.add(kennelId);
+      }
+      return next;
+    });
+  }
+
+  function handleSave() {
+    const toAdd = [...selectedIds].filter((id) => !currentIds.has(id));
+    const toRemove = [...currentIds].filter((id) => !selectedIds.has(id));
+
+    if (toAdd.length === 0 && toRemove.length === 0) {
+      onClose();
+      return;
+    }
+
+    startTransition(async () => {
+      let hasError = false;
+
+      for (const kennelId of toAdd) {
+        const result = await addKennelToGroup(group.id, kennelId);
+        if (result.error) {
+          toast.error(result.error);
+          hasError = true;
+          break;
+        }
+      }
+
+      if (!hasError) {
+        for (const kennelId of toRemove) {
+          const result = await removeKennelFromGroup(group.id, kennelId);
+          if (result.error) {
+            toast.error(result.error);
+            hasError = true;
+            break;
+          }
+        }
+      }
+
+      if (!hasError) {
+        const changes = [];
+        if (toAdd.length > 0) changes.push(`${toAdd.length} added`);
+        if (toRemove.length > 0) changes.push(`${toRemove.length} removed`);
+        toast.success(`Group updated (${changes.join(", ")})`);
+      }
+
+      onClose();
+      router.refresh();
+    });
+  }
+
+  function handleOpenChange(v: boolean) {
+    if (!v) {
+      setSelectedIds(new Set(currentIds));
+      onClose();
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit {group.name}</DialogTitle>
+          <DialogDescription>
+            Check kennels to include in this group. Unchecked kennels become standalone.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 py-2">
+          <Label>Kennels ({selectedIds.size} selected)</Label>
+          <div className="max-h-60 overflow-y-auto space-y-2 rounded-md border p-3">
+            {allKennels.map((k) => (
+              <div key={k.id} className="flex items-center gap-2">
+                <Checkbox
+                  id={`edit-kennel-${k.id}`}
+                  checked={selectedIds.has(k.id)}
+                  onCheckedChange={() => handleToggle(k.id)}
+                />
+                <Label
+                  htmlFor={`edit-kennel-${k.id}`}
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  {k.shortName}
+                  {currentIds.has(k.id) && (
+                    <span className="ml-1 text-xs text-muted-foreground">(current)</span>
+                  )}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isPending || selectedIds.size < 2}
+          >
+            {isPending ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>
