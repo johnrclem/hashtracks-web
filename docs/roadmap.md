@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-15
+Last updated: 2026-02-16
 
 ---
 
@@ -28,10 +28,10 @@ Last updated: 2026-02-15
 ### Current Stats
 - 24 kennels, 82 aliases, 7 sources, 25 source-kennel links
 - 3 adapter types: HTML_SCRAPER, GOOGLE_CALENDAR, GOOGLE_SHEETS
-- 21 models, 18 enums in Prisma schema
-- 577 tests across 34 test files
+- 21 models, 16 enums in Prisma schema
+- 585 tests across 34 test files
 - Multi-source merge: BFM calendar + website combined via fingerprint dedup
-- Scrape logging: 5 fill rate metrics per run, 3 error categories, sample event capture (3 per category)
+- Scrape logging: structured errors, performance timing, diagnostic context, sample event capture
 
 ---
 

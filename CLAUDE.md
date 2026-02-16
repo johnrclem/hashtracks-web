@@ -61,7 +61,7 @@ calendar + personal logbook + kennel directory.
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
 
 ## Important Files
-- `prisma/schema.prisma` — Full data model, 21 models + 18 enums (THE source of truth for types)
+- `prisma/schema.prisma` — Full data model, 21 models + 16 enums (THE source of truth for types)
 - `prisma/seed.ts` — Launch kennel + alias data
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
@@ -132,7 +132,7 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (577 tests across 34 files)
+- **Run:** `npm test` (585 tests across 34 files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
