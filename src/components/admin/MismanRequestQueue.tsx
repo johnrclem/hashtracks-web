@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
 import {
   approveMismanRequest,
   rejectMismanRequest,
@@ -27,12 +28,18 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
 
 type MismanRequestRow = {
@@ -53,6 +60,8 @@ type MismanRequestRow = {
 type KennelOption = {
   id: string;
   shortName: string;
+  fullName: string;
+  region: string;
 };
 
 interface MismanRequestQueueProps {
@@ -93,47 +102,101 @@ export function MismanRequestQueue({ requests, kennels }: MismanRequestQueueProp
   );
 }
 
+type InviteResult = {
+  kennelId: string;
+  kennelName: string;
+  inviteUrl: string;
+};
+
 function InviteMismanDialog({ kennels }: { kennels: KennelOption[] }) {
   const [open, setOpen] = useState(false);
-  const [kennelId, setKennelId] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [email, setEmail] = useState("");
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [results, setResults] = useState<InviteResult[]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const kennelMap = new Map(kennels.map((k) => [k.id, k]));
+  const hasResults = results.length > 0;
+
   function reset() {
-    setKennelId("");
+    setSelectedIds(new Set());
     setEmail("");
-    setInviteUrl(null);
-    setCopied(false);
+    setResults([]);
+    setErrors([]);
+    setCopiedId(null);
+  }
+
+  function toggleKennel(kennelId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(kennelId)) {
+        next.delete(kennelId);
+      } else {
+        next.add(kennelId);
+      }
+      return next;
+    });
   }
 
   function handleGenerate() {
-    if (!kennelId) {
-      toast.error("Select a kennel");
+    if (selectedIds.size === 0) {
+      toast.error("Select at least one kennel");
       return;
     }
 
     startTransition(async () => {
-      const result = await createMismanInvite(
-        kennelId,
-        email.trim() || undefined,
-      );
-      if (result.error) {
-        toast.error(result.error);
-      } else if (result.data) {
-        setInviteUrl(result.data.inviteUrl);
-        toast.success("Invite link generated");
+      const inviteResults: InviteResult[] = [];
+      const inviteErrors: string[] = [];
+
+      for (const kennelId of selectedIds) {
+        const kennel = kennelMap.get(kennelId);
+        const result = await createMismanInvite(
+          kennelId,
+          email.trim() || undefined,
+        );
+        if (result.error) {
+          inviteErrors.push(`${kennel?.shortName ?? kennelId}: ${result.error}`);
+        } else if (result.data) {
+          inviteResults.push({
+            kennelId,
+            kennelName: kennel?.shortName ?? kennelId,
+            inviteUrl: result.data.inviteUrl,
+          });
+        }
+      }
+
+      setResults(inviteResults);
+      setErrors(inviteErrors);
+
+      if (inviteResults.length > 0) {
+        toast.success(
+          `Generated ${inviteResults.length} invite link${inviteResults.length > 1 ? "s" : ""}`,
+        );
+      }
+      if (inviteErrors.length > 0) {
+        toast.error(`${inviteErrors.length} failed`);
       }
     });
   }
 
-  async function handleCopy() {
-    if (!inviteUrl) return;
+  async function handleCopy(inviteUrl: string, kennelId: string) {
     await navigator.clipboard.writeText(inviteUrl);
-    setCopied(true);
+    setCopiedId(kennelId);
     toast.success("Copied to clipboard");
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  async function handleCopyAll() {
+    const text = results
+      .map((r) => `${r.kennelName}: ${r.inviteUrl}`)
+      .join("\n");
+    await navigator.clipboard.writeText(text);
+    setCopiedId("__all__");
+    toast.success("All links copied");
+    setTimeout(() => setCopiedId(null), 2000);
   }
 
   return (
@@ -147,27 +210,88 @@ function InviteMismanDialog({ kennels }: { kennels: KennelOption[] }) {
       <DialogTrigger asChild>
         <Button size="sm">Invite Misman</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Invite Misman</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
+          {/* Kennel picker */}
           <div className="space-y-2">
-            <Label htmlFor="invite-kennel">Kennel</Label>
-            <Select value={kennelId} onValueChange={setKennelId} disabled={!!inviteUrl}>
-              <SelectTrigger id="invite-kennel">
-                <SelectValue placeholder="Select a kennel" />
-              </SelectTrigger>
-              <SelectContent>
-                {kennels.map((k) => (
-                  <SelectItem key={k.id} value={k.id}>
-                    {k.shortName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Kennels</Label>
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-between font-normal"
+                  disabled={hasResults}
+                >
+                  {selectedIds.size === 0
+                    ? "Search and select kennels..."
+                    : `${selectedIds.size} kennel${selectedIds.size > 1 ? "s" : ""} selected`}
+                  <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search kennels..." />
+                  <CommandList>
+                    <CommandEmpty>No kennels found.</CommandEmpty>
+                    <CommandGroup>
+                      {kennels.map((k) => {
+                        const isSelected = selectedIds.has(k.id);
+                        return (
+                          <CommandItem
+                            key={k.id}
+                            value={`${k.shortName} ${k.fullName} ${k.region}`}
+                            onSelect={() => toggleKennel(k.id)}
+                          >
+                            <div className="flex size-4 shrink-0 items-center justify-center rounded-sm border border-primary">
+                              {isSelected && <CheckIcon className="size-3" />}
+                            </div>
+                            <div className="ml-1 flex-1 truncate">
+                              <span className="font-medium">{k.shortName}</span>
+                              <span className="ml-1.5 text-muted-foreground">
+                                {k.fullName}
+                              </span>
+                            </div>
+                            <span className="ml-auto text-xs text-muted-foreground">
+                              {k.region}
+                            </span>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
+            {/* Selected kennel badges */}
+            {selectedIds.size > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {[...selectedIds].map((id) => {
+                  const k = kennelMap.get(id);
+                  if (!k) return null;
+                  return (
+                    <Badge key={id} variant="secondary" className="gap-1 pr-1">
+                      {k.shortName}
+                      {!hasResults && (
+                        <button
+                          type="button"
+                          className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20"
+                          onClick={() => toggleKennel(id)}
+                        >
+                          <XIcon className="size-3" />
+                        </button>
+                      )}
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
+          {/* Email */}
           <div className="space-y-2">
             <Label htmlFor="invite-email">Email (optional)</Label>
             <Input
@@ -176,27 +300,64 @@ function InviteMismanDialog({ kennels }: { kennels: KennelOption[] }) {
               placeholder="hasher@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              disabled={!!inviteUrl}
+              disabled={hasResults}
             />
           </div>
 
-          {!inviteUrl ? (
+          {/* Generate or results */}
+          {!hasResults ? (
             <Button
               onClick={handleGenerate}
-              disabled={isPending || !kennelId}
+              disabled={isPending || selectedIds.size === 0}
               className="w-full"
             >
-              {isPending ? "Generating..." : "Generate Invite Link"}
+              {isPending
+                ? "Generating..."
+                : `Generate Invite Link${selectedIds.size > 1 ? "s" : ""}`}
             </Button>
           ) : (
             <div className="space-y-3">
-              <div className="flex gap-2">
-                <Input value={inviteUrl} readOnly className="font-mono text-xs" />
-                <Button variant="outline" size="sm" onClick={handleCopy}>
-                  {copied ? "Copied!" : "Copy"}
-                </Button>
+              {/* Error list */}
+              {errors.length > 0 && (
+                <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">
+                  {errors.map((e, i) => (
+                    <div key={i}>{e}</div>
+                  ))}
+                </div>
+              )}
+
+              {/* Invite links */}
+              <div className="space-y-2">
+                {results.map((r) => (
+                  <div key={r.kennelId} className="space-y-1">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      {r.kennelName}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        value={r.inviteUrl}
+                        readOnly
+                        className="font-mono text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopy(r.inviteUrl, r.kennelId)}
+                      >
+                        {copiedId === r.kennelId ? "Copied!" : "Copy"}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
+
+              {/* Actions */}
               <div className="flex justify-end gap-2">
+                {results.length > 1 && (
+                  <Button variant="outline" size="sm" onClick={handleCopyAll}>
+                    {copiedId === "__all__" ? "Copied!" : "Copy All"}
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={reset}>
                   Create Another
                 </Button>

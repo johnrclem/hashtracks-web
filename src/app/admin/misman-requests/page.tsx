@@ -13,7 +13,7 @@ export default async function AdminMismanRequestsPage() {
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     }),
     prisma.kennel.findMany({
-      select: { id: true, shortName: true },
+      select: { id: true, shortName: true, fullName: true, region: true },
       orderBy: { shortName: "asc" },
     }),
   ]);
