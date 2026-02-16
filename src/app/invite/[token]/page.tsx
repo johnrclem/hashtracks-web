@@ -1,9 +1,7 @@
 import { redirect, notFound } from "next/navigation";
-import { cookies } from "next/headers";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { INVITE_COOKIE_NAME } from "@/lib/invite";
 import { redeemMismanInvite } from "@/app/misman/invite/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,10 +19,6 @@ export default async function InvitePage({ params }: Props) {
   if (user) {
     // Authenticated: attempt to redeem immediately
     const result = await redeemMismanInvite(token);
-
-    // Clear the invite cookie if set
-    const cookieStore = await cookies();
-    cookieStore.delete(INVITE_COOKIE_NAME);
 
     if (result.success) {
       redirect(`/kennels/${result.kennelSlug}?invited=true`);
@@ -79,16 +73,7 @@ export default async function InvitePage({ params }: Props) {
     );
   }
 
-  // Valid invite — set cookie and show landing page
-  const cookieStore = await cookies();
-  cookieStore.set(INVITE_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 3600, // 1 hour
-    path: "/",
-  });
-
+  // Valid invite — show landing page (token preserved in redirect URL through auth flow)
   const expiresFormatted = invite.expiresAt.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
