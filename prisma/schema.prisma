@@ -138,10 +138,13 @@ model ScrapeLog {
   fillRateStartTime Int?     // % of events with non-empty startTime
   fillRateRunNumber Int?     // % of events with non-empty runNumber
   structureHash     String?  // HTML structural fingerprint (HTML sources only)
-  // Enhanced logging (Phase 2)
+  // Enhanced logging (Phase 2 + Phase 3)
   errorDetails      Json?    // Structured error breakdown: {fetch: [], parse: [], merge: []}
   sampleBlocked     Json?    // 3-5 example blocked events with reason + suggested action
   sampleSkipped     Json?    // 3-5 example skipped events with reason + suggested action
+  fetchDurationMs   Int?     // Time for adapter.fetch() (HTTP + parsing)
+  mergeDurationMs   Int?     // Time for processRawEvents()
+  diagnosticContext Json?    // Per-adapter metadata (row counts, tabs, calendar IDs)
   source        Source       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   alerts        Alert[]
 

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
+import type { ErrorDetails } from "@/adapters/types";
 import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
 import { computeFillRates } from "./fill-rates";
@@ -58,20 +59,36 @@ export async function scrapeSource(
     // Get the adapter for this source type (URL used for HTML scraper routing)
     const adapter = getAdapter(source.type, source.url);
 
-    // Run the scrape
+    // Run the scrape (Phase 3A: capture fetch timing)
+    const fetchStart = Date.now();
     const scrapeResult = await adapter.fetch(source, { days });
+    const fetchDurationMs = Date.now() - fetchStart;
 
     // Compute field fill rates
     const fillRates = computeFillRates(scrapeResult.events);
 
-    // Process raw events through the merge pipeline
+    // Process raw events through the merge pipeline (Phase 3A: capture merge timing)
+    const mergeStart = Date.now();
     const mergeResult = await processRawEvents(sourceId, scrapeResult.events);
+    const mergeDurationMs = Date.now() - mergeStart;
 
     // Combine scrape errors with merge event errors
     const allErrors = [
       ...scrapeResult.errors,
       ...mergeResult.eventErrorMessages,
     ];
+
+    // Phase 2A: Combine errorDetails from adapter + merge pipeline
+    const combinedErrorDetails: ErrorDetails = {
+      ...(scrapeResult.errorDetails ?? {}),
+    };
+    if (mergeResult.mergeErrorDetails && mergeResult.mergeErrorDetails.length > 0) {
+      combinedErrorDetails.merge = mergeResult.mergeErrorDetails;
+    }
+    const hasErrorDetails =
+      (combinedErrorDetails.fetch?.length ?? 0) > 0 ||
+      (combinedErrorDetails.parse?.length ?? 0) > 0 ||
+      (combinedErrorDetails.merge?.length ?? 0) > 0;
 
     // Update ScrapeLog with results + quality metrics
     const completedAt = new Date();
@@ -94,9 +111,20 @@ export async function scrapeSource(
         fillRateStartTime: fillRates.startTime,
         fillRateRunNumber: fillRates.runNumber,
         structureHash: scrapeResult.structureHash,
+        // Phase 2A: Structured error details
+        errorDetails: hasErrorDetails
+          ? (combinedErrorDetails as unknown as Prisma.InputJsonValue)
+          : undefined,
         // Phase 2B: Store sample blocked/skipped events
         sampleBlocked: mergeResult.sampleBlocked as unknown as Prisma.InputJsonValue | undefined,
         sampleSkipped: mergeResult.sampleSkipped as unknown as Prisma.InputJsonValue | undefined,
+        // Phase 3A: Performance timing
+        fetchDurationMs,
+        mergeDurationMs,
+        // Phase 3B: Per-adapter diagnostic context
+        diagnosticContext: scrapeResult.diagnosticContext
+          ? (scrapeResult.diagnosticContext as unknown as Prisma.InputJsonValue)
+          : undefined,
       },
     });
 
@@ -150,6 +178,10 @@ export async function scrapeSource(
         completedAt,
         durationMs: completedAt.getTime() - startedAt.getTime(),
         errors: [errorMsg],
+        // Phase 2A: Structured error for total failure
+        errorDetails: {
+          fetch: [{ message: errorMsg }],
+        } as unknown as Prisma.InputJsonValue,
       },
     });
 

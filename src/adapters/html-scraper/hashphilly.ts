@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
+import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
 /**
@@ -70,6 +70,7 @@ export class HashPhillyAdapter implements SourceAdapter {
 
     const events: RawEventData[] = [];
     const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
     let structureHash: string | undefined;
 
     let html: string;
@@ -78,11 +79,15 @@ export class HashPhillyAdapter implements SourceAdapter {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       });
       if (!response.ok) {
-        return { events: [], errors: [`HTTP ${response.status}: ${response.statusText}`] };
+        const message = `HTTP ${response.status}: ${response.statusText}`;
+        errorDetails.fetch = [{ url: baseUrl, status: response.status, message }];
+        return { events: [], errors: [message], errorDetails };
       }
       html = await response.text();
     } catch (err) {
-      return { events: [], errors: [`Fetch failed: ${err}`] };
+      const message = `Fetch failed: ${err}`;
+      errorDetails.fetch = [{ url: baseUrl, message }];
+      return { events: [], errors: [message], errorDetails };
     }
 
     structureHash = generateStructureHash(html);
@@ -96,12 +101,15 @@ export class HashPhillyAdapter implements SourceAdapter {
     const locationMatch = bodyText.match(/Location:\s*(.+?)(?:\n|$)/i);
 
     if (!dateMatch) {
-      return { events: [], errors: ["No date found on page"], structureHash };
+      errorDetails.parse = [{ row: 0, section: "main", field: "date", error: "No date found on page" }];
+      return { events: [], errors: ["No date found on page"], structureHash, errorDetails };
     }
 
     const dateStr = parsePhillyDate(dateMatch[1].trim());
     if (!dateStr) {
-      return { events: [], errors: [`Could not parse date: "${dateMatch[1].trim()}"`], structureHash };
+      const message = `Could not parse date: "${dateMatch[1].trim()}"`;
+      errorDetails.parse = [{ row: 0, section: "main", field: "date", error: message, partialData: { kennelTag: "Philly H3" } }];
+      return { events: [], errors: [message], structureHash, errorDetails };
     }
 
     const runNumber = trailNumberMatch
@@ -109,6 +117,12 @@ export class HashPhillyAdapter implements SourceAdapter {
       : undefined;
     const startTime = timeMatch ? parseTime(timeMatch[1].trim()) : undefined;
     const location = locationMatch ? locationMatch[1].trim() : undefined;
+
+    const fieldsFound: string[] = [];
+    if (trailNumberMatch) fieldsFound.push("trailNumber");
+    if (dateMatch) fieldsFound.push("date");
+    if (timeMatch) fieldsFound.push("time");
+    if (locationMatch) fieldsFound.push("location");
 
     events.push({
       date: dateStr,
@@ -120,6 +134,11 @@ export class HashPhillyAdapter implements SourceAdapter {
       sourceUrl: baseUrl,
     });
 
-    return { events, errors, structureHash };
+    return {
+      events,
+      errors,
+      structureHash,
+      diagnosticContext: { fieldsFound },
+    };
   }
 }

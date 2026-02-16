@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
+import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
 /**
@@ -88,6 +88,7 @@ export class BFMAdapter implements SourceAdapter {
 
     const events: RawEventData[] = [];
     const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
     let structureHash: string | undefined;
 
     let html: string;
@@ -96,11 +97,15 @@ export class BFMAdapter implements SourceAdapter {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       });
       if (!response.ok) {
-        return { events: [], errors: [`HTTP ${response.status}: ${response.statusText}`] };
+        const message = `HTTP ${response.status}: ${response.statusText}`;
+        errorDetails.fetch = [{ url: baseUrl, status: response.status, message }];
+        return { events: [], errors: [message], errorDetails };
       }
       html = await response.text();
     } catch (err) {
-      return { events: [], errors: [`Fetch failed: ${err}`] };
+      const message = `Fetch failed: ${err}`;
+      errorDetails.fetch = [{ url: baseUrl, message }];
+      return { events: [], errors: [message], errorDetails };
     }
 
     structureHash = generateStructureHash(html);
@@ -167,9 +172,11 @@ export class BFMAdapter implements SourceAdapter {
         });
       } else {
         errors.push("Could not parse date from current trail");
+        errorDetails.parse = [...(errorDetails.parse ?? []), { row: 0, section: "current_trail", field: "date", error: "Could not parse date from current trail" }];
       }
     } else {
       errors.push("No current trail found on page");
+      errorDetails.parse = [...(errorDetails.parse ?? []), { row: 0, section: "current_trail", error: "No current trail found on page" }];
     }
 
     // Parse upcoming hares list
@@ -235,9 +242,23 @@ export class BFMAdapter implements SourceAdapter {
         }
       }
     } catch (err) {
-      errors.push(`Special events fetch failed: ${err}`);
+      const message = `Special events fetch failed: ${err}`;
+      errors.push(message);
+      errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: baseUrl.replace(/\/$/, "") + "/bfm-special-events/", message: String(err) }];
     }
 
-    return { events, errors, structureHash };
+    const hasErrorDetails = (errorDetails.fetch?.length ?? 0) > 0 || (errorDetails.parse?.length ?? 0) > 0;
+    const upcomingHaresCount = events.filter(e => !e.runNumber).length; // upcoming hares have no run number
+
+    return {
+      events,
+      errors,
+      structureHash,
+      errorDetails: hasErrorDetails ? errorDetails : undefined,
+      diagnosticContext: {
+        currentTrailFound: events.some(e => e.runNumber !== undefined),
+        upcomingHaresCount,
+      },
+    };
   }
 }

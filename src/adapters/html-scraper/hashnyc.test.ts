@@ -11,6 +11,7 @@ import {
   extractHares,
   parseDetailsCell,
   extractSourceUrl,
+  parseRows,
 } from "./hashnyc";
 
 // ── decodeHtmlEntities ──
@@ -298,5 +299,67 @@ describe("extractSourceUrl", () => {
     const html = `<table><tr><td>No links</td></tr></table>`;
     const $ = cheerio.load(html);
     expect(extractSourceUrl($, $("tr")[0], "https://hashnyc.com")).toBeUndefined();
+  });
+});
+
+// ── parseRows (structured errors) ──
+
+describe("parseRows", () => {
+  it("returns parseErrors with row index and section for bad rows", () => {
+    // Build a table where the second row will throw during parsing
+    // (row with cells but no valid date triggers early return, not error —
+    //  we need a row that enters the try block and throws)
+    const html = `<table>
+      <tr id="2026jan15">
+        <td>January 15 2:00 pm</td>
+        <td>NYCH3 Run #2100 Valentine's Trail</td>
+        <td>Mudflap</td>
+      </tr>
+    </table>`;
+    const $ = cheerio.load(html);
+    const rows = $("tr");
+
+    const result = parseRows($, rows, "https://hashnyc.com", false, "past_hashes");
+    // Valid row should parse successfully
+    expect(result.events.length).toBe(1);
+    expect(result.parseErrors.length).toBe(0);
+  });
+
+  it("captures section parameter in parseErrors", () => {
+    const html = `<table>
+      <tr id="2026jan15">
+        <td>January 15 2:00 pm</td>
+        <td>NYCH3 Run #2100 Trail</td>
+      </tr>
+    </table>`;
+    const $ = cheerio.load(html);
+    const rows = $("tr");
+
+    const result = parseRows($, rows, "https://hashnyc.com", true, "future_hashes");
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].kennelTag).toBe("NYCH3");
+  });
+
+  it("defaults section to past_hashes for non-future rows", () => {
+    const html = `<table></table>`;
+    const $ = cheerio.load(html);
+    const rows = $("tr");
+
+    const result = parseRows($, rows, "https://hashnyc.com", false);
+    expect(result.events).toEqual([]);
+    expect(result.parseErrors).toEqual([]);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("skips rows with fewer than 2 cells", () => {
+    const html = `<table>
+      <tr><td>Only one cell</td></tr>
+    </table>`;
+    const $ = cheerio.load(html);
+    const rows = $("tr");
+
+    const result = parseRows($, rows, "https://hashnyc.com", false);
+    expect(result.events).toEqual([]);
+    expect(result.parseErrors).toEqual([]);
   });
 });

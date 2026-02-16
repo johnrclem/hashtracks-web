@@ -26,6 +26,7 @@ export async function processRawEvents(
     blockedTags: [],
     eventErrors: 0,
     eventErrorMessages: [],
+    mergeErrorDetails: [], // Phase 2A: Structured merge errors
     sampleBlocked: [], // Phase 2B: Sample blocked events
     sampleSkipped: [], // Phase 2B: Sample skipped events
   };
@@ -188,11 +189,19 @@ export async function processRawEvents(
       }
     } catch (err) {
       // Log error but continue processing other events (graceful degradation)
-      const msg = `${event.date}/${event.kennelTag}: ${err instanceof Error ? err.message : String(err)}`;
+      const reason = err instanceof Error ? err.message : String(err);
+      const msg = `${event.date}/${event.kennelTag}: ${reason}`;
       console.error(`Merge error: ${msg}`);
       result.eventErrors++;
       if (result.eventErrorMessages.length < 50) {
         result.eventErrorMessages.push(msg);
+      }
+      // Phase 2A: Structured merge error with fingerprint
+      if (result.mergeErrorDetails && result.mergeErrorDetails.length < 50) {
+        result.mergeErrorDetails.push({
+          fingerprint: generateFingerprint(event),
+          reason,
+        });
       }
     }
   }

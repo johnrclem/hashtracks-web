@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
+import type { SourceAdapter, RawEventData, ScrapeResult, ParseError, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
 // Month name → 0-indexed month number
@@ -424,31 +424,18 @@ export function extractTime(text: string): string | undefined {
 }
 
 /**
- * Fetch a page from hashnyc.com and return the HTML.
- */
-async function fetchPage(url: string): Promise<string> {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-  }
-  return response.text();
-}
-
-/**
  * Parse rows from a hashnyc.com table (works for both past_hashes and future_hashes).
  */
-function parseRows(
+export function parseRows(
   $: cheerio.CheerioAPI,
   rows: cheerio.Cheerio<AnyNode>,
   baseUrl: string,
   isFuture: boolean,
-): { events: RawEventData[]; errors: string[] } {
+  section: string = isFuture ? "future_hashes" : "past_hashes",
+): { events: RawEventData[]; errors: string[]; parseErrors: ParseError[] } {
   const events: RawEventData[] = [];
   const errors: string[] = [];
+  const parseErrors: ParseError[] = [];
   const currentYear = new Date().getFullYear();
 
   rows.each((_i, row) => {
@@ -520,13 +507,17 @@ function parseRows(
         sourceUrl,
       });
     } catch (err) {
-      errors.push(
-        `Row parse error: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push(`Row parse error: ${message}`);
+      parseErrors.push({
+        row: _i,
+        section,
+        error: message,
+      });
     }
   });
 
-  return { events, errors };
+  return { events, errors, parseErrors };
 }
 
 export class HashNYCAdapter implements SourceAdapter {
@@ -541,40 +532,80 @@ export class HashNYCAdapter implements SourceAdapter {
 
     const allEvents: RawEventData[] = [];
     const allErrors: string[] = [];
+    const errorDetails: ErrorDetails = {};
     let structureHash: string | undefined;
+    let pastRowCount = 0;
+    let futureRowCount = 0;
 
     // 1. Scrape past events
+    const pastUrl = `${baseUrl}/?days=${days}&backwards=true`;
     try {
-      const pastHtml = await fetchPage(
-        `${baseUrl}/?days=${days}&backwards=true`,
-      );
-      // Generate structural fingerprint from past page (most stable structure)
-      structureHash = generateStructureHash(pastHtml);
-      const $past = cheerio.load(pastHtml);
-      const pastRows = $past("table.past_hashes tr");
-      const past = parseRows($past, pastRows, baseUrl, false);
-      allEvents.push(...past.events);
-      allErrors.push(...past.errors);
+      const response = await fetch(pastUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+      });
+      if (!response.ok) {
+        const message = `HTTP ${response.status}: ${response.statusText}`;
+        allErrors.push(`Past fetch failed: ${message}`);
+        errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: pastUrl, status: response.status, message }];
+      } else {
+        const pastHtml = await response.text();
+        structureHash = generateStructureHash(pastHtml);
+        const $past = cheerio.load(pastHtml);
+        const pastRows = $past("table.past_hashes tr");
+        pastRowCount = pastRows.length;
+        const past = parseRows($past, pastRows, baseUrl, false, "past_hashes");
+        allEvents.push(...past.events);
+        allErrors.push(...past.errors);
+        if (past.parseErrors.length > 0) {
+          errorDetails.parse = [...(errorDetails.parse ?? []), ...past.parseErrors];
+        }
+      }
     } catch (err) {
-      allErrors.push(
-        `Past fetch failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      const message = err instanceof Error ? err.message : String(err);
+      allErrors.push(`Past fetch failed: ${message}`);
+      errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: pastUrl, message }];
     }
 
     // 2. Scrape upcoming events
+    const futureUrl = `${baseUrl}/?days=${days}`;
     try {
-      const futureHtml = await fetchPage(`${baseUrl}/?days=${days}`);
-      const $future = cheerio.load(futureHtml);
-      const futureRows = $future("table.future_hashes tr");
-      const future = parseRows($future, futureRows, baseUrl, true);
-      allEvents.push(...future.events);
-      allErrors.push(...future.errors);
+      const response = await fetch(futureUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+      });
+      if (!response.ok) {
+        const message = `HTTP ${response.status}: ${response.statusText}`;
+        allErrors.push(`Upcoming fetch failed: ${message}`);
+        errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: futureUrl, status: response.status, message }];
+      } else {
+        const futureHtml = await response.text();
+        const $future = cheerio.load(futureHtml);
+        const futureRows = $future("table.future_hashes tr");
+        futureRowCount = futureRows.length;
+        const future = parseRows($future, futureRows, baseUrl, true, "future_hashes");
+        allEvents.push(...future.events);
+        allErrors.push(...future.errors);
+        if (future.parseErrors.length > 0) {
+          errorDetails.parse = [...(errorDetails.parse ?? []), ...future.parseErrors];
+        }
+      }
     } catch (err) {
-      allErrors.push(
-        `Upcoming fetch failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      const message = err instanceof Error ? err.message : String(err);
+      allErrors.push(`Upcoming fetch failed: ${message}`);
+      errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: futureUrl, message }];
     }
 
-    return { events: allEvents, errors: allErrors, structureHash };
+    const hasErrorDetails = (errorDetails.fetch?.length ?? 0) > 0 || (errorDetails.parse?.length ?? 0) > 0;
+
+    return {
+      events: allEvents,
+      errors: allErrors,
+      structureHash,
+      errorDetails: hasErrorDetails ? errorDetails : undefined,
+      diagnosticContext: {
+        tables: ["past_hashes", "future_hashes"],
+        pastRowCount,
+        futureRowCount,
+      },
+    };
   }
 }

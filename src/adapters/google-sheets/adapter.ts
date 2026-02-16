@@ -1,5 +1,5 @@
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
+import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 
 /** Config stored in Source.config JSON for Google Sheets sources */
 interface GoogleSheetsConfig {
@@ -139,7 +139,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const config = source.config as unknown as GoogleSheetsConfig;
     if (!config?.sheetId) {
-      return { events: [], errors: ["Missing sheetId in source config"] };
+      return { events: [], errors: ["Missing sheetId in source config"], errorDetails: { fetch: [{ message: "Missing sheetId in source config" }] } };
     }
 
     const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
@@ -147,6 +147,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
       return {
         events: [],
         errors: ["Missing GOOGLE_CALENDAR_API_KEY environment variable"],
+        errorDetails: { fetch: [{ message: "Missing GOOGLE_CALENDAR_API_KEY environment variable" }] },
       };
     }
 
@@ -159,6 +160,9 @@ export class GoogleSheetsAdapter implements SourceAdapter {
 
     const events: RawEventData[] = [];
     const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
+    const tabsProcessed: string[] = [];
+    const rowsPerTab: Record<string, number> = {};
 
     // Step 1: Discover tabs via Sheets API
     let tabNames: string[];
@@ -166,11 +170,11 @@ export class GoogleSheetsAdapter implements SourceAdapter {
       const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}?fields=sheets.properties.title&key=${apiKey}`;
       const metaRes = await fetch(metaUrl);
       if (!metaRes.ok) {
+        const message = `Sheets API error ${metaRes.status}: ${await metaRes.text()}`;
         return {
           events: [],
-          errors: [
-            `Sheets API error ${metaRes.status}: ${await metaRes.text()}`,
-          ],
+          errors: [message],
+          errorDetails: { fetch: [{ url: metaUrl, status: metaRes.status, message }] },
         };
       }
       const meta = (await metaRes.json()) as {
@@ -183,29 +187,37 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         .sort()
         .reverse(); // newest first
     } catch (err) {
+      const message = `Failed to discover tabs: ${err}`;
       return {
         events: [],
-        errors: [`Failed to discover tabs: ${err}`],
+        errors: [message],
+        errorDetails: { fetch: [{ message }] },
       };
     }
 
     // Step 2: Process each tab (newest first, stop when all events are too old)
     for (const tabName of tabNames) {
       let csvText: string;
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${config.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
       try {
-        const csvUrl = `https://docs.google.com/spreadsheets/d/${config.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
         const csvRes = await fetch(csvUrl);
         if (!csvRes.ok) {
-          errors.push(`Failed to fetch tab "${tabName}": ${csvRes.status}`);
+          const message = `Failed to fetch tab "${tabName}": ${csvRes.status}`;
+          errors.push(message);
+          errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: csvUrl, status: csvRes.status, message }];
           continue;
         }
         csvText = await csvRes.text();
       } catch (err) {
-        errors.push(`Error fetching tab "${tabName}": ${err}`);
+        const message = `Error fetching tab "${tabName}": ${err}`;
+        errors.push(message);
+        errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: csvUrl, message: String(err) }];
         continue;
       }
 
+      tabsProcessed.push(tabName);
       const rows = parseCSV(csvText);
+      rowsPerTab[tabName] = rows.length;
       if (rows.length === 0) continue;
 
       // Skip header row (first row)
@@ -271,9 +283,13 @@ export class GoogleSheetsAdapter implements SourceAdapter {
             sourceUrl: source.url,
           });
         } catch (err) {
-          errors.push(
-            `Row ${rowIdx} in tab "${tabName}": ${err}`,
-          );
+          const message = err instanceof Error ? err.message : String(err);
+          errors.push(`Row ${rowIdx} in tab "${tabName}": ${message}`);
+          errorDetails.parse = [...(errorDetails.parse ?? []), {
+            row: rowIdx,
+            section: tabName,
+            error: message,
+          }];
         }
       }
 
@@ -284,6 +300,17 @@ export class GoogleSheetsAdapter implements SourceAdapter {
       }
     }
 
-    return { events, errors };
+    const hasErrorDetails = (errorDetails.fetch?.length ?? 0) > 0 || (errorDetails.parse?.length ?? 0) > 0;
+
+    return {
+      events,
+      errors,
+      errorDetails: hasErrorDetails ? errorDetails : undefined,
+      diagnosticContext: {
+        tabsDiscovered: tabNames,
+        tabsProcessed,
+        rowsPerTab,
+      },
+    };
   }
 }

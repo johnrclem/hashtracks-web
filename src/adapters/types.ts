@@ -44,6 +44,7 @@ export interface ScrapeResult {
   errors: string[]; // Legacy flat errors (kept for backwards compat)
   errorDetails?: ErrorDetails; // Phase 2A: Structured error breakdown
   structureHash?: string; // HTML structural fingerprint (HTML adapters only)
+  diagnosticContext?: Record<string, unknown>; // Phase 3B: Per-adapter metadata
 }
 
 /** All adapters implement this interface */
@@ -62,6 +63,7 @@ export interface MergeResult {
   blockedTags: string[]; // kennel tags that resolved but weren't linked to source
   eventErrors: number; // count of individual events that failed to process
   eventErrorMessages: string[]; // error messages (capped at 50)
+  mergeErrorDetails?: Array<{ fingerprint?: string; reason: string }>; // Phase 2A: Structured merge errors
   sampleBlocked?: EventSample[]; // Phase 2B: 3-5 example blocked events
   sampleSkipped?: EventSample[]; // Phase 2B: 3-5 example skipped events
 }

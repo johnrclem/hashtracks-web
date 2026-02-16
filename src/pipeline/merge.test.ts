@@ -7,6 +7,7 @@ vi.mock("@/lib/db", () => ({
     sourceKennel: { findMany: vi.fn() },
     rawEvent: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     event: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    kennel: { findUnique: vi.fn() },
   },
 }));
 
@@ -128,7 +129,7 @@ describe("processRawEvents", () => {
     expect(result).toEqual({
       created: 0, updated: 0, skipped: 0, blocked: 0,
       unmatched: [], blockedTags: [], eventErrors: 0, eventErrorMessages: [],
-      sampleBlocked: [], sampleSkipped: [],
+      mergeErrorDetails: [], sampleBlocked: [], sampleSkipped: [],
     });
   });
 
@@ -208,6 +209,64 @@ describe("source-kennel guard", () => {
       buildRawEvent({ date: "2026-02-15" }),
     ]);
     expect(mockSourceKennelFind).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("mergeErrorDetails", () => {
+  it("populates mergeErrorDetails with fingerprint and reason on error", async () => {
+    mockRawEventFind.mockRejectedValueOnce(new Error("DB connection lost"));
+    // generateFingerprint is called twice: once at line 53, once in catch block at line 200
+    mockFingerprint.mockReturnValueOnce("fp_error_event").mockReturnValueOnce("fp_error_event");
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-01", kennelTag: "TestH3" }),
+    ]);
+
+    expect(result.eventErrors).toBe(1);
+    expect(result.mergeErrorDetails).toEqual([
+      { fingerprint: "fp_error_event", reason: "DB connection lost" },
+    ]);
+  });
+
+  it("caps mergeErrorDetails at 50 entries", async () => {
+    // Create 55 events that all fail
+    const events = Array.from({ length: 55 }, (_, i) =>
+      buildRawEvent({ date: `2026-03-${String(i + 1).padStart(2, "0")}` }),
+    );
+    mockRawEventFind.mockRejectedValue(new Error("Repeated failure"));
+
+    const result = await processRawEvents("src_1", events);
+    expect(result.mergeErrorDetails!.length).toBe(50);
+    expect(result.eventErrors).toBe(55);
+  });
+
+  it("captures sample skipped events for unmatched tags", async () => {
+    mockRawEventFind.mockResolvedValue(null);
+    mockResolve.mockResolvedValue({ kennelId: null, matched: false });
+    mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ kennelTag: "UnknownH3", date: "2026-03-01" }),
+      buildRawEvent({ kennelTag: "UnknownH3", date: "2026-03-02" }),
+    ]);
+
+    expect(result.sampleSkipped!.length).toBe(2);
+    expect(result.sampleSkipped![0].reason).toBe("UNMATCHED_TAG");
+    expect(result.sampleSkipped![0].kennelTag).toBe("UnknownH3");
+    expect(result.sampleSkipped![0].suggestedAction).toContain("UnknownH3");
+  });
+
+  it("captures sample blocked events for source-kennel mismatch", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockResolve.mockResolvedValueOnce({ kennelId: "kennel_other", matched: true });
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({ shortName: "OtherH3" } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ kennelTag: "OtherH3" }),
+    ]);
+
+    expect(result.sampleBlocked!.length).toBe(1);
+    expect(result.sampleBlocked![0].reason).toBe("SOURCE_KENNEL_MISMATCH");
   });
 });
 

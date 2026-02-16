@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
+import type { ErrorDetails, ParseError } from "@/adapters/types";
 import { getAdminUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -106,6 +107,148 @@ function categorizeErrors(errors: string[]): {
   }
 
   return { fetch, parse, merge };
+}
+
+/**
+ * Display errors — prefer structured errorDetails (Phase 2A) with fallback to categorizeErrors().
+ */
+function ErrorDisplay({ errors, errorDetails }: { errors: string[]; errorDetails: ErrorDetails | null }) {
+  // Phase 2A: Use structured errorDetails when available
+  if (errorDetails && ((errorDetails.fetch?.length ?? 0) > 0 || (errorDetails.parse?.length ?? 0) > 0 || (errorDetails.merge?.length ?? 0) > 0)) {
+    const fetchErrors = errorDetails.fetch ?? [];
+    const parseErrors = errorDetails.parse ?? [];
+    const mergeErrors = errorDetails.merge ?? [];
+
+    return (
+      <div className="text-xs space-y-1">
+        <div className="text-destructive font-medium">
+          {fetchErrors.length > 0 && `Fetch: ${fetchErrors.length}`}
+          {fetchErrors.length > 0 && (parseErrors.length > 0 || mergeErrors.length > 0) && " | "}
+          {parseErrors.length > 0 && `Parse: ${parseErrors.length}`}
+          {parseErrors.length > 0 && mergeErrors.length > 0 && " | "}
+          {mergeErrors.length > 0 && `Merge: ${mergeErrors.length}`}
+        </div>
+
+        {fetchErrors.length > 0 && (
+          <details className="mt-1">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+              Fetch Errors ({fetchErrors.length})
+            </summary>
+            <div className="mt-1 ml-2 space-y-1">
+              {fetchErrors.map((err, i) => (
+                <div key={i} className="text-muted-foreground">
+                  {err.url && <span className="font-mono text-[10px] break-all">{err.url}</span>}
+                  {err.status && <Badge variant="outline" className="ml-1 text-[10px] py-0">{err.status}</Badge>}
+                  <p className="break-all">{err.message}</p>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+
+        {parseErrors.length > 0 && (
+          <details className="mt-1">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+              Parse Errors ({parseErrors.length})
+            </summary>
+            <div className="mt-1 ml-2 space-y-1.5">
+              {(parseErrors as ParseError[]).map((err, i) => (
+                <div key={i} className="text-muted-foreground border-l-2 border-muted pl-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[10px]">Row {err.row}</span>
+                    {err.section && <Badge variant="outline" className="text-[10px] py-0">{err.section}</Badge>}
+                    {err.field && <Badge variant="secondary" className="text-[10px] py-0">{err.field}</Badge>}
+                  </div>
+                  <p className="break-all">{err.error}</p>
+                  {err.partialData && Object.keys(err.partialData).length > 0 && (
+                    <details className="mt-0.5">
+                      <summary className="cursor-pointer text-[10px]">Partial data</summary>
+                      <pre className="text-[10px] mt-0.5 overflow-x-auto">{JSON.stringify(err.partialData, null, 1)}</pre>
+                    </details>
+                  )}
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+
+        {mergeErrors.length > 0 && (
+          <details className="mt-1">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+              Merge Errors ({mergeErrors.length})
+            </summary>
+            <div className="mt-1 ml-2 space-y-1">
+              {mergeErrors.map((err, i) => (
+                <div key={i} className="text-muted-foreground">
+                  {err.fingerprint && (
+                    <span className="font-mono text-[10px]">{err.fingerprint.substring(0, 12)}...</span>
+                  )}
+                  <span className="ml-1 break-all">{err.reason}</span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+      </div>
+    );
+  }
+
+  // Fallback: categorize flat error strings (for old scrape logs without errorDetails)
+  const categorized = categorizeErrors(errors);
+  const hasFetch = categorized.fetch.length > 0;
+  const hasParse = categorized.parse.length > 0;
+  const hasMerge = categorized.merge.length > 0;
+
+  return (
+    <div className="text-xs space-y-1">
+      <div className="text-destructive font-medium">
+        {hasFetch && `Fetch: ${categorized.fetch.length}`}
+        {hasFetch && (hasParse || hasMerge) && " | "}
+        {hasParse && `Parse: ${categorized.parse.length}`}
+        {hasParse && hasMerge && " | "}
+        {hasMerge && `Merge: ${categorized.merge.length}`}
+      </div>
+
+      {hasFetch && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+            Fetch Errors ({categorized.fetch.length})
+          </summary>
+          <ul className="mt-1 ml-4 space-y-1">
+            {categorized.fetch.map((err, i) => (
+              <li key={i} className="text-muted-foreground break-all">{err}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {hasParse && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+            Parse Errors ({categorized.parse.length})
+          </summary>
+          <ul className="mt-1 ml-4 space-y-1">
+            {categorized.parse.map((err, i) => (
+              <li key={i} className="text-muted-foreground break-all">{err}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {hasMerge && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+            Merge Errors ({categorized.merge.length})
+          </summary>
+          <ul className="mt-1 ml-4 space-y-1">
+            {categorized.merge.map((err, i) => (
+              <li key={i} className="text-muted-foreground break-all">{err}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
 }
 
 export default async function SourceDetailPage({
@@ -542,75 +685,25 @@ export default async function SourceDetailPage({
                   <FillRateCell rate={log.fillRateStartTime} />
                   <FillRateCell rate={log.fillRateRunNumber} />
                   <TableCell className="text-xs">
-                    {log.durationMs != null
-                      ? `${(log.durationMs / 1000).toFixed(1)}s`
-                      : "—"}
+                    {log.durationMs != null ? (
+                      <Tooltip>
+                        <TooltipTrigger className="cursor-help">
+                          {(log.durationMs / 1000).toFixed(1)}s
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {log.fetchDurationMs != null && log.mergeDurationMs != null
+                            ? `Fetch: ${(log.fetchDurationMs / 1000).toFixed(1)}s | Merge: ${(log.mergeDurationMs / 1000).toFixed(1)}s`
+                            : `Total: ${(log.durationMs / 1000).toFixed(1)}s`}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : "—"}
                   </TableCell>
                   <TableCell>
                     {log.errors.length > 0 ? (
-                      (() => {
-                        const categorized = categorizeErrors(log.errors);
-                        const hasFetch = categorized.fetch.length > 0;
-                        const hasParse = categorized.parse.length > 0;
-                        const hasMerge = categorized.merge.length > 0;
-
-                        return (
-                          <div className="text-xs space-y-1">
-                            <div className="text-destructive font-medium">
-                              {hasFetch && `📡 Fetch: ${categorized.fetch.length}`}
-                              {hasFetch && (hasParse || hasMerge) && " | "}
-                              {hasParse && `🔨 Parse: ${categorized.parse.length}`}
-                              {hasParse && hasMerge && " | "}
-                              {hasMerge && `🔀 Merge: ${categorized.merge.length}`}
-                            </div>
-
-                            {hasFetch && (
-                              <details className="mt-1">
-                                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                                  📡 Fetch Errors ({categorized.fetch.length})
-                                </summary>
-                                <ul className="mt-1 ml-4 space-y-1">
-                                  {categorized.fetch.map((err, i) => (
-                                    <li key={i} className="text-muted-foreground break-all">
-                                      {err}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </details>
-                            )}
-
-                            {hasParse && (
-                              <details className="mt-1">
-                                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                                  🔨 Parse Errors ({categorized.parse.length})
-                                </summary>
-                                <ul className="mt-1 ml-4 space-y-1">
-                                  {categorized.parse.map((err, i) => (
-                                    <li key={i} className="text-muted-foreground break-all">
-                                      {err}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </details>
-                            )}
-
-                            {hasMerge && (
-                              <details className="mt-1">
-                                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                                  🔀 Merge Errors ({categorized.merge.length})
-                                </summary>
-                                <ul className="mt-1 ml-4 space-y-1">
-                                  {categorized.merge.map((err, i) => (
-                                    <li key={i} className="text-muted-foreground break-all">
-                                      {err}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </details>
-                            )}
-                          </div>
-                        );
-                      })()
+                      <ErrorDisplay
+                        errors={log.errors}
+                        errorDetails={log.errorDetails as ErrorDetails | null}
+                      />
                     ) : (
                       <span className="text-xs text-muted-foreground">None</span>
                     )}
@@ -618,6 +711,21 @@ export default async function SourceDetailPage({
                       <p className="mt-1 text-xs text-muted-foreground">
                         Unmatched: {log.unmatchedTags.join(", ")}
                       </p>
+                    )}
+                    {log.diagnosticContext && (
+                      <details className="mt-1">
+                        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                          Diagnostics
+                        </summary>
+                        <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
+                          {Object.entries(log.diagnosticContext as Record<string, unknown>).map(([key, value]) => (
+                            <div key={key}>
+                              <span className="font-medium">{key}:</span>{" "}
+                              {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
                     )}
                   </TableCell>
                 </TableRow>

@@ -1,5 +1,5 @@
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
+import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -141,7 +141,10 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
     const events: RawEventData[] = [];
     const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
     let pageToken: string | undefined;
+    let totalItemsReturned = 0;
+    let pagesProcessed = 0;
 
     do {
       const url = new URL(
@@ -161,18 +164,27 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
       if (!resp.ok) {
         const body = await resp.text();
-        throw new Error(`Google Calendar API ${resp.status}: ${body}`);
+        const message = `Google Calendar API ${resp.status}: ${body}`;
+        errors.push(message);
+        errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: url.toString(), status: resp.status, message }];
+        break;
       }
 
       const data: GCalListResponse = await resp.json();
 
       if (data.error) {
-        throw new Error(
-          `Google Calendar API error ${data.error.code}: ${data.error.message}`,
-        );
+        const message = `Google Calendar API error ${data.error.code}: ${data.error.message}`;
+        errors.push(message);
+        errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: url.toString(), status: data.error.code, message }];
+        break;
       }
 
-      for (const item of data.items ?? []) {
+      pagesProcessed++;
+      const items = data.items ?? [];
+      totalItemsReturned += items.length;
+      let eventIndex = 0;
+
+      for (const item of items) {
         try {
           // Skip cancelled events
           if (item.status === "cancelled") continue;
@@ -254,15 +266,32 @@ export class GoogleCalendarAdapter implements SourceAdapter {
             sourceUrl: item.htmlLink,
           });
         } catch (err) {
-          errors.push(
-            `Event parse error (${item.summary ?? "unknown"}): ${err instanceof Error ? err.message : String(err)}`,
-          );
+          const message = err instanceof Error ? err.message : String(err);
+          errors.push(`Event parse error (${item.summary ?? "unknown"}): ${message}`);
+          errorDetails.parse = [...(errorDetails.parse ?? []), {
+            row: eventIndex,
+            section: "calendar_events",
+            error: message,
+            partialData: { kennelTag: item.summary ?? "unknown", date: item.start?.dateTime ?? item.start?.date },
+          }];
         }
+        eventIndex++;
       }
 
       pageToken = data.nextPageToken;
     } while (pageToken);
 
-    return { events, errors };
+    const hasErrorDetails = (errorDetails.fetch?.length ?? 0) > 0 || (errorDetails.parse?.length ?? 0) > 0;
+
+    return {
+      events,
+      errors,
+      errorDetails: hasErrorDetails ? errorDetails : undefined,
+      diagnosticContext: {
+        calendarId: decodeURIComponent(calendarId),
+        pagesProcessed,
+        itemsReturned: totalItemsReturned,
+      },
+    };
   }
 }
