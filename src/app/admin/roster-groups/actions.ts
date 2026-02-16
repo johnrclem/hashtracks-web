@@ -250,3 +250,99 @@ export async function deleteRosterGroup(groupId: string) {
   revalidatePath("/admin/roster-groups");
   return { success: true };
 }
+
+/**
+ * Fetch pending roster group requests for admin review.
+ */
+export async function getRosterGroupRequests() {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const requests = await prisma.rosterGroupRequest.findMany({
+    where: { status: "PENDING" },
+    include: {
+      user: { select: { id: true, email: true, hashName: true, nerdName: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Resolve kennel names from IDs stored in JSON
+  const allKennelIds = requests.flatMap((r) => r.kennelIds as string[]);
+  const kennels = await prisma.kennel.findMany({
+    where: { id: { in: allKennelIds } },
+    select: { id: true, shortName: true },
+  });
+  const kennelMap = new Map(kennels.map((k) => [k.id, k.shortName]));
+
+  return {
+    data: requests.map((r) => ({
+      id: r.id,
+      user: r.user,
+      proposedName: r.proposedName,
+      kennelIds: r.kennelIds as string[],
+      kennelNames: (r.kennelIds as string[]).map(
+        (id) => kennelMap.get(id) ?? "Unknown",
+      ),
+      message: r.message,
+      createdAt: r.createdAt.toISOString(),
+    })),
+  };
+}
+
+/**
+ * Approve a roster group request — creates the group with the proposed name and kennels.
+ */
+export async function approveRosterGroupRequest(requestId: string) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const request = await prisma.rosterGroupRequest.findUnique({
+    where: { id: requestId },
+  });
+  if (!request) return { error: "Request not found" };
+  if (request.status !== "PENDING") return { error: "Request is no longer pending" };
+
+  // Create the group using the existing function (without admin re-check since we already checked)
+  const kennelIds = request.kennelIds as string[];
+  const result = await createRosterGroup(request.proposedName, kennelIds);
+  if (result.error) return { error: result.error };
+
+  // Mark request as approved
+  await prisma.rosterGroupRequest.update({
+    where: { id: requestId },
+    data: {
+      status: "APPROVED",
+      resolvedBy: admin.id,
+      resolvedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/admin/roster-groups");
+  return { success: true };
+}
+
+/**
+ * Reject a roster group request.
+ */
+export async function rejectRosterGroupRequest(requestId: string) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const request = await prisma.rosterGroupRequest.findUnique({
+    where: { id: requestId },
+  });
+  if (!request) return { error: "Request not found" };
+  if (request.status !== "PENDING") return { error: "Request is no longer pending" };
+
+  await prisma.rosterGroupRequest.update({
+    where: { id: requestId },
+    data: {
+      status: "REJECTED",
+      resolvedBy: admin.id,
+      resolvedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/admin/roster-groups");
+  return { success: true };
+}

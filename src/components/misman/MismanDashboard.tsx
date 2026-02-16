@@ -1,14 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   approveMismanRequest,
   rejectMismanRequest,
+  requestRosterGroup,
 } from "@/app/misman/actions";
 
 interface MismanKennel {
@@ -35,10 +48,19 @@ interface MyPendingRequest {
   createdAt: string;
 }
 
+interface MyPendingRosterGroupRequest {
+  id: string;
+  proposedName: string;
+  kennelNames: string[];
+  message: string | null;
+  createdAt: string;
+}
+
 interface MismanDashboardProps {
   kennels: MismanKennel[];
   pendingRequests: PendingRequest[];
   myPendingRequests: MyPendingRequest[];
+  myPendingRosterGroupRequests: MyPendingRosterGroupRequest[];
   isSiteAdmin: boolean;
 }
 
@@ -46,15 +68,29 @@ export function MismanDashboard({
   kennels,
   pendingRequests,
   myPendingRequests,
+  myPendingRosterGroupRequests,
   isSiteAdmin,
 }: MismanDashboardProps) {
+  const [showRosterGroupDialog, setShowRosterGroupDialog] = useState(false);
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Misman Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage attendance and rosters for your kennels.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Misman Dashboard</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage attendance and rosters for your kennels.
+          </p>
+        </div>
+        {kennels.length >= 2 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowRosterGroupDialog(true)}
+          >
+            Request Shared Roster
+          </Button>
+        )}
       </div>
 
       {/* Pending requests to approve */}
@@ -94,6 +130,38 @@ export function MismanDashboard({
         </div>
       )}
 
+      {/* Pending roster group requests */}
+      {myPendingRosterGroupRequests.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Pending Roster Group Requests</h2>
+          <div className="space-y-2">
+            {myPendingRosterGroupRequests.map((req) => (
+              <div
+                key={req.id}
+                className="flex items-center justify-between rounded-lg border p-3"
+              >
+                <div>
+                  <span className="font-medium">{req.proposedName}</span>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {req.kennelNames.map((name, i) => (
+                      <Badge key={i} variant="secondary" className="text-xs">
+                        {name}
+                      </Badge>
+                    ))}
+                  </div>
+                  {req.message && (
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {req.message}
+                    </p>
+                  )}
+                </div>
+                <Badge variant="outline">Pending</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Kennel cards */}
       {kennels.length > 0 ? (
         <div className="space-y-3">
@@ -118,6 +186,13 @@ export function MismanDashboard({
           </p>
         </div>
       )}
+
+      {/* Request Shared Roster dialog */}
+      <RequestRosterGroupDialog
+        open={showRosterGroupDialog}
+        onClose={() => setShowRosterGroupDialog(false)}
+        kennels={kennels}
+      />
     </div>
   );
 }
@@ -147,6 +222,129 @@ function KennelCard({ kennel }: { kennel: MismanKennel }) {
         </Button>
       </div>
     </div>
+  );
+}
+
+function RequestRosterGroupDialog({
+  open,
+  onClose,
+  kennels,
+}: {
+  open: boolean;
+  onClose: () => void;
+  kennels: MismanKennel[];
+}) {
+  const [name, setName] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function handleToggle(kennelId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(kennelId)) {
+        next.delete(kennelId);
+      } else {
+        next.add(kennelId);
+      }
+      return next;
+    });
+  }
+
+  function handleSubmit() {
+    startTransition(async () => {
+      const result = await requestRosterGroup(
+        name,
+        Array.from(selectedIds),
+        message || undefined,
+      );
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Roster group request submitted");
+        setName("");
+        setSelectedIds(new Set());
+        setMessage("");
+        onClose();
+        router.refresh();
+      }
+    });
+  }
+
+  function handleOpenChange(open: boolean) {
+    if (!open) {
+      setName("");
+      setSelectedIds(new Set());
+      setMessage("");
+      onClose();
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Request Shared Roster</DialogTitle>
+          <DialogDescription>
+            Propose grouping 2 or more of your kennels to share a roster.
+            An admin will review your request.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor="roster-group-name">Group Name</Label>
+            <Input
+              id="roster-group-name"
+              placeholder="e.g., NYC Metro"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Kennels ({selectedIds.size} selected)</Label>
+            <div className="space-y-2 rounded-md border p-3">
+              {kennels.map((k) => (
+                <div key={k.id} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`rg-kennel-${k.id}`}
+                    checked={selectedIds.has(k.id)}
+                    onCheckedChange={() => handleToggle(k.id)}
+                  />
+                  <Label
+                    htmlFor={`rg-kennel-${k.id}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    {k.shortName}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="roster-group-message">Message (optional)</Label>
+            <Textarea
+              id="roster-group-message"
+              placeholder="Why should these kennels share a roster?"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={2}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isPending || !name.trim() || selectedIds.size < 2}
+          >
+            {isPending ? "Submitting..." : "Submit Request"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

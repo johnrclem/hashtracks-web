@@ -26,8 +26,9 @@ model User {
   kennelHasherLinks   KennelHasherLink[]
   mismanRequests      MismanRequest[]
   recordedAttendances KennelAttendance[] @relation("RecordedAttendances")
-  sentInvites         MismanInvite[]     @relation("SentInvites")
-  acceptedInvites     MismanInvite[]     @relation("AcceptedInvites")
+  sentInvites           MismanInvite[]     @relation("SentInvites")
+  acceptedInvites       MismanInvite[]     @relation("AcceptedInvites")
+  rosterGroupRequests   RosterGroupRequest[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -523,4 +524,21 @@ enum MismanInviteStatus {
   ACCEPTED  // Invitee redeemed it
   EXPIRED   // Display-only — checked at read time, not actively written
   REVOKED   // Inviter cancelled before use
+}
+
+// ── ROSTER GROUP REQUESTS ──
+
+model RosterGroupRequest {
+  id            String        @id @default(cuid())
+  userId        String
+  proposedName  String        // e.g., "NYC Metro"
+  kennelIds     Json          // Array of kennel IDs they want grouped
+  message       String?       // Optional explanation
+  status        RequestStatus @default(PENDING)
+  resolvedBy    String?
+  resolvedAt    DateTime?
+  user          User          @relation(fields: [userId], references: [id])
+  createdAt     DateTime      @default(now())
+
+  @@index([status])
 }

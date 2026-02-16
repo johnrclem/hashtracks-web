@@ -2,6 +2,7 @@
 
 import { getOrCreateUser, getMismanUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -108,6 +109,55 @@ export async function rejectMismanRequest(requestId: string) {
       status: "REJECTED",
       resolvedBy: mismanUser.id,
       resolvedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/misman");
+  return { success: true };
+}
+
+/**
+ * Request a new shared roster group.
+ * Misman must have access to all specified kennels.
+ */
+export async function requestRosterGroup(
+  proposedName: string,
+  kennelIds: string[],
+  message?: string,
+) {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  if (!proposedName.trim()) return { error: "Group name is required" };
+  if (kennelIds.length < 2) return { error: "At least 2 kennels are required" };
+
+  // Verify misman access to all specified kennels
+  const mismanRoles = await prisma.userKennel.findMany({
+    where: {
+      userId: user.id,
+      kennelId: { in: kennelIds },
+      role: { in: ["MISMAN", "ADMIN"] },
+    },
+    select: { kennelId: true },
+  });
+  const accessibleIds = new Set(mismanRoles.map((r) => r.kennelId));
+  const unauthorized = kennelIds.filter((id) => !accessibleIds.has(id));
+  if (unauthorized.length > 0) {
+    return { error: "You don't have misman access to all selected kennels" };
+  }
+
+  // Check for existing pending request from this user
+  const existing = await prisma.rosterGroupRequest.findFirst({
+    where: { userId: user.id, status: "PENDING" },
+  });
+  if (existing) return { error: "You already have a pending roster group request" };
+
+  await prisma.rosterGroupRequest.create({
+    data: {
+      userId: user.id,
+      proposedName: proposedName.trim(),
+      kennelIds: kennelIds as unknown as Prisma.InputJsonValue,
+      message: message?.trim() || null,
     },
   });
 
