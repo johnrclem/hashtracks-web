@@ -82,30 +82,34 @@ Last updated: 2026-02-15
   - Phase 2: AI-assisted diagnosis via Gemini (structure diffs, field fill analysis, config-driven repair)
   - Phase 3: Autonomous repair with sandbox preview + source onboarding convergence
 
-### Scrape Logging Improvements — Phase 1 + Phase 2B COMPLETE (2026-02-14)
+### Scrape Logging Improvements — COMPLETE (2026-02-15)
 **Goal**: Improve troubleshooting visibility for scrape failures and data quality issues.
 
-- [x] **Schema extensions**: Added errorDetails, sampleBlocked, sampleSkipped JSON fields to ScrapeLog
+- [x] **Schema extensions**: Added errorDetails, sampleBlocked, sampleSkipped, fetchDurationMs, mergeDurationMs, diagnosticContext fields to ScrapeLog
 - [x] **Phase 1 (Display existing data)**:
   - [x] Fill rate columns in scrape history table (Title%, Location%, Hares%, StartTime%, RunNumber%)
   - [x] Color-coded fill rates: green >90%, yellow 70-90%, red <70%
   - [x] Structure hash history section showing last 10 hashes with change highlights
   - [x] Hash change rows linked to STRUCTURE_CHANGE alerts
-  - [x] Grouped errors by category (📡 Fetch, 🔨 Parse, 🔀 Merge) with expand/collapse
+  - [x] Grouped errors by category (Fetch, Parse, Merge) with expand/collapse
 - [x] **Phase 2B (Event samples)**:
   - [x] Merge pipeline captures first 3 blocked events (SOURCE_KENNEL_MISMATCH) and first 3 skipped events (UNMATCHED_TAG)
   - [x] Sample UI displays colored cards (red for blocked, amber for skipped) with kennel tag, event details, reason, suggested action
   - [x] EventSample interface with reason, kennelTag, event, suggestedAction fields
-- [ ] **Phase 2A (Structured errors)** — deferred:
-  - [ ] ParseError interface with row/section/field context + partial event data
-  - [ ] hashnyc adapter returns structured ParseError[] instead of flat string[]
-  - [ ] ErrorDetails JSON breakdown stored in ScrapeLog.errorDetails
-  - [ ] Structured error table in UI with row/field filtering
-- [ ] **Phase 3 (Advanced diagnostics)** — future:
-  - [ ] Per-adapter diagnostic context (table names for HTML, calendar IDs for Google Calendar, sheet tabs for Sheets)
-  - [ ] Event-level audit trail linking RawEvent → decision (merged/blocked/skipped) with full reasoning
-  - [ ] Performance metrics with per-stage timing breakdown (fetch, parse, resolve, merge)
-  - [ ] HTML diff viewer for structure changes (visual before/after comparison)
+- [x] **Phase 2A (Structured errors)**:
+  - [x] ParseError populated across all 5 adapters with row/section/field context + partial event data
+  - [x] ErrorDetails (fetch/parse/merge) combined in scrape pipeline and stored in ScrapeLog
+  - [x] Structured error display in source detail page (URL + status badges, parse error rows, merge fingerprints)
+  - [x] Backward-compatible: falls back to categorizeErrors() for old scrape logs
+- [x] **Phase 3A (Performance metrics)**:
+  - [x] fetchDurationMs and mergeDurationMs captured in scrape pipeline
+  - [x] Duration column shows fetch/merge breakdown on hover
+- [x] **Phase 3B (Diagnostic context)**:
+  - [x] Per-adapter diagnosticContext stored in ScrapeLog (row counts, calendar IDs, sheet tabs, fields found)
+  - [x] Expandable diagnostics section in source detail page
+- **Deferred**:
+  - Event-level audit trail (existing sampleBlocked/sampleSkipped covers most debugging needs)
+  - HTML diff viewer (structure hash already detects changes)
 
 ### Config-Driven Source Onboarding (Admin UI)
 **Goal**: Add new Google Sheets sources without code changes.
