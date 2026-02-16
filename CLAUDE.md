@@ -57,7 +57,7 @@ calendar + personal logbook + kennel directory.
 - GEMINI_API_KEY=         # Google AI API key (Sprint 10+)
 - CRON_SECRET=            # Secret for Vercel Cron auth (set in Vercel dashboard)
 - GOOGLE_CALENDAR_API_KEY= # For Google Calendar + Sheets APIs
-- GITHUB_TOKEN=           # GitHub PAT with repo scope (for filing issues from alerts)
+- GITHUB_TOKEN=           # GitHub PAT with repo scope (for filing issues from alerts + user feedback)
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
 
 ## Important Files
