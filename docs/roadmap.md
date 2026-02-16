@@ -28,6 +28,8 @@ Last updated: 2026-02-15
 ### Current Stats
 - 24 kennels, 82 aliases, 7 sources, 25 source-kennel links
 - 3 adapter types: HTML_SCRAPER, GOOGLE_CALENDAR, GOOGLE_SHEETS
+- 21 models, 18 enums in Prisma schema
+- 577 tests across 34 test files
 - Multi-source merge: BFM calendar + website combined via fingerprint dedup
 - Scrape logging: 5 fill rate metrics per run, 3 error categories, sample event capture (3 per category)
 
@@ -178,14 +180,16 @@ See [misman-implementation-plan.md](misman-implementation-plan.md) for detailed 
 - [x] **Merge duplicates**: Pairwise fuzzy scan, preview with stats/conflicts, OR-merge attendance in transaction, mergeLog audit trail
 - [x] **Roster groups admin**: CRUD for roster groups at `/admin/roster-groups` (create, add/remove kennels, rename, dissolve)
 - [x] **Kennel deletion guard**: Block deletion when attendance records exist; cascade-delete misman records when safe
+- [x] **Attendance audit log** (Sprint 9b): JSON `editLog` on KennelAttendance tracking who changed what, with field-level diffs; edit history timeline UI
+- [x] **Hare→EventHare sync** (Sprint 9a): Auto-sync misman hare flags to structured EventHare records; `HareSourceType` enum (SCRAPED/MISMAN_SYNC); `@@unique([eventId, hareName])` constraint
+- [x] **Historical CSV import** (Sprint 9c): Matrix-format CSV upload (rows=hashers, cols=dates), fuzzy hasher matching (0.85 threshold), step-by-step wizard UI, CLI script + admin UI
+- [x] **Invite links**: Secure token-based invites for misman onboarding (MismanInvite model with PENDING/ACCEPTED/EXPIRED/REVOKED lifecycle)
+- [x] **Attendance UX**: Quick edit hasher from attendance form (pencil icon → HasherForm dialog), suggestion list caps at 10 with backfill as consumed
+- [x] **Merge preference**: Linked hasher auto-selected as primary when merging duplicates (recommendedPrimaryId)
+- [x] **Roster group creation**: Admin "Create Group" dialog on `/admin/roster-groups` (name + multi-select standalone kennels)
+- [x] **Roster group requests**: Mismans can request shared roster groups from dashboard; admin approve/reject flow (RosterGroupRequest model)
 - [ ] **CSV export**: Export attendance history to CSV
-- **Deferred**: Hash cash amounts, auto-detect virgins, hare→EventHare sync, cross-kennel directory, historical CSV import, notification system
-
-### CSV Import (Bulk History)
-- [ ] Upload CSV of past attendance
-- [ ] Column mapping UI
-- [ ] Kennel name normalization during import (alias matching)
-- [ ] Preview matched events before saving
+- **Deferred**: Hash cash amounts, auto-detect virgins, cross-kennel directory, notification system
 
 ### Cron Scheduling — COMPLETE
 - [x] Vercel Cron for automated daily scrapes (6:00 AM UTC)

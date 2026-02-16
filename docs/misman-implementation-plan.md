@@ -271,6 +271,15 @@ Sprints 8d and 8e can run in parallel after 8c.
 | `src/components/misman/MergePreviewDialog.tsx` | 8f | Side-by-side merge preview + confirm |
 | `scripts/import-hare-roster.ts` | 8f | Updated for rosterGroupId |
 | `prisma/seed.ts` | 8d, 8f | RosterGroup seeding + standalone group auto-creation |
+| `src/lib/misman/audit.ts` | 9b | AuditLogEntry type, appendAuditLog(), buildFieldChanges() |
+| `src/lib/misman/hare-sync.ts` | 9a | Idempotent EventHare sync from misman attendance |
+| `src/lib/misman/csv-import.ts` | 9c | CSV parsing, hasher matching, import record building |
+| `src/app/misman/[slug]/import/` | 9c | Import page + server actions (preview, execute) |
+| `src/components/misman/ImportWizard.tsx` | 9c | Step-by-step CSV import wizard |
+| `src/lib/invite.ts` | post-9 | Token generation for invite links |
+| `src/app/misman/invite/actions.ts` | post-9 | Invite CRUD + redeem server actions |
+| `src/app/invite/[token]/page.tsx` | post-9 | Invite landing page (new + existing users) |
+| `src/components/kennels/MismanManagementSection.tsx` | post-9 | Team member list + invite management |
 
 ## Risks
 
@@ -337,6 +346,87 @@ Sprints 8d and 8e can run in parallel after 8c.
 
 ---
 
+### Post-Sprint 9: Merge Preference ✅
+
+**Goal**: Auto-recommend the best primary hasher when merging duplicates.
+
+**Modified files**:
+- `src/app/misman/[slug]/roster/actions.ts` — `previewMerge()` returns `recommendedPrimaryId`: linked hashers preferred (preserves user link), falls back to hasher with more attendance records
+- `src/components/misman/MergePreviewDialog.tsx` — applies recommendation on first load with visual hint
+- `src/app/misman/[slug]/roster/actions.test.ts` — 3 new tests for recommendation logic
+
+---
+
+### Post-Sprint 9: Attendance UX Improvements ✅
+
+**Goal**: Faster attendance workflows — inline hasher editing + smart suggestion backfill.
+
+**Quick edit hasher**:
+- `AttendanceRow` — pencil edit icon opens `HasherForm` dialog pre-filled with full hasher data
+- `AttendanceForm` — `getFullHasher(hasherId)` server action fetches complete hasher data before editing (avoids clearing email/phone/notes)
+
+**Suggestion backfill**:
+- `SuggestionList` — caps visible suggestions at 10, backfills as hashers are added from pool
+- "(+N more)" indicator when additional suggestions exist beyond visible cap
+- Pure logic extracted to `computeVisibleSuggestions()` for testability
+
+**New tests**: 10 (suggestion backfill 6, getFullHasher 4)
+
+---
+
+### Post-Sprint 9: Invite Links ✅
+
+**Goal**: Secure team onboarding — mismans share single-use, expiring invite links to grant misman access.
+
+**Schema change**: Added `MismanInvite` model with token, status (PENDING/ACCEPTED/REVOKED/EXPIRED), 7-day TTL, optional message.
+
+**New files**:
+- `src/lib/invite.ts` — `generateInviteToken()` — 32-byte URL-safe random token
+- `src/lib/invite.test.ts` — token uniqueness + format tests
+- `src/app/misman/invite/actions.ts` — `createInvite`, `revokeInvite`, `listInvites`, `redeemInvite`, `getKennelMismans` server actions
+- `src/app/misman/invite/actions.test.ts` — 20 tests covering create/redeem/revoke/expire/auth
+- `src/app/invite/[token]/page.tsx` — invite landing page (handles both logged-in and new user flows)
+- `src/components/kennels/MismanManagementSection.tsx` — team member list + invite management on kennel page
+- `src/test/factories.ts` — added `buildMismanInvite` factory
+
+**Modified files**:
+- `src/app/kennels/[slug]/page.tsx` — renders `MismanManagementSection` for mismans
+- `src/middleware.ts` — `/invite/(.*)` added to public routes
+
+**Flow**:
+1. Existing misman creates invite from kennel page → gets shareable URL
+2. New user clicks link → lands on invite page → signs up → cookie persists token across sign-up
+3. After sign-up, invite auto-redeemed → user gets MISMAN role on kennel
+
+---
+
+### Post-Sprint 9: Roster Group Improvements ✅
+
+**Goal**: Admins can create roster groups from UI; mismans can request new roster groups.
+
+**Schema change**: Added `RosterGroupRequest` model (userId, proposedName, kennelIds Json, message, status via `RequestStatus` enum).
+
+**Admin Create Group** (`src/components/admin/RosterGroupsAdmin.tsx`):
+- "Create Group" button (visible with 2+ standalone kennels) → dialog with name input + kennel checkboxes
+- Calls existing `createRosterGroup(name, kennelIds)` action
+- Pending Requests section at top with approve/reject per request
+
+**Admin actions** (`src/app/admin/roster-groups/actions.ts`):
+- `getRosterGroupRequests()` — fetches PENDING requests with user info + resolved kennel names
+- `approveRosterGroupRequest(requestId)` — marks APPROVED + calls `createRosterGroup()`
+- `rejectRosterGroupRequest(requestId)` — marks REJECTED
+
+**Misman request flow** (`src/components/misman/MismanDashboard.tsx`):
+- "Request Shared Roster" button (visible with 2+ kennels) → dialog with name, kennel checkboxes, optional message
+- Calls `requestRosterGroup()` server action in `src/app/misman/actions.ts`
+- Pending roster group requests displayed on dashboard
+
+**Modified files**:
+- `src/app/misman/page.tsx` — fetches user's pending roster group requests, resolves kennel names
+- `src/app/admin/roster-groups/page.tsx` — parallel-fetches groups + pending requests
+
+---
+
 ## Sprint Dependencies (Updated)
 
 ```
@@ -346,9 +436,13 @@ Sprints 8d and 8e can run in parallel after 8c.
          ├→ 8d (History + Seeding)
          └→ 8e (Suggestions + Linking)
               └→ 8f (Groups + Merge)
-                   └→ 9b (Audit Log)
-                        ├→ 9a (Hare Sync)
-                        └→ 9c (CSV Import)
+                   ├→ 9b (Audit Log)
+                   │    ├→ 9a (Hare Sync)
+                   │    └→ 9c (CSV Import)
+                   ├→ Merge Preference
+                   ├→ Attendance UX
+                   ├→ Invite Links
+                   └→ Roster Group Improvements
 ```
 
 ## Verification
