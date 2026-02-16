@@ -165,6 +165,9 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
                 <SelectItem value="weekly">Weekly</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Hourly and Every 6 Hours require Vercel Pro plan. Hobby plans run cron once daily.
+            </p>
           </div>
 
           <div className="space-y-2">
