@@ -2,11 +2,13 @@
  * Smart suggestion scoring for attendance forms.
  * Pure function — no DB or auth dependencies.
  *
- * Weights: 50% frequency (this kennel), 30% recency (roster group), 20% streak (this kennel).
+ * Weights: 35% kennel frequency, 15% roster frequency, 30% recency, 20% streak.
+ * For single-kennel rosters, kennel + roster frequency collapse to 50% (unchanged).
  * Returns hashers sorted by score descending, filtered above threshold.
  */
 
-export const FREQUENCY_WEIGHT = 0.5;
+export const KENNEL_FREQUENCY_WEIGHT = 0.35;
+export const ROSTER_FREQUENCY_WEIGHT = 0.15;
 export const RECENCY_WEIGHT = 0.3;
 export const STREAK_WEIGHT = 0.2;
 export const SUGGESTION_THRESHOLD = 0.3;
@@ -32,6 +34,9 @@ export interface SuggestionInput {
   rosterKennelIds: string[];
   /** Events for THIS kennel only (within lookback window) */
   kennelEvents: KennelEvent[];
+  /** Events for ALL kennels in the roster group (within lookback window).
+   *  For single-kennel rosters, this equals kennelEvents. */
+  rosterEvents: KennelEvent[];
   /** All attendance across the roster group (within lookback window) */
   attendanceRecords: AttendanceRecord[];
   /** All KennelHasher IDs in roster scope */
@@ -43,7 +48,10 @@ export interface SuggestionInput {
 export interface SuggestionScore {
   kennelHasherId: string;
   score: number;
+  /** Attendance rate at THIS kennel's events */
   frequency: number;
+  /** Attendance rate across ALL roster-group events (same as frequency for single-kennel rosters) */
+  rosterFrequency: number;
   recency: number;
   streak: number;
 }
@@ -58,9 +66,12 @@ export function computeSuggestionScores(
   referenceDate: Date = new Date(),
 ): SuggestionScore[] {
   const { kennelId, kennelEvents, attendanceRecords, rosterHasherIds, eventKennelMap } = input;
+  const isMultiKennel = input.rosterKennelIds.length > 1;
 
   // Not enough data to produce meaningful suggestions
-  if (kennelEvents.length < MIN_EVENTS_FOR_SUGGESTIONS) {
+  // For multi-kennel rosters, roster-wide events count toward the minimum
+  const eventsForMinCheck = isMultiKennel ? input.rosterEvents : kennelEvents;
+  if (eventsForMinCheck.length < MIN_EVENTS_FOR_SUGGESTIONS) {
     return [];
   }
 
@@ -69,6 +80,9 @@ export function computeSuggestionScores(
     (a, b) => b.date.getTime() - a.date.getTime(),
   );
   const kennelEventIds = new Set(kennelEvents.map((e) => e.id));
+  const rosterEventIds = isMultiKennel
+    ? new Set(input.rosterEvents.map((e) => e.id))
+    : kennelEventIds;
 
   // Index attendance by hasher
   const attendanceByHasher = new Map<string, AttendanceRecord[]>();
@@ -85,11 +99,23 @@ export function computeSuggestionScores(
     .map((hasherId) => {
       const records = attendanceByHasher.get(hasherId) ?? [];
 
-      // --- Frequency: attendance at THIS kennel's events / total kennel events ---
+      // --- Kennel frequency: attendance at THIS kennel's events ---
       const thisKennelCount = records.filter((r) =>
         kennelEventIds.has(r.eventId),
       ).length;
-      const frequency = thisKennelCount / kennelEvents.length;
+      const frequency =
+        kennelEvents.length > 0 ? thisKennelCount / kennelEvents.length : 0;
+
+      // --- Roster frequency: attendance across ALL roster-group events ---
+      let rosterFrequency: number;
+      if (isMultiKennel && input.rosterEvents.length > 0) {
+        const rosterCount = records.filter((r) =>
+          rosterEventIds.has(r.eventId),
+        ).length;
+        rosterFrequency = rosterCount / input.rosterEvents.length;
+      } else {
+        rosterFrequency = frequency;
+      }
 
       // --- Recency: most recent attendance at ANY kennel in roster group ---
       let recency = 0;
@@ -117,7 +143,8 @@ export function computeSuggestionScores(
       const normalizedStreak = Math.min(1, streak / MAX_STREAK);
 
       const score =
-        FREQUENCY_WEIGHT * frequency +
+        KENNEL_FREQUENCY_WEIGHT * frequency +
+        ROSTER_FREQUENCY_WEIGHT * rosterFrequency +
         RECENCY_WEIGHT * recency +
         STREAK_WEIGHT * normalizedStreak;
 
@@ -125,6 +152,7 @@ export function computeSuggestionScores(
         kennelHasherId: hasherId,
         score: Math.round(score * 1000) / 1000, // 3 decimal places
         frequency: Math.round(frequency * 1000) / 1000,
+        rosterFrequency: Math.round(rosterFrequency * 1000) / 1000,
         recency: Math.round(recency * 1000) / 1000,
         streak: normalizedStreak,
       };

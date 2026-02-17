@@ -361,7 +361,7 @@ export async function quickAddHasher(
 
 /**
  * Get suggestion scores for hashers most likely to attend.
- * Uses weighted algorithm: 50% frequency + 30% recency + 20% streak.
+ * Uses weighted algorithm: 35% kennel frequency + 15% roster frequency + 30% recency + 20% streak.
  */
 export async function getSuggestions(kennelId: string) {
   const user = await getMismanUser(kennelId);
@@ -379,6 +379,16 @@ export async function getSuggestions(kennelId: string) {
     select: { id: true, date: true },
     orderBy: { date: "desc" },
   });
+
+  // Fetch roster events (all kennels, within lookback) — only when multi-kennel roster
+  const isMultiKennel = rosterKennelIds.length > 1;
+  const rosterEvents = isMultiKennel
+    ? await prisma.event.findMany({
+        where: { kennelId: { in: rosterKennelIds }, date: { gte: lookbackDate } },
+        select: { id: true, date: true },
+        orderBy: { date: "desc" },
+      })
+    : kennelEvents;
 
   // Fetch all attendance in roster scope (within lookback)
   // Events belong to kennels, so we still use getRosterKennelIds here
@@ -412,6 +422,7 @@ export async function getSuggestions(kennelId: string) {
     kennelId,
     rosterKennelIds,
     kennelEvents,
+    rosterEvents,
     attendanceRecords: attendanceRecords.map((r) => ({
       kennelHasherId: r.kennelHasherId,
       eventId: r.eventId,
