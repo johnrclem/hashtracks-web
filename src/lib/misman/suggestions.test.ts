@@ -24,14 +24,23 @@ function makeEvents(count: number, startDaysAgo = 7): KennelEvent[] {
 
 function makeInput(overrides: Partial<SuggestionInput> = {}): SuggestionInput {
   const kennelEvents = overrides.kennelEvents ?? makeEvents(6);
+  const rosterEvents = overrides.rosterEvents ?? kennelEvents;
   const eventKennelMap = new Map<string, string>();
   for (const e of kennelEvents) {
     eventKennelMap.set(e.id, KENNEL_ID);
+  }
+  if (overrides.rosterEvents) {
+    for (const e of overrides.rosterEvents) {
+      if (!eventKennelMap.has(e.id)) {
+        eventKennelMap.set(e.id, "kennel-2");
+      }
+    }
   }
   return {
     kennelId: KENNEL_ID,
     rosterKennelIds: [KENNEL_ID],
     kennelEvents,
+    rosterEvents,
     attendanceRecords: [],
     rosterHasherIds: [],
     eventKennelMap,
@@ -42,7 +51,7 @@ function makeInput(overrides: Partial<SuggestionInput> = {}): SuggestionInput {
 describe("computeSuggestionScores", () => {
   it("returns empty array when no events exist", () => {
     const result = computeSuggestionScores(
-      makeInput({ kennelEvents: [] }),
+      makeInput({ kennelEvents: [], rosterEvents: [] }),
       REF_DATE,
     );
     expect(result).toEqual([]);
@@ -83,7 +92,7 @@ describe("computeSuggestionScores", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].kennelHasherId).toBe("hasher-1");
-    // frequency=1.0, recency≈1.0, streak=1.0 → score ≈ 1.0
+    // frequency=1.0, rosterFrequency=1.0, recency≈1.0, streak=1.0 → score ≈ 1.0
     expect(result[0].score).toBeGreaterThan(0.9);
   });
 
@@ -113,12 +122,13 @@ describe("computeSuggestionScores", () => {
     }
   });
 
-  it("frequency is scoped to this kennel only", () => {
+  it("kennel frequency is zero for cross-kennel-only hasher", () => {
     const events = makeEvents(4);
     const otherKennelEvent: KennelEvent = {
       id: "other-event-1",
       date: daysAgo(3),
     };
+    const rosterEvents = [...events, otherKennelEvent];
 
     const eventKennelMap = new Map<string, string>();
     for (const e of events) eventKennelMap.set(e.id, KENNEL_ID);
@@ -137,6 +147,7 @@ describe("computeSuggestionScores", () => {
       makeInput({
         rosterKennelIds: [KENNEL_ID, "kennel-2"],
         kennelEvents: events,
+        rosterEvents,
         attendanceRecords: records,
         rosterHasherIds: ["hasher-1"],
         eventKennelMap,
@@ -144,16 +155,19 @@ describe("computeSuggestionScores", () => {
       REF_DATE,
     );
 
-    // Frequency should be 0 (attended 0 events for this kennel)
-    // But recency > 0 (attended a roster group event recently)
-    if (result.length > 0) {
-      expect(result[0].frequency).toBe(0);
-      expect(result[0].recency).toBeGreaterThan(0);
-    }
+    // Kennel frequency should be 0 (attended 0 events for this kennel)
+    // But roster frequency > 0 and recency > 0, so they still get suggested
+    expect(result).toHaveLength(1);
+    expect(result[0].frequency).toBe(0);
+    expect(result[0].rosterFrequency).toBeGreaterThan(0);
+    expect(result[0].recency).toBeGreaterThan(0);
+    expect(result[0].score).toBeGreaterThan(SUGGESTION_THRESHOLD);
   });
 
   it("recency considers roster group attendance", () => {
     const events = makeEvents(4);
+    const otherEvent: KennelEvent = { id: "other-event", date: daysAgo(1) };
+    const rosterEvents = [...events, otherEvent];
     const eventKennelMap = new Map<string, string>();
     for (const e of events) eventKennelMap.set(e.id, KENNEL_ID);
     eventKennelMap.set("other-event", "kennel-2");
@@ -176,6 +190,7 @@ describe("computeSuggestionScores", () => {
       makeInput({
         rosterKennelIds: [KENNEL_ID, "kennel-2"],
         kennelEvents: events,
+        rosterEvents,
         attendanceRecords: records,
         rosterHasherIds: ["hasher-1"],
         eventKennelMap,
@@ -305,5 +320,176 @@ describe("computeSuggestionScores", () => {
     const result2 = computeSuggestionScores(input, REF_DATE);
 
     expect(result1).toEqual(result2);
+  });
+
+  describe("cross-kennel roster frequency", () => {
+    it("cross-kennel hasher in shared roster gets suggested", () => {
+      // Brooklyn has 3 events, NYCH3 has 3 events (6 total roster events)
+      const brooklynEvents = makeEvents(3, 7);
+      const nycEvents: KennelEvent[] = Array.from({ length: 3 }, (_, i) => ({
+        id: `nyc-event-${i}`,
+        date: daysAgo(7 + i * 7),
+      }));
+      const rosterEvents = [...brooklynEvents, ...nycEvents];
+
+      const eventKennelMap = new Map<string, string>();
+      for (const e of brooklynEvents) eventKennelMap.set(e.id, KENNEL_ID);
+      for (const e of nycEvents) eventKennelMap.set(e.id, "kennel-nyc");
+
+      // Hasher attended all 3 NYC events, 0 Brooklyn events
+      const records: AttendanceRecord[] = nycEvents.map((e) => ({
+        kennelHasherId: "hasher-nyc-only",
+        eventId: e.id,
+        eventDate: e.date,
+      }));
+
+      const result = computeSuggestionScores(
+        makeInput({
+          rosterKennelIds: [KENNEL_ID, "kennel-nyc"],
+          kennelEvents: brooklynEvents,
+          rosterEvents,
+          attendanceRecords: records,
+          rosterHasherIds: ["hasher-nyc-only"],
+          eventKennelMap,
+        }),
+        REF_DATE,
+      );
+
+      // Should be suggested (score > 0.3) via roster frequency
+      expect(result).toHaveLength(1);
+      expect(result[0].kennelHasherId).toBe("hasher-nyc-only");
+      expect(result[0].score).toBeGreaterThan(SUGGESTION_THRESHOLD);
+      // Kennel frequency is 0, roster frequency is 3/6 = 0.5
+      expect(result[0].frequency).toBe(0);
+      expect(result[0].rosterFrequency).toBe(0.5);
+      // Streak should be 0 (never attended Brooklyn)
+      expect(result[0].streak).toBe(0);
+    });
+
+    it("this-kennel regulars score higher than cross-kennel-only hashers", () => {
+      const brooklynEvents = makeEvents(3, 7);
+      const nycEvents: KennelEvent[] = Array.from({ length: 3 }, (_, i) => ({
+        id: `nyc-event-${i}`,
+        date: daysAgo(7 + i * 7),
+      }));
+      const rosterEvents = [...brooklynEvents, ...nycEvents];
+
+      const eventKennelMap = new Map<string, string>();
+      for (const e of brooklynEvents) eventKennelMap.set(e.id, KENNEL_ID);
+      for (const e of nycEvents) eventKennelMap.set(e.id, "kennel-nyc");
+
+      const records: AttendanceRecord[] = [
+        // brooklyn-regular attended all 3 Brooklyn events
+        ...brooklynEvents.map((e) => ({
+          kennelHasherId: "brooklyn-regular" as string,
+          eventId: e.id,
+          eventDate: e.date,
+        })),
+        // nyc-only attended all 3 NYC events, 0 Brooklyn
+        ...nycEvents.map((e) => ({
+          kennelHasherId: "nyc-only" as string,
+          eventId: e.id,
+          eventDate: e.date,
+        })),
+      ];
+
+      const result = computeSuggestionScores(
+        makeInput({
+          rosterKennelIds: [KENNEL_ID, "kennel-nyc"],
+          kennelEvents: brooklynEvents,
+          rosterEvents,
+          attendanceRecords: records,
+          rosterHasherIds: ["brooklyn-regular", "nyc-only"],
+          eventKennelMap,
+        }),
+        REF_DATE,
+      );
+
+      expect(result).toHaveLength(2);
+      // Brooklyn regular should score higher
+      expect(result[0].kennelHasherId).toBe("brooklyn-regular");
+      expect(result[1].kennelHasherId).toBe("nyc-only");
+      expect(result[0].score).toBeGreaterThan(result[1].score);
+    });
+
+    it("single-kennel roster frequency equals kennel frequency", () => {
+      const events = makeEvents(6);
+      // Hasher attended 3 of 6 events
+      const records: AttendanceRecord[] = events.slice(0, 3).map((e) => ({
+        kennelHasherId: "h1",
+        eventId: e.id,
+        eventDate: e.date,
+      }));
+
+      const result = computeSuggestionScores(
+        makeInput({
+          rosterKennelIds: [KENNEL_ID], // single kennel
+          kennelEvents: events,
+          // rosterEvents defaults to kennelEvents via makeInput
+          attendanceRecords: records,
+          rosterHasherIds: ["h1"],
+        }),
+        REF_DATE,
+      );
+
+      expect(result).toHaveLength(1);
+      // frequency = 3/6 = 0.5, rosterFrequency should equal frequency
+      expect(result[0].frequency).toBe(0.5);
+      expect(result[0].rosterFrequency).toBe(0.5);
+    });
+
+    it("MIN_EVENTS uses roster events for multi-kennel rosters", () => {
+      // Brooklyn has only 1 event (below MIN=3), but roster has 4 total
+      const brooklynEvents: KennelEvent[] = [{ id: "bk-1", date: daysAgo(7) }];
+      const nycEvents: KennelEvent[] = Array.from({ length: 3 }, (_, i) => ({
+        id: `nyc-${i}`,
+        date: daysAgo(14 + i * 7),
+      }));
+      const rosterEvents = [...brooklynEvents, ...nycEvents];
+
+      const eventKennelMap = new Map<string, string>();
+      eventKennelMap.set("bk-1", KENNEL_ID);
+      for (const e of nycEvents) eventKennelMap.set(e.id, "kennel-nyc");
+
+      // Hasher attended all NYC events + the 1 Brooklyn event
+      const records: AttendanceRecord[] = [
+        { kennelHasherId: "h1", eventId: "bk-1", eventDate: daysAgo(7) },
+        ...nycEvents.map((e) => ({
+          kennelHasherId: "h1",
+          eventId: e.id,
+          eventDate: e.date,
+        })),
+      ];
+
+      const result = computeSuggestionScores(
+        makeInput({
+          rosterKennelIds: [KENNEL_ID, "kennel-nyc"],
+          kennelEvents: brooklynEvents,
+          rosterEvents,
+          attendanceRecords: records,
+          rosterHasherIds: ["h1"],
+          eventKennelMap,
+        }),
+        REF_DATE,
+      );
+
+      // Should NOT be empty despite Brooklyn having <3 events
+      expect(result).toHaveLength(1);
+      expect(result[0].score).toBeGreaterThan(SUGGESTION_THRESHOLD);
+    });
+
+    it("single-kennel still returns empty when below MIN_EVENTS", () => {
+      const events = makeEvents(MIN_EVENTS_FOR_SUGGESTIONS - 1);
+      const result = computeSuggestionScores(
+        makeInput({
+          rosterKennelIds: [KENNEL_ID],
+          kennelEvents: events,
+          rosterEvents: events,
+          rosterHasherIds: ["h1"],
+        }),
+        REF_DATE,
+      );
+      expect(result).toEqual([]);
+    });
   });
 });
