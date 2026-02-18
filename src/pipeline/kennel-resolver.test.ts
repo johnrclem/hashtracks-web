@@ -12,6 +12,10 @@ describe("mapKennelTag", () => {
     expect(mapKennelTag("bobbh3")).toBe("BoBBH3");
   });
 
+  it("maps 'b3h4' → BoBBH3", () => {
+    expect(mapKennelTag("b3h4")).toBe("BoBBH3");
+  });
+
   it("maps 'queens black knights' → QBK", () => {
     expect(mapKennelTag("queens black knights")).toBe("QBK");
   });
@@ -46,6 +50,10 @@ describe("mapKennelTag", () => {
 
   it("maps 'pink taco' → Pink Taco", () => {
     expect(mapKennelTag("pink taco")).toBe("Pink Taco");
+  });
+
+  it("maps 'pt2h3' → Pink Taco", () => {
+    expect(mapKennelTag("pt2h3")).toBe("Pink Taco");
   });
 
   it("maps 'brooklyn' prefix → BrH3", () => {
