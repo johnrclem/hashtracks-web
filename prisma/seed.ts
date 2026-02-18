@@ -23,6 +23,7 @@ async function main() {
     shortName: string;
     fullName: string;
     region: string;
+    country?: string;
     website?: string;
     scheduleDayOfWeek?: string;
     scheduleTime?: string;
@@ -30,6 +31,11 @@ async function main() {
     scheduleNotes?: string;
     hashCash?: string;
     facebookUrl?: string;
+    instagramHandle?: string;
+    twitterHandle?: string;
+    discordUrl?: string;
+    contactEmail?: string;
+    foundedYear?: number;
   }> = [
     // NYC area (hashnyc.com source)
     {
@@ -100,12 +106,209 @@ async function main() {
       website: "https://hashphilly.com/nexthash/",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
     },
-    // Chicago
+    // Chicago area (Chicagoland Google Calendar aggregator)
     {
       shortName: "CH3", fullName: "Chicago Hash House Harriers", region: "Chicago, IL",
-      website: "https://chicagohash.org",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Summer: Saturdays 3pm. Winter: Sundays 2pm.",
+      website: "https://chicagohash.org", foundedYear: 1978,
+      scheduleNotes: "Summer: Mondays 7pm. Winter: Sundays 2pm.",
+    },
+    {
+      shortName: "TH3", fullName: "Thirstday Hash House Harriers", region: "Chicago, IL",
+      website: "https://chicagoth3.com", foundedYear: 2003,
+      scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+    },
+    {
+      shortName: "CFMH3", fullName: "Chicago Full Moon Hash House Harriers", region: "Chicago, IL",
+      website: "https://www.hhhinchicago.com", foundedYear: 1987,
+      scheduleFrequency: "Monthly", scheduleNotes: "Evenings near the full moon",
+    },
+    {
+      shortName: "FCMH3", fullName: "First Crack of the Moon Hash House Harriers", region: "Chicago, IL",
+      scheduleFrequency: "Monthly", scheduleNotes: "Evenings near the new moon",
+    },
+    {
+      shortName: "BDH3", fullName: "Big Dogs Hash House Harriers", region: "Chicago, IL",
+      scheduleFrequency: "Monthly", scheduleNotes: "2nd Saturday afternoon",
+    },
+    {
+      shortName: "BMH3", fullName: "Bushman Hash House Harriers", region: "Chicago, IL",
+      website: "https://www.hhhinchicago.com",
+      scheduleFrequency: "Monthly", scheduleNotes: "3rd Saturday afternoon",
+    },
+    {
+      shortName: "2CH3", fullName: "Second City Hash House Harriers", region: "Chicago, IL",
+      scheduleFrequency: "Irregular",
+    },
+    {
+      shortName: "WWH3", fullName: "Whiskey Wednesday Hash House Harriers", region: "Chicago, IL",
+      website: "http://www.whiskeywednesdayhash.org",
+      scheduleFrequency: "Monthly", scheduleNotes: "Last Wednesday evening, 7:00 PM. Free — no hash cash.",
+    },
+    {
+      shortName: "4X2H4", fullName: "4x2 Hash House Harriers and Harriettes", region: "Chicago, IL",
+      website: "https://www.4x2h4.org",
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "1st Tuesday. $2 hash cash, 4 miles, 2 beers.", hashCash: "$2",
+    },
+    {
+      shortName: "RTH3", fullName: "Ragtime Hash House Harriers", region: "Chicago, IL",
+      scheduleFrequency: "Irregular", scheduleNotes: "Brunch hash, various Saturdays",
+    },
+    {
+      shortName: "DLH3", fullName: "Duneland Hash House Harriers", region: "South Shore, IN",
+      scheduleFrequency: "Irregular",
+    },
+    // DC / DMV area
+    {
+      shortName: "EWH3", fullName: "Everyday is Wednesday Hash House Harriers", region: "Washington, DC",
+      website: "https://www.ewh3.com", foundedYear: 1999,
+      scheduleDayOfWeek: "Thursday", scheduleTime: "6:45 PM", scheduleFrequency: "Weekly",
+      discordUrl: "https://tinyurl.com/ewh3discord",
+    },
+    {
+      shortName: "SHITH3", fullName: "So Happy It's Tuesday Hash House Harriers", region: "Northern Virginia",
+      website: "https://shith3.com", foundedYear: 2002,
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+    },
+    {
+      shortName: "CCH3", fullName: "Charm City Hash House Harriers", region: "Baltimore, MD",
+      website: "https://charmcityh3.com",
+      scheduleFrequency: "Biweekly", scheduleNotes: "Alternating Friday 7:00 PM and Saturday afternoons",
+    },
+    {
+      shortName: "W3H3", fullName: "Wild and Wonderful Wednesday Hash House Harriers", region: "Jefferson County, WV",
+      website: "https://sites.google.com/view/w3h3",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:09 PM", scheduleFrequency: "Weekly",
+    },
+    {
+      shortName: "DCH4", fullName: "DC Harriettes and Harriers Hash House", region: "Washington, DC",
+      website: "https://dch4.org", foundedYear: 1978,
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "2:00 PM daylight, 3:00 PM standard time",
+    },
+    {
+      shortName: "WH4", fullName: "White House Hash House Harriers", region: "Washington, DC",
+      website: "https://whitehousehash.com", foundedYear: 1987,
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
+      scheduleNotes: "3:00 PM Labor Day–Memorial Day, 5:00 PM Memorial Day–Labor Day",
+    },
+    {
+      shortName: "BAH3", fullName: "Baltimore Annapolis Hash House Harriers", region: "Baltimore, MD",
+      website: "https://www.bah3.org",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
+    },
+    {
+      shortName: "MVH3", fullName: "Mount Vernon Hash House Harriers", region: "Washington, DC",
+      website: "http://www.dchashing.org/mvh3/", foundedYear: 1985,
+      scheduleDayOfWeek: "Saturday", scheduleTime: "10:00 AM", scheduleFrequency: "Weekly",
+    },
+    {
+      shortName: "OFH3", fullName: "Old Frederick Hash House Harriers", region: "Frederick, MD",
+      website: "https://www.ofh3.com", foundedYear: 2000,
+      scheduleFrequency: "Monthly", scheduleNotes: "2nd Saturday, 10:30 AM sign-in, 11:00 AM hares away",
+    },
+    {
+      shortName: "DCFMH3", fullName: "DC Full Moon Hash House Harriers", region: "Washington, DC",
+      website: "https://sites.google.com/site/dcfmh3/home",
+      scheduleFrequency: "Monthly", scheduleNotes: "Friday/Saturday on or near the full moon",
+      contactEmail: "dcfullmoonh3@gmail.com",
+    },
+    {
+      shortName: "GFH3", fullName: "Great Falls Hash House Harriers", region: "Northern Virginia",
+      foundedYear: 1982,
+      scheduleNotes: "Wednesday 7:00 PM (Spring/Summer), Saturday 3:00 PM (Fall/Winter)",
+    },
+    {
+      shortName: "DCH3", fullName: "DC Hash House Harriers", region: "Washington, DC",
+      foundedYear: 1972,
+      scheduleNotes: "Monday 7:00 PM (Summer), Saturday 3:00 PM",
+    },
+    // San Francisco Bay Area (sfh3.com MultiHash platform)
+    {
+      shortName: "SFH3", fullName: "San Francisco Hash House Harriers", region: "San Francisco, CA",
+      website: "https://www.sfh3.com", foundedYear: 1982,
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:15 PM", scheduleFrequency: "Weekly",
+      twitterHandle: "@sfh3",
+    },
+    {
+      shortName: "GPH3", fullName: "Gypsies in the Palace Hash House Harriers", region: "San Francisco, CA",
+      website: "https://www.gypsiesh3.com",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "6:15 PM", scheduleFrequency: "Weekly",
+    },
+    {
+      shortName: "EBH3", fullName: "East Bay Hash House Harriers", region: "Oakland, CA",
+      website: "https://www.ebh3.com",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly",
+      hashCash: "$6",
+    },
+    {
+      shortName: "SVH3", fullName: "Silicone Valley Hash House Harriers", region: "San Jose, CA",
+      website: "https://svh3.com",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      hashCash: "$6",
+    },
+    {
+      shortName: "BARH3", fullName: "Bay Area Rabble Hash", region: "San Francisco, CA",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Bar-to-bar live hare hash starting at various BART stations",
+    },
+    {
+      shortName: "MarinH3", fullName: "Marin Hash House Harriers", region: "Marin County, CA",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Monthly",
+    },
+    {
+      shortName: "FCH3", fullName: "Fog City Hash House Harriers", region: "San Francisco, CA",
+      scheduleFrequency: "Monthly", scheduleNotes: "LGBTQ-friendly kennel, special events",
+    },
+    {
+      shortName: "SFFMH3", fullName: "San Francisco Full Moon Hash", region: "San Francisco, CA",
+      scheduleFrequency: "Monthly", scheduleNotes: "On the full moon",
+    },
+    // London, UK
+    {
+      shortName: "LH3", fullName: "London Hash House Harriers", region: "London", country: "UK",
+      website: "https://www.londonhash.org", foundedYear: 1975,
+      scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Summer: sometimes Monday evenings at 7pm",
+      instagramHandle: "@london_hash_house_harriers",
+    },
+    {
+      shortName: "CityH3", fullName: "City Hash House Harriers", region: "London", country: "UK",
+      website: "https://cityhash.org.uk",
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      instagramHandle: "@cityhashhouseharriers",
+    },
+    {
+      shortName: "WLH3", fullName: "West London Hash House Harriers", region: "London", country: "UK",
+      website: "https://westlondonhash.com",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+    },
+    {
+      shortName: "BarnesH3", fullName: "Barnes Hash House Harriers", region: "London", country: "UK",
+      website: "http://www.barnesh3.com",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "7:30 PM", scheduleFrequency: "Weekly",
+      hashCash: "£2",
+    },
+    {
+      shortName: "OCH3", fullName: "Old Coulsdon Hash House Harriers", region: "Surrey", country: "UK",
+      website: "http://www.och3.org.uk",
+      scheduleFrequency: "Weekly", scheduleNotes: "Alternating Sunday 11 AM and Monday 7:30 PM",
+      hashCash: "£2",
+    },
+    {
+      shortName: "SLH3", fullName: "SLASH (South London Hash House Harriers)", region: "London", country: "UK",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "2nd Saturday of the month",
+    },
+    {
+      shortName: "FUKFM", fullName: "First UK Full Moon Hash House Harriers", region: "London", country: "UK",
+      website: "https://fukfmh3.co.uk", foundedYear: 1990,
+      scheduleFrequency: "Monthly", scheduleNotes: "Every full moon evening, 7:30 PM",
+    },
+    {
+      shortName: "EH3", fullName: "Enfield Hash House Harriers", region: "London", country: "UK",
+      website: "http://www.enfieldhash.org", foundedYear: 1999,
+      scheduleFrequency: "Monthly", scheduleNotes: "3rd Wednesday, 7:30 PM",
     },
   ];
 
@@ -134,6 +337,49 @@ async function main() {
     "Summit": ["Summit", "Summit H3", "Summit Hash", "SH3"],
     "SFM": ["SFM", "SFM H3", "Summit Full Moon", "Summit Full Moon H3"],
     "ASSSH3": ["ASSSH3", "ASSS H3", "All Seasons Summit Shiggy"],
+    // Chicago area
+    "CH3": ["Chicago Hash", "Chicago H3", "CHH3"],
+    "TH3": ["Thirstday", "Thirstday Hash", "Thirstday H3", "Thursday Hash"],
+    "CFMH3": ["Chicago Full Moon", "Chicago Full Moon Hash", "Chicago Moon Hash"],
+    "FCMH3": ["First Crack", "First Crack H3", "First Crack of the Moon"],
+    "BDH3": ["Big Dogs", "Big Dogs H3", "Big Dogs Hash"],
+    "BMH3": ["Bushman", "Bushman H3", "Bushman Hash"],
+    "2CH3": ["Second City", "Second City H3", "Second City Hash"],
+    "WWH3": ["Whiskey Wednesday", "Whiskey Wednesday Hash"],
+    "4X2H4": ["4x2 H4", "Four by Two H4"],
+    "RTH3": ["Ragtime", "Ragtime Hash"],
+    "DLH3": ["Duneland", "Duneland H3", "South Shore HHH"],
+    // DC / DMV area
+    "EWH3": ["Everyday is Wednesday", "Every Day is Wednesday"],
+    "SHITH3": ["SHIT H3", "So Happy It's Tuesday"],
+    "CCH3": ["Charm City", "Charm City Hash", "Charm City H3"],
+    "W3H3": ["Wild and Wonderful Wednesday"],
+    "DCH4": ["DC Harriettes", "Harriettes and Harriers"],
+    "WH4": ["White House Hash", "White House H3"],
+    "BAH3": ["Baltimore Annapolis", "Baltimore Annapolis Hash"],
+    "MVH3": ["Mount Vernon Hash", "Mount Vernon H3"],
+    "OFH3": ["Old Frederick", "Old Frederick Hash"],
+    "DCFMH3": ["DC Full Moon", "DC Full Moon Hash"],
+    "GFH3": ["Great Falls", "Great Falls Hash"],
+    "DCH3": ["DC Hash", "the Men's Hash"],
+    // San Francisco Bay Area
+    "SFH3": ["SF Hash", "San Francisco Hash", "San Francisco H3"],
+    "GPH3": ["Gypsies", "Gypsies H3", "Gypsies in the Palace", "GIP H3"],
+    "EBH3": ["East Bay", "East Bay Hash", "East Bay H3"],
+    "SVH3": ["Silicone Valley", "Silicone Valley H3", "Silicon Valley Hash", "SV Hash"],
+    "BARH3": ["Bay Area Rabble", "BAR H3"],
+    "MarinH3": ["Marin Hash", "Marin H3"],
+    "FCH3": ["Fog City", "Fog City Hash", "Fog City H3"],
+    "SFFMH3": ["SF Full Moon", "SF Full Moon Hash"],
+    // London, UK
+    "LH3": ["London Hash", "London H3"],
+    "CityH3": ["City Hash", "City H3"],
+    "WLH3": ["West London Hash", "West London H3", "WLH"],
+    "BarnesH3": ["Barnes Hash", "Barnes H3", "BH3"],
+    "OCH3": ["Old Coulsdon", "Old Coulsdon Hash", "OC Hash"],
+    "SLH3": ["SLASH", "SLAH3", "South London Hash"],
+    "FUKFM": ["FUKFMH3", "FUK Full Moon", "First UK Full Moon"],
+    "EH3": ["Enfield Hash", "Enfield H3"],
   };
 
   // ── SOURCE DATA (PRD Section 8) ──
@@ -224,6 +470,40 @@ async function main() {
       scrapeDays: 90,
       kennelShortNames: ["Philly H3"],
     },
+    {
+      name: "Chicagoland Hash Calendar",
+      url: "30c33n8c8s46icrd334mm5p3vc@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        kennelPatterns: [
+          ["CH3|Chicago Hash|Chicago H3", "CH3"],
+          ["TH3|Thirstday|Thursday Hash", "TH3"],
+          ["CFMH3|Chicago Full Moon|Full Moon Hash|Moon Hash", "CFMH3"],
+          ["FCMH3|First Crack", "FCMH3"],
+          ["BDH3|Big Dogs", "BDH3"],
+          ["BMH3|Bushman", "BMH3"],
+          ["2CH3|Second City", "2CH3"],
+          ["WWH3|Whiskey Wednesday", "WWH3"],
+          ["4X2|4x2", "4X2H4"],
+          ["RTH3|Ragtime", "RTH3"],
+          ["DLH3|Duneland|South Shore", "DLH3"],
+        ],
+        defaultKennelTag: "CH3",
+      },
+      kennelShortNames: ["CH3", "TH3", "CFMH3", "FCMH3", "BDH3", "BMH3", "2CH3", "WWH3", "4X2H4", "RTH3", "DLH3"],
+    },
+    {
+      name: "EWH3 Google Calendar",
+      url: "ewh3harerazor@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelShortNames: ["EWH3"],
+    },
   ];
 
   console.log("Seeding kennels...");
@@ -233,8 +513,12 @@ async function main() {
   for (const kennel of kennels) {
     const slug = toSlug(kennel.shortName);
     // Extract profile fields (omit undefined to avoid overwriting existing data with null)
-    const profileFields: Record<string, string | undefined> = {};
-    for (const key of ["website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency", "scheduleNotes", "hashCash", "facebookUrl"] as const) {
+    const profileFields: Record<string, string | number | undefined> = {};
+    for (const key of [
+      "website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency",
+      "scheduleNotes", "hashCash", "facebookUrl", "instagramHandle",
+      "twitterHandle", "discordUrl", "contactEmail", "foundedYear",
+    ] as const) {
       if (kennel[key] !== undefined) profileFields[key] = kennel[key];
     }
     const record = await prisma.kennel.upsert({
@@ -250,7 +534,7 @@ async function main() {
         slug,
         fullName: kennel.fullName,
         region: kennel.region,
-        country: "USA",
+        country: kennel.country ?? "USA",
         ...profileFields,
       },
     });

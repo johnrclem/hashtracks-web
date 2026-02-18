@@ -105,7 +105,8 @@ See [kennel-page-redesign-spec.md](kennel-page-redesign-spec.md) for full spec.
 - [x] Shared `scrapeSource()` for cron + admin routes
 
 ### Current Stats
-- 24 kennels (with rich profiles: schedule, social, hash cash, flags), 82 aliases, 7 sources, 25 source-kennel links
+- 62 kennels (with rich profiles: schedule, social, hash cash, flags), 181 aliases, 9 sources, 36 source-kennel links
+- 4 regions: NYC/NJ/Philly/Boston (24 kennels), Chicago (11), DC/DMV (12), SF Bay Area (8), London (8)
 - 3 adapter types: HTML_SCRAPER, GOOGLE_CALENDAR, GOOGLE_SHEETS
 - 21 models, 16 enums in Prisma schema
 - 600 tests across 35 test files

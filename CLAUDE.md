@@ -62,7 +62,7 @@ calendar + personal logbook + kennel directory.
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 21 models + 16 enums (THE source of truth for types)
-- `prisma/seed.ts` — Launch kennel + alias data
+- `prisma/seed.ts` — 62 kennels, 181 aliases, 9 sources across 5 regions (NYC, Boston, Chicago, DC, SF Bay, London)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
