@@ -115,9 +115,15 @@ export async function scrapeSource(
         errorDetails: hasErrorDetails
           ? (combinedErrorDetails as unknown as Prisma.InputJsonValue)
           : undefined,
-        // Phase 2B: Store sample blocked/skipped events
-        sampleBlocked: mergeResult.sampleBlocked as unknown as Prisma.InputJsonValue | undefined,
-        sampleSkipped: mergeResult.sampleSkipped as unknown as Prisma.InputJsonValue | undefined,
+        // Phase 2B: Store sample blocked/skipped events (only if non-empty;
+        // storing empty arrays would cause the page query to match scrape logs
+        // with no actual samples, masking older logs that had real samples)
+        sampleBlocked: mergeResult.sampleBlocked?.length
+          ? (mergeResult.sampleBlocked as unknown as Prisma.InputJsonValue)
+          : undefined,
+        sampleSkipped: mergeResult.sampleSkipped?.length
+          ? (mergeResult.sampleSkipped as unknown as Prisma.InputJsonValue)
+          : undefined,
         // Phase 3A: Performance timing
         fetchDurationMs,
         mergeDurationMs,
