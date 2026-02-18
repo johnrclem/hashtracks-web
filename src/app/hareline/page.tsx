@@ -12,7 +12,7 @@ export default async function HarelinePage() {
   const events = await prisma.event.findMany({
     include: {
       kennel: {
-        select: { id: true, shortName: true, fullName: true, slug: true, region: true },
+        select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
       },
     },
     orderBy: { date: "asc" },

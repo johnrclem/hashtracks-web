@@ -55,6 +55,9 @@ export function HarelineView({
   const [selectedDays, setSelectedDaysState] = useState<string[]>(
     parseList(searchParams.get("days")),
   );
+  const [selectedCountry, setSelectedCountryState] = useState<string>(
+    searchParams.get("country") ?? "",
+  );
 
   // Selected event for detail panel (desktop only)
   const [selectedEvent, setSelectedEvent] = useState<HarelineEvent | null>(null);
@@ -82,6 +85,7 @@ export function HarelineView({
         regions: selectedRegions,
         kennels: selectedKennels,
         days: selectedDays,
+        country: selectedCountry,
         ...overrides,
       };
 
@@ -93,6 +97,7 @@ export function HarelineView({
           (key === "view" && str === "list") ||
           (key === "density" && str === "medium") ||
           (key === "scope" && str === defaultScope) ||
+          (key === "country" && str === "") ||
           str === "";
         if (!isDefault) {
           params.set(key, str);
@@ -103,7 +108,7 @@ export function HarelineView({
       const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
       window.history.replaceState(window.history.state, "", newUrl);
     },
-    [timeFilter, view, density, scope, selectedRegions, selectedKennels, selectedDays, defaultScope],
+    [timeFilter, view, density, scope, selectedRegions, selectedKennels, selectedDays, selectedCountry, defaultScope],
   );
 
   // Wrapper setters that sync to URL
@@ -140,6 +145,11 @@ export function HarelineView({
     setSelectedEvent(null);
     syncUrl({ days: v });
   }
+  function setSelectedCountry(v: string) {
+    setSelectedCountryState(v);
+    setSelectedEvent(null);
+    syncUrl({ country: v });
+  }
 
   // Filter events
   const filteredEvents = useMemo(() => {
@@ -175,9 +185,14 @@ export function HarelineView({
         return false;
       }
 
+      // Country filter
+      if (selectedCountry && event.kennel.country !== selectedCountry) {
+        return false;
+      }
+
       return true;
     });
-  }, [events, view, timeFilter, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays]);
+  }, [events, view, timeFilter, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays, selectedCountry]);
 
   // Sort: upcoming = ascending (nearest first), past = descending (most recent first)
   // Secondary sort by startTime within the same day (events without time go last)
@@ -284,6 +299,8 @@ export function HarelineView({
         onKennelsChange={setSelectedKennels}
         selectedDays={selectedDays}
         onDaysChange={setSelectedDays}
+        selectedCountry={selectedCountry}
+        onCountryChange={setSelectedCountry}
       />
 
       {/* Results count */}
@@ -300,7 +317,7 @@ export function HarelineView({
 
           {/* Right: detail panel (desktop only) */}
           <div className="hidden lg:block">
-            <div className="sticky top-8">
+            <div className="sticky top-8 max-h-[calc(100vh-4rem)]">
               <EventDetailPanel
                 event={selectedEvent}
                 attendance={selectedEvent ? (attendanceMap[selectedEvent.id] ?? null) : null}
