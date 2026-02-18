@@ -69,6 +69,7 @@ export const TYPE_LABELS: Record<string, string> = {
   ICAL_FEED: "iCal Feed",
   RSS_FEED: "RSS Feed",
   JSON_API: "JSON API",
+  HASHREGO: "Hash Rego",
   MANUAL: "Manual",
 };
 

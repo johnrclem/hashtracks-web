@@ -12,6 +12,8 @@ export interface RawEventData {
   locationUrl?: string; // Google Maps or other maps URL
   startTime?: string; // HH:MM (local time)
   sourceUrl?: string;
+  externalLinks?: { url: string; label: string }[]; // Additional links (creates EventLink records)
+  seriesId?: string; // Groups multi-day events (e.g., Hash Rego event slug)
 }
 
 /** Structured parse error with row-level context (Phase 2A) */

@@ -153,6 +153,13 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
               </a>
             </Button>
           )}
+          {event.eventLinks?.map((link) => (
+            <Button key={link.id} variant="outline" size="sm" asChild>
+              <a href={link.url} target="_blank" rel="noopener noreferrer">
+                {link.label}
+              </a>
+            </Button>
+          ))}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="outline" size="sm" asChild>

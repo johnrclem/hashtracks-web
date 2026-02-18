@@ -441,7 +441,7 @@ async function main() {
     "nah3": ["New Amsterdam", "NAH3", "NASS", "New Amsterdam Hash"],
     "qbk": ["Queens Black Knights", "QBK", "QBK Hash", "Queens", "Queens Hash"],
     "lil": ["Long Island Lunatics", "LIL", "Long Island", "LI Hash", "Lunatics"],
-    "bfm": ["Ben Franklin Mob", "BFM", "BFM H3"],
+    "bfm": ["Ben Franklin Mob", "BFM", "BFM H3", "BFMH3"],
     "philly-h3": ["Philly Hash", "Philly H3", "Philadelphia H3", "Philadelphia Hash", "hashphilly"],
     "bos-moon": ["Moon", "Moom", "Boston Moon", "Bos Moon", "Bos Moom"],
     "pink-taco": ["Pink Taco", "Pink Taco Hash"],
@@ -717,6 +717,19 @@ async function main() {
         skipPatterns: ["^Hand Pump", "^Workday"],
       },
       kennelCodes: ["sfh3", "gph3", "ebh3", "svh3", "fhac-u", "agnews", "barh3", "marinh3", "fch3", "sffmh3", "vmh3"],
+    },
+    // Hash Rego (hashrego.com — multi-kennel registration platform)
+    {
+      name: "Hash Rego",
+      url: "https://hashrego.com/events",
+      type: "HASHREGO" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelSlugs: ["BFMH3", "EWH3", "WH4", "GFH3", "CH3", "DCH4", "DCFMH3"],
+      },
+      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3"],
     },
   ];
 

@@ -33,6 +33,7 @@ export type HarelineEvent = {
   description: string | null;
   sourceUrl: string | null;
   status: string;
+  eventLinks?: { id: string; url: string; label: string }[];
 };
 
 function formatDate(iso: string): string {

@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 706 tests)
+- `npm test` — Run test suite (Vitest, 756 tests)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -44,6 +44,8 @@ calendar + personal logbook + kennel directory.
 - `startTime` is a string "HH:MM" not a DateTime (many sources lack full timestamps)
 - Kennel resolution: shortName exact match → alias match → pattern match (retries shortName + alias) → flag for admin
 - Source-kennel guard: merge pipeline blocks events for kennels not linked via `SourceKennel` → generates `SOURCE_KENNEL_MISMATCH` alert
+- EventLink: extensible link table (Hash Rego, Meetup, etc.) — created by merge pipeline from `RawEventData.externalLinks` or when a second source provides a different sourceUrl
+- Multi-day events: split into separate Event records linked via `parentEventId` + `isSeriesParent`, grouped by `RawEventData.seriesId`
 - Kennel rename safety: renaming a kennel auto-adds the old shortName as an alias
 - All scraper adapters implement the `SourceAdapter` interface in `src/adapters/types.ts`
 - API routes return consistent shapes: `{ data, error?, meta? }`
@@ -61,8 +63,8 @@ calendar + personal logbook + kennel directory.
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
 
 ## Important Files
-- `prisma/schema.prisma` — Full data model, 21 models + 16 enums (THE source of truth for types)
-- `prisma/seed.ts` — 72 kennels, 221 aliases, 16 sources across 6 regions (NYC, Boston, Chicago, DC, SF Bay, London)
+- `prisma/schema.prisma` — Full data model, 22 models + 17 enums (THE source of truth for types)
+- `prisma/seed.ts` — 72 kennels, 222 aliases, 17 sources across 6 regions (NYC, Boston, Chicago, DC, SF Bay, London)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
@@ -75,6 +77,8 @@ calendar + personal logbook + kennel directory.
 - `src/adapters/google-calendar/adapter.ts` — Google Calendar API v3 adapter (Boston Hash)
 - `src/adapters/google-sheets/adapter.ts` — Google Sheets CSV adapter (Summit H3, W3H3, config-driven)
 - `src/adapters/ical/adapter.ts` — iCal feed adapter (SFH3 MultiHash, node-ical)
+- `src/adapters/hashrego/adapter.ts` — Hash Rego adapter (hashrego.com events, multi-kennel)
+- `src/adapters/hashrego/parser.ts` — Hash Rego HTML parsing (index table, detail page, multi-day splitting)
 - `src/adapters/html-scraper/london-hash.ts` — London Hash run list scraper (LH3)
 - `src/adapters/html-scraper/city-hash.ts` — City Hash website scraper (CityH3)
 - `src/adapters/html-scraper/west-london-hash.ts` — West London Hash website scraper (WLH3)
@@ -130,7 +134,7 @@ calendar + personal logbook + kennel directory.
 - `docs/misman-attendance-requirements.md` — Kennel attendance management (misman tool) requirements
 - `docs/misman-implementation-plan.md` — Sprint plan for misman feature (8a-8f)
 
-## Active Sources (16)
+## Active Sources (17)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
 - **Boston Hash Calendar** → GOOGLE_CALENDAR → 5 Boston kennels
 - **Summit H3 Spreadsheet** → GOOGLE_SHEETS → 3 NJ kennels (Summit, SFM, ASSSH3)
@@ -146,6 +150,7 @@ calendar + personal logbook + kennel directory.
 - **West London Hash Website** → HTML_SCRAPER → WLH3 (London)
 - **London Hash Run List** → HTML_SCRAPER → LH3 (London)
 - **SFH3 MultiHash iCal Feed** → ICAL_FEED → 11 SF Bay Area kennels
+- **Hash Rego** → HASHREGO → 7 kennels (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3)
 
 See `docs/source-onboarding-playbook.md` for how to add new sources.
 See `docs/roadmap.md` for implementation roadmap.
@@ -153,13 +158,13 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (706 tests across 38 files)
+- **Run:** `npm test` (756 tests across 39 files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
 - **Convention:** Test files live next to source files as `*.test.ts`
 - **Coverage areas:**
-  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, London HTML scrapers (CityH3, WLH3, LH3)
+  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, London HTML scrapers (CityH3, WLH3, LH3), Hash Rego (index parsing, detail parsing, multi-day splitting)
   - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation
   - Server actions: logbook CRUD, profile, kennel subscriptions, admin CRUD, misman attendance/roster/history
   - Misman: audit log, hare sync, CSV import parsing, suggestion scoring, verification status, invite tokens

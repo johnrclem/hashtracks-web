@@ -61,6 +61,10 @@ export default async function EventDetailPage({
         },
         orderBy: { hareName: "asc" },
       },
+      eventLinks: {
+        select: { id: true, url: true, label: true },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
 
@@ -223,6 +227,13 @@ export default async function EventDetailPage({
             </a>
           </Button>
         )}
+        {event.eventLinks.map((link) => (
+          <Button key={link.id} variant="outline" size="sm" asChild>
+            <a href={link.url} target="_blank" rel="noopener noreferrer">
+              {link.label}
+            </a>
+          </Button>
+        ))}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="outline" size="sm" asChild>

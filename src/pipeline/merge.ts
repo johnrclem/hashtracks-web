@@ -5,6 +5,25 @@ import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
 
 /**
+ * Create EventLink records for an event from externalLinks + alternate sourceUrls.
+ * Uses upsert with eventId+url unique key to prevent duplicates.
+ */
+async function createEventLinks(
+  eventId: string,
+  sourceId: string,
+  externalLinks?: { url: string; label: string }[],
+) {
+  if (!externalLinks?.length) return;
+  for (const link of externalLinks) {
+    await prisma.eventLink.upsert({
+      where: { eventId_url: { eventId, url: link.url } },
+      create: { eventId, url: link.url, label: link.label, sourceId },
+      update: {}, // No-op if already exists
+    });
+  }
+}
+
+/**
  * Process raw events from a scrape into RawEvent records and canonical Events.
  *
  * For each RawEventData:
@@ -12,6 +31,9 @@ import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
  * 2. Create immutable RawEvent record
  * 3. Resolve kennel tag — if unmatched, leave unprocessed
  * 4. Upsert canonical Event (kennel + date composite key)
+ * 5. Create EventLinks from externalLinks + alternate sourceUrls
+ *
+ * After all events: link multi-day series via parentEventId
  */
 export async function processRawEvents(
   sourceId: string,
@@ -47,6 +69,9 @@ export async function processRawEvents(
 
   // Clear resolver cache for fresh lookups
   clearResolverCache();
+
+  // Track series IDs → canonical event IDs for post-processing
+  const seriesGroups = new Map<string, string[]>();
 
   for (const event of events) {
     try {
@@ -131,7 +156,11 @@ export async function processRawEvents(
         where: { kennelId_date: { kennelId, date: eventDate } },
       });
 
+      let targetEventId: string;
+
       if (existingEvent) {
+        targetEventId = existingEvent.id;
+
         // Update only if our source trust level >= existing
         if (trustLevel >= existingEvent.trustLevel) {
           await prisma.event.update({
@@ -146,9 +175,19 @@ export async function processRawEvents(
               locationName: event.location ?? null,
               locationAddress: event.locationUrl ?? null,
               startTime: event.startTime ?? existingEvent.startTime,
-              sourceUrl: event.sourceUrl ?? existingEvent.sourceUrl,
+              // Preserve first source's URL; subsequent sources get EventLinks
+              sourceUrl: existingEvent.sourceUrl ?? event.sourceUrl,
               trustLevel,
             },
+          });
+        }
+
+        // If this source provides a different sourceUrl, create an EventLink for it
+        if (event.sourceUrl && existingEvent.sourceUrl && event.sourceUrl !== existingEvent.sourceUrl) {
+          await prisma.eventLink.upsert({
+            where: { eventId_url: { eventId: existingEvent.id, url: event.sourceUrl } },
+            create: { eventId: existingEvent.id, url: event.sourceUrl, label: "Source", sourceId },
+            update: {},
           });
         }
 
@@ -179,6 +218,8 @@ export async function processRawEvents(
           },
         });
 
+        targetEventId = newEvent.id;
+
         // Link RawEvent to new Event
         await prisma.rawEvent.update({
           where: { id: rawEvent.id },
@@ -186,6 +227,16 @@ export async function processRawEvents(
         });
 
         result.created++;
+      }
+
+      // Create EventLinks from externalLinks
+      await createEventLinks(targetEventId, sourceId, event.externalLinks);
+
+      // Track series membership for post-processing
+      if (event.seriesId) {
+        const group = seriesGroups.get(event.seriesId) ?? [];
+        group.push(targetEventId);
+        seriesGroups.set(event.seriesId, group);
       }
     } catch (err) {
       // Log error but continue processing other events (graceful degradation)
@@ -206,6 +257,31 @@ export async function processRawEvents(
     }
   }
 
+  // Post-processing: Link multi-day series via parentEventId
+  for (const [, eventIds] of seriesGroups) {
+    if (eventIds.length < 2) continue;
+    try {
+      // Sort by date to pick the earliest as parent
+      const seriesEvents = await prisma.event.findMany({
+        where: { id: { in: eventIds } },
+        orderBy: { date: "asc" },
+        select: { id: true },
+      });
+      const parentId = seriesEvents[0].id;
+      await prisma.event.update({
+        where: { id: parentId },
+        data: { isSeriesParent: true },
+      });
+      for (const child of seriesEvents.slice(1)) {
+        await prisma.event.update({
+          where: { id: child.id },
+          data: { parentEventId: parentId },
+        });
+      }
+    } catch (err) {
+      console.error(`Series linking error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   return result;
 }
-

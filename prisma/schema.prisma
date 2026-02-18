@@ -132,6 +132,7 @@ model Source {
   rawEvents     RawEvent[]
   scrapeLogs    ScrapeLog[]
   alerts        Alert[]
+  eventLinks    EventLink[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 }
@@ -142,7 +143,8 @@ enum SourceType {
   GOOGLE_SHEETS   // Summit H3 spreadsheet
   ICAL_FEED       // .ics URL
   RSS_FEED        // RSS/Atom feed
-  JSON_API        // HashRego API
+  JSON_API        // Generic JSON API
+  HASHREGO        // hashrego.com event pages
   MANUAL          // User-submitted events
 }
 
@@ -248,6 +250,7 @@ model Event {
   rawEvents   RawEvent[]
   hares       EventHare[]
   attendances Attendance[]
+  eventLinks  EventLink[]
   // Misman relations
   kennelAttendances KennelAttendance[]
   createdAt   DateTime    @default(now())
@@ -256,6 +259,21 @@ model Event {
   @@unique([kennelId, date]) // De-duplication key
   @@index([date])
   @@index([kennelId, date])
+}
+
+model EventLink {
+  id        String   @id @default(cuid())
+  eventId   String
+  url       String
+  label     String   // e.g., "Hash Rego", "Meetup", "Kennel Website"
+  sourceId  String?  // Which source created this link (nullable for manual)
+  createdAt DateTime @default(now())
+
+  event  Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  source Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, url]) // Prevent duplicate links
+  @@index([eventId])
 }
 
 enum EventStatus {

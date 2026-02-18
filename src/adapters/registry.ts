@@ -9,12 +9,14 @@ import { LondonHashAdapter } from "./html-scraper/london-hash";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
+import { HashRegoAdapter } from "./hashrego/adapter";
 
 const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
   HTML_SCRAPER: () => new HashNYCAdapter(), // default HTML scraper
   GOOGLE_CALENDAR: () => new GoogleCalendarAdapter(),
   GOOGLE_SHEETS: () => new GoogleSheetsAdapter(),
   ICAL_FEED: () => new ICalAdapter(),
+  HASHREGO: () => new HashRegoAdapter(),
 };
 
 /** URL-based routing for HTML_SCRAPER sources with site-specific adapters */
