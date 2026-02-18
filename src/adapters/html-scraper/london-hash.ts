@@ -30,9 +30,33 @@ export function parseRunBlocks(html: string): RunBlock[] {
   const $ = cheerio.load(html);
   const blocks: RunBlock[] = [];
 
-  // Find all nextrun links
-  const runLinks = $('a[href*="nextrun.php"]');
+  // Strategy 1: Structured layout with .runListDetails containers (actual website)
+  const containers = $(".runListDetails");
+  if (containers.length > 0) {
+    containers.each((_i, el) => {
+      const $block = $(el);
+      const $link = $block.find('a[href*="nextrun.php"]');
+      if (!$link.length) return;
 
+      const href = $link.attr("href") || "";
+      const runIdMatch = href.match(/run=(\d+)/);
+      if (!runIdMatch) return;
+
+      const runId = runIdMatch[1];
+      const runNumber = parseInt($link.text().trim(), 10);
+      if (isNaN(runNumber)) return;
+
+      // Replace <br> with newlines so date/time don't concatenate
+      $block.find("br").replaceWith("\n");
+      const text = $block.text().trim();
+
+      blocks.push({ runNumber, runId, text });
+    });
+    return blocks;
+  }
+
+  // Strategy 2: Flat text layout (fallback for simple HTML)
+  const runLinks = $('a[href*="nextrun.php"]');
   runLinks.each((i, el) => {
     const $link = $(el);
     const href = $link.attr("href") || "";
@@ -44,32 +68,19 @@ export function parseRunBlocks(html: string): RunBlock[] {
     const runNumber = parseInt(linkText, 10);
     if (isNaN(runNumber)) return;
 
-    // Collect text from this link's parent context until the next run link.
-    // Walk up to the nearest block-level container, then get its text.
-    let $container = $link.parent();
-
-    // Try to find a meaningful block of text around this link
-    // Strategy: get text from the link's ancestors, stopping at the next run link
     let text = "";
-
-    // Get text from the element containing the link and its siblings
-    // Walk siblings until we hit another run link or reach a clear boundary
-    const $parent = $link.closest("div, td, li, p, section, body");
+    const $parent = $link.closest("p, li, section, body");
     if ($parent.length) {
-      // Get all text content, then extract the section for this run
       const fullText = $parent.text();
       const linkPos = fullText.indexOf(linkText);
       if (linkPos >= 0) {
-        // Find the next run link text position
         const nextLink = runLinks.eq(i + 1);
         if (nextLink.length) {
           const nextText = nextLink.text().trim();
           const nextPos = fullText.indexOf(nextText, linkPos + linkText.length);
-          if (nextPos > linkPos) {
-            text = fullText.substring(linkPos, nextPos).trim();
-          } else {
-            text = fullText.substring(linkPos).trim();
-          }
+          text = nextPos > linkPos
+            ? fullText.substring(linkPos, nextPos).trim()
+            : fullText.substring(linkPos).trim();
         } else {
           text = fullText.substring(linkPos).trim();
         }
@@ -77,8 +88,7 @@ export function parseRunBlocks(html: string): RunBlock[] {
     }
 
     if (!text) {
-      // Fallback: just use the text node siblings
-      text = $container.text().trim();
+      text = $link.parent().text().trim();
     }
 
     blocks.push({ runNumber, runId, text });

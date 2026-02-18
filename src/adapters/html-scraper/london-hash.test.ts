@@ -132,42 +132,47 @@ describe("parseTimeFromBlock", () => {
   });
 });
 
-// Sample HTML mimicking London Hash run list structure
+// Sample HTML matching the actual londonhash.org/runlist.php structure
 const SAMPLE_HTML = `
 <html><body>
-<div>
-  <p>
-    <a href="nextrun.php?run=3840">2820</a>
-    Sydenham
-    Saturday 21st of February 2026
-    12 Noon for 12:30 (3 days time)
-    Follow the P trail from Sydenham station to The Dolphin
-    Hared by Tuna Melt and Opee
-    ** 50th Anniversary Special **
-  </p>
-  <p>
-    <a href="nextrun.php?run=3841">2821</a>
-    Finsbury Park
-    Saturday 28th of February 2026
-    12 Noon for 12:30
-    Follow the P trail from Finsbury Park to The World's End
-    Hared by Captain Adventures
-  </p>
-  <p>
-    <a href="nextrun.php?run=3842">2822</a>
-    Brixton
-    Saturday 7th March 2026
-    12 Noon for 12:30
-    Hare required
-  </p>
-  <p>
-    <a href="nextrun.php?run=3843">2823</a>
-    Ealing Broadway
-    Monday 22nd June 2026
-    7pm for 7:15
-    Follow the P trail from Ealing Broadway to The Red Lion
-    Hared by Summer Runner
-  </p>
+<div id="runListHolder">
+  <div class="runListDetails">
+    <div class="runlistRow titleRow">Sydneham</div>
+    <div class="runlistRow">
+      <div class="runlistCat runlistNo"><a href="nextrun.php?run=3840">2820</a></div>
+      <div class="runlistDate">Saturday 21st of February 2026<br />12 Noon for 12:30 (3 days time)</div>
+      <div class="runlistLoc">Follow the P trail from<br /> Sydenham station <br />to <a href="https://camra.org.uk/pubs/dolphin" target="_blank">The Dolphin</a></div>
+      <div class="runlistHare">Hared by Tuna Melt and Opee</div>
+    </div>
+    <div class="runlistRow"><div class="runlistNote">** 50th Anniversary Special **</div></div>
+  </div>
+  <div class="runListDetails">
+    <div class="runlistRow titleRow">Finsbury Park</div>
+    <div class="runlistRow">
+      <div class="runlistCat runlistNo"><a href="nextrun.php?run=3841">2821</a></div>
+      <div class="runlistDate">Saturday 28th of February 2026<br />12 Noon for 12:30</div>
+      <div class="runlistLoc">Follow the P trail from<br /> Finsbury Park <br />to The World's End</div>
+      <div class="runlistHare">Hared by Captain Adventures</div>
+    </div>
+  </div>
+  <div class="runListDetails">
+    <div class="runlistRow titleRow">**To Be Announced</div>
+    <div class="runlistRow">
+      <div class="runlistCat runlistNo"><a href="nextrun.php?run=3842">2822</a></div>
+      <div class="runlistDate">Saturday 7th March 2026<br />12 Noon for 12:30</div>
+      <div class="runlistLoc">details to be announced</div>
+      <div class="runlistHare">Hare required</div>
+    </div>
+  </div>
+  <div class="runListDetails">
+    <div class="runlistRow titleRow">Ealing Broadway</div>
+    <div class="runlistRow">
+      <div class="runlistCat runlistNo"><a href="nextrun.php?run=3843">2823</a></div>
+      <div class="runlistDate">Monday 22nd June 2026<br />7pm for 7:15</div>
+      <div class="runlistLoc">Follow the P trail from<br /> Ealing Broadway <br />to The Red Lion</div>
+      <div class="runlistHare">Hared by Summer Runner</div>
+    </div>
+  </div>
 </div>
 </body></html>
 `;
