@@ -49,7 +49,7 @@ export default async function KennelDetailPage({
       where: { kennelId: kennel.id },
       include: {
         kennel: {
-          select: { id: true, shortName: true, fullName: true, slug: true, region: true },
+          select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
         },
       },
       orderBy: { date: "asc" },

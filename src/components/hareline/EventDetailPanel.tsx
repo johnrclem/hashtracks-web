@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,12 +43,27 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
       : null;
 
   return (
-    <Card>
-      <CardContent className="space-y-4 p-5">
+    <Card className="flex max-h-[calc(100vh-4rem)] flex-col overflow-hidden">
+      {/* Scrollable content */}
+      <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
         {/* Header */}
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-2">
-            <h2 className="text-lg font-bold">{formatDateLong(event.date)}</h2>
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-lg font-bold">{formatDateLong(event.date)}</h2>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={`/hareline/${event.id}`}
+                    className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+                    aria-label="View full event page"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>View event page</TooltipContent>
+              </Tooltip>
+            </div>
             {onDismiss && (
               <button
                 onClick={onDismiss}
@@ -142,36 +158,36 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             <p className="whitespace-pre-wrap text-sm">{event.description}</p>
           </div>
         )}
-
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2 pt-2">
-          <CalendarExportButton event={event} />
-          {event.sourceUrl && (
-            <Button variant="outline" size="sm" asChild>
-              <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer">
-                View Source
-              </a>
-            </Button>
-          )}
-          {event.eventLinks?.map((link) => (
-            <Button key={link.id} variant="outline" size="sm" asChild>
-              <a href={link.url} target="_blank" rel="noopener noreferrer">
-                {link.label}
-              </a>
-            </Button>
-          ))}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/kennels/${event.kennel.slug}`}>
-                  View {event.kennel.shortName}
-                </Link>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{event.kennel.fullName}</TooltipContent>
-          </Tooltip>
-        </div>
       </CardContent>
+
+      {/* Pinned action footer */}
+      <div className="flex flex-wrap gap-2 border-t px-5 py-3">
+        <CalendarExportButton event={event} />
+        {event.sourceUrl && (
+          <Button variant="outline" size="sm" asChild>
+            <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer">
+              View Source
+            </a>
+          </Button>
+        )}
+        {event.eventLinks?.map((link) => (
+          <Button key={link.id} variant="outline" size="sm" asChild>
+            <a href={link.url} target="_blank" rel="noopener noreferrer">
+              {link.label}
+            </a>
+          </Button>
+        ))}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/kennels/${event.kennel.slug}`}>
+                View {event.kennel.shortName}
+              </Link>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{event.kennel.fullName}</TooltipContent>
+        </Tooltip>
+      </div>
     </Card>
   );
 }

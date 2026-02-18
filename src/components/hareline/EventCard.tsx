@@ -23,6 +23,7 @@ export type HarelineEvent = {
     fullName: string;
     slug: string;
     region: string;
+    country: string;
   };
   runNumber: number | null;
   title: string | null;

@@ -37,6 +37,8 @@ interface EventFiltersProps {
   onKennelsChange: (kennels: string[]) => void;
   selectedDays: string[];
   onDaysChange: (days: string[]) => void;
+  selectedCountry: string;
+  onCountryChange: (country: string) => void;
 }
 
 export function EventFilters({
@@ -51,6 +53,8 @@ export function EventFilters({
   onKennelsChange,
   selectedDays,
   onDaysChange,
+  selectedCountry,
+  onCountryChange,
 }: EventFiltersProps) {
   // Derive available regions and kennels from events
   const regions = useMemo(() => {
@@ -78,6 +82,14 @@ export function EventFilters({
     return all.sort((a, b) => a.shortName.localeCompare(b.shortName));
   }, [events, selectedRegions]);
 
+  const countries = useMemo(() => {
+    const countrySet = new Set<string>();
+    for (const e of events) {
+      if (e.kennel.country) countrySet.add(e.kennel.country);
+    }
+    return Array.from(countrySet).sort();
+  }, [events]);
+
   function toggleRegion(region: string) {
     if (selectedRegions.includes(region)) {
       onRegionsChange(selectedRegions.filter((r) => r !== region));
@@ -103,7 +115,7 @@ export function EventFilters({
   }
 
   const activeFilterCount =
-    selectedRegions.length + selectedKennels.length + selectedDays.length;
+    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0);
 
   return (
     <div className="space-y-3">
@@ -238,6 +250,27 @@ export function EventFilters({
           ))}
         </div>
 
+        {/* Country filter — only if >1 country */}
+        {countries.length > 1 && (
+          <div className="flex gap-1">
+            {countries.map((country) => (
+              <button
+                key={country}
+                onClick={() =>
+                  onCountryChange(selectedCountry === country ? "" : country)
+                }
+                className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                  selectedCountry === country
+                    ? "bg-primary text-primary-foreground"
+                    : "border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {country}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Clear filters */}
         {activeFilterCount > 0 && (
           <Button
@@ -248,6 +281,7 @@ export function EventFilters({
               onRegionsChange([]);
               onKennelsChange([]);
               onDaysChange([]);
+              onCountryChange("");
             }}
           >
             Clear filters
