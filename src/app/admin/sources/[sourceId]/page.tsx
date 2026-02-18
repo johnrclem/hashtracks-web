@@ -386,7 +386,11 @@ export default async function SourceDetailPage({
         <StatCard label="Frequency" value={source.scrapeFreq} />
         <StatCard label="Raw Events" value={rawEventCount.toString()} />
         <StatCard label="Linked Events" value={linkedEventCount.toString()} />
-        <StatCard label="Open Alerts" value={openAlertCount.toString()} />
+        <StatCard
+          label="Open Alerts"
+          value={openAlertCount.toString()}
+          href={openAlertCount > 0 ? `/admin/alerts?source=${sourceId}` : undefined}
+        />
       </div>
 
       {/* Linked Kennels */}
@@ -744,11 +748,19 @@ export default async function SourceDetailPage({
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
+function StatCard({ label, value, href }: { label: string; value: string; href?: string }) {
+  const content = (
     <div className="rounded-lg border p-4">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="text-2xl font-semibold">{value}</p>
     </div>
   );
+  if (href) {
+    return (
+      <Link href={href} className="rounded-lg hover:ring-2 hover:ring-primary/20">
+        {content}
+      </Link>
+    );
+  }
+  return content;
 }

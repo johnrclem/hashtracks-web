@@ -115,7 +115,7 @@ export function SourceDetailActions({
               min="1"
             />
           </TooltipTrigger>
-          <TooltipContent>Number of days to look back when scraping</TooltipContent>
+          <TooltipContent>Days to look back (applied on next scrape, not auto-saved)</TooltipContent>
         </Tooltip>
         <span className="text-sm text-muted-foreground">days</span>
       </div>
@@ -136,7 +136,8 @@ export function SourceDetailActions({
         <TooltipTrigger asChild>
           <Button
             size="sm"
-            variant="destructive"
+            variant="outline"
+            className="border-amber-300 text-amber-700 hover:bg-amber-50"
             disabled={isScraping}
             onClick={() => handleScrape(true)}
           >
