@@ -84,3 +84,47 @@ export function regionAbbrev(region: string): string {
 export function regionColorClasses(region: string): string {
   return REGION_CONFIG[region]?.classes ?? "bg-gray-200 text-gray-800";
 }
+
+// ── Kennel profile helpers ──
+
+/**
+ * Combine schedule fields into a natural sentence.
+ * "Wednesdays at 7:00 PM · Weekly", "Saturdays · Biweekly", "Monthly", etc.
+ * Returns null if no schedule fields are populated.
+ */
+export function formatSchedule(kennel: {
+  scheduleDayOfWeek?: string | null;
+  scheduleTime?: string | null;
+  scheduleFrequency?: string | null;
+}): string | null {
+  const parts: string[] = [];
+  if (kennel.scheduleDayOfWeek) {
+    parts.push(kennel.scheduleDayOfWeek + "s");
+  }
+  if (kennel.scheduleTime) {
+    parts.push(parts.length ? `at ${kennel.scheduleTime}` : kennel.scheduleTime);
+  }
+  if (kennel.scheduleFrequency) {
+    parts.push(parts.length ? `· ${kennel.scheduleFrequency}` : kennel.scheduleFrequency);
+  }
+  return parts.length ? parts.join(" ") : null;
+}
+
+/** Build Instagram profile URL from handle, stripping leading @ if present. */
+export function instagramUrl(handle: string): string {
+  return `https://instagram.com/${handle.replace(/^@/, "")}`;
+}
+
+/** Build X/Twitter profile URL from handle, stripping leading @ if present. */
+export function twitterUrl(handle: string): string {
+  return `https://x.com/${handle.replace(/^@/, "")}`;
+}
+
+/** Extract hostname from URL, stripping www. prefix. Returns raw string on parse failure. */
+export function displayDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}

@@ -26,6 +26,24 @@ type KennelData = {
   description: string | null;
   website: string | null;
   aliases: string[];
+  // Profile fields
+  scheduleDayOfWeek: string | null;
+  scheduleTime: string | null;
+  scheduleFrequency: string | null;
+  scheduleNotes: string | null;
+  facebookUrl: string | null;
+  instagramHandle: string | null;
+  twitterHandle: string | null;
+  discordUrl: string | null;
+  mailingListUrl: string | null;
+  contactEmail: string | null;
+  contactName: string | null;
+  hashCash: string | null;
+  paymentLink: string | null;
+  foundedYear: number | null;
+  logoUrl: string | null;
+  dogFriendly: boolean | null;
+  walkersWelcome: boolean | null;
 };
 
 interface KennelFormProps {
@@ -274,6 +292,205 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
 
           {/* Hidden field to carry aliases through FormData */}
           <input type="hidden" name="aliases" value={aliases.join(",")} />
+
+          {/* ── Schedule Section ── */}
+          <div className="space-y-3 border-t pt-4">
+            <Label className="text-sm font-semibold">Schedule</Label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="scheduleDayOfWeek">Day of Week</Label>
+                <Input
+                  id="scheduleDayOfWeek"
+                  name="scheduleDayOfWeek"
+                  defaultValue={kennel?.scheduleDayOfWeek ?? ""}
+                  placeholder="Wednesday"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="scheduleTime">Time</Label>
+                <Input
+                  id="scheduleTime"
+                  name="scheduleTime"
+                  defaultValue={kennel?.scheduleTime ?? ""}
+                  placeholder="7:00 PM"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="scheduleFrequency">Frequency</Label>
+                <Input
+                  id="scheduleFrequency"
+                  name="scheduleFrequency"
+                  defaultValue={kennel?.scheduleFrequency ?? ""}
+                  placeholder="Weekly, Biweekly, Monthly..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="scheduleNotes">Schedule Notes</Label>
+                <Input
+                  id="scheduleNotes"
+                  name="scheduleNotes"
+                  defaultValue={kennel?.scheduleNotes ?? ""}
+                  placeholder="Summer: Mon 7pm, Winter: Sun 2pm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Social & Contact Section ── */}
+          <div className="space-y-3 border-t pt-4">
+            <Label className="text-sm font-semibold">Social & Contact</Label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="facebookUrl">Facebook URL</Label>
+                <Input
+                  id="facebookUrl"
+                  name="facebookUrl"
+                  type="url"
+                  defaultValue={kennel?.facebookUrl ?? ""}
+                  placeholder="https://facebook.com/groups/..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="instagramHandle">Instagram Handle</Label>
+                <Input
+                  id="instagramHandle"
+                  name="instagramHandle"
+                  defaultValue={kennel?.instagramHandle ?? ""}
+                  placeholder="@kennel_name"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="twitterHandle">X / Twitter Handle</Label>
+                <Input
+                  id="twitterHandle"
+                  name="twitterHandle"
+                  defaultValue={kennel?.twitterHandle ?? ""}
+                  placeholder="@kennel_name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="discordUrl">Discord URL</Label>
+                <Input
+                  id="discordUrl"
+                  name="discordUrl"
+                  type="url"
+                  defaultValue={kennel?.discordUrl ?? ""}
+                  placeholder="https://discord.gg/..."
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="mailingListUrl">Mailing List URL</Label>
+                <Input
+                  id="mailingListUrl"
+                  name="mailingListUrl"
+                  type="url"
+                  defaultValue={kennel?.mailingListUrl ?? ""}
+                  placeholder="https://groups.google.com/..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactEmail">Contact Email</Label>
+                <Input
+                  id="contactEmail"
+                  name="contactEmail"
+                  type="email"
+                  defaultValue={kennel?.contactEmail ?? ""}
+                  placeholder="gm@kennel.com"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contactName">Contact Name</Label>
+              <Input
+                id="contactName"
+                name="contactName"
+                defaultValue={kennel?.contactName ?? ""}
+                placeholder="Grand Master: Mudflap"
+              />
+            </div>
+          </div>
+
+          {/* ── Details Section ── */}
+          <div className="space-y-3 border-t pt-4">
+            <Label className="text-sm font-semibold">Details</Label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="hashCash">Hash Cash</Label>
+                <Input
+                  id="hashCash"
+                  name="hashCash"
+                  defaultValue={kennel?.hashCash ?? ""}
+                  placeholder="$5, Free, $7/$10 visitor"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="paymentLink">Payment Link</Label>
+                <Input
+                  id="paymentLink"
+                  name="paymentLink"
+                  type="url"
+                  defaultValue={kennel?.paymentLink ?? ""}
+                  placeholder="https://venmo.com/..."
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="foundedYear">Founded Year</Label>
+                <Input
+                  id="foundedYear"
+                  name="foundedYear"
+                  type="number"
+                  defaultValue={kennel?.foundedYear?.toString() ?? ""}
+                  placeholder="1975"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="logoUrl">Logo URL</Label>
+                <Input
+                  id="logoUrl"
+                  name="logoUrl"
+                  type="url"
+                  defaultValue={kennel?.logoUrl ?? ""}
+                  placeholder="https://example.com/logo.png"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="dogFriendly">Dog Friendly</Label>
+                <select
+                  id="dogFriendly"
+                  name="dogFriendly"
+                  defaultValue={kennel?.dogFriendly === true ? "true" : kennel?.dogFriendly === false ? "false" : ""}
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                >
+                  <option value="">Unknown</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="walkersWelcome">Walkers Welcome</Label>
+                <select
+                  id="walkersWelcome"
+                  name="walkersWelcome"
+                  defaultValue={kennel?.walkersWelcome === true ? "true" : kennel?.walkersWelcome === false ? "false" : ""}
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                >
+                  <option value="">Unknown</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <Button

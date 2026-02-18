@@ -2,7 +2,9 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-16
+Last updated: 2026-02-17
+
+**Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
 
 ---
 
@@ -79,55 +81,194 @@ See [misman-attendance-requirements.md](misman-attendance-requirements.md) and [
 - [x] Admin: kennel merge UI with fuzzy duplicate prevention
 - [x] Admin: slim source table, detail page tooltips
 
+### Kennel Page Redesign — COMPLETE
+- [x] 17 new nullable profile fields on Kennel model (schedule, social, details, flags)
+- [x] QuickInfoCard component: schedule, hash cash + pay link, website, founded year, dog-friendly/walkers-welcome flags
+- [x] SocialLinks component: pill-style linked buttons for Facebook, Instagram, X, Discord, mailing list, email
+- [x] KennelStats component: total events, oldest event date, next run date
+- [x] Redesigned `/kennels/[slug]` page with hero logo, quick info, social links, stats
+- [x] Admin form expanded with Schedule, Social & Contact, Details sections (17 new fields)
+- [x] Format helpers: `formatSchedule()`, `instagramUrl()`, `twitterUrl()`, `displayDomain()` + 15 tests
+- [x] Seed data populated for 14 of 24 existing kennels
+
+See [kennel-page-redesign-spec.md](kennel-page-redesign-spec.md) for full spec.
+
+### In-App Feedback — COMPLETE
+- [x] "Send Feedback" dialog in app footer (signed-in users only)
+- [x] Category dropdown (Bug Report, Feature Request, Question, Other) + title + description
+- [x] Creates GitHub Issue via REST API with `user-feedback` + category labels
+- [x] Auto-captures current page URL for bug context
+
 ### Cron & Infrastructure — COMPLETE
 - [x] Vercel Cron daily scrapes (6:00 AM UTC) with CRON_SECRET auth
 - [x] Per-source `scrapeFreq` with interval-based skip logic
 - [x] Shared `scrapeSource()` for cron + admin routes
 
 ### Current Stats
-- 24 kennels, 82 aliases, 7 sources, 25 source-kennel links
+- 24 kennels (with rich profiles: schedule, social, hash cash, flags), 82 aliases, 7 sources, 25 source-kennel links
 - 3 adapter types: HTML_SCRAPER, GOOGLE_CALENDAR, GOOGLE_SHEETS
 - 21 models, 16 enums in Prisma schema
-- 585 tests across 34 test files
+- 600 tests across 35 test files
 
 ---
 
-## Immediate: Early Adopter Success
+## Priority 1: Expand Source Coverage
 
-*Focus: Polish the misman experience, get feedback, expand source coverage.*
+**Strategic rationale:** HashTracks' automated source engine is the primary competitive moat. Harrier Central requires kennel admins to manually enter every run — their 3-year-old open issue for recurring events (#309) proves manual entry doesn't scale. Every new source adapter widens this gap permanently. More sources = more kennels = more value for every user. This is the single highest-leverage activity.
+
+**See:** [competitive-analysis.md](competitive-analysis.md) — Theme 1: Data Entry & Event Management Pain
+
+### Next Source Targets
+
+Regional research complete — see [kennel-research/](kennel-research/) for detailed per-kennel data. Ready to onboard:
+
+- [ ] **DC area kennels** (8 kennels researched) — EWH3, Are You My Daddy?, DC Nighthash, White House, DC H3, CAOCH3, NoVA, CHARM City
+  - Sources: ewh3.com, meetup.com, Google Calendars — see [dc-kennels.md](kennel-research/dc-kennels.md)
+- [ ] **Chicago area kennels** (9 kennels researched) — Chicago H3, Second City, Windy City, Barking Lot, and more
+  - Sources: chicagoh3.com, meetup.com — see [chicago-expanded.md](kennel-research/chicago-expanded.md)
+- [ ] **SF Bay Area kennels** (10 kennels researched) — SFH3, Nob Hill, Marin, East Bay, South Bay, and more
+  - Sources: sfh3.com, Google Calendar, meetup.com — see [sf-bay-area.md](kennel-research/sf-bay-area.md)
+- [ ] **London kennels** (10 kennels researched) — London H3, City H3, South London, Barnes, and more
+  - Sources: londonhash.org, Google Calendars — see [london-kennels.md](kennel-research/london-kennels.md)
+- [ ] **gotothehash.net** — evaluate as a potential aggregator source (similar to hashnyc.com pattern)
+- [ ] **half-mind.com event listings** — evaluate as supplementary discovery data
+- [ ] Continue refining kennel resolver patterns as new sources reveal new name variants
+
+**Implementation notes:**
+- Follow [source-onboarding-playbook.md](source-onboarding-playbook.md) for each new source
+- Config-driven Google Sheets adapter means zero code changes for similar spreadsheet sources
+- HTML_SCRAPER sources require ~1-2 hours of adapter code + URL-based routing in registry
+- Google Calendar sources require ~15 min of config + seed entry
+- Always verify `kennelShortNames` in seed covers ALL kennels the source produces (source-kennel guard)
+
+### Config-Driven Source Onboarding (Admin UI)
+
+**Why now:** This is the force multiplier for source scaling. Currently adding a config-driven source (Sheets/Calendar) requires editing `prisma/seed.ts` and redeploying. An admin UI eliminates the code-deploy bottleneck and unlocks the "15 min per source" tier.
+
+- [ ] Admin "Add Source" form at `/admin/sources/new`
+- [ ] Source type selector (GOOGLE_CALENDAR, GOOGLE_SHEETS, HTML_SCRAPER)
+- [ ] For Google Sheets: paste URL, auto-extract sheet ID, column mapping with preview
+- [ ] For Google Calendar: paste calendar ID, configure `kennelPatterns` or `defaultKennelTag`
+- [ ] Kennel tag rule builder (UI for the `kennelTagRules` config JSON)
+- [ ] Start time rule builder (day-of-week defaults)
+- [ ] Preview mode: show first 10 parsed events before saving source
+- [ ] Save config to `Source.config` JSON — no code deployment needed
+- [ ] Link kennels to source (SourceKennel records) from the same form
+
+**Implementation notes:**
+- The Google Sheets adapter (`src/adapters/google-sheets/adapter.ts`) is already fully config-driven — the admin form just needs to produce the same `Source.config` JSON structure
+- Google Calendar adapter (`src/adapters/google-calendar/adapter.ts`) supports `kennelPatterns` config for multi-kennel calendars
+- HTML_SCRAPER sources still require code (adapter implementation) — form should allow creating the Source record and kennel links, with adapter code added separately
+- Preview uses the existing `scrapeSource()` with a `dryRun` flag or limit parameter
+
+### Historical Event Import
+
+*Infrastructure complete (per-source `scrapeDays`). Remaining:*
+
+- [ ] hashnyc.com: Test `?days=all` for full 8+ year archive import
+- [ ] Boston Calendar: Verify 365-day window captures sufficient history
+- [ ] Add admin "Import Full History" button per source
+- [ ] Quality metrics dashboard: per-source event counts by year
+
+---
+
+## Priority 2: Strava Integration
+
+**Strategic rationale:** Zero hashing platforms integrate with fitness tracking apps. Harrier Central, gotothehash.net, half-mind.com — none of them connect runs to GPS data. This is the feature that makes "The Strava of Hashing" literal, not just a tagline. The existing activity link field (manual URL paste, Sprint 5) proves user interest — OAuth automates what users already do manually.
+
+**See:** [competitive-analysis.md](competitive-analysis.md) — "What HashTracks Has That HC Doesn't"
+
+**Full implementation reference:** PRD Appendix C (Strava API Reference) in `HASHTRACKS_PRD.md`
+
+- [ ] **Strava OAuth flow** — real redirect (not manual code copy from GAS prototype)
+  - Redirect URI: `/api/auth/strava/callback`
+  - Scope: `activity:read_all`
+  - Store `refresh_token` server-side per user (never expose to client)
+  - Token refresh: 6-hour lifetime, cache for 3 hours
+  - New env vars: `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`
+  - New schema: `StravaConnection` model (userId, accessToken, refreshToken, expiresAt, athleteId)
+
+- [ ] **Activity history fetch + server-side cache**
+  - `GET /api/v3/athlete/activities?after={unix}&before={unix}&per_page=50`
+  - Timestamps are Unix seconds (not milliseconds)
+  - Cache responses keyed by user + date range
+  - Never call Strava on every page load — fetch once, cache, serve from cache
+
+- [ ] **Auto-suggest matches**
+  - Match Strava activities to canonical Events by date + region
+  - Use `start_latlng` for location (not deprecated `location_city` fields)
+  - Handle privacy zones: `start_latlng` returns null/[0,0] → fallback to timezone-based region
+  - **Critical: `start_date_local` timezone bug** — extract date/time as strings, never parse through `new Date()`:
+    ```typescript
+    const activityDate = activity.start_date_local.substring(0, 10); // "2024-10-25"
+    const activityTime = activity.start_date_local.substring(11, 16); // "14:30"
+    ```
+
+- [ ] **One-click attach** Strava link to attendance record
+  - UI on logbook: "We found a Strava activity that matches this run — attach it?"
+  - Normalize URL to canonical form: `https://www.strava.com/activities/{id}`
+
+- [ ] **Out-of-town run discovery**
+  - Strava activities in regions with no logged attendance → suggest logging
+  - Feeds into "Log Unlisted Run" feature (Priority 4)
+
+- [ ] **Rate limit handling**
+  - 100 requests per 15 minutes, 1,000 per day
+  - Batch fetch activities by date range (one API call per week, not per event)
+  - Queue-based processing if needed for multi-user sync
+
+---
+
+## Priority 3: Misman as a Growth Lever
+
+**Strategic rationale:** The Misman tool is already more capable than HC's paid kennel admin features (smart suggestions, roster groups, audit log, verification pipeline). HC charges for less capable tools. This is a B2B growth opportunity: approach kennel mismanagement directly with "replace your Google Sheet with this — it's free and tied to the event calendar."
+
+**See:** [competitive-analysis.md](competitive-analysis.md) — "Misman as a Growth Lever vs. HC's Kennel Admin"
 
 ### Misman Experience Refinement
-**Goal**: Make the attendance management tool bulletproof for first misman users.
-
 - [ ] End-to-end testing with real misman users (invite, onboard, record attendance, review history)
 - [ ] Address UX friction discovered during real-world usage
 - [ ] Mobile testing on actual devices (attendance form is the primary mobile use case)
 
-### In-App Feedback — COMPLETE
-**Goal**: Capture feedback from early adopters without requiring GitHub accounts.
+### Milestone Watch (New — informed by HC analysis)
 
-- [x] "Send Feedback" dialog in app footer (signed-in users only)
-- [x] Category dropdown (Bug Report, Feature Request, Question, Other) + title + description
-- [x] Creates GitHub Issue via REST API with `user-feedback` + category labels
-- [x] Auto-captures current page URL for bug context
-- [x] Leverages existing `GITHUB_TOKEN` and issue creation pattern from alert actions
-- Upgrade path: Canny free tier when user base grows beyond ~20
+**Why:** HC does this and GMs rely on it. When a hasher is one run away from a milestone (68, 99, 149, etc.), mismanagement wants to know so they can prepare the down-down. Data already exists — `getHasherDetail()` computes per-hasher run counts.
 
-### Expand Source Coverage
-**Goal**: Add more kennels and regions to increase platform value.
+- [ ] Compute milestone proximity for all attendees when loading attendance form
+  - Query: count of CONFIRMED KennelAttendance records per hasher (roster group scope)
+  - Milestones: 25, 50, 69, 100, 150, 200, 250, 300, 400, 500, 666, 700, 800, 900, 1000 (same as logbook)
+  - Flag hashers where `count + 1` hits a milestone
+- [ ] Display milestone alert badge on attendance form
+  - Banner or badge next to hasher name: "🎉 69th run!" or "⚠️ Next run is #100"
+  - Show on AttendanceRow and in SuggestionList chips
+- [ ] Optional: milestone summary section on misman dashboard per kennel
+  - "Upcoming milestones: Mudflap (99th), Just Simon (250th)"
 
-- [ ] Identify next batch of kennels to onboard (DC, Chicago, other regions)
-- [ ] Add new sources using existing adapter types (HTML, Calendar, Sheets)
-- [ ] Continue refining kennel resolver patterns as new sources reveal new name variants
+**Implementation notes:**
+- Pure function in `src/lib/misman/milestones.ts` — takes run count, returns next milestone and distance
+- Server action in attendance actions to batch-compute for current event's attendees + suggestions
+- UI: small badge component, similar to VerificationBadge pattern
+
+### Misman Self-Service Kennel Profile Editing
+- [ ] Allow mismans to edit their kennel's profile fields (schedule, social links, hash cash, etc.)
+- [ ] Currently admin-only — extend to MISMAN role users for their own kennels
+- [ ] Reuse admin KennelForm component with role-based field restrictions
+
+### Misman Landing/Onboarding Page
+- [ ] Dedicated page explaining misman features (separate from hasher-facing marketing)
+- [ ] Speak to the mismanagement pain point: "Stop manually typing hash names in a spreadsheet"
+- [ ] Highlight: mobile attendance form, smart suggestions, roster groups, audit trail
+- [ ] Clear CTA: "Request misman access for your kennel" or "Invite your mismanagement team"
 
 ---
 
-## Near-Term: User Onboarding & Growth
+## Priority 4: User Onboarding & Self-Service
+
+**Strategic rationale:** Reduce friction for new users to get value from the platform. HC's biggest user complaint is the inability to add runs or kennels without emailing the developers. HashTracks should make self-service effortless.
 
 ### Personal CSV Import
-**Goal**: Let individual users backfill their own logbook from personal spreadsheets.
 
-*Different from misman CSV import — this is for individual hasher history.*
+*Different from misman CSV import (Sprint 9c) — this is for individual hasher logbook history.*
 
 - [ ] Upload page at `/logbook/import`
 - [ ] Column mapping UI: user maps their columns to HashTracks fields (date, kennel, participation level, notes, strava URL)
@@ -136,48 +277,149 @@ See [misman-attendance-requirements.md](misman-attendance-requirements.md) and [
 - [ ] Batch create Attendance records for matching canonical events
 - [ ] Manual entries for unmatched kennels (triggers KennelRequest)
 
+**Implementation notes:**
+- Reuse patterns from misman CSV import (`src/lib/misman/csv-import.ts` — parsing, fuzzy matching, record building)
+- Key difference: personal import creates `Attendance` records (not `KennelAttendance`)
+- Column mapping could use the same config JSON pattern as the Google Sheets adapter
+
 ### Log Unlisted Run
-**Goal**: Remove friction for traveling hashers and one-off events.
+
+**Why:** Critical for traveling hashers (HC's primary use case) and for covering kennels without sources yet. Also generates KennelRequests that signal organic demand for new source coverage.
 
 - [ ] User logs a run for a kennel/event not in the system
-- [ ] Provides: kennel name, region, country, date, participation level, notes
-- [ ] Creates attendance record + KennelRequest for admin review
-- [ ] Admin can later link to a real kennel/event when source is added
+- [ ] Provides: kennel name, region, country, date, participation level, notes, activity link
+- [ ] Creates Attendance record linked to a special "unlisted" event
+- [ ] Triggers KennelRequest for admin review if kennel doesn't exist
+- [ ] Admin can later link unlisted attendance to a real kennel/event when source is added
 
 ### Manual Event Submission
-**Goal**: Cover Facebook-only kennels and user-submitted events.
 
 - [ ] Admin manual event creation (for kennels without scrapeable sources, like Rumson)
 - [ ] User event submission form (verified users, MANUAL source type)
 - [ ] Events appear immediately — no approval queue for v1
 
-### SEO & Social Sharing
-**Goal**: Improve discoverability via link sharing.
+---
 
-- [ ] Open Graph tags on event detail pages (title, description, kennel, date)
-- [ ] OG tags on kennel pages
-- [ ] Meta descriptions for search engines
-- [ ] Page titles already implemented (Sprint 6)
+## Priority 5: Map-Based Discovery
+
+**Strategic rationale:** HC's #1 user testimonial is a traveling hasher who searched by radius and found a run. HC has invested years in map performance, distance filtering, and geo exploration. This is the killer feature HashTracks is missing for the traveling hasher persona. The good news: no PostGIS needed — Event model already has `latitude`, `longitude` fields and client-side distance calculation is sufficient for v1.
+
+**See:** [competitive-analysis.md](competitive-analysis.md) — Theme: Discovery Quality
+
+- [ ] **Map tab on Hareline** using existing event geo fields
+  - Render events as pins on a map (Mapbox GL JS or Google Maps)
+  - Color-code by region (reuse existing region color scheme from `src/lib/format.ts`)
+  - Click pin → event detail popover with check-in/RSVP actions
+  - Sync with existing hareline filters (region, kennel, day, scope)
+
+- [ ] **"Near me" distance filtering**
+  - Browser geolocation API for current position
+  - Client-side Haversine distance calculation (no PostGIS):
+    ```typescript
+    function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+      const R = 6371; // km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+    ```
+  - Distance slider: 10km / 25km / 50km / 100km / 250km
+  - Fallback: text-based region filter when no geo data available
+
+- [ ] **"Open in Google Maps"** link on event detail (construct from lat/lng)
+
+- [ ] **Travel Mode search** (future enhancement)
+  - "Runs in [City/Region] between [Date A] and [Date B]"
+  - Pairs with Log Unlisted Run for runs found while traveling
 
 ---
 
-## Mid-Term: Integrations & Depth
+## Priority 6: PWA & Notifications
 
-### Strava Integration (PRD Phase 5)
-**Goal**: Automate the connection between Strava activities and hash attendance.
+**Strategic rationale:** HC's v2.0 rewrite leaned heavily into push notifications — smarter timing (6 hours before), RSVP→check-in reminders. HashTracks can achieve this without a native app via PWA web push. This drives retention on already-engaged users.
 
-*Detailed implementation reference in [PRD Appendix C](../HASHTRACKS_PRD.md).*
+**See:** [competitive-analysis.md](competitive-analysis.md) — HC v2.0 features
 
-- [ ] Strava OAuth flow (real redirect — not manual code copy)
-- [ ] Activity history fetch + server-side cache
-- [ ] Auto-suggest matches: Strava activity overlapping event by date + region
-- [ ] One-click attach Strava link to attendance record
-- [ ] Out-of-town run discovery (Strava activities in regions with no logged attendance)
-- [ ] Batch processing with rate limit awareness (100 req/15min, 1000 req/day)
+- [ ] **PWA manifest + service worker**
+  - "Add to Home Screen" prompt on mobile
+  - App-like experience without app store friction
+  - Offline shell with "you're offline" state (events require network)
+
+- [ ] **Web Push notifications** (via Push API + service worker)
+  - Opt-in per notification type
+  - Triggers:
+    - "You RSVPed — check-in window is open" (event date has passed, user has INTENDING status)
+    - "Run starts in 6 hours" for RSVPed events (HC's exact heuristic)
+    - Misman: "Source health alert for your kennel" (opt-in power user)
+    - Misman: "Pending confirmation waiting in your logbook"
+  - Backend: store push subscription per user, send via web-push npm package
+  - New schema: `PushSubscription` model (userId, endpoint, keys, createdAt)
+
+---
+
+## Priority 7: Social Visibility & Engagement
+
+**Strategic rationale:** HC lets users see who RSVPed and added Trail Chat in v2.0. Full social features (activity feed, kudos, comments) are v2 scope, but lightweight social signals can drive engagement now.
+
+### "Who's Going" RSVP Visibility
+
+- [ ] Show count of hashers with INTENDING status on event cards and detail pages
+- [ ] Expandable list showing who's going (hash names, opt-in — default show count only)
+- [ ] Consider privacy toggle: users can choose to show their name or be anonymous in the count
+
+**Implementation notes:**
+- Query: `Attendance.where({ eventId, status: 'INTENDING' })` with user join for hash names
+- UI: badge on event card ("3 going"), expandable section on event detail page
+- Minimal effort — data already exists from Sprint 7
+
+### Event Comments (Lightweight Social Test)
+
+- [ ] Per-event comment thread on event detail page (no DMs)
+- [ ] Moderation: misman/admin can delete comments
+- [ ] Use cases: ride-sharing coordination, bag drop info, theme announcements
+- [ ] Opt-in notifications for replies to your comment
+
+**Implementation notes:**
+- New schema: `EventComment` model (id, eventId, userId, content, createdAt, deletedAt)
+- Server actions: createComment, deleteComment, getComments (paginated)
+- Keep simple — no threading, no reactions, no rich text for v1
+
+---
+
+## Priority 8: Data Portability & Exports
+
+**Strategic rationale:** HC advertises "email me an Excel spreadsheet anytime." Hashers love data ownership. Export builds trust and reduces lock-in anxiety.
+
+### Logbook CSV Export
+- [ ] Download button on `/logbook/stats`
+- [ ] Columns: date, kennel, run number, participation level, notes, activity link, event title, hares
+- [ ] Filter-aware: exports what the user is currently viewing (filtered by kennel, region, date range)
+
+### Misman Attendance Export
+- [ ] Download button on `/misman/[slug]/history`
+- [ ] Columns: event date, run number, hasher hash name, hasher nerd name, paid, hare, virgin, visitor
+- [ ] Per-event and full-history export options
+
+### Per-Kennel Payment Link (Lightweight Hash Cash)
+
+**Why:** HC's Hash Cash is a scope trap (generates significant support burden). But "how do I pay?" is a real question at every hash. A simple payment link URL per kennel gives hashers the info without building financial tools.
+
+- [x] `hashCash` + `paymentLink` fields on Kennel model (Kennel Page Redesign)
+- [x] Displayed on kennel page QuickInfoCard with "Pay online" link
+- [x] Admin-editable in kennel settings form
+- [ ] Display payment link on event detail page (when kennel has one configured)
+
+---
+
+## Priority 9: Additional Integrations & Depth
+
+### Additional Adapter Types
+- [ ] **iCal feed adapter** (`ICAL_FEED`): For kennels with `.ics` calendar files
+- [ ] **RSS/Atom adapter** (`RSS_FEED`): For kennels with blog-style event posts
+- [ ] **hashnj.com HTML scraper**: Similar to hashnyc.com, different HTML structure
 
 ### Event Series
-**Goal**: Support multi-day events (weekends, campouts, Fearadelphia, etc.).
-
 *Schema fields already exist on Event model: `isSeriesParent`, `parentEventId`.*
 
 - [ ] Admin UI to link/unlink events in a series
@@ -185,53 +427,47 @@ See [misman-attendance-requirements.md](misman-attendance-requirements.md) and [
 - [ ] Series detail page showing full weekend/campout schedule
 - [ ] Scraper support: detect multi-day events during parsing
 
-### Config-Driven Source Onboarding (Admin UI)
-**Goal**: Add new Google Sheets/Calendar sources without code changes.
+### Logo Upload
+- [ ] Image upload for kennel logos (currently URL-only field)
+- [ ] Upload to cloud storage (Vercel Blob, S3, or Cloudinary)
+- [ ] Image processing: resize + optimize for 64x64 display
+- [ ] Update QuickInfoCard and hero section to use uploaded images
 
-- [ ] Admin "Add Source" form at `/admin/sources/new`
-- [ ] For Google Sheets: paste URL, auto-extract sheet ID, column mapping with preview
-- [ ] Kennel tag rule builder, start time rules
-- [ ] Preview mode: show first 10 parsed events before saving
-- [ ] Save config to `Source.config` JSON — no code deployment needed
+### SEO & Social Sharing
+- [ ] Open Graph tags on event detail pages (title, description, kennel, date)
+- [ ] OG tags on kennel pages (with logo image if available)
+- [ ] Meta descriptions for search engines
 
-### Additional Adapter Types
-- [ ] **iCal feed adapter** (`ICAL_FEED`): For kennels with `.ics` calendar files
-- [ ] **RSS/Atom adapter** (`RSS_FEED`): For kennels with blog-style event posts
-- [ ] **hashnj.com HTML scraper**: Similar to hashnyc.com, different HTML structure
-
-### Historical Event Import
-*Infrastructure complete (per-source `scrapeDays`). Remaining:*
-
-- [ ] hashnyc.com: Test `?days=all` for full 8+ year archive import
-- [ ] Boston Calendar: Verify 365-day window captures sufficient history
-- [ ] Add admin "Import Full History" button per source
-- [ ] Quality metrics dashboard: per-source event counts by year
-
-### Misman Extensions
-- [ ] **CSV export**: Export attendance history to CSV
-- [ ] **"Beez There" checkbox**: Optional flag on attendance
-- [ ] **Admin-editable participation levels**: Migrate enum to reference table
+### Calendar Feed Subscriptions (Per-Kennel)
+- [ ] Subscribable calendar feed per kennel (auto-updating .ics URL)
+- [ ] Users add once, events update automatically in their calendar app
+- [ ] Builds on existing `src/lib/calendar.ts` infrastructure
 
 ---
 
 ## Long-Term: Social & Scale
 
-### Social Features (PRD v2)
+### Social Features (PRD v2 — "The Circle")
 - [ ] Activity feed (friends' check-ins)
 - [ ] "On-On!" kudos reactions
-- [ ] Comments on events
+- [ ] Comments on events (may ship earlier as Priority 7)
 - [ ] Friend connections with privacy controls
 
-### AI-Assisted Source Onboarding
-**Goal**: Minimize manual work for adding new sources.
+### Hare Management & Nudging
+**Informed by HC's "Hare Raising" tools — GMs struggle to fill hare slots.**
 
+- [ ] "Hare needed" flag on future events
+- [ ] Nudge hashers who haven't hared in N runs: "You've run 10 times since your last hare!"
+- [ ] Hare volunteer signup from event detail page
+
+### AI-Assisted Source Onboarding
 - [ ] **Phase 1**: AI analyzes URL/HTML → proposes field mappings → human reviews
 - [ ] **Phase 2**: AI generates adapter config JSON → human approves → preview → save
 - [ ] **Phase 3**: Users submit source URLs → AI creates draft config → admin approves → live
 
 ### Infrastructure Scaling
 - [ ] BullMQ + Redis (if needed at 50+ sources)
-- [ ] PostGIS / geo queries (distance-based event search)
+- [ ] PostGIS / geo queries (if client-side distance filtering proves insufficient)
 - [ ] Per-source cron scheduling (requires Vercel Pro for sub-daily intervals)
 - [ ] Staggered scrape timing to avoid rate limits
 
@@ -246,11 +482,13 @@ See [misman-attendance-requirements.md](misman-attendance-requirements.md) and [
 
 ### Deferred (Low Priority)
 - Location privacy / time-gated location reveal
-- Hash cash amount tracking
+- Hash cash amount tracking / ledger (boolean `paid` is sufficient)
 - Auto-detect virgins from roster data
 - Cross-kennel hasher directory
-- Mobile native app
-- WebSocket/SSE for real-time attendance updates
+- Mobile native app (web-first + PWA is correct strategy)
+- WebSocket/SSE for real-time attendance updates (polling is sufficient)
+- Interactive songbook (HC #298 — cultural feature, low ROI)
+- Trail Chat / full messaging (high complexity, event comments are the cheaper test)
 
 ---
 
@@ -259,16 +497,36 @@ See [misman-attendance-requirements.md](misman-attendance-requirements.md) and [
 | Phase | Sources | Effort per Source | Code Changes |
 |-------|---------|-------------------|--------------|
 | **Today** (manual) | 7 | ~1-2 hours | Adapter code + seed + resolver |
-| **Config-driven** | 10-20 | ~15 min | Seed only (for Sheets/Calendar) |
-| **AI-assisted** | 50+ | ~5 min review | None |
-| **Community** | 100+ | ~1 min approval | None |
+| **Config-driven** (Priority 1) | 10-20 | ~15 min | Seed only (for Sheets/Calendar) |
+| **Admin UI** (Priority 1) | 20-50 | ~5 min | None (form-based config) |
+| **AI-assisted** (Long-term) | 50+ | ~5 min review | None |
+| **Community** (Long-term) | 100+ | ~1 min approval | None |
+
+---
+
+## Priority Summary
+
+| # | Feature | Strategic Driver | Effort | HC Gap Exploited |
+|---|---------|-----------------|--------|------------------|
+| 1 | **Expand Source Coverage** + Config-Driven Onboarding | Widen primary moat | Ongoing + 1-2 sprints (admin UI) | Manual data entry |
+| 2 | **Strava Integration** (OAuth + auto-match) | Unique differentiator, no competitor has this | 2-3 sprints | Zero fitness integration |
+| 3 | **Misman Growth Lever** (milestone watch, landing page, real-world testing) | B2B adoption, replace Google Sheets | 1 sprint | Paid kennel admin with less capability |
+| 4 | **User Onboarding** (personal CSV import, log unlisted run, manual submission) | Reduce friction, serve traveling hashers | 1-2 sprints | Walled garden onboarding |
+| 5 | **Map-Based Discovery** (map tab, near-me, travel mode) | Traveling hasher killer feature | 1 sprint | App-only proximity search |
+| 6 | **PWA & Notifications** (web push, add-to-home-screen) | Retention, engagement loops | 1 sprint | Native app friction |
+| 7 | **Social Visibility** (who's going, event comments) | Engagement, coordination | Small per feature | RSVP visibility, Trail Chat |
+| 8 | **Data Portability** (CSV exports, payment links) | Trust, data ownership, lightweight Hash Cash | Small per feature | Excel export, Hash Cash |
+| 9 | **Additional Integrations** (iCal, RSS, event series, SEO) | Coverage depth, discoverability | Varies | Feature parity |
 
 ---
 
 ## Reference
 
 - [Source Onboarding Playbook](source-onboarding-playbook.md) — step-by-step guide for adding sources
+- [Competitive Analysis](competitive-analysis.md) — Harrier Central analysis and strategic positioning
+- [Kennel Page Redesign Spec](kennel-page-redesign-spec.md) — kennel profile enrichment and page redesign spec
+- [Kennel Research](kennel-research/) — regional research for DC, Chicago, SF Bay, London kennels
 - [Misman Attendance Requirements](misman-attendance-requirements.md) — kennel attendance management tool requirements and decisions
 - [Misman Implementation Plan](misman-implementation-plan.md) — sprint plan for misman feature
-- [HASHTRACKS_PRD.md](../HASHTRACKS_PRD.md) — original product requirements document
+- [HASHTRACKS_PRD.md](../HASHTRACKS_PRD.md) — original product requirements document (includes Strava API reference in Appendix C)
 - [HASHTRACKS_IMPLEMENTATION_PLAN.md](../HASHTRACKS_IMPLEMENTATION_PLAN.md) — original sprint plan (Sprints 1-4 complete, evolved beyond this plan)

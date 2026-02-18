@@ -5,6 +5,42 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { fuzzyMatch } from "@/lib/fuzzy";
 
+function extractProfileFields(formData: FormData) {
+  const str = (name: string) => (formData.get(name) as string)?.trim() || null;
+  const triState = (name: string): boolean | null => {
+    const val = (formData.get(name) as string)?.trim();
+    if (val === "true") return true;
+    if (val === "false") return false;
+    return null;
+  };
+  const int = (name: string): number | null => {
+    const val = (formData.get(name) as string)?.trim();
+    if (!val) return null;
+    const parsed = parseInt(val, 10);
+    return isNaN(parsed) ? null : parsed;
+  };
+
+  return {
+    scheduleDayOfWeek: str("scheduleDayOfWeek"),
+    scheduleTime: str("scheduleTime"),
+    scheduleFrequency: str("scheduleFrequency"),
+    scheduleNotes: str("scheduleNotes"),
+    facebookUrl: str("facebookUrl"),
+    instagramHandle: str("instagramHandle"),
+    twitterHandle: str("twitterHandle"),
+    discordUrl: str("discordUrl"),
+    mailingListUrl: str("mailingListUrl"),
+    contactEmail: str("contactEmail"),
+    contactName: str("contactName"),
+    hashCash: str("hashCash"),
+    paymentLink: str("paymentLink"),
+    foundedYear: int("foundedYear"),
+    logoUrl: str("logoUrl"),
+    dogFriendly: triState("dogFriendly"),
+    walkersWelcome: triState("walkersWelcome"),
+  };
+}
+
 function toSlug(shortName: string): string {
   return shortName
     .toLowerCase()
@@ -96,6 +132,8 @@ export async function createKennel(formData: FormData, force: boolean = false) {
     .map((a) => a.trim())
     .filter(Boolean);
 
+  const profileFields = extractProfileFields(formData);
+
   await prisma.kennel.create({
     data: {
       shortName,
@@ -105,6 +143,7 @@ export async function createKennel(formData: FormData, force: boolean = false) {
       country,
       description,
       website,
+      ...profileFields,
       aliases: {
         create: aliases.map((alias) => ({ alias })),
       },
@@ -164,6 +203,8 @@ export async function updateKennel(kennelId: string, formData: FormData) {
     }
   }
 
+  const profileFields = extractProfileFields(formData);
+
   // Replace all aliases: delete existing, create new
   await prisma.$transaction([
     prisma.kennelAlias.deleteMany({ where: { kennelId } }),
@@ -177,6 +218,7 @@ export async function updateKennel(kennelId: string, formData: FormData) {
         country,
         description,
         website,
+        ...profileFields,
         aliases: {
           create: newAliases.map((alias) => ({ alias })),
         },

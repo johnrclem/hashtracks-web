@@ -62,6 +62,32 @@ model Kennel {
   country     String         @default("USA")
   description String?
   website     String?
+
+  // ── SCHEDULE ──
+  scheduleDayOfWeek  String?   // "Monday", "Saturday" (display string)
+  scheduleTime       String?   // "7:00 PM", "12:00 Noon" (display string)
+  scheduleFrequency  String?   // "Weekly", "Biweekly", "Monthly", "Full Moon"
+  scheduleNotes      String?   // Seasonal or special notes
+
+  // ── SOCIAL & CONTACT ──
+  facebookUrl        String?
+  instagramHandle    String?   // Handle only: "@londonhash"
+  twitterHandle      String?   // Handle only: "@sfh3"
+  discordUrl         String?
+  mailingListUrl     String?
+  contactEmail       String?
+  contactName        String?   // "Grand Master: Mudflap"
+
+  // ── DETAILS ──
+  hashCash           String?   // "$5", "Free", "$7/$10 visitor"
+  paymentLink        String?   // Venmo/PayPal/CashApp URL
+  foundedYear        Int?
+  logoUrl            String?
+
+  // ── FLAGS ──
+  dogFriendly        Boolean?  // null = unknown
+  walkersWelcome     Boolean?  // null = unknown
+
   aliases     KennelAlias[]
   sources     SourceKennel[]
   events      Event[]

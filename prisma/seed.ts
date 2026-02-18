@@ -19,36 +19,94 @@ async function main() {
 
   // ── KENNEL DATA (PRD Section 8 + Appendix D.3) ──
 
-  const kennels = [
+  const kennels: Array<{
+    shortName: string;
+    fullName: string;
+    region: string;
+    website?: string;
+    scheduleDayOfWeek?: string;
+    scheduleTime?: string;
+    scheduleFrequency?: string;
+    scheduleNotes?: string;
+    hashCash?: string;
+    facebookUrl?: string;
+  }> = [
     // NYC area (hashnyc.com source)
-    { shortName: "NYCH3", fullName: "New York City Hash House Harriers", region: "New York City, NY" },
-    { shortName: "BrH3", fullName: "Brooklyn Hash House Harriers", region: "New York City, NY" },
-    { shortName: "NAH3", fullName: "New Amsterdam Hash House Harriers", region: "New York City, NY" },
+    {
+      shortName: "NYCH3", fullName: "New York City Hash House Harriers", region: "New York City, NY",
+      website: "https://hashnyc.com",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      hashCash: "$8",
+      facebookUrl: "https://www.facebook.com/groups/nychash",
+    },
+    {
+      shortName: "BrH3", fullName: "Brooklyn Hash House Harriers", region: "New York City, NY",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+    },
+    {
+      shortName: "NAH3", fullName: "New Amsterdam Hash House Harriers", region: "New York City, NY",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+    },
     { shortName: "Knick", fullName: "Knickerbocker Hash House Harriers", region: "New York City, NY" },
-    { shortName: "LIL", fullName: "Long Island Lunatics Hash House Harriers", region: "Long Island, NY" },
+    {
+      shortName: "LIL", fullName: "Long Island Lunatics Hash House Harriers", region: "Long Island, NY",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly",
+    },
     { shortName: "QBK", fullName: "Queens Black Knights Hash House Harriers", region: "New York City, NY" },
     { shortName: "SI", fullName: "Staten Island Hash House Harriers", region: "New York City, NY" },
     { shortName: "Columbia", fullName: "Columbia Hash House Harriers", region: "New York City, NY" },
     { shortName: "Harriettes", fullName: "Harriettes Hash House Harriers", region: "New York City, NY" },
-    { shortName: "GGFM", fullName: "GGFM Hash House Harriers", region: "New York City, NY" },
+    {
+      shortName: "GGFM", fullName: "GGFM Hash House Harriers", region: "New York City, NY",
+      scheduleFrequency: "Full Moon",
+    },
     { shortName: "NAWWH3", fullName: "North American Woman Woman Hash", region: "New York City, NY" },
     { shortName: "Drinking Practice (NYC)", fullName: "NYC Drinking Practice", region: "New York City, NY" },
     // Boston area (Google Calendar source)
-    { shortName: "BoH3", fullName: "Boston Hash House Harriers", region: "Boston, MA" },
-    { shortName: "BoBBH3", fullName: "Boston Ballbuster Hash House Harriers", region: "Boston, MA" },
+    {
+      shortName: "BoH3", fullName: "Boston Hash House Harriers", region: "Boston, MA",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:30 PM", scheduleFrequency: "Weekly",
+    },
+    {
+      shortName: "BoBBH3", fullName: "Boston Ballbuster Hash House Harriers", region: "Boston, MA",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
+    },
     { shortName: "Beantown", fullName: "Beantown Hash House Harriers", region: "Boston, MA" },
-    { shortName: "Bos Moon", fullName: "Boston Moon Hash", region: "Boston, MA" },
+    {
+      shortName: "Bos Moon", fullName: "Boston Moon Hash", region: "Boston, MA",
+      scheduleFrequency: "Full Moon",
+    },
     { shortName: "Pink Taco", fullName: "Pink Taco Hash House Harriers", region: "Boston, MA" },
     // New Jersey
-    { shortName: "Summit", fullName: "Summit Hash House Harriers", region: "North NJ" },
-    { shortName: "SFM", fullName: "Summit Full Moon H3", region: "North NJ" },
+    {
+      shortName: "Summit", fullName: "Summit Hash House Harriers", region: "North NJ",
+      scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Summer: Mondays 7pm. Winter: Saturdays 3pm.",
+    },
+    {
+      shortName: "SFM", fullName: "Summit Full Moon H3", region: "North NJ",
+      scheduleFrequency: "Full Moon",
+    },
     { shortName: "ASSSH3", fullName: "All Seasons Summit Shiggy H3", region: "North NJ" },
     { shortName: "Rumson", fullName: "Rumson Hash House Harriers", region: "New Jersey" },
     // Philadelphia
-    { shortName: "BFM", fullName: "Ben Franklin Mob H3", region: "Philadelphia, PA" },
-    { shortName: "Philly H3", fullName: "Philly Hash House Harriers", region: "Philadelphia, PA" },
+    {
+      shortName: "BFM", fullName: "Ben Franklin Mob H3", region: "Philadelphia, PA",
+      website: "https://benfranklinmob.com",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+    },
+    {
+      shortName: "Philly H3", fullName: "Philly Hash House Harriers", region: "Philadelphia, PA",
+      website: "https://hashphilly.com/nexthash/",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+    },
     // Chicago
-    { shortName: "CH3", fullName: "Chicago Hash House Harriers", region: "Chicago, IL" },
+    {
+      shortName: "CH3", fullName: "Chicago Hash House Harriers", region: "Chicago, IL",
+      website: "https://chicagohash.org",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Summer: Saturdays 3pm. Winter: Sundays 2pm.",
+    },
   ];
 
   // ── ALIAS DATA (PRD Appendix D.3) ──
@@ -174,12 +232,18 @@ async function main() {
   const kennelRecords: Record<string, { id: string }> = {};
   for (const kennel of kennels) {
     const slug = toSlug(kennel.shortName);
+    // Extract profile fields (omit undefined to avoid overwriting existing data with null)
+    const profileFields: Record<string, string | undefined> = {};
+    for (const key of ["website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency", "scheduleNotes", "hashCash", "facebookUrl"] as const) {
+      if (kennel[key] !== undefined) profileFields[key] = kennel[key];
+    }
     const record = await prisma.kennel.upsert({
       where: { shortName: kennel.shortName },
       update: {
         fullName: kennel.fullName,
         region: kennel.region,
         slug,
+        ...profileFields,
       },
       create: {
         shortName: kennel.shortName,
@@ -187,6 +251,7 @@ async function main() {
         fullName: kennel.fullName,
         region: kennel.region,
         country: "USA",
+        ...profileFields,
       },
     });
     kennelRecords[kennel.shortName] = record;

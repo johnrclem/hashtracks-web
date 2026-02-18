@@ -26,6 +26,24 @@ type Kennel = {
   website: string | null;
   aliases: string[];
   _count: { members: number; aliases: number };
+  // Profile fields
+  scheduleDayOfWeek: string | null;
+  scheduleTime: string | null;
+  scheduleFrequency: string | null;
+  scheduleNotes: string | null;
+  facebookUrl: string | null;
+  instagramHandle: string | null;
+  twitterHandle: string | null;
+  discordUrl: string | null;
+  mailingListUrl: string | null;
+  contactEmail: string | null;
+  contactName: string | null;
+  hashCash: string | null;
+  paymentLink: string | null;
+  foundedYear: number | null;
+  logoUrl: string | null;
+  dogFriendly: boolean | null;
+  walkersWelcome: boolean | null;
 };
 
 interface KennelTableProps {

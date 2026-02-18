@@ -8,6 +8,10 @@ import {
   PARTICIPATION_LEVELS,
   regionAbbrev,
   regionColorClasses,
+  formatSchedule,
+  instagramUrl,
+  twitterUrl,
+  displayDomain,
 } from "./format";
 
 describe("formatTime", () => {
@@ -87,5 +91,75 @@ describe("regionColorClasses", () => {
   });
   it("returns gray fallback for unknown region", () => {
     expect(regionColorClasses("Unknown")).toContain("bg-gray-200");
+  });
+});
+
+describe("formatSchedule", () => {
+  it("returns null when no fields populated", () => {
+    expect(formatSchedule({})).toBeNull();
+  });
+  it("returns null when all fields are null", () => {
+    expect(formatSchedule({ scheduleDayOfWeek: null, scheduleTime: null, scheduleFrequency: null })).toBeNull();
+  });
+  it("formats all three fields", () => {
+    expect(formatSchedule({
+      scheduleDayOfWeek: "Wednesday",
+      scheduleTime: "7:00 PM",
+      scheduleFrequency: "Weekly",
+    })).toBe("Wednesdays at 7:00 PM · Weekly");
+  });
+  it("formats day + time only", () => {
+    expect(formatSchedule({
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "2:00 PM",
+    })).toBe("Saturdays at 2:00 PM");
+  });
+  it("formats day + frequency only", () => {
+    expect(formatSchedule({
+      scheduleDayOfWeek: "Saturday",
+      scheduleFrequency: "Biweekly",
+    })).toBe("Saturdays · Biweekly");
+  });
+  it("formats frequency only", () => {
+    expect(formatSchedule({ scheduleFrequency: "Monthly" })).toBe("Monthly");
+  });
+  it("formats time only", () => {
+    expect(formatSchedule({ scheduleTime: "7:00 PM" })).toBe("7:00 PM");
+  });
+  it("pluralizes all seven day names correctly", () => {
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    for (const day of days) {
+      expect(formatSchedule({ scheduleDayOfWeek: day })).toBe(day + "s");
+    }
+  });
+});
+
+describe("instagramUrl", () => {
+  it("builds URL from handle without @", () => {
+    expect(instagramUrl("londonhash")).toBe("https://instagram.com/londonhash");
+  });
+  it("strips leading @ from handle", () => {
+    expect(instagramUrl("@londonhash")).toBe("https://instagram.com/londonhash");
+  });
+});
+
+describe("twitterUrl", () => {
+  it("builds URL from handle without @", () => {
+    expect(twitterUrl("sfh3")).toBe("https://x.com/sfh3");
+  });
+  it("strips leading @ from handle", () => {
+    expect(twitterUrl("@sfh3")).toBe("https://x.com/sfh3");
+  });
+});
+
+describe("displayDomain", () => {
+  it("extracts hostname from URL", () => {
+    expect(displayDomain("https://hashnyc.com/events")).toBe("hashnyc.com");
+  });
+  it("strips www prefix", () => {
+    expect(displayDomain("https://www.facebook.com/groups/nychash")).toBe("facebook.com");
+  });
+  it("returns raw string on invalid URL", () => {
+    expect(displayDomain("not-a-url")).toBe("not-a-url");
   });
 });

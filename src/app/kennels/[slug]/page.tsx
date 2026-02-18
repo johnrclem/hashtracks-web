@@ -22,6 +22,9 @@ import { MismanAccessButton } from "@/components/kennels/MismanAccessButton";
 import type { HarelineEvent } from "@/components/hareline/EventCard";
 import { CollapsibleEventList } from "@/components/kennels/CollapsibleEventList";
 import { MismanManagementSection } from "@/components/kennels/MismanManagementSection";
+import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
+import { SocialLinks } from "@/components/kennels/SocialLinks";
+import { KennelStats } from "@/components/kennels/KennelStats";
 
 export default async function KennelDetailPage({
   params,
@@ -97,23 +100,40 @@ export default async function KennelDetailPage({
     .filter((e) => new Date(e.date).getTime() < todayUtc)
     .reverse(); // most recent first
 
+  // Compute stats from events (already sorted asc by date)
+  const totalEvents = events.length;
+  const oldestEventDate = events.length > 0 ? events[0].date.toISOString() : null;
+  const nextRunDate = upcoming.length > 0 ? upcoming[0].date : null;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">{kennel.fullName}</h1>
-        <p className="mt-1 text-lg text-muted-foreground">
-          {kennel.shortName}
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Badge>{kennel.region}</Badge>
-          <Badge variant="outline">{kennel.country}</Badge>
-          <span className="text-sm text-muted-foreground">
-            {kennel._count.members}{" "}
-            {kennel._count.members === 1 ? "subscriber" : "subscribers"}
-          </span>
+      {/* Hero */}
+      <div className="flex items-start gap-4">
+        {kennel.logoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={kennel.logoUrl}
+            alt={`${kennel.shortName} logo`}
+            className="h-16 w-16 rounded-lg object-contain"
+          />
+        )}
+        <div>
+          <h1 className="text-3xl font-bold">{kennel.fullName}</h1>
+          <p className="mt-1 text-lg text-muted-foreground">
+            {kennel.shortName}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Badge>{kennel.region}</Badge>
+            <Badge variant="outline">{kennel.country}</Badge>
+            <span className="text-sm text-muted-foreground">
+              {kennel._count.members}{" "}
+              {kennel._count.members === 1 ? "subscriber" : "subscribers"}
+            </span>
+          </div>
         </div>
       </div>
 
+      {/* Action buttons */}
       <div className="flex flex-wrap items-center gap-2">
         <SubscribeButton
           kennelId={kennel.id}
@@ -129,6 +149,17 @@ export default async function KennelDetailPage({
         />
       </div>
 
+      {/* Quick Info Card */}
+      <QuickInfoCard kennel={kennel} />
+
+      {/* Social Links */}
+      <SocialLinks kennel={kennel} />
+
+      {/* Description */}
+      {kennel.description && (
+        <p className="text-muted-foreground">{kennel.description}</p>
+      )}
+
       {/* Misman Management — visible only to mismans/admins */}
       {(userRole === "MISMAN" || userRole === "ADMIN") && (
         <MismanManagementSection
@@ -137,21 +168,7 @@ export default async function KennelDetailPage({
         />
       )}
 
-      {kennel.description && (
-        <p className="text-muted-foreground">{kennel.description}</p>
-      )}
-
-      {kennel.website && (
-        <a
-          href={kennel.website}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm text-primary hover:underline"
-        >
-          {kennel.website}
-        </a>
-      )}
-
+      {/* Aliases */}
       {kennel.aliases.length > 0 && (
         <div>
           <h2 className="text-sm font-medium text-muted-foreground">
@@ -184,6 +201,13 @@ export default async function KennelDetailPage({
           <CollapsibleEventList events={past} defaultLimit={10} label="past" />
         </div>
       )}
+
+      {/* Kennel Stats */}
+      <KennelStats
+        totalEvents={totalEvents}
+        oldestEventDate={oldestEventDate}
+        nextRunDate={nextRunDate}
+      />
     </div>
   );
 }

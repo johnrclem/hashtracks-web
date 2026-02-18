@@ -66,7 +66,7 @@ calendar + personal logbook + kennel directory.
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
-- `src/lib/format.ts` — Shared utilities: time formatting, region config/colors, participation levels
+- `src/lib/format.ts` — Shared utilities: time formatting, region config/colors, participation levels, schedule formatting, social URL helpers
 - `src/lib/calendar.ts` — Google Calendar URL + .ics file generation (client-side)
 - `src/middleware.ts` — Clerk route protection (public vs authenticated routes)
 - `src/adapters/types.ts` — SourceAdapter interface + RawEventData types
@@ -83,6 +83,9 @@ calendar + personal logbook + kennel directory.
 - `src/app/admin/alerts/actions.ts` — Alert repair actions (re-scrape, create alias/kennel, link kennel to source, file GitHub issue)
 - `src/app/admin/events/actions.ts` — Admin event management (delete, bulk delete with cascade)
 - `src/app/admin/misman-requests/page.tsx` — Admin misman request approval (reuses misman server actions)
+- `src/components/kennels/QuickInfoCard.tsx` — Kennel quick info card (schedule, hash cash, website, flags)
+- `src/components/kennels/SocialLinks.tsx` — Kennel social links icon row (Facebook, Instagram, X, Discord, etc.)
+- `src/components/kennels/KennelStats.tsx` — Kennel computed stats (total events, oldest event, next run)
 - `src/components/admin/AlertCard.tsx` — Alert card with repair actions, context display, repair history
 - `src/app/misman/actions.ts` — Misman request/approve/reject + roster group request server actions
 - `src/app/misman/[slug]/roster/actions.ts` — Roster CRUD + search + user linking + merge duplicates (roster group scope)
@@ -114,6 +117,9 @@ calendar + personal logbook + kennel directory.
 ## Documentation
 - `docs/source-onboarding-playbook.md` — Step-by-step guide for adding new data sources
 - `docs/roadmap.md` — Implementation roadmap for source scaling, historical import, monitoring
+- `docs/competitive-analysis.md` — Harrier Central competitor analysis and strategic positioning
+- `docs/kennel-page-redesign-spec.md` — Kennel profile enrichment and page redesign spec
+- `docs/kennel-research/` — Regional kennel research (DC, Chicago, SF Bay, London — 40+ kennels)
 - `docs/misman-attendance-requirements.md` — Kennel attendance management (misman tool) requirements
 - `docs/misman-implementation-plan.md` — Sprint plan for misman feature (8a-8f)
 
@@ -132,7 +138,7 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (585 tests across 34 files)
+- **Run:** `npm test` (600 tests across 35 files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)

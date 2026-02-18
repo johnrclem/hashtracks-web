@@ -23,6 +23,24 @@ export default async function AdminKennelsPage() {
     website: k.website,
     aliases: k.aliases.map((a) => a.alias),
     _count: k._count,
+    // Profile fields
+    scheduleDayOfWeek: k.scheduleDayOfWeek,
+    scheduleTime: k.scheduleTime,
+    scheduleFrequency: k.scheduleFrequency,
+    scheduleNotes: k.scheduleNotes,
+    facebookUrl: k.facebookUrl,
+    instagramHandle: k.instagramHandle,
+    twitterHandle: k.twitterHandle,
+    discordUrl: k.discordUrl,
+    mailingListUrl: k.mailingListUrl,
+    contactEmail: k.contactEmail,
+    contactName: k.contactName,
+    hashCash: k.hashCash,
+    paymentLink: k.paymentLink,
+    foundedYear: k.foundedYear,
+    logoUrl: k.logoUrl,
+    dogFriendly: k.dogFriendly,
+    walkersWelcome: k.walkersWelcome,
   }));
 
   // Simplified kennel list for merge dialog
