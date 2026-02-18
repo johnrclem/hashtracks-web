@@ -36,4 +36,28 @@ describe("generateFingerprint", () => {
     const b = generateFingerprint(buildRawEvent({ title: "Some Trail" }));
     expect(a).not.toBe(b);
   });
+
+  it("different locations produce different fingerprints", () => {
+    const a = generateFingerprint(buildRawEvent({ location: undefined }));
+    const b = generateFingerprint(buildRawEvent({ location: "Central Park" }));
+    expect(a).not.toBe(b);
+  });
+
+  it("different hares produce different fingerprints", () => {
+    const a = generateFingerprint(buildRawEvent({ hares: undefined }));
+    const b = generateFingerprint(buildRawEvent({ hares: "Mudflap, Just Simon" }));
+    expect(a).not.toBe(b);
+  });
+
+  it("different descriptions produce different fingerprints", () => {
+    const a = generateFingerprint(buildRawEvent({ description: undefined }));
+    const b = generateFingerprint(buildRawEvent({ description: "A-to-B trail" }));
+    expect(a).not.toBe(b);
+  });
+
+  it("different startTimes produce different fingerprints", () => {
+    const a = generateFingerprint(buildRawEvent({ startTime: undefined }));
+    const b = generateFingerprint(buildRawEvent({ startTime: "14:00" }));
+    expect(a).not.toBe(b);
+  });
 });

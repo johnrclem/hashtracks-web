@@ -11,6 +11,12 @@ export function generateFingerprint(data: RawEventData): string {
     data.kennelTag,
     data.runNumber?.toString() ?? "",
     data.title ?? "",
+    data.location ?? "",
+    data.locationUrl ?? "",
+    data.hares ?? "",
+    data.description ?? "",
+    data.startTime ?? "",
+    data.sourceUrl ?? "",
   ].join("|");
 
   return createHash("sha256").update(input).digest("hex");
