@@ -19,7 +19,9 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { SourceDetailActions } from "@/components/admin/SourceDetailActions";
+import { SampleEventActions } from "@/components/admin/SampleEventActions";
 import { TYPE_LABELS } from "@/components/admin/SourceTable";
+import { fuzzyMatch } from "@/lib/fuzzy";
 
 const healthColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   HEALTHY: "default",
@@ -288,7 +290,12 @@ export default async function SourceDetailPage({
       }),
       prisma.kennel.findMany({
         orderBy: { shortName: "asc" },
-        select: { id: true, shortName: true },
+        select: {
+          id: true,
+          shortName: true,
+          fullName: true,
+          aliases: { select: { alias: true } },
+        },
       }),
       prisma.alert.count({
         where: { sourceId, status: { in: ["OPEN", "ACKNOWLEDGED"] } },
@@ -352,6 +359,23 @@ export default async function SourceDetailPage({
       hashChanges.set(curr.id, true);
     }
     prevHash = curr.structureHash;
+  }
+
+  // Compute fuzzy suggestions for unmatched tags in sample events
+  const fuzzyCandidates = allKennels.map((k) => ({
+    id: k.id,
+    shortName: k.shortName,
+    fullName: k.fullName,
+    aliases: k.aliases.map((a) => a.alias),
+  }));
+  const sampleSuggestions: Record<string, { id: string; shortName: string; score: number }[]> = {};
+  const sampleSkippedArr = recentScrapeWithSamples?.sampleSkipped;
+  if (sampleSkippedArr && Array.isArray(sampleSkippedArr)) {
+    for (const sample of sampleSkippedArr as Array<{ kennelTag: string }>) {
+      if (!sampleSuggestions[sample.kennelTag]) {
+        sampleSuggestions[sample.kennelTag] = fuzzyMatch(sample.kennelTag, fuzzyCandidates);
+      }
+    }
   }
 
   // Get alerts linked to structure hash changes
@@ -619,11 +643,13 @@ export default async function SourceDetailPage({
                           Reason: {sample.reason.replace(/_/g, " ")}
                         </div>
                       </div>
-                      {sample.suggestedAction && (
-                        <Badge variant="secondary" className="text-xs whitespace-normal shrink text-right">
-                          {sample.suggestedAction}
-                        </Badge>
-                      )}
+                      <SampleEventActions
+                        sourceId={sourceId}
+                        reason={sample.reason}
+                        kennelTag={sample.kennelTag}
+                        allKennels={allKennels}
+                        suggestions={sampleSuggestions[sample.kennelTag]}
+                      />
                     </div>
                   </div>
                 ))}
@@ -660,11 +686,13 @@ export default async function SourceDetailPage({
                           Reason: {sample.reason.replace(/_/g, " ")}
                         </div>
                       </div>
-                      {sample.suggestedAction && (
-                        <Badge variant="secondary" className="text-xs whitespace-normal shrink text-right">
-                          {sample.suggestedAction}
-                        </Badge>
-                      )}
+                      <SampleEventActions
+                        sourceId={sourceId}
+                        reason={sample.reason}
+                        kennelTag={sample.kennelTag}
+                        allKennels={allKennels}
+                        suggestions={sampleSuggestions[sample.kennelTag]}
+                      />
                     </div>
                   </div>
                 ))}
