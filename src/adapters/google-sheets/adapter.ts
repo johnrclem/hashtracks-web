@@ -4,19 +4,21 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 /** Config stored in Source.config JSON for Google Sheets sources */
 interface GoogleSheetsConfig {
   sheetId: string;
+  /** Optional explicit tab names. If omitted, auto-discovers year-prefixed tabs. */
+  tabs?: string[];
   columns: {
     runNumber: number;
-    specialRun: number;
+    specialRun?: number;
     date: number;
     hares: number;
     location: number;
     title: number;
-    description: number;
+    description?: number;
   };
   kennelTagRules: {
     default: string;
-    specialRunMap: Record<string, string>;
-    numericSpecialTag: string;
+    specialRunMap?: Record<string, string>;
+    numericSpecialTag?: string;
   };
   startTimeRules?: {
     byDayOfWeek: Record<string, string>;
@@ -164,35 +166,39 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     const tabsProcessed: string[] = [];
     const rowsPerTab: Record<string, number> = {};
 
-    // Step 1: Discover tabs via Sheets API
+    // Step 1: Discover tabs via Sheets API (or use explicit tabs from config)
     let tabNames: string[];
-    try {
-      const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}?fields=sheets.properties.title&key=${apiKey}`;
-      const metaRes = await fetch(metaUrl);
-      if (!metaRes.ok) {
-        const message = `Sheets API error ${metaRes.status}: ${await metaRes.text()}`;
+    if (config.tabs && config.tabs.length > 0) {
+      tabNames = config.tabs;
+    } else {
+      try {
+        const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}?fields=sheets.properties.title&key=${apiKey}`;
+        const metaRes = await fetch(metaUrl);
+        if (!metaRes.ok) {
+          const message = `Sheets API error ${metaRes.status}: ${await metaRes.text()}`;
+          return {
+            events: [],
+            errors: [message],
+            errorDetails: { fetch: [{ url: metaUrl, status: metaRes.status, message }] },
+          };
+        }
+        const meta = (await metaRes.json()) as {
+          sheets: { properties: { title: string } }[];
+        };
+        // Filter to tabs that start with a digit (year-based data tabs)
+        tabNames = meta.sheets
+          .map((s) => s.properties.title)
+          .filter((name) => /^\d/.test(name))
+          .sort()
+          .reverse(); // newest first
+      } catch (err) {
+        const message = `Failed to discover tabs: ${err}`;
         return {
           events: [],
           errors: [message],
-          errorDetails: { fetch: [{ url: metaUrl, status: metaRes.status, message }] },
+          errorDetails: { fetch: [{ message }] },
         };
       }
-      const meta = (await metaRes.json()) as {
-        sheets: { properties: { title: string } }[];
-      };
-      // Filter to tabs that start with a digit (year-based data tabs)
-      tabNames = meta.sheets
-        .map((s) => s.properties.title)
-        .filter((name) => /^\d/.test(name))
-        .sort()
-        .reverse(); // newest first
-    } catch (err) {
-      const message = `Failed to discover tabs: ${err}`;
-      return {
-        events: [],
-        errors: [message],
-        errorDetails: { fetch: [{ message }] },
-      };
     }
 
     // Step 2: Process each tab (newest first, stop when all events are too old)
@@ -238,16 +244,18 @@ export class GoogleSheetsAdapter implements SourceAdapter {
 
           // Kennel tag extraction
           const runNumberCell = row[config.columns.runNumber]?.trim();
-          const specialRunCell = row[config.columns.specialRun]?.trim();
+          const specialRunCell = config.columns.specialRun != null
+            ? row[config.columns.specialRun]?.trim()
+            : undefined;
 
           let kennelTag: string;
           let runNumber: number | undefined;
 
-          if (specialRunCell && config.kennelTagRules.specialRunMap[specialRunCell]) {
+          if (specialRunCell && config.kennelTagRules.specialRunMap?.[specialRunCell]) {
             // Named special run (e.g., "ASSSH3")
             kennelTag = config.kennelTagRules.specialRunMap[specialRunCell];
             runNumber = runNumberCell ? parseInt(runNumberCell, 10) || undefined : undefined;
-          } else if (specialRunCell && /^\d+$/.test(specialRunCell)) {
+          } else if (specialRunCell && /^\d+$/.test(specialRunCell) && config.kennelTagRules.numericSpecialTag) {
             // Numeric special run (SFM number)
             kennelTag = config.kennelTagRules.numericSpecialTag;
             runNumber = parseInt(specialRunCell, 10);
@@ -263,7 +271,9 @@ export class GoogleSheetsAdapter implements SourceAdapter {
           const hares = row[config.columns.hares]?.trim() || undefined;
           const location = row[config.columns.location]?.trim() || undefined;
           const title = row[config.columns.title]?.trim() || undefined;
-          const writeUp = row[config.columns.description]?.trim();
+          const writeUp = config.columns.description != null
+            ? row[config.columns.description]?.trim()
+            : undefined;
           const description = writeUp
             ? writeUp.substring(0, 2000) || undefined
             : undefined;

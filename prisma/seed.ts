@@ -608,6 +608,22 @@ async function main() {
       },
       kennelShortNames: ["SHITH3"],
     },
+    {
+      name: "W3H3 Hareline Spreadsheet",
+      url: "https://docs.google.com/spreadsheets/d/19mNka1u64ZNOHS7z_EoqRIrAOdqg5HkY9Uk8u6LwAsI",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 9999,
+      config: {
+        sheetId: "19mNka1u64ZNOHS7z_EoqRIrAOdqg5HkY9Uk8u6LwAsI",
+        tabs: ["W3H3 Hareline"],
+        columns: { runNumber: 0, date: 1, hares: 2, location: 3, title: 4 },
+        kennelTagRules: { default: "W3H3" },
+        startTimeRules: { byDayOfWeek: { "Wed": "18:09" }, default: "18:09" },
+      },
+      kennelShortNames: ["W3H3"],
+    },
   ];
 
   console.log("Seeding kennels...");
