@@ -131,7 +131,7 @@ export async function resolveKennelTag(
  */
 export function mapKennelTag(input: string): string | null {
   // Multi-word patterns FIRST (longer before shorter)
-  if (input.includes("ballbuster") || input.includes("bobbh3"))
+  if (input.includes("ballbuster") || input.includes("bobbh3") || input.includes("b3h4"))
     return "BoBBH3";
   if (input.includes("queens black knights")) return "QBK";
   if (input.includes("new amsterdam") || input.startsWith("nass"))
@@ -141,7 +141,7 @@ export function mapKennelTag(input: string): string | null {
   if (input.includes("staten island")) return "SI";
   if (input.includes("drinking practice")) return "Drinking Practice (NYC)";
   if (input.includes("knickerbocker")) return "Knick";
-  if (input.includes("pink taco")) return "Pink Taco";
+  if (input.includes("pink taco") || input.includes("pt2h3")) return "Pink Taco";
 
   // Brooklyn (before generic "br" patterns)
   if (input.startsWith("brooklyn") || input.startsWith("brh3")) return "BrH3";
