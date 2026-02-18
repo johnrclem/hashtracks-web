@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 585 tests)
+- `npm test` — Run test suite (Vitest, 706 tests)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -62,18 +62,22 @@ calendar + personal logbook + kennel directory.
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 21 models + 16 enums (THE source of truth for types)
-- `prisma/seed.ts` — 62 kennels, 181 aliases, 9 sources across 5 regions (NYC, Boston, Chicago, DC, SF Bay, London)
+- `prisma/seed.ts` — 72 kennels, 221 aliases, 16 sources across 6 regions (NYC, Boston, Chicago, DC, SF Bay, London)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
-- `src/lib/format.ts` — Shared utilities: time formatting, region config/colors, participation levels, schedule formatting, social URL helpers
+- `src/lib/format.ts` — Shared utilities: time formatting, date formatting, region config/colors (20 regions), participation levels, schedule formatting, social URL helpers
 - `src/lib/calendar.ts` — Google Calendar URL + .ics file generation (client-side)
 - `src/middleware.ts` — Clerk route protection (public vs authenticated routes)
 - `src/adapters/types.ts` — SourceAdapter interface + RawEventData types
 - `src/adapters/registry.ts` — Adapter factory (SourceType → adapter instance)
 - `src/adapters/html-scraper/hashnyc.ts` — hashnyc.com HTML scraper (Cheerio)
 - `src/adapters/google-calendar/adapter.ts` — Google Calendar API v3 adapter (Boston Hash)
-- `src/adapters/google-sheets/adapter.ts` — Google Sheets CSV adapter (Summit H3, config-driven)
+- `src/adapters/google-sheets/adapter.ts` — Google Sheets CSV adapter (Summit H3, W3H3, config-driven)
+- `src/adapters/ical/adapter.ts` — iCal feed adapter (SFH3 MultiHash, node-ical)
+- `src/adapters/html-scraper/london-hash.ts` — London Hash run list scraper (LH3)
+- `src/adapters/html-scraper/city-hash.ts` — City Hash website scraper (CityH3)
+- `src/adapters/html-scraper/west-london-hash.ts` — West London Hash website scraper (WLH3)
 - `src/pipeline/merge.ts` — Raw→Canonical merge pipeline (fingerprint dedup + source-kennel guard)
 - `src/pipeline/kennel-resolver.ts` — Alias-based kennel name resolution (with pattern fallback)
 - `src/pipeline/scrape.ts` — Shared `scrapeSource()` used by cron + admin routes
@@ -86,6 +90,9 @@ calendar + personal logbook + kennel directory.
 - `src/components/kennels/QuickInfoCard.tsx` — Kennel quick info card (schedule, hash cash, website, flags)
 - `src/components/kennels/SocialLinks.tsx` — Kennel social links icon row (Facebook, Instagram, X, Discord, etc.)
 - `src/components/kennels/KennelStats.tsx` — Kennel computed stats (total events, oldest event, next run)
+- `src/components/kennels/KennelCard.tsx` — Kennel card: shortName heading, schedule, description, founded year, next run, RegionBadge
+- `src/components/kennels/KennelDirectory.tsx` — Kennel directory: search, filters, sort (A–Z / Recently Active), URL persistence
+- `src/components/kennels/KennelFilters.tsx` — Filter bar: region, run day, frequency, has upcoming, country
 - `src/components/admin/AlertCard.tsx` — Alert card with repair actions, context display, repair history
 - `src/app/misman/actions.ts` — Misman request/approve/reject + roster group request server actions
 - `src/app/misman/[slug]/roster/actions.ts` — Roster CRUD + search + user linking + merge duplicates (roster group scope)
@@ -123,7 +130,7 @@ calendar + personal logbook + kennel directory.
 - `docs/misman-attendance-requirements.md` — Kennel attendance management (misman tool) requirements
 - `docs/misman-implementation-plan.md` — Sprint plan for misman feature (8a-8f)
 
-## Active Sources (7)
+## Active Sources (16)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
 - **Boston Hash Calendar** → GOOGLE_CALENDAR → 5 Boston kennels
 - **Summit H3 Spreadsheet** → GOOGLE_SHEETS → 3 NJ kennels (Summit, SFM, ASSSH3)
@@ -131,6 +138,14 @@ calendar + personal logbook + kennel directory.
 - **Philly H3 Google Calendar** → GOOGLE_CALENDAR → BFM, Philly H3 (config-driven kennelPatterns)
 - **BFM Website** → HTML_SCRAPER → BFM
 - **Philly H3 Website** → HTML_SCRAPER → Philly H3
+- **Chicagoland Hash Calendar** → GOOGLE_CALENDAR → 11 Chicago-area kennels
+- **EWH3 Google Calendar** → GOOGLE_CALENDAR → EWH3 (DC)
+- **SHITH3 Google Calendar** → GOOGLE_CALENDAR → SHITH3 (DC)
+- **W3H3 Hareline Spreadsheet** → GOOGLE_SHEETS → W3H3 (West Virginia)
+- **City Hash Website** → HTML_SCRAPER → CityH3 (London)
+- **West London Hash Website** → HTML_SCRAPER → WLH3 (London)
+- **London Hash Run List** → HTML_SCRAPER → LH3 (London)
+- **SFH3 MultiHash iCal Feed** → ICAL_FEED → 11 SF Bay Area kennels
 
 See `docs/source-onboarding-playbook.md` for how to add new sources.
 See `docs/roadmap.md` for implementation roadmap.
@@ -138,13 +153,13 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (600 tests across 35 files)
+- **Run:** `npm test` (706 tests across 38 files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
 - **Convention:** Test files live next to source files as `*.test.ts`
 - **Coverage areas:**
-  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing
+  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, London HTML scrapers (CityH3, WLH3, LH3)
   - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation
   - Server actions: logbook CRUD, profile, kennel subscriptions, admin CRUD, misman attendance/roster/history
   - Misman: audit log, hare sync, CSV import parsing, suggestion scoring, verification status, invite tokens

@@ -8,6 +8,7 @@ import {
   PARTICIPATION_LEVELS,
   regionAbbrev,
   regionColorClasses,
+  formatDateShort,
   formatSchedule,
   instagramUrl,
   twitterUrl,
@@ -91,6 +92,19 @@ describe("regionColorClasses", () => {
   });
   it("returns gray fallback for unknown region", () => {
     expect(regionColorClasses("Unknown")).toContain("bg-gray-200");
+  });
+});
+
+describe("formatDateShort", () => {
+  it("formats UTC noon date to short display", () => {
+    expect(formatDateShort("2026-02-18T12:00:00.000Z")).toBe("Wed, Feb 18");
+  });
+  it("handles different months", () => {
+    expect(formatDateShort("2026-07-04T12:00:00.000Z")).toBe("Sat, Jul 4");
+  });
+  it("uses UTC to avoid date shift", () => {
+    // A date stored as UTC noon should not shift to previous day
+    expect(formatDateShort("2026-01-01T12:00:00.000Z")).toBe("Thu, Jan 1");
   });
 });
 

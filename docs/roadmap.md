@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-17
+Last updated: 2026-02-18
 
 **Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
 
@@ -18,7 +18,7 @@ Last updated: 2026-02-17
 - [x] Master-detail layout: event list + detail panel on desktop, full-page on mobile
 - [x] Admin UI: source management, manual scrape trigger, scrape logs, source health
 
-### Data Sources (7 live)
+### Data Sources (16 live)
 - [x] **hashnyc.com** (HTML Scraper) — 11 NYC-area kennels
 - [x] **Boston Hash Calendar** (Google Calendar API) — 5 Boston kennels
 - [x] **Summit H3 Spreadsheet** (Google Sheets) — 3 NJ kennels (Summit, SFM, ASSSH3)
@@ -26,6 +26,14 @@ Last updated: 2026-02-17
 - [x] **Philly H3 Google Calendar** (Google Calendar API) — Philly H3
 - [x] **BFM Website** (HTML Scraper) — benfranklinmob.com + special events page
 - [x] **Philly H3 Website** (HTML Scraper) — hashphilly.com/nexthash/
+- [x] **Chicagoland Hash Calendar** (Google Calendar API) — 11 Chicago-area kennels
+- [x] **EWH3 Google Calendar** (Google Calendar API) — EWH3 (DC)
+- [x] **SHITH3 Google Calendar** (Google Calendar API) — SHITH3 (DC)
+- [x] **W3H3 Hareline Spreadsheet** (Google Sheets) — W3H3 (West Virginia)
+- [x] **City Hash Website** (HTML Scraper) — CityH3 (London)
+- [x] **West London Hash Website** (HTML Scraper) — WLH3 (London)
+- [x] **London Hash Run List** (HTML Scraper) — LH3 (London)
+- [x] **SFH3 MultiHash iCal Feed** (iCal Feed) — 11 SF Bay Area kennels
 
 ### The Logbook — Sprint 5 COMPLETE
 - [x] "I Was There" one-click check-in (past events only, defaults to RUN)
@@ -93,6 +101,16 @@ See [misman-attendance-requirements.md](misman-attendance-requirements.md) and [
 
 See [kennel-page-redesign-spec.md](kennel-page-redesign-spec.md) for full spec.
 
+### Kennel Directory Redesign — COMPLETE
+- [x] Richer cards: shortName as primary heading, schedule line, description snippet, founded year, RegionBadge
+- [x] Next upcoming run per kennel (batch query, no N+1), highlighted blue if within 7 days
+- [x] Filters: region multi-select, run day chips (Mon–Sun), frequency dropdown, "Has upcoming" toggle, country chips
+- [x] Sort: A–Z (grouped by region) or Recently Active (flat list, next-event-date ascending)
+- [x] URL persistence: all filter/sort state persisted via `window.history.replaceState()`
+- [x] `formatDateShort()` helper, 14 new region colors (DC/DMV, Bay Area, London, Chicago, etc.)
+- [x] Loading skeleton for kennel directory page
+- [x] Removed subscriber count from cards (meaningless for new users)
+
 ### In-App Feedback — COMPLETE
 - [x] "Send Feedback" dialog in app footer (signed-in users only)
 - [x] Category dropdown (Bug Report, Feature Request, Question, Other) + title + description
@@ -105,11 +123,11 @@ See [kennel-page-redesign-spec.md](kennel-page-redesign-spec.md) for full spec.
 - [x] Shared `scrapeSource()` for cron + admin routes
 
 ### Current Stats
-- 62 kennels (with rich profiles: schedule, social, hash cash, flags), 181 aliases, 9 sources, 36 source-kennel links
-- 4 regions: NYC/NJ/Philly/Boston (24 kennels), Chicago (11), DC/DMV (12), SF Bay Area (8), London (8)
-- 3 adapter types: HTML_SCRAPER, GOOGLE_CALENDAR, GOOGLE_SHEETS
+- 72 kennels (with rich profiles: schedule, social, hash cash, flags), 221 aliases, 16 sources
+- 6 regions: NYC/NJ/Philly/Boston (24 kennels), Chicago (11), DC/DMV (12), SF Bay Area (11), London (8), South Shore IN (1)
+- 4 adapter types: HTML_SCRAPER, GOOGLE_CALENDAR, GOOGLE_SHEETS, ICAL_FEED
 - 21 models, 16 enums in Prisma schema
-- 600 tests across 35 test files
+- 706 tests across 38 test files
 
 ---
 
@@ -129,8 +147,8 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
   - Sources: chicagoh3.com, meetup.com — see [chicago-expanded.md](kennel-research/chicago-expanded.md)
 - [ ] **SF Bay Area kennels** (10 kennels researched) — SFH3, Nob Hill, Marin, East Bay, South Bay, and more
   - Sources: sfh3.com, Google Calendar, meetup.com — see [sf-bay-area.md](kennel-research/sf-bay-area.md)
-- [ ] **London kennels** (10 kennels researched) — London H3, City H3, South London, Barnes, and more
-  - Sources: londonhash.org, Google Calendars — see [london-kennels.md](kennel-research/london-kennels.md)
+- [x] **London kennels** (8 kennels seeded, 3 HTML scraper sources live) — LH3, CityH3, WLH3 + 5 more kennels ready for sources
+  - Sources live: londonhash.org run list, cityhash.house, westlondonhash.org — see [london-kennels.md](kennel-research/london-kennels.md)
 - [ ] **gotothehash.net** — evaluate as a potential aggregator source (similar to hashnyc.com pattern)
 - [ ] **half-mind.com event listings** — evaluate as supplementary discovery data
 - [ ] Continue refining kennel resolver patterns as new sources reveal new name variants
@@ -307,13 +325,15 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 
 **See:** [competitive-analysis.md](competitive-analysis.md) — Theme: Discovery Quality
 
+- [ ] **Map toggle on Kennel Directory** — interactive map with kennel pins (requires geocoding lat/lng on Kennel model)
 - [ ] **Map tab on Hareline** using existing event geo fields
   - Render events as pins on a map (Mapbox GL JS or Google Maps)
   - Color-code by region (reuse existing region color scheme from `src/lib/format.ts`)
   - Click pin → event detail popover with check-in/RSVP actions
   - Sync with existing hareline filters (region, kennel, day, scope)
 
-- [ ] **"Near me" distance filtering**
+- [ ] **"Near me" sorting on Kennel Directory** — sort kennels by distance from user (requires lat/lng on Kennel model + browser geolocation)
+- [ ] **"Near me" distance filtering on Hareline**
   - Browser geolocation API for current position
   - Client-side Haversine distance calculation (no PostGIS):
     ```typescript
@@ -416,7 +436,7 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 ## Priority 9: Additional Integrations & Depth
 
 ### Additional Adapter Types
-- [ ] **iCal feed adapter** (`ICAL_FEED`): For kennels with `.ics` calendar files
+- [x] **iCal feed adapter** (`ICAL_FEED`): Live with SFH3 MultiHash source (11 Bay Area kennels)
 - [ ] **RSS/Atom adapter** (`RSS_FEED`): For kennels with blog-style event posts
 - [ ] **hashnj.com HTML scraper**: Similar to hashnyc.com, different HTML structure
 
@@ -482,6 +502,7 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 - [ ] Email/notification integration for source health alerts
 
 ### Deferred (Low Priority)
+- Kennel Directory "Recently Active" sort: extend to include recent past events (currently only uses upcoming events)
 - Location privacy / time-gated location reveal
 - Hash cash amount tracking / ledger (boolean `paid` is sufficient)
 - Auto-detect virgins from roster data
@@ -497,7 +518,7 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 
 | Phase | Sources | Effort per Source | Code Changes |
 |-------|---------|-------------------|--------------|
-| **Today** (manual) | 7 | ~1-2 hours | Adapter code + seed + resolver |
+| **Today** (manual) | 16 | ~1-2 hours | Adapter code + seed + resolver |
 | **Config-driven** (Priority 1) | 10-20 | ~15 min | Seed only (for Sheets/Calendar) |
 | **Admin UI** (Priority 1) | 20-50 | ~5 min | None (form-based config) |
 | **AI-assisted** (Long-term) | 50+ | ~5 min review | None |

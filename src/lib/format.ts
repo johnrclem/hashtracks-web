@@ -66,13 +66,32 @@ export function parseParticipationLevel(value: string | undefined): Participatio
 // ── Region display ──
 
 const REGION_CONFIG: Record<string, { abbrev: string; classes: string }> = {
+  // US East Coast
   "New York City, NY": { abbrev: "NYC", classes: "bg-blue-200 text-blue-800" },
   "Long Island, NY":   { abbrev: "LI",  classes: "bg-cyan-200 text-cyan-800" },
   "Boston, MA":        { abbrev: "BOS", classes: "bg-red-200 text-red-800" },
   "North NJ":          { abbrev: "NNJ", classes: "bg-emerald-200 text-emerald-800" },
   "New Jersey":        { abbrev: "NJ",  classes: "bg-green-200 text-green-800" },
   "Philadelphia, PA":  { abbrev: "PHI", classes: "bg-amber-200 text-amber-800" },
+  // US Midwest
   "Chicago, IL":       { abbrev: "CHI", classes: "bg-purple-200 text-purple-800" },
+  "South Shore, IN":   { abbrev: "IN",  classes: "bg-violet-200 text-violet-800" },
+  // US DC / DMV
+  "Washington, DC":    { abbrev: "DC",  classes: "bg-slate-200 text-slate-800" },
+  "Northern Virginia": { abbrev: "NoVA", classes: "bg-stone-200 text-stone-800" },
+  "Baltimore, MD":     { abbrev: "BAL", classes: "bg-orange-200 text-orange-800" },
+  "Frederick, MD":     { abbrev: "FRD", classes: "bg-orange-100 text-orange-700" },
+  "Fredericksburg, VA": { abbrev: "FXBG", classes: "bg-stone-100 text-stone-700" },
+  "Southern Maryland": { abbrev: "SMD", classes: "bg-orange-100 text-orange-700" },
+  "Jefferson County, WV": { abbrev: "WV", classes: "bg-lime-200 text-lime-800" },
+  // US West Coast
+  "San Francisco, CA": { abbrev: "SF",  classes: "bg-teal-200 text-teal-800" },
+  "Oakland, CA":       { abbrev: "OAK", classes: "bg-teal-100 text-teal-700" },
+  "San Jose, CA":      { abbrev: "SJ",  classes: "bg-sky-200 text-sky-800" },
+  "Marin County, CA":  { abbrev: "MRN", classes: "bg-teal-100 text-teal-700" },
+  // UK
+  "London":            { abbrev: "LDN", classes: "bg-rose-200 text-rose-800" },
+  "Surrey":            { abbrev: "SRY", classes: "bg-pink-200 text-pink-800" },
 };
 
 /** Short abbreviation for a region. "New York City, NY" → "NYC" */
@@ -83,6 +102,20 @@ export function regionAbbrev(region: string): string {
 /** Tailwind color classes for a region badge. Falls back to gray. */
 export function regionColorClasses(region: string): string {
   return REGION_CONFIG[region]?.classes ?? "bg-gray-200 text-gray-800";
+}
+
+/**
+ * Format ISO date string to short display: "Wed, Feb 18".
+ * Uses UTC to match the date storage convention (UTC noon).
+ */
+export function formatDateShort(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 // ── Kennel profile helpers ──
