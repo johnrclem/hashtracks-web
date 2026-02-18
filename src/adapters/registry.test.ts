@@ -5,6 +5,7 @@ import { BFMAdapter } from "./html-scraper/bfm";
 import { HashPhillyAdapter } from "./html-scraper/hashphilly";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
+import { ICalAdapter } from "./ical/adapter";
 
 describe("getAdapter", () => {
   it("returns HashNYCAdapter for HTML_SCRAPER (default)", () => {
@@ -31,7 +32,11 @@ describe("getAdapter", () => {
     expect(getAdapter("GOOGLE_SHEETS")).toBeInstanceOf(GoogleSheetsAdapter);
   });
 
+  it("returns ICalAdapter for ICAL_FEED", () => {
+    expect(getAdapter("ICAL_FEED")).toBeInstanceOf(ICalAdapter);
+  });
+
   it("throws for unimplemented source type", () => {
-    expect(() => getAdapter("ICAL_FEED" as never)).toThrow("Adapter not implemented");
+    expect(() => getAdapter("RSS_FEED" as never)).toThrow("Adapter not implemented");
   });
 });

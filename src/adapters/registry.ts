@@ -5,11 +5,13 @@ import { BFMAdapter } from "./html-scraper/bfm";
 import { HashPhillyAdapter } from "./html-scraper/hashphilly";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
+import { ICalAdapter } from "./ical/adapter";
 
 const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
   HTML_SCRAPER: () => new HashNYCAdapter(), // default HTML scraper
   GOOGLE_CALENDAR: () => new GoogleCalendarAdapter(),
   GOOGLE_SHEETS: () => new GoogleSheetsAdapter(),
+  ICAL_FEED: () => new ICalAdapter(),
 };
 
 /** URL-based routing for HTML_SCRAPER sources with site-specific adapters */
