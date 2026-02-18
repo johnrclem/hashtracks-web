@@ -36,6 +36,7 @@ async function main() {
     discordUrl?: string;
     contactEmail?: string;
     foundedYear?: number;
+    description?: string;
   }> = [
     // NYC area (hashnyc.com source)
     {
@@ -110,53 +111,74 @@ async function main() {
     {
       shortName: "CH3", fullName: "Chicago Hash House Harriers", region: "Chicago, IL",
       website: "https://chicagohash.org", foundedYear: 1978,
+      facebookUrl: "https://www.facebook.com/groups/10638781851/",
       scheduleNotes: "Summer: Mondays 7pm. Winter: Sundays 2pm.",
+      description: "Chicago's original kennel (est. 1978). Weekly Sunday afternoon runs (winter) / Monday evening runs (summer).",
     },
     {
       shortName: "TH3", fullName: "Thirstday Hash House Harriers", region: "Chicago, IL",
       website: "https://chicagoth3.com", foundedYear: 2003,
       scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      description: "Weekly Thursday evening hash. 7 PM meet, 7:30 on-out. Urban trails accessible via public transit.",
     },
     {
       shortName: "CFMH3", fullName: "Chicago Full Moon Hash House Harriers", region: "Chicago, IL",
       website: "https://www.hhhinchicago.com", foundedYear: 1987,
+      facebookUrl: "https://www.facebook.com/groups/570636943051356/",
       scheduleFrequency: "Monthly", scheduleNotes: "Evenings near the full moon",
+      description: "Monthly hash near the full moon (est. 1987). Day of week varies with the lunar cycle.",
     },
     {
       shortName: "FCMH3", fullName: "First Crack of the Moon Hash House Harriers", region: "Chicago, IL",
+      facebookUrl: "https://www.facebook.com/groups/570636943051356/",
       scheduleFrequency: "Monthly", scheduleNotes: "Evenings near the new moon",
+      description: "Monthly hash near the new moon. Sister kennel to Chicago Full Moon H3.",
     },
     {
       shortName: "BDH3", fullName: "Big Dogs Hash House Harriers", region: "Chicago, IL",
+      facebookUrl: "https://www.facebook.com/groups/137255643022023/",
       scheduleFrequency: "Monthly", scheduleNotes: "2nd Saturday afternoon",
+      description: "Monthly 2nd Saturday afternoon hash. Off-the-beaten-path trails.",
     },
     {
       shortName: "BMH3", fullName: "Bushman Hash House Harriers", region: "Chicago, IL",
       website: "https://www.hhhinchicago.com",
       scheduleFrequency: "Monthly", scheduleNotes: "3rd Saturday afternoon",
+      description: "Monthly 3rd Saturday afternoon hash. All-woods trails in Cook County Forest Preserves.",
     },
     {
       shortName: "2CH3", fullName: "Second City Hash House Harriers", region: "Chicago, IL",
+      facebookUrl: "https://www.facebook.com/groups/secondcityhhh",
       scheduleFrequency: "Irregular",
+      description: "Runs on an as-desired basis. Trails typically further from city center.",
     },
     {
       shortName: "WWH3", fullName: "Whiskey Wednesday Hash House Harriers", region: "Chicago, IL",
       website: "http://www.whiskeywednesdayhash.org",
-      scheduleFrequency: "Monthly", scheduleNotes: "Last Wednesday evening, 7:00 PM. Free — no hash cash.",
+      facebookUrl: "https://www.facebook.com/groups/wwwhhh",
+      scheduleFrequency: "Monthly", scheduleNotes: "Last Wednesday evening, 7:00 PM.",
+      hashCash: "Free",
+      description: "Monthly last Wednesday evening hash. Free to runners. Features whiskey.",
     },
     {
       shortName: "4X2H4", fullName: "4x2 Hash House Harriers and Harriettes", region: "Chicago, IL",
       website: "https://www.4x2h4.org",
+      facebookUrl: "https://www.facebook.com/groups/833761823403207",
       scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "1st Tuesday. $2 hash cash, 4 miles, 2 beers.", hashCash: "$2",
+      description: "Monthly 1st Tuesday evening hash. $2 hash cash, ~4 mile trail, 2 beers, brief circle.",
     },
     {
       shortName: "RTH3", fullName: "Ragtime Hash House Harriers", region: "Chicago, IL",
+      facebookUrl: "https://www.facebook.com/groups/213336255431069/",
       scheduleFrequency: "Irregular", scheduleNotes: "Brunch hash, various Saturdays",
+      description: "Brunch hash on various Saturdays, late morning.",
     },
     {
       shortName: "DLH3", fullName: "Duneland Hash House Harriers", region: "South Shore, IN",
+      facebookUrl: "https://www.facebook.com/groups/SouthShoreHHH/",
       scheduleFrequency: "Irregular",
+      description: "NW Indiana hash considered part of the Chicagoland community. Irregular schedule.",
     },
     // DC / DMV area
     {
@@ -341,13 +363,13 @@ async function main() {
     "CH3": ["Chicago Hash", "Chicago H3", "CHH3"],
     "TH3": ["Thirstday", "Thirstday Hash", "Thirstday H3", "Thursday Hash"],
     "CFMH3": ["Chicago Full Moon", "Chicago Full Moon Hash", "Chicago Moon Hash"],
-    "FCMH3": ["First Crack", "First Crack H3", "First Crack of the Moon"],
+    "FCMH3": ["First Crack", "First Crack H3", "First Crack of the Moon", "New Moon Hash"],
     "BDH3": ["Big Dogs", "Big Dogs H3", "Big Dogs Hash"],
-    "BMH3": ["Bushman", "Bushman H3", "Bushman Hash"],
+    "BMH3": ["Bushman", "Bushman H3", "Bushman Hash", "The Greatest Hash"],
     "2CH3": ["Second City", "Second City H3", "Second City Hash"],
-    "WWH3": ["Whiskey Wednesday", "Whiskey Wednesday Hash"],
-    "4X2H4": ["4x2 H4", "Four by Two H4"],
-    "RTH3": ["Ragtime", "Ragtime Hash"],
+    "WWH3": ["Whiskey Wednesday", "Whiskey Wednesday Hash", "WWW H3"],
+    "4X2H4": ["4x2 H4", "Four by Two H4", "4x2 Hash", "Four by Two"],
+    "RTH3": ["Ragtime", "Ragtime Hash", "Brunch Hash"],
     "DLH3": ["Duneland", "Duneland H3", "South Shore HHH"],
     // DC / DMV area
     "EWH3": ["Everyday is Wednesday", "Every Day is Wednesday"],
@@ -481,7 +503,7 @@ async function main() {
         kennelPatterns: [
           ["CH3|Chicago Hash|Chicago H3", "CH3"],
           ["TH3|Thirstday|Thursday Hash", "TH3"],
-          ["CFMH3|Chicago Full Moon|Full Moon Hash|Moon Hash", "CFMH3"],
+          ["CFMH3|Chicago Full Moon|Full Moon Hash|Full Moon H3|Moon Hash", "CFMH3"],
           ["FCMH3|First Crack", "FCMH3"],
           ["BDH3|Big Dogs", "BDH3"],
           ["BMH3|Bushman", "BMH3"],
@@ -502,6 +524,9 @@ async function main() {
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      config: {
+        defaultKennelTag: "EWH3",
+      },
       kennelShortNames: ["EWH3"],
     },
   ];
@@ -517,7 +542,7 @@ async function main() {
     for (const key of [
       "website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency",
       "scheduleNotes", "hashCash", "facebookUrl", "instagramHandle",
-      "twitterHandle", "discordUrl", "contactEmail", "foundedYear",
+      "twitterHandle", "discordUrl", "contactEmail", "foundedYear", "description",
     ] as const) {
       if (kennel[key] !== undefined) profileFields[key] = kennel[key];
     }
