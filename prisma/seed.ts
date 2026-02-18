@@ -498,7 +498,7 @@ async function main() {
     "SFFMH3": ["SF Full Moon", "SF Full Moon Hash", "FMH3", "Full Moon H3 (SF)"],
     "VMH3": ["Vine & Malthouse", "Vine and Malthouse H3"],
     // London, UK
-    "LH3": ["London Hash", "London H3"],
+    "LH3": ["London Hash", "London H3", "London Hash House Harriers"],
     "CityH3": ["City Hash", "City H3"],
     "WLH3": ["West London Hash", "West London H3", "WLH"],
     "BarnesH3": ["Barnes Hash", "Barnes H3", "BH3"],
@@ -660,6 +660,34 @@ async function main() {
         startTimeRules: { byDayOfWeek: { "Wed": "18:09" }, default: "18:09" },
       },
       kennelShortNames: ["W3H3"],
+    },
+    // London, UK
+    {
+      name: "City Hash Website",
+      url: "https://cityhash.org.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelShortNames: ["CityH3"],
+    },
+    {
+      name: "West London Hash Website",
+      url: "https://westlondonhash.com/runs/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelShortNames: ["WLH3"],
+    },
+    {
+      name: "London Hash Run List",
+      url: "https://www.londonhash.org/runlist.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelShortNames: ["LH3"],
     },
     // Bay Area iCal feed (sfh3.com aggregator — ~11 kennels)
     {

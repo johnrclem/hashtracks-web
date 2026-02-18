@@ -6,6 +6,9 @@ import { HashPhillyAdapter } from "./html-scraper/hashphilly";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
+import { CityHashAdapter } from "./html-scraper/city-hash";
+import { WestLondonHashAdapter } from "./html-scraper/west-london-hash";
+import { LondonHashAdapter } from "./html-scraper/london-hash";
 
 describe("getAdapter", () => {
   it("returns HashNYCAdapter for HTML_SCRAPER (default)", () => {
@@ -22,6 +25,18 @@ describe("getAdapter", () => {
 
   it("returns HashPhillyAdapter for hashphilly.com URL", () => {
     expect(getAdapter("HTML_SCRAPER", "https://hashphilly.com/nexthash/")).toBeInstanceOf(HashPhillyAdapter);
+  });
+
+  it("returns CityHashAdapter for cityhash.org.uk URL", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://cityhash.org.uk/")).toBeInstanceOf(CityHashAdapter);
+  });
+
+  it("returns WestLondonHashAdapter for westlondonhash.com URL", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://westlondonhash.com/runs/")).toBeInstanceOf(WestLondonHashAdapter);
+  });
+
+  it("returns LondonHashAdapter for londonhash.org URL", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://www.londonhash.org/runlist.php")).toBeInstanceOf(LondonHashAdapter);
   });
 
   it("returns GoogleCalendarAdapter for GOOGLE_CALENDAR", () => {

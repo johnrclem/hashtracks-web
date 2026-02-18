@@ -3,6 +3,9 @@ import type { SourceAdapter } from "./types";
 import { HashNYCAdapter } from "./html-scraper/hashnyc";
 import { BFMAdapter } from "./html-scraper/bfm";
 import { HashPhillyAdapter } from "./html-scraper/hashphilly";
+import { CityHashAdapter } from "./html-scraper/city-hash";
+import { WestLondonHashAdapter } from "./html-scraper/west-london-hash";
+import { LondonHashAdapter } from "./html-scraper/london-hash";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -18,6 +21,9 @@ const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
 const htmlScrapersByUrl: [RegExp, () => SourceAdapter][] = [
   [/benfranklinmob/i, () => new BFMAdapter()],
   [/hashphilly/i, () => new HashPhillyAdapter()],
+  [/cityhash\.org/i, () => new CityHashAdapter()],
+  [/westlondonhash/i, () => new WestLondonHashAdapter()],
+  [/londonhash\.org/i, () => new LondonHashAdapter()],
 ];
 
 export function getAdapter(sourceType: SourceType, sourceUrl?: string): SourceAdapter {
