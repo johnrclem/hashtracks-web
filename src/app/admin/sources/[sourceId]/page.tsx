@@ -273,7 +273,7 @@ export default async function SourceDetailPage({
   if (!source) notFound();
 
   // Get scrape logs, counts, alerts (most recent first)
-  const [scrapeLogs, rawEventCount, linkedEventCount, allKennels, openAlertCount, recentAlerts, structureHashHistory, recentScrapeWithSamples] =
+  const [scrapeLogs, rawEventCount, linkedEventCount, allKennels, openAlertCount, recentAlerts, structureHashHistory, recentScrapeWithSamples, recentRawEvents] =
     await Promise.all([
       prisma.scrapeLog.findMany({
         where: { sourceId },
@@ -318,6 +318,28 @@ export default async function SourceDetailPage({
         },
         orderBy: { startedAt: "desc" },
         select: { id: true, startedAt: true, sampleBlocked: true, sampleSkipped: true },
+      }),
+      // Recent events from this source (last 50 raw events, deduped by eventId in UI)
+      prisma.rawEvent.findMany({
+        where: { sourceId, processed: true, eventId: { not: null } },
+        orderBy: { scrapedAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          scrapedAt: true,
+          event: {
+            select: {
+              id: true,
+              date: true,
+              title: true,
+              locationName: true,
+              haresText: true,
+              startTime: true,
+              runNumber: true,
+              kennel: { select: { shortName: true, slug: true } },
+            },
+          },
+        },
       }),
     ]);
 
@@ -414,6 +436,102 @@ export default async function SourceDetailPage({
           )}
         </div>
       </div>
+
+      {/* Recent Events */}
+      {(() => {
+        // Deduplicate by eventId, keep most recent RawEvent per canonical Event
+        const seen = new Set<string>();
+        const uniqueEvents = recentRawEvents.filter((re) => {
+          if (!re.event) return false;
+          if (seen.has(re.event.id)) return false;
+          seen.add(re.event.id);
+          return true;
+        });
+        // Sort by event date descending
+        uniqueEvents.sort((a, b) => {
+          if (!a.event || !b.event) return 0;
+          return b.event.date.getTime() - a.event.date.getTime();
+        });
+
+        return (
+          <div>
+            <h2 className="mb-2 text-lg font-semibold">
+              Recent Events
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                ({uniqueEvents.length} unique)
+              </span>
+            </h2>
+            {uniqueEvents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No events processed yet. Trigger a scrape to see results.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Kennel</TableHead>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Hares</TableHead>
+                      <TableHead>Time</TableHead>
+                      <TableHead>R#</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {uniqueEvents.map((re) => {
+                      const evt = re.event!;
+                      const dateStr = evt.date.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        timeZone: "UTC",
+                      });
+                      return (
+                        <TableRow key={evt.id}>
+                          <TableCell className="text-xs whitespace-nowrap">{dateStr}</TableCell>
+                          <TableCell>
+                            <Link href={`/kennels/${evt.kennel.slug}`}>
+                              <Badge variant="outline" className="text-xs hover:bg-accent">
+                                {evt.kennel.shortName}
+                              </Badge>
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-xs max-w-[200px] truncate">
+                            {evt.title || <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-xs max-w-[200px] truncate">
+                            {evt.locationName || <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-xs max-w-[150px] truncate">
+                            {evt.haresText || <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-xs whitespace-nowrap">
+                            {evt.startTime || <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {evt.runNumber ? `#${evt.runNumber}` : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell>
+                            <Link
+                              href={`/hareline/${evt.id}`}
+                              className="text-xs text-primary hover:underline"
+                            >
+                              View
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Recent Alerts */}
       {recentAlerts.length > 0 && (
