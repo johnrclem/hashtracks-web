@@ -50,6 +50,14 @@ function toSlug(shortName: string): string {
     .replace(/^-|-$/g, "");
 }
 
+/** Generate a permanent kennelCode from a shortName. Lowercase, alphanumeric + hyphens only. */
+function toKennelCode(shortName: string): string {
+  return shortName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 interface SimilarKennel {
   id: string;
   shortName: string;
@@ -107,13 +115,26 @@ export async function createKennel(formData: FormData, force: boolean = false) {
   }
 
   const slug = toSlug(shortName);
+  const kennelCode = toKennelCode(shortName);
 
-  // Check uniqueness
-  const existing = await prisma.kennel.findFirst({
-    where: { OR: [{ shortName }, { slug }] },
+  // Check uniqueness: kennelCode must be globally unique
+  const existingCode = await prisma.kennel.findUnique({ where: { kennelCode } });
+  if (existingCode) {
+    return { error: `A kennel with code "${kennelCode}" already exists` };
+  }
+
+  // Check uniqueness: slug must be globally unique
+  const existingSlug = await prisma.kennel.findUnique({ where: { slug } });
+  if (existingSlug) {
+    return { error: `A kennel with slug "${slug}" already exists` };
+  }
+
+  // Check uniqueness: (shortName, region) must be unique
+  const existingInRegion = await prisma.kennel.findFirst({
+    where: { shortName, region },
   });
-  if (existing) {
-    return { error: "A kennel with that short name already exists" };
+  if (existingInRegion) {
+    return { error: `A kennel named "${shortName}" already exists in ${region}` };
   }
 
   // Check for similar kennels (fuzzy matching) unless force=true
@@ -136,6 +157,7 @@ export async function createKennel(formData: FormData, force: boolean = false) {
 
   await prisma.kennel.create({
     data: {
+      kennelCode,
       shortName,
       slug,
       fullName,
@@ -173,15 +195,20 @@ export async function updateKennel(kennelId: string, formData: FormData) {
 
   const slug = toSlug(shortName);
 
-  // Check uniqueness (exclude current kennel)
-  const existing = await prisma.kennel.findFirst({
-    where: {
-      OR: [{ shortName }, { slug }],
-      NOT: { id: kennelId },
-    },
+  // Check slug uniqueness (exclude current kennel)
+  const existingSlug = await prisma.kennel.findFirst({
+    where: { slug, NOT: { id: kennelId } },
   });
-  if (existing) {
-    return { error: "A kennel with that short name already exists" };
+  if (existingSlug) {
+    return { error: `A kennel with slug "${slug}" already exists` };
+  }
+
+  // Check (shortName, region) uniqueness (exclude current kennel)
+  const existingInRegion = await prisma.kennel.findFirst({
+    where: { shortName, region, NOT: { id: kennelId } },
+  });
+  if (existingInRegion) {
+    return { error: `A kennel named "${shortName}" already exists in ${region}` };
   }
 
   // If shortName changed, auto-add the old name as an alias so the resolver can still match it

@@ -11,13 +11,13 @@ async function main() {
   console.log("=== Merge Verification ===\n");
 
   // 1. Verify NYC H3 is deleted
-  const deleted = await prisma.kennel.findUnique({
+  const deleted = await prisma.kennel.findFirst({
     where: { shortName: "NYC H3" },
   });
   console.log("NYC H3 deleted:", deleted === null ? "✅ Yes" : "❌ No");
 
   // 2. Verify NYCH3 has all events
-  const nych3 = await prisma.kennel.findUnique({
+  const nych3 = await prisma.kennel.findFirst({
     where: { shortName: "NYCH3" },
     include: { _count: { select: { events: true } } },
   });

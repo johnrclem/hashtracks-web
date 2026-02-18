@@ -74,8 +74,8 @@ async function main() {
   let totalSkipped = 0;
 
   for (const [kennelShortName, data] of Object.entries(roster.kennels)) {
-    // Look up kennel by shortName
-    const kennel = await prisma.kennel.findUnique({
+    // Look up kennel by shortName (no longer globally unique, use findFirst)
+    const kennel = await prisma.kennel.findFirst({
       where: { shortName: kennelShortName },
       select: { id: true },
     });

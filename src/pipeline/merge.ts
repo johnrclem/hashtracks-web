@@ -71,8 +71,8 @@ export async function processRawEvents(
         },
       });
 
-      // Resolve kennel tag
-      const { kennelId, matched } = await resolveKennelTag(event.kennelTag);
+      // Resolve kennel tag (source-scoped for disambiguation)
+      const { kennelId, matched } = await resolveKennelTag(event.kennelTag, sourceId);
 
       if (!matched || !kennelId) {
         // Flag for review — leave unprocessed

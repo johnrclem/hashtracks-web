@@ -60,18 +60,63 @@ describe("createKennel", () => {
     });
   });
 
-  it("returns error when shortName already exists", async () => {
-    mockKennelFindFirst.mockResolvedValueOnce({ id: "existing" } as never);
+  it("returns error when kennelCode already exists", async () => {
+    mockKennelFindUnique
+      .mockResolvedValueOnce({ id: "existing" } as never); // kennelCode check
     const fd = new FormData();
     fd.set("shortName", "NYCH3");
     fd.set("fullName", "NYC Hash");
     fd.set("region", "NYC");
     expect(await createKennel(fd)).toEqual({
-      error: "A kennel with that short name already exists",
+      error: 'A kennel with code "nych3" already exists',
     });
   });
 
-  it("creates kennel with aliases", async () => {
+  it("returns error when slug already exists", async () => {
+    mockKennelFindUnique
+      .mockResolvedValueOnce(null)                         // kennelCode check
+      .mockResolvedValueOnce({ id: "existing" } as never); // slug check
+    const fd = new FormData();
+    fd.set("shortName", "NYCH3");
+    fd.set("fullName", "NYC Hash");
+    fd.set("region", "NYC");
+    expect(await createKennel(fd)).toEqual({
+      error: 'A kennel with slug "nych3" already exists',
+    });
+  });
+
+  it("returns error when shortName + region already exists", async () => {
+    mockKennelFindUnique
+      .mockResolvedValueOnce(null)  // kennelCode check
+      .mockResolvedValueOnce(null); // slug check
+    mockKennelFindFirst.mockResolvedValueOnce({ id: "existing" } as never); // region check
+    const fd = new FormData();
+    fd.set("shortName", "NYCH3");
+    fd.set("fullName", "NYC Hash");
+    fd.set("region", "New York City, NY");
+    expect(await createKennel(fd)).toEqual({
+      error: 'A kennel named "NYCH3" already exists in New York City, NY',
+    });
+  });
+
+  it("allows same shortName in different regions", async () => {
+    mockKennelFindUnique
+      .mockResolvedValueOnce(null)  // kennelCode check
+      .mockResolvedValueOnce(null); // slug check
+    mockKennelFindFirst.mockResolvedValueOnce(null); // no match in this region
+    mockKennelCreate.mockResolvedValueOnce({} as never);
+    const fd = new FormData();
+    fd.set("shortName", "TestH3");
+    fd.set("fullName", "Test Hash");
+    fd.set("region", "Boston, MA");
+    const result = await createKennel(fd);
+    expect(result).toEqual({ success: true });
+  });
+
+  it("creates kennel with aliases and kennelCode", async () => {
+    mockKennelFindUnique
+      .mockResolvedValueOnce(null)  // kennelCode check
+      .mockResolvedValueOnce(null); // slug check
     mockKennelFindFirst.mockResolvedValueOnce(null);
     mockKennelCreate.mockResolvedValueOnce({} as never);
     const fd = new FormData();
@@ -84,6 +129,7 @@ describe("createKennel", () => {
     expect(mockKennelCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          kennelCode: "testh3",
           shortName: "TestH3",
           slug: "testh3",
           aliases: { create: [{ alias: "Test" }, { alias: "TH3" }] },
@@ -93,6 +139,9 @@ describe("createKennel", () => {
   });
 
   it("generates correct slug from shortName with parens", async () => {
+    mockKennelFindUnique
+      .mockResolvedValueOnce(null)  // kennelCode check
+      .mockResolvedValueOnce(null); // slug check
     mockKennelFindFirst.mockResolvedValueOnce(null);
     mockKennelCreate.mockResolvedValueOnce({} as never);
     const fd = new FormData();
@@ -102,7 +151,10 @@ describe("createKennel", () => {
     await createKennel(fd);
     expect(mockKennelCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ slug: "drinking-practice-nyc" }),
+        data: expect.objectContaining({
+          kennelCode: "drinking-practice-nyc",
+          slug: "drinking-practice-nyc",
+        }),
       }),
     );
   });
@@ -115,14 +167,27 @@ describe("updateKennel", () => {
     expect(await updateKennel("k1", fd)).toEqual({ error: "Not authorized" });
   });
 
-  it("returns error on uniqueness conflict", async () => {
-    mockKennelFindFirst.mockResolvedValueOnce({ id: "other" } as never);
+  it("returns error on slug conflict", async () => {
+    mockKennelFindFirst.mockResolvedValueOnce({ id: "other" } as never); // slug check
     const fd = new FormData();
     fd.set("shortName", "NYCH3");
     fd.set("fullName", "NYC Hash");
     fd.set("region", "NYC");
     expect(await updateKennel("k1", fd)).toEqual({
-      error: "A kennel with that short name already exists",
+      error: 'A kennel with slug "nych3" already exists',
+    });
+  });
+
+  it("returns error on shortName + region conflict", async () => {
+    mockKennelFindFirst
+      .mockResolvedValueOnce(null)                         // slug check passes
+      .mockResolvedValueOnce({ id: "other" } as never);    // region check fails
+    const fd = new FormData();
+    fd.set("shortName", "NYCH3");
+    fd.set("fullName", "NYC Hash");
+    fd.set("region", "New York City, NY");
+    expect(await updateKennel("k1", fd)).toEqual({
+      error: 'A kennel named "NYCH3" already exists in New York City, NY',
     });
   });
 });

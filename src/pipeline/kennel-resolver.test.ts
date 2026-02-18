@@ -238,4 +238,39 @@ describe("resolveKennelTag", () => {
     expect(result).toEqual({ kennelId: "kennel_1", matched: true });
     expect(mockKennelFind).toHaveBeenCalledTimes(1);
   });
+
+  it("prefers source-linked kennel when sourceId is provided", async () => {
+    // Source-scoped query returns the linked kennel
+    mockKennelFind.mockResolvedValueOnce({ id: "kennel_boston" } as never);
+    const result = await resolveKennelTag("CH3", "source_123");
+    expect(result).toEqual({ kennelId: "kennel_boston", matched: true });
+    // First call should include sourceKennels filter
+    expect(mockKennelFind).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          sources: { some: { sourceId: "source_123" } },
+        }),
+      }),
+    );
+  });
+
+  it("falls back to any kennel when source-scoped query misses", async () => {
+    mockKennelFind
+      .mockResolvedValueOnce(null)                         // source-scoped miss
+      .mockResolvedValueOnce({ id: "kennel_any" } as never); // fallback hit
+    const result = await resolveKennelTag("CH3", "source_456");
+    expect(result).toEqual({ kennelId: "kennel_any", matched: true });
+    expect(mockKennelFind).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses separate cache entries for different sourceIds", async () => {
+    mockKennelFind.mockResolvedValueOnce({ id: "kennel_a" } as never);
+    await resolveKennelTag("CH3", "source_1");
+
+    mockKennelFind.mockResolvedValueOnce({ id: "kennel_b" } as never);
+    await resolveKennelTag("CH3", "source_2");
+
+    // Should have made 2 DB calls (different cache keys)
+    expect(mockKennelFind).toHaveBeenCalledTimes(2);
+  });
 });

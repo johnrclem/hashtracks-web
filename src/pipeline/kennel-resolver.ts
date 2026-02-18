@@ -18,22 +18,44 @@ export function clearResolverCache() {
  *
  * Pipeline:
  * 1. Exact match on Kennel.shortName (case-insensitive)
+ *    - When shortName is ambiguous (multiple regions), prefer source-linked kennel
  * 2. Case-insensitive match on KennelAlias.alias
  * 3. Pattern matching fallback (PRD Appendix D.2) → retry step 1
  * 4. No match → { kennelId: null, matched: false }
+ *
+ * @param tag - Raw kennel tag from scraper
+ * @param sourceId - Optional source ID for disambiguation when shortName matches multiple kennels
  */
 export async function resolveKennelTag(
   tag: string,
+  sourceId?: string,
 ): Promise<ResolveResult> {
   const normalized = tag.trim();
   if (!normalized) return { kennelId: null, matched: false };
 
-  // Check cache first
-  const cacheKey = normalized.toLowerCase();
+  // Check cache first (include sourceId in key for source-scoped resolution)
+  const cacheKey = sourceId ? `${normalized.toLowerCase()}:${sourceId}` : normalized.toLowerCase();
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
   // Step 1: Exact match on shortName (case-insensitive)
+  // When sourceId is provided and shortName matches multiple kennels, prefer the source-linked one
+  if (sourceId) {
+    const sourceLinked = await prisma.kennel.findFirst({
+      where: {
+        shortName: { equals: normalized, mode: "insensitive" },
+        sources: { some: { sourceId } },
+      },
+      select: { id: true },
+    });
+    if (sourceLinked) {
+      const result = { kennelId: sourceLinked.id, matched: true };
+      cache.set(cacheKey, result);
+      return result;
+    }
+  }
+
+  // Fallback: any kennel with that shortName
   const kennel = await prisma.kennel.findFirst({
     where: { shortName: { equals: normalized, mode: "insensitive" } },
     select: { id: true },
@@ -58,7 +80,22 @@ export async function resolveKennelTag(
   // Step 3: Pattern matching fallback (PRD Appendix D.2)
   const mapped = mapKennelTag(normalized.toLowerCase());
   if (mapped) {
-    // Retry step 1 with the mapped short name
+    // Retry step 1 with the mapped short name (source-scoped)
+    if (sourceId) {
+      const mappedSourceLinked = await prisma.kennel.findFirst({
+        where: {
+          shortName: { equals: mapped, mode: "insensitive" },
+          sources: { some: { sourceId } },
+        },
+        select: { id: true },
+      });
+      if (mappedSourceLinked) {
+        const result = { kennelId: mappedSourceLinked.id, matched: true };
+        cache.set(cacheKey, result);
+        return result;
+      }
+    }
+
     const mappedKennel = await prisma.kennel.findFirst({
       where: { shortName: { equals: mapped, mode: "insensitive" } },
       select: { id: true },

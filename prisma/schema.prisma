@@ -55,7 +55,8 @@ enum UserKennelRole {
 
 model Kennel {
   id          String         @id @default(cuid())
-  shortName   String         @unique // "NYCH3"
+  kennelCode  String         @unique // Permanent identity — set once, never changes
+  shortName   String         // Display name (unique within region, not globally)
   slug        String         @unique // URL-safe: "nych3", "bos-moon"
   fullName    String         // "New York City Hash House Harriers"
   region      String         // "New York City, NY"
@@ -99,6 +100,8 @@ model Kennel {
   rosterGroups   RosterGroupKennel[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
+
+  @@unique([shortName, region])
 }
 
 model KennelAlias {

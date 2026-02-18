@@ -116,8 +116,8 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   try {
-    // Resolve kennel
-    const kennel = await prisma.kennel.findUnique({
+    // Resolve kennel (shortName is no longer globally unique, use findFirst)
+    const kennel = await prisma.kennel.findFirst({
       where: { shortName: opts.kennel },
       select: { id: true, shortName: true },
     });

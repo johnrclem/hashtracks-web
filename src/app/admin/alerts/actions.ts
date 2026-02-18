@@ -222,20 +222,25 @@ export async function createKennelFromAlert(
   const alert = await prisma.alert.findUnique({ where: { id: alertId } });
   if (!alert) return { error: "Alert not found" };
 
-  // Generate slug
+  // Generate slug and kennelCode
   const slug = kennelData.shortName
     .toLowerCase()
     .replace(/[()]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+  const kennelCode = kennelData.shortName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
   // Check uniqueness
   const existingKennel = await prisma.kennel.findFirst({
     where: {
       OR: [
-        { shortName: { equals: kennelData.shortName, mode: "insensitive" } },
+        { kennelCode },
         { slug },
+        { shortName: kennelData.shortName, region: kennelData.region || "Unknown" },
       ],
     },
   });
@@ -245,6 +250,7 @@ export async function createKennelFromAlert(
   await prisma.$transaction([
     prisma.kennel.create({
       data: {
+        kennelCode,
         shortName: kennelData.shortName,
         fullName: kennelData.fullName || kennelData.shortName,
         slug,

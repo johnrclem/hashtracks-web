@@ -9,7 +9,7 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   // 1. Find both kennels
-  const sourceKennel = await prisma.kennel.findUnique({
+  const sourceKennel = await prisma.kennel.findFirst({
     where: { shortName: "Queens" },
     include: {
       _count: {
@@ -25,7 +25,7 @@ async function main() {
     },
   });
 
-  const targetKennel = await prisma.kennel.findUnique({
+  const targetKennel = await prisma.kennel.findFirst({
     where: { shortName: "QBK" },
     select: { id: true, shortName: true, slug: true },
   });
