@@ -88,8 +88,8 @@ export async function processRawEvents(
         // recurring blocked/skipped issues generate samples on every scrape,
         // not just the first one (fingerprint dedup would otherwise skip them).
         if (!existing.processed) {
-          const needSkippedSamples = result.sampleSkipped.length < 3;
-          const needBlockedSamples = result.sampleBlocked.length < 3;
+          const needSkippedSamples = result.sampleSkipped && result.sampleSkipped.length < 3;
+          const needBlockedSamples = result.sampleBlocked && result.sampleBlocked.length < 3;
 
           if (needSkippedSamples || needBlockedSamples) {
             const { kennelId: resolvedId, matched: resolvedMatch } =
@@ -97,7 +97,7 @@ export async function processRawEvents(
 
             if (!resolvedMatch || !resolvedId) {
               if (needSkippedSamples) {
-                result.sampleSkipped.push({
+                result.sampleSkipped!.push({
                   reason: "UNMATCHED_TAG",
                   kennelTag: event.kennelTag,
                   event,
@@ -110,7 +110,7 @@ export async function processRawEvents(
                   where: { id: resolvedId },
                   select: { shortName: true },
                 });
-                result.sampleBlocked.push({
+                result.sampleBlocked!.push({
                   reason: "SOURCE_KENNEL_MISMATCH",
                   kennelTag: event.kennelTag,
                   event,
