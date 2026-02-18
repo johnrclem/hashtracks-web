@@ -83,6 +83,44 @@ export async function processRawEvents(
       });
       if (existing) {
         result.skipped++;
+
+        // Phase 2B: Capture samples from previously-unprocessed events so that
+        // recurring blocked/skipped issues generate samples on every scrape,
+        // not just the first one (fingerprint dedup would otherwise skip them).
+        if (!existing.processed) {
+          const needSkippedSamples = result.sampleSkipped.length < 3;
+          const needBlockedSamples = result.sampleBlocked.length < 3;
+
+          if (needSkippedSamples || needBlockedSamples) {
+            const { kennelId: resolvedId, matched: resolvedMatch } =
+              await resolveKennelTag(event.kennelTag, sourceId);
+
+            if (!resolvedMatch || !resolvedId) {
+              if (needSkippedSamples) {
+                result.sampleSkipped.push({
+                  reason: "UNMATCHED_TAG",
+                  kennelTag: event.kennelTag,
+                  event,
+                  suggestedAction: `Create kennel or alias for "${event.kennelTag}"`,
+                });
+              }
+            } else if (!linkedKennelIds.has(resolvedId)) {
+              if (needBlockedSamples) {
+                const kennel = await prisma.kennel.findUnique({
+                  where: { id: resolvedId },
+                  select: { shortName: true },
+                });
+                result.sampleBlocked.push({
+                  reason: "SOURCE_KENNEL_MISMATCH",
+                  kennelTag: event.kennelTag,
+                  event,
+                  suggestedAction: `Link ${kennel?.shortName ?? resolvedId} to this source`,
+                });
+              }
+            }
+          }
+        }
+
         continue;
       }
 

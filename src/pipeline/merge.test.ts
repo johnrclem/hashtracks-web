@@ -268,5 +268,51 @@ describe("mergeErrorDetails", () => {
     expect(result.sampleBlocked!.length).toBe(1);
     expect(result.sampleBlocked![0].reason).toBe("SOURCE_KENNEL_MISMATCH");
   });
+
+  it("captures sample skipped events from fingerprint-deduped unprocessed RawEvents", async () => {
+    // Existing unprocessed RawEvent (previously unmatched)
+    mockRawEventFind.mockResolvedValueOnce({ id: "raw_existing", processed: false } as never);
+    mockResolve.mockResolvedValueOnce({ kennelId: null, matched: false });
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ kennelTag: "UnknownH3", date: "2026-03-01" }),
+    ]);
+
+    expect(result.skipped).toBe(1);
+    expect(result.sampleSkipped!.length).toBe(1);
+    expect(result.sampleSkipped![0].reason).toBe("UNMATCHED_TAG");
+    expect(result.sampleSkipped![0].kennelTag).toBe("UnknownH3");
+  });
+
+  it("captures sample blocked events from fingerprint-deduped unprocessed RawEvents", async () => {
+    // Existing unprocessed RawEvent (previously blocked by source-kennel guard)
+    mockRawEventFind.mockResolvedValueOnce({ id: "raw_existing", processed: false } as never);
+    mockResolve.mockResolvedValueOnce({ kennelId: "kennel_other", matched: true });
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({ shortName: "OtherH3" } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ kennelTag: "OtherH3", date: "2026-03-01" }),
+    ]);
+
+    expect(result.skipped).toBe(1);
+    expect(result.sampleBlocked!.length).toBe(1);
+    expect(result.sampleBlocked![0].reason).toBe("SOURCE_KENNEL_MISMATCH");
+    expect(result.sampleBlocked![0].kennelTag).toBe("OtherH3");
+  });
+
+  it("does not capture samples from fingerprint-deduped processed RawEvents", async () => {
+    // Existing processed RawEvent (already linked to a canonical Event)
+    mockRawEventFind.mockResolvedValueOnce({ id: "raw_existing", processed: true } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ kennelTag: "NYCH3", date: "2026-03-01" }),
+    ]);
+
+    expect(result.skipped).toBe(1);
+    expect(result.sampleSkipped!.length).toBe(0);
+    expect(result.sampleBlocked!.length).toBe(0);
+    // resolveKennelTag should NOT be called for processed deduped events
+    expect(mockResolve).not.toHaveBeenCalled();
+  });
 });
 

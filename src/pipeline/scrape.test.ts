@@ -161,4 +161,34 @@ describe("scrapeSource", () => {
       blocked: 0,
     });
   });
+
+  it("does not store empty sample arrays in ScrapeLog", async () => {
+    // Default fakeMergeResult has no sampleBlocked/sampleSkipped fields
+    mockProcessRaw.mockResolvedValueOnce({
+      ...fakeMergeResult,
+      sampleBlocked: [],
+      sampleSkipped: [],
+    });
+
+    await scrapeSource("src_1");
+    const updateData = mockLogUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    // Empty arrays should be stored as undefined (which Prisma treats as "don't set")
+    expect(updateData.data.sampleBlocked).toBeUndefined();
+    expect(updateData.data.sampleSkipped).toBeUndefined();
+  });
+
+  it("stores non-empty sample arrays in ScrapeLog", async () => {
+    const sampleBlocked = [{ reason: "SOURCE_KENNEL_MISMATCH", kennelTag: "OtherH3", event: {}, suggestedAction: "Link" }];
+    const sampleSkipped = [{ reason: "UNMATCHED_TAG", kennelTag: "UnknownH3", event: {}, suggestedAction: "Create" }];
+    mockProcessRaw.mockResolvedValueOnce({
+      ...fakeMergeResult,
+      sampleBlocked,
+      sampleSkipped,
+    });
+
+    await scrapeSource("src_1");
+    const updateData = mockLogUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateData.data.sampleBlocked).toEqual(sampleBlocked);
+    expect(updateData.data.sampleSkipped).toEqual(sampleSkipped);
+  });
 });
