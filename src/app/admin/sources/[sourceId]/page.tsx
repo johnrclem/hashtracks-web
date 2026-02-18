@@ -502,7 +502,7 @@ export default async function SourceDetailPage({
                         </div>
                       </div>
                       {sample.suggestedAction && (
-                        <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                        <Badge variant="secondary" className="text-xs whitespace-normal shrink text-right">
                           {sample.suggestedAction}
                         </Badge>
                       )}
@@ -543,7 +543,7 @@ export default async function SourceDetailPage({
                         </div>
                       </div>
                       {sample.suggestedAction && (
-                        <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                        <Badge variant="secondary" className="text-xs whitespace-normal shrink text-right">
                           {sample.suggestedAction}
                         </Badge>
                       )}
