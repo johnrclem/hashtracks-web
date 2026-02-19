@@ -256,23 +256,62 @@ export async function getEventAttendance(kennelId: string, eventId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const records = await prisma.kennelAttendance.findMany({
-    where: { eventId },
-    include: {
-      kennelHasher: {
-        select: {
-          id: true,
-          hashName: true,
-          nerdName: true,
-          kennelId: true,
+  const rosterGroupId = await getRosterGroupId(kennelId);
+
+  const [records, userAttendances] = await Promise.all([
+    prisma.kennelAttendance.findMany({
+      where: { eventId },
+      include: {
+        kennelHasher: {
+          select: {
+            id: true,
+            hashName: true,
+            nerdName: true,
+            kennelId: true,
+          },
+        },
+        recordedByUser: {
+          select: { hashName: true, email: true },
         },
       },
-      recordedByUser: {
-        select: { hashName: true, email: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    // User-initiated RSVPs and check-ins for this event
+    prisma.attendance.findMany({
+      where: { eventId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            hashName: true,
+            email: true,
+          },
+        },
       },
-    },
-    orderBy: { createdAt: "asc" },
+    }),
+  ]);
+
+  // For each user attendance, check if they have a KennelHasherLink in this roster group
+  const userActivityPromises = userAttendances.map(async (a) => {
+    const link = await prisma.kennelHasherLink.findFirst({
+      where: {
+        userId: a.userId,
+        status: "CONFIRMED",
+        kennelHasher: { rosterGroupId },
+      },
+      select: { kennelHasherId: true },
+    });
+    return {
+      userId: a.userId,
+      hashName: a.user.hashName,
+      email: a.user.email,
+      status: a.status as string,
+      isLinked: !!link,
+      linkedHasherId: link?.kennelHasherId ?? null,
+    };
   });
+
+  const userActivity = await Promise.all(userActivityPromises);
 
   return {
     data: records.map((r) => ({
@@ -291,6 +330,7 @@ export async function getEventAttendance(kennelId: string, eventId: string) {
       createdAt: r.createdAt.toISOString(),
       hasEdits: Array.isArray(r.editLog) && r.editLog.length > 1,
     })),
+    userActivity,
   };
 }
 

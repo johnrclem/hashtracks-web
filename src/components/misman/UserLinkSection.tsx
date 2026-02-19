@@ -20,6 +20,8 @@ import {
   createUserLink,
   dismissUserLink,
   revokeUserLink,
+  createProfileInvite,
+  revokeProfileInvite,
 } from "@/app/misman/[slug]/roster/actions";
 
 interface UserLinkData {
@@ -37,11 +39,17 @@ interface LinkSuggestion {
   matchField: string;
 }
 
+interface InviteData {
+  token: string | null;
+  expiresAt: string | null;
+}
+
 interface UserLinkSectionProps {
   kennelId: string;
   kennelHasherId: string;
   userLink: UserLinkData | null;
   hasherDisplayName: string;
+  invite: InviteData;
 }
 
 export function UserLinkSection({
@@ -49,12 +57,20 @@ export function UserLinkSection({
   kennelHasherId,
   userLink,
   hasherDisplayName,
+  invite: initialInvite,
 }: UserLinkSectionProps) {
   const [suggestions, setSuggestions] = useState<LinkSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [invite, setInvite] = useState(initialInvite);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  const hasActiveInvite =
+    invite.token !== null &&
+    invite.expiresAt !== null &&
+    new Date(invite.expiresAt) > new Date();
 
   function handleFindLinks() {
     startTransition(async () => {
@@ -115,13 +131,53 @@ export function UserLinkSection({
     });
   }
 
+  function handleSendInvite() {
+    startTransition(async () => {
+      const result = await createProfileInvite(kennelId, kennelHasherId);
+      if (result.error) {
+        toast.error(result.error);
+      } else if (result.data) {
+        setInviteUrl(result.data.inviteUrl);
+        setInvite({
+          token: result.data.token,
+          expiresAt: result.data.expiresAt,
+        });
+        toast.success("Invite link created");
+        router.refresh();
+      }
+    });
+  }
+
+  function handleRevokeInvite() {
+    startTransition(async () => {
+      const result = await revokeProfileInvite(kennelId, kennelHasherId);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        setInvite({ token: null, expiresAt: null });
+        setInviteUrl(null);
+        toast.success("Invite revoked");
+        router.refresh();
+      }
+    });
+  }
+
+  function handleCopyLink() {
+    if (inviteUrl) {
+      navigator.clipboard.writeText(inviteUrl);
+      toast.success("Link copied to clipboard");
+    }
+  }
+
+  const isUnlinked = !userLink || userLink.status === "DISMISSED";
+
   return (
     <div className="rounded-lg border p-4 space-y-3">
       <h3 className="text-sm font-semibold">User Link</h3>
 
       {/* No link */}
-      {(!userLink || userLink.status === "DISMISSED") && (
-        <div className="flex items-center gap-3">
+      {isUnlinked && !hasActiveInvite && (
+        <div className="flex items-center gap-3 flex-wrap">
           <span className="text-sm text-muted-foreground">
             Not linked to a site user
           </span>
@@ -133,6 +189,55 @@ export function UserLinkSection({
           >
             {isPending ? "Searching..." : "Find Match"}
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleSendInvite}
+            disabled={isPending}
+          >
+            Send Invite
+          </Button>
+        </div>
+      )}
+
+      {/* Active invite pending */}
+      {isUnlinked && hasActiveInvite && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Badge variant="outline" className="border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300">
+              Invite Pending
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              Expires{" "}
+              {new Date(invite.expiresAt!).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+          </div>
+          {inviteUrl && (
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={inviteUrl}
+                className="flex-1 rounded border bg-muted px-2 py-1 text-xs font-mono truncate"
+              />
+              <Button size="sm" variant="outline" onClick={handleCopyLink}>
+                Copy
+              </Button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive"
+              onClick={handleRevokeInvite}
+              disabled={isPending}
+            >
+              Revoke Invite
+            </Button>
+          </div>
         </div>
       )}
 

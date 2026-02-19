@@ -19,6 +19,8 @@ vi.mock("@/lib/db", () => ({
       deleteMany: vi.fn(),
       create: vi.fn(),
     },
+    attendance: { findMany: vi.fn() },
+    kennelHasherLink: { findFirst: vi.fn() },
     eventHare: { deleteMany: vi.fn() },
   },
 }));
@@ -242,7 +244,7 @@ describe("getEventAttendance", () => {
     });
   });
 
-  it("returns serialized attendance records", async () => {
+  it("returns serialized attendance records and user activity", async () => {
     vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([
       {
         id: "ka_1",
@@ -264,6 +266,7 @@ describe("getEventAttendance", () => {
         recordedByUser: { hashName: "Trail Boss", email: "boss@test.com" },
       },
     ] as never);
+    vi.mocked(prisma.attendance.findMany).mockResolvedValueOnce([] as never);
 
     const result = await getEventAttendance("kennel_1", "event_1");
     expect(result.data).toHaveLength(1);
@@ -274,6 +277,55 @@ describe("getEventAttendance", () => {
         nerdName: "John",
         paid: true,
         recordedBy: "Trail Boss",
+      }),
+    );
+    expect(result.userActivity).toEqual([]);
+  });
+
+  it("returns user activity with linked status", async () => {
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.attendance.findMany).mockResolvedValueOnce([
+      {
+        userId: "user_1",
+        eventId: "event_1",
+        status: "INTENDING",
+        user: { id: "user_1", hashName: "Trail Runner", email: "runner@test.com" },
+      },
+    ] as never);
+    vi.mocked(prisma.kennelHasherLink.findFirst).mockResolvedValueOnce(null);
+
+    const result = await getEventAttendance("kennel_1", "event_1");
+    expect(result.userActivity).toHaveLength(1);
+    expect(result.userActivity![0]).toEqual(
+      expect.objectContaining({
+        userId: "user_1",
+        hashName: "Trail Runner",
+        status: "INTENDING",
+        isLinked: false,
+        linkedHasherId: null,
+      }),
+    );
+  });
+
+  it("shows user as linked when KennelHasherLink exists", async () => {
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.attendance.findMany).mockResolvedValueOnce([
+      {
+        userId: "user_1",
+        eventId: "event_1",
+        status: "CONFIRMED",
+        user: { id: "user_1", hashName: "Linked User", email: "linked@test.com" },
+      },
+    ] as never);
+    vi.mocked(prisma.kennelHasherLink.findFirst).mockResolvedValueOnce({
+      kennelHasherId: "kh_1",
+    } as never);
+
+    const result = await getEventAttendance("kennel_1", "event_1");
+    expect(result.userActivity![0]).toEqual(
+      expect.objectContaining({
+        isLinked: true,
+        linkedHasherId: "kh_1",
       }),
     );
   });

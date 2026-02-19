@@ -34,6 +34,10 @@ vi.mock("@/lib/db", () => ({
     $transaction: vi.fn((arr: unknown[]) => Promise.all(arr)),
   },
 }));
+vi.mock("@/lib/invite", () => ({
+  generateInviteToken: vi.fn(() => "mock_token_123"),
+  computeExpiresAt: vi.fn(() => new Date("2026-03-20T00:00:00Z")),
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { getMismanUser, getRosterGroupId, getRosterKennelIds } from "@/lib/auth";
@@ -50,6 +54,8 @@ import {
   scanDuplicates,
   previewMerge,
   executeMerge,
+  createProfileInvite,
+  revokeProfileInvite,
 } from "./actions";
 
 const mockMismanAuth = vi.mocked(getMismanUser);
@@ -773,5 +779,127 @@ describe("executeMerge", () => {
 
     const result = await executeMerge("kennel_1", "kh_1", ["kh_2"], {});
     expect(result.error).toContain("same roster group");
+  });
+});
+
+// ── createProfileInvite ──
+
+describe("createProfileInvite", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    const result = await createProfileInvite("kennel_1", "kh_1");
+    expect(result).toEqual({ error: "Not authorized" });
+  });
+
+  it("returns error when hasher not found", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce(null);
+    const result = await createProfileInvite("kennel_1", "kh_missing");
+    expect(result).toEqual({ error: "Hasher not found" });
+  });
+
+  it("returns error when hasher is in different roster scope", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      id: "kh_1",
+      rosterGroupId: "rg_other",
+      userLink: null,
+      kennel: null,
+      profileInviteToken: null,
+      profileInviteExpiresAt: null,
+    } as never);
+    const result = await createProfileInvite("kennel_1", "kh_1");
+    expect(result).toEqual({ error: "Hasher is not in this kennel's roster scope" });
+  });
+
+  it("returns error when hasher already has confirmed link", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      id: "kh_1",
+      rosterGroupId: "rg_1",
+      userLink: { status: "CONFIRMED" },
+      kennel: null,
+      profileInviteToken: null,
+      profileInviteExpiresAt: null,
+    } as never);
+    const result = await createProfileInvite("kennel_1", "kh_1");
+    expect(result).toEqual({ error: "This hasher is already linked to a user account" });
+  });
+
+  it("returns error when invite already pending", async () => {
+    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      id: "kh_1",
+      rosterGroupId: "rg_1",
+      userLink: null,
+      kennel: null,
+      profileInviteToken: "existing_token",
+      profileInviteExpiresAt: futureDate,
+    } as never);
+    const result = await createProfileInvite("kennel_1", "kh_1");
+    expect(result).toEqual({ error: "An invite is already pending for this hasher" });
+  });
+
+  it("creates invite successfully", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      id: "kh_1",
+      rosterGroupId: "rg_1",
+      userLink: null,
+      kennel: { slug: "nych3" },
+      profileInviteToken: null,
+      profileInviteExpiresAt: null,
+    } as never);
+    vi.mocked(prisma.kennelHasher.update).mockResolvedValueOnce({} as never);
+
+    const result = await createProfileInvite("kennel_1", "kh_1");
+    expect(result.success).toBe(true);
+    expect(result.data).toBeDefined();
+    expect(result.data!.inviteUrl).toContain("/invite/link?token=");
+    expect(result.data!.token).toBeDefined();
+  });
+});
+
+// ── revokeProfileInvite ──
+
+describe("revokeProfileInvite", () => {
+  it("returns error when not authorized", async () => {
+    mockMismanAuth.mockResolvedValueOnce(null);
+    const result = await revokeProfileInvite("kennel_1", "kh_1");
+    expect(result).toEqual({ error: "Not authorized" });
+  });
+
+  it("returns error when hasher not found", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce(null);
+    const result = await revokeProfileInvite("kennel_1", "kh_missing");
+    expect(result).toEqual({ error: "Hasher not found" });
+  });
+
+  it("returns error when no pending invite", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      id: "kh_1",
+      rosterGroupId: "rg_1",
+      kennel: null,
+      profileInviteToken: null,
+    } as never);
+    const result = await revokeProfileInvite("kennel_1", "kh_1");
+    expect(result).toEqual({ error: "No pending invite to revoke" });
+  });
+
+  it("clears invite fields on success", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      id: "kh_1",
+      rosterGroupId: "rg_1",
+      kennel: { slug: "nych3" },
+      profileInviteToken: "some_token",
+    } as never);
+    vi.mocked(prisma.kennelHasher.update).mockResolvedValueOnce({} as never);
+
+    const result = await revokeProfileInvite("kennel_1", "kh_1");
+    expect(result).toEqual({ success: true });
+    expect(vi.mocked(prisma.kennelHasher.update)).toHaveBeenCalledWith({
+      where: { id: "kh_1" },
+      data: {
+        profileInviteToken: null,
+        profileInviteExpiresAt: null,
+        profileInvitedBy: null,
+      },
+    });
   });
 });

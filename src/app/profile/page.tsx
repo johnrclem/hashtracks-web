@@ -3,13 +3,16 @@ import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { MyKennels } from "@/components/profile/MyKennels";
+import { KennelConnections } from "@/components/profile/KennelConnections";
 import { Separator } from "@/components/ui/separator";
+import { getMyKennelLinks } from "./actions";
 
 export default async function ProfilePage() {
   const user = await getOrCreateUser();
   if (!user) redirect("/sign-in");
 
-  const subscriptions = await prisma.userKennel.findMany({
+  const [subscriptions, linksResult] = await Promise.all([
+    prisma.userKennel.findMany({
     where: { userId: user.id },
     include: {
       kennel: {
@@ -17,7 +20,11 @@ export default async function ProfilePage() {
       },
     },
     orderBy: { createdAt: "desc" },
-  });
+  }),
+    getMyKennelLinks(),
+  ]);
+
+  const kennelLinks = linksResult.data ?? [];
 
   return (
     <div className="space-y-8">
@@ -36,6 +43,18 @@ export default async function ProfilePage() {
           bio: user.bio,
         }}
       />
+
+      <Separator />
+
+      <div>
+        <h2 className="text-lg font-semibold">Kennel Connections</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Kennels where your profile is linked to their roster
+        </p>
+        <div className="mt-3">
+          <KennelConnections links={kennelLinks} />
+        </div>
+      </div>
 
       <Separator />
 

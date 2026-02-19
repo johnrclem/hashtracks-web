@@ -31,6 +31,7 @@ import { AttendanceRow } from "./AttendanceRow";
 import { HasherSearch } from "./HasherSearch";
 import { HasherForm } from "./HasherForm";
 import { SuggestionList } from "./SuggestionList";
+import { UserActivitySection } from "./UserActivitySection";
 
 interface EventOption {
   id: string;
@@ -74,6 +75,16 @@ export function AttendanceForm({
 }: AttendanceFormProps) {
   const [selectedEventId, setSelectedEventId] = useState(defaultEventId);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [userActivity, setUserActivity] = useState<
+    Array<{
+      userId: string;
+      hashName: string | null;
+      email: string;
+      status: string;
+      isLinked: boolean;
+      linkedHasherId: string | null;
+    }>
+  >([]);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [suggestions, setSuggestions] = useState<
@@ -103,6 +114,7 @@ export function AttendanceForm({
     const result = await getEventAttendance(kennelId, selectedEventId);
     if (result.data) {
       setRecords(result.data);
+      if (result.userActivity) setUserActivity(result.userActivity);
       setLastSynced(new Date().toLocaleTimeString());
     }
   }, [selectedEventId, kennelId]);
@@ -289,6 +301,16 @@ export function AttendanceForm({
               />
             ))}
           </div>
+
+          {/* User Activity (RSVPs + check-ins from site users) */}
+          {userActivity.length > 0 && (
+            <UserActivitySection
+              userActivity={userActivity}
+              kennelId={kennelId}
+              disabled={isPending}
+              onRefresh={fetchAttendance}
+            />
+          )}
 
           {/* Clear button */}
           {records.length > 0 && (

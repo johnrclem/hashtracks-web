@@ -3,6 +3,7 @@
 import { getMismanUser, getRosterGroupId, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { fuzzyNameMatch } from "@/lib/fuzzy";
+import { generateInviteToken, computeExpiresAt } from "@/lib/invite";
 import { revalidatePath } from "next/cache";
 
 const USER_LINK_MATCH_THRESHOLD = 0.7;
@@ -824,4 +825,115 @@ export async function executeMerge(
   if (kennel) revalidatePath(`/misman/${kennel.slug}/roster`);
 
   return { success: true, mergedCount: secondaryIds.length };
+}
+
+// ── PROFILE LINK INVITES ──
+
+const PROFILE_INVITE_EXPIRY_DAYS = 30;
+
+/**
+ * Generate a profile link invite for a KennelHasher.
+ * Returns a token-based URL that the hasher can use to link their account.
+ */
+export async function createProfileInvite(
+  kennelId: string,
+  kennelHasherId: string,
+) {
+  const user = await getMismanUser(kennelId);
+  if (!user) return { error: "Not authorized" };
+
+  const rosterGroupId = await getRosterGroupId(kennelId);
+  const hasher = await prisma.kennelHasher.findUnique({
+    where: { id: kennelHasherId },
+    include: {
+      userLink: true,
+      kennel: { select: { slug: true } },
+    },
+  });
+  if (!hasher) return { error: "Hasher not found" };
+  if (hasher.rosterGroupId !== rosterGroupId) {
+    return { error: "Hasher is not in this kennel's roster scope" };
+  }
+
+  // Block if already linked
+  if (hasher.userLink && hasher.userLink.status === "CONFIRMED") {
+    return { error: "This hasher is already linked to a user account" };
+  }
+
+  // Block if invite already pending
+  if (
+    hasher.profileInviteToken &&
+    hasher.profileInviteExpiresAt &&
+    hasher.profileInviteExpiresAt > new Date()
+  ) {
+    return { error: "An invite is already pending for this hasher" };
+  }
+
+  const token = generateInviteToken();
+  const expiresAt = computeExpiresAt(PROFILE_INVITE_EXPIRY_DAYS);
+
+  await prisma.kennelHasher.update({
+    where: { id: kennelHasherId },
+    data: {
+      profileInviteToken: token,
+      profileInviteExpiresAt: expiresAt,
+      profileInvitedBy: user.id,
+    },
+  });
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.com";
+  const inviteUrl = `${baseUrl}/invite/link?token=${token}`;
+
+  if (hasher.kennel) {
+    revalidatePath(`/misman/${hasher.kennel.slug}/roster`);
+  }
+
+  return {
+    success: true,
+    data: {
+      token,
+      inviteUrl,
+      expiresAt: expiresAt.toISOString(),
+    },
+  };
+}
+
+/**
+ * Revoke a pending profile link invite.
+ */
+export async function revokeProfileInvite(
+  kennelId: string,
+  kennelHasherId: string,
+) {
+  const user = await getMismanUser(kennelId);
+  if (!user) return { error: "Not authorized" };
+
+  const rosterGroupId = await getRosterGroupId(kennelId);
+  const hasher = await prisma.kennelHasher.findUnique({
+    where: { id: kennelHasherId },
+    include: { kennel: { select: { slug: true } } },
+  });
+  if (!hasher) return { error: "Hasher not found" };
+  if (hasher.rosterGroupId !== rosterGroupId) {
+    return { error: "Hasher is not in this kennel's roster scope" };
+  }
+
+  if (!hasher.profileInviteToken) {
+    return { error: "No pending invite to revoke" };
+  }
+
+  await prisma.kennelHasher.update({
+    where: { id: kennelHasherId },
+    data: {
+      profileInviteToken: null,
+      profileInviteExpiresAt: null,
+      profileInvitedBy: null,
+    },
+  });
+
+  if (hasher.kennel) {
+    revalidatePath(`/misman/${hasher.kennel.slug}/roster`);
+  }
+
+  return { success: true };
 }

@@ -41,6 +41,8 @@ interface HasherData {
   phone: string | null;
   notes: string | null;
   createdAt: string;
+  profileInviteToken?: string | null;
+  profileInviteExpiresAt?: string | null;
   userLink: {
     id: string;
     status: string;
@@ -222,6 +224,10 @@ export function HasherDetail({ hasher, kennelId, kennelSlug }: HasherDetailProps
           userEmail: hasher.userLink.userEmail,
         } : null}
         hasherDisplayName={displayName}
+        invite={{
+          token: hasher.profileInviteToken ?? null,
+          expiresAt: hasher.profileInviteExpiresAt ?? null,
+        }}
       />
 
       {/* Attendance history */}

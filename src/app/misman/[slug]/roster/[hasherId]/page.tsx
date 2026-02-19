@@ -68,6 +68,8 @@ export default async function HasherDetailPage({ params }: Props) {
     phone: hasher.phone,
     notes: hasher.notes,
     createdAt: hasher.createdAt.toISOString(),
+    profileInviteToken: hasher.profileInviteToken,
+    profileInviteExpiresAt: hasher.profileInviteExpiresAt?.toISOString() ?? null,
     userLink: hasher.userLink
       ? {
           id: hasher.userLink.id,

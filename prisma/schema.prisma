@@ -443,6 +443,11 @@ model KennelHasher {
   notes          String?  // Internal misman notes
   mergeLog       Json?    // Audit trail for merge operations
 
+  // Profile link invite (misman sends link to hasher to claim roster entry)
+  profileInviteToken     String?   @unique // crypto token for profile link invite
+  profileInviteExpiresAt DateTime?          // token expiry
+  profileInvitedBy       String?            // misman userId who created invite
+
   rosterGroup RosterGroup         @relation(fields: [rosterGroupId], references: [id])
   kennel      Kennel?             @relation(fields: [kennelId], references: [id])
   attendances KennelAttendance[]
