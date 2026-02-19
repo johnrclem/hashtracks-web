@@ -53,7 +53,7 @@ export function EditAttendanceDialog({
         stravaUrl: activityUrl || null,
         notes: notes || null,
       });
-      if (result.error) {
+      if (!result.success) {
         toast.error(result.error);
       } else {
         toast.success("Attendance updated");
@@ -70,7 +70,7 @@ export function EditAttendanceDialog({
     }
     startTransition(async () => {
       const result = await deleteAttendance(attendance.id);
-      if (result.error) {
+      if (!result.success) {
         toast.error(result.error);
       } else {
         toast.success("Check-in removed");

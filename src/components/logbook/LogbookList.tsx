@@ -348,7 +348,7 @@ export function LogbookList({ entries }: LogbookListProps) {
                     const attendanceId = entry.attendance.id;
                     startTransition(async () => {
                       const result = await confirmAttendance(attendanceId);
-                      if (result.error) {
+                      if (!result.success) {
                         toast.error(result.error);
                       } else {
                         toast.success("Attendance confirmed!");
