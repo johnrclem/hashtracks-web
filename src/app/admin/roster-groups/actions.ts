@@ -15,7 +15,7 @@ export async function getRosterGroups() {
     include: {
       kennels: {
         include: {
-          kennel: { select: { id: true, shortName: true, slug: true } },
+          kennel: { select: { id: true, shortName: true, fullName: true, region: true, slug: true } },
         },
       },
       _count: { select: { kennelHashers: true } },
@@ -30,6 +30,8 @@ export async function getRosterGroups() {
       kennels: g.kennels.map((k) => ({
         id: k.kennel.id,
         shortName: k.kennel.shortName,
+        fullName: k.kennel.fullName,
+        region: k.kennel.region,
         slug: k.kennel.slug,
       })),
       hasherCount: g._count.kennelHashers,
