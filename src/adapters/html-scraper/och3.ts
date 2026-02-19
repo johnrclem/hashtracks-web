@@ -88,8 +88,9 @@ export function parseOCH3Entry(text: string): RawEventData | null {
   const startTime = getStartTimeForDay(dayOfWeek);
 
   // Extract hares: "Hare(s): Name" or "Hare: Name" or "Hares - Name"
+  // Stop at newline, end-of-string, or the start of another labeled field (word + colon)
   let hares: string | undefined;
-  const hareMatch = text.match(/Hares?\s*[:\-–—]\s*(.+?)(?:\n|$|Location|Where|Start)/i);
+  const hareMatch = text.match(/Hares?\s*[:\-–—]\s*(.+?)(?:\n|$|(?=(?:Location|Where|Start|Venue)\s*[:\-–—]))/i);
   if (hareMatch) {
     const haresText = hareMatch[1].trim();
     if (!/tba|tbd|tbc|needed|required|volunteer/i.test(haresText)) {
@@ -98,8 +99,9 @@ export function parseOCH3Entry(text: string): RawEventData | null {
   }
 
   // Extract location: "Location: Place" or "Start: Place" or "Where: Place"
+  // Stop at newline, end-of-string, or the start of another labeled field (word + colon)
   let location: string | undefined;
-  const locationMatch = text.match(/(?:Location|Start|Where|Venue)\s*[:\-–—]\s*(.+?)(?:\n|$|Hare)/i);
+  const locationMatch = text.match(/(?:Location|Start|Where|Venue)\s*[:\-–—]\s*(.+?)(?:\n|$|(?=Hares?\s*[:\-–—]))/i);
   if (locationMatch) {
     location = locationMatch[1].trim();
     if (/^tba|^tbd|^tbc/i.test(location)) location = undefined;

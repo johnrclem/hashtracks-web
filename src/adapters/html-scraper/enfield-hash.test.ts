@@ -80,6 +80,32 @@ describe("parseEnfieldBody", () => {
     const result = parseEnfieldBody(text);
     expect(result.date).toBeUndefined();
   });
+
+  it("does not truncate pub name containing 'Station' (e.g. The Station Hotel)", () => {
+    const text = "Date: 18th March 2026\nPub: The Station Hotel\nStation: Enfield Chase\nHare: Speedy";
+    const result = parseEnfieldBody(text);
+    expect(result.location).toBe("The Station Hotel");
+    expect(result.station).toBe("Enfield Chase");
+  });
+
+  it("does not truncate pub name containing 'Start' or 'Time'", () => {
+    const text = "Date: 18th March 2026\nPub: The Time and Tide\nHare: Flash";
+    const result = parseEnfieldBody(text);
+    expect(result.location).toBe("The Time and Tide");
+  });
+
+  it("does not truncate station containing 'Meet' (e.g. Meeting House Lane)", () => {
+    const text = "Date: 18th March 2026\nStation: Meeting House Lane\nPub: The Crown\nHare: Muddy";
+    const result = parseEnfieldBody(text);
+    expect(result.station).toBe("Meeting House Lane");
+    expect(result.location).toBe("The Crown");
+  });
+
+  it("does not truncate hare name containing label words", () => {
+    const text = "Date: 18th March 2026\nHare: Where's Wally\nPub: The Fox";
+    const result = parseEnfieldBody(text);
+    expect(result.hares).toBe("Where's Wally");
+  });
 });
 
 const SAMPLE_BLOGGER_HTML = `

@@ -106,6 +106,22 @@ describe("parseOCH3Entry", () => {
     expect(event).not.toBeNull();
     expect(event!.hares).toBe("Flash & Muddy");
   });
+
+  it("does not truncate location containing 'Hare' (e.g. The Hare and Hounds)", () => {
+    const text = "Sunday 15th March 2026\nLocation: The Hare and Hounds, Coulsdon\nHare: Speedy";
+    const event = parseOCH3Entry(text);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("The Hare and Hounds, Coulsdon");
+    expect(event!.hares).toBe("Speedy");
+  });
+
+  it("does not truncate hare name containing 'Start' or 'Where'", () => {
+    const text = "Monday 16th March 2026\nHare: Where's Wally\nLocation: The Crown";
+    const event = parseOCH3Entry(text);
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Where's Wally");
+    expect(event!.location).toBe("The Crown");
+  });
 });
 
 const SAMPLE_TABLE_HTML = `

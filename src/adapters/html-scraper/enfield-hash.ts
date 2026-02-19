@@ -82,8 +82,10 @@ export function parseEnfieldBody(text: string): {
   location?: string;
   station?: string;
 } {
-  const labels = "(?:Date|When|Pub|Where|Location|Station|Hare|Start|Time|Meet)";
-  const stopPattern = `(?=${labels}|\\n|$)`;
+  // Stop pattern: only match label words when followed by a colon (i.e., the start
+  // of a new labeled field), not bare words inside values like "The Station Hotel"
+  const labelBoundary = "(?:Date|When|Pub|Where|Location|Station|Hares?|Start|Time|Meet)\\s*:";
+  const stopPattern = `(?=${labelBoundary}|\\n|$)`;
 
   // Date from "Date:" or "When:" label
   const dateMatch = text.match(new RegExp(`(?:Date|When):\\s*(.+?)${stopPattern}`, "i"));
