@@ -20,6 +20,11 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { AttendanceBadge } from "./AttendanceBadge";
 import { EditAttendanceDialog } from "./EditAttendanceDialog";
 import type { AttendanceData } from "./CheckInButton";

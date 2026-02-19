@@ -196,7 +196,7 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {kennel.fullName} — {kennel.region}
+                      {kennel.fullName}{kennel.region ? ` — ${kennel.region}` : ""}
                     </TooltipContent>
                   </Tooltip>
                 ))}
