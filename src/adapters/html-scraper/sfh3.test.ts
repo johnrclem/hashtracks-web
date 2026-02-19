@@ -248,6 +248,97 @@ describe("SFH3Adapter.fetch", () => {
     vi.restoreAllMocks();
   });
 
+  it("skips rows matching skipPatterns", async () => {
+    const html = `
+      <table><tbody>
+        <tr>
+          <td><a href="/runs/1">2302</a></td>
+          <td>3/3/2026</td>
+          <td>Trail Blazer</td>
+          <td>Golden Gate Park</td>
+          <td>SFH3 #2302: A Very Heated Rivalry</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>3/5/2026</td>
+          <td></td>
+          <td>SFH3 Clubhouse</td>
+          <td>Hand Pump Workday</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>3/10/2026</td>
+          <td></td>
+          <td>SFH3 Clubhouse</td>
+          <td>Workday - Spring Cleaning</td>
+        </tr>
+        <tr>
+          <td><a href="/runs/2">1700</a></td>
+          <td>3/6/2026</td>
+          <td>Captain Hash</td>
+          <td>Alamo Square</td>
+          <td>GPH3 #1700</td>
+        </tr>
+      </tbody></table>
+    `;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(html, { status: 200 }),
+    );
+
+    const adapter = new SFH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://www.sfh3.com/runs?kennels=all",
+      config: {
+        kennelPatterns: KENNEL_PATTERNS,
+        defaultKennelTag: "SFH3",
+        skipPatterns: ["^Hand Pump", "^Workday"],
+      },
+    } as never);
+
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0].kennelTag).toBe("SFH3");
+    expect(result.events[1].kennelTag).toBe("GPH3");
+    expect(result.diagnosticContext).toMatchObject({
+      rowsFound: 4,
+      eventsParsed: 2,
+      skippedPattern: 2,
+    });
+
+    vi.restoreAllMocks();
+  });
+
+  it("emits all rows when no skipPatterns configured", async () => {
+    const html = `
+      <table><tbody>
+        <tr>
+          <td>1</td>
+          <td>3/3/2026</td>
+          <td></td>
+          <td></td>
+          <td>Hand Pump Workday</td>
+        </tr>
+      </tbody></table>
+    `;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(html, { status: 200 }),
+    );
+
+    const adapter = new SFH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://www.sfh3.com/runs?kennels=all",
+      config: { defaultKennelTag: "SFH3" },
+    } as never);
+
+    // Without skipPatterns, the row is emitted (falls back to defaultKennelTag)
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].kennelTag).toBe("SFH3");
+    expect(result.diagnosticContext).toMatchObject({ skippedPattern: 0 });
+
+    vi.restoreAllMocks();
+  });
+
   it("uses default kennel tag for unrecognized titles", async () => {
     const html = `
       <table><tbody>

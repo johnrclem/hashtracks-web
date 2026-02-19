@@ -9,10 +9,11 @@ import type {
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { parseICalSummary } from "../ical/adapter";
 
-/** Config shape — reuses same kennelPatterns as iCal adapter */
+/** Config shape — reuses same kennelPatterns/skipPatterns as iCal adapter */
 export interface SFH3ScraperConfig {
   kennelPatterns?: [string, string][];
   defaultKennelTag?: string;
+  skipPatterns?: string[];
 }
 
 /** Parsed row from the SFH3 hareline table */
@@ -144,6 +145,7 @@ export class SFH3Adapter implements SourceAdapter {
     const baseUrl = source.url || "https://www.sfh3.com/runs?kennels=all";
     const config = (source.config as SFH3ScraperConfig | null) ?? {};
     const { kennelPatterns, defaultKennelTag } = config;
+    const skipPatterns = config.skipPatterns?.map((p) => new RegExp(p, "i"));
 
     const events: RawEventData[] = [];
     const errors: string[] = [];
@@ -176,10 +178,17 @@ export class SFH3Adapter implements SourceAdapter {
     structureHash = generateStructureHash(html);
 
     const rows = parseHarelineRows(html);
+    let skippedPattern = 0;
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
+        // Skip rows matching skipPatterns (e.g., "Hand Pump", "Workday")
+        if (skipPatterns?.some((p) => p.test(row.title))) {
+          skippedPattern++;
+          continue;
+        }
+
         const date = parseSFH3Date(row.dateText);
         if (!date) {
           errorDetails.parse = [
@@ -233,6 +242,7 @@ export class SFH3Adapter implements SourceAdapter {
       diagnosticContext: {
         rowsFound: rows.length,
         eventsParsed: events.length,
+        skippedPattern,
         fetchDurationMs,
       },
     };
