@@ -48,7 +48,11 @@ export default async function LogbookPage() {
   }));
 
   const confirmedCount = entries.filter((e) => e.attendance.status === "CONFIRMED").length;
-  const goingCount = entries.filter((e) => e.attendance.status === "INTENDING").length;
+  const now = new Date();
+  const todayUtcNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
+  const goingCount = entries.filter(
+    (e) => e.attendance.status === "INTENDING" && new Date(e.event.date).getTime() > todayUtcNoon
+  ).length;
 
   return (
     <div>

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +28,7 @@ import { AttendanceBadge } from "./AttendanceBadge";
 import { EditAttendanceDialog } from "./EditAttendanceDialog";
 import type { AttendanceData } from "./CheckInButton";
 import { formatTime, participationLevelLabel, PARTICIPATION_LEVELS } from "@/lib/format";
+import { confirmAttendance } from "@/app/logbook/actions";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 
 export interface LogbookEntry {
@@ -55,6 +58,17 @@ export function LogbookList({ entries }: LogbookListProps) {
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  // Determine "today" boundary for past/future event checks (UTC noon)
+  const now = new Date();
+  const todayUtcNoon = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    12, 0, 0,
+  );
 
   // Derive unique kennels and regions
   const kennels = useMemo(() => {
@@ -317,13 +331,33 @@ export function LogbookList({ entries }: LogbookListProps) {
                   Activity
                 </a>
               )}
-              {entry.attendance.status === "INTENDING" ? (
+              {entry.attendance.status === "INTENDING" &&
+               new Date(entry.event.date).getTime() > todayUtcNoon ? (
                 <Badge
                   variant="outline"
                   className="cursor-pointer border-blue-300 text-blue-700"
                   onClick={() => setEditingAttendance(entry.attendance)}
                 >
                   Going
+                </Badge>
+              ) : entry.attendance.status === "INTENDING" ? (
+                <Badge
+                  variant="outline"
+                  className="cursor-pointer border-amber-300 text-amber-700"
+                  onClick={() => {
+                    const attendanceId = entry.attendance.id;
+                    startTransition(async () => {
+                      const result = await confirmAttendance(attendanceId);
+                      if (result.error) {
+                        toast.error(result.error);
+                      } else {
+                        toast.success("Attendance confirmed!");
+                      }
+                      router.refresh();
+                    });
+                  }}
+                >
+                  {isPending ? "..." : "Confirm Attendance"}
                 </Badge>
               ) : (
                 <AttendanceBadge
