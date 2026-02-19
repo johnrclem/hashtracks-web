@@ -34,10 +34,19 @@ const SOURCE_TYPES = [
   "GOOGLE_CALENDAR",
   "GOOGLE_SHEETS",
   "ICAL_FEED",
+  "HASHREGO",
   "RSS_FEED",
   "JSON_API",
   "MANUAL",
 ] as const;
+
+/** Types that use the config JSON field for adapter-specific settings */
+const CONFIG_TYPES = new Set([
+  "GOOGLE_CALENDAR",
+  "GOOGLE_SHEETS",
+  "ICAL_FEED",
+  "HASHREGO",
+]);
 
 type SourceData = {
   id: string;
@@ -46,6 +55,8 @@ type SourceData = {
   type: string;
   trustLevel: number;
   scrapeFreq: string;
+  scrapeDays: number;
+  config: unknown;
   linkedKennelIds: string[];
 };
 
@@ -61,7 +72,20 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
   const [selectedKennels, setSelectedKennels] = useState<string[]>(
     source?.linkedKennelIds ?? [],
   );
+  const [selectedType, setSelectedType] = useState(
+    source?.type ?? "HTML_SCRAPER",
+  );
+  const [configJson, setConfigJson] = useState(() => {
+    if (!source?.config) return "";
+    try {
+      return JSON.stringify(source.config, null, 2);
+    } catch {
+      return "";
+    }
+  });
   const router = useRouter();
+
+  const showConfigEditor = CONFIG_TYPES.has(selectedType);
 
   function toggleKennel(kennelId: string) {
     setSelectedKennels((prev) =>
@@ -73,6 +97,10 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
 
   function handleSubmit(formData: FormData) {
     formData.set("kennelIds", selectedKennels.join(","));
+    // Pass config JSON string (server action will parse it)
+    if (configJson.trim()) {
+      formData.set("config", configJson.trim());
+    }
 
     startTransition(async () => {
       const result = source
@@ -86,6 +114,7 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
         setOpen(false);
         if (!source) {
           setSelectedKennels([]);
+          setConfigJson("");
         }
         router.refresh();
       }
@@ -128,7 +157,17 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="type">Type *</Label>
-              <Select name="type" defaultValue={source?.type ?? "HTML_SCRAPER"}>
+              <Select
+                name="type"
+                value={selectedType}
+                onValueChange={(val) => {
+                  setSelectedType(val);
+                  // Clear config when switching to incompatible type
+                  if (!CONFIG_TYPES.has(val)) {
+                    setConfigJson("");
+                  }
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -175,6 +214,39 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
               Hourly and Every 6 Hours require Vercel Pro plan. Hobby plans run cron once daily.
             </p>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="scrapeDays">Scrape Lookback (days)</Label>
+            <Input
+              id="scrapeDays"
+              name="scrapeDays"
+              type="number"
+              min="1"
+              max="365"
+              defaultValue={source?.scrapeDays ?? 90}
+            />
+            <p className="text-xs text-muted-foreground">
+              How far back to look when scraping events. Default: 90 days.
+            </p>
+          </div>
+
+          {showConfigEditor && (
+            <div className="space-y-2">
+              <Label htmlFor="config">
+                Adapter Config (JSON)
+              </Label>
+              <textarea
+                id="config"
+                className="min-h-[120px] w-full rounded-md border bg-background px-3 py-2 font-mono text-xs"
+                value={configJson}
+                onChange={(e) => setConfigJson(e.target.value)}
+                placeholder='{"defaultKennelTag": "EWH3"}'
+              />
+              <p className="text-xs text-muted-foreground">
+                Adapter-specific configuration. See docs for your source type.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Linked Kennels</Label>

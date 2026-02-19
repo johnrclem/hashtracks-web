@@ -2,6 +2,7 @@
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
 import { scrapeSource } from "@/pipeline/scrape";
@@ -18,19 +19,36 @@ export async function createSource(formData: FormData) {
     10,
   );
   const scrapeFreq = (formData.get("scrapeFreq") as string)?.trim() || "daily";
+  const scrapeDays = parseInt(
+    (formData.get("scrapeDays") as string) || "90",
+    10,
+  );
+  const configRaw = (formData.get("config") as string)?.trim() || "";
   const kennelIds = (formData.get("kennelIds") as string)?.trim() || "";
 
   if (!name || !url || !type) {
     return { error: "Name, URL, and type are required" };
   }
 
+  // Parse config JSON if provided
+  let config: Prisma.InputJsonValue | undefined = undefined;
+  if (configRaw) {
+    try {
+      config = JSON.parse(configRaw) as Prisma.InputJsonValue;
+    } catch {
+      return { error: "Invalid JSON in config field" };
+    }
+  }
+
   const source = await prisma.source.create({
     data: {
       name,
       url,
-      type: type as "HTML_SCRAPER" | "GOOGLE_CALENDAR" | "GOOGLE_SHEETS" | "ICAL_FEED" | "RSS_FEED" | "JSON_API" | "MANUAL",
+      type: type as "HTML_SCRAPER" | "GOOGLE_CALENDAR" | "GOOGLE_SHEETS" | "ICAL_FEED" | "RSS_FEED" | "JSON_API" | "MANUAL" | "HASHREGO",
       trustLevel,
       scrapeFreq,
+      scrapeDays: isNaN(scrapeDays) ? 90 : scrapeDays,
+      ...(config !== undefined ? { config } : {}),
     },
   });
 
@@ -61,10 +79,25 @@ export async function updateSource(sourceId: string, formData: FormData) {
     10,
   );
   const scrapeFreq = (formData.get("scrapeFreq") as string)?.trim() || "daily";
+  const scrapeDays = parseInt(
+    (formData.get("scrapeDays") as string) || "90",
+    10,
+  );
+  const configRaw = (formData.get("config") as string)?.trim() || "";
   const kennelIds = (formData.get("kennelIds") as string)?.trim() || "";
 
   if (!name || !url || !type) {
     return { error: "Name, URL, and type are required" };
+  }
+
+  // Parse config JSON if provided, null if empty (clears existing config)
+  let config: Prisma.InputJsonValue | null = null;
+  if (configRaw) {
+    try {
+      config = JSON.parse(configRaw) as Prisma.InputJsonValue;
+    } catch {
+      return { error: "Invalid JSON in config field" };
+    }
   }
 
   const ids = kennelIds
@@ -79,9 +112,11 @@ export async function updateSource(sourceId: string, formData: FormData) {
       data: {
         name,
         url,
-        type: type as "HTML_SCRAPER" | "GOOGLE_CALENDAR" | "GOOGLE_SHEETS" | "ICAL_FEED" | "RSS_FEED" | "JSON_API" | "MANUAL",
+        type: type as "HTML_SCRAPER" | "GOOGLE_CALENDAR" | "GOOGLE_SHEETS" | "ICAL_FEED" | "RSS_FEED" | "JSON_API" | "MANUAL" | "HASHREGO",
         trustLevel,
         scrapeFreq,
+        scrapeDays: isNaN(scrapeDays) ? 90 : scrapeDays,
+        config: config ?? undefined,
         kennels: {
           create: ids.map((kennelId) => ({ kennelId })),
         },
