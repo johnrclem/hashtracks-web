@@ -43,6 +43,8 @@ type SourceData = {
   type: string;
   trustLevel: number;
   scrapeFreq: string;
+  scrapeDays: number;
+  config: unknown;
   healthStatus: string;
   lastScrapeAt: string | null;
   lastSuccessAt: string | null;
@@ -476,6 +478,8 @@ function SourceRow({
                 type: source.type,
                 trustLevel: source.trustLevel,
                 scrapeFreq: source.scrapeFreq,
+                scrapeDays: source.scrapeDays,
+                config: source.config,
                 linkedKennelIds: source.linkedKennels.map((k) => k.id),
               }}
               allKennels={allKennels}

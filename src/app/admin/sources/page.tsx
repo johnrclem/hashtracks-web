@@ -29,6 +29,8 @@ export default async function AdminSourcesPage() {
     type: s.type,
     trustLevel: s.trustLevel,
     scrapeFreq: s.scrapeFreq,
+    scrapeDays: s.scrapeDays,
+    config: s.config,
     healthStatus: s.healthStatus,
     lastScrapeAt: s.lastScrapeAt?.toISOString() ?? null,
     lastSuccessAt: s.lastSuccessAt?.toISOString() ?? null,

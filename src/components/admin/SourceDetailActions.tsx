@@ -21,6 +21,7 @@ type SourceDetailData = {
   trustLevel: number;
   scrapeFreq: string;
   scrapeDays: number;
+  config: unknown;
   linkedKennelIds: string[];
 };
 
