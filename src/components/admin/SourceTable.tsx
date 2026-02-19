@@ -33,6 +33,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { SourceForm } from "./SourceForm";
+import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import { toast } from "sonner";
 
 type SourceData = {
@@ -158,7 +159,7 @@ export function SourceTable({ sources, allKennels }: SourceTableProps) {
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-56 p-0" align="start">
+          <PopoverContent className="w-80 p-0" align="start">
             <Command>
               <CommandInput placeholder="Search kennels..." />
               <CommandList>
@@ -167,6 +168,7 @@ export function SourceTable({ sources, allKennels }: SourceTableProps) {
                   {allKennels.map((kennel) => (
                     <CommandItem
                       key={kennel.id}
+                      value={`${kennel.shortName} ${kennel.fullName} ${kennel.region}`}
                       onSelect={() => toggleKennel(kennel.id)}
                     >
                       <span
@@ -178,7 +180,7 @@ export function SourceTable({ sources, allKennels }: SourceTableProps) {
                       >
                         {selectedKennels.includes(kennel.id) && "✓"}
                       </span>
-                      {kennel.shortName}
+                      <KennelOptionLabel kennel={kennel} />
                     </CommandItem>
                   ))}
                 </CommandGroup>
