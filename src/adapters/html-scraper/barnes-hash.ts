@@ -115,7 +115,7 @@ export function parseBarnesRow(cells: string[]): RawEventData | null {
       const cell = cells[i].trim();
       if (cell && /pub|inn|hotel|arms|tavern|head|swan|lion|bell|crown|anchor|horse|plough|red|white|black|star|king|queen|prince|rose|fox/i.test(cell)) {
         location = cell;
-        postcode = extractPostcode(cell);
+        postcode = extractPostcode(cell) ?? undefined;
         break;
       }
     }
