@@ -45,7 +45,7 @@ export function PendingConfirmations() {
   function handleConfirm(kennelAttendanceId: string) {
     startTransition(async () => {
       const result = await confirmMismanAttendance(kennelAttendanceId);
-      if (result.error) {
+      if (!result.success) {
         toast.error(result.error);
       } else {
         toast.success("Added to your logbook");

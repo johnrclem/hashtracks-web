@@ -9,13 +9,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-
-const MONTHS: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-  aug: 8, august: 8, sep: 9, september: 9, oct: 10, october: 10,
-  nov: 11, november: 11, dec: 12, december: 12,
-};
+import { MONTHS, extractUkPostcode } from "../utils";
 
 /**
  * Parse ordinal date from City Hash title: "24th Feb 2026" → "2026-02-24"
@@ -36,14 +30,8 @@ export function parseDateFromTitle(title: string): string | null {
   return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-/**
- * Extract UK postcode from a text string.
- * UK postcodes: "SE11 5JA", "SW18 2SS", "N1 9AA", "EC1A 1BB"
- */
-export function extractPostcode(text: string): string | null {
-  const match = text.match(/[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}/i);
-  return match ? match[0].toUpperCase() : null;
-}
+/** @deprecated Use extractUkPostcode from ../utils instead */
+export const extractPostcode = extractUkPostcode;
 
 /**
  * Parse a single .ch-run card element into RawEventData.

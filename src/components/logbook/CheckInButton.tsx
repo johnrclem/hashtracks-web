@@ -73,7 +73,7 @@ export function CheckInButton({
       function handleConfirm() {
         startTransition(async () => {
           const result = await confirmAttendance(attendanceId);
-          if (result.error) {
+          if (!result.success) {
             toast.error(result.error);
           } else {
             toast.success("Attendance confirmed!");
@@ -114,7 +114,7 @@ export function CheckInButton({
     function handleCheckIn() {
       startTransition(async () => {
         const result = await checkIn(eventId);
-        if (result.error) {
+        if (!result.success) {
           toast.error(result.error);
         } else {
           toast.success("Checked in!");
@@ -141,7 +141,7 @@ export function CheckInButton({
     function handleUnrsvp() {
       startTransition(async () => {
         const result = await rsvp(eventId);
-        if (result.error) {
+        if (!result.success) {
           toast.error(result.error);
         } else {
           toast("RSVP removed");
@@ -167,7 +167,7 @@ export function CheckInButton({
   function handleRsvp() {
     startTransition(async () => {
       const result = await rsvp(eventId);
-      if (result.error) {
+      if (!result.success) {
         toast.error(result.error);
       } else {
         toast.success("You're going!");

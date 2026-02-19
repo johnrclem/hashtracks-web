@@ -7,13 +7,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-
-const MONTHS: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-  aug: 8, august: 8, sep: 9, september: 9, oct: 10, october: 10,
-  nov: 11, november: 11, dec: 12, december: 12,
-};
+import { MONTHS, parse12HourTime } from "../utils";
 
 /** Represents a parsed run block from the London Hash run list page. */
 export interface RunBlock {
@@ -203,17 +197,19 @@ export function parseTimeFromBlock(text: string): string | null {
     return "12:00";
   }
 
-  // "Xpm for X:XX" or "X:XX PM"
+  // "Xpm for X:XX" or "X:XX PM" — handle optional minutes (e.g., "7pm")
   const timeMatch = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
   if (timeMatch) {
+    // If minutes are present, delegate to shared parser
+    if (timeMatch[2]) {
+      return parse12HourTime(text) ?? null;
+    }
+    // Handle bare "7pm" (no minutes) — not handled by parse12HourTime
     let hours = parseInt(timeMatch[1], 10);
-    const minutes = timeMatch[2] || "00";
     const ampm = timeMatch[3].toLowerCase();
-
     if (ampm === "pm" && hours !== 12) hours += 12;
     if (ampm === "am" && hours === 12) hours = 0;
-
-    return `${hours.toString().padStart(2, "0")}:${minutes}`;
+    return `${hours.toString().padStart(2, "0")}:00`;
   }
 
   return null;
