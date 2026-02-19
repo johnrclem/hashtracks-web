@@ -826,6 +826,7 @@ async function main() {
           ["^26\\.2H3", "26.2H3"],
         ],
         defaultKennelTag: "SFH3",
+        skipPatterns: ["^Hand Pump", "^Workday"],
       },
       kennelCodes: ["sfh3", "gph3", "ebh3", "svh3", "fhac-u", "agnews", "barh3", "marinh3", "fch3", "sffmh3", "vmh3", "mwh3", "262h3"],
     },

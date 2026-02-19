@@ -75,10 +75,11 @@ export function parseBodyFields(bodyText: string): {
   // Known labels as delimiters
   const labels = ["HARE", "HARES", "WHERE", "WHEN", "HASH CASH", "WALKER'?S TRAIL", "ON-?OUT"];
   const labelPattern = labels.join("|");
+  const fieldDelimiter = "\\s*[:\\-–—]\\s*";
 
   // Extract "WHERE" field → location
   const whereMatch = bodyText.match(
-    new RegExp(`WHERE[:\\s]+(.+?)(?=(?:${labelPattern})[:\\s]|$)`, "is"),
+    new RegExp(`WHERE${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
   );
   if (whereMatch) {
     result.location = whereMatch[1].trim().replace(/\s+/g, " ");
@@ -86,7 +87,7 @@ export function parseBodyFields(bodyText: string): {
 
   // Extract "HARE" or "HARES" field
   const hareMatch = bodyText.match(
-    new RegExp(`HARES?[:\\s]+(.+?)(?=(?:${labelPattern})[:\\s]|$)`, "is"),
+    new RegExp(`HARES?${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
   );
   if (hareMatch) {
     result.hares = hareMatch[1].trim().replace(/\s+/g, " ");
@@ -94,7 +95,7 @@ export function parseBodyFields(bodyText: string): {
 
   // Extract "HASH CASH" field
   const cashMatch = bodyText.match(
-    new RegExp(`HASH CASH[:\\s]+(.+?)(?=(?:${labelPattern})[:\\s]|$)`, "is"),
+    new RegExp(`HASH CASH${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
   );
   if (cashMatch) {
     result.hashCash = cashMatch[1].trim().replace(/\s+/g, " ");
@@ -102,7 +103,7 @@ export function parseBodyFields(bodyText: string): {
 
   // Extract "WALKER'S TRAIL" field
   const walkerMatch = bodyText.match(
-    new RegExp(`WALKER'?S TRAIL[:\\s]+(.+?)(?=(?:${labelPattern})[:\\s]|$)`, "is"),
+    new RegExp(`WALKER'?S TRAIL${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
   );
   if (walkerMatch) {
     result.walkersTrail = walkerMatch[1].trim().replace(/\s+/g, " ");
@@ -110,7 +111,7 @@ export function parseBodyFields(bodyText: string): {
 
   // Extract time from "WHEN" field
   const whenMatch = bodyText.match(
-    new RegExp(`WHEN[:\\s]+(.+?)(?=(?:${labelPattern})[:\\s]|$)`, "is"),
+    new RegExp(`WHEN${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
   );
   if (whenMatch) {
     const whenText = whenMatch[1].trim();

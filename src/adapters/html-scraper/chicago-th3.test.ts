@@ -124,6 +124,22 @@ describe("parseBodyFields", () => {
     expect(result.hares).toBe("Only Runner");
     expect(result.location).toBeUndefined();
   });
+
+
+  it("does not stop location at bare label words inside values", () => {
+    const body = "WHERE: Meet at When Pigs Fly, near Hare & Hounds Pub  HARE: Solo Runner";
+    const result = parseBodyFields(body);
+    expect(result.location).toBe("Meet at When Pigs Fly, near Hare & Hounds Pub");
+    expect(result.hares).toBe("Solo Runner");
+  });
+
+  it("supports dash delimiters while preserving label words in values", () => {
+    const body = "WHERE - The When and Where Tavern HARE - Hare Trigger WHEN - 7:30 PM";
+    const result = parseBodyFields(body);
+    expect(result.location).toBe("The When and Where Tavern");
+    expect(result.hares).toBe("Hare Trigger");
+    expect(result.startTime).toBe("19:30");
+  });
 });
 
 const SAMPLE_HTML = `
