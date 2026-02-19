@@ -9,6 +9,10 @@ import { ICalAdapter } from "./ical/adapter";
 import { CityHashAdapter } from "./html-scraper/city-hash";
 import { WestLondonHashAdapter } from "./html-scraper/west-london-hash";
 import { LondonHashAdapter } from "./html-scraper/london-hash";
+import { BarnesHashAdapter } from "./html-scraper/barnes-hash";
+import { OCH3Adapter } from "./html-scraper/och3";
+import { SlashHashAdapter } from "./html-scraper/slash-hash";
+import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
 import { SFH3Adapter } from "./html-scraper/sfh3";
 
 describe("getAdapter", () => {
@@ -54,6 +58,26 @@ describe("getAdapter", () => {
 
   it("returns ICalAdapter for ICAL_FEED", () => {
     expect(getAdapter("ICAL_FEED")).toBeInstanceOf(ICalAdapter);
+  });
+
+  it("returns BarnesHashAdapter for barnesh3.com URL", () => {
+    expect(getAdapter("HTML_SCRAPER", "http://www.barnesh3.com/HareLine.htm")).toBeInstanceOf(BarnesHashAdapter);
+  });
+
+  it("returns OCH3Adapter for och3.org.uk URL", () => {
+    expect(getAdapter("HTML_SCRAPER", "http://www.och3.org.uk/upcoming-run-list.html")).toBeInstanceOf(OCH3Adapter);
+  });
+
+  it("returns SlashHashAdapter for londonhash.org/slah3 URL", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://www.londonhash.org/slah3/runlist/slash3list.html")).toBeInstanceOf(SlashHashAdapter);
+  });
+
+  it("still returns LondonHashAdapter for londonhash.org/runlist.php (not SLH3)", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://www.londonhash.org/runlist.php")).toBeInstanceOf(LondonHashAdapter);
+  });
+
+  it("returns EnfieldHashAdapter for enfieldhash.org URL", () => {
+    expect(getAdapter("HTML_SCRAPER", "http://www.enfieldhash.org/")).toBeInstanceOf(EnfieldHashAdapter);
   });
 
   it("throws for unimplemented source type", () => {

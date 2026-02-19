@@ -438,6 +438,16 @@ async function main() {
       website: "http://www.enfieldhash.org", foundedYear: 1999,
       scheduleFrequency: "Monthly", scheduleNotes: "3rd Wednesday, 7:30 PM",
     },
+    {
+      kennelCode: "ch4", shortName: "CH4", fullName: "Catch the Hare Hash House Harriers", region: "London", country: "UK",
+      website: "http://www.catchtheharehash.org.uk",
+      scheduleFrequency: "Monthly", scheduleNotes: "~3rd Sunday, 3:00 PM. Live hare format.",
+    },
+    {
+      kennelCode: "cunth3", shortName: "CUNTH3", fullName: "Currently Unnamed North Thames Hash House Harriers", region: "London", country: "UK",
+      facebookUrl: "https://www.facebook.com/groups/1822849584637512",
+      scheduleFrequency: "Monthly", scheduleNotes: "Fridays, 7:00 PM. Pub trail format.",
+    },
   ];
 
   // ── ALIAS DATA (PRD Appendix D.3) ──
@@ -521,6 +531,8 @@ async function main() {
     "slh3": ["SLASH", "SLAH3", "South London Hash"],
     "fukfm": ["FUKFMH3", "FUK Full Moon", "First UK Full Moon"],
     "eh3": ["Enfield Hash", "Enfield H3"],
+    "ch4": ["Catch the Hare", "CTH"],
+    "cunth3": ["CUNT H3", "Currently Unnamed North Thames"],
   };
 
   // ── SOURCE DATA (PRD Section 8) ──
@@ -721,6 +733,42 @@ async function main() {
       scrapeFreq: "daily",
       scrapeDays: 90,
       kennelCodes: ["lh3"],
+    },
+    {
+      name: "Barnes Hash Hare Line",
+      url: "http://www.barnesh3.com/HareLine.htm",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      kennelCodes: ["barnesh3"],
+    },
+    {
+      name: "Old Coulsdon Hash Run List",
+      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      kennelCodes: ["och3"],
+    },
+    {
+      name: "SLASH Run List",
+      url: "https://www.londonhash.org/slah3/runlist/slash3list.html",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 5,
+      scrapeFreq: "weekly",
+      scrapeDays: 365,
+      kennelCodes: ["slh3"],
+    },
+    {
+      name: "Enfield Hash Blog",
+      url: "http://www.enfieldhash.org/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 5,
+      scrapeFreq: "weekly",
+      scrapeDays: 365,
+      kennelCodes: ["eh3"],
     },
     // Bay Area iCal feed (sfh3.com aggregator — ~11 kennels)
     {
