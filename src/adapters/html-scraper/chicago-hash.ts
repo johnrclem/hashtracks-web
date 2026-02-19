@@ -268,24 +268,26 @@ export class ChicagoHashAdapter implements SourceAdapter {
         });
         if (!response.ok) {
           const message = `HTTP ${response.status}: ${response.statusText}`;
+          errors.push(message);
           errorDetails.fetch = [
             ...(errorDetails.fetch ?? []),
             { url: currentUrl, status: response.status, message },
           ];
           if (pagesFetched === 0) {
-            return { events: [], errors: [message], errorDetails };
+            return { events: [], errors, errorDetails };
           }
           break;
         }
         html = await response.text();
       } catch (err) {
         const message = `Fetch failed: ${err}`;
+        errors.push(message);
         errorDetails.fetch = [
           ...(errorDetails.fetch ?? []),
           { url: currentUrl, message },
         ];
         if (pagesFetched === 0) {
-          return { events: [], errors: [message], errorDetails };
+          return { events: [], errors, errorDetails };
         }
         break;
       }
