@@ -1,5 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
+import { googleMapsSearchUrl } from "../utils";
 import { sync as icalSync } from "node-ical";
 import type { VEvent, ParameterValue, DateWithTimeZone } from "node-ical";
 
@@ -140,12 +141,7 @@ function formatTime(dt: DateWithTimeZone): string | undefined {
   return `${h}:${m}`;
 }
 
-/**
- * Generate a Google Maps search URL from a location string.
- */
-function mapsUrl(location: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-}
+const mapsUrl = googleMapsSearchUrl;
 
 export class ICalAdapter implements SourceAdapter {
   type = "ICAL_FEED" as const;
@@ -203,7 +199,9 @@ export class ICalAdapter implements SourceAdapter {
     }
 
     // Step 3: Process VEVENT entries
-    const config = source.config as ICalSourceConfig | null;
+    const config = (source.config && typeof source.config === "object" && !Array.isArray(source.config))
+      ? source.config as ICalSourceConfig
+      : null;
     const skipPatterns = config?.skipPatterns?.map((p) => new RegExp(p, "i"));
     let totalVEvents = 0;
     let skippedDateRange = 0;

@@ -3,14 +3,7 @@ import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ParseError, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-
-// Month name → 0-indexed month number
-const MONTH_MAP: Record<string, number> = {
-  jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
-  apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6,
-  aug: 7, august: 7, sep: 8, september: 8, oct: 9, october: 9,
-  nov: 10, november: 10, dec: 11, december: 11,
-};
+import { MONTHS_ZERO, parse12HourTime } from "../utils";
 
 // Kennel regex patterns — LONGER strings before shorter substrings
 const KENNEL_PATTERNS: [RegExp, string][] = [
@@ -110,7 +103,7 @@ export function extractMonthDay(
   if (!match) return null;
 
   const monthStr = match[1].toLowerCase();
-  const month = MONTH_MAP[monthStr];
+  const month = MONTHS_ZERO[monthStr];
   if (month === undefined) return null;
 
   const day = parseInt(match[2], 10);
@@ -409,19 +402,7 @@ export function parseDetailsCell(
  * Extract time from date cell text.
  * Matches patterns like "4:00 pm", "7:15 pm", "12:00 pm"
  */
-export function extractTime(text: string): string | undefined {
-  const match = text.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
-  if (!match) return undefined;
-
-  let hours = parseInt(match[1], 10);
-  const minutes = match[2];
-  const ampm = match[3].toLowerCase();
-
-  if (ampm === "pm" && hours !== 12) hours += 12;
-  if (ampm === "am" && hours === 12) hours = 0;
-
-  return `${hours.toString().padStart(2, "0")}:${minutes}`;
-}
+export const extractTime = parse12HourTime;
 
 /**
  * Parse rows from a hashnyc.com table (works for both past_hashes and future_hashes).

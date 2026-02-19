@@ -25,6 +25,225 @@ interface AnalyzeInput {
   structureHash?: string;
 }
 
+/** Type alias for the shape of recent scrape log rows used across checks. */
+type RecentLog = {
+  eventsFound: number;
+  unmatchedTags: string[];
+  fillRateTitle: number | null;
+  fillRateLocation: number | null;
+  fillRateHares: number | null;
+  fillRateStartTime: number | null;
+  fillRateRunNumber: number | null;
+  structureHash: string | null;
+};
+
+// ── Individual health checks ──
+
+function checkScrapeFailure(input: AnalyzeInput): AlertCandidate | null {
+  if (!input.scrapeFailed) return null;
+  return {
+    type: "SCRAPE_FAILURE",
+    severity: "WARNING",
+    title: "Scrape failed",
+    details: input.errors.slice(0, 5).join("; "),
+    context: { errorMessages: input.errors.slice(0, 10), consecutiveCount: 1 },
+  };
+}
+
+function checkConsecutiveFailures(
+  input: AnalyzeInput,
+  recentAll: { status: string }[],
+): AlertCandidate | null {
+  if (!input.scrapeFailed) return null;
+  const prevFailures = recentAll.filter((l) => l.status === "FAILED").length;
+  if (prevFailures < 2) return null;
+  return {
+    type: "CONSECUTIVE_FAILURES",
+    severity: "CRITICAL",
+    title: `${prevFailures + 1} consecutive scrape failures`,
+    details:
+      "Multiple consecutive scrapes have failed. The source may be down or its format may have changed.",
+    context: { errorMessages: input.errors.slice(0, 10), consecutiveCount: prevFailures + 1 },
+  };
+}
+
+function checkEventCountAnomaly(
+  input: AnalyzeInput,
+  recentSuccessful: RecentLog[],
+): AlertCandidate | null {
+  const avgEvents =
+    recentSuccessful.reduce((sum, l) => sum + l.eventsFound, 0) /
+    recentSuccessful.length;
+
+  if (input.eventsFound === 0 && avgEvents > 0) {
+    return {
+      type: "EVENT_COUNT_ANOMALY",
+      severity: "CRITICAL",
+      title: "Zero events found",
+      details: `Expected ~${Math.round(avgEvents)} events based on rolling average of last ${recentSuccessful.length} scrapes, but found 0.`,
+      context: { currentCount: 0, baselineAvg: Math.round(avgEvents), baselineWindow: recentSuccessful.length, dropPercent: 100 },
+    };
+  }
+
+  if (avgEvents > 5 && input.eventsFound < avgEvents * 0.5) {
+    const dropPct = Math.round(
+      ((avgEvents - input.eventsFound) / avgEvents) * 100,
+    );
+    return {
+      type: "EVENT_COUNT_ANOMALY",
+      severity: "WARNING",
+      title: `Event count dropped ${dropPct}%`,
+      details: `Found ${input.eventsFound} events vs rolling average of ${Math.round(avgEvents)} (last ${recentSuccessful.length} scrapes).`,
+      context: { currentCount: input.eventsFound, baselineAvg: Math.round(avgEvents), baselineWindow: recentSuccessful.length, dropPercent: dropPct },
+    };
+  }
+
+  return null;
+}
+
+function checkFieldFillDrops(
+  input: AnalyzeInput,
+  recentSuccessful: RecentLog[],
+): AlertCandidate[] {
+  const alerts: AlertCandidate[] = [];
+  const fillFields = [
+    { key: "title" as const, dbKey: "fillRateTitle" as const },
+    { key: "location" as const, dbKey: "fillRateLocation" as const },
+    { key: "hares" as const, dbKey: "fillRateHares" as const },
+    { key: "startTime" as const, dbKey: "fillRateStartTime" as const },
+    { key: "runNumber" as const, dbKey: "fillRateRunNumber" as const },
+  ];
+
+  for (const { key, dbKey } of fillFields) {
+    const recentRates = recentSuccessful
+      .map((l) => l[dbKey])
+      .filter((v): v is number => v != null);
+
+    if (recentRates.length === 0) continue;
+
+    const avgRate =
+      recentRates.reduce((sum, v) => sum + v, 0) / recentRates.length;
+    const currentRate = input.fillRates[key];
+
+    // Only alert if avg was above 50% (avoid noise on always-sparse fields)
+    // and current dropped by more than 30 percentage points
+    if (avgRate >= 50 && avgRate - currentRate > 30) {
+      alerts.push({
+        type: "FIELD_FILL_DROP",
+        severity: "WARNING",
+        title: `${key} fill rate dropped from ${Math.round(avgRate)}% to ${currentRate}%`,
+        details: `The "${key}" field was populated in ~${Math.round(avgRate)}% of events on average but is now at ${currentRate}%.`,
+        context: { field: key, currentRate, baselineAvg: Math.round(avgRate) },
+      });
+    }
+  }
+
+  return alerts;
+}
+
+async function checkStructuralChange(
+  sourceId: string,
+  input: AnalyzeInput,
+  recentSuccessful: RecentLog[],
+): Promise<AlertCandidate | null> {
+  if (!input.structureHash) return null;
+
+  const prevHash = recentSuccessful.find(
+    (l) => l.structureHash,
+  )?.structureHash;
+
+  if (prevHash && prevHash === input.structureHash) {
+    // Hash is stable — auto-resolve any open STRUCTURE_CHANGE alerts
+    await autoResolveStructureAlerts(sourceId);
+    return null;
+  }
+
+  if (!prevHash || prevHash === input.structureHash) return null;
+
+  // Compute quality impact by comparing current metrics to baseline
+  const prevEventCount = Math.round(
+    recentSuccessful.reduce((sum, l) => sum + l.eventsFound, 0) /
+      recentSuccessful.length,
+  );
+  const fillRateBaseline = {
+    title: avgFillRate(recentSuccessful, "fillRateTitle"),
+    location: avgFillRate(recentSuccessful, "fillRateLocation"),
+    hares: avgFillRate(recentSuccessful, "fillRateHares"),
+    startTime: avgFillRate(recentSuccessful, "fillRateStartTime"),
+    runNumber: avgFillRate(recentSuccessful, "fillRateRunNumber"),
+  };
+
+  const eventCountDropPct =
+    prevEventCount > 0
+      ? Math.round(((prevEventCount - input.eventsFound) / prevEventCount) * 100)
+      : 0;
+  const maxFillDrop = Math.max(
+    ...Object.entries(fillRateBaseline).map(([key, baseline]) => {
+      const current = input.fillRates[key as keyof typeof input.fillRates];
+      return baseline >= 50 ? baseline - current : 0;
+    }),
+  );
+  const qualityImpacted = eventCountDropPct > 20 || maxFillDrop > 15;
+
+  return {
+    type: "STRUCTURE_CHANGE",
+    severity: qualityImpacted ? "WARNING" : "INFO",
+    title: qualityImpacted
+      ? "HTML structure changed — data quality may be affected"
+      : "HTML structure changed (no impact on data quality)",
+    details: qualityImpacted
+      ? `Structural fingerprint changed and scrape quality has degraded. Event count: ${prevEventCount} → ${input.eventsFound}. Investigate the source page for template changes.`
+      : `Structural fingerprint changed but event extraction is working normally. Event count: ${prevEventCount} → ${input.eventsFound}.`,
+    context: {
+      previousHash: prevHash,
+      currentHash: input.structureHash,
+      previousEventCount: prevEventCount,
+      currentEventCount: input.eventsFound,
+      fillRateBaseline,
+      fillRateCurrent: input.fillRates,
+      qualityImpacted,
+    },
+  };
+}
+
+function checkUnmatchedTags(
+  input: AnalyzeInput,
+  recentSuccessful: RecentLog[],
+): AlertCandidate | null {
+  if (input.unmatchedTags.length === 0) return null;
+
+  const prevUnmatched = new Set(
+    recentSuccessful.flatMap((l) => l.unmatchedTags),
+  );
+  const novelTags = input.unmatchedTags.filter(
+    (t) => !prevUnmatched.has(t),
+  );
+  if (novelTags.length === 0) return null;
+
+  return {
+    type: "UNMATCHED_TAGS",
+    severity: "INFO",
+    title: `${novelTags.length} new unmatched kennel tag${novelTags.length !== 1 ? "s" : ""}`,
+    details: `New tags: ${novelTags.join(", ")}. These need alias mapping in the kennel resolver.`,
+    context: { tags: novelTags },
+  };
+}
+
+function checkSourceKennelMismatches(
+  input: AnalyzeInput,
+): AlertCandidate | null {
+  if (!input.blockedTags || input.blockedTags.length === 0) return null;
+  return {
+    type: "SOURCE_KENNEL_MISMATCH",
+    severity: "WARNING",
+    title: `${input.blockedTags.length} kennel tag${input.blockedTags.length !== 1 ? "s" : ""} blocked: not linked to source`,
+    details: `Tags [${input.blockedTags.join(", ")}] resolved to valid kennels but are not in this source's SourceKennel links.`,
+    context: { tags: input.blockedTags },
+  };
+}
+
+// ── Main analysis orchestrator ──
+
 /**
  * Analyze scrape health using rolling-window comparison against recent scrape history.
  * Returns a health status and any alerts to create.
@@ -61,185 +280,37 @@ export async function analyzeHealth(
     select: { status: true },
   });
 
-  // ── 1. Scrape failure ──
-  if (input.scrapeFailed) {
-    alerts.push({
-      type: "SCRAPE_FAILURE",
-      severity: "WARNING",
-      title: "Scrape failed",
-      details: input.errors.slice(0, 5).join("; "),
-      context: { errorMessages: input.errors.slice(0, 10), consecutiveCount: 1 },
-    });
-  }
+  // 1. Scrape failure
+  const failureAlert = checkScrapeFailure(input);
+  if (failureAlert) alerts.push(failureAlert);
 
-  // ── 2. Consecutive failures ──
-  if (input.scrapeFailed) {
-    const prevFailures = recentAll.filter((l) => l.status === "FAILED").length;
-    if (prevFailures >= 2) {
-      alerts.push({
-        type: "CONSECUTIVE_FAILURES",
-        severity: "CRITICAL",
-        title: `${prevFailures + 1} consecutive scrape failures`,
-        details:
-          "Multiple consecutive scrapes have failed. The source may be down or its format may have changed.",
-        context: { errorMessages: input.errors.slice(0, 10), consecutiveCount: prevFailures + 1 },
-      });
-    }
-  }
+  // 2. Consecutive failures
+  const consecutiveAlert = checkConsecutiveFailures(input, recentAll);
+  if (consecutiveAlert) alerts.push(consecutiveAlert);
 
-  // Skip trend checks if scrape failed (no event data to compare)
+  // Trend checks require baseline data and a successful scrape
   if (!input.scrapeFailed && recentSuccessful.length > 0) {
-    // ── 3. Event count anomaly ──
-    const avgEvents =
-      recentSuccessful.reduce((sum, l) => sum + l.eventsFound, 0) /
-      recentSuccessful.length;
+    // 3. Event count anomaly
+    const countAlert = checkEventCountAnomaly(input, recentSuccessful);
+    if (countAlert) alerts.push(countAlert);
 
-    if (input.eventsFound === 0 && avgEvents > 0) {
-      alerts.push({
-        type: "EVENT_COUNT_ANOMALY",
-        severity: "CRITICAL",
-        title: "Zero events found",
-        details: `Expected ~${Math.round(avgEvents)} events based on rolling average of last ${recentSuccessful.length} scrapes, but found 0.`,
-        context: { currentCount: 0, baselineAvg: Math.round(avgEvents), baselineWindow: recentSuccessful.length, dropPercent: 100 },
-      });
-    } else if (
-      avgEvents > 5 &&
-      input.eventsFound < avgEvents * 0.5
-    ) {
-      const dropPct = Math.round(
-        ((avgEvents - input.eventsFound) / avgEvents) * 100,
-      );
-      alerts.push({
-        type: "EVENT_COUNT_ANOMALY",
-        severity: "WARNING",
-        title: `Event count dropped ${dropPct}%`,
-        details: `Found ${input.eventsFound} events vs rolling average of ${Math.round(avgEvents)} (last ${recentSuccessful.length} scrapes).`,
-        context: { currentCount: input.eventsFound, baselineAvg: Math.round(avgEvents), baselineWindow: recentSuccessful.length, dropPercent: dropPct },
-      });
-    }
+    // 4. Field fill rate drops
+    alerts.push(...checkFieldFillDrops(input, recentSuccessful));
 
-    // ── 4. Field fill rate drops ──
-    const fillFields = [
-      { key: "title" as const, dbKey: "fillRateTitle" as const },
-      { key: "location" as const, dbKey: "fillRateLocation" as const },
-      { key: "hares" as const, dbKey: "fillRateHares" as const },
-      { key: "startTime" as const, dbKey: "fillRateStartTime" as const },
-      { key: "runNumber" as const, dbKey: "fillRateRunNumber" as const },
-    ];
+    // 5. Structural change detection
+    const structureAlert = await checkStructuralChange(sourceId, input, recentSuccessful);
+    if (structureAlert) alerts.push(structureAlert);
 
-    for (const { key, dbKey } of fillFields) {
-      const recentRates = recentSuccessful
-        .map((l) => l[dbKey])
-        .filter((v): v is number => v != null);
-
-      if (recentRates.length === 0) continue;
-
-      const avgRate =
-        recentRates.reduce((sum, v) => sum + v, 0) / recentRates.length;
-      const currentRate = input.fillRates[key];
-
-      // Only alert if avg was above 50% (avoid noise on always-sparse fields)
-      // and current dropped by more than 30 percentage points
-      if (avgRate >= 50 && avgRate - currentRate > 30) {
-        alerts.push({
-          type: "FIELD_FILL_DROP",
-          severity: "WARNING",
-          title: `${key} fill rate dropped from ${Math.round(avgRate)}% to ${currentRate}%`,
-          details: `The "${key}" field was populated in ~${Math.round(avgRate)}% of events on average but is now at ${currentRate}%.`,
-          context: { field: key, currentRate, baselineAvg: Math.round(avgRate) },
-        });
-      }
-    }
-
-    // ── 5. Structural change detection ──
-    if (input.structureHash) {
-      const prevHash = recentSuccessful.find(
-        (l) => l.structureHash,
-      )?.structureHash;
-
-      if (prevHash && prevHash === input.structureHash) {
-        // Hash is stable — auto-resolve any open STRUCTURE_CHANGE alerts
-        await autoResolveStructureAlerts(sourceId);
-      } else if (prevHash && prevHash !== input.structureHash) {
-        // Compute quality impact by comparing current metrics to baseline
-        const prevEventCount = Math.round(
-          recentSuccessful.reduce((sum, l) => sum + l.eventsFound, 0) /
-            recentSuccessful.length,
-        );
-        const fillRateBaseline = {
-          title: avgFillRate(recentSuccessful, "fillRateTitle"),
-          location: avgFillRate(recentSuccessful, "fillRateLocation"),
-          hares: avgFillRate(recentSuccessful, "fillRateHares"),
-          startTime: avgFillRate(recentSuccessful, "fillRateStartTime"),
-          runNumber: avgFillRate(recentSuccessful, "fillRateRunNumber"),
-        };
-
-        const eventCountDropPct =
-          prevEventCount > 0
-            ? Math.round(((prevEventCount - input.eventsFound) / prevEventCount) * 100)
-            : 0;
-        const maxFillDrop = Math.max(
-          ...Object.entries(fillRateBaseline).map(([key, baseline]) => {
-            const current = input.fillRates[key as keyof typeof input.fillRates];
-            return baseline >= 50 ? baseline - current : 0;
-          }),
-        );
-        const qualityImpacted = eventCountDropPct > 20 || maxFillDrop > 15;
-
-        alerts.push({
-          type: "STRUCTURE_CHANGE",
-          severity: qualityImpacted ? "WARNING" : "INFO",
-          title: qualityImpacted
-            ? "HTML structure changed — data quality may be affected"
-            : "HTML structure changed (no impact on data quality)",
-          details: qualityImpacted
-            ? `Structural fingerprint changed and scrape quality has degraded. Event count: ${prevEventCount} → ${input.eventsFound}. Investigate the source page for template changes.`
-            : `Structural fingerprint changed but event extraction is working normally. Event count: ${prevEventCount} → ${input.eventsFound}.`,
-          context: {
-            previousHash: prevHash,
-            currentHash: input.structureHash,
-            previousEventCount: prevEventCount,
-            currentEventCount: input.eventsFound,
-            fillRateBaseline,
-            fillRateCurrent: input.fillRates,
-            qualityImpacted,
-          },
-        });
-      }
-    }
-
-    // ── 6. New unmatched kennel tags ──
-    if (input.unmatchedTags.length > 0) {
-      const prevUnmatched = new Set(
-        recentSuccessful.flatMap((l) => l.unmatchedTags),
-      );
-      const novelTags = input.unmatchedTags.filter(
-        (t) => !prevUnmatched.has(t),
-      );
-      if (novelTags.length > 0) {
-        alerts.push({
-          type: "UNMATCHED_TAGS",
-          severity: "INFO",
-          title: `${novelTags.length} new unmatched kennel tag${novelTags.length !== 1 ? "s" : ""}`,
-          details: `New tags: ${novelTags.join(", ")}. These need alias mapping in the kennel resolver.`,
-          context: { tags: novelTags },
-        });
-      }
-    }
+    // 6. New unmatched kennel tags
+    const unmatchedAlert = checkUnmatchedTags(input, recentSuccessful);
+    if (unmatchedAlert) alerts.push(unmatchedAlert);
   }
 
-  // ── 7. Source-kennel mismatches (always check, even without baseline) ──
-  if (input.blockedTags && input.blockedTags.length > 0) {
-    alerts.push({
-      type: "SOURCE_KENNEL_MISMATCH",
-      severity: "WARNING",
-      title: `${input.blockedTags.length} kennel tag${input.blockedTags.length !== 1 ? "s" : ""} blocked: not linked to source`,
-      details: `Tags [${input.blockedTags.join(", ")}] resolved to valid kennels but are not in this source's SourceKennel links.`,
-      context: { tags: input.blockedTags },
-    });
-  }
+  // 7. Source-kennel mismatches (always check, even without baseline)
+  const mismatchAlert = checkSourceKennelMismatches(input);
+  if (mismatchAlert) alerts.push(mismatchAlert);
 
-  // ── Determine overall health status ──
+  // Determine overall health status
   let healthStatus: SourceHealth;
   const hasCritical = alerts.some((a) => a.severity === "CRITICAL");
   const hasWarning = alerts.some((a) => a.severity === "WARNING");
@@ -332,7 +403,7 @@ export async function persistAlerts(
 
 /** Compute average fill rate from recent scrape logs for a given field. */
 function avgFillRate(
-  logs: { fillRateTitle: number | null; fillRateLocation: number | null; fillRateHares: number | null; fillRateStartTime: number | null; fillRateRunNumber: number | null }[],
+  logs: RecentLog[],
   field: "fillRateTitle" | "fillRateLocation" | "fillRateHares" | "fillRateStartTime" | "fillRateRunNumber",
 ): number {
   const rates = logs.map((l) => l[field]).filter((v): v is number => v != null);
