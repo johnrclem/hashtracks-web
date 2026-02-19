@@ -9,6 +9,7 @@ import { ICalAdapter } from "./ical/adapter";
 import { CityHashAdapter } from "./html-scraper/city-hash";
 import { WestLondonHashAdapter } from "./html-scraper/west-london-hash";
 import { LondonHashAdapter } from "./html-scraper/london-hash";
+import { SFH3Adapter } from "./html-scraper/sfh3";
 
 describe("getAdapter", () => {
   it("returns HashNYCAdapter for HTML_SCRAPER (default)", () => {
@@ -37,6 +38,10 @@ describe("getAdapter", () => {
 
   it("returns LondonHashAdapter for londonhash.org URL", () => {
     expect(getAdapter("HTML_SCRAPER", "https://www.londonhash.org/runlist.php")).toBeInstanceOf(LondonHashAdapter);
+  });
+
+  it("returns SFH3Adapter for sfh3.com URL", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://www.sfh3.com/runs?kennels=all")).toBeInstanceOf(SFH3Adapter);
   });
 
   it("returns GoogleCalendarAdapter for GOOGLE_CALENDAR", () => {

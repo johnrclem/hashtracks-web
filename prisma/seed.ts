@@ -381,6 +381,17 @@ async function main() {
       scheduleFrequency: "Irregular",
       description: "Specialty hash in the Bay Area. Occasional events listed on sfh3.com.",
     },
+    {
+      kennelCode: "mwh3", shortName: "MWH3", fullName: "Muir Woods Hash House Harriers", region: "Marin County, CA",
+      website: "http://www.mwh3.com",
+      scheduleFrequency: "Annual", scheduleNotes: "Anti-Ranger run in August",
+      description: "Annual hash event in the Muir Woods area of Marin County.",
+    },
+    {
+      kennelCode: "262h3", shortName: "26.2H3", fullName: "26.2 Hash House Harriers", region: "San Francisco, CA",
+      scheduleFrequency: "Irregular", scheduleNotes: "Marathon-themed specialty events",
+      description: "Marathon-themed specialty hash in the Bay Area. Events listed on sfh3.com.",
+    },
     // London, UK
     {
       kennelCode: "lh3", shortName: "LH3", fullName: "London Hash House Harriers", region: "London", country: "UK",
@@ -492,13 +503,15 @@ async function main() {
     "gph3": ["Gypsies", "Gypsies H3", "Gypsies in the Palace", "GIP H3", "Gypsies Hash"],
     "ebh3": ["East Bay", "East Bay Hash", "East Bay H3", "EB Hash"],
     "svh3": ["Silicone Valley", "Silicone Valley H3", "Silicon Valley Hash", "SV Hash"],
-    "fhac-u": ["FHACU", "FHAC-U H3"],
+    "fhac-u": ["FHACU", "FHAC-U H3", "FHAgnews"],
     "agnews": ["Agnews H3", "Agnews State H3", "Agnews Hash"],
     "barh3": ["Bay Area Rabble", "BAR H3"],
     "marinh3": ["Marin Hash", "Marin H3", "Marin HHH"],
     "fch3": ["Fog City", "Fog City Hash", "Fog City H3"],
     "sffmh3": ["SF Full Moon", "SF Full Moon Hash", "FMH3", "Full Moon H3 (SF)"],
     "vmh3": ["Vine & Malthouse", "Vine and Malthouse H3"],
+    "mwh3": ["Muir Woods H3", "Muir Woods Hash", "Muir Woods"],
+    "262h3": ["Marathon Hash", "Marathon H3", "26.2 Hash"],
     // London, UK
     "lh3": ["London Hash", "London H3", "London Hash House Harriers"],
     "cityh3": ["City Hash", "City H3"],
@@ -705,6 +718,7 @@ async function main() {
           ["^GPH3", "GPH3"],
           ["^EBH3", "EBH3"],
           ["^SVH3", "SVH3"],
+          ["^FHAgnews", "FHAC-U"],
           ["^FHAC-U", "FHAC-U"],
           ["^Agnews", "Agnews"],
           ["^Marin H3", "MarinH3"],
@@ -712,11 +726,42 @@ async function main() {
           ["^FMH3", "SFFMH3"],
           ["^BARH3", "BARH3"],
           ["^VMH3", "VMH3"],
+          ["^MWH3", "MWH3"],
+          ["^26\\.2H3", "26.2H3"],
         ],
         defaultKennelTag: "SFH3",
         skipPatterns: ["^Hand Pump", "^Workday"],
       },
-      kennelCodes: ["sfh3", "gph3", "ebh3", "svh3", "fhac-u", "agnews", "barh3", "marinh3", "fch3", "sffmh3", "vmh3"],
+      kennelCodes: ["sfh3", "gph3", "ebh3", "svh3", "fhac-u", "agnews", "barh3", "marinh3", "fch3", "sffmh3", "vmh3", "mwh3", "262h3"],
+    },
+    // Bay Area HTML scraper (sfh3.com hareline — enrichment/fallback)
+    {
+      name: "SFH3 MultiHash HTML Hareline",
+      url: "https://www.sfh3.com/runs?kennels=all",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelPatterns: [
+          ["^SFH3", "SFH3"],
+          ["^GPH3", "GPH3"],
+          ["^EBH3", "EBH3"],
+          ["^SVH3", "SVH3"],
+          ["^FHAgnews", "FHAC-U"],
+          ["^FHAC-U", "FHAC-U"],
+          ["^Agnews", "Agnews"],
+          ["^Marin H3", "MarinH3"],
+          ["^FCH3", "FCH3"],
+          ["^FMH3", "SFFMH3"],
+          ["^BARH3", "BARH3"],
+          ["^VMH3", "VMH3"],
+          ["^MWH3", "MWH3"],
+          ["^26\\.2H3", "26.2H3"],
+        ],
+        defaultKennelTag: "SFH3",
+      },
+      kennelCodes: ["sfh3", "gph3", "ebh3", "svh3", "fhac-u", "agnews", "barh3", "marinh3", "fch3", "sffmh3", "vmh3", "mwh3", "262h3"],
     },
     // DC / DMV area — iCal feeds (ai1ec WordPress plugin)
     {
@@ -793,9 +838,9 @@ async function main() {
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
-        kennelSlugs: ["BFMH3", "EWH3", "WH4", "GFH3", "CH3", "DCH4", "DCFMH3"],
+        kennelSlugs: ["BFMH3", "EWH3", "WH4", "GFH3", "CH3", "DCH4", "DCFMH3", "FCH3"],
       },
-      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3"],
+      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3"],
     },
   ];
 
