@@ -6,6 +6,8 @@ import { HashPhillyAdapter } from "./html-scraper/hashphilly";
 import { CityHashAdapter } from "./html-scraper/city-hash";
 import { WestLondonHashAdapter } from "./html-scraper/west-london-hash";
 import { LondonHashAdapter } from "./html-scraper/london-hash";
+import { ChicagoHashAdapter } from "./html-scraper/chicago-hash";
+import { ChicagoTH3Adapter } from "./html-scraper/chicago-th3";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -26,6 +28,8 @@ const htmlScrapersByUrl: [RegExp, () => SourceAdapter][] = [
   [/cityhash\.org/i, () => new CityHashAdapter()],
   [/westlondonhash/i, () => new WestLondonHashAdapter()],
   [/londonhash\.org/i, () => new LondonHashAdapter()],
+  [/chicagohash\.org/i, () => new ChicagoHashAdapter()],
+  [/chicagoth3\.com/i, () => new ChicagoTH3Adapter()],
 ];
 
 export function getAdapter(sourceType: SourceType, sourceUrl?: string): SourceAdapter {
