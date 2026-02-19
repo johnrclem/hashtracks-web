@@ -294,6 +294,7 @@ export default async function SourceDetailPage({
           id: true,
           shortName: true,
           fullName: true,
+          region: true,
           aliases: { select: { alias: true } },
         },
       }),

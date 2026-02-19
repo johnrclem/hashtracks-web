@@ -29,7 +29,7 @@ interface UnmatchedTagResolverProps {
   alertId: string;
   tags: string[];
   suggestions: Record<string, KennelOption[]>; // tag → top kennel matches
-  allKennels: { id: string; shortName: string }[];
+  allKennels: { id: string; shortName: string; fullName: string; region: string }[];
 }
 
 export function UnmatchedTagResolver({
@@ -62,7 +62,7 @@ function TagRow({
   alertId: string;
   tag: string;
   suggestions: KennelOption[];
-  allKennels: { id: string; shortName: string }[];
+  allKennels: { id: string; shortName: string; fullName: string; region: string }[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<"pick" | "create">("pick");

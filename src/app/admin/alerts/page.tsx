@@ -45,6 +45,7 @@ export default async function AlertsPage({
         id: true,
         shortName: true,
         fullName: true,
+        region: true,
         aliases: { select: { alias: true } },
       },
     }),
@@ -85,6 +86,8 @@ export default async function AlertsPage({
   const kennelList = allKennels.map((k) => ({
     id: k.id,
     shortName: k.shortName,
+    fullName: k.fullName,
+    region: k.region,
   }));
 
   const serialized = alerts.map((a) => ({

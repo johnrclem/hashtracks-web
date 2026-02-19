@@ -45,7 +45,7 @@ interface RepairLogEntry {
 
 interface AlertCardProps {
   alert: AlertData;
-  allKennels?: { id: string; shortName: string }[];
+  allKennels?: { id: string; shortName: string; fullName: string; region: string }[];
   suggestions?: Record<string, KennelOption[]>;
 }
 

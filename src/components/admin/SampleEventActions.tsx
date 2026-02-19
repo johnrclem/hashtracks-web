@@ -30,7 +30,7 @@ interface SampleEventActionsProps {
   sourceId: string;
   reason: string;
   kennelTag: string;
-  allKennels: { id: string; shortName: string }[];
+  allKennels: { id: string; shortName: string; fullName: string; region: string }[];
   suggestions?: KennelOption[];
 }
 
@@ -114,7 +114,7 @@ function UnmatchedTagAction({
 }: {
   sourceId: string;
   kennelTag: string;
-  allKennels: { id: string; shortName: string }[];
+  allKennels: { id: string; shortName: string; fullName: string; region: string }[];
   suggestions: KennelOption[];
 }) {
   const [isPending, startTransition] = useTransition();
