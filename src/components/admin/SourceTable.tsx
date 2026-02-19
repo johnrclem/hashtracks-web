@@ -51,7 +51,7 @@ type SourceData = {
 
 interface SourceTableProps {
   sources: SourceData[];
-  allKennels: { id: string; shortName: string }[];
+  allKennels: { id: string; shortName: string; fullName: string; region: string }[];
 }
 
 const healthColors: Record<string, string> = {
@@ -320,7 +320,7 @@ function SourceRow({
   allKennels,
 }: {
   source: SourceData;
-  allKennels: { id: string; shortName: string }[];
+  allKennels: { id: string; shortName: string; fullName: string; region: string }[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [menuOpen, setMenuOpen] = useState(false);

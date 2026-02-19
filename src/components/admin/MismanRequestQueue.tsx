@@ -41,6 +41,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { toast } from "sonner";
+import type { KennelOptionData } from "@/components/kennels/KennelOptionLabel";
+import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 
 type MismanRequestRow = {
   id: string;
@@ -57,16 +59,9 @@ type MismanRequestRow = {
   resolvedAt: string | null;
 };
 
-type KennelOption = {
-  id: string;
-  shortName: string;
-  fullName: string;
-  region: string;
-};
-
 interface MismanRequestQueueProps {
   requests: MismanRequestRow[];
-  kennels: KennelOption[];
+  kennels: KennelOptionData[];
 }
 
 export function MismanRequestQueue({ requests, kennels }: MismanRequestQueueProps) {
@@ -108,7 +103,7 @@ type InviteResult = {
   inviteUrl: string;
 };
 
-function InviteMismanDialog({ kennels }: { kennels: KennelOption[] }) {
+function InviteMismanDialog({ kennels }: { kennels: KennelOptionData[] }) {
   const [open, setOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -248,15 +243,7 @@ function InviteMismanDialog({ kennels }: { kennels: KennelOption[] }) {
                             <div className="flex size-4 shrink-0 items-center justify-center rounded-sm border border-primary">
                               {isSelected && <CheckIcon className="size-3" />}
                             </div>
-                            <div className="ml-1 flex-1 truncate">
-                              <span className="font-medium">{k.shortName}</span>
-                              <span className="ml-1.5 text-muted-foreground">
-                                {k.fullName}
-                              </span>
-                            </div>
-                            <span className="ml-auto text-xs text-muted-foreground">
-                              {k.region}
-                            </span>
+                            <KennelOptionLabel kennel={k} />
                           </CommandItem>
                         );
                       })}

@@ -85,7 +85,7 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
     }),
     prisma.kennel.findMany({
       orderBy: { shortName: "asc" },
-      select: { id: true, shortName: true },
+      select: { id: true, shortName: true, fullName: true, region: true },
     }),
     prisma.source.findMany({
       orderBy: { name: "asc" },

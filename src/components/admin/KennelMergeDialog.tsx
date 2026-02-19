@@ -26,6 +26,8 @@ import { toast } from "sonner";
 interface Kennel {
   id: string;
   shortName: string;
+  fullName: string;
+  region: string;
   slug: string;
 }
 
@@ -149,7 +151,8 @@ export function KennelMergeDialog({ kennels, trigger }: KennelMergeDialogProps) 
                   <SelectContent>
                     {kennels.map((kennel) => (
                       <SelectItem key={kennel.id} value={kennel.id}>
-                        {kennel.shortName}
+                        <span className="font-medium">{kennel.shortName}</span>
+                        <span className="ml-1 text-muted-foreground">— {kennel.fullName}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -167,7 +170,8 @@ export function KennelMergeDialog({ kennels, trigger }: KennelMergeDialogProps) 
                   <SelectContent>
                     {kennels.map((kennel) => (
                       <SelectItem key={kennel.id} value={kennel.id}>
-                        {kennel.shortName}
+                        <span className="font-medium">{kennel.shortName}</span>
+                        <span className="ml-1 text-muted-foreground">— {kennel.fullName}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -16,11 +16,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
+import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import type { HarelineEvent } from "./EventCard";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -199,7 +195,7 @@ export function EventFilters({
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-56 p-0" align="start">
+          <PopoverContent className="w-80 p-0" align="start">
             <Command>
               <CommandInput placeholder="Search kennels..." />
               <CommandList>
@@ -208,6 +204,7 @@ export function EventFilters({
                   {kennels.map((kennel) => (
                     <CommandItem
                       key={kennel.id}
+                      value={`${kennel.shortName} ${kennel.fullName} ${kennel.region}`}
                       onSelect={() => toggleKennel(kennel.id)}
                     >
                       <span
@@ -219,12 +216,7 @@ export function EventFilters({
                       >
                         {selectedKennels.includes(kennel.id) && "✓"}
                       </span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span>{kennel.shortName}</span>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">{kennel.fullName}</TooltipContent>
-                      </Tooltip>
+                      <KennelOptionLabel kennel={kennel} />
                     </CommandItem>
                   ))}
                 </CommandGroup>

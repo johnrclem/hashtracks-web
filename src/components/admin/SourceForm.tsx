@@ -21,6 +21,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 const SOURCE_TYPES = [
@@ -45,7 +51,7 @@ type SourceData = {
 
 interface SourceFormProps {
   source?: SourceData;
-  allKennels: { id: string; shortName: string }[];
+  allKennels: { id: string; shortName: string; fullName: string; region: string }[];
   trigger: React.ReactNode;
 }
 
@@ -172,22 +178,30 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
 
           <div className="space-y-2">
             <Label>Linked Kennels</Label>
-            <div className="flex max-h-48 flex-wrap gap-1 overflow-y-auto rounded-md border p-2">
-              {allKennels.map((kennel) => (
-                <Badge
-                  key={kennel.id}
-                  variant={
-                    selectedKennels.includes(kennel.id)
-                      ? "default"
-                      : "outline"
-                  }
-                  className="cursor-pointer"
-                  onClick={() => toggleKennel(kennel.id)}
-                >
-                  {kennel.shortName}
-                </Badge>
-              ))}
-            </div>
+            <TooltipProvider>
+              <div className="flex max-h-48 flex-wrap gap-1 overflow-y-auto rounded-md border p-2">
+                {allKennels.map((kennel) => (
+                  <Tooltip key={kennel.id}>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant={
+                          selectedKennels.includes(kennel.id)
+                            ? "default"
+                            : "outline"
+                        }
+                        className="cursor-pointer"
+                        onClick={() => toggleKennel(kennel.id)}
+                      >
+                        {kennel.shortName}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {kennel.fullName} — {kennel.region}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </TooltipProvider>
             <p className="text-xs text-muted-foreground">
               Click to toggle. {selectedKennels.length} selected.
             </p>
