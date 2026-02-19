@@ -2,7 +2,8 @@
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
+import type { SourceType } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
 import { scrapeSource } from "@/pipeline/scrape";
@@ -44,7 +45,7 @@ export async function createSource(formData: FormData) {
     data: {
       name,
       url,
-      type: type as "HTML_SCRAPER" | "GOOGLE_CALENDAR" | "GOOGLE_SHEETS" | "ICAL_FEED" | "RSS_FEED" | "JSON_API" | "MANUAL" | "HASHREGO",
+      type: type as SourceType,
       trustLevel,
       scrapeFreq,
       scrapeDays: isNaN(scrapeDays) ? 90 : scrapeDays,
@@ -90,8 +91,8 @@ export async function updateSource(sourceId: string, formData: FormData) {
     return { error: "Name, URL, and type are required" };
   }
 
-  // Parse config JSON if provided, null if empty (clears existing config)
-  let config: Prisma.InputJsonValue | null = null;
+  // Parse config JSON if provided; DbNull if empty (clears existing config)
+  let config: Prisma.InputJsonValue | typeof Prisma.DbNull = Prisma.DbNull;
   if (configRaw) {
     try {
       config = JSON.parse(configRaw) as Prisma.InputJsonValue;
@@ -112,11 +113,11 @@ export async function updateSource(sourceId: string, formData: FormData) {
       data: {
         name,
         url,
-        type: type as "HTML_SCRAPER" | "GOOGLE_CALENDAR" | "GOOGLE_SHEETS" | "ICAL_FEED" | "RSS_FEED" | "JSON_API" | "MANUAL" | "HASHREGO",
+        type: type as SourceType,
         trustLevel,
         scrapeFreq,
         scrapeDays: isNaN(scrapeDays) ? 90 : scrapeDays,
-        config: config ?? undefined,
+        config,
         kennels: {
           create: ids.map((kennelId) => ({ kennelId })),
         },
