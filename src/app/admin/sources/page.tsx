@@ -19,7 +19,7 @@ export default async function AdminSourcesPage() {
 
   const allKennels = await prisma.kennel.findMany({
     orderBy: { shortName: "asc" },
-    select: { id: true, shortName: true },
+    select: { id: true, shortName: true, fullName: true, region: true },
   });
 
   const serialized = sources.map((s) => ({

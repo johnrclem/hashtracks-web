@@ -12,11 +12,12 @@ import {
 interface KennelOption {
   id: string;
   shortName: string;
+  fullName: string;
   slug: string;
 }
 
 interface KennelSwitcherProps {
-  currentKennel: { shortName: string; slug: string };
+  currentKennel: { shortName: string; fullName: string; slug: string };
   kennels: KennelOption[];
 }
 
@@ -43,12 +44,15 @@ export function KennelSwitcher({
   return (
     <Select value={currentKennel.slug} onValueChange={handleChange}>
       <SelectTrigger className="w-fit text-2xl font-bold border-none shadow-none px-0 h-auto focus-visible:ring-0 [&>svg]:ml-1">
-        <SelectValue />
+        <span>{currentKennel.shortName}</span>
       </SelectTrigger>
       <SelectContent>
         {kennels.map((k) => (
           <SelectItem key={k.id} value={k.slug}>
-            {k.shortName}
+            <span className="font-medium">{k.shortName}</span>
+            <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+              — {k.fullName}
+            </span>
           </SelectItem>
         ))}
       </SelectContent>

@@ -26,7 +26,7 @@ type SourceDetailData = {
 
 interface SourceDetailActionsProps {
   source: SourceDetailData;
-  allKennels: { id: string; shortName: string }[];
+  allKennels: { id: string; shortName: string; fullName: string; region: string }[];
 }
 
 export function SourceDetailActions({

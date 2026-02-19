@@ -63,7 +63,7 @@ interface EventData {
 
 interface EventTableProps {
   events: EventData[];
-  kennels: { id: string; shortName: string }[];
+  kennels: { id: string; shortName: string; fullName: string; region: string }[];
   sources: { id: string; name: string }[];
   filters: {
     kennelId?: string;
@@ -272,14 +272,15 @@ export function EventTable({
               value={filters.kennelId ?? "all"}
               onValueChange={(v) => updateFilter("kennelId", v)}
             >
-              <SelectTrigger className="w-[160px] h-8 text-xs">
+              <SelectTrigger className="w-[280px] h-8 text-xs">
                 <SelectValue placeholder="All kennels" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All kennels</SelectItem>
                 {kennels.map((k) => (
                   <SelectItem key={k.id} value={k.id}>
-                    {k.shortName}
+                    <span className="font-medium">{k.shortName}</span>
+                    <span className="ml-1 text-muted-foreground">— {k.fullName}</span>
                   </SelectItem>
                 ))}
               </SelectContent>

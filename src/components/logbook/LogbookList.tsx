@@ -19,6 +19,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import {
   Tooltip,
   TooltipTrigger,
@@ -185,7 +186,7 @@ export function LogbookList({ entries }: LogbookListProps) {
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-56 p-0" align="start">
+          <PopoverContent className="w-80 p-0" align="start">
             <Command>
               <CommandInput placeholder="Search kennels..." />
               <CommandList>
@@ -194,6 +195,7 @@ export function LogbookList({ entries }: LogbookListProps) {
                   {kennels.map((kennel) => (
                     <CommandItem
                       key={kennel.id}
+                      value={`${kennel.shortName} ${kennel.fullName} ${kennel.region}`}
                       onSelect={() =>
                         setSelectedKennels((prev) =>
                           prev.includes(kennel.id) ? prev.filter((k) => k !== kennel.id) : [...prev, kennel.id],
@@ -209,12 +211,7 @@ export function LogbookList({ entries }: LogbookListProps) {
                       >
                         {selectedKennels.includes(kennel.id) && "✓"}
                       </span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span>{kennel.shortName}</span>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">{kennel.fullName}</TooltipContent>
-                      </Tooltip>
+                      <KennelOptionLabel kennel={kennel} />
                     </CommandItem>
                   ))}
                 </CommandGroup>

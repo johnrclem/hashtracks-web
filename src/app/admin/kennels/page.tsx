@@ -47,6 +47,8 @@ export default async function AdminKennelsPage() {
   const kennelsForMerge = kennels.map((k) => ({
     id: k.id,
     shortName: k.shortName,
+    fullName: k.fullName,
+    region: k.region,
     slug: k.slug,
   }));
 

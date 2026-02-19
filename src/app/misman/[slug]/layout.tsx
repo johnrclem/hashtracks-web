@@ -38,7 +38,7 @@ export default async function MismanKennelLayout({ children, params }: Props) {
     },
     include: {
       kennel: {
-        select: { id: true, shortName: true, slug: true },
+        select: { id: true, shortName: true, fullName: true, slug: true },
       },
     },
     orderBy: { kennel: { shortName: "asc" } },
@@ -47,6 +47,7 @@ export default async function MismanKennelLayout({ children, params }: Props) {
   const kennelOptions = mismanKennels.map((mk) => ({
     id: mk.kennel.id,
     shortName: mk.kennel.shortName,
+    fullName: mk.kennel.fullName,
     slug: mk.kennel.slug,
   }));
 
@@ -54,7 +55,7 @@ export default async function MismanKennelLayout({ children, params }: Props) {
     <div className="space-y-4">
       <div>
         <KennelSwitcher
-          currentKennel={{ shortName: kennel.shortName, slug: kennel.slug }}
+          currentKennel={{ shortName: kennel.shortName, fullName: kennel.fullName, slug: kennel.slug }}
           kennels={kennelOptions}
         />
         <p className="text-sm text-muted-foreground">{kennel.fullName}</p>
