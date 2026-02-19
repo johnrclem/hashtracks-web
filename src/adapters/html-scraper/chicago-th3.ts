@@ -77,39 +77,24 @@ export function parseBodyFields(bodyText: string): {
   const labelPattern = labels.join("|");
   const fieldDelimiter = "\\s*[:\\-–—]\\s*";
 
-  // Extract "WHERE" field → location
-  const whereMatch = bodyText.match(
-    new RegExp(`WHERE${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
-  );
-  if (whereMatch) {
-    result.location = whereMatch[1].trim().replace(/\s+/g, " ");
+  // Simple fields: regex label → result key
+  const simpleFields: Array<[string, keyof typeof result]> = [
+    ["WHERE", "location"],
+    ["HARES?", "hares"],
+    ["HASH CASH", "hashCash"],
+    ["WALKER'?S TRAIL", "walkersTrail"],
+  ];
+
+  for (const [label, key] of simpleFields) {
+    const match = bodyText.match(
+      new RegExp(`${label}${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
+    );
+    if (match) {
+      result[key] = match[1].trim().replace(/\s+/g, " ");
+    }
   }
 
-  // Extract "HARE" or "HARES" field
-  const hareMatch = bodyText.match(
-    new RegExp(`HARES?${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
-  );
-  if (hareMatch) {
-    result.hares = hareMatch[1].trim().replace(/\s+/g, " ");
-  }
-
-  // Extract "HASH CASH" field
-  const cashMatch = bodyText.match(
-    new RegExp(`HASH CASH${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
-  );
-  if (cashMatch) {
-    result.hashCash = cashMatch[1].trim().replace(/\s+/g, " ");
-  }
-
-  // Extract "WALKER'S TRAIL" field
-  const walkerMatch = bodyText.match(
-    new RegExp(`WALKER'?S TRAIL${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
-  );
-  if (walkerMatch) {
-    result.walkersTrail = walkerMatch[1].trim().replace(/\s+/g, " ");
-  }
-
-  // Extract time from "WHEN" field
+  // Extract time from "WHEN" field (special: requires parseTimeString)
   const whenMatch = bodyText.match(
     new RegExp(`WHEN${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
   );
