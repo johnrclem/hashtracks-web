@@ -10,6 +10,10 @@ import { EWH3Adapter } from "./html-scraper/ewh3";
 import { DCH4Adapter } from "./html-scraper/dch4";
 import { OFH3Adapter } from "./html-scraper/ofh3";
 import { HangoverAdapter } from "./html-scraper/hangover";
+import { BarnesHashAdapter } from "./html-scraper/barnes-hash";
+import { OCH3Adapter } from "./html-scraper/och3";
+import { SlashHashAdapter } from "./html-scraper/slash-hash";
+import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -29,7 +33,11 @@ const htmlScrapersByUrl: [RegExp, () => SourceAdapter][] = [
   [/hashphilly/i, () => new HashPhillyAdapter()],
   [/cityhash\.org/i, () => new CityHashAdapter()],
   [/westlondonhash/i, () => new WestLondonHashAdapter()],
+  [/barnesh3\.com/i, () => new BarnesHashAdapter()],
+  [/och3\.org/i, () => new OCH3Adapter()],
+  [/londonhash\.org\/slah3/i, () => new SlashHashAdapter()],
   [/londonhash\.org/i, () => new LondonHashAdapter()],
+  [/enfieldhash\.org/i, () => new EnfieldHashAdapter()],
   [/ewh3\.com/i, () => new EWH3Adapter()],
   [/dch4\.org/i, () => new DCH4Adapter()],
   [/ofh3\.com/i, () => new OFH3Adapter()],
