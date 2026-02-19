@@ -535,6 +535,36 @@ async function main() {
     "cunth3": ["CUNT H3", "Currently Unnamed North Thames"],
   };
 
+  // ── SHARED SFH3 CONFIG (used by both iCal and HTML sources) ──
+
+  const sfh3KennelPatterns: Array<[string, string]> = [
+    ["^SFH3", "SFH3"],
+    ["^GPH3", "GPH3"],
+    ["^EBH3", "EBH3"],
+    ["^SVH3", "SVH3"],
+    ["^FHAgnews", "FHAC-U"],
+    ["^FHAC-U", "FHAC-U"],
+    ["^Agnews", "Agnews"],
+    ["^Marin H3", "MarinH3"],
+    ["^FCH3", "FCH3"],
+    ["^FMH3", "SFFMH3"],
+    ["^BARH3", "BARH3"],
+    ["^VMH3", "VMH3"],
+    ["^MWH3", "MWH3"],
+    ["^26\\.2H3", "26.2H3"],
+  ];
+
+  const sfh3Config = {
+    kennelPatterns: sfh3KennelPatterns,
+    defaultKennelTag: "SFH3",
+    skipPatterns: ["^Hand Pump", "^Workday"],
+  };
+
+  const sfh3KennelCodes = [
+    "sfh3", "gph3", "ebh3", "svh3", "fhac-u", "agnews",
+    "barh3", "marinh3", "fch3", "sffmh3", "vmh3", "mwh3", "262h3",
+  ];
+
   // ── SOURCE DATA (PRD Section 8) ──
 
   const sources = [
@@ -778,27 +808,8 @@ async function main() {
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: {
-        kennelPatterns: [
-          ["^SFH3", "SFH3"],
-          ["^GPH3", "GPH3"],
-          ["^EBH3", "EBH3"],
-          ["^SVH3", "SVH3"],
-          ["^FHAgnews", "FHAC-U"],
-          ["^FHAC-U", "FHAC-U"],
-          ["^Agnews", "Agnews"],
-          ["^Marin H3", "MarinH3"],
-          ["^FCH3", "FCH3"],
-          ["^FMH3", "SFFMH3"],
-          ["^BARH3", "BARH3"],
-          ["^VMH3", "VMH3"],
-          ["^MWH3", "MWH3"],
-          ["^26\\.2H3", "26.2H3"],
-        ],
-        defaultKennelTag: "SFH3",
-        skipPatterns: ["^Hand Pump", "^Workday"],
-      },
-      kennelCodes: ["sfh3", "gph3", "ebh3", "svh3", "fhac-u", "agnews", "barh3", "marinh3", "fch3", "sffmh3", "vmh3", "mwh3", "262h3"],
+      config: sfh3Config,
+      kennelCodes: sfh3KennelCodes,
     },
     // Bay Area HTML scraper (sfh3.com hareline — enrichment/fallback)
     {
@@ -808,27 +819,8 @@ async function main() {
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: {
-        kennelPatterns: [
-          ["^SFH3", "SFH3"],
-          ["^GPH3", "GPH3"],
-          ["^EBH3", "EBH3"],
-          ["^SVH3", "SVH3"],
-          ["^FHAgnews", "FHAC-U"],
-          ["^FHAC-U", "FHAC-U"],
-          ["^Agnews", "Agnews"],
-          ["^Marin H3", "MarinH3"],
-          ["^FCH3", "FCH3"],
-          ["^FMH3", "SFFMH3"],
-          ["^BARH3", "BARH3"],
-          ["^VMH3", "VMH3"],
-          ["^MWH3", "MWH3"],
-          ["^26\\.2H3", "26.2H3"],
-        ],
-        defaultKennelTag: "SFH3",
-        skipPatterns: ["^Hand Pump", "^Workday"],
-      },
-      kennelCodes: ["sfh3", "gph3", "ebh3", "svh3", "fhac-u", "agnews", "barh3", "marinh3", "fch3", "sffmh3", "vmh3", "mwh3", "262h3"],
+      config: sfh3Config,
+      kennelCodes: sfh3KennelCodes,
     },
     // DC / DMV area — iCal feeds (ai1ec WordPress plugin)
     {
