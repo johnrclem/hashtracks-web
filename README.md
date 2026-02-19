@@ -10,7 +10,7 @@ The Strava of Hashing — a community platform where hashers discover upcoming r
 - **Database:** PostgreSQL (Railway) via Prisma 7
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS v4 + shadcn/ui
-- **Testing:** Vitest (585 tests across 34 files)
+- **Testing:** Vitest (1075 tests across 51 files)
 - **Deployment:** Vercel (auto-deploy from `main`, daily cron scrapes)
 
 ## Local Development
@@ -42,7 +42,7 @@ Open [http://localhost:3000](http://localhost:3000).
 |---------|-------------|
 | `npm run dev` | Start dev server |
 | `npm run build` | Production build |
-| `npm test` | Run test suite (585 tests) |
+| `npm test` | Run test suite (1075 tests) |
 | `npx prisma studio` | Visual database browser |
 | `npx prisma db push` | Push schema changes to DB |
 | `npx prisma db seed` | Seed kennels, aliases, and sources |
@@ -50,7 +50,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Features
 
 ### Hareline (Event Calendar)
-- Aggregated event list and calendar views from 7 data sources
+- Aggregated event list and calendar views from 29 data sources
 - Filters: time scope (upcoming/past), region, kennel, day of week
 - Master-detail layout with side panel on desktop
 - Region-colored badges, calendar export (Google Calendar + .ics)
@@ -62,9 +62,10 @@ Open [http://localhost:3000](http://localhost:3000).
 - Stats dashboard: per-kennel, per-region breakdowns with milestone markers
 
 ### Kennel Directory
-- Browse and search 24 kennels across 7 regions
-- Kennel profiles with upcoming events, subscriber counts
-- Subscribe to favorite kennels
+- Browse and search 79 kennels across 21 regions (US + UK)
+- Rich kennel profiles: schedule, social links, hash cash, dog-friendly/walkers-welcome flags
+- Filters: region, run day, frequency, has upcoming, country
+- Sort: A–Z (grouped by region) or Recently Active
 
 ### Misman Tool (Kennel Attendance Management)
 - Per-kennel mismanagement dashboard with role-based access
@@ -79,10 +80,11 @@ Open [http://localhost:3000](http://localhost:3000).
 - Logbook sync: pending confirmations link misman records to user logbook entries
 
 ### Source Engine
-- Adapter framework: HTML scraper, Google Calendar API, Google Sheets CSV
-- 7 live sources feeding 25 source-kennel links across 24 kennels
+- 5 adapter types: HTML Scraper, Google Calendar API, Google Sheets CSV, iCal Feed, Hash Rego
+- 29 live sources feeding 79 kennels across 6 metro areas (NYC, Boston, Chicago, DC, SF Bay, London)
 - Automated daily scrapes via Vercel Cron
 - Merge pipeline with fingerprint dedup, trust levels, and kennel alias resolution
+- Shared adapter utilities for date parsing and field extraction
 
 ### Source Health Monitoring
 - Rolling-window health analysis (event counts, field fill rates, structure fingerprints)
@@ -99,17 +101,16 @@ Open [http://localhost:3000](http://localhost:3000).
 - Misman request queue with approve/reject and invite link generation
 - Roster group management: create, rename, dissolve, approve requests
 
-## Data Sources
+## Data Sources (29)
 
-| Source | Type | Kennels |
-|--------|------|---------|
-| hashnyc.com | HTML Scraper | 11 NYC-area kennels |
-| Boston Hash Calendar | Google Calendar API | 5 Boston kennels |
-| Summit H3 Spreadsheet | Google Sheets CSV | 3 NJ kennels |
-| BFM Google Calendar | Google Calendar API | BFM, Philly H3 |
-| Philly H3 Google Calendar | Google Calendar API | BFM, Philly H3 |
-| BFM Website | HTML Scraper | BFM |
-| Philly H3 Website | HTML Scraper | Philly H3 |
+| Region | Sources | Kennels |
+|--------|---------|---------|
+| NYC / NJ / Philly | hashnyc.com, Summit Sheets, BFM + Philly Calendars, BFM + Philly websites, Hash Rego | 17 kennels |
+| Boston | Boston Hash Calendar | 5 kennels |
+| Chicago | Chicagoland Calendar, CH3 + TH3 websites | 11 kennels |
+| DC / DMV | EWH3 + SHITH3 Calendars, W3H3 Sheets, CCH3 + BAH3 iCal, EWH3 + DCH4 + OFH3 + Hangover blogs | 19 kennels |
+| SF Bay Area | SFH3 iCal Feed, SFH3 HTML Hareline | 13 kennels |
+| London / UK | LH3, CityH3, WLH3, BarnesH3, OCH3, SLH3, EH3 websites | 10 kennels |
 
 ## Documentation
 
@@ -120,7 +121,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Project Status
 
-**Sprints 1-9 complete.** See [`docs/roadmap.md`](docs/roadmap.md) for the full roadmap.
+**Sprints 1-10 complete.** See [`docs/roadmap.md`](docs/roadmap.md) for the full roadmap.
 
 ### Completed
 - **Sprint 1:** Scaffold — Prisma 7, Clerk auth, seeded DB, Vercel deployment
@@ -136,3 +137,9 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Sprints 8a-8f:** Misman tool — schema, dashboard, attendance form, roster, history, roster groups, duplicate merge
 - **Sprint 9:** Audit log, hare sync, CSV import, invite links, attendance UX polish
 - **Admin polish:** Kennel merge UI, roster group admin, invite from admin page
+- **Kennel identity:** Permanent kennelCode field, source-scoped resolver, duplicate merges
+- **EventLink + Hash Rego:** EventLink model, Hash Rego adapter, multi-day event splitting
+- **Source expansion:** 29 sources across 6 regions — DC/DMV, Chicago, SF Bay, London adapters
+- **Refactoring:** Shared adapter utilities, function decomposition, ActionResult types
+- **Hasher-kennel linking:** Profile invites, user-side visibility, misman activity awareness
+- **Vercel Web Analytics** integration

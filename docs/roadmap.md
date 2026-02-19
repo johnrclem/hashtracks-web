@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-18
+Last updated: 2026-02-19
 
 **Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
 
@@ -18,23 +18,48 @@ Last updated: 2026-02-18
 - [x] Master-detail layout: event list + detail panel on desktop, full-page on mobile
 - [x] Admin UI: source management, manual scrape trigger, scrape logs, source health
 
-### Data Sources (17 live)
+### Data Sources (29 live)
+
+**NYC / NJ / Philly (7 sources)**
 - [x] **hashnyc.com** (HTML Scraper) — 11 NYC-area kennels
-- [x] **Boston Hash Calendar** (Google Calendar API) — 5 Boston kennels
 - [x] **Summit H3 Spreadsheet** (Google Sheets) — 3 NJ kennels (Summit, SFM, ASSSH3)
-- [x] **BFM Google Calendar** (Google Calendar API) — BFM (Philadelphia)
-- [x] **Philly H3 Google Calendar** (Google Calendar API) — Philly H3
+- [x] **BFM Google Calendar** (Google Calendar API) — BFM, Philly H3
+- [x] **Philly H3 Google Calendar** (Google Calendar API) — BFM, Philly H3
 - [x] **BFM Website** (HTML Scraper) — benfranklinmob.com + special events page
 - [x] **Philly H3 Website** (HTML Scraper) — hashphilly.com/nexthash/
+- [x] **Hash Rego** (Hash Rego) — BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3, FCH3 (multi-region aggregator)
+
+**Boston (1 source)**
+- [x] **Boston Hash Calendar** (Google Calendar API) — 5 Boston kennels
+
+**Chicago (3 sources)**
 - [x] **Chicagoland Hash Calendar** (Google Calendar API) — 11 Chicago-area kennels
-- [x] **EWH3 Google Calendar** (Google Calendar API) — EWH3 (DC)
-- [x] **SHITH3 Google Calendar** (Google Calendar API) — SHITH3 (DC)
+- [x] **Chicago Hash Website** (HTML Scraper) — CH3 (secondary enrichment)
+- [x] **Thirstday Hash Website** (HTML Scraper) — TH3 (secondary enrichment)
+
+**DC / DMV (8 sources)**
+- [x] **EWH3 Google Calendar** (Google Calendar API) — EWH3
+- [x] **SHITH3 Google Calendar** (Google Calendar API) — SHITH3
 - [x] **W3H3 Hareline Spreadsheet** (Google Sheets) — W3H3 (West Virginia)
-- [x] **City Hash Website** (HTML Scraper) — CityH3 (London)
-- [x] **West London Hash Website** (HTML Scraper) — WLH3 (London)
-- [x] **London Hash Run List** (HTML Scraper) — LH3 (London)
-- [x] **SFH3 MultiHash iCal Feed** (iCal Feed) — 11 SF Bay Area kennels
-- [x] **Hash Rego** (Hash Rego) — BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3 (DC/Philly aggregator)
+- [x] **Charm City H3 iCal Feed** (iCal Feed) — CCH3 (Baltimore)
+- [x] **BAH3 iCal Feed** (iCal Feed) — BAH3 (Baltimore/Annapolis)
+- [x] **EWH3 WordPress Trail News** (HTML Scraper) — EWH3 (secondary enrichment)
+- [x] **DCH4 WordPress Trail Posts** (HTML Scraper) — DCH4
+- [x] **OFH3 Blogspot Trail Posts** (HTML Scraper) — OFH3
+- [x] **Hangover H3 DigitalPress Blog** (HTML Scraper) — H4
+
+**SF Bay Area (2 sources)**
+- [x] **SFH3 MultiHash iCal Feed** (iCal Feed) — 13 SF Bay Area kennels
+- [x] **SFH3 MultiHash HTML Hareline** (HTML Scraper) — 13 SF Bay Area kennels (secondary enrichment)
+
+**London / UK (7 sources)**
+- [x] **London Hash Run List** (HTML Scraper) — LH3
+- [x] **City Hash Website** (HTML Scraper) — CityH3
+- [x] **West London Hash Website** (HTML Scraper) — WLH3
+- [x] **Barnes Hash Hare Line** (HTML Scraper) — BarnesH3
+- [x] **Old Coulsdon Hash Run List** (HTML Scraper) — OCH3
+- [x] **SLASH Run List** (HTML Scraper) — SLH3 (South London)
+- [x] **Enfield Hash Blog** (HTML Scraper) — EH3
 
 ### The Logbook — Sprint 5 COMPLETE
 - [x] "I Was There" one-click check-in (past events only, defaults to RUN)
@@ -69,6 +94,12 @@ Last updated: 2026-02-18
 - [x] Roster group requests: mismans request shared groups, admin approve/reject
 
 See [misman-attendance-requirements.md](misman-attendance-requirements.md) and [misman-implementation-plan.md](misman-implementation-plan.md) for full details.
+
+### Hasher-Kennel Linking — COMPLETE
+- [x] User-side visibility: KennelConnections on profile page (accept/decline/revoke link requests)
+- [x] PendingLinkRequests banner on logbook page (dismissible, benefits messaging)
+- [x] Profile invite from roster: misman generates invite link, hasher redeems via /invite/link
+- [x] User activity on attendance form: misman sees RSVPs/check-ins from site users with link-to-roster flow
 
 ### Source Monitoring & Self-Healing — COMPLETE
 - [x] Rolling-window health analysis (event count, fill rates, structure hash, consecutive failures)
@@ -122,6 +153,12 @@ See [kennel-page-redesign-spec.md](kennel-page-redesign-spec.md) for full spec.
 - [x] Vercel Cron daily scrapes (6:00 AM UTC) with CRON_SECRET auth
 - [x] Per-source `scrapeFreq` with interval-based skip logic
 - [x] Shared `scrapeSource()` for cron + admin routes
+- [x] Vercel Web Analytics integration
+
+### Codebase Refactoring (Phases 1-3) — COMPLETE
+- [x] Shared adapter utilities (`src/adapters/utils.ts`): date parsing, field extraction
+- [x] Function decomposition: long adapter functions split into focused helpers
+- [x] Pattern standardization: ActionResult discriminated union, consistent error handling
 
 ### EventLink + Hash Rego Adapter — COMPLETE
 - [x] EventLink model: extensible link table for external URLs on events (Hash Rego, Meetup, etc.)
@@ -132,11 +169,11 @@ See [kennel-page-redesign-spec.md](kennel-page-redesign-spec.md) for full spec.
 - [x] Seed: Hash Rego source with 7 kennel slugs (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3)
 
 ### Current Stats
-- 72 kennels (with rich profiles: schedule, social, hash cash, flags), 222 aliases, 17 sources
-- 6 regions: NYC/NJ/Philly/Boston (24 kennels), Chicago (11), DC/DMV (12), SF Bay Area (11), London (8), South Shore IN (1)
-- 5 adapter types: HTML_SCRAPER, GOOGLE_CALENDAR, GOOGLE_SHEETS, ICAL_FEED, HASHREGO
-- 22 models, 17 enums in Prisma schema
-- 756 tests across 39 test files
+- 79 kennels (with rich profiles: schedule, social, hash cash, flags), 238 aliases, 29 sources
+- 21 regions across 6 metro areas: NYC/NJ/Philly (17 kennels), Boston (5), Chicago (11), DC/DMV (19), SF Bay Area (13), London/UK (10), + South Shore IN (1), Rumson NJ (1)
+- 5 adapter types: HTML_SCRAPER (20 scrapers), GOOGLE_CALENDAR (5), GOOGLE_SHEETS (2), ICAL_FEED (3), HASHREGO (1)
+- 22 models, 16 enums in Prisma schema
+- 1075 tests across 51 test files
 
 ---
 
@@ -148,20 +185,23 @@ See [kennel-page-redesign-spec.md](kennel-page-redesign-spec.md) for full spec.
 
 ### Next Source Targets
 
-Regional research complete — see [kennel-research/](kennel-research/) for detailed per-kennel data. Ready to onboard:
+Regional research complete — see [kennel-research/](kennel-research/) for detailed per-kennel data.
 
-- [ ] **DC area kennels** (8 kennels researched) — EWH3, Are You My Daddy?, DC Nighthash, White House, DC H3, CAOCH3, NoVA, CHARM City
-  - Sources: ewh3.com, meetup.com, Google Calendars — see [dc-kennels.md](kennel-research/dc-kennels.md)
-  - Note: WH4, GFH3, DCH4, DCFMH3 are linked to Hash Rego source but need kennel seed data from DMV research doc
-- [ ] **Chicago area kennels** (9 kennels researched) — Chicago H3, Second City, Windy City, Barking Lot, and more
-  - Sources: chicagoh3.com, meetup.com — see [chicago-expanded.md](kennel-research/chicago-expanded.md)
-- [ ] **SF Bay Area kennels** (10 kennels researched) — SFH3, Nob Hill, Marin, East Bay, South Bay, and more
-  - Sources: sfh3.com, Google Calendar, meetup.com — see [sf-bay-area.md](kennel-research/sf-bay-area.md)
-- [x] **London kennels** (8 kennels seeded, 3 HTML scraper sources live) — LH3, CityH3, WLH3 + 5 more kennels ready for sources
-  - Sources live: londonhash.org run list, cityhash.house, westlondonhash.org — see [london-kennels.md](kennel-research/london-kennels.md)
+**Completed regions:**
+- [x] **DC/DMV area** (19 kennels, 8 sources) — EWH3, SHITH3, CCH3, W3H3, DCH4, WH4, BAH3, MVH3, OFH3, DCFMH3, GFH3, DCH3, OTH4, and more
+  - Sources: Google Calendars, iCal feeds, WordPress/Blogspot scrapers, Hash Rego — see [dc-kennels.md](kennel-research/dc-kennels.md)
+- [x] **Chicago area** (11 kennels, 3 sources) — CH3, TH3 + 9 via Chicagoland Calendar
+  - Sources: Chicagoland Google Calendar + CH3/TH3 website scrapers — see [chicago-expanded.md](kennel-research/chicago-expanded.md)
+- [x] **SF Bay Area** (13 kennels, 2 sources) — SFH3, GPH3, EBH3, SVH3, FHAC-U, FCH3, MarinH3, and more
+  - Sources: SFH3 iCal feed + HTML hareline scraper, Hash Rego for FCH3 — see [sf-bay-area.md](kennel-research/sf-bay-area.md)
+- [x] **London/UK** (10 kennels, 7 sources) — LH3, CityH3, WLH3, BarnesH3, OCH3, SLH3, EH3 + 3 directory-only
+  - Sources: 7 HTML scrapers — see [london-kennels.md](kennel-research/london-kennels.md)
+
+**Remaining opportunities:**
 - [ ] **Hash Rego kennel directory** — scrape `/kennels/` page for new kennel discovery + auto-onboarding
 - [ ] **gotothehash.net** — evaluate as a potential aggregator source (similar to hashnyc.com pattern)
 - [ ] **half-mind.com event listings** — evaluate as supplementary discovery data
+- [ ] **Meetup.com** — several kennels list events on Meetup (requires API or scraper)
 - [ ] Continue refining kennel resolver patterns as new sources reveal new name variants
 
 **Implementation notes:**
@@ -449,7 +489,7 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 ### Additional Adapter Types
 - [x] **iCal feed adapter** (`ICAL_FEED`): Live with SFH3 MultiHash source (11 Bay Area kennels)
 - [x] **Hash Rego adapter** (`HASHREGO`): Live with 7 DC/Philly kennel slugs, multi-day splitting
-- [ ] **RSS/Atom adapter** (`RSS_FEED`): For kennels with blog-style event posts
+- [ ] **RSS/Atom adapter** (`RSS_FEED`): For kennels with blog-style event posts (WordPress blog scrapers already cover some of this)
 - [ ] **hashnj.com HTML scraper**: Similar to hashnyc.com, different HTML structure
 - [ ] **Gemini AI parsing**: For complex multi-day event narrative text (campout descriptions with per-day schedules)
 
@@ -548,7 +588,7 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 
 | Phase | Sources | Effort per Source | Code Changes |
 |-------|---------|-------------------|--------------|
-| **Today** (manual) | 17 | ~1-2 hours | Adapter code + seed + resolver |
+| **Today** (manual) | 29 | ~1-2 hours | Adapter code + seed + resolver |
 | **Config-driven** (Priority 1) | 10-20 | ~15 min | Seed only (for Sheets/Calendar) |
 | **Admin UI** (Priority 1) | 20-50 | ~5 min | None (form-based config) |
 | **AI-assisted** (Long-term) | 50+ | ~5 min review | None |

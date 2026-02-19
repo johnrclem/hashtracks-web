@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 756 tests)
+- `npm test` — Run test suite (Vitest, 1075 tests)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -63,8 +63,8 @@ calendar + personal logbook + kennel directory.
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
 
 ## Important Files
-- `prisma/schema.prisma` — Full data model, 22 models + 17 enums (THE source of truth for types)
-- `prisma/seed.ts` — 72 kennels, 222 aliases, 17 sources across 6 regions (NYC, Boston, Chicago, DC, SF Bay, London)
+- `prisma/schema.prisma` — Full data model, 22 models + 16 enums (THE source of truth for types)
+- `prisma/seed.ts` — 79 kennels, 238 aliases, 29 sources across 21 regions
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
@@ -82,6 +82,18 @@ calendar + personal logbook + kennel directory.
 - `src/adapters/html-scraper/london-hash.ts` — London Hash run list scraper (LH3)
 - `src/adapters/html-scraper/city-hash.ts` — City Hash website scraper (CityH3)
 - `src/adapters/html-scraper/west-london-hash.ts` — West London Hash website scraper (WLH3)
+- `src/adapters/html-scraper/barnes-hash.ts` — Barnes Hash hare line scraper (BarnesH3)
+- `src/adapters/html-scraper/och3.ts` — Old Coulsdon Hash run list scraper (OCH3)
+- `src/adapters/html-scraper/slash-hash.ts` — SLASH run list scraper (SLH3)
+- `src/adapters/html-scraper/enfield-hash.ts` — Enfield Hash blog scraper (EH3)
+- `src/adapters/html-scraper/chicago-hash.ts` — Chicago Hash website scraper (CH3)
+- `src/adapters/html-scraper/chicago-th3.ts` — Thirstday Hash website scraper (TH3)
+- `src/adapters/html-scraper/sfh3.ts` — SFH3 MultiHash HTML hareline scraper (11 Bay Area kennels)
+- `src/adapters/html-scraper/ewh3.ts` — EWH3 WordPress trail news scraper
+- `src/adapters/html-scraper/dch4.ts` — DCH4 WordPress trail posts scraper
+- `src/adapters/html-scraper/ofh3.ts` — OFH3 Blogspot trail posts scraper
+- `src/adapters/html-scraper/hangover.ts` — Hangover H3 DigitalPress blog scraper
+- `src/adapters/utils.ts` — Shared adapter utilities (date parsing, field extraction)
 - `src/pipeline/merge.ts` — Raw→Canonical merge pipeline (fingerprint dedup + source-kennel guard)
 - `src/pipeline/kennel-resolver.ts` — Alias-based kennel name resolution (with pattern fallback)
 - `src/pipeline/scrape.ts` — Shared `scrapeSource()` used by cron + admin routes
@@ -105,7 +117,11 @@ calendar + personal logbook + kennel directory.
 - `src/lib/misman/suggestions.ts` — Smart suggestion scoring algorithm (pure function: frequency/recency/streak)
 - `src/lib/misman/verification.ts` — Derived verification status (verified/misman-only/user-only/none)
 - `src/components/misman/KennelSwitcher.tsx` — Kennel dropdown switcher for misman layout (preserves active tab)
-- `src/components/misman/UserLinkSection.tsx` — User linking UI (suggest, dismiss, revoke) on hasher detail
+- `src/components/misman/UserLinkSection.tsx` — User linking UI (suggest, dismiss, revoke, profile invite) on hasher detail
+- `src/components/misman/UserActivitySection.tsx` — User RSVP/check-in activity display on attendance form
+- `src/components/profile/KennelConnections.tsx` — Profile page kennel link requests + active connections
+- `src/components/logbook/PendingLinkRequests.tsx` — Logbook banner for pending kennel link suggestions
+- `src/app/invite/link/page.tsx` — Profile link invite redemption page (token-based)
 - `src/app/misman/invite/actions.ts` — Invite link generation, redemption, revocation for misman onboarding
 - `src/lib/invite.ts` — Invite token generation + validation helpers
 - `src/app/misman/[slug]/import/actions.ts` — CSV import preview + execute for historical attendance bulk loading
@@ -134,23 +150,48 @@ calendar + personal logbook + kennel directory.
 - `docs/misman-attendance-requirements.md` — Kennel attendance management (misman tool) requirements
 - `docs/misman-implementation-plan.md` — Sprint plan for misman feature (8a-8f)
 
-## Active Sources (17)
+## Active Sources (29)
+
+### NYC / NJ / Philly (7 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
-- **Boston Hash Calendar** → GOOGLE_CALENDAR → 5 Boston kennels
 - **Summit H3 Spreadsheet** → GOOGLE_SHEETS → 3 NJ kennels (Summit, SFM, ASSSH3)
-- **BFM Google Calendar** → GOOGLE_CALENDAR → BFM, Philly H3 (config-driven kennelPatterns)
-- **Philly H3 Google Calendar** → GOOGLE_CALENDAR → BFM, Philly H3 (config-driven kennelPatterns)
+- **BFM Google Calendar** → GOOGLE_CALENDAR → BFM, Philly H3
+- **Philly H3 Google Calendar** → GOOGLE_CALENDAR → BFM, Philly H3
 - **BFM Website** → HTML_SCRAPER → BFM
 - **Philly H3 Website** → HTML_SCRAPER → Philly H3
+- **Hash Rego** → HASHREGO → 8 kennels (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3, FCH3)
+
+### Boston (1 source)
+- **Boston Hash Calendar** → GOOGLE_CALENDAR → 5 Boston kennels
+
+### Chicago (3 sources)
 - **Chicagoland Hash Calendar** → GOOGLE_CALENDAR → 11 Chicago-area kennels
-- **EWH3 Google Calendar** → GOOGLE_CALENDAR → EWH3 (DC)
-- **SHITH3 Google Calendar** → GOOGLE_CALENDAR → SHITH3 (DC)
+- **Chicago Hash Website** → HTML_SCRAPER → CH3 (secondary)
+- **Thirstday Hash Website** → HTML_SCRAPER → TH3 (secondary)
+
+### DC / DMV (8 sources)
+- **EWH3 Google Calendar** → GOOGLE_CALENDAR → EWH3
+- **SHITH3 Google Calendar** → GOOGLE_CALENDAR → SHITH3
 - **W3H3 Hareline Spreadsheet** → GOOGLE_SHEETS → W3H3 (West Virginia)
-- **City Hash Website** → HTML_SCRAPER → CityH3 (London)
-- **West London Hash Website** → HTML_SCRAPER → WLH3 (London)
-- **London Hash Run List** → HTML_SCRAPER → LH3 (London)
-- **SFH3 MultiHash iCal Feed** → ICAL_FEED → 11 SF Bay Area kennels
-- **Hash Rego** → HASHREGO → 7 kennels (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3)
+- **Charm City H3 iCal Feed** → ICAL_FEED → CCH3 (Baltimore)
+- **BAH3 iCal Feed** → ICAL_FEED → BAH3 (Baltimore/Annapolis)
+- **EWH3 WordPress Trail News** → HTML_SCRAPER → EWH3 (secondary)
+- **DCH4 WordPress Trail Posts** → HTML_SCRAPER → DCH4
+- **OFH3 Blogspot Trail Posts** → HTML_SCRAPER → OFH3
+- **Hangover H3 DigitalPress Blog** → HTML_SCRAPER → H4
+
+### SF Bay Area (2 sources)
+- **SFH3 MultiHash iCal Feed** → ICAL_FEED → 13 SF Bay Area kennels
+- **SFH3 MultiHash HTML Hareline** → HTML_SCRAPER → 13 SF Bay Area kennels (secondary)
+
+### London / UK (7 sources)
+- **London Hash Run List** → HTML_SCRAPER → LH3
+- **City Hash Website** → HTML_SCRAPER → CityH3
+- **West London Hash Website** → HTML_SCRAPER → WLH3
+- **Barnes Hash Hare Line** → HTML_SCRAPER → BarnesH3
+- **Old Coulsdon Hash Run List** → HTML_SCRAPER → OCH3
+- **SLASH Run List** → HTML_SCRAPER → SLH3
+- **Enfield Hash Blog** → HTML_SCRAPER → EH3
 
 See `docs/source-onboarding-playbook.md` for how to add new sources.
 See `docs/roadmap.md` for implementation roadmap.
@@ -158,13 +199,13 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (756 tests across 39 files)
+- **Run:** `npm test` (1075 tests across 51 files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
 - **Convention:** Test files live next to source files as `*.test.ts`
 - **Coverage areas:**
-  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, London HTML scrapers (CityH3, WLH3, LH3), Hash Rego (index parsing, detail parsing, multi-day splitting)
+  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Hash Rego (index parsing, detail parsing, multi-day splitting), shared adapter utilities
   - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation
   - Server actions: logbook CRUD, profile, kennel subscriptions, admin CRUD, misman attendance/roster/history
   - Misman: audit log, hare sync, CSV import parsing, suggestion scoring, verification status, invite tokens
