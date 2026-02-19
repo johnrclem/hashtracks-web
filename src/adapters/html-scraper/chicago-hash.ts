@@ -9,20 +9,9 @@ import type {
   ErrorDetails,
 } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
+import { MONTHS, googleMapsSearchUrl, parse12HourTime } from "../utils";
 
-const MONTHS: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-  aug: 8, august: 8, sep: 9, september: 9, oct: 10, october: 10,
-  nov: 11, november: 11, dec: 12, december: 12,
-};
-
-/**
- * Generate a Google Maps search URL from a location string.
- */
-function mapsUrl(location: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-}
+const mapsUrl = googleMapsSearchUrl;
 
 /**
  * Extract run number from a CH3 post title.
@@ -135,16 +124,9 @@ export function parseBodyFields(bodyText: string): {
  * Parse time from text like "2:00 PM", "7:00 PM", "14:00".
  */
 export function parseTimeString(text: string): string | null {
-  // Try 12-hour format: "2:00 PM", "7:00pm"
-  const match12 = text.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
-  if (match12) {
-    let hours = parseInt(match12[1], 10);
-    const minutes = match12[2];
-    const ampm = match12[3].toLowerCase();
-    if (ampm === "pm" && hours !== 12) hours += 12;
-    if (ampm === "am" && hours === 12) hours = 0;
-    return `${hours.toString().padStart(2, "0")}:${minutes}`;
-  }
+  // Try 12-hour format via shared utility
+  const result12 = parse12HourTime(text);
+  if (result12) return result12;
 
   // Try 24-hour format: "14:00"
   const match24 = text.match(/(\d{2}):(\d{2})/);
@@ -268,24 +250,26 @@ export class ChicagoHashAdapter implements SourceAdapter {
         });
         if (!response.ok) {
           const message = `HTTP ${response.status}: ${response.statusText}`;
+          errors.push(message);
           errorDetails.fetch = [
             ...(errorDetails.fetch ?? []),
             { url: currentUrl, status: response.status, message },
           ];
           if (pagesFetched === 0) {
-            return { events: [], errors: [message], errorDetails };
+            return { events: [], errors, errorDetails };
           }
           break;
         }
         html = await response.text();
       } catch (err) {
         const message = `Fetch failed: ${err}`;
+        errors.push(message);
         errorDetails.fetch = [
           ...(errorDetails.fetch ?? []),
           { url: currentUrl, message },
         ];
         if (pagesFetched === 0) {
-          return { events: [], errors: [message], errorDetails };
+          return { events: [], errors, errorDetails };
         }
         break;
       }

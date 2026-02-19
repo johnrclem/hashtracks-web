@@ -300,6 +300,56 @@ describe("ChicagoHashAdapter.fetch", () => {
     vi.restoreAllMocks();
   });
 
+  it("reports error when later page fails with HTTP error", async () => {
+    const page1Html = SAMPLE_HTML.replace(
+      "</main>",
+      '<nav><a class="next" href="/page/2/">Older posts</a></nav></main>',
+    );
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(page1Html, { status: 200 }))
+      .mockResolvedValueOnce(new Response("Server Error", { status: 500, statusText: "Internal Server Error" }));
+
+    const adapter = new ChicagoHashAdapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://chicagohash.org/",
+    } as never);
+
+    // Should still have page 1 events
+    expect(result.events).toHaveLength(3);
+    // But errors array must be non-empty so scrape pipeline sees the failure
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errorDetails?.fetch).toHaveLength(1);
+    expect(result.errorDetails!.fetch![0].status).toBe(500);
+
+    vi.restoreAllMocks();
+  });
+
+  it("reports error when later page fails with network error", async () => {
+    const page1Html = SAMPLE_HTML.replace(
+      "</main>",
+      '<nav><a class="next" href="/page/2/">Older posts</a></nav></main>',
+    );
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(page1Html, { status: 200 }))
+      .mockRejectedValueOnce(new Error("Connection reset"));
+
+    const adapter = new ChicagoHashAdapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://chicagohash.org/",
+    } as never);
+
+    expect(result.events).toHaveLength(3);
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0]).toContain("Connection reset");
+    expect(result.errorDetails?.fetch).toHaveLength(1);
+
+    vi.restoreAllMocks();
+  });
+
   it("returns fetch error on network failure", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
       new Error("Network error"),
