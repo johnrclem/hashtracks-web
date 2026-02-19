@@ -13,6 +13,7 @@ import { BarnesHashAdapter } from "./html-scraper/barnes-hash";
 import { OCH3Adapter } from "./html-scraper/och3";
 import { SlashHashAdapter } from "./html-scraper/slash-hash";
 import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
+import { SFH3Adapter } from "./html-scraper/sfh3";
 
 describe("getAdapter", () => {
   it("returns HashNYCAdapter for HTML_SCRAPER (default)", () => {
@@ -41,6 +42,10 @@ describe("getAdapter", () => {
 
   it("returns LondonHashAdapter for londonhash.org URL", () => {
     expect(getAdapter("HTML_SCRAPER", "https://www.londonhash.org/runlist.php")).toBeInstanceOf(LondonHashAdapter);
+  });
+
+  it("returns SFH3Adapter for sfh3.com URL", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://www.sfh3.com/runs?kennels=all")).toBeInstanceOf(SFH3Adapter);
   });
 
   it("returns GoogleCalendarAdapter for GOOGLE_CALENDAR", () => {

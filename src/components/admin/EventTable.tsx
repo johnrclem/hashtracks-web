@@ -179,11 +179,11 @@ export function EventTable({
 
     startTransition(async () => {
       const result = await deleteEvent(event.id);
-      if (result.error) {
+      if (!result.success) {
         toast.error(result.error);
       } else {
         toast.success(
-          `Deleted event: ${result.kennelName} ${formatDate(result.date!)}`,
+          `Deleted event: ${result.kennelName} ${formatDate(result.date)}`,
         );
       }
       router.refresh();
@@ -193,14 +193,14 @@ export function EventTable({
   function handleBulkPreview() {
     startTransition(async () => {
       const result = await previewBulkDelete(filters);
-      if (result.error) {
+      if (!result.success) {
         toast.error(result.error);
         return;
       }
       setBulkPreview({
-        count: result.count!,
-        totalAttendances: result.totalAttendances!,
-        sampleEvents: result.sampleEvents!,
+        count: result.count,
+        totalAttendances: result.totalAttendances,
+        sampleEvents: result.sampleEvents,
       });
       setShowBulkDialog(true);
     });
@@ -209,7 +209,7 @@ export function EventTable({
   function handleBulkDelete() {
     startTransition(async () => {
       const result = await bulkDeleteEvents(filters);
-      if (result.error) {
+      if (!result.success) {
         toast.error(result.error);
       } else {
         toast.success(`Deleted ${result.deletedCount} event(s)`);
@@ -223,7 +223,7 @@ export function EventTable({
   function handleSelectedDelete() {
     startTransition(async () => {
       const result = await deleteSelectedEvents(Array.from(selectedIds));
-      if (result.error) {
+      if (!result.success) {
         toast.error(result.error);
       } else {
         toast.success(`Deleted ${result.deletedCount} event(s)`);

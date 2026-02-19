@@ -1,5 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import { googleMapsSearchUrl, validateSourceConfig } from "../utils";
 
 /** Config stored in Source.config JSON for Google Sheets sources */
 interface GoogleSheetsConfig {
@@ -125,12 +126,7 @@ export function parseCSV(text: string): string[][] {
   return rows;
 }
 
-/**
- * Generate a Google Maps search URL from a location string.
- */
-function mapsUrl(location: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-}
+const mapsUrl = googleMapsSearchUrl;
 
 export class GoogleSheetsAdapter implements SourceAdapter {
   type = "GOOGLE_SHEETS" as const;
@@ -139,9 +135,14 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     source: Source,
     options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const config = source.config as unknown as GoogleSheetsConfig;
-    if (!config?.sheetId) {
-      return { events: [], errors: ["Missing sheetId in source config"], errorDetails: { fetch: [{ message: "Missing sheetId in source config" }] } };
+    let config: GoogleSheetsConfig;
+    try {
+      config = validateSourceConfig<GoogleSheetsConfig>(
+        source.config, "GoogleSheetsAdapter", { sheetId: "string", columns: "object", kennelTagRules: "object" },
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Invalid source config";
+      return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
     }
 
     const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;

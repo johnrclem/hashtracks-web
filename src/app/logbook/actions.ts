@@ -2,13 +2,15 @@
 
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getTodayUtcNoon } from "@/lib/date";
 import { parseParticipationLevel } from "@/lib/format";
+import type { ActionResult } from "@/lib/actions";
 import { revalidatePath } from "next/cache";
 
 export async function checkIn(
   eventId: string,
   participationLevel?: string,
-) {
+): Promise<ActionResult<{ attendanceId: string }>> {
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
 
@@ -20,13 +22,7 @@ export async function checkIn(
   if (!event) return { error: "Event not found" };
 
   // Validate event is today or in the past (UTC noon comparison)
-  const now = new Date();
-  const todayUtcNoon = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    12, 0, 0,
-  );
+  const todayUtcNoon = getTodayUtcNoon();
   if (event.date.getTime() > todayUtcNoon) {
     return { error: "Can only check in to today's or past events" };
   }
@@ -72,7 +68,7 @@ export async function updateAttendance(
     stravaUrl?: string | null;
     notes?: string | null;
   },
-) {
+): Promise<ActionResult> {
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
 
@@ -111,13 +107,7 @@ export async function rsvp(eventId: string) {
   if (!event) return { error: "Event not found" };
 
   // Validate event is in the future — today's events can be checked in, not RSVP'd
-  const now = new Date();
-  const todayUtcNoon = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    12, 0, 0,
-  );
+  const todayUtcNoon = getTodayUtcNoon();
   if (event.date.getTime() <= todayUtcNoon) {
     return { error: "Can only RSVP to future events" };
   }
@@ -154,7 +144,7 @@ export async function rsvp(eventId: string) {
 export async function confirmAttendance(
   attendanceId: string,
   participationLevel?: string,
-) {
+): Promise<ActionResult> {
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
 
@@ -167,13 +157,7 @@ export async function confirmAttendance(
   if (attendance.status !== "INTENDING") return { error: "Already confirmed" };
 
   // Validate event is today or in the past
-  const now = new Date();
-  const todayUtcNoon = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    12, 0, 0,
-  );
+  const todayUtcNoon = getTodayUtcNoon();
   if (attendance.event.date.getTime() > todayUtcNoon) {
     return { error: "Event hasn't happened yet" };
   }
@@ -191,7 +175,7 @@ export async function confirmAttendance(
   return { success: true };
 }
 
-export async function deleteAttendance(attendanceId: string) {
+export async function deleteAttendance(attendanceId: string): Promise<ActionResult> {
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
 
@@ -279,7 +263,7 @@ export async function getPendingConfirmations() {
  * Confirm a misman attendance record into the user's logbook.
  * Creates an Attendance record with participation level based on haredThisTrail.
  */
-export async function confirmMismanAttendance(kennelAttendanceId: string) {
+export async function confirmMismanAttendance(kennelAttendanceId: string): Promise<ActionResult<{ attendanceId: string }>> {
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
 

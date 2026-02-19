@@ -6,6 +6,9 @@ import { HashPhillyAdapter } from "./html-scraper/hashphilly";
 import { CityHashAdapter } from "./html-scraper/city-hash";
 import { WestLondonHashAdapter } from "./html-scraper/west-london-hash";
 import { LondonHashAdapter } from "./html-scraper/london-hash";
+import { ChicagoHashAdapter } from "./html-scraper/chicago-hash";
+import { ChicagoTH3Adapter } from "./html-scraper/chicago-th3";
+import { SFH3Adapter } from "./html-scraper/sfh3";
 import { EWH3Adapter } from "./html-scraper/ewh3";
 import { DCH4Adapter } from "./html-scraper/dch4";
 import { OFH3Adapter } from "./html-scraper/ofh3";
@@ -38,6 +41,9 @@ const htmlScrapersByUrl: [RegExp, () => SourceAdapter][] = [
   [/londonhash\.org\/slah3/i, () => new SlashHashAdapter()],
   [/londonhash\.org/i, () => new LondonHashAdapter()],
   [/enfieldhash\.org/i, () => new EnfieldHashAdapter()],
+  [/chicagohash\.org/i, () => new ChicagoHashAdapter()],
+  [/chicagoth3\.com/i, () => new ChicagoTH3Adapter()],
+  [/sfh3\.com/i, () => new SFH3Adapter()],
   [/ewh3\.com/i, () => new EWH3Adapter()],
   [/dch4\.org/i, () => new DCH4Adapter()],
   [/ofh3\.com/i, () => new OFH3Adapter()],
