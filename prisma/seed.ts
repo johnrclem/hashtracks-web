@@ -763,6 +763,72 @@ async function main() {
       },
       kennelCodes: ["sfh3", "gph3", "ebh3", "svh3", "fhac-u", "agnews", "barh3", "marinh3", "fch3", "sffmh3", "vmh3", "mwh3", "262h3"],
     },
+    // DC / DMV area — iCal feeds (ai1ec WordPress plugin)
+    {
+      name: "Charm City H3 iCal Feed",
+      url: "https://charmcityh3.com/?plugin=all-in-one-event-calendar&controller=ai1ec_exporter_controller&action=export_events&no_html=true",
+      type: "ICAL_FEED" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        kennelPatterns: [
+          ["^CCH3", "CCH3"],
+          ["^Trail\\s*#", "CCH3"],
+        ],
+        defaultKennelTag: "CCH3",
+      },
+      kennelCodes: ["cch3"],
+    },
+    {
+      name: "BAH3 iCal Feed",
+      url: "https://www.bah3.org/?plugin=all-in-one-event-calendar&controller=ai1ec_exporter_controller&action=export_events&no_html=true",
+      type: "ICAL_FEED" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        defaultKennelTag: "BAH3",
+      },
+      kennelCodes: ["bah3"],
+    },
+    // DC / DMV area — HTML scraper sources
+    {
+      name: "EWH3 WordPress Trail News",
+      url: "https://www.ewh3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["ewh3"],
+    },
+    {
+      name: "DCH4 WordPress Trail Posts",
+      url: "https://dch4.org/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["dch4"],
+    },
+    {
+      name: "OFH3 Blogspot Trail Posts",
+      url: "https://www.ofh3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      kennelCodes: ["ofh3"],
+    },
+    {
+      name: "Hangover H3 DigitalPress Blog",
+      url: "https://hangoverhash.digitalpress.blog/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      kennelCodes: ["h4"],
+    },
     // Hash Rego (hashrego.com — multi-kennel registration platform)
     {
       name: "Hash Rego",
