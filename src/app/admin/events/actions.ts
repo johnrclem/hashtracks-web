@@ -2,13 +2,34 @@
 
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
+import type { ActionResult } from "@/lib/actions";
 import { revalidatePath } from "next/cache";
+
+/**
+ * Cascade-delete events: unlink RawEvents, remove dependents, delete events.
+ * RawEvents are preserved (immutable audit trail) but unlinked.
+ */
+async function deleteEventsCascade(eventIds: string[]) {
+  await prisma.$transaction([
+    // Unlink RawEvents (preserve immutable audit trail)
+    prisma.rawEvent.updateMany({
+      where: { eventId: { in: eventIds } },
+      data: { eventId: null, processed: false },
+    }),
+    // Delete dependent records
+    prisma.eventHare.deleteMany({ where: { eventId: { in: eventIds } } }),
+    prisma.attendance.deleteMany({ where: { eventId: { in: eventIds } } }),
+    prisma.kennelAttendance.deleteMany({ where: { eventId: { in: eventIds } } }),
+    // Delete events
+    prisma.event.deleteMany({ where: { id: { in: eventIds } } }),
+  ]);
+}
 
 /**
  * Delete a single canonical Event and cascade-clean related records.
  * RawEvents are preserved (immutable audit trail) but unlinked.
  */
-export async function deleteEvent(eventId: string) {
+export async function deleteEvent(eventId: string): Promise<ActionResult<{ kennelName: string; date: string }>> {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
@@ -18,19 +39,7 @@ export async function deleteEvent(eventId: string) {
   });
   if (!event) return { error: "Event not found" };
 
-  await prisma.$transaction([
-    // Unlink RawEvents (preserve immutable audit trail)
-    prisma.rawEvent.updateMany({
-      where: { eventId },
-      data: { eventId: null, processed: false },
-    }),
-    // Delete dependent records
-    prisma.eventHare.deleteMany({ where: { eventId } }),
-    prisma.attendance.deleteMany({ where: { eventId } }),
-    prisma.kennelAttendance.deleteMany({ where: { eventId } }),
-    // Delete the event itself
-    prisma.event.delete({ where: { id: eventId } }),
-  ]);
+  await deleteEventsCascade([eventId]);
 
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
@@ -96,7 +105,7 @@ export async function bulkDeleteEvents(filters: {
   sourceId?: string;
   dateStart?: string;
   dateEnd?: string;
-}) {
+}): Promise<ActionResult<{ deletedCount: number }>> {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
@@ -112,19 +121,7 @@ export async function bulkDeleteEvents(filters: {
 
   const eventIds = events.map((e) => e.id);
 
-  await prisma.$transaction([
-    // Unlink RawEvents
-    prisma.rawEvent.updateMany({
-      where: { eventId: { in: eventIds } },
-      data: { eventId: null, processed: false },
-    }),
-    // Delete dependent records
-    prisma.eventHare.deleteMany({ where: { eventId: { in: eventIds } } }),
-    prisma.attendance.deleteMany({ where: { eventId: { in: eventIds } } }),
-    prisma.kennelAttendance.deleteMany({ where: { eventId: { in: eventIds } } }),
-    // Delete events
-    prisma.event.deleteMany({ where: { id: { in: eventIds } } }),
-  ]);
+  await deleteEventsCascade(eventIds);
 
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
@@ -134,23 +131,14 @@ export async function bulkDeleteEvents(filters: {
 /**
  * Delete specific events by ID (for multi-select bulk delete).
  */
-export async function deleteSelectedEvents(eventIds: string[]) {
+export async function deleteSelectedEvents(eventIds: string[]): Promise<ActionResult<{ deletedCount: number }>> {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
   if (eventIds.length === 0) return { success: true, deletedCount: 0 };
   if (eventIds.length > 500) return { error: "Too many events selected (max 500)" };
 
-  await prisma.$transaction([
-    prisma.rawEvent.updateMany({
-      where: { eventId: { in: eventIds } },
-      data: { eventId: null, processed: false },
-    }),
-    prisma.eventHare.deleteMany({ where: { eventId: { in: eventIds } } }),
-    prisma.attendance.deleteMany({ where: { eventId: { in: eventIds } } }),
-    prisma.kennelAttendance.deleteMany({ where: { eventId: { in: eventIds } } }),
-    prisma.event.deleteMany({ where: { id: { in: eventIds } } }),
-  ]);
+  await deleteEventsCascade(eventIds);
 
   revalidatePath("/admin/events");
   revalidatePath("/hareline");

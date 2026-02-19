@@ -1,5 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import { googleMapsSearchUrl } from "../utils";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -79,12 +80,7 @@ export function extractHares(description: string): string | undefined {
   return undefined;
 }
 
-/**
- * Generate a Google Maps search URL from a location string.
- */
-function mapsUrl(location: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-}
+const mapsUrl = googleMapsSearchUrl;
 
 /** Config shape for Google Calendar sources */
 interface CalendarSourceConfig {
@@ -238,7 +234,9 @@ export class GoogleCalendarAdapter implements SourceAdapter {
             : undefined;
 
           // Kennel tag resolution: config patterns → defaultKennelTag → Boston fallback
-          const sourceConfig = source.config as CalendarSourceConfig | null;
+          const sourceConfig = (source.config && typeof source.config === "object" && !Array.isArray(source.config))
+            ? source.config as CalendarSourceConfig
+            : null;
           let kennelTag: string;
           if (sourceConfig?.kennelPatterns) {
             kennelTag = matchConfigPatterns(item.summary, sourceConfig.kennelPatterns)

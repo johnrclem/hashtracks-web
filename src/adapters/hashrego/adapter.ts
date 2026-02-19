@@ -1,5 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import { validateSourceConfig } from "../utils";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import {
   parseEventsIndex,
@@ -30,7 +31,14 @@ export class HashRegoAdapter implements SourceAdapter {
     source: Source,
     _options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const config = (source.config as HashRegoConfig | null) ?? { kennelSlugs: [] };
+    let config: HashRegoConfig;
+    try {
+      config = validateSourceConfig<HashRegoConfig>(
+        source.config, "HashRegoAdapter", { kennelSlugs: "array" },
+      );
+    } catch {
+      return { events: [], errors: ["No kennelSlugs configured — nothing to scrape"] };
+    }
     const kennelSlugs = new Set(
       config.kennelSlugs.map((s) => s.toUpperCase()),
     );
