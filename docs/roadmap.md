@@ -514,6 +514,22 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 - [ ] Double-header handling (same kennel, same day, two events)
 - [ ] Email/notification integration for source health alerts
 
+### Codebase Refactoring (Phase 4 — Structural Splits)
+
+*Phases 1-3 complete (shared utilities, function decomposition, pattern standardization). Phase 4 items are lower-priority structural splits — each should be its own PR.*
+
+- [ ] **Split large server action files** — one commit per file
+  - `src/app/admin/kennels/actions.ts` (648 lines): CRUD vs profile fields vs helpers
+  - `src/app/admin/alerts/actions.ts` (592 lines): Status lifecycle vs repair actions
+  - `src/app/misman/[slug]/attendance/actions.ts` (700+ lines): Recording vs polling vs suggestions
+- [ ] **Split large component files** — extract co-located sub-components
+  - `src/components/admin/EventTable.tsx` (647 lines): Filter bar, table body, bulk actions
+  - `src/components/admin/RosterGroupsAdmin.tsx` (582 lines): Group card, create form, pending queue
+  - `src/components/admin/SourceTable.tsx` (517 lines): Row component, health badge, actions
+  - `src/components/admin/KennelForm.tsx` (516 lines): Main form, alias manager, social links
+  - `src/components/misman/ImportWizard.tsx` (502 lines): Per-step sub-components
+- [ ] **Centralize `revalidatePath` strings** — create `src/lib/paths.ts` constants, replace 124 hardcoded calls
+
 ### Deferred (Low Priority)
 - Per-kennel trust level overrides: allow different trust levels per source-kennel pair (e.g., Hash Rego high-trust for WH4 primary source, low-trust for BFM enrichment)
 - Kennel Directory "Recently Active" sort: extend to include recent past events (currently only uses upcoming events)
