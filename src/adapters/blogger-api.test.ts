@@ -60,14 +60,21 @@ describe("fetchBloggerPosts", () => {
     expect(result.posts[1].title).toBe("Run #265");
     expect(result.fetchDurationMs).toBeDefined();
 
-    // Verify correct API URLs were called
+    // Verify correct API URLs were called (API key in header, not URL)
     const calls = vi.mocked(fetch).mock.calls;
     expect(calls[0][0]).toContain("/blogs/byurl");
     expect(calls[0][0]).toContain("url=http%3A%2F%2Fwww.example.com%2F");
-    expect(calls[0][0]).toContain("key=test-api-key");
+    expect(calls[0][0]).not.toContain("key=");
     expect(calls[1][0]).toContain("/blogs/12345/posts");
     expect(calls[1][0]).toContain("maxResults=25");
     expect(calls[1][0]).toContain("fetchBodies=true");
+    expect(calls[1][0]).not.toContain("key=");
+
+    // Verify API key is sent via header
+    const blogLookupInit = calls[0][1] as RequestInit;
+    expect(blogLookupInit.headers).toEqual({ "X-Goog-Api-Key": "test-api-key" });
+    const postsInit = calls[1][1] as RequestInit;
+    expect(postsInit.headers).toEqual({ "X-Goog-Api-Key": "test-api-key" });
   });
 
   it("passes custom maxResults", async () => {
