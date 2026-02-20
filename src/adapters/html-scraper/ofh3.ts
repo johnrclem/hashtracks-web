@@ -13,21 +13,37 @@ const MONTHS: Record<string, number> = {
 
 /**
  * Parse a date string like "Saturday, March 14, 2026" into YYYY-MM-DD.
- * Also handles: "March 14, 2026", "March 14th, 2026"
+ * Also handles: "March 14, 2026", "March 14th, 2026", "3.14.26" (M.DD.YY)
  */
 export function parseOfh3Date(text: string): string | null {
-  const match = text.match(/(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/i);
-  if (!match) return null;
+  // Try named month format first: "March 14, 2026", "March 14th, 2026"
+  const namedMatch = text.match(/(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/i);
+  if (namedMatch) {
+    const monthNum = MONTHS[namedMatch[1].toLowerCase()];
+    if (monthNum) {
+      const day = parseInt(namedMatch[2], 10);
+      const year = parseInt(namedMatch[3], 10);
+      if (day >= 1 && day <= 31) {
+        return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      }
+    }
+  }
 
-  const monthNum = MONTHS[match[1].toLowerCase()];
-  if (!monthNum) return null;
+  // Try dot-separated format: "3.14.26" or "03.14.2026" (M.DD.YY or MM.DD.YYYY)
+  const dotMatch = text.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
+  if (dotMatch) {
+    const month = parseInt(dotMatch[1], 10);
+    const day = parseInt(dotMatch[2], 10);
+    let year = parseInt(dotMatch[3], 10);
+    if (year < 100) {
+      year += year < 50 ? 2000 : 1900;
+    }
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
 
-  const day = parseInt(match[2], 10);
-  const year = parseInt(match[3], 10);
-
-  if (day < 1 || day > 31) return null;
-
-  return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return null;
 }
 
 /**
@@ -96,14 +112,19 @@ function processPost(
   const bodyFields = parseOfh3Body(bodyText);
 
   if (!bodyFields.date) {
-    if (bodyText.trim().length > 0) {
-      errors.push(`Could not parse date from post: ${titleText || "(untitled)"}`);
-      errorDetails.parse = [...(errorDetails.parse ?? []), {
-        row: index, section: "post", field: "date",
-        error: `No date found in post: ${titleText || "(untitled)"}`,
-      }];
+    // Try extracting date from the title (e.g., "OFH3 Trail #387 - June 1, 2025 - ...")
+    const titleDate = parseOfh3Date(titleText);
+    if (!titleDate) {
+      if (bodyText.trim().length > 0) {
+        errors.push(`Could not parse date from post: ${titleText || "(untitled)"}`);
+        errorDetails.parse = [...(errorDetails.parse ?? []), {
+          row: index, section: "post", field: "date",
+          error: `No date found in post: ${titleText || "(untitled)"}`,
+        }];
+      }
+      return null;
     }
-    return null;
+    bodyFields.date = titleDate;
   }
 
   // Build description from trail details

@@ -22,6 +22,27 @@ describe("parseOfh3Date", () => {
     expect(parseOfh3Date("Sat, Dec 13, 2025")).toBe("2025-12-13");
   });
 
+  it("parses dot-separated M.DD.YY format", () => {
+    expect(parseOfh3Date("3.14.26")).toBe("2026-03-14");
+  });
+
+  it("parses dot-separated MM.DD.YY format", () => {
+    expect(parseOfh3Date("12.25.25")).toBe("2025-12-25");
+  });
+
+  it("parses dot-separated MM.DD.YYYY format", () => {
+    expect(parseOfh3Date("03.14.2026")).toBe("2026-03-14");
+  });
+
+  it("parses dot-separated date embedded in title text", () => {
+    expect(parseOfh3Date("OFH3 Trail #396 - March Trail 3.14.26")).toBe("2026-03-14");
+  });
+
+  it("returns null for invalid dot-separated date", () => {
+    expect(parseOfh3Date("13.32.26")).toBeNull();
+    expect(parseOfh3Date("0.14.26")).toBeNull();
+  });
+
   it("returns null for invalid input", () => {
     expect(parseOfh3Date("TBA")).toBeNull();
     expect(parseOfh3Date("no date here")).toBeNull();
@@ -111,6 +132,67 @@ const SAMPLE_HTML = `
   </div>
 </body>
 </html>`;
+
+describe("OFH3Adapter title fallback", () => {
+  let adapter: OFH3Adapter;
+
+  beforeEach(() => {
+    adapter = new OFH3Adapter();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("extracts date from title when body has no When field", async () => {
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "OFH3 Trail #387 - June 1, 2025 - Tour Duh Hash Trail",
+          content: "<p><b>Hares:</b> Some Hasher</p><p><b>Where:</b> Downtown</p>",
+          url: "https://www.ofh3.com/2025/06/tour-duh-hash.html",
+          published: "2025-05-20T12:00:00Z",
+        },
+      ],
+      blogId: "67890",
+      fetchDurationMs: 100,
+    });
+
+    const result = await adapter.fetch({
+      id: "test-ofh3",
+      url: "https://www.ofh3.com/",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].date).toBe("2025-06-01");
+    expect(result.events[0].hares).toBe("Some Hasher");
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("extracts dot-separated date from title when body has no When field", async () => {
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "OFH3 Trail #396 - March Trail 3.14.26",
+          content: "<p><b>Hares:</b> Lucky</p><p><b>Where:</b> Blue Heron</p>",
+          url: "https://www.ofh3.com/2026/03/march-trail.html",
+          published: "2026-03-01T12:00:00Z",
+        },
+      ],
+      blogId: "67890",
+      fetchDurationMs: 100,
+    });
+
+    const result = await adapter.fetch({
+      id: "test-ofh3",
+      url: "https://www.ofh3.com/",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].date).toBe("2026-03-14");
+    expect(result.errors).toHaveLength(0);
+  });
+});
 
 describe("OFH3Adapter.fetch (Blogger API path)", () => {
   let adapter: OFH3Adapter;
