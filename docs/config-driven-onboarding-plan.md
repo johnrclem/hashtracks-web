@@ -314,22 +314,14 @@ Help admins bootstrap a new source with smart defaults. Two tiers: deterministic
 
 ## Implementation Order
 
-| Phase | Scope | New Files | Modified Files | Effort |
-|-------|-------|-----------|----------------|--------|
-| 1 | Foundation (config + scrapeDays plumbing) | 0 | 4 | Small |
-| 2 | Calendar + iCal panels + server validation | 3 + 1 test | 2 | Medium |
-| 3 | Preview mode | 1 | 2 | Medium |
-| 4 | Hash Rego panel | 1 | 2 | Small |
-| 5 | Google Sheets panel | 1 | 2 | Large |
-| 6 | Auto-detect + pattern suggestion | 1 + 1 test | 3 | Medium |
-
-**Phases 1-3** deliver the most immediate value — existing sources become editable, Calendar/iCal configs get proper UIs, and preview mode enables troubleshooting.
-
-**Phase 4** is quick (simple list editor).
-
-**Phase 5** is complex UI but Sheets sources are added rarely.
-
-**Phase 6** is additive — auto-detect is lightweight (client-side URL analysis), pattern suggestion builds on preview data.
+| Phase | Scope | Status |
+|-------|-------|--------|
+| 1 | Foundation (config + scrapeDays plumbing) | ✅ Merged (PR #41) |
+| 2 | Calendar + iCal panels + server validation | ✅ Merged (PR #43) |
+| 3 | Preview mode ("Test Config" dry-run) | ✅ Merged (PR #45) |
+| 4 | Hash Rego config panel | ✅ Merged (PR #46) |
+| 5 | Google Sheets config panel | ✅ Merged (PR #46, shipped with Phase 4) |
+| 6 | Auto-detect + pattern suggestion | ✅ Merged (PR #47) |
 
 ---
 
@@ -381,7 +373,24 @@ After each phase:
 15. Edit Summit Sheets → verify column mapping, kennel tag rules, start time rules all populated
 16. Create new Sheets source with column mapping → Save → verify scrape works
 
-### Phase 6 — Auto-detect
-17. Paste Google Calendar URL → verify type auto-selects + hint shows
-18. Paste `.ics` URL → verify ICAL_FEED selected
-19. Preview → "Suggest Patterns" → verify suggestions match event titles
+### Phase 6 — Auto-detect + Suggest Patterns
+17. Paste Google Sheets URL → verify type auto-selects to GOOGLE_SHEETS + sheetId pre-fills in config
+18. Paste Google Calendar embed URL → verify type = GOOGLE_CALENDAR + url field replaced with calendarId
+19. Paste `.ics` URL → verify ICAL_FEED selected
+20. Manually change type after auto-detect → verify no auto-override on next blur
+21. Run "Test Config" on Calendar source with unmatched tags → verify suggestion chips appear
+22. Accept suggestion chip → verify `[tag, tag]` appended in KennelPatternsEditor
+23. Reject chip → verify it disappears
+24. Open Edit on a source with open UNMATCHED_TAGS alert → verify suggestion chips pre-loaded from alert context
+25. Verify amber "X unmatched tags" badge in form title for sources with open alerts
+
+---
+
+## Future Items
+
+These are tracked for future phases after Phase 6:
+
+- **Inline alias creation** — unmatched tag badges in PreviewResults get a "Create Alias" button so admin can fix DB-side kennel resolution without leaving the source form (currently requires going to /admin/alerts separately)
+- **HTML_SCRAPER config panel** — structured editor for CSS selectors/XPath for kennel extraction (lower priority since HTML scrapers still require custom adapter code)
+- **Guided Source Wizard** — multi-step flow (URL → type → config → test → link kennels → save) to guide first-time admins step by step
+- **AI config generation (Tier 3)** — Gemini analyzes fetched HTML/iCal and proposes `kennelPatterns`, column mappings, or skip patterns (long-term AI roadmap item, requires `GEMINI_API_KEY`)

@@ -50,6 +50,7 @@ type SourceData = {
   lastSuccessAt: string | null;
   linkedKennels: { id: string; shortName: string; fullName: string }[];
   rawEventCount: number;
+  openAlertTags: string[];
 };
 
 interface SourceTableProps {
@@ -482,6 +483,7 @@ function SourceRow({
                 config: source.config,
                 linkedKennelIds: source.linkedKennels.map((k) => k.id),
               }}
+              openAlertTags={source.openAlertTags}
               allKennels={allKennels}
               trigger={
                 <button
