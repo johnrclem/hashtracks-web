@@ -5,6 +5,8 @@ import { RefreshAllButton } from "@/components/admin/RefreshAllButton";
 import { Button } from "@/components/ui/button";
 
 export default async function AdminSourcesPage() {
+  const geminiAvailable = !!process.env.GEMINI_API_KEY;
+
   const [sources, openAlerts] = await Promise.all([
     prisma.source.findMany({
       orderBy: { name: "asc" },
@@ -70,12 +72,13 @@ export default async function AdminSourcesPage() {
           <RefreshAllButton />
           <SourceForm
             allKennels={allKennels}
+            geminiAvailable={geminiAvailable}
             trigger={<Button size="sm">Add Source</Button>}
           />
         </div>
       </div>
 
-      <SourceTable sources={serialized} allKennels={allKennels} />
+      <SourceTable sources={serialized} allKennels={allKennels} geminiAvailable={geminiAvailable} />
     </div>
   );
 }

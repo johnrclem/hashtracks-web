@@ -95,6 +95,8 @@ interface SourceFormProps {
   }[];
   /** Open UNMATCHED_TAGS alert tags for this source (edit mode only) */
   openAlertTags?: string[];
+  /** Whether GEMINI_API_KEY is configured — enables "Enhance with AI" button */
+  geminiAvailable?: boolean;
   trigger: React.ReactNode;
 }
 
@@ -109,7 +111,7 @@ function hasICalConfigShape(config: unknown): boolean {
   );
 }
 
-export function SourceForm({ source, allKennels, openAlertTags, trigger }: SourceFormProps) {
+export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable, trigger }: SourceFormProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [selectedKennels, setSelectedKennels] = useState<string[]>(
@@ -144,6 +146,8 @@ export function SourceForm({ source, allKennels, openAlertTags, trigger }: Sourc
   const [isPreviewing, startPreview] = useTransition();
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  /** Sample event titles per unmatched tag — computed from preview results for AI enhance */
+  const [sampleTitlesByTag, setSampleTitlesByTag] = useState<Record<string, string[]>>({});
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
 
@@ -212,6 +216,7 @@ export function SourceForm({ source, allKennels, openAlertTags, trigger }: Sourc
     setOpen(false);
     setPreviewData(null);
     setPreviewError(null);
+    setSampleTitlesByTag({});
   }
 
   function handleUrlBlur() {
@@ -248,9 +253,18 @@ export function SourceForm({ source, allKennels, openAlertTags, trigger }: Sourc
       if (result.error) {
         setPreviewError(result.error);
         setPreviewData(null);
+        setSampleTitlesByTag({});
       } else if (result.data) {
         setPreviewData(result.data);
         setPreviewError(null);
+        // Compute sample titles per unmatched tag for AI enhance
+        const titles = result.data.events.reduce<Record<string, string[]>>((acc, e) => {
+          if (!e.resolved && e.title) {
+            (acc[e.kennelTag] ??= []).push(e.title);
+          }
+          return acc;
+        }, {});
+        setSampleTitlesByTag(titles);
       }
     });
   }
@@ -430,6 +444,8 @@ export function SourceForm({ source, allKennels, openAlertTags, trigger }: Sourc
                   ...(previewData?.unmatchedTags ?? []),
                   ...(openAlertTags ?? []),
                 ]}
+                sampleTitlesByTag={sampleTitlesByTag}
+                geminiAvailable={geminiAvailable}
               />
             </div>
           )}
@@ -448,6 +464,8 @@ export function SourceForm({ source, allKennels, openAlertTags, trigger }: Sourc
                   ...(previewData?.unmatchedTags ?? []),
                   ...(openAlertTags ?? []),
                 ]}
+                sampleTitlesByTag={sampleTitlesByTag}
+                geminiAvailable={geminiAvailable}
               />
             </div>
           )}

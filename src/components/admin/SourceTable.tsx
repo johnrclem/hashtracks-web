@@ -56,6 +56,7 @@ type SourceData = {
 interface SourceTableProps {
   sources: SourceData[];
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
+  geminiAvailable?: boolean;
 }
 
 const healthColors: Record<string, string> = {
@@ -92,7 +93,7 @@ function relativeTime(dateStr: string): string {
   return `${diffDay}d ago`;
 }
 
-export function SourceTable({ sources, allKennels }: SourceTableProps) {
+export function SourceTable({ sources, allKennels, geminiAvailable }: SourceTableProps) {
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedHealth, setSelectedHealth] = useState<string[]>([]);
@@ -312,6 +313,7 @@ export function SourceTable({ sources, allKennels }: SourceTableProps) {
               key={source.id}
               source={source}
               allKennels={allKennels}
+              geminiAvailable={geminiAvailable}
             />
           ))}
         </TableBody>
@@ -323,9 +325,11 @@ export function SourceTable({ sources, allKennels }: SourceTableProps) {
 function SourceRow({
   source,
   allKennels,
+  geminiAvailable,
 }: {
   source: SourceData;
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
+  geminiAvailable?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -484,6 +488,7 @@ function SourceRow({
                 linkedKennelIds: source.linkedKennels.map((k) => k.id),
               }}
               openAlertTags={source.openAlertTags}
+              geminiAvailable={geminiAvailable}
               allKennels={allKennels}
               trigger={
                 <button
