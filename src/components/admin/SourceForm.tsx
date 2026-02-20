@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createSource, updateSource } from "@/app/admin/sources/actions";
+import {
+  previewSourceConfig,
+  type PreviewData,
+} from "@/app/admin/sources/preview-action";
+import { PreviewResults } from "./PreviewResults";
 import {
   Dialog,
   DialogContent,
@@ -120,6 +125,10 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
     }
   });
   const [showRawJson, setShowRawJson] = useState(false);
+  const [isPreviewing, startPreview] = useTransition();
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
 
   const showConfigEditor = CONFIG_TYPES.has(selectedType);
@@ -178,6 +187,32 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
     }
   }
 
+  function closeDialog() {
+    setOpen(false);
+    setPreviewData(null);
+    setPreviewError(null);
+  }
+
+  function handlePreview() {
+    if (!formRef.current) return;
+    const fd = new FormData(formRef.current);
+    // Ensure config JSON is included
+    if (configJson.trim()) {
+      fd.set("config", configJson.trim());
+    }
+    startPreview(async () => {
+      setPreviewError(null);
+      const result = await previewSourceConfig(fd);
+      if (result.error) {
+        setPreviewError(result.error);
+        setPreviewData(null);
+      } else if (result.data) {
+        setPreviewData(result.data);
+        setPreviewError(null);
+      }
+    });
+  }
+
   function handleSubmit(formData: FormData) {
     formData.set("kennelIds", selectedKennels.join(","));
     // Pass config JSON string (server action will parse it)
@@ -194,7 +229,7 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
         toast.error(result.error);
       } else {
         toast.success(source ? "Source updated" : "Source created");
-        setOpen(false);
+        closeDialog();
         if (!source) {
           setSelectedKennels([]);
           setConfigJson("");
@@ -211,7 +246,10 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
     : "sm:max-w-lg";
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => {
+      if (v) setOpen(true);
+      else closeDialog();
+    }}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent
         className={`max-h-[90vh] overflow-y-auto ${dialogWidth}`}
@@ -222,7 +260,7 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <form action={handleSubmit} className="space-y-4">
+        <form ref={formRef} action={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name *</Label>
             <Input
@@ -384,6 +422,26 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
             </div>
           )}
 
+          {/* Test Config (Preview) */}
+          <div className="space-y-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isPreviewing || isPending}
+              onClick={handlePreview}
+            >
+              {isPreviewing ? "Testing..." : "Test Config"}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Fetch events using the current URL and config without saving.
+            </p>
+            {previewError && (
+              <p className="text-sm text-destructive">{previewError}</p>
+            )}
+            {previewData && <PreviewResults data={previewData} />}
+          </div>
+
           <div className="space-y-2">
             <Label>Linked Kennels</Label>
             <TooltipProvider>
@@ -426,7 +484,7 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => closeDialog()}
             >
               Cancel
             </Button>
