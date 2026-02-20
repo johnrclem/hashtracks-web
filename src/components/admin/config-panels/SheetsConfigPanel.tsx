@@ -264,7 +264,7 @@ export function SheetsConfigPanel({
               variant="outline"
               size="sm"
               onClick={() =>
-                updateSpecialRunMap([...specialRunEntries.map(([n, t]): [string, string] => [n, t]), ["", ""]])
+                updateSpecialRunMap([...specialRunEntries, ["", ""]])
               }
             >
               Add Special Run

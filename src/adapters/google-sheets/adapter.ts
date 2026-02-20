@@ -22,8 +22,8 @@ interface GoogleSheetsConfig {
     numericSpecialTag?: string;
   };
   startTimeRules?: {
-    byDayOfWeek: Record<string, string>;
-    default: string;
+    byDayOfWeek?: Record<string, string>;
+    default?: string;
   };
 }
 
@@ -63,7 +63,7 @@ export function inferStartTime(
     weekday: "short",
     timeZone: "UTC",
   });
-  return rules.byDayOfWeek[dayName] ?? rules.default;
+  return rules.byDayOfWeek?.[dayName] ?? rules.default;
 }
 
 /**

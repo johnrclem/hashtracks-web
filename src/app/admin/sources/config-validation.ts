@@ -90,9 +90,10 @@ export function validateSourceConfig(
     if (
       !obj.kennelSlugs ||
       !Array.isArray(obj.kennelSlugs) ||
-      obj.kennelSlugs.length === 0
+      obj.kennelSlugs.length === 0 ||
+      obj.kennelSlugs.some((s: unknown) => typeof s !== "string" || s.trim().length === 0)
     ) {
-      errors.push("Hash Rego config requires at least one kennelSlug");
+      errors.push("Hash Rego config requires at least one non-empty kennelSlug");
     }
   }
 

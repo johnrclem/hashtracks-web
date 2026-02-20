@@ -150,17 +150,18 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
     PANEL_TYPES.has(selectedType) ||
     (selectedType === "HTML_SCRAPER" && hasICalConfigShape(configObj));
 
-  const panelType =
-    selectedType === "ICAL_FEED" ||
-    (selectedType === "HTML_SCRAPER" && hasICalConfigShape(configObj))
-      ? "ical"
-      : selectedType === "GOOGLE_CALENDAR"
-        ? "calendar"
-        : selectedType === "HASHREGO"
-          ? "hashrego"
-          : selectedType === "GOOGLE_SHEETS"
-            ? "sheets"
-            : null;
+  function getPanelType(
+    type: string,
+    config: Record<string, unknown> | null,
+  ): "ical" | "calendar" | "hashrego" | "sheets" | null {
+    if (type === "ICAL_FEED" || (type === "HTML_SCRAPER" && hasICalConfigShape(config))) return "ical";
+    if (type === "GOOGLE_CALENDAR") return "calendar";
+    if (type === "HASHREGO") return "hashrego";
+    if (type === "GOOGLE_SHEETS") return "sheets";
+    return null;
+  }
+
+  const panelType = getPanelType(selectedType, configObj);
 
   function toggleKennel(kennelId: string) {
     setSelectedKennels((prev) =>

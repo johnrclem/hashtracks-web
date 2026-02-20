@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -18,11 +19,18 @@ export function StringArrayEditor({
   addLabel = "Add Item",
   transform,
 }: StringArrayEditorProps) {
+  const counter = useRef(0);
+  const [ids, setIds] = useState<number[]>(() =>
+    items.map(() => counter.current++),
+  );
+
   function addItem() {
+    setIds((prev) => [...prev, counter.current++]);
     onChange([...items, ""]);
   }
 
   function removeItem(index: number) {
+    setIds((prev) => prev.filter((_, i) => i !== index));
     onChange(items.filter((_, i) => i !== index));
   }
 
@@ -33,7 +41,7 @@ export function StringArrayEditor({
   return (
     <div className="space-y-2">
       {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-2">
+        <div key={ids[i]} className="flex items-center gap-2">
           <Input
             placeholder={placeholder}
             value={item}
