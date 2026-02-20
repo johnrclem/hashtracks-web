@@ -56,12 +56,15 @@ export async function fetchBloggerPosts(
 
   const fetchStart = Date.now();
 
+  const authHeaders = { "X-Goog-Api-Key": apiKey };
+
   // Step 1: Discover blog ID from URL
-  const blogLookupUrl = `${BLOGGER_API_BASE}/blogs/byurl?url=${encodeURIComponent(sourceUrl)}&key=${apiKey}`;
+  const blogLookupParams = new URLSearchParams({ url: sourceUrl });
+  const blogLookupUrl = `${BLOGGER_API_BASE}/blogs/byurl?${blogLookupParams.toString()}`;
   let blogId: string;
 
   try {
-    const blogResponse = await fetch(blogLookupUrl);
+    const blogResponse = await fetch(blogLookupUrl, { headers: authHeaders });
     if (!blogResponse.ok) {
       const body = await blogResponse.text().catch(() => "");
       return {
@@ -73,8 +76,8 @@ export async function fetchBloggerPosts(
         fetchDurationMs: Date.now() - fetchStart,
       };
     }
-    const blogData = await blogResponse.json();
-    blogId = blogData.id;
+    const blogData = await blogResponse.json() as { id?: string };
+    blogId = blogData?.id ?? "";
     if (!blogId) {
       return {
         posts: [],
@@ -91,10 +94,14 @@ export async function fetchBloggerPosts(
   }
 
   // Step 2: Fetch posts
-  const postsUrl = `${BLOGGER_API_BASE}/blogs/${blogId}/posts?key=${apiKey}&maxResults=${maxResults}&fetchBodies=true`;
+  const postsParams = new URLSearchParams({
+    maxResults: maxResults.toString(),
+    fetchBodies: "true",
+  });
+  const postsUrl = `${BLOGGER_API_BASE}/blogs/${blogId}/posts?${postsParams.toString()}`;
 
   try {
-    const postsResponse = await fetch(postsUrl);
+    const postsResponse = await fetch(postsUrl, { headers: authHeaders });
     if (!postsResponse.ok) {
       const body = await postsResponse.text().catch(() => "");
       return {
@@ -107,17 +114,17 @@ export async function fetchBloggerPosts(
         fetchDurationMs: Date.now() - fetchStart,
       };
     }
-    const postsData = await postsResponse.json();
-    const items = postsData.items ?? [];
+    const postsData = await postsResponse.json() as { items?: unknown[] };
+    const items = postsData?.items ?? [];
 
-    const posts: BloggerPost[] = items.map(
-      (item: { title?: string; content?: string; url?: string; published?: string }) => ({
-        title: item.title ?? "",
-        content: item.content ?? "",
-        url: item.url ?? "",
-        published: item.published ?? "",
-      }),
-    );
+    const posts: BloggerPost[] = (
+      items as { title?: string; content?: string; url?: string; published?: string }[]
+    ).map((item) => ({
+      title: item.title ?? "",
+      content: item.content ?? "",
+      url: item.url ?? "",
+      published: item.published ?? "",
+    }));
 
     return {
       posts,
