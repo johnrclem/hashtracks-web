@@ -1,6 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseEnfieldDate, parseEnfieldBody } from "./enfield-hash";
 import { EnfieldHashAdapter } from "./enfield-hash";
+import * as bloggerApi from "../blogger-api";
+
+vi.mock("../blogger-api");
 
 describe("parseEnfieldDate", () => {
   it("parses UK ordinal date", () => {
@@ -151,13 +154,122 @@ const SAMPLE_BLOGGER_HTML = `
 </body></html>
 `;
 
-describe("EnfieldHashAdapter.fetch", () => {
-  it("parses Blogger HTML and returns events", async () => {
+describe("EnfieldHashAdapter.fetch (Blogger API path)", () => {
+  let adapter: EnfieldHashAdapter;
+
+  beforeEach(() => {
+    adapter = new EnfieldHashAdapter();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("uses Blogger API when available and parses events", async () => {
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "Enfield Hash Run #266 - March 2026",
+          content: "<p>Date: Wednesday 18th March 2026</p><p>Pub: The King's Head, Winchmore Hill</p><p>Station: Winchmore Hill (Overground)</p><p>Hare: Speedy</p>",
+          url: "http://www.enfieldhash.org/2026/03/run-266.html",
+          published: "2026-03-10T12:00:00Z",
+        },
+        {
+          title: "Enfield Hash Run #265 - February 2026",
+          content: "<p>Date: Wednesday 18th February 2026</p><p>Pub: The Salisbury Arms</p><p>Station: Edmonton Green</p><p>Hare: Muddy Boots</p>",
+          url: "http://www.enfieldhash.org/2026/02/run-265.html",
+          published: "2026-02-10T12:00:00Z",
+        },
+      ],
+      blogId: "12345",
+      fetchDurationMs: 150,
+    });
+
+    const result = await adapter.fetch({
+      id: "test",
+      url: "http://www.enfieldhash.org/",
+    } as never);
+
+    expect(result.events).toHaveLength(2);
+
+    const first = result.events[0];
+    expect(first.date).toBe("2026-03-18");
+    expect(first.kennelTag).toBe("EH3");
+    expect(first.startTime).toBe("19:30");
+    expect(first.location).toBe("The King's Head, Winchmore Hill");
+    expect(first.hares).toBe("Speedy");
+    expect(first.description).toContain("Winchmore Hill");
+    expect(first.sourceUrl).toBe("http://www.enfieldhash.org/2026/03/run-266.html");
+
+    const second = result.events[1];
+    expect(second.date).toBe("2026-02-18");
+    expect(second.hares).toBe("Muddy Boots");
+
+    expect(result.diagnosticContext).toMatchObject({
+      fetchMethod: "blogger-api",
+      blogId: "12345",
+      postsFound: 2,
+      eventsParsed: 2,
+    });
+
+    // structureHash is not set for Blogger API path
+    expect(result.structureHash).toBeUndefined();
+  });
+
+  it("skips posts without dates via Blogger API", async () => {
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "Enfield Hash Run #266 - March 2026",
+          content: "<p>Date: Wednesday 18th March 2026</p><p>Hare: Speedy</p>",
+          url: "http://www.enfieldhash.org/2026/03/run-266.html",
+          published: "2026-03-10T12:00:00Z",
+        },
+        {
+          title: "Happy New Year!",
+          content: "<p>Wishing all hashers a happy new year!</p>",
+          url: "http://www.enfieldhash.org/2026/01/happy-new-year.html",
+          published: "2026-01-01T12:00:00Z",
+        },
+      ],
+      blogId: "12345",
+      fetchDurationMs: 100,
+    });
+
+    const result = await adapter.fetch({
+      id: "test",
+      url: "http://www.enfieldhash.org/",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.diagnosticContext).toMatchObject({
+      postsFound: 2,
+      eventsParsed: 1,
+    });
+  });
+});
+
+describe("EnfieldHashAdapter.fetch (HTML fallback path)", () => {
+  let adapter: EnfieldHashAdapter;
+
+  beforeEach(() => {
+    adapter = new EnfieldHashAdapter();
+    // Make Blogger API return error to trigger HTML fallback
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValue({
+      posts: [],
+      error: { message: "Missing GOOGLE_CALENDAR_API_KEY environment variable" },
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("falls back to HTML scrape and parses events", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(SAMPLE_BLOGGER_HTML, { status: 200 }),
     );
 
-    const adapter = new EnfieldHashAdapter();
     const result = await adapter.fetch({
       id: "test",
       url: "http://www.enfieldhash.org/",
@@ -180,7 +292,11 @@ describe("EnfieldHashAdapter.fetch", () => {
     expect(second.date).toBe("2026-02-18");
     expect(second.hares).toBe("Muddy Boots");
 
-    vi.restoreAllMocks();
+    expect(result.diagnosticContext).toMatchObject({
+      fetchMethod: "html-scrape",
+      postsFound: 3,
+      eventsParsed: 2,
+    });
   });
 
   it("skips posts without dates", async () => {
@@ -188,7 +304,6 @@ describe("EnfieldHashAdapter.fetch", () => {
       new Response(SAMPLE_BLOGGER_HTML, { status: 200 }),
     );
 
-    const adapter = new EnfieldHashAdapter();
     const result = await adapter.fetch({
       id: "test",
       url: "http://www.enfieldhash.org/",
@@ -200,8 +315,6 @@ describe("EnfieldHashAdapter.fetch", () => {
       postsFound: 3,
       eventsParsed: 2,
     });
-
-    vi.restoreAllMocks();
   });
 
   it("returns fetch error on network failure", async () => {
@@ -209,7 +322,6 @@ describe("EnfieldHashAdapter.fetch", () => {
       new Error("Network error"),
     );
 
-    const adapter = new EnfieldHashAdapter();
     const result = await adapter.fetch({
       id: "test",
       url: "http://www.enfieldhash.org/",
@@ -218,8 +330,6 @@ describe("EnfieldHashAdapter.fetch", () => {
     expect(result.events).toHaveLength(0);
     expect(result.errors).toHaveLength(1);
     expect(result.errorDetails?.fetch).toHaveLength(1);
-
-    vi.restoreAllMocks();
   });
 
   it("returns fetch error on HTTP error", async () => {
@@ -227,7 +337,6 @@ describe("EnfieldHashAdapter.fetch", () => {
       new Response("Forbidden", { status: 403, statusText: "Forbidden" }),
     );
 
-    const adapter = new EnfieldHashAdapter();
     const result = await adapter.fetch({
       id: "test",
       url: "http://www.enfieldhash.org/",
@@ -235,7 +344,5 @@ describe("EnfieldHashAdapter.fetch", () => {
 
     expect(result.events).toHaveLength(0);
     expect(result.errorDetails?.fetch?.[0].status).toBe(403);
-
-    vi.restoreAllMocks();
   });
 });

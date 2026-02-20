@@ -7,6 +7,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
+import { fetchBloggerPosts } from "../blogger-api";
 
 const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
@@ -118,11 +119,75 @@ export function parseEnfieldBody(text: string): {
 }
 
 /**
+ * Process a single blog post (from either Blogger API or HTML scrape) into a RawEventData.
+ * Returns null if the post cannot be parsed (e.g., missing date).
+ */
+function processPost(
+  titleText: string,
+  bodyText: string,
+  postUrl: string,
+  baseUrl: string,
+  index: number,
+  errors: string[],
+  errorDetails: ErrorDetails,
+): RawEventData | null {
+  const bodyFields = parseEnfieldBody(bodyText);
+
+  if (!bodyFields.date) {
+    const titleDate = parseEnfieldDate(titleText);
+    if (!titleDate) {
+      if (bodyText.trim().length > 0) {
+        errors.push(
+          `Could not parse date from post: ${titleText || "(untitled)"}`,
+        );
+        errorDetails.parse = [
+          ...(errorDetails.parse ?? []),
+          {
+            row: index,
+            section: "post",
+            field: "date",
+            error: `No date found in post: ${titleText || "(untitled)"}`,
+          },
+        ];
+      }
+      return null;
+    }
+    bodyFields.date = titleDate;
+  }
+
+  const descParts: string[] = [];
+  if (bodyFields.station) {
+    descParts.push(`Nearest station: ${bodyFields.station}`);
+  }
+  const description =
+    descParts.length > 0 ? descParts.join(". ") : undefined;
+
+  const sourceUrl = postUrl.startsWith("http")
+    ? postUrl
+    : `${baseUrl.replace(/\/$/, "")}${postUrl}`;
+
+  return {
+    date: bodyFields.date,
+    kennelTag: "EH3",
+    title: titleText || undefined,
+    hares: bodyFields.hares,
+    location: bodyFields.location,
+    startTime: "19:30", // EH3: always 3rd Wednesday 7:30 PM
+    sourceUrl,
+    description,
+  };
+}
+
+/**
  * Enfield Hash House Harriers (EH3) Blogspot Scraper
  *
  * Scrapes enfieldhash.org (Blogger/Blogspot) for run announcements.
  * Each blog post announces the next run with date, pub name, station,
  * and directions. Monthly kennel (3rd Wednesday, 7:30 PM).
+ *
+ * Uses the Blogger API v3 as primary fetch method (direct HTML scraping
+ * is blocked by Google's bot detection on cloud IPs). Falls back to
+ * HTML scraping if the Blogger API is unavailable.
  */
 export class EnfieldHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
@@ -133,6 +198,66 @@ export class EnfieldHashAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "http://www.enfieldhash.org/";
 
+    // Try Blogger API first
+    const apiResult = await this.fetchViaBloggerApi(baseUrl);
+    if (apiResult) return apiResult;
+
+    // Fall back to HTML scraping
+    return this.fetchViaHtmlScrape(baseUrl);
+  }
+
+  private async fetchViaBloggerApi(baseUrl: string): Promise<ScrapeResult | null> {
+    const bloggerResult = await fetchBloggerPosts(baseUrl);
+
+    // If the Blogger API errored (missing key, API not enabled, etc.), return null to trigger fallback
+    if (bloggerResult.error) {
+      return null;
+    }
+
+    const events: RawEventData[] = [];
+    const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
+
+    for (let i = 0; i < bloggerResult.posts.length; i++) {
+      const post = bloggerResult.posts[i];
+
+      // Extract text from HTML content
+      const $ = cheerio.load(post.content);
+      const bodyText = $.text();
+      const titleText = post.title;
+      const postUrl = post.url;
+
+      const event = processPost(
+        titleText,
+        bodyText,
+        postUrl,
+        baseUrl,
+        i,
+        errors,
+        errorDetails,
+      );
+      if (event) events.push(event);
+    }
+
+    const hasErrorDetails =
+      (errorDetails.fetch?.length ?? 0) > 0 ||
+      (errorDetails.parse?.length ?? 0) > 0;
+
+    return {
+      events,
+      errors,
+      errorDetails: hasErrorDetails ? errorDetails : undefined,
+      diagnosticContext: {
+        fetchMethod: "blogger-api",
+        blogId: bloggerResult.blogId,
+        postsFound: bloggerResult.posts.length,
+        eventsParsed: events.length,
+        fetchDurationMs: bloggerResult.fetchDurationMs,
+      },
+    };
+  }
+
+  private async fetchViaHtmlScrape(baseUrl: string): Promise<ScrapeResult> {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
@@ -176,7 +301,6 @@ export class EnfieldHashAdapter implements SourceAdapter {
     for (let i = 0; i < posts.length; i++) {
       const post = $(posts[i]);
 
-      // Get the post title
       const titleEl = post
         .find(".post-title a, .entry-title a, h3.post-title a")
         .first();
@@ -185,60 +309,19 @@ export class EnfieldHashAdapter implements SourceAdapter {
         post.find(".post-title, .entry-title, h3").first().text().trim();
       const postUrl = titleEl.attr("href") || baseUrl;
 
-      // Get the post body
       const bodyEl = post.find(".post-body, .entry-content").first();
       const bodyText = bodyEl.text() || "";
 
-      // Parse the body for structured fields
-      const bodyFields = parseEnfieldBody(bodyText);
-
-      // We need at least a date to create an event
-      if (!bodyFields.date) {
-        // Also try the title for date
-        const titleDate = parseEnfieldDate(titleText);
-        if (!titleDate) {
-          if (bodyText.trim().length > 0) {
-            errors.push(
-              `Could not parse date from post: ${titleText || "(untitled)"}`,
-            );
-            errorDetails.parse = [
-              ...(errorDetails.parse ?? []),
-              {
-                row: i,
-                section: "post",
-                field: "date",
-                error: `No date found in post: ${titleText || "(untitled)"}`,
-              },
-            ];
-          }
-          continue;
-        }
-        bodyFields.date = titleDate;
-      }
-
-      // Build description with station info
-      const descParts: string[] = [];
-      if (bodyFields.station) {
-        descParts.push(`Nearest station: ${bodyFields.station}`);
-      }
-      const description =
-        descParts.length > 0 ? descParts.join(". ") : undefined;
-
-      // Build source URL
-      const sourceUrl = postUrl.startsWith("http")
-        ? postUrl
-        : `${baseUrl.replace(/\/$/, "")}${postUrl}`;
-
-      events.push({
-        date: bodyFields.date,
-        kennelTag: "EH3",
-        title: titleText || undefined,
-        hares: bodyFields.hares,
-        location: bodyFields.location,
-        startTime: "19:30", // EH3: always 3rd Wednesday 7:30 PM
-        sourceUrl,
-        description,
-      });
+      const event = processPost(
+        titleText,
+        bodyText,
+        postUrl,
+        baseUrl,
+        i,
+        errors,
+        errorDetails,
+      );
+      if (event) events.push(event);
     }
 
     const hasErrorDetails =
@@ -251,6 +334,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
       structureHash,
       errorDetails: hasErrorDetails ? errorDetails : undefined,
       diagnosticContext: {
+        fetchMethod: "html-scrape",
         postsFound: posts.length,
         eventsParsed: events.length,
         fetchDurationMs,
