@@ -1,9 +1,9 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { KennelPatternsEditor } from "./KennelPatternsEditor";
+import { StringArrayEditor } from "./StringArrayEditor";
 
 export interface ICalConfig {
   kennelPatterns?: [string, string][];
@@ -18,24 +18,6 @@ interface ICalConfigPanelProps {
 
 export function ICalConfigPanel({ config, onChange }: ICalConfigPanelProps) {
   const current = config ?? {};
-  const skipPatterns = current.skipPatterns ?? [];
-
-  function addSkipPattern() {
-    onChange({ ...current, skipPatterns: [...skipPatterns, ""] });
-  }
-
-  function removeSkipPattern(index: number) {
-    const updated = skipPatterns.filter((_, i) => i !== index);
-    onChange({
-      ...current,
-      skipPatterns: updated.length > 0 ? updated : undefined,
-    });
-  }
-
-  function updateSkipPattern(index: number, value: string) {
-    const updated = skipPatterns.map((p, i) => (i === index ? value : p));
-    onChange({ ...current, skipPatterns: updated });
-  }
 
   return (
     <div className="space-y-4">
@@ -81,35 +63,17 @@ export function ICalConfigPanel({ config, onChange }: ICalConfigPanelProps) {
           Regex patterns to exclude events by title (e.g., &quot;Hand
           Pump&quot;, &quot;Workday&quot;).
         </p>
-        <div className="space-y-2">
-          {skipPatterns.map((pattern, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Input
-                placeholder="Regex pattern to skip"
-                value={pattern}
-                onChange={(e) => updateSkipPattern(i, e.target.value)}
-                className="flex-1 font-mono text-xs"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-destructive"
-                onClick={() => removeSkipPattern(i)}
-              >
-                &times;
-              </Button>
-            </div>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addSkipPattern}
-          >
-            Add Skip Pattern
-          </Button>
-        </div>
+        <StringArrayEditor
+          items={current.skipPatterns ?? []}
+          onChange={(patterns) =>
+            onChange({
+              ...current,
+              skipPatterns: patterns.length > 0 ? patterns : undefined,
+            })
+          }
+          placeholder="Regex pattern to skip"
+          addLabel="Add Skip Pattern"
+        />
       </div>
     </div>
   );

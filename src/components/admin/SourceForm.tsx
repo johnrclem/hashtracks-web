@@ -41,6 +41,14 @@ import {
   ICalConfigPanel,
   type ICalConfig,
 } from "./config-panels/ICalConfigPanel";
+import {
+  HashRegoConfigPanel,
+  type HashRegoConfig,
+} from "./config-panels/HashRegoConfigPanel";
+import {
+  SheetsConfigPanel,
+  type SheetsConfig,
+} from "./config-panels/SheetsConfigPanel";
 
 const SOURCE_TYPES = [
   "HTML_SCRAPER",
@@ -62,7 +70,7 @@ const CONFIG_TYPES = new Set([
 ]);
 
 /** Types that get a dedicated config panel (vs raw JSON) */
-const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED"]);
+const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HASHREGO", "GOOGLE_SHEETS"]);
 
 type SourceData = {
   id: string;
@@ -148,7 +156,11 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
       ? "ical"
       : selectedType === "GOOGLE_CALENDAR"
         ? "calendar"
-        : null;
+        : selectedType === "HASHREGO"
+          ? "hashrego"
+          : selectedType === "GOOGLE_SHEETS"
+            ? "sheets"
+            : null;
 
   function toggleKennel(kennelId: string) {
     setSelectedKennels((prev) =>
@@ -159,7 +171,7 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
   }
 
   /** Sync structured config object → raw JSON string */
-  function handleConfigChange(newConfig: CalendarConfig | ICalConfig) {
+  function handleConfigChange(newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig) {
     // Clean undefined values
     const entries = Object.entries(newConfig).filter(
       ([, v]) => v !== undefined,
@@ -383,6 +395,30 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
               </Label>
               <ICalConfigPanel
                 config={configObj as ICalConfig | null}
+                onChange={handleConfigChange}
+              />
+            </div>
+          )}
+
+          {panelType === "hashrego" && (
+            <div className="space-y-2 rounded-md border p-4">
+              <Label className="text-sm font-semibold">
+                Hash Rego Configuration
+              </Label>
+              <HashRegoConfigPanel
+                config={configObj as HashRegoConfig | null}
+                onChange={handleConfigChange}
+              />
+            </div>
+          )}
+
+          {panelType === "sheets" && (
+            <div className="space-y-2 rounded-md border p-4">
+              <Label className="text-sm font-semibold">
+                Google Sheets Configuration
+              </Label>
+              <SheetsConfigPanel
+                config={configObj as SheetsConfig | null}
                 onChange={handleConfigChange}
               />
             </div>
