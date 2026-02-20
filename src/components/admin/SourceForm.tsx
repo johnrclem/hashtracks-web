@@ -41,6 +41,14 @@ import {
   ICalConfigPanel,
   type ICalConfig,
 } from "./config-panels/ICalConfigPanel";
+import {
+  HashRegoConfigPanel,
+  type HashRegoConfig,
+} from "./config-panels/HashRegoConfigPanel";
+import {
+  SheetsConfigPanel,
+  type SheetsConfig,
+} from "./config-panels/SheetsConfigPanel";
 
 const SOURCE_TYPES = [
   "HTML_SCRAPER",
@@ -62,7 +70,7 @@ const CONFIG_TYPES = new Set([
 ]);
 
 /** Types that get a dedicated config panel (vs raw JSON) */
-const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED"]);
+const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HASHREGO", "GOOGLE_SHEETS"]);
 
 type SourceData = {
   id: string;
@@ -142,13 +150,18 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
     PANEL_TYPES.has(selectedType) ||
     (selectedType === "HTML_SCRAPER" && hasICalConfigShape(configObj));
 
-  const panelType =
-    selectedType === "ICAL_FEED" ||
-    (selectedType === "HTML_SCRAPER" && hasICalConfigShape(configObj))
-      ? "ical"
-      : selectedType === "GOOGLE_CALENDAR"
-        ? "calendar"
-        : null;
+  function getPanelType(
+    type: string,
+    config: Record<string, unknown> | null,
+  ): "ical" | "calendar" | "hashrego" | "sheets" | null {
+    if (type === "ICAL_FEED" || (type === "HTML_SCRAPER" && hasICalConfigShape(config))) return "ical";
+    if (type === "GOOGLE_CALENDAR") return "calendar";
+    if (type === "HASHREGO") return "hashrego";
+    if (type === "GOOGLE_SHEETS") return "sheets";
+    return null;
+  }
+
+  const panelType = getPanelType(selectedType, configObj);
 
   function toggleKennel(kennelId: string) {
     setSelectedKennels((prev) =>
@@ -159,7 +172,7 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
   }
 
   /** Sync structured config object → raw JSON string */
-  function handleConfigChange(newConfig: CalendarConfig | ICalConfig) {
+  function handleConfigChange(newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig) {
     // Clean undefined values
     const entries = Object.entries(newConfig).filter(
       ([, v]) => v !== undefined,
@@ -383,6 +396,30 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
               </Label>
               <ICalConfigPanel
                 config={configObj as ICalConfig | null}
+                onChange={handleConfigChange}
+              />
+            </div>
+          )}
+
+          {panelType === "hashrego" && (
+            <div className="space-y-2 rounded-md border p-4">
+              <Label className="text-sm font-semibold">
+                Hash Rego Configuration
+              </Label>
+              <HashRegoConfigPanel
+                config={configObj as HashRegoConfig | null}
+                onChange={handleConfigChange}
+              />
+            </div>
+          )}
+
+          {panelType === "sheets" && (
+            <div className="space-y-2 rounded-md border p-4">
+              <Label className="text-sm font-semibold">
+                Google Sheets Configuration
+              </Label>
+              <SheetsConfigPanel
+                config={configObj as SheetsConfig | null}
                 onChange={handleConfigChange}
               />
             </div>
