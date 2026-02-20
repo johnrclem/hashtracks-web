@@ -76,12 +76,15 @@ export function extractSheetId(url: string): string | undefined {
  * Extract the calendarId from a Google Calendar embed/public URL.
  * Handles:
  *   - ?src=CALENDAR_ID (embed URL)
+ *   - ?cid=CALENDAR_ID ("Add to Google Calendar" links)
  *   - /calendar/ical/CALENDAR_ID/public/basic.ics
- *   - /calendar/embed?src=CALENDAR_ID
- * Returns the raw URL string if no calendarId can be extracted (passthrough for
- * already-plain calendarId values like "abc@group.calendar.google.com").
+ * Returns `undefined` if no calendarId can be extracted.
  */
 export function extractCalendarId(url: string): string | undefined {
+  // ?cid= param ("Add to Google Calendar" links)
+  const cidMatch = url.match(/[?&]cid=([^&]+)/);
+  if (cidMatch) return decodeURIComponent(cidMatch[1]);
+
   // ?src= param (embed URLs)
   const srcMatch = url.match(/[?&]src=([^&]+)/);
   if (srcMatch) return decodeURIComponent(srcMatch[1]);

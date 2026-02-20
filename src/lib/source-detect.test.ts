@@ -41,6 +41,14 @@ describe("detectSourceType", () => {
       expect(result?.extractedUrl).toBe("abc@group.calendar.google.com");
     });
 
+    it("detects cid= format and extracts calendarId", () => {
+      const result = detectSourceType(
+        "https://calendar.google.com/calendar/u/0/r?cid=abc%40group.calendar.google.com",
+      );
+      expect(result?.type).toBe("GOOGLE_CALENDAR");
+      expect(result?.extractedUrl).toBe("abc@group.calendar.google.com");
+    });
+
     it("returns undefined extractedUrl when no calendarId found in URL", () => {
       const result = detectSourceType("https://calendar.google.com/calendar/r");
       expect(result?.type).toBe("GOOGLE_CALENDAR");

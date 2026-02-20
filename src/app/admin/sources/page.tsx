@@ -34,8 +34,10 @@ export default async function AdminSourcesPage() {
     const ctx = alert.context as Record<string, unknown> | null;
     const tags = Array.isArray(ctx?.tags) ? (ctx.tags as string[]) : [];
     if (tags.length > 0) {
-      const existing = alertTagsBySource.get(alert.sourceId) ?? [];
-      alertTagsBySource.set(alert.sourceId, [...existing, ...tags]);
+      if (!alertTagsBySource.has(alert.sourceId)) {
+        alertTagsBySource.set(alert.sourceId, []);
+      }
+      alertTagsBySource.get(alert.sourceId)!.push(...tags);
     }
   }
 

@@ -46,9 +46,13 @@ export async function previewSourceConfig(
     return { error: "Type and URL are required for preview" };
   }
 
-  // SSRF protection: only allow http/https protocols, block private IPs
-  const urlError = validatePreviewUrl(url);
-  if (urlError) return { error: urlError };
+  // SSRF protection: only allow http/https protocols, block private IPs.
+  // GOOGLE_CALENDAR is exempt — source.url is a raw calendarId, not a URL;
+  // the adapter builds its own googleapis.com URL internally.
+  if (type !== "GOOGLE_CALENDAR") {
+    const urlError = validatePreviewUrl(url);
+    if (urlError) return { error: urlError };
+  }
 
   // Parse config JSON
   let config: Record<string, unknown> | null = null;
