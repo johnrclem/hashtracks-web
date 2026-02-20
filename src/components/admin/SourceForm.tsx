@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createSource, updateSource } from "@/app/admin/sources/actions";
+import { detectSourceType } from "@/lib/source-detect";
 import {
   previewSourceConfig,
   type PreviewData,
@@ -92,6 +93,8 @@ interface SourceFormProps {
     fullName: string;
     region: string;
   }[];
+  /** Open UNMATCHED_TAGS alert tags for this source (edit mode only) */
+  openAlertTags?: string[];
   trigger: React.ReactNode;
 }
 
@@ -106,7 +109,7 @@ function hasICalConfigShape(config: unknown): boolean {
   );
 }
 
-export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
+export function SourceForm({ source, allKennels, openAlertTags, trigger }: SourceFormProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [selectedKennels, setSelectedKennels] = useState<string[]>(
@@ -115,6 +118,11 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
   const [selectedType, setSelectedType] = useState(
     source?.type ?? "HTML_SCRAPER",
   );
+  const [urlValue, setUrlValue] = useState(source?.url ?? "");
+  /** True once the admin has explicitly chosen a type — prevents URL-detect override */
+  const typeManuallySet = useRef(!!source);
+  /** Chip text shown below URL field after auto-detect fires (new source only) */
+  const [detectedHint, setDetectedHint] = useState<string | null>(null);
 
   // Config can be edited via structured panel or raw JSON
   const [configObj, setConfigObj] = useState<Record<string, unknown> | null>(
@@ -206,6 +214,27 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
     setPreviewError(null);
   }
 
+  function handleUrlBlur() {
+    if (typeManuallySet.current) return; // admin already chose a type — don't override
+    const detected = detectSourceType(urlValue);
+    if (!detected) return;
+
+    setSelectedType(detected.type);
+    setDetectedHint(detected.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()));
+
+    // For GOOGLE_CALENDAR: replace url field with extracted calendarId
+    if (detected.extractedUrl) {
+      setUrlValue(detected.extractedUrl);
+    }
+
+    // For GOOGLE_SHEETS: auto-populate sheetId into config
+    if (detected.sheetId) {
+      const next = { ...(configObj ?? {}), sheetId: detected.sheetId };
+      setConfigObj(next);
+      setConfigJson(JSON.stringify(next, null, 2));
+    }
+  }
+
   function handlePreview() {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
@@ -268,8 +297,13 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
         className={`max-h-[90vh] overflow-y-auto ${dialogWidth}`}
       >
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
             {source ? "Edit Source" : "Add Source"}
+            {openAlertTags && openAlertTags.length > 0 && (
+              <Badge variant="outline" className="border-amber-300 text-amber-700 text-xs font-normal">
+                {openAlertTags.length} unmatched tag{openAlertTags.length !== 1 ? "s" : ""}
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -291,9 +325,16 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
               id="url"
               name="url"
               required
-              defaultValue={source?.url ?? ""}
+              value={urlValue}
+              onChange={(e) => setUrlValue(e.target.value)}
+              onBlur={handleUrlBlur}
               placeholder="https://hashnyc.com"
             />
+            {detectedHint && (
+              <p className="text-xs text-blue-600">
+                Detected: {detectedHint} — type and config auto-filled
+              </p>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -304,6 +345,8 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
                 value={selectedType}
                 onValueChange={(val) => {
                   setSelectedType(val);
+                  typeManuallySet.current = true;
+                  setDetectedHint(null);
                   // Clear config when switching to incompatible type
                   if (!CONFIG_TYPES.has(val)) {
                     setConfigJson("");
@@ -383,6 +426,10 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
               <CalendarConfigPanel
                 config={configObj as CalendarConfig | null}
                 onChange={handleConfigChange}
+                unmatchedTags={[
+                  ...(previewData?.unmatchedTags ?? []),
+                  ...(openAlertTags ?? []),
+                ]}
               />
             </div>
           )}
@@ -397,6 +444,10 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
               <ICalConfigPanel
                 config={configObj as ICalConfig | null}
                 onChange={handleConfigChange}
+                unmatchedTags={[
+                  ...(previewData?.unmatchedTags ?? []),
+                  ...(openAlertTags ?? []),
+                ]}
               />
             </div>
           )}

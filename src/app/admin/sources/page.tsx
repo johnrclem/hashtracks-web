@@ -5,22 +5,41 @@ import { RefreshAllButton } from "@/components/admin/RefreshAllButton";
 import { Button } from "@/components/ui/button";
 
 export default async function AdminSourcesPage() {
-  const sources = await prisma.source.findMany({
-    orderBy: { name: "asc" },
-    include: {
-      kennels: {
-        include: {
-          kennel: { select: { id: true, shortName: true, fullName: true } },
+  const [sources, openAlerts] = await Promise.all([
+    prisma.source.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        kennels: {
+          include: {
+            kennel: { select: { id: true, shortName: true, fullName: true } },
+          },
         },
+        _count: { select: { rawEvents: true } },
       },
-      _count: { select: { rawEvents: true } },
-    },
-  });
+    }),
+    prisma.alert.findMany({
+      where: { type: "UNMATCHED_TAGS", status: "OPEN" },
+      select: { sourceId: true, context: true },
+    }),
+  ]);
 
   const allKennels = await prisma.kennel.findMany({
     orderBy: { shortName: "asc" },
     select: { id: true, shortName: true, fullName: true, region: true },
   });
+
+  // Build a map of sourceId → unmatched tags from open alerts
+  const alertTagsBySource = new Map<string, string[]>();
+  for (const alert of openAlerts) {
+    const ctx = alert.context as Record<string, unknown> | null;
+    const tags = Array.isArray(ctx?.tags) ? (ctx.tags as string[]) : [];
+    if (tags.length > 0) {
+      if (!alertTagsBySource.has(alert.sourceId)) {
+        alertTagsBySource.set(alert.sourceId, []);
+      }
+      alertTagsBySource.get(alert.sourceId)!.push(...tags);
+    }
+  }
 
   const serialized = sources.map((s) => ({
     id: s.id,
@@ -40,6 +59,7 @@ export default async function AdminSourcesPage() {
       fullName: sk.kennel.fullName,
     })),
     rawEventCount: s._count.rawEvents,
+    openAlertTags: alertTagsBySource.get(s.id) ?? [],
   }));
 
   return (

@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { KennelPatternsEditor } from "./KennelPatternsEditor";
 import { StringArrayEditor } from "./StringArrayEditor";
+import { SuggestionChips } from "./SuggestionChips";
 
 export interface ICalConfig {
   kennelPatterns?: [string, string][];
@@ -14,9 +15,11 @@ export interface ICalConfig {
 interface ICalConfigPanelProps {
   config: ICalConfig | null;
   onChange: (config: ICalConfig) => void;
+  /** Unmatched kennel tags from preview or open alerts — used to generate suggestions */
+  unmatchedTags?: string[];
 }
 
-export function ICalConfigPanel({ config, onChange }: ICalConfigPanelProps) {
+export function ICalConfigPanel({ config, onChange, unmatchedTags = [] }: ICalConfigPanelProps) {
   const current = config ?? {};
 
   return (
@@ -52,6 +55,16 @@ export function ICalConfigPanel({ config, onChange }: ICalConfigPanelProps) {
             onChange({
               ...current,
               kennelPatterns: patterns.length > 0 ? patterns : undefined,
+            })
+          }
+        />
+        <SuggestionChips
+          unmatchedTags={unmatchedTags}
+          existingPatterns={current.kennelPatterns ?? []}
+          onAccept={(pattern) =>
+            onChange({
+              ...current,
+              kennelPatterns: [...(current.kennelPatterns ?? []), pattern],
             })
           }
         />

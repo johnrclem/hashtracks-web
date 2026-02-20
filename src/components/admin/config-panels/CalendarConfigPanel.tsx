@@ -3,6 +3,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KennelPatternsEditor } from "./KennelPatternsEditor";
+import { SuggestionChips } from "./SuggestionChips";
 
 export interface CalendarConfig {
   kennelPatterns?: [string, string][];
@@ -12,11 +13,14 @@ export interface CalendarConfig {
 interface CalendarConfigPanelProps {
   config: CalendarConfig | null;
   onChange: (config: CalendarConfig) => void;
+  /** Unmatched kennel tags from preview or open alerts — used to generate suggestions */
+  unmatchedTags?: string[];
 }
 
 export function CalendarConfigPanel({
   config,
   onChange,
+  unmatchedTags = [],
 }: CalendarConfigPanelProps) {
   const current = config ?? {};
 
@@ -50,6 +54,16 @@ export function CalendarConfigPanel({
             onChange({
               ...current,
               kennelPatterns: patterns.length > 0 ? patterns : undefined,
+            })
+          }
+        />
+        <SuggestionChips
+          unmatchedTags={unmatchedTags}
+          existingPatterns={current.kennelPatterns ?? []}
+          onAccept={(pattern) =>
+            onChange({
+              ...current,
+              kennelPatterns: [...(current.kennelPatterns ?? []), pattern],
             })
           }
         />
