@@ -15,12 +15,18 @@ interface CalendarConfigPanelProps {
   onChange: (config: CalendarConfig) => void;
   /** Unmatched kennel tags from preview or open alerts — used to generate suggestions */
   unmatchedTags?: string[];
+  /** Sample event titles per unmatched tag — passed through to SuggestionChips for AI enhance */
+  sampleTitlesByTag?: Record<string, string[]>;
+  /** Whether GEMINI_API_KEY is configured */
+  geminiAvailable?: boolean;
 }
 
 export function CalendarConfigPanel({
   config,
   onChange,
   unmatchedTags = [],
+  sampleTitlesByTag,
+  geminiAvailable,
 }: CalendarConfigPanelProps) {
   const current = config ?? {};
 
@@ -66,6 +72,8 @@ export function CalendarConfigPanel({
               kennelPatterns: [...(current.kennelPatterns ?? []), pattern],
             })
           }
+          sampleTitlesByTag={sampleTitlesByTag}
+          geminiAvailable={geminiAvailable}
         />
       </div>
     </div>
