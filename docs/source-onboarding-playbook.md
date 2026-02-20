@@ -23,14 +23,14 @@ Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent
 
 ## What Varies Per Source (the adapter-specific work)
 
-| Concern | HTML Scraper | Google Calendar | Google Sheets | iCal Feed |
-|---------|-------------|----------------|--------------|-----------|
-| Data access | HTTP GET + Cheerio parse | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse |
-| Auth needed | None | API key | API key (tab discovery only) | None |
-| Kennel tags | Regex patterns on event text | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` |
-| Date format | Site-specific (ordinals, DD/MM/YYYY, US dates) | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY | ISO 8601 / DTSTART |
-| Routing | URL-based (`htmlScrapersByUrl` in registry) | Shared adapter (single class) | Shared adapter (config-driven) | Shared adapter (config-driven) |
-| Complexity | High (structural HTML, site-specific) | Medium (clean API) | Low (column mapping) | Low-Medium (config-driven, but iCal quirks) |
+| Concern | HTML Scraper | Google Calendar | Google Sheets | iCal Feed | Blogger API |
+|---------|-------------|----------------|--------------|-----------|-------------|
+| Data access | HTTP GET + Cheerio parse | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse | Blogger API v3 (blog ID discovery + posts endpoint) |
+| Auth needed | None | API key | API key (tab discovery only) | None | API key (same `GOOGLE_CALENDAR_API_KEY`) |
+| Kennel tags | Regex patterns on event text | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` | Hardcoded per adapter (single-kennel Blogspot blogs) |
+| Date format | Site-specific (ordinals, DD/MM/YYYY, US dates) | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY | ISO 8601 / DTSTART | API returns ISO 8601 `published`; post body parsed with site-specific logic |
+| Routing | URL-based (`htmlScrapersByUrl` in registry) | Shared adapter (single class) | Shared adapter (config-driven) | Shared adapter (config-driven) | URL-based (reuses `htmlScrapersByUrl` routing, Blogger API is primary fetch with HTML fallback) |
+| Complexity | High (structural HTML, site-specific) | Medium (clean API) | Low (column mapping) | Low-Medium (config-driven, but iCal quirks) | Medium (shared `fetchBloggerPosts()` utility + site-specific body parsing) |
 
 ---
 
@@ -85,6 +85,7 @@ In `prisma/seed.ts`:
 
 Existing adapter types:
 - `HTML_SCRAPER` — For websites with event tables/lists (Cheerio parsing). Each site gets its own adapter class, routed by URL pattern in `htmlScrapersByUrl`. Currently: hashnyc, bfm, hashphilly, cityhash, westlondonhash, londonhash.
+- `HTML_SCRAPER` (Blogger API) — For Blogger/Blogspot-hosted sites. Uses Blogger API v3 as primary fetch method with HTML scraping fallback. The adapter is still registered as `HTML_SCRAPER` and routed via `htmlScrapersByUrl`, but internally calls `fetchBloggerPosts()` from `src/adapters/blogger-api.ts`. Currently: enfieldhash.org (EH3), ofh3.com (OFH3). **Prerequisite**: Enable the Blogger API in GCP Console and use the same `GOOGLE_CALENDAR_API_KEY`.
 - `GOOGLE_CALENDAR` — For Google Calendar API v3 feeds. Single shared adapter, configured via `Source.config` JSON (kennelPatterns, defaultKennelTag). Currently: Boston, BFM, Philly, Chicagoland, EWH3, SHITH3.
 - `GOOGLE_SHEETS` — For published Google Sheets (config-driven, reusable without code changes). Column mappings, kennel tag rules, start time rules in `Source.config`. Currently: Summit H3, W3H3.
 - `ICAL_FEED` — For standard iCal (.ics) feeds via `node-ical`. Config-driven kennelPatterns + skipPatterns. Currently: SFH3 MultiHash aggregator.
@@ -303,6 +304,22 @@ git add . && git commit && git push
 - **Key lesson**: Use embedded HTML fixture strings in tests rather than fetching live sites — faster, deterministic, and captures known edge cases
 - **Key lesson**: Use `domhandler`'s `AnyNode` type (not `cheerio.AnyNode`) — Cheerio doesn't re-export it in all versions
 
+### Sources #13-14: Enfield Hash + OFH3 (Blogger API — Blogspot sites)
+
+- **Type**: `HTML_SCRAPER` (internally uses Blogger API v3 with HTML scraping fallback)
+- **Coverage**: EH3 (enfieldhash.org — London), OFH3 (ofh3.com — DC/Frederick area)
+- **Adapters**:
+  - `src/adapters/html-scraper/enfield-hash.ts` — Monthly UK hash (3rd Wednesday, 7:30 PM), parses Date/Pub/Station/Hare labels
+  - `src/adapters/html-scraper/ofh3.ts` — Monthly US hash, parses Hares/When/Cost/Where/Trail Type/Shiggy/On-After labels
+- **Shared utility**: `src/adapters/blogger-api.ts` — `fetchBloggerPosts()` discovers blog ID, fetches posts via Blogger API v3
+- **Why Blogger API**: Google/Blogger blocks server-side requests from cloud provider IPs (Vercel, AWS, etc.) with HTTP 403 Forbidden. The Blogger API v3 authenticates via API key and bypasses this IP-based blocking.
+- **Fallback**: If the Blogger API is unavailable (missing API key, API not enabled), both adapters fall back to direct HTML scraping
+- **Prerequisites**: Enable the Blogger API in GCP Console (https://console.cloud.google.com/apis/library/blogger.googleapis.com). Uses the same `GOOGLE_CALENDAR_API_KEY` — no new env var needed.
+- **Diagnostics**: `diagnosticContext.fetchMethod` indicates `"blogger-api"` or `"html-scrape"` to show which path was used
+- **Key lesson**: Blogger/Blogspot sites should always use the Blogger API v3 — direct HTML scraping will fail from cloud-hosted servers
+- **Key lesson**: The Blogger API returns post body as HTML in the `content` field, so existing Cheerio-based body parsers work unchanged — just load `post.content` instead of scraping the full page
+- **Key lesson**: Blog ID discovery (`/blogs/byurl`) needs to happen before posts can be fetched — build this into the shared utility, not per-adapter
+
 ---
 
 ## Lessons Learned
@@ -329,6 +346,9 @@ git add . && git commit && git push
 20. **Pagination in HTML scrapers** needs both mock coverage (multiple fetch responses) and a safety cap (max pages) to prevent infinite loops
 21. **iCal feeds** are common in the hashing world — many organizations use Google Calendar → .ics export. The `ICAL_FEED` adapter type with config-driven kennelPatterns handles this pattern well.
 22. **Config-driven adapters scale best** — Google Sheets, Google Calendar, and iCal adapters all add new sources with zero code changes. Prefer config over code for sources with similar structure.
+23. **Google/Blogger blocks cloud provider IPs** — Blogspot/Blogger sites return 403 Forbidden to server-side requests from Vercel, AWS, GCP, and other cloud IPs. This is a platform-level block (bot detection), not a header issue. Use the **Blogger API v3** instead of direct HTML scraping for any Blogspot-hosted source.
+24. **Blogger API v3 uses the same Google API key** — Enable the Blogger API in GCP Console, then use `GOOGLE_CALENDAR_API_KEY` (same key as Calendar/Sheets). No new env var needed. Blog ID discovery via `/blogs/byurl` + post fetching via `/blogs/{id}/posts`.
+25. **Always add HTML scraping fallback for Blogger API sources** — If the API key is missing or the Blogger API isn't enabled, the adapter should fall back to direct HTML scraping. This ensures the scraper works in development environments without API keys (though it will still 403 from cloud IPs).
 
 ---
 

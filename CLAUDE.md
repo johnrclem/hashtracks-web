@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 1075 tests)
+- `npm test` — Run test suite (Vitest, 1140 tests)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -19,7 +19,7 @@ calendar + personal logbook + kennel directory.
 - **Database:** PostgreSQL via Prisma ORM (Railway hosted)
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS + shadcn/ui components
-- **Scraping:** HTTP fetch + Cheerio (NOT Playwright — hash sites are static HTML)
+- **Scraping:** HTTP fetch + Cheerio (NOT Playwright — hash sites are static HTML); Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google)
 - **AI:** Gemini API for complex HTML parsing (low temp, cached results)
 - **Deployment:** Vercel (auto-deploy from main branch)
 
@@ -85,7 +85,8 @@ calendar + personal logbook + kennel directory.
 - `src/adapters/html-scraper/barnes-hash.ts` — Barnes Hash hare line scraper (BarnesH3)
 - `src/adapters/html-scraper/och3.ts` — Old Coulsdon Hash run list scraper (OCH3)
 - `src/adapters/html-scraper/slash-hash.ts` — SLASH run list scraper (SLH3)
-- `src/adapters/html-scraper/enfield-hash.ts` — Enfield Hash blog scraper (EH3)
+- `src/adapters/blogger-api.ts` — Blogger API v3 utility (fetchBloggerPosts — shared by Blogspot adapters)
+- `src/adapters/html-scraper/enfield-hash.ts` — Enfield Hash blog scraper (EH3, uses Blogger API)
 - `src/adapters/html-scraper/chicago-hash.ts` — Chicago Hash website scraper (CH3)
 - `src/adapters/html-scraper/chicago-th3.ts` — Thirstday Hash website scraper (TH3)
 - `src/adapters/html-scraper/sfh3.ts` — SFH3 MultiHash HTML hareline scraper (11 Bay Area kennels)
@@ -205,7 +206,7 @@ See `docs/roadmap.md` for implementation roadmap.
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
 - **Convention:** Test files live next to source files as `*.test.ts`
 - **Coverage areas:**
-  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Hash Rego (index parsing, detail parsing, multi-day splitting), shared adapter utilities
+  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, Blogger API v3 utility, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Hash Rego (index parsing, detail parsing, multi-day splitting), shared adapter utilities
   - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation
   - Server actions: logbook CRUD, profile, kennel subscriptions, admin CRUD, misman attendance/roster/history
   - Misman: audit log, hare sync, CSV import parsing, suggestion scoring, verification status, invite tokens

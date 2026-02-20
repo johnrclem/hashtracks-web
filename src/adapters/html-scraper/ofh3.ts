@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
+import { fetchBloggerPosts } from "../blogger-api";
 
 const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
@@ -80,12 +81,71 @@ export function parseOfh3Body(text: string): {
 }
 
 /**
+ * Process a single OFH3 blog post into a RawEventData.
+ * Returns null if the post cannot be parsed (e.g., missing date).
+ */
+function processPost(
+  titleText: string,
+  bodyText: string,
+  postUrl: string,
+  baseUrl: string,
+  index: number,
+  errors: string[],
+  errorDetails: ErrorDetails,
+): RawEventData | null {
+  const bodyFields = parseOfh3Body(bodyText);
+
+  if (!bodyFields.date) {
+    if (bodyText.trim().length > 0) {
+      errors.push(`Could not parse date from post: ${titleText || "(untitled)"}`);
+      errorDetails.parse = [...(errorDetails.parse ?? []), {
+        row: index, section: "post", field: "date",
+        error: `No date found in post: ${titleText || "(untitled)"}`,
+      }];
+    }
+    return null;
+  }
+
+  // Build description from trail details
+  const descParts: string[] = [];
+  if (bodyFields.trailType) descParts.push(`Trail Type: ${bodyFields.trailType}`);
+  if (bodyFields.distances) descParts.push(`Distances: ${bodyFields.distances}`);
+  if (bodyFields.shiggyRating) descParts.push(`Shiggy: ${bodyFields.shiggyRating}`);
+  if (bodyFields.cost) descParts.push(`Cost: ${bodyFields.cost}`);
+  if (bodyFields.onAfter) descParts.push(`On After: ${bodyFields.onAfter}`);
+
+  // Generate location URL
+  let locationUrl: string | undefined;
+  if (bodyFields.location && bodyFields.location.toLowerCase() !== "tba") {
+    locationUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(bodyFields.location)}`;
+  }
+
+  const sourceUrl = postUrl.startsWith("http") ? postUrl : `${baseUrl.replace(/\/$/, "")}${postUrl}`;
+
+  return {
+    date: bodyFields.date,
+    kennelTag: "OFH3",
+    title: titleText || undefined,
+    hares: bodyFields.hares,
+    location: bodyFields.location && bodyFields.location.toLowerCase() !== "tba" ? bodyFields.location : undefined,
+    locationUrl,
+    startTime: "11:00", // OFH3 standard: hares away at 11:00 AM
+    sourceUrl,
+    description: descParts.length > 0 ? descParts.join(" | ") : undefined,
+  };
+}
+
+/**
  * OFH3 Blogspot Trail Posts Scraper
  *
  * Scrapes ofh3.com (Blogger/Blogspot) for trail announcements. Each blog post
  * is one trail (monthly cadence). Posts have themed titles and structured
  * labeled fields in the body for hares, date, cost, location, trail type,
  * distances, shiggy rating, and on-after.
+ *
+ * Uses the Blogger API v3 as primary fetch method (direct HTML scraping
+ * is blocked by Google's bot detection on cloud IPs). Falls back to
+ * HTML scraping if the Blogger API is unavailable.
  */
 export class OFH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
@@ -96,6 +156,66 @@ export class OFH3Adapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://www.ofh3.com/";
 
+    // Try Blogger API first
+    const apiResult = await this.fetchViaBloggerApi(baseUrl);
+    if (apiResult) return apiResult;
+
+    // Fall back to HTML scraping
+    return this.fetchViaHtmlScrape(baseUrl);
+  }
+
+  private async fetchViaBloggerApi(baseUrl: string): Promise<ScrapeResult | null> {
+    const bloggerResult = await fetchBloggerPosts(baseUrl);
+
+    // If the Blogger API errored (missing key, API not enabled, etc.), return null to trigger fallback
+    if (bloggerResult.error) {
+      return null;
+    }
+
+    const events: RawEventData[] = [];
+    const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
+
+    for (let i = 0; i < bloggerResult.posts.length; i++) {
+      const post = bloggerResult.posts[i];
+
+      // Extract text from HTML content
+      const $ = cheerio.load(post.content);
+      const bodyText = $.text();
+      const titleText = post.title;
+      const postUrl = post.url;
+
+      const event = processPost(
+        titleText,
+        bodyText,
+        postUrl,
+        baseUrl,
+        i,
+        errors,
+        errorDetails,
+      );
+      if (event) events.push(event);
+    }
+
+    const hasErrorDetails =
+      (errorDetails.fetch?.length ?? 0) > 0 ||
+      (errorDetails.parse?.length ?? 0) > 0;
+
+    return {
+      events,
+      errors,
+      errorDetails: hasErrorDetails ? errorDetails : undefined,
+      diagnosticContext: {
+        fetchMethod: "blogger-api",
+        blogId: bloggerResult.blogId,
+        postsFound: bloggerResult.posts.length,
+        eventsParsed: events.length,
+        fetchDurationMs: bloggerResult.fetchDurationMs,
+      },
+    };
+  }
+
+  private async fetchViaHtmlScrape(baseUrl: string): Promise<ScrapeResult> {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
@@ -130,55 +250,23 @@ export class OFH3Adapter implements SourceAdapter {
     for (let i = 0; i < posts.length; i++) {
       const post = $(posts[i]);
 
-      // Get the post title
       const titleEl = post.find(".post-title a, .entry-title a, h3.post-title a").first();
       const titleText = titleEl.text().trim() || post.find(".post-title, .entry-title, h3").first().text().trim();
       const postUrl = titleEl.attr("href") || baseUrl;
 
-      // Get the post body
       const bodyEl = post.find(".post-body, .entry-content").first();
       const bodyText = bodyEl.text() || "";
 
-      // Parse the body for structured fields
-      const bodyFields = parseOfh3Body(bodyText);
-
-      // We need at least a date to create an event
-      if (!bodyFields.date) {
-        if (bodyText.trim().length > 0) {
-          errors.push(`Could not parse date from post: ${titleText || "(untitled)"}`);
-          errorDetails.parse = [...(errorDetails.parse ?? []), {
-            row: i, section: "post", field: "date",
-            error: `No date found in post: ${titleText || "(untitled)"}`,
-          }];
-        }
-        continue;
-      }
-
-      // Build description from trail details
-      const descParts: string[] = [];
-      if (bodyFields.trailType) descParts.push(`Trail Type: ${bodyFields.trailType}`);
-      if (bodyFields.distances) descParts.push(`Distances: ${bodyFields.distances}`);
-      if (bodyFields.shiggyRating) descParts.push(`Shiggy: ${bodyFields.shiggyRating}`);
-      if (bodyFields.cost) descParts.push(`Cost: ${bodyFields.cost}`);
-      if (bodyFields.onAfter) descParts.push(`On After: ${bodyFields.onAfter}`);
-
-      // Generate location URL
-      let locationUrl: string | undefined;
-      if (bodyFields.location && bodyFields.location.toLowerCase() !== "tba") {
-        locationUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(bodyFields.location)}`;
-      }
-
-      events.push({
-        date: bodyFields.date,
-        kennelTag: "OFH3",
-        title: titleText || undefined,
-        hares: bodyFields.hares,
-        location: bodyFields.location && bodyFields.location.toLowerCase() !== "tba" ? bodyFields.location : undefined,
-        locationUrl,
-        startTime: "11:00", // OFH3 standard: hares away at 11:00 AM
-        sourceUrl: postUrl.startsWith("http") ? postUrl : `${baseUrl.replace(/\/$/, "")}${postUrl}`,
-        description: descParts.length > 0 ? descParts.join(" | ") : undefined,
-      });
+      const event = processPost(
+        titleText,
+        bodyText,
+        postUrl,
+        baseUrl,
+        i,
+        errors,
+        errorDetails,
+      );
+      if (event) events.push(event);
     }
 
     return {
@@ -187,6 +275,7 @@ export class OFH3Adapter implements SourceAdapter {
       structureHash,
       errorDetails: (errorDetails.fetch?.length ?? 0) > 0 || (errorDetails.parse?.length ?? 0) > 0 ? errorDetails : undefined,
       diagnosticContext: {
+        fetchMethod: "html-scrape",
         postsFound: posts.length,
         eventsParsed: events.length,
       },

@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseOfh3Date, parseOfh3Body } from "./ofh3";
 import { OFH3Adapter } from "./ofh3";
+import * as bloggerApi from "../blogger-api";
+
+vi.mock("../blogger-api");
 
 describe("parseOfh3Date", () => {
   it("parses 'Saturday, March 14, 2026'", () => {
@@ -72,8 +75,7 @@ describe("parseOfh3Body", () => {
   });
 });
 
-describe("OFH3Adapter integration", () => {
-  const SAMPLE_HTML = `
+const SAMPLE_HTML = `
 <!DOCTYPE html>
 <html>
 <body>
@@ -110,11 +112,111 @@ describe("OFH3Adapter integration", () => {
 </body>
 </html>`;
 
+describe("OFH3Adapter.fetch (Blogger API path)", () => {
   let adapter: OFH3Adapter;
 
   beforeEach(() => {
     adapter = new OFH3Adapter();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("uses Blogger API when available and parses events", async () => {
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "Are you feelin' lucky?",
+          content: "<p><b>Hares:</b> Herpicles</p><p><b>When:</b> Saturday, March 14, 2026</p><p><b>Cost:</b> $5, virgins free</p><p><b>Where:</b> Blue Heron Elementary School</p><p><b>Trail Type:</b> A-A</p><p><b>Distances:</b> 3ish</p><p><b>Shiggy rating (1-10):</b> 5</p><p><b>On-After:</b> Brewer's Alley</p>",
+          url: "https://www.ofh3.com/2026/03/are-you-feelin-lucky.html",
+          published: "2026-03-01T12:00:00Z",
+        },
+        {
+          title: "Ready to shake off the snow?",
+          content: "<p><b>Hares:</b> Livin' Lolita Loca &amp; Special Ed Forces</p><p><b>When:</b> Saturday, February 8, 2026</p><p><b>Where:</b> TBA</p>",
+          url: "https://www.ofh3.com/2026/02/ready-to-shake-off-snow.html",
+          published: "2026-02-01T12:00:00Z",
+        },
+      ],
+      blogId: "67890",
+      fetchDurationMs: 200,
+    });
+
+    const result = await adapter.fetch({
+      id: "test-ofh3",
+      url: "https://www.ofh3.com/",
+    } as never);
+
+    expect(result.events).toHaveLength(2);
+
+    expect(result.events[0]).toMatchObject({
+      date: "2026-03-14",
+      kennelTag: "OFH3",
+      title: "Are you feelin' lucky?",
+      hares: "Herpicles",
+      location: "Blue Heron Elementary School",
+      startTime: "11:00",
+    });
+    expect(result.events[0].description).toContain("Trail Type: A-A");
+    expect(result.events[0].description).toContain("Cost: $5, virgins free");
+
+    // TBA location should be excluded
+    expect(result.events[1]).toMatchObject({
+      date: "2026-02-08",
+      kennelTag: "OFH3",
+    });
+    expect(result.events[1].location).toBeUndefined();
+
+    expect(result.diagnosticContext).toMatchObject({
+      fetchMethod: "blogger-api",
+      blogId: "67890",
+      postsFound: 2,
+      eventsParsed: 2,
+    });
+
+    // structureHash not set for Blogger API path
+    expect(result.structureHash).toBeUndefined();
+  });
+
+  it("falls back to HTML scrape when Blogger API unavailable", async () => {
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValueOnce({
+      posts: [],
+      error: { message: "Missing GOOGLE_CALENDAR_API_KEY environment variable" },
+    });
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_HTML, { status: 200 }) as never,
+    );
+
+    const result = await adapter.fetch({
+      id: "test-ofh3",
+      url: "https://www.ofh3.com/",
+    } as never);
+
+    expect(result.events).toHaveLength(2);
+    expect(result.diagnosticContext).toMatchObject({
+      fetchMethod: "html-scrape",
+    });
+    expect(result.structureHash).toBeDefined();
+  });
+});
+
+describe("OFH3Adapter.fetch (HTML fallback path)", () => {
+  let adapter: OFH3Adapter;
+
+  beforeEach(() => {
+    adapter = new OFH3Adapter();
+    // Make Blogger API return error to trigger HTML fallback
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValue({
+      posts: [],
+      error: { message: "Missing GOOGLE_CALENDAR_API_KEY environment variable" },
+    });
     vi.stubGlobal("fetch", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("parses multiple trail posts from Blogger page", async () => {
