@@ -42,12 +42,10 @@ export async function createSource(formData: FormData) {
     }
   }
 
-  // Validate config shape and regex patterns
-  if (config) {
-    const configErrors = validateSourceConfig(type, config);
-    if (configErrors.length > 0) {
-      return { error: `Config validation failed: ${configErrors[0]}` };
-    }
+  // Validate config shape and regex patterns (runs even when config is empty for types that require it)
+  const configErrors = validateSourceConfig(type, config ?? null);
+  if (configErrors.length > 0) {
+    return { error: `Config validation failed: ${configErrors.join("; ")}` };
   }
 
   const source = await prisma.source.create({
@@ -110,12 +108,11 @@ export async function updateSource(sourceId: string, formData: FormData) {
     }
   }
 
-  // Validate config shape and regex patterns
-  if (config !== Prisma.DbNull && config) {
-    const configErrors = validateSourceConfig(type, config);
-    if (configErrors.length > 0) {
-      return { error: `Config validation failed: ${configErrors[0]}` };
-    }
+  // Validate config shape and regex patterns (runs even when config is empty for types that require it)
+  const configForValidation = config === Prisma.DbNull ? null : config;
+  const configErrors = validateSourceConfig(type, configForValidation);
+  if (configErrors.length > 0) {
+    return { error: `Config validation failed: ${configErrors.join("; ")}` };
   }
 
   const ids = kennelIds

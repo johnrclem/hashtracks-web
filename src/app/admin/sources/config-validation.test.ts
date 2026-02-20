@@ -1,6 +1,47 @@
 import { validateSourceConfig } from "./config-validation";
 
 describe("validateSourceConfig", () => {
+  describe("config shape validation", () => {
+    it("accepts null/undefined config for optional types", () => {
+      expect(validateSourceConfig("GOOGLE_CALENDAR", null)).toEqual([]);
+      expect(validateSourceConfig("GOOGLE_CALENDAR", undefined)).toEqual([]);
+      expect(validateSourceConfig("ICAL_FEED", null)).toEqual([]);
+      expect(validateSourceConfig("HTML_SCRAPER", null)).toEqual([]);
+    });
+
+    it("rejects null/undefined config for types that require it", () => {
+      const sheetsErrors = validateSourceConfig("GOOGLE_SHEETS", null);
+      expect(sheetsErrors).toHaveLength(1);
+      expect(sheetsErrors[0]).toContain("requires a config");
+
+      const regoErrors = validateSourceConfig("HASHREGO", undefined);
+      expect(regoErrors).toHaveLength(1);
+      expect(regoErrors[0]).toContain("requires a config");
+    });
+
+    it("rejects non-object config (array)", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", [1, 2, 3]);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("must be a JSON object");
+    });
+
+    it("rejects non-object config (string)", () => {
+      const errors = validateSourceConfig("ICAL_FEED", "not an object");
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("must be a JSON object");
+    });
+
+    it("rejects non-object config (number)", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", 42);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("must be a JSON object");
+    });
+
+    it("accepts empty config for optional types", () => {
+      expect(validateSourceConfig("GOOGLE_CALENDAR", {})).toEqual([]);
+    });
+  });
+
   describe("kennelPatterns validation", () => {
     it("accepts valid kennelPatterns", () => {
       const config = {
@@ -11,15 +52,6 @@ describe("validateSourceConfig", () => {
         defaultKennelTag: "BoH3",
       };
       expect(validateSourceConfig("GOOGLE_CALENDAR", config)).toEqual([]);
-    });
-
-    it("accepts empty config", () => {
-      expect(validateSourceConfig("GOOGLE_CALENDAR", {})).toEqual([]);
-    });
-
-    it("accepts null/undefined config", () => {
-      expect(validateSourceConfig("GOOGLE_CALENDAR", null)).toEqual([]);
-      expect(validateSourceConfig("GOOGLE_CALENDAR", undefined)).toEqual([]);
     });
 
     it("rejects non-array kennelPatterns", () => {
@@ -60,6 +92,14 @@ describe("validateSourceConfig", () => {
       });
       expect(errors).toHaveLength(1);
       expect(errors[0]).toContain("invalid regex");
+    });
+
+    it("rejects ReDoS-vulnerable patterns", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        kennelPatterns: [["(a+)+$", "TAG"]],
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("catastrophic backtracking");
     });
 
     it("collects multiple errors", () => {
@@ -106,6 +146,14 @@ describe("validateSourceConfig", () => {
       expect(errors).toHaveLength(1);
       expect(errors[0]).toContain("must be a string");
     });
+
+    it("rejects ReDoS-vulnerable skip patterns", () => {
+      const errors = validateSourceConfig("ICAL_FEED", {
+        skipPatterns: ["(x+x+)+y"],
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("catastrophic backtracking");
+    });
   });
 
   describe("GOOGLE_SHEETS required fields", () => {
@@ -134,6 +182,12 @@ describe("validateSourceConfig", () => {
       });
       expect(errors.some((e) => e.includes("kennelTagRules"))).toBe(true);
     });
+
+    it("rejects null config for GOOGLE_SHEETS", () => {
+      const errors = validateSourceConfig("GOOGLE_SHEETS", null);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("requires a config");
+    });
   });
 
   describe("HASHREGO required fields", () => {
@@ -152,6 +206,12 @@ describe("validateSourceConfig", () => {
     it("accepts valid Hash Rego config", () => {
       const config = { kennelSlugs: ["BFMH3", "EWH3"] };
       expect(validateSourceConfig("HASHREGO", config)).toEqual([]);
+    });
+
+    it("rejects null config for HASHREGO", () => {
+      const errors = validateSourceConfig("HASHREGO", null);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("requires a config");
     });
   });
 
