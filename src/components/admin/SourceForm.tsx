@@ -28,6 +28,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import {
+  CalendarConfigPanel,
+  type CalendarConfig,
+} from "./config-panels/CalendarConfigPanel";
+import {
+  ICalConfigPanel,
+  type ICalConfig,
+} from "./config-panels/ICalConfigPanel";
 
 const SOURCE_TYPES = [
   "HTML_SCRAPER",
@@ -48,6 +56,9 @@ const CONFIG_TYPES = new Set([
   "HASHREGO",
 ]);
 
+/** Types that get a dedicated config panel (vs raw JSON) */
+const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED"]);
+
 type SourceData = {
   id: string;
   name: string;
@@ -62,8 +73,24 @@ type SourceData = {
 
 interface SourceFormProps {
   source?: SourceData;
-  allKennels: { id: string; shortName: string; fullName: string; region: string }[];
+  allKennels: {
+    id: string;
+    shortName: string;
+    fullName: string;
+    region: string;
+  }[];
   trigger: React.ReactNode;
+}
+
+/** Check if an existing config object has iCal-style shape (kennelPatterns/skipPatterns) */
+function hasICalConfigShape(config: unknown): boolean {
+  if (!config || typeof config !== "object" || Array.isArray(config)) return false;
+  const obj = config as Record<string, unknown>;
+  return (
+    "kennelPatterns" in obj ||
+    "defaultKennelTag" in obj ||
+    "skipPatterns" in obj
+  );
 }
 
 export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
@@ -75,6 +102,15 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
   const [selectedType, setSelectedType] = useState(
     source?.type ?? "HTML_SCRAPER",
   );
+
+  // Config can be edited via structured panel or raw JSON
+  const [configObj, setConfigObj] = useState<Record<string, unknown> | null>(
+    () => {
+      if (!source?.config || typeof source.config !== "object" || Array.isArray(source.config))
+        return null;
+      return source.config as Record<string, unknown>;
+    },
+  );
   const [configJson, setConfigJson] = useState(() => {
     if (!source?.config) return "";
     try {
@@ -83,9 +119,27 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
       return "";
     }
   });
+  const [showRawJson, setShowRawJson] = useState(false);
   const router = useRouter();
 
   const showConfigEditor = CONFIG_TYPES.has(selectedType);
+
+  // Determine which panel to show:
+  // - GOOGLE_CALENDAR → CalendarConfigPanel
+  // - ICAL_FEED → ICalConfigPanel
+  // - HTML_SCRAPER with iCal-style config (SFH3) → ICalConfigPanel
+  // - Others with config → raw JSON only
+  const hasPanel =
+    PANEL_TYPES.has(selectedType) ||
+    (selectedType === "HTML_SCRAPER" && hasICalConfigShape(configObj));
+
+  const panelType =
+    selectedType === "ICAL_FEED" ||
+    (selectedType === "HTML_SCRAPER" && hasICalConfigShape(configObj))
+      ? "ical"
+      : selectedType === "GOOGLE_CALENDAR"
+        ? "calendar"
+        : null;
 
   function toggleKennel(kennelId: string) {
     setSelectedKennels((prev) =>
@@ -93,6 +147,35 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
         ? prev.filter((id) => id !== kennelId)
         : [...prev, kennelId],
     );
+  }
+
+  /** Sync structured config object → raw JSON string */
+  function handleConfigChange(newConfig: CalendarConfig | ICalConfig) {
+    // Clean undefined values
+    const entries = Object.entries(newConfig).filter(
+      ([, v]) => v !== undefined,
+    );
+    const cleaned = Object.fromEntries(entries) as Record<string, unknown>;
+    const hasContent = entries.length > 0;
+    setConfigObj(hasContent ? cleaned : null);
+    setConfigJson(hasContent ? JSON.stringify(cleaned, null, 2) : "");
+  }
+
+  /** Sync raw JSON string → structured config object */
+  function handleRawJsonChange(json: string) {
+    setConfigJson(json);
+    if (!json.trim()) {
+      setConfigObj(null);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(json);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        setConfigObj(parsed);
+      }
+    } catch {
+      // Invalid JSON — don't update configObj, user is still typing
+    }
   }
 
   function handleSubmit(formData: FormData) {
@@ -115,16 +198,24 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
         if (!source) {
           setSelectedKennels([]);
           setConfigJson("");
+          setConfigObj(null);
         }
         router.refresh();
       }
     });
   }
 
+  // Widen dialog when config panel is visible
+  const dialogWidth = hasPanel || showConfigEditor
+    ? "sm:max-w-2xl"
+    : "sm:max-w-lg";
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent
+        className={`max-h-[90vh] overflow-y-auto ${dialogWidth}`}
+      >
         <DialogHeader>
           <DialogTitle>
             {source ? "Edit Source" : "Add Source"}
@@ -165,6 +256,7 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
                   // Clear config when switching to incompatible type
                   if (!CONFIG_TYPES.has(val)) {
                     setConfigJson("");
+                    setConfigObj(null);
                   }
                 }}
               >
@@ -211,7 +303,8 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Hourly and Every 6 Hours require Vercel Pro plan. Hobby plans run cron once daily.
+              Hourly and Every 6 Hours require Vercel Pro plan. Hobby plans run
+              cron once daily.
             </p>
           </div>
 
@@ -230,21 +323,64 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
             </p>
           </div>
 
+          {/* Structured config panels */}
+          {panelType === "calendar" && (
+            <div className="space-y-2 rounded-md border p-4">
+              <Label className="text-sm font-semibold">
+                Calendar Configuration
+              </Label>
+              <CalendarConfigPanel
+                config={configObj as CalendarConfig | null}
+                onChange={handleConfigChange}
+              />
+            </div>
+          )}
+
+          {panelType === "ical" && (
+            <div className="space-y-2 rounded-md border p-4">
+              <Label className="text-sm font-semibold">
+                {selectedType === "HTML_SCRAPER"
+                  ? "Scraper Configuration"
+                  : "iCal Feed Configuration"}
+              </Label>
+              <ICalConfigPanel
+                config={configObj as ICalConfig | null}
+                onChange={handleConfigChange}
+              />
+            </div>
+          )}
+
+          {/* Raw JSON editor — collapsible when panel is active, always shown for types without panels */}
           {showConfigEditor && (
             <div className="space-y-2">
-              <Label htmlFor="config">
-                Adapter Config (JSON)
-              </Label>
-              <textarea
-                id="config"
-                className="min-h-[120px] w-full rounded-md border bg-background px-3 py-2 font-mono text-xs"
-                value={configJson}
-                onChange={(e) => setConfigJson(e.target.value)}
-                placeholder='{"defaultKennelTag": "EWH3"}'
-              />
-              <p className="text-xs text-muted-foreground">
-                Adapter-specific configuration. See docs for your source type.
-              </p>
+              {hasPanel ? (
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowRawJson(!showRawJson)}
+                >
+                  {showRawJson
+                    ? "Hide raw JSON"
+                    : "Show raw JSON (advanced)"}
+                </button>
+              ) : (
+                <Label htmlFor="config">Adapter Config (JSON)</Label>
+              )}
+              {(!hasPanel || showRawJson) && (
+                <>
+                  <textarea
+                    id="config"
+                    className="min-h-[120px] w-full rounded-md border bg-background px-3 py-2 font-mono text-xs"
+                    value={configJson}
+                    onChange={(e) => handleRawJsonChange(e.target.value)}
+                    placeholder='{"defaultKennelTag": "EWH3"}'
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Adapter-specific configuration. See docs for your source
+                    type.
+                  </p>
+                </>
+              )}
             </div>
           )}
 
@@ -268,7 +404,8 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {kennel.fullName}{kennel.region ? ` — ${kennel.region}` : ""}
+                      {kennel.fullName}
+                      {kennel.region ? ` — ${kennel.region}` : ""}
                     </TooltipContent>
                   </Tooltip>
                 ))}

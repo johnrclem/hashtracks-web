@@ -7,6 +7,7 @@ import type { SourceType } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
 import { scrapeSource } from "@/pipeline/scrape";
+import { validateSourceConfig } from "./config-validation";
 
 export async function createSource(formData: FormData) {
   const admin = await getAdminUser();
@@ -39,6 +40,12 @@ export async function createSource(formData: FormData) {
     } catch {
       return { error: "Invalid JSON in config field" };
     }
+  }
+
+  // Validate config shape and regex patterns (runs even when config is empty for types that require it)
+  const configErrors = validateSourceConfig(type, config ?? null);
+  if (configErrors.length > 0) {
+    return { error: `Config validation failed: ${configErrors.join("; ")}` };
   }
 
   const source = await prisma.source.create({
@@ -99,6 +106,13 @@ export async function updateSource(sourceId: string, formData: FormData) {
     } catch {
       return { error: "Invalid JSON in config field" };
     }
+  }
+
+  // Validate config shape and regex patterns (runs even when config is empty for types that require it)
+  const configForValidation = config === Prisma.DbNull ? null : config;
+  const configErrors = validateSourceConfig(type, configForValidation);
+  if (configErrors.length > 0) {
+    return { error: `Config validation failed: ${configErrors.join("; ")}` };
   }
 
   const ids = kennelIds
