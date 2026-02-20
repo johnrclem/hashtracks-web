@@ -38,13 +38,17 @@ export async function previewSourceConfig(
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  const type = (formData.get("type") as string)?.trim();
-  const url = (formData.get("url") as string)?.trim();
-  const configRaw = (formData.get("config") as string)?.trim() || "";
+  const type = String(formData.get("type") || "").trim();
+  const url = String(formData.get("url") || "").trim();
+  const configRaw = String(formData.get("config") || "").trim();
 
   if (!type || !url) {
     return { error: "Type and URL are required for preview" };
   }
+
+  // SSRF protection: only allow http/https protocols, block private IPs
+  const urlError = validatePreviewUrl(url);
+  if (urlError) return { error: urlError };
 
   // Parse config JSON
   let config: Record<string, unknown> | null = null;
@@ -101,14 +105,17 @@ export async function previewSourceConfig(
   // Compute fill rates
   const fillRates = computeFillRates(result.events);
 
-  // Resolve kennel tags (read-only DB queries)
+  // Resolve kennel tags concurrently (read-only DB queries)
   clearResolverCache();
-  const tagResolution = new Map<string, boolean>();
   const uniqueTags = [...new Set(result.events.map((e) => e.kennelTag))];
-  for (const tag of uniqueTags) {
-    const { matched } = await resolveKennelTag(tag);
-    tagResolution.set(tag, matched);
-  }
+  const tagResults = await Promise.all(
+    uniqueTags.map(async (tag) => {
+      const { matched } = await resolveKennelTag(tag);
+      return { tag, matched };
+    }),
+  );
+  const tagResolution = new Map<string, boolean>();
+  tagResults.forEach(({ tag, matched }) => tagResolution.set(tag, matched));
 
   const unmatchedTags = uniqueTags.filter((t) => !tagResolution.get(t));
 
@@ -134,4 +141,46 @@ export async function previewSourceConfig(
       fillRates,
     },
   };
+}
+
+/** Validate URL for SSRF protection: only http/https, no private IPs */
+function validatePreviewUrl(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return "Invalid URL format";
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    return "Only http and https URLs are allowed";
+  }
+
+  const hostname = parsed.hostname;
+
+  // Block localhost and loopback
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "0.0.0.0"
+  ) {
+    return "URLs pointing to localhost are not allowed";
+  }
+
+  // Block private IP ranges (10.x, 172.16-31.x, 192.168.x)
+  const ipv4Match = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (ipv4Match) {
+    const [, a, b] = ipv4Match.map(Number);
+    if (
+      a === 10 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      a === 169 && b === 254 // link-local
+    ) {
+      return "URLs pointing to private IP addresses are not allowed";
+    }
+  }
+
+  return null;
 }

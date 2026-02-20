@@ -66,7 +66,7 @@ export function PreviewResults({ data }: PreviewResultsProps) {
             </thead>
             <tbody>
               {data.events.map((event, i) => (
-                <tr key={i} className="border-b last:border-0">
+                <tr key={`${event.date}-${event.kennelTag}-${i}`} className="border-b last:border-0">
                   <td className="whitespace-nowrap px-2 py-1">
                     {event.date}
                   </td>
@@ -127,7 +127,7 @@ export function PreviewResults({ data }: PreviewResultsProps) {
           {data.errors.length <= 3 ? (
             <ul className="list-inside list-disc text-xs text-destructive">
               {data.errors.map((err, i) => (
-                <li key={i}>{err}</li>
+                <li key={`${i}-${err.slice(0, 40)}`}>{err}</li>
               ))}
             </ul>
           ) : (
@@ -144,7 +144,7 @@ export function PreviewResults({ data }: PreviewResultsProps) {
               {showErrors && (
                 <ul className="list-inside list-disc text-xs text-destructive">
                   {data.errors.map((err, i) => (
-                    <li key={i}>{err}</li>
+                    <li key={`${i}-${err.slice(0, 40)}`}>{err}</li>
                   ))}
                 </ul>
               )}

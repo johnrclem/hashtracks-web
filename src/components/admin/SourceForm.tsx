@@ -187,6 +187,12 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
     }
   }
 
+  function closeDialog() {
+    setOpen(false);
+    setPreviewData(null);
+    setPreviewError(null);
+  }
+
   function handlePreview() {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
@@ -223,7 +229,7 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
         toast.error(result.error);
       } else {
         toast.success(source ? "Source updated" : "Source created");
-        setOpen(false);
+        closeDialog();
         if (!source) {
           setSelectedKennels([]);
           setConfigJson("");
@@ -241,11 +247,8 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => {
-      setOpen(v);
-      if (!v) {
-        setPreviewData(null);
-        setPreviewError(null);
-      }
+      if (v) setOpen(true);
+      else closeDialog();
     }}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent
@@ -481,7 +484,7 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => closeDialog()}
             >
               Cancel
             </Button>

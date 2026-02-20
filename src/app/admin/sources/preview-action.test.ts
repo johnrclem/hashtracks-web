@@ -278,6 +278,85 @@ describe("previewSourceConfig", () => {
     expect(callArgs[0].config).toBeNull();
   });
 
+  describe("SSRF protection", () => {
+    it("rejects non-http/https protocols", async () => {
+      const result = await previewSourceConfig(
+        makeFormData({ type: "HTML_SCRAPER", url: "file:///etc/passwd" }),
+      );
+      expect(result.error).toBe("Only http and https URLs are allowed");
+    });
+
+    it("rejects localhost URLs", async () => {
+      const result = await previewSourceConfig(
+        makeFormData({ type: "HTML_SCRAPER", url: "http://localhost:3000" }),
+      );
+      expect(result.error).toBe("URLs pointing to localhost are not allowed");
+    });
+
+    it("rejects 127.0.0.1", async () => {
+      const result = await previewSourceConfig(
+        makeFormData({ type: "HTML_SCRAPER", url: "http://127.0.0.1/admin" }),
+      );
+      expect(result.error).toBe("URLs pointing to localhost are not allowed");
+    });
+
+    it("rejects private 10.x IPs", async () => {
+      const result = await previewSourceConfig(
+        makeFormData({ type: "HTML_SCRAPER", url: "http://10.0.0.1/internal" }),
+      );
+      expect(result.error).toBe(
+        "URLs pointing to private IP addresses are not allowed",
+      );
+    });
+
+    it("rejects private 172.16.x IPs", async () => {
+      const result = await previewSourceConfig(
+        makeFormData({
+          type: "HTML_SCRAPER",
+          url: "http://172.16.0.1/internal",
+        }),
+      );
+      expect(result.error).toBe(
+        "URLs pointing to private IP addresses are not allowed",
+      );
+    });
+
+    it("rejects private 192.168.x IPs", async () => {
+      const result = await previewSourceConfig(
+        makeFormData({
+          type: "HTML_SCRAPER",
+          url: "http://192.168.1.1/internal",
+        }),
+      );
+      expect(result.error).toBe(
+        "URLs pointing to private IP addresses are not allowed",
+      );
+    });
+
+    it("rejects invalid URL format", async () => {
+      const result = await previewSourceConfig(
+        makeFormData({ type: "HTML_SCRAPER", url: "not-a-url" }),
+      );
+      expect(result.error).toBe("Invalid URL format");
+    });
+
+    it("allows valid public URLs", async () => {
+      const mockAdapter = {
+        fetch: vi.fn().mockResolvedValue({ events: [], errors: [] }),
+      };
+      mockedGetAdapter.mockReturnValue(mockAdapter as never);
+
+      const result = await previewSourceConfig(
+        makeFormData({
+          type: "HTML_SCRAPER",
+          url: "https://hashnyc.com/events",
+        }),
+      );
+      // Should proceed past URL validation (no SSRF error)
+      expect(result.error).toBeUndefined();
+    });
+  });
+
   it("deduplicates kennel tags before resolving", async () => {
     const mockEvents = [
       { date: "2026-03-01", kennelTag: "NYCH3" },
