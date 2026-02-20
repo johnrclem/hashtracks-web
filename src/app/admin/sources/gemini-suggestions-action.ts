@@ -44,7 +44,8 @@ export async function getGeminiSuggestions(
     .map((k) => `${k.shortName} | ${k.fullName}`)
     .join("\n");
 
-  const tagList = unmatchedTags
+  const uniqueUnmatchedTags = [...new Set(unmatchedTags)];
+  const tagList = uniqueUnmatchedTags
     .map((tag) => {
       const titles = (sampleTitlesByTag[tag] ?? []).slice(0, 3);
       return titles.length > 0

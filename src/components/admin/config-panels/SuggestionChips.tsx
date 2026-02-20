@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { suggestKennelPatterns } from "@/lib/source-detect";
 import {
@@ -34,6 +34,14 @@ export function SuggestionChips({
   const [aiError, setAiError] = useState<string | null>(null);
   const [isEnhancing, startEnhance] = useTransition();
 
+  // Reset AI state whenever the unmatched tag set changes (user re-ran "Test Config")
+  const unmatchedKey = unmatchedTags.slice().sort().join(",");
+  useEffect(() => {
+    setAiSuggestions(null);
+    setAiDismissed(new Set());
+    setAiError(null);
+  }, [unmatchedKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const suggestions = suggestKennelPatterns(
     unmatchedTags.filter((tag) => !existingPatterns.some(([, t]) => t === tag)),
   );
@@ -42,7 +50,7 @@ export function SuggestionChips({
   // AI: filter out tags already covered by existing patterns or by accepted AI suggestions
   const pendingAi = (aiSuggestions ?? []).filter(
     (s) =>
-      !aiDismissed.has(s.tag) &&
+      !aiDismissed.has(s.pattern) &&
       !existingPatterns.some(([, t]) => t === s.tag),
   );
 
@@ -148,7 +156,7 @@ export function SuggestionChips({
           <div className="flex flex-wrap gap-1">
             {pendingAi.map((s) => (
               <div
-                key={s.tag}
+                key={s.pattern}
                 className={`flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs ${confidenceColor(s.confidence)}`}
                 title={s.reason}
               >
@@ -164,7 +172,7 @@ export function SuggestionChips({
                   title={`Accept: ${s.reason}`}
                   onClick={() => {
                     onAccept([s.pattern, s.tag]);
-                    setAiDismissed((prev) => new Set([...prev, s.tag]));
+                    setAiDismissed((prev) => new Set([...prev, s.pattern]));
                   }}
                 >
                   ✓
@@ -175,7 +183,7 @@ export function SuggestionChips({
                   size="sm"
                   className="h-4 w-4 p-0 text-muted-foreground hover:text-destructive"
                   title="Dismiss"
-                  onClick={() => setAiDismissed((prev) => new Set([...prev, s.tag]))}
+                  onClick={() => setAiDismissed((prev) => new Set([...prev, s.pattern]))}
                 >
                   &times;
                 </Button>
