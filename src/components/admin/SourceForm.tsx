@@ -231,6 +231,13 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
 
   const allKennelsWithExtra = [...allKennels, ...extraKennels];
 
+  function resetQuickKennelForm() {
+    setQuickKennelOpen(false);
+    setQuickKennelShortName("");
+    setQuickKennelFullName("");
+    setQuickKennelRegion("");
+  }
+
   function handleQuickKennelCreate() {
     startCreatingKennel(async () => {
       const result = await createQuickKennel({
@@ -238,21 +245,12 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
         fullName: quickKennelFullName.trim(),
         region: quickKennelRegion.trim(),
       });
-      if (result.error) {
+      if (!result.success) {
         toast.error(result.error);
-      } else if (result.id) {
-        const newKennel = {
-          id: result.id,
-          shortName: result.shortName!,
-          fullName: result.fullName!,
-          region: result.region!,
-        };
-        setExtraKennels((prev) => [...prev, newKennel]);
-        setSelectedKennels((prev) => [...prev, result.id!]);
-        setQuickKennelOpen(false);
-        setQuickKennelShortName("");
-        setQuickKennelFullName("");
-        setQuickKennelRegion("");
+      } else {
+        setExtraKennels((prev) => [...prev, { id: result.id, shortName: result.shortName, fullName: result.fullName, region: result.region }]);
+        setSelectedKennels((prev) => [...prev, result.id]);
+        resetQuickKennelForm();
         toast.success(`Kennel "${result.shortName}" created and linked`);
       }
     });
@@ -692,12 +690,7 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
                   variant="ghost"
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => {
-                    setQuickKennelOpen(false);
-                    setQuickKennelShortName("");
-                    setQuickKennelFullName("");
-                    setQuickKennelRegion("");
-                  }}
+                  onClick={resetQuickKennelForm}
                 >
                   Cancel
                 </Button>

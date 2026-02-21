@@ -9,6 +9,20 @@ import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver
 import { scrapeSource } from "@/pipeline/scrape";
 import { validateSourceConfig } from "./config-validation";
 
+function buildKennelIdentifiers(shortName: string): { slug: string; kennelCode: string } {
+  const slug = shortName
+    .toLowerCase()
+    .replace(/[()]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  const kennelCode = shortName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return { slug, kennelCode };
+}
+
 export async function createSource(formData: FormData) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
@@ -306,14 +320,10 @@ export async function createQuickKennel(data: {
   shortName: string;
   fullName: string;
   region: string;
-}): Promise<{
-  success?: true;
-  id?: string;
-  shortName?: string;
-  fullName?: string;
-  region?: string;
-  error?: string;
-}> {
+}): Promise<
+  | { success: true; id: string; shortName: string; fullName: string; region: string }
+  | { success?: false; error: string }
+> {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
@@ -322,16 +332,7 @@ export async function createQuickKennel(data: {
     return { error: "shortName, fullName, and region are required" };
   }
 
-  const slug = shortName
-    .toLowerCase()
-    .replace(/[()]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-  const kennelCode = shortName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+  const { slug, kennelCode } = buildKennelIdentifiers(shortName);
 
   const [existingCode, existingSlug] = await Promise.all([
     prisma.kennel.findUnique({ where: { kennelCode } }),
@@ -366,16 +367,7 @@ export async function createKennelForSource(
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };
 
-  const slug = kennelData.shortName
-    .toLowerCase()
-    .replace(/[()]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-  const kennelCode = kennelData.shortName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+  const { slug, kennelCode } = buildKennelIdentifiers(kennelData.shortName);
 
   // Check uniqueness
   const existingKennel = await prisma.kennel.findFirst({
