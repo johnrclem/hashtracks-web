@@ -22,6 +22,7 @@ import { SourceDetailActions } from "@/components/admin/SourceDetailActions";
 import { SampleEventActions } from "@/components/admin/SampleEventActions";
 import { TYPE_LABELS } from "@/components/admin/SourceTable";
 import { fuzzyMatch } from "@/lib/fuzzy";
+import { cn } from "@/lib/utils";
 
 const healthColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   HEALTHY: "default",
@@ -50,7 +51,7 @@ function formatNYC(date: Date): string {
 
 // Phase 1: Color-code fill rates based on thresholds
 function FillRateCell({ rate, className }: { rate: number | null | undefined; className?: string }) {
-  if (rate == null) return <TableCell className={`text-center text-xs text-muted-foreground ${className ?? ""}`}>—</TableCell>;
+  if (rate == null) return <TableCell className={cn("text-center text-xs text-muted-foreground", className)}>—</TableCell>;
 
   let colorClass = "";
   if (rate > 90) {
@@ -62,7 +63,7 @@ function FillRateCell({ rate, className }: { rate: number | null | undefined; cl
   }
 
   return (
-    <TableCell className={`text-center text-xs ${colorClass} ${className ?? ""}`}>
+    <TableCell className={cn("text-center text-xs", colorClass, className)}>
       {rate}%
     </TableCell>
   );
