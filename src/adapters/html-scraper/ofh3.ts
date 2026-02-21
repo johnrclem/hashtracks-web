@@ -116,10 +116,11 @@ function processPost(
     const titleDate = parseOfh3Date(titleText);
     if (!titleDate) {
       if (bodyText.trim().length > 0) {
-        errors.push(`Could not parse date from post: ${titleText || "(untitled)"}`);
+        const dateError = `No date found in post: ${titleText || "(untitled)"}`;
+        errors.push(dateError);
         errorDetails.parse = [...(errorDetails.parse ?? []), {
           row: index, section: "post", field: "date",
-          error: `No date found in post: ${titleText || "(untitled)"}`,
+          error: dateError,
           rawText: `Title: ${titleText}\n\n${bodyText}`.slice(0, 2000),
           partialData: {
             kennelTag: "OFH3",

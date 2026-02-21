@@ -2,11 +2,11 @@
  * Gemini REST API client — thin wrapper for structured extraction.
  *
  * Uses the REST API directly (no SDK dependency) per PRD Appendix E.1.
- * Model: gemini-2.5-flash (fast, cheap — ideal for structured extraction).
+ * Model: gemini-2.0-flash (fast, cheap — ideal for structured extraction).
  * Temperature: 0.1 (deterministic for reproducible results).
  */
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-2.0-flash";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 export interface GeminiRequest {
@@ -31,7 +31,7 @@ export async function callGemini(request: GeminiRequest): Promise<GeminiResponse
     return { text: null, error: "GEMINI_API_KEY not configured", durationMs: 0 };
   }
 
-  const url = `${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  const url = `${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const start = Date.now();
 
   try {

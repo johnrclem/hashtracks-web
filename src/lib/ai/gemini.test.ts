@@ -50,7 +50,7 @@ describe("callGemini", () => {
 
     await callGemini({ prompt: "test" });
     expect(capturedUrl).toContain("key=test-key");
-    expect(capturedUrl).toContain("gemini-2.5-flash");
+    expect(capturedUrl).toContain("gemini-2.0-flash");
   });
 
   it("returns parsed text on success", async () => {
