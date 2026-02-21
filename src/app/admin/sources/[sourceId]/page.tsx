@@ -816,7 +816,7 @@ export default async function SourceDetailPage({
                     {formatNYC(log.startedAt)}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 flex-wrap">
                       <Badge variant={statusColors[log.status]}>
                         {log.status}
                       </Badge>
@@ -825,6 +825,29 @@ export default async function SourceDetailPage({
                           Forced
                         </Badge>
                       )}
+                      {(() => {
+                        const ctx = log.diagnosticContext as Record<string, unknown> | null;
+                        const ai = ctx?.aiRecovery as { attempted?: number; succeeded?: number; failed?: number } | undefined;
+                        if (!ai || !ai.attempted) return null;
+                        const allRecovered = ai.succeeded === ai.attempted;
+                        return (
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Badge
+                                variant={allRecovered ? "default" : "secondary"}
+                                className={`text-[10px] py-0 ${allRecovered ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-600 hover:bg-amber-700 text-white"}`}
+                              >
+                                AI: {ai.succeeded}/{ai.attempted}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {allRecovered
+                                ? `AI recovered all ${ai.succeeded} parse errors — self-healed`
+                                : `AI recovered ${ai.succeeded} of ${ai.attempted} parse errors${ai.failed ? ` (${ai.failed} need code changes)` : ""}`}
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })()}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">{log.eventsFound}</TableCell>
@@ -864,21 +887,53 @@ export default async function SourceDetailPage({
                         Unmatched: {log.unmatchedTags.join(", ")}
                       </p>
                     )}
-                    {log.diagnosticContext && (
-                      <details className="mt-1">
-                        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                          Diagnostics
-                        </summary>
-                        <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
-                          {Object.entries(log.diagnosticContext as Record<string, unknown>).map(([key, value]) => (
-                            <div key={key}>
-                              <span className="font-medium">{key}:</span>{" "}
-                              {typeof value === "object" ? JSON.stringify(value) : String(value)}
-                            </div>
-                          ))}
-                        </div>
-                      </details>
-                    )}
+                    {log.diagnosticContext && (() => {
+                      const ctx = log.diagnosticContext as Record<string, unknown>;
+                      const ai = ctx.aiRecovery as { attempted?: number; succeeded?: number; failed?: number; durationMs?: number; recoveredFields?: Array<{ fields: string[]; confidence: string }> } | undefined;
+                      const otherCtx = Object.fromEntries(Object.entries(ctx).filter(([k]) => k !== "aiRecovery"));
+                      const hasOther = Object.keys(otherCtx).length > 0;
+
+                      return (
+                        <>
+                          {ai && ai.attempted && ai.attempted > 0 && (
+                            <details className="mt-1">
+                              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                                AI Recovery ({ai.succeeded}/{ai.attempted} recovered, {((ai.durationMs ?? 0) / 1000).toFixed(1)}s)
+                              </summary>
+                              <div className="mt-1 ml-2 text-xs text-muted-foreground space-y-1">
+                                {ai.recoveredFields?.map((r, idx) => (
+                                  <div key={idx} className="flex items-center gap-1">
+                                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${r.confidence === "high" ? "bg-green-500" : r.confidence === "medium" ? "bg-yellow-500" : "bg-red-500"}`} />
+                                    <span className="font-medium">{r.confidence}</span>
+                                    <span>— recovered: {r.fields.join(", ")}</span>
+                                  </div>
+                                ))}
+                                {(ai.failed ?? 0) > 0 && (
+                                  <p className="text-amber-600 dark:text-amber-400">
+                                    {ai.failed} error{ai.failed === 1 ? "" : "s"} could not be recovered — may need code changes
+                                  </p>
+                                )}
+                              </div>
+                            </details>
+                          )}
+                          {hasOther && (
+                            <details className="mt-1">
+                              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                                Diagnostics
+                              </summary>
+                              <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
+                                {Object.entries(otherCtx).map(([key, value]) => (
+                                  <div key={key}>
+                                    <span className="font-medium">{key}:</span>{" "}
+                                    {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          )}
+                        </>
+                      );
+                    })()}
                   </TableCell>
                 </TableRow>
               ))}

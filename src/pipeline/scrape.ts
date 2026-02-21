@@ -194,7 +194,7 @@ export async function scrapeSource(
       },
     });
 
-    // Analyze health and create/update alerts
+    // Analyze health and create/update alerts (include AI recovery context)
     const health = await analyzeHealth(sourceId, scrapeLog.id, {
       eventsFound: scrapeResult.events.length,
       scrapeFailed: hasErrors,
@@ -203,6 +203,9 @@ export async function scrapeSource(
       blockedTags: mergeResult.blockedTags,
       fillRates,
       structureHash: scrapeResult.structureHash,
+      aiRecovery: aiRecovery && aiRecovery.attempted > 0
+        ? { attempted: aiRecovery.attempted, succeeded: aiRecovery.succeeded, failed: aiRecovery.failed }
+        : undefined,
     });
 
     // Update source health status

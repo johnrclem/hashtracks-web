@@ -147,6 +147,8 @@ function processPost(
             section: "post",
             field: "date",
             error: `No date found in post: ${titleText || "(untitled)"}`,
+            rawText: `Title: ${titleText}\n\n${bodyText}`.slice(0, 2000),
+            partialData: { kennelTag: "EH3", title: titleText || undefined },
           },
         ];
       }

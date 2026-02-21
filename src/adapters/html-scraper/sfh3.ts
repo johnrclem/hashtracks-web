@@ -193,7 +193,7 @@ export class SFH3Adapter implements SourceAdapter {
         if (!date) {
           errorDetails.parse = [
             ...(errorDetails.parse ?? []),
-            { row: i, section: "hareline", field: "date", error: `Could not parse date: "${row.dateText}"` },
+            { row: i, section: "hareline", field: "date", error: `Could not parse date: "${row.dateText}"`, rawText: `Date: ${row.dateText} | Title: ${row.title} | Location: ${row.locationText ?? ""} | Hare: ${row.hare ?? ""}`.slice(0, 2000) },
           ];
           continue;
         }
@@ -225,7 +225,7 @@ export class SFH3Adapter implements SourceAdapter {
         errors.push(`Error parsing row ${i}: ${err}`);
         errorDetails.parse = [
           ...(errorDetails.parse ?? []),
-          { row: i, section: "hareline", error: String(err) },
+          { row: i, section: "hareline", error: String(err), rawText: `Date: ${row.dateText} | Title: ${row.title} | Location: ${row.locationText ?? ""} | Hare: ${row.hare ?? ""}`.slice(0, 2000) },
         ];
       }
     }

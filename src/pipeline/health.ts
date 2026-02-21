@@ -15,6 +15,12 @@ export interface HealthAnalysis {
   alerts: AlertCandidate[];
 }
 
+interface AiRecoveryContext {
+  attempted: number;
+  succeeded: number;
+  failed: number;
+}
+
 interface AnalyzeInput {
   eventsFound: number;
   scrapeFailed: boolean;
@@ -23,6 +29,7 @@ interface AnalyzeInput {
   blockedTags?: string[];
   fillRates: FieldFillRates;
   structureHash?: string;
+  aiRecovery?: AiRecoveryContext;
 }
 
 /** Type alias for the shape of recent scrape log rows used across checks. */
@@ -75,13 +82,17 @@ function checkEventCountAnomaly(
     recentSuccessful.reduce((sum, l) => sum + l.eventsFound, 0) /
     recentSuccessful.length;
 
+  const aiNote = input.aiRecovery
+    ? ` AI recovery: ${input.aiRecovery.succeeded}/${input.aiRecovery.attempted} parse errors recovered.${input.aiRecovery.failed > 0 ? ` ${input.aiRecovery.failed} could not be recovered — may need code changes.` : ""}`
+    : "";
+
   if (input.eventsFound === 0 && avgEvents > 0) {
     return {
       type: "EVENT_COUNT_ANOMALY",
       severity: "CRITICAL",
       title: "Zero events found",
-      details: `Expected ~${Math.round(avgEvents)} events based on rolling average of last ${recentSuccessful.length} scrapes, but found 0.`,
-      context: { currentCount: 0, baselineAvg: Math.round(avgEvents), baselineWindow: recentSuccessful.length, dropPercent: 100 },
+      details: `Expected ~${Math.round(avgEvents)} events based on rolling average of last ${recentSuccessful.length} scrapes, but found 0.${aiNote}`,
+      context: { currentCount: 0, baselineAvg: Math.round(avgEvents), baselineWindow: recentSuccessful.length, dropPercent: 100, aiRecovery: input.aiRecovery },
     };
   }
 
@@ -93,8 +104,8 @@ function checkEventCountAnomaly(
       type: "EVENT_COUNT_ANOMALY",
       severity: "WARNING",
       title: `Event count dropped ${dropPct}%`,
-      details: `Found ${input.eventsFound} events vs rolling average of ${Math.round(avgEvents)} (last ${recentSuccessful.length} scrapes).`,
-      context: { currentCount: input.eventsFound, baselineAvg: Math.round(avgEvents), baselineWindow: recentSuccessful.length, dropPercent: dropPct },
+      details: `Found ${input.eventsFound} events vs rolling average of ${Math.round(avgEvents)} (last ${recentSuccessful.length} scrapes).${aiNote}`,
+      context: { currentCount: input.eventsFound, baselineAvg: Math.round(avgEvents), baselineWindow: recentSuccessful.length, dropPercent: dropPct, aiRecovery: input.aiRecovery },
     };
   }
 
@@ -128,12 +139,18 @@ function checkFieldFillDrops(
     // Only alert if avg was above 50% (avoid noise on always-sparse fields)
     // and current dropped by more than 30 percentage points
     if (avgRate >= 50 && avgRate - currentRate > 30) {
+      const aiContext = input.aiRecovery;
+      const aiSuffix = aiContext && aiContext.attempted > 0
+        ? aiContext.failed > 0
+          ? ` AI recovery attempted: ${aiContext.succeeded}/${aiContext.attempted} recovered. ${aiContext.failed} failed — likely needs code changes.`
+          : ` AI recovery: all ${aiContext.succeeded} parse errors were recovered.`
+        : "";
       alerts.push({
         type: "FIELD_FILL_DROP",
         severity: "WARNING",
         title: `${key} fill rate dropped from ${Math.round(avgRate)}% to ${currentRate}%`,
-        details: `The "${key}" field was populated in ~${Math.round(avgRate)}% of events on average but is now at ${currentRate}%.`,
-        context: { field: key, currentRate, baselineAvg: Math.round(avgRate) },
+        details: `The "${key}" field was populated in ~${Math.round(avgRate)}% of events on average but is now at ${currentRate}%.${aiSuffix}`,
+        context: { field: key, currentRate, baselineAvg: Math.round(avgRate), aiRecovery: aiContext },
       });
     }
   }
