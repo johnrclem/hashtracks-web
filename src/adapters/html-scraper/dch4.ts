@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
+import { fetchWordPressPosts } from "../wordpress-api";
 
 /**
  * Parse a DCH4 post title into structured fields.
@@ -84,11 +85,62 @@ function mapsUrl(location: string): string {
 }
 
 /**
+ * Process a single post (from either WordPress API or HTML scrape) into a RawEventData.
+ * Returns null if the post cannot be parsed.
+ */
+function processPost(
+  titleText: string,
+  bodyText: string,
+  postUrl: string,
+  baseUrl: string,
+  currentYear: number,
+): RawEventData | null {
+  const parsed = parseDch4Title(titleText, currentYear);
+  if (!parsed || !parsed.date) return null;
+
+  const bodyFields = parseDch4Body(bodyText);
+
+  let locationUrl: string | undefined;
+  if (bodyFields.location) {
+    const gpsMatch = bodyFields.location.match(/([-\d.]+),\s*([-\d.]+)/);
+    if (gpsMatch) {
+      locationUrl = `https://www.google.com/maps/search/?api=1&query=${gpsMatch[1]},${gpsMatch[2]}`;
+    } else {
+      locationUrl = mapsUrl(bodyFields.location);
+    }
+  }
+
+  const descParts: string[] = [];
+  if (parsed.theme) descParts.push(parsed.theme);
+  if (bodyFields.runnerDistance) descParts.push(`Runners: ${bodyFields.runnerDistance}`);
+  if (bodyFields.walkerDistance) descParts.push(`Walkers: ${bodyFields.walkerDistance}`);
+  if (bodyFields.hashCash) descParts.push(`Hash Cash: ${bodyFields.hashCash}`);
+  if (bodyFields.onAfter) descParts.push(`On After: ${bodyFields.onAfter}`);
+
+  return {
+    date: parsed.date,
+    kennelTag: "DCH4",
+    runNumber: parsed.runNumber,
+    title: parsed.theme || `DCH4 Trail #${parsed.runNumber}`,
+    hares: bodyFields.hares,
+    location: bodyFields.location,
+    locationUrl,
+    startTime: parsed.startTime,
+    sourceUrl: postUrl.startsWith("http") ? postUrl : `${baseUrl.replace(/\/$/, "")}${postUrl}`,
+    description: descParts.length > 0 ? descParts.join(" | ") : undefined,
+  };
+}
+
+/**
  * DCH4 WordPress Trail Posts Scraper
  *
  * Scrapes dch4.org for trail announcements. DCH4 is one of the most active
  * DC kennels (2299+ trails). Each WordPress blog post contains trail number,
  * date, time, location, hares, distances, and more.
+ *
+ * Uses the WordPress REST API as primary fetch method (direct HTML scraping is
+ * blocked by cloud IP detection). Falls back to HTML scraping if the API is
+ * unavailable.
  */
 export class DCH4Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
@@ -99,6 +151,42 @@ export class DCH4Adapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://dch4.org/";
 
+    // Try WordPress REST API first
+    const apiResult = await this.fetchViaWordPressApi(baseUrl);
+    if (apiResult) return apiResult;
+
+    // Fall back to HTML scraping
+    return this.fetchViaHtmlScrape(baseUrl);
+  }
+
+  private async fetchViaWordPressApi(baseUrl: string): Promise<ScrapeResult | null> {
+    const wpResult = await fetchWordPressPosts(baseUrl);
+
+    if (wpResult.error) return null;
+
+    const events: RawEventData[] = [];
+    const currentYear = new Date().getFullYear();
+
+    for (const post of wpResult.posts) {
+      const $ = cheerio.load(post.content);
+      const bodyText = $.text();
+      const event = processPost(post.title, bodyText, post.url, baseUrl, currentYear);
+      if (event) events.push(event);
+    }
+
+    return {
+      events,
+      errors: [],
+      diagnosticContext: {
+        fetchMethod: "wordpress-api",
+        postsFound: wpResult.posts.length,
+        eventsParsed: events.length,
+        fetchDurationMs: wpResult.fetchDurationMs,
+      },
+    };
+  }
+
+  private async fetchViaHtmlScrape(baseUrl: string): Promise<ScrapeResult> {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
@@ -134,54 +222,16 @@ export class DCH4Adapter implements SourceAdapter {
     for (let i = 0; i < articles.length; i++) {
       const article = $(articles[i]);
 
-      // Get the post title
       const titleEl = article.find(".entry-title a, h2.entry-title a, h2 a, h1.entry-title a").first();
       const titleText = titleEl.text().trim() || article.find(".entry-title, h2").first().text().trim();
       const postUrl = titleEl.attr("href") || baseUrl;
 
       if (!titleText) continue;
 
-      // Parse the title for structured data
-      const parsed = parseDch4Title(titleText, currentYear);
-      if (!parsed || !parsed.date) continue;
-
-      // Try to parse body content for additional fields
       const contentEl = article.find(".entry-content, .post-content").first();
       const bodyText = contentEl.text() || "";
-      const bodyFields = parseDch4Body(bodyText);
-
-      // Build location URL
-      let locationUrl: string | undefined;
-      if (bodyFields.location) {
-        // Check for GPS coordinates
-        const gpsMatch = bodyFields.location.match(/([-\d.]+),\s*([-\d.]+)/);
-        if (gpsMatch) {
-          locationUrl = `https://www.google.com/maps/search/?api=1&query=${gpsMatch[1]},${gpsMatch[2]}`;
-        } else {
-          locationUrl = mapsUrl(bodyFields.location);
-        }
-      }
-
-      // Build description from available data
-      const descParts: string[] = [];
-      if (parsed.theme) descParts.push(parsed.theme);
-      if (bodyFields.runnerDistance) descParts.push(`Runners: ${bodyFields.runnerDistance}`);
-      if (bodyFields.walkerDistance) descParts.push(`Walkers: ${bodyFields.walkerDistance}`);
-      if (bodyFields.hashCash) descParts.push(`Hash Cash: ${bodyFields.hashCash}`);
-      if (bodyFields.onAfter) descParts.push(`On After: ${bodyFields.onAfter}`);
-
-      events.push({
-        date: parsed.date,
-        kennelTag: "DCH4",
-        runNumber: parsed.runNumber,
-        title: parsed.theme || `DCH4 Trail #${parsed.runNumber}`,
-        hares: bodyFields.hares,
-        location: bodyFields.location,
-        locationUrl,
-        startTime: parsed.startTime,
-        sourceUrl: postUrl.startsWith("http") ? postUrl : `${baseUrl.replace(/\/$/, "")}${postUrl}`,
-        description: descParts.length > 0 ? descParts.join(" | ") : undefined,
-      });
+      const event = processPost(titleText, bodyText, postUrl, baseUrl, currentYear);
+      if (event) events.push(event);
     }
 
     return {
@@ -190,6 +240,7 @@ export class DCH4Adapter implements SourceAdapter {
       structureHash,
       errorDetails: (errorDetails.fetch?.length ?? 0) > 0 ? errorDetails : undefined,
       diagnosticContext: {
+        fetchMethod: "html-scrape",
         articlesFound: articles.length,
         eventsParsed: events.length,
       },

@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseEwh3Date, parseEwh3Title, parseEwh3Body } from "./ewh3";
 import { EWH3Adapter } from "./ewh3";
+import * as wordpressApi from "../wordpress-api";
+
+vi.mock("../wordpress-api");
 
 describe("parseEwh3Date", () => {
   it("parses 'February 19, 2026'", () => {
@@ -125,8 +128,7 @@ describe("parseEwh3Body", () => {
   });
 });
 
-describe("EWH3Adapter integration", () => {
-  const SAMPLE_HTML = `
+const SAMPLE_HTML = `
 <!DOCTYPE html>
 <html>
 <body>
@@ -162,16 +164,114 @@ describe("EWH3Adapter integration", () => {
 </body>
 </html>`;
 
+describe("EWH3Adapter (WordPress API path)", () => {
   let adapter: EWH3Adapter;
 
   beforeEach(() => {
     adapter = new EWH3Adapter();
-    vi.stubGlobal("fetch", vi.fn());
   });
 
-  it("parses multiple trail posts from homepage", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(SAMPLE_HTML, { status: 200 }) as never
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("uses WordPress API when available and parses events", async () => {
+    vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "EWH3 #1506: Huaynaputina's Revenge, February 19, 2026, NoMa/Gallaudet U (Red Line)",
+          content: "<p>When: 6:45 PM Thursday</p><p>Hares: Mongo & Lo Ho</p><p>End Metro: Rhode Island Ave-Brentwood</p><p>On After*: The Dew Drop Inn</p>",
+          url: "https://www.ewh3.com/2026/02/16/ewh3-1506/",
+          date: "2026-02-16T12:00:00",
+        },
+        {
+          title: "EWH3 Trash – AGM/Trail #1500",
+          content: "<p>Post-run write-up, no event data.</p>",
+          url: "https://www.ewh3.com/2026/01/10/ewh3-trash/",
+          date: "2026-01-10T12:00:00",
+        },
+      ],
+      fetchDurationMs: 150,
+    });
+
+    const result = await adapter.fetch({
+      id: "test-ewh3",
+      url: "https://www.ewh3.com/",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({
+      date: "2026-02-19",
+      kennelTag: "EWH3",
+      runNumber: 1506,
+      title: "Huaynaputina's Revenge",
+      hares: "Mongo & Lo Ho",
+      location: "NoMa/Gallaudet U (Red Line)",
+      startTime: "18:45",
+      sourceUrl: "https://www.ewh3.com/2026/02/16/ewh3-1506/",
+    });
+
+    expect(result.diagnosticContext).toMatchObject({
+      fetchMethod: "wordpress-api",
+      postsFound: 2,
+      eventsParsed: 1,
+    });
+
+    // structureHash is not set for API path
+    expect(result.structureHash).toBeUndefined();
+  });
+
+  it("skips unparseable posts via WordPress API", async () => {
+    vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "EWH3 #1506: Huaynaputina's Revenge, February 19, 2026, NoMa/Gallaudet U (Red Line)",
+          content: "<p>Hares: Mongo</p>",
+          url: "https://www.ewh3.com/post1/",
+          date: "2026-02-16T00:00:00",
+        },
+        {
+          title: "Random non-trail post",
+          content: "<p>Not a trail announcement</p>",
+          url: "https://www.ewh3.com/post2/",
+          date: "2026-01-01T00:00:00",
+        },
+      ],
+      fetchDurationMs: 100,
+    });
+
+    const result = await adapter.fetch({
+      id: "test-ewh3",
+      url: "https://www.ewh3.com/",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.diagnosticContext).toMatchObject({
+      postsFound: 2,
+      eventsParsed: 1,
+    });
+  });
+});
+
+describe("EWH3Adapter (HTML fallback path)", () => {
+  let adapter: EWH3Adapter;
+
+  beforeEach(() => {
+    adapter = new EWH3Adapter();
+    // Make WordPress API return error to trigger HTML fallback
+    vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValue({
+      posts: [],
+      error: { message: "WordPress API HTTP 403: Forbidden", status: 403 },
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("falls back to HTML scrape and parses events", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_HTML, { status: 200 }),
     );
 
     const result = await adapter.fetch({
@@ -203,10 +303,14 @@ describe("EWH3Adapter integration", () => {
       hares: "Roose Rips, Ha-Cum-On My Tatas",
       startTime: "18:45",
     });
+
+    expect(result.diagnosticContext).toMatchObject({
+      fetchMethod: "html-scrape",
+    });
   });
 
   it("returns fetch error on HTTP failure", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response("Forbidden", { status: 403 }) as never
     );
 

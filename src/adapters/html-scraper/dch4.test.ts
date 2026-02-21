@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseDch4Title, parseDch4Body } from "./dch4";
 import { DCH4Adapter } from "./dch4";
+import * as wordpressApi from "../wordpress-api";
+
+vi.mock("../wordpress-api");
 
 describe("parseDch4Title", () => {
   it("parses standard title with 2-digit year", () => {
@@ -98,8 +101,7 @@ describe("parseDch4Body", () => {
   });
 });
 
-describe("DCH4Adapter integration", () => {
-  const SAMPLE_HTML = `
+const SAMPLE_HTML = `
 <!DOCTYPE html>
 <html>
 <body>
@@ -130,27 +132,42 @@ describe("DCH4Adapter integration", () => {
 </body>
 </html>`;
 
+describe("DCH4Adapter (WordPress API path)", () => {
   let adapter: DCH4Adapter;
 
   beforeEach(() => {
     adapter = new DCH4Adapter();
-    vi.stubGlobal("fetch", vi.fn());
   });
 
-  it("parses multiple trail posts", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(SAMPLE_HTML, { status: 200 }) as never
-    );
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("uses WordPress API when available and parses events", async () => {
+    vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "DCH4 Trail# 2299 - 2/14 @ 2pm",
+          content: "<p>Hare: Blinded by the Spooge</p><p>Start: Twinbrook Metro Station (1600 Chapman Ave. Rockville, MD)</p><p>Cost: $7</p><p>Runners ~4mi trail</p><p>Walkers ~2.5mi trail</p><p>On After: Buffalo Wings & Beer</p>",
+          url: "https://dch4.org/dch4-trail-2299-2-14-2pm/",
+          date: "2026-02-10T12:00:00",
+        },
+        {
+          title: "Hash Trash from last week",
+          content: "<p>Not a trail post</p>",
+          url: "https://dch4.org/hash-trash/",
+          date: "2026-02-08T12:00:00",
+        },
+      ],
+      fetchDurationMs: 200,
+    });
 
     const result = await adapter.fetch({
       id: "test-dch4",
       url: "https://dch4.org/",
     } as never);
 
-    expect(result.errors).toHaveLength(0);
-    expect(result.events).toHaveLength(2);
-
-    // First event
+    expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({
       date: "2026-02-14",
       kennelTag: "DCH4",
@@ -161,7 +178,86 @@ describe("DCH4Adapter integration", () => {
       sourceUrl: "https://dch4.org/dch4-trail-2299-2-14-2pm/",
     });
 
-    // Second event
+    expect(result.diagnosticContext).toMatchObject({
+      fetchMethod: "wordpress-api",
+      postsFound: 2,
+      eventsParsed: 1,
+    });
+
+    expect(result.structureHash).toBeUndefined();
+  });
+
+  it("skips unparseable posts via WordPress API", async () => {
+    vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "DCH4 Trail# 2299 - 2/14 @ 2pm",
+          content: "<p>Hare: Someone</p>",
+          url: "https://dch4.org/post1/",
+          date: "2026-02-10T00:00:00",
+        },
+        {
+          title: "Not a trail post at all",
+          content: "<p>Just random content</p>",
+          url: "https://dch4.org/post2/",
+          date: "2026-01-01T00:00:00",
+        },
+      ],
+      fetchDurationMs: 100,
+    });
+
+    const result = await adapter.fetch({
+      id: "test-dch4",
+      url: "https://dch4.org/",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.diagnosticContext).toMatchObject({
+      postsFound: 2,
+      eventsParsed: 1,
+    });
+  });
+});
+
+describe("DCH4Adapter (HTML fallback path)", () => {
+  let adapter: DCH4Adapter;
+
+  beforeEach(() => {
+    adapter = new DCH4Adapter();
+    // Make WordPress API return error to trigger HTML fallback
+    vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValue({
+      posts: [],
+      error: { message: "WordPress API HTTP 403: Forbidden", status: 403 },
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("falls back to HTML scrape and parses events", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_HTML, { status: 200 }),
+    );
+
+    const result = await adapter.fetch({
+      id: "test-dch4",
+      url: "https://dch4.org/",
+    } as never);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.events).toHaveLength(2);
+
+    expect(result.events[0]).toMatchObject({
+      date: "2026-02-14",
+      kennelTag: "DCH4",
+      runNumber: 2299,
+      hares: "Blinded by the Spooge",
+      location: "Twinbrook Metro Station (1600 Chapman Ave. Rockville, MD)",
+      startTime: "14:00",
+      sourceUrl: "https://dch4.org/dch4-trail-2299-2-14-2pm/",
+    });
+
     expect(result.events[1]).toMatchObject({
       date: "2026-02-07",
       kennelTag: "DCH4",
@@ -169,11 +265,15 @@ describe("DCH4Adapter integration", () => {
       hares: "Spike and Big in Japan",
       startTime: "14:00",
     });
+
+    expect(result.diagnosticContext).toMatchObject({
+      fetchMethod: "html-scrape",
+    });
   });
 
   it("returns fetch error on HTTP failure", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      new Response("Not Found", { status: 404 }) as never
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("Not Found", { status: 404 }) as never,
     );
 
     const result = await adapter.fetch({

@@ -345,4 +345,22 @@ describe("EnfieldHashAdapter.fetch (HTML fallback path)", () => {
     expect(result.events).toHaveLength(0);
     expect(result.errorDetails?.fetch?.[0].status).toBe(403);
   });
+
+  it("includes Blogger API error in diagnostics when HTML also fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("Forbidden", { status: 403, statusText: "Forbidden" }),
+    );
+
+    const result = await adapter.fetch({
+      id: "test",
+      url: "http://www.enfieldhash.org/",
+    } as never);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errorDetails?.fetch?.[0].status).toBe(403);
+    // Blogger API error should be surfaced in diagnostic context
+    expect(result.diagnosticContext?.bloggerApiError).toBe(
+      "Missing GOOGLE_CALENDAR_API_KEY environment variable",
+    );
+  });
 });
