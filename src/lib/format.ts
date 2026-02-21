@@ -91,12 +91,30 @@ const REGION_CONFIG: Record<string, { abbrev: string; classes: string; tz: strin
   "Marin County, CA": { abbrev: "MRN", classes: "bg-teal-100 text-teal-700", tz: "America/Los_Angeles" },
   // UK
   "London": { abbrev: "LDN", classes: "bg-rose-200 text-rose-800", tz: "Europe/London" },
+  "London, England": { abbrev: "LDN", classes: "bg-rose-200 text-rose-800", tz: "Europe/London" },
+  "London, UK": { abbrev: "LDN", classes: "bg-rose-200 text-rose-800", tz: "Europe/London" },
+  "South West London": { abbrev: "SWL", classes: "bg-rose-200 text-rose-800", tz: "Europe/London" },
   "Surrey": { abbrev: "SRY", classes: "bg-pink-200 text-pink-800", tz: "Europe/London" },
+  "Surrey, UK": { abbrev: "SRY", classes: "bg-pink-200 text-pink-800", tz: "Europe/London" },
+  "Old Coulsdon": { abbrev: "OC", classes: "bg-pink-100 text-pink-700", tz: "Europe/London" },
+  "Enfield": { abbrev: "ENF", classes: "bg-pink-100 text-pink-700", tz: "Europe/London" },
+  "Barnes": { abbrev: "BRN", classes: "bg-pink-200 text-pink-800", tz: "Europe/London" },
+  "West London": { abbrev: "WL", classes: "bg-rose-100 text-rose-700", tz: "Europe/London" },
 };
 
 /** Get the primary IANA timezone for a region string, defaults to America/New_York */
 export function regionTimezone(region: string): string {
-  return REGION_CONFIG[region]?.tz ?? "America/New_York";
+  // Exact match first
+  if (REGION_CONFIG[region]?.tz) return REGION_CONFIG[region].tz;
+  // Case-insensitive partial match fallback (handles variants like "London, England")
+  const lc = region.toLowerCase();
+  for (const [key, cfg] of Object.entries(REGION_CONFIG)) {
+    const keyLc = key.toLowerCase();
+    if (lc.includes(keyLc) || keyLc.includes(lc)) {
+      return cfg.tz;
+    }
+  }
+  return "America/New_York";
 }
 
 /** Short abbreviation for a region. "New York City, NY" → "NYC" */
