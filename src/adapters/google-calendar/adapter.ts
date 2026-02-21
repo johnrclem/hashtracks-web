@@ -1,6 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
-import { googleMapsSearchUrl } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags } from "../utils";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -212,16 +212,9 @@ export class GoogleCalendarAdapter implements SourceAdapter {
           }
 
           // Strip HTML from description (preserve newlines for hare extraction)
+          // Decode entities first, then strip tags — safe order prevents encoded XSS payloads
           const rawDescription = item.description
-            ? item.description
-                .replace(/<br\s*\/?>/gi, "\n")
-                .replace(/<[^>]+>/g, " ")
-                .replace(/&nbsp;/gi, " ")
-                .replace(/&amp;/gi, "&")
-                .replace(/&lt;/gi, "<")
-                .replace(/&gt;/gi, ">")
-                .replace(/&quot;/gi, '"')
-                .replace(/&#0?39;/gi, "'")
+            ? stripHtmlTags(decodeEntities(item.description), "\n")
             : undefined;
 
           const description = rawDescription

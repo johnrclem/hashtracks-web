@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchBloggerPosts } from "../blogger-api";
+import { decodeEntities } from "../utils";
 
 const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
@@ -229,7 +230,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
       // Extract text from HTML content
       const $ = cheerio.load(post.content);
       const bodyText = $.text();
-      const titleText = post.title;
+      const titleText = decodeEntities(post.title);
       const postUrl = post.url;
 
       const event = processPost(

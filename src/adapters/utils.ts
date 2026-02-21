@@ -2,6 +2,35 @@
  * Shared adapter utilities — deduplicates common parsing logic across adapters.
  */
 
+import * as cheerio from "cheerio";
+import he from "he";
+
+/**
+ * Decode all HTML entities (named, hex, decimal) in a string.
+ * Wraps the `he` library for consistent usage across adapters.
+ * Normalizes non-breaking spaces (\u00A0 from &nbsp;) to regular spaces.
+ */
+export function decodeEntities(text: string): string {
+  return he.decode(text).replace(/\u00A0/g, " ");
+}
+
+/**
+ * Strip HTML tags from a string, converting `<br>` to the specified separator.
+ * Removes `<script>` and `<style>` blocks entirely, then strips remaining tags.
+ */
+export function stripHtmlTags(
+  text: string,
+  brReplacement = " ",
+): string {
+  const withBr = text.replace(/<br\s*\/?>/gi, brReplacement);
+  const $ = cheerio.load(withBr);
+  $("script, style").remove();
+  return $.text()
+    .replace(/[^\S\r\n]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .trim();
+}
+
 /**
  * Month name → 1-indexed month number (for YYYY-MM-DD string formatting).
  * Used by: london-hash, city-hash, west-london-hash, bfm, hashphilly
