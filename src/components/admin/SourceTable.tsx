@@ -163,7 +163,7 @@ export function SourceTable({ sources, allKennels, geminiAvailable }: SourceTabl
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="start">
+          <PopoverContent className="w-80 max-w-[calc(100vw-2rem)] p-0" align="start">
             <Command>
               <CommandInput placeholder="Search kennels..." />
               <CommandList>
@@ -299,11 +299,11 @@ export function SourceTable({ sources, allKennels, geminiAvailable }: SourceTabl
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Type</TableHead>
+            <TableHead className="hidden sm:table-cell">Type</TableHead>
             <TableHead>Health</TableHead>
-            <TableHead>Last Scrape</TableHead>
-            <TableHead className="text-center">Linked</TableHead>
-            <TableHead className="text-center">Raw Events</TableHead>
+            <TableHead className="hidden sm:table-cell">Last Scrape</TableHead>
+            <TableHead className="hidden sm:table-cell text-center">Linked</TableHead>
+            <TableHead className="hidden sm:table-cell text-center">Raw Events</TableHead>
             <TableHead className="w-10"></TableHead>
           </TableRow>
         </TableHeader>
@@ -408,7 +408,7 @@ function SourceRow({
   return (
     <TableRow>
       <TableCell>
-        <div className="max-w-[280px]">
+        <div className="max-w-[200px] sm:max-w-[280px]">
           <Link href={`/admin/sources/${source.id}`} className="font-medium hover:underline">
             {source.name}
           </Link>
@@ -417,7 +417,7 @@ function SourceRow({
           </p>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         <Badge variant="outline" className="text-xs">
           {TYPE_LABELS[source.type] ?? source.type}
         </Badge>
@@ -442,7 +442,7 @@ function SourceRow({
           )}
         </div>
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
+      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
         {source.lastScrapeAt ? (
           <span title={fullDate ?? undefined}>
             {relativeTime(source.lastScrapeAt)}
@@ -451,7 +451,7 @@ function SourceRow({
           "Never"
         )}
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="hidden sm:table-cell text-center">
         {source.linkedKennels.length > 0 ? (
           <Tooltip>
             <TooltipTrigger className="cursor-help">
@@ -465,7 +465,7 @@ function SourceRow({
           <span className="text-muted-foreground">0</span>
         )}
       </TableCell>
-      <TableCell className="text-center">{source.rawEventCount}</TableCell>
+      <TableCell className="hidden sm:table-cell text-center">{source.rawEventCount}</TableCell>
       <TableCell>
         <Popover open={menuOpen} onOpenChange={setMenuOpen}>
           <PopoverTrigger asChild>
