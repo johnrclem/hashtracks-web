@@ -16,6 +16,10 @@ vi.mock("./merge", () => ({
   processRawEvents: vi.fn(),
 }));
 
+vi.mock("./reconcile", () => ({
+  reconcileStaleEvents: vi.fn(() => Promise.resolve({ cancelled: 0, cancelledEventIds: [] })),
+}));
+
 vi.mock("./fill-rates", () => ({
   computeFillRates: vi.fn(() => ({
     title: 100, location: 80, hares: 50, startTime: 90, runNumber: 70,

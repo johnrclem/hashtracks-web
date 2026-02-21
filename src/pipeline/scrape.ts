@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { ErrorDetails, AiRecoverySummary } from "@/adapters/types";
 import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
+import { reconcileStaleEvents } from "./reconcile";
 import { computeFillRates } from "./fill-rates";
 import { analyzeHealth, persistAlerts } from "./health";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
@@ -16,6 +17,7 @@ export interface ScrapeSourceResult {
   updated: number;
   skipped: number;
   blocked: number;
+  cancelled: number;
   unmatched: string[];
   blockedTags: string[];
   errors: string[];
@@ -115,6 +117,14 @@ export async function scrapeSource(
     const mergeResult = await processRawEvents(sourceId, scrapeResult.events);
     const mergeDurationMs = Date.now() - mergeStart;
 
+    // Reconcile stale events: detect events removed from source
+    // Only on successful, non-forced scrapes with results
+    let cancelledCount = 0;
+    if (!force && scrapeResult.events.length > 0 && scrapeResult.errors.length === 0) {
+      const reconciled = await reconcileStaleEvents(sourceId, scrapeResult.events, days);
+      cancelledCount = reconciled.cancelled;
+    }
+
     // Combine scrape errors with merge event errors
     const allErrors = [
       ...scrapeResult.errors,
@@ -163,6 +173,7 @@ export async function scrapeSource(
         eventsCreated: mergeResult.created,
         eventsUpdated: mergeResult.updated,
         eventsSkipped: mergeResult.skipped,
+        eventsCancelled: cancelledCount,
         unmatchedTags: mergeResult.unmatched,
         errors: allErrors,
         fillRateTitle: fillRates.title,
@@ -232,6 +243,7 @@ export async function scrapeSource(
       updated: mergeResult.updated,
       skipped: mergeResult.skipped,
       blocked: mergeResult.blocked,
+      cancelled: cancelledCount,
       unmatched: mergeResult.unmatched,
       blockedTags: mergeResult.blockedTags,
       errors: allErrors,
@@ -287,6 +299,7 @@ export async function scrapeSource(
       updated: 0,
       skipped: 0,
       blocked: 0,
+      cancelled: 0,
       unmatched: [],
       blockedTags: [],
       errors: [errorMsg],
