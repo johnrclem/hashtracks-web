@@ -10,7 +10,7 @@ const mapsUrl = googleMapsSearchUrl;
  * Parse a Philly H3 date string into YYYY-MM-DD.
  * Format: "Sat, Feb 14, 2026" or "Sat, February 14, 2026"
  */
-function parsePhillyDate(text: string): string | null {
+export function parsePhillyDate(text: string): string | null {
   // "Sat, Feb 14, 2026" or "February 14, 2026"
   const match = text.match(/(\w+)\s+(\d{1,2}),?\s*(\d{4})/);
   if (!match) return null;
