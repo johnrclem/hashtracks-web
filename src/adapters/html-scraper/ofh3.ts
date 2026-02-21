@@ -120,6 +120,14 @@ function processPost(
         errorDetails.parse = [...(errorDetails.parse ?? []), {
           row: index, section: "post", field: "date",
           error: `No date found in post: ${titleText || "(untitled)"}`,
+          rawText: `Title: ${titleText}\n\n${bodyText}`.slice(0, 2000),
+          partialData: {
+            kennelTag: "OFH3",
+            title: titleText || undefined,
+            hares: bodyFields.hares,
+            location: bodyFields.location,
+            sourceUrl: postUrl.startsWith("http") ? postUrl : `${baseUrl.replace(/\/$/, "")}${postUrl}`,
+          },
         }];
       }
       return null;

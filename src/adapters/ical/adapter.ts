@@ -290,10 +290,15 @@ export class ICalAdapter implements SourceAdapter {
         const message = err instanceof Error ? err.message : String(err);
         const summary = paramValue(vevent.summary) ?? "unknown";
         errors.push(`Event parse error (${summary}): ${message}`);
+        const rawParts = [`Summary: ${summary}`];
+        if (vevent.description) rawParts.push(`Description: ${paramValue(vevent.description) ?? ""}`);
+        if (vevent.location) rawParts.push(`Location: ${paramValue(vevent.location) ?? ""}`);
+        if (vevent.start) rawParts.push(`Start: ${String(vevent.start)}`);
         parseErrors.push({
           row: eventIndex,
           section: "vevent",
           error: message,
+          rawText: rawParts.join("\n").slice(0, 2000),
           partialData: {
             kennelTag: summary,
             date: vevent.start ? formatDate(vevent.start) : undefined,

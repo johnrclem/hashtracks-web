@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import type { ErrorDetails } from "@/adapters/types";
+import type { ErrorDetails, AiRecoverySummary } from "@/adapters/types";
 import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
 import { computeFillRates } from "./fill-rates";
 import { analyzeHealth, persistAlerts } from "./health";
+import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
 
 export interface ScrapeSourceResult {
   success: boolean;
@@ -18,10 +19,11 @@ export interface ScrapeSourceResult {
   unmatched: string[];
   blockedTags: string[];
   errors: string[];
+  aiRecovery?: AiRecoverySummary;
 }
 
 /**
- * Scrape a single source: fetch → fill rates → merge → health analysis → alerts → log.
+ * Scrape a single source: fetch → AI recovery → fill rates → merge → health analysis → alerts → log.
  * Used by both the admin scrape API and the cron endpoint.
  */
 export async function scrapeSource(
@@ -64,7 +66,48 @@ export async function scrapeSource(
     const scrapeResult = await adapter.fetch(source, { days });
     const fetchDurationMs = Date.now() - fetchStart;
 
-    // Compute field fill rates
+    // ── AI Recovery: attempt to recover events from parse errors ──
+    // If the adapter reported parse errors with rawText and Gemini is available,
+    // try to extract structured data that the deterministic parser missed.
+    let aiRecovery: AiRecoverySummary | undefined;
+    const parseErrors = scrapeResult.errorDetails?.parse ?? [];
+    const recoverableErrors = parseErrors.filter((e) => e.rawText);
+
+    if (recoverableErrors.length > 0 && isAiRecoveryAvailable()) {
+      // Use first event's kennelTag as default, or source name as fallback
+      const defaultKennelTag = scrapeResult.events[0]?.kennelTag
+        ?? parseErrors[0]?.partialData?.kennelTag
+        ?? source.name;
+
+      aiRecovery = await attemptAiRecovery(recoverableErrors, defaultKennelTag);
+
+      // Add recovered events to the scrape result
+      if (aiRecovery.succeeded > 0) {
+        for (const result of aiRecovery.results) {
+          scrapeResult.events.push(result.recovered);
+        }
+
+        // Remove parse errors that were successfully recovered
+        const recoveredRows = new Set(aiRecovery.results.map((r) => r.parseError.row));
+        if (scrapeResult.errorDetails?.parse) {
+          scrapeResult.errorDetails.parse = scrapeResult.errorDetails.parse.filter(
+            (e) => !recoveredRows.has(e.row),
+          );
+        }
+        // Also remove corresponding flat errors
+        const recoveredErrorPrefixes = aiRecovery.results.map(
+          (r) => r.parseError.error,
+        );
+        const originalErrors = [...scrapeResult.errors];
+        scrapeResult.errors = originalErrors.filter(
+          (e) => !recoveredErrorPrefixes.some((prefix) => e.includes(prefix)),
+        );
+      }
+
+      scrapeResult.aiRecovery = aiRecovery;
+    }
+
+    // Compute field fill rates (now includes AI-recovered events)
     const fillRates = computeFillRates(scrapeResult.events);
 
     // Process raw events through the merge pipeline (Phase 3A: capture merge timing)
@@ -89,6 +132,23 @@ export async function scrapeSource(
       (combinedErrorDetails.fetch?.length ?? 0) > 0 ||
       (combinedErrorDetails.parse?.length ?? 0) > 0 ||
       (combinedErrorDetails.merge?.length ?? 0) > 0;
+
+    // Build diagnostic context (includes AI recovery metrics)
+    const diagnosticContext: Record<string, unknown> = {
+      ...(scrapeResult.diagnosticContext ?? {}),
+    };
+    if (aiRecovery && aiRecovery.attempted > 0) {
+      diagnosticContext.aiRecovery = {
+        attempted: aiRecovery.attempted,
+        succeeded: aiRecovery.succeeded,
+        failed: aiRecovery.failed,
+        durationMs: aiRecovery.durationMs,
+        recoveredFields: aiRecovery.results.map((r) => ({
+          fields: r.fieldsRecovered,
+          confidence: r.confidence,
+        })),
+      };
+    }
 
     // Update ScrapeLog with results + quality metrics
     const completedAt = new Date();
@@ -127,9 +187,9 @@ export async function scrapeSource(
         // Phase 3A: Performance timing
         fetchDurationMs,
         mergeDurationMs,
-        // Phase 3B: Per-adapter diagnostic context
-        diagnosticContext: scrapeResult.diagnosticContext
-          ? (scrapeResult.diagnosticContext as unknown as Prisma.InputJsonValue)
+        // Phase 3B: Per-adapter diagnostic context (now includes AI recovery)
+        diagnosticContext: Object.keys(diagnosticContext).length > 0
+          ? (diagnosticContext as unknown as Prisma.InputJsonValue)
           : undefined,
       },
     });
@@ -172,6 +232,7 @@ export async function scrapeSource(
       unmatched: mergeResult.unmatched,
       blockedTags: mergeResult.blockedTags,
       errors: allErrors,
+      aiRecovery,
     };
   } catch (err) {
     // Update ScrapeLog as failed

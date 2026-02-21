@@ -23,6 +23,7 @@ export interface ParseError {
   field?: string; // Which field failed (e.g., "hares", "location", "title")
   error: string; // Error message
   partialData?: Partial<RawEventData>; // What we successfully parsed before the error
+  rawText?: string; // Raw source text for AI recovery fallback (truncated to 2000 chars)
 }
 
 /** Structured error breakdown by category (Phase 2A) */
@@ -40,6 +41,23 @@ export interface EventSample {
   suggestedAction?: string; // Suggested fix (e.g., "Link GGFM to this source")
 }
 
+/** AI recovery result for a single parse error */
+export interface RecoveryResult {
+  parseError: ParseError; // The original parse error that was recovered
+  recovered: RawEventData; // The recovered event data
+  confidence: "high" | "medium" | "low"; // AI confidence in the extraction
+  fieldsRecovered: string[]; // Which fields AI extracted (e.g., ["date", "location"])
+}
+
+/** Summary of AI recovery attempt for a scrape run */
+export interface AiRecoverySummary {
+  attempted: number; // Parse errors sent to AI
+  succeeded: number; // Successfully recovered
+  failed: number; // AI couldn't recover
+  durationMs: number; // Time spent on AI recovery
+  results: RecoveryResult[]; // Detailed results for each recovery
+}
+
 /** Result of a single adapter scrape run */
 export interface ScrapeResult {
   events: RawEventData[];
@@ -47,6 +65,7 @@ export interface ScrapeResult {
   errorDetails?: ErrorDetails; // Phase 2A: Structured error breakdown
   structureHash?: string; // HTML structural fingerprint (HTML adapters only)
   diagnosticContext?: Record<string, unknown>; // Phase 3B: Per-adapter metadata
+  aiRecovery?: AiRecoverySummary; // AI recovery results (populated by scrape pipeline)
 }
 
 /** All adapters implement this interface */

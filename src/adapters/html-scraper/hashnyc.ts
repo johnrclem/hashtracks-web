@@ -490,10 +490,14 @@ export function parseRows(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push(`Row parse error: ${message}`);
+      // Capture raw text for AI recovery fallback
+      const cells = $(row).find("td");
+      const rowText = cells.toArray().map((c) => $(c).text().trim()).join(" | ");
       parseErrors.push({
         row: _i,
         section,
         error: message,
+        rawText: rowText.slice(0, 2000),
       });
     }
   });
