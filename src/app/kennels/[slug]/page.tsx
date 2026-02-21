@@ -46,7 +46,7 @@ export default async function KennelDetailPage({
   const [user, events] = await Promise.all([
     getOrCreateUser(),
     prisma.event.findMany({
-      where: { kennelId: kennel.id },
+      where: { kennelId: kennel.id, status: { not: "CANCELLED" } },
       include: {
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
