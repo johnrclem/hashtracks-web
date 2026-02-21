@@ -2,6 +2,7 @@
  * Shared adapter utilities — deduplicates common parsing logic across adapters.
  */
 
+import * as cheerio from "cheerio";
 import he from "he";
 
 /**
@@ -21,12 +22,12 @@ export function stripHtmlTags(
   text: string,
   brReplacement = " ",
 ): string {
-  return text
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<br\s*\/?>/gi, brReplacement)
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
+  const withBr = text.replace(/<br\s*\/?>/gi, brReplacement);
+  const $ = cheerio.load(withBr);
+  $("script, style").remove();
+  return $.text()
+    .replace(/[^\S\r\n]+/g, " ")
+    .replace(/ *\n */g, "\n")
     .trim();
 }
 
