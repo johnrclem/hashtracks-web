@@ -12,10 +12,14 @@ import { formatTime } from "@/lib/format";
 import { AttendanceBadge } from "@/components/logbook/AttendanceBadge";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { RegionBadge } from "./RegionBadge";
+import { useTimePreference } from "@/components/providers/time-preference-provider";
+import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
 
 export type HarelineEvent = {
   id: string;
-  date: string; // ISO string
+  date: string; // ISO string 
+  dateUtc: Date | null;
+  timezone: string | null;
   kennelId: string;
   kennel: {
     id: string;
@@ -78,6 +82,24 @@ interface EventCardProps {
 
 export function EventCard({ event, density, onSelect, isSelected, attendance }: EventCardProps) {
   const router = useRouter();
+  const { preference } = useTimePreference();
+
+  // Compute display timezone and time
+  const isUserLocal = preference === "USER_LOCAL";
+  const displayTz = isUserLocal ? getBrowserTimezone() : (event.timezone ?? "America/New_York");
+
+  // Choose standard date parsing if there's no reliable UTC timestamp, otherwise compute timezone
+  const displayDateStr = event.dateUtc
+    ? formatDateInZone(event.dateUtc, displayTz)
+    : formatDate(event.date);
+
+  const displayTimeStr = (event.dateUtc && event.startTime)
+    ? formatTimeInZone(event.dateUtc, displayTz)
+    : (event.startTime ? formatTime(event.startTime) : null);
+
+  const tzAbbrev = (event.dateUtc && event.startTime)
+    ? getTimezoneAbbreviation(event.dateUtc, displayTz)
+    : "";
 
   function handleClick() {
     // On desktop (lg+), select the event for the detail panel
@@ -93,12 +115,11 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
     return (
       <div className="cursor-pointer" onClick={handleClick}>
         <div
-          className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50 ${
-            isSelected ? "border-primary bg-primary/5" : ""
-          }`}
+          className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50 ${isSelected ? "border-primary bg-primary/5" : ""
+            }`}
         >
           <span className="w-24 shrink-0 font-medium">
-            {formatDate(event.date)}
+            {displayDateStr}
           </span>
           <span className="w-20 shrink-0">
             <Tooltip>
@@ -123,9 +144,10 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
           <span className="truncate text-muted-foreground">
             {event.haresText || event.title || ""}
           </span>
-          {event.startTime && (
-            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-              {formatTime(event.startTime)}
+          {displayTimeStr && (
+            <span className="ml-auto flex items-center gap-1 shrink-0 text-xs text-muted-foreground">
+              {displayTimeStr}
+              {tzAbbrev && <span className="text-[10px] font-medium opacity-70">{tzAbbrev}</span>}
             </span>
           )}
           {attendance && (
@@ -146,14 +168,13 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
   return (
     <div className="cursor-pointer" onClick={handleClick}>
       <div
-        className={`rounded-lg border px-3 py-2 shadow-sm transition-colors hover:border-foreground/20 ${
-          isSelected ? "border-primary bg-primary/5" : ""
-        }`}
+        className={`rounded-lg border px-3 py-2 shadow-sm transition-colors hover:border-foreground/20 ${isSelected ? "border-primary bg-primary/5" : ""
+          }`}
       >
         <div className="min-w-0 space-y-0.5">
           {/* Line 1: date · kennel · run# · time — all on one line */}
           <div className="flex items-center gap-1.5 text-sm">
-            <span className="font-medium">{formatDate(event.date)}</span>
+            <span className="font-medium">{displayDateStr}</span>
             <span className="text-muted-foreground">·</span>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -176,11 +197,12 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
                 </span>
               </>
             )}
-            {event.startTime && (
+            {displayTimeStr && (
               <>
                 <span className="text-muted-foreground">·</span>
-                <span className="text-muted-foreground">
-                  {formatTime(event.startTime)}
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  {displayTimeStr}
+                  {tzAbbrev && <span className="text-xs font-medium opacity-70">{tzAbbrev}</span>}
                 </span>
               </>
             )}

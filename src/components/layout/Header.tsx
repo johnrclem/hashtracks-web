@@ -4,6 +4,16 @@ import Link from "next/link";
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { Globe, Clock } from "lucide-react";
+import { useTimePreference } from "@/components/providers/time-preference-provider";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const navLinks = [
   { href: "/hareline", label: "Hareline" },
@@ -16,6 +26,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user } = useUser();
   const isAdmin = (user?.publicMetadata as { role?: string } | undefined)?.role === "admin";
+  const { preference, setPreference, isLoading } = useTimePreference();
 
   return (
     <header className="border-b bg-background">
@@ -54,6 +65,38 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {/* Timezone Toggle */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Time display preference" disabled={isLoading}>
+                {preference === "USER_LOCAL" ? <Clock className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
+                <span className="sr-only">Toggle time display preference</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Time Display</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setPreference("EVENT_LOCAL")}
+                className={preference === "EVENT_LOCAL" ? "bg-accent" : ""}
+              >
+                <div className="flex flex-col gap-1">
+                  <span className="font-medium flex items-center gap-2"><Globe className="h-4 w-4" /> Event Local Time</span>
+                  <span className="text-xs text-muted-foreground">Times match the event's physical location</span>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setPreference("USER_LOCAL")}
+                className={preference === "USER_LOCAL" ? "bg-accent" : ""}
+              >
+                <div className="flex flex-col gap-1">
+                  <span className="font-medium flex items-center gap-2"><Clock className="h-4 w-4" /> My Local Time</span>
+                  <span className="text-xs text-muted-foreground">Times translated to your current timezone</span>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <SignedIn>
             <UserButton />
           </SignedIn>

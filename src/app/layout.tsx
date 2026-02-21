@@ -7,6 +7,8 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { getOrCreateUser } from "@/lib/auth";
+import { TimePreferenceProvider } from "@/components/providers/time-preference-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,11 +26,14 @@ export const metadata: Metadata = {
   description: "The Strava of Hashing — discover runs, track attendance, view stats.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getOrCreateUser();
+  const timeDisplayPref = user?.timeDisplayPref ?? "EVENT_LOCAL";
+
   return (
     <ClerkProvider>
       <html lang="en">
@@ -36,12 +41,14 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
           <TooltipProvider>
-            <Header />
-            <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8">
-              {children}
-            </main>
-            <Footer />
-            <Toaster />
+            <TimePreferenceProvider initialPreference={timeDisplayPref}>
+              <Header />
+              <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8">
+                {children}
+              </main>
+              <Footer />
+              <Toaster />
+            </TimePreferenceProvider>
           </TooltipProvider>
           <Analytics />
           <SpeedInsights />

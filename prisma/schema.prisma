@@ -19,6 +19,7 @@ model User {
   nerdName    String?      // Real name (private by default)
   email       String       @unique
   bio         String?
+  timeDisplayPref TimeDisplayPref @default(EVENT_LOCAL)
   homeKennels UserKennel[]
   attendances Attendance[]
   hareCredits EventHare[]
@@ -31,6 +32,11 @@ model User {
   rosterGroupRequests   RosterGroupRequest[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+}
+
+enum TimeDisplayPref {
+  EVENT_LOCAL
+  USER_LOCAL
 }
 
 model UserKennel {

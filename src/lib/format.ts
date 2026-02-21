@@ -65,34 +65,39 @@ export function parseParticipationLevel(value: string | undefined): Participatio
 
 // ── Region display ──
 
-const REGION_CONFIG: Record<string, { abbrev: string; classes: string }> = {
+const REGION_CONFIG: Record<string, { abbrev: string; classes: string; tz: string }> = {
   // US East Coast
-  "New York City, NY": { abbrev: "NYC", classes: "bg-blue-200 text-blue-800" },
-  "Long Island, NY":   { abbrev: "LI",  classes: "bg-cyan-200 text-cyan-800" },
-  "Boston, MA":        { abbrev: "BOS", classes: "bg-red-200 text-red-800" },
-  "North NJ":          { abbrev: "NNJ", classes: "bg-emerald-200 text-emerald-800" },
-  "New Jersey":        { abbrev: "NJ",  classes: "bg-green-200 text-green-800" },
-  "Philadelphia, PA":  { abbrev: "PHI", classes: "bg-amber-200 text-amber-800" },
+  "New York City, NY": { abbrev: "NYC", classes: "bg-blue-200 text-blue-800", tz: "America/New_York" },
+  "Long Island, NY": { abbrev: "LI", classes: "bg-cyan-200 text-cyan-800", tz: "America/New_York" },
+  "Boston, MA": { abbrev: "BOS", classes: "bg-red-200 text-red-800", tz: "America/New_York" },
+  "North NJ": { abbrev: "NNJ", classes: "bg-emerald-200 text-emerald-800", tz: "America/New_York" },
+  "New Jersey": { abbrev: "NJ", classes: "bg-green-200 text-green-800", tz: "America/New_York" },
+  "Philadelphia, PA": { abbrev: "PHI", classes: "bg-amber-200 text-amber-800", tz: "America/New_York" },
   // US Midwest
-  "Chicago, IL":       { abbrev: "CHI", classes: "bg-purple-200 text-purple-800" },
-  "South Shore, IN":   { abbrev: "IN",  classes: "bg-violet-200 text-violet-800" },
+  "Chicago, IL": { abbrev: "CHI", classes: "bg-purple-200 text-purple-800", tz: "America/Chicago" },
+  "South Shore, IN": { abbrev: "IN", classes: "bg-violet-200 text-violet-800", tz: "America/Chicago" },
   // US DC / DMV
-  "Washington, DC":    { abbrev: "DC",  classes: "bg-slate-200 text-slate-800" },
-  "Northern Virginia": { abbrev: "NoVA", classes: "bg-stone-200 text-stone-800" },
-  "Baltimore, MD":     { abbrev: "BAL", classes: "bg-orange-200 text-orange-800" },
-  "Frederick, MD":     { abbrev: "FRD", classes: "bg-orange-100 text-orange-700" },
-  "Fredericksburg, VA": { abbrev: "FXBG", classes: "bg-stone-100 text-stone-700" },
-  "Southern Maryland": { abbrev: "SMD", classes: "bg-orange-100 text-orange-700" },
-  "Jefferson County, WV": { abbrev: "WV", classes: "bg-lime-200 text-lime-800" },
+  "Washington, DC": { abbrev: "DC", classes: "bg-slate-200 text-slate-800", tz: "America/New_York" },
+  "Northern Virginia": { abbrev: "NoVA", classes: "bg-stone-200 text-stone-800", tz: "America/New_York" },
+  "Baltimore, MD": { abbrev: "BAL", classes: "bg-orange-200 text-orange-800", tz: "America/New_York" },
+  "Frederick, MD": { abbrev: "FRD", classes: "bg-orange-100 text-orange-700", tz: "America/New_York" },
+  "Fredericksburg, VA": { abbrev: "FXBG", classes: "bg-stone-100 text-stone-700", tz: "America/New_York" },
+  "Southern Maryland": { abbrev: "SMD", classes: "bg-orange-100 text-orange-700", tz: "America/New_York" },
+  "Jefferson County, WV": { abbrev: "WV", classes: "bg-lime-200 text-lime-800", tz: "America/New_York" },
   // US West Coast
-  "San Francisco, CA": { abbrev: "SF",  classes: "bg-teal-200 text-teal-800" },
-  "Oakland, CA":       { abbrev: "OAK", classes: "bg-teal-100 text-teal-700" },
-  "San Jose, CA":      { abbrev: "SJ",  classes: "bg-sky-200 text-sky-800" },
-  "Marin County, CA":  { abbrev: "MRN", classes: "bg-teal-100 text-teal-700" },
+  "San Francisco, CA": { abbrev: "SF", classes: "bg-teal-200 text-teal-800", tz: "America/Los_Angeles" },
+  "Oakland, CA": { abbrev: "OAK", classes: "bg-teal-100 text-teal-700", tz: "America/Los_Angeles" },
+  "San Jose, CA": { abbrev: "SJ", classes: "bg-sky-200 text-sky-800", tz: "America/Los_Angeles" },
+  "Marin County, CA": { abbrev: "MRN", classes: "bg-teal-100 text-teal-700", tz: "America/Los_Angeles" },
   // UK
-  "London":            { abbrev: "LDN", classes: "bg-rose-200 text-rose-800" },
-  "Surrey":            { abbrev: "SRY", classes: "bg-pink-200 text-pink-800" },
+  "London": { abbrev: "LDN", classes: "bg-rose-200 text-rose-800", tz: "Europe/London" },
+  "Surrey": { abbrev: "SRY", classes: "bg-pink-200 text-pink-800", tz: "Europe/London" },
 };
+
+/** Get the primary IANA timezone for a region string, defaults to America/New_York */
+export function regionTimezone(region: string): string {
+  return REGION_CONFIG[region]?.tz ?? "America/New_York";
+}
 
 /** Short abbreviation for a region. "New York City, NY" → "NYC" */
 export function regionAbbrev(region: string): string {

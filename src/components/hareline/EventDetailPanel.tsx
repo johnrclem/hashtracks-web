@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/tooltip";
 import { formatTime } from "@/lib/format";
 import { formatDateLong, type HarelineEvent } from "./EventCard";
+import { useTimePreference } from "@/components/providers/time-preference-provider";
+import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
 import { CheckInButton } from "@/components/logbook/CheckInButton";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { CalendarExportButton } from "./CalendarExportButton";
@@ -24,6 +26,8 @@ interface EventDetailPanelProps {
 }
 
 export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss }: EventDetailPanelProps) {
+  const { preference } = useTimePreference();
+
   if (!event) {
     return (
       <Card>
@@ -42,6 +46,22 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.locationName)}`
       : null;
 
+  // Compute display timezone and time
+  const isUserLocal = preference === "USER_LOCAL";
+  const displayTz = isUserLocal ? getBrowserTimezone() : (event.timezone ?? "America/New_York");
+
+  const displayDateStr = event.dateUtc
+    ? formatDateInZone(event.dateUtc, displayTz, "EEEE, MMMM d, yyyy")
+    : formatDateLong(event.date);
+
+  const displayTimeStr = (event.dateUtc && event.startTime)
+    ? formatTimeInZone(event.dateUtc, displayTz)
+    : (event.startTime ? formatTime(event.startTime) : null);
+
+  const tzAbbrev = (event.dateUtc && event.startTime)
+    ? getTimezoneAbbreviation(event.dateUtc, displayTz)
+    : "";
+
   return (
     <Card className="flex max-h-[calc(100vh-4rem)] flex-col overflow-hidden">
       {/* Scrollable content */}
@@ -50,7 +70,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <h2 className="text-lg font-bold">{formatDateLong(event.date)}</h2>
+              <h2 className="text-lg font-bold">{displayDateStr}</h2>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
@@ -70,7 +90,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
                 className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
                 aria-label="Close detail panel"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
               </button>
             )}
           </div>
@@ -116,10 +136,13 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
               <dd>#{event.runNumber}</dd>
             </div>
           )}
-          {event.startTime && (
+          {displayTimeStr && (
             <div>
               <dt className="font-medium text-muted-foreground">Start Time</dt>
-              <dd>{formatTime(event.startTime)}</dd>
+              <dd className="flex items-center gap-1">
+                {displayTimeStr}
+                {tzAbbrev && <span className="text-xs font-medium opacity-70">{tzAbbrev}</span>}
+              </dd>
             </div>
           )}
           {event.haresText && (

@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import type { RawEventData, MergeResult, EventSample } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
+import { regionTimezone } from "@/lib/format";
+import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
 
@@ -158,6 +160,16 @@ async function upsertCanonicalEvent(
     where: { kennelId_date: { kennelId, date: eventDate } },
   });
 
+  const kennel = await prisma.kennel.findUnique({
+    where: { id: kennelId },
+    select: { region: true },
+  });
+
+  const timezone = regionTimezone(kennel?.region ?? "");
+  const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
+  // Default to noon if no start time is provided, or composition fails
+  const dateUtc = composedUtc ?? eventDate;
+
   let targetEventId: string;
 
   if (existingEvent) {
@@ -177,6 +189,8 @@ async function upsertCanonicalEvent(
           locationName: event.location ?? null,
           locationAddress: event.locationUrl ?? null,
           startTime: event.startTime ?? existingEvent.startTime,
+          dateUtc,
+          timezone,
           // Preserve first source's URL; subsequent sources get EventLinks
           sourceUrl: existingEvent.sourceUrl ?? event.sourceUrl,
           trustLevel: ctx.trustLevel,
@@ -206,8 +220,8 @@ async function upsertCanonicalEvent(
       data: {
         kennelId,
         date: eventDate,
-        dateUtc: eventDate,
-        timezone: "America/New_York",
+        dateUtc,
+        timezone,
         runNumber: event.runNumber,
         title: event.title,
         description: event.description,
