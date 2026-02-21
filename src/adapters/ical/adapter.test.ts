@@ -313,7 +313,10 @@ describe("ICalAdapter", () => {
 
   it("handles fetch errors gracefully", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response("Not Found", { status: 404 }),
+      new Response("Not Found", {
+        status: 404,
+        headers: { "Content-Type": "text/html" },
+      }),
     );
 
     const source = buildMockSource();
@@ -323,6 +326,12 @@ describe("ICalAdapter", () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("404");
     expect(result.errorDetails?.fetch).toHaveLength(1);
+    expect(result.diagnosticContext).toBeDefined();
+    expect(result.diagnosticContext!.url).toBe(source.url);
+    expect(result.diagnosticContext!.totalVEvents).toBe(0);
+    expect(result.diagnosticContext!.icsBytes).toBe(0);
+    expect(result.diagnosticContext!.contentType).toBe("text/html");
+    expect(result.diagnosticContext!.fetchDurationMs).toBeGreaterThanOrEqual(0);
   });
 
   it("handles network errors gracefully", async () => {
@@ -335,6 +344,43 @@ describe("ICalAdapter", () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("ECONNREFUSED");
     expect(result.errorDetails?.fetch).toHaveLength(1);
+    expect(result.diagnosticContext).toBeDefined();
+    expect(result.diagnosticContext!.url).toBe(source.url);
+    expect(result.diagnosticContext!.totalVEvents).toBe(0);
+    expect(result.diagnosticContext!.icsBytes).toBe(0);
+    expect(result.diagnosticContext!.fetchDurationMs).toBeGreaterThanOrEqual(0);
+    expect(result.diagnosticContext!.contentType).toBeUndefined();
+  });
+
+  it("includes diagnosticContext on ICS parse error", async () => {
+    // Valid-looking ICS header but corrupt content that triggers a parse error
+    const corruptIcs = "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\n";
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(corruptIcs, {
+        status: 200,
+        headers: { "Content-Type": "text/calendar" },
+      }),
+    );
+
+    // Force parseICS to throw
+    const ical = await import("node-ical");
+    vi.spyOn(ical.sync, "parseICS").mockImplementationOnce(() => {
+      throw new Error("Unexpected end of input");
+    });
+
+    const source = buildMockSource();
+    const result = await adapter.fetch(source);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("iCal parse error");
+    expect(result.errorDetails?.parse).toHaveLength(1);
+    expect(result.diagnosticContext).toBeDefined();
+    expect(result.diagnosticContext!.url).toBe(source.url);
+    expect(result.diagnosticContext!.totalVEvents).toBe(0);
+    expect(result.diagnosticContext!.icsBytes).toBe(corruptIcs.length);
+    expect(result.diagnosticContext!.contentType).toBe("text/calendar");
+    expect(result.diagnosticContext!.fetchDurationMs).toBeGreaterThanOrEqual(0);
   });
 
   it("filters events by date range", async () => {

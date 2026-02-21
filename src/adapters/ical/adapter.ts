@@ -177,7 +177,21 @@ export class ICalAdapter implements SourceAdapter {
         const message = `iCal fetch failed ${resp.status}: ${body.substring(0, 500)}`;
         errors.push(message);
         errorDetails.fetch = [{ url: source.url, status: resp.status, message }];
-        return { events, errors, errorDetails };
+        return {
+          events,
+          errors,
+          errorDetails,
+          diagnosticContext: {
+            url: source.url,
+            totalVEvents: 0,
+            eventsExtracted: 0,
+            skippedDateRange: 0,
+            skippedPattern: 0,
+            fetchDurationMs: Date.now() - fetchStart,
+            icsBytes: 0,
+            contentType,
+          },
+        };
       }
 
       icsText = await resp.text();
@@ -210,7 +224,20 @@ export class ICalAdapter implements SourceAdapter {
       const message = err instanceof Error ? err.message : String(err);
       errors.push(`iCal fetch error: ${message}`);
       errorDetails.fetch = [{ url: source.url, message }];
-      return { events, errors, errorDetails };
+      return {
+        events,
+        errors,
+        errorDetails,
+        diagnosticContext: {
+          url: source.url,
+          totalVEvents: 0,
+          eventsExtracted: 0,
+          skippedDateRange: 0,
+          skippedPattern: 0,
+          fetchDurationMs: Date.now() - fetchStart,
+          icsBytes: 0,
+        },
+      };
     }
 
     const fetchDurationMs = Date.now() - fetchStart;
@@ -223,7 +250,21 @@ export class ICalAdapter implements SourceAdapter {
       const message = err instanceof Error ? err.message : String(err);
       errors.push(`iCal parse error: ${message}`);
       errorDetails.parse = [{ row: 0, error: message }];
-      return { events, errors, errorDetails };
+      return {
+        events,
+        errors,
+        errorDetails,
+        diagnosticContext: {
+          url: source.url,
+          totalVEvents: 0,
+          eventsExtracted: 0,
+          skippedDateRange: 0,
+          skippedPattern: 0,
+          fetchDurationMs,
+          icsBytes: icsText.length,
+          contentType,
+        },
+      };
     }
 
     // Step 3: Process VEVENT entries
