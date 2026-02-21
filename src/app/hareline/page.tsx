@@ -49,6 +49,8 @@ export default async function HarelinePage() {
   const serializedEvents = events.map((e) => ({
     id: e.id,
     date: e.date.toISOString(),
+    dateUtc: e.dateUtc,
+    timezone: e.timezone,
     kennelId: e.kennelId,
     kennel: e.kennel,
     runNumber: e.runNumber,

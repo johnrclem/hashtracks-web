@@ -7,6 +7,7 @@ export interface CalendarEvent {
   title?: string | null;
   date: string; // ISO string (UTC noon)
   startTime?: string | null; // "HH:MM"
+  timezone?: string | null; // IANA timezone
   description?: string | null;
   haresText?: string | null;
   locationName?: string | null;
@@ -65,6 +66,9 @@ export function buildGoogleCalendarUrl(event: CalendarEvent): string {
     params.set("dates", `${ymd}/${nextDay}`);
   } else {
     params.set("dates", `${ymd}T${start}/${ymd}T${end}`);
+    if (event.timezone) {
+      params.set("ctz", event.timezone);
+    }
   }
 
   if (event.locationName) {
@@ -96,8 +100,13 @@ export function buildIcsContent(event: CalendarEvent): string {
     lines.push(`DTSTART;VALUE=DATE:${ymd}`);
     lines.push(`DTEND;VALUE=DATE:${incrementDate(ymd)}`);
   } else {
-    lines.push(`DTSTART:${ymd}T${start}`);
-    lines.push(`DTEND:${ymd}T${end}`);
+    if (event.timezone) {
+      lines.push(`DTSTART;TZID=${event.timezone}:${ymd}T${start}`);
+      lines.push(`DTEND;TZID=${event.timezone}:${ymd}T${end}`);
+    } else {
+      lines.push(`DTSTART:${ymd}T${start}`);
+      lines.push(`DTEND:${ymd}T${end}`);
+    }
   }
 
   if (event.locationName) {

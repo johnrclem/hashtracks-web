@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import type { RawEventData, MergeResult, EventSample } from "@/adapters/types";
+import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
+import { regionTimezone } from "@/lib/format";
+import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
 
@@ -30,6 +32,7 @@ interface MergeContext {
   sourceId: string;
   trustLevel: number;
   linkedKennelIds: Set<string>;
+  regionCache: Map<string, string>;
   result: MergeResult;
 }
 
@@ -158,6 +161,22 @@ async function upsertCanonicalEvent(
     where: { kennelId_date: { kennelId, date: eventDate } },
   });
 
+  // Fetch region from cache to avoid N+1 queries
+  let region = ctx.regionCache.get(kennelId);
+  if (region === undefined) {
+    const kennel = await prisma.kennel.findUnique({
+      where: { id: kennelId },
+      select: { region: true },
+    });
+    region = kennel?.region ?? "";
+    ctx.regionCache.set(kennelId, region);
+  }
+
+  const timezone = regionTimezone(region);
+  const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
+  // Default to noon if no start time is provided, or composition fails
+  const dateUtc = composedUtc ?? eventDate;
+
   let targetEventId: string;
 
   if (existingEvent) {
@@ -177,6 +196,8 @@ async function upsertCanonicalEvent(
           locationName: event.location ?? null,
           locationAddress: event.locationUrl ?? null,
           startTime: event.startTime ?? existingEvent.startTime,
+          dateUtc,
+          timezone,
           // Preserve first source's URL; subsequent sources get EventLinks
           sourceUrl: existingEvent.sourceUrl ?? event.sourceUrl,
           trustLevel: ctx.trustLevel,
@@ -206,8 +227,8 @@ async function upsertCanonicalEvent(
       data: {
         kennelId,
         date: eventDate,
-        dateUtc: eventDate,
-        timezone: "America/New_York",
+        dateUtc,
+        timezone,
         runNumber: event.runNumber,
         title: event.title,
         description: event.description,
@@ -314,7 +335,8 @@ export async function processRawEvents(
   // Clear resolver cache for fresh lookups
   clearResolverCache();
 
-  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, result };
+  const regionCache = new Map<string, string>();
+  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, regionCache, result };
 
   // Track series IDs → canonical event IDs for post-processing
   const seriesGroups = new Map<string, string[]>();
