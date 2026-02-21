@@ -118,7 +118,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
           className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50 ${isSelected ? "border-primary bg-primary/5" : ""
             }`}
         >
-          <span className="w-24 shrink-0 font-medium">
+          <span className="w-24 shrink-0 font-medium" suppressHydrationWarning>
             {displayDateStr}
           </span>
           <span className="w-20 shrink-0">
@@ -145,9 +145,9 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
             {event.haresText || event.title || ""}
           </span>
           {displayTimeStr && (
-            <span className="ml-auto flex items-center gap-1 shrink-0 text-xs text-muted-foreground">
+            <span className="ml-auto flex items-center gap-1 shrink-0 text-xs text-muted-foreground" suppressHydrationWarning>
               {displayTimeStr}
-              {tzAbbrev && <span className="text-[10px] font-medium opacity-70">{tzAbbrev}</span>}
+              {tzAbbrev && <span className="text-[10px] font-medium opacity-70" suppressHydrationWarning>{tzAbbrev}</span>}
             </span>
           )}
           {attendance && (
@@ -174,7 +174,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
         <div className="min-w-0 space-y-0.5">
           {/* Line 1: date · kennel · run# · time — all on one line */}
           <div className="flex items-center gap-1.5 text-sm">
-            <span className="font-medium">{displayDateStr}</span>
+            <span className="font-medium" suppressHydrationWarning>{displayDateStr}</span>
             <span className="text-muted-foreground">·</span>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -200,9 +200,9 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
             {displayTimeStr && (
               <>
                 <span className="text-muted-foreground">·</span>
-                <span className="flex items-center gap-1 text-muted-foreground">
+                <span className="flex items-center gap-1 text-muted-foreground" suppressHydrationWarning>
                   {displayTimeStr}
-                  {tzAbbrev && <span className="text-xs font-medium opacity-70">{tzAbbrev}</span>}
+                  {tzAbbrev && <span className="text-xs font-medium opacity-70" suppressHydrationWarning>{tzAbbrev}</span>}
                 </span>
               </>
             )}

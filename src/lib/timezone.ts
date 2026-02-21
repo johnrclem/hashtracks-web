@@ -53,7 +53,7 @@ export function getBrowserTimezone(): string {
 export function formatTimeInZone(date: Date, timezone: string, fmt = "h:mm a"): string {
     try {
         return format(date, fmt, { in: tz(timezone) });
-    } catch (err) {
+    } catch {
         return format(date, fmt); // Fallback to system local if error
     }
 }
@@ -64,7 +64,7 @@ export function formatTimeInZone(date: Date, timezone: string, fmt = "h:mm a"): 
 export function formatDateInZone(date: Date, timezone: string, fmt = "EEE, MMM d"): string {
     try {
         return format(date, fmt, { in: tz(timezone) });
-    } catch (err) {
+    } catch {
         return format(date, fmt); // Fallback to system local if error
     }
 }
@@ -81,7 +81,7 @@ export function getTimezoneAbbreviation(date: Date, timezone: string): string {
 
         const tzPart = parts.find(p => p.type === "timeZoneName");
         return tzPart ? tzPart.value : "";
-    } catch (err) {
+    } catch {
         return "";
     }
 }
@@ -91,8 +91,6 @@ export function getTimezoneAbbreviation(date: Date, timezone: string): string {
  */
 export function isValidTimezone(timezone: string): boolean {
     if (!timezone || typeof timezone !== "string") return false;
-    // Basic sanity check to prevent "EST" and focus on IANA "Area/Location"
-    if (!timezone.includes("/")) return false;
 
     try {
         Intl.DateTimeFormat(undefined, { timeZone: timezone });

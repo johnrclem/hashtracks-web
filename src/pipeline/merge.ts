@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import type { RawEventData, MergeResult, EventSample } from "@/adapters/types";
+import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
 import { regionTimezone } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
@@ -32,6 +32,7 @@ interface MergeContext {
   sourceId: string;
   trustLevel: number;
   linkedKennelIds: Set<string>;
+  regionCache: Map<string, string>;
   result: MergeResult;
 }
 
@@ -160,12 +161,18 @@ async function upsertCanonicalEvent(
     where: { kennelId_date: { kennelId, date: eventDate } },
   });
 
-  const kennel = await prisma.kennel.findUnique({
-    where: { id: kennelId },
-    select: { region: true },
-  });
+  // Fetch region from cache to avoid N+1 queries
+  let region = ctx.regionCache.get(kennelId);
+  if (region === undefined) {
+    const kennel = await prisma.kennel.findUnique({
+      where: { id: kennelId },
+      select: { region: true },
+    });
+    region = kennel?.region ?? "";
+    ctx.regionCache.set(kennelId, region);
+  }
 
-  const timezone = regionTimezone(kennel?.region ?? "");
+  const timezone = regionTimezone(region);
   const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
   // Default to noon if no start time is provided, or composition fails
   const dateUtc = composedUtc ?? eventDate;
@@ -328,7 +335,8 @@ export async function processRawEvents(
   // Clear resolver cache for fresh lookups
   clearResolverCache();
 
-  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, result };
+  const regionCache = new Map<string, string>();
+  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, regionCache, result };
 
   // Track series IDs → canonical event IDs for post-processing
   const seriesGroups = new Map<string, string[]>();

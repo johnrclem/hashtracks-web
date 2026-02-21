@@ -70,7 +70,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <h2 className="text-lg font-bold">{displayDateStr}</h2>
+              <h2 className="text-lg font-bold" suppressHydrationWarning>{displayDateStr}</h2>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
@@ -139,9 +139,9 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
           {displayTimeStr && (
             <div>
               <dt className="font-medium text-muted-foreground">Start Time</dt>
-              <dd className="flex items-center gap-1">
+              <dd className="flex items-center gap-1" suppressHydrationWarning>
                 {displayTimeStr}
-                {tzAbbrev && <span className="text-xs font-medium opacity-70">{tzAbbrev}</span>}
+                {tzAbbrev && <span className="text-xs font-medium opacity-70" suppressHydrationWarning>{tzAbbrev}</span>}
               </dd>
             </div>
           )}
