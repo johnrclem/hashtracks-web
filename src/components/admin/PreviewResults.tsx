@@ -1,16 +1,54 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import type { PreviewData } from "@/app/admin/sources/preview-action";
-import { useState } from "react";
+import { createInlineAlias } from "@/app/admin/sources/inline-alias-action";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 interface PreviewResultsProps {
   data: PreviewData;
+  /** All kennels for the alias link popover */
+  allKennels?: { id: string; shortName: string; fullName: string }[];
+  /** Called after an alias is created so the parent can re-run preview */
+  onAliasCreated?: () => void;
 }
 
-export function PreviewResults({ data }: PreviewResultsProps) {
+export function PreviewResults({ data, allKennels, onAliasCreated }: PreviewResultsProps) {
   const [showErrors, setShowErrors] = useState(false);
+  const [openTag, setOpenTag] = useState<string | null>(null);
+  const [linkingTag, setLinkingTag] = useState<string | null>(null);
+  const [, startLinking] = useTransition();
   const uniqueTags = new Set(data.events.map((e) => e.kennelTag));
+
+  function handleLinkTag(tag: string, kennelId: string) {
+    setOpenTag(null);
+    setLinkingTag(tag);
+    startLinking(async () => {
+      const result = await createInlineAlias(tag, kennelId);
+      setLinkingTag(null);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(`Alias "${tag}" created — re-running preview…`);
+        onAliasCreated?.();
+      }
+    });
+  }
 
   return (
     <div className="space-y-3 rounded-md border bg-muted/30 p-4">
@@ -109,13 +147,55 @@ export function PreviewResults({ data }: PreviewResultsProps) {
           </p>
           <div className="flex flex-wrap gap-1">
             {data.unmatchedTags.map((tag) => (
-              <Badge
-                key={tag}
-                variant="outline"
-                className="border-amber-300 text-amber-700"
-              >
-                {tag}
-              </Badge>
+              <div key={tag} className="flex items-center gap-0.5">
+                <Badge
+                  variant="outline"
+                  className={`border-amber-300 text-amber-700 ${linkingTag === tag ? "opacity-50" : ""}`}
+                >
+                  {tag}
+                </Badge>
+                {allKennels && allKennels.length > 0 && (
+                  <Popover
+                    open={openTag === tag}
+                    onOpenChange={(v) => setOpenTag(v ? tag : null)}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 px-1 text-[10px] text-amber-600 hover:text-amber-900"
+                        disabled={linkingTag === tag}
+                        title={`Link "${tag}" to a kennel`}
+                      >
+                        {linkingTag === tag ? "…" : "→ Link"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search kennels…" className="text-xs" />
+                        <CommandList>
+                          <CommandEmpty>No kennels found.</CommandEmpty>
+                          <CommandGroup>
+                            {allKennels.map((kennel) => (
+                              <CommandItem
+                                key={kennel.id}
+                                value={`${kennel.shortName} ${kennel.fullName}`}
+                                onSelect={() => handleLinkTag(tag, kennel.id)}
+                              >
+                                <span className="font-medium text-xs">{kennel.shortName}</span>
+                                <span className="ml-1 text-[10px] text-muted-foreground truncate">
+                                  — {kennel.fullName}
+                                </span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
             ))}
           </div>
         </div>

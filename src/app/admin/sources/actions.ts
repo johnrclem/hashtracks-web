@@ -283,6 +283,79 @@ export async function createAliasForSource(
 }
 
 /**
+ * Toggle a source's enabled state. Disabled sources are skipped by cron.
+ */
+export async function toggleSourceEnabled(sourceId: string, enabled: boolean) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  await prisma.source.update({
+    where: { id: sourceId },
+    data: { enabled },
+  });
+
+  revalidatePath("/admin/sources");
+  return { success: true };
+}
+
+/**
+ * Quick-create a kennel from the source form (no aliases or profile fields).
+ * Returns the new kennel id + display fields so the caller can auto-link it.
+ */
+export async function createQuickKennel(data: {
+  shortName: string;
+  fullName: string;
+  region: string;
+}): Promise<{
+  success?: true;
+  id?: string;
+  shortName?: string;
+  fullName?: string;
+  region?: string;
+  error?: string;
+}> {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const { shortName, fullName, region } = data;
+  if (!shortName || !fullName || !region) {
+    return { error: "shortName, fullName, and region are required" };
+  }
+
+  const slug = shortName
+    .toLowerCase()
+    .replace(/[()]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  const kennelCode = shortName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  const [existingCode, existingSlug] = await Promise.all([
+    prisma.kennel.findUnique({ where: { kennelCode } }),
+    prisma.kennel.findUnique({ where: { slug } }),
+  ]);
+  if (existingCode || existingSlug) {
+    return { error: `Kennel "${shortName}" already exists` };
+  }
+
+  const kennel = await prisma.kennel.create({
+    data: { kennelCode, shortName, fullName, slug, region },
+  });
+
+  revalidatePath("/admin/kennels");
+  return {
+    success: true,
+    id: kennel.id,
+    shortName: kennel.shortName,
+    fullName: kennel.fullName,
+    region: kennel.region,
+  };
+}
+
+/**
  * Create a new kennel from an unmatched tag (for UNMATCHED_TAG).
  */
 export async function createKennelForSource(

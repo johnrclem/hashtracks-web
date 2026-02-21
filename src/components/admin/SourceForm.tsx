@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createSource, updateSource } from "@/app/admin/sources/actions";
+import { createSource, updateSource, createQuickKennel } from "@/app/admin/sources/actions";
 import { detectSourceType } from "@/lib/source-detect";
 import {
   previewSourceConfig,
@@ -148,6 +148,14 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
   const [previewError, setPreviewError] = useState<string | null>(null);
   /** Sample event titles per unmatched tag — computed from preview results for AI enhance */
   const [sampleTitlesByTag, setSampleTitlesByTag] = useState<Record<string, string[]>>({});
+  /** Kennels created inline via the quick-create dialog — merged with allKennels for display */
+  const [extraKennels, setExtraKennels] = useState<typeof allKennels>([]);
+  /** State for the quick-create kennel mini-dialog */
+  const [quickKennelOpen, setQuickKennelOpen] = useState(false);
+  const [quickKennelShortName, setQuickKennelShortName] = useState("");
+  const [quickKennelFullName, setQuickKennelFullName] = useState("");
+  const [quickKennelRegion, setQuickKennelRegion] = useState("");
+  const [isCreatingKennel, startCreatingKennel] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
 
@@ -217,6 +225,37 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
     setPreviewData(null);
     setPreviewError(null);
     setSampleTitlesByTag({});
+    setExtraKennels([]);
+    setQuickKennelOpen(false);
+  }
+
+  const allKennelsWithExtra = [...allKennels, ...extraKennels];
+
+  function handleQuickKennelCreate() {
+    startCreatingKennel(async () => {
+      const result = await createQuickKennel({
+        shortName: quickKennelShortName.trim(),
+        fullName: quickKennelFullName.trim(),
+        region: quickKennelRegion.trim(),
+      });
+      if (result.error) {
+        toast.error(result.error);
+      } else if (result.id) {
+        const newKennel = {
+          id: result.id,
+          shortName: result.shortName!,
+          fullName: result.fullName!,
+          region: result.region!,
+        };
+        setExtraKennels((prev) => [...prev, newKennel]);
+        setSelectedKennels((prev) => [...prev, result.id!]);
+        setQuickKennelOpen(false);
+        setQuickKennelShortName("");
+        setQuickKennelFullName("");
+        setQuickKennelRegion("");
+        toast.success(`Kennel "${result.shortName}" created and linked`);
+      }
+    });
   }
 
   function handleUrlBlur() {
@@ -545,14 +584,20 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
             {previewError && (
               <p className="text-sm text-destructive">{previewError}</p>
             )}
-            {previewData && <PreviewResults data={previewData} />}
+            {previewData && (
+              <PreviewResults
+                data={previewData}
+                allKennels={allKennelsWithExtra}
+                onAliasCreated={handlePreview}
+              />
+            )}
           </div>
 
           <div className="space-y-2">
             <Label>Linked Kennels</Label>
             <TooltipProvider>
               <div className="flex max-h-48 flex-wrap gap-1 overflow-y-auto rounded-md border p-2">
-                {allKennels.map((kennel) => (
+                {allKennelsWithExtra.map((kennel) => (
                   <Tooltip key={kennel.id}>
                     <TooltipTrigger asChild>
                       <Badge
@@ -575,10 +620,90 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
                 ))}
               </div>
             </TooltipProvider>
-            <p className="text-xs text-muted-foreground">
-              Click to toggle. {selectedKennels.length} selected.
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Click to toggle. {selectedKennels.length} selected.
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={() => setQuickKennelOpen(true)}
+              >
+                + New Kennel
+              </Button>
+            </div>
           </div>
+
+          {/* Quick kennel creation mini-form */}
+          {quickKennelOpen && (
+            <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+              <p className="text-xs font-medium">Create New Kennel</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="qk-shortName" className="text-xs">Short Name *</Label>
+                  <Input
+                    id="qk-shortName"
+                    value={quickKennelShortName}
+                    onChange={(e) => setQuickKennelShortName(e.target.value)}
+                    placeholder="NYCH3"
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="qk-region" className="text-xs">Region *</Label>
+                  <Input
+                    id="qk-region"
+                    value={quickKennelRegion}
+                    onChange={(e) => setQuickKennelRegion(e.target.value)}
+                    placeholder="New York City, NY"
+                    className="h-7 text-xs"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="qk-fullName" className="text-xs">Full Name *</Label>
+                <Input
+                  id="qk-fullName"
+                  value={quickKennelFullName}
+                  onChange={(e) => setQuickKennelFullName(e.target.value)}
+                  placeholder="New York City Hash House Harriers"
+                  className="h-7 text-xs"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={
+                    isCreatingKennel ||
+                    !quickKennelShortName.trim() ||
+                    !quickKennelFullName.trim() ||
+                    !quickKennelRegion.trim()
+                  }
+                  onClick={handleQuickKennelCreate}
+                >
+                  {isCreatingKennel ? "Creating…" : "Create & Link"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setQuickKennelOpen(false);
+                    setQuickKennelShortName("");
+                    setQuickKennelFullName("");
+                    setQuickKennelRegion("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
 
           <input
             type="hidden"

@@ -321,7 +321,8 @@ Help admins bootstrap a new source with smart defaults. Two tiers: deterministic
 | 3 | Preview mode ("Test Config" dry-run) | ✅ Merged (PR #45) |
 | 4 | Hash Rego config panel | ✅ Merged (PR #46) |
 | 5 | Google Sheets config panel | ✅ Merged (PR #46, shipped with Phase 4) |
-| 6 | Auto-detect + pattern suggestion | ✅ Merged (PR #47) |
+| 6 | Auto-detect + pattern suggestion | ✅ Merged (PR #47, review fixes in PR #51) |
+| 7 | Source Onboarding v2 UX polish | ✅ In PR (branch: claude/config-driven-onboarding-phase6) |
 
 ---
 
@@ -386,11 +387,62 @@ After each phase:
 
 ---
 
+## Phase 7: Source Onboarding v2 UX Polish
+
+Delivered as a single PR (branch: `claude/config-driven-onboarding-phase6`). Three surgical improvements targeting the biggest remaining friction points in day-to-day admin flow.
+
+### 7a — Inline Alias Creation in PreviewResults ✅
+
+**Problem:** Unmatched tags in "Test Config" required navigating away to `/admin/alerts` or `/admin/kennels` to create a DB alias.
+
+**Solution:** Each unmatched tag badge in `PreviewResults.tsx` now has a "→ Link" button. Opens a kennel-search Popover (Command+CommandInput pattern). On select: creates `KennelAlias` via `createInlineAlias()` server action, clears resolver cache, re-runs preview automatically.
+
+**Files:** `src/components/admin/PreviewResults.tsx`, `src/app/admin/sources/inline-alias-action.ts` (NEW)
+
+### 7b — Source Enable/Disable Toggle ✅
+
+**Problem:** Broken sources (scraper changed, calendar removed) generated endless CRITICAL alerts with no way to silence without deleting.
+
+**Solution:** `enabled Boolean @default(true)` field on Source model. Cron filters `where: { enabled: true }`. SourceTable kebab menu gets "Disable"/"Enable" toggle. Disabled rows shown with `opacity-50` + "disabled" badge.
+
+**Files:** `prisma/schema.prisma`, `src/app/admin/sources/actions.ts` (`toggleSourceEnabled`), `src/app/api/cron/scrape/route.ts`, `src/components/admin/SourceTable.tsx`
+
+### 7c — Inline Kennel Creation from SourceForm ✅
+
+**Problem:** Adding a source for a new kennel required navigating to `/admin/kennels`, creating the kennel, then returning and re-entering the source form.
+
+**Solution:** Below the linked kennels multi-select, a "+ New Kennel" ghost button opens an inline mini-form (shortName + fullName + region). On "Create & Link": calls `createQuickKennel()` server action, auto-adds new kennel to the linked kennels selection, and merges it into the kennel search list.
+
+**Files:** `src/components/admin/SourceForm.tsx`, `src/app/admin/sources/actions.ts` (`createQuickKennel`)
+
+---
+
 ## Future Items
 
-These are tracked for future phases after Phase 6:
+These are tracked for future phases:
 
-- **Inline alias creation** — unmatched tag badges in PreviewResults get a "Create Alias" button so admin can fix DB-side kennel resolution without leaving the source form (currently requires going to /admin/alerts separately)
-- **HTML_SCRAPER config panel** — structured editor for CSS selectors/XPath for kennel extraction (lower priority since HTML scrapers still require custom adapter code)
-- **Guided Source Wizard** — multi-step flow (URL → type → config → test → link kennels → save) to guide first-time admins step by step
-- **AI config generation (Tier 3)** — Gemini analyzes fetched HTML/iCal and proposes `kennelPatterns`, column mappings, or skip patterns (long-term AI roadmap item, requires `GEMINI_API_KEY`)
+### Gemini Column Auto-Detection for Google Sheets (Tier 2)
+
+After "Test Config" succeeds on a Sheets source, show an "Analyze Columns with AI ✨" button. Gemini receives the first 5 rows of CSV data + current column config and returns suggested column indices with confidence scores.
+
+**New file:** `src/app/admin/sources/gemini-sheets-action.ts`
+**Modified:** `src/components/admin/config-panels/SheetsConfigPanel.tsx` (AI button + suggestion UI), `src/adapters/google-sheets/adapter.ts` (surface `sampleRows`), `src/app/admin/sources/preview-action.ts` (pass `sampleRows` through PreviewData)
+
+### Source Coverage Dashboard (Tier 3)
+
+New page at `/admin/sources/coverage` showing which kennels have no sources, which regions have coverage gaps, and which kennels have 2+ sources. Helps prioritize where to add new sources.
+
+**New files:** `src/app/admin/sources/coverage/page.tsx`, `src/components/admin/CoverageTable.tsx`
+
+### New Source Types (Tier 4)
+
+- **gotothehash.net adapter** — Community hash database with 800+ kennels globally. Structural leap in coverage if scrapeable. Exploration needed first.
+- **Meetup.com adapter** — New `MEETUP` SourceType. Meetup API v3 `GET /groups/{groupUrlname}/events` is publicly readable for public groups (no API key needed).
+
+### Guided Source Wizard (Tier 4)
+
+Multi-step modal: URL → type detection → config panel → Test Config (must pass) → link kennels → save. Reduces time-to-add from 15 min → ~2 min for config-driven sources. Could eventually become public-facing "Submit Your Kennel" flow.
+
+### HTML_SCRAPER Config Panel (Deferred)
+
+Structured editor for CSS selectors. Low ROI since HTML scrapers still require bespoke adapter code. Deferred until we have 3+ scrapers with similar enough structure to generalize.

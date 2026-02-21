@@ -62,6 +62,7 @@ export default async function AdminSourcesPage() {
     })),
     rawEventCount: s._count.rawEvents,
     openAlertTags: alertTagsBySource.get(s.id) ?? [],
+    enabled: s.enabled,
   }));
 
   return (
