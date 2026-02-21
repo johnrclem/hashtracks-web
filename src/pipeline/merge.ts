@@ -69,12 +69,24 @@ async function handleDuplicateFingerprint(
       const timezone = regionTimezone(region);
       const eventDate = parseUtcNoonDate(event.date);
       const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
-      // Only update if we now have a real UTC time (not just noon fallback)
+      // Only update if we have a real UTC time AND the source has sufficient trust
       if (composedUtc) {
-        await prisma.event.update({
+        const existingEvent = await prisma.event.findUnique({
           where: { id: existing.eventId },
-          data: { dateUtc: composedUtc, timezone },
+          select: { trustLevel: true, dateUtc: true, timezone: true },
         });
+        // Trust guard: don't let lower-trust sources overwrite higher-trust event times
+        const isHigherOrEqualTrust = !existingEvent || ctx.trustLevel >= existingEvent.trustLevel;
+        // Skip write if values are already correct (avoid redundant DB writes on every scrape)
+        const isAlreadyCurrent =
+          existingEvent?.dateUtc?.getTime() === composedUtc.getTime() &&
+          existingEvent?.timezone === timezone;
+        if (isHigherOrEqualTrust && !isAlreadyCurrent) {
+          await prisma.event.update({
+            where: { id: existing.eventId },
+            data: { dateUtc: composedUtc, timezone },
+          });
+        }
       }
       return existing.eventId;
     }

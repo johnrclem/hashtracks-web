@@ -109,7 +109,8 @@ export function regionTimezone(region: string): string {
   // Case-insensitive partial match fallback (handles variants like "London, England")
   const lc = region.toLowerCase();
   for (const [key, cfg] of Object.entries(REGION_CONFIG)) {
-    if (lc.includes(key.toLowerCase()) || key.toLowerCase().includes(lc)) {
+    const keyLc = key.toLowerCase();
+    if (lc.includes(keyLc) || keyLc.includes(lc)) {
       return cfg.tz;
     }
   }
