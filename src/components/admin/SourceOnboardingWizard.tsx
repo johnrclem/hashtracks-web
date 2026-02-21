@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef, useCallback } from "react";
+import { useState, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSource, createQuickKennel } from "@/app/admin/sources/actions";
@@ -166,8 +166,6 @@ export function SourceOnboardingWizard({
   // Kennel search filter
   const [kennelSearch, setKennelSearch] = useState("");
 
-  const formRef = useRef<HTMLFormElement>(null);
-
   const allKennelsWithExtra = [...allKennels, ...extraKennels];
   const currentStepIndex = STEPS.findIndex((s) => s.id === currentStep);
 
@@ -263,18 +261,11 @@ export function SourceOnboardingWizard({
       if (!result.success) {
         toast.error(result.error);
       } else {
-        setExtraKennels((prev) => [
-          ...prev,
-          {
-            id: result.id,
-            shortName: result.shortName,
-            fullName: result.fullName,
-            region: result.region,
-          },
-        ]);
-        setSelectedKennels((prev) => [...prev, result.id]);
+        const { success, ...newKennel } = result;
+        setExtraKennels((prev) => [...prev, newKennel]);
+        setSelectedKennels((prev) => [...prev, newKennel.id]);
         resetQuickKennelForm();
-        toast.success(`Kennel "${result.shortName}" created and linked`);
+        toast.success(`Kennel "${newKennel.shortName}" created and linked`);
       }
     });
   }
