@@ -38,59 +38,80 @@ interface MergeContext {
 
 /**
  * Check if the event fingerprint already exists (dedup).
- * If so, collect diagnostic samples for unprocessed duplicates.
- * Returns true if the event was a duplicate (caller should skip).
+ * If the RawEvent is already processed, refreshes dateUtc/timezone on the canonical Event.
+ * Returns `false` if no duplicate exists (proceed with upsert).
+ * Returns the canonical eventId (or null if unprocessed) when a duplicate is found.
  */
-async function isDuplicateFingerprint(
+async function handleDuplicateFingerprint(
   event: RawEventData,
   fingerprint: string,
   ctx: MergeContext,
-): Promise<boolean> {
+): Promise<false | string | null> {
   const existing = await prisma.rawEvent.findFirst({
     where: { fingerprint, sourceId: ctx.sourceId },
+    select: { id: true, processed: true, eventId: true },
   });
-  if (!existing) return false;
+  if (!existing) return false; // Not a duplicate — proceed normally
 
   ctx.result.skipped++;
 
-  // Capture samples from previously-unprocessed events so that
-  // recurring blocked/skipped issues generate samples on every scrape,
-  // not just the first one (fingerprint dedup would otherwise skip them).
-  if (!existing.processed) {
-    const needSkippedSamples = ctx.result.sampleSkipped && ctx.result.sampleSkipped.length < 3;
-    const needBlockedSamples = ctx.result.sampleBlocked && ctx.result.sampleBlocked.length < 3;
+  // If the RawEvent is already linked to a canonical Event, refresh timezone-derived fields.
+  // This ensures events scraped before dateUtc logic was added get updated on the next scrape.
+  if (existing.processed && existing.eventId) {
+    const { kennelId, matched } = await resolveKennelTag(event.kennelTag, ctx.sourceId);
+    if (matched && kennelId && ctx.linkedKennelIds.has(kennelId)) {
+      let region = ctx.regionCache.get(kennelId);
+      if (region === undefined) {
+        const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { region: true } });
+        region = kennel?.region ?? "";
+        ctx.regionCache.set(kennelId, region);
+      }
+      const timezone = regionTimezone(region);
+      const eventDate = parseUtcNoonDate(event.date);
+      const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
+      // Only update if we now have a real UTC time (not just noon fallback)
+      if (composedUtc) {
+        await prisma.event.update({
+          where: { id: existing.eventId },
+          data: { dateUtc: composedUtc, timezone },
+        });
+      }
+      return existing.eventId;
+    }
+    return existing.eventId;
+  }
 
-    if (needSkippedSamples || needBlockedSamples) {
-      const { kennelId: resolvedId, matched: resolvedMatch } =
-        await resolveKennelTag(event.kennelTag, ctx.sourceId);
+  // Unprocessed duplicate — collect diagnostic samples as before
+  const needSkippedSamples = ctx.result.sampleSkipped && ctx.result.sampleSkipped.length < 3;
+  const needBlockedSamples = ctx.result.sampleBlocked && ctx.result.sampleBlocked.length < 3;
 
-      if (!resolvedMatch || !resolvedId) {
-        if (needSkippedSamples) {
-          ctx.result.sampleSkipped!.push({
-            reason: "UNMATCHED_TAG",
-            kennelTag: event.kennelTag,
-            event,
-            suggestedAction: `Create kennel or alias for "${event.kennelTag}"`,
-          });
-        }
-      } else if (!ctx.linkedKennelIds.has(resolvedId)) {
-        if (needBlockedSamples) {
-          const kennel = await prisma.kennel.findUnique({
-            where: { id: resolvedId },
-            select: { shortName: true },
-          });
-          ctx.result.sampleBlocked!.push({
-            reason: "SOURCE_KENNEL_MISMATCH",
-            kennelTag: event.kennelTag,
-            event,
-            suggestedAction: `Link ${kennel?.shortName ?? resolvedId} to this source`,
-          });
-        }
+  if (needSkippedSamples || needBlockedSamples) {
+    const { kennelId: resolvedId, matched: resolvedMatch } =
+      await resolveKennelTag(event.kennelTag, ctx.sourceId);
+
+    if (!resolvedMatch || !resolvedId) {
+      if (needSkippedSamples) {
+        ctx.result.sampleSkipped!.push({
+          reason: "UNMATCHED_TAG",
+          kennelTag: event.kennelTag,
+          event,
+          suggestedAction: `Create kennel or alias for "${event.kennelTag}"`,
+        });
+      }
+    } else if (!ctx.linkedKennelIds.has(resolvedId)) {
+      if (needBlockedSamples) {
+        const kennel = await prisma.kennel.findUnique({ where: { id: resolvedId }, select: { shortName: true } });
+        ctx.result.sampleBlocked!.push({
+          reason: "SOURCE_KENNEL_MISMATCH",
+          kennelTag: event.kennelTag,
+          event,
+          suggestedAction: `Link ${kennel?.shortName ?? resolvedId} to this source`,
+        });
       }
     }
   }
 
-  return true;
+  return existing.eventId; // May be null if unprocessed
 }
 
 /**
@@ -345,8 +366,13 @@ export async function processRawEvents(
     try {
       const fingerprint = generateFingerprint(event);
 
-      // 1. Dedup by fingerprint
-      if (await isDuplicateFingerprint(event, fingerprint, ctx)) {
+      // 1. Dedup by fingerprint; if already processed, refreshes dateUtc/timezone and
+      // creates any new EventLinks, then skips creating a new RawEvent.
+      // Returns false only when this is a brand-new fingerprint.
+      const dupResult = await handleDuplicateFingerprint(event, fingerprint, ctx);
+      if (dupResult !== false) {
+        // Already exists — still create any new EventLinks from this scrape run
+        if (dupResult) await createEventLinks(dupResult, sourceId, event.externalLinks);
         continue;
       }
 
