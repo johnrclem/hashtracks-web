@@ -164,10 +164,13 @@ export class ICalAdapter implements SourceAdapter {
 
     // Step 1: Fetch the ICS content
     let icsText: string;
+    let contentType: string | undefined;
     try {
       const resp = await fetch(source.url, {
         headers: { "User-Agent": "HashTracks-Scraper" },
       });
+
+      contentType = resp.headers.get("content-type") ?? undefined;
 
       if (!resp.ok) {
         const body = await resp.text().catch(() => "");
@@ -178,6 +181,31 @@ export class ICalAdapter implements SourceAdapter {
       }
 
       icsText = await resp.text();
+
+      // Validate response is actually ICS content (not HTML from a deactivated plugin, etc.)
+      const trimmed = icsText.trimStart().replace(/^\uFEFF/, ""); // strip BOM
+      if (!trimmed.startsWith("BEGIN:VCALENDAR")) {
+        const preview = icsText.substring(0, 200).replace(/\n/g, "\\n");
+        const message = `Response is not valid ICS (content-type: ${contentType ?? "unknown"}, starts with: "${preview}")`;
+        errors.push(message);
+        errorDetails.fetch = [{ url: source.url, message }];
+        return {
+          events,
+          errors,
+          errorDetails,
+          diagnosticContext: {
+            url: source.url,
+            totalVEvents: 0,
+            eventsExtracted: 0,
+            skippedDateRange: 0,
+            skippedPattern: 0,
+            fetchDurationMs: Date.now() - fetchStart,
+            icsBytes: icsText.length,
+            contentType,
+            bodyPreview: preview,
+          },
+        };
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push(`iCal fetch error: ${message}`);
@@ -327,6 +355,7 @@ export class ICalAdapter implements SourceAdapter {
         skippedPattern,
         fetchDurationMs,
         icsBytes: icsText.length,
+        contentType,
       },
     };
   }

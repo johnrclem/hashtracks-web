@@ -351,6 +351,74 @@ describe("ICalAdapter", () => {
     expect(result.diagnosticContext!.skippedDateRange).toBeGreaterThan(0);
   });
 
+  it("detects HTML response (deactivated calendar plugin)", async () => {
+    const html = `<!DOCTYPE html>
+<html lang="en-US">
+<head><title>BAH3 - Baltimore Annapolis Hash House Harriers</title></head>
+<body><h1>Events</h1><p>Check back soon!</p></body>
+</html>`;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(html, {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=UTF-8" },
+      }),
+    );
+
+    const source = buildMockSource();
+    const result = await adapter.fetch(source);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("not valid ICS");
+    expect(result.errors[0]).toContain("text/html");
+    expect(result.diagnosticContext).toBeDefined();
+    expect(result.diagnosticContext!.totalVEvents).toBe(0);
+    expect(result.diagnosticContext!.contentType).toBe("text/html; charset=UTF-8");
+    expect(result.diagnosticContext!.bodyPreview).toBeDefined();
+  });
+
+  it("detects non-ICS response with no content-type", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("This is not an ICS file", { status: 200 }),
+    );
+
+    const source = buildMockSource();
+    const result = await adapter.fetch(source);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("not valid ICS");
+  });
+
+  it("handles BOM prefix in valid ICS", async () => {
+    const icsWithBom = "\uFEFF" + SAMPLE_ICS;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(icsWithBom, { status: 200 }),
+    );
+
+    const source = buildMockSource();
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    // Should still parse successfully despite BOM
+    expect(result.errors).toHaveLength(0);
+    expect(result.events.length).toBeGreaterThan(0);
+  });
+
+  it("includes contentType in success diagnostics", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_ICS, {
+        status: 200,
+        headers: { "Content-Type": "text/calendar; charset=utf-8" },
+      }),
+    );
+
+    const source = buildMockSource();
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    expect(result.diagnosticContext).toBeDefined();
+    expect(result.diagnosticContext!.contentType).toBe("text/calendar; charset=utf-8");
+  });
+
   it("works without config (defaultKennelTag fallback)", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(SAMPLE_ICS, { status: 200 }),
