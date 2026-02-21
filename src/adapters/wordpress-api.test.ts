@@ -1,9 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fetchWordPressPosts } from "./wordpress-api";
 
 describe("fetchWordPressPosts", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("returns posts from pretty-permalink endpoint", async () => {

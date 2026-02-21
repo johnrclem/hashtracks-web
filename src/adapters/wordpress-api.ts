@@ -13,6 +13,8 @@
  * API docs: https://developer.wordpress.org/rest-api/reference/posts/
  */
 
+import he from "he";
+
 /** A single post returned by the WordPress REST API */
 export interface WordPressPost {
   title: string; // Plain text (decoded from title.rendered)
@@ -78,7 +80,7 @@ export async function fetchWordPressPosts(
         }
 
         const posts: WordPressPost[] = data.map((item) => ({
-          title: decodeHtmlEntities(item.title?.rendered ?? ""),
+          title: he.decode(item.title?.rendered ?? ""),
           content: item.content?.rendered ?? "",
           url: item.link ?? "",
           date: item.date ?? "",
@@ -110,23 +112,3 @@ export async function fetchWordPressPosts(
   };
 }
 
-/**
- * Decode common HTML entities that WordPress title.rendered may contain.
- */
-function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&#8211;/g, "\u2013")
-    .replace(/&#8212;/g, "\u2014")
-    .replace(/&#8216;/g, "\u2018")
-    .replace(/&#8217;/g, "\u2019")
-    .replace(/&#8220;/g, "\u201C")
-    .replace(/&#8221;/g, "\u201D");
-}
