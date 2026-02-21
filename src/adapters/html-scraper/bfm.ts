@@ -150,11 +150,11 @@ export class BFMAdapter implements SourceAdapter {
         });
       } else {
         errors.push("Could not parse date from current trail");
-        errorDetails.parse = [...(errorDetails.parse ?? []), { row: 0, section: "current_trail", field: "date", error: "Could not parse date from current trail" }];
+        errorDetails.parse = [...(errorDetails.parse ?? []), { row: 0, section: "current_trail", field: "date", error: "Could not parse date from current trail", rawText: bodyText.slice(0, 2000), partialData: { kennelTag: "BFM" } }];
       }
     } else {
       errors.push("No current trail found on page");
-      errorDetails.parse = [...(errorDetails.parse ?? []), { row: 0, section: "current_trail", error: "No current trail found on page" }];
+      errorDetails.parse = [...(errorDetails.parse ?? []), { row: 0, section: "current_trail", error: "No current trail found on page", rawText: bodyText.slice(0, 2000), partialData: { kennelTag: "BFM" } }];
     }
 
     // Parse upcoming hares list

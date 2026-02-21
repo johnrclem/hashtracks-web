@@ -78,14 +78,14 @@ export class HashPhillyAdapter implements SourceAdapter {
     const locationMatch = bodyText.match(/Location:\s*(.+?)(?:\n|$)/i);
 
     if (!dateMatch) {
-      errorDetails.parse = [{ row: 0, section: "main", field: "date", error: "No date found on page" }];
+      errorDetails.parse = [{ row: 0, section: "main", field: "date", error: "No date found on page", rawText: bodyText.slice(0, 2000), partialData: { kennelTag: "Philly H3" } }];
       return { events: [], errors: ["No date found on page"], structureHash, errorDetails };
     }
 
     const dateStr = parsePhillyDate(dateMatch[1].trim());
     if (!dateStr) {
       const message = `Could not parse date: "${dateMatch[1].trim()}"`;
-      errorDetails.parse = [{ row: 0, section: "main", field: "date", error: message, partialData: { kennelTag: "Philly H3" } }];
+      errorDetails.parse = [{ row: 0, section: "main", field: "date", error: message, rawText: bodyText.slice(0, 2000), partialData: { kennelTag: "Philly H3" } }];
       return { events: [], errors: [message], structureHash, errorDetails };
     }
 

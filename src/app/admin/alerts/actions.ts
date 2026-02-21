@@ -466,7 +466,7 @@ ${contextSection}
 ${relevantFiles.map((f) => `- \`${f}\``).join("\n")}
 
 ### Suggested Approach
-${getSuggestedApproach(alert.type)}
+${getSuggestedApproach(alert.type, ctx)}
 
 ---
 *Created from HashTracks admin alert panel*`;
@@ -571,16 +571,24 @@ function getRelevantFiles(alertType: string, sourceType: string): string[] {
   return files;
 }
 
-function getSuggestedApproach(alertType: string): string {
+function getSuggestedApproach(alertType: string, context?: Record<string, unknown> | null): string {
+  // Check if AI recovery was attempted for this alert
+  const ai = context?.aiRecovery as { attempted?: number; succeeded?: number; failed?: number } | undefined;
+  const aiNote = ai && ai.attempted
+    ? ai.failed && ai.failed > 0
+      ? `\n\n**AI Recovery:** Attempted on ${ai.attempted} parse errors — ${ai.succeeded} recovered, ${ai.failed} failed. The failures likely represent format changes that need code-level fixes (new regex patterns or adapter logic).`
+      : `\n\n**AI Recovery:** All ${ai.succeeded} parse errors were automatically recovered by AI. If this alert persists, consider adding the new format pattern to the deterministic parser for efficiency.`
+    : "";
+
   switch (alertType) {
     case "UNMATCHED_TAGS":
       return "Add aliases in the database mapping these tags to existing kennels, or create new kennels if these are genuinely new organizations. Update kennel resolver patterns if a code-level mapping is needed.";
     case "STRUCTURE_CHANGE":
-      return "Fetch the current page and compare HTML structure to the expected format. Update CSS selectors and extraction patterns in the adapter. Re-scrape to verify the fix.";
+      return "Fetch the current page and compare HTML structure to the expected format. Update CSS selectors and extraction patterns in the adapter. Re-scrape to verify the fix." + aiNote;
     case "FIELD_FILL_DROP":
-      return "Examine sample raw events to identify which extraction patterns stopped matching. For config-driven adapters, update Source.config. For HTML adapters, update extraction regex patterns.";
+      return "Examine sample raw events to identify which extraction patterns stopped matching. For config-driven adapters, update Source.config. For HTML adapters, update extraction regex patterns." + aiNote;
     case "EVENT_COUNT_ANOMALY":
-      return "Check if the source website is accessible. Verify the scrape window (days) is appropriate. Check for structural changes that may have broken event detection.";
+      return "Check if the source website is accessible. Verify the scrape window (days) is appropriate. Check for structural changes that may have broken event detection." + aiNote;
     case "SCRAPE_FAILURE":
     case "CONSECUTIVE_FAILURES":
       return "Check source URL accessibility. Review error messages for network, auth, or parsing failures. Verify API keys are valid.";

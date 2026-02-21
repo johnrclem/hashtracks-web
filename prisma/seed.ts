@@ -435,7 +435,7 @@ async function main() {
     },
     {
       kennelCode: "eh3", shortName: "EH3", fullName: "Enfield Hash House Harriers", region: "London", country: "UK",
-      website: "http://www.enfieldhash.org", foundedYear: 1999,
+      website: "https://www.enfieldhash.org", foundedYear: 1999,
       scheduleFrequency: "Monthly", scheduleNotes: "3rd Wednesday, 7:30 PM",
     },
     {
@@ -793,7 +793,7 @@ async function main() {
     },
     {
       name: "Enfield Hash Blog",
-      url: "http://www.enfieldhash.org/",
+      url: "https://www.enfieldhash.org/",
       type: "HTML_SCRAPER" as const,
       trustLevel: 5,
       scrapeFreq: "weekly",

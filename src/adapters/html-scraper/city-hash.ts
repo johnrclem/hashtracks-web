@@ -176,14 +176,14 @@ export class CityHashAdapter implements SourceAdapter {
           errors.push(`Could not parse run card ${i}: ${titleText}`);
           errorDetails.parse = [
             ...(errorDetails.parse ?? []),
-            { row: i, section: "ch-run", field: "date", error: `Could not parse: ${titleText}` },
+            { row: i, section: "ch-run", field: "date", error: `Could not parse: ${titleText}`, rawText: $(el).text().trim().slice(0, 2000) },
           ];
         }
       } catch (err) {
         errors.push(`Error parsing card ${i}: ${err}`);
         errorDetails.parse = [
           ...(errorDetails.parse ?? []),
-          { row: i, section: "ch-run", error: String(err) },
+          { row: i, section: "ch-run", error: String(err), rawText: $(el).text().trim().slice(0, 2000) },
         ];
       }
     });

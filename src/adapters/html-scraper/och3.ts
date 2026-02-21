@@ -184,7 +184,7 @@ export class OCH3Adapter implements SourceAdapter {
         } catch (err) {
           errorDetails.parse = [
             ...(errorDetails.parse ?? []),
-            { row: i, section: "table", error: String(err) },
+            { row: i, section: "table", error: String(err), rawText: rowText?.slice(0, 2000) },
           ];
         }
       });
@@ -211,7 +211,7 @@ export class OCH3Adapter implements SourceAdapter {
         } catch (err) {
           errorDetails.parse = [
             ...(errorDetails.parse ?? []),
-            { row: i, section: "content", error: String(err) },
+            { row: i, section: "content", error: String(err), rawText: text?.slice(0, 2000) },
           ];
         }
       });

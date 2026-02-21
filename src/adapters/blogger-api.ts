@@ -59,36 +59,49 @@ export async function fetchBloggerPosts(
   const authHeaders = { "X-Goog-Api-Key": apiKey };
 
   // Step 1: Discover blog ID from URL
-  const blogLookupParams = new URLSearchParams({ url: sourceUrl });
-  const blogLookupUrl = `${BLOGGER_API_BASE}/blogs/byurl?${blogLookupParams.toString()}`;
-  let blogId: string;
+  // Try original URL first, then toggle http/https on 404 (custom domains may be
+  // registered under either scheme in Blogger)
+  const urlsToTry = [sourceUrl];
+  if (sourceUrl.startsWith("http://")) {
+    urlsToTry.push(sourceUrl.replace("http://", "https://"));
+  } else if (sourceUrl.startsWith("https://")) {
+    urlsToTry.push(sourceUrl.replace("https://", "http://"));
+  }
 
-  try {
-    const blogResponse = await fetch(blogLookupUrl, { headers: authHeaders });
-    if (!blogResponse.ok) {
-      const body = await blogResponse.text().catch(() => "");
-      return {
-        posts: [],
-        error: {
+  let blogId: string | undefined;
+  let lastLookupError: { message: string; status?: number } | undefined;
+
+  for (const tryUrl of urlsToTry) {
+    const blogLookupParams = new URLSearchParams({ url: tryUrl });
+    const blogLookupUrl = `${BLOGGER_API_BASE}/blogs/byurl?${blogLookupParams.toString()}`;
+
+    try {
+      const blogResponse = await fetch(blogLookupUrl, { headers: authHeaders });
+      if (blogResponse.ok) {
+        const blogData = await blogResponse.json() as { id?: string };
+        blogId = blogData?.id;
+        if (blogId) break;
+        lastLookupError = { message: "Blogger API returned no blog ID" };
+        break; // 200 OK but no ID — retrying with a different scheme won't help
+      } else {
+        const body = await blogResponse.text().catch(() => "");
+        lastLookupError = {
           message: `Blogger API blog lookup failed: HTTP ${blogResponse.status} — ${body.slice(0, 200)}`,
           status: blogResponse.status,
-        },
-        fetchDurationMs: Date.now() - fetchStart,
-      };
+        };
+        // Only retry on 404 (not found) — other errors (403, 500) won't resolve with a different scheme
+        if (blogResponse.status !== 404) break;
+      }
+    } catch (err) {
+      lastLookupError = { message: `Blogger API blog lookup error: ${err}` };
+      break; // Network errors won't resolve with a different URL scheme
     }
-    const blogData = await blogResponse.json() as { id?: string };
-    blogId = blogData?.id ?? "";
-    if (!blogId) {
-      return {
-        posts: [],
-        error: { message: "Blogger API returned no blog ID" },
-        fetchDurationMs: Date.now() - fetchStart,
-      };
-    }
-  } catch (err) {
+  }
+
+  if (!blogId) {
     return {
       posts: [],
-      error: { message: `Blogger API blog lookup error: ${err}` },
+      error: lastLookupError ?? { message: "Blogger API blog lookup failed" },
       fetchDurationMs: Date.now() - fetchStart,
     };
   }

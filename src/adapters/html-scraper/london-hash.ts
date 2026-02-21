@@ -271,7 +271,7 @@ export class LondonHashAdapter implements SourceAdapter {
         if (!date) {
           errorDetails.parse = [
             ...(errorDetails.parse ?? []),
-            { row: i, section: "runlist", field: "date", error: `No date in block for run #${block.runNumber}` },
+            { row: i, section: "runlist", field: "date", error: `No date in block for run #${block.runNumber}`, rawText: block.text.slice(0, 2000) },
           ];
           continue;
         }
@@ -302,7 +302,7 @@ export class LondonHashAdapter implements SourceAdapter {
         errors.push(`Error parsing run #${block.runNumber}: ${err}`);
         errorDetails.parse = [
           ...(errorDetails.parse ?? []),
-          { row: i, section: "runlist", error: String(err) },
+          { row: i, section: "runlist", error: String(err), rawText: block.text.slice(0, 2000) },
         ];
       }
     }

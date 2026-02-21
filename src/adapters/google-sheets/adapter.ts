@@ -300,6 +300,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
             row: rowIdx,
             section: tabName,
             error: message,
+            rawText: `Tab: ${tabName}, Row: ${rowIdx}`.slice(0, 2000),
           }];
         }
       }

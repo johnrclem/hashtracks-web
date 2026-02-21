@@ -1,9 +1,54 @@
 "use client";
 
+interface AiRecovery {
+  attempted?: number;
+  succeeded?: number;
+  failed?: number;
+}
+
 interface AlertContextDisplayProps {
   type: string;
   context: Record<string, unknown> | null;
   details: string | null;
+}
+
+/** Inline AI recovery status badge — shows on alerts where AI attempted to recover parse errors */
+function AiRecoveryBadge({ context }: { context: Record<string, unknown> }) {
+  const ai = context.aiRecovery as AiRecovery | undefined;
+  if (!ai || !ai.attempted) return null;
+
+  const allRecovered = ai.succeeded === ai.attempted;
+  const someRecovered = (ai.succeeded ?? 0) > 0 && (ai.failed ?? 0) > 0;
+
+  return (
+    <div
+      className={`mt-2 rounded-md border px-3 py-2 text-xs ${
+        allRecovered
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300"
+          : someRecovered
+            ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+            : "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
+      }`}
+    >
+      <div className="font-medium">
+        {allRecovered
+          ? `AI self-healed: all ${ai.succeeded} parse errors recovered`
+          : someRecovered
+            ? `AI partial recovery: ${ai.succeeded} of ${ai.attempted} parse errors recovered`
+            : `AI recovery failed: 0 of ${ai.attempted} parse errors recovered`}
+      </div>
+      {(ai.failed ?? 0) > 0 && (
+        <p className="mt-0.5 text-[11px] opacity-80">
+          {ai.failed} error{ai.failed === 1 ? "" : "s"} could not be recovered by AI — likely needs code changes (new format patterns or adapter logic)
+        </p>
+      )}
+      {allRecovered && (
+        <p className="mt-0.5 text-[11px] opacity-80">
+          No code changes needed. Consider adding the new format to the deterministic parser for efficiency.
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function AlertContextDisplay({
@@ -48,20 +93,23 @@ function EventCountContext({ context }: { context: Record<string, unknown> }) {
   const window = context.baselineWindow as number;
 
   return (
-    <div className="grid grid-cols-3 gap-3 text-xs mt-1">
-      <div className="rounded-md bg-muted/50 p-2">
-        <div className="text-muted-foreground">Baseline avg</div>
-        <div className="text-sm font-semibold">{baseline}</div>
-        <div className="text-muted-foreground">last {window} scrapes</div>
+    <div>
+      <div className="grid grid-cols-3 gap-3 text-xs mt-1">
+        <div className="rounded-md bg-muted/50 p-2">
+          <div className="text-muted-foreground">Baseline avg</div>
+          <div className="text-sm font-semibold">{baseline}</div>
+          <div className="text-muted-foreground">last {window} scrapes</div>
+        </div>
+        <div className="rounded-md bg-muted/50 p-2">
+          <div className="text-muted-foreground">Current</div>
+          <div className="text-sm font-semibold text-red-600">{current}</div>
+        </div>
+        <div className="rounded-md bg-muted/50 p-2">
+          <div className="text-muted-foreground">Drop</div>
+          <div className="text-sm font-semibold text-red-600">{drop}%</div>
+        </div>
       </div>
-      <div className="rounded-md bg-muted/50 p-2">
-        <div className="text-muted-foreground">Current</div>
-        <div className="text-sm font-semibold text-red-600">{current}</div>
-      </div>
-      <div className="rounded-md bg-muted/50 p-2">
-        <div className="text-muted-foreground">Drop</div>
-        <div className="text-sm font-semibold text-red-600">{drop}%</div>
-      </div>
+      <AiRecoveryBadge context={context} />
     </div>
   );
 }
@@ -72,13 +120,16 @@ function FieldFillContext({ context }: { context: Record<string, unknown> }) {
   const baseline = context.baselineAvg as number;
 
   return (
-    <div className="flex items-center gap-3 text-xs mt-1">
-      <span className="font-medium capitalize">{field}</span>
-      <span className="text-muted-foreground">{baseline}%</span>
-      <span className="text-red-600">→ {current}%</span>
-      <span className="text-red-600 font-medium">
-        (−{baseline - current}pp)
-      </span>
+    <div>
+      <div className="flex items-center gap-3 text-xs mt-1">
+        <span className="font-medium capitalize">{field}</span>
+        <span className="text-muted-foreground">{baseline}%</span>
+        <span className="text-red-600">→ {current}%</span>
+        <span className="text-red-600 font-medium">
+          (−{baseline - current}pp)
+        </span>
+      </div>
+      <AiRecoveryBadge context={context} />
     </div>
   );
 }
