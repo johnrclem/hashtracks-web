@@ -165,7 +165,8 @@ model ScrapeLog {
   eventsFound   Int          @default(0)
   eventsCreated Int          @default(0)
   eventsUpdated Int          @default(0)
-  eventsSkipped Int          @default(0)
+  eventsSkipped   Int          @default(0)
+  eventsCancelled Int          @default(0) // Events marked CANCELLED by reconciliation
   unmatchedTags String[]
   errors        String[]
   forced        Boolean      @default(false)
