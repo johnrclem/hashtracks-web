@@ -13,7 +13,7 @@ const FREQ_INTERVALS: Record<string, number> = {
 /** 10-minute buffer to avoid edge-case misses near interval boundaries */
 const BUFFER_MS = 10 * 60 * 1000;
 
-function shouldScrape(scrapeFreq: string, lastScrapeAt: Date | null): boolean {
+export function shouldScrape(scrapeFreq: string, lastScrapeAt: Date | null): boolean {
   if (!lastScrapeAt) return true; // Never scraped — always scrape
   const interval = FREQ_INTERVALS[scrapeFreq] ?? FREQ_INTERVALS.daily;
   const elapsed = Date.now() - lastScrapeAt.getTime();
