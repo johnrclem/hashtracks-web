@@ -170,8 +170,8 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
               const displayName =
                 req.user.hashName || req.user.nerdName || req.user.email;
               return (
-                <div key={req.id} className="rounded-lg border p-4 space-y-2">
-                  <div className="flex items-center justify-between">
+                <div key={req.id} className="rounded-lg border p-3 sm:p-4 space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="font-medium">
                         {displayName}
@@ -192,7 +192,7 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
                         </p>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <Button
                         size="sm"
                         onClick={() => handleApproveRequest(req.id)}
@@ -240,13 +240,13 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
         ) : (
           <div className="space-y-3">
             {sharedGroups.map((group) => (
-              <div key={group.id} className="rounded-lg border p-4 space-y-2">
-                <div className="flex items-center justify-between">
+              <div key={group.id} className="rounded-lg border p-3 sm:p-4 space-y-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold">{group.name}</h3>
                     <Badge variant="secondary">{group.hasherCount} hashers</Badge>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0">
                     <Button
                       size="sm"
                       variant="ghost"

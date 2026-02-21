@@ -22,6 +22,7 @@ import { SourceDetailActions } from "@/components/admin/SourceDetailActions";
 import { SampleEventActions } from "@/components/admin/SampleEventActions";
 import { TYPE_LABELS } from "@/components/admin/SourceTable";
 import { fuzzyMatch } from "@/lib/fuzzy";
+import { cn } from "@/lib/utils";
 
 const healthColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   HEALTHY: "default",
@@ -49,8 +50,8 @@ function formatNYC(date: Date): string {
 }
 
 // Phase 1: Color-code fill rates based on thresholds
-function FillRateCell({ rate }: { rate: number | null | undefined }) {
-  if (rate == null) return <TableCell className="text-center text-xs text-muted-foreground">—</TableCell>;
+function FillRateCell({ rate, className }: { rate: number | null | undefined; className?: string }) {
+  if (rate == null) return <TableCell className={cn("text-center text-xs text-muted-foreground", className)}>—</TableCell>;
 
   let colorClass = "";
   if (rate > 90) {
@@ -62,7 +63,7 @@ function FillRateCell({ rate }: { rate: number | null | undefined }) {
   }
 
   return (
-    <TableCell className={`text-center text-xs ${colorClass}`}>
+    <TableCell className={cn("text-center text-xs", colorClass, className)}>
       {rate}%
     </TableCell>
   );
@@ -402,14 +403,14 @@ export default async function SourceDetailPage({
 
       {/* Header */}
       <div className="space-y-2">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <h1 className="text-2xl font-bold">{source.name}</h1>
           <Badge variant="outline">{TYPE_LABELS[source.type] ?? source.type}</Badge>
           <Badge variant={healthColors[source.healthStatus]}>
             {source.healthStatus}
           </Badge>
         </div>
-        <p className="text-sm text-muted-foreground">{source.url}</p>
+        <p className="text-sm text-muted-foreground break-all">{source.url}</p>
       </div>
 
       {/* Actions */}
@@ -429,7 +430,7 @@ export default async function SourceDetailPage({
       />
 
       {/* Stats grid */}
-      <div className="grid gap-4 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
         <StatCard label="Trust Level" value={`${source.trustLevel}/10`} />
         <StatCard label="Frequency" value={source.scrapeFreq} />
         <StatCard label="Raw Events" value={rawEventCount.toString()} />
@@ -499,10 +500,10 @@ export default async function SourceDetailPage({
                       <TableHead>Date</TableHead>
                       <TableHead>Kennel</TableHead>
                       <TableHead>Title</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Hares</TableHead>
-                      <TableHead>Time</TableHead>
-                      <TableHead>R#</TableHead>
+                      <TableHead className="hidden sm:table-cell">Location</TableHead>
+                      <TableHead className="hidden md:table-cell">Hares</TableHead>
+                      <TableHead className="hidden sm:table-cell">Time</TableHead>
+                      <TableHead className="hidden sm:table-cell">R#</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -528,16 +529,16 @@ export default async function SourceDetailPage({
                           <TableCell className="text-xs max-w-[200px] truncate">
                             {evt.title || <span className="text-muted-foreground">—</span>}
                           </TableCell>
-                          <TableCell className="text-xs max-w-[200px] truncate">
+                          <TableCell className="hidden sm:table-cell text-xs max-w-[200px] truncate">
                             {evt.locationName || <span className="text-muted-foreground">—</span>}
                           </TableCell>
-                          <TableCell className="text-xs max-w-[150px] truncate">
+                          <TableCell className="hidden md:table-cell text-xs max-w-[150px] truncate">
                             {evt.haresText || <span className="text-muted-foreground">—</span>}
                           </TableCell>
-                          <TableCell className="text-xs whitespace-nowrap">
+                          <TableCell className="hidden sm:table-cell text-xs whitespace-nowrap">
                             {evt.startTime || <span className="text-muted-foreground">—</span>}
                           </TableCell>
-                          <TableCell className="text-xs">
+                          <TableCell className="hidden sm:table-cell text-xs">
                             {evt.runNumber ? `#${evt.runNumber}` : <span className="text-muted-foreground">—</span>}
                           </TableCell>
                           <TableCell>
@@ -587,7 +588,7 @@ export default async function SourceDetailPage({
               return (
                 <div
                   key={alert.id}
-                  className={`flex items-center gap-3 rounded-md border border-l-4 px-3 py-2 text-sm ${severityColors[alert.severity] ?? ""}`}
+                  className={`flex flex-wrap items-center gap-2 sm:gap-3 rounded-md border border-l-4 px-3 py-2 text-sm ${severityColors[alert.severity] ?? ""}`}
                 >
                   <Badge variant={statusBadge[alert.status] ?? "outline"} className="text-xs">
                     {alert.status}
@@ -595,8 +596,8 @@ export default async function SourceDetailPage({
                   <Badge variant="outline" className="text-xs">
                     {alert.type.replace(/_/g, " ")}
                   </Badge>
-                  <span className="truncate">{alert.title}</span>
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                  <span className="truncate min-w-0">{alert.title}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground sm:ml-auto">
                     {formatNYC(alert.createdAt)}
                   </span>
                 </div>
@@ -766,46 +767,47 @@ export default async function SourceDetailPage({
             .
           </p>
         ) : (
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Time</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-center">Found</TableHead>
-                <TableHead className="text-center">Created</TableHead>
-                <TableHead className="text-center">Updated</TableHead>
-                <TableHead className="text-center">Skipped</TableHead>
-                <TableHead className="text-center">
+                <TableHead className="hidden sm:table-cell text-center">Created</TableHead>
+                <TableHead className="hidden sm:table-cell text-center">Updated</TableHead>
+                <TableHead className="hidden sm:table-cell text-center">Skipped</TableHead>
+                <TableHead className="hidden md:table-cell text-center">
                   <Tooltip>
                     <TooltipTrigger className="cursor-help">T%</TooltipTrigger>
                     <TooltipContent>Title fill rate</TooltipContent>
                   </Tooltip>
                 </TableHead>
-                <TableHead className="text-center">
+                <TableHead className="hidden md:table-cell text-center">
                   <Tooltip>
                     <TooltipTrigger className="cursor-help">L%</TooltipTrigger>
                     <TooltipContent>Location fill rate</TooltipContent>
                   </Tooltip>
                 </TableHead>
-                <TableHead className="text-center">
+                <TableHead className="hidden md:table-cell text-center">
                   <Tooltip>
                     <TooltipTrigger className="cursor-help">H%</TooltipTrigger>
                     <TooltipContent>Hares fill rate</TooltipContent>
                   </Tooltip>
                 </TableHead>
-                <TableHead className="text-center">
+                <TableHead className="hidden md:table-cell text-center">
                   <Tooltip>
                     <TooltipTrigger className="cursor-help">ST%</TooltipTrigger>
                     <TooltipContent>Start time fill rate</TooltipContent>
                   </Tooltip>
                 </TableHead>
-                <TableHead className="text-center">
+                <TableHead className="hidden md:table-cell text-center">
                   <Tooltip>
                     <TooltipTrigger className="cursor-help">R#%</TooltipTrigger>
                     <TooltipContent>Run number fill rate</TooltipContent>
                   </Tooltip>
                 </TableHead>
-                <TableHead>Duration</TableHead>
+                <TableHead className="hidden sm:table-cell">Duration</TableHead>
                 <TableHead>Errors</TableHead>
               </TableRow>
             </TableHeader>
@@ -851,15 +853,15 @@ export default async function SourceDetailPage({
                     </div>
                   </TableCell>
                   <TableCell className="text-center">{log.eventsFound}</TableCell>
-                  <TableCell className="text-center">{log.eventsCreated}</TableCell>
-                  <TableCell className="text-center">{log.eventsUpdated}</TableCell>
-                  <TableCell className="text-center">{log.eventsSkipped}</TableCell>
-                  <FillRateCell rate={log.fillRateTitle} />
-                  <FillRateCell rate={log.fillRateLocation} />
-                  <FillRateCell rate={log.fillRateHares} />
-                  <FillRateCell rate={log.fillRateStartTime} />
-                  <FillRateCell rate={log.fillRateRunNumber} />
-                  <TableCell className="text-xs">
+                  <TableCell className="hidden sm:table-cell text-center">{log.eventsCreated}</TableCell>
+                  <TableCell className="hidden sm:table-cell text-center">{log.eventsUpdated}</TableCell>
+                  <TableCell className="hidden sm:table-cell text-center">{log.eventsSkipped}</TableCell>
+                  <FillRateCell rate={log.fillRateTitle} className="hidden md:table-cell" />
+                  <FillRateCell rate={log.fillRateLocation} className="hidden md:table-cell" />
+                  <FillRateCell rate={log.fillRateHares} className="hidden md:table-cell" />
+                  <FillRateCell rate={log.fillRateStartTime} className="hidden md:table-cell" />
+                  <FillRateCell rate={log.fillRateRunNumber} className="hidden md:table-cell" />
+                  <TableCell className="hidden sm:table-cell text-xs">
                     {log.durationMs != null ? (
                       <Tooltip>
                         <TooltipTrigger className="cursor-help">
@@ -939,6 +941,7 @@ export default async function SourceDetailPage({
               ))}
             </TableBody>
           </Table>
+          </div>
         )}
       </div>
 
