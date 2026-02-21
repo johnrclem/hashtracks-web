@@ -1,6 +1,6 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { SourceTable } from "@/components/admin/SourceTable";
-import { SourceForm } from "@/components/admin/SourceForm";
 import { RefreshAllButton } from "@/components/admin/RefreshAllButton";
 import { Button } from "@/components/ui/button";
 
@@ -71,11 +71,9 @@ export default async function AdminSourcesPage() {
         <h2 className="text-lg font-semibold">Manage Sources</h2>
         <div className="flex items-center gap-2">
           <RefreshAllButton />
-          <SourceForm
-            allKennels={allKennels}
-            geminiAvailable={geminiAvailable}
-            trigger={<Button size="sm">Add Source</Button>}
-          />
+          <Button size="sm" asChild>
+            <Link href="/admin/sources/new">Add Source</Link>
+          </Button>
         </div>
       </div>
 
