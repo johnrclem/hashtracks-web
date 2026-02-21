@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { deleteSource } from "@/app/admin/sources/actions";
+import { deleteSource, toggleSourceEnabled } from "@/app/admin/sources/actions";
 import {
   Table,
   TableBody,
@@ -51,6 +51,7 @@ type SourceData = {
   linkedKennels: { id: string; shortName: string; fullName: string }[];
   rawEventCount: number;
   openAlertTags: string[];
+  enabled: boolean;
 };
 
 interface SourceTableProps {
@@ -336,6 +337,19 @@ function SourceRow({
   const [isScraping, setIsScraping] = useState(false);
   const router = useRouter();
 
+  function handleToggleEnabled() {
+    setMenuOpen(false);
+    startTransition(async () => {
+      const result = await toggleSourceEnabled(source.id, !source.enabled);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(source.enabled ? "Source disabled" : "Source enabled");
+      }
+      router.refresh();
+    });
+  }
+
   function handleDelete() {
     if (!confirm(`Delete source "${source.name}"? This cannot be undone.`)) {
       return;
@@ -406,12 +420,19 @@ function SourceRow({
     : null;
 
   return (
-    <TableRow>
+    <TableRow className={!source.enabled ? "opacity-50" : undefined}>
       <TableCell>
         <div className="max-w-[200px] sm:max-w-[280px]">
-          <Link href={`/admin/sources/${source.id}`} className="font-medium hover:underline">
-            {source.name}
-          </Link>
+          <div className="flex items-center gap-1.5">
+            <Link href={`/admin/sources/${source.id}`} className="font-medium hover:underline">
+              {source.name}
+            </Link>
+            {!source.enabled && (
+              <Badge variant="outline" className="text-[10px] text-muted-foreground border-muted-foreground/30">
+                disabled
+              </Badge>
+            )}
+          </div>
           <p className="truncate text-xs text-muted-foreground" title={source.url}>
             {source.url}
           </p>
@@ -513,6 +534,13 @@ function SourceRow({
               disabled={isScraping}
             >
               Force Scrape
+            </button>
+            <button
+              className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent disabled:opacity-50"
+              onClick={handleToggleEnabled}
+              disabled={isPending}
+            >
+              {source.enabled ? "Disable" : "Enable"}
             </button>
             <div className="my-1 border-t" />
             <button

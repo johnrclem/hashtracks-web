@@ -27,8 +27,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Query all sources with per-source scrape window and frequency
+  // Query all enabled sources with per-source scrape window and frequency
   const sources = await prisma.source.findMany({
+    where: { enabled: true },
     select: {
       id: true,
       name: true,
