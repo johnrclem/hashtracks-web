@@ -5,7 +5,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     sourceKennel: { findMany: vi.fn() },
     event: { findMany: vi.fn(), updateMany: vi.fn() },
-    rawEvent: { count: vi.fn() },
+    rawEvent: { groupBy: vi.fn() },
   },
 }));
 
@@ -20,7 +20,7 @@ import { reconcileStaleEvents } from "./reconcile";
 const mockSourceKennelFind = vi.mocked(prisma.sourceKennel.findMany);
 const mockEventFindMany = vi.mocked(prisma.event.findMany);
 const mockEventUpdateMany = vi.mocked(prisma.event.updateMany);
-const mockRawEventCount = vi.mocked(prisma.rawEvent.count);
+const mockRawEventGroupBy = vi.mocked(prisma.rawEvent.groupBy);
 const mockResolve = vi.mocked(resolveKennelTag);
 
 beforeEach(() => {
@@ -42,8 +42,8 @@ describe("reconcileStaleEvents", () => {
       { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z") },
     ] as never);
 
-    // evt_2 has no RawEvents from other sources
-    mockRawEventCount.mockResolvedValueOnce(0 as never);
+    // No orphaned events have RawEvents from other sources
+    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
@@ -66,7 +66,7 @@ describe("reconcileStaleEvents", () => {
     ] as never);
 
     // evt_2 has RawEvents from another source
-    mockRawEventCount.mockResolvedValueOnce(2 as never);
+    mockRawEventGroupBy.mockResolvedValueOnce([{ eventId: "evt_2" }] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
@@ -89,7 +89,7 @@ describe("reconcileStaleEvents", () => {
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
     expect(result.cancelled).toBe(0);
-    expect(mockRawEventCount).not.toHaveBeenCalled();
+    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
   });
 
   it("returns zero when no kennels are linked to the source", async () => {
@@ -107,7 +107,7 @@ describe("reconcileStaleEvents", () => {
     const result = await reconcileStaleEvents("src_1", [buildRawEvent()], 90);
 
     expect(result.cancelled).toBe(0);
-    expect(mockRawEventCount).not.toHaveBeenCalled();
+    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
   });
 
   it("skips events with unresolved kennel tags in scrape results", async () => {
@@ -128,7 +128,7 @@ describe("reconcileStaleEvents", () => {
     ] as never);
 
     // evt_1 is orphaned because the unresolved tag didn't add "kennel_1:2026-02-14" to the set
-    mockRawEventCount.mockResolvedValueOnce(0 as never);
+    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
@@ -160,7 +160,7 @@ describe("reconcileStaleEvents", () => {
     ] as never);
 
     // evt_3 has no other sources
-    mockRawEventCount.mockResolvedValueOnce(0 as never);
+    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
@@ -179,9 +179,8 @@ describe("reconcileStaleEvents", () => {
       { id: "evt_3", kennelId: "kennel_1", date: new Date("2026-02-28T12:00:00Z") },
     ] as never);
 
-    // Both orphaned events are sole-source
-    mockRawEventCount.mockResolvedValueOnce(0 as never);
-    mockRawEventCount.mockResolvedValueOnce(0 as never);
+    // Both orphaned events are sole-source (no other sources)
+    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 

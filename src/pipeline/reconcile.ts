@@ -25,8 +25,11 @@ export async function reconcileStaleEvents(
 ): Promise<ReconcileResult> {
   // Build set of (kennelId, date) keys from the scrape results
   const scrapedKeys = new Set<string>();
-  for (const event of scrapedEvents) {
-    const { kennelId, matched } = await resolveKennelTag(event.kennelTag, sourceId);
+  const resolutions = await Promise.all(
+    scrapedEvents.map((event) => resolveKennelTag(event.kennelTag, sourceId)),
+  );
+  for (const [i, event] of scrapedEvents.entries()) {
+    const { kennelId, matched } = resolutions[i];
     if (matched && kennelId) {
       scrapedKeys.add(`${kennelId}:${event.date}`);
     }
@@ -73,20 +76,21 @@ export async function reconcileStaleEvents(
     return { cancelled: 0, cancelledEventIds: [] };
   }
 
-  // For each orphaned event, check if other sources still validate it
-  const cancelledEventIds: string[] = [];
-  for (const event of orphaned) {
-    const otherSourceCount = await prisma.rawEvent.count({
-      where: {
-        eventId: event.id,
-        sourceId: { not: sourceId },
-      },
-    });
-
-    if (otherSourceCount === 0) {
-      cancelledEventIds.push(event.id);
-    }
-  }
+  // Check which orphaned events have RawEvents from other sources (single query)
+  const orphanedEventIds = orphaned.map((e) => e.id);
+  const rawEventsFromOtherSources = await prisma.rawEvent.groupBy({
+    by: ["eventId"],
+    where: {
+      eventId: { in: orphanedEventIds },
+      sourceId: { not: sourceId },
+    },
+  });
+  const eventsWithOtherSources = new Set(
+    rawEventsFromOtherSources.map((g) => g.eventId),
+  );
+  const cancelledEventIds = orphaned
+    .filter((event) => !eventsWithOtherSources.has(event.id))
+    .map((event) => event.id);
 
   // Batch update all sole-source orphaned events to CANCELLED
   if (cancelledEventIds.length > 0) {
