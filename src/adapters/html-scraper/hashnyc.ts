@@ -3,7 +3,7 @@ import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ParseError, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { MONTHS_ZERO, parse12HourTime } from "../utils";
+import { MONTHS_ZERO, parse12HourTime, decodeEntities, stripHtmlTags } from "../utils";
 
 // Kennel regex patterns — LONGER strings before shorter substrings
 const KENNEL_PATTERNS: [RegExp, string][] = [
@@ -31,42 +31,12 @@ const KENNEL_PATTERNS: [RegExp, string][] = [
 ];
 
 /**
- * Decode HTML entities in three passes (PRD Appendix A.4):
- * 1. Named entities (&amp;, &nbsp;, etc.)
- * 2. Hex numeric entities (&#x2019;)
- * 3. Decimal numeric entities (&#8217;)
- * Then strip HTML tags.
+ * Decode HTML entities and strip HTML tags from a string.
+ * Uses the `he` library (via shared `decodeEntities`) for robust entity decoding,
+ * then strips script/style blocks and remaining HTML tags.
  */
 export function decodeHtmlEntities(text: string): string {
-  // 1. Named entities
-  let result = text
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#0?39;/gi, "'");
-
-  // 2. Hex numeric entities
-  result = result.replace(/&#x([0-9a-fA-F]+);/g, (_m, hex) =>
-    String.fromCharCode(parseInt(hex, 16)),
-  );
-
-  // 3. Decimal numeric entities
-  result = result.replace(/&#(\d+);/g, (_m, dec) =>
-    String.fromCharCode(parseInt(dec, 10)),
-  );
-
-  // Strip HTML tags
-  result = result
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<br\s*\/?>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return result;
+  return stripHtmlTags(decodeEntities(text));
 }
 
 /**
