@@ -91,6 +91,8 @@ export function getTimezoneAbbreviation(date: Date, timezone: string): string {
  */
 export function isValidTimezone(timezone: string): boolean {
     if (!timezone || typeof timezone !== "string") return false;
+    // Require IANA format (Region/City) — reject legacy abbreviations like "EST"
+    if (timezone !== "UTC" && !timezone.includes("/")) return false;
 
     try {
         Intl.DateTimeFormat(undefined, { timeZone: timezone });
