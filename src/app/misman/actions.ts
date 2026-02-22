@@ -276,27 +276,28 @@ export async function getKennelsForRosterPicker() {
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" as const };
 
-  const [kennels, groupedKennels] = await Promise.all([
-    prisma.kennel.findMany({
-      select: { id: true, shortName: true, fullName: true, region: true },
-      orderBy: [{ region: "asc" }, { shortName: "asc" }],
-    }),
-    prisma.rosterGroupKennel.findMany({
-      select: {
-        kennelId: true,
-        group: { select: { name: true } },
+  const kennels = await prisma.kennel.findMany({
+    select: {
+      id: true,
+      shortName: true,
+      fullName: true,
+      region: true,
+      rosterGroups: {
+        select: {
+          group: { select: { name: true } },
+        },
       },
-    }),
-  ]);
-
-  const groupMap = new Map(
-    groupedKennels.map((gk) => [gk.kennelId, gk.group.name]),
-  );
+    },
+    orderBy: [{ region: "asc" }, { shortName: "asc" }],
+  });
 
   return {
     data: kennels.map((k) => ({
-      ...k,
-      rosterGroupName: groupMap.get(k.id) ?? null,
+      id: k.id,
+      shortName: k.shortName,
+      fullName: k.fullName,
+      region: k.region,
+      rosterGroupName: k.rosterGroups[0]?.group.name ?? null,
     })),
   };
 }
@@ -314,8 +315,20 @@ export async function requestRosterGroupWithIds(
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
 
+  // Input validation
   if (!proposedName.trim()) return { error: "Group name is required" };
+  if (proposedName.length > 100) return { error: "Group name is too long" };
+  if (!Array.isArray(kennelIds)) return { error: "Invalid kennel list" };
   if (kennelIds.length < 2) return { error: "At least 2 kennels are required" };
+  if (kennelIds.length > 100) return { error: "Too many kennels selected" };
+  if (
+    !kennelIds.every(
+      (id) => typeof id === "string" && id.length > 0 && id.length <= 30,
+    )
+  ) {
+    return { error: "Invalid kennel list" };
+  }
+  if (message && message.length > 500) return { error: "Message is too long" };
 
   // Verify misman access to at least the current kennel
   const mismanUser = await getMismanUser(kennelId);

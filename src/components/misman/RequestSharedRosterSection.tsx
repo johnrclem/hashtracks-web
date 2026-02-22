@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
+import { useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -122,16 +122,18 @@ export function RequestSharedRosterSection({
     }
   }
 
-  const searchLower = search.toLowerCase();
-  const filtered = search
-    ? kennels.filter(
-        (k) =>
-          k.shortName.toLowerCase().includes(searchLower) ||
-          k.fullName.toLowerCase().includes(searchLower) ||
-          k.region.toLowerCase().includes(searchLower),
-      )
-    : kennels;
-  const grouped = groupByRegion(filtered);
+  const grouped = useMemo(() => {
+    const searchLower = search.toLowerCase();
+    const filtered = search
+      ? kennels.filter(
+          (k) =>
+            k.shortName.toLowerCase().includes(searchLower) ||
+            k.fullName.toLowerCase().includes(searchLower) ||
+            k.region.toLowerCase().includes(searchLower),
+        )
+      : kennels;
+    return groupByRegion(filtered);
+  }, [kennels, search]);
 
   return (
     <div className="rounded-lg border border-dashed border-muted-foreground/25 p-3">
