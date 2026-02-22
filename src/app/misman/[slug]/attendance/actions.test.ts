@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockMisman = { id: "misman_1", email: "misman@test.com" };
 
@@ -47,10 +47,16 @@ const mockRosterGroupId = vi.mocked(getRosterGroupId);
 const mockRosterKennelIds = vi.mocked(getRosterKennelIds);
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-06-15T15:00:00Z"));
   vi.clearAllMocks();
   mockMismanAuth.mockResolvedValue(mockMisman as never);
   mockRosterGroupId.mockResolvedValue("rg_1");
   mockRosterKennelIds.mockResolvedValue(["kennel_1"]);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("recordAttendance", () => {
@@ -81,12 +87,10 @@ describe("recordAttendance", () => {
   });
 
   it("returns error when event is older than 1 year", async () => {
-    const oldDate = new Date();
-    oldDate.setFullYear(oldDate.getFullYear() - 2);
     vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
       id: "event_1",
       kennelId: "kennel_1",
-      date: oldDate,
+      date: new Date("2024-01-15T12:00:00Z"),
     } as never);
 
     expect(
@@ -389,10 +393,9 @@ describe("getSuggestions", () => {
   });
 
   it("returns enriched suggestions with hasher names", async () => {
-    const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-    const threeWeeksAgo = new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000);
+    const weekAgo = new Date("2026-06-08T12:00:00Z");
+    const twoWeeksAgo = new Date("2026-06-01T12:00:00Z");
+    const threeWeeksAgo = new Date("2026-05-25T12:00:00Z");
 
     // 3 events (minimum for suggestions)
     vi.mocked(prisma.event.findMany).mockResolvedValueOnce([

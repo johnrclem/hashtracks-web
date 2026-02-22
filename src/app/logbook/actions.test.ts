@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ── Mocks ──
 
@@ -60,8 +60,14 @@ function utcNoonDate(daysOffset: number): Date {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-06-15T15:00:00Z"));
   vi.clearAllMocks();
   mockAuth.mockResolvedValue(mockUser as never);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 // ── checkIn ──

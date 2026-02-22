@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { generateStructureHash } from "./structure-hash";
 
 const HTML_WITH_BOTH_TABLES = `

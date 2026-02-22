@@ -36,6 +36,17 @@ interface MergeContext {
   result: MergeResult;
 }
 
+/** Resolve region for a kennel, using the per-batch cache to avoid N+1 queries. */
+async function resolveRegion(kennelId: string, ctx: MergeContext): Promise<string> {
+  let region = ctx.regionCache.get(kennelId);
+  if (region === undefined) {
+    const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { region: true } });
+    region = kennel?.region ?? "";
+    ctx.regionCache.set(kennelId, region);
+  }
+  return region;
+}
+
 /**
  * Check if the event fingerprint already exists (dedup).
  * If the RawEvent is already processed, refreshes dateUtc/timezone on the canonical Event.
@@ -55,40 +66,36 @@ async function handleDuplicateFingerprint(
 
   ctx.result.skipped++;
 
-  // If the RawEvent is already linked to a canonical Event, refresh timezone-derived fields.
-  // This ensures events scraped before dateUtc logic was added get updated on the next scrape.
-  if (existing.processed && existing.eventId) {
-    const { kennelId, matched } = await resolveKennelTag(event.kennelTag, ctx.sourceId);
-    if (matched && kennelId && ctx.linkedKennelIds.has(kennelId)) {
-      let region = ctx.regionCache.get(kennelId);
-      if (region === undefined) {
-        const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { region: true } });
-        region = kennel?.region ?? "";
-        ctx.regionCache.set(kennelId, region);
-      }
-      const timezone = regionTimezone(region);
-      const eventDate = parseUtcNoonDate(event.date);
-      const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
-      // Only update if we have a real UTC time AND the source has sufficient trust
-      if (composedUtc) {
-        const existingEvent = await prisma.event.findUnique({
-          where: { id: existing.eventId },
-          select: { trustLevel: true, dateUtc: true, timezone: true },
-        });
-        // Trust guard: don't let lower-trust sources overwrite higher-trust event times
-        const isHigherOrEqualTrust = !existingEvent || ctx.trustLevel >= existingEvent.trustLevel;
-        // Skip write if values are already correct (avoid redundant DB writes on every scrape)
-        const isAlreadyCurrent =
-          existingEvent?.dateUtc?.getTime() === composedUtc.getTime() &&
-          existingEvent?.timezone === timezone;
-        if (isHigherOrEqualTrust && !isAlreadyCurrent) {
-          await prisma.event.update({
+  // Already processed — skip sample collection entirely.
+  // If also linked to a canonical Event, refresh timezone-derived fields.
+  if (existing.processed) {
+    if (existing.eventId) {
+      const { kennelId, matched } = await resolveKennelTag(event.kennelTag, ctx.sourceId);
+      if (matched && kennelId && ctx.linkedKennelIds.has(kennelId)) {
+        const region = await resolveRegion(kennelId, ctx);
+        const timezone = regionTimezone(region);
+        const eventDate = parseUtcNoonDate(event.date);
+        const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
+        // Only update if we have a real UTC time AND the source has sufficient trust
+        if (composedUtc) {
+          const existingEvent = await prisma.event.findUnique({
             where: { id: existing.eventId },
-            data: { dateUtc: composedUtc, timezone },
+            select: { trustLevel: true, dateUtc: true, timezone: true },
           });
+          // Trust guard: don't let lower-trust sources overwrite higher-trust event times
+          const isHigherOrEqualTrust = !existingEvent || ctx.trustLevel >= existingEvent.trustLevel;
+          // Skip write if values are already correct (avoid redundant DB writes on every scrape)
+          const isAlreadyCurrent =
+            existingEvent?.dateUtc?.getTime() === composedUtc.getTime() &&
+            existingEvent?.timezone === timezone;
+          if (isHigherOrEqualTrust && !isAlreadyCurrent) {
+            await prisma.event.update({
+              where: { id: existing.eventId },
+              data: { dateUtc: composedUtc, timezone },
+            });
+          }
         }
       }
-      return existing.eventId;
     }
     return existing.eventId;
   }
@@ -194,16 +201,7 @@ async function upsertCanonicalEvent(
     where: { kennelId_date: { kennelId, date: eventDate } },
   });
 
-  // Fetch region from cache to avoid N+1 queries
-  let region = ctx.regionCache.get(kennelId);
-  if (region === undefined) {
-    const kennel = await prisma.kennel.findUnique({
-      where: { id: kennelId },
-      select: { region: true },
-    });
-    region = kennel?.region ?? "";
-    ctx.regionCache.set(kennelId, region);
-  }
+  const region = await resolveRegion(kennelId, ctx);
 
   const timezone = regionTimezone(region);
   const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
