@@ -16,7 +16,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import type { PreviewData } from "@/app/admin/sources/preview-action";
-import type { ErrorDetails, ParseError } from "@/adapters/types";
+import type { ErrorDetails } from "@/adapters/types";
 import { createInlineAlias } from "@/app/admin/sources/inline-alias-action";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -86,11 +86,13 @@ function ErrorSummary({ errors, errorDetails }: { errors: string[]; errorDetails
     return (
       <div className="space-y-1 text-xs">
         <div className="font-medium text-destructive">
-          {fetchErrors.length > 0 && `Fetch: ${fetchErrors.length}`}
-          {fetchErrors.length > 0 && (parseErrors.length > 0 || mergeErrors.length > 0) && " | "}
-          {parseErrors.length > 0 && `Parse: ${parseErrors.length}`}
-          {parseErrors.length > 0 && mergeErrors.length > 0 && " | "}
-          {mergeErrors.length > 0 && `Merge: ${mergeErrors.length}`}
+          {[
+            fetchErrors.length > 0 && `Fetch: ${fetchErrors.length}`,
+            parseErrors.length > 0 && `Parse: ${parseErrors.length}`,
+            mergeErrors.length > 0 && `Merge: ${mergeErrors.length}`,
+          ]
+            .filter(Boolean)
+            .join(" | ")}
         </div>
 
         {fetchErrors.length > 0 && (
@@ -120,7 +122,7 @@ function ErrorSummary({ errors, errorDetails }: { errors: string[]; errorDetails
               Parse Errors ({parseErrors.length})
             </summary>
             <div className="mt-1 ml-2 space-y-1.5">
-              {(parseErrors as ParseError[]).map((err, i) => (
+              {parseErrors.map((err, i) => (
                 <div key={i} className="border-l-2 border-muted pl-2 text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono text-[10px]">Row {err.row}</span>
@@ -177,11 +179,13 @@ function ErrorSummary({ errors, errorDetails }: { errors: string[]; errorDetails
   return (
     <div className="space-y-1 text-xs">
       <div className="font-medium text-destructive">
-        {hasFetch && `Fetch: ${categorized.fetch.length}`}
-        {hasFetch && (hasParse || hasMerge) && " | "}
-        {hasParse && `Parse: ${categorized.parse.length}`}
-        {hasParse && hasMerge && " | "}
-        {hasMerge && `Merge: ${categorized.merge.length}`}
+        {[
+          hasFetch && `Fetch: ${categorized.fetch.length}`,
+          hasParse && `Parse: ${categorized.parse.length}`,
+          hasMerge && `Merge: ${categorized.merge.length}`,
+        ]
+          .filter(Boolean)
+          .join(" | ")}
       </div>
 
       {hasFetch && (
@@ -237,6 +241,12 @@ export function PreviewResults({ data, allKennels, onAliasCreated }: PreviewResu
   const [linkingTag, setLinkingTag] = useState<string | null>(null);
   const [, startLinking] = useTransition();
   const uniqueTags = new Set(data.events.map((e) => e.kennelTag));
+  const structuredErrorCount =
+    (data.errorDetails?.fetch?.length ?? 0) +
+    (data.errorDetails?.parse?.length ?? 0) +
+    (data.errorDetails?.merge?.length ?? 0);
+  const totalErrors = data.errors.length || structuredErrorCount;
+  const hasErrors = totalErrors > 0;
 
   function handleLinkTag(tag: string, kennelId: string) {
     setOpenTag(null);
@@ -273,9 +283,7 @@ export function PreviewResults({ data, allKennels, onAliasCreated }: PreviewResu
             {data.unmatchedTags.length} unmatched
           </Badge>
         )}
-        {(data.errors.length > 0 || (data.errorDetails?.fetch?.length ?? 0) > 0 || (data.errorDetails?.parse?.length ?? 0) > 0 || (data.errorDetails?.merge?.length ?? 0) > 0) && (
-          <Badge variant="destructive">{data.errors.length || (data.errorDetails?.fetch?.length ?? 0) + (data.errorDetails?.parse?.length ?? 0) + (data.errorDetails?.merge?.length ?? 0)} errors</Badge>
-        )}
+        {hasErrors && <Badge variant="destructive">{totalErrors} errors</Badge>}
       </div>
 
       {/* Fill rates */}
