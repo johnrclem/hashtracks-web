@@ -28,9 +28,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/admin-audit", () => ({ logAdminAudit: vi.fn() }));
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAdminAudit } from "@/lib/admin-audit";
 import {
   getRosterGroups,
   createRosterGroup,
@@ -120,6 +122,24 @@ describe("createRosterGroup", () => {
     const result = await createRosterGroup("NYC Metro", ["k1", "k2"]);
     expect(result).toEqual({ success: true, groupId: "rg_new" });
   });
+
+  it("emits audit log on successful create", async () => {
+    vi.mocked(prisma.rosterGroup.create).mockResolvedValueOnce({
+      id: "rg_new",
+    } as never);
+    vi.mocked(prisma.rosterGroupKennel.findUnique)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    vi.mocked(prisma.rosterGroupKennel.create).mockResolvedValue({} as never);
+
+    await createRosterGroup("NYC Metro", ["k1", "k2"]);
+
+    expect(logAdminAudit).toHaveBeenCalledWith("create_roster_group", "admin_1", {
+      groupId: "rg_new",
+      name: "NYC Metro",
+      kennelIds: ["k1", "k2"],
+    });
+  });
 });
 
 describe("removeKennelFromGroup", () => {
@@ -193,6 +213,7 @@ describe("deleteRosterGroup", () => {
   it("dissolves group into standalone groups", async () => {
     vi.mocked(prisma.rosterGroup.findUnique).mockResolvedValueOnce({
       id: "rg_1",
+      name: "NYC Metro",
       kennels: [
         { id: "rgk_1", kennelId: "k1", kennel: { shortName: "NYCH3" } },
         { id: "rgk_2", kennelId: "k2", kennel: { shortName: "GGFM" } },
@@ -211,5 +232,31 @@ describe("deleteRosterGroup", () => {
     expect(result).toEqual({ success: true });
     // Should create standalone groups for each kennel
     expect(prisma.rosterGroup.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("emits audit log on successful delete", async () => {
+    vi.mocked(prisma.rosterGroup.findUnique).mockResolvedValueOnce({
+      id: "rg_1",
+      name: "NYC Metro",
+      kennels: [
+        { id: "rgk_1", kennelId: "k1", kennel: { shortName: "NYCH3" } },
+      ],
+    } as never);
+
+    vi.mocked(prisma.rosterGroup.create).mockResolvedValue({
+      id: "rg_standalone",
+    } as never);
+    vi.mocked(prisma.rosterGroupKennel.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.kennelHasher.updateMany).mockResolvedValue({ count: 0 } as never);
+    vi.mocked(prisma.kennelHasher.count).mockResolvedValueOnce(0);
+    vi.mocked(prisma.rosterGroup.delete).mockResolvedValueOnce({} as never);
+
+    await deleteRosterGroup("rg_1");
+
+    expect(logAdminAudit).toHaveBeenCalledWith("delete_roster_group", "admin_1", {
+      groupId: "rg_1",
+      groupName: "NYC Metro",
+      kennelCount: 1,
+    });
   });
 });

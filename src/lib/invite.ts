@@ -25,3 +25,9 @@ export const INVITE_COOKIE_NAME = "__ht_invite_token";
 
 /** Maximum pending (unexpired, unredeemed) invites per kennel. */
 export const MAX_PENDING_PER_KENNEL = 20;
+
+/** Maximum invites any single user can create in a 24-hour rolling window. */
+export const DAILY_INVITE_LIMIT_PER_USER = 5;
+
+/** 24 hours in milliseconds. */
+export const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;

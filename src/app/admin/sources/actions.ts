@@ -4,6 +4,7 @@ import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import type { SourceType } from "@/generated/prisma/client";
+import { logAdminAudit } from "@/lib/admin-audit";
 import { revalidatePath } from "next/cache";
 import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
 import { scrapeSource } from "@/pipeline/scrape";
@@ -176,6 +177,10 @@ export async function deleteSource(sourceId: string) {
     prisma.sourceKennel.deleteMany({ where: { sourceId } }),
     prisma.source.delete({ where: { id: sourceId } }),
   ]);
+
+  logAdminAudit("delete_source", admin.id, {
+    sourceId,
+  });
 
   revalidatePath("/admin/sources");
   return { success: true };

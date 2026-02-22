@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import type { ActionResult } from "@/lib/actions";
+import { logAdminAudit } from "@/lib/admin-audit";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -40,6 +41,12 @@ export async function deleteEvent(eventId: string): Promise<ActionResult<{ kenne
   if (!event) return { error: "Event not found" };
 
   await deleteEventsCascade([eventId]);
+
+  logAdminAudit("delete_event", admin.id, {
+    eventId,
+    kennelName: event.kennel.shortName,
+    date: event.date.toISOString(),
+  });
 
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
@@ -123,6 +130,11 @@ export async function bulkDeleteEvents(filters: {
 
   await deleteEventsCascade(eventIds);
 
+  logAdminAudit("bulk_delete_events", admin.id, {
+    filters,
+    deletedCount: eventIds.length,
+  });
+
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
   return { success: true, deletedCount: eventIds.length };
@@ -139,6 +151,10 @@ export async function deleteSelectedEvents(eventIds: string[]): Promise<ActionRe
   if (eventIds.length > 500) return { error: "Too many events selected (max 500)" };
 
   await deleteEventsCascade(eventIds);
+
+  logAdminAudit("delete_selected_events", admin.id, {
+    deletedCount: eventIds.length,
+  });
 
   revalidatePath("/admin/events");
   revalidatePath("/hareline");

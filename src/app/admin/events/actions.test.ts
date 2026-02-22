@@ -20,9 +20,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/admin-audit", () => ({ logAdminAudit: vi.fn() }));
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAdminAudit } from "@/lib/admin-audit";
 import {
   deleteEvent,
   previewBulkDelete,
@@ -81,6 +83,23 @@ describe("deleteEvent", () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     const txArgs = vi.mocked(prisma.$transaction).mock.calls[0][0] as unknown[];
     expect(txArgs).toHaveLength(5); // unlink rawEvents, delete hares, delete attendance, delete kennelAttendance, delete event
+  });
+
+  it("emits audit log on successful delete", async () => {
+    const mockEvent = {
+      id: "evt_1",
+      date: new Date("2026-02-12T12:00:00Z"),
+      kennel: { shortName: "BFM" },
+    };
+    mockEventFindUnique.mockResolvedValueOnce(mockEvent as never);
+
+    await deleteEvent("evt_1");
+
+    expect(logAdminAudit).toHaveBeenCalledWith("delete_event", "admin_1", {
+      eventId: "evt_1",
+      kennelName: "BFM",
+      date: "2026-02-12T12:00:00.000Z",
+    });
   });
 });
 
@@ -148,6 +167,17 @@ describe("bulkDeleteEvents", () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
+  it("emits audit log on successful bulk delete", async () => {
+    mockEventFindMany.mockResolvedValueOnce([{ id: "evt_1" }] as never);
+
+    await bulkDeleteEvents({ kennelId: "k1" });
+
+    expect(logAdminAudit).toHaveBeenCalledWith("bulk_delete_events", "admin_1", {
+      filters: { kennelId: "k1" },
+      deletedCount: 1,
+    });
+  });
+
   it("supports sourceId filter", async () => {
     mockEventFindMany.mockResolvedValueOnce([{ id: "evt_1" }] as never);
 
@@ -207,6 +237,14 @@ describe("deleteSelectedEvents", () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     const txArgs = vi.mocked(prisma.$transaction).mock.calls[0][0] as unknown[];
     expect(txArgs).toHaveLength(5); // unlink rawEvents, delete hares, delete attendance, delete kennelAttendance, delete events
+  });
+
+  it("emits audit log on successful selected delete", async () => {
+    await deleteSelectedEvents(["evt_1", "evt_2"]);
+
+    expect(logAdminAudit).toHaveBeenCalledWith("delete_selected_events", "admin_1", {
+      deletedCount: 2,
+    });
   });
 
   it("unlinks raw events and deletes dependents before events", async () => {

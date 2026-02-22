@@ -2,6 +2,7 @@
 
 import { getAdminUser, getRosterGroupId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAdminAudit } from "@/lib/admin-audit";
 import { revalidatePath } from "next/cache";
 import { fuzzyMatch } from "@/lib/fuzzy";
 
@@ -312,6 +313,11 @@ export async function deleteKennel(kennelId: string) {
     prisma.kennel.delete({ where: { id: kennelId } }),
   ]);
 
+  logAdminAudit("delete_kennel", admin.id, {
+    kennelId,
+    shortName: kennel.shortName,
+  });
+
   revalidatePath("/admin/kennels");
   revalidatePath("/kennels");
   return { success: true };
@@ -342,6 +348,11 @@ export async function assignMismanRole(kennelId: string, userId: string) {
     create: { userId, kennelId, role: "MISMAN" },
   });
 
+  logAdminAudit("assign_misman_role", admin.id, {
+    kennelId,
+    userId,
+  });
+
   revalidatePath("/admin/kennels");
   revalidatePath(`/kennels/${kennel.slug}`);
   revalidatePath("/misman");
@@ -367,6 +378,11 @@ export async function revokeMismanRole(kennelId: string, userId: string) {
   await prisma.userKennel.update({
     where: { userId_kennelId: { userId, kennelId } },
     data: { role: "MEMBER" },
+  });
+
+  logAdminAudit("revoke_misman_role", admin.id, {
+    kennelId,
+    userId,
   });
 
   revalidatePath("/admin/kennels");
@@ -640,6 +656,13 @@ export async function mergeKennels(
       where: { id: sourceKennel.id },
     }),
   ]);
+
+  logAdminAudit("merge_kennels", admin.id, {
+    sourceKennelId: sourceKennel.id,
+    sourceKennelName: sourceKennel.shortName,
+    targetKennelId: targetKennel.id,
+    targetKennelName: targetKennel.shortName,
+  });
 
   revalidatePath("/admin/kennels");
   revalidatePath("/kennels");

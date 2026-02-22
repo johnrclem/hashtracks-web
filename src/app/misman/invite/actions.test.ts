@@ -27,6 +27,8 @@ vi.mock("@/lib/invite", () => ({
   generateInviteToken: vi.fn().mockReturnValue("test-token-abc123"),
   computeExpiresAt: vi.fn().mockReturnValue(new Date("2026-02-22T12:00:00Z")),
   MAX_PENDING_PER_KENNEL: 20,
+  DAILY_INVITE_LIMIT_PER_USER: 5,
+  ONE_DAY_IN_MS: 24 * 60 * 60 * 1000,
 }));
 
 import { getOrCreateUser, getMismanUser } from "@/lib/auth";
@@ -63,8 +65,19 @@ describe("createMismanInvite", () => {
     });
   });
 
+  it("returns error when user daily limit exceeded", async () => {
+    vi.mocked(prisma.mismanInvite.count)
+      .mockResolvedValueOnce(0)  // per-kennel check passes
+      .mockResolvedValueOnce(5); // per-user daily check fails
+    expect(await createMismanInvite("kennel_1")).toEqual({
+      error: "You can create up to 5 invites per day. Please try again tomorrow.",
+    });
+  });
+
   it("creates invite with correct fields", async () => {
-    vi.mocked(prisma.mismanInvite.count).mockResolvedValueOnce(0);
+    vi.mocked(prisma.mismanInvite.count)
+      .mockResolvedValueOnce(0)  // per-kennel check
+      .mockResolvedValueOnce(0); // per-user daily check
     vi.mocked(prisma.mismanInvite.create).mockResolvedValueOnce({
       id: "mi_1",
       token: "test-token-abc123",
@@ -90,7 +103,9 @@ describe("createMismanInvite", () => {
   });
 
   it("trims empty email to null", async () => {
-    vi.mocked(prisma.mismanInvite.count).mockResolvedValueOnce(0);
+    vi.mocked(prisma.mismanInvite.count)
+      .mockResolvedValueOnce(0)  // per-kennel check
+      .mockResolvedValueOnce(0); // per-user daily check
     vi.mocked(prisma.mismanInvite.create).mockResolvedValueOnce({
       id: "mi_1",
       token: "test-token-abc123",

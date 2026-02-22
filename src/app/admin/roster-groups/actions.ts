@@ -2,6 +2,7 @@
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAdminAudit } from "@/lib/admin-audit";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -94,6 +95,12 @@ export async function createRosterGroup(name: string, kennelIds: string[]) {
     });
   }
 
+  logAdminAudit("create_roster_group", admin.id, {
+    groupId: group.id,
+    name: name.trim(),
+    kennelIds,
+  });
+
   revalidatePath("/admin/roster-groups");
   return { success: true, groupId: group.id };
 }
@@ -138,6 +145,11 @@ export async function addKennelToGroup(groupId: string, kennelId: string) {
     data: { groupId, kennelId },
   });
 
+  logAdminAudit("add_kennel_to_group", admin.id, {
+    groupId,
+    kennelId,
+  });
+
   revalidatePath("/admin/roster-groups");
   return { success: true };
 }
@@ -170,6 +182,11 @@ export async function removeKennelFromGroup(groupId: string, kennelId: string) {
   await prisma.kennelHasher.updateMany({
     where: { rosterGroupId: groupId, kennelId },
     data: { rosterGroupId: standaloneGroup.id },
+  });
+
+  logAdminAudit("remove_kennel_from_group", admin.id, {
+    groupId,
+    kennelId,
   });
 
   revalidatePath("/admin/roster-groups");
@@ -249,6 +266,12 @@ export async function deleteRosterGroup(groupId: string) {
   // Delete the original group
   await prisma.rosterGroup.delete({ where: { id: groupId } });
 
+  logAdminAudit("delete_roster_group", admin.id, {
+    groupId,
+    groupName: group.name,
+    kennelCount: group.kennels.length,
+  });
+
   revalidatePath("/admin/roster-groups");
   return { success: true };
 }
@@ -319,6 +342,12 @@ export async function approveRosterGroupRequest(requestId: string) {
     },
   });
 
+  logAdminAudit("approve_roster_group_request", admin.id, {
+    requestId,
+    proposedName: request.proposedName,
+    kennelIds,
+  });
+
   revalidatePath("/admin/roster-groups");
   return { success: true };
 }
@@ -343,6 +372,10 @@ export async function rejectRosterGroupRequest(requestId: string) {
       resolvedBy: admin.id,
       resolvedAt: new Date(),
     },
+  });
+
+  logAdminAudit("reject_roster_group_request", admin.id, {
+    requestId,
   });
 
   revalidatePath("/admin/roster-groups");

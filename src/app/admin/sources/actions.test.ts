@@ -12,9 +12,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/admin-audit", () => ({ logAdminAudit: vi.fn() }));
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAdminAudit } from "@/lib/admin-audit";
 import { createSource, updateSource, deleteSource } from "./actions";
 
 const mockAdminAuth = vi.mocked(getAdminUser);
@@ -74,5 +76,15 @@ describe("deleteSource", () => {
     mockRawEventCount.mockResolvedValueOnce(0 as never);
     const result = await deleteSource("s1");
     expect(result).toEqual({ success: true });
+  });
+
+  it("emits audit log on successful delete", async () => {
+    mockRawEventCount.mockResolvedValueOnce(0 as never);
+
+    await deleteSource("s1");
+
+    expect(logAdminAudit).toHaveBeenCalledWith("delete_source", "admin_1", {
+      sourceId: "s1",
+    });
   });
 });

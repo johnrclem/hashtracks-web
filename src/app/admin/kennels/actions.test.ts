@@ -19,9 +19,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/admin-audit", () => ({ logAdminAudit: vi.fn() }));
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAdminAudit } from "@/lib/admin-audit";
 import {
   createKennel,
   updateKennel,
@@ -230,11 +232,25 @@ describe("deleteKennel", () => {
 
   it("deletes kennel when no events, members, or attendance", async () => {
     mockKennelFindUnique.mockResolvedValueOnce({
-      id: "k1", _count: { events: 0, members: 0 },
+      id: "k1", shortName: "TestH3", _count: { events: 0, members: 0 },
     } as never);
     vi.mocked(prisma.kennelAttendance.count).mockResolvedValueOnce(0);
     const result = await deleteKennel("k1");
     expect(result).toEqual({ success: true });
+  });
+
+  it("emits audit log on successful delete", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce({
+      id: "k1", shortName: "TestH3", _count: { events: 0, members: 0 },
+    } as never);
+    vi.mocked(prisma.kennelAttendance.count).mockResolvedValueOnce(0);
+
+    await deleteKennel("k1");
+
+    expect(logAdminAudit).toHaveBeenCalledWith("delete_kennel", "admin_1", {
+      kennelId: "k1",
+      shortName: "TestH3",
+    });
   });
 });
 
@@ -273,6 +289,18 @@ describe("assignMismanRole", () => {
       create: { userId: "u1", kennelId: "k1", role: "MISMAN" },
     });
   });
+
+  it("emits audit log on successful assign", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce({ slug: "nych3" } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({ id: "u1" } as never);
+
+    await assignMismanRole("k1", "u1");
+
+    expect(logAdminAudit).toHaveBeenCalledWith("assign_misman_role", "admin_1", {
+      kennelId: "k1",
+      userId: "u1",
+    });
+  });
 });
 
 describe("revokeMismanRole", () => {
@@ -309,6 +337,19 @@ describe("revokeMismanRole", () => {
     expect(prisma.userKennel.update).toHaveBeenCalledWith({
       where: { userId_kennelId: { userId: "u1", kennelId: "k1" } },
       data: { role: "MEMBER" },
+    });
+  });
+
+  it("emits audit log on successful revoke", async () => {
+    vi.mocked(prisma.userKennel.findUnique).mockResolvedValueOnce({
+      role: "MISMAN",
+    } as never);
+
+    await revokeMismanRole("k1", "u1");
+
+    expect(logAdminAudit).toHaveBeenCalledWith("revoke_misman_role", "admin_1", {
+      kennelId: "k1",
+      userId: "u1",
     });
   });
 });

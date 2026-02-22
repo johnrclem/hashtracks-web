@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
+import { logAdminAudit } from "@/lib/admin-audit";
 import { revalidatePath } from "next/cache";
 import { scrapeSource } from "@/pipeline/scrape";
 import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
@@ -98,6 +99,10 @@ export async function resolveAllForSource(sourceId: string) {
       resolvedAt: new Date(),
       resolvedBy: admin.id,
     },
+  });
+
+  logAdminAudit("resolve_all_alerts_for_source", admin.id, {
+    sourceId,
   });
 
   revalidatePath("/admin/alerts");
@@ -203,6 +208,12 @@ export async function createAliasFromAlert(
       });
     }
   }
+
+  logAdminAudit("create_alias_from_alert", admin.id, {
+    alertId,
+    tag,
+    kennelId,
+  });
 
   revalidatePath("/admin/alerts");
   revalidatePath(`/admin/sources/${alert.sourceId}`);
@@ -317,6 +328,12 @@ export async function createKennelFromAlert(
     }
   }
 
+  logAdminAudit("create_kennel_from_alert", admin.id, {
+    alertId,
+    tag,
+    shortName: kennelData.shortName,
+  });
+
   revalidatePath("/admin/alerts");
   revalidatePath(`/admin/sources/${alert.sourceId}`);
   revalidatePath("/admin/kennels");
@@ -402,6 +419,13 @@ export async function linkKennelToSource(
       });
     }
   }
+
+  logAdminAudit("link_kennel_to_source", admin.id, {
+    alertId,
+    kennelTag,
+    kennelId,
+    sourceId: alert.sourceId,
+  });
 
   revalidatePath("/admin/alerts");
   revalidatePath(`/admin/sources/${alert.sourceId}`);
@@ -513,6 +537,12 @@ ${getSuggestedApproach(alert.type, ctx)}
           result: "success",
         }),
       },
+    });
+
+    logAdminAudit("create_issue_from_alert", admin.id, {
+      alertId,
+      issueUrl,
+      issueNumber: issue.number,
     });
 
     revalidatePath("/admin/alerts");
