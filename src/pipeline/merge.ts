@@ -36,6 +36,17 @@ interface MergeContext {
   result: MergeResult;
 }
 
+/** Resolve region for a kennel, using the per-batch cache to avoid N+1 queries. */
+async function resolveRegion(kennelId: string, ctx: MergeContext): Promise<string> {
+  let region = ctx.regionCache.get(kennelId);
+  if (region === undefined) {
+    const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { region: true } });
+    region = kennel?.region ?? "";
+    ctx.regionCache.set(kennelId, region);
+  }
+  return region;
+}
+
 /**
  * Check if the event fingerprint already exists (dedup).
  * If the RawEvent is already processed, refreshes dateUtc/timezone on the canonical Event.
@@ -61,12 +72,7 @@ async function handleDuplicateFingerprint(
     if (existing.eventId) {
       const { kennelId, matched } = await resolveKennelTag(event.kennelTag, ctx.sourceId);
       if (matched && kennelId && ctx.linkedKennelIds.has(kennelId)) {
-        let region = ctx.regionCache.get(kennelId);
-        if (region === undefined) {
-          const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { region: true } });
-          region = kennel?.region ?? "";
-          ctx.regionCache.set(kennelId, region);
-        }
+        const region = await resolveRegion(kennelId, ctx);
         const timezone = regionTimezone(region);
         const eventDate = parseUtcNoonDate(event.date);
         const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
@@ -195,16 +201,7 @@ async function upsertCanonicalEvent(
     where: { kennelId_date: { kennelId, date: eventDate } },
   });
 
-  // Fetch region from cache to avoid N+1 queries
-  let region = ctx.regionCache.get(kennelId);
-  if (region === undefined) {
-    const kennel = await prisma.kennel.findUnique({
-      where: { id: kennelId },
-      select: { region: true },
-    });
-    region = kennel?.region ?? "";
-    ctx.regionCache.set(kennelId, region);
-  }
+  const region = await resolveRegion(kennelId, ctx);
 
   const timezone = regionTimezone(region);
   const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
