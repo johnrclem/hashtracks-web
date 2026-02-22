@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 1140 tests)
+- `npm test` — Run test suite (Vitest, 69 test files)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -20,7 +20,8 @@ calendar + personal logbook + kennel directory.
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS + shadcn/ui components
 - **Scraping:** HTTP fetch + Cheerio (NOT Playwright — hash sites are static HTML); Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google)
-- **AI:** Gemini API for complex HTML parsing (low temp, cached results)
+- **AI:** Gemini 2.0 Flash for complex HTML parsing (low temp, cached results), parse error recovery, column auto-detection, kennel pattern suggestions
+- **Analytics:** Vercel Web Analytics + Speed Insights
 - **Deployment:** Vercel (auto-deploy from main branch)
 
 ## Data Flow
@@ -63,7 +64,7 @@ calendar + personal logbook + kennel directory.
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
 
 ## Important Files
-- `prisma/schema.prisma` — Full data model, 22 models + 16 enums (THE source of truth for types)
+- `prisma/schema.prisma` — Full data model, 22 models + 17 enums (THE source of truth for types)
 - `prisma/seed.ts` — 79 kennels, 238 aliases, 29 sources across 21 regions
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
@@ -79,6 +80,10 @@ calendar + personal logbook + kennel directory.
 - `src/adapters/ical/adapter.ts` — iCal feed adapter (SFH3 MultiHash, node-ical)
 - `src/adapters/hashrego/adapter.ts` — Hash Rego adapter (hashrego.com events, multi-kennel)
 - `src/adapters/hashrego/parser.ts` — Hash Rego HTML parsing (index table, detail page, multi-day splitting)
+- `src/adapters/meetup/adapter.ts` — Meetup.com public API adapter (event scraping, groupUrlname auto-detection)
+- `src/adapters/wordpress-api.ts` — WordPress REST API utility (shared by EWH3, DCH4 — bypasses HTML scraping blocks)
+- `src/adapters/html-scraper/bfm.ts` — BFM (Ben Franklin Mob) website scraper
+- `src/adapters/html-scraper/hashphilly.ts` — Philly H3 website scraper
 - `src/adapters/html-scraper/london-hash.ts` — London Hash run list scraper (LH3)
 - `src/adapters/html-scraper/city-hash.ts` — City Hash website scraper (CityH3)
 - `src/adapters/html-scraper/west-london-hash.ts` — West London Hash website scraper (WLH3)
@@ -99,11 +104,14 @@ calendar + personal logbook + kennel directory.
 - `src/pipeline/kennel-resolver.ts` — Alias-based kennel name resolution (with pattern fallback)
 - `src/pipeline/scrape.ts` — Shared `scrapeSource()` used by cron + admin routes
 - `src/pipeline/health.ts` — Rolling-window health analysis + alert generation
+- `src/pipeline/reconcile.ts` — Stale event reconciliation (cancels removed source events)
 - `src/pipeline/fill-rates.ts` — Per-field fill rate computation for RawEvents
 - `src/pipeline/structure-hash.ts` — HTML structural fingerprinting (SHA-256)
 - `src/app/admin/alerts/actions.ts` — Alert repair actions (re-scrape, create alias/kennel, link kennel to source, file GitHub issue)
 - `src/app/admin/events/actions.ts` — Admin event management (delete, bulk delete with cascade)
 - `src/app/admin/misman-requests/page.tsx` — Admin misman request approval (reuses misman server actions)
+- `src/app/admin/sources/new/page.tsx` — Source onboarding wizard (multi-phase guided setup with preview)
+- `src/app/admin/sources/config-validation.ts` — Server-side config validation with ReDoS safety (safe-regex2)
 - `src/components/kennels/QuickInfoCard.tsx` — Kennel quick info card (schedule, hash cash, website, flags)
 - `src/components/kennels/SocialLinks.tsx` — Kennel social links icon row (Facebook, Instagram, X, Discord, etc.)
 - `src/components/kennels/KennelStats.tsx` — Kennel computed stats (total events, oldest event, next run)
@@ -136,7 +144,12 @@ calendar + personal logbook + kennel directory.
 - `src/components/logbook/PendingConfirmations.tsx` — Pending misman confirmations on logbook page
 - `src/components/admin/RosterGroupsAdmin.tsx` — Admin roster group management (create, rename, dissolve, pending requests)
 - `src/app/admin/roster-groups/actions.ts` — Roster group CRUD + roster group request approve/reject
+- `src/components/feedback/FeedbackDialog.tsx` — In-app user feedback dialog (files GitHub issues with category labels)
 - `src/components/ui/alert-dialog.tsx` — Radix AlertDialog wrapper (confirmation dialogs)
+- `src/lib/ai/gemini.ts` — Gemini 2.0 Flash API wrapper (low-temp structured extraction)
+- `src/lib/ai/parse-recovery.ts` — AI fallback for scraper parse errors (prompt sanitization + confidence tracking)
+- `src/lib/source-detect.ts` — Auto-detection of source type from URL (Sheets, Calendar, Hash Rego, Meetup)
+- `src/lib/timezone.ts` — IANA timezone utilities (composeUtcStart, formatTimeInZone)
 - `src/lib/fuzzy.ts` — Levenshtein-based fuzzy string matching for kennel tag resolution + pairwise name matching
 - `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
 - `vitest.config.ts` — Test runner config (globals, path aliases)
@@ -150,6 +163,8 @@ calendar + personal logbook + kennel directory.
 - `docs/kennel-research/` — Regional kennel research (DC, Chicago, SF Bay, London — 40+ kennels)
 - `docs/misman-attendance-requirements.md` — Kennel attendance management (misman tool) requirements
 - `docs/misman-implementation-plan.md` — Sprint plan for misman feature (8a-8f)
+- `docs/config-driven-onboarding-plan.md` — Config-driven source onboarding design (6-phase admin wizard)
+- `docs/test-coverage-analysis.md` — Test coverage gap analysis and priorities
 
 ## Active Sources (29)
 
@@ -200,17 +215,19 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (1075 tests across 51 files)
+- **Run:** `npm test` (69 test files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
 - **Convention:** Test files live next to source files as `*.test.ts`
 - **Coverage areas:**
-  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, Blogger API v3 utility, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Hash Rego (index parsing, detail parsing, multi-day splitting), shared adapter utilities
-  - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation
+  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, Blogger API v3 utility, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Philly (BFM, HashPhilly), Hash Rego (index parsing, detail parsing, multi-day splitting), Meetup.com API, WordPress REST API, shared adapter utilities
+  - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation, event reconciliation
+  - AI: Gemini API wrapper, parse recovery fallback
   - Server actions: logbook CRUD, profile, kennel subscriptions, admin CRUD, misman attendance/roster/history
+  - Admin: config validation (with ReDoS detection), source type detection
   - Misman: audit log, hare sync, CSV import parsing, suggestion scoring, verification status, invite tokens
-  - Utilities: format helpers, calendar URL/ICS generation, auth (Clerk→DB sync), fuzzy matching
+  - Utilities: format helpers, calendar URL/ICS generation, auth (Clerk→DB sync), fuzzy matching, timezone utilities
 
 ## What NOT To Do
 - Don't use Playwright for scraping (Cheerio is sufficient, 100x lighter)

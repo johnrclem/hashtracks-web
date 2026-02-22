@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-19
+Last updated: 2026-02-22
 
 **Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
 
@@ -153,7 +153,46 @@ See [kennel-page-redesign-spec.md](kennel-page-redesign-spec.md) for full spec.
 - [x] Vercel Cron daily scrapes (6:00 AM UTC) with CRON_SECRET auth
 - [x] Per-source `scrapeFreq` with interval-based skip logic
 - [x] Shared `scrapeSource()` for cron + admin routes
-- [x] Vercel Web Analytics integration
+- [x] Vercel Web Analytics + Speed Insights integration
+
+### Source Onboarding Wizard — COMPLETE
+- [x] Admin "Add Source" wizard at `/admin/sources/new` (multi-phase guided setup)
+- [x] Source type auto-detection from URL (Google Sheets, Calendar, Hash Rego, Meetup)
+- [x] Config panels: Calendar, iCal, Google Sheets, Hash Rego, Meetup
+- [x] Server-side config validation with ReDoS safety (safe-regex2)
+- [x] Test Config preview: dry-run adapter fetch with diagnostic display
+- [x] Gemini-enhanced kennel pattern suggestions for Calendar/iCal sources
+- [x] Inline alias creation, kennel creation, source enable/disable
+- [x] Source coverage dashboard at `/admin/sources/coverage`
+
+See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for full design.
+
+### AI Recovery Layer — COMPLETE
+- [x] Gemini 2.0 Flash integration for self-healing scraper errors
+- [x] Parse recovery with prompt sanitization and confidence tracking (`src/lib/ai/parse-recovery.ts`)
+- [x] Applied to hashnyc, OFH3, EWH3, iCal adapters
+- [x] Gemini column auto-detection for Google Sheets adapter
+- [x] AI-assisted alert classification
+
+### Event Reconciliation — COMPLETE
+- [x] Stale event detection and cancellation when sources are disabled/modified (`src/pipeline/reconcile.ts`)
+- [x] ReconcileSource field tracks last reconciliation per source
+
+### Meetup Adapter — COMPLETE
+- [x] Meetup.com public API adapter — no auth required (`src/adapters/meetup/adapter.ts`)
+- [x] GroupUrlname auto-detection from URLs
+- [x] Config validation for Meetup-specific fields
+- Note: No live Meetup sources yet — adapter ready for onboarding via wizard
+
+### User Feedback — COMPLETE
+- [x] In-app "Send Feedback" dialog (bug report, feature request, question, other)
+- [x] Auto-creates GitHub issues with `user-feedback` + category labels
+- [x] Auto-captures current page URL for bug context
+
+### Timezone Preferences — COMPLETE
+- [x] User timezone preference storage (UserPreferences model, TimeDisplayPref enum)
+- [x] Header timezone dropdown with regional options
+- [x] Hareline and event card timezone-aware display (`src/lib/timezone.ts`)
 
 ### Codebase Refactoring (Phases 1-3) — COMPLETE
 - [x] Shared adapter utilities (`src/adapters/utils.ts`): date parsing, field extraction
@@ -171,9 +210,9 @@ See [kennel-page-redesign-spec.md](kennel-page-redesign-spec.md) for full spec.
 ### Current Stats
 - 79 kennels (with rich profiles: schedule, social, hash cash, flags), 238 aliases, 29 sources
 - 21 regions across 6 metro areas: NYC/NJ/Philly (17 kennels), Boston (5), Chicago (11), DC/DMV (19), SF Bay Area (13), London/UK (10), + South Shore IN (1), Rumson NJ (1)
-- 5 adapter types: HTML_SCRAPER (20 scrapers), GOOGLE_CALENDAR (5), GOOGLE_SHEETS (2), ICAL_FEED (3), HASHREGO (1)
-- 22 models, 16 enums in Prisma schema
-- 1075 tests across 51 test files
+- 7 adapter types: HTML_SCRAPER (22 scrapers), GOOGLE_CALENDAR (5), GOOGLE_SHEETS (2), ICAL_FEED (3), HASHREGO (1), MEETUP (1), WORDPRESS_API (1)
+- 22 models, 17 enums in Prisma schema
+- 69 test files
 
 ---
 
@@ -201,7 +240,7 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 - [ ] **Hash Rego kennel directory** — scrape `/kennels/` page for new kennel discovery + auto-onboarding
 - [ ] **gotothehash.net** — evaluate as a potential aggregator source (similar to hashnyc.com pattern)
 - [ ] **half-mind.com event listings** — evaluate as supplementary discovery data
-- [ ] **Meetup.com** — several kennels list events on Meetup (requires API or scraper)
+- [ ] **Meetup.com sources** — adapter built (`src/adapters/meetup/adapter.ts`), needs source onboarding for specific kennel Meetup groups
 - [ ] Continue refining kennel resolver patterns as new sources reveal new name variants
 
 **Implementation notes:**
@@ -211,25 +250,9 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 - Google Calendar sources require ~15 min of config + seed entry
 - Always verify `kennelShortNames` in seed covers ALL kennels the source produces (source-kennel guard)
 
-### Config-Driven Source Onboarding (Admin UI)
+### Config-Driven Source Onboarding (Admin UI) — COMPLETE
 
-**Why now:** This is the force multiplier for source scaling. Currently adding a config-driven source (Sheets/Calendar) requires editing `prisma/seed.ts` and redeploying. An admin UI eliminates the code-deploy bottleneck and unlocks the "15 min per source" tier.
-
-- [ ] Admin "Add Source" form at `/admin/sources/new`
-- [ ] Source type selector (GOOGLE_CALENDAR, GOOGLE_SHEETS, HTML_SCRAPER)
-- [ ] For Google Sheets: paste URL, auto-extract sheet ID, column mapping with preview
-- [ ] For Google Calendar: paste calendar ID, configure `kennelPatterns` or `defaultKennelTag`
-- [ ] Kennel tag rule builder (UI for the `kennelTagRules` config JSON)
-- [ ] Start time rule builder (day-of-week defaults)
-- [ ] Preview mode: show first 10 parsed events before saving source
-- [ ] Save config to `Source.config` JSON — no code deployment needed
-- [ ] Link kennels to source (SourceKennel records) from the same form
-
-**Implementation notes:**
-- The Google Sheets adapter (`src/adapters/google-sheets/adapter.ts`) is already fully config-driven — the admin form just needs to produce the same `Source.config` JSON structure
-- Google Calendar adapter (`src/adapters/google-calendar/adapter.ts`) supports `kennelPatterns` config for multi-kennel calendars
-- HTML_SCRAPER sources still require code (adapter implementation) — form should allow creating the Source record and kennel links, with adapter code added separately
-- Preview uses the existing `scrapeSource()` with a `dryRun` flag or limit parameter
+See "Source Onboarding Wizard" in What's Built section above. The wizard supports all config-driven adapter types (Calendar, Sheets, iCal, Hash Rego, Meetup) with source type auto-detection, live preview, config validation, and Gemini-enhanced kennel pattern suggestions. HTML_SCRAPER sources still require adapter code but can have their Source record and kennel links created via the wizard.
 
 ### Historical Event Import
 
@@ -489,6 +512,8 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 ### Additional Adapter Types
 - [x] **iCal feed adapter** (`ICAL_FEED`): Live with SFH3 MultiHash source (11 Bay Area kennels)
 - [x] **Hash Rego adapter** (`HASHREGO`): Live with 7 DC/Philly kennel slugs, multi-day splitting
+- [x] **Meetup adapter** (`MEETUP`): Public API adapter built, no live sources yet
+- [x] **WordPress REST API** (`WORDPRESS_API`): Shared utility for blog-based sources (EWH3, DCH4)
 - [ ] **RSS/Atom adapter** (`RSS_FEED`): For kennels with blog-style event posts (WordPress blog scrapers already cover some of this)
 - [ ] **hashnj.com HTML scraper**: Similar to hashnyc.com, different HTML structure
 - [ ] **Gemini AI parsing**: For complex multi-day event narrative text (campout descriptions with per-day schedules)
@@ -588,9 +613,8 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 
 | Phase | Sources | Effort per Source | Code Changes |
 |-------|---------|-------------------|--------------|
-| **Today** (manual) | 29 | ~1-2 hours | Adapter code + seed + resolver |
-| **Config-driven** (Priority 1) | 10-20 | ~15 min | Seed only (for Sheets/Calendar) |
-| **Admin UI** (Priority 1) | 20-50 | ~5 min | None (form-based config) |
+| **Manual** (HTML scrapers) | 29 | ~1-2 hours | Adapter code + seed + resolver |
+| **Admin wizard** (COMPLETE) | 30-50 | ~5 min | None (form-based config for Calendar/Sheets/iCal/Meetup) |
 | **AI-assisted** (Long-term) | 50+ | ~5 min review | None |
 | **Community** (Long-term) | 100+ | ~1 min approval | None |
 
@@ -600,7 +624,7 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 
 | # | Feature | Strategic Driver | Effort | HC Gap Exploited |
 |---|---------|-----------------|--------|------------------|
-| 1 | **Expand Source Coverage** + Config-Driven Onboarding | Widen primary moat | Ongoing + 1-2 sprints (admin UI) | Manual data entry |
+| 1 | **Expand Source Coverage** (admin wizard COMPLETE) | Widen primary moat | Ongoing (new sources via wizard) | Manual data entry |
 | 2 | **Strava Integration** (OAuth + auto-match) | Unique differentiator, no competitor has this | 2-3 sprints | Zero fitness integration |
 | 3 | **Misman Growth Lever** (milestone watch, landing page, real-world testing) | B2B adoption, replace Google Sheets | 1 sprint | Paid kennel admin with less capability |
 | 4 | **User Onboarding** (personal CSV import, log unlisted run, manual submission) | Reduce friction, serve traveling hashers | 1-2 sprints | Walled garden onboarding |
@@ -620,5 +644,7 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 - [Kennel Research](kennel-research/) — regional research for DC, Chicago, SF Bay, London kennels
 - [Misman Attendance Requirements](misman-attendance-requirements.md) — kennel attendance management tool requirements and decisions
 - [Misman Implementation Plan](misman-implementation-plan.md) — sprint plan for misman feature
+- [Config-Driven Onboarding Plan](config-driven-onboarding-plan.md) — source onboarding wizard design (6-phase)
+- [Test Coverage Analysis](test-coverage-analysis.md) — test coverage gap analysis and priorities
 - [HASHTRACKS_PRD.md](../HASHTRACKS_PRD.md) — original product requirements document (includes Strava API reference in Appendix C)
 - [HASHTRACKS_IMPLEMENTATION_PLAN.md](../HASHTRACKS_IMPLEMENTATION_PLAN.md) — original sprint plan (Sprints 1-4 complete, evolved beyond this plan)
