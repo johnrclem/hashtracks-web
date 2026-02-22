@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -16,43 +17,95 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { InfoPopover } from "@/components/ui/info-popover";
-import { Users } from "lucide-react";
+import { RegionBadge } from "@/components/hareline/RegionBadge";
+import { Users, SearchIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { requestRosterGroupByName } from "@/app/misman/actions";
+import {
+  getKennelsForRosterPicker,
+  requestRosterGroupWithIds,
+} from "@/app/misman/actions";
+import { groupByRegion } from "@/lib/groupByRegion";
+
+type PickerKennel = {
+  id: string;
+  shortName: string;
+  fullName: string;
+  region: string;
+  rosterGroupName: string | null;
+};
 
 interface RequestSharedRosterSectionProps {
-  kennelShortName: string;
   kennelId: string;
   hasPendingRequest: boolean;
 }
 
 export function RequestSharedRosterSection({
-  kennelShortName,
   kennelId,
   hasPendingRequest,
 }: RequestSharedRosterSectionProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [kennelNames, setKennelNames] = useState(kennelShortName);
   const [message, setMessage] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    new Set([kennelId]),
+  );
+  const [kennels, setKennels] = useState<PickerKennel[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
+  const fetchKennels = useCallback(async () => {
+    setLoading(true);
+    const result = await getKennelsForRosterPicker();
+    if (result.data) {
+      setKennels(result.data);
+    }
+    setLoading(false);
+  }, []);
+
+  function handleOpen() {
+    setOpen(true);
+    if (kennels.length === 0) {
+      fetchKennels();
+    }
+  }
+
+  function handleToggle(id: string) {
+    // Don't allow toggling the current kennel or grouped kennels
+    if (id === kennelId) return;
+    const kennel = kennels.find((k) => k.id === id);
+    if (kennel?.rosterGroupName) return;
+
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
   function handleSubmit() {
     startTransition(async () => {
-      const result = await requestRosterGroupByName(
+      const result = await requestRosterGroupWithIds(
         kennelId,
         name,
-        kennelNames,
+        Array.from(selectedIds),
         message || undefined,
       );
       if (result.error) {
         toast.error(result.error);
       } else {
-        toast.success("Roster group request submitted — an admin will review it");
+        toast.success(
+          "Roster group request submitted — an admin will review it",
+        );
         setName("");
-        setKennelNames(kennelShortName);
+        setSelectedIds(new Set([kennelId]));
         setMessage("");
+        setSearch("");
         setOpen(false);
         router.refresh();
       }
@@ -62,11 +115,25 @@ export function RequestSharedRosterSection({
   function handleOpenChange(open: boolean) {
     if (!open) {
       setName("");
-      setKennelNames(kennelShortName);
+      setSelectedIds(new Set([kennelId]));
       setMessage("");
+      setSearch("");
       setOpen(false);
     }
   }
+
+  const grouped = useMemo(() => {
+    const searchLower = search.toLowerCase();
+    const filtered = search
+      ? kennels.filter(
+          (k) =>
+            k.shortName.toLowerCase().includes(searchLower) ||
+            k.fullName.toLowerCase().includes(searchLower) ||
+            k.region.toLowerCase().includes(searchLower),
+        )
+      : kennels;
+    return groupByRegion(filtered);
+  }, [kennels, search]);
 
   return (
     <div className="rounded-lg border border-dashed border-muted-foreground/25 p-3">
@@ -97,7 +164,7 @@ export function RequestSharedRosterSection({
               variant="outline"
               size="sm"
               className="mt-1"
-              onClick={() => setOpen(true)}
+              onClick={handleOpen}
             >
               Request Shared Roster
             </Button>
@@ -105,7 +172,7 @@ export function RequestSharedRosterSection({
         </div>
       </div>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Request Shared Roster</DialogTitle>
             <DialogDescription>
@@ -124,22 +191,93 @@ export function RequestSharedRosterSection({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="rsr-kennels">
-                Kennels to include
-              </Label>
-              <Input
-                id="rsr-kennels"
-                placeholder="e.g., NYCH3, NYCH4, LBH3"
-                value={kennelNames}
-                onChange={(e) => setKennelNames(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Comma-separated kennel short names. You don&apos;t need to manage
-                all of them — the admin will coordinate.
-              </p>
+              <Label>Kennels ({selectedIds.size} selected)</Label>
+              <div className="rounded-md border">
+                <div className="flex items-center border-b px-3">
+                  <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                  <input
+                    className="flex h-9 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+                    placeholder="Search kennels..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <div className="max-h-72 overflow-y-auto p-3 space-y-3">
+                  {loading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : grouped.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      {search ? "No kennels match your search." : "No kennels available."}
+                    </p>
+                  ) : (
+                    grouped.map(({ region, items }) => (
+                      <div key={region} className="space-y-1.5">
+                        <div className="flex items-center gap-1.5 pt-1 first:pt-0">
+                          <RegionBadge region={region} size="sm" />
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {region}
+                          </span>
+                        </div>
+                        {items.map((k) => {
+                          const isCurrentKennel = k.id === kennelId;
+                          const isInGroup = !!k.rosterGroupName;
+                          const isDisabled = isCurrentKennel || isInGroup;
+                          const isChecked =
+                            selectedIds.has(k.id) || isCurrentKennel;
+
+                          return (
+                            <div
+                              key={k.id}
+                              className="flex items-center gap-2 pl-2"
+                            >
+                              <Checkbox
+                                id={`rsr-kennel-${k.id}`}
+                                checked={isChecked}
+                                disabled={isDisabled}
+                                onCheckedChange={() => handleToggle(k.id)}
+                              />
+                              <Label
+                                htmlFor={`rsr-kennel-${k.id}`}
+                                className={`text-sm font-normal cursor-pointer flex-1 ${
+                                  isInGroup ? "text-muted-foreground" : ""
+                                }`}
+                              >
+                                {k.fullName}
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({k.shortName})
+                                </span>
+                              </Label>
+                              {isCurrentKennel && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] px-1.5 py-0"
+                                >
+                                  Current
+                                </Badge>
+                              )}
+                              {isInGroup && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0 text-muted-foreground"
+                                >
+                                  In: {k.rosterGroupName}
+                                </Badge>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="rsr-message">Additional details (optional)</Label>
+              <Label htmlFor="rsr-message">
+                Additional details (optional)
+              </Label>
               <Textarea
                 id="rsr-message"
                 placeholder="Why should these kennels share a roster?"
@@ -155,7 +293,7 @@ export function RequestSharedRosterSection({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isPending || !name.trim() || !kennelNames.trim()}
+              disabled={isPending || !name.trim() || selectedIds.size < 2}
             >
               {isPending ? "Submitting..." : "Submit Request"}
             </Button>

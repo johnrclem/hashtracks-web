@@ -270,6 +270,90 @@ export async function requestRosterGroupByName(
 }
 
 /**
+ * Fetch all kennels with their roster group membership for the picker UI.
+ */
+export async function getKennelsForRosterPicker() {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" as const };
+
+  const kennels = await prisma.kennel.findMany({
+    select: {
+      id: true,
+      shortName: true,
+      fullName: true,
+      region: true,
+      rosterGroups: {
+        select: {
+          group: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: [{ region: "asc" }, { shortName: "asc" }],
+  });
+
+  return {
+    data: kennels.map((k) => ({
+      id: k.id,
+      shortName: k.shortName,
+      fullName: k.fullName,
+      region: k.region,
+      rosterGroupName: k.rosterGroups[0]?.group.name ?? null,
+    })),
+  };
+}
+
+/**
+ * Request a new shared roster group with specific kennel IDs.
+ * Any misman can request — they don't need to manage all kennels in the group.
+ */
+export async function requestRosterGroupWithIds(
+  kennelId: string,
+  proposedName: string,
+  kennelIds: string[],
+  message?: string,
+) {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  // Input validation
+  if (!proposedName.trim()) return { error: "Group name is required" };
+  if (proposedName.length > 100) return { error: "Group name is too long" };
+  if (!Array.isArray(kennelIds)) return { error: "Invalid kennel list" };
+  if (kennelIds.length < 2) return { error: "At least 2 kennels are required" };
+  if (kennelIds.length > 100) return { error: "Too many kennels selected" };
+  if (
+    !kennelIds.every(
+      (id) => typeof id === "string" && id.length > 0 && id.length <= 30,
+    )
+  ) {
+    return { error: "Invalid kennel list" };
+  }
+  if (message && message.length > 500) return { error: "Message is too long" };
+
+  // Verify misman access to at least the current kennel
+  const mismanUser = await getMismanUser(kennelId);
+  if (!mismanUser) return { error: "Not authorized" };
+
+  // Check for existing pending request from this user
+  const existing = await prisma.rosterGroupRequest.findFirst({
+    where: { userId: user.id, status: "PENDING" },
+  });
+  if (existing) return { error: "You already have a pending roster group request" };
+
+  await prisma.rosterGroupRequest.create({
+    data: {
+      userId: user.id,
+      proposedName: proposedName.trim(),
+      kennelIds: kennelIds as unknown as Prisma.InputJsonValue,
+      message: message?.trim() || null,
+    },
+  });
+
+  revalidatePath("/misman", "layout");
+  return { success: true };
+}
+
+/**
  * Request a change to an existing roster group.
  * Uses the same RosterGroupRequest model with the current group name
  * and kennel IDs, plus a message describing the desired change.
