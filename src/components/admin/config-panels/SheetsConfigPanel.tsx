@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -86,6 +86,18 @@ export function SheetsConfigPanel({
   const [aiError, setAiError] = useState<string | null>(null);
   const [isSuggesting, startSuggesting] = useTransition();
 
+  // Reset suggestions whenever new sample data arrives (e.g. user re-ran "Test Config")
+  const prevSampleRows = useRef<string[][] | undefined>(undefined);
+  useEffect(() => {
+    if (sampleRows !== prevSampleRows.current) {
+      prevSampleRows.current = sampleRows;
+      if (sampleRows && sampleRows.length > 0) {
+        setAiSuggestions(null);
+        setAiError(null);
+      }
+    }
+  }, [sampleRows]);
+
   const suggestionByField = new Map<SheetsColumnField, SheetsColumnSuggestion>(
     (aiSuggestions ?? []).map((s) => [s.field, s]),
   );
@@ -94,7 +106,6 @@ export function SheetsConfigPanel({
     geminiAvailable &&
     sampleRows &&
     sampleRows.length > 0 &&
-    aiSuggestions === null &&
     !isSuggesting;
 
   function handleSuggestColumns() {

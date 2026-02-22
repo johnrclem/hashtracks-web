@@ -30,8 +30,9 @@ function healthColor(status: string, enabled: boolean): string {
   if (!enabled) return "bg-gray-100 text-gray-500 border-gray-200";
   switch (status) {
     case "HEALTHY":   return "bg-green-50 text-green-700 border-green-200";
-    case "WARNING":   return "bg-amber-50 text-amber-700 border-amber-200";
-    case "CRITICAL":  return "bg-red-50 text-red-700 border-red-200";
+    case "DEGRADED":  return "bg-amber-50 text-amber-700 border-amber-200";
+    case "FAILING":   return "bg-red-50 text-red-700 border-red-200";
+    case "STALE":     return "bg-orange-50 text-orange-700 border-orange-200";
     default:          return "bg-gray-100 text-gray-500 border-gray-200";
   }
 }
