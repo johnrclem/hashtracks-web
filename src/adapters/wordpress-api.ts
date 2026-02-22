@@ -14,6 +14,7 @@
  */
 
 import he from "he";
+import { buildUrlVariantCandidates } from "./utils";
 
 /** A single post returned by the WordPress REST API */
 export interface WordPressPost {
@@ -51,7 +52,7 @@ export async function fetchWordPressPosts(
 
   // Try canonical host/protocol first, then optional www/non-www and
   // https/http variants. Some WordPress sites vary by edge rules.
-  const candidateBases = buildCandidateBases(base);
+  const candidateBases = buildUrlVariantCandidates(base);
   const endpoints = candidateBases.flatMap((candidateBase) => [
     `${candidateBase}/wp-json/wp/v2/posts?${params.toString()}`,
     `${candidateBase}/?rest_route=/wp/v2/posts&${params.toString()}`,
@@ -114,40 +115,4 @@ export async function fetchWordPressPosts(
     error: lastError ?? { message: "WordPress API fetch failed" },
     fetchDurationMs: Date.now() - fetchStart,
   };
-}
-
-function buildCandidateBases(base: string): string[] {
-  const candidates = [base];
-
-  try {
-    const parsed = new URL(base);
-
-    // Hostname variant (www <-> non-www)
-    const hostVariant = new URL(parsed.toString());
-    if (parsed.hostname.startsWith("www.")) {
-      hostVariant.hostname = parsed.hostname.slice(4);
-    } else {
-      hostVariant.hostname = `www.${parsed.hostname}`;
-    }
-    candidates.push(hostVariant.toString().replace(/\/+$/, ""));
-
-    // Protocol variant (https <-> http)
-    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
-      const protocolVariant = new URL(parsed.toString());
-      protocolVariant.protocol = parsed.protocol === "https:" ? "http:" : "https:";
-      candidates.push(protocolVariant.toString().replace(/\/+$/, ""));
-
-      const protocolAndHostVariant = new URL(protocolVariant.toString());
-      if (protocolAndHostVariant.hostname.startsWith("www.")) {
-        protocolAndHostVariant.hostname = protocolAndHostVariant.hostname.slice(4);
-      } else {
-        protocolAndHostVariant.hostname = `www.${protocolAndHostVariant.hostname}`;
-      }
-      candidates.push(protocolAndHostVariant.toString().replace(/\/+$/, ""));
-    }
-  } catch {
-    // Ignore malformed URLs — caller validation should prevent this.
-  }
-
-  return [...new Set(candidates)];
 }

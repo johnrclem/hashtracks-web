@@ -8,7 +8,7 @@ import type {
 } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchBloggerPosts } from "../blogger-api";
-import { decodeEntities } from "../utils";
+import { buildUrlVariantCandidates, decodeEntities } from "../utils";
 
 const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
@@ -119,40 +119,6 @@ export function parseEnfieldBody(text: string): {
   };
 }
 
-
-function buildCandidateUrls(baseUrl: string): string[] {
-  const candidates = [baseUrl.replace(/\/+$/, "")];
-
-  try {
-    const parsed = new URL(baseUrl);
-
-    const hostVariant = new URL(parsed.toString());
-    if (hostVariant.hostname.startsWith("www.")) {
-      hostVariant.hostname = hostVariant.hostname.slice(4);
-    } else {
-      hostVariant.hostname = `www.${hostVariant.hostname}`;
-    }
-    candidates.push(hostVariant.toString().replace(/\/+$/, ""));
-
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-      const protocolVariant = new URL(parsed.toString());
-      protocolVariant.protocol = parsed.protocol === "https:" ? "http:" : "https:";
-      candidates.push(protocolVariant.toString().replace(/\/+$/, ""));
-
-      const protocolAndHostVariant = new URL(protocolVariant.toString());
-      if (protocolAndHostVariant.hostname.startsWith("www.")) {
-        protocolAndHostVariant.hostname = protocolAndHostVariant.hostname.slice(4);
-      } else {
-        protocolAndHostVariant.hostname = `www.${protocolAndHostVariant.hostname}`;
-      }
-      candidates.push(protocolAndHostVariant.toString().replace(/\/+$/, ""));
-    }
-  } catch {
-    // URL validation happens upstream.
-  }
-
-  return [...new Set(candidates)];
-}
 
 /**
  * Process a single blog post (from either Blogger API or HTML scrape) into a RawEventData.
@@ -316,7 +282,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
     let html: string | undefined;
     let fetchUrl = baseUrl;
     const fetchStart = Date.now();
-    const candidateUrls = buildCandidateUrls(baseUrl);
+    const candidateUrls = buildUrlVariantCandidates(baseUrl);
 
     for (const candidateUrl of candidateUrls) {
       try {

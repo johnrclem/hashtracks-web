@@ -8,6 +8,8 @@ import type {
 } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
+const YEAR_ROLLOVER_DAY_THRESHOLD = 45;
+
 const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
   apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
@@ -78,7 +80,7 @@ function inferLikelyYear(month: number, day: number, referenceDate: Date): numbe
 
   // If inferred date is far in the past, treat as next year's schedule entry.
   const dayDiff = Math.floor((candidate.getTime() - refUtc.getTime()) / (24 * 60 * 60 * 1000));
-  return dayDiff < -45 ? currentYear + 1 : currentYear;
+  return dayDiff < -YEAR_ROLLOVER_DAY_THRESHOLD ? currentYear + 1 : currentYear;
 }
 
 /**

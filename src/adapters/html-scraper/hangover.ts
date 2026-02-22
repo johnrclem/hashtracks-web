@@ -4,6 +4,8 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
+const DEFAULT_START_TIME = "10:15";
+
 const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
   apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
@@ -65,10 +67,13 @@ export function parseHangoverBody(text: string): {
   distances?: string;
 } {
   const normalized = text
-    .replace(/\r/g, "")
-    .replace(/\s+/g, " ")
+    .replace(/\r/g, "") // Normalize Windows newlines.
+    .replace(/\s+/g, " ") // Collapse inconsistent spacing from extracted HTML text.
+    // Put labeled fields on their own logical lines so downstream field regexes are reliable.
     .replace(/\s+(Date|When|Hare(?:\(s\)|s)?|Trail Start|Start|Location|Where|Hash Cash|Trail Type|On[- ]?After|On On(?: Brunch)?)\s*:/gi, "\n$1: ")
+    // Normalize compact "Pack Away at" / "Hare Away at" variants into a line boundary.
     .replace(/\s+(Pack Away|Hares? Away)\s+at\s+/gi, "\n$1 at ")
+    // Normalize distance labels so Eagle/Turkey/Penguin can be extracted independently.
     .replace(/\s+(Eagle|Turkey|Penguin)\s+/gi, "\n$1 ")
     .trim();
 
@@ -241,7 +246,7 @@ export class HangoverAdapter implements SourceAdapter {
         hares: bodyFields.hares,
         location: bodyFields.location,
         locationUrl,
-        startTime: bodyFields.startTime || "10:15",
+        startTime: bodyFields.startTime || DEFAULT_START_TIME,
         sourceUrl: postUrl,
         description: descParts.length > 0 ? descParts.join(" | ") : undefined,
       });

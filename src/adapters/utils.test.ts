@@ -7,6 +7,7 @@ import {
   validateSourceConfig,
   decodeEntities,
   stripHtmlTags,
+  buildUrlVariantCandidates,
 } from "./utils";
 
 describe("MONTHS", () => {
@@ -183,5 +184,30 @@ describe("stripHtmlTags", () => {
 
   it("trims leading and trailing whitespace", () => {
     expect(stripHtmlTags("  <p>hello</p>  ")).toBe("hello");
+  });
+});
+
+
+describe("buildUrlVariantCandidates", () => {
+  it("builds protocol and host fallback variants", () => {
+    expect(buildUrlVariantCandidates("https://dch4.org/")).toEqual([
+      "https://dch4.org",
+      "https://www.dch4.org",
+      "http://dch4.org",
+      "http://www.dch4.org",
+    ]);
+  });
+
+  it("dedupes variants when input already uses www", () => {
+    expect(buildUrlVariantCandidates("http://www.example.com/")).toEqual([
+      "http://www.example.com",
+      "http://example.com",
+      "https://www.example.com",
+      "https://example.com",
+    ]);
+  });
+
+  it("returns normalized input when URL is malformed", () => {
+    expect(buildUrlVariantCandidates("not a valid url/")).toEqual(["not a valid url"]);
   });
 });
