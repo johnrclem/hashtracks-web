@@ -42,7 +42,7 @@ export function VerificationBadge({ status }: VerificationBadgeProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={`text-xs font-medium cursor-default ${cfg.className}`}>
+        <span className={`text-xs font-medium cursor-default ${cfg.className}`} tabIndex={0}>
           {cfg.label}
         </span>
       </TooltipTrigger>

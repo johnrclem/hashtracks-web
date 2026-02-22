@@ -6,7 +6,6 @@ import {
   PopoverContent,
   PopoverHeader,
   PopoverTitle,
-  PopoverDescription,
   PopoverTrigger,
 } from "@/components/ui/popover";
 
@@ -21,7 +20,7 @@ export function InfoPopover({ title, children }: InfoPopoverProps) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           aria-label={`Info: ${title}`}
         >
           <Info className="h-3.5 w-3.5" />
@@ -30,7 +29,7 @@ export function InfoPopover({ title, children }: InfoPopoverProps) {
       <PopoverContent className="w-80">
         <PopoverHeader>
           <PopoverTitle>{title}</PopoverTitle>
-          <PopoverDescription>{children}</PopoverDescription>
+          <div className="text-muted-foreground">{children}</div>
         </PopoverHeader>
       </PopoverContent>
     </Popover>

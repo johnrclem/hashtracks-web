@@ -201,7 +201,7 @@ export function RosterTable({
                       {h.linkStatus === "CONFIRMED" && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="text-xs text-green-600 cursor-default">L</span>
+                            <span className="text-xs text-green-600 cursor-default" tabIndex={0}>L</span>
                           </TooltipTrigger>
                           <TooltipContent>Linked — this hasher is connected to a site account</TooltipContent>
                         </Tooltip>
@@ -209,7 +209,7 @@ export function RosterTable({
                       {h.linkStatus === "SUGGESTED" && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="text-xs text-yellow-600 cursor-default">P</span>
+                            <span className="text-xs text-yellow-600 cursor-default" tabIndex={0}>P</span>
                           </TooltipTrigger>
                           <TooltipContent>Pending — a link to a site account has been suggested</TooltipContent>
                         </Tooltip>
