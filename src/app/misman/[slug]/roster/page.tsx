@@ -73,26 +73,13 @@ export default async function RosterPage({ params }: Props) {
     }
   }
 
-  // For non-shared rosters, check if user has 2+ misman kennels (can request shared roster)
-  let mismanKennels: { id: string; shortName: string }[] = [];
+  // For non-shared rosters, check for pending roster group requests
   let hasPendingRosterGroupRequest = false;
   if (!isSharedRoster) {
-    const userKennels = await prisma.userKennel.findMany({
-      where: {
-        userId: user.id,
-        role: { in: ["MISMAN", "ADMIN"] },
-      },
-      select: { kennel: { select: { id: true, shortName: true } } },
-      orderBy: { kennel: { shortName: "asc" } },
+    const pendingReq = await prisma.rosterGroupRequest.findFirst({
+      where: { userId: user.id, status: "PENDING" },
     });
-    mismanKennels = userKennels.map((uk) => uk.kennel);
-
-    if (mismanKennels.length >= 2) {
-      const pendingReq = await prisma.rosterGroupRequest.findFirst({
-        where: { userId: user.id, status: "PENDING" },
-      });
-      hasPendingRosterGroupRequest = !!pendingReq;
-    }
+    hasPendingRosterGroupRequest = !!pendingReq;
   }
 
   return (
@@ -110,9 +97,10 @@ export default async function RosterPage({ params }: Props) {
           />
         </div>
       )}
-      {!isSharedRoster && mismanKennels.length >= 2 && (
+      {!isSharedRoster && (
         <RequestSharedRosterSection
-          kennels={mismanKennels}
+          kennelShortName={kennel.shortName}
+          kennelId={kennel.id}
           hasPendingRequest={hasPendingRosterGroupRequest}
         />
       )}

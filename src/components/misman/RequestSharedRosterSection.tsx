@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,41 +18,32 @@ import {
 import { InfoPopover } from "@/components/ui/info-popover";
 import { Users } from "lucide-react";
 import { toast } from "sonner";
-import { requestRosterGroup } from "@/app/misman/actions";
+import { requestRosterGroupByName } from "@/app/misman/actions";
 
 interface RequestSharedRosterSectionProps {
-  kennels: { id: string; shortName: string }[];
+  kennelShortName: string;
+  kennelId: string;
   hasPendingRequest: boolean;
 }
 
 export function RequestSharedRosterSection({
-  kennels,
+  kennelShortName,
+  kennelId,
   hasPendingRequest,
 }: RequestSharedRosterSectionProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [kennelNames, setKennelNames] = useState(kennelShortName);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  function handleToggle(kennelId: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(kennelId)) {
-        next.delete(kennelId);
-      } else {
-        next.add(kennelId);
-      }
-      return next;
-    });
-  }
-
   function handleSubmit() {
     startTransition(async () => {
-      const result = await requestRosterGroup(
+      const result = await requestRosterGroupByName(
+        kennelId,
         name,
-        Array.from(selectedIds),
+        kennelNames,
         message || undefined,
       );
       if (result.error) {
@@ -61,7 +51,7 @@ export function RequestSharedRosterSection({
       } else {
         toast.success("Roster group request submitted — an admin will review it");
         setName("");
-        setSelectedIds(new Set());
+        setKennelNames(kennelShortName);
         setMessage("");
         setOpen(false);
         router.refresh();
@@ -72,7 +62,7 @@ export function RequestSharedRosterSection({
   function handleOpenChange(open: boolean) {
     if (!open) {
       setName("");
-      setSelectedIds(new Set());
+      setKennelNames(kennelShortName);
       setMessage("");
       setOpen(false);
     }
@@ -88,15 +78,15 @@ export function RequestSharedRosterSection({
               Shared Roster
             </span>
             <InfoPopover title="Shared Roster">
-              If you manage sister kennels with overlapping hashers, you can
-              request a shared roster. This means one unified roster across
+              If your kennel has sister kennels with overlapping hashers, you
+              can request a shared roster. This means one unified roster across
               multiple kennels — no duplicate entries for hashers who attend
               more than one. Attendance is still tracked per kennel.
             </InfoPopover>
           </div>
           <p className="text-xs text-muted-foreground">
-            You manage {kennels.length} kennels. If they share many of the same
-            hashers, a shared roster avoids duplicate entries.
+            Do you share hashers with sister kennels? A shared roster avoids
+            duplicate entries and keeps one unified list.
           </p>
           {hasPendingRequest ? (
             <Badge variant="outline" className="text-xs mt-1">
@@ -119,8 +109,8 @@ export function RequestSharedRosterSection({
           <DialogHeader>
             <DialogTitle>Request Shared Roster</DialogTitle>
             <DialogDescription>
-              Propose grouping 2 or more of your kennels to share a roster.
-              An admin will review your request.
+              Propose grouping kennels to share a roster. An admin will review
+              your request and set up the group.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -134,27 +124,22 @@ export function RequestSharedRosterSection({
               />
             </div>
             <div className="space-y-2">
-              <Label>Kennels ({selectedIds.size} selected)</Label>
-              <div className="space-y-2 rounded-md border p-3">
-                {kennels.map((k) => (
-                  <div key={k.id} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`rsr-kennel-${k.id}`}
-                      checked={selectedIds.has(k.id)}
-                      onCheckedChange={() => handleToggle(k.id)}
-                    />
-                    <Label
-                      htmlFor={`rsr-kennel-${k.id}`}
-                      className="text-sm font-normal cursor-pointer"
-                    >
-                      {k.shortName}
-                    </Label>
-                  </div>
-                ))}
-              </div>
+              <Label htmlFor="rsr-kennels">
+                Kennels to include
+              </Label>
+              <Input
+                id="rsr-kennels"
+                placeholder="e.g., NYCH3, NYCH4, LBH3"
+                value={kennelNames}
+                onChange={(e) => setKennelNames(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Comma-separated kennel short names. You don&apos;t need to manage
+                all of them — the admin will coordinate.
+              </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="rsr-message">Message (optional)</Label>
+              <Label htmlFor="rsr-message">Additional details (optional)</Label>
               <Textarea
                 id="rsr-message"
                 placeholder="Why should these kennels share a roster?"
@@ -170,7 +155,7 @@ export function RequestSharedRosterSection({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isPending || !name.trim() || selectedIds.size < 2}
+              disabled={isPending || !name.trim() || !kennelNames.trim()}
             >
               {isPending ? "Submitting..." : "Submit Request"}
             </Button>
