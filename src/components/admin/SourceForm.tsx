@@ -527,6 +527,8 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
               <SheetsConfigPanel
                 config={configObj as SheetsConfig | null}
                 onChange={handleConfigChange}
+                sampleRows={previewData?.sampleRows}
+                geminiAvailable={geminiAvailable}
               />
             </div>
           )}

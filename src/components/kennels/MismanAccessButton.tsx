@@ -19,6 +19,7 @@ import { requestMismanAccess } from "@/app/misman/actions";
 interface MismanAccessButtonProps {
   kennelId: string;
   kennelShortName: string;
+  kennelSlug: string;
   userRole: string | null; // "MEMBER", "MISMAN", "ADMIN", or null (not subscribed)
   hasPendingRequest: boolean;
   isAuthenticated: boolean;
@@ -27,6 +28,7 @@ interface MismanAccessButtonProps {
 export function MismanAccessButton({
   kennelId,
   kennelShortName,
+  kennelSlug,
   userRole,
   hasPendingRequest,
   isAuthenticated,
@@ -43,7 +45,7 @@ export function MismanAccessButton({
   if (userRole === "MISMAN" || userRole === "ADMIN") {
     return (
       <Button variant="outline" size="sm" asChild>
-        <a href={`/misman`}>Misman Dashboard</a>
+        <a href={`/misman/${kennelSlug}/attendance`}>Misman Dashboard</a>
       </Button>
     );
   }
