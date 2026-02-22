@@ -50,6 +50,10 @@ import {
   SheetsConfigPanel,
   type SheetsConfig,
 } from "./config-panels/SheetsConfigPanel";
+import {
+  MeetupConfigPanel,
+  type MeetupConfig,
+} from "./config-panels/MeetupConfigPanel";
 
 const SOURCE_TYPES = [
   "HTML_SCRAPER",
@@ -57,6 +61,7 @@ const SOURCE_TYPES = [
   "GOOGLE_SHEETS",
   "ICAL_FEED",
   "HASHREGO",
+  "MEETUP",
   "RSS_FEED",
   "JSON_API",
   "MANUAL",
@@ -68,10 +73,11 @@ const CONFIG_TYPES = new Set([
   "GOOGLE_SHEETS",
   "ICAL_FEED",
   "HASHREGO",
+  "MEETUP",
 ]);
 
 /** Types that get a dedicated config panel (vs raw JSON) */
-const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HASHREGO", "GOOGLE_SHEETS"]);
+const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HASHREGO", "GOOGLE_SHEETS", "MEETUP"]);
 
 type SourceData = {
   id: string;
@@ -173,11 +179,12 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
   function getPanelType(
     type: string,
     config: Record<string, unknown> | null,
-  ): "ical" | "calendar" | "hashrego" | "sheets" | null {
+  ): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | null {
     if (type === "ICAL_FEED" || (type === "HTML_SCRAPER" && hasICalConfigShape(config))) return "ical";
     if (type === "GOOGLE_CALENDAR") return "calendar";
     if (type === "HASHREGO") return "hashrego";
     if (type === "GOOGLE_SHEETS") return "sheets";
+    if (type === "MEETUP") return "meetup";
     return null;
   }
 
@@ -192,7 +199,7 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
   }
 
   /** Sync structured config object → raw JSON string */
-  function handleConfigChange(newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig) {
+  function handleConfigChange(newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig | MeetupConfig) {
     // Clean undefined values
     const entries = Object.entries(newConfig).filter(
       ([, v]) => v !== undefined,
@@ -529,6 +536,18 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
                 onChange={handleConfigChange}
                 sampleRows={previewData?.sampleRows}
                 geminiAvailable={geminiAvailable}
+              />
+            </div>
+          )}
+
+          {panelType === "meetup" && (
+            <div className="space-y-2 rounded-md border p-4">
+              <Label className="text-sm font-semibold">
+                Meetup Configuration
+              </Label>
+              <MeetupConfigPanel
+                config={configObj as MeetupConfig | null}
+                onChange={handleConfigChange}
               />
             </div>
           )}

@@ -50,6 +50,11 @@ export function detectSourceType(rawUrl: string): SourceDetectResult | null {
     return { type: "HASHREGO" };
   }
 
+  // Meetup.com
+  if (url.hostname === "meetup.com" || url.hostname.endsWith(".meetup.com")) {
+    return { type: "MEETUP" };
+  }
+
   // iCal feed: .ics extension or ical/ics in query params, or webcal scheme
   const isIcal =
     url.pathname.toLowerCase().endsWith(".ics") ||

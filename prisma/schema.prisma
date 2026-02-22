@@ -152,6 +152,7 @@ enum SourceType {
   RSS_FEED        // RSS/Atom feed
   JSON_API        // Generic JSON API
   HASHREGO        // hashrego.com event pages
+  MEETUP          // meetup.com group events
   MANUAL          // User-submitted events
 }
 
