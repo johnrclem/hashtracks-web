@@ -164,25 +164,80 @@ export class ICalAdapter implements SourceAdapter {
 
     // Step 1: Fetch the ICS content
     let icsText: string;
+    let contentType: string | undefined;
     try {
       const resp = await fetch(source.url, {
         headers: { "User-Agent": "HashTracks-Scraper" },
       });
+
+      contentType = resp.headers.get("content-type") ?? undefined;
 
       if (!resp.ok) {
         const body = await resp.text().catch(() => "");
         const message = `iCal fetch failed ${resp.status}: ${body.substring(0, 500)}`;
         errors.push(message);
         errorDetails.fetch = [{ url: source.url, status: resp.status, message }];
-        return { events, errors, errorDetails };
+        return {
+          events,
+          errors,
+          errorDetails,
+          diagnosticContext: {
+            url: source.url,
+            totalVEvents: 0,
+            eventsExtracted: 0,
+            skippedDateRange: 0,
+            skippedPattern: 0,
+            fetchDurationMs: Date.now() - fetchStart,
+            icsBytes: 0,
+            contentType,
+          },
+        };
       }
 
       icsText = await resp.text();
+
+      // Validate response is actually ICS content (not HTML from a deactivated plugin, etc.)
+      const trimmed = icsText.trimStart().replace(/^\uFEFF/, ""); // strip BOM
+      if (!trimmed.startsWith("BEGIN:VCALENDAR")) {
+        const preview = icsText.substring(0, 200).replace(/\n/g, "\\n");
+        const message = `Response is not valid ICS (content-type: ${contentType ?? "unknown"}, starts with: "${preview}")`;
+        errors.push(message);
+        errorDetails.fetch = [{ url: source.url, message }];
+        return {
+          events,
+          errors,
+          errorDetails,
+          diagnosticContext: {
+            url: source.url,
+            totalVEvents: 0,
+            eventsExtracted: 0,
+            skippedDateRange: 0,
+            skippedPattern: 0,
+            fetchDurationMs: Date.now() - fetchStart,
+            icsBytes: icsText.length,
+            contentType,
+            bodyPreview: preview,
+          },
+        };
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push(`iCal fetch error: ${message}`);
       errorDetails.fetch = [{ url: source.url, message }];
-      return { events, errors, errorDetails };
+      return {
+        events,
+        errors,
+        errorDetails,
+        diagnosticContext: {
+          url: source.url,
+          totalVEvents: 0,
+          eventsExtracted: 0,
+          skippedDateRange: 0,
+          skippedPattern: 0,
+          fetchDurationMs: Date.now() - fetchStart,
+          icsBytes: 0,
+        },
+      };
     }
 
     const fetchDurationMs = Date.now() - fetchStart;
@@ -195,7 +250,21 @@ export class ICalAdapter implements SourceAdapter {
       const message = err instanceof Error ? err.message : String(err);
       errors.push(`iCal parse error: ${message}`);
       errorDetails.parse = [{ row: 0, error: message }];
-      return { events, errors, errorDetails };
+      return {
+        events,
+        errors,
+        errorDetails,
+        diagnosticContext: {
+          url: source.url,
+          totalVEvents: 0,
+          eventsExtracted: 0,
+          skippedDateRange: 0,
+          skippedPattern: 0,
+          fetchDurationMs,
+          icsBytes: icsText.length,
+          contentType,
+        },
+      };
     }
 
     // Step 3: Process VEVENT entries
@@ -290,10 +359,15 @@ export class ICalAdapter implements SourceAdapter {
         const message = err instanceof Error ? err.message : String(err);
         const summary = paramValue(vevent.summary) ?? "unknown";
         errors.push(`Event parse error (${summary}): ${message}`);
+        const rawParts = [`Summary: ${summary}`];
+        if (vevent.description) rawParts.push(`Description: ${paramValue(vevent.description) ?? ""}`);
+        if (vevent.location) rawParts.push(`Location: ${paramValue(vevent.location) ?? ""}`);
+        if (vevent.start) rawParts.push(`Start: ${String(vevent.start)}`);
         parseErrors.push({
           row: eventIndex,
           section: "vevent",
           error: message,
+          rawText: rawParts.join("\n").slice(0, 2000),
           partialData: {
             kennelTag: summary,
             date: vevent.start ? formatDate(vevent.start) : undefined,
@@ -322,6 +396,7 @@ export class ICalAdapter implements SourceAdapter {
         skippedPattern,
         fetchDurationMs,
         icsBytes: icsText.length,
+        contentType,
       },
     };
   }

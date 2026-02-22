@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { deleteSource } from "@/app/admin/sources/actions";
+import { deleteSource, toggleSourceEnabled } from "@/app/admin/sources/actions";
 import {
   Table,
   TableBody,
@@ -50,11 +50,14 @@ type SourceData = {
   lastSuccessAt: string | null;
   linkedKennels: { id: string; shortName: string; fullName: string }[];
   rawEventCount: number;
+  openAlertTags: string[];
+  enabled: boolean;
 };
 
 interface SourceTableProps {
   sources: SourceData[];
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
+  geminiAvailable?: boolean;
 }
 
 const healthColors: Record<string, string> = {
@@ -91,7 +94,7 @@ function relativeTime(dateStr: string): string {
   return `${diffDay}d ago`;
 }
 
-export function SourceTable({ sources, allKennels }: SourceTableProps) {
+export function SourceTable({ sources, allKennels, geminiAvailable }: SourceTableProps) {
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedHealth, setSelectedHealth] = useState<string[]>([]);
@@ -161,7 +164,7 @@ export function SourceTable({ sources, allKennels }: SourceTableProps) {
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="start">
+          <PopoverContent className="w-80 max-w-[calc(100vw-2rem)] p-0" align="start">
             <Command>
               <CommandInput placeholder="Search kennels..." />
               <CommandList>
@@ -297,11 +300,11 @@ export function SourceTable({ sources, allKennels }: SourceTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Type</TableHead>
+            <TableHead className="hidden sm:table-cell">Type</TableHead>
             <TableHead>Health</TableHead>
-            <TableHead>Last Scrape</TableHead>
-            <TableHead className="text-center">Linked</TableHead>
-            <TableHead className="text-center">Raw Events</TableHead>
+            <TableHead className="hidden sm:table-cell">Last Scrape</TableHead>
+            <TableHead className="hidden sm:table-cell text-center">Linked</TableHead>
+            <TableHead className="hidden sm:table-cell text-center">Raw Events</TableHead>
             <TableHead className="w-10"></TableHead>
           </TableRow>
         </TableHeader>
@@ -311,6 +314,7 @@ export function SourceTable({ sources, allKennels }: SourceTableProps) {
               key={source.id}
               source={source}
               allKennels={allKennels}
+              geminiAvailable={geminiAvailable}
             />
           ))}
         </TableBody>
@@ -322,14 +326,29 @@ export function SourceTable({ sources, allKennels }: SourceTableProps) {
 function SourceRow({
   source,
   allKennels,
+  geminiAvailable,
 }: {
   source: SourceData;
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
+  geminiAvailable?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const router = useRouter();
+
+  function handleToggleEnabled() {
+    setMenuOpen(false);
+    startTransition(async () => {
+      const result = await toggleSourceEnabled(source.id, !source.enabled);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(source.enabled ? "Source disabled" : "Source enabled");
+      }
+      router.refresh();
+    });
+  }
 
   function handleDelete() {
     if (!confirm(`Delete source "${source.name}"? This cannot be undone.`)) {
@@ -401,18 +420,25 @@ function SourceRow({
     : null;
 
   return (
-    <TableRow>
+    <TableRow className={!source.enabled ? "opacity-50" : undefined}>
       <TableCell>
-        <div className="max-w-[280px]">
-          <Link href={`/admin/sources/${source.id}`} className="font-medium hover:underline">
-            {source.name}
-          </Link>
+        <div className="max-w-[200px] sm:max-w-[280px]">
+          <div className="flex items-center gap-1.5">
+            <Link href={`/admin/sources/${source.id}`} className="font-medium hover:underline">
+              {source.name}
+            </Link>
+            {!source.enabled && (
+              <Badge variant="outline" className="text-[10px] text-muted-foreground border-muted-foreground/30">
+                disabled
+              </Badge>
+            )}
+          </div>
           <p className="truncate text-xs text-muted-foreground" title={source.url}>
             {source.url}
           </p>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         <Badge variant="outline" className="text-xs">
           {TYPE_LABELS[source.type] ?? source.type}
         </Badge>
@@ -437,7 +463,7 @@ function SourceRow({
           )}
         </div>
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
+      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
         {source.lastScrapeAt ? (
           <span title={fullDate ?? undefined}>
             {relativeTime(source.lastScrapeAt)}
@@ -446,7 +472,7 @@ function SourceRow({
           "Never"
         )}
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="hidden sm:table-cell text-center">
         {source.linkedKennels.length > 0 ? (
           <Tooltip>
             <TooltipTrigger className="cursor-help">
@@ -460,7 +486,7 @@ function SourceRow({
           <span className="text-muted-foreground">0</span>
         )}
       </TableCell>
-      <TableCell className="text-center">{source.rawEventCount}</TableCell>
+      <TableCell className="hidden sm:table-cell text-center">{source.rawEventCount}</TableCell>
       <TableCell>
         <Popover open={menuOpen} onOpenChange={setMenuOpen}>
           <PopoverTrigger asChild>
@@ -482,6 +508,8 @@ function SourceRow({
                 config: source.config,
                 linkedKennelIds: source.linkedKennels.map((k) => k.id),
               }}
+              openAlertTags={source.openAlertTags}
+              geminiAvailable={geminiAvailable}
               allKennels={allKennels}
               trigger={
                 <button
@@ -506,6 +534,13 @@ function SourceRow({
               disabled={isScraping}
             >
               Force Scrape
+            </button>
+            <button
+              className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent disabled:opacity-50"
+              onClick={handleToggleEnabled}
+              disabled={isPending}
+            >
+              {source.enabled ? "Disable" : "Enable"}
             </button>
             <div className="my-1 border-t" />
             <button

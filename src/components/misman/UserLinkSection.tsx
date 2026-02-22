@@ -23,6 +23,7 @@ import {
   createProfileInvite,
   revokeProfileInvite,
 } from "@/app/misman/[slug]/roster/actions";
+import { InfoPopover } from "@/components/ui/info-popover";
 
 interface UserLinkData {
   id: string;
@@ -173,7 +174,16 @@ export function UserLinkSection({
 
   return (
     <div className="rounded-lg border p-4 space-y-3">
-      <h3 className="text-sm font-semibold">User Link</h3>
+      <div className="flex items-center gap-1.5">
+        <h3 className="text-sm font-semibold">User Link</h3>
+        <InfoPopover title="User Linking">
+          Roster entries exist independently of site accounts. When a hasher
+          creates a HashTracks account, you can link them using &ldquo;Find
+          Match&rdquo; (searches by name/email) or &ldquo;Send Invite&rdquo;
+          (generates a link to share). Once linked, their attendance is
+          cross-verified between your records and their check-ins.
+        </InfoPopover>
+      </div>
 
       {/* No link */}
       {isUnlinked && !hasActiveInvite && (

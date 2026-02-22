@@ -19,6 +19,7 @@ model User {
   nerdName    String?      // Real name (private by default)
   email       String       @unique
   bio         String?
+  timeDisplayPref TimeDisplayPref @default(EVENT_LOCAL)
   homeKennels UserKennel[]
   attendances Attendance[]
   hareCredits EventHare[]
@@ -31,6 +32,11 @@ model User {
   rosterGroupRequests   RosterGroupRequest[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+}
+
+enum TimeDisplayPref {
+  EVENT_LOCAL
+  USER_LOCAL
 }
 
 model UserKennel {
@@ -128,6 +134,7 @@ model Source {
   lastSuccessAt DateTime?
   healthStatus  SourceHealth @default(UNKNOWN)
   scrapeDays    Int          @default(90) // Lookback window in days for cron
+  enabled       Boolean      @default(true) // False = skip in cron (temporary disable)
   kennels       SourceKennel[]
   rawEvents     RawEvent[]
   scrapeLogs    ScrapeLog[]
@@ -158,7 +165,8 @@ model ScrapeLog {
   eventsFound   Int          @default(0)
   eventsCreated Int          @default(0)
   eventsUpdated Int          @default(0)
-  eventsSkipped Int          @default(0)
+  eventsSkipped   Int          @default(0)
+  eventsCancelled Int          @default(0) // Events marked CANCELLED by reconciliation
   unmatchedTags String[]
   errors        String[]
   forced        Boolean      @default(false)

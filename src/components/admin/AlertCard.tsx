@@ -176,9 +176,9 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
   }
 
   return (
-    <div className={`rounded-md border bg-card p-4 ${style.border}`}>
+    <div className={`rounded-md border bg-card p-3 sm:p-4 ${style.border}`}>
       {/* Header */}
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={style.badge}>{alert.severity}</Badge>
           <Badge variant="outline">
@@ -261,7 +261,7 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
           {repairLog.slice(-3).map((entry, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 text-[11px] text-muted-foreground"
+              className="flex items-center gap-2 text-xs text-muted-foreground"
             >
               <span
                 className={`inline-block w-1.5 h-1.5 rounded-full ${entry.result === "success" ? "bg-green-500" : "bg-red-500"}`}

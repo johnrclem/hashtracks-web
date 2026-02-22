@@ -92,16 +92,72 @@ describe("fetchBloggerPosts", () => {
     expect(postsCall).toContain("maxResults=10");
   });
 
-  it("returns error when blog lookup fails with 404", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      new Response("Not Found", { status: 404 }) as never,
-    );
+  it("returns error when blog lookup fails with 404 on both URL schemes", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response("Not Found", { status: 404 }) as never,
+      )
+      .mockResolvedValueOnce(
+        new Response("Not Found", { status: 404 }) as never,
+      );
 
     const result = await fetchBloggerPosts("http://www.nonexistent.com/");
 
     expect(result.posts).toHaveLength(0);
     expect(result.error?.status).toBe(404);
     expect(result.error?.message).toContain("blog lookup failed");
+    // Should have tried both http and https
+    expect(vi.mocked(fetch).mock.calls).toHaveLength(2);
+  });
+
+  it("retries with HTTPS when HTTP blog lookup returns 404", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response("Not Found", { status: 404 }) as never,
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "99999" }), { status: 200 }) as never,
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [{ title: "Run #1", content: "<p>Content</p>", url: "http://example.com/run-1.html", published: "2026-01-01T12:00:00Z" }],
+          }),
+          { status: 200 },
+        ) as never,
+      );
+
+    const result = await fetchBloggerPosts("http://www.example.com/");
+
+    expect(result.error).toBeUndefined();
+    expect(result.blogId).toBe("99999");
+    expect(result.posts).toHaveLength(1);
+
+    const calls = vi.mocked(fetch).mock.calls;
+    expect(calls[0][0]).toContain("url=http%3A%2F%2Fwww.example.com%2F");
+    expect(calls[1][0]).toContain("url=https%3A%2F%2Fwww.example.com%2F");
+  });
+
+  it("retries with HTTP when HTTPS blog lookup returns 404", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response("Not Found", { status: 404 }) as never,
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "88888" }), { status: 200 }) as never,
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ items: [] }), { status: 200 }) as never,
+      );
+
+    const result = await fetchBloggerPosts("https://www.example.com/");
+
+    expect(result.error).toBeUndefined();
+    expect(result.blogId).toBe("88888");
+
+    const calls = vi.mocked(fetch).mock.calls;
+    expect(calls[0][0]).toContain("url=https%3A%2F%2Fwww.example.com%2F");
+    expect(calls[1][0]).toContain("url=http%3A%2F%2Fwww.example.com%2F");
   });
 
   it("returns error when blog lookup fails with 403 (API not enabled)", async () => {

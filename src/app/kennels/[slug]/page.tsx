@@ -46,7 +46,7 @@ export default async function KennelDetailPage({
   const [user, events] = await Promise.all([
     getOrCreateUser(),
     prisma.event.findMany({
-      where: { kennelId: kennel.id },
+      where: { kennelId: kennel.id, status: { not: "CANCELLED" } },
       include: {
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
@@ -80,6 +80,8 @@ export default async function KennelDetailPage({
   const serialized: HarelineEvent[] = events.map((e) => ({
     id: e.id,
     date: e.date.toISOString(),
+    dateUtc: e.dateUtc,
+    timezone: e.timezone,
     kennelId: e.kennelId,
     kennel: e.kennel,
     runNumber: e.runNumber,
@@ -143,6 +145,7 @@ export default async function KennelDetailPage({
         <MismanAccessButton
           kennelId={kennel.id}
           kennelShortName={kennel.shortName}
+          kennelSlug={kennel.slug}
           userRole={userRole}
           hasPendingRequest={hasPendingMismanRequest}
           isAuthenticated={!!user}

@@ -1,10 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StringArrayEditor } from "./StringArrayEditor";
+import {
+  getGeminiSheetsSuggestions,
+  type SheetsColumnSuggestion,
+  type SheetsColumnField,
+} from "@/app/admin/sources/gemini-sheets-action";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface SheetsConfig {
   sheetId?: string;
@@ -32,6 +38,10 @@ export interface SheetsConfig {
 interface SheetsConfigPanelProps {
   config: SheetsConfig | null;
   onChange: (config: SheetsConfig) => void;
+  /** Raw CSV rows from first tab — enables "✨ Suggest Columns" button */
+  sampleRows?: string[][];
+  /** Whether GEMINI_API_KEY is configured */
+  geminiAvailable?: boolean;
 }
 
 const REQUIRED_COLUMNS = [
@@ -51,9 +61,17 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 type ColumnKey = (typeof REQUIRED_COLUMNS)[number]["key"] | (typeof OPTIONAL_COLUMNS)[number]["key"];
 
+function confidenceClasses(confidence: number): string {
+  if (confidence >= 0.8) return "border-green-300 bg-green-50 text-green-800";
+  if (confidence >= 0.5) return "border-amber-300 bg-amber-50 text-amber-800";
+  return "border-gray-200 bg-gray-50 text-gray-600";
+}
+
 export function SheetsConfigPanel({
   config,
   onChange,
+  sampleRows,
+  geminiAvailable,
 }: SheetsConfigPanelProps) {
   const current = config ?? {};
   const columns = current.columns ?? {};
@@ -62,6 +80,65 @@ export function SheetsConfigPanel({
   const [showTimeRules, setShowTimeRules] = useState(
     !!current.startTimeRules,
   );
+
+  // AI column suggestion state
+  const [aiSuggestions, setAiSuggestions] = useState<SheetsColumnSuggestion[] | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [isSuggesting, startSuggesting] = useTransition();
+
+  // Reset suggestions whenever new sample data arrives (e.g. user re-ran "Test Config")
+  const prevSampleRows = useRef<string[][] | undefined>(undefined);
+  useEffect(() => {
+    if (sampleRows !== prevSampleRows.current) {
+      prevSampleRows.current = sampleRows;
+      if (sampleRows && sampleRows.length > 0) {
+        setAiSuggestions(null);
+        setAiError(null);
+      }
+    }
+  }, [sampleRows]);
+
+  const suggestionByField = new Map<SheetsColumnField, SheetsColumnSuggestion>(
+    (aiSuggestions ?? []).map((s) => [s.field, s]),
+  );
+
+  const showAiButton =
+    geminiAvailable &&
+    sampleRows &&
+    sampleRows.length > 0 &&
+    !isSuggesting;
+
+  function handleSuggestColumns() {
+    setAiError(null);
+    startSuggesting(async () => {
+      const result = await getGeminiSheetsSuggestions(
+        sampleRows!,
+        config as Record<string, unknown> | null,
+      );
+      if (result.error) {
+        setAiError(result.error);
+      } else {
+        setAiSuggestions(result.suggestions ?? []);
+      }
+    });
+  }
+
+  function acceptSuggestion(s: SheetsColumnSuggestion) {
+    const key = s.field as ColumnKey;
+    const updated = { ...columns, [key]: s.columnIndex };
+    onChange({ ...current, columns: updated });
+    setAiSuggestions((prev) => (prev ? prev.filter((x) => x.field !== s.field) : prev));
+  }
+
+  function acceptAll() {
+    if (!aiSuggestions) return;
+    const updated = { ...columns };
+    for (const s of aiSuggestions) {
+      (updated as Record<string, number | undefined>)[s.field] = s.columnIndex;
+    }
+    onChange({ ...current, columns: updated });
+    setAiSuggestions([]);
+  }
 
   function updateColumn(key: ColumnKey, raw: string) {
     const val = raw === "" ? undefined : parseInt(raw, 10);
@@ -153,36 +230,114 @@ export function SheetsConfigPanel({
 
       {/* Section 2: Column Mapping */}
       <div className="space-y-2">
-        <Label>Column Mapping</Label>
+        <div className="flex items-center justify-between">
+          <Label>Column Mapping</Label>
+          {showAiButton && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              onClick={handleSuggestColumns}
+            >
+              ✨ Suggest Columns
+            </Button>
+          )}
+          {isSuggesting && (
+            <span className="text-xs text-muted-foreground animate-pulse">Thinking…</span>
+          )}
+          {aiSuggestions && aiSuggestions.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs border-green-300 text-green-700 hover:bg-green-50"
+              onClick={acceptAll}
+            >
+              ✓ Accept All
+            </Button>
+          )}
+        </div>
         <p className="text-xs text-muted-foreground">
           0-indexed column positions in the spreadsheet. Required columns
           marked with *.
         </p>
+        {aiError && (
+          <p className="text-xs text-destructive">{aiError}</p>
+        )}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {REQUIRED_COLUMNS.map(({ key, label }) => (
-            <div key={key} className="space-y-1">
-              <Label className="text-xs">{label}</Label>
-              <Input
-                type="number"
-                min="0"
-                value={columns[key] ?? ""}
-                onChange={(e) => updateColumn(key, e.target.value)}
-                className="text-sm"
-              />
-            </div>
-          ))}
-          {OPTIONAL_COLUMNS.map(({ key, label }) => (
-            <div key={key} className="space-y-1">
-              <Label className="text-xs text-muted-foreground">{label}</Label>
-              <Input
-                type="number"
-                min="0"
-                value={columns[key] ?? ""}
-                onChange={(e) => updateColumn(key, e.target.value)}
-                className="text-sm"
-              />
-            </div>
-          ))}
+          {REQUIRED_COLUMNS.map(({ key, label }) => {
+            const suggestion = suggestionByField.get(key as SheetsColumnField);
+            return (
+              <div key={key} className="space-y-1">
+                <Label className="text-xs">{label}</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={columns[key] ?? ""}
+                  onChange={(e) => updateColumn(key, e.target.value)}
+                  className="text-sm"
+                />
+                {suggestion && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => acceptSuggestion(suggestion)}
+                        className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-mono cursor-pointer hover:opacity-80 ${confidenceClasses(suggestion.confidence)}`}
+                      >
+                        → col {suggestion.columnIndex} ({Math.round(suggestion.confidence * 100)}%) ✓
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-xs">{suggestion.reason}</p>
+                      {suggestion.sampleValues.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Samples: {suggestion.sampleValues.join(", ")}
+                        </p>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            );
+          })}
+          {OPTIONAL_COLUMNS.map(({ key, label }) => {
+            const suggestion = suggestionByField.get(key as SheetsColumnField);
+            return (
+              <div key={key} className="space-y-1">
+                <Label className="text-xs text-muted-foreground">{label}</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={columns[key] ?? ""}
+                  onChange={(e) => updateColumn(key, e.target.value)}
+                  className="text-sm"
+                />
+                {suggestion && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => acceptSuggestion(suggestion)}
+                        className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-mono cursor-pointer hover:opacity-80 ${confidenceClasses(suggestion.confidence)}`}
+                      >
+                        → col {suggestion.columnIndex} ({Math.round(suggestion.confidence * 100)}%) ✓
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-xs">{suggestion.reason}</p>
+                      {suggestion.sampleValues.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Samples: {suggestion.sampleValues.join(", ")}
+                        </p>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

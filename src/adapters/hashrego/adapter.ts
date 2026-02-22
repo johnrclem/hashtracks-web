@@ -114,7 +114,7 @@ export class HashRegoAdapter implements SourceAdapter {
         errors.push(msg);
         errorDetails.parse = [
           ...(errorDetails.parse ?? []),
-          { row: 0, section: entry.slug, error: String(err) },
+          { row: 0, section: entry.slug, error: String(err), rawText: `Slug: ${entry.slug}\nTitle: ${entry.title ?? "unknown"}\nDate: ${entry.startDate ?? "unknown"}`.slice(0, 2000) },
         ];
 
         // Fallback: create basic event from index data

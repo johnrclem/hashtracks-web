@@ -11,7 +11,9 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     userKennel: {
+      findFirst: vi.fn(),
       findUnique: vi.fn(),
+      create: vi.fn(),
       upsert: vi.fn(),
     },
     mismanRequest: {
@@ -28,18 +30,21 @@ import { getOrCreateUser, getMismanUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
   requestMismanAccess,
+  requestMismanAccessFromDashboard,
   approveMismanRequest,
   rejectMismanRequest,
 } from "./actions";
 
 const mockAuth = vi.mocked(getOrCreateUser);
 const mockMismanAuth = vi.mocked(getMismanUser);
+const mockUserKennelFindFirst = vi.mocked(prisma.userKennel.findFirst);
 const mockUserKennelFind = vi.mocked(prisma.userKennel.findUnique);
+const mockUserKennelCreate = vi.mocked(prisma.userKennel.create);
 const mockMismanRequestFindFirst = vi.mocked(prisma.mismanRequest.findFirst);
 const mockMismanRequestFindUnique = vi.mocked(prisma.mismanRequest.findUnique);
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   mockAuth.mockResolvedValue(mockUser as never);
 });
 
@@ -211,6 +216,96 @@ describe("rejectMismanRequest", () => {
         status: "REJECTED",
         resolvedBy: "misman_1",
       }),
+    });
+  });
+});
+
+describe("requestMismanAccessFromDashboard", () => {
+  it("returns error when not authenticated", async () => {
+    mockAuth.mockResolvedValueOnce(null);
+    expect(await requestMismanAccessFromDashboard("kennel_1")).toEqual({
+      error: "Not authenticated",
+    });
+  });
+
+  it("returns error when user is not misman of any kennel", async () => {
+    mockUserKennelFindFirst.mockResolvedValueOnce(null);
+    expect(await requestMismanAccessFromDashboard("kennel_1")).toEqual({
+      error: "You must be misman of at least one kennel",
+    });
+  });
+
+  it("returns error when already has misman access", async () => {
+    mockUserKennelFindFirst.mockResolvedValueOnce({ id: "uk_1" } as never);
+    mockUserKennelFind.mockResolvedValueOnce({ role: "MISMAN" } as never);
+    expect(await requestMismanAccessFromDashboard("kennel_2")).toEqual({
+      error: "You already have misman access for this kennel",
+    });
+  });
+
+  it("returns error when already has admin access", async () => {
+    mockUserKennelFindFirst.mockResolvedValueOnce({ id: "uk_1" } as never);
+    mockUserKennelFind.mockResolvedValueOnce({ role: "ADMIN" } as never);
+    expect(await requestMismanAccessFromDashboard("kennel_2")).toEqual({
+      error: "You already have misman access for this kennel",
+    });
+  });
+
+  it("returns error when pending request exists", async () => {
+    mockUserKennelFindFirst.mockResolvedValueOnce({ id: "uk_1" } as never);
+    mockUserKennelFind.mockResolvedValueOnce({ role: "MEMBER" } as never);
+    mockMismanRequestFindFirst.mockResolvedValueOnce({ id: "existing" } as never);
+    expect(await requestMismanAccessFromDashboard("kennel_2")).toEqual({
+      error: "You already have a pending request for this kennel",
+    });
+  });
+
+  it("auto-subscribes and creates request when not subscribed", async () => {
+    mockUserKennelFindFirst.mockResolvedValueOnce({ id: "uk_1" } as never);
+    mockUserKennelFind.mockResolvedValueOnce(null);
+    mockMismanRequestFindFirst.mockResolvedValueOnce(null);
+
+    const result = await requestMismanAccessFromDashboard("kennel_2", "I manage this kennel");
+    expect(result).toEqual({ success: true });
+
+    expect(mockUserKennelCreate).toHaveBeenCalledWith({
+      data: { userId: "user_1", kennelId: "kennel_2", role: "MEMBER" },
+    });
+    expect(prisma.mismanRequest.create).toHaveBeenCalledWith({
+      data: {
+        userId: "user_1",
+        kennelId: "kennel_2",
+        message: "I manage this kennel",
+      },
+    });
+  });
+
+  it("creates request without auto-subscribe when already subscribed", async () => {
+    mockUserKennelFindFirst.mockResolvedValueOnce({ id: "uk_1" } as never);
+    mockUserKennelFind.mockResolvedValueOnce({ role: "MEMBER" } as never);
+    mockMismanRequestFindFirst.mockResolvedValueOnce(null);
+
+    const result = await requestMismanAccessFromDashboard("kennel_2", "test");
+    expect(result).toEqual({ success: true });
+
+    expect(mockUserKennelCreate).not.toHaveBeenCalled();
+    expect(prisma.mismanRequest.create).toHaveBeenCalledWith({
+      data: {
+        userId: "user_1",
+        kennelId: "kennel_2",
+        message: "test",
+      },
+    });
+  });
+
+  it("trims empty message to null", async () => {
+    mockUserKennelFindFirst.mockResolvedValueOnce({ id: "uk_1" } as never);
+    mockUserKennelFind.mockResolvedValueOnce(null);
+    mockMismanRequestFindFirst.mockResolvedValueOnce(null);
+
+    await requestMismanAccessFromDashboard("kennel_2", "  ");
+    expect(prisma.mismanRequest.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ message: null }),
     });
   });
 });

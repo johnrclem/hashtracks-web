@@ -29,7 +29,8 @@ export default async function AdminLayout({
       </div>
 
       <Tabs defaultValue="requests">
-        <TabsList>
+        <div className="overflow-x-auto -mx-1 px-1">
+        <TabsList className="inline-flex w-max">
           <TabsTrigger value="requests" asChild>
             <Link href="/admin/requests">Requests</Link>
           </TabsTrigger>
@@ -66,6 +67,7 @@ export default async function AdminLayout({
             </Link>
           </TabsTrigger>
         </TabsList>
+        </div>
       </Tabs>
 
       {children}

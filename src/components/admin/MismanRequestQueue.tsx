@@ -80,9 +80,9 @@ export function MismanRequestQueue({ requests, kennels }: MismanRequestQueueProp
             <TableRow>
               <TableHead>User</TableHead>
               <TableHead>Kennel</TableHead>
-              <TableHead>Message</TableHead>
+              <TableHead className="hidden sm:table-cell">Message</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead className="hidden sm:table-cell">Date</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -419,13 +419,13 @@ function MismanRequestRowComponent({
       <TableCell className="font-medium">
         {request.kennel.shortName}
       </TableCell>
-      <TableCell className="max-w-48 truncate">
+      <TableCell className="hidden sm:table-cell max-w-48 truncate">
         {request.message ?? "—"}
       </TableCell>
       <TableCell>
         <Badge variant={statusVariant}>{request.status}</Badge>
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
+      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
         {new Date(request.createdAt).toLocaleDateString()}
       </TableCell>
       <TableCell className="text-right">

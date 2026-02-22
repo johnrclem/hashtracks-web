@@ -43,10 +43,10 @@ export function RequestQueue({ requests }: RequestQueueProps) {
         <TableRow>
           <TableHead>Kennel Name</TableHead>
           <TableHead>Region</TableHead>
-          <TableHead>Source URL</TableHead>
-          <TableHead>Notes</TableHead>
+          <TableHead className="hidden sm:table-cell">Source URL</TableHead>
+          <TableHead className="hidden sm:table-cell">Notes</TableHead>
           <TableHead>Status</TableHead>
-          <TableHead>Date</TableHead>
+          <TableHead className="hidden sm:table-cell">Date</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -88,7 +88,7 @@ function RequestRow({ request }: { request: KennelRequest }) {
     <TableRow>
       <TableCell className="font-medium">{request.kennelName}</TableCell>
       <TableCell>{request.region ?? "—"}</TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         {request.sourceUrl ? (
           <a
             href={request.sourceUrl}
@@ -102,13 +102,13 @@ function RequestRow({ request }: { request: KennelRequest }) {
           "—"
         )}
       </TableCell>
-      <TableCell className="max-w-48 truncate">
+      <TableCell className="hidden sm:table-cell max-w-48 truncate">
         {request.notes ?? "—"}
       </TableCell>
       <TableCell>
         <Badge variant={statusVariant}>{request.status}</Badge>
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
+      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
         {new Date(request.createdAt).toLocaleDateString()}
       </TableCell>
       <TableCell className="text-right">

@@ -10,6 +10,7 @@ import { HarelineView } from "@/components/hareline/HarelineView";
 
 export default async function HarelinePage() {
   const events = await prisma.event.findMany({
+    where: { status: { not: "CANCELLED" } },
     include: {
       kennel: {
         select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
@@ -48,6 +49,8 @@ export default async function HarelinePage() {
   const serializedEvents = events.map((e) => ({
     id: e.id,
     date: e.date.toISOString(),
+    dateUtc: e.dateUtc,
+    timezone: e.timezone,
     kennelId: e.kennelId,
     kennel: e.kennel,
     runNumber: e.runNumber,

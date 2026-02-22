@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
+import { fetchWordPressPosts } from "../wordpress-api";
 
 const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
@@ -105,11 +106,54 @@ export function parseEwh3Body(text: string): {
 }
 
 /**
+ * Process a single post (from either WordPress API or HTML scrape) into a RawEventData.
+ * Returns null if the post cannot be parsed.
+ */
+function processPost(
+  titleText: string,
+  bodyText: string,
+  postUrl: string,
+  baseUrl: string,
+): RawEventData | null {
+  const parsed = parseEwh3Title(titleText);
+  if (!parsed || !parsed.date) return null;
+
+  const location = parsed.metro
+    ? parsed.metroLines
+      ? `${parsed.metro} (${parsed.metroLines})`
+      : parsed.metro
+    : undefined;
+
+  const bodyFields = parseEwh3Body(bodyText);
+
+  const descParts: string[] = [];
+  if (parsed.trailName) descParts.push(parsed.trailName);
+  if (bodyFields.endMetro) descParts.push(`End Metro: ${bodyFields.endMetro}`);
+  if (bodyFields.onAfter) descParts.push(`On After: ${bodyFields.onAfter}`);
+
+  return {
+    date: parsed.date,
+    kennelTag: "EWH3",
+    runNumber: parsed.runNumber ? Math.floor(parsed.runNumber) : undefined,
+    title: parsed.trailName,
+    hares: bodyFields.hares,
+    location,
+    startTime: "18:45", // EWH3 always runs at 6:45 PM
+    sourceUrl: postUrl.startsWith("http") ? postUrl : `${baseUrl.replace(/\/$/, "")}${postUrl}`,
+    description: descParts.length > 1 ? descParts.join(" | ") : undefined,
+  };
+}
+
+/**
  * EWH3 WordPress Trail News Scraper
  *
  * Scrapes ewh3.com for trail announcements. Each WordPress post title contains
  * rich structured data: trail number, trail name, date, metro station, and metro lines.
  * Post body contains additional fields: hares, on-after, end metro.
+ *
+ * Uses the WordPress REST API as primary fetch method (direct HTML scraping is
+ * blocked by cloud IP detection). Falls back to HTML scraping if the API is
+ * unavailable.
  */
 export class EWH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
@@ -120,7 +164,41 @@ export class EWH3Adapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://www.ewh3.com/";
 
+    // Try WordPress REST API first
+    const apiResult = await this.fetchViaWordPressApi(baseUrl);
+    if (apiResult) return apiResult;
+
+    // Fall back to HTML scraping
+    return this.fetchViaHtmlScrape(baseUrl);
+  }
+
+  private async fetchViaWordPressApi(baseUrl: string): Promise<ScrapeResult | null> {
+    const wpResult = await fetchWordPressPosts(baseUrl);
+
+    if (wpResult.error) return null;
+
     const events: RawEventData[] = [];
+
+    for (const post of wpResult.posts) {
+      const $ = cheerio.load(post.content);
+      const bodyText = $.text();
+      const event = processPost(post.title, bodyText, post.url, baseUrl);
+      if (event) events.push(event);
+    }
+
+    return {
+      events,
+      errors: [],
+      diagnosticContext: {
+        fetchMethod: "wordpress-api",
+        postsFound: wpResult.posts.length,
+        eventsParsed: events.length,
+        fetchDurationMs: wpResult.fetchDurationMs,
+      },
+    };
+  }
+
+  private async fetchViaHtmlScrape(baseUrl: string): Promise<ScrapeResult> {
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
@@ -148,55 +226,24 @@ export class EWH3Adapter implements SourceAdapter {
     const structureHash = generateStructureHash(html);
     const $ = cheerio.load(html);
 
+    const events: RawEventData[] = [];
+
     // Find all article post entries on the page
     const articles = $("article.post, article.type-post, article[class*='post-'], .hentry").toArray();
 
     for (let i = 0; i < articles.length; i++) {
       const article = $(articles[i]);
 
-      // Get the post title
       const titleEl = article.find(".entry-title a, h2.entry-title a, h2 a, h1.entry-title a").first();
       const titleText = titleEl.text().trim() || article.find(".entry-title, h2").first().text().trim();
       const postUrl = titleEl.attr("href") || baseUrl;
 
       if (!titleText) continue;
 
-      // Parse the title for structured data
-      const parsed = parseEwh3Title(titleText);
-      if (!parsed || !parsed.date) {
-        // Skip posts we can't parse a date from (e.g., "EWH3 Trash" posts)
-        continue;
-      }
-
-      // Build location string from metro station
-      const location = parsed.metro
-        ? parsed.metroLines
-          ? `${parsed.metro} (${parsed.metroLines})`
-          : parsed.metro
-        : undefined;
-
-      // Try to parse body content for additional fields
       const contentEl = article.find(".entry-content, .post-content").first();
       const bodyText = contentEl.text() || "";
-      const bodyFields = parseEwh3Body(bodyText);
-
-      // Build description from available data
-      const descParts: string[] = [];
-      if (parsed.trailName) descParts.push(parsed.trailName);
-      if (bodyFields.endMetro) descParts.push(`End Metro: ${bodyFields.endMetro}`);
-      if (bodyFields.onAfter) descParts.push(`On After: ${bodyFields.onAfter}`);
-
-      events.push({
-        date: parsed.date,
-        kennelTag: "EWH3",
-        runNumber: parsed.runNumber ? Math.floor(parsed.runNumber) : undefined,
-        title: parsed.trailName,
-        hares: bodyFields.hares,
-        location,
-        startTime: "18:45", // EWH3 always runs at 6:45 PM
-        sourceUrl: postUrl.startsWith("http") ? postUrl : `${baseUrl.replace(/\/$/, "")}${postUrl}`,
-        description: descParts.length > 1 ? descParts.join(" | ") : undefined,
-      });
+      const event = processPost(titleText, bodyText, postUrl, baseUrl);
+      if (event) events.push(event);
     }
 
     return {
@@ -205,6 +252,7 @@ export class EWH3Adapter implements SourceAdapter {
       structureHash,
       errorDetails: (errorDetails.fetch?.length ?? 0) > 0 ? errorDetails : undefined,
       diagnosticContext: {
+        fetchMethod: "html-scrape",
         articlesFound: articles.length,
         eventsParsed: events.length,
       },

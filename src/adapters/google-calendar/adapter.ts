@@ -1,6 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
-import { googleMapsSearchUrl } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags } from "../utils";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -212,16 +212,9 @@ export class GoogleCalendarAdapter implements SourceAdapter {
           }
 
           // Strip HTML from description (preserve newlines for hare extraction)
+          // Decode entities first, then strip tags — safe order prevents encoded XSS payloads
           const rawDescription = item.description
-            ? item.description
-                .replace(/<br\s*\/?>/gi, "\n")
-                .replace(/<[^>]+>/g, " ")
-                .replace(/&nbsp;/gi, " ")
-                .replace(/&amp;/gi, "&")
-                .replace(/&lt;/gi, "<")
-                .replace(/&gt;/gi, ">")
-                .replace(/&quot;/gi, '"')
-                .replace(/&#0?39;/gi, "'")
+            ? stripHtmlTags(decodeEntities(item.description), "\n")
             : undefined;
 
           const description = rawDescription
@@ -266,10 +259,15 @@ export class GoogleCalendarAdapter implements SourceAdapter {
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           errors.push(`Event parse error (${item.summary ?? "unknown"}): ${message}`);
+          const rawParts = [`Summary: ${item.summary ?? "unknown"}`];
+          if (item.description) rawParts.push(`Description: ${item.description}`);
+          if (item.location) rawParts.push(`Location: ${item.location}`);
+          if (item.start) rawParts.push(`Start: ${item.start.dateTime ?? item.start.date ?? ""}`);
           errorDetails.parse = [...(errorDetails.parse ?? []), {
             row: eventIndex,
             section: "calendar_events",
             error: message,
+            rawText: rawParts.join("\n").slice(0, 2000),
             partialData: { kennelTag: item.summary ?? "unknown", date: item.start?.dateTime ?? item.start?.date },
           }];
         }

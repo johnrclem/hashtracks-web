@@ -10,7 +10,7 @@ const mapsUrl = googleMapsSearchUrl;
  * Parse a BFM-style date string into YYYY-MM-DD.
  * Accepts: "2/12", "Thursday, 2/12", "Feb 19th", "March 5th"
  */
-function parseBfmDate(text: string, referenceYear: number): string | null {
+export function parseBfmDate(text: string, referenceYear: number): string | null {
   // Try M/D format: "2/12" or "Thursday, 2/12"
   const mdMatch = text.match(/(\d{1,2})\/(\d{1,2})/);
   if (mdMatch) {
@@ -150,11 +150,11 @@ export class BFMAdapter implements SourceAdapter {
         });
       } else {
         errors.push("Could not parse date from current trail");
-        errorDetails.parse = [...(errorDetails.parse ?? []), { row: 0, section: "current_trail", field: "date", error: "Could not parse date from current trail" }];
+        errorDetails.parse = [...(errorDetails.parse ?? []), { row: 0, section: "current_trail", field: "date", error: "Could not parse date from current trail", rawText: bodyText.slice(0, 2000), partialData: { kennelTag: "BFM" } }];
       }
     } else {
       errors.push("No current trail found on page");
-      errorDetails.parse = [...(errorDetails.parse ?? []), { row: 0, section: "current_trail", error: "No current trail found on page" }];
+      errorDetails.parse = [...(errorDetails.parse ?? []), { row: 0, section: "current_trail", error: "No current trail found on page", rawText: bodyText.slice(0, 2000), partialData: { kennelTag: "BFM" } }];
     }
 
     // Parse upcoming hares list

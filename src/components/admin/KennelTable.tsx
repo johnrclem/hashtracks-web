@@ -60,10 +60,10 @@ export function KennelTable({ kennels }: KennelTableProps) {
       <TableHeader>
         <TableRow>
           <TableHead>Short Name</TableHead>
-          <TableHead>Full Name</TableHead>
+          <TableHead className="hidden sm:table-cell">Full Name</TableHead>
           <TableHead>Region</TableHead>
-          <TableHead className="text-center">Aliases</TableHead>
-          <TableHead className="text-center">Subscribers</TableHead>
+          <TableHead className="hidden sm:table-cell text-center">Aliases</TableHead>
+          <TableHead className="hidden sm:table-cell text-center">Subscribers</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -99,12 +99,12 @@ function KennelRow({ kennel }: { kennel: Kennel }) {
   return (
     <TableRow>
       <TableCell className="font-medium">{kennel.shortName}</TableCell>
-      <TableCell>{kennel.fullName}</TableCell>
+      <TableCell className="hidden sm:table-cell">{kennel.fullName}</TableCell>
       <TableCell>
         <Badge variant="outline">{kennel.region}</Badge>
       </TableCell>
-      <TableCell className="text-center">{kennel._count.aliases}</TableCell>
-      <TableCell className="text-center">{kennel._count.members}</TableCell>
+      <TableCell className="hidden sm:table-cell text-center">{kennel._count.aliases}</TableCell>
+      <TableCell className="hidden sm:table-cell text-center">{kennel._count.members}</TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
           <KennelForm

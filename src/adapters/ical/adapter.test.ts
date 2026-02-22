@@ -313,7 +313,10 @@ describe("ICalAdapter", () => {
 
   it("handles fetch errors gracefully", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response("Not Found", { status: 404 }),
+      new Response("Not Found", {
+        status: 404,
+        headers: { "Content-Type": "text/html" },
+      }),
     );
 
     const source = buildMockSource();
@@ -323,6 +326,12 @@ describe("ICalAdapter", () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("404");
     expect(result.errorDetails?.fetch).toHaveLength(1);
+    expect(result.diagnosticContext).toBeDefined();
+    expect(result.diagnosticContext!.url).toBe(source.url);
+    expect(result.diagnosticContext!.totalVEvents).toBe(0);
+    expect(result.diagnosticContext!.icsBytes).toBe(0);
+    expect(result.diagnosticContext!.contentType).toBe("text/html");
+    expect(result.diagnosticContext!.fetchDurationMs).toBeGreaterThanOrEqual(0);
   });
 
   it("handles network errors gracefully", async () => {
@@ -335,6 +344,43 @@ describe("ICalAdapter", () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("ECONNREFUSED");
     expect(result.errorDetails?.fetch).toHaveLength(1);
+    expect(result.diagnosticContext).toBeDefined();
+    expect(result.diagnosticContext!.url).toBe(source.url);
+    expect(result.diagnosticContext!.totalVEvents).toBe(0);
+    expect(result.diagnosticContext!.icsBytes).toBe(0);
+    expect(result.diagnosticContext!.fetchDurationMs).toBeGreaterThanOrEqual(0);
+    expect(result.diagnosticContext!.contentType).toBeUndefined();
+  });
+
+  it("includes diagnosticContext on ICS parse error", async () => {
+    // Valid-looking ICS header but corrupt content that triggers a parse error
+    const corruptIcs = "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\n";
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(corruptIcs, {
+        status: 200,
+        headers: { "Content-Type": "text/calendar" },
+      }),
+    );
+
+    // Force parseICS to throw
+    const ical = await import("node-ical");
+    vi.spyOn(ical.sync, "parseICS").mockImplementationOnce(() => {
+      throw new Error("Unexpected end of input");
+    });
+
+    const source = buildMockSource();
+    const result = await adapter.fetch(source);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("iCal parse error");
+    expect(result.errorDetails?.parse).toHaveLength(1);
+    expect(result.diagnosticContext).toBeDefined();
+    expect(result.diagnosticContext!.url).toBe(source.url);
+    expect(result.diagnosticContext!.totalVEvents).toBe(0);
+    expect(result.diagnosticContext!.icsBytes).toBe(corruptIcs.length);
+    expect(result.diagnosticContext!.contentType).toBe("text/calendar");
+    expect(result.diagnosticContext!.fetchDurationMs).toBeGreaterThanOrEqual(0);
   });
 
   it("filters events by date range", async () => {
@@ -349,6 +395,74 @@ describe("ICalAdapter", () => {
     // All events should be filtered out by date range
     expect(result.events.length).toBeLessThan(5);
     expect(result.diagnosticContext!.skippedDateRange).toBeGreaterThan(0);
+  });
+
+  it("detects HTML response (deactivated calendar plugin)", async () => {
+    const html = `<!DOCTYPE html>
+<html lang="en-US">
+<head><title>BAH3 - Baltimore Annapolis Hash House Harriers</title></head>
+<body><h1>Events</h1><p>Check back soon!</p></body>
+</html>`;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(html, {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=UTF-8" },
+      }),
+    );
+
+    const source = buildMockSource();
+    const result = await adapter.fetch(source);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("not valid ICS");
+    expect(result.errors[0]).toContain("text/html");
+    expect(result.diagnosticContext).toBeDefined();
+    expect(result.diagnosticContext!.totalVEvents).toBe(0);
+    expect(result.diagnosticContext!.contentType).toBe("text/html; charset=UTF-8");
+    expect(result.diagnosticContext!.bodyPreview).toBeDefined();
+  });
+
+  it("detects non-ICS response with no content-type", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("This is not an ICS file", { status: 200 }),
+    );
+
+    const source = buildMockSource();
+    const result = await adapter.fetch(source);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("not valid ICS");
+  });
+
+  it("handles BOM prefix in valid ICS", async () => {
+    const icsWithBom = "\uFEFF" + SAMPLE_ICS;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(icsWithBom, { status: 200 }),
+    );
+
+    const source = buildMockSource();
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    // Should still parse successfully despite BOM
+    expect(result.errors).toHaveLength(0);
+    expect(result.events.length).toBeGreaterThan(0);
+  });
+
+  it("includes contentType in success diagnostics", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_ICS, {
+        status: 200,
+        headers: { "Content-Type": "text/calendar; charset=utf-8" },
+      }),
+    );
+
+    const source = buildMockSource();
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    expect(result.diagnosticContext).toBeDefined();
+    expect(result.diagnosticContext!.contentType).toBe("text/calendar; charset=utf-8");
   });
 
   it("works without config (defaultKennelTag fallback)", async () => {

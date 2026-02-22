@@ -16,6 +16,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { deleteKennelHasher } from "@/app/misman/[slug]/roster/actions";
 import { HasherForm } from "./HasherForm";
@@ -194,10 +199,20 @@ export function RosterTable({
                         )}
                       </Link>
                       {h.linkStatus === "CONFIRMED" && (
-                        <span className="text-xs text-green-600" title="Linked to user">L</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-xs text-green-600 cursor-default" tabIndex={0}>L</span>
+                          </TooltipTrigger>
+                          <TooltipContent>Linked — this hasher is connected to a site account</TooltipContent>
+                        </Tooltip>
                       )}
                       {h.linkStatus === "SUGGESTED" && (
-                        <span className="text-xs text-yellow-600" title="Link pending">P</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-xs text-yellow-600 cursor-default" tabIndex={0}>P</span>
+                          </TooltipTrigger>
+                          <TooltipContent>Pending — a link to a site account has been suggested</TooltipContent>
+                        </Tooltip>
                       )}
                     </div>
                   </td>

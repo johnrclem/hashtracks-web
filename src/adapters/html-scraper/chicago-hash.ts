@@ -294,13 +294,13 @@ export class ChicagoHashAdapter implements SourceAdapter {
             const text = $(el).find(".entry-title, h2").text().trim().slice(0, 80);
             errorDetails.parse = [
               ...(errorDetails.parse ?? []),
-              { row: i, section: `page-${pagesFetched}`, error: `Could not parse: ${text}` },
+              { row: i, section: `page-${pagesFetched}`, error: `Could not parse: ${text}`, rawText: $(el).text().trim().slice(0, 2000) },
             ];
           }
         } catch (err) {
           errorDetails.parse = [
             ...(errorDetails.parse ?? []),
-            { row: i, section: `page-${pagesFetched}`, error: String(err) },
+            { row: i, section: `page-${pagesFetched}`, error: String(err), rawText: $(el).text().trim().slice(0, 2000) },
           ];
         }
       });

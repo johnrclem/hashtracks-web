@@ -2,7 +2,8 @@
 
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createSource, updateSource } from "@/app/admin/sources/actions";
+import { createSource, updateSource, createQuickKennel } from "@/app/admin/sources/actions";
+import { detectSourceType } from "@/lib/source-detect";
 import {
   previewSourceConfig,
   type PreviewData,
@@ -92,6 +93,10 @@ interface SourceFormProps {
     fullName: string;
     region: string;
   }[];
+  /** Open UNMATCHED_TAGS alert tags for this source (edit mode only) */
+  openAlertTags?: string[];
+  /** Whether GEMINI_API_KEY is configured — enables "Enhance with AI" button */
+  geminiAvailable?: boolean;
   trigger: React.ReactNode;
 }
 
@@ -106,7 +111,7 @@ function hasICalConfigShape(config: unknown): boolean {
   );
 }
 
-export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
+export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable, trigger }: SourceFormProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [selectedKennels, setSelectedKennels] = useState<string[]>(
@@ -115,6 +120,11 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
   const [selectedType, setSelectedType] = useState(
     source?.type ?? "HTML_SCRAPER",
   );
+  const [urlValue, setUrlValue] = useState(source?.url ?? "");
+  /** True once the admin has explicitly chosen a type — prevents URL-detect override */
+  const typeManuallySet = useRef(!!source);
+  /** Chip text shown below URL field after auto-detect fires (new source only) */
+  const [detectedHint, setDetectedHint] = useState<string | null>(null);
 
   // Config can be edited via structured panel or raw JSON
   const [configObj, setConfigObj] = useState<Record<string, unknown> | null>(
@@ -136,6 +146,16 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
   const [isPreviewing, startPreview] = useTransition();
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  /** Sample event titles per unmatched tag — computed from preview results for AI enhance */
+  const [sampleTitlesByTag, setSampleTitlesByTag] = useState<Record<string, string[]>>({});
+  /** Kennels created inline via the quick-create dialog — merged with allKennels for display */
+  const [extraKennels, setExtraKennels] = useState<typeof allKennels>([]);
+  /** State for the quick-create kennel mini-dialog */
+  const [quickKennelOpen, setQuickKennelOpen] = useState(false);
+  const [quickKennelShortName, setQuickKennelShortName] = useState("");
+  const [quickKennelFullName, setQuickKennelFullName] = useState("");
+  const [quickKennelRegion, setQuickKennelRegion] = useState("");
+  const [isCreatingKennel, startCreatingKennel] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
 
@@ -204,6 +224,57 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
     setOpen(false);
     setPreviewData(null);
     setPreviewError(null);
+    setSampleTitlesByTag({});
+    setExtraKennels([]);
+    setQuickKennelOpen(false);
+  }
+
+  const allKennelsWithExtra = [...allKennels, ...extraKennels];
+
+  function resetQuickKennelForm() {
+    setQuickKennelOpen(false);
+    setQuickKennelShortName("");
+    setQuickKennelFullName("");
+    setQuickKennelRegion("");
+  }
+
+  function handleQuickKennelCreate() {
+    startCreatingKennel(async () => {
+      const result = await createQuickKennel({
+        shortName: quickKennelShortName.trim(),
+        fullName: quickKennelFullName.trim(),
+        region: quickKennelRegion.trim(),
+      });
+      if (!result.success) {
+        toast.error(result.error);
+      } else {
+        setExtraKennels((prev) => [...prev, { id: result.id, shortName: result.shortName, fullName: result.fullName, region: result.region }]);
+        setSelectedKennels((prev) => [...prev, result.id]);
+        resetQuickKennelForm();
+        toast.success(`Kennel "${result.shortName}" created and linked`);
+      }
+    });
+  }
+
+  function handleUrlBlur() {
+    if (typeManuallySet.current) return; // admin already chose a type — don't override
+    const detected = detectSourceType(urlValue);
+    if (!detected) return;
+
+    setSelectedType(detected.type);
+    setDetectedHint(detected.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()));
+
+    // For GOOGLE_CALENDAR: replace url field with extracted calendarId
+    if (detected.extractedUrl) {
+      setUrlValue(detected.extractedUrl);
+    }
+
+    // For GOOGLE_SHEETS: auto-populate sheetId into config
+    if (detected.sheetId) {
+      const next = { ...(configObj ?? {}), sheetId: detected.sheetId };
+      setConfigObj(next);
+      setConfigJson(JSON.stringify(next, null, 2));
+    }
   }
 
   function handlePreview() {
@@ -219,9 +290,18 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
       if (result.error) {
         setPreviewError(result.error);
         setPreviewData(null);
+        setSampleTitlesByTag({});
       } else if (result.data) {
         setPreviewData(result.data);
         setPreviewError(null);
+        // Compute sample titles per unmatched tag for AI enhance
+        const titles = result.data.events.reduce<Record<string, string[]>>((acc, e) => {
+          if (!e.resolved && e.title) {
+            (acc[e.kennelTag] ??= []).push(e.title);
+          }
+          return acc;
+        }, {});
+        setSampleTitlesByTag(titles);
       }
     });
   }
@@ -268,8 +348,13 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
         className={`max-h-[90vh] overflow-y-auto ${dialogWidth}`}
       >
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
             {source ? "Edit Source" : "Add Source"}
+            {openAlertTags && openAlertTags.length > 0 && (
+              <Badge variant="outline" className="border-amber-300 text-amber-700 text-xs font-normal">
+                {openAlertTags.length} unmatched tag{openAlertTags.length !== 1 ? "s" : ""}
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -291,9 +376,16 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
               id="url"
               name="url"
               required
-              defaultValue={source?.url ?? ""}
+              value={urlValue}
+              onChange={(e) => setUrlValue(e.target.value)}
+              onBlur={handleUrlBlur}
               placeholder="https://hashnyc.com"
             />
+            {detectedHint && (
+              <p className="text-xs text-blue-600">
+                Detected: {detectedHint} — type and config auto-filled
+              </p>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -304,6 +396,8 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
                 value={selectedType}
                 onValueChange={(val) => {
                   setSelectedType(val);
+                  typeManuallySet.current = true;
+                  setDetectedHint(null);
                   // Clear config when switching to incompatible type
                   if (!CONFIG_TYPES.has(val)) {
                     setConfigJson("");
@@ -383,6 +477,12 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
               <CalendarConfigPanel
                 config={configObj as CalendarConfig | null}
                 onChange={handleConfigChange}
+                unmatchedTags={[
+                  ...(previewData?.unmatchedTags ?? []),
+                  ...(openAlertTags ?? []),
+                ]}
+                sampleTitlesByTag={sampleTitlesByTag}
+                geminiAvailable={geminiAvailable}
               />
             </div>
           )}
@@ -397,6 +497,12 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
               <ICalConfigPanel
                 config={configObj as ICalConfig | null}
                 onChange={handleConfigChange}
+                unmatchedTags={[
+                  ...(previewData?.unmatchedTags ?? []),
+                  ...(openAlertTags ?? []),
+                ]}
+                sampleTitlesByTag={sampleTitlesByTag}
+                geminiAvailable={geminiAvailable}
               />
             </div>
           )}
@@ -421,6 +527,8 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
               <SheetsConfigPanel
                 config={configObj as SheetsConfig | null}
                 onChange={handleConfigChange}
+                sampleRows={previewData?.sampleRows}
+                geminiAvailable={geminiAvailable}
               />
             </div>
           )}
@@ -476,14 +584,20 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
             {previewError && (
               <p className="text-sm text-destructive">{previewError}</p>
             )}
-            {previewData && <PreviewResults data={previewData} />}
+            {previewData && (
+              <PreviewResults
+                data={previewData}
+                allKennels={allKennelsWithExtra}
+                onAliasCreated={handlePreview}
+              />
+            )}
           </div>
 
           <div className="space-y-2">
             <Label>Linked Kennels</Label>
             <TooltipProvider>
               <div className="flex max-h-48 flex-wrap gap-1 overflow-y-auto rounded-md border p-2">
-                {allKennels.map((kennel) => (
+                {allKennelsWithExtra.map((kennel) => (
                   <Tooltip key={kennel.id}>
                     <TooltipTrigger asChild>
                       <Badge
@@ -506,10 +620,85 @@ export function SourceForm({ source, allKennels, trigger }: SourceFormProps) {
                 ))}
               </div>
             </TooltipProvider>
-            <p className="text-xs text-muted-foreground">
-              Click to toggle. {selectedKennels.length} selected.
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Click to toggle. {selectedKennels.length} selected.
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={() => setQuickKennelOpen(true)}
+              >
+                + New Kennel
+              </Button>
+            </div>
           </div>
+
+          {/* Quick kennel creation mini-form */}
+          {quickKennelOpen && (
+            <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+              <p className="text-xs font-medium">Create New Kennel</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="qk-shortName" className="text-xs">Short Name *</Label>
+                  <Input
+                    id="qk-shortName"
+                    value={quickKennelShortName}
+                    onChange={(e) => setQuickKennelShortName(e.target.value)}
+                    placeholder="NYCH3"
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="qk-region" className="text-xs">Region *</Label>
+                  <Input
+                    id="qk-region"
+                    value={quickKennelRegion}
+                    onChange={(e) => setQuickKennelRegion(e.target.value)}
+                    placeholder="New York City, NY"
+                    className="h-7 text-xs"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="qk-fullName" className="text-xs">Full Name *</Label>
+                <Input
+                  id="qk-fullName"
+                  value={quickKennelFullName}
+                  onChange={(e) => setQuickKennelFullName(e.target.value)}
+                  placeholder="New York City Hash House Harriers"
+                  className="h-7 text-xs"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={
+                    isCreatingKennel ||
+                    !quickKennelShortName.trim() ||
+                    !quickKennelFullName.trim() ||
+                    !quickKennelRegion.trim()
+                  }
+                  onClick={handleQuickKennelCreate}
+                >
+                  {isCreatingKennel ? "Creating…" : "Create & Link"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={resetQuickKennelForm}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
 
           <input
             type="hidden"

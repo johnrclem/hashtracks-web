@@ -218,7 +218,7 @@ export class SlashHashAdapter implements SourceAdapter {
         errors.push(`Error parsing row ${i}: ${err}`);
         errorDetails.parse = [
           ...(errorDetails.parse ?? []),
-          { row: i, section: "table", error: String(err) },
+          { row: i, section: "table", error: String(err), rawText: cells.join(" | ").slice(0, 2000) },
         ];
       }
       rowsParsed++;

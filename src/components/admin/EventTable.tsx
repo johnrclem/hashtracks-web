@@ -272,7 +272,7 @@ export function EventTable({
               value={filters.kennelId ?? "all"}
               onValueChange={(v) => updateFilter("kennelId", v)}
             >
-              <SelectTrigger className="w-[280px] h-8 text-xs">
+              <SelectTrigger className="w-full sm:w-[280px] h-8 text-xs">
                 <SelectValue placeholder="All kennels" />
               </SelectTrigger>
               <SelectContent>
@@ -293,7 +293,7 @@ export function EventTable({
               value={filters.sourceId ?? "all"}
               onValueChange={(v) => updateFilter("sourceId", v)}
             >
-              <SelectTrigger className="w-[200px] h-8 text-xs">
+              <SelectTrigger className="w-full sm:w-[200px] h-8 text-xs">
                 <SelectValue placeholder="All sources" />
               </SelectTrigger>
               <SelectContent>
@@ -312,7 +312,7 @@ export function EventTable({
             <Label className="text-xs">From</Label>
             <Input
               type="date"
-              className="w-[140px] h-8 text-xs"
+              className="w-full sm:w-[140px] h-8 text-xs"
               value={filters.dateStart ?? ""}
               onChange={(e) => updateFilter("dateStart", e.target.value || undefined)}
             />
@@ -322,7 +322,7 @@ export function EventTable({
             <Label className="text-xs">To</Label>
             <Input
               type="date"
-              className="w-[140px] h-8 text-xs"
+              className="w-full sm:w-[140px] h-8 text-xs"
               value={filters.dateEnd ?? ""}
               onChange={(e) => updateFilter("dateEnd", e.target.value || undefined)}
             />
@@ -372,9 +372,9 @@ export function EventTable({
                 <SortHeader column="date" label="Date" />
                 <SortHeader column="kennelName" label="Kennel" />
                 <SortHeader column="title" label="Title" />
-                <SortHeader column="runNumber" label="Run #" className="text-right w-16" />
-                <TableHead>Source(s)</TableHead>
-                <SortHeader column="attendanceCount" label="Att." className="text-right w-16" />
+                <SortHeader column="runNumber" label="Run #" className="hidden sm:table-cell text-right w-16" />
+                <TableHead className="hidden md:table-cell">Source(s)</TableHead>
+                <SortHeader column="attendanceCount" label="Att." className="hidden sm:table-cell text-right w-16" />
                 <TableHead className="w-16"></TableHead>
               </TableRow>
             </TableHeader>
@@ -404,7 +404,7 @@ export function EventTable({
                       {event.kennelName}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-xs max-w-[300px] truncate">
+                  <TableCell className="text-xs max-w-[200px] sm:max-w-[300px] truncate">
                     {event.title ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -418,10 +418,10 @@ export function EventTable({
                       "—"
                     )}
                   </TableCell>
-                  <TableCell className="text-xs text-right w-16">
+                  <TableCell className="hidden sm:table-cell text-xs text-right w-16">
                     {event.runNumber ?? "—"}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
+                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[180px] truncate">
                     {event.sources.length > 0 ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -435,7 +435,7 @@ export function EventTable({
                       "—"
                     )}
                   </TableCell>
-                  <TableCell className="text-xs text-right w-16">
+                  <TableCell className="hidden sm:table-cell text-xs text-right w-16">
                     {event.attendanceCount > 0 ? event.attendanceCount : "—"}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
@@ -457,7 +457,7 @@ export function EventTable({
 
         {/* Selection action bar */}
         {selectedIds.size > 0 && (
-          <div className="sticky bottom-4 flex items-center justify-between rounded-lg border bg-background p-3 shadow-md">
+          <div className="sticky bottom-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3 shadow-md">
             <span className="text-sm text-muted-foreground">
               {selectedIds.size} event{selectedIds.size !== 1 ? "s" : ""} selected
             </span>
@@ -485,7 +485,7 @@ export function EventTable({
 
         {/* Pagination controls */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between py-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between py-2">
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground">Per page</Label>
               <Select

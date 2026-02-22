@@ -4,6 +4,9 @@ import { prisma } from "@/lib/db";
 import { RosterTable } from "@/components/misman/RosterTable";
 import { SeedRosterButton } from "@/components/misman/SeedRosterButton";
 import { DuplicateScanResults } from "@/components/misman/DuplicateScanResults";
+import { RosterGroupBanner } from "@/components/misman/RosterGroupBanner";
+import { RosterGroupChangeRequest } from "@/components/misman/RosterGroupChangeRequest";
+import { RequestSharedRosterSection } from "@/components/misman/RequestSharedRosterSection";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -49,8 +52,56 @@ export default async function RosterPage({ params }: Props) {
 
   const isSharedRoster = rosterKennelIds.length > 1;
 
+  // Fetch roster group details for the banner when shared
+  let rosterGroupInfo: { name: string; kennelNames: string[] } | null = null;
+  if (isSharedRoster) {
+    const group = await prisma.rosterGroup.findUnique({
+      where: { id: rosterGroupId },
+      select: {
+        name: true,
+        kennels: {
+          select: { kennel: { select: { shortName: true } } },
+          orderBy: { kennel: { shortName: "asc" } },
+        },
+      },
+    });
+    if (group) {
+      rosterGroupInfo = {
+        name: group.name,
+        kennelNames: group.kennels.map((k) => k.kennel.shortName),
+      };
+    }
+  }
+
+  // Check for pending roster group requests (used by both shared and non-shared UI)
+  const pendingReq = await prisma.rosterGroupRequest.findFirst({
+    where: { userId: user.id, status: "PENDING" },
+  });
+  const hasPendingRosterGroupRequest = !!pendingReq;
+
   return (
     <div className="space-y-4">
+      {rosterGroupInfo && (
+        <div className="flex items-start justify-between gap-2">
+          <RosterGroupBanner
+            groupName={rosterGroupInfo.name}
+            kennelNames={rosterGroupInfo.kennelNames}
+          />
+          <RosterGroupChangeRequest
+            rosterGroupId={rosterGroupId}
+            groupName={rosterGroupInfo.name}
+            kennelId={kennel.id}
+            hasPendingRequest={hasPendingRosterGroupRequest}
+          />
+        </div>
+      )}
+      {!isSharedRoster && (
+        <RequestSharedRosterSection
+          kennelShortName={kennel.shortName}
+          kennelId={kennel.id}
+          hasPendingRequest={hasPendingRosterGroupRequest}
+        />
+      )}
       <RosterTable
         hashers={serialized}
         kennelId={kennel.id}

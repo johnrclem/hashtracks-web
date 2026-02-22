@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import type { RawEventData, MergeResult, EventSample } from "@/adapters/types";
+import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
+import { regionTimezone } from "@/lib/format";
+import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
 
@@ -30,64 +32,98 @@ interface MergeContext {
   sourceId: string;
   trustLevel: number;
   linkedKennelIds: Set<string>;
+  regionCache: Map<string, string>;
   result: MergeResult;
 }
 
 /**
  * Check if the event fingerprint already exists (dedup).
- * If so, collect diagnostic samples for unprocessed duplicates.
- * Returns true if the event was a duplicate (caller should skip).
+ * If the RawEvent is already processed, refreshes dateUtc/timezone on the canonical Event.
+ * Returns `false` if no duplicate exists (proceed with upsert).
+ * Returns the canonical eventId (or null if unprocessed) when a duplicate is found.
  */
-async function isDuplicateFingerprint(
+async function handleDuplicateFingerprint(
   event: RawEventData,
   fingerprint: string,
   ctx: MergeContext,
-): Promise<boolean> {
+): Promise<false | string | null> {
   const existing = await prisma.rawEvent.findFirst({
     where: { fingerprint, sourceId: ctx.sourceId },
+    select: { id: true, processed: true, eventId: true },
   });
-  if (!existing) return false;
+  if (!existing) return false; // Not a duplicate — proceed normally
 
   ctx.result.skipped++;
 
-  // Capture samples from previously-unprocessed events so that
-  // recurring blocked/skipped issues generate samples on every scrape,
-  // not just the first one (fingerprint dedup would otherwise skip them).
-  if (!existing.processed) {
-    const needSkippedSamples = ctx.result.sampleSkipped && ctx.result.sampleSkipped.length < 3;
-    const needBlockedSamples = ctx.result.sampleBlocked && ctx.result.sampleBlocked.length < 3;
-
-    if (needSkippedSamples || needBlockedSamples) {
-      const { kennelId: resolvedId, matched: resolvedMatch } =
-        await resolveKennelTag(event.kennelTag, ctx.sourceId);
-
-      if (!resolvedMatch || !resolvedId) {
-        if (needSkippedSamples) {
-          ctx.result.sampleSkipped!.push({
-            reason: "UNMATCHED_TAG",
-            kennelTag: event.kennelTag,
-            event,
-            suggestedAction: `Create kennel or alias for "${event.kennelTag}"`,
+  // If the RawEvent is already linked to a canonical Event, refresh timezone-derived fields.
+  // This ensures events scraped before dateUtc logic was added get updated on the next scrape.
+  if (existing.processed && existing.eventId) {
+    const { kennelId, matched } = await resolveKennelTag(event.kennelTag, ctx.sourceId);
+    if (matched && kennelId && ctx.linkedKennelIds.has(kennelId)) {
+      let region = ctx.regionCache.get(kennelId);
+      if (region === undefined) {
+        const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { region: true } });
+        region = kennel?.region ?? "";
+        ctx.regionCache.set(kennelId, region);
+      }
+      const timezone = regionTimezone(region);
+      const eventDate = parseUtcNoonDate(event.date);
+      const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
+      // Only update if we have a real UTC time AND the source has sufficient trust
+      if (composedUtc) {
+        const existingEvent = await prisma.event.findUnique({
+          where: { id: existing.eventId },
+          select: { trustLevel: true, dateUtc: true, timezone: true },
+        });
+        // Trust guard: don't let lower-trust sources overwrite higher-trust event times
+        const isHigherOrEqualTrust = !existingEvent || ctx.trustLevel >= existingEvent.trustLevel;
+        // Skip write if values are already correct (avoid redundant DB writes on every scrape)
+        const isAlreadyCurrent =
+          existingEvent?.dateUtc?.getTime() === composedUtc.getTime() &&
+          existingEvent?.timezone === timezone;
+        if (isHigherOrEqualTrust && !isAlreadyCurrent) {
+          await prisma.event.update({
+            where: { id: existing.eventId },
+            data: { dateUtc: composedUtc, timezone },
           });
         }
-      } else if (!ctx.linkedKennelIds.has(resolvedId)) {
-        if (needBlockedSamples) {
-          const kennel = await prisma.kennel.findUnique({
-            where: { id: resolvedId },
-            select: { shortName: true },
-          });
-          ctx.result.sampleBlocked!.push({
-            reason: "SOURCE_KENNEL_MISMATCH",
-            kennelTag: event.kennelTag,
-            event,
-            suggestedAction: `Link ${kennel?.shortName ?? resolvedId} to this source`,
-          });
-        }
+      }
+      return existing.eventId;
+    }
+    return existing.eventId;
+  }
+
+  // Unprocessed duplicate — collect diagnostic samples as before
+  const needSkippedSamples = ctx.result.sampleSkipped && ctx.result.sampleSkipped.length < 3;
+  const needBlockedSamples = ctx.result.sampleBlocked && ctx.result.sampleBlocked.length < 3;
+
+  if (needSkippedSamples || needBlockedSamples) {
+    const { kennelId: resolvedId, matched: resolvedMatch } =
+      await resolveKennelTag(event.kennelTag, ctx.sourceId);
+
+    if (!resolvedMatch || !resolvedId) {
+      if (needSkippedSamples) {
+        ctx.result.sampleSkipped!.push({
+          reason: "UNMATCHED_TAG",
+          kennelTag: event.kennelTag,
+          event,
+          suggestedAction: `Create kennel or alias for "${event.kennelTag}"`,
+        });
+      }
+    } else if (!ctx.linkedKennelIds.has(resolvedId)) {
+      if (needBlockedSamples) {
+        const kennel = await prisma.kennel.findUnique({ where: { id: resolvedId }, select: { shortName: true } });
+        ctx.result.sampleBlocked!.push({
+          reason: "SOURCE_KENNEL_MISMATCH",
+          kennelTag: event.kennelTag,
+          event,
+          suggestedAction: `Link ${kennel?.shortName ?? resolvedId} to this source`,
+        });
       }
     }
   }
 
-  return true;
+  return existing.eventId; // May be null if unprocessed
 }
 
 /**
@@ -158,6 +194,22 @@ async function upsertCanonicalEvent(
     where: { kennelId_date: { kennelId, date: eventDate } },
   });
 
+  // Fetch region from cache to avoid N+1 queries
+  let region = ctx.regionCache.get(kennelId);
+  if (region === undefined) {
+    const kennel = await prisma.kennel.findUnique({
+      where: { id: kennelId },
+      select: { region: true },
+    });
+    region = kennel?.region ?? "";
+    ctx.regionCache.set(kennelId, region);
+  }
+
+  const timezone = regionTimezone(region);
+  const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
+  // Default to noon if no start time is provided, or composition fails
+  const dateUtc = composedUtc ?? eventDate;
+
   let targetEventId: string;
 
   if (existingEvent) {
@@ -177,6 +229,8 @@ async function upsertCanonicalEvent(
           locationName: event.location ?? null,
           locationAddress: event.locationUrl ?? null,
           startTime: event.startTime ?? existingEvent.startTime,
+          dateUtc,
+          timezone,
           // Preserve first source's URL; subsequent sources get EventLinks
           sourceUrl: existingEvent.sourceUrl ?? event.sourceUrl,
           trustLevel: ctx.trustLevel,
@@ -206,8 +260,8 @@ async function upsertCanonicalEvent(
       data: {
         kennelId,
         date: eventDate,
-        dateUtc: eventDate,
-        timezone: "America/New_York",
+        dateUtc,
+        timezone,
         runNumber: event.runNumber,
         title: event.title,
         description: event.description,
@@ -314,7 +368,8 @@ export async function processRawEvents(
   // Clear resolver cache for fresh lookups
   clearResolverCache();
 
-  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, result };
+  const regionCache = new Map<string, string>();
+  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, regionCache, result };
 
   // Track series IDs → canonical event IDs for post-processing
   const seriesGroups = new Map<string, string[]>();
@@ -323,8 +378,13 @@ export async function processRawEvents(
     try {
       const fingerprint = generateFingerprint(event);
 
-      // 1. Dedup by fingerprint
-      if (await isDuplicateFingerprint(event, fingerprint, ctx)) {
+      // 1. Dedup by fingerprint; if already processed, refreshes dateUtc/timezone and
+      // creates any new EventLinks, then skips creating a new RawEvent.
+      // Returns false only when this is a brand-new fingerprint.
+      const dupResult = await handleDuplicateFingerprint(event, fingerprint, ctx);
+      if (dupResult !== false) {
+        // Already exists — still create any new EventLinks from this scrape run
+        if (dupResult) await createEventLinks(dupResult, sourceId, event.externalLinks);
         continue;
       }
 

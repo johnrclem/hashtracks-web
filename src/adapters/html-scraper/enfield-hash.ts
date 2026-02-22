@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchBloggerPosts } from "../blogger-api";
+import { decodeEntities } from "../utils";
 
 const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
@@ -147,6 +148,8 @@ function processPost(
             section: "post",
             field: "date",
             error: `No date found in post: ${titleText || "(untitled)"}`,
+            rawText: `Title: ${titleText}\n\n${bodyText}`.slice(0, 2000),
+            partialData: { kennelTag: "EH3", title: titleText || undefined },
           },
         ];
       }
@@ -199,19 +202,22 @@ export class EnfieldHashAdapter implements SourceAdapter {
     const baseUrl = source.url || "http://www.enfieldhash.org/";
 
     // Try Blogger API first
-    const apiResult = await this.fetchViaBloggerApi(baseUrl);
+    const { result: apiResult, apiError } = await this.fetchViaBloggerApi(baseUrl);
     if (apiResult) return apiResult;
 
-    // Fall back to HTML scraping
-    return this.fetchViaHtmlScrape(baseUrl);
+    // Fall back to HTML scraping (pass API error for diagnostics if both paths fail)
+    return this.fetchViaHtmlScrape(baseUrl, apiError);
   }
 
-  private async fetchViaBloggerApi(baseUrl: string): Promise<ScrapeResult | null> {
+  private async fetchViaBloggerApi(baseUrl: string): Promise<{
+    result: ScrapeResult | null;
+    apiError?: string;
+  }> {
     const bloggerResult = await fetchBloggerPosts(baseUrl);
 
     // If the Blogger API errored (missing key, API not enabled, etc.), return null to trigger fallback
     if (bloggerResult.error) {
-      return null;
+      return { result: null, apiError: bloggerResult.error.message };
     }
 
     const events: RawEventData[] = [];
@@ -224,7 +230,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
       // Extract text from HTML content
       const $ = cheerio.load(post.content);
       const bodyText = $.text();
-      const titleText = post.title;
+      const titleText = decodeEntities(post.title);
       const postUrl = post.url;
 
       const event = processPost(
@@ -244,20 +250,22 @@ export class EnfieldHashAdapter implements SourceAdapter {
       (errorDetails.parse?.length ?? 0) > 0;
 
     return {
-      events,
-      errors,
-      errorDetails: hasErrorDetails ? errorDetails : undefined,
-      diagnosticContext: {
-        fetchMethod: "blogger-api",
-        blogId: bloggerResult.blogId,
-        postsFound: bloggerResult.posts.length,
-        eventsParsed: events.length,
-        fetchDurationMs: bloggerResult.fetchDurationMs,
+      result: {
+        events,
+        errors,
+        errorDetails: hasErrorDetails ? errorDetails : undefined,
+        diagnosticContext: {
+          fetchMethod: "blogger-api",
+          blogId: bloggerResult.blogId,
+          postsFound: bloggerResult.posts.length,
+          eventsParsed: events.length,
+          fetchDurationMs: bloggerResult.fetchDurationMs,
+        },
       },
     };
   }
 
-  private async fetchViaHtmlScrape(baseUrl: string): Promise<ScrapeResult> {
+  private async fetchViaHtmlScrape(baseUrl: string, bloggerApiError?: string): Promise<ScrapeResult> {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
@@ -279,13 +287,29 @@ export class EnfieldHashAdapter implements SourceAdapter {
         errorDetails.fetch = [
           { url: baseUrl, status: response.status, message },
         ];
-        return { events: [], errors: [message], errorDetails };
+        return {
+          events: [],
+          errors: [message],
+          errorDetails,
+          diagnosticContext: {
+            fetchMethod: "html-scrape",
+            ...(bloggerApiError ? { bloggerApiError } : {}),
+          },
+        };
       }
       html = await response.text();
     } catch (err) {
       const message = `Fetch failed: ${err}`;
       errorDetails.fetch = [{ url: baseUrl, message }];
-      return { events: [], errors: [message], errorDetails };
+      return {
+        events: [],
+        errors: [message],
+        errorDetails,
+        diagnosticContext: {
+          fetchMethod: "html-scrape",
+          ...(bloggerApiError ? { bloggerApiError } : {}),
+        },
+      };
     }
     const fetchDurationMs = Date.now() - fetchStart;
 
@@ -338,6 +362,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
         postsFound: posts.length,
         eventsParsed: events.length,
         fetchDurationMs,
+        ...(bloggerApiError ? { bloggerApiError } : {}),
       },
     };
   }
