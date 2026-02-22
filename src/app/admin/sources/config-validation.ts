@@ -1,7 +1,7 @@
 import isSafeRegex from "safe-regex2";
 
 /** Types that require a non-empty config object */
-const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "HASHREGO"]);
+const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "HASHREGO", "MEETUP"]);
 
 /**
  * Validate source config based on type. Returns error messages or empty array.
@@ -94,6 +94,15 @@ export function validateSourceConfig(
       obj.kennelSlugs.some((s: unknown) => typeof s !== "string" || s.trim().length === 0)
     ) {
       errors.push("Hash Rego config requires at least one non-empty kennelSlug");
+    }
+  }
+
+  if (type === "MEETUP") {
+    if (!obj.groupUrlname || typeof obj.groupUrlname !== "string" || !obj.groupUrlname.trim()) {
+      errors.push("Meetup config requires a non-empty groupUrlname");
+    }
+    if (!obj.kennelTag || typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
+      errors.push("Meetup config requires a non-empty kennelTag");
     }
   }
 

@@ -7,6 +7,7 @@ describe("validateSourceConfig", () => {
       expect(validateSourceConfig("GOOGLE_CALENDAR", undefined)).toEqual([]);
       expect(validateSourceConfig("ICAL_FEED", null)).toEqual([]);
       expect(validateSourceConfig("HTML_SCRAPER", null)).toEqual([]);
+      expect(validateSourceConfig("RSS_FEED", null)).toEqual([]);
     });
 
     it("rejects null/undefined config for types that require it", () => {
@@ -251,6 +252,35 @@ describe("validateSourceConfig", () => {
         defaultKennelTag: "BFM",
       };
       expect(validateSourceConfig("GOOGLE_CALENDAR", config)).toEqual([]);
+    });
+  });
+
+  describe("MEETUP config validation", () => {
+    it("accepts valid MEETUP config", () => {
+      const config = { groupUrlname: "brooklyn-hash-house-harriers", kennelTag: "BrH3" };
+      expect(validateSourceConfig("MEETUP", config)).toEqual([]);
+    });
+
+    it("requires config object for MEETUP", () => {
+      expect(validateSourceConfig("MEETUP", null)).toContain("MEETUP requires a config object");
+    });
+
+    it("requires non-empty groupUrlname", () => {
+      const config = { groupUrlname: "", kennelTag: "BrH3" };
+      const errors = validateSourceConfig("MEETUP", config);
+      expect(errors.some((e) => e.includes("groupUrlname"))).toBe(true);
+    });
+
+    it("requires non-empty kennelTag", () => {
+      const config = { groupUrlname: "brooklyn-hash", kennelTag: "" };
+      const errors = validateSourceConfig("MEETUP", config);
+      expect(errors.some((e) => e.includes("kennelTag"))).toBe(true);
+    });
+
+    it("reports both errors when both fields are missing", () => {
+      const config = {};
+      const errors = validateSourceConfig("MEETUP", config);
+      expect(errors).toHaveLength(2);
     });
   });
 });

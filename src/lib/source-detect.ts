@@ -18,6 +18,11 @@ export type SourceDetectResult = {
    * Should be auto-populated into SheetsConfig.sheetId.
    */
   sheetId?: string;
+  /**
+   * For MEETUP: the group URL name extracted from the URL path.
+   * e.g. https://www.meetup.com/brooklyn-hash-house-harriers/ → "brooklyn-hash-house-harriers"
+   */
+  groupUrlname?: string;
 };
 
 /**
@@ -52,7 +57,9 @@ export function detectSourceType(rawUrl: string): SourceDetectResult | null {
 
   // Meetup.com
   if (url.hostname === "meetup.com" || url.hostname.endsWith(".meetup.com")) {
-    return { type: "MEETUP" };
+    const parts = url.pathname.split("/").filter(Boolean);
+    const groupUrlname = parts[0] ?? undefined;
+    return { type: "MEETUP", groupUrlname };
   }
 
   // iCal feed: .ics extension or ical/ics in query params, or webcal scheme

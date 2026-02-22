@@ -63,6 +63,32 @@ describe("detectSourceType", () => {
     });
   });
 
+  describe("Meetup", () => {
+    it("detects meetup.com URL and extracts groupUrlname", () => {
+      const result = detectSourceType("https://www.meetup.com/brooklyn-hash-house-harriers/");
+      expect(result?.type).toBe("MEETUP");
+      expect(result?.groupUrlname).toBe("brooklyn-hash-house-harriers");
+    });
+
+    it("extracts groupUrlname without trailing slash", () => {
+      const result = detectSourceType("https://meetup.com/nyc-hash");
+      expect(result?.type).toBe("MEETUP");
+      expect(result?.groupUrlname).toBe("nyc-hash");
+    });
+
+    it("extracts groupUrlname from events sub-path", () => {
+      const result = detectSourceType("https://www.meetup.com/brooklyn-hash-house-harriers/events/");
+      expect(result?.type).toBe("MEETUP");
+      expect(result?.groupUrlname).toBe("brooklyn-hash-house-harriers");
+    });
+
+    it("returns undefined groupUrlname for bare meetup.com", () => {
+      const result = detectSourceType("https://meetup.com/");
+      expect(result?.type).toBe("MEETUP");
+      expect(result?.groupUrlname).toBeUndefined();
+    });
+  });
+
   describe("iCal feed", () => {
     it("detects .ics URL", () => {
       const result = detectSourceType("https://example.com/calendar/feed.ics");
