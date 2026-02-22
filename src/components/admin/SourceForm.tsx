@@ -277,7 +277,7 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
     }
 
     // For GOOGLE_SHEETS: auto-populate sheetId into config
-    if (detected.sheetId) {
+    if (detected.sheetId && configObj?.sheetId !== detected.sheetId) {
       const next = { ...(configObj ?? {}), sheetId: detected.sheetId };
       setConfigObj(next);
       setConfigJson(JSON.stringify(next, null, 2));

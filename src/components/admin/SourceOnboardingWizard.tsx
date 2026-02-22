@@ -207,7 +207,7 @@ export function SourceOnboardingWizard({
         setUrlValue(detected.extractedUrl);
       }
 
-      if (detected.sheetId) {
+      if (detected.sheetId && configObj?.sheetId !== detected.sheetId) {
         const next = { ...(configObj ?? {}), sheetId: detected.sheetId };
         setConfigObj(next);
         setConfigJson(JSON.stringify(next, null, 2));
