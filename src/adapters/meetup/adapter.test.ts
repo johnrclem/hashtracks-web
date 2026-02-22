@@ -19,6 +19,8 @@ const UPCOMING_EVENT = {
   name: "Trail #42 — Central Park",
   status: "upcoming",
   time: new Date("2026-03-15T18:00:00Z").getTime(),
+  local_date: "2026-03-15",
+  local_time: "18:00",
   duration: 7200000,
   description: "<p>Join us for a fun trail!</p>",
   venue: { name: "Central Park Tavern", address_1: "100 W 67th St", city: "New York", state: "NY" },
@@ -30,6 +32,8 @@ const PAST_EVENT = {
   name: "Trail #41",
   status: "past",
   time: new Date("2026-02-01T14:00:00Z").getTime(),
+  local_date: "2026-02-01",
+  local_time: "14:00",
   venue: { name: "Some Bar", city: "Brooklyn" },
   link: "https://meetup.com/test-hash/events/evt-0",
 };
@@ -105,7 +109,15 @@ describe("MeetupAdapter", () => {
   });
 
   it("filters events outside the lookback window", async () => {
-    const futureEvent = { ...UPCOMING_EVENT, time: Date.now() + 200 * 24 * 60 * 60 * 1000 };
+    const futureTime = Date.now() + 200 * 24 * 60 * 60 * 1000;
+    const futureDate = new Date(futureTime);
+    const futureEvent = {
+      ...UPCOMING_EVENT,
+      id: "evt-future",
+      time: futureTime,
+      local_date: futureDate.toISOString().slice(0, 10),
+      local_time: "18:00",
+    };
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => [UPCOMING_EVENT, futureEvent],
@@ -115,11 +127,9 @@ describe("MeetupAdapter", () => {
       makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
       { days: 90 },
     );
-    // futureEvent is >90 days out; UPCOMING_EVENT is within window (test date ~2026-03-15)
-    expect(result.events.every((e) => e.title !== "Trail #42 — Central Park" || true)).toBe(true);
-    expect(result.events).not.toContainEqual(
-      expect.objectContaining({ date: new Date(futureEvent.time).toISOString().slice(0, 10) }),
-    );
+    // futureEvent is >90 days out and should be excluded; UPCOMING_EVENT is within window
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toBe("Trail #42 — Central Park");
   });
 
   it("includes sourceUrl from event link", async () => {

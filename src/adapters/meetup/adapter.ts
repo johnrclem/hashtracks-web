@@ -1,6 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
-import { validateSourceConfig } from "../utils";
+import { validateSourceConfig, stripHtmlTags } from "../utils";
 
 export interface MeetupConfig {
   groupUrlname: string; // Meetup group URL name, e.g. "brooklyn-hash-house-harriers"
@@ -11,7 +11,9 @@ interface MeetupEvent {
   id: string;
   name: string;
   status: string;
-  time: number; // Unix ms timestamp
+  time: number;        // Unix ms timestamp — used only for window filtering
+  local_date: string;  // YYYY-MM-DD in the event's local timezone
+  local_time: string;  // HH:mm in the event's local timezone
   duration?: number;
   description?: string;
   venue?: {
@@ -51,6 +53,7 @@ export class MeetupAdapter implements SourceAdapter {
 
     const days = options?.days ?? 90;
     const now = new Date();
+    const minDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     const maxDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
     const errorDetails: ErrorDetails = {};
@@ -58,7 +61,7 @@ export class MeetupAdapter implements SourceAdapter {
     const errors: string[] = [];
 
     // Meetup API v3 — no API key needed for public groups
-    const apiUrl = `https://api.meetup.com/${encodeURIComponent(config.groupUrlname)}/events?status=upcoming,past&page=100&only=id,name,status,time,duration,description,venue,link`;
+    const apiUrl = `https://api.meetup.com/${encodeURIComponent(config.groupUrlname)}/events?status=upcoming,past&page=100&only=id,name,status,time,local_date,local_time,duration,description,venue,link`;
 
     let rawEvents: MeetupEvent[];
     try {
@@ -81,21 +84,17 @@ export class MeetupAdapter implements SourceAdapter {
       return { events: [], errors: [message], errorDetails: { fetch: [{ url: apiUrl, message }] } };
     }
 
-    for (const ev of rawEvents) {
+    for (const [i, ev] of rawEvents.entries()) {
       try {
         const eventDate = new Date(ev.time);
-        // Filter to window
-        if (eventDate > maxDate) continue;
+        // Filter to configured window (both past and future cutoffs)
+        if (eventDate < minDate || eventDate > maxDate) continue;
 
-        // YYYY-MM-DD at UTC noon (consistent with platform convention)
-        const dateStr = eventDate.toISOString().slice(0, 10);
+        // Use local_date/local_time from Meetup API — already in the event's timezone
+        const dateStr  = ev.local_date;  // YYYY-MM-DD
+        const startTime = ev.local_time; // HH:mm
 
-        // Start time as HH:MM in local time (UTC for now — no timezone from API without OAuth)
-        const hours = String(eventDate.getUTCHours()).padStart(2, "0");
-        const mins  = String(eventDate.getUTCMinutes()).padStart(2, "0");
-        const startTime = `${hours}:${mins}`;
-
-        // Location: prefer "venue name, address, city" — fall back to just city
+        // Location: prefer "venue name, address, city, state" — fall back to just city
         let location: string | undefined;
         if (ev.venue) {
           const parts = [ev.venue.name, ev.venue.address_1, ev.venue.city, ev.venue.state]
@@ -103,9 +102,9 @@ export class MeetupAdapter implements SourceAdapter {
           if (parts.length > 0) location = parts.join(", ");
         }
 
-        // Strip HTML tags from description
+        // Strip HTML tags from description using shared Cheerio-based utility
         const description = ev.description
-          ? ev.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 2000) || undefined
+          ? stripHtmlTags(ev.description).slice(0, 2000) || undefined
           : undefined;
 
         events.push({
@@ -120,7 +119,7 @@ export class MeetupAdapter implements SourceAdapter {
       } catch (err) {
         const msg = `Failed to parse event "${ev.id}": ${err instanceof Error ? err.message : String(err)}`;
         errors.push(msg);
-        errorDetails.parse = [...(errorDetails.parse ?? []), { row: 0, error: msg }];
+        errorDetails.parse = [...(errorDetails.parse ?? []), { row: i, error: msg }];
       }
     }
 
