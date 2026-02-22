@@ -282,6 +282,13 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
       setConfigObj(next);
       setConfigJson(JSON.stringify(next, null, 2));
     }
+
+    // For MEETUP: auto-populate groupUrlname into config
+    if (detected.type === "MEETUP" && detected.groupUrlname) {
+      const next = { ...(configObj ?? {}), groupUrlname: detected.groupUrlname };
+      setConfigObj(next);
+      setConfigJson(JSON.stringify(next, null, 2));
+    }
   }
 
   function handlePreview() {

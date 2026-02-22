@@ -212,6 +212,12 @@ export function SourceOnboardingWizard({
         setConfigObj(next);
         setConfigJson(JSON.stringify(next, null, 2));
       }
+
+      if (detected.type === "MEETUP" && detected.groupUrlname) {
+        const next = { ...(configObj ?? {}), groupUrlname: detected.groupUrlname };
+        setConfigObj(next);
+        setConfigJson(JSON.stringify(next, null, 2));
+      }
     } else {
       setDetectedType(null);
     }
