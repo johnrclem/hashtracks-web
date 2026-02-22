@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { RosterTable } from "@/components/misman/RosterTable";
 import { SeedRosterButton } from "@/components/misman/SeedRosterButton";
 import { DuplicateScanResults } from "@/components/misman/DuplicateScanResults";
+import { RosterGroupBanner } from "@/components/misman/RosterGroupBanner";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -49,8 +50,35 @@ export default async function RosterPage({ params }: Props) {
 
   const isSharedRoster = rosterKennelIds.length > 1;
 
+  // Fetch roster group details for the banner when shared
+  let rosterGroupInfo: { name: string; kennelNames: string[] } | null = null;
+  if (isSharedRoster) {
+    const group = await prisma.rosterGroup.findUnique({
+      where: { id: rosterGroupId },
+      select: {
+        name: true,
+        kennels: {
+          select: { kennel: { select: { shortName: true } } },
+          orderBy: { kennel: { shortName: "asc" } },
+        },
+      },
+    });
+    if (group) {
+      rosterGroupInfo = {
+        name: group.name,
+        kennelNames: group.kennels.map((k) => k.kennel.shortName),
+      };
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {rosterGroupInfo && (
+        <RosterGroupBanner
+          groupName={rosterGroupInfo.name}
+          kennelNames={rosterGroupInfo.kennelNames}
+        />
+      )}
       <RosterTable
         hashers={serialized}
         kennelId={kennel.id}

@@ -79,7 +79,7 @@ export function MismanDashboard({
         <div>
           <h1 className="text-2xl font-bold">Misman Dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage attendance and rosters for your kennels.
+            Record attendance, manage your roster, and track run history.
           </p>
         </div>
         {kennels.length >= 2 && (
