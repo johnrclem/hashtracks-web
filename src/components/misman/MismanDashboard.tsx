@@ -210,15 +210,24 @@ export function MismanDashboard({
           <p className="text-muted-foreground">
             You don&apos;t have misman access to any kennels yet.
           </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Visit a{" "}
+            <Link href="/kennels" className="text-primary hover:underline">
+              kennel&apos;s page
+            </Link>{" "}
+            to request misman access.
+          </p>
         </div>
       )}
 
-      {/* Request access to another kennel */}
-      <RequestAnotherKennelSection
-        allKennels={allKennels}
-        managedKennelIds={kennels.map((k) => k.id)}
-        pendingRequestKennelIds={myPendingRequests.map((r) => r.kennelId)}
-      />
+      {/* Request access to another kennel (only for existing mismans) */}
+      {kennels.length > 0 && (
+        <RequestAnotherKennelSection
+          allKennels={allKennels}
+          managedKennelIds={kennels.map((k) => k.id)}
+          pendingRequestKennelIds={myPendingRequests.map((r) => r.kennelId)}
+        />
+      )}
 
       {/* Request Shared Roster dialog */}
       <RequestRosterGroupDialog
