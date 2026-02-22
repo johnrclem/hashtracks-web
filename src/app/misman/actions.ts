@@ -209,7 +209,7 @@ export async function requestRosterGroupByName(
     },
   });
 
-  revalidatePath("/misman");
+  revalidatePath("/misman", "layout");
   return { success: true };
 }
 
@@ -241,6 +241,12 @@ export async function requestRosterGroupChange(
   });
   if (!group) return { error: "Roster group not found" };
 
+  // Verify the kennel belongs to this roster group
+  const groupKennelIds = group.kennels.map((k) => k.kennelId);
+  if (!groupKennelIds.includes(kennelId)) {
+    return { error: "This kennel is not part of the specified roster group" };
+  }
+
   // Check for existing pending request from this user
   const existing = await prisma.rosterGroupRequest.findFirst({
     where: { userId: user.id, status: "PENDING" },
@@ -256,6 +262,6 @@ export async function requestRosterGroupChange(
     },
   });
 
-  revalidatePath("/misman");
+  revalidatePath("/misman", "layout");
   return { success: true };
 }

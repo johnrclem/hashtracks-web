@@ -73,14 +73,11 @@ export default async function RosterPage({ params }: Props) {
     }
   }
 
-  // For non-shared rosters, check for pending roster group requests
-  let hasPendingRosterGroupRequest = false;
-  if (!isSharedRoster) {
-    const pendingReq = await prisma.rosterGroupRequest.findFirst({
-      where: { userId: user.id, status: "PENDING" },
-    });
-    hasPendingRosterGroupRequest = !!pendingReq;
-  }
+  // Check for pending roster group requests (used by both shared and non-shared UI)
+  const pendingReq = await prisma.rosterGroupRequest.findFirst({
+    where: { userId: user.id, status: "PENDING" },
+  });
+  const hasPendingRosterGroupRequest = !!pendingReq;
 
   return (
     <div className="space-y-4">
@@ -94,6 +91,7 @@ export default async function RosterPage({ params }: Props) {
             rosterGroupId={rosterGroupId}
             groupName={rosterGroupInfo.name}
             kennelId={kennel.id}
+            hasPendingRequest={hasPendingRosterGroupRequest}
           />
         </div>
       )}

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,12 +21,14 @@ interface RosterGroupChangeRequestProps {
   rosterGroupId: string;
   groupName: string;
   kennelId: string;
+  hasPendingRequest: boolean;
 }
 
 export function RosterGroupChangeRequest({
   rosterGroupId,
   groupName,
   kennelId,
+  hasPendingRequest,
 }: RosterGroupChangeRequestProps) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -48,6 +51,14 @@ export function RosterGroupChangeRequest({
         router.refresh();
       }
     });
+  }
+
+  if (hasPendingRequest) {
+    return (
+      <Badge variant="outline" className="text-xs shrink-0">
+        Change request pending
+      </Badge>
+    );
   }
 
   return (

@@ -130,7 +130,7 @@ export function UserActivitySection({
               {u.isLinked && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="text-xs text-green-600 cursor-default" tabIndex={0}>Linked</span>
+                    <span className="text-xs text-green-600 dark:text-green-400 cursor-default" tabIndex={0}>Linked</span>
                   </TooltipTrigger>
                   <TooltipContent>This user is linked to a roster entry</TooltipContent>
                 </Tooltip>
