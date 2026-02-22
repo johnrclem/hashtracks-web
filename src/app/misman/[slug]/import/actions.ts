@@ -17,6 +17,18 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { AuditLogEntry } from "@/lib/misman/audit";
 import { syncEventHares } from "@/lib/misman/hare-sync";
 
+/** Maximum CSV text size (1 MB) to prevent memory exhaustion. */
+const MAX_CSV_SIZE_BYTES = 1_000_000;
+/** Maximum number of hasher rows allowed in a CSV import. */
+const MAX_CSV_ROWS = 10_000;
+
+function validateCSVSize(csvText: string): string | null {
+  if (new TextEncoder().encode(csvText).length > MAX_CSV_SIZE_BYTES) {
+    return "CSV file is too large (max 1 MB)";
+  }
+  return null;
+}
+
 /**
  * Preview CSV import: parse CSV and return match results without writing to DB.
  */
@@ -34,10 +46,17 @@ export async function previewCSVImport(
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
+  const sizeError = validateCSVSize(csvText);
+  if (sizeError) return { error: sizeError };
+
   const rosterGroupId = await getRosterGroupId(kennelId);
 
   // Parse CSV
   const parsed = parseAttendanceCSV(csvText, config);
+
+  if (parsed.hasherNames.length > MAX_CSV_ROWS) {
+    return { error: `CSV has too many rows (${parsed.hasherNames.length}). Maximum is ${MAX_CSV_ROWS}.` };
+  }
 
   if (parsed.hasherNames.length === 0) {
     return { error: "No hasher names found in CSV. Check column configuration." };
@@ -137,10 +156,17 @@ export async function executeCSVImport(
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
+  const sizeError = validateCSVSize(csvText);
+  if (sizeError) return { error: sizeError };
+
   const rosterGroupId = await getRosterGroupId(kennelId);
 
   // Parse CSV
   const parsed = parseAttendanceCSV(csvText, config);
+
+  if (parsed.hasherNames.length > MAX_CSV_ROWS) {
+    return { error: `CSV has too many rows (${parsed.hasherNames.length}). Maximum is ${MAX_CSV_ROWS}.` };
+  }
 
   if (parsed.hasherNames.length === 0) {
     return { error: "No hasher names found in CSV." };

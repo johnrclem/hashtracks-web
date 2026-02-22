@@ -34,6 +34,19 @@ export async function createMismanInvite(
     return { error: `Maximum of ${MAX_PENDING_PER_KENNEL} pending invites per kennel` };
   }
 
+  // Guard: per-user daily rate limit (max 5 invites per user per day)
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const userRecentCount = await prisma.mismanInvite.count({
+    where: {
+      inviterId: user.id,
+      createdAt: { gte: oneDayAgo },
+    },
+  });
+
+  if (userRecentCount >= 5) {
+    return { error: "You have created too many invites recently. Please try again later." };
+  }
+
   const token = generateInviteToken();
   const expiresAt = computeExpiresAt(expiryDays);
 

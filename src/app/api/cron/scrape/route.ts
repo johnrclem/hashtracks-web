@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import { scrapeSource } from "@/pipeline/scrape";
 
@@ -21,9 +22,12 @@ export function shouldScrape(scrapeFreq: string, lastScrapeAt: Date | null): boo
 }
 
 export async function GET(request: NextRequest) {
-  // Validate CRON_SECRET
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Validate CRON_SECRET (timing-safe comparison to prevent timing attacks)
+  const authHeader = request.headers.get("authorization") ?? "";
+  const expected = `Bearer ${process.env.CRON_SECRET}`;
+  const authBuf = Buffer.from(authHeader);
+  const expectedBuf = Buffer.from(expected);
+  if (authBuf.length !== expectedBuf.length || !timingSafeEqual(authBuf, expectedBuf)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
