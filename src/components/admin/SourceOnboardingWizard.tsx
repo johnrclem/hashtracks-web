@@ -213,7 +213,7 @@ export function SourceOnboardingWizard({
         setConfigJson(JSON.stringify(next, null, 2));
       }
 
-      if (detected.type === "MEETUP" && detected.groupUrlname) {
+      if (detected.type === "MEETUP" && detected.groupUrlname && configObj?.groupUrlname !== detected.groupUrlname) {
         const next = { ...(configObj ?? {}), groupUrlname: detected.groupUrlname };
         setConfigObj(next);
         setConfigJson(JSON.stringify(next, null, 2));

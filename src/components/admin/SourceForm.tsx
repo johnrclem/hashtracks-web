@@ -284,7 +284,7 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
     }
 
     // For MEETUP: auto-populate groupUrlname into config
-    if (detected.type === "MEETUP" && detected.groupUrlname) {
+    if (detected.type === "MEETUP" && detected.groupUrlname && configObj?.groupUrlname !== detected.groupUrlname) {
       const next = { ...(configObj ?? {}), groupUrlname: detected.groupUrlname };
       setConfigObj(next);
       setConfigJson(JSON.stringify(next, null, 2));
