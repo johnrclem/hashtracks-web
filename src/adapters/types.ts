@@ -66,6 +66,7 @@ export interface ScrapeResult {
   structureHash?: string; // HTML structural fingerprint (HTML adapters only)
   diagnosticContext?: Record<string, unknown>; // Phase 3B: Per-adapter metadata
   aiRecovery?: AiRecoverySummary; // AI recovery results (populated by scrape pipeline)
+  sampleRows?: string[][]; // First 10 raw CSV rows from first tab (Google Sheets only — for AI column detection)
 }
 
 /** All adapters implement this interface */

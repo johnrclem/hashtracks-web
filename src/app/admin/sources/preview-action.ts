@@ -27,6 +27,7 @@ export interface PreviewData {
   errors: string[];
   unmatchedTags: string[];
   fillRates: FieldFillRates;
+  sampleRows?: string[][]; // First 10 raw CSV rows (Google Sheets only — for Gemini column detection)
 }
 
 const MAX_PREVIEW_EVENTS = 25;
@@ -143,6 +144,7 @@ export async function previewSourceConfig(
       errors: result.errors,
       unmatchedTags,
       fillRates,
+      sampleRows: result.sampleRows,
     },
   };
 }

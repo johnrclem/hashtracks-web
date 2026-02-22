@@ -166,6 +166,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     const errorDetails: ErrorDetails = {};
     const tabsProcessed: string[] = [];
     const rowsPerTab: Record<string, number> = {};
+    let sampleRows: string[][] | undefined;
 
     // Step 1: Discover tabs via Sheets API (or use explicit tabs from config)
     let tabNames: string[];
@@ -226,6 +227,11 @@ export class GoogleSheetsAdapter implements SourceAdapter {
       const rows = parseCSV(csvText);
       rowsPerTab[tabName] = rows.length;
       if (rows.length === 0) continue;
+
+      // Capture first tab's raw rows for AI column detection (preview mode only)
+      if (sampleRows === undefined) {
+        sampleRows = rows.slice(0, 10);
+      }
 
       // Skip header row (first row)
       let tabHasEventsInWindow = false;
@@ -323,6 +329,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         tabsProcessed,
         rowsPerTab,
       },
+      sampleRows,
     };
   }
 }

@@ -621,6 +621,8 @@ export function SourceOnboardingWizard({
                 <SheetsConfigPanel
                   config={configObj as SheetsConfig | null}
                   onChange={handleConfigChange}
+                  sampleRows={previewData?.sampleRows}
+                  geminiAvailable={geminiAvailable}
                 />
               )}
 
