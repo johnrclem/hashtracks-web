@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
@@ -111,7 +112,7 @@ function resolveUrl(baseUrl: string, href: string | undefined): string {
   }
 }
 
-function extractIsoDateFromArticle(article: cheerio.Cheerio<cheerio.Element>): string | undefined {
+function extractIsoDateFromArticle(article: cheerio.Cheerio<AnyNode>): string | undefined {
   const datetime = article.find("time[datetime]").first().attr("datetime");
   if (!datetime) return undefined;
 
