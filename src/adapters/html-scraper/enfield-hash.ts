@@ -119,6 +119,41 @@ export function parseEnfieldBody(text: string): {
   };
 }
 
+
+function buildCandidateUrls(baseUrl: string): string[] {
+  const candidates = [baseUrl.replace(/\/+$/, "")];
+
+  try {
+    const parsed = new URL(baseUrl);
+
+    const hostVariant = new URL(parsed.toString());
+    if (hostVariant.hostname.startsWith("www.")) {
+      hostVariant.hostname = hostVariant.hostname.slice(4);
+    } else {
+      hostVariant.hostname = `www.${hostVariant.hostname}`;
+    }
+    candidates.push(hostVariant.toString().replace(/\/+$/, ""));
+
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      const protocolVariant = new URL(parsed.toString());
+      protocolVariant.protocol = parsed.protocol === "https:" ? "http:" : "https:";
+      candidates.push(protocolVariant.toString().replace(/\/+$/, ""));
+
+      const protocolAndHostVariant = new URL(protocolVariant.toString());
+      if (protocolAndHostVariant.hostname.startsWith("www.")) {
+        protocolAndHostVariant.hostname = protocolAndHostVariant.hostname.slice(4);
+      } else {
+        protocolAndHostVariant.hostname = `www.${protocolAndHostVariant.hostname}`;
+      }
+      candidates.push(protocolAndHostVariant.toString().replace(/\/+$/, ""));
+    }
+  } catch {
+    // URL validation happens upstream.
+  }
+
+  return [...new Set(candidates)];
+}
+
 /**
  * Process a single blog post (from either Blogger API or HTML scrape) into a RawEventData.
  * Returns null if the post cannot be parsed (e.g., missing date).
@@ -270,40 +305,63 @@ export class EnfieldHashAdapter implements SourceAdapter {
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
-    let html: string;
+    const requestHeaders = {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+    };
+
+    let html: string | undefined;
+    let fetchUrl = baseUrl;
     const fetchStart = Date.now();
-    try {
-      const response = await fetch(baseUrl, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
-      });
-      if (!response.ok) {
+    const candidateUrls = buildCandidateUrls(baseUrl);
+
+    for (const candidateUrl of candidateUrls) {
+      try {
+        const response = await fetch(candidateUrl, {
+          headers: requestHeaders,
+        });
+
+        if (response.ok) {
+          html = await response.text();
+          fetchUrl = candidateUrl;
+          break;
+        }
+
         const message = `HTTP ${response.status}: ${response.statusText}`;
         errorDetails.fetch = [
-          { url: baseUrl, status: response.status, message },
+          ...(errorDetails.fetch ?? []),
+          { url: candidateUrl, status: response.status, message },
         ];
-        return {
-          events: [],
-          errors: [message],
-          errorDetails,
-          diagnosticContext: {
-            fetchMethod: "html-scrape",
-            ...(bloggerApiError ? { bloggerApiError } : {}),
-          },
-        };
+
+        if (response.status !== 403 && response.status !== 404) {
+          return {
+            events: [],
+            errors: [message],
+            errorDetails,
+            diagnosticContext: {
+              fetchMethod: "html-scrape",
+              ...(bloggerApiError ? { bloggerApiError } : {}),
+            },
+          };
+        }
+      } catch (err) {
+        const message = `Fetch failed: ${err}`;
+        errorDetails.fetch = [
+          ...(errorDetails.fetch ?? []),
+          { url: candidateUrl, message },
+        ];
       }
-      html = await response.text();
-    } catch (err) {
-      const message = `Fetch failed: ${err}`;
-      errorDetails.fetch = [{ url: baseUrl, message }];
+    }
+
+    if (!html) {
+      const last = errorDetails.fetch?.[errorDetails.fetch.length - 1];
+      const fallbackMessage = last?.message ?? "Fetch failed";
       return {
         events: [],
-        errors: [message],
+        errors: [fallbackMessage],
         errorDetails,
         diagnosticContext: {
           fetchMethod: "html-scrape",
@@ -311,6 +369,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
         },
       };
     }
+
     const fetchDurationMs = Date.now() - fetchStart;
 
     const structureHash = generateStructureHash(html);
@@ -340,7 +399,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
         titleText,
         bodyText,
         postUrl,
-        baseUrl,
+        fetchUrl,
         i,
         errors,
         errorDetails,

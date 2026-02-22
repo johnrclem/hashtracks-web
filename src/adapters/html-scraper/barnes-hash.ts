@@ -23,32 +23,62 @@ const MONTHS: Record<string, number> = {
  *   "19th February 2026" → "2026-02-19"
  *   "19/02/2026" → "2026-02-19"
  */
-export function parseBarnesDate(text: string): string | null {
-  // Try DD/MM/YYYY format first
-  const numericMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (numericMatch) {
-    const day = parseInt(numericMatch[1], 10);
-    const month = parseInt(numericMatch[2], 10);
-    const year = parseInt(numericMatch[3], 10);
+export function parseBarnesDate(text: string, referenceDate = new Date()): string | null {
+  // Try DD/MM/YYYY (or DD/MM/YY) first
+  const numericWithYear = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (numericWithYear) {
+    const day = parseInt(numericWithYear[1], 10);
+    const month = parseInt(numericWithYear[2], 10);
+    let year = parseInt(numericWithYear[3], 10);
+    if (year < 100) year += 2000;
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
       return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
   }
 
-  // Try "DDth Month YYYY" or "DD Month YYYY"
+  // Try "DDth Month YYYY" or "DD Month YYYY" with optional year
   const ordinalMatch = text.match(
-    /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i,
+    /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\.?\s*(\d{2,4})?/i,
   );
   if (ordinalMatch) {
     const day = parseInt(ordinalMatch[1], 10);
     const monthNum = MONTHS[ordinalMatch[2].toLowerCase()];
-    const year = parseInt(ordinalMatch[3], 10);
+    let year = ordinalMatch[3] ? parseInt(ordinalMatch[3], 10) : undefined;
+    if (year !== undefined && year < 100) year += 2000;
     if (monthNum && day >= 1 && day <= 31) {
+      if (year === undefined) {
+        year = inferLikelyYear(monthNum, day, referenceDate);
+      }
       return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
   }
 
+  // Try DD/MM with no year
+  const numericNoYear = text.match(/(\d{1,2})\/(\d{1,2})(?!\/\d)/);
+  if (numericNoYear) {
+    const day = parseInt(numericNoYear[1], 10);
+    const month = parseInt(numericNoYear[2], 10);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      const year = inferLikelyYear(month, day, referenceDate);
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
+
   return null;
+}
+
+function inferLikelyYear(month: number, day: number, referenceDate: Date): number {
+  const currentYear = referenceDate.getFullYear();
+  const candidate = new Date(Date.UTC(currentYear, month - 1, day));
+  const refUtc = new Date(Date.UTC(
+    referenceDate.getUTCFullYear(),
+    referenceDate.getUTCMonth(),
+    referenceDate.getUTCDate(),
+  ));
+
+  // If inferred date is far in the past, treat as next year's schedule entry.
+  const dayDiff = Math.floor((candidate.getTime() - refUtc.getTime()) / (24 * 60 * 60 * 1000));
+  return dayDiff < -45 ? currentYear + 1 : currentYear;
 }
 
 /**
@@ -72,7 +102,7 @@ export function parseRunNumber(text: string): number | null {
  * Parse a single Barnes Hash table row into RawEventData.
  * Each row typically contains cells for: run number + date, hare(s), location + details.
  */
-export function parseBarnesRow(cells: string[]): RawEventData | null {
+export function parseBarnesRow(cells: string[], sourceUrl = "http://www.barnesh3.com/HareLine.htm"): RawEventData | null {
   if (cells.length < 2) return null;
 
   // Strategy: look for a date in all cells combined, then extract other fields
@@ -134,7 +164,7 @@ export function parseBarnesRow(cells: string[]): RawEventData | null {
     location,
     locationUrl,
     startTime: "19:30",
-    sourceUrl: "http://www.barnesh3.com/HareLine.htm",
+    sourceUrl,
   };
 }
 
@@ -203,7 +233,7 @@ export class BarnesHashAdapter implements SourceAdapter {
       if (cells.some((c) => /^(run|date|hare|location|#)\s*$/i.test(c))) return;
 
       try {
-        const event = parseBarnesRow(cells);
+        const event = parseBarnesRow(cells, baseUrl);
         if (event) {
           events.push(event);
         } else {
