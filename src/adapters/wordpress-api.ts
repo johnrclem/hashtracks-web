@@ -14,6 +14,7 @@
  */
 
 import he from "he";
+import { buildUrlVariantCandidates } from "./utils";
 
 /** A single post returned by the WordPress REST API */
 export interface WordPressPost {
@@ -49,11 +50,13 @@ export async function fetchWordPressPosts(
     _fields: "title,content,link,date",
   });
 
-  // Try pretty-permalink endpoint first, then query-string fallback
-  const endpoints = [
-    `${base}/wp-json/wp/v2/posts?${params.toString()}`,
-    `${base}/?rest_route=/wp/v2/posts&${params.toString()}`,
-  ];
+  // Try canonical host/protocol first, then optional www/non-www and
+  // https/http variants. Some WordPress sites vary by edge rules.
+  const candidateBases = buildUrlVariantCandidates(base);
+  const endpoints = candidateBases.flatMap((candidateBase) => [
+    `${candidateBase}/wp-json/wp/v2/posts?${params.toString()}`,
+    `${candidateBase}/?rest_route=/wp/v2/posts&${params.toString()}`,
+  ]);
 
   let lastError: { message: string; status?: number } | undefined;
 
@@ -97,11 +100,13 @@ export async function fetchWordPressPosts(
         status: response.status,
       };
 
-      // Only try the fallback endpoint on 403/404 — other errors won't resolve
+      // Only try the endpoint fallback chain on 403/404 — other status errors
+      // usually indicate a server-side issue and are unlikely to improve.
       if (response.status !== 403 && response.status !== 404) break;
     } catch (err) {
       lastError = { message: `WordPress API fetch error: ${err}` };
-      break; // Network errors won't resolve with a different endpoint
+      // Keep trying alternate endpoint/hostname combinations.
+      continue;
     }
   }
 
@@ -111,4 +116,3 @@ export async function fetchWordPressPosts(
     fetchDurationMs: Date.now() - fetchStart,
   };
 }
-

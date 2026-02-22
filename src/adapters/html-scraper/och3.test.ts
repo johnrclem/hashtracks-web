@@ -32,6 +32,7 @@ describe("parseOCH3Date", () => {
 
   it("returns null for invalid month", () => {
     expect(parseOCH3Date("22nd Flob 2026")).toBeNull();
+    expect(parseOCH3Date("9th March", 2026)).toBe("2026-03-09");
   });
 
   it("returns null for empty string", () => {
@@ -135,6 +136,20 @@ const SAMPLE_TABLE_HTML = `
 </body></html>
 `;
 
+
+
+const SAMPLE_UPCOMING_RUNS_BLOCK_HTML = `
+<html><body>
+<div class="wsite-section-wrap">
+  <p>Upcoming Runs:</p>
+  <p>1st March 2026 - Linda 'One in the Eye' Cooper - Outwood</p>
+  <p>9th March - Anna 'Fish n Chips' Cooper</p>
+  <p>22nd March 2026 - 'Chipmonk's last lay' Hash - Joint OCH3, W&NK, EGH3 - Charlwood. Details to follow</p>
+  <p>29th March 2026 - Iain 'Arsola' Davidson</p>
+</div>
+</body></html>
+`;
+
 const SAMPLE_PARAGRAPH_HTML = `
 <html><body>
 <div class="main-content">
@@ -188,6 +203,31 @@ describe("OCH3Adapter.fetch", () => {
     expect(result.events.length).toBeGreaterThanOrEqual(2);
 
     vi.restoreAllMocks();
+  });
+
+
+
+  it("parses multiple upcoming runs from compact line block", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_UPCOMING_RUNS_BLOCK_HTML, { status: 200 }),
+    );
+
+    const adapter = new OCH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "http://www.och3.org.uk/upcoming-run-list.html",
+    } as never);
+
+    expect(result.events).toHaveLength(4);
+    expect(result.events.map((e) => e.date)).toEqual([
+      "2026-03-01",
+      "2026-03-09",
+      "2026-03-22",
+      "2026-03-29",
+    ]);
+    expect(result.events[0].title).toContain("One in the Eye");
+    expect(result.events[0].location).toBe("Outwood");
+    expect(result.events[2].location).toBeUndefined();
   });
 
   it("returns fetch error on network failure", async () => {

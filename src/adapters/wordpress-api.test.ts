@@ -96,11 +96,8 @@ describe("fetchWordPressPosts", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it("returns error when both endpoints fail", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      new Response("Forbidden", { status: 403, statusText: "Forbidden" }) as never,
-    );
-    vi.mocked(fetch).mockResolvedValueOnce(
+  it("returns error when all endpoints fail", async () => {
+    vi.mocked(fetch).mockResolvedValue(
       new Response("Forbidden", { status: 403, statusText: "Forbidden" }) as never,
     );
 
@@ -109,6 +106,7 @@ describe("fetchWordPressPosts", () => {
     expect(result.posts).toHaveLength(0);
     expect(result.error).toBeDefined();
     expect(result.error?.status).toBe(403);
+    expect(fetch).toHaveBeenCalledTimes(8);
   });
 
   it("does not retry on 500 error", async () => {
@@ -124,13 +122,48 @@ describe("fetchWordPressPosts", () => {
   });
 
   it("returns error on network failure", async () => {
-    vi.mocked(fetch).mockRejectedValueOnce(new Error("Network timeout"));
+    vi.mocked(fetch).mockRejectedValue(new Error("Network timeout"));
 
     const result = await fetchWordPressPosts("https://example.com/");
 
     expect(result.posts).toHaveLength(0);
     expect(result.error?.message).toContain("Network timeout");
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(8);
+  });
+
+
+  it("tries protocol variant after hostname variants fail", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response("Forbidden", { status: 403, statusText: "Forbidden" }) as never,
+    );
+
+    await fetchWordPressPosts("https://example.com/");
+
+    const calledUrls = vi.mocked(fetch).mock.calls.map((c) => String(c[0]));
+    expect(calledUrls.some((u) => u.startsWith("http://example.com/wp-json/wp/v2/posts"))).toBe(true);
+    expect(calledUrls.some((u) => u.startsWith("http://www.example.com/wp-json/wp/v2/posts"))).toBe(true);
+  });
+
+  it("tries www host when base host endpoints are forbidden", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response("Forbidden", { status: 403, statusText: "Forbidden" }) as never,
+    );
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response("Forbidden", { status: 403, statusText: "Forbidden" }) as never,
+    );
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }) as never,
+    );
+
+    const result = await fetchWordPressPosts("https://example.com/");
+
+    expect(result.error).toBeUndefined();
+    expect(result.posts).toHaveLength(0);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(fetch).mock.calls[2][0]).toContain("https://www.example.com/wp-json/wp/v2/posts");
   });
 
   it("decodes HTML entities in titles", async () => {

@@ -38,8 +38,16 @@ describe("parseBarnesDate", () => {
     expect(parseBarnesDate("19th Flob 2026")).toBeNull();
   });
 
-  it("returns null for missing year", () => {
-    expect(parseBarnesDate("19th February")).toBeNull();
+  it("infers year when ordinal date omits year", () => {
+    expect(parseBarnesDate("19th February", new Date("2026-01-15T00:00:00Z"))).toBe("2026-02-19");
+  });
+
+  it("rolls inferred year forward around year-end", () => {
+    expect(parseBarnesDate("5th January", new Date("2026-12-15T00:00:00Z"))).toBe("2027-01-05");
+  });
+
+  it("infers year when numeric date omits year", () => {
+    expect(parseBarnesDate("19/02", new Date("2026-01-15T00:00:00Z"))).toBe("2026-02-19");
   });
 
   it("returns null for empty string", () => {
@@ -113,6 +121,13 @@ describe("parseBarnesRow", () => {
     expect(event!.date).toBe("2026-03-05");
     expect(event!.hares).toBe("Trail Blazer");
     expect(event!.locationUrl).toBeUndefined();
+  });
+
+  it("uses source URL passed to row parser", () => {
+    const cells = ["2106  5th March", "Trail Blazer", "TBA"];
+    const event = parseBarnesRow(cells, "https://www.barnesh3.com/HareLine.htm");
+    expect(event).not.toBeNull();
+    expect(event!.sourceUrl).toBe("https://www.barnesh3.com/HareLine.htm");
   });
 
   it("returns null for too few cells", () => {
