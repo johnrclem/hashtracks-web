@@ -51,6 +51,10 @@ import {
   SheetsConfigPanel,
   type SheetsConfig,
 } from "./config-panels/SheetsConfigPanel";
+import {
+  MeetupConfigPanel,
+  type MeetupConfig,
+} from "./config-panels/MeetupConfigPanel";
 
 const SOURCE_TYPES = [
   "HTML_SCRAPER",
@@ -58,6 +62,7 @@ const SOURCE_TYPES = [
   "GOOGLE_SHEETS",
   "ICAL_FEED",
   "HASHREGO",
+  "MEETUP",
   "RSS_FEED",
   "JSON_API",
   "MANUAL",
@@ -69,6 +74,7 @@ const SOURCE_TYPE_DESCRIPTIONS: Record<string, string> = {
   GOOGLE_SHEETS: "Published Google Sheets spreadsheet",
   ICAL_FEED: "iCal/ICS calendar feed",
   HASHREGO: "Hash Rego event aggregator",
+  MEETUP: "Meetup.com public group (no API key needed)",
   RSS_FEED: "RSS/Atom event feed",
   JSON_API: "JSON API endpoint",
   MANUAL: "Manually entered events",
@@ -80,6 +86,7 @@ const CONFIG_TYPES = new Set([
   "GOOGLE_SHEETS",
   "ICAL_FEED",
   "HASHREGO",
+  "MEETUP",
 ]);
 
 /** Types that get a dedicated config panel */
@@ -88,6 +95,7 @@ const PANEL_TYPES = new Set([
   "ICAL_FEED",
   "HASHREGO",
   "GOOGLE_SHEETS",
+  "MEETUP",
 ]);
 
 const STEPS = [
@@ -174,7 +182,7 @@ export function SourceOnboardingWizard({
     PANEL_TYPES.has(selectedType) ||
     (selectedType === "HTML_SCRAPER" && hasICalConfigShape(configObj));
 
-  function getPanelType(): "ical" | "calendar" | "hashrego" | "sheets" | null {
+  function getPanelType(): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | null {
     if (
       selectedType === "ICAL_FEED" ||
       (selectedType === "HTML_SCRAPER" && hasICalConfigShape(configObj))
@@ -183,6 +191,7 @@ export function SourceOnboardingWizard({
     if (selectedType === "GOOGLE_CALENDAR") return "calendar";
     if (selectedType === "HASHREGO") return "hashrego";
     if (selectedType === "GOOGLE_SHEETS") return "sheets";
+    if (selectedType === "MEETUP") return "meetup";
     return null;
   }
 
@@ -209,7 +218,7 @@ export function SourceOnboardingWizard({
   }
 
   function handleConfigChange(
-    newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig,
+    newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig | MeetupConfig,
   ) {
     const entries = Object.entries(newConfig).filter(
       ([, v]) => v !== undefined,
@@ -623,6 +632,13 @@ export function SourceOnboardingWizard({
                   onChange={handleConfigChange}
                   sampleRows={previewData?.sampleRows}
                   geminiAvailable={geminiAvailable}
+                />
+              )}
+
+              {panelType === "meetup" && (
+                <MeetupConfigPanel
+                  config={configObj as MeetupConfig | null}
+                  onChange={handleConfigChange}
                 />
               )}
 
