@@ -5,6 +5,8 @@ import { RosterTable } from "@/components/misman/RosterTable";
 import { SeedRosterButton } from "@/components/misman/SeedRosterButton";
 import { DuplicateScanResults } from "@/components/misman/DuplicateScanResults";
 import { RosterGroupBanner } from "@/components/misman/RosterGroupBanner";
+import { RosterGroupChangeRequest } from "@/components/misman/RosterGroupChangeRequest";
+import { RequestSharedRosterSection } from "@/components/misman/RequestSharedRosterSection";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -71,12 +73,47 @@ export default async function RosterPage({ params }: Props) {
     }
   }
 
+  // For non-shared rosters, check if user has 2+ misman kennels (can request shared roster)
+  let mismanKennels: { id: string; shortName: string }[] = [];
+  let hasPendingRosterGroupRequest = false;
+  if (!isSharedRoster) {
+    const userKennels = await prisma.userKennel.findMany({
+      where: {
+        userId: user.id,
+        role: { in: ["MISMAN", "ADMIN"] },
+      },
+      select: { kennel: { select: { id: true, shortName: true } } },
+      orderBy: { kennel: { shortName: "asc" } },
+    });
+    mismanKennels = userKennels.map((uk) => uk.kennel);
+
+    if (mismanKennels.length >= 2) {
+      const pendingReq = await prisma.rosterGroupRequest.findFirst({
+        where: { userId: user.id, status: "PENDING" },
+      });
+      hasPendingRosterGroupRequest = !!pendingReq;
+    }
+  }
+
   return (
     <div className="space-y-4">
       {rosterGroupInfo && (
-        <RosterGroupBanner
-          groupName={rosterGroupInfo.name}
-          kennelNames={rosterGroupInfo.kennelNames}
+        <div className="flex items-start justify-between gap-2">
+          <RosterGroupBanner
+            groupName={rosterGroupInfo.name}
+            kennelNames={rosterGroupInfo.kennelNames}
+          />
+          <RosterGroupChangeRequest
+            rosterGroupId={rosterGroupId}
+            groupName={rosterGroupInfo.name}
+            kennelId={kennel.id}
+          />
+        </div>
+      )}
+      {!isSharedRoster && mismanKennels.length >= 2 && (
+        <RequestSharedRosterSection
+          kennels={mismanKennels}
+          hasPendingRequest={hasPendingRosterGroupRequest}
         />
       )}
       <RosterTable

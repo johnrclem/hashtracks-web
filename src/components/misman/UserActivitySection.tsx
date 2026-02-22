@@ -3,6 +3,11 @@
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   suggestUserLinks,
@@ -123,7 +128,12 @@ export function UserActivitySection({
                 {u.status === "CONFIRMED" ? "Checked In" : "Going"}
               </Badge>
               {u.isLinked && (
-                <span className="text-xs text-muted-foreground">Linked</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-xs text-green-600 cursor-default" tabIndex={0}>Linked</span>
+                  </TooltipTrigger>
+                  <TooltipContent>This user is linked to a roster entry</TooltipContent>
+                </Tooltip>
               )}
             </div>
             {!u.isLinked && (

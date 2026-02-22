@@ -17,6 +17,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   approveMismanRequest,
@@ -83,13 +88,20 @@ export function MismanDashboard({
           </p>
         </div>
         {kennels.length >= 2 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowRosterGroupDialog(true)}
-          >
-            Request Shared Roster
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRosterGroupDialog(true)}
+              >
+                Request Shared Roster
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Share one roster across sister kennels with overlapping hashers
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
 
