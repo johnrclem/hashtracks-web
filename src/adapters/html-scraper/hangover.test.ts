@@ -195,7 +195,7 @@ describe("HangoverAdapter integration", () => {
     expect(result.errors).toHaveLength(1);
   });
 
-  it("falls back to Ghost datetime when body has no date", async () => {
+  it("falls back to Ghost datetime when detail page has no date", async () => {
     const html = `
 <html><body>
   <article class="gh-card">
@@ -205,8 +205,21 @@ describe("HangoverAdapter integration", () => {
   </article>
 </body></html>`;
 
+    const detailHtml = `
+<html><body>
+  <article>
+    <div class="gh-content">
+      <p>Hare(s): Test Hare</p>
+      <p>Trail Start: Somewhere</p>
+    </div>
+  </article>
+</body></html>`;
+
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(html, { status: 200 }) as never
+    );
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(detailHtml, { status: 200 }) as never
     );
 
     const result = await adapter.fetch({
@@ -217,5 +230,48 @@ describe("HangoverAdapter integration", () => {
     expect(result.events).toHaveLength(1);
     expect(result.events[0].date).toBe("2025-11-03");
     expect(result.events[0].runNumber).toBe(210);
+    expect(result.events[0].hares).toBe("Test Hare");
+    expect(result.events[0].location).toBe("Somewhere");
+  });
+
+  it("fetches detail page when listing lacks key trail fields", async () => {
+    const listingHtml = `
+<html><body>
+  <article class="gh-card">
+    <h2><a href="/211/">#211 - Deep Link Trail</a></h2>
+    <time datetime="2025-12-01">Dec 1, 2025</time>
+    <div class="gh-card-excerpt"><p>Teaser only</p></div>
+  </article>
+</body></html>`;
+
+    const detailHtml = `
+<html><body>
+  <article>
+    <div class="gh-content">
+      <p>Date: Sunday, December 7th, 2025</p>
+      <p>Hare(s): Hairy Potter</p>
+      <p>Trail Start: The Pub, DC</p>
+      <p>Hash Cash: $7.00 US</p>
+    </div>
+  </article>
+</body></html>`;
+
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(listingHtml, { status: 200 }) as never);
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(detailHtml, { status: 200 }) as never);
+
+    const result = await adapter.fetch({
+      id: "test-h4",
+      url: "https://hangoverhash.digitalpress.blog/",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({
+      date: "2025-12-07",
+      runNumber: 211,
+      hares: "Hairy Potter",
+      location: "The Pub, DC",
+      sourceUrl: "https://hangoverhash.digitalpress.blog/211/",
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 });

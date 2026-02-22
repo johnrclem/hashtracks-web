@@ -318,7 +318,7 @@ describe("EnfieldHashAdapter.fetch (HTML fallback path)", () => {
   });
 
   it("returns fetch error on network failure", async () => {
-    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(
       new Error("Network error"),
     );
 
@@ -329,11 +329,11 @@ describe("EnfieldHashAdapter.fetch (HTML fallback path)", () => {
 
     expect(result.events).toHaveLength(0);
     expect(result.errors).toHaveLength(1);
-    expect(result.errorDetails?.fetch).toHaveLength(1);
+    expect(result.errorDetails?.fetch?.length).toBeGreaterThan(1);
   });
 
   it("returns fetch error on HTTP error", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("Forbidden", { status: 403, statusText: "Forbidden" }),
     );
 
@@ -344,10 +344,11 @@ describe("EnfieldHashAdapter.fetch (HTML fallback path)", () => {
 
     expect(result.events).toHaveLength(0);
     expect(result.errorDetails?.fetch?.[0].status).toBe(403);
+    expect(result.errorDetails?.fetch?.length).toBeGreaterThan(1);
   });
 
   it("includes Blogger API error in diagnostics when HTML also fails", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("Forbidden", { status: 403, statusText: "Forbidden" }),
     );
 
@@ -362,5 +363,24 @@ describe("EnfieldHashAdapter.fetch (HTML fallback path)", () => {
     expect(result.diagnosticContext?.bloggerApiError).toBe(
       "Missing GOOGLE_CALENDAR_API_KEY environment variable",
     );
+  });
+
+  it("falls back across protocol/host variants on 403", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(
+      new Response("Forbidden", { status: 403, statusText: "Forbidden" }),
+    );
+    fetchSpy.mockResolvedValueOnce(
+      new Response(SAMPLE_BLOGGER_HTML, { status: 200 }),
+    );
+
+    const result = await adapter.fetch({
+      id: "test",
+      url: "http://www.enfieldhash.org/",
+    } as never);
+
+    expect(result.events.length).toBeGreaterThan(0);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(String(fetchSpy.mock.calls[1][0])).toContain("http://enfieldhash.org");
   });
 });

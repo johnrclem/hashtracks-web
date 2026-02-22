@@ -25,13 +25,14 @@ const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "f
  *   "22 February 2026" → "2026-02-22"
  *   "22/02/2026" → "2026-02-22"
  */
-export function parseOCH3Date(text: string): string | null {
+export function parseOCH3Date(text: string, fallbackYear?: number): string | null {
   // Try DD/MM/YYYY format first
-  const numericMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  const numericMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
   if (numericMatch) {
     const day = parseInt(numericMatch[1], 10);
     const month = parseInt(numericMatch[2], 10);
-    const year = parseInt(numericMatch[3], 10);
+    let year = parseInt(numericMatch[3], 10);
+    if (year < 100) year += 2000;
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
       return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
@@ -39,13 +40,14 @@ export function parseOCH3Date(text: string): string | null {
 
   // Try "DDth Month YYYY" or "DD Month YYYY"
   const ordinalMatch = text.match(
-    /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i,
+    /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+(\w+)(?:\s+(\d{2,4}))?/i,
   );
   if (ordinalMatch) {
     const day = parseInt(ordinalMatch[1], 10);
     const monthNum = MONTHS[ordinalMatch[2].toLowerCase()];
-    const year = parseInt(ordinalMatch[3], 10);
-    if (monthNum && day >= 1 && day <= 31) {
+    let year = ordinalMatch[3] ? parseInt(ordinalMatch[3], 10) : fallbackYear;
+    if (year !== undefined && year < 100) year += 2000;
+    if (monthNum && day >= 1 && day <= 31 && year !== undefined) {
       return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
   }
@@ -115,6 +117,69 @@ export function parseOCH3Entry(text: string): RawEventData | null {
     startTime,
     sourceUrl: "http://www.och3.org.uk/upcoming-run-list.html",
   };
+}
+
+
+function parseOCH3EntriesFromText(text: string, baseUrl: string): RawEventData[] {
+  const normalizedText = text
+    .replace(/\r/g, "")
+    .replace(/[–—]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const dateStartPattern = /(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?/gi;
+  const matches = [...normalizedText.matchAll(dateStartPattern)];
+
+  const entries: RawEventData[] = [];
+  let inferredYear: number | undefined;
+
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i].index ?? -1;
+    if (start < 0) continue;
+
+    const end = i + 1 < matches.length
+      ? matches[i + 1].index ?? normalizedText.length
+      : normalizedText.length;
+
+    const section = normalizedText.slice(start, end).trim();
+    if (!section || /^upcoming runs:?$/i.test(section)) continue;
+
+    const explicitYearMatch = section.match(/\b(20\d{2})\b/);
+    if (explicitYearMatch) inferredYear = parseInt(explicitYearMatch[1], 10);
+
+    const date = parseOCH3Date(section, inferredYear);
+    if (!date) continue;
+
+    if (!inferredYear) {
+      inferredYear = parseInt(date.slice(0, 4), 10);
+    }
+
+    const withoutDatePrefix = section
+      .replace(/^(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\s*-?\s*/i, "")
+      .trim();
+
+    const segments = withoutDatePrefix.split(/\s+-\s+/).map((s) => s.trim()).filter(Boolean);
+    const title = segments.length > 0 ? segments[0] : undefined;
+
+    let location: string | undefined;
+    if (segments.length > 1) {
+      location = segments[segments.length - 1];
+      if (/details to follow/i.test(location)) {
+        location = undefined;
+      }
+    }
+
+    entries.push({
+      date,
+      kennelTag: "OCH3",
+      title,
+      location,
+      startTime: getStartTimeForDay(extractDayOfWeek(section)),
+      sourceUrl: baseUrl,
+    });
+  }
+
+  return entries;
 }
 
 /**
@@ -217,7 +282,17 @@ export class OCH3Adapter implements SourceAdapter {
       });
     }
 
-    // Strategy 3: Split page content by date patterns and parse each section
+    // Strategy 3: Line-based parsing for compact "Upcoming Runs" blocks
+    {
+      const mainContent = $("main, .main-content, #content, .wsite-section-wrap, body").first().text();
+      const parsedFromLines = parseOCH3EntriesFromText(mainContent, baseUrl);
+      if (parsedFromLines.length > events.length) {
+        events.length = 0;
+        events.push(...parsedFromLines);
+      }
+    }
+
+    // Strategy 4: Split page content by date patterns and parse each section
     if (events.length === 0) {
       const mainContent = $("main, .main-content, #content, .wsite-section-wrap, body").first().text();
       const datePattern = /(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4}/gi;
