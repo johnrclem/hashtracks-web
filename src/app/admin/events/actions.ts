@@ -41,6 +41,15 @@ export async function deleteEvent(eventId: string): Promise<ActionResult<{ kenne
 
   await deleteEventsCascade([eventId]);
 
+  console.log("[admin-audit] deleteEvent", JSON.stringify({
+    adminId: admin.id,
+    action: "delete_event",
+    eventId,
+    kennelName: event.kennel.shortName,
+    eventDate: event.date.toISOString(),
+    timestamp: new Date().toISOString(),
+  }));
+
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
   return {
@@ -123,6 +132,14 @@ export async function bulkDeleteEvents(filters: {
 
   await deleteEventsCascade(eventIds);
 
+  console.log("[admin-audit] bulkDeleteEvents", JSON.stringify({
+    adminId: admin.id,
+    action: "bulk_delete_events",
+    count: eventIds.length,
+    filters,
+    timestamp: new Date().toISOString(),
+  }));
+
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
   return { success: true, deletedCount: eventIds.length };
@@ -139,6 +156,13 @@ export async function deleteSelectedEvents(eventIds: string[]): Promise<ActionRe
   if (eventIds.length > 500) return { error: "Too many events selected (max 500)" };
 
   await deleteEventsCascade(eventIds);
+
+  console.log("[admin-audit] deleteSelectedEvents", JSON.stringify({
+    adminId: admin.id,
+    action: "delete_selected_events",
+    count: eventIds.length,
+    timestamp: new Date().toISOString(),
+  }));
 
   revalidatePath("/admin/events");
   revalidatePath("/hareline");

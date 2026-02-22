@@ -15,6 +15,11 @@ export async function updateProfile(
   const nerdName = formData.get("nerdName") as string | null;
   const bio = formData.get("bio") as string | null;
 
+  // Input length validation
+  if (hashName && hashName.trim().length > 100) return { error: "Hash name is too long (max 100 characters)" };
+  if (nerdName && nerdName.trim().length > 100) return { error: "Nerd name is too long (max 100 characters)" };
+  if (bio && bio.trim().length > 500) return { error: "Bio is too long (max 500 characters)" };
+
   await prisma.user.update({
     where: { id: user.id },
     data: {

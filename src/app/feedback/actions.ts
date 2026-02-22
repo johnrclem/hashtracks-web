@@ -38,7 +38,9 @@ export async function submitFeedback(
   const pageUrl = (formData.get("pageUrl") as string)?.trim();
 
   if (!title) return { error: "Title is required" };
+  if (title.length > 200) return { error: "Title is too long (max 200 characters)" };
   if (!description) return { error: "Description is required" };
+  if (description.length > 5000) return { error: "Description is too long (max 5,000 characters)" };
 
   const issueTitle = `[Feedback] ${title}`;
   const heading = CATEGORY_HEADINGS[category] || "Feedback";

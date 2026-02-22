@@ -312,6 +312,14 @@ export async function deleteKennel(kennelId: string) {
     prisma.kennel.delete({ where: { id: kennelId } }),
   ]);
 
+  console.log("[admin-audit] deleteKennel", JSON.stringify({
+    adminId: admin.id,
+    action: "delete_kennel",
+    kennelId,
+    kennelName: kennel.shortName,
+    timestamp: new Date().toISOString(),
+  }));
+
   revalidatePath("/admin/kennels");
   revalidatePath("/kennels");
   return { success: true };
@@ -640,6 +648,17 @@ export async function mergeKennels(
       where: { id: sourceKennel.id },
     }),
   ]);
+
+  console.log("[admin-audit] mergeKennels", JSON.stringify({
+    adminId: admin.id,
+    action: "merge_kennels",
+    sourceKennelId: sourceKennel.id,
+    sourceKennelName: sourceKennel.shortName,
+    targetKennelId: targetKennel.id,
+    targetKennelName: targetKennel.shortName,
+    eventsMoved: sourceKennel._count.events,
+    timestamp: new Date().toISOString(),
+  }));
 
   revalidatePath("/admin/kennels");
   revalidatePath("/kennels");
