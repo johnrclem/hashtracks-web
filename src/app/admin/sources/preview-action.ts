@@ -10,6 +10,7 @@ import {
 } from "@/pipeline/kennel-resolver";
 import type { SourceType, Source } from "@/generated/prisma/client";
 import type { FieldFillRates } from "@/pipeline/fill-rates";
+import type { ErrorDetails } from "@/adapters/types";
 
 export interface PreviewEvent {
   date: string;
@@ -25,6 +26,8 @@ export interface PreviewData {
   events: PreviewEvent[];
   totalCount: number;
   errors: string[];
+  errorDetails?: ErrorDetails;
+  diagnosticContext?: Record<string, unknown>;
   unmatchedTags: string[];
   fillRates: FieldFillRates;
   sampleRows?: string[][]; // First 10 raw CSV rows (Google Sheets only — for Gemini column detection)
@@ -142,6 +145,8 @@ export async function previewSourceConfig(
       events: previewEvents,
       totalCount: result.events.length,
       errors: result.errors,
+      errorDetails: result.errorDetails,
+      diagnosticContext: result.diagnosticContext,
       unmatchedTags,
       fillRates,
       sampleRows: result.sampleRows,
