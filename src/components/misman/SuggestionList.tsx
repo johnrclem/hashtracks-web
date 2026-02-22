@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { InfoPopover } from "@/components/ui/info-popover";
 
 const MAX_VISIBLE = 10;
 
@@ -45,12 +46,19 @@ export function SuggestionList({
 
   return (
     <div className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground">
-        Suggestions
-        {hiddenCount > 0 && (
-          <span className="ml-1 font-normal">(+{hiddenCount} more)</span>
-        )}
-      </p>
+      <div className="flex items-center gap-1">
+        <p className="text-xs font-medium text-muted-foreground">
+          Suggestions
+          {hiddenCount > 0 && (
+            <span className="ml-1 font-normal">(+{hiddenCount} more)</span>
+          )}
+        </p>
+        <InfoPopover title="Suggestions">
+          Suggestions are based on who shows up most often and most recently.
+          They update as you add hashers &mdash; tap a name to mark them as
+          attended.
+        </InfoPopover>
+      </div>
       <div className="flex flex-wrap gap-1.5">
         {visible.map((s) => (
           <Button
