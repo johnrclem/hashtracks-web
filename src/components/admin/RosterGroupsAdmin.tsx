@@ -36,6 +36,7 @@ import {
   rejectRosterGroupRequest,
 } from "@/app/admin/roster-groups/actions";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
+import { groupByRegion } from "@/lib/groupByRegion";
 
 type KennelOption = { id: string; shortName: string; fullName: string; region: string };
 
@@ -44,24 +45,6 @@ interface RosterGroupData {
   name: string;
   kennels: Array<KennelOption & { slug: string }>;
   hasherCount: number;
-}
-
-function groupByRegion<T extends { region: string; shortName: string }>(
-  items: T[],
-): { region: string; items: T[] }[] {
-  const groups: Record<string, T[]> = {};
-  for (const item of items) {
-    if (!groups[item.region]) groups[item.region] = [];
-    groups[item.region].push(item);
-  }
-  return Object.keys(groups)
-    .sort()
-    .map((region) => ({
-      region,
-      items: groups[region].sort((a, b) =>
-        a.shortName.localeCompare(b.shortName),
-      ),
-    }));
 }
 
 interface PendingGroupRequest {

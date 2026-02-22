@@ -97,7 +97,6 @@ export default async function RosterPage({ params }: Props) {
       )}
       {!isSharedRoster && (
         <RequestSharedRosterSection
-          kennelShortName={kennel.shortName}
           kennelId={kennel.id}
           hasPendingRequest={hasPendingRosterGroupRequest}
         />

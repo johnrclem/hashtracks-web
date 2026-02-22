@@ -270,6 +270,77 @@ export async function requestRosterGroupByName(
 }
 
 /**
+ * Fetch all kennels with their roster group membership for the picker UI.
+ */
+export async function getKennelsForRosterPicker() {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" as const };
+
+  const [kennels, groupedKennels] = await Promise.all([
+    prisma.kennel.findMany({
+      select: { id: true, shortName: true, fullName: true, region: true },
+      orderBy: [{ region: "asc" }, { shortName: "asc" }],
+    }),
+    prisma.rosterGroupKennel.findMany({
+      select: {
+        kennelId: true,
+        group: { select: { name: true } },
+      },
+    }),
+  ]);
+
+  const groupMap = new Map(
+    groupedKennels.map((gk) => [gk.kennelId, gk.group.name]),
+  );
+
+  return {
+    data: kennels.map((k) => ({
+      ...k,
+      rosterGroupName: groupMap.get(k.id) ?? null,
+    })),
+  };
+}
+
+/**
+ * Request a new shared roster group with specific kennel IDs.
+ * Any misman can request — they don't need to manage all kennels in the group.
+ */
+export async function requestRosterGroupWithIds(
+  kennelId: string,
+  proposedName: string,
+  kennelIds: string[],
+  message?: string,
+) {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  if (!proposedName.trim()) return { error: "Group name is required" };
+  if (kennelIds.length < 2) return { error: "At least 2 kennels are required" };
+
+  // Verify misman access to at least the current kennel
+  const mismanUser = await getMismanUser(kennelId);
+  if (!mismanUser) return { error: "Not authorized" };
+
+  // Check for existing pending request from this user
+  const existing = await prisma.rosterGroupRequest.findFirst({
+    where: { userId: user.id, status: "PENDING" },
+  });
+  if (existing) return { error: "You already have a pending roster group request" };
+
+  await prisma.rosterGroupRequest.create({
+    data: {
+      userId: user.id,
+      proposedName: proposedName.trim(),
+      kennelIds: kennelIds as unknown as Prisma.InputJsonValue,
+      message: message?.trim() || null,
+    },
+  });
+
+  revalidatePath("/misman", "layout");
+  return { success: true };
+}
+
+/**
  * Request a change to an existing roster group.
  * Uses the same RosterGroupRequest model with the current group name
  * and kennel IDs, plus a message describing the desired change.
