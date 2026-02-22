@@ -63,6 +63,12 @@ export default async function MismanPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  // Fetch all kennels for the "request another kennel" picker
+  const allKennels = await prisma.kennel.findMany({
+    select: { id: true, shortName: true, fullName: true, region: true },
+    orderBy: { shortName: "asc" },
+  });
+
   const serializedKennels = mismanKennels.map((mk) => ({
     ...mk.kennel,
     role: mk.role,
@@ -78,6 +84,7 @@ export default async function MismanPage() {
 
   const serializedMyRequests = myPendingRequests.map((r) => ({
     id: r.id,
+    kennelId: r.kennelId,
     kennel: r.kennel,
     message: r.message,
     createdAt: r.createdAt.toISOString(),
@@ -112,6 +119,7 @@ export default async function MismanPage() {
       myPendingRequests={serializedMyRequests}
       myPendingRosterGroupRequests={serializedRosterGroupRequests}
       isSiteAdmin={isSiteAdmin}
+      allKennels={allKennels}
     />
   );
 }

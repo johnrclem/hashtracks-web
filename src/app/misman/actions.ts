@@ -6,6 +6,62 @@ import type { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 
 /**
+ * Request misman access from the misman dashboard.
+ * Caller must already be misman of at least one kennel.
+ * Auto-subscribes (creates MEMBER UserKennel) if not already subscribed.
+ */
+export async function requestMismanAccessFromDashboard(
+  kennelId: string,
+  message?: string,
+) {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  // Must already be misman of at least one kennel
+  const existingMismanRole = await prisma.userKennel.findFirst({
+    where: {
+      userId: user.id,
+      role: { in: ["MISMAN", "ADMIN"] },
+    },
+  });
+  if (!existingMismanRole) {
+    return { error: "You must be misman of at least one kennel" };
+  }
+
+  // Already has misman/admin role for this kennel?
+  const membership = await prisma.userKennel.findUnique({
+    where: { userId_kennelId: { userId: user.id, kennelId } },
+  });
+  if (membership?.role === "MISMAN" || membership?.role === "ADMIN") {
+    return { error: "You already have misman access for this kennel" };
+  }
+
+  // Check for existing PENDING request
+  const existing = await prisma.mismanRequest.findFirst({
+    where: { userId: user.id, kennelId, status: "PENDING" },
+  });
+  if (existing) return { error: "You already have a pending request for this kennel" };
+
+  // Auto-subscribe as MEMBER if not already subscribed
+  if (!membership) {
+    await prisma.userKennel.create({
+      data: { userId: user.id, kennelId, role: "MEMBER" },
+    });
+  }
+
+  await prisma.mismanRequest.create({
+    data: {
+      userId: user.id,
+      kennelId,
+      message: message?.trim() || null,
+    },
+  });
+
+  revalidatePath("/misman");
+  return { success: true };
+}
+
+/**
  * Request misman access for a kennel.
  * Any authenticated user can request; must be a MEMBER (subscribed).
  */

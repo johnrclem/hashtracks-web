@@ -3,11 +3,20 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronsUpDownIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -17,14 +26,24 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
+  KennelOptionLabel,
+  type KennelOptionData,
+} from "@/components/kennels/KennelOptionLabel";
+import {
   approveMismanRequest,
   rejectMismanRequest,
+  requestMismanAccessFromDashboard,
   requestRosterGroupByName,
 } from "@/app/misman/actions";
 
@@ -47,6 +66,7 @@ interface PendingRequest {
 
 interface MyPendingRequest {
   id: string;
+  kennelId: string;
   kennel: { shortName: string; slug: string };
   message: string | null;
   createdAt: string;
@@ -66,6 +86,7 @@ interface MismanDashboardProps {
   myPendingRequests: MyPendingRequest[];
   myPendingRosterGroupRequests: MyPendingRosterGroupRequest[];
   isSiteAdmin: boolean;
+  allKennels: KennelOptionData[];
 }
 
 export function MismanDashboard({
@@ -74,6 +95,7 @@ export function MismanDashboard({
   myPendingRequests,
   myPendingRosterGroupRequests,
   isSiteAdmin,
+  allKennels,
 }: MismanDashboardProps) {
   const [showRosterGroupDialog, setShowRosterGroupDialog] = useState(false);
 
@@ -188,15 +210,15 @@ export function MismanDashboard({
           <p className="text-muted-foreground">
             You don&apos;t have misman access to any kennels yet.
           </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Visit a{" "}
-            <Link href="/kennels" className="text-primary hover:underline">
-              kennel&apos;s page
-            </Link>{" "}
-            to request misman access.
-          </p>
         </div>
       )}
+
+      {/* Request access to another kennel */}
+      <RequestAnotherKennelSection
+        allKennels={allKennels}
+        managedKennelIds={kennels.map((k) => k.id)}
+        pendingRequestKennelIds={myPendingRequests.map((r) => r.kennelId)}
+      />
 
       {/* Request Shared Roster dialog */}
       <RequestRosterGroupDialog
@@ -204,6 +226,124 @@ export function MismanDashboard({
         onClose={() => setShowRosterGroupDialog(false)}
         kennels={kennels}
       />
+    </div>
+  );
+}
+
+function RequestAnotherKennelSection({
+  allKennels,
+  managedKennelIds,
+  pendingRequestKennelIds,
+}: {
+  allKennels: KennelOptionData[];
+  managedKennelIds: string[];
+  pendingRequestKennelIds: string[];
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedKennel, setSelectedKennel] = useState<KennelOptionData | null>(
+    null,
+  );
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const excludedIds = new Set([
+    ...managedKennelIds,
+    ...pendingRequestKennelIds,
+  ]);
+  const eligibleKennels = allKennels.filter((k) => !excludedIds.has(k.id));
+
+  if (eligibleKennels.length === 0) return null;
+
+  function handleSubmit() {
+    if (!selectedKennel) return;
+    startTransition(async () => {
+      const result = await requestMismanAccessFromDashboard(
+        selectedKennel.id,
+        message || undefined,
+      );
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(
+          `Misman access requested for ${selectedKennel.shortName}`,
+        );
+        setSelectedKennel(null);
+        setMessage("");
+        router.refresh();
+      }
+    });
+  }
+
+  return (
+    <div className="rounded-lg border border-dashed p-6 space-y-4">
+      <div>
+        <h3 className="font-semibold">Missing a kennel?</h3>
+        <p className="text-sm text-muted-foreground">
+          If you&apos;re the misman for another kennel, request access here.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full max-w-sm justify-between font-normal"
+            >
+              {selectedKennel
+                ? selectedKennel.shortName
+                : "Search and select a kennel..."}
+              <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-[var(--radix-popover-trigger-width)] p-0"
+            align="start"
+          >
+            <Command>
+              <CommandInput placeholder="Search kennels..." />
+              <CommandList>
+                <CommandEmpty>No kennels found.</CommandEmpty>
+                <CommandGroup>
+                  {eligibleKennels.map((k) => (
+                    <CommandItem
+                      key={k.id}
+                      value={`${k.shortName} ${k.fullName} ${k.region}`}
+                      onSelect={() => {
+                        setSelectedKennel(k);
+                        setPickerOpen(false);
+                      }}
+                    >
+                      <KennelOptionLabel kennel={k} />
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+
+        {selectedKennel && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="dashboard-misman-message">
+                Message (optional)
+              </Label>
+              <Textarea
+                id="dashboard-misman-message"
+                placeholder="I'm the misman for this kennel..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <Button onClick={handleSubmit} disabled={isPending} size="sm">
+              {isPending ? "Requesting..." : "Request Access"}
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
