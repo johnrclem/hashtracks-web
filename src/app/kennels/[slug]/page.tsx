@@ -145,6 +145,7 @@ export default async function KennelDetailPage({
         <MismanAccessButton
           kennelId={kennel.id}
           kennelShortName={kennel.shortName}
+          kennelSlug={kennel.slug}
           userRole={userRole}
           hasPendingRequest={hasPendingMismanRequest}
           isAuthenticated={!!user}

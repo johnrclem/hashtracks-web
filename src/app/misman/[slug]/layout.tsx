@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
+import { ExternalLink } from "lucide-react";
 import { getMismanUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { MismanKennelNav } from "@/components/misman/MismanKennelNav";
@@ -53,11 +55,28 @@ export default async function MismanKennelLayout({ children, params }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Link href="/misman" className="hover:text-foreground transition-colors">
+          Misman
+        </Link>
+        <span>/</span>
+        <span className="text-foreground font-medium">{kennel.shortName}</span>
+      </nav>
       <div>
-        <KennelSwitcher
-          currentKennel={{ shortName: kennel.shortName, fullName: kennel.fullName, slug: kennel.slug }}
-          kennels={kennelOptions}
-        />
+        <div className="flex items-center gap-2">
+          <KennelSwitcher
+            currentKennel={{ shortName: kennel.shortName, fullName: kennel.fullName, slug: kennel.slug }}
+            kennels={kennelOptions}
+          />
+          <Link
+            href={`/kennels/${kennel.slug}`}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            title="View kennel page"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Link>
+        </div>
         <p className="text-sm text-muted-foreground">{kennel.fullName}</p>
       </div>
       <MismanKennelNav slug={kennel.slug} />

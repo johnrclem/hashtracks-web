@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -17,11 +16,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   approveMismanRequest,
   rejectMismanRequest,
-  requestRosterGroup,
+  requestRosterGroupByName,
 } from "@/app/misman/actions";
 
 interface MismanKennel {
@@ -82,14 +86,21 @@ export function MismanDashboard({
             Record attendance, manage your roster, and track run history.
           </p>
         </div>
-        {kennels.length >= 2 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowRosterGroupDialog(true)}
-          >
-            Request Shared Roster
-          </Button>
+        {kennels.length >= 1 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRosterGroupDialog(true)}
+              >
+                Request Shared Roster
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Share one roster across sister kennels with overlapping hashers
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
 
@@ -234,29 +245,23 @@ function RequestRosterGroupDialog({
   onClose: () => void;
   kennels: MismanKennel[];
 }) {
+  const defaultKennelNames = kennels.map((k) => k.shortName).join(", ");
   const [name, setName] = useState("");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [kennelNames, setKennelNames] = useState(defaultKennelNames);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  function handleToggle(kennelId: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(kennelId)) {
-        next.delete(kennelId);
-      } else {
-        next.add(kennelId);
-      }
-      return next;
-    });
-  }
-
   function handleSubmit() {
+    // Use the first kennel ID for auth context
+    const firstKennelId = kennels[0]?.id;
+    if (!firstKennelId) return;
+
     startTransition(async () => {
-      const result = await requestRosterGroup(
+      const result = await requestRosterGroupByName(
+        firstKennelId,
         name,
-        Array.from(selectedIds),
+        kennelNames,
         message || undefined,
       );
       if (result.error) {
@@ -264,7 +269,7 @@ function RequestRosterGroupDialog({
       } else {
         toast.success("Roster group request submitted");
         setName("");
-        setSelectedIds(new Set());
+        setKennelNames(defaultKennelNames);
         setMessage("");
         onClose();
         router.refresh();
@@ -275,7 +280,7 @@ function RequestRosterGroupDialog({
   function handleOpenChange(open: boolean) {
     if (!open) {
       setName("");
-      setSelectedIds(new Set());
+      setKennelNames(defaultKennelNames);
       setMessage("");
       onClose();
     }
@@ -287,8 +292,8 @@ function RequestRosterGroupDialog({
         <DialogHeader>
           <DialogTitle>Request Shared Roster</DialogTitle>
           <DialogDescription>
-            Propose grouping 2 or more of your kennels to share a roster.
-            An admin will review your request.
+            Propose grouping kennels to share a roster. An admin will review
+            your request and set up the group.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
@@ -302,27 +307,20 @@ function RequestRosterGroupDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Kennels ({selectedIds.size} selected)</Label>
-            <div className="space-y-2 rounded-md border p-3">
-              {kennels.map((k) => (
-                <div key={k.id} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`rg-kennel-${k.id}`}
-                    checked={selectedIds.has(k.id)}
-                    onCheckedChange={() => handleToggle(k.id)}
-                  />
-                  <Label
-                    htmlFor={`rg-kennel-${k.id}`}
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    {k.shortName}
-                  </Label>
-                </div>
-              ))}
-            </div>
+            <Label htmlFor="roster-group-kennels">Kennels to include</Label>
+            <Input
+              id="roster-group-kennels"
+              placeholder="e.g., NYCH3, NYCH4, LBH3"
+              value={kennelNames}
+              onChange={(e) => setKennelNames(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Comma-separated kennel short names. You don&apos;t need to manage
+              all of them — the admin will coordinate.
+            </p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="roster-group-message">Message (optional)</Label>
+            <Label htmlFor="roster-group-message">Additional details (optional)</Label>
             <Textarea
               id="roster-group-message"
               placeholder="Why should these kennels share a roster?"
@@ -338,7 +336,7 @@ function RequestRosterGroupDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isPending || !name.trim() || selectedIds.size < 2}
+            disabled={isPending || !name.trim() || !kennelNames.trim()}
           >
             {isPending ? "Submitting..." : "Submit Request"}
           </Button>
