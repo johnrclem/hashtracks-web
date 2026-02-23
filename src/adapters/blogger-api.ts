@@ -14,6 +14,8 @@
  *   2. Set GOOGLE_CALENDAR_API_KEY env var (same key used for Calendar/Sheets)
  */
 
+import { buildUrlVariantCandidates } from "@/adapters/url-variants";
+
 const BLOGGER_API_BASE = "https://www.googleapis.com/blogger/v3";
 
 /** A single blog post returned by the Blogger API */
@@ -47,12 +49,7 @@ async function discoverBlogId(
   sourceUrl: string,
   authHeaders: Record<string, string>,
 ): Promise<{ blogId: string } | { error: { message: string; status?: number } }> {
-  const urlsToTry = [sourceUrl];
-  if (sourceUrl.startsWith("http://")) {
-    urlsToTry.push(sourceUrl.replace("http://", "https://"));
-  } else if (sourceUrl.startsWith("https://")) {
-    urlsToTry.push(sourceUrl.replace("https://", "http://"));
-  }
+  const urlsToTry = buildUrlVariantCandidates(sourceUrl);
 
   let lastLookupError: { message: string; status?: number } | undefined;
 
