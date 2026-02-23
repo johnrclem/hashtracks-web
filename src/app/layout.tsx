@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getOrCreateUser } from "@/lib/auth";
 import { TimePreferenceProvider } from "@/components/providers/time-preference-provider";
+import { UnitsPreferenceProvider } from "@/components/providers/units-preference-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -42,12 +43,14 @@ export default async function RootLayout({
         >
           <TooltipProvider>
             <TimePreferenceProvider initialPreference={timeDisplayPref}>
-              <Header />
-              <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8">
-                {children}
-              </main>
-              <Footer />
-              <Toaster />
+              <UnitsPreferenceProvider>
+                <Header />
+                <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8">
+                  {children}
+                </main>
+                <Footer />
+                <Toaster />
+              </UnitsPreferenceProvider>
             </TimePreferenceProvider>
           </TooltipProvider>
           <Analytics />

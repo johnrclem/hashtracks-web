@@ -4,8 +4,9 @@ import Link from "next/link";
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Globe, Clock } from "lucide-react";
+import { Globe, Clock, Thermometer } from "lucide-react";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
+import { useUnitsPreference } from "@/components/providers/units-preference-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +28,7 @@ export function Header() {
   const { user } = useUser();
   const isAdmin = (user?.publicMetadata as { role?: string } | undefined)?.role === "admin";
   const { preference, setPreference, isLoading } = useTimePreference();
+  const { tempUnit, setTempUnit } = useUnitsPreference();
 
   return (
     <header className="border-b bg-background">
@@ -93,6 +95,32 @@ export function Header() {
                   <span className="font-medium flex items-center gap-2"><Clock className="h-4 w-4" /> My Local Time</span>
                   <span className="text-xs text-muted-foreground">Times translated to your current timezone</span>
                 </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Temperature Units Toggle */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Temperature units">
+                <Thermometer className="h-4 w-4" />
+                <span className="sr-only">Toggle temperature units</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Temperature</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setTempUnit("IMPERIAL")}
+                className={tempUnit === "IMPERIAL" ? "bg-accent" : ""}
+              >
+                °F — Fahrenheit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setTempUnit("METRIC")}
+                className={tempUnit === "METRIC" ? "bg-accent" : ""}
+              >
+                °C — Celsius
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
