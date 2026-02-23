@@ -133,7 +133,7 @@ export default async function AdminMismanPage() {
 
   return (
     <div>
-      <h2 className="mb-4 text-lg font-semibold">Misman Management</h2>
+      <h2 className="mb-4 text-lg font-semibold">Misman</h2>
       <MismanAdminTabs
         requests={serializedRequests}
         invites={serializedInvites}

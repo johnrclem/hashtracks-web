@@ -130,7 +130,7 @@ export default async function AlertsPage({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold">Source Alerts</h2>
+        <h2 className="text-lg font-semibold">Alerts</h2>
         <p className="text-sm text-muted-foreground">
           {openCount} open{acknowledgedCount > 0 ? `, ${acknowledgedCount} acknowledged` : ""}
           {snoozedCount > 0 ? `, ${snoozedCount} snoozed` : ""}

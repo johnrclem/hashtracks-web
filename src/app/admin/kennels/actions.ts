@@ -6,39 +6,45 @@ import { revalidatePath } from "next/cache";
 import { fuzzyMatch } from "@/lib/fuzzy";
 
 function extractProfileFields(formData: FormData) {
-  const str = (name: string) => (formData.get(name) as string)?.trim() || null;
-  const triState = (name: string): boolean | null => {
-    const val = (formData.get(name) as string)?.trim();
-    if (val === "true") return true;
-    if (val === "false") return false;
-    return null;
+  const result: Record<string, string | number | boolean | null> = {};
+  const str = (name: string) => {
+    if (!formData.has(name)) return;
+    result[name] = (formData.get(name) as string)?.trim() || null;
   };
-  const int = (name: string): number | null => {
+  const triState = (name: string) => {
+    if (!formData.has(name)) return;
     const val = (formData.get(name) as string)?.trim();
-    if (!val) return null;
+    if (val === "true") result[name] = true;
+    else if (val === "false") result[name] = false;
+    else result[name] = null;
+  };
+  const int = (name: string) => {
+    if (!formData.has(name)) return;
+    const val = (formData.get(name) as string)?.trim();
+    if (!val) { result[name] = null; return; }
     const parsed = parseInt(val, 10);
-    return isNaN(parsed) ? null : parsed;
+    result[name] = isNaN(parsed) ? null : parsed;
   };
 
-  return {
-    scheduleDayOfWeek: str("scheduleDayOfWeek"),
-    scheduleTime: str("scheduleTime"),
-    scheduleFrequency: str("scheduleFrequency"),
-    scheduleNotes: str("scheduleNotes"),
-    facebookUrl: str("facebookUrl"),
-    instagramHandle: str("instagramHandle"),
-    twitterHandle: str("twitterHandle"),
-    discordUrl: str("discordUrl"),
-    mailingListUrl: str("mailingListUrl"),
-    contactEmail: str("contactEmail"),
-    contactName: str("contactName"),
-    hashCash: str("hashCash"),
-    paymentLink: str("paymentLink"),
-    foundedYear: int("foundedYear"),
-    logoUrl: str("logoUrl"),
-    dogFriendly: triState("dogFriendly"),
-    walkersWelcome: triState("walkersWelcome"),
-  };
+  str("scheduleDayOfWeek");
+  str("scheduleTime");
+  str("scheduleFrequency");
+  str("scheduleNotes");
+  str("facebookUrl");
+  str("instagramHandle");
+  str("twitterHandle");
+  str("discordUrl");
+  str("mailingListUrl");
+  str("contactEmail");
+  str("contactName");
+  str("hashCash");
+  str("paymentLink");
+  int("foundedYear");
+  str("logoUrl");
+  triState("dogFriendly");
+  triState("walkersWelcome");
+
+  return result;
 }
 
 function toSlug(shortName: string): string {

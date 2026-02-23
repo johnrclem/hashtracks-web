@@ -120,6 +120,7 @@ See [misman-attendance-requirements.md](misman-attendance-requirements.md) and [
 - [x] Calendar export (Google Calendar URL + .ics download)
 - [x] Admin: kennel merge UI with fuzzy duplicate prevention
 - [x] Admin: slim source table, detail page tooltips
+- [x] **Navigation pattern decision:** Misman sub-tabs (Attendance/Roster/History) vs Alert pill-filters (Open/Resolved/All) use intentionally different patterns — sub-tabs switch between distinct content views while pill-filters narrow a single list by status. The divergence is justified and should be preserved.
 
 ### Kennel Page Redesign — COMPLETE
 - [x] 17 new nullable profile fields on Kennel model (schedule, social, details, flags)
@@ -578,6 +579,15 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - [ ] Rate limiting on public API routes
 - [ ] Double-header handling (same kennel, same day, two events)
 - [ ] Email/notification integration for source health alerts
+
+### Admin UX Architecture
+
+*Larger structural improvements to the admin section identified during PR #93 review. Each is a standalone PR.*
+
+- [ ] **Admin landing/dashboard page** — central hub with at-a-glance source health, recent alerts, scrape activity, and quick-action links (currently admin lands on the sources list)
+- [ ] **Breadcrumbs system** — consistent navigation breadcrumbs across admin section (e.g., Sources > Source Detail > Scrape Log) to improve wayfinding in nested views
+- [ ] **Unified badge/status system** — consolidate health badges, alert severity badges, and source status indicators into shared components with consistent styling
+- [ ] **Event page filter pattern consistency** — align hareline filters, admin event filters, and logbook filters to use the same filter bar component pattern for a cohesive UX
 
 ### Codebase Refactoring (Phase 4 — Structural Splits)
 

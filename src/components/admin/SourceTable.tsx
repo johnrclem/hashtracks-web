@@ -424,7 +424,7 @@ function SourceRow({
       <TableCell>
         <div className="max-w-[200px] sm:max-w-[280px]">
           <div className="flex items-center gap-1.5">
-            <Link href={`/admin/sources/${source.id}`} className="font-medium hover:underline">
+            <Link href={`/admin/sources/${source.id}`} className="font-medium text-primary underline-offset-4 hover:underline">
               {source.name}
             </Link>
             {!source.enabled && (

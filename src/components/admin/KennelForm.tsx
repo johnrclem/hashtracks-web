@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { createKennel, updateKennel } from "@/app/admin/kennels/actions";
 import {
   Dialog,
@@ -59,11 +60,77 @@ interface SimilarKennel {
   score: number;
 }
 
-/** Convert a boolean | null value to a tristate select default string. */
+/** Convert a boolean | null value to a tristate radio default string. */
 function triStateDefault(value: boolean | null): string {
   if (value === true) return "true";
   if (value === false) return "false";
   return "";
+}
+
+/** Collapsible section used in the kennel form. */
+function FormSection({
+  label,
+  defaultOpen = false,
+  children,
+}: {
+  label: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-t pt-3">
+      <button
+        type="button"
+        className="flex items-center gap-1.5 w-full text-left"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {open ? (
+          <ChevronDown className="size-3.5 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="size-3.5 text-muted-foreground" />
+        )}
+        <span className="text-sm font-semibold">{label}</span>
+      </button>
+      <div className="space-y-3 pt-3" hidden={!open}>{children}</div>
+    </div>
+  );
+}
+
+/** Tristate radio group (Yes / No / Unknown). */
+function TriStateRadio({
+  name,
+  label,
+  defaultValue,
+}: {
+  name: string;
+  label: string;
+  defaultValue: string;
+}) {
+  const [value, setValue] = useState(defaultValue);
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <input type="hidden" name={name} value={value} />
+      <div className="flex items-center gap-3">
+        {[
+          { val: "true", text: "Yes" },
+          { val: "false", text: "No" },
+          { val: "", text: "Unknown" },
+        ].map((opt) => (
+          <label key={opt.val} className="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input
+              type="radio"
+              checked={value === opt.val}
+              onChange={() => setValue(opt.val)}
+              className="accent-primary"
+            />
+            {opt.text}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function KennelForm({ kennel, trigger }: KennelFormProps) {
@@ -139,7 +206,7 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
       }
     }}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto overscroll-contain sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {kennel ? "Edit Kennel" : "Add Kennel"}
@@ -305,8 +372,7 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
           <input type="hidden" name="aliases" value={aliases.join(",")} />
 
           {/* ── Schedule Section ── */}
-          <div className="space-y-3 border-t pt-4">
-            <Label className="text-sm font-semibold">Schedule</Label>
+          <FormSection label="Schedule" defaultOpen={!!kennel?.scheduleDayOfWeek}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="scheduleDayOfWeek">Day of Week</Label>
@@ -347,11 +413,10 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
                 />
               </div>
             </div>
-          </div>
+          </FormSection>
 
           {/* ── Social & Contact Section ── */}
-          <div className="space-y-3 border-t pt-4">
-            <Label className="text-sm font-semibold">Social & Contact</Label>
+          <FormSection label="Social & Contact" defaultOpen={!!kennel?.facebookUrl || !!kennel?.contactEmail}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="facebookUrl">Facebook URL</Label>
@@ -425,11 +490,10 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
                 placeholder="Grand Master: Mudflap"
               />
             </div>
-          </div>
+          </FormSection>
 
           {/* ── Details Section ── */}
-          <div className="space-y-3 border-t pt-4">
-            <Label className="text-sm font-semibold">Details</Label>
+          <FormSection label="Details" defaultOpen={!!kennel?.hashCash || !!kennel?.foundedYear}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="hashCash">Hash Cash</Label>
@@ -474,34 +538,18 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="dogFriendly">Dog Friendly</Label>
-                <select
-                  id="dogFriendly"
-                  name="dogFriendly"
-                  defaultValue={triStateDefault(kennel?.dogFriendly ?? null)}
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                >
-                  <option value="">Unknown</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="walkersWelcome">Walkers Welcome</Label>
-                <select
-                  id="walkersWelcome"
-                  name="walkersWelcome"
-                  defaultValue={triStateDefault(kennel?.walkersWelcome ?? null)}
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                >
-                  <option value="">Unknown</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
-              </div>
+              <TriStateRadio
+                name="dogFriendly"
+                label="Dog Friendly"
+                defaultValue={triStateDefault(kennel?.dogFriendly ?? null)}
+              />
+              <TriStateRadio
+                name="walkersWelcome"
+                label="Walkers Welcome"
+                defaultValue={triStateDefault(kennel?.walkersWelcome ?? null)}
+              />
             </div>
-          </div>
+          </FormSection>
 
             <div className="flex justify-end gap-2 pt-2">
               <Button
