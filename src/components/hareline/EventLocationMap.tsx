@@ -43,6 +43,7 @@ export function EventLocationMap({
       <img
         src={src}
         alt={locationName ? `Map showing ${locationName}` : "Event location map"}
+        loading="lazy"
         className="h-48 w-full object-cover"
       />
     </a>

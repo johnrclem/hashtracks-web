@@ -1,4 +1,4 @@
-import { extractCoordsFromMapsUrl, getEventCoords } from "./geo";
+import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR } from "./geo";
 
 describe("extractCoordsFromMapsUrl", () => {
   it("parses @lat,lng,zoom path segment", () => {
@@ -29,11 +29,30 @@ describe("extractCoordsFromMapsUrl", () => {
     expect(result).toEqual({ lat: 40.748, lng: -73.985 });
   });
 
-  it("returns null for search-only URL with place name", () => {
+  it("parses query=lat,lng param (used by adapter-generated URLs)", () => {
+    const result = extractCoordsFromMapsUrl(
+      "https://www.google.com/maps/search/?api=1&query=40.748,-73.985",
+    );
+    expect(result).toEqual({ lat: 40.748, lng: -73.985 });
+  });
+
+  it("returns null for search-only URL with place name (non-numeric query)", () => {
     const result = extractCoordsFromMapsUrl(
       "https://www.google.com/maps/search/?api=1&query=Inwood+Hill+Park",
     );
     expect(result).toBeNull();
+  });
+
+  it("returns null for out-of-range latitude (> 90)", () => {
+    expect(
+      extractCoordsFromMapsUrl("https://www.google.com/maps/@95.0,-73.985,17z"),
+    ).toBeNull();
+  });
+
+  it("returns null for out-of-range longitude (> 180)", () => {
+    expect(
+      extractCoordsFromMapsUrl("https://www.google.com/maps/@40.748,185.0,17z"),
+    ).toBeNull();
   });
 
   it("returns null for non-maps URL", () => {
@@ -87,5 +106,17 @@ describe("getEventCoords", () => {
     const result = getEventCoords(undefined, undefined, "Boston, MA");
     expect(result).not.toBeNull();
     expect(result?.precise).toBe(false);
+  });
+});
+
+describe("getRegionColor", () => {
+  it("returns a hex color for a known region", () => {
+    const color = getRegionColor("New York City, NY");
+    expect(color).toMatch(/^#[0-9a-fA-F]{6}$/);
+    expect(color).not.toBe(DEFAULT_PIN_COLOR);
+  });
+
+  it("returns DEFAULT_PIN_COLOR for an unknown region", () => {
+    expect(getRegionColor("Unknown Nowhere")).toBe(DEFAULT_PIN_COLOR);
   });
 });

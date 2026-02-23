@@ -94,8 +94,9 @@ export function HarelineView({
   const defaultScope = isAuthenticated && hasSubscriptions ? "my" : "all";
 
   // Initialize state from URL search params
+  const rawView = searchParams.get("view");
   const [view, setViewState] = useState<"list" | "calendar" | "map">(
-    (searchParams.get("view") as "list" | "calendar" | "map") || "list",
+    rawView === "list" || rawView === "calendar" || rawView === "map" ? rawView : "list",
   );
   const [density, setDensityState] = useState<"medium" | "compact">(
     (searchParams.get("density") as "medium" | "compact") || "medium",
@@ -354,7 +355,6 @@ export function HarelineView({
               events={sortedEvents}
               selectedEventId={selectedEvent?.id}
               onSelectEvent={setSelectedEvent}
-              attendanceMap={attendanceMap}
             />
           </div>
 

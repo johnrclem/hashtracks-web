@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { APIProvider, Map, AdvancedMarker } from "@vis.gl/react-google-maps";
 import { getEventCoords, getRegionColor } from "@/lib/geo";
 import type { HarelineEvent } from "./EventCard";
-import type { AttendanceData } from "@/components/logbook/CheckInButton";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
 
@@ -12,7 +11,6 @@ interface MapViewProps {
   events: HarelineEvent[];
   selectedEventId?: string | null;
   onSelectEvent: (event: HarelineEvent) => void;
-  attendanceMap: Record<string, AttendanceData>;
 }
 
 interface EventWithCoords {
@@ -23,11 +21,7 @@ interface EventWithCoords {
   color: string;
 }
 
-export default function MapView({
-  events,
-  selectedEventId,
-  onSelectEvent,
-}: MapViewProps) {
+export default function MapView({ events, selectedEventId, onSelectEvent }: MapViewProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
 
   const eventsWithCoords = useMemo<EventWithCoords[]>(() => {
@@ -46,18 +40,19 @@ export default function MapView({
     });
   }, [events]);
 
-  // Compute bounding box for all events to auto-fit the map
+  // Compute bounding box for all events to auto-fit the map (iterative to avoid spread stack limit)
   const defaultBounds = useMemo(() => {
     if (eventsWithCoords.length === 0) return undefined;
-    const lats = eventsWithCoords.map((e) => e.lat);
-    const lngs = eventsWithCoords.map((e) => e.lng);
     const pad = 0.5;
-    return {
-      south: Math.min(...lats) - pad,
-      north: Math.max(...lats) + pad,
-      west: Math.min(...lngs) - pad,
-      east: Math.max(...lngs) + pad,
-    };
+    const first = eventsWithCoords[0];
+    let south = first.lat, north = first.lat, west = first.lng, east = first.lng;
+    for (const e of eventsWithCoords) {
+      if (e.lat < south) south = e.lat;
+      if (e.lat > north) north = e.lat;
+      if (e.lng < west) west = e.lng;
+      if (e.lng > east) east = e.lng;
+    }
+    return { south: south - pad, north: north + pad, west: west - pad, east: east + pad };
   }, [eventsWithCoords]);
 
   const preciseCount = eventsWithCoords.filter((e) => e.precise).length;

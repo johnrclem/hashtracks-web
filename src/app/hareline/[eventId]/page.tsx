@@ -209,12 +209,12 @@ export default async function EventDetailPage({
         )}
       </div>
 
-      {event.latitude && event.longitude && (
+      {event.latitude != null && event.longitude != null && (
         <EventLocationMap
           lat={event.latitude}
           lng={event.longitude}
-          locationName={event.locationName}
-          locationAddress={event.locationAddress}
+          locationName={event.locationName ?? undefined}
+          locationAddress={event.locationAddress ?? undefined}
         />
       )}
 

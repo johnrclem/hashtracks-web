@@ -42,6 +42,18 @@ export function extractCoordsFromMapsUrl(url: string): { lat: number; lng: numbe
         if (isValidCoords(lat, lng)) return { lat, lng };
       }
     }
+
+    // Pattern 4: query=lat,lng (used by several adapters for precise coords)
+    // e.g. https://www.google.com/maps/search/?api=1&query=40.748,-73.985
+    const query = parsedUrl.searchParams.get("query");
+    if (query) {
+      const queryMatch = query.match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/);
+      if (queryMatch) {
+        const lat = parseFloat(queryMatch[1]);
+        const lng = parseFloat(queryMatch[2]);
+        if (isValidCoords(lat, lng)) return { lat, lng };
+      }
+    }
   } catch {
     // URL parsing failed
     return null;

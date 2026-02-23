@@ -265,10 +265,13 @@ async function upsertCanonicalEvent(
           // Preserve first source's URL; subsequent sources get EventLinks
           sourceUrl: existingEvent.sourceUrl ?? event.sourceUrl,
           trustLevel: ctx.trustLevel,
-          // Only write coords if we have them (preserve previously extracted values)
-          ...(rawCoords.latitude != null
+          // Write coords if extracted; clear if locationAddress changed and no new coords
+          // (prevents stale pins when an event moves to an unparseable location URL)
+          ...(rawCoords.latitude != null && rawCoords.longitude != null
             ? { latitude: rawCoords.latitude, longitude: rawCoords.longitude }
-            : {}),
+            : (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)
+              ? { latitude: null, longitude: null }
+              : {}),
         },
       });
     }
