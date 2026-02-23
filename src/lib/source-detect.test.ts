@@ -106,9 +106,28 @@ describe("detectSourceType", () => {
       expect(result?.type).toBe("RSS_FEED");
     });
 
-    it("does not match a generic URL with /feed in a subdirectory", () => {
-      // /feed at a sub-path still matches if it ends with /feed
+    it("detects /feed at the end of a sub-path", () => {
       const result = detectSourceType("https://example.com/blog/feed");
+      expect(result?.type).toBe("RSS_FEED");
+    });
+
+    it("detects /rss.xml path suffix", () => {
+      const result = detectSourceType("https://example.com/rss.xml");
+      expect(result?.type).toBe("RSS_FEED");
+    });
+
+    it("detects ?format=rss query param", () => {
+      const result = detectSourceType("https://example.com/?format=rss");
+      expect(result?.type).toBe("RSS_FEED");
+    });
+
+    it("detects /feed/ with trailing slash", () => {
+      const result = detectSourceType("https://example.com/feed/");
+      expect(result?.type).toBe("RSS_FEED");
+    });
+
+    it("detects /rss/ with trailing slash", () => {
+      const result = detectSourceType("https://wordpress-hash.com/rss/");
       expect(result?.type).toBe("RSS_FEED");
     });
   });

@@ -1,6 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
-import { validateSourceConfig, stripHtmlTags } from "../utils";
+import { validateSourceConfig, stripHtmlTags, buildDateWindow } from "../utils";
 
 export interface MeetupConfig {
   groupUrlname: string; // Meetup group URL name, e.g. "brooklyn-hash-house-harriers"
@@ -51,10 +51,7 @@ export class MeetupAdapter implements SourceAdapter {
       return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
     }
 
-    const days = options?.days ?? 90;
-    const now = new Date();
-    const minDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    const maxDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    const { minDate, maxDate } = buildDateWindow(options?.days);
 
     const errorDetails: ErrorDetails = {};
     const events: RawEventData[] = [];

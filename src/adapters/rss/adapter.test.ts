@@ -7,18 +7,8 @@ import type { Source } from "@/generated/prisma/client";
 function makeSource(overrides: Partial<Source> = {}): Source {
   return {
     id: "src-1",
-    name: "Test RSS Feed",
     url: "https://example.com/feed",
-    type: "RSS_FEED",
-    trustLevel: 5,
-    scrapeFreq: "daily",
-    scrapeDays: 90,
     config: { kennelTag: "TestH3" },
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    lastScrapedAt: null,
-    health: "UNKNOWN",
     ...overrides,
   } as unknown as Source;
 }
@@ -132,6 +122,17 @@ describe("RssAdapter", () => {
       const adapter = new RssAdapter();
       const result = await adapter.fetch(makeSource());
       expect(result.events[0].description).toBe("Meet at the fountain. BYOB.");
+    });
+
+    it("preserves local date from non-UTC ISO timestamp (P1 regression)", async () => {
+      // "2026-02-22T00:30:00+10:00" = Feb 21 UTC — must stay Feb 22 (publisher's local day)
+      mockParseURL.mockResolvedValueOnce({
+        title: "Feed",
+        items: [{ title: "Night trail", isoDate: "2026-02-22T00:30:00+10:00", link: "https://x.com/1" }],
+      });
+      const adapter = new RssAdapter();
+      const result = await adapter.fetch(makeSource(), { days: 365 });
+      expect(result.events[0].date).toBe("2026-02-22");
     });
 
     it("falls back to pubDate when isoDate is absent", async () => {

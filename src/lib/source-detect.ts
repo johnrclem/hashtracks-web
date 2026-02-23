@@ -65,11 +65,13 @@ export function detectSourceType(rawUrl: string): SourceDetectResult | null {
     return { type: "ICAL_FEED" };
   }
 
-  // RSS feed: common path suffixes and query params
+  // RSS feed: common path suffixes (with or without trailing slash) and query params
   const pathLower = url.pathname.toLowerCase();
   const isRss =
     pathLower.endsWith("/feed") ||
+    pathLower.endsWith("/feed/") ||
     pathLower.endsWith("/rss") ||
+    pathLower.endsWith("/rss/") ||
     pathLower.endsWith("/feed.xml") ||
     pathLower.endsWith("/rss.xml") ||
     pathLower.endsWith("/atom.xml") ||

@@ -1,6 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
-import { validateSourceConfig, stripHtmlTags } from "../utils";
+import { validateSourceConfig, stripHtmlTags, buildDateWindow } from "../utils";
 import Parser from "rss-parser";
 
 export interface RssConfig {
@@ -32,10 +32,7 @@ export class RssAdapter implements SourceAdapter {
       return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
     }
 
-    const days = options?.days ?? 90;
-    const now = new Date();
-    const minDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    const maxDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    const { minDate, maxDate } = buildDateWindow(options?.days);
 
     const errorDetails: ErrorDetails = {};
     const events: RawEventData[] = [];
@@ -67,8 +64,17 @@ export class RssAdapter implements SourceAdapter {
         // Filter to configured window
         if (itemDate < minDate || itemDate > maxDate) continue;
 
-        // Date as YYYY-MM-DD — extract from ISO string to avoid timezone shifts
-        const dateStr = itemDate.toISOString().slice(0, 10);
+        // Extract YYYY-MM-DD from the raw string when it's ISO 8601 (starts with YYYY-MM-DD).
+        // This preserves the publisher's local date and avoids UTC normalization — e.g.
+        // "2026-02-22T00:30:00+10:00" must not become "2026-02-21" when UTC-converted.
+        const isoMatch = rawDate.match(/^(\d{4}-\d{2}-\d{2})/);
+        const dateStr = isoMatch
+          ? isoMatch[1]
+          : [
+              itemDate.getFullYear(),
+              String(itemDate.getMonth() + 1).padStart(2, "0"),
+              String(itemDate.getDate()).padStart(2, "0"),
+            ].join("-");
 
         const title = item.title?.trim() || undefined;
 

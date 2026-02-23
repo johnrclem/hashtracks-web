@@ -14,6 +14,7 @@ import { OCH3Adapter } from "./html-scraper/och3";
 import { SlashHashAdapter } from "./html-scraper/slash-hash";
 import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
 import { SFH3Adapter } from "./html-scraper/sfh3";
+import { RssAdapter } from "./rss/adapter";
 
 describe("getAdapter", () => {
   it("returns HashNYCAdapter for HTML_SCRAPER (default)", () => {
@@ -80,7 +81,11 @@ describe("getAdapter", () => {
     expect(getAdapter("HTML_SCRAPER", "http://www.enfieldhash.org/")).toBeInstanceOf(EnfieldHashAdapter);
   });
 
+  it("returns RssAdapter for RSS_FEED", () => {
+    expect(getAdapter("RSS_FEED")).toBeInstanceOf(RssAdapter);
+  });
+
   it("throws for unimplemented source type", () => {
-    expect(() => getAdapter("RSS_FEED" as never)).toThrow("Adapter not implemented");
+    expect(() => getAdapter("JSON_API" as never)).toThrow("Adapter not implemented");
   });
 });
