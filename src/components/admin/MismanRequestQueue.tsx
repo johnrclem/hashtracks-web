@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
@@ -140,7 +140,7 @@ export function MismanAdminTabs({
   const requestKennels = useMemo(() => {
     const map = new Map<string, string>();
     for (const r of pendingRequests) {
-      if (!map.has(r.kennel.slug)) map.set(r.kennel.slug, r.kennel.shortName);
+      if (!map.has(r.kennel.slug)) map.set(r.kennel.slug, r.kennel.fullName);
     }
     return [...map.entries()]
       .map(([value, label]) => ({ value, label }))
@@ -149,7 +149,7 @@ export function MismanAdminTabs({
   const inviteKennels = useMemo(() => {
     const map = new Map<string, string>();
     for (const i of invites) {
-      if (!map.has(i.kennelSlug)) map.set(i.kennelSlug, i.kennelShortName);
+      if (!map.has(i.kennelSlug)) map.set(i.kennelSlug, i.kennelFullName);
     }
     return [...map.entries()]
       .map(([value, label]) => ({ value, label }))
@@ -158,12 +158,29 @@ export function MismanAdminTabs({
   const mismanKennels = useMemo(() => {
     const map = new Map<string, string>();
     for (const m of mismans) {
-      if (!map.has(m.kennel.slug)) map.set(m.kennel.slug, m.kennel.shortName);
+      if (!map.has(m.kennel.slug)) map.set(m.kennel.slug, m.kennel.fullName);
     }
     return [...map.entries()]
       .map(([value, label]) => ({ value, label }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [mismans]);
+
+  // Reset stale filters when selected kennel disappears from options
+  useEffect(() => {
+    if (requestKennelFilter !== "all" && !requestKennels.some((k) => k.value === requestKennelFilter)) {
+      setRequestKennelFilter("all");
+    }
+  }, [requestKennels, requestKennelFilter]);
+  useEffect(() => {
+    if (inviteKennelFilter !== "all" && !inviteKennels.some((k) => k.value === inviteKennelFilter)) {
+      setInviteKennelFilter("all");
+    }
+  }, [inviteKennels, inviteKennelFilter]);
+  useEffect(() => {
+    if (mismanKennelFilter !== "all" && !mismanKennels.some((k) => k.value === mismanKennelFilter)) {
+      setMismanKennelFilter("all");
+    }
+  }, [mismanKennels, mismanKennelFilter]);
 
   const filteredRequests =
     requestKennelFilter === "all"
@@ -184,13 +201,19 @@ export function MismanAdminTabs({
         <div className="flex items-center justify-between gap-4">
           <TabsList>
             <TabsTrigger value="requests">
-              Pending Requests ({pendingRequests.length})
+              Pending Requests ({requestKennelFilter !== "all"
+                ? `${filteredRequests.length} / ${pendingRequests.length}`
+                : pendingRequests.length})
             </TabsTrigger>
             <TabsTrigger value="invites">
-              Invites Sent ({invites.length})
+              Invites Sent ({inviteKennelFilter !== "all"
+                ? `${filteredInvites.length} / ${invites.length}`
+                : invites.length})
             </TabsTrigger>
             <TabsTrigger value="mismans">
-              Active Mismanagement ({mismans.length})
+              Active Mismanagement ({mismanKennelFilter !== "all"
+                ? `${filteredMismans.length} / ${mismans.length}`
+                : mismans.length})
             </TabsTrigger>
           </TabsList>
           <InviteMismanDialog kennels={kennels} />
@@ -270,7 +293,7 @@ function KennelFilterBar({
   return (
     <div className="mb-3">
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="w-48">
+        <SelectTrigger className="w-72">
           <SelectValue placeholder="All kennels" />
         </SelectTrigger>
         <SelectContent>
