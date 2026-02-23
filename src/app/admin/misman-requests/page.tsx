@@ -1,57 +1,72 @@
 import { prisma } from "@/lib/db";
 import { MismanAdminTabs } from "@/components/admin/MismanRequestQueue";
 
+const INVITE_HISTORY_LIMIT = 200;
+
 export default async function AdminMismanRequestsPage() {
-  const [requests, kennels, invites, activeMismans, approvedRequests, acceptedInvites] =
-    await Promise.all([
-      // Pending requests (Tab 1)
-      prisma.mismanRequest.findMany({
-        where: { status: "PENDING" },
-        include: {
-          user: {
-            select: { id: true, email: true, hashName: true, nerdName: true },
-          },
-          kennel: { select: { shortName: true, slug: true } },
+  // Phase 1: fetch the main data sets in parallel
+  const [requests, kennels, invites, activeMismans] = await Promise.all([
+    // Pending requests (Tab 1)
+    prisma.mismanRequest.findMany({
+      where: { status: "PENDING" },
+      include: {
+        user: {
+          select: { id: true, email: true, hashName: true, nerdName: true },
         },
-        orderBy: { createdAt: "desc" },
-      }),
-      // All kennels for invite dialog
-      prisma.kennel.findMany({
-        select: { id: true, shortName: true, fullName: true, region: true },
-        orderBy: { shortName: "asc" },
-      }),
-      // All invites (Tab 2)
-      prisma.mismanInvite.findMany({
-        include: {
-          kennel: { select: { shortName: true, slug: true } },
-          inviter: { select: { hashName: true, email: true } },
-          acceptor: { select: { hashName: true, email: true } },
+        kennel: { select: { shortName: true, slug: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    // All kennels for invite dialog
+    prisma.kennel.findMany({
+      select: { id: true, shortName: true, fullName: true, region: true },
+      orderBy: { shortName: "asc" },
+    }),
+    // All invites (Tab 2)
+    prisma.mismanInvite.findMany({
+      include: {
+        kennel: { select: { shortName: true, slug: true } },
+        inviter: { select: { hashName: true, email: true } },
+        acceptor: { select: { hashName: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: INVITE_HISTORY_LIMIT,
+    }),
+    // Active mismans (Tab 3)
+    prisma.userKennel.findMany({
+      where: { role: { in: ["MISMAN", "ADMIN"] } },
+      include: {
+        user: {
+          select: { id: true, email: true, hashName: true, nerdName: true },
         },
-        orderBy: { createdAt: "desc" },
-        take: 200,
-      }),
-      // Active mismans (Tab 3)
-      prisma.userKennel.findMany({
-        where: { role: { in: ["MISMAN", "ADMIN"] } },
-        include: {
-          user: {
-            select: { id: true, email: true, hashName: true, nerdName: true },
-          },
-          kennel: { select: { id: true, shortName: true, slug: true } },
-        },
-        orderBy: [{ kennel: { shortName: "asc" } }, { createdAt: "asc" }],
-      }),
-      // Approved requests — for grant source cross-ref
-      prisma.mismanRequest.findMany({
-        where: { status: "APPROVED" },
-        select: { userId: true, kennelId: true },
-      }),
-      // Accepted invites — for grant source cross-ref
-      prisma.mismanInvite.findMany({
-        where: { status: "ACCEPTED" },
-        select: { acceptedBy: true, kennelId: true },
-      }),
-    ]);
+        kennel: { select: { id: true, shortName: true, slug: true } },
+      },
+      orderBy: [{ kennel: { shortName: "asc" } }, { createdAt: "asc" }],
+    }),
+  ]);
+
+  // Phase 2: fetch grant-source data scoped to active mismans only
+  const mismanUserIds = [...new Set(activeMismans.map((m) => m.userId))];
+  const mismanKennelIds = [...new Set(activeMismans.map((m) => m.kennelId))];
+
+  const [approvedRequests, acceptedInvites] = await Promise.all([
+    prisma.mismanRequest.findMany({
+      where: {
+        status: "APPROVED",
+        userId: { in: mismanUserIds },
+        kennelId: { in: mismanKennelIds },
+      },
+      select: { userId: true, kennelId: true },
+    }),
+    prisma.mismanInvite.findMany({
+      where: {
+        status: "ACCEPTED",
+        acceptedBy: { in: mismanUserIds },
+        kennelId: { in: mismanKennelIds },
+      },
+      select: { acceptedBy: true, kennelId: true },
+    }),
+  ]);
 
   // Serialize requests
   const serializedRequests = requests.map((r) => ({

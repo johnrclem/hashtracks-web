@@ -425,7 +425,7 @@ function ActiveMismanRowComponent({
         ? "Invite"
         : "Manual";
 
-  const sourceBadgeVariant =
+  const sourceBadgeVariant: "default" | "secondary" | "outline" =
     misman.grantSource === "request"
       ? "default"
       : misman.grantSource === "invite"
@@ -469,7 +469,7 @@ function ActiveMismanRowComponent({
         </Badge>
       </TableCell>
       <TableCell className="hidden sm:table-cell">
-        <Badge variant={sourceBadgeVariant as "default" | "secondary" | "outline"}>
+        <Badge variant={sourceBadgeVariant}>
           {sourceLabel}
         </Badge>
       </TableCell>
