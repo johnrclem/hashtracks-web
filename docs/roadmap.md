@@ -401,6 +401,8 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 - [x] **Map tab on Hareline** — Google Maps JS (`@vis.gl/react-google-maps`), region-colored pins (filled = precise location, hollow = region centroid), click pin → EventDetailPanel, all filters apply, URL-persisted view state
 - [x] **Event detail map** — Google Maps Static API image on EventDetailPanel + standalone event page; clickable → opens Google Maps; coordinate extraction from `locationAddress` Google Maps URLs in merge pipeline
+- [x] **EventLocationMap text-address fallback** — Works without lat/lng; falls back to `locationName` text address for Google Maps Static API center/markers parameter (covers all hashnyc.com events and text-only sources)
+- [x] **Coordinate extraction from Maps URLs** — merge pipeline calls `extractCoordsFromMapsUrl()` on `locationAddress` (supports @lat,lng, ?q=, ll=, query= URL patterns), stores precise lat/lng on Event records
 - [ ] **Map toggle on Kennel Directory** — interactive map with kennel pins (requires geocoding lat/lng on Kennel model)
 - [ ] **"Near me" distance filtering on Hareline**
   - Browser geolocation API for current position
@@ -493,13 +495,13 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 ## Priority 9: Additional Integrations & Depth
 
-### Event Weather Integration
-*Google Weather API enabled (same GCP project as Maps). Implement after map discovery ships — requires `latitude`/`longitude` on events (populated by map feature).*
+### Event Weather Integration — PARTIALLY COMPLETE
 
-- [ ] Show weather forecast on upcoming event detail pages (next 7 days only)
-  - Fetch via Google Weather API using event `latitude`/`longitude`
-  - Display: temperature range, precipitation probability, condition icon
-  - Cache per-event: don't re-fetch on every page load (store on Event model or cache in KV)
+- [x] Weather forecast on upcoming event detail pages (0–10 days)
+  - Google Weather API (`weather.googleapis.com/v1/forecast/days:lookup`), 30-min Next.js fetch cache
+  - Displays: condition emoji, temperature range (°F/°C toggle), precipitation probability if ≥20%
+  - Coordinate fallback: uses `REGION_CENTROIDS` when event has no precise lat/lng
+  - Units preference: localStorage-persisted °F/°C toggle in header (`UnitsPreferenceProvider`)
 - [ ] Compact weather badge on hareline event cards (icon + temp range)
 
 ### Additional Adapter Types

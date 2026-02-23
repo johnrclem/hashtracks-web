@@ -60,6 +60,8 @@ calendar + personal logbook + kennel directory.
 - GEMINI_API_KEY=         # Google AI API key (Sprint 10+)
 - CRON_SECRET=            # Secret for Vercel Cron auth (set in Vercel dashboard)
 - GOOGLE_CALENDAR_API_KEY= # For Google Calendar + Sheets APIs
+- NEXT_PUBLIC_GOOGLE_MAPS_API_KEY= # For MapView (interactive) + EventLocationMap (static) — browser-exposed by design
+- GOOGLE_WEATHER_API_KEY= # Server-only (NOT NEXT_PUBLIC_) — same GCP project as Maps
 - GITHUB_TOKEN=           # GitHub PAT with repo scope (for filing issues from alerts + user feedback)
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
 
@@ -151,6 +153,12 @@ calendar + personal logbook + kennel directory.
 - `src/lib/source-detect.ts` — Auto-detection of source type from URL (Sheets, Calendar, Hash Rego, Meetup)
 - `src/lib/timezone.ts` — IANA timezone utilities (composeUtcStart, formatTimeInZone)
 - `src/lib/fuzzy.ts` — Levenshtein-based fuzzy string matching for kennel tag resolution + pairwise name matching
+- `src/lib/geo.ts` — Coordinate utilities: extractCoordsFromMapsUrl (4 URL patterns), getEventCoords, REGION_CENTROIDS, REGION_COLORS, getRegionColor, DEFAULT_PIN_COLOR
+- `src/lib/weather.ts` — Google Weather API fetch utility (getEventDayWeather, 30-min cache, region centroid fallback)
+- `src/components/hareline/EventLocationMap.tsx` — Static map image (Google Maps Static API; accepts coords or text address fallback)
+- `src/components/hareline/MapView.tsx` — Interactive map tab for Hareline (@vis.gl/react-google-maps, region-colored pins)
+- `src/components/hareline/EventWeatherCard.tsx` — Weather forecast display (condition emoji, °F/°C, precip ≥20%)
+- `src/components/providers/units-preference-provider.tsx` — °F/°C preference context (localStorage-based, useUnitsPreference hook)
 - `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
 - `vitest.config.ts` — Test runner config (globals, path aliases)
 - `src/test/factories.ts` — Shared test data builders
@@ -227,7 +235,7 @@ See `docs/roadmap.md` for implementation roadmap.
   - Server actions: logbook CRUD, profile, kennel subscriptions, admin CRUD, misman attendance/roster/history
   - Admin: config validation (with ReDoS detection), source type detection
   - Misman: audit log, hare sync, CSV import parsing, suggestion scoring, verification status, invite tokens
-  - Utilities: format helpers, calendar URL/ICS generation, auth (Clerk→DB sync), fuzzy matching, timezone utilities
+  - Utilities: format helpers, calendar URL/ICS generation, auth (Clerk→DB sync), fuzzy matching, timezone utilities, geo utilities (coordinate extraction, region colors), weather forecast (API integration, date matching, null handling)
 
 ## What NOT To Do
 - Don't use Playwright for scraping (Cheerio is sufficient, 100x lighter)

@@ -10,7 +10,7 @@ The Strava of Hashing — a community platform where hashers discover upcoming r
 - **Database:** PostgreSQL (Railway) via Prisma 7
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS v4 + shadcn/ui
-- **Testing:** Vitest (69 test files)
+- **Testing:** Vitest (71 test files)
 - **Deployment:** Vercel (auto-deploy from `main`, daily cron scrapes)
 
 ## Local Development
@@ -42,7 +42,7 @@ Open [http://localhost:3000](http://localhost:3000).
 |---------|-------------|
 | `npm run dev` | Start dev server |
 | `npm run build` | Production build |
-| `npm test` | Run test suite (69 test files) |
+| `npm test` | Run test suite (71 test files) |
 | `npx prisma studio` | Visual database browser |
 | `npx prisma db push` | Push schema changes to DB |
 | `npx prisma db seed` | Seed kennels, aliases, and sources |
@@ -50,10 +50,11 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Features
 
 ### Hareline (Event Calendar)
-- Aggregated event list and calendar views from 29 data sources
-- Filters: time scope (upcoming/past), region, kennel, day of week
+- Aggregated event list, calendar, and **map** views from 29 data sources
+- Filters: time scope (upcoming/past), region, kennel, day of week (apply across all views)
 - Master-detail layout with side panel on desktop
 - Region-colored badges, calendar export (Google Calendar + .ics)
+- Event detail pages include a static location map and **weather forecast** (0–10 days out, with °F/°C toggle)
 
 ### The Logbook (Attendance Tracking)
 - "I Was There" one-click check-in with participation level (Run, Hare, Both, etc.)
@@ -112,10 +113,10 @@ Open [http://localhost:3000](http://localhost:3000).
 - Auto-creates GitHub issues with `user-feedback` + category labels
 - Auto-captures current page URL for context
 
-### Timezone Preferences
-- User-selectable timezone display (local / UTC / kennel)
-- Header dropdown for quick timezone switching
-- Hareline and event cards respect timezone preference
+### Timezone & Units Preferences
+- User-selectable timezone display (event local time / my local time)
+- Temperature units toggle: °F / °C (localStorage-persisted, defaults to °F)
+- Header dropdowns for quick switching; event cards and detail pages respect both preferences
 
 ## Data Sources (29)
 
@@ -169,3 +170,5 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Timezone preferences:** User-selectable timezone display with header dropdown
 - **Vercel Analytics:** Web Analytics + Speed Insights integration
 - **Config validation:** Server-side validation with ReDoS protection for all source types
+- **Map-based discovery (PR #95):** Interactive Map tab on Hareline with Google Maps JS, region-colored pins (precise = filled, centroid = hollow), EventLocationMap static image on event detail pages, coordinate extraction from Maps URLs in merge pipeline
+- **Weather forecast + units toggle (PR #97):** Google Weather API forecast on upcoming event pages (0–10 days), °F/°C header toggle persisted in localStorage, EventLocationMap text-address fallback (works without lat/lng)
