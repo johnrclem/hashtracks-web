@@ -69,6 +69,13 @@ const PANEL_TYPES = new Set([
   "RSS_FEED",
 ]);
 
+/**
+ * Types that can receive an AI config suggestion on mount (empty config only).
+ * Only includes types whose adapters can fetch sample events without pre-existing config.
+ * RSS_FEED, MEETUP, HASHREGO are excluded — they require config to fetch any events.
+ */
+const TYPES_WITH_AI_SUGGESTION = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HTML_SCRAPER"]);
+
 function hasICalConfigShape(config: unknown): boolean {
   if (!config || typeof config !== "object" || Array.isArray(config)) return false;
   const obj = config as Record<string, unknown>;
@@ -176,14 +183,7 @@ export function ConfigureAndTest({
 
   const panelType = getPanelType();
 
-  // Auto-trigger AI config suggestion on mount when config is empty.
-  // Only types whose adapters can fetch events without pre-existing config are included.
-  // RSS_FEED, MEETUP, HASHREGO require config to fetch events and are excluded.
-  const TYPES_WITH_AI_SUGGESTION = new Set([
-    "GOOGLE_CALENDAR",
-    "ICAL_FEED",
-    "HTML_SCRAPER",
-  ]);
+  // Auto-trigger AI config suggestion on mount when config is empty
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!TYPES_WITH_AI_SUGGESTION.has(type)) return;
@@ -208,12 +208,19 @@ export function ConfigureAndTest({
     }
   }, []); // Only on mount
 
-  const runPreviewWithConfig = useCallback(
-    (overrideJson: string) => {
+  /**
+   * Run a preview scrape. Pass `overrideJson` to use a config string other than the current
+   * `configJson` (e.g. after accepting an AI suggestion). Pass `baseKennels` to use a
+   * specific kennel list as the base for auto-selection (prevents stale-closure issues).
+   */
+  const runPreview = useCallback(
+    (overrideJson?: string, baseKennels?: string[]) => {
+      const jsonToUse = overrideJson ?? configJson;
+      const currentKennels = baseKennels ?? selectedKennels;
       const fd = new FormData();
       fd.set("url", url);
       fd.set("type", type);
-      if (overrideJson.trim()) fd.set("config", overrideJson.trim());
+      if (jsonToUse.trim()) fd.set("config", jsonToUse.trim());
 
       startPreview(async () => {
         setPreviewError(null);
@@ -227,14 +234,18 @@ export function ConfigureAndTest({
           setSampleTitlesByTag({});
         } else if (result.data) {
           setPreviewData(result.data);
+
+          // Auto-select resolved kennels (additive — don't deselect already-linked kennels)
           const resolvedIds = new Set(
             result.data.events
               .filter((e) => e.resolved && e.resolvedKennelId)
               .map((e) => e.resolvedKennelId!),
           );
-          const existingSet = new Set(selectedKennels);
+          const existingSet = new Set(currentKennels);
           const newIds = [...resolvedIds].filter((id) => !existingSet.has(id));
-          if (newIds.length > 0) onKennelsChange([...selectedKennels, ...newIds]);
+          if (newIds.length > 0) onKennelsChange([...currentKennels, ...newIds]);
+
+          // Build sample titles map for AI suggestions in panels
           const titles = result.data.events.reduce<Record<string, string[]>>((acc, e) => {
             if (!e.resolved && e.title) {
               if (!acc[e.kennelTag]) acc[e.kennelTag] = [];
@@ -246,51 +257,8 @@ export function ConfigureAndTest({
         }
       });
     },
-    [url, type, selectedKennels, onKennelsChange],
+    [url, type, configJson, selectedKennels, onKennelsChange],
   );
-
-  const runPreview = useCallback(() => {
-    const fd = new FormData();
-    fd.set("url", url);
-    fd.set("type", type);
-    if (configJson.trim()) fd.set("config", configJson.trim());
-
-    startPreview(async () => {
-      setPreviewError(null);
-      const result = await previewSourceConfig(fd);
-      setLastRunTime(new Date());
-      setHasRunTest(true);
-
-      if (result.error) {
-        setPreviewError(result.error);
-        setPreviewData(null);
-        setSampleTitlesByTag({});
-      } else if (result.data) {
-        setPreviewData(result.data);
-
-        // Auto-select resolved kennels (additive — don't deselect already-linked kennels)
-        const resolvedIds = new Set(
-          result.data.events
-            .filter((e) => e.resolved && e.resolvedKennelId)
-            .map((e) => e.resolvedKennelId!),
-        );
-        const newIds = [...resolvedIds].filter((id) => !selectedKennels.includes(id));
-        if (newIds.length > 0) {
-          onKennelsChange([...selectedKennels, ...newIds]);
-        }
-
-        // Build sample titles map for AI suggestions in panels
-        const titles = result.data.events.reduce<Record<string, string[]>>((acc, e) => {
-          if (!e.resolved && e.title) {
-            if (!acc[e.kennelTag]) acc[e.kennelTag] = [];
-            acc[e.kennelTag].push(e.title);
-          }
-          return acc;
-        }, {});
-        setSampleTitlesByTag(titles);
-      }
-    });
-  }, [url, type, configJson, selectedKennels, onKennelsChange]);
 
   function handleConfigChange(
     newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig | MeetupConfig,
@@ -324,20 +292,22 @@ export function ConfigureAndTest({
 
   function handleAcceptSuggestion() {
     if (!aiSuggestion) return;
-    const json = JSON.stringify(aiSuggestion.suggestedConfig, null, 2);
-    onConfigChange(
-      Object.keys(aiSuggestion.suggestedConfig).length > 0 ? aiSuggestion.suggestedConfig : null,
-      json,
-    );
+    const hasConfig = Object.keys(aiSuggestion.suggestedConfig).length > 0;
+    // Use empty string (not "{}") so the "config is empty" checks remain consistent
+    const configObj = hasConfig ? aiSuggestion.suggestedConfig : null;
+    const json = hasConfig ? JSON.stringify(aiSuggestion.suggestedConfig, null, 2) : "";
+    onConfigChange(configObj, json);
+
+    // Compute the merged kennel list once to avoid stale-closure issues in the preview callback
     const suggestedIds = aiSuggestion.suggestedKennelTags
       .flatMap((tag) => allKennelsWithExtra.filter((k) => k.shortName === tag).map((k) => k.id));
     const existingSet = new Set(selectedKennels);
     const newIds = suggestedIds.filter((id) => !existingSet.has(id));
-    if (newIds.length > 0) onKennelsChange([...selectedKennels, ...newIds]);
+    const mergedKennels = newIds.length > 0 ? [...selectedKennels, ...newIds] : selectedKennels;
+    if (newIds.length > 0) onKennelsChange(mergedKennels);
+
     setAiState("dismissed");
-    if (Object.keys(aiSuggestion.suggestedConfig).length > 0) {
-      runPreviewWithConfig(json);
-    }
+    if (hasConfig) runPreview(json, mergedKennels);
   }
 
   function toggleKennel(id: string) {
@@ -542,7 +512,7 @@ export function ConfigureAndTest({
             type="button"
             variant="outline"
             disabled={isPreviewing || !url.trim()}
-            onClick={runPreview}
+            onClick={() => runPreview()}
           >
             {testButtonLabel}
           </Button>

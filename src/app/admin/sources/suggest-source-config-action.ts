@@ -5,7 +5,7 @@ import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getGeminiClient, GEMINI_MODEL } from "@/lib/gemini";
 import { getAdapter, findHtmlAdapter } from "@/adapters/registry";
-import { validatePreviewUrl } from "./preview-action";
+import { validateFetchUrl } from "@/lib/url-validation";
 import type { SourceType, Source } from "@/generated/prisma/client";
 import type { RawEventData } from "@/adapters/types";
 import type { GoogleGenAI } from "@google/genai";
@@ -79,7 +79,7 @@ export async function suggestSourceConfig(
 
   // SSRF protection — GOOGLE_CALENDAR uses googleapis.com directly, not the user-supplied URL
   if (type !== "GOOGLE_CALENDAR") {
-    const urlError = validatePreviewUrl(url);
+    const urlError = validateFetchUrl(url);
     if (urlError) return { error: urlError };
   }
 
@@ -265,7 +265,8 @@ Rules:
         adapterNote: null,
       },
     };
-  } catch {
+  } catch (err) {
+    console.error("[suggestSourceConfig] Gemini request failed:", err);
     return { error: "AI request failed — try again or configure manually." };
   }
 }
@@ -329,7 +330,8 @@ Use the tag with the most events. Match it to the closest kennel shortName in th
  */
 function validateConfigShape(raw: unknown, type: string): Record<string, unknown> {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const obj = raw as Record<string, unknown>;
+  // Clone to avoid mutating Gemini's parsed response in-place
+  const obj = { ...(raw as Record<string, unknown>) };
 
   if (Array.isArray(obj.kennelPatterns)) {
     obj.kennelPatterns = (obj.kennelPatterns as unknown[]).filter(isValidPatternEntry);
@@ -365,6 +367,8 @@ function isSafeRegexString(p: unknown): boolean {
   if (typeof p !== "string") return false;
   let regex: RegExp;
   try {
+    // Intentional: constructing from non-literal to validate user-supplied patterns.
+    // eslint-disable-next-line security/detect-non-literal-regexp
     regex = new RegExp(p);
   } catch {
     return false;
