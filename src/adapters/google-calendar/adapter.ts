@@ -180,6 +180,7 @@ function buildRawEventFromGCalItem(
   if (!item.start?.dateTime && !item.start?.date) return null;
 
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start as NonNullable<typeof item.start>);
+  if (!dateISO) return null;
   const { rawDescription, description } = normalizeGCalDescription(item.description);
   const hares = rawDescription ? extractHares(rawDescription) : undefined;
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(item.summary, sourceConfig);

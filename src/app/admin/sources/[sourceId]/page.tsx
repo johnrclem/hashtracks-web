@@ -32,7 +32,8 @@ function detectHashChanges(
   const changes = new Map<string, boolean>();
   let prevHash: string | null = null;
   for (let i = history.length - 1; i >= 0; i--) {
-    const curr = history[i]; // nosemgrep: object-injection — safe: array index, i is loop-bounded
+    const curr = history.at(i);
+    if (!curr) continue;
     if (curr.structureHash && prevHash && curr.structureHash !== prevHash) {
       changes.set(curr.id, true);
     }
@@ -45,13 +46,13 @@ function detectHashChanges(
 function computeSampleSuggestions(
   sampleSkippedArr: unknown,
   fuzzyCandidates: Array<{ id: string; shortName: string; fullName: string; aliases: string[] }>,
-): Record<string, { id: string; shortName: string; score: number }[]> {
-  const suggestions: Record<string, { id: string; shortName: string; score: number }[]> = {};
+): Map<string, { id: string; shortName: string; score: number }[]> {
+  const suggestions = new Map<string, { id: string; shortName: string; score: number }[]>();
   if (!sampleSkippedArr || !Array.isArray(sampleSkippedArr)) return suggestions;
 
   for (const sample of sampleSkippedArr as Array<{ kennelTag: string }>) {
-    if (!suggestions[sample.kennelTag]) {
-      suggestions[sample.kennelTag] = fuzzyMatch(sample.kennelTag, fuzzyCandidates);
+    if (typeof sample.kennelTag === "string" && !suggestions.has(sample.kennelTag)) {
+      suggestions.set(sample.kennelTag, fuzzyMatch(sample.kennelTag, fuzzyCandidates));
     }
   }
   return suggestions;
@@ -679,7 +680,7 @@ export default async function SourceDetailPage({
                         reason={sample.reason}
                         kennelTag={sample.kennelTag}
                         allKennels={allKennels}
-                        suggestions={sampleSuggestions[sample.kennelTag]}
+                        suggestions={sampleSuggestions.get(sample.kennelTag)}
                       />
                     </div>
                   </div>
@@ -722,7 +723,7 @@ export default async function SourceDetailPage({
                         reason={sample.reason}
                         kennelTag={sample.kennelTag}
                         allKennels={allKennels}
-                        suggestions={sampleSuggestions[sample.kennelTag]}
+                        suggestions={sampleSuggestions.get(sample.kennelTag)}
                       />
                     </div>
                   </div>

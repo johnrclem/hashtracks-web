@@ -6,21 +6,26 @@ import { AlertFilters } from "@/components/admin/AlertFilters";
 import { fuzzyMatch } from "@/lib/fuzzy";
 import type { KennelOption } from "@/components/admin/UnmatchedTagResolver";
 
+const VALID_STATUSES = new Set(["OPEN", "ACKNOWLEDGED", "SNOOZED", "RESOLVED"]);
+
 /** Build the Prisma where clause for alert status filtering. */
 function buildAlertsWhereClause(statusFilter: string) {
   if (statusFilter === "all") return {};
   if (statusFilter === "active") {
     return { status: { in: ["OPEN" as const, "ACKNOWLEDGED" as const] } };
   }
-  return { status: statusFilter as "OPEN" | "ACKNOWLEDGED" | "SNOOZED" | "RESOLVED" };
+  if (VALID_STATUSES.has(statusFilter)) {
+    return { status: statusFilter as "OPEN" | "ACKNOWLEDGED" | "SNOOZED" | "RESOLVED" };
+  }
+  return {};
 }
 
 /** Compute fuzzy kennel suggestions for UNMATCHED_TAGS alerts. */
 function computeFuzzySuggestions(
   alerts: Array<{ id: string; type: string; context: unknown }>,
   fuzzyCandidates: Array<{ id: string; shortName: string; fullName: string; aliases: string[] }>,
-): Map<string, Record<string, KennelOption[]>> {
-  const suggestionsMap = new Map<string, Record<string, KennelOption[]>>();
+): Map<string, Map<string, KennelOption[]>> {
+  const suggestionsMap = new Map<string, Map<string, KennelOption[]>>();
   for (const alert of alerts) {
     if (alert.type !== "UNMATCHED_TAGS" || !alert.context) continue;
     const ctx = alert.context as { tags?: string[] };
@@ -30,7 +35,7 @@ function computeFuzzySuggestions(
     for (const tag of ctx.tags) {
       tagSuggestions.set(tag, fuzzyMatch(tag, fuzzyCandidates));
     }
-    suggestionsMap.set(alert.id, Object.fromEntries(tagSuggestions));
+    suggestionsMap.set(alert.id, tagSuggestions);
   }
   return suggestionsMap;
 }

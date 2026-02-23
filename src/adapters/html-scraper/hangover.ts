@@ -132,6 +132,7 @@ function shouldFetchDetailPage(fields: ReturnType<typeof parseHangoverBody>, eve
 
 async function fetchDetailBody(postUrl: string, headers: HeadersInit): Promise<string | null> {
   try {
+    validateSourceUrl(postUrl);
     const response = await fetch(postUrl, { headers });
     if (!response.ok) return null;
 

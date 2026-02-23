@@ -50,6 +50,9 @@ function parsePreviewConfig(
     } catch {
       return { config: null, error: "Invalid JSON in config field" };
     }
+    if (config !== null && (typeof config !== "object" || Array.isArray(config))) {
+      return { config: null, error: "Config must be a JSON object" };
+    }
   }
   const configErrors = validateSourceConfig(type, config);
   if (configErrors.length > 0) {

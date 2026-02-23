@@ -46,7 +46,7 @@ interface RepairLogEntry {
 interface AlertCardProps {
   alert: AlertData;
   allKennels?: { id: string; shortName: string; fullName: string; region: string }[];
-  suggestions?: Record<string, KennelOption[]>;
+  suggestions?: Map<string, KennelOption[]>;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -233,7 +233,7 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
                 <UnmatchedTagResolver
                   alertId={alert.id}
                   tags={ctx.tags as string[]}
-                  suggestions={suggestions ?? {}}
+                  suggestions={suggestions ?? new Map()}
                   allKennels={allKennels}
                 />
               ) : (

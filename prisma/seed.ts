@@ -19,30 +19,30 @@ const PROFILE_FIELDS = [
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function upsertKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: string) => string) {
   console.log("Seeding kennels...");
-  const kennelRecords: Record<string, { id: string }> = {};
+  const kennelRecords = new Map<string, { id: string }>();
   for (const kennel of kennels) {
     const slug = toSlugFn(kennel.shortName);
-    const profileFields: Record<string, string | number | undefined> = {};
+    const profileFields = new Map<string, string | number | undefined>();
     for (const key of PROFILE_FIELDS) {
-      if (Object.prototype.hasOwnProperty.call(kennel, key) && kennel[key] !== undefined) profileFields[key] = kennel[key];
+      if (Object.prototype.hasOwnProperty.call(kennel, key) && kennel[key] !== undefined) profileFields.set(key, kennel[key]);
     }
     const record = await prisma.kennel.upsert({
       where: { kennelCode: kennel.kennelCode },
-      update: { shortName: kennel.shortName, fullName: kennel.fullName, region: kennel.region, slug, ...profileFields },
-      create: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, country: kennel.country ?? "USA", ...profileFields },
+      update: { shortName: kennel.shortName, fullName: kennel.fullName, region: kennel.region, ...(kennel.country !== undefined ? { country: kennel.country } : {}), slug, ...Object.fromEntries(profileFields) },
+      create: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, country: kennel.country ?? "USA", ...Object.fromEntries(profileFields) },
     });
-    kennelRecords[kennel.kennelCode] = record;
+    kennelRecords.set(kennel.kennelCode, record);
   }
   console.log(`  ✓ ${kennels.length} kennels upserted`);
   return kennelRecords;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function upsertAliases(prisma: any, kennelAliases: Record<string, string[]>, kennelRecords: Record<string, { id: string }>) {
+async function upsertAliases(prisma: any, kennelAliases: Record<string, string[]>, kennelRecords: Map<string, { id: string }>) {
   let aliasCount = 0;
   for (const [code, aliases] of Object.entries(kennelAliases)) {
-    if (!Object.prototype.hasOwnProperty.call(kennelRecords, code)) { console.warn(`  ⚠ Kennel code "${code}" not found, skipping aliases`); continue; }
-    const kennel = kennelRecords[code];
+    if (!kennelRecords.has(code)) { console.warn(`  ⚠ Kennel code "${code}" not found, skipping aliases`); continue; }
+    const kennel = kennelRecords.get(code)!;
     for (const alias of aliases) {
       await prisma.kennelAlias.upsert({
         where: { kennelId_alias: { kennelId: kennel.id, alias } },
@@ -56,7 +56,7 @@ async function upsertAliases(prisma: any, kennelAliases: Record<string, string[]
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function upsertSources(prisma: any, sources: any[], kennelRecords: Record<string, { id: string }>) {
+async function upsertSources(prisma: any, sources: any[], kennelRecords: Map<string, { id: string }>) {
   console.log("Seeding sources...");
   for (const source of sources) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -76,9 +76,9 @@ async function upsertSources(prisma: any, sources: any[], kennelRecords: Record<
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function linkKennelsToSource(prisma: any, sourceId: string, kennelCodes: string[], kennelRecords: Record<string, { id: string }>) {
+async function linkKennelsToSource(prisma: any, sourceId: string, kennelCodes: string[], kennelRecords: Map<string, { id: string }>) {
   for (const code of kennelCodes) {
-    const kennel = kennelRecords[code];
+    const kennel = kennelRecords.get(code);
     if (!kennel) { console.warn(`  ⚠ Kennel code "${code}" not found, skipping source link`); continue; }
     await prisma.sourceKennel.upsert({
       where: { sourceId_kennelId: { sourceId, kennelId: kennel.id } },
@@ -89,7 +89,7 @@ async function linkKennelsToSource(prisma: any, sourceId: string, kennelCodes: s
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function upsertRosterGroups(prisma: any, rosterGroups: { name: string; kennelCodes: string[] }[], kennelRecords: Record<string, { id: string }>) {
+async function upsertRosterGroups(prisma: any, rosterGroups: { name: string; kennelCodes: string[] }[], kennelRecords: Map<string, { id: string }>) {
   console.log("Seeding roster groups...");
   for (const group of rosterGroups) {
     let rosterGroup = await prisma.rosterGroup.findFirst({ where: { name: group.name } });
@@ -105,9 +105,9 @@ async function upsertRosterGroups(prisma: any, rosterGroups: { name: string; ken
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function linkKennelsToRosterGroup(prisma: any, groupId: string, kennelCodes: string[], kennelRecords: Record<string, { id: string }>) {
+async function linkKennelsToRosterGroup(prisma: any, groupId: string, kennelCodes: string[], kennelRecords: Map<string, { id: string }>) {
   for (const code of kennelCodes) {
-    const kennel = kennelRecords[code];
+    const kennel = kennelRecords.get(code);
     if (!kennel) { console.warn(`  ⚠ Kennel code "${code}" not found, skipping roster group link`); continue; }
     await prisma.rosterGroupKennel.upsert({
       where: { kennelId: kennel.id },
@@ -118,12 +118,12 @@ async function linkKennelsToRosterGroup(prisma: any, groupId: string, kennelCode
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function ensureAllKennelsHaveGroup(prisma: any, kennelRecords: Record<string, { id: string }>, codeToShortName: Record<string, string>) {
+async function ensureAllKennelsHaveGroup(prisma: any, kennelRecords: Map<string, { id: string }>, codeToShortName: Map<string, string>) {
   console.log("Ensuring all kennels have a roster group...");
-  for (const [code, record] of Object.entries(kennelRecords)) {
+  for (const [code, record] of kennelRecords) {
     const existing = await prisma.rosterGroupKennel.findUnique({ where: { kennelId: record.id } });
     if (existing) continue;
-    const groupName = Object.prototype.hasOwnProperty.call(codeToShortName, code) ? codeToShortName[code] : code;
+    const groupName = codeToShortName.get(code) ?? code;
     let group = await prisma.rosterGroup.findFirst({ where: { name: groupName } });
     if (!group) {
       group = await prisma.rosterGroup.create({ data: { name: groupName } });
@@ -149,8 +149,8 @@ async function seedKennels(prisma: any, kennels: any[], kennelAliases: Record<st
   ];
   await upsertRosterGroups(prisma, rosterGroups, kennelRecords);
 
-  const codeToShortName: Record<string, string> = {};
-  for (const k of kennels) codeToShortName[k.kennelCode] = k.shortName;
+  const codeToShortName = new Map<string, string>();
+  for (const k of kennels) codeToShortName.set(k.kennelCode, k.shortName);
   await ensureAllKennelsHaveGroup(prisma, kennelRecords, codeToShortName);
 
   // Post-seed validation: check for duplicate fullNames

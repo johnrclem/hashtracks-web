@@ -50,6 +50,7 @@ export async function fetchAndParseHtmlPage(url: string): Promise<{ html: string
     validateSourceUrl(url);
     const response = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+      signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) {
       return { error: { url, status: response.status, message: `HTTP ${response.status}: ${response.statusText}` } };

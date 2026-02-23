@@ -71,7 +71,7 @@ function validateGoogleSheetsConfig(obj: Record<string, unknown>, errors: string
   if (!obj.sheetId || typeof obj.sheetId !== "string") {
     errors.push("Google Sheets config requires sheetId");
   }
-  if (!obj.columns || typeof obj.columns !== "object") {
+  if (!obj.columns || typeof obj.columns !== "object" || Array.isArray(obj.columns)) {
     errors.push("Google Sheets config requires columns mapping");
   }
   if (
@@ -112,13 +112,13 @@ function validateRssFeedConfig(obj: Record<string, unknown>, errors: string[]): 
   }
 }
 
-/** Registry of type-specific validators */
-const TYPE_VALIDATORS: Record<string, (obj: Record<string, unknown>, errors: string[]) => void> = {
-  GOOGLE_SHEETS: validateGoogleSheetsConfig,
-  HASHREGO: validateHashRegoConfig,
-  MEETUP: validateMeetupConfig,
-  RSS_FEED: validateRssFeedConfig,
-};
+/** Run type-specific validation for a source config. */
+function runTypeValidator(type: string, obj: Record<string, unknown>, errors: string[]): void {
+  if (type === "GOOGLE_SHEETS") validateGoogleSheetsConfig(obj, errors);
+  else if (type === "HASHREGO") validateHashRegoConfig(obj, errors);
+  else if (type === "MEETUP") validateMeetupConfig(obj, errors);
+  else if (type === "RSS_FEED") validateRssFeedConfig(obj, errors);
+}
 
 /**
  * Validate source config based on type. Returns error messages or empty array.
@@ -147,9 +147,7 @@ export function validateSourceConfig(
   validateSkipPatterns(obj, errors);
 
   // Type-specific validation
-  if (Object.prototype.hasOwnProperty.call(TYPE_VALIDATORS, type)) {
-    TYPE_VALIDATORS[type](obj, errors);
-  }
+  runTypeValidator(type, obj, errors);
 
   return errors;
 }

@@ -176,11 +176,14 @@ function resolveKennelTagFromSheetRow(
     ? row[config.columns.specialRun]?.trim()
     : undefined;
 
-  if (specialRunCell && config.kennelTagRules.specialRunMap && Object.prototype.hasOwnProperty.call(config.kennelTagRules.specialRunMap, specialRunCell)) {
-    return {
-      kennelTag: config.kennelTagRules.specialRunMap[specialRunCell],
-      runNumber: runNumberCell ? parseInt(runNumberCell, 10) || undefined : undefined,
-    };
+  if (specialRunCell && config.kennelTagRules.specialRunMap) {
+    const mapped = new Map(Object.entries(config.kennelTagRules.specialRunMap)).get(specialRunCell);
+    if (mapped) {
+      return {
+        kennelTag: mapped,
+        runNumber: runNumberCell ? parseInt(runNumberCell, 10) || undefined : undefined,
+      };
+    }
   }
   if (specialRunCell && /^\d+$/.test(specialRunCell) && config.kennelTagRules.numericSpecialTag) {
     return {

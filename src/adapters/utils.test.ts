@@ -195,8 +195,8 @@ describe("validateSourceUrl", () => {
     expect(() => validateSourceUrl("https://www.example.com/path")).not.toThrow();
   });
 
-  it("accepts valid HTTP URLs", () => {
-    expect(() => validateSourceUrl("http://hashnyc.com")).not.toThrow();
+  it("accepts valid HTTPS URLs", () => {
+    expect(() => validateSourceUrl("https://hashnyc.com")).not.toThrow();
   });
 
   it("rejects non-HTTP protocols", () => {

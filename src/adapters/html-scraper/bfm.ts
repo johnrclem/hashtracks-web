@@ -6,16 +6,17 @@ import { MONTHS, parse12HourTime, googleMapsSearchUrl } from "../utils";
 
 const mapsUrl = googleMapsSearchUrl;
 
-/** Known BFM field labels that delimit sections in body text. */
-const BFM_FIELD_LABELS = ["When", "Where", "Bring", "Hare", "Hares", "The Fun Part"];
+/** Precompiled terminators for BFM field extraction (avoids dynamic RegExp). */
+const BFM_FIELD_TERMINATORS: RegExp[] = [
+  /When:/i, /Where:/i, /Bring:/i, /Hares?:/i, /The Fun Part:/i,
+];
 
 /**
  * Extract a labeled field value from BFM body text.
- * Finds "Label:" and returns text up to the next known label or newline.
- * Uses indexOf (no backtracking) instead of regex lookahead.
+ * Finds the label pattern and returns text up to the next known label or newline.
+ * Uses precompiled RegExp literals only (no dynamic construction).
  */
-function extractBfmField(bodyText: string, label: string | RegExp): string | null {
-  const labelPattern = typeof label === "string" ? new RegExp(`${label}:\\s*`, "i") : label;
+function extractBfmField(bodyText: string, labelPattern: RegExp): string | null {
   const labelMatch = bodyText.match(labelPattern);
   if (!labelMatch) return null;
 
@@ -26,8 +27,8 @@ function extractBfmField(bodyText: string, label: string | RegExp): string | nul
   let endIdx = remaining.indexOf("\n");
   if (endIdx === -1) endIdx = remaining.length;
 
-  for (const fieldLabel of BFM_FIELD_LABELS) {
-    const fieldIdx = remaining.search(new RegExp(`${fieldLabel}:`, "i"));
+  for (const terminator of BFM_FIELD_TERMINATORS) {
+    const fieldIdx = remaining.search(terminator);
     if (fieldIdx >= 0 && fieldIdx < endIdx) {
       endIdx = fieldIdx;
     }
@@ -106,8 +107,8 @@ function scrapeCurrentTrail(
 
   const runNumber = parseInt(trailMatch[1], 10);
   const trailName = trailMatch[2].trim();
-  const whenText = extractBfmField(bodyText, "When");
-  const whereText = extractBfmField(bodyText, "Where");
+  const whenText = extractBfmField(bodyText, /When:\s*/i);
+  const whereText = extractBfmField(bodyText, /Where:\s*/i);
   const hareText = extractBfmField(bodyText, /Hares?:\s*/i);
 
   let dateStr: string | null = null;
