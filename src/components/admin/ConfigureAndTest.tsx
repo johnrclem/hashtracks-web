@@ -6,6 +6,10 @@ import {
   previewSourceConfig,
   type PreviewData,
 } from "@/app/admin/sources/preview-action";
+import {
+  suggestSourceConfig,
+  type ConfigSuggestion,
+} from "@/app/admin/sources/suggest-source-config-action";
 import { PreviewResults } from "./PreviewResults";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +68,13 @@ const PANEL_TYPES = new Set([
   "MEETUP",
   "RSS_FEED",
 ]);
+
+/**
+ * Types that can receive an AI config suggestion on mount (empty config only).
+ * Only includes types whose adapters can fetch sample events without pre-existing config.
+ * RSS_FEED, MEETUP, HASHREGO are excluded — they require config to fetch any events.
+ */
+const TYPES_WITH_AI_SUGGESTION = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HTML_SCRAPER"]);
 
 function hasICalConfigShape(config: unknown): boolean {
   if (!config || typeof config !== "object" || Array.isArray(config)) return false;
@@ -148,6 +159,11 @@ export function ConfigureAndTest({
   // Show raw JSON toggle
   const [showRawJson, setShowRawJson] = useState(false);
 
+  // AI config suggestion state
+  type AiSuggestionState = "idle" | "loading" | "done" | "dismissed" | "error";
+  const [aiState, setAiState] = useState<AiSuggestionState>("idle");
+  const [aiSuggestion, setAiSuggestion] = useState<ConfigSuggestion | null>(null);
+
   const allKennelsWithExtra = [...allKennels, ...extraKennels];
 
   const showConfigEditor = CONFIG_TYPES.has(type);
@@ -167,6 +183,23 @@ export function ConfigureAndTest({
 
   const panelType = getPanelType();
 
+  // Auto-trigger AI config suggestion on mount when config is empty
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!TYPES_WITH_AI_SUGGESTION.has(type)) return;
+    if (type !== "HTML_SCRAPER" && !geminiAvailable) return;
+    if (configJson.trim()) return; // skip if already configured
+    if (!url.trim()) return;
+    setAiState("loading");
+    suggestSourceConfig(url, type)
+      .then((result) => {
+        if ("error" in result) { setAiState("error"); return; }
+        setAiSuggestion(result.suggestion);
+        setAiState("done");
+      })
+      .catch(() => setAiState("error"));
+  }, []); // Only on mount
+
   // Auto-run on mount if config is non-empty
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -175,48 +208,57 @@ export function ConfigureAndTest({
     }
   }, []); // Only on mount
 
-  const runPreview = useCallback(() => {
-    const fd = new FormData();
-    fd.set("url", url);
-    fd.set("type", type);
-    if (configJson.trim()) fd.set("config", configJson.trim());
+  /**
+   * Run a preview scrape. Pass `overrideJson` to use a config string other than the current
+   * `configJson` (e.g. after accepting an AI suggestion). Pass `baseKennels` to use a
+   * specific kennel list as the base for auto-selection (prevents stale-closure issues).
+   */
+  const runPreview = useCallback(
+    (overrideJson?: string, baseKennels?: string[]) => {
+      const jsonToUse = overrideJson ?? configJson;
+      const currentKennels = baseKennels ?? selectedKennels;
+      const fd = new FormData();
+      fd.set("url", url);
+      fd.set("type", type);
+      if (jsonToUse.trim()) fd.set("config", jsonToUse.trim());
 
-    startPreview(async () => {
-      setPreviewError(null);
-      const result = await previewSourceConfig(fd);
-      setLastRunTime(new Date());
-      setHasRunTest(true);
+      startPreview(async () => {
+        setPreviewError(null);
+        const result = await previewSourceConfig(fd);
+        setLastRunTime(new Date());
+        setHasRunTest(true);
 
-      if (result.error) {
-        setPreviewError(result.error);
-        setPreviewData(null);
-        setSampleTitlesByTag({});
-      } else if (result.data) {
-        setPreviewData(result.data);
+        if (result.error) {
+          setPreviewError(result.error);
+          setPreviewData(null);
+          setSampleTitlesByTag({});
+        } else if (result.data) {
+          setPreviewData(result.data);
 
-        // Auto-select resolved kennels (additive — don't deselect already-linked kennels)
-        const resolvedIds = new Set(
-          result.data.events
-            .filter((e) => e.resolved && e.resolvedKennelId)
-            .map((e) => e.resolvedKennelId!),
-        );
-        const newIds = [...resolvedIds].filter((id) => !selectedKennels.includes(id));
-        if (newIds.length > 0) {
-          onKennelsChange([...selectedKennels, ...newIds]);
+          // Auto-select resolved kennels (additive — don't deselect already-linked kennels)
+          const resolvedIds = new Set(
+            result.data.events
+              .filter((e) => e.resolved && e.resolvedKennelId)
+              .map((e) => e.resolvedKennelId!),
+          );
+          const existingSet = new Set(currentKennels);
+          const newIds = [...resolvedIds].filter((id) => !existingSet.has(id));
+          if (newIds.length > 0) onKennelsChange([...currentKennels, ...newIds]);
+
+          // Build sample titles map for AI suggestions in panels
+          const titles = result.data.events.reduce<Record<string, string[]>>((acc, e) => {
+            if (!e.resolved && e.title) {
+              if (!acc[e.kennelTag]) acc[e.kennelTag] = [];
+              acc[e.kennelTag].push(e.title);
+            }
+            return acc;
+          }, {});
+          setSampleTitlesByTag(titles);
         }
-
-        // Build sample titles map for AI suggestions in panels
-        const titles = result.data.events.reduce<Record<string, string[]>>((acc, e) => {
-          if (!e.resolved && e.title) {
-            if (!acc[e.kennelTag]) acc[e.kennelTag] = [];
-            acc[e.kennelTag].push(e.title);
-          }
-          return acc;
-        }, {});
-        setSampleTitlesByTag(titles);
-      }
-    });
-  }, [url, type, configJson, selectedKennels, onKennelsChange]);
+      });
+    },
+    [url, type, configJson, selectedKennels, onKennelsChange],
+  );
 
   function handleConfigChange(
     newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig | MeetupConfig,
@@ -246,6 +288,26 @@ export function ConfigureAndTest({
       // Invalid JSON — update json only, don't clear configObj
       onConfigChange(config, json);
     }
+  }
+
+  function handleAcceptSuggestion() {
+    if (!aiSuggestion) return;
+    const hasConfig = Object.keys(aiSuggestion.suggestedConfig).length > 0;
+    // Use empty string (not "{}") so the "config is empty" checks remain consistent
+    const configObj = hasConfig ? aiSuggestion.suggestedConfig : null;
+    const json = hasConfig ? JSON.stringify(aiSuggestion.suggestedConfig, null, 2) : "";
+    onConfigChange(configObj, json);
+
+    // Compute the merged kennel list once to avoid stale-closure issues in the preview callback
+    const suggestedIds = aiSuggestion.suggestedKennelTags
+      .flatMap((tag) => allKennelsWithExtra.filter((k) => k.shortName === tag).map((k) => k.id));
+    const existingSet = new Set(selectedKennels);
+    const newIds = suggestedIds.filter((id) => !existingSet.has(id));
+    const mergedKennels = newIds.length > 0 ? [...selectedKennels, ...newIds] : selectedKennels;
+    if (newIds.length > 0) onKennelsChange(mergedKennels);
+
+    setAiState("dismissed");
+    if (hasConfig) runPreview(json, mergedKennels);
   }
 
   function toggleKennel(id: string) {
@@ -302,6 +364,53 @@ export function ConfigureAndTest({
     <div className="flex flex-col gap-6 lg:flex-row">
       {/* ── Left panel: Config ── */}
       <div className="space-y-4 lg:w-[40%]">
+        {/* AI Config Suggestion Banner */}
+        {aiState === "loading" && (
+          <div className="flex animate-pulse items-center gap-2 rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+            ✨ Analyzing source…
+          </div>
+        )}
+        {aiState === "error" && (
+          <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            <span>AI suggestion unavailable — configure manually below.</span>
+            <button
+              type="button"
+              className="shrink-0 opacity-70 hover:opacity-100"
+              onClick={() => setAiState("dismissed")}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        {aiState === "done" && aiSuggestion && (
+          <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-1">
+                <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+                  ✨ AI Suggestion
+                  <Badge variant="outline" className="text-xs">{aiSuggestion.confidence}</Badge>
+                  {aiSuggestion.adapterNote && (
+                    <Badge variant="secondary" className="text-xs">{aiSuggestion.adapterNote}</Badge>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">{aiSuggestion.explanation}</p>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+                onClick={() => setAiState("dismissed")}
+              >
+                ✕
+              </button>
+            </div>
+            {Object.keys(aiSuggestion.suggestedConfig).length > 0 && (
+              <Button size="sm" variant="secondary" onClick={handleAcceptSuggestion}>
+                Accept &amp; Test
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Type-specific config panel */}
         {panelType === "calendar" && (
           <CalendarConfigPanel
@@ -403,7 +512,7 @@ export function ConfigureAndTest({
             type="button"
             variant="outline"
             disabled={isPreviewing || !url.trim()}
-            onClick={runPreview}
+            onClick={() => runPreview()}
           >
             {testButtonLabel}
           </Button>

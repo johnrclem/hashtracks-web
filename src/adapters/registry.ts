@@ -34,25 +34,46 @@ const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
   RSS_FEED: () => new RssAdapter(),
 };
 
-/** URL-based routing for HTML_SCRAPER sources with site-specific adapters */
-const htmlScrapersByUrl: [RegExp, () => SourceAdapter][] = [
-  [/benfranklinmob/i, () => new BFMAdapter()],
-  [/hashphilly/i, () => new HashPhillyAdapter()],
-  [/cityhash\.org/i, () => new CityHashAdapter()],
-  [/westlondonhash/i, () => new WestLondonHashAdapter()],
-  [/barnesh3\.com/i, () => new BarnesHashAdapter()],
-  [/och3\.org/i, () => new OCH3Adapter()],
-  [/londonhash\.org\/slah3/i, () => new SlashHashAdapter()],
-  [/londonhash\.org/i, () => new LondonHashAdapter()],
-  [/enfieldhash\.org/i, () => new EnfieldHashAdapter()],
-  [/chicagohash\.org/i, () => new ChicagoHashAdapter()],
-  [/chicagoth3\.com/i, () => new ChicagoTH3Adapter()],
-  [/sfh3\.com/i, () => new SFH3Adapter()],
-  [/ewh3\.com/i, () => new EWH3Adapter()],
-  [/dch4\.org/i, () => new DCH4Adapter()],
-  [/ofh3\.com/i, () => new OFH3Adapter()],
-  [/hangoverhash\.digitalpress/i, () => new HangoverAdapter()],
+/** Single source of truth for URL-routed HTML scrapers: pattern, adapter name, factory. */
+interface HtmlScraperEntry {
+  pattern: RegExp;
+  name: string;
+  factory: () => SourceAdapter;
+}
+
+const htmlScraperEntries: HtmlScraperEntry[] = [
+  { pattern: /benfranklinmob/i,          name: "BFMAdapter",          factory: () => new BFMAdapter() },
+  { pattern: /hashphilly/i,              name: "HashPhillyAdapter",   factory: () => new HashPhillyAdapter() },
+  { pattern: /cityhash\.org/i,           name: "CityHashAdapter",     factory: () => new CityHashAdapter() },
+  { pattern: /westlondonhash/i,          name: "WestLondonHashAdapter", factory: () => new WestLondonHashAdapter() },
+  { pattern: /barnesh3\.com/i,           name: "BarnesHashAdapter",   factory: () => new BarnesHashAdapter() },
+  { pattern: /och3\.org/i,              name: "OCH3Adapter",          factory: () => new OCH3Adapter() },
+  { pattern: /londonhash\.org\/slah3/i, name: "SlashHashAdapter",     factory: () => new SlashHashAdapter() },
+  { pattern: /londonhash\.org/i,        name: "LondonHashAdapter",    factory: () => new LondonHashAdapter() },
+  { pattern: /enfieldhash\.org/i,       name: "EnfieldHashAdapter",   factory: () => new EnfieldHashAdapter() },
+  { pattern: /chicagohash\.org/i,       name: "ChicagoHashAdapter",   factory: () => new ChicagoHashAdapter() },
+  { pattern: /chicagoth3\.com/i,        name: "ChicagoTH3Adapter",    factory: () => new ChicagoTH3Adapter() },
+  { pattern: /sfh3\.com/i,             name: "SFH3Adapter",           factory: () => new SFH3Adapter() },
+  { pattern: /ewh3\.com/i,             name: "EWH3Adapter",           factory: () => new EWH3Adapter() },
+  { pattern: /dch4\.org/i,             name: "DCH4Adapter",           factory: () => new DCH4Adapter() },
+  { pattern: /ofh3\.com/i,             name: "OFH3Adapter",           factory: () => new OFH3Adapter() },
+  { pattern: /hangoverhash\.digitalpress/i, name: "HangoverAdapter",  factory: () => new HangoverAdapter() },
 ];
+
+/** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */
+const htmlScrapersByUrl: [RegExp, () => SourceAdapter][] =
+  htmlScraperEntries.map(({ pattern, factory }) => [pattern, factory]);
+
+/**
+ * Returns the adapter class name if the URL matches a site-specific HTML scraper, else null.
+ * Used by the AI config suggestion to detect whether a custom adapter already exists.
+ */
+export function findHtmlAdapter(url: string): string | null {
+  for (const { pattern, name } of htmlScraperEntries) {
+    if (pattern.test(url)) return name;
+  }
+  return null;
+}
 
 export function getAdapter(sourceType: SourceType, sourceUrl?: string): SourceAdapter {
   // For HTML scrapers, check URL-based routing first
