@@ -66,6 +66,38 @@ function hasICalConfigShape(config: unknown): boolean {
   return "kennelPatterns" in obj || "defaultKennelTag" in obj || "skipPatterns" in obj;
 }
 
+/** File-private: compact labeled Input for the quick-kennel inline form. */
+function QuickKennelField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={id} className="text-xs">
+        {label}
+      </Label>
+      <Input
+        id={id}
+        value={value}
+        placeholder={placeholder}
+        className="h-7 text-xs"
+        onChange={(e) => {
+          onChange(e.target.value);
+        }}
+      />
+    </div>
+  );
+}
+
 export interface ConfigureAndTestProps {
   url: string;
   type: string;
@@ -468,43 +500,28 @@ export function ConfigureAndTest({
             <div className="space-y-3 rounded-md border bg-muted/30 p-3">
               <p className="text-xs font-medium">Create New Kennel</p>
               <div className="grid gap-2 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="qk-shortName" className="text-xs">
-                    Short Name *
-                  </Label>
-                  <Input
-                    id="qk-shortName"
-                    value={quickKennelShortName}
-                    onChange={(e) => setQuickKennelShortName(e.target.value)}
-                    placeholder="NYCH3"
-                    className="h-7 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="qk-region" className="text-xs">
-                    Region *
-                  </Label>
-                  <Input
-                    id="qk-region"
-                    value={quickKennelRegion}
-                    onChange={(e) => setQuickKennelRegion(e.target.value)}
-                    placeholder="New York City, NY"
-                    className="h-7 text-xs"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="qk-fullName" className="text-xs">
-                  Full Name *
-                </Label>
-                <Input
-                  id="qk-fullName"
-                  value={quickKennelFullName}
-                  onChange={(e) => setQuickKennelFullName(e.target.value)}
-                  placeholder="New York City Hash House Harriers"
-                  className="h-7 text-xs"
+                <QuickKennelField
+                  id="qk-shortName"
+                  label="Short Name *"
+                  value={quickKennelShortName}
+                  onChange={setQuickKennelShortName}
+                  placeholder="NYCH3"
+                />
+                <QuickKennelField
+                  id="qk-region"
+                  label="Region *"
+                  value={quickKennelRegion}
+                  onChange={setQuickKennelRegion}
+                  placeholder="New York City, NY"
                 />
               </div>
+              <QuickKennelField
+                id="qk-fullName"
+                label="Full Name *"
+                value={quickKennelFullName}
+                onChange={setQuickKennelFullName}
+                placeholder="New York City Hash House Harriers"
+              />
               <div className="flex gap-2">
                 <Button
                   type="button"
