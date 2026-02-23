@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EventCard, getDayOfWeek, type HarelineEvent } from "./EventCard";
@@ -8,6 +9,15 @@ import { EventFilters } from "./EventFilters";
 import { CalendarView } from "./CalendarView";
 import { EventDetailPanel } from "./EventDetailPanel";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
+
+const MapView = dynamic(() => import("./MapView"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-96 items-center justify-center rounded-md border text-sm text-muted-foreground">
+      Loading map…
+    </div>
+  ),
+});
 
 interface HarelineViewProps {
   events: HarelineEvent[];
@@ -22,7 +32,7 @@ function parseList(value: string | null): string[] {
 }
 
 interface FilterCriteria {
-  view: "list" | "calendar";
+  view: "list" | "calendar" | "map";
   timeFilter: "upcoming" | "past";
   scope: "my" | "all";
   subscribedKennelIds: string[];
@@ -35,7 +45,7 @@ interface FilterCriteria {
 
 /** Check whether an event passes the time filter (upcoming/past). */
 function passesTimeFilter(eventDate: number, view: FilterCriteria["view"], timeFilter: FilterCriteria["timeFilter"], todayUtc: number): boolean {
-  if (view === "calendar") return true;
+  if (view === "calendar" || view === "map") return true; // map shows all events across time
   if (timeFilter === "upcoming" && eventDate < todayUtc) return false;
   if (timeFilter === "past" && eventDate >= todayUtc) return false;
   return true;
@@ -84,8 +94,8 @@ export function HarelineView({
   const defaultScope = isAuthenticated && hasSubscriptions ? "my" : "all";
 
   // Initialize state from URL search params
-  const [view, setViewState] = useState<"list" | "calendar">(
-    (searchParams.get("view") as "list" | "calendar") || "list",
+  const [view, setViewState] = useState<"list" | "calendar" | "map">(
+    (searchParams.get("view") as "list" | "calendar" | "map") || "list",
   );
   const [density, setDensityState] = useState<"medium" | "compact">(
     (searchParams.get("density") as "medium" | "compact") || "medium",
@@ -162,7 +172,7 @@ export function HarelineView({
   );
 
   // Wrapper setters that sync to URL
-  function setView(v: "list" | "calendar") {
+  function setView(v: "list" | "calendar" | "map") {
     setViewState(v);
     syncUrl({ view: v });
   }
@@ -249,8 +259,8 @@ export function HarelineView({
     <div className="mt-6 space-y-4">
       {/* Controls bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Time toggle (hidden in calendar view — calendar shows all months) */}
-        {view !== "calendar" && (
+        {/* Time toggle (hidden in calendar/map view — those show all events) */}
+        {view === "list" && (
           <ToggleGroup
             type="single"
             value={timeFilter}
@@ -268,12 +278,13 @@ export function HarelineView({
           <ToggleGroup
             type="single"
             value={view}
-            onValueChange={(v) => v && setView(v as "list" | "calendar")}
+            onValueChange={(v) => v && setView(v as "list" | "calendar" | "map")}
             variant="outline"
             size="sm"
           >
             <ToggleGroupItem value="list">List</ToggleGroupItem>
             <ToggleGroupItem value="calendar">Calendar</ToggleGroupItem>
+            <ToggleGroupItem value="map">Map</ToggleGroupItem>
           </ToggleGroup>
 
           {/* Density toggle (only in list view) */}
@@ -333,8 +344,32 @@ export function HarelineView({
             </div>
           </div>
         </div>
-      ) : (
+      ) : view === "calendar" ? (
         <CalendarView events={filteredEvents} />
+      ) : (
+        <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-6">
+          {/* Left: map */}
+          <div className="min-w-0">
+            <MapView
+              events={sortedEvents}
+              selectedEventId={selectedEvent?.id}
+              onSelectEvent={setSelectedEvent}
+              attendanceMap={attendanceMap}
+            />
+          </div>
+
+          {/* Right: detail panel (desktop only) */}
+          <div className="hidden lg:block">
+            <div className="sticky top-8 max-h-[calc(100vh-4rem)]">
+              <EventDetailPanel
+                event={selectedEvent}
+                attendance={selectedEvent ? (attendanceMap[selectedEvent.id] ?? null) : null}
+                isAuthenticated={isAuthenticated}
+                onDismiss={() => setSelectedEvent(null)}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

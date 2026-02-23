@@ -62,6 +62,8 @@ export default async function HarelinePage() {
     description: e.description,
     sourceUrl: e.sourceUrl,
     status: e.status,
+    latitude: e.latitude ?? null,
+    longitude: e.longitude ?? null,
   }));
 
   return (

@@ -17,6 +17,7 @@ import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowser
 import { CheckInButton } from "@/components/logbook/CheckInButton";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { CalendarExportButton } from "./CalendarExportButton";
+import { EventLocationMap } from "./EventLocationMap";
 
 interface EventDetailPanelProps {
   event: HarelineEvent | null;
@@ -171,6 +172,15 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             </div>
           )}
         </dl>
+
+        {event.latitude && event.longitude && (
+          <EventLocationMap
+            lat={event.latitude}
+            lng={event.longitude}
+            locationName={event.locationName}
+            locationAddress={event.locationAddress}
+          />
+        )}
 
         {/* Description */}
         {event.description && (

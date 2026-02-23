@@ -36,6 +36,7 @@ import {
 import { formatTime } from "@/lib/format";
 import { CheckInButton } from "@/components/logbook/CheckInButton";
 import { CalendarExportButton } from "@/components/hareline/CalendarExportButton";
+import { EventLocationMap } from "@/components/hareline/EventLocationMap";
 
 export default async function EventDetailPage({
   params,
@@ -207,6 +208,15 @@ export default async function EventDetailPage({
           </div>
         )}
       </div>
+
+      {event.latitude && event.longitude && (
+        <EventLocationMap
+          lat={event.latitude}
+          lng={event.longitude}
+          locationName={event.locationName}
+          locationAddress={event.locationAddress}
+        />
+      )}
 
       {event.description && (
         <div>

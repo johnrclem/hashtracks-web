@@ -399,30 +399,14 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 **See:** [competitive-analysis.md](competitive-analysis.md) — Theme: Discovery Quality
 
+- [x] **Map tab on Hareline** — Google Maps JS (`@vis.gl/react-google-maps`), region-colored pins (filled = precise location, hollow = region centroid), click pin → EventDetailPanel, all filters apply, URL-persisted view state
+- [x] **Event detail map** — Google Maps Static API image on EventDetailPanel + standalone event page; clickable → opens Google Maps; coordinate extraction from `locationAddress` Google Maps URLs in merge pipeline
 - [ ] **Map toggle on Kennel Directory** — interactive map with kennel pins (requires geocoding lat/lng on Kennel model)
-- [ ] **Map tab on Hareline** using existing event geo fields
-  - Render events as pins on a map (Mapbox GL JS or Google Maps)
-  - Color-code by region (reuse existing region color scheme from `src/lib/format.ts`)
-  - Click pin → event detail popover with check-in/RSVP actions
-  - Sync with existing hareline filters (region, kennel, day, scope)
-
-- [ ] **"Near me" sorting on Kennel Directory** — sort kennels by distance from user (requires lat/lng on Kennel model + browser geolocation)
 - [ ] **"Near me" distance filtering on Hareline**
   - Browser geolocation API for current position
-  - Client-side Haversine distance calculation (no PostGIS):
-    ```typescript
-    function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-      const R = 6371; // km
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLng = (lng2 - lng1) * Math.PI / 180;
-      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    }
-    ```
+  - Client-side Haversine distance calculation (no PostGIS)
   - Distance slider: 10km / 25km / 50km / 100km / 250km
   - Fallback: text-based region filter when no geo data available
-
-- [ ] **"Open in Google Maps"** link on event detail (construct from lat/lng)
 
 - [ ] **Travel Mode search** (future enhancement)
   - "Runs in [City/Region] between [Date A] and [Date B]"
@@ -508,6 +492,15 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 ---
 
 ## Priority 9: Additional Integrations & Depth
+
+### Event Weather Integration
+*Google Weather API enabled (same GCP project as Maps). Implement after map discovery ships — requires `latitude`/`longitude` on events (populated by map feature).*
+
+- [ ] Show weather forecast on upcoming event detail pages (next 7 days only)
+  - Fetch via Google Weather API using event `latitude`/`longitude`
+  - Display: temperature range, precipitation probability, condition icon
+  - Cache per-event: don't re-fetch on every page load (store on Event model or cache in KV)
+- [ ] Compact weather badge on hareline event cards (icon + temp range)
 
 ### Additional Adapter Types
 - [x] **iCal feed adapter** (`ICAL_FEED`): Live with SFH3 MultiHash source (11 Bay Area kennels)
