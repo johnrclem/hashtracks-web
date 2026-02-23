@@ -14,7 +14,7 @@
  */
 
 import he from "he";
-import { buildUrlVariantCandidates } from "./utils";
+import { buildUrlVariantCandidates } from "@/adapters/url-variants";
 
 /** A single post returned by the WordPress REST API */
 export interface WordPressPost {

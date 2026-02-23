@@ -14,7 +14,7 @@
  *   2. Set GOOGLE_CALENDAR_API_KEY env var (same key used for Calendar/Sheets)
  */
 
-import { buildUrlVariantCandidates } from "./utils";
+import { buildUrlVariantCandidates } from "@/adapters/url-variants";
 
 const BLOGGER_API_BASE = "https://www.googleapis.com/blogger/v3";
 
