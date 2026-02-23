@@ -30,6 +30,7 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+import { Prisma } from "@/generated/prisma/client";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
@@ -39,6 +40,7 @@ import {
   deleteAttendance,
   getPendingConfirmations,
   confirmMismanAttendance,
+  declineMismanAttendance,
 } from "./actions";
 
 const mockAuth = vi.mocked(getOrCreateUser);
@@ -47,6 +49,24 @@ const mockAttFind = vi.mocked(prisma.attendance.findUnique);
 const mockAttCreate = vi.mocked(prisma.attendance.create);
 const mockAttUpdate = vi.mocked(prisma.attendance.update);
 const mockAttDelete = vi.mocked(prisma.attendance.delete);
+
+// Helper: build a mock KennelAttendance record for misman tests
+function mockMismanRecord(overrides: {
+  userId?: string;
+  haredThisTrail?: boolean;
+  eventStatus?: string;
+} = {}) {
+  return {
+    id: "ka_1",
+    eventId: "evt_1",
+    haredThisTrail: overrides.haredThisTrail ?? false,
+    recordedBy: "misman_1",
+    kennelHasher: {
+      userLink: { userId: overrides.userId ?? "user_1", status: "CONFIRMED" },
+    },
+    event: { status: overrides.eventStatus ?? "CONFIRMED" },
+  } as never;
+}
 
 // Helper: create a UTC noon date for a given offset from today
 function utcNoonDate(daysOffset: number): Date {
@@ -472,30 +492,18 @@ describe("confirmMismanAttendance", () => {
   });
 
   it("returns error when no confirmed link to hasher", async () => {
-    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
-      eventId: "evt_1",
-      haredThisTrail: false,
-      recordedBy: "misman_1",
-      kennelHasher: {
-        userLink: { userId: "other_user", status: "CONFIRMED" },
-      },
-    } as never);
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(
+      mockMismanRecord({ userId: "other_user" }),
+    );
 
     const result = await confirmMismanAttendance("ka_1");
     expect(result).toEqual({ error: "Not authorized — no confirmed link to this hasher" });
   });
 
   it("creates logbook entry with correct participation level", async () => {
-    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
-      eventId: "evt_1",
-      haredThisTrail: true,
-      recordedBy: "misman_1",
-      kennelHasher: {
-        userLink: { userId: "user_1", status: "CONFIRMED" },
-      },
-    } as never);
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(
+      mockMismanRecord({ haredThisTrail: true }),
+    );
 
     // No existing logbook entry
     mockAttFind.mockResolvedValueOnce(null);
@@ -516,15 +524,7 @@ describe("confirmMismanAttendance", () => {
   });
 
   it("is idempotent when logbook entry already exists", async () => {
-    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
-      eventId: "evt_1",
-      haredThisTrail: false,
-      recordedBy: "misman_1",
-      kennelHasher: {
-        userLink: { userId: "user_1", status: "CONFIRMED" },
-      },
-    } as never);
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(mockMismanRecord());
 
     // Already has logbook entry
     mockAttFind.mockResolvedValueOnce({ id: "att_existing" } as never);
@@ -532,5 +532,157 @@ describe("confirmMismanAttendance", () => {
     const result = await confirmMismanAttendance("ka_1");
     expect(result).toEqual({ success: true, attendanceId: "att_existing" });
     expect(mockAttCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns error when event is cancelled", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(
+      mockMismanRecord({ eventStatus: "CANCELLED" }),
+    );
+
+    mockAttFind.mockResolvedValueOnce(null);
+
+    const result = await confirmMismanAttendance("ka_1");
+    expect(result).toEqual({ error: "Event was cancelled" });
+    expect(mockAttCreate).not.toHaveBeenCalled();
+  });
+});
+
+// ── confirmAttendance: cancelled event guard ──
+
+describe("confirmAttendance — cancelled event", () => {
+  it("returns error when event is cancelled", async () => {
+    mockAttFind.mockResolvedValueOnce({
+      id: "att_1", userId: "user_1", status: "INTENDING",
+      participationLevel: "RUN",
+      event: { date: utcNoonDate(-1), status: "CANCELLED" },
+    } as never);
+
+    const result = await confirmAttendance("att_1");
+    expect(result).toEqual({ error: "Event was cancelled" });
+    expect(mockAttUpdate).not.toHaveBeenCalled();
+  });
+});
+
+// ── getPendingConfirmations: cancelled event filtering ──
+
+describe("getPendingConfirmations — cancelled event filtering", () => {
+  it("excludes cancelled events from pending confirmations", async () => {
+    vi.mocked(prisma.kennelHasherLink.findMany).mockResolvedValueOnce([
+      { kennelHasherId: "kh_1" },
+    ] as never);
+
+    vi.mocked(prisma.kennelAttendance.findMany).mockResolvedValueOnce([
+      {
+        id: "ka_1",
+        kennelHasherId: "kh_1",
+        eventId: "evt_1",
+        haredThisTrail: false,
+        event: {
+          id: "evt_1",
+          date: new Date("2026-02-10"),
+          title: "Active Hash",
+          runNumber: 100,
+          status: "CONFIRMED",
+          kennel: { shortName: "NYCH3" },
+        },
+      },
+    ] as never);
+
+    vi.mocked(prisma.attendance.findMany).mockResolvedValueOnce([] as never);
+
+    const result = await getPendingConfirmations();
+    // The query itself filters cancelled events, so we just verify
+    // the where clause was called correctly
+    expect(vi.mocked(prisma.kennelAttendance.findMany)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          event: { status: { not: "CANCELLED" } },
+        }),
+      }),
+    );
+    expect(result.data).toHaveLength(1);
+  });
+});
+
+// ── declineMismanAttendance ──
+
+describe("declineMismanAttendance", () => {
+  it("returns error when not authenticated", async () => {
+    mockAuth.mockResolvedValueOnce(null);
+    const result = await declineMismanAttendance("ka_1");
+    expect(result).toEqual({ error: "Not authenticated" });
+  });
+
+  it("returns error when misman record not found", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(null);
+    const result = await declineMismanAttendance("ka_missing");
+    expect(result).toEqual({ error: "Attendance record not found" });
+  });
+
+  it("returns error when no confirmed link to hasher", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(
+      mockMismanRecord({ userId: "other_user" }),
+    );
+
+    const result = await declineMismanAttendance("ka_1");
+    expect(result).toEqual({ error: "Not authorized — no confirmed link to this hasher" });
+  });
+
+  it("creates DECLINED attendance record", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(mockMismanRecord());
+
+    mockAttFind.mockResolvedValueOnce(null);
+    mockAttCreate.mockResolvedValueOnce({ id: "att_declined" } as never);
+
+    const result = await declineMismanAttendance("ka_1");
+    expect(result).toEqual({ success: true });
+    expect(mockAttCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: "user_1",
+        eventId: "evt_1",
+        status: "DECLINED",
+        participationLevel: "RUN",
+      }),
+    });
+  });
+
+  it("is idempotent when logbook entry already exists", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(mockMismanRecord());
+
+    mockAttFind.mockResolvedValueOnce({ id: "att_existing" } as never);
+
+    const result = await declineMismanAttendance("ka_1");
+    expect(result).toEqual({ success: true });
+    expect(mockAttCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns success without creating when user already confirmed", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(mockMismanRecord());
+
+    mockAttFind.mockResolvedValueOnce({
+      id: "att_existing",
+      status: "CONFIRMED",
+    } as never);
+
+    const result = await declineMismanAttendance("ka_1");
+    expect(result).toEqual({ success: true });
+    expect(mockAttCreate).not.toHaveBeenCalled();
+  });
+
+  it("handles P2002 race condition gracefully", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(mockMismanRecord());
+
+    // No existing attendance — will attempt create
+    mockAttFind.mockResolvedValueOnce(null);
+
+    // Simulate concurrent insert winning the race
+    const p2002 = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed",
+      { code: "P2002", clientVersion: "0.0.0" },
+    );
+    mockAttCreate.mockRejectedValueOnce(p2002);
+
+    const result = await declineMismanAttendance("ka_1");
+    expect(result).toEqual({ success: true });
   });
 });

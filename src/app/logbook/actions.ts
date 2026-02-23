@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@/generated/prisma/client";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getTodayUtcNoon } from "@/lib/date";
@@ -145,6 +146,7 @@ export async function rsvp(eventId: string) {
   return { success: true, attendanceId: attendance.id, toggled: "on" };
 }
 
+/** Confirm a user's INTENDING attendance — upgrades it to CONFIRMED. */
 export async function confirmAttendance(
   attendanceId: string,
   participationLevel?: string,
@@ -154,7 +156,7 @@ export async function confirmAttendance(
 
   const attendance = await prisma.attendance.findUnique({
     where: { id: attendanceId },
-    include: { event: { select: { date: true } } },
+    include: { event: { select: { date: true, status: true } } },
   });
   if (!attendance) return { error: "Attendance not found" };
   if (attendance.userId !== user.id) return { error: "Not authorized" };
@@ -164,6 +166,11 @@ export async function confirmAttendance(
   const todayUtcNoon = getTodayUtcNoon();
   if (attendance.event.date.getTime() > todayUtcNoon) {
     return { error: "Event hasn't happened yet" };
+  }
+
+  // Block confirmation of cancelled events
+  if (attendance.event.status === "CANCELLED") {
+    return { error: "Event was cancelled" };
   }
 
   await prisma.attendance.update({
@@ -219,9 +226,12 @@ export async function getPendingConfirmations() {
 
   const kennelHasherIds = links.map((l) => l.kennelHasherId);
 
-  // Get misman attendance records for those hashers
+  // Get misman attendance records for those hashers (exclude cancelled events)
   const mismanRecords = await prisma.kennelAttendance.findMany({
-    where: { kennelHasherId: { in: kennelHasherIds } },
+    where: {
+      kennelHasherId: { in: kennelHasherIds },
+      event: { status: { not: "CANCELLED" } },
+    },
     include: {
       event: {
         select: {
@@ -229,6 +239,7 @@ export async function getPendingConfirmations() {
           date: true,
           title: true,
           runNumber: true,
+          status: true,
           kennel: { select: { shortName: true } },
         },
       },
@@ -264,14 +275,17 @@ export async function getPendingConfirmations() {
 }
 
 /**
- * Confirm a misman attendance record into the user's logbook.
- * Creates an Attendance record with participation level based on haredThisTrail.
+ * Shared validation for misman attendance actions (confirm/decline).
+ * Authenticates the user, fetches the misman record, validates the
+ * kennel-hasher link, and checks for an existing logbook entry.
  */
-export async function confirmMismanAttendance(kennelAttendanceId: string): Promise<ActionResult<{ attendanceId: string }>> {
+async function resolveMismanRecord(kennelAttendanceId: string): Promise<
+  | { ok: false; error: string }
+  | { ok: true; user: { id: string }; mismanRecord: NonNullable<Awaited<ReturnType<typeof prisma.kennelAttendance.findUnique>>> & { event: { status: string } }; existing: Awaited<ReturnType<typeof prisma.attendance.findUnique>> }
+> {
   const user = await getOrCreateUser();
-  if (!user) return { error: "Not authenticated" };
+  if (!user) return { ok: false, error: "Not authenticated" };
 
-  // Verify the misman record exists and belongs to a linked hasher
   const mismanRecord = await prisma.kennelAttendance.findUnique({
     where: { id: kennelAttendanceId },
     include: {
@@ -280,36 +294,98 @@ export async function confirmMismanAttendance(kennelAttendanceId: string): Promi
           userLink: { select: { userId: true, status: true } },
         },
       },
+      event: { select: { status: true } },
     },
   });
 
-  if (!mismanRecord) return { error: "Attendance record not found" };
+  if (!mismanRecord) return { ok: false, error: "Attendance record not found" };
 
   const link = mismanRecord.kennelHasher.userLink;
   if (!link || link.status !== "CONFIRMED" || link.userId !== user.id) {
-    return { error: "Not authorized — no confirmed link to this hasher" };
+    return { ok: false, error: "Not authorized — no confirmed link to this hasher" };
   }
 
-  // Check for existing logbook entry (idempotent)
   const existing = await prisma.attendance.findUnique({
     where: { userId_eventId: { userId: user.id, eventId: mismanRecord.eventId } },
   });
-  if (existing) {
-    return { success: true, attendanceId: existing.id };
+
+  return { ok: true, user, mismanRecord, existing };
+}
+
+/**
+ * Confirm a misman attendance record into the user's logbook.
+ * Creates an Attendance record with participation level based on haredThisTrail.
+ */
+export async function confirmMismanAttendance(kennelAttendanceId: string): Promise<ActionResult<{ attendanceId: string }>> {
+  const resolved = await resolveMismanRecord(kennelAttendanceId);
+  if (!resolved.ok) return { error: resolved.error };
+  const { user, mismanRecord, existing } = resolved;
+
+  if (existing) return { success: true, attendanceId: existing.id };
+
+  // Block confirmation of cancelled events
+  if (mismanRecord.event.status === "CANCELLED") {
+    return { error: "Event was cancelled" };
   }
 
-  // Create logbook entry
-  const attendance = await prisma.attendance.create({
-    data: {
-      userId: user.id,
-      eventId: mismanRecord.eventId,
-      status: "CONFIRMED",
-      participationLevel: mismanRecord.haredThisTrail ? "HARE" : "RUN",
-      isVerified: true,
-      verifiedBy: mismanRecord.recordedBy,
-    },
-  });
+  try {
+    const attendance = await prisma.attendance.create({
+      data: {
+        userId: user.id,
+        eventId: mismanRecord.eventId,
+        status: "CONFIRMED",
+        participationLevel: mismanRecord.haredThisTrail ? "HARE" : "RUN",
+        isVerified: true,
+        verifiedBy: mismanRecord.recordedBy,
+      },
+    });
+
+    revalidatePath("/logbook");
+    return { success: true, attendanceId: attendance.id };
+  } catch (e) {
+    // Concurrent insert won the race — treat as idempotent success
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      const raced = await prisma.attendance.findUnique({
+        where: { userId_eventId: { userId: user.id, eventId: mismanRecord.eventId } },
+      });
+      if (!raced) throw new Error("Race condition: P2002 but record not found");
+      revalidatePath("/logbook");
+      return { success: true, attendanceId: raced.id };
+    }
+    throw e;
+  }
+}
+
+/**
+ * Decline a misman attendance record — the user says they weren't there.
+ * Creates an Attendance record with status DECLINED so the pending confirmation
+ * won't reappear (getPendingConfirmations filters events with any Attendance record).
+ */
+export async function declineMismanAttendance(kennelAttendanceId: string): Promise<ActionResult> {
+  const resolved = await resolveMismanRecord(kennelAttendanceId);
+  if (!resolved.ok) return { error: resolved.error };
+  const { user, mismanRecord, existing } = resolved;
+
+  if (existing) return { success: true };
+
+  try {
+    await prisma.attendance.create({
+      data: {
+        userId: user.id,
+        eventId: mismanRecord.eventId,
+        status: "DECLINED",
+        participationLevel: "RUN",
+      },
+    });
+  } catch (e) {
+    // Concurrent insert won the race — treat as idempotent success
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      revalidatePath("/logbook");
+      return { success: true };
+    }
+    throw e;
+  }
 
   revalidatePath("/logbook");
-  return { success: true, attendanceId: attendance.id };
+  return { success: true };
 }

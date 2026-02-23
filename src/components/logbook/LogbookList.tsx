@@ -29,7 +29,7 @@ import { AttendanceBadge } from "./AttendanceBadge";
 import { EditAttendanceDialog } from "./EditAttendanceDialog";
 import type { AttendanceData } from "./CheckInButton";
 import { formatTime, participationLevelLabel, PARTICIPATION_LEVELS } from "@/lib/format";
-import { confirmAttendance } from "@/app/logbook/actions";
+import { confirmAttendance, deleteAttendance } from "@/app/logbook/actions";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 
 export interface LogbookEntry {
@@ -40,6 +40,7 @@ export interface LogbookEntry {
     runNumber: number | null;
     title: string | null;
     startTime: string | null;
+    status: "CONFIRMED" | "TENTATIVE" | "CANCELLED";
     kennel: {
       id: string;
       shortName: string;
@@ -70,6 +71,18 @@ export function LogbookList({ entries }: LogbookListProps) {
     now.getUTCDate(),
     12, 0, 0,
   );
+
+  function handleRemove(attendanceId: string) {
+    startTransition(async () => {
+      const result = await deleteAttendance(attendanceId);
+      if (!result.success) {
+        toast.error(result.error);
+      } else {
+        toast("Removed from logbook");
+      }
+      router.refresh();
+    });
+  }
 
   // Derive unique kennels and regions
   const kennels = useMemo(() => {
@@ -328,7 +341,24 @@ export function LogbookList({ entries }: LogbookListProps) {
                   Activity
                 </a>
               )}
-              {entry.attendance.status === "INTENDING" &&
+              {entry.event.status === "CANCELLED" ? (
+                <span className="flex items-center gap-2">
+                  <Badge variant="destructive" className="text-xs">
+                    Cancelled
+                  </Badge>
+                  {entry.attendance.status === "INTENDING" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs text-muted-foreground"
+                      disabled={isPending}
+                      onClick={() => handleRemove(entry.attendance.id)}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </span>
+              ) : entry.attendance.status === "INTENDING" &&
                new Date(entry.event.date).getTime() > todayUtcNoon ? (
                 <Badge
                   variant="outline"
@@ -338,24 +368,37 @@ export function LogbookList({ entries }: LogbookListProps) {
                   Going
                 </Badge>
               ) : entry.attendance.status === "INTENDING" ? (
-                <Badge
-                  variant="outline"
-                  className="cursor-pointer border-amber-300 text-amber-700"
-                  onClick={() => {
-                    const attendanceId = entry.attendance.id;
-                    startTransition(async () => {
-                      const result = await confirmAttendance(attendanceId);
-                      if (!result.success) {
-                        toast.error(result.error);
-                      } else {
-                        toast.success("Attendance confirmed!");
-                      }
-                      router.refresh();
-                    });
-                  }}
-                >
-                  {isPending ? "..." : "Confirm Attendance"}
-                </Badge>
+                <span className="flex items-center gap-1">
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer border-amber-300 text-amber-700"
+                    onClick={() => {
+                      const attendanceId = entry.attendance.id;
+                      startTransition(async () => {
+                        const result = await confirmAttendance(attendanceId);
+                        if (!result.success) {
+                          toast.error(result.error);
+                        } else {
+                          toast.success("Attendance confirmed!");
+                        }
+                        router.refresh();
+                      });
+                    }}
+                  >
+                    {isPending ? "..." : "Confirm Attendance"}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                    disabled={isPending}
+                    title="Remove from logbook"
+                    aria-label="Remove from logbook"
+                    onClick={() => handleRemove(entry.attendance.id)}
+                  >
+                    &times;
+                  </Button>
+                </span>
               ) : (
                 <AttendanceBadge
                   level={entry.attendance.participationLevel}

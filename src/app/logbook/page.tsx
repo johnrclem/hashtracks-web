@@ -16,7 +16,7 @@ export default async function LogbookPage() {
   if (!user) redirect("/sign-in");
 
   const attendances = await prisma.attendance.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, status: { not: "DECLINED" as never } },
     include: {
       event: {
         include: {
@@ -30,22 +30,23 @@ export default async function LogbookPage() {
   });
 
   const entries = attendances.map((a) => ({
-    attendance: {
-      id: a.id,
-      participationLevel: a.participationLevel as string,
-      status: a.status as string,
-      stravaUrl: a.stravaUrl,
-      notes: a.notes,
-    },
-    event: {
-      id: a.event.id,
-      date: a.event.date.toISOString(),
-      runNumber: a.event.runNumber,
-      title: a.event.title,
-      startTime: a.event.startTime,
-      kennel: a.event.kennel,
-    },
-  }));
+      attendance: {
+        id: a.id,
+        participationLevel: a.participationLevel as string,
+        status: a.status as string,
+        stravaUrl: a.stravaUrl,
+        notes: a.notes,
+      },
+      event: {
+        id: a.event.id,
+        date: a.event.date.toISOString(),
+        runNumber: a.event.runNumber,
+        title: a.event.title,
+        startTime: a.event.startTime,
+        status: a.event.status,
+        kennel: a.event.kennel,
+      },
+    }));
 
   const confirmedCount = entries.filter((e) => e.attendance.status === "CONFIRMED").length;
   const now = new Date();

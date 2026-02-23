@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import {
   getPendingConfirmations,
   confirmMismanAttendance,
+  declineMismanAttendance,
 } from "@/app/logbook/actions";
 
 interface PendingRecord {
@@ -22,7 +23,6 @@ interface PendingRecord {
 
 export function PendingConfirmations() {
   const [pending, setPending] = useState<PendingRecord[]>([]);
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -32,14 +32,6 @@ export function PendingConfirmations() {
       if (result.data) setPending(result.data);
       setLoaded(true);
     });
-
-    // Restore dismissed IDs from localStorage
-    try {
-      const stored = localStorage.getItem("dismissed-misman-confirmations");
-      if (stored) setDismissed(new Set(JSON.parse(stored)));
-    } catch {
-      // Ignore localStorage errors
-    }
   }, []);
 
   function handleConfirm(kennelAttendanceId: string) {
@@ -57,23 +49,22 @@ export function PendingConfirmations() {
     });
   }
 
-  function handleDismiss(kennelAttendanceId: string) {
-    const next = new Set(dismissed);
-    next.add(kennelAttendanceId);
-    setDismissed(next);
-    try {
-      localStorage.setItem(
-        "dismissed-misman-confirmations",
-        JSON.stringify([...next]),
-      );
-    } catch {
-      // Ignore localStorage errors
-    }
+  function handleDecline(kennelAttendanceId: string) {
+    startTransition(async () => {
+      const result = await declineMismanAttendance(kennelAttendanceId);
+      if (!result.success) {
+        toast.error(result.error);
+      } else {
+        toast("Removed from pending");
+        setPending((prev) =>
+          prev.filter((p) => p.kennelAttendanceId !== kennelAttendanceId),
+        );
+        router.refresh();
+      }
+    });
   }
 
-  const visible = pending.filter((p) => !dismissed.has(p.kennelAttendanceId));
-
-  if (!loaded || visible.length === 0) return null;
+  if (!loaded || pending.length === 0) return null;
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString("en-US", {
@@ -87,14 +78,14 @@ export function PendingConfirmations() {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold">
-        Pending Confirmations ({visible.length})
+        Pending Confirmations ({pending.length})
       </h3>
       <p className="text-xs text-muted-foreground">
         A misman recorded your attendance at these events. Confirm to add them
         to your logbook.
       </p>
       <div className="space-y-2">
-        {visible.map((p) => (
+        {pending.map((p) => (
           <div
             key={p.kennelAttendanceId}
             className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
@@ -131,9 +122,10 @@ export function PendingConfirmations() {
                 size="sm"
                 variant="ghost"
                 className="h-7 text-xs"
-                onClick={() => handleDismiss(p.kennelAttendanceId)}
+                onClick={() => handleDecline(p.kennelAttendanceId)}
+                disabled={isPending}
               >
-                Dismiss
+                Didn&apos;t Attend
               </Button>
             </div>
           </div>
