@@ -30,11 +30,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   KennelOptionLabel,
@@ -101,29 +96,11 @@ export function MismanDashboard({
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Misman Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Record attendance, manage your roster, and track run history.
-          </p>
-        </div>
-        {kennels.length >= 1 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowRosterGroupDialog(true)}
-              >
-                Request Shared Roster
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              Share one roster across sister kennels with overlapping hashers
-            </TooltipContent>
-          </Tooltip>
-        )}
+      <div>
+        <h1 className="text-2xl font-bold">Misman Dashboard</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Record attendance, manage your roster, and track run history.
+        </p>
       </div>
 
       {/* Pending requests to approve */}
@@ -220,13 +197,19 @@ export function MismanDashboard({
         </div>
       )}
 
-      {/* Request access to another kennel (only for existing mismans) */}
+      {/* CTA sections: request another kennel + shared roster */}
       {kennels.length > 0 && (
-        <RequestAnotherKennelSection
-          allKennels={allKennels}
-          managedKennelIds={kennels.map((k) => k.id)}
-          pendingRequestKennelIds={myPendingRequests.map((r) => r.kennelId)}
-        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <RequestAnotherKennelSection
+            allKennels={allKennels}
+            managedKennelIds={kennels.map((k) => k.id)}
+            pendingRequestKennelIds={myPendingRequests.map((r) => r.kennelId)}
+          />
+          <RequestSharedRosterCTA
+            hasPendingRequest={myPendingRosterGroupRequests.length > 0}
+            onRequestClick={() => setShowRosterGroupDialog(true)}
+          />
+        </div>
       )}
 
       {/* Request Shared Roster dialog */}
@@ -353,6 +336,33 @@ function RequestAnotherKennelSection({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function RequestSharedRosterCTA({
+  hasPendingRequest,
+  onRequestClick,
+}: {
+  hasPendingRequest: boolean;
+  onRequestClick: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-dashed p-6 space-y-4">
+      <div>
+        <h3 className="font-semibold">Share a roster?</h3>
+        <p className="text-sm text-muted-foreground">
+          If your kennels share hashers, request a shared roster to keep one
+          unified list across sister kennels.
+        </p>
+      </div>
+      {hasPendingRequest ? (
+        <Badge variant="outline">Request pending</Badge>
+      ) : (
+        <Button variant="outline" size="sm" onClick={onRequestClick}>
+          Request Shared Roster
+        </Button>
+      )}
     </div>
   );
 }
