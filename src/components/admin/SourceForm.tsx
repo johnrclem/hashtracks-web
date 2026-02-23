@@ -54,6 +54,10 @@ import {
   MeetupConfigPanel,
   type MeetupConfig,
 } from "./config-panels/MeetupConfigPanel";
+import {
+  RssConfigPanel,
+  type RssConfig,
+} from "./config-panels/RssConfigPanel";
 
 const SOURCE_TYPES = [
   "HTML_SCRAPER",
@@ -74,10 +78,11 @@ const CONFIG_TYPES = new Set([
   "ICAL_FEED",
   "HASHREGO",
   "MEETUP",
+  "RSS_FEED",
 ]);
 
 /** Types that get a dedicated config panel (vs raw JSON) */
-const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HASHREGO", "GOOGLE_SHEETS", "MEETUP"]);
+const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HASHREGO", "GOOGLE_SHEETS", "MEETUP", "RSS_FEED"]);
 
 type SourceData = {
   id: string;
@@ -179,12 +184,13 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
   function getPanelType(
     type: string,
     config: Record<string, unknown> | null,
-  ): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | null {
+  ): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | "rss" | null {
     if (type === "ICAL_FEED" || (type === "HTML_SCRAPER" && hasICalConfigShape(config))) return "ical";
     if (type === "GOOGLE_CALENDAR") return "calendar";
     if (type === "HASHREGO") return "hashrego";
     if (type === "GOOGLE_SHEETS") return "sheets";
     if (type === "MEETUP") return "meetup";
+    if (type === "RSS_FEED") return "rss";
     return null;
   }
 
@@ -199,7 +205,7 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
   }
 
   /** Sync structured config object → raw JSON string */
-  function handleConfigChange(newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig | MeetupConfig) {
+  function handleConfigChange(newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig | MeetupConfig | RssConfig) {
     // Clean undefined values
     const entries = Object.entries(newConfig).filter(
       ([, v]) => v !== undefined,
@@ -554,6 +560,18 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
               </Label>
               <MeetupConfigPanel
                 config={configObj as MeetupConfig | null}
+                onChange={handleConfigChange}
+              />
+            </div>
+          )}
+
+          {panelType === "rss" && (
+            <div className="space-y-2 rounded-md border p-4">
+              <Label className="text-sm font-semibold">
+                RSS Feed Configuration
+              </Label>
+              <RssConfigPanel
+                config={configObj as RssConfig | null}
                 onChange={handleConfigChange}
               />
             </div>

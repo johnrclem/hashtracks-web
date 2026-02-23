@@ -160,6 +160,19 @@ export function validateSourceConfig<T>(
 }
 
 /**
+ * Compute a date window centered on "now" for event filtering.
+ * Returns minDate (days ago) and maxDate (days ahead).
+ */
+export function buildDateWindow(days = 90): { minDate: Date; maxDate: Date } {
+  const now = new Date();
+  const ms = days * 24 * 60 * 60 * 1000;
+  return {
+    minDate: new Date(now.getTime() - ms),
+    maxDate: new Date(now.getTime() + ms),
+  };
+}
+
+/**
  * Extract UK postcode from a text string.
  * UK postcodes: "SE11 5JA", "SW18 2SS", "N1 9AA", "EC1A 1BB"
  */

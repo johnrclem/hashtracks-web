@@ -7,7 +7,6 @@ describe("validateSourceConfig", () => {
       expect(validateSourceConfig("GOOGLE_CALENDAR", undefined)).toEqual([]);
       expect(validateSourceConfig("ICAL_FEED", null)).toEqual([]);
       expect(validateSourceConfig("HTML_SCRAPER", null)).toEqual([]);
-      expect(validateSourceConfig("RSS_FEED", null)).toEqual([]);
     });
 
     it("rejects null/undefined config for types that require it", () => {
@@ -252,6 +251,28 @@ describe("validateSourceConfig", () => {
         defaultKennelTag: "BFM",
       };
       expect(validateSourceConfig("GOOGLE_CALENDAR", config)).toEqual([]);
+    });
+  });
+
+  describe("RSS_FEED config validation", () => {
+    it("accepts valid RSS_FEED config", () => {
+      const config = { kennelTag: "EWH3" };
+      expect(validateSourceConfig("RSS_FEED", config)).toEqual([]);
+    });
+
+    it("requires config object for RSS_FEED", () => {
+      expect(validateSourceConfig("RSS_FEED", null)).toContain("RSS_FEED requires a config object");
+    });
+
+    it("requires non-empty kennelTag", () => {
+      const errors = validateSourceConfig("RSS_FEED", { kennelTag: "" });
+      expect(errors.some((e) => e.includes("kennelTag"))).toBe(true);
+    });
+
+    it("rejects missing kennelTag", () => {
+      const errors = validateSourceConfig("RSS_FEED", {});
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("kennelTag");
     });
   });
 

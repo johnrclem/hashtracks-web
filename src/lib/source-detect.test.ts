@@ -106,6 +106,23 @@ describe("detectSourceType", () => {
     });
   });
 
+  describe("RSS feed", () => {
+    it.each<[string, string]>([
+      ["https://example.com/feed",              "/feed suffix"],
+      ["https://wordpress-hash.com/rss",        "/rss suffix"],
+      ["https://example.com/feed.xml",          "/feed.xml suffix"],
+      ["https://example.com/atom.xml",          "/atom.xml suffix"],
+      ["https://example.com/rss.xml",           "/rss.xml suffix"],
+      ["https://example.com/?feed=rss2",        "?feed=rss2 param"],
+      ["https://example.com/?format=rss",       "?format=rss param"],
+      ["https://example.com/blog/feed",         "/feed at end of sub-path"],
+      ["https://example.com/feed/",             "/feed/ with trailing slash"],
+      ["https://wordpress-hash.com/rss/",       "/rss/ with trailing slash"],
+    ])("detects RSS_FEED: %s (%s)", (url) => {
+      expect(detectSourceType(url)?.type).toBe("RSS_FEED");
+    });
+  });
+
   describe("no match", () => {
     it("returns null for a generic HTML URL", () => {
       const result = detectSourceType("https://hashnyc.com/schedule");

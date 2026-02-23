@@ -39,6 +39,10 @@ import {
   MeetupConfigPanel,
   type MeetupConfig,
 } from "./config-panels/MeetupConfigPanel";
+import {
+  RssConfigPanel,
+  type RssConfig,
+} from "./config-panels/RssConfigPanel";
 import type { KennelOption } from "./config-panels/KennelTagInput";
 
 /** Types that use the config JSON field */
@@ -58,6 +62,7 @@ const PANEL_TYPES = new Set([
   "HASHREGO",
   "GOOGLE_SHEETS",
   "MEETUP",
+  "RSS_FEED",
 ]);
 
 function hasICalConfigShape(config: unknown): boolean {
@@ -149,13 +154,14 @@ export function ConfigureAndTest({
   const hasPanel =
     PANEL_TYPES.has(type) || (type === "HTML_SCRAPER" && hasICalConfigShape(config));
 
-  function getPanelType(): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | null {
+  function getPanelType(): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | "rss" | null {
     if (type === "ICAL_FEED" || (type === "HTML_SCRAPER" && hasICalConfigShape(config)))
       return "ical";
     if (type === "GOOGLE_CALENDAR") return "calendar";
     if (type === "HASHREGO") return "hashrego";
     if (type === "GOOGLE_SHEETS") return "sheets";
     if (type === "MEETUP") return "meetup";
+    if (type === "RSS_FEED") return "rss";
     return null;
   }
 
@@ -341,6 +347,13 @@ export function ConfigureAndTest({
             config={config as MeetupConfig | null}
             onChange={handleConfigChange}
             allKennels={allKennelsWithExtra}
+          />
+        )}
+
+        {panelType === "rss" && (
+          <RssConfigPanel
+            config={config as RssConfig | null}
+            onChange={handleConfigChange}
           />
         )}
 

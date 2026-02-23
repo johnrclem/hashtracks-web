@@ -1,6 +1,6 @@
 "use server";
 
-import { getOrCreateUser, getMismanUser } from "@/lib/auth";
+import { getOrCreateUser, getMismanUser, getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
@@ -403,5 +403,68 @@ export async function requestRosterGroupChange(
   });
 
   revalidatePath("/misman", "layout");
+  return { success: true };
+}
+
+/**
+ * Revoke misman access for a user on a kennel.
+ * Downgrades UserKennel role from MISMAN → MEMBER.
+ *
+ * Auth:
+ * - Site admins can revoke any MISMAN
+ * - Mismans can revoke users they personally invited (via MismanInvite)
+ *
+ * Guards:
+ * - Cannot revoke ADMIN role
+ * - Cannot self-revoke
+ */
+export async function revokeMismanAccess(userKennelId: string) {
+  const caller = await getOrCreateUser();
+  if (!caller) return { error: "Not authenticated" };
+
+  const target = await prisma.userKennel.findUnique({
+    where: { id: userKennelId },
+    include: {
+      user: { select: { id: true, hashName: true, email: true } },
+      kennel: { select: { id: true, slug: true, shortName: true } },
+    },
+  });
+  if (!target) return { error: "Membership not found" };
+
+  if (target.role === "ADMIN") {
+    return { error: "Cannot revoke admin access" };
+  }
+  if (target.role !== "MISMAN") {
+    return { error: "User is not a misman" };
+  }
+  if (target.userId === caller.id) {
+    return { error: "Cannot revoke your own access" };
+  }
+
+  // Auth check: site admin or original inviter
+  const isAdmin = await getAdminUser();
+  if (!isAdmin) {
+    // Check if caller invited this user via MismanInvite
+    const invite = await prisma.mismanInvite.findFirst({
+      where: {
+        kennelId: target.kennel.id,
+        inviterId: caller.id,
+        acceptedBy: target.userId,
+        status: "ACCEPTED",
+      },
+    });
+    if (!invite) {
+      return { error: "Not authorized — only admins or the original inviter can revoke access" };
+    }
+  }
+
+  await prisma.userKennel.update({
+    where: { id: userKennelId },
+    data: { role: "MEMBER" },
+  });
+
+  revalidatePath("/misman");
+  revalidatePath("/admin/misman-requests");
+  revalidatePath(`/kennels/${target.kennel.slug}`);
   return { success: true };
 }
