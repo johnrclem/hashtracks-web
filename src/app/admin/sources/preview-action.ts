@@ -169,7 +169,7 @@ export async function previewSourceConfig(
 }
 
 /** Validate URL for SSRF protection: only http/https, no private IPs */
-function validatePreviewUrl(url: string): string | null {
+export function validatePreviewUrl(url: string): string | null {
   let parsed: URL;
   try {
     parsed = new URL(url);

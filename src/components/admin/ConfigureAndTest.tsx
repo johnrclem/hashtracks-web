@@ -176,14 +176,13 @@ export function ConfigureAndTest({
 
   const panelType = getPanelType();
 
-  // Auto-trigger AI config suggestion on mount when config is empty
+  // Auto-trigger AI config suggestion on mount when config is empty.
+  // Only types whose adapters can fetch events without pre-existing config are included.
+  // RSS_FEED, MEETUP, HASHREGO require config to fetch events and are excluded.
   const TYPES_WITH_AI_SUGGESTION = new Set([
     "GOOGLE_CALENDAR",
     "ICAL_FEED",
     "HTML_SCRAPER",
-    "RSS_FEED",
-    "MEETUP",
-    "HASHREGO",
   ]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -233,7 +232,8 @@ export function ConfigureAndTest({
               .filter((e) => e.resolved && e.resolvedKennelId)
               .map((e) => e.resolvedKennelId!),
           );
-          const newIds = [...resolvedIds].filter((id) => !selectedKennels.includes(id));
+          const existingSet = new Set(selectedKennels);
+          const newIds = [...resolvedIds].filter((id) => !existingSet.has(id));
           if (newIds.length > 0) onKennelsChange([...selectedKennels, ...newIds]);
           const titles = result.data.events.reduce<Record<string, string[]>>((acc, e) => {
             if (!e.resolved && e.title) {
@@ -331,7 +331,8 @@ export function ConfigureAndTest({
     );
     const suggestedIds = aiSuggestion.suggestedKennelTags
       .flatMap((tag) => allKennelsWithExtra.filter((k) => k.shortName === tag).map((k) => k.id));
-    const newIds = suggestedIds.filter((id) => !selectedKennels.includes(id));
+    const existingSet = new Set(selectedKennels);
+    const newIds = suggestedIds.filter((id) => !existingSet.has(id));
     if (newIds.length > 0) onKennelsChange([...selectedKennels, ...newIds]);
     setAiState("dismissed");
     if (Object.keys(aiSuggestion.suggestedConfig).length > 0) {
@@ -397,6 +398,18 @@ export function ConfigureAndTest({
         {aiState === "loading" && (
           <div className="flex animate-pulse items-center gap-2 rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
             ✨ Analyzing source…
+          </div>
+        )}
+        {aiState === "error" && (
+          <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            <span>AI suggestion unavailable — configure manually below.</span>
+            <button
+              type="button"
+              className="shrink-0 opacity-70 hover:opacity-100"
+              onClick={() => setAiState("dismissed")}
+            >
+              ✕
+            </button>
           </div>
         )}
         {aiState === "done" && aiSuggestion && (
