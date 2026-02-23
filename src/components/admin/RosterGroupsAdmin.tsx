@@ -584,7 +584,9 @@ function EditGroupDialog({
         toast.success(`Group updated (${changes.join(", ")})`);
       }
 
-      onClose();
+      if (!hasError) {
+        onClose();
+      }
       router.refresh();
     });
   }

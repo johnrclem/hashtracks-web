@@ -92,7 +92,7 @@ function FormSection({
         )}
         <span className="text-sm font-semibold">{label}</span>
       </button>
-      {open && <div className="space-y-3 pt-3">{children}</div>}
+      <div className="space-y-3 pt-3" hidden={!open}>{children}</div>
     </div>
   );
 }

@@ -74,7 +74,7 @@ export function KennelTable({ kennels }: KennelTableProps) {
 
   const regions = useMemo(() => {
     const set = new Set(kennels.map((k) => k.region));
-    return [...set].sort();
+    return [...set].sort((a, b) => a.localeCompare(b));
   }, [kennels]);
 
   const filtered = useMemo(() => {
