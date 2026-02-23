@@ -17,14 +17,14 @@ export function EventLocationMap({
   locationName,
   locationAddress,
 }: EventLocationMapProps) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
   if (!apiKey) return null;
 
   const center = `${lat},${lng}`;
   const src =
     `https://maps.googleapis.com/maps/api/staticmap` +
     `?center=${center}&zoom=15&size=600x300&scale=2` +
-    `&markers=color:red%7C${center}&key=${apiKey}`;
+    `&markers=color:red%7C${center}&key=${apiKey}`; // NOSONAR - Maps Static API requires key in URL; key is browser-public by design
 
   const mapsUrl =
     locationAddress && /^https?:\/\//.test(locationAddress)

@@ -28,7 +28,7 @@ export default function MapView({
   selectedEventId,
   onSelectEvent,
 }: MapViewProps) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
 
   const eventsWithCoords = useMemo<EventWithCoords[]>(() => {
     return events.flatMap((event) => {
