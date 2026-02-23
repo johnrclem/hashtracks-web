@@ -29,23 +29,26 @@ export default async function LogbookPage() {
     orderBy: { event: { date: "desc" } },
   });
 
-  const entries = attendances.map((a) => ({
-    attendance: {
-      id: a.id,
-      participationLevel: a.participationLevel as string,
-      status: a.status as string,
-      stravaUrl: a.stravaUrl,
-      notes: a.notes,
-    },
-    event: {
-      id: a.event.id,
-      date: a.event.date.toISOString(),
-      runNumber: a.event.runNumber,
-      title: a.event.title,
-      startTime: a.event.startTime,
-      kennel: a.event.kennel,
-    },
-  }));
+  const entries = attendances
+    .filter((a) => a.status !== "DECLINED")
+    .map((a) => ({
+      attendance: {
+        id: a.id,
+        participationLevel: a.participationLevel as string,
+        status: a.status as string,
+        stravaUrl: a.stravaUrl,
+        notes: a.notes,
+      },
+      event: {
+        id: a.event.id,
+        date: a.event.date.toISOString(),
+        runNumber: a.event.runNumber,
+        title: a.event.title,
+        startTime: a.event.startTime,
+        status: a.event.status as string,
+        kennel: a.event.kennel,
+      },
+    }));
 
   const confirmedCount = entries.filter((e) => e.attendance.status === "CONFIRMED").length;
   const now = new Date();

@@ -341,6 +341,7 @@ model Attendance {
 enum AttendanceStatus {
   INTENDING // "I'm going" — pre-event RSVP
   CONFIRMED // "I was there" — post-event check-in
+  DECLINED  // "I wasn't there" — declined misman-recorded attendance
 }
 
 enum ParticipationLevel {

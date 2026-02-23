@@ -154,7 +154,7 @@ export async function confirmAttendance(
 
   const attendance = await prisma.attendance.findUnique({
     where: { id: attendanceId },
-    include: { event: { select: { date: true } } },
+    include: { event: { select: { date: true, status: true } } },
   });
   if (!attendance) return { error: "Attendance not found" };
   if (attendance.userId !== user.id) return { error: "Not authorized" };
@@ -164,6 +164,11 @@ export async function confirmAttendance(
   const todayUtcNoon = getTodayUtcNoon();
   if (attendance.event.date.getTime() > todayUtcNoon) {
     return { error: "Event hasn't happened yet" };
+  }
+
+  // Block confirmation of cancelled events
+  if (attendance.event.status === "CANCELLED") {
+    return { error: "Event was cancelled" };
   }
 
   await prisma.attendance.update({
@@ -219,9 +224,12 @@ export async function getPendingConfirmations() {
 
   const kennelHasherIds = links.map((l) => l.kennelHasherId);
 
-  // Get misman attendance records for those hashers
+  // Get misman attendance records for those hashers (exclude cancelled events)
   const mismanRecords = await prisma.kennelAttendance.findMany({
-    where: { kennelHasherId: { in: kennelHasherIds } },
+    where: {
+      kennelHasherId: { in: kennelHasherIds },
+      event: { status: { not: "CANCELLED" } },
+    },
     include: {
       event: {
         select: {
@@ -229,6 +237,7 @@ export async function getPendingConfirmations() {
           date: true,
           title: true,
           runNumber: true,
+          status: true,
           kennel: { select: { shortName: true } },
         },
       },
@@ -312,4 +321,54 @@ export async function confirmMismanAttendance(kennelAttendanceId: string): Promi
 
   revalidatePath("/logbook");
   return { success: true, attendanceId: attendance.id };
+}
+
+/**
+ * Decline a misman attendance record — the user says they weren't there.
+ * Creates an Attendance record with status DECLINED so the pending confirmation
+ * won't reappear (getPendingConfirmations filters events with any Attendance record).
+ */
+export async function declineMismanAttendance(kennelAttendanceId: string): Promise<ActionResult> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  // Verify the misman record exists and belongs to a linked hasher
+  const mismanRecord = await prisma.kennelAttendance.findUnique({
+    where: { id: kennelAttendanceId },
+    include: {
+      kennelHasher: {
+        include: {
+          userLink: { select: { userId: true, status: true } },
+        },
+      },
+    },
+  });
+
+  if (!mismanRecord) return { error: "Attendance record not found" };
+
+  const link = mismanRecord.kennelHasher.userLink;
+  if (!link || link.status !== "CONFIRMED" || link.userId !== user.id) {
+    return { error: "Not authorized — no confirmed link to this hasher" };
+  }
+
+  // Check for existing logbook entry (idempotent)
+  const existing = await prisma.attendance.findUnique({
+    where: { userId_eventId: { userId: user.id, eventId: mismanRecord.eventId } },
+  });
+  if (existing) {
+    return { success: true };
+  }
+
+  // Create DECLINED logbook entry
+  await prisma.attendance.create({
+    data: {
+      userId: user.id,
+      eventId: mismanRecord.eventId,
+      status: "DECLINED",
+      participationLevel: "RUN",
+    },
+  });
+
+  revalidatePath("/logbook");
+  return { success: true };
 }

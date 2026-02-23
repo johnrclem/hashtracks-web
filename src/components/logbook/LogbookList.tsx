@@ -29,7 +29,7 @@ import { AttendanceBadge } from "./AttendanceBadge";
 import { EditAttendanceDialog } from "./EditAttendanceDialog";
 import type { AttendanceData } from "./CheckInButton";
 import { formatTime, participationLevelLabel, PARTICIPATION_LEVELS } from "@/lib/format";
-import { confirmAttendance } from "@/app/logbook/actions";
+import { confirmAttendance, deleteAttendance } from "@/app/logbook/actions";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 
 export interface LogbookEntry {
@@ -40,6 +40,7 @@ export interface LogbookEntry {
     runNumber: number | null;
     title: string | null;
     startTime: string | null;
+    status: string;
     kennel: {
       id: string;
       shortName: string;
@@ -328,6 +329,11 @@ export function LogbookList({ entries }: LogbookListProps) {
                   Activity
                 </a>
               )}
+              {entry.event.status === "CANCELLED" && (
+                <Badge variant="destructive" className="text-xs">
+                  Cancelled
+                </Badge>
+              )}
               {entry.attendance.status === "INTENDING" &&
                new Date(entry.event.date).getTime() > todayUtcNoon ? (
                 <Badge
@@ -337,25 +343,70 @@ export function LogbookList({ entries }: LogbookListProps) {
                 >
                   Going
                 </Badge>
-              ) : entry.attendance.status === "INTENDING" ? (
-                <Badge
-                  variant="outline"
-                  className="cursor-pointer border-amber-300 text-amber-700"
+              ) : entry.attendance.status === "INTENDING" &&
+                entry.event.status === "CANCELLED" ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs text-muted-foreground"
+                  disabled={isPending}
                   onClick={() => {
                     const attendanceId = entry.attendance.id;
                     startTransition(async () => {
-                      const result = await confirmAttendance(attendanceId);
+                      const result = await deleteAttendance(attendanceId);
                       if (!result.success) {
                         toast.error(result.error);
                       } else {
-                        toast.success("Attendance confirmed!");
+                        toast("Removed from logbook");
                       }
                       router.refresh();
                     });
                   }}
                 >
-                  {isPending ? "..." : "Confirm Attendance"}
-                </Badge>
+                  Remove
+                </Button>
+              ) : entry.attendance.status === "INTENDING" ? (
+                <span className="flex items-center gap-1">
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer border-amber-300 text-amber-700"
+                    onClick={() => {
+                      const attendanceId = entry.attendance.id;
+                      startTransition(async () => {
+                        const result = await confirmAttendance(attendanceId);
+                        if (!result.success) {
+                          toast.error(result.error);
+                        } else {
+                          toast.success("Attendance confirmed!");
+                        }
+                        router.refresh();
+                      });
+                    }}
+                  >
+                    {isPending ? "..." : "Confirm Attendance"}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                    disabled={isPending}
+                    title="Remove from logbook"
+                    onClick={() => {
+                      const attendanceId = entry.attendance.id;
+                      startTransition(async () => {
+                        const result = await deleteAttendance(attendanceId);
+                        if (!result.success) {
+                          toast.error(result.error);
+                        } else {
+                          toast("Removed from logbook");
+                        }
+                        router.refresh();
+                      });
+                    }}
+                  >
+                    &times;
+                  </Button>
+                </span>
               ) : (
                 <AttendanceBadge
                   level={entry.attendance.participationLevel}
