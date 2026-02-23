@@ -1,6 +1,6 @@
 "use server";
 
-import { getOrCreateUser, getMismanUser } from "@/lib/auth";
+import { getOrCreateUser, getMismanUser, getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import {
@@ -227,6 +227,50 @@ export async function getKennelMismans(kennelId: string) {
     role: m.role,
     since: m.createdAt.toISOString(),
   }));
+
+  return { data };
+}
+
+/**
+ * List all misman invites across all kennels (admin-level view).
+ * Computes effective status (PENDING past expiry → EXPIRED).
+ */
+export async function listAllMismanInvites() {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const invites = await prisma.mismanInvite.findMany({
+    include: {
+      kennel: { select: { shortName: true, slug: true } },
+      inviter: { select: { hashName: true, email: true } },
+      acceptor: { select: { hashName: true, email: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+
+  const now = new Date();
+
+  const data = invites.map((inv) => {
+    const effectiveStatus =
+      inv.status === "PENDING" && inv.expiresAt <= now ? "EXPIRED" : inv.status;
+
+    return {
+      id: inv.id,
+      kennelShortName: inv.kennel.shortName,
+      kennelSlug: inv.kennel.slug,
+      inviteeEmail: inv.inviteeEmail,
+      status: effectiveStatus,
+      expiresAt: inv.expiresAt.toISOString(),
+      createdAt: inv.createdAt.toISOString(),
+      acceptedAt: inv.acceptedAt?.toISOString() ?? null,
+      revokedAt: inv.revokedAt?.toISOString() ?? null,
+      inviterName: inv.inviter.hashName || inv.inviter.email,
+      acceptorName: inv.acceptor
+        ? inv.acceptor.hashName || inv.acceptor.email
+        : null,
+    };
+  });
 
   return { data };
 }
