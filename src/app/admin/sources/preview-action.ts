@@ -20,6 +20,8 @@ export interface PreviewEvent {
   hares?: string;
   startTime?: string;
   resolved: boolean;
+  /** DB kennel ID when tag resolved — enables reliable auto-selection */
+  resolvedKennelId?: string;
 }
 
 export interface PreviewData {
@@ -59,18 +61,20 @@ function parsePreviewConfig(
 /** Resolve all unique kennel tags and return resolution map + unmatched list. */
 async function resolvePreviewTags(
   events: Array<{ kennelTag: string }>,
-): Promise<{ tagResolution: Map<string, boolean>; unmatchedTags: string[] }> {
+): Promise<{ tagResolution: Map<string, { matched: boolean; kennelId: string | null }>; unmatchedTags: string[] }> {
   clearResolverCache();
   const uniqueTags = [...new Set(events.map((e) => e.kennelTag))];
   const tagResults = await Promise.all(
     uniqueTags.map(async (tag) => {
-      const { matched } = await resolveKennelTag(tag);
-      return { tag, matched };
+      const { matched, kennelId } = await resolveKennelTag(tag);
+      return { tag, matched, kennelId };
     }),
   );
-  const tagResolution = new Map<string, boolean>();
-  tagResults.forEach(({ tag, matched }) => tagResolution.set(tag, matched));
-  const unmatchedTags = uniqueTags.filter((t) => !tagResolution.get(t));
+  const tagResolution = new Map<string, { matched: boolean; kennelId: string | null }>();
+  tagResults.forEach(({ tag, matched, kennelId }) =>
+    tagResolution.set(tag, { matched, kennelId }),
+  );
+  const unmatchedTags = uniqueTags.filter((t) => !tagResolution.get(t)?.matched);
   return { tagResolution, unmatchedTags };
 }
 
@@ -133,6 +137,7 @@ export async function previewSourceConfig(
   const fillRates = computeFillRates(result.events);
   const { tagResolution, unmatchedTags } = await resolvePreviewTags(result.events);
 
+  // Build preview events (capped at MAX_PREVIEW_EVENTS)
   const previewEvents: PreviewEvent[] = result.events
     .slice(0, MAX_PREVIEW_EVENTS)
     .map((e) => ({
@@ -142,7 +147,8 @@ export async function previewSourceConfig(
       location: e.location,
       hares: e.hares,
       startTime: e.startTime,
-      resolved: tagResolution.get(e.kennelTag) ?? false,
+      resolved: tagResolution.get(e.kennelTag)?.matched ?? false,
+      resolvedKennelId: tagResolution.get(e.kennelTag)?.kennelId ?? undefined,
     }));
 
   return {
