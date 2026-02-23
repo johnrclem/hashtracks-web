@@ -81,54 +81,19 @@ describe("detectSourceType", () => {
   });
 
   describe("RSS feed", () => {
-    it("detects /feed path suffix", () => {
-      const result = detectSourceType("https://example.com/feed");
-      expect(result?.type).toBe("RSS_FEED");
-    });
-
-    it("detects /rss path suffix", () => {
-      const result = detectSourceType("https://wordpress-hash.com/rss");
-      expect(result?.type).toBe("RSS_FEED");
-    });
-
-    it("detects /feed.xml path suffix", () => {
-      const result = detectSourceType("https://example.com/feed.xml");
-      expect(result?.type).toBe("RSS_FEED");
-    });
-
-    it("detects /atom.xml path suffix", () => {
-      const result = detectSourceType("https://example.com/atom.xml");
-      expect(result?.type).toBe("RSS_FEED");
-    });
-
-    it("detects ?feed=rss2 query param", () => {
-      const result = detectSourceType("https://example.com/?feed=rss2");
-      expect(result?.type).toBe("RSS_FEED");
-    });
-
-    it("detects /feed at the end of a sub-path", () => {
-      const result = detectSourceType("https://example.com/blog/feed");
-      expect(result?.type).toBe("RSS_FEED");
-    });
-
-    it("detects /rss.xml path suffix", () => {
-      const result = detectSourceType("https://example.com/rss.xml");
-      expect(result?.type).toBe("RSS_FEED");
-    });
-
-    it("detects ?format=rss query param", () => {
-      const result = detectSourceType("https://example.com/?format=rss");
-      expect(result?.type).toBe("RSS_FEED");
-    });
-
-    it("detects /feed/ with trailing slash", () => {
-      const result = detectSourceType("https://example.com/feed/");
-      expect(result?.type).toBe("RSS_FEED");
-    });
-
-    it("detects /rss/ with trailing slash", () => {
-      const result = detectSourceType("https://wordpress-hash.com/rss/");
-      expect(result?.type).toBe("RSS_FEED");
+    it.each<[string, string]>([
+      ["https://example.com/feed",              "/feed suffix"],
+      ["https://wordpress-hash.com/rss",        "/rss suffix"],
+      ["https://example.com/feed.xml",          "/feed.xml suffix"],
+      ["https://example.com/atom.xml",          "/atom.xml suffix"],
+      ["https://example.com/rss.xml",           "/rss.xml suffix"],
+      ["https://example.com/?feed=rss2",        "?feed=rss2 param"],
+      ["https://example.com/?format=rss",       "?format=rss param"],
+      ["https://example.com/blog/feed",         "/feed at end of sub-path"],
+      ["https://example.com/feed/",             "/feed/ with trailing slash"],
+      ["https://wordpress-hash.com/rss/",       "/rss/ with trailing slash"],
+    ])("detects RSS_FEED: %s (%s)", (url) => {
+      expect(detectSourceType(url)?.type).toBe("RSS_FEED");
     });
   });
 
