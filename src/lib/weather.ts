@@ -20,14 +20,12 @@ export interface DailyWeather {
 
 /** Shape of a single forecast day from the Google Weather API v1 response. */
 interface GoogleWeatherForecastDay {
-  date?: { year: number; month: number; day: number };
+  displayDate?: { year: number; month: number; day: number };
+  maxTemperature?: { degrees?: number };
+  minTemperature?: { degrees?: number };
   daytimeForecast?: {
     weatherCondition?: { type?: string; description?: { text?: string } };
-    highTemperature?: { value?: number };
-    precipitationProbability?: number;
-  };
-  nighttimeForecast?: {
-    lowTemperature?: { value?: number };
+    precipitation?: { probability?: { percent?: number } };
   };
 }
 
@@ -71,8 +69,8 @@ export async function getEventDayWeather(
 
     const forecastDays = data.forecastDays ?? [];
     const match = forecastDays.find((day) => {
-      if (!day.date) return false;
-      const { year, month, day: d } = day.date;
+      if (!day.displayDate) return false;
+      const { year, month, day: d } = day.displayDate;
       const paddedMonth = String(month).padStart(2, "0");
       const paddedDay = String(d).padStart(2, "0");
       return `${year}-${paddedMonth}-${paddedDay}` === targetDateStr;
@@ -81,10 +79,8 @@ export async function getEventDayWeather(
     if (!match) return null;
 
     const daytime = match.daytimeForecast;
-    const nighttime = match.nighttimeForecast;
-
-    const highTempC = daytime?.highTemperature?.value;
-    const lowTempC = nighttime?.lowTemperature?.value;
+    const highTempC = match.maxTemperature?.degrees;
+    const lowTempC = match.minTemperature?.degrees;
 
     if (highTempC == null || lowTempC == null) return null;
 
@@ -93,7 +89,7 @@ export async function getEventDayWeather(
       lowTempC,
       condition: daytime?.weatherCondition?.description?.text ?? "Unknown",
       conditionType: daytime?.weatherCondition?.type ?? "",
-      precipProbability: daytime?.precipitationProbability ?? 0,
+      precipProbability: daytime?.precipitation?.probability?.percent ?? 0,
     };
   } catch {
     return null;
