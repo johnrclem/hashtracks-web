@@ -136,23 +136,33 @@ export function MismanAdminTabs({
   const [inviteKennelFilter, setInviteKennelFilter] = useState("all");
   const [mismanKennelFilter, setMismanKennelFilter] = useState("all");
 
-  const inviteKennels = useMemo(
-    () => [...new Set(invites.map((i) => i.kennelShortName))].sort(),
-    [invites],
-  );
-  const mismanKennels = useMemo(
-    () => [...new Set(mismans.map((m) => m.kennel.shortName))].sort(),
-    [mismans],
-  );
+  const inviteKennels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const i of invites) {
+      if (!map.has(i.kennelSlug)) map.set(i.kennelSlug, i.kennelShortName);
+    }
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [invites]);
+  const mismanKennels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of mismans) {
+      if (!map.has(m.kennel.slug)) map.set(m.kennel.slug, m.kennel.shortName);
+    }
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [mismans]);
 
   const filteredInvites =
     inviteKennelFilter === "all"
       ? invites
-      : invites.filter((i) => i.kennelShortName === inviteKennelFilter);
+      : invites.filter((i) => i.kennelSlug === inviteKennelFilter);
   const filteredMismans =
     mismanKennelFilter === "all"
       ? mismans
-      : mismans.filter((m) => m.kennel.shortName === mismanKennelFilter);
+      : mismans.filter((m) => m.kennel.slug === mismanKennelFilter);
 
   return (
     <TooltipProvider>
@@ -206,7 +216,7 @@ function KennelFilterBar({
   value,
   onChange,
 }: {
-  kennels: string[];
+  kennels: { value: string; label: string }[];
   value: string;
   onChange: (value: string) => void;
 }) {
@@ -221,8 +231,8 @@ function KennelFilterBar({
         <SelectContent>
           <SelectItem value="all">All kennels</SelectItem>
           {kennels.map((k) => (
-            <SelectItem key={k} value={k}>
-              {k}
+            <SelectItem key={k.value} value={k.value}>
+              {k.label}
             </SelectItem>
           ))}
         </SelectContent>
