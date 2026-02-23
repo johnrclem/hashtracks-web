@@ -1,7 +1,7 @@
 import isSafeRegex from "safe-regex2";
 
 /** Types that require a non-empty config object */
-const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "HASHREGO", "RSS_FEED"]);
+const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "HASHREGO", "MEETUP", "RSS_FEED"]);
 
 /**
  * Validate source config based on type. Returns error messages or empty array.
@@ -97,8 +97,17 @@ export function validateSourceConfig(
     }
   }
 
+  if (type === "MEETUP") {
+    if (typeof obj.groupUrlname !== "string" || !obj.groupUrlname.trim()) {
+      errors.push("Meetup config requires a non-empty groupUrlname");
+    }
+    if (typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
+      errors.push("Meetup config requires a non-empty kennelTag");
+    }
+  }
+
   if (type === "RSS_FEED") {
-    if (!obj.kennelTag || typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
+    if (typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
       errors.push("RSS Feed config requires a non-empty kennelTag");
     }
   }

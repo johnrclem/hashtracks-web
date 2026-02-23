@@ -6,8 +6,9 @@ import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
 import {
   approveMismanRequest,
   rejectMismanRequest,
+  revokeMismanAccess,
 } from "@/app/misman/actions";
-import { createMismanInvite } from "@/app/misman/invite/actions";
+import { createMismanInvite, revokeMismanInvite } from "@/app/misman/invite/actions";
 import {
   Table,
   TableBody,
@@ -40,9 +41,23 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import type { KennelOptionData } from "@/components/kennels/KennelOptionLabel";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
+
+// ── Types ──
 
 type MismanRequestRow = {
   id: string;
@@ -59,43 +74,444 @@ type MismanRequestRow = {
   resolvedAt: string | null;
 };
 
-interface MismanRequestQueueProps {
+type InviteRow = {
+  id: string;
+  kennelShortName: string;
+  inviteeEmail: string | null;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+  inviterName: string;
+  acceptorName: string | null;
+};
+
+type ActiveMismanRow = {
+  id: string;
+  user: {
+    id: string;
+    email: string;
+    hashName: string | null;
+    nerdName: string | null;
+  };
+  kennel: { id: string; shortName: string; slug: string };
+  role: string;
+  since: string;
+  grantSource: "request" | "invite" | "manual";
+};
+
+interface MismanAdminTabsProps {
   requests: MismanRequestRow[];
+  invites: InviteRow[];
+  mismans: ActiveMismanRow[];
   kennels: KennelOptionData[];
 }
 
-export function MismanRequestQueue({ requests, kennels }: MismanRequestQueueProps) {
+// ── Main Component ──
+
+export function MismanAdminTabs({
+  requests,
+  invites,
+  mismans,
+  kennels,
+}: MismanAdminTabsProps) {
+  const pendingRequests = requests.filter((r) => r.status === "PENDING");
+
   return (
     <div>
       <div className="mb-4 flex justify-end">
         <InviteMismanDialog kennels={kennels} />
       </div>
-      {requests.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No misman requests yet.
-        </p>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>Kennel</TableHead>
-              <TableHead className="hidden sm:table-cell">Message</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="hidden sm:table-cell">Date</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {requests.map((request) => (
-              <MismanRequestRowComponent key={request.id} request={request} />
-            ))}
-          </TableBody>
-        </Table>
-      )}
+      <Tabs defaultValue="requests">
+        <TabsList>
+          <TabsTrigger value="requests">
+            Pending Requests ({pendingRequests.length})
+          </TabsTrigger>
+          <TabsTrigger value="invites">
+            Invite History ({invites.length})
+          </TabsTrigger>
+          <TabsTrigger value="mismans">
+            Active Mismans ({mismans.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="requests" className="mt-4">
+          <PendingRequestsTab requests={pendingRequests} />
+        </TabsContent>
+        <TabsContent value="invites" className="mt-4">
+          <InviteHistoryTab invites={invites} />
+        </TabsContent>
+        <TabsContent value="mismans" className="mt-4">
+          <ActiveMismansTab mismans={mismans} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+
+// Keep old export name for backwards compat with any other importers
+export { MismanAdminTabs as MismanRequestQueue };
+
+// ── Tab 1: Pending Requests ──
+
+function PendingRequestsTab({ requests }: { requests: MismanRequestRow[] }) {
+  if (requests.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No pending misman requests.
+      </p>
+    );
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>User</TableHead>
+          <TableHead>Kennel</TableHead>
+          <TableHead className="hidden sm:table-cell">Message</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead className="hidden sm:table-cell">Date</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {requests.map((request) => (
+          <MismanRequestRowComponent key={request.id} request={request} />
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+function MismanRequestRowComponent({
+  request,
+}: {
+  request: MismanRequestRow;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const displayName =
+    request.user.hashName || request.user.nerdName || request.user.email;
+
+  function handleApprove() {
+    startTransition(async () => {
+      const result = await approveMismanRequest(request.id);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(
+          `Approved ${displayName} as misman for ${request.kennel.shortName}`,
+        );
+      }
+      router.refresh();
+    });
+  }
+
+  function handleReject() {
+    startTransition(async () => {
+      const result = await rejectMismanRequest(request.id);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Request rejected");
+      }
+      router.refresh();
+    });
+  }
+
+  return (
+    <TableRow>
+      <TableCell>
+        <div>
+          <span className="font-medium">{displayName}</span>
+          {request.user.hashName && (
+            <span className="block text-xs text-muted-foreground">
+              {request.user.email}
+            </span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="font-medium">
+        {request.kennel.shortName}
+      </TableCell>
+      <TableCell className="hidden sm:table-cell max-w-48 truncate">
+        {request.message ?? "\u2014"}
+      </TableCell>
+      <TableCell>
+        <Badge variant="secondary">{request.status}</Badge>
+      </TableCell>
+      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+        {new Date(request.createdAt).toLocaleDateString()}
+      </TableCell>
+      <TableCell className="text-right">
+        {request.status === "PENDING" && (
+          <div className="flex justify-end gap-2">
+            <Button
+              size="sm"
+              disabled={isPending}
+              onClick={handleApprove}
+            >
+              Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isPending}
+              onClick={handleReject}
+            >
+              Reject
+            </Button>
+          </div>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ── Tab 2: Invite History ──
+
+function InviteHistoryTab({ invites }: { invites: InviteRow[] }) {
+  if (invites.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No misman invites yet.
+      </p>
+    );
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Kennel</TableHead>
+          <TableHead>Inviter</TableHead>
+          <TableHead className="hidden sm:table-cell">Email</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead className="hidden sm:table-cell">Detail</TableHead>
+          <TableHead className="hidden sm:table-cell">Created</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {invites.map((invite) => (
+          <InviteRowComponent key={invite.id} invite={invite} />
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+function InviteRowComponent({ invite }: { invite: InviteRow }) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const statusVariant =
+    invite.status === "ACCEPTED"
+      ? "default"
+      : invite.status === "REVOKED" || invite.status === "EXPIRED"
+        ? "destructive"
+        : "secondary";
+
+  function statusDetail() {
+    if (invite.status === "ACCEPTED" && invite.acceptorName) {
+      return `Accepted by ${invite.acceptorName}`;
+    }
+    if (invite.status === "REVOKED" && invite.revokedAt) {
+      return `Revoked ${new Date(invite.revokedAt).toLocaleDateString()}`;
+    }
+    if (invite.status === "EXPIRED") {
+      return `Expired ${new Date(invite.expiresAt).toLocaleDateString()}`;
+    }
+    if (invite.status === "PENDING") {
+      return `Expires ${new Date(invite.expiresAt).toLocaleDateString()}`;
+    }
+    return null;
+  }
+
+  function handleRevoke() {
+    startTransition(async () => {
+      const result = await revokeMismanInvite(invite.id);
+      if ("error" in result && result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Invite revoked");
+      }
+      router.refresh();
+    });
+  }
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{invite.kennelShortName}</TableCell>
+      <TableCell>{invite.inviterName}</TableCell>
+      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+        {invite.inviteeEmail ?? "\u2014"}
+      </TableCell>
+      <TableCell>
+        <Badge variant={statusVariant}>{invite.status}</Badge>
+      </TableCell>
+      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+        {statusDetail()}
+      </TableCell>
+      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+        {new Date(invite.createdAt).toLocaleDateString()}
+      </TableCell>
+      <TableCell className="text-right">
+        {invite.status === "PENDING" && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isPending}
+            onClick={handleRevoke}
+          >
+            Revoke
+          </Button>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ── Tab 3: Active Mismans ──
+
+function ActiveMismansTab({ mismans }: { mismans: ActiveMismanRow[] }) {
+  if (mismans.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No active mismans.
+      </p>
+    );
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>User</TableHead>
+          <TableHead>Kennel</TableHead>
+          <TableHead>Role</TableHead>
+          <TableHead className="hidden sm:table-cell">Source</TableHead>
+          <TableHead className="hidden sm:table-cell">Since</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {mismans.map((misman) => (
+          <ActiveMismanRowComponent key={misman.id} misman={misman} />
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+function ActiveMismanRowComponent({
+  misman,
+}: {
+  misman: ActiveMismanRow;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const displayName =
+    misman.user.hashName || misman.user.nerdName || misman.user.email;
+
+  const sourceLabel =
+    misman.grantSource === "request"
+      ? "Request"
+      : misman.grantSource === "invite"
+        ? "Invite"
+        : "Manual";
+
+  const sourceBadgeVariant: "default" | "secondary" | "outline" =
+    misman.grantSource === "request"
+      ? "default"
+      : misman.grantSource === "invite"
+        ? "secondary"
+        : "outline";
+
+  function handleRevoke() {
+    startTransition(async () => {
+      const result = await revokeMismanAccess(misman.id);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(
+          `Revoked misman access for ${displayName} on ${misman.kennel.shortName}`,
+        );
+      }
+      router.refresh();
+    });
+  }
+
+  const isAdmin = misman.role === "ADMIN";
+
+  return (
+    <TableRow>
+      <TableCell>
+        <div>
+          <span className="font-medium">{displayName}</span>
+          {misman.user.hashName && (
+            <span className="block text-xs text-muted-foreground">
+              {misman.user.email}
+            </span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="font-medium">
+        {misman.kennel.shortName}
+      </TableCell>
+      <TableCell>
+        <Badge variant={isAdmin ? "default" : "secondary"}>
+          {misman.role}
+        </Badge>
+      </TableCell>
+      <TableCell className="hidden sm:table-cell">
+        <Badge variant={sourceBadgeVariant}>
+          {sourceLabel}
+        </Badge>
+      </TableCell>
+      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+        {new Date(misman.since).toLocaleDateString()}
+      </TableCell>
+      <TableCell className="text-right">
+        {misman.role === "MISMAN" && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="destructive" disabled={isPending}>
+                Revoke
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Revoke Misman Access</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will downgrade <strong>{displayName}</strong> from misman
+                  to member for <strong>{misman.kennel.shortName}</strong>. They
+                  will lose access to roster and attendance management for this
+                  kennel.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleRevoke}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Revoke Access
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ── Invite Misman Dialog ──
 
 type InviteResult = {
   kennelId: string;
@@ -357,98 +773,5 @@ function InviteMismanDialog({ kennels }: { kennels: KennelOptionData[] }) {
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function MismanRequestRowComponent({
-  request,
-}: {
-  request: MismanRequestRow;
-}) {
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
-
-  const displayName =
-    request.user.hashName || request.user.nerdName || request.user.email;
-
-  function handleApprove() {
-    startTransition(async () => {
-      const result = await approveMismanRequest(request.id);
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.success(
-          `Approved ${displayName} as misman for ${request.kennel.shortName}`,
-        );
-      }
-      router.refresh();
-    });
-  }
-
-  function handleReject() {
-    startTransition(async () => {
-      const result = await rejectMismanRequest(request.id);
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.success("Request rejected");
-      }
-      router.refresh();
-    });
-  }
-
-  const statusVariant =
-    request.status === "APPROVED"
-      ? "default"
-      : request.status === "REJECTED"
-        ? "destructive"
-        : "secondary";
-
-  return (
-    <TableRow>
-      <TableCell>
-        <div>
-          <span className="font-medium">{displayName}</span>
-          {request.user.hashName && (
-            <span className="block text-xs text-muted-foreground">
-              {request.user.email}
-            </span>
-          )}
-        </div>
-      </TableCell>
-      <TableCell className="font-medium">
-        {request.kennel.shortName}
-      </TableCell>
-      <TableCell className="hidden sm:table-cell max-w-48 truncate">
-        {request.message ?? "—"}
-      </TableCell>
-      <TableCell>
-        <Badge variant={statusVariant}>{request.status}</Badge>
-      </TableCell>
-      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
-        {new Date(request.createdAt).toLocaleDateString()}
-      </TableCell>
-      <TableCell className="text-right">
-        {request.status === "PENDING" && (
-          <div className="flex justify-end gap-2">
-            <Button
-              size="sm"
-              disabled={isPending}
-              onClick={handleApprove}
-            >
-              Approve
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isPending}
-              onClick={handleReject}
-            >
-              Reject
-            </Button>
-          </div>
-        )}
-      </TableCell>
-    </TableRow>
   );
 }

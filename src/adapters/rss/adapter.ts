@@ -78,11 +78,11 @@ export class RssAdapter implements SourceAdapter {
 
         const title = item.title?.trim() || undefined;
 
-        // Strip HTML from content/summary fields
-        const rawContent = item.content ?? item.contentSnippet ?? item.summary;
-        const description = rawContent
-          ? stripHtmlTags(rawContent).slice(0, 2000) || undefined
-          : undefined;
+        // item.contentSnippet and item.summary are already HTML-stripped by rss-parser;
+        // only strip when falling back to item.content (which contains raw HTML).
+        const description = item.content
+          ? stripHtmlTags(item.content).slice(0, 2000) || undefined
+          : (item.contentSnippet ?? item.summary)?.slice(0, 2000) || undefined;
 
         const sourceUrl = item.link?.trim() || undefined;
 

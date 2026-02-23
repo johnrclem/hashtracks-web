@@ -79,6 +79,10 @@ export async function updateAttendance(
   if (!attendance) return { error: "Attendance not found" };
   if (attendance.userId !== user.id) return { error: "Not authorized" };
 
+  // Input length validation
+  if (data.stravaUrl && data.stravaUrl.length > 500) return { error: "Strava URL is too long (max 500 characters)" };
+  if (data.notes && data.notes.length > 1000) return { error: "Notes are too long (max 1,000 characters)" };
+
   await prisma.attendance.update({
     where: { id: attendanceId },
     data: {

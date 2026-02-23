@@ -253,4 +253,55 @@ describe("validateSourceConfig", () => {
       expect(validateSourceConfig("GOOGLE_CALENDAR", config)).toEqual([]);
     });
   });
+
+  describe("RSS_FEED config validation", () => {
+    it("accepts valid RSS_FEED config", () => {
+      const config = { kennelTag: "EWH3" };
+      expect(validateSourceConfig("RSS_FEED", config)).toEqual([]);
+    });
+
+    it("requires config object for RSS_FEED", () => {
+      expect(validateSourceConfig("RSS_FEED", null)).toContain("RSS_FEED requires a config object");
+    });
+
+    it("requires non-empty kennelTag", () => {
+      const errors = validateSourceConfig("RSS_FEED", { kennelTag: "" });
+      expect(errors.some((e) => e.includes("kennelTag"))).toBe(true);
+    });
+
+    it("rejects missing kennelTag", () => {
+      const errors = validateSourceConfig("RSS_FEED", {});
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("kennelTag");
+    });
+  });
+
+  describe("MEETUP config validation", () => {
+    it("accepts valid MEETUP config", () => {
+      const config = { groupUrlname: "brooklyn-hash-house-harriers", kennelTag: "BrH3" };
+      expect(validateSourceConfig("MEETUP", config)).toEqual([]);
+    });
+
+    it("requires config object for MEETUP", () => {
+      expect(validateSourceConfig("MEETUP", null)).toContain("MEETUP requires a config object");
+    });
+
+    it("requires non-empty groupUrlname", () => {
+      const config = { groupUrlname: "", kennelTag: "BrH3" };
+      const errors = validateSourceConfig("MEETUP", config);
+      expect(errors.some((e) => e.includes("groupUrlname"))).toBe(true);
+    });
+
+    it("requires non-empty kennelTag", () => {
+      const config = { groupUrlname: "brooklyn-hash", kennelTag: "" };
+      const errors = validateSourceConfig("MEETUP", config);
+      expect(errors.some((e) => e.includes("kennelTag"))).toBe(true);
+    });
+
+    it("reports both errors when both fields are missing", () => {
+      const config = {};
+      const errors = validateSourceConfig("MEETUP", config);
+      expect(errors).toHaveLength(2);
+    });
+  });
 });

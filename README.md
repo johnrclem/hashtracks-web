@@ -10,7 +10,7 @@ The Strava of Hashing — a community platform where hashers discover upcoming r
 - **Database:** PostgreSQL (Railway) via Prisma 7
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS v4 + shadcn/ui
-- **Testing:** Vitest (1075 tests across 51 files)
+- **Testing:** Vitest (69 test files)
 - **Deployment:** Vercel (auto-deploy from `main`, daily cron scrapes)
 
 ## Local Development
@@ -42,7 +42,7 @@ Open [http://localhost:3000](http://localhost:3000).
 |---------|-------------|
 | `npm run dev` | Start dev server |
 | `npm run build` | Production build |
-| `npm test` | Run test suite (1075 tests) |
+| `npm test` | Run test suite (69 test files) |
 | `npx prisma studio` | Visual database browser |
 | `npx prisma db push` | Push schema changes to DB |
 | `npx prisma db seed` | Seed kennels, aliases, and sources |
@@ -80,26 +80,42 @@ Open [http://localhost:3000](http://localhost:3000).
 - Logbook sync: pending confirmations link misman records to user logbook entries
 
 ### Source Engine
-- 5 adapter types: HTML Scraper, Google Calendar API, Google Sheets CSV, iCal Feed, Hash Rego
+- 7 adapter types: HTML Scraper, Google Calendar API, Google Sheets CSV, iCal Feed, Hash Rego, Meetup, WordPress REST API
 - 29 live sources feeding 79 kennels across 6 metro areas (NYC, Boston, Chicago, DC, SF Bay, London)
 - Automated daily scrapes via Vercel Cron
 - Merge pipeline with fingerprint dedup, trust levels, and kennel alias resolution
+- Event reconciliation: detects and cancels stale events when sources change
+- AI recovery layer: Gemini-powered parse error fallback with confidence tracking
 - Shared adapter utilities for date parsing and field extraction
 
 ### Source Health Monitoring
 - Rolling-window health analysis (event counts, field fill rates, structure fingerprints)
 - 6 alert types: event count anomaly, field fill drop, structure change, scrape failure, consecutive failures, unmatched tags
+- AI-assisted alert classification and repair suggestions
 - Self-healing alert actions: one-click re-scrape, unmatched tag resolver with fuzzy matching, GitHub issue creation
 - Structured error display: per-adapter fetch/parse/merge error breakdown with row-level context
 - Performance timing: fetch vs merge duration split per scrape
 - Per-adapter diagnostic context (row counts, calendar IDs, sheet tabs)
 
 ### Admin Tools
+- Source onboarding wizard: multi-phase guided setup with source type auto-detection, config panels, and live preview
+- Source coverage dashboard: kennel-to-source mapping matrix
+- Config validation with ReDoS safety and per-adapter field enforcement
 - Source management: scrape triggers, lookback configuration, structured scrape logs
 - Kennel CRUD with auto-alias on rename, duplicate detection, kennel merge tool
 - Alert dashboard with acknowledge/snooze/resolve workflow and repair history
 - Misman request queue with approve/reject and invite link generation
 - Roster group management: create, rename, dissolve, approve requests
+
+### User Feedback
+- In-app "Send Feedback" dialog (bug report, feature request, question, other)
+- Auto-creates GitHub issues with `user-feedback` + category labels
+- Auto-captures current page URL for context
+
+### Timezone Preferences
+- User-selectable timezone display (local / UTC / kennel)
+- Header dropdown for quick timezone switching
+- Hareline and event cards respect timezone preference
 
 ## Data Sources (29)
 
@@ -117,6 +133,8 @@ Open [http://localhost:3000](http://localhost:3000).
 - [`docs/roadmap.md`](docs/roadmap.md) — Implementation roadmap and what's next
 - [`docs/source-onboarding-playbook.md`](docs/source-onboarding-playbook.md) — How to add new data sources
 - [`docs/misman-attendance-requirements.md`](docs/misman-attendance-requirements.md) — Misman tool requirements
+- [`docs/config-driven-onboarding-plan.md`](docs/config-driven-onboarding-plan.md) — Source onboarding wizard design
+- [`docs/test-coverage-analysis.md`](docs/test-coverage-analysis.md) — Test coverage gap analysis
 - [`CLAUDE.md`](CLAUDE.md) — AI assistant context (architecture, conventions, file map)
 
 ## Project Status
@@ -142,4 +160,12 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Source expansion:** 29 sources across 6 regions — DC/DMV, Chicago, SF Bay, London adapters
 - **Refactoring:** Shared adapter utilities, function decomposition, ActionResult types
 - **Hasher-kennel linking:** Profile invites, user-side visibility, misman activity awareness
-- **Vercel Web Analytics** integration
+- **Source onboarding wizard:** Multi-phase admin UI for config-driven source creation with live preview
+- **AI recovery layer:** Gemini-powered parse error fallback, column auto-detection, kennel pattern suggestions
+- **Event reconciliation:** Stale event detection and cancellation when sources change
+- **Meetup adapter:** Meetup.com public API adapter (ready for source onboarding)
+- **BFM + Philly H3 scrapers:** benfranklinmob.com and hashphilly.com HTML adapters
+- **User feedback:** In-app dialog auto-filing GitHub issues with category labels
+- **Timezone preferences:** User-selectable timezone display with header dropdown
+- **Vercel Analytics:** Web Analytics + Speed Insights integration
+- **Config validation:** Server-side validation with ReDoS protection for all source types
