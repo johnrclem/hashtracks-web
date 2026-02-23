@@ -6,6 +6,10 @@ import {
   previewSourceConfig,
   type PreviewData,
 } from "@/app/admin/sources/preview-action";
+import {
+  suggestSourceConfig,
+  type ConfigSuggestion,
+} from "@/app/admin/sources/suggest-source-config-action";
 import { PreviewResults } from "./PreviewResults";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -148,6 +152,11 @@ export function ConfigureAndTest({
   // Show raw JSON toggle
   const [showRawJson, setShowRawJson] = useState(false);
 
+  // AI config suggestion state
+  type AiSuggestionState = "idle" | "loading" | "done" | "dismissed" | "error";
+  const [aiState, setAiState] = useState<AiSuggestionState>("idle");
+  const [aiSuggestion, setAiSuggestion] = useState<ConfigSuggestion | null>(null);
+
   const allKennelsWithExtra = [...allKennels, ...extraKennels];
 
   const showConfigEditor = CONFIG_TYPES.has(type);
@@ -167,6 +176,31 @@ export function ConfigureAndTest({
 
   const panelType = getPanelType();
 
+  // Auto-trigger AI config suggestion on mount when config is empty
+  const TYPES_WITH_AI_SUGGESTION = new Set([
+    "GOOGLE_CALENDAR",
+    "ICAL_FEED",
+    "HTML_SCRAPER",
+    "RSS_FEED",
+    "MEETUP",
+    "HASHREGO",
+  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!TYPES_WITH_AI_SUGGESTION.has(type)) return;
+    if (type !== "HTML_SCRAPER" && !geminiAvailable) return;
+    if (configJson.trim()) return; // skip if already configured
+    if (!url.trim()) return;
+    setAiState("loading");
+    suggestSourceConfig(url, type)
+      .then((result) => {
+        if ("error" in result) { setAiState("error"); return; }
+        setAiSuggestion(result.suggestion);
+        setAiState("done");
+      })
+      .catch(() => setAiState("error"));
+  }, []); // Only on mount
+
   // Auto-run on mount if config is non-empty
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -174,6 +208,46 @@ export function ConfigureAndTest({
       runPreview();
     }
   }, []); // Only on mount
+
+  const runPreviewWithConfig = useCallback(
+    (overrideJson: string) => {
+      const fd = new FormData();
+      fd.set("url", url);
+      fd.set("type", type);
+      if (overrideJson.trim()) fd.set("config", overrideJson.trim());
+
+      startPreview(async () => {
+        setPreviewError(null);
+        const result = await previewSourceConfig(fd);
+        setLastRunTime(new Date());
+        setHasRunTest(true);
+
+        if (result.error) {
+          setPreviewError(result.error);
+          setPreviewData(null);
+          setSampleTitlesByTag({});
+        } else if (result.data) {
+          setPreviewData(result.data);
+          const resolvedIds = new Set(
+            result.data.events
+              .filter((e) => e.resolved && e.resolvedKennelId)
+              .map((e) => e.resolvedKennelId!),
+          );
+          const newIds = [...resolvedIds].filter((id) => !selectedKennels.includes(id));
+          if (newIds.length > 0) onKennelsChange([...selectedKennels, ...newIds]);
+          const titles = result.data.events.reduce<Record<string, string[]>>((acc, e) => {
+            if (!e.resolved && e.title) {
+              if (!acc[e.kennelTag]) acc[e.kennelTag] = [];
+              acc[e.kennelTag].push(e.title);
+            }
+            return acc;
+          }, {});
+          setSampleTitlesByTag(titles);
+        }
+      });
+    },
+    [url, type, selectedKennels, onKennelsChange],
+  );
 
   const runPreview = useCallback(() => {
     const fd = new FormData();
@@ -248,6 +322,23 @@ export function ConfigureAndTest({
     }
   }
 
+  function handleAcceptSuggestion() {
+    if (!aiSuggestion) return;
+    const json = JSON.stringify(aiSuggestion.suggestedConfig, null, 2);
+    onConfigChange(
+      Object.keys(aiSuggestion.suggestedConfig).length > 0 ? aiSuggestion.suggestedConfig : null,
+      json,
+    );
+    const suggestedIds = aiSuggestion.suggestedKennelTags
+      .flatMap((tag) => allKennelsWithExtra.filter((k) => k.shortName === tag).map((k) => k.id));
+    const newIds = suggestedIds.filter((id) => !selectedKennels.includes(id));
+    if (newIds.length > 0) onKennelsChange([...selectedKennels, ...newIds]);
+    setAiState("dismissed");
+    if (Object.keys(aiSuggestion.suggestedConfig).length > 0) {
+      runPreviewWithConfig(json);
+    }
+  }
+
   function toggleKennel(id: string) {
     onKennelsChange(
       selectedKennels.includes(id)
@@ -302,6 +393,41 @@ export function ConfigureAndTest({
     <div className="flex flex-col gap-6 lg:flex-row">
       {/* ── Left panel: Config ── */}
       <div className="space-y-4 lg:w-[40%]">
+        {/* AI Config Suggestion Banner */}
+        {aiState === "loading" && (
+          <div className="flex animate-pulse items-center gap-2 rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+            ✨ Analyzing source…
+          </div>
+        )}
+        {aiState === "done" && aiSuggestion && (
+          <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-1">
+                <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+                  ✨ AI Suggestion
+                  <Badge variant="outline" className="text-xs">{aiSuggestion.confidence}</Badge>
+                  {aiSuggestion.adapterNote && (
+                    <Badge variant="secondary" className="text-xs">{aiSuggestion.adapterNote}</Badge>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">{aiSuggestion.explanation}</p>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+                onClick={() => setAiState("dismissed")}
+              >
+                ✕
+              </button>
+            </div>
+            {Object.keys(aiSuggestion.suggestedConfig).length > 0 && (
+              <Button size="sm" variant="secondary" onClick={handleAcceptSuggestion}>
+                Accept &amp; Test
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Type-specific config panel */}
         {panelType === "calendar" && (
           <CalendarConfigPanel
