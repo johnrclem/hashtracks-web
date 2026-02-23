@@ -93,8 +93,14 @@ export default async function EventDetailPage({
     prisma.attendance.count({ where: { eventId, status: "INTENDING" } }),
   ]);
 
-  // Fetch weather forecast for upcoming events (0–10 days out)
-  const daysUntil = Math.ceil((event.date.getTime() - Date.now()) / 86_400_000);
+  // Fetch weather forecast for upcoming events (0–10 days out).
+  // Compare at the calendar-day level (midnight UTC) to avoid off-by-one from UTC noon storage.
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  const eventDay = new Date(event.date);
+  eventDay.setUTCHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const daysUntil = Math.round((eventDay.getTime() - today.getTime()) / MS_PER_DAY);
   const weatherLat = event.latitude ?? REGION_CENTROIDS[event.kennel.region]?.lat ?? null;
   const weatherLng = event.longitude ?? REGION_CENTROIDS[event.kennel.region]?.lng ?? null;
   const weather =
@@ -226,7 +232,7 @@ export default async function EventDetailPage({
         )}
       </div>
 
-      {(event.latitude != null && event.longitude != null || event.locationName) && (
+      {((event.latitude != null && event.longitude != null) || event.locationName) && (
         <EventLocationMap
           lat={event.latitude ?? undefined}
           lng={event.longitude ?? undefined}

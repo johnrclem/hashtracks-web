@@ -173,7 +173,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
           )}
         </dl>
 
-        {(event.latitude != null && event.longitude != null || event.locationName) && (
+        {((event.latitude != null && event.longitude != null) || event.locationName) && (
           <EventLocationMap
             lat={event.latitude ?? undefined}
             lng={event.longitude ?? undefined}

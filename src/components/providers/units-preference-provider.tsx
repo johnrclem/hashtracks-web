@@ -17,15 +17,23 @@ export function UnitsPreferenceProvider({ children }: { children: ReactNode }) {
   const [tempUnit, setTempUnitState] = useState<TempUnit>("IMPERIAL");
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "IMPERIAL" || stored === "METRIC") {
-      setTempUnitState(stored);
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === "IMPERIAL" || stored === "METRIC") {
+        setTempUnitState(stored);
+      }
+    } catch {
+      // localStorage unavailable (e.g. Safari Private Browsing) — keep default
     }
   }, []);
 
   const setTempUnit = (unit: TempUnit) => {
     setTempUnitState(unit);
-    localStorage.setItem(STORAGE_KEY, unit);
+    try {
+      localStorage.setItem(STORAGE_KEY, unit);
+    } catch {
+      // Persistence is best-effort
+    }
   };
 
   return (

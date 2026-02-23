@@ -111,13 +111,13 @@ export function Header() {
               <DropdownMenuLabel>Temperature</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => setTempUnit("IMPERIAL")}
+                onClick={() => { setTempUnit("IMPERIAL"); }}
                 className={tempUnit === "IMPERIAL" ? "bg-accent" : ""}
               >
                 °F — Fahrenheit
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => setTempUnit("METRIC")}
+                onClick={() => { setTempUnit("METRIC"); }}
                 className={tempUnit === "METRIC" ? "bg-accent" : ""}
               >
                 °C — Celsius
