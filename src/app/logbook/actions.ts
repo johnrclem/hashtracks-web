@@ -348,11 +348,11 @@ export async function confirmMismanAttendance(kennelAttendanceId: string): Promi
       const raced = await prisma.attendance.findUnique({
         where: { userId_eventId: { userId: user.id, eventId: mismanRecord.eventId } },
       });
-      if (!raced) throw new Error("Race condition: P2002 but record not found");
+      if (!raced) return { error: "Unable to confirm — please try again later" };
       revalidatePath("/logbook");
       return { success: true, attendanceId: raced.id };
     }
-    throw e;
+    return { error: "Unable to confirm — please try again later" };
   }
 }
 
@@ -383,7 +383,7 @@ export async function declineMismanAttendance(kennelAttendanceId: string): Promi
       revalidatePath("/logbook");
       return { success: true };
     }
-    throw e;
+    return { error: "Unable to decline — please try again later" };
   }
 
   revalidatePath("/logbook");

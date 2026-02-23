@@ -16,7 +16,7 @@ export default async function LogbookPage() {
   if (!user) redirect("/sign-in");
 
   const attendances = await prisma.attendance.findMany({
-    where: { userId: user.id, status: { not: "DECLINED" as never } },
+    where: { userId: user.id, status: { in: ["CONFIRMED", "INTENDING"] } },
     include: {
       event: {
         include: {
