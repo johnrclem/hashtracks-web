@@ -33,13 +33,15 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { formatTime } from "@/lib/format";
 import { CheckInButton } from "@/components/logbook/CheckInButton";
 import { CalendarExportButton } from "@/components/hareline/CalendarExportButton";
 import { EventLocationMap } from "@/components/hareline/EventLocationMap";
 import { EventWeatherCard } from "@/components/hareline/EventWeatherCard";
+import { EventTimeDisplay } from "@/components/hareline/EventTimeDisplay";
+import { SourcesDropdown } from "@/components/hareline/SourcesDropdown";
 import { getEventDayWeather } from "@/lib/weather";
 import { REGION_CENTROIDS } from "@/lib/geo";
+import { Info } from "lucide-react";
 
 export default async function EventDetailPage({
   params,
@@ -116,6 +118,9 @@ export default async function EventDetailPage({
     timeZone: "UTC",
   });
 
+  const hasLocation =
+    (event.latitude != null && event.longitude != null) || !!event.locationName;
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -138,6 +143,14 @@ export default async function EventDetailPage({
           >
             {event.kennel.fullName}
           </Link>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
+            </TooltipTrigger>
+            <TooltipContent>
+              Event details are pulled from public sources. Always confirm with your kennel.
+            </TooltipContent>
+          </Tooltip>
           <Badge>{event.kennel.region}</Badge>
           {event.status === "CANCELLED" && (
             <Badge variant="destructive">Cancelled</Badge>
@@ -170,103 +183,105 @@ export default async function EventDetailPage({
         )}
       </div>
 
-      {/* Details grid */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        {event.runNumber && (
-          <DetailItem label="Run Number" value={`#${event.runNumber}`} />
-        )}
-        {event.startTime && (
-          <DetailItem label="Start Time" value={formatTime(event.startTime)} />
-        )}
-        {event.hares.length > 0 ? (
-          <div>
-            <dt className="text-sm font-medium text-muted-foreground">Hares</dt>
-            <dd className="mt-0.5 flex flex-wrap gap-1">
-              {event.hares.map((hare) => (
-                <span key={hare.id} className="inline-flex items-center">
-                  {hare.userId ? (
-                    <Link
-                      href={`/hashers/${hare.userId}`}
-                      className="text-primary hover:underline"
-                    >
-                      {hare.hareName}
-                    </Link>
-                  ) : (
-                    <span>{hare.hareName}</span>
-                  )}
-                  {hare.role !== "HARE" && (
-                    <span className="ml-0.5 text-xs text-muted-foreground">
-                      ({hare.role === "CO_HARE" ? "Co-Hare" : "Live"})
-                    </span>
-                  )}
-                </span>
-              ))}
-            </dd>
-          </div>
-        ) : event.haresText ? (
-          <DetailItem label="Hares" value={event.haresText} />
-        ) : null}
-        {event.locationName && (
-          <div>
-            <dt className="text-sm font-medium text-muted-foreground">Location</dt>
-            <dd className="mt-0.5">
-              <a
-                href={
-                  event.locationAddress && /^https?:\/\//.test(event.locationAddress)
-                    ? event.locationAddress
-                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.locationName)}`
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                {event.locationName}
-              </a>
-            </dd>
-          </div>
-        )}
-        {weather && (
-          <div className="sm:col-span-2">
-            <EventWeatherCard weather={weather} />
-          </div>
-        )}
+      {/* Side-by-side: detail fields + description (left) | map (right) */}
+      <div className={`grid grid-cols-1 gap-6 ${hasLocation ? "md:grid-cols-[3fr_2fr]" : ""}`}>
+            {/* Left column: detail fields + description */}
+            <div className="space-y-4">
+              <dl className="grid gap-4 sm:grid-cols-2">
+                {event.runNumber && (
+                  <DetailItem label="Run Number" value={`#${event.runNumber}`} />
+                )}
+                {event.startTime && (
+                  <div>
+                    <dt className="text-sm font-medium text-muted-foreground">Start Time</dt>
+                    <dd className="mt-0.5">
+                      <EventTimeDisplay
+                        startTime={event.startTime}
+                        date={event.date.toISOString()}
+                        timezone={event.timezone}
+                      />
+                    </dd>
+                  </div>
+                )}
+                {event.hares.length > 0 ? (
+                  <div>
+                    <dt className="text-sm font-medium text-muted-foreground">Hares</dt>
+                    <dd className="mt-0.5 flex flex-wrap gap-1">
+                      {event.hares.map((hare) => (
+                        <span key={hare.id} className="inline-flex items-center">
+                          {hare.userId ? (
+                            <Link
+                              href={`/hashers/${hare.userId}`}
+                              className="text-primary hover:underline"
+                            >
+                              {hare.hareName}
+                            </Link>
+                          ) : (
+                            <span>{hare.hareName}</span>
+                          )}
+                          {hare.role !== "HARE" && (
+                            <span className="ml-0.5 text-xs text-muted-foreground">
+                              ({hare.role === "CO_HARE" ? "Co-Hare" : "Live"})
+                            </span>
+                          )}
+                        </span>
+                      ))}
+                    </dd>
+                  </div>
+                ) : event.haresText ? (
+                  <DetailItem label="Hares" value={event.haresText} />
+                ) : null}
+                {event.locationName && (
+                  <div>
+                    <dt className="text-sm font-medium text-muted-foreground">Location</dt>
+                    <dd className="mt-0.5">
+                      <a
+                        href={
+                          event.locationAddress && /^https?:\/\//.test(event.locationAddress)
+                            ? event.locationAddress
+                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.locationName)}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        {event.locationName}
+                      </a>
+                    </dd>
+                  </div>
+                )}
+                {weather && (
+                  <div className="sm:col-span-2">
+                    <EventWeatherCard weather={weather} />
+                  </div>
+                )}
+              </dl>
+              {event.description && (
+                <div>
+                  <h2 className="mb-1 text-sm font-medium text-muted-foreground">
+                    Description
+                  </h2>
+                  <p className="whitespace-pre-wrap">{event.description}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Right column: map */}
+            {hasLocation && (
+              <EventLocationMap
+                lat={event.latitude ?? undefined}
+                lng={event.longitude ?? undefined}
+                locationName={event.locationName ?? undefined}
+                locationAddress={event.locationAddress ?? undefined}
+                imgClassName="h-64 md:h-full md:min-h-64"
+              />
+            )}
       </div>
-
-      {((event.latitude != null && event.longitude != null) || event.locationName) && (
-        <EventLocationMap
-          lat={event.latitude ?? undefined}
-          lng={event.longitude ?? undefined}
-          locationName={event.locationName ?? undefined}
-          locationAddress={event.locationAddress ?? undefined}
-        />
-      )}
-
-      {event.description && (
-        <div>
-          <h2 className="mb-1 text-sm font-medium text-muted-foreground">
-            Description
-          </h2>
-          <p className="whitespace-pre-wrap">{event.description}</p>
-        </div>
-      )}
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
         <CalendarExportButton event={{ ...event, date: event.date.toISOString(), kennel: event.kennel }} />
-        {event.sourceUrl && (
-          <Button variant="outline" size="sm" asChild>
-            <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer">
-              View Original Source
-            </a>
-          </Button>
-        )}
-        {event.eventLinks.map((link) => (
-          <Button key={link.id} variant="outline" size="sm" asChild>
-            <a href={link.url} target="_blank" rel="noopener noreferrer">
-              {link.label}
-            </a>
-          </Button>
-        ))}
+        <SourcesDropdown sourceUrl={event.sourceUrl} eventLinks={event.eventLinks} />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="outline" size="sm" asChild>

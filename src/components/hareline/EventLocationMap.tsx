@@ -10,6 +10,8 @@ interface EventLocationMapProps {
   locationName?: string | null;
   /** If provided, clicking the map links here; otherwise falls back to a coords-based or text-search Maps link. */
   locationAddress?: string | null;
+  /** CSS class(es) for the <img> height. Default: "h-48". Pass "h-full min-h-64" for side-by-side layouts. */
+  imgClassName?: string;
 }
 
 export function EventLocationMap({
@@ -17,6 +19,7 @@ export function EventLocationMap({
   lng,
   locationName,
   locationAddress,
+  imgClassName = "h-48",
 }: EventLocationMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
   if (!apiKey) return null;
@@ -55,7 +58,7 @@ export function EventLocationMap({
         src={src}
         alt={locationName ? `Map showing ${locationName}` : "Event location map"}
         loading="lazy"
-        className="h-48 w-full object-cover"
+        className={`${imgClassName} w-full object-cover`}
       />
     </a>
   );
