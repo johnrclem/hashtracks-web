@@ -126,8 +126,7 @@ export function SourceOnboardingWizard({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep]);
+  }, [currentStep, name, urlValue, selectedType, configObj]);
 
   function handleUrlDetect() {
     const detected = detectSourceType(urlValue);

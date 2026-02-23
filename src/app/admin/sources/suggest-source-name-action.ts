@@ -1,5 +1,6 @@
 "use server";
 
+import he from "he";
 import { getAdminUser } from "@/lib/auth";
 
 export type SuggestNameResult =
@@ -187,31 +188,25 @@ async function suggestFromPageMeta(url: string): Promise<SuggestNameResult> {
     // Read at most 50 KB
     const reader = res.body?.getReader();
     if (!reader) return { error: "No response body" };
-    const chunks: Uint8Array[] = [];
+    const chunks: Buffer[] = [];
     let totalBytes = 0;
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      chunks.push(value);
+      chunks.push(Buffer.from(value));
       totalBytes += value.length;
       if (totalBytes > 50_000) { reader.cancel(); break; }
     }
-    const text = new TextDecoder().decode(
-      chunks.reduce((acc, c) => {
-        const merged = new Uint8Array(acc.length + c.length);
-        merged.set(acc); merged.set(c, acc.length);
-        return merged;
-      }, new Uint8Array(0)),
-    );
+    const text = Buffer.concat(chunks).toString();
 
     // og:title
     const ogMatch = /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i.exec(text)
       ?? /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i.exec(text);
-    if (ogMatch?.[1]) return { suggestedName: ogMatch[1].trim(), source: "page-meta" };
+    if (ogMatch?.[1]) return { suggestedName: he.decode(ogMatch[1].trim()), source: "page-meta" };
 
     // <title>
     const titleMatch = /<title[^>]*>([^<]+)<\/title>/i.exec(text);
-    if (titleMatch?.[1]) return { suggestedName: titleMatch[1].trim(), source: "page-meta" };
+    if (titleMatch?.[1]) return { suggestedName: he.decode(titleMatch[1].trim()), source: "page-meta" };
 
     return suggestFromDomain(url, "HTML_SCRAPER");
   } finally {
