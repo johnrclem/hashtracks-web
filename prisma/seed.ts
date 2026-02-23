@@ -24,7 +24,7 @@ async function upsertKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
     const slug = toSlugFn(kennel.shortName);
     const profileFields: Record<string, string | number | undefined> = {};
     for (const key of PROFILE_FIELDS) {
-      if (kennel[key] !== undefined) profileFields[key] = kennel[key];
+      if (Object.prototype.hasOwnProperty.call(kennel, key) && kennel[key] !== undefined) profileFields[key] = kennel[key];
     }
     const record = await prisma.kennel.upsert({
       where: { kennelCode: kennel.kennelCode },
@@ -41,8 +41,8 @@ async function upsertKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
 async function upsertAliases(prisma: any, kennelAliases: Record<string, string[]>, kennelRecords: Record<string, { id: string }>) {
   let aliasCount = 0;
   for (const [code, aliases] of Object.entries(kennelAliases)) {
+    if (!Object.prototype.hasOwnProperty.call(kennelRecords, code)) { console.warn(`  ⚠ Kennel code "${code}" not found, skipping aliases`); continue; }
     const kennel = kennelRecords[code];
-    if (!kennel) { console.warn(`  ⚠ Kennel code "${code}" not found, skipping aliases`); continue; }
     for (const alias of aliases) {
       await prisma.kennelAlias.upsert({
         where: { kennelId_alias: { kennelId: kennel.id, alias } },
@@ -123,7 +123,7 @@ async function ensureAllKennelsHaveGroup(prisma: any, kennelRecords: Record<stri
   for (const [code, record] of Object.entries(kennelRecords)) {
     const existing = await prisma.rosterGroupKennel.findUnique({ where: { kennelId: record.id } });
     if (existing) continue;
-    const groupName = codeToShortName[code] ?? code;
+    const groupName = Object.prototype.hasOwnProperty.call(codeToShortName, code) ? codeToShortName[code] : code;
     let group = await prisma.rosterGroup.findFirst({ where: { name: groupName } });
     if (!group) {
       group = await prisma.rosterGroup.create({ data: { name: groupName } });

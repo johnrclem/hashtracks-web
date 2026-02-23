@@ -19,18 +19,18 @@ function buildAlertsWhereClause(statusFilter: string) {
 function computeFuzzySuggestions(
   alerts: Array<{ id: string; type: string; context: unknown }>,
   fuzzyCandidates: Array<{ id: string; shortName: string; fullName: string; aliases: string[] }>,
-): Record<string, Record<string, KennelOption[]>> {
-  const suggestionsMap: Record<string, Record<string, KennelOption[]>> = {};
+): Map<string, Record<string, KennelOption[]>> {
+  const suggestionsMap = new Map<string, Record<string, KennelOption[]>>();
   for (const alert of alerts) {
     if (alert.type !== "UNMATCHED_TAGS" || !alert.context) continue;
     const ctx = alert.context as { tags?: string[] };
     if (!ctx.tags) continue;
 
-    const alertSuggestions: Record<string, KennelOption[]> = {};
+    const tagSuggestions = new Map<string, KennelOption[]>();
     for (const tag of ctx.tags) {
-      alertSuggestions[tag] = fuzzyMatch(tag, fuzzyCandidates);
+      tagSuggestions.set(tag, fuzzyMatch(tag, fuzzyCandidates));
     }
-    suggestionsMap[alert.id] = alertSuggestions;
+    suggestionsMap.set(alert.id, Object.fromEntries(tagSuggestions));
   }
   return suggestionsMap;
 }
@@ -152,7 +152,7 @@ export default async function AlertsPage({
               key={alert.id}
               alert={alert}
               allKennels={alert.type === "UNMATCHED_TAGS" ? kennelList : undefined}
-              suggestions={suggestionsMap[alert.id]}
+              suggestions={suggestionsMap.get(alert.id)}
             />
           ))}
         </div>

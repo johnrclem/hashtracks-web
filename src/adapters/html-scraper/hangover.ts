@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
+import { validateSourceUrl } from "../utils";
 
 const DEFAULT_START_TIME = "10:15";
 
@@ -198,7 +199,8 @@ export class HangoverAdapter implements SourceAdapter {
 
     let html: string;
     try {
-      const response = await fetch(baseUrl, { headers: requestHeaders }); // nosemgrep: ssrf — URL validated by validateSourceUrl() in scrape.ts
+      validateSourceUrl(baseUrl);
+      const response = await fetch(baseUrl, { headers: requestHeaders });
       if (!response.ok) {
         const message = `HTTP ${response.status}: ${response.statusText}`;
         errorDetails.fetch = [{ url: baseUrl, status: response.status, message }];

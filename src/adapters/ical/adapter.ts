@@ -1,6 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
-import { googleMapsSearchUrl } from "../utils";
+import { googleMapsSearchUrl, validateSourceUrl } from "../utils";
 import { sync as icalSync } from "node-ical";
 import type { VEvent, ParameterValue, DateWithTimeZone } from "node-ical";
 
@@ -150,7 +150,8 @@ async function fetchAndValidateIcsContent(
 ): Promise<{ icsText: string; contentType: string | undefined } | { error: ScrapeResult }> {
   let contentType: string | undefined;
   try {
-    const resp = await fetch(url, { // nosemgrep: ssrf — URL validated by validateSourceUrl() in scrape.ts
+    validateSourceUrl(url);
+    const resp = await fetch(url, {
       headers: { "User-Agent": "HashTracks-Scraper" },
     });
 

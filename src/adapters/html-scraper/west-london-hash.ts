@@ -145,7 +145,8 @@ export class WestLondonHashAdapter implements SourceAdapter {
     errorDetails: ErrorDetails,
   ): Promise<string | null> {
     try {
-      const response = await fetch(url, { // nosemgrep: ssrf — URL validated by validateSourceUrl() in scrape.ts + pagination check
+      validateSourceUrl(url);
+      const response = await fetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       });
       if (!response.ok) {

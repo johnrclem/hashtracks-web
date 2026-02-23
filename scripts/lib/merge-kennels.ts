@@ -145,7 +145,7 @@ export async function mergeKennels(config: MergeConfig): Promise<void> {
   // 8. Resolve target roster group for hasher reassignment
   const targetRgLink = await prisma.rosterGroupKennel.findFirst({
     where: { kennelId: targetKennel.id },
-    select: { rosterGroupId: true },
+    select: { groupId: true },
   });
 
   // 9. Execute transaction for remaining reassignments
@@ -165,7 +165,10 @@ export async function mergeKennels(config: MergeConfig): Promise<void> {
     // KennelHasher (duplicates handled above)
     prisma.kennelHasher.updateMany({
       where: { kennelId: sourceKennel.id },
-      data: { kennelId: targetKennel.id, rosterGroupId: targetRgLink?.rosterGroupId ?? null },
+      data: {
+        kennelId: targetKennel.id,
+        ...(targetRgLink ? { rosterGroupId: targetRgLink.groupId } : {}),
+      },
     }),
 
     // MismanRequest

@@ -8,7 +8,7 @@ import type {
 } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchBloggerPosts } from "../blogger-api";
-import { buildUrlVariantCandidates, decodeEntities } from "../utils";
+import { buildUrlVariantCandidates, decodeEntities, validateSourceUrl } from "../utils";
 
 const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
@@ -283,7 +283,8 @@ export class EnfieldHashAdapter implements SourceAdapter {
 
     for (const candidateUrl of candidateUrls) {
       try {
-        const response = await fetch(candidateUrl, { headers: requestHeaders }); // nosemgrep: ssrf — URL validated by validateSourceUrl() in scrape.ts
+        validateSourceUrl(candidateUrl);
+        const response = await fetch(candidateUrl, { headers: requestHeaders });
 
         if (response.ok) {
           const html = await response.text();

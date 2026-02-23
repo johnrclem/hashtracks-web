@@ -47,7 +47,8 @@ export function parseTimeString(text: string): string | null {
 /** Fetch a URL and return its HTML text, or an error detail. */
 export async function fetchAndParseHtmlPage(url: string): Promise<{ html: string; error?: undefined } | { html?: undefined; error: { url: string; status?: number; message: string } }> {
   try {
-    const response = await fetch(url, { // nosemgrep: ssrf — URL validated by validateSourceUrl() in scrape.ts + pagination check
+    validateSourceUrl(url);
+    const response = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
     });
     if (!response.ok) {

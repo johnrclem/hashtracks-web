@@ -6,6 +6,37 @@ import { MONTHS, parse12HourTime, googleMapsSearchUrl } from "../utils";
 
 const mapsUrl = googleMapsSearchUrl;
 
+/** Known BFM field labels that delimit sections in body text. */
+const BFM_FIELD_LABELS = ["When", "Where", "Bring", "Hare", "Hares", "The Fun Part"];
+
+/**
+ * Extract a labeled field value from BFM body text.
+ * Finds "Label:" and returns text up to the next known label or newline.
+ * Uses indexOf (no backtracking) instead of regex lookahead.
+ */
+function extractBfmField(bodyText: string, label: string | RegExp): string | null {
+  const labelPattern = typeof label === "string" ? new RegExp(`${label}:\\s*`, "i") : label;
+  const labelMatch = bodyText.match(labelPattern);
+  if (!labelMatch) return null;
+
+  const valueStart = (labelMatch.index ?? 0) + labelMatch[0].length;
+  const remaining = bodyText.slice(valueStart);
+
+  // Find earliest terminator: newline or next known field label
+  let endIdx = remaining.indexOf("\n");
+  if (endIdx === -1) endIdx = remaining.length;
+
+  for (const fieldLabel of BFM_FIELD_LABELS) {
+    const fieldIdx = remaining.search(new RegExp(`${fieldLabel}:`, "i"));
+    if (fieldIdx >= 0 && fieldIdx < endIdx) {
+      endIdx = fieldIdx;
+    }
+  }
+
+  const value = remaining.slice(0, endIdx).trim();
+  return value || null;
+}
+
 /**
  * Parse a BFM-style date string into YYYY-MM-DD.
  * Accepts: "2/12", "Thursday, 2/12", "Feb 19th", "March 5th"
@@ -75,15 +106,14 @@ function scrapeCurrentTrail(
 
   const runNumber = parseInt(trailMatch[1], 10);
   const trailName = trailMatch[2].trim();
-  const whenMatch = bodyText.match(/When:\s*([^\n]*?)(?=(?:When|Where|Bring|Hares?|The Fun Part):|\n|$)/i);
-  const whereMatch = bodyText.match(/Where:\s*([^\n]*?)(?=(?:When|Where|Bring|Hares?|The Fun Part):|\n|$)/i);
-  const hareMatch = bodyText.match(/Hares?:\s*([^\n]*?)(?=(?:When|Where|Bring|The Fun Part):|\n|$)/i);
+  const whenText = extractBfmField(bodyText, "When");
+  const whereText = extractBfmField(bodyText, "Where");
+  const hareText = extractBfmField(bodyText, /Hares?:\s*/i);
 
   let dateStr: string | null = null;
   let startTime: string | undefined;
 
-  if (whenMatch) {
-    const whenText = whenMatch[1].trim();
+  if (whenText) {
     dateStr = parseBfmDate(whenText, currentYear);
     startTime = parseTime(whenText);
   }
@@ -94,8 +124,8 @@ function scrapeCurrentTrail(
     return { events, errors, parseErrors };
   }
 
-  const location = whereMatch ? whereMatch[1].trim() : undefined;
-  const hares = hareMatch ? hareMatch[1].trim() : undefined;
+  const location = whereText ?? undefined;
+  const hares = hareText ?? undefined;
 
   let locationUrl: string | undefined;
   $("a[href]").each((_i, el) => {

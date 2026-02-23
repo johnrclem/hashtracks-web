@@ -10,7 +10,8 @@ function validateRegex(
   errors: string[],
 ): void {
   try {
-    const re = new RegExp(pattern, "i"); // NOSONAR nosemgrep: detect-non-literal-regexp — intentional: validating user-supplied regex, protected by isSafeRegex()
+    // nosemgrep: detect-non-literal-regexp — intentional: validating user-supplied regex, protected by isSafeRegex()
+    const re = new RegExp(pattern, "i"); // NOSONAR
     if (!isSafeRegex(re)) {
       errors.push(
         `${label}: regex "${pattern}" may cause catastrophic backtracking (ReDoS)`,
