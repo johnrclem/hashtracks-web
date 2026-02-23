@@ -65,6 +65,20 @@ export function detectSourceType(rawUrl: string): SourceDetectResult | null {
     return { type: "ICAL_FEED" };
   }
 
+  // RSS feed: common path suffixes and query params
+  const pathLower = url.pathname.toLowerCase();
+  const isRss =
+    pathLower.endsWith("/feed") ||
+    pathLower.endsWith("/rss") ||
+    pathLower.endsWith("/feed.xml") ||
+    pathLower.endsWith("/rss.xml") ||
+    pathLower.endsWith("/atom.xml") ||
+    url.searchParams.get("feed") === "rss2" ||
+    url.searchParams.get("format") === "rss";
+  if (isRss) {
+    return { type: "RSS_FEED" };
+  }
+
   return null;
 }
 

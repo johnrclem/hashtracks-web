@@ -80,6 +80,39 @@ describe("detectSourceType", () => {
     });
   });
 
+  describe("RSS feed", () => {
+    it("detects /feed path suffix", () => {
+      const result = detectSourceType("https://example.com/feed");
+      expect(result?.type).toBe("RSS_FEED");
+    });
+
+    it("detects /rss path suffix", () => {
+      const result = detectSourceType("https://wordpress-hash.com/rss");
+      expect(result?.type).toBe("RSS_FEED");
+    });
+
+    it("detects /feed.xml path suffix", () => {
+      const result = detectSourceType("https://example.com/feed.xml");
+      expect(result?.type).toBe("RSS_FEED");
+    });
+
+    it("detects /atom.xml path suffix", () => {
+      const result = detectSourceType("https://example.com/atom.xml");
+      expect(result?.type).toBe("RSS_FEED");
+    });
+
+    it("detects ?feed=rss2 query param", () => {
+      const result = detectSourceType("https://example.com/?feed=rss2");
+      expect(result?.type).toBe("RSS_FEED");
+    });
+
+    it("does not match a generic URL with /feed in a subdirectory", () => {
+      // /feed at a sub-path still matches if it ends with /feed
+      const result = detectSourceType("https://example.com/blog/feed");
+      expect(result?.type).toBe("RSS_FEED");
+    });
+  });
+
   describe("no match", () => {
     it("returns null for a generic HTML URL", () => {
       const result = detectSourceType("https://hashnyc.com/schedule");

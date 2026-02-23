@@ -55,6 +55,10 @@ import {
   MeetupConfigPanel,
   type MeetupConfig,
 } from "./config-panels/MeetupConfigPanel";
+import {
+  RssConfigPanel,
+  type RssConfig,
+} from "./config-panels/RssConfigPanel";
 
 const SOURCE_TYPES = [
   "HTML_SCRAPER",
@@ -87,6 +91,7 @@ const CONFIG_TYPES = new Set([
   "ICAL_FEED",
   "HASHREGO",
   "MEETUP",
+  "RSS_FEED",
 ]);
 
 /** Types that get a dedicated config panel */
@@ -96,6 +101,7 @@ const PANEL_TYPES = new Set([
   "HASHREGO",
   "GOOGLE_SHEETS",
   "MEETUP",
+  "RSS_FEED",
 ]);
 
 const STEPS = [
@@ -182,7 +188,7 @@ export function SourceOnboardingWizard({
     PANEL_TYPES.has(selectedType) ||
     (selectedType === "HTML_SCRAPER" && hasICalConfigShape(configObj));
 
-  function getPanelType(): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | null {
+  function getPanelType(): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | "rss" | null {
     if (
       selectedType === "ICAL_FEED" ||
       (selectedType === "HTML_SCRAPER" && hasICalConfigShape(configObj))
@@ -192,6 +198,7 @@ export function SourceOnboardingWizard({
     if (selectedType === "HASHREGO") return "hashrego";
     if (selectedType === "GOOGLE_SHEETS") return "sheets";
     if (selectedType === "MEETUP") return "meetup";
+    if (selectedType === "RSS_FEED") return "rss";
     return null;
   }
 
@@ -638,6 +645,13 @@ export function SourceOnboardingWizard({
               {panelType === "meetup" && (
                 <MeetupConfigPanel
                   config={configObj as MeetupConfig | null}
+                  onChange={handleConfigChange}
+                />
+              )}
+
+              {panelType === "rss" && (
+                <RssConfigPanel
+                  config={configObj as RssConfig | null}
                   onChange={handleConfigChange}
                 />
               )}

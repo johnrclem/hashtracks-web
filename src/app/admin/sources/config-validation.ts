@@ -1,7 +1,7 @@
 import isSafeRegex from "safe-regex2";
 
 /** Types that require a non-empty config object */
-const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "HASHREGO"]);
+const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "HASHREGO", "RSS_FEED"]);
 
 /**
  * Validate source config based on type. Returns error messages or empty array.
@@ -94,6 +94,12 @@ export function validateSourceConfig(
       obj.kennelSlugs.some((s: unknown) => typeof s !== "string" || s.trim().length === 0)
     ) {
       errors.push("Hash Rego config requires at least one non-empty kennelSlug");
+    }
+  }
+
+  if (type === "RSS_FEED") {
+    if (!obj.kennelTag || typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
+      errors.push("RSS Feed config requires a non-empty kennelTag");
     }
   }
 

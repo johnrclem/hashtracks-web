@@ -22,6 +22,7 @@ import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
 import { HashRegoAdapter } from "./hashrego/adapter";
 import { MeetupAdapter } from "./meetup/adapter";
+import { RssAdapter } from "./rss/adapter";
 
 const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
   HTML_SCRAPER: () => new HashNYCAdapter(), // default HTML scraper
@@ -30,6 +31,7 @@ const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
   ICAL_FEED: () => new ICalAdapter(),
   HASHREGO: () => new HashRegoAdapter(),
   MEETUP: () => new MeetupAdapter(),
+  RSS_FEED: () => new RssAdapter(),
 };
 
 /** URL-based routing for HTML_SCRAPER sources with site-specific adapters */
