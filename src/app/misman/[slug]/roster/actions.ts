@@ -21,27 +21,21 @@ function bestFuzzyScore(
   a: NameHolder,
   b: NameHolder,
 ): { score: number; matchField: string } {
-  let score = 0;
-  let matchField = "";
+  const pairs: [string | null, string | null, string][] = [
+    [a.hashName, b.hashName, "hashName"],
+    [a.nerdName, b.nerdName, "nerdName"],
+    [a.hashName, b.nerdName, "hashName↔nerdName"],
+    [a.nerdName, b.hashName, "nerdName↔hashName"],
+  ];
 
-  if (a.hashName && b.hashName) {
-    const s = fuzzyNameMatch(a.hashName, b.hashName);
-    if (s > score) { score = s; matchField = "hashName"; }
+  let best = { score: 0, matchField: "" };
+  for (const [nameA, nameB, field] of pairs) {
+    if (nameA && nameB) {
+      const s = fuzzyNameMatch(nameA, nameB);
+      if (s > best.score) best = { score: s, matchField: field };
+    }
   }
-  if (a.nerdName && b.nerdName) {
-    const s = fuzzyNameMatch(a.nerdName, b.nerdName);
-    if (s > score) { score = s; matchField = "nerdName"; }
-  }
-  if (a.hashName && b.nerdName) {
-    const s = fuzzyNameMatch(a.hashName, b.nerdName);
-    if (s > score) { score = s; matchField = "hashName↔nerdName"; }
-  }
-  if (a.nerdName && b.hashName) {
-    const s = fuzzyNameMatch(a.nerdName, b.hashName);
-    if (s > score) { score = s; matchField = "nerdName↔hashName"; }
-  }
-
-  return { score, matchField };
+  return best;
 }
 
 /**

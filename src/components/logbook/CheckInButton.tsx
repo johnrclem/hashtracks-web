@@ -18,20 +18,20 @@ export interface AttendanceData {
 }
 
 interface CheckInButtonProps {
-  eventId: string;
-  eventDate: string; // ISO string
-  isAuthenticated: boolean;
-  attendance: AttendanceData | null;
+  readonly eventId: string;
+  readonly eventDate: string; // ISO string
+  readonly isAuthenticated: boolean;
+  readonly attendance: AttendanceData | null;
 }
 
 /** Render the check-in button for a past event. */
 function PastEventButton({
   eventId,
   attendance,
-}: {
+}: Readonly<{
   eventId: string;
   attendance: AttendanceData | null;
-}) {
+}>) {
   const [isPending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
   const router = useRouter();
@@ -44,8 +44,8 @@ function PastEventButton({
         onClick={() => {
           startTransition(async () => {
             const result = await confirmAttendance(attendanceId);
-            if (!result.success) toast.error(result.error);
-            else toast.success("Attendance confirmed!");
+            if (result.success) toast.success("Attendance confirmed!");
+            else toast.error(result.error);
             router.refresh();
           });
         }}
@@ -71,8 +71,8 @@ function PastEventButton({
       onClick={() => {
         startTransition(async () => {
           const result = await checkIn(eventId);
-          if (!result.success) toast.error(result.error);
-          else toast.success("Checked in!");
+          if (result.success) toast.success("Checked in!");
+          else toast.error(result.error);
           router.refresh();
         });
       }}
@@ -87,10 +87,10 @@ function PastEventButton({
 function FutureEventButton({
   eventId,
   attendance,
-}: {
+}: Readonly<{
   eventId: string;
   attendance: AttendanceData | null;
-}) {
+}>) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -103,8 +103,8 @@ function FutureEventButton({
         onClick={() => {
           startTransition(async () => {
             const result = await rsvp(eventId);
-            if (!result.success) toast.error(result.error);
-            else toast("RSVP removed");
+            if (result.success) toast("RSVP removed");
+            else toast.error(result.error);
             router.refresh();
           });
         }}
@@ -122,8 +122,8 @@ function FutureEventButton({
       onClick={() => {
         startTransition(async () => {
           const result = await rsvp(eventId);
-          if (!result.success) toast.error(result.error);
-          else toast.success("You're going!");
+          if (result.success) toast.success("You're going!");
+          else toast.error(result.error);
           router.refresh();
         });
       }}

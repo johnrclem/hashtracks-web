@@ -68,6 +68,48 @@ function isPrivateIPv4(a: number, b: number, c: number, d: number): boolean {
   );
 }
 
+/** Resolve IPv4-mapped IPv6 addresses to their IPv4 equivalent. */
+function resolveIPv4Mapped(bare: string): string {
+  const v4MappedDotted = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i.exec(bare);
+  if (v4MappedDotted) return v4MappedDotted[1];
+
+  const v4MappedHex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(bare);
+  if (v4MappedHex) {
+    const hi = Number.parseInt(v4MappedHex[1], 16);
+    const lo = Number.parseInt(v4MappedHex[2], 16);
+    return `${(hi >> 8) & 0xFF}.${hi & 0xFF}.${(lo >> 8) & 0xFF}.${lo & 0xFF}`;
+  }
+
+  return bare;
+}
+
+/** Check if a single-integer IP (decimal or hex) maps to a private IPv4 range. */
+function checkIntegerIP(ip: string): void {
+  if (!/^(?:0x[\da-f]+|\d+)$/i.test(ip)) return;
+  const num = Number(ip);
+  if (num >= 0 && num <= 0xFFFFFFFF) {
+    const a = (num >>> 24) & 0xFF;
+    const b = (num >>> 16) & 0xFF;
+    const c = (num >>> 8) & 0xFF;
+    const d = num & 0xFF;
+    if (isPrivateIPv4(a, b, c, d)) {
+      throw new Error("Blocked URL: private/reserved IP");
+    }
+  }
+}
+
+/** Check if an IPv6 address is in a private/reserved range. */
+function checkIPv6Private(bare: string): void {
+  if (!bare.includes(":")) return;
+  if (
+    bare === "::1" || bare === "::0" || bare === "::" ||
+    bare.startsWith("fc") || bare.startsWith("fd") ||  // unique-local
+    bare.startsWith("fe80")                              // link-local
+  ) {
+    throw new Error("Blocked URL: private/reserved IP");
+  }
+}
+
 /**
  * Validate a source URL is safe for server-side fetching (SSRF prevention).
  * Blocks non-HTTP protocols, localhost, private IPs (including alternate
@@ -81,61 +123,25 @@ export function validateSourceUrl(url: string): void {
   }
   const hostname = parsed.hostname.toLowerCase();
 
-  // Block known internal hostnames
   if (hostname === "localhost" || hostname === "metadata.google.internal") {
     throw new Error("Blocked URL: internal hostname");
   }
 
-  // Strip IPv6 brackets for analysis
-  const bare = hostname.replace(/^\[|\]$/g, "");
-
-  // Handle IPv4-mapped IPv6 — dotted quad form (::ffff:127.0.0.1)
-  const v4MappedDotted = bare.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i);
-  // Handle IPv4-mapped IPv6 — hex form (::ffff:7f00:1, as normalized by URL parser)
-  const v4MappedHex = bare.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
-  let ipToCheck = bare;
-  if (v4MappedDotted) {
-    ipToCheck = v4MappedDotted[1];
-  } else if (v4MappedHex) {
-    const hi = parseInt(v4MappedHex[1], 16);
-    const lo = parseInt(v4MappedHex[2], 16);
-    ipToCheck = `${(hi >> 8) & 0xFF}.${hi & 0xFF}.${(lo >> 8) & 0xFF}.${lo & 0xFF}`;
-  }
+  const bare = hostname.replace(/^\[/, "").replace(/\]$/, "");
+  const ipToCheck = resolveIPv4Mapped(bare);
 
   // Check dotted IPv4 (standard notation)
-  const ipv4Match = ipToCheck.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  const ipv4Match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ipToCheck);
   if (ipv4Match) {
     const [, a, b, c, d] = ipv4Match.map(Number);
     if (isPrivateIPv4(a, b, c, d)) {
       throw new Error("Blocked URL: private/reserved IP");
     }
-    return; // Valid public IPv4
+    return;
   }
 
-  // Check single-integer IP (e.g., 2130706433 = 127.0.0.1, 0x7f000001)
-  if (/^(?:0x[\da-f]+|\d+)$/i.test(ipToCheck)) {
-    const num = Number(ipToCheck);
-    if (num >= 0 && num <= 0xFFFFFFFF) {
-      const a = (num >>> 24) & 0xFF;
-      const b = (num >>> 16) & 0xFF;
-      const c = (num >>> 8) & 0xFF;
-      const d = num & 0xFF;
-      if (isPrivateIPv4(a, b, c, d)) {
-        throw new Error("Blocked URL: private/reserved IP");
-      }
-    }
-  }
-
-  // Check IPv6 private ranges
-  if (bare.includes(":")) {
-    if (
-      bare === "::1" || bare === "::0" || bare === "::" ||
-      bare.startsWith("fc") || bare.startsWith("fd") ||  // unique-local
-      bare.startsWith("fe80")                              // link-local
-    ) {
-      throw new Error("Blocked URL: private/reserved IP");
-    }
-  }
+  checkIntegerIP(ipToCheck);
+  checkIPv6Private(bare);
 }
 
 /**
@@ -183,10 +189,10 @@ export function buildUrlVariantCandidates(baseUrl: string): string[] {
  * Returns undefined if no match found.
  */
 export function parse12HourTime(text: string): string | undefined {
-  const match = text.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
+  const match = /(\d{1,2}):(\d{2})\s*(am|pm)/i.exec(text);
   if (!match) return undefined;
 
-  let hours = parseInt(match[1], 10);
+  let hours = Number.parseInt(match[1], 10);
   const minutes = match[2];
   const ampm = match[3].toLowerCase();
 
@@ -261,6 +267,6 @@ export function buildDateWindow(days = 90): { minDate: Date; maxDate: Date } {
  * UK postcodes: "SE11 5JA", "SW18 2SS", "N1 9AA", "EC1A 1BB"
  */
 export function extractUkPostcode(text: string): string | null {
-  const match = text.match(/[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}/i);
+  const match = /[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}/i.exec(text);
   return match ? match[0].toUpperCase() : null;
 }

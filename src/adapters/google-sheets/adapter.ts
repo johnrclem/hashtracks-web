@@ -37,7 +37,7 @@ export function parseDate(dateStr: string): string | null {
   const trimmed = dateStr.trim();
   if (!trimmed) return null;
 
-  const parts = trimmed.split(/[/\-]/).map((s) => parseInt(s, 10));
+  const parts = trimmed.split(/[/\-]/).map((s) => Number.parseInt(s, 10));
   if (parts.length !== 3 || parts.some(isNaN)) return null;
 
   const [month, day, rawYear] = parts;
@@ -70,30 +70,34 @@ export function inferStartTime(
  * Minimal CSV parser for Google Sheets export.
  * Handles quoted fields with escaped double-quotes ("").
  */
+/** Parse a quoted CSV field (handles escaped double-quotes). */
+function parseQuotedCSVField(text: string, startIdx: number): { value: string; nextIdx: number } {
+  const len = text.length;
+  let i = startIdx + 1; // skip opening quote
+  let field = "";
+  while (i < len) {
+    if (text[i] === '"') {
+      if (i + 1 < len && text[i + 1] === '"') {
+        field += '"';
+        i += 2;
+      } else {
+        return { value: field, nextIdx: i + 1 }; // closing quote
+      }
+    } else {
+      field += text[i];
+      i++;
+    }
+  }
+  return { value: field, nextIdx: i };
+}
+
 /** Parse a single CSV field (quoted or unquoted) starting at position startIdx. */
 function parseCSVField(text: string, startIdx: number): { value: string; nextIdx: number } {
   const len = text.length;
   let i = startIdx;
 
   if (i < len && text[i] === '"') { // nosemgrep: object-injection — safe: string char access with integer index
-    // Quoted field
-    i++;
-    let field = "";
-    while (i < len) {
-      if (text[i] === '"') {
-        if (i + 1 < len && text[i + 1] === '"') {
-          field += '"';
-          i += 2;
-        } else {
-          i++; // closing quote
-          break;
-        }
-      } else {
-        field += text[i];
-        i++;
-      }
-    }
-    return { value: field, nextIdx: i };
+    return parseQuotedCSVField(text, i);
   }
 
   // Unquoted field
@@ -181,20 +185,20 @@ function resolveKennelTagFromSheetRow(
     if (mapped) {
       return {
         kennelTag: mapped,
-        runNumber: runNumberCell ? parseInt(runNumberCell, 10) || undefined : undefined,
+        runNumber: runNumberCell ? Number.parseInt(runNumberCell, 10) || undefined : undefined,
       };
     }
   }
   if (specialRunCell && /^\d+$/.test(specialRunCell) && config.kennelTagRules.numericSpecialTag) {
     return {
       kennelTag: config.kennelTagRules.numericSpecialTag,
-      runNumber: parseInt(specialRunCell, 10),
+      runNumber: Number.parseInt(specialRunCell, 10),
     };
   }
   if (runNumberCell && /^\d+$/.test(runNumberCell)) {
     return {
       kennelTag: config.kennelTagRules.default,
-      runNumber: parseInt(runNumberCell, 10),
+      runNumber: Number.parseInt(runNumberCell, 10),
     };
   }
   return null;

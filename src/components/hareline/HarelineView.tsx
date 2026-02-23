@@ -33,14 +33,19 @@ interface FilterCriteria {
   todayUtc: number;
 }
 
+/** Check whether an event passes the time filter (upcoming/past). */
+function passesTimeFilter(eventDate: number, view: string, timeFilter: string, todayUtc: number): boolean {
+  if (view === "calendar") return true;
+  if (timeFilter === "upcoming" && eventDate < todayUtc) return false;
+  if (timeFilter === "past" && eventDate >= todayUtc) return false;
+  return true;
+}
+
 /** Check whether a single event passes all active filters. */
 function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
   const eventDate = new Date(event.date).getTime();
 
-  if (f.view !== "calendar") {
-    if (f.timeFilter === "upcoming" && eventDate < f.todayUtc) return false;
-    if (f.timeFilter === "past" && eventDate >= f.todayUtc) return false;
-  }
+  if (!passesTimeFilter(eventDate, f.view, f.timeFilter, f.todayUtc)) return false;
   if (f.scope === "my" && !f.subscribedKennelIds.includes(event.kennelId)) return false;
   if (f.selectedRegions.length > 0 && !f.selectedRegions.includes(event.kennel.region)) return false;
   if (f.selectedKennels.length > 0 && !f.selectedKennels.includes(event.kennel.id)) return false;

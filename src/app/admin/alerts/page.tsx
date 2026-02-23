@@ -78,15 +78,15 @@ export default async function AlertsPage({
     }),
   ]);
 
-  const countMap: Record<string, number> = {};
+  const countMap = new Map<string, number>();
   for (const c of counts) {
-    countMap[c.status] = c._count;
+    countMap.set(c.status, c._count);
   }
 
-  const openCount = countMap["OPEN"] ?? 0;
-  const acknowledgedCount = countMap["ACKNOWLEDGED"] ?? 0;
-  const snoozedCount = countMap["SNOOZED"] ?? 0;
-  const resolvedCount = countMap["RESOLVED"] ?? 0;
+  const openCount = countMap.get("OPEN") ?? 0;
+  const acknowledgedCount = countMap.get("ACKNOWLEDGED") ?? 0;
+  const snoozedCount = countMap.get("SNOOZED") ?? 0;
+  const resolvedCount = countMap.get("RESOLVED") ?? 0;
 
   const fuzzyCandidates = allKennels.map((k) => ({
     id: k.id,

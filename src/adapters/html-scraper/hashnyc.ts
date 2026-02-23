@@ -46,18 +46,18 @@ export function decodeHtmlEntities(text: string): string {
 export function extractYear(rowId: string | undefined, dateCellHtml: string): number | null {
   // Try row ID first
   if (rowId) {
-    const match = rowId.match(/^(\d{4})/);
-    if (match) return parseInt(match[1], 10);
+    const match = /^(\d{4})/.exec(rowId);
+    if (match) return Number.parseInt(match[1], 10);
   }
 
   // Try date cell HTML
-  const htmlMatch = dateCellHtml.match(/(\d{4})/);
-  if (htmlMatch) return parseInt(htmlMatch[1], 10);
+  const htmlMatch = /(\d{4})/.exec(dateCellHtml);
+  if (htmlMatch) return Number.parseInt(htmlMatch[1], 10);
 
   // Try cleaned text
   const cleaned = decodeHtmlEntities(dateCellHtml);
-  const textMatch = cleaned.match(/(\d{4})/);
-  if (textMatch) return parseInt(textMatch[1], 10);
+  const textMatch = /(\d{4})/.exec(cleaned);
+  if (textMatch) return Number.parseInt(textMatch[1], 10);
 
   return null;
 }
@@ -69,14 +69,14 @@ export function extractYear(rowId: string | undefined, dateCellHtml: string): nu
 export function extractMonthDay(
   dateText: string,
 ): { month: number; day: number } | null {
-  const match = dateText.match(/(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?/i);
+  const match = /(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?/i.exec(dateText);
   if (!match) return null;
 
   const monthStr = match[1].toLowerCase();
   const month = MONTHS_ZERO[monthStr];
   if (month === undefined) return null;
 
-  const day = parseInt(match[2], 10);
+  const day = Number.parseInt(match[2], 10);
   return { month, day };
 }
 
@@ -110,8 +110,8 @@ export function extractKennelTag(text: string): string {
  * Extract run number from text.
  */
 export function extractRunNumber(text: string): number | undefined {
-  const match = text.match(/(?:Run|Trail|#)\s*(\d+)/i);
-  return match ? parseInt(match[1], 10) : undefined;
+  const match = /(?:Run|Trail|#)\s*(\d+)/i.exec(text);
+  return match ? Number.parseInt(match[1], 10) : undefined;
 }
 
 /**
@@ -241,7 +241,7 @@ function extractLocationAndUrl(
   let location: string | undefined;
   let locationUrl: string | undefined;
 
-  const startMatch = cellHtml.match(/Start:\s*([\s\S]*?)(?:Transit:|$)/i);
+  const startMatch = /Start:\s*([\s\S]*?)(?:Transit:|$)/i.exec(cellHtml);
   if (startMatch) {
     const locationBlock = startMatch[1];
 
@@ -295,13 +295,13 @@ function extractDescriptionFromCell(
     return paragraphs.join("\n\n");
   }
 
-  const restMatch = cellHtml.match(/Transit:[^<]*(?:<span[^>]*>[^<]*<\/span>[^<]*)*(?:<br\s*\/?>)([\s\S]*)/i);
+  const restMatch = /Transit:[^<]*(?:<span[^>]*>[^<]*<\/span>[^<]*)*(?:<br\s*\/?>)([\s\S]*)/i.exec(cellHtml);
   if (restMatch) {
     const rest = decodeHtmlEntities(restMatch[1]).trim();
     if (rest) return rest;
   }
 
-  if (!cellHtml.match(/Transit:/i) && !cellHtml.match(/Start:/i)) {
+  if (!/Transit:/i.exec(cellHtml) && !/Start:/i.exec(cellHtml)) {
     let raw = cellText;
     raw = raw.replace(/^[\s\S]*?(?:Run|Trail|#)\s*\d+\s*[:\-–—]?\s*/i, "").trim();
     raw = raw.replace(/Start:[\s\S]*/i, "").trim();

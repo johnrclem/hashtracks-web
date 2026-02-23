@@ -17,7 +17,7 @@ const BFM_FIELD_TERMINATORS: RegExp[] = [
  * Uses precompiled RegExp literals only (no dynamic construction).
  */
 function extractBfmField(bodyText: string, labelPattern: RegExp): string | null {
-  const labelMatch = bodyText.match(labelPattern);
+  const labelMatch = labelPattern.exec(bodyText);
   if (!labelMatch) return null;
 
   const valueStart = (labelMatch.index ?? 0) + labelMatch[0].length;
@@ -44,30 +44,30 @@ function extractBfmField(bodyText: string, labelPattern: RegExp): string | null 
  */
 export function parseBfmDate(text: string, referenceYear: number): string | null {
   // Try M/D format: "2/12" or "Thursday, 2/12"
-  const mdMatch = text.match(/(\d{1,2})\/(\d{1,2})/);
+  const mdMatch = /(\d{1,2})\/(\d{1,2})/.exec(text);
   if (mdMatch) {
-    const month = parseInt(mdMatch[1], 10);
-    const day = parseInt(mdMatch[2], 10);
+    const month = Number.parseInt(mdMatch[1], 10);
+    const day = Number.parseInt(mdMatch[2], 10);
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
       return `${referenceYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
   }
 
   // Try "Feb 19th", "March 5th", "8/8/2026"
-  const fullMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  const fullMatch = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(text);
   if (fullMatch) {
-    const month = parseInt(fullMatch[1], 10);
-    const day = parseInt(fullMatch[2], 10);
-    const year = parseInt(fullMatch[3], 10);
+    const month = Number.parseInt(fullMatch[1], 10);
+    const day = Number.parseInt(fullMatch[2], 10);
+    const year = Number.parseInt(fullMatch[3], 10);
     return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   }
 
   // Try month name format: "Feb 19th", "March 5"
-  const monthNameMatch = text.match(/(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?/i);
+  const monthNameMatch = /(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?/i.exec(text);
   if (monthNameMatch) {
     const monthNum = MONTHS[monthNameMatch[1].toLowerCase()];
     if (monthNum) {
-      const day = parseInt(monthNameMatch[2], 10);
+      const day = Number.parseInt(monthNameMatch[2], 10);
       return `${referenceYear}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
   }
@@ -98,14 +98,14 @@ function scrapeCurrentTrail(
   const errors: string[] = [];
   const parseErrors: ErrorDetails["parse"] = [];
 
-  const trailMatch = bodyText.match(/Trail\s*#(\d+)\s*:?\s*(.+?)(?:\n|$)/i);
+  const trailMatch = /Trail\s*#(\d+)\s*:?\s*(.+?)(?:\n|$)/i.exec(bodyText);
   if (!trailMatch) {
     errors.push("No current trail found on page");
     parseErrors.push({ row: 0, section: "current_trail", error: "No current trail found on page", rawText: bodyText.slice(0, 2000), partialData: { kennelTag: "BFM" } });
     return { events, errors, parseErrors };
   }
 
-  const runNumber = parseInt(trailMatch[1], 10);
+  const runNumber = Number.parseInt(trailMatch[1], 10);
   const trailName = trailMatch[2].trim();
   const whenText = extractBfmField(bodyText, /When:\s*/i);
   const whereText = extractBfmField(bodyText, /Where:\s*/i);
@@ -162,12 +162,12 @@ function scrapeUpcomingHares(
   baseUrl: string,
 ): RawEventData[] {
   const events: RawEventData[] = [];
-  const upcomingSection = bodyText.match(/Upcoming\s+Ha(?:re|sh)s?[:\s]*([\s\S]*?)(?:Special\s+Events|Mayor|$)/i);
+  const upcomingSection = /Upcoming\s+Ha(?:re|sh)s?[:\s]*([\s\S]*?)(?:Special\s+Events|Mayor|$)/i.exec(bodyText);
   if (!upcomingSection) return events;
 
   const lines = upcomingSection[1].split("\n").filter((l) => l.trim());
   for (const line of lines) {
-    const lineMatch = line.match(/^(.+?)\s*[–—-]\s*(.+)$/);
+    const lineMatch = /^(.+?)\s*[–—-]\s*(.+)$/.exec(line);
     if (!lineMatch) continue;
 
     const datePart = lineMatch[1].trim();
@@ -211,7 +211,7 @@ async function scrapeSpecialEvents(
     const datePattern = /(\d{4})\s*Date:\s*(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*,?\s*)(\w+\s+\d{1,2})(?:st|nd|rd|th)?/gi;
     let dateLineMatch;
     while ((dateLineMatch = datePattern.exec(specialText)) !== null) {
-      const year = parseInt(dateLineMatch[1], 10);
+      const year = Number.parseInt(dateLineMatch[1], 10);
       const monthDay = dateLineMatch[2];
       const dateStr = parseBfmDate(monthDay, year);
       if (!dateStr) continue;

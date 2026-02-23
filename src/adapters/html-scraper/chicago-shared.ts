@@ -7,15 +7,16 @@ import type {
   ErrorDetails,
 } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { parse12HourTime, validateSourceUrl } from "../utils";
+import { parse12HourTime } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 /**
  * Extract run number from a WordPress post title.
  * "CH3 #2580" → 2580, "TH3 #1060 – October 3, 2024" → 1060
  */
 export function parseRunNumber(title: string): number | null {
-  const match = title.match(/#(\d+)/);
-  return match ? parseInt(match[1], 10) : null;
+  const match = /#(\d+)/.exec(title);
+  return match ? Number.parseInt(match[1], 10) : null;
 }
 
 /**
@@ -23,7 +24,7 @@ export function parseRunNumber(title: string): number | null {
  * "2026-02-15T14:00:00-06:00" → "2026-02-15"
  */
 export function parseDateFromDatetime(datetime: string): string | null {
-  const match = datetime.match(/^(\d{4}-\d{2}-\d{2})/);
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(datetime);
   return match ? match[1] : null;
 }
 
@@ -36,7 +37,7 @@ export function parseTimeString(text: string): string | null {
   if (result12) return result12;
 
   // Try 24-hour format: "14:00"
-  const match24 = text.match(/(\d{2}):(\d{2})/);
+  const match24 = /(\d{2}):(\d{2})/.exec(text);
   if (match24) {
     return `${match24[1]}:${match24[2]}`;
   }
@@ -45,10 +46,9 @@ export function parseTimeString(text: string): string | null {
 }
 
 /** Fetch a URL and return its HTML text, or an error detail. */
-export async function fetchAndParseHtmlPage(url: string): Promise<{ html: string; error?: undefined } | { html?: undefined; error: { url: string; status?: number; message: string } }> {
+export async function fetchAndParseHtmlPage(url: string): Promise<{ html: string; error?: never } | { html?: never; error: { url: string; status?: number; message: string } }> {
   try {
-    validateSourceUrl(url);
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       signal: AbortSignal.timeout(30_000),
     });
@@ -140,13 +140,8 @@ export async function fetchWordPressBlogEvents(
       }
     });
 
-    const nextUrl = findNextPageLink($, baseUrl);
-    try {
-      if (nextUrl) validateSourceUrl(nextUrl);
-      currentUrl = nextUrl;
-    } catch {
-      currentUrl = null; // Pagination URL failed SSRF validation
-    }
+    // Next page URL will be validated by safeFetch in the next iteration
+    currentUrl = findNextPageLink($, baseUrl);
   }
 
   const fetchDurationMs = Date.now() - fetchStart;

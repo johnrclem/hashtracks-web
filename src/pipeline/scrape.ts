@@ -76,7 +76,7 @@ function buildCombinedErrorDetails(
   scrapeErrorDetails: ErrorDetails | undefined,
   mergeErrorDetails: MergeResult["mergeErrorDetails"],
 ): { combined: ErrorDetails; hasErrors: boolean } {
-  const combined: ErrorDetails = { ...(scrapeErrorDetails ?? {}) };
+  const combined: ErrorDetails = scrapeErrorDetails ? { ...scrapeErrorDetails } : {};
   if (mergeErrorDetails && mergeErrorDetails.length > 0) {
     combined.merge = mergeErrorDetails;
   }
@@ -92,7 +92,7 @@ function buildDiagnosticContext(
   baseDiagnostics: Record<string, unknown> | undefined,
   aiRecovery: AiRecoverySummary | undefined,
 ): Record<string, unknown> {
-  const diagnosticContext: Record<string, unknown> = { ...(baseDiagnostics ?? {}) };
+  const diagnosticContext: Record<string, unknown> = baseDiagnostics ? { ...baseDiagnostics } : {};
   if (aiRecovery && aiRecovery.attempted > 0) {
     diagnosticContext.aiRecovery = {
       attempted: aiRecovery.attempted,
@@ -108,20 +108,27 @@ function buildDiagnosticContext(
   return diagnosticContext;
 }
 
+interface ScrapeLogUpdateParams {
+  scrapeLogId: string;
+  startedAt: Date;
+  scrapeResult: ScrapeResult;
+  mergeResult: MergeResult;
+  cancelledCount: number;
+  fillRates: FieldFillRates;
+  combinedErrorDetails: ErrorDetails;
+  hasErrorDetails: boolean;
+  diagnosticContext: Record<string, unknown>;
+  fetchDurationMs: number;
+  mergeDurationMs: number;
+}
+
 /** Update the ScrapeLog record with full results and quality metrics. */
-async function updateScrapeLogWithResults(
-  scrapeLogId: string,
-  startedAt: Date,
-  scrapeResult: ScrapeResult,
-  mergeResult: MergeResult,
-  cancelledCount: number,
-  fillRates: FieldFillRates,
-  combinedErrorDetails: ErrorDetails,
-  hasErrorDetails: boolean,
-  diagnosticContext: Record<string, unknown>,
-  fetchDurationMs: number,
-  mergeDurationMs: number,
-): Promise<void> {
+async function updateScrapeLogWithResults(params: ScrapeLogUpdateParams): Promise<void> {
+  const {
+    scrapeLogId, startedAt, scrapeResult, mergeResult, cancelledCount,
+    fillRates, combinedErrorDetails, hasErrorDetails, diagnosticContext,
+    fetchDurationMs, mergeDurationMs,
+  } = params;
   const completedAt = new Date();
   const hasErrors = scrapeResult.errors.length > 0;
   await prisma.scrapeLog.update({
@@ -247,11 +254,11 @@ export async function scrapeSource(
       buildCombinedErrorDetails(scrapeResult.errorDetails, mergeResult.mergeErrorDetails);
     const diagnosticContext = buildDiagnosticContext(scrapeResult.diagnosticContext, aiRecovery);
 
-    await updateScrapeLogWithResults(
-      scrapeLog.id, startedAt, scrapeResult, mergeResult,
+    await updateScrapeLogWithResults({
+      scrapeLogId: scrapeLog.id, startedAt, scrapeResult, mergeResult,
       cancelledCount, fillRates, combinedErrorDetails, hasErrorDetails,
       diagnosticContext, fetchDurationMs, mergeDurationMs,
-    );
+    });
 
     const completedAt = new Date();
     await runHealthAndAlerts(sourceId, scrapeLog.id, completedAt, {

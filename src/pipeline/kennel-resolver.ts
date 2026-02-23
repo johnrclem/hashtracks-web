@@ -112,7 +112,7 @@ const KENNEL_PATTERNS: [RegExp, string][] = [
   // Multi-word patterns FIRST (longer before shorter)
   [/ballbuster|bobbh3|b3h4/, "BoBBH3"],
   [/queens black knights/, "QBK"],
-  [/new amsterdam|^nass/, "NAH3"],
+  [/(?:new amsterdam)|(?:^nass)/, "NAH3"],
   [/long island|lunatics/, "LIL"],
   [/staten island/, "SI"],
   [/drinking practice/, "Drinking Practice (NYC)"],
@@ -120,7 +120,7 @@ const KENNEL_PATTERNS: [RegExp, string][] = [
   [/pink taco|pt2h3/, "Pink Taco"],
 
   // Brooklyn (before generic "br" patterns)
-  [/^brooklyn|^brh3/, "BrH3"],
+  [/^(?:brooklyn|brh3)/, "BrH3"],
 
   // NAWW
   [/naww/, "NAWWH3"],
@@ -129,10 +129,10 @@ const KENNEL_PATTERNS: [RegExp, string][] = [
   [/^nah3/, "NAH3"],
 
   // NYC (after more specific NYC-area kennels)
-  [/^nyc|^nych3/, "NYCH3"],
+  [/^(?:nyc|nych3)/, "NYCH3"],
 
   // Boston area
-  [/^boston hash|^bh3|^boh3/, "BoH3"],
+  [/^(?:boston hash|bh3|boh3)/, "BoH3"],
   [/moon|moom/, "Bos Moon"],
   [/beantown/, "Beantown"],
 
@@ -143,7 +143,7 @@ const KENNEL_PATTERNS: [RegExp, string][] = [
   [/columbia/, "Columbia"],
   [/ggfm/, "GGFM"],
   [/harriettes/, "Harriettes"],
-  [/si hash|^si$/, "SI"],
+  [/(?:si hash)|(?:^si$)/, "SI"],
   [/special/, "Special (NYC)"],
 
   // Philadelphia
@@ -151,11 +151,11 @@ const KENNEL_PATTERNS: [RegExp, string][] = [
   [/philly|hashphilly/, "Philly H3"],
 
   // Chicago
-  [/^ch3|chicago/, "CH3"],
+  [/(?:^ch3)|(?:chicago)/, "CH3"],
 
   // Summit / NJ area
   [/asssh3|all seasons summit shiggy/, "ASSSH3"],
-  [/summit full moon|^sfm$/, "SFM"],
+  [/(?:summit full moon)|(?:^sfm$)/, "SFM"],
   [/summit/, "Summit"],
   [/rumson/, "Rumson"],
 ];

@@ -10,11 +10,11 @@ function toSlug(shortName: string): string {
     .replace(/^-|-$/g, "");  // Trim leading/trailing hyphens
 }
 
-const PROFILE_FIELDS = [
+const PROFILE_FIELDS = new Set([
   "website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency",
   "scheduleNotes", "hashCash", "facebookUrl", "instagramHandle",
   "twitterHandle", "discordUrl", "contactEmail", "foundedYear", "description",
-] as const;
+]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function upsertKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: string) => string) {
@@ -22,14 +22,13 @@ async function upsertKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
   const kennelRecords = new Map<string, { id: string }>();
   for (const kennel of kennels) {
     const slug = toSlugFn(kennel.shortName);
-    const profileFields = new Map<string, string | number | undefined>();
-    for (const key of PROFILE_FIELDS) {
-      if (Object.prototype.hasOwnProperty.call(kennel, key) && kennel[key] !== undefined) profileFields.set(key, kennel[key]);
-    }
+    const profileFields = Object.fromEntries(
+      Object.entries(kennel).filter(([k, v]) => PROFILE_FIELDS.has(k) && v !== undefined)
+    );
     const record = await prisma.kennel.upsert({
       where: { kennelCode: kennel.kennelCode },
-      update: { shortName: kennel.shortName, fullName: kennel.fullName, region: kennel.region, ...(kennel.country !== undefined ? { country: kennel.country } : {}), slug, ...Object.fromEntries(profileFields) },
-      create: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, country: kennel.country ?? "USA", ...Object.fromEntries(profileFields) },
+      update: { shortName: kennel.shortName, fullName: kennel.fullName, region: kennel.region, ...(kennel.country != null && { country: kennel.country }), slug, ...profileFields },
+      create: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, country: kennel.country ?? "USA", ...profileFields },
     });
     kennelRecords.set(kennel.kennelCode, record);
   }

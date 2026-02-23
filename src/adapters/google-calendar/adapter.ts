@@ -32,18 +32,18 @@ export function extractKennelTag(summary: string): string {
 
 export function extractRunNumber(summary: string, description?: string): number | undefined {
   // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781")
-  const summaryMatch = summary.match(/#(\d+)/);
-  if (summaryMatch) return parseInt(summaryMatch[1], 10);
+  const summaryMatch = /#(\d+)/.exec(summary);
+  if (summaryMatch) return Number.parseInt(summaryMatch[1], 10);
 
   if (!description) return undefined;
 
   // 2. Fall back to description — BH3 run numbers like "BH3 #2784"
-  const descMatch = description.match(/BH3\s*#\s*(\d+)/i);
-  if (descMatch) return parseInt(descMatch[1], 10);
+  const descMatch = /BH3\s*#\s*(\d+)/i.exec(description);
+  if (descMatch) return Number.parseInt(descMatch[1], 10);
 
   // 3. Standalone run number in description (e.g., "#2792" on its own line)
-  const standaloneMatch = description.match(/(?:^|\n)\s*#(\d{3,})\s*(?:\n|$)/m);
-  if (standaloneMatch) return parseInt(standaloneMatch[1], 10);
+  const standaloneMatch = /(?:^|\n)\s*#(\d{3,})\s*(?:\n|$)/m.exec(description);
+  if (standaloneMatch) return Number.parseInt(standaloneMatch[1], 10);
 
   return undefined;
 }
@@ -66,7 +66,7 @@ export function extractHares(description: string): string | undefined {
   ];
 
   for (const pattern of patterns) {
-    const match = description.match(pattern);
+    const match = pattern.exec(description);
     if (match) {
       let hares = match[1].trim();
       // Clean up trailing punctuation/whitespace
@@ -119,14 +119,14 @@ interface GCalListResponse {
 /** Extract local date and time from a Google Calendar start object. */
 function extractDateTimeFromGCalItem(start: { dateTime?: string; date?: string }): { dateISO: string; startTime: string | undefined } {
   if (start.dateTime) {
-    const dtMatch = start.dateTime.match(
-      /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/,
+    const dtMatch = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/.exec(
+      start.dateTime,
     );
     if (dtMatch) {
       return { dateISO: dtMatch[1], startTime: `${dtMatch[2]}:${dtMatch[3]}` };
     }
     // Fallback: extract date portion directly from the string (avoids UTC date shift)
-    const fallbackMatch = start.dateTime.match(/(\d{4}-\d{2}-\d{2})/);
+    const fallbackMatch = /(\d{4}-\d{2}-\d{2})/.exec(start.dateTime);
     if (fallbackMatch) {
       return { dateISO: fallbackMatch[0], startTime: undefined };
     }
@@ -179,7 +179,7 @@ function buildRawEventFromGCalItem(
   if (!item.summary) return null;
   if (!item.start?.dateTime && !item.start?.date) return null;
 
-  const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start as NonNullable<typeof item.start>);
+  const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start);
   if (!dateISO) return null;
   const { rawDescription, description } = normalizeGCalDescription(item.description);
   const hares = rawDescription ? extractHares(rawDescription) : undefined;

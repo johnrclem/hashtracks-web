@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { validateSourceUrl } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 const DEFAULT_START_TIME = "10:15";
 
@@ -132,8 +132,7 @@ function shouldFetchDetailPage(fields: ReturnType<typeof parseHangoverBody>, eve
 
 async function fetchDetailBody(postUrl: string, headers: HeadersInit): Promise<string | null> {
   try {
-    validateSourceUrl(postUrl);
-    const response = await fetch(postUrl, { headers });
+    const response = await safeFetch(postUrl, { headers });
     if (!response.ok) return null;
 
     const html = await response.text();
@@ -200,8 +199,7 @@ export class HangoverAdapter implements SourceAdapter {
 
     let html: string;
     try {
-      validateSourceUrl(baseUrl);
-      const response = await fetch(baseUrl, { headers: requestHeaders });
+      const response = await safeFetch(baseUrl, { headers: requestHeaders });
       if (!response.ok) {
         const message = `HTTP ${response.status}: ${response.statusText}`;
         errorDetails.fetch = [{ url: baseUrl, status: response.status, message }];
