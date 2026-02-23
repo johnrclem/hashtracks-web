@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteKennel } from "@/app/admin/kennels/actions";
 import {
@@ -13,6 +13,24 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { KennelForm } from "./KennelForm";
 import { toast } from "sonner";
 
@@ -51,40 +69,98 @@ interface KennelTableProps {
 }
 
 export function KennelTable({ kennels }: KennelTableProps) {
+  const [search, setSearch] = useState("");
+  const [regionFilter, setRegionFilter] = useState("all");
+
+  const regions = useMemo(() => {
+    const set = new Set(kennels.map((k) => k.region));
+    return [...set].sort();
+  }, [kennels]);
+
+  const filtered = useMemo(() => {
+    let result = kennels;
+    if (regionFilter !== "all") {
+      result = result.filter((k) => k.region === regionFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (k) =>
+          k.shortName.toLowerCase().includes(q) ||
+          k.fullName.toLowerCase().includes(q) ||
+          k.aliases.some((a) => a.toLowerCase().includes(q)),
+      );
+    }
+    return result;
+  }, [kennels, regionFilter, search]);
+
   if (kennels.length === 0) {
     return <p className="text-sm text-muted-foreground">No kennels yet.</p>;
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Short Name</TableHead>
-          <TableHead className="hidden sm:table-cell">Full Name</TableHead>
-          <TableHead>Region</TableHead>
-          <TableHead className="hidden sm:table-cell text-center">Aliases</TableHead>
-          <TableHead className="hidden sm:table-cell text-center">Subscribers</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {kennels.map((kennel) => (
-          <KennelRow key={kennel.id} kennel={kennel} />
-        ))}
-      </TableBody>
-    </Table>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="Search kennels..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-8 w-full sm:w-64 text-xs"
+        />
+        <Select value={regionFilter} onValueChange={setRegionFilter}>
+          <SelectTrigger className="h-8 w-full sm:w-[200px] text-xs">
+            <SelectValue placeholder="All regions" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All regions</SelectItem>
+            {regions.map((r) => (
+              <SelectItem key={r} value={r}>{r}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(search || regionFilter !== "all") && (
+          <span className="text-xs text-muted-foreground">
+            {filtered.length} of {kennels.length}
+          </span>
+        )}
+      </div>
+
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="sticky left-0 bg-background z-10">Short Name</TableHead>
+              <TableHead className="hidden sm:table-cell">Full Name</TableHead>
+              <TableHead>Region</TableHead>
+              <TableHead className="hidden sm:table-cell text-center">Aliases</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                  No kennels match your search.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((kennel) => (
+                <KennelRow key={kennel.id} kennel={kennel} />
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
 }
 
 function KennelRow({ kennel }: { kennel: Kennel }) {
   const [isPending, startTransition] = useTransition();
+  const [showDelete, setShowDelete] = useState(false);
   const router = useRouter();
 
   function handleDelete() {
-    if (!confirm(`Delete "${kennel.shortName}"? This cannot be undone.`)) {
-      return;
-    }
-
     startTransition(async () => {
       const result = await deleteKennel(kennel.id);
       if (result.error) {
@@ -92,33 +168,55 @@ function KennelRow({ kennel }: { kennel: Kennel }) {
       } else {
         toast.success("Kennel deleted");
       }
+      setShowDelete(false);
       router.refresh();
     });
   }
 
   return (
     <TableRow>
-      <TableCell className="font-medium">{kennel.shortName}</TableCell>
+      <TableCell className="font-medium sticky left-0 bg-background z-10">{kennel.shortName}</TableCell>
       <TableCell className="hidden sm:table-cell">{kennel.fullName}</TableCell>
       <TableCell>
         <Badge variant="outline">{kennel.region}</Badge>
       </TableCell>
       <TableCell className="hidden sm:table-cell text-center">{kennel._count.aliases}</TableCell>
-      <TableCell className="hidden sm:table-cell text-center">{kennel._count.members}</TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
           <KennelForm
             kennel={kennel}
             trigger={<Button size="sm" variant="outline">Edit</Button>}
           />
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={isPending}
-            onClick={handleDelete}
-          >
-            {isPending ? "..." : "Delete"}
-          </Button>
+          <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              disabled={isPending}
+              onClick={() => setShowDelete(true)}
+            >
+              {isPending ? "..." : "Delete"}
+            </Button>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Kennel?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete &ldquo;{kennel.shortName}&rdquo; and
+                  cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={isPending}
+                >
+                  {isPending ? "Deleting..." : "Delete Kennel"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </TableCell>
     </TableRow>

@@ -55,7 +55,7 @@ export default async function AdminKennelsPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Manage Kennels</h2>
+        <h2 className="text-lg font-semibold">Kennels</h2>
         <div className="flex items-center gap-2">
           <KennelMergeDialog
             kennels={kennelsForMerge}

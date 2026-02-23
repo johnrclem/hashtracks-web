@@ -314,9 +314,12 @@ function KennelFilterBar({
 function PendingRequestsTab({ requests }: { requests: MismanRequestRow[] }) {
   if (requests.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No pending misman requests.
-      </p>
+      <div className="py-12 text-center">
+        <p className="text-sm font-medium">No pending requests</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Users requesting misman access will appear here.
+        </p>
+      </div>
     );
   }
 
@@ -436,9 +439,12 @@ function MismanRequestRowComponent({
 function InviteHistoryTab({ invites }: { invites: InviteRow[] }) {
   if (invites.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No misman invites yet.
-      </p>
+      <div className="py-12 text-center">
+        <p className="text-sm font-medium">No invites sent</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Use the &ldquo;Invite Misman&rdquo; button to generate invite links.
+        </p>
+      </div>
     );
   }
 
@@ -448,7 +454,7 @@ function InviteHistoryTab({ invites }: { invites: InviteRow[] }) {
         <TableRow>
           <TableHead>Kennel</TableHead>
           <TableHead>Inviter</TableHead>
-          <TableHead className="hidden sm:table-cell">Email</TableHead>
+          <TableHead className="hidden sm:table-cell">Accepted Email</TableHead>
           <TableHead>Status</TableHead>
           <TableHead className="hidden sm:table-cell">Detail</TableHead>
           <TableHead className="hidden sm:table-cell">Created</TableHead>
@@ -566,9 +572,12 @@ function InviteRowComponent({ invite }: { invite: InviteRow }) {
 function ActiveMismansTab({ mismans }: { mismans: ActiveMismanRow[] }) {
   if (mismans.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No active mismans.
-      </p>
+      <div className="py-12 text-center">
+        <p className="text-sm font-medium">No active mismans</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Approved mismans will appear here once requests are granted or invites accepted.
+        </p>
+      </div>
     );
   }
 

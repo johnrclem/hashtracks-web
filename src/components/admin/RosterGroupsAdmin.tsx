@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -64,8 +65,10 @@ interface RosterGroupsAdminProps {
 
 export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroupsAdminProps) {
   const [deleteTarget, setDeleteTarget] = useState<RosterGroupData | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<{ groupId: string; kennelId: string; kennelName: string } | null>(null);
   const [editTarget, setEditTarget] = useState<RosterGroupData | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [standaloneExpanded, setStandaloneExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -73,30 +76,15 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
   const sharedGroups = groups.filter((g) => g.kennels.length > 1);
   const standaloneGroups = groups.filter((g) => g.kennels.length <= 1);
 
-  function handleRemoveKennel(groupId: string, kennelId: string, kennelName: string) {
-    if (!confirm(`Remove ${kennelName} from this group? It will get its own standalone roster.`)) {
-      return;
-    }
+  function handleRemoveKennel() {
+    if (!removeTarget) return;
     startTransition(async () => {
-      const result = await removeKennelFromGroup(groupId, kennelId);
+      const result = await removeKennelFromGroup(removeTarget.groupId, removeTarget.kennelId);
       if (result.error) {
         toast.error(result.error);
       } else {
-        toast.success(`${kennelName} removed from group`);
-        router.refresh();
-      }
-    });
-  }
-
-  function handleRename(groupId: string, currentName: string) {
-    const newName = prompt("New group name:", currentName);
-    if (!newName || newName === currentName) return;
-    startTransition(async () => {
-      const result = await renameRosterGroup(groupId, newName);
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.success("Group renamed");
+        toast.success(`${removeTarget.kennelName} removed from group`);
+        setRemoveTarget(null);
         router.refresh();
       }
     });
@@ -217,9 +205,12 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
           )}
         </div>
         {sharedGroups.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No shared roster groups. Use the admin kennel merge to create one.
-          </p>
+          <div className="py-8 text-center">
+            <p className="text-sm font-medium">No shared roster groups</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Create a group to share a roster across multiple kennels.
+            </p>
+          </div>
         ) : (
           <div className="space-y-3">
             {sharedGroups.map((group) => (
@@ -227,7 +218,12 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold">{group.name}</h3>
-                    <Badge variant="secondary">{group.hasherCount} hashers</Badge>
+                    <Badge
+                      variant={group.hasherCount === 0 ? "outline" : "secondary"}
+                      className={group.hasherCount === 0 ? "text-muted-foreground" : undefined}
+                    >
+                      {group.hasherCount} hashers
+                    </Badge>
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <Button
@@ -237,14 +233,6 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
                       disabled={isPending}
                     >
                       Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleRename(group.id, group.name)}
-                      disabled={isPending}
-                    >
-                      Rename
                     </Button>
                     <Button
                       size="sm"
@@ -267,11 +255,11 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
                       {group.kennels.length > 2 && (
                         <button
                           className="ml-1 text-xs text-muted-foreground hover:text-destructive"
-                          onClick={() => handleRemoveKennel(group.id, k.id, k.shortName)}
+                          onClick={() => setRemoveTarget({ groupId: group.id, kennelId: k.id, kennelName: k.shortName })}
                           disabled={isPending}
                           title="Remove from group"
                         >
-                          x
+                          &times;
                         </button>
                       )}
                     </div>
@@ -283,16 +271,60 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
         )}
       </div>
 
-      {/* Standalone groups summary */}
-      <div>
-        <h2 className="text-lg font-semibold mb-2">
-          Standalone Kennels ({standaloneGroups.length})
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Kennels with their own individual roster. Each gets an auto-created
-          single-kennel roster group.
-        </p>
-      </div>
+      {/* Standalone groups - collapsible list */}
+      {standaloneGroups.length > 0 && (
+        <div>
+          <button
+            onClick={() => setStandaloneExpanded((v) => !v)}
+            className="flex items-center gap-1.5 w-full text-left"
+          >
+            {standaloneExpanded ? (
+              <ChevronDown className="size-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="size-4 text-muted-foreground" />
+            )}
+            <h2 className="text-lg font-semibold">
+              Standalone Kennels ({standaloneGroups.length})
+            </h2>
+          </button>
+          <p className="text-sm text-muted-foreground mt-1 ml-5.5">
+            Kennels with their own individual roster.
+          </p>
+          {standaloneExpanded && (
+            <div className="mt-2 ml-5.5 flex flex-wrap gap-1.5">
+              {standaloneGroups
+                .filter((g) => g.kennels.length === 1)
+                .map((g) => (
+                  <Badge key={g.id} variant="outline" className="text-xs">
+                    {g.kennels[0].shortName}
+                  </Badge>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Remove kennel from group confirmation */}
+      <AlertDialog
+        open={!!removeTarget}
+        onOpenChange={(v) => !v && setRemoveTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Kennel from Group?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove <strong>{removeTarget?.kennelName}</strong> from
+              the group. It will get its own standalone roster.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveKennel} disabled={isPending}>
+              {isPending ? "Removing..." : "Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation */}
       <AlertDialog
@@ -478,6 +510,7 @@ function EditGroupDialog({
 }) {
   const currentIds = new Set(group.kennels.map((k) => k.id));
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(currentIds));
+  const [groupName, setGroupName] = useState(group.name);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -502,8 +535,9 @@ function EditGroupDialog({
   function handleSave() {
     const toAdd = [...selectedIds].filter((id) => !currentIds.has(id));
     const toRemove = [...currentIds].filter((id) => !selectedIds.has(id));
+    const nameChanged = groupName.trim() !== group.name;
 
-    if (toAdd.length === 0 && toRemove.length === 0) {
+    if (toAdd.length === 0 && toRemove.length === 0 && !nameChanged) {
       onClose();
       return;
     }
@@ -511,12 +545,23 @@ function EditGroupDialog({
     startTransition(async () => {
       let hasError = false;
 
-      for (const kennelId of toAdd) {
-        const result = await addKennelToGroup(group.id, kennelId);
+      // Rename if changed
+      if (nameChanged && groupName.trim()) {
+        const result = await renameRosterGroup(group.id, groupName.trim());
         if (result.error) {
           toast.error(result.error);
           hasError = true;
-          break;
+        }
+      }
+
+      if (!hasError) {
+        for (const kennelId of toAdd) {
+          const result = await addKennelToGroup(group.id, kennelId);
+          if (result.error) {
+            toast.error(result.error);
+            hasError = true;
+            break;
+          }
         }
       }
 
@@ -533,6 +578,7 @@ function EditGroupDialog({
 
       if (!hasError) {
         const changes = [];
+        if (nameChanged) changes.push("renamed");
         if (toAdd.length > 0) changes.push(`${toAdd.length} added`);
         if (toRemove.length > 0) changes.push(`${toRemove.length} removed`);
         toast.success(`Group updated (${changes.join(", ")})`);
@@ -546,6 +592,7 @@ function EditGroupDialog({
   function handleOpenChange(v: boolean) {
     if (!v) {
       setSelectedIds(new Set(currentIds));
+      setGroupName(group.name);
       onClose();
     }
   }
@@ -556,43 +603,53 @@ function EditGroupDialog({
         <DialogHeader>
           <DialogTitle>Edit {group.name}</DialogTitle>
           <DialogDescription>
-            Check kennels to include in this group. Unchecked kennels become standalone.
+            Rename the group or change which kennels are included. Unchecked kennels become standalone.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2 py-2">
-          <Label>Kennels ({selectedIds.size} selected)</Label>
-          <div className="max-h-72 overflow-y-auto space-y-3 rounded-md border p-3">
-            {groupByRegion(allKennels).map(({ region, items }) => (
-              <div key={region} className="space-y-1.5">
-                <div className="flex items-center gap-1.5 pt-1 first:pt-0">
-                  <RegionBadge region={region} size="sm" />
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {region}
-                  </span>
-                </div>
-                {items.map((k) => (
-                  <div key={k.id} className="flex items-center gap-2 pl-2">
-                    <Checkbox
-                      id={`edit-kennel-${k.id}`}
-                      checked={selectedIds.has(k.id)}
-                      onCheckedChange={() => handleToggle(k.id)}
-                    />
-                    <Label
-                      htmlFor={`edit-kennel-${k.id}`}
-                      className="text-sm font-normal cursor-pointer"
-                    >
-                      {k.fullName}
-                      <span className="ml-1 text-xs text-muted-foreground">
-                        ({k.shortName})
-                      </span>
-                      {currentIds.has(k.id) && (
-                        <span className="ml-1 text-xs text-muted-foreground">(current)</span>
-                      )}
-                    </Label>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor="edit-group-name">Group Name</Label>
+            <Input
+              id="edit-group-name"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Kennels ({selectedIds.size} selected)</Label>
+            <div className="max-h-72 overflow-y-auto space-y-3 rounded-md border p-3">
+              {groupByRegion(allKennels).map(({ region, items }) => (
+                <div key={region} className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 pt-1 first:pt-0">
+                    <RegionBadge region={region} size="sm" />
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {region}
+                    </span>
                   </div>
-                ))}
-              </div>
-            ))}
+                  {items.map((k) => (
+                    <div key={k.id} className="flex items-center gap-2 pl-2">
+                      <Checkbox
+                        id={`edit-kennel-${k.id}`}
+                        checked={selectedIds.has(k.id)}
+                        onCheckedChange={() => handleToggle(k.id)}
+                      />
+                      <Label
+                        htmlFor={`edit-kennel-${k.id}`}
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {k.fullName}
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          ({k.shortName})
+                        </span>
+                        {currentIds.has(k.id) && (
+                          <span className="ml-1 text-xs text-muted-foreground">(current)</span>
+                        )}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -601,7 +658,7 @@ function EditGroupDialog({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isPending || selectedIds.size < 2}
+            disabled={isPending || selectedIds.size < 2 || !groupName.trim()}
           >
             {isPending ? "Saving..." : "Save Changes"}
           </Button>

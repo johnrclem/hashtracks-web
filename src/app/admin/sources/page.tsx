@@ -68,7 +68,7 @@ export default async function AdminSourcesPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Manage Sources</h2>
+        <h2 className="text-lg font-semibold">Sources</h2>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
             <Link href="/admin/sources/coverage">Coverage</Link>

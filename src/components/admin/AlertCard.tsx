@@ -3,9 +3,16 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import {
   acknowledgeAlert,
@@ -225,6 +232,13 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
         <div className="mt-1">
           {expanded ? (
             <>
+              <button
+                onClick={() => setExpanded(false)}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-2"
+              >
+                <ChevronDown className="size-3" />
+                Hide details
+              </button>
               {/* UNMATCHED_TAGS: show resolver UI */}
               {alert.type === "UNMATCHED_TAGS" &&
                 ctx &&
@@ -247,9 +261,10 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
           ) : (
             <button
               onClick={() => setExpanded(true)}
-              className="text-xs text-muted-foreground hover:text-foreground"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
-              Show details...
+              <ChevronRight className="size-3" />
+              Show details
             </button>
           )}
         </div>
@@ -292,20 +307,6 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
             </TooltipTrigger>
             <TooltipContent>Try fetching this source again — good first step for transient errors</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                disabled={isPending}
-                onClick={handleFileIssue}
-              >
-                File Issue
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Create a GitHub issue with alert context for code-level investigation</TooltipContent>
-          </Tooltip>
           {alert.status === "OPEN" && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -319,37 +320,9 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
                   Acknowledge
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Mark as seen — keeps the alert visible but signals you're aware</TooltipContent>
+              <TooltipContent>Mark as seen — keeps the alert visible but signals you&apos;re aware</TooltipContent>
             </Tooltip>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                disabled={isPending}
-                onClick={() => handleSnooze(24)}
-              >
-                Snooze 24h
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Hide this alert for 24 hours — it will reappear if still unresolved</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                disabled={isPending}
-                onClick={() => handleSnooze(168)}
-              >
-                Snooze 7d
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Hide this alert for 7 days</TooltipContent>
-          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -364,17 +337,35 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
             </TooltipTrigger>
             <TooltipContent>Mark as fixed — moves to resolved tab</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                href={`/admin/sources/${alert.sourceId}`}
-                className="text-xs text-primary hover:underline"
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0"
+                disabled={isPending}
               >
-                Investigate
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent>Go to source detail page for deeper investigation</TooltipContent>
-          </Tooltip>
+                <MoreHorizontal className="size-4" />
+                <span className="sr-only">More actions</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleFileIssue} disabled={isPending}>
+                File GitHub Issue
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSnooze(24)} disabled={isPending}>
+                Snooze 24h
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSnooze(168)} disabled={isPending}>
+                Snooze 7d
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/admin/sources/${alert.sourceId}`}>
+                  Investigate
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
     </div>

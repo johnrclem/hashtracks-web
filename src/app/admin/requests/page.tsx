@@ -15,7 +15,7 @@ export default async function AdminRequestsPage() {
 
   return (
     <div>
-      <h2 className="mb-4 text-lg font-semibold">Kennel Requests</h2>
+      <h2 className="mb-4 text-lg font-semibold">Requests</h2>
       <RequestQueue requests={serialized} />
     </div>
   );
