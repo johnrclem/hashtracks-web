@@ -34,8 +34,8 @@ export default async function AdminLayout({
           <TabsTrigger value="requests" asChild>
             <Link href="/admin/requests">Requests</Link>
           </TabsTrigger>
-          <TabsTrigger value="misman-requests" asChild>
-            <Link href="/admin/misman-requests" className="flex items-center gap-1">
+          <TabsTrigger value="misman" asChild>
+            <Link href="/admin/misman" className="flex items-center gap-1">
               Misman
               {pendingMismanCount > 0 && (
                 <Badge variant="destructive" className="ml-1 text-xs">

@@ -464,7 +464,7 @@ export async function revokeMismanAccess(userKennelId: string) {
   });
 
   revalidatePath("/misman");
-  revalidatePath("/admin/misman-requests");
+  revalidatePath("/admin/misman");
   revalidatePath(`/kennels/${target.kennel.slug}`);
   return { success: true };
 }
