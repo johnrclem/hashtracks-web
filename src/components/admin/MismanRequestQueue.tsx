@@ -133,9 +133,19 @@ export function MismanAdminTabs({
   kennels,
 }: MismanAdminTabsProps) {
   const pendingRequests = requests.filter((r) => r.status === "PENDING");
+  const [requestKennelFilter, setRequestKennelFilter] = useState("all");
   const [inviteKennelFilter, setInviteKennelFilter] = useState("all");
   const [mismanKennelFilter, setMismanKennelFilter] = useState("all");
 
+  const requestKennels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of pendingRequests) {
+      if (!map.has(r.kennel.slug)) map.set(r.kennel.slug, r.kennel.shortName);
+    }
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [pendingRequests]);
   const inviteKennels = useMemo(() => {
     const map = new Map<string, string>();
     for (const i of invites) {
@@ -155,6 +165,10 @@ export function MismanAdminTabs({
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [mismans]);
 
+  const filteredRequests =
+    requestKennelFilter === "all"
+      ? pendingRequests
+      : pendingRequests.filter((r) => r.kennel.slug === requestKennelFilter);
   const filteredInvites =
     inviteKennelFilter === "all"
       ? invites
@@ -183,7 +197,12 @@ export function MismanAdminTabs({
         </div>
 
         <TabsContent value="requests" className="mt-4">
-          <PendingRequestsTab requests={pendingRequests} />
+          <KennelFilterBar
+            kennels={requestKennels}
+            value={requestKennelFilter}
+            onChange={setRequestKennelFilter}
+          />
+          <PendingRequestsTab requests={filteredRequests} />
         </TabsContent>
         <TabsContent value="invites" className="mt-4">
           <KennelFilterBar
@@ -208,6 +227,32 @@ export function MismanAdminTabs({
 
 // Keep old export name for backwards compat with any other importers
 export { MismanAdminTabs as MismanRequestQueue };
+
+// ── Shared Kennel Link ──
+
+function KennelLinkWithTooltip({
+  shortName,
+  fullName,
+  slug,
+}: {
+  shortName: string;
+  fullName: string;
+  slug: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link
+          href={`/kennels/${slug}`}
+          className="text-primary hover:underline"
+        >
+          {shortName}
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent>{fullName}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 // ── Kennel Filter ──
 
@@ -323,17 +368,11 @@ function MismanRequestRowComponent({
         </div>
       </TableCell>
       <TableCell className="font-medium">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              href={`/kennels/${request.kennel.slug}`}
-              className="text-primary hover:underline"
-            >
-              {request.kennel.shortName}
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent>{request.kennel.fullName}</TooltipContent>
-        </Tooltip>
+        <KennelLinkWithTooltip
+          shortName={request.kennel.shortName}
+          fullName={request.kennel.fullName}
+          slug={request.kennel.slug}
+        />
       </TableCell>
       <TableCell className="hidden sm:table-cell max-w-48 truncate">
         {request.message ?? "\u2014"}
@@ -446,17 +485,11 @@ function InviteRowComponent({ invite }: { invite: InviteRow }) {
   return (
     <TableRow>
       <TableCell className="font-medium">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              href={`/kennels/${invite.kennelSlug}`}
-              className="text-primary hover:underline"
-            >
-              {invite.kennelShortName}
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent>{invite.kennelFullName}</TooltipContent>
-        </Tooltip>
+        <KennelLinkWithTooltip
+          shortName={invite.kennelShortName}
+          fullName={invite.kennelFullName}
+          slug={invite.kennelSlug}
+        />
       </TableCell>
       <TableCell>{invite.inviterName}</TableCell>
       <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
@@ -588,17 +621,11 @@ function ActiveMismanRowComponent({
         </div>
       </TableCell>
       <TableCell className="font-medium">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              href={`/kennels/${misman.kennel.slug}`}
-              className="text-primary hover:underline"
-            >
-              {misman.kennel.shortName}
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent>{misman.kennel.fullName}</TooltipContent>
-        </Tooltip>
+        <KennelLinkWithTooltip
+          shortName={misman.kennel.shortName}
+          fullName={misman.kennel.fullName}
+          slug={misman.kennel.slug}
+        />
       </TableCell>
       <TableCell className="hidden sm:table-cell">
         <Badge variant={sourceBadgeVariant}>
