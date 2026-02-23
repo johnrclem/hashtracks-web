@@ -3,6 +3,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { MONTHS, parse12HourTime, googleMapsSearchUrl } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 const mapsUrl = googleMapsSearchUrl;
 
@@ -43,6 +44,15 @@ function extractBfmField(bodyText: string, labelPattern: RegExp): string | null 
  * Accepts: "2/12", "Thursday, 2/12", "Feb 19th", "March 5th"
  */
 export function parseBfmDate(text: string, referenceYear: number): string | null {
+  // Try M/D/YYYY format first: "8/8/2026" (must precede M/D to avoid prefix match)
+  const fullMatch = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(text);
+  if (fullMatch) {
+    const month = Number.parseInt(fullMatch[1], 10);
+    const day = Number.parseInt(fullMatch[2], 10);
+    const year = Number.parseInt(fullMatch[3], 10);
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
   // Try M/D format: "2/12" or "Thursday, 2/12"
   const mdMatch = /(\d{1,2})\/(\d{1,2})/.exec(text);
   if (mdMatch) {
@@ -51,15 +61,6 @@ export function parseBfmDate(text: string, referenceYear: number): string | null
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
       return `${referenceYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
-  }
-
-  // Try "Feb 19th", "March 5th", "8/8/2026"
-  const fullMatch = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(text);
-  if (fullMatch) {
-    const month = Number.parseInt(fullMatch[1], 10);
-    const day = Number.parseInt(fullMatch[2], 10);
-    const year = Number.parseInt(fullMatch[3], 10);
-    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   }
 
   // Try month name format: "Feb 19th", "March 5"
@@ -98,7 +99,7 @@ function scrapeCurrentTrail(
   const errors: string[] = [];
   const parseErrors: ErrorDetails["parse"] = [];
 
-  const trailMatch = /Trail\s*#(\d+)\s*:?\s*(.+?)(?:\n|$)/i.exec(bodyText);
+  const trailMatch = /Trail\s*#(\d+)\s*:?\s*([^\n]+?)(?:\n|$)/i.exec(bodyText);
   if (!trailMatch) {
     errors.push("No current trail found on page");
     parseErrors.push({ row: 0, section: "current_trail", error: "No current trail found on page", rawText: bodyText.slice(0, 2000), partialData: { kennelTag: "BFM" } });
@@ -162,12 +163,17 @@ function scrapeUpcomingHares(
   baseUrl: string,
 ): RawEventData[] {
   const events: RawEventData[] = [];
-  const upcomingSection = /Upcoming\s+Ha(?:re|sh)s?[:\s]*([\s\S]*?)(?:Special\s+Events|Mayor|$)/i.exec(bodyText);
-  if (!upcomingSection) return events;
+  const headerMatch = /Upcoming\s+Ha(?:re|sh)s?[:\s]*/i.exec(bodyText);
+  if (!headerMatch) return events;
+  const sectionStart = headerMatch.index + headerMatch[0].length;
+  const specialIdx = bodyText.slice(sectionStart).search(/Special\s+Events|Mayor/i);
+  const sectionText = specialIdx >= 0
+    ? bodyText.slice(sectionStart, sectionStart + specialIdx)
+    : bodyText.slice(sectionStart);
 
-  const lines = upcomingSection[1].split("\n").filter((l) => l.trim());
+  const lines = sectionText.split("\n").filter((l) => l.trim());
   for (const line of lines) {
-    const lineMatch = /^(.+?)\s*[–—-]\s*(.+)$/.exec(line);
+    const lineMatch = /^([^–—-]+?)\s*[–—-]\s*(.+)$/.exec(line);
     if (!lineMatch) continue;
 
     const datePart = lineMatch[1].trim();
@@ -199,7 +205,7 @@ async function scrapeSpecialEvents(
 
   const specialUrl = baseUrl.replace(/\/$/, "") + "/bfm-special-events/";
   try {
-    const specialRes = await fetch(specialUrl, {
+    const specialRes = await safeFetch(specialUrl, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
     });
     if (!specialRes.ok) return { events, errors, fetchErrors };
@@ -208,7 +214,7 @@ async function scrapeSpecialEvents(
     const $special = cheerio.load(specialHtml);
     const specialText = $special("body").text();
 
-    const datePattern = /(\d{4})\s*Date:\s*(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*,?\s*)(\w+\s+\d{1,2})(?:st|nd|rd|th)?/gi;
+    const datePattern = /(\d{4})\s*Date:\s*(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*,?\s*)?(\w+\s+\d{1,2})(?:st|nd|rd|th)?/gi;
     let dateLineMatch;
     while ((dateLineMatch = datePattern.exec(specialText)) !== null) {
       const year = Number.parseInt(dateLineMatch[1], 10);
@@ -252,7 +258,7 @@ export class BFMAdapter implements SourceAdapter {
 
     let html: string;
     try {
-      const response = await fetch(baseUrl, {
+      const response = await safeFetch(baseUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       });
       if (!response.ok) {
@@ -282,6 +288,7 @@ export class BFMAdapter implements SourceAdapter {
 
     // Phase 2: Upcoming hares
     const upcomingEvents = scrapeUpcomingHares(bodyText, currentYear, baseUrl);
+    const upcomingHaresCount = upcomingEvents.filter(e => !e.runNumber).length;
     events.push(...upcomingEvents);
 
     // Phase 3: Special events
@@ -293,7 +300,6 @@ export class BFMAdapter implements SourceAdapter {
     }
 
     const hasErrorDetails = (errorDetails.fetch?.length ?? 0) > 0 || (errorDetails.parse?.length ?? 0) > 0;
-    const upcomingHaresCount = events.filter(e => !e.runNumber).length;
 
     return {
       events,

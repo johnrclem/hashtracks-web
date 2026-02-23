@@ -94,7 +94,11 @@ interface CalendarSourceConfig {
  */
 function matchConfigPatterns(summary: string, patterns: [string, string][]): string | null {
   for (const [regex, tag] of patterns) {
-    if (new RegExp(regex, "i").test(summary)) return tag;
+    try {
+      if (new RegExp(regex, "i").test(summary)) return tag;
+    } catch {
+      // Skip malformed patterns from source config
+    }
   }
   return null;
 }

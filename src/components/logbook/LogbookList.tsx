@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -54,7 +55,7 @@ interface LogbookListProps {
   entries: LogbookEntry[];
 }
 
-function toggleFilter<T extends string>(setter: React.Dispatch<React.SetStateAction<T[]>>, value: T) {
+function toggleFilter<T extends string>(setter: Dispatch<SetStateAction<T[]>>, value: T) {
   setter((prev) => prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]);
 }
 

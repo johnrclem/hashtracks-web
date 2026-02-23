@@ -220,12 +220,12 @@ export async function scrapeSource(
   });
 
   try {
+    // SSRF prevention: validate source URL before any destructive operations
+    validateSourceUrl(source.url);
+
     if (force) {
       await prisma.rawEvent.deleteMany({ where: { sourceId } });
     }
-
-    // SSRF prevention: validate source URL before fetching
-    validateSourceUrl(source.url);
 
     const adapter = getAdapter(source.type, source.url);
 

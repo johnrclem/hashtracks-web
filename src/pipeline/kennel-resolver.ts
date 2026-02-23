@@ -13,7 +13,7 @@ export function clearResolverCache() {
   cache.clear();
 }
 
-/** Step 1-2: Try exact shortName match (source-scoped then global), then alias match. */
+/** Try exact shortName match: source-scoped first, then global. Alias matching is handled separately by resolveViaAlias. */
 async function resolveViaExactMatch(
   normalized: string,
   sourceId?: string,
@@ -48,7 +48,7 @@ async function resolveViaAlias(normalized: string): Promise<ResolveResult | null
   return null;
 }
 
-/** Step 3: Pattern mapping + retry exact/alias with mapped name. */
+/** Step 3: Pattern mapping + retry steps 1 (resolveViaExactMatch) and 2 (resolveViaAlias) with mapped name. */
 async function resolveViaPatternMapping(
   normalized: string,
   sourceId?: string,
@@ -72,7 +72,7 @@ async function resolveViaPatternMapping(
  * 1. Exact match on Kennel.shortName (case-insensitive)
  *    - When shortName is ambiguous (multiple regions), prefer source-linked kennel
  * 2. Case-insensitive match on KennelAlias.alias
- * 3. Pattern matching fallback (PRD Appendix D.2) → retry step 1
+ * 3. Pattern matching fallback (PRD Appendix D.2) → retry steps 1 (resolveViaExactMatch) and 2 (resolveViaAlias) with mapped name
  * 4. No match → { kennelId: null, matched: false }
  *
  * @param tag - Raw kennel tag from scraper
@@ -108,7 +108,7 @@ export async function resolveKennelTag(
  * Data-driven: patterns are evaluated in order (multi-word first, then shorter).
  * Returns the canonical shortName or null.
  */
-const KENNEL_PATTERNS: [RegExp, string][] = [
+const KENNEL_PATTERNS: readonly [RegExp, string][] = [
   // Multi-word patterns FIRST (longer before shorter)
   [/ballbuster|bobbh3|b3h4/, "BoBBH3"],
   [/queens black knights/, "QBK"],

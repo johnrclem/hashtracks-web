@@ -4,6 +4,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ParseError, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { MONTHS_ZERO, parse12HourTime, decodeEntities, stripHtmlTags } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 // Kennel regex patterns — LONGER strings before shorter substrings
 const KENNEL_PATTERNS: [RegExp, string][] = [
@@ -241,9 +242,14 @@ function extractLocationAndUrl(
   let location: string | undefined;
   let locationUrl: string | undefined;
 
-  const startMatch = /Start:\s*([\s\S]*?)(?:Transit:|$)/i.exec(cellHtml);
-  if (startMatch) {
-    const locationBlock = startMatch[1];
+  const startIdx = cellHtml.search(/Start:\s*/i);
+  const startLabelMatch = startIdx >= 0 ? /Start:\s*/i.exec(cellHtml) : null;
+  if (startIdx >= 0 && startLabelMatch) {
+    const blockStart = startIdx + startLabelMatch[0].length;
+    const transitIdx = cellHtml.slice(blockStart).search(/Transit:/i);
+    const locationBlock = transitIdx >= 0
+      ? cellHtml.slice(blockStart, blockStart + transitIdx)
+      : cellHtml.slice(blockStart);
 
     const $block = cheerio.load(`<div>${locationBlock}</div>`);
     const mapsLink = $block("a[href]").filter((_i, el) => {
@@ -256,7 +262,7 @@ function extractLocationAndUrl(
     }
 
     const locationText = decodeHtmlEntities(locationBlock).trim();
-    if (locationText && !/^\s*$/.test(locationText)) {
+    if (locationText) {
       if (/^TBD/i.test(locationText)) {
         location = "TBD";
       } else {
@@ -301,7 +307,7 @@ function extractDescriptionFromCell(
     if (rest) return rest;
   }
 
-  if (!/Transit:/i.exec(cellHtml) && !/Start:/i.exec(cellHtml)) {
+  if (!/Transit:/i.test(cellHtml) && !/Start:/i.test(cellHtml)) {
     let raw = cellText;
     raw = raw.replace(/^[\s\S]*?(?:Run|Trail|#)\s*\d+\s*[:\-–—]?\s*/i, "").trim();
     raw = raw.replace(/Start:[\s\S]*/i, "").trim();
@@ -326,7 +332,6 @@ function cleanEventDescription(desc: string | undefined, eventName: string | und
     const stripped = description.replace(/^[\w\s]+#\d+\s*/, "").trim();
     if (!stripped) description = undefined;
   }
-  if (description && !description.trim()) description = undefined;
   return description;
 }
 
@@ -505,7 +510,7 @@ export class HashNYCAdapter implements SourceAdapter {
     // 1. Scrape past events
     const pastUrl = `${baseUrl}/?days=${days}&backwards=true`;
     try {
-      const response = await fetch(pastUrl, {
+      const response = await safeFetch(pastUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       });
       if (!response.ok) {
@@ -534,7 +539,7 @@ export class HashNYCAdapter implements SourceAdapter {
     // 2. Scrape upcoming events
     const futureUrl = `${baseUrl}/?days=${days}`;
     try {
-      const response = await fetch(futureUrl, {
+      const response = await safeFetch(futureUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       });
       if (!response.ok) {

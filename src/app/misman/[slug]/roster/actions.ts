@@ -80,6 +80,8 @@ function buildAttendanceMergeOps(
           data: { kennelHasherId: primaryId },
         }),
       );
+      // Track this event as now claimed by primary to prevent duplicate reassigns
+      primaryAttendanceByEvent.set(att.eventId, att);
     }
   }
 

@@ -34,7 +34,7 @@ interface FilterCriteria {
 }
 
 /** Check whether an event passes the time filter (upcoming/past). */
-function passesTimeFilter(eventDate: number, view: string, timeFilter: string, todayUtc: number): boolean {
+function passesTimeFilter(eventDate: number, view: FilterCriteria["view"], timeFilter: FilterCriteria["timeFilter"], todayUtc: number): boolean {
   if (view === "calendar") return true;
   if (timeFilter === "upcoming" && eventDate < todayUtc) return false;
   if (timeFilter === "past" && eventDate >= todayUtc) return false;

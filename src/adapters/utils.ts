@@ -64,7 +64,10 @@ function isPrivateIPv4(a: number, b: number, c: number, d: number): boolean {
     (a === 172 && b >= 16 && b <= 31) ||          // private  172.16.0.0/12
     (a === 192 && b === 168) ||                   // private  192.168.0.0/16
     (a === 169 && b === 254) ||                   // link-local 169.254.0.0/16
-    (a === 0 && b === 0 && c === 0 && d === 0)    // 0.0.0.0
+    (a === 0 && b === 0 && c === 0 && d === 0) || // 0.0.0.0
+    (a === 100 && b >= 64 && b <= 127) ||         // CGNAT    100.64.0.0/10
+    (a >= 224 && a <= 239) ||                     // multicast 224.0.0.0/4
+    a >= 240                                      // reserved  240.0.0.0/4 (incl broadcast)
   );
 }
 

@@ -67,7 +67,7 @@ async function upsertSources(prisma: any, sources: any[], kennelRecords: Map<str
       console.log(`  ✓ Created source: ${sourceData.name}`);
     } else {
       await prisma.source.update({ where: { id: existingSource.id }, data: sourceData });
-      console.log(`  ✓ Source already exists: ${sourceData.name}`);
+      console.log(`  ✓ Source updated: ${sourceData.name}`);
     }
     await linkKennelsToSource(prisma, existingSource.id, kennelCodes, kennelRecords);
     console.log(`  ✓ Linked ${kennelCodes.length} kennels to ${sourceData.name}`);

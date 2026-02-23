@@ -19,14 +19,14 @@ const mapsUrl = googleMapsSearchUrl;
  * Also handles: "February 15, 2026", "Feb 15, 2026"
  */
 export function parseDateFromTitle(title: string): string | null {
-  const match = title.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/);
+  const match = /(\w+)\s+(\d{1,2}),?\s+(\d{4})/.exec(title);
   if (!match) return null;
 
   const monthNum = MONTHS[match[1].toLowerCase()];
   if (!monthNum) return null;
 
-  const day = parseInt(match[2], 10);
-  const year = parseInt(match[3], 10);
+  const day = Number.parseInt(match[2], 10);
+  const year = Number.parseInt(match[3], 10);
 
   if (day < 1 || day > 31) return null;
 
@@ -66,18 +66,14 @@ export function parseBodyFields(bodyText: string): {
   ];
 
   for (const [label, key] of simpleFields) {
-    const match = bodyText.match(
-      new RegExp(`${label}${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
-    );
+    const match = new RegExp(`${label}${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is").exec(bodyText);
     if (match) {
       result[key] = match[1].trim().replace(/\s+/g, " ");
     }
   }
 
   // Extract time from "WHEN" field (special: requires parseTimeString)
-  const whenMatch = bodyText.match(
-    new RegExp(`WHEN${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is"),
-  );
+  const whenMatch = new RegExp(`WHEN${fieldDelimiter}(.+?)(?=(?:${labelPattern})${fieldDelimiter}|$)`, "is").exec(bodyText);
   if (whenMatch) {
     const whenText = whenMatch[1].trim();
     const parsed = parseTimeString(whenText);

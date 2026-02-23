@@ -150,23 +150,29 @@ const mapsUrl = googleMapsSearchUrl;
 async function discoverSheetTabs(sheetId: string, apiKey: string): Promise<{ tabNames: string[]; error?: { message: string; url?: string; status?: number } }> {
   const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title&key=${apiKey}`;
   const safeMetaUrl = metaUrl.replace(/key=[^&]+/, "key=***");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
-    const metaRes = await fetch(metaUrl);
+    const metaRes = await fetch(metaUrl, { signal: controller.signal });
     if (!metaRes.ok) {
       const message = `Sheets API error ${metaRes.status}: ${await metaRes.text()}`;
       return { tabNames: [], error: { message, url: safeMetaUrl, status: metaRes.status } };
     }
-    const meta = (await metaRes.json()) as {
-      sheets: { properties: { title: string } }[];
-    };
-    const tabNames = meta.sheets
-      .map((s) => s.properties.title)
+    const meta = await metaRes.json();
+    if (!meta || !Array.isArray(meta.sheets)) {
+      return { tabNames: [], error: { message: "Unexpected Sheets API response shape", url: safeMetaUrl } };
+    }
+    const tabNames = (meta.sheets as Array<{ properties?: { title?: string } }>)
+      .filter((s) => s.properties?.title)
+      .map((s) => s.properties!.title!)
       .filter((name) => /^\d/.test(name))
       .sort((a, b) => a.localeCompare(b))
       .reverse();
     return { tabNames };
   } catch (err) {
-    return { tabNames: [], error: { message: `Failed to discover tabs: ${err}` } };
+    return { tabNames: [], error: { message: `Failed to discover tabs: ${err}`, url: safeMetaUrl } };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -299,8 +305,10 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     for (const tabName of tabNames) {
       let csvText: string;
       const csvUrl = `https://docs.google.com/spreadsheets/d/${config.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+      const csvController = new AbortController();
+      const csvTimeout = setTimeout(() => csvController.abort(), 15_000);
       try {
-        const csvRes = await fetch(csvUrl);
+        const csvRes = await fetch(csvUrl, { signal: csvController.signal });
         if (!csvRes.ok) {
           const message = `Failed to fetch tab "${tabName}": ${csvRes.status}`;
           errors.push(message);
@@ -313,6 +321,8 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         errors.push(message);
         errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: csvUrl, message: String(err) }];
         continue;
+      } finally {
+        clearTimeout(csvTimeout);
       }
 
       tabsProcessed.push(tabName);

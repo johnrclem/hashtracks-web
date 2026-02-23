@@ -29,7 +29,7 @@ function computeFuzzySuggestions(
   for (const alert of alerts) {
     if (alert.type !== "UNMATCHED_TAGS" || !alert.context) continue;
     const ctx = alert.context as { tags?: string[] };
-    if (!ctx.tags) continue;
+    if (!ctx.tags || !Array.isArray(ctx.tags)) continue;
 
     const tagSuggestions = new Map<string, KennelOption[]>();
     for (const tag of ctx.tags) {
