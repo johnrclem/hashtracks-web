@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/tooltip";
 import { SourceDetailActions } from "@/components/admin/SourceDetailActions";
 import { SampleEventActions } from "@/components/admin/SampleEventActions";
+import { TroubleshootSection } from "@/components/admin/TroubleshootSection";
 import { TYPE_LABELS } from "@/components/admin/SourceTable";
 import { fuzzyMatch } from "@/lib/fuzzy";
 import { cn } from "@/lib/utils";
@@ -463,6 +464,16 @@ export default async function SourceDetailPage({
           )}
         </div>
       </div>
+
+      {/* Troubleshoot Config */}
+      <TroubleshootSection
+        url={source.url}
+        type={source.type}
+        config={source.config as Record<string, unknown> | null}
+        allKennels={allKennels}
+        linkedKennelIds={source.kennels.map((sk) => sk.kennelId)}
+        geminiAvailable={!!process.env.GEMINI_API_KEY}
+      />
 
       {/* Recent Events */}
       {(() => {

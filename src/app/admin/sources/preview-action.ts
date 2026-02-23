@@ -20,6 +20,8 @@ export interface PreviewEvent {
   hares?: string;
   startTime?: string;
   resolved: boolean;
+  /** DB kennel ID when tag resolved — enables reliable auto-selection */
+  resolvedKennelId?: string;
 }
 
 export interface PreviewData {
@@ -118,14 +120,16 @@ export async function previewSourceConfig(
   const uniqueTags = [...new Set(result.events.map((e) => e.kennelTag))];
   const tagResults = await Promise.all(
     uniqueTags.map(async (tag) => {
-      const { matched } = await resolveKennelTag(tag);
-      return { tag, matched };
+      const { matched, kennelId } = await resolveKennelTag(tag);
+      return { tag, matched, kennelId };
     }),
   );
-  const tagResolution = new Map<string, boolean>();
-  tagResults.forEach(({ tag, matched }) => tagResolution.set(tag, matched));
+  const tagResolution = new Map<string, { matched: boolean; kennelId: string | null }>();
+  tagResults.forEach(({ tag, matched, kennelId }) =>
+    tagResolution.set(tag, { matched, kennelId }),
+  );
 
-  const unmatchedTags = uniqueTags.filter((t) => !tagResolution.get(t));
+  const unmatchedTags = uniqueTags.filter((t) => !tagResolution.get(t)?.matched);
 
   // Build preview events (capped at MAX_PREVIEW_EVENTS)
   const previewEvents: PreviewEvent[] = result.events
@@ -137,7 +141,8 @@ export async function previewSourceConfig(
       location: e.location,
       hares: e.hares,
       startTime: e.startTime,
-      resolved: tagResolution.get(e.kennelTag) ?? false,
+      resolved: tagResolution.get(e.kennelTag)?.matched ?? false,
+      resolvedKennelId: tagResolution.get(e.kennelTag)?.kennelId ?? undefined,
     }));
 
   return {

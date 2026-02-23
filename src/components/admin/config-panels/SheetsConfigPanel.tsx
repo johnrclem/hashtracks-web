@@ -11,6 +11,7 @@ import {
   type SheetsColumnField,
 } from "@/app/admin/sources/gemini-sheets-action";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { KennelTagInput, type KennelOption } from "./KennelTagInput";
 
 export interface SheetsConfig {
   sheetId?: string;
@@ -42,6 +43,7 @@ interface SheetsConfigPanelProps {
   sampleRows?: string[][];
   /** Whether GEMINI_API_KEY is configured */
   geminiAvailable?: boolean;
+  allKennels?: KennelOption[];
 }
 
 const REQUIRED_COLUMNS = [
@@ -72,6 +74,7 @@ export function SheetsConfigPanel({
   onChange,
   sampleRows,
   geminiAvailable,
+  allKennels,
 }: SheetsConfigPanelProps) {
   const current = config ?? {};
   const columns = current.columns ?? {};
@@ -347,13 +350,14 @@ export function SheetsConfigPanel({
 
         <div className="space-y-1">
           <Label className="text-xs">Default Tag *</Label>
-          <Input
+          <KennelTagInput
             value={tagRules.default ?? ""}
-            onChange={(e) =>
+            onChange={(v) =>
               updateTagRules({
-                default: e.target.value || undefined,
+                default: v || undefined,
               })
             }
+            allKennels={allKennels}
             placeholder="e.g., Summit"
             className="text-sm"
           />

@@ -2,15 +2,18 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { KennelTagInput, type KennelOption } from "./KennelTagInput";
 
 interface KennelPatternsEditorProps {
   patterns: [string, string][];
   onChange: (patterns: [string, string][]) => void;
+  allKennels?: KennelOption[];
 }
 
 export function KennelPatternsEditor({
   patterns,
   onChange,
+  allKennels,
 }: KennelPatternsEditorProps) {
   function addRow() {
     onChange([...patterns, ["", ""]]);
@@ -40,12 +43,15 @@ export function KennelPatternsEditor({
             onChange={(e) => updateRow(i, 0, e.target.value)}
             className="flex-1 font-mono text-xs"
           />
-          <Input
-            placeholder="Kennel tag"
-            value={row[1]}
-            onChange={(e) => updateRow(i, 1, e.target.value)}
-            className="w-32 text-xs"
-          />
+          <div className="w-36 shrink-0">
+            <KennelTagInput
+              value={row[1]}
+              onChange={(v) => updateRow(i, 1, v)}
+              allKennels={allKennels}
+              placeholder="Kennel tag"
+              className="text-xs"
+            />
+          </div>
           <Button
             type="button"
             variant="ghost"

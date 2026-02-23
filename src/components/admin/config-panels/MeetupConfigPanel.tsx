@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { KennelTagInput, type KennelOption } from "./KennelTagInput";
 
 export interface MeetupConfig {
   groupUrlname?: string; // Meetup group URL name, e.g. "brooklyn-hash-house-harriers"
@@ -12,6 +13,7 @@ export interface MeetupConfig {
 interface MeetupConfigPanelProps {
   config: MeetupConfig | null;
   onChange: (config: MeetupConfig) => void;
+  allKennels?: KennelOption[];
 }
 
 /** Extract the groupUrlname from a full meetup.com URL or return the value as-is. */
@@ -29,7 +31,7 @@ function extractGroupUrlname(value: string): string {
   return value.trim();
 }
 
-export function MeetupConfigPanel({ config, onChange }: MeetupConfigPanelProps) {
+export function MeetupConfigPanel({ config, onChange, allKennels }: MeetupConfigPanelProps) {
   const current = config ?? {};
   // Local input value so user can paste a full URL; we extract on blur
   const [urlInput, setUrlInput] = useState(current.groupUrlname ?? "");
@@ -68,12 +70,13 @@ export function MeetupConfigPanel({ config, onChange }: MeetupConfigPanelProps) 
 
       <div className="space-y-2">
         <Label htmlFor="meetup-kennel-tag">Kennel Tag *</Label>
-        <Input
+        <KennelTagInput
           id="meetup-kennel-tag"
           value={current.kennelTag ?? ""}
-          onChange={(e) =>
-            onChange({ ...current, kennelTag: e.target.value || undefined })
+          onChange={(v) =>
+            onChange({ ...current, kennelTag: v || undefined })
           }
+          allKennels={allKennels}
           placeholder="e.g. BrH3"
         />
         <p className="text-xs text-muted-foreground">
