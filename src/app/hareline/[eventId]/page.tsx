@@ -118,6 +118,9 @@ export default async function EventDetailPage({
     timeZone: "UTC",
   });
 
+  const hasLocation =
+    (event.latitude != null && event.longitude != null) || !!event.locationName;
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -181,10 +184,7 @@ export default async function EventDetailPage({
       </div>
 
       {/* Side-by-side: detail fields + description (left) | map (right) */}
-      {(() => {
-        const hasLocation = (event.latitude != null && event.longitude != null) || !!event.locationName;
-        return (
-          <div className={`grid grid-cols-1 gap-6 ${hasLocation ? "md:grid-cols-[3fr_2fr]" : ""}`}>
+      <div className={`grid grid-cols-1 gap-6 ${hasLocation ? "md:grid-cols-[3fr_2fr]" : ""}`}>
             {/* Left column: detail fields + description */}
             <div className="space-y-4">
               <dl className="grid gap-4 sm:grid-cols-2">
@@ -276,9 +276,7 @@ export default async function EventDetailPage({
                 imgClassName="h-64 md:h-full md:min-h-64"
               />
             )}
-          </div>
-        );
-      })()}
+      </div>
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2">

@@ -14,6 +14,11 @@ interface SourcesDropdownProps {
   eventLinks: { id: string; url: string; label: string }[];
 }
 
+/** Only allow http/https URLs to prevent javascript: XSS. */
+function isSafeUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
 /** Derives a human-readable label from a source URL. */
 function getLabelForUrl(url: string, existingLabel?: string | null): string {
   // Use existing label if it's descriptive (not the generic "Source" placeholder)
@@ -31,16 +36,22 @@ function getLabelForUrl(url: string, existingLabel?: string | null): string {
 
 /**
  * Collapses all event source URLs into a single "Sources ▾" dropdown.
- * Renders a plain button when there is exactly one source.
+ * Deduplicates by URL, filters unsafe schemes, and renders a plain
+ * button when there is exactly one source.
  */
 export function SourcesDropdown({ sourceUrl, eventLinks }: SourcesDropdownProps) {
   const sources: { url: string; label: string }[] = [];
+  const seenUrls = new Set<string>();
 
-  if (sourceUrl) {
+  if (sourceUrl && isSafeUrl(sourceUrl)) {
     sources.push({ url: sourceUrl, label: getLabelForUrl(sourceUrl) });
+    seenUrls.add(sourceUrl);
   }
   for (const link of eventLinks) {
-    sources.push({ url: link.url, label: getLabelForUrl(link.url, link.label) });
+    if (isSafeUrl(link.url) && !seenUrls.has(link.url)) {
+      sources.push({ url: link.url, label: getLabelForUrl(link.url, link.label) });
+      seenUrls.add(link.url);
+    }
   }
 
   if (sources.length === 0) return null;
@@ -63,8 +74,8 @@ export function SourcesDropdown({ sourceUrl, eventLinks }: SourcesDropdownProps)
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
-        {sources.map((source, i) => (
-          <DropdownMenuItem key={i} asChild>
+        {sources.map((source) => (
+          <DropdownMenuItem key={source.url} asChild>
             <a href={source.url} target="_blank" rel="noopener noreferrer">
               {source.label}
             </a>
