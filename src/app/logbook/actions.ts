@@ -146,6 +146,7 @@ export async function rsvp(eventId: string) {
   return { success: true, attendanceId: attendance.id, toggled: "on" };
 }
 
+/** Confirm a user's INTENDING attendance — upgrades it to CONFIRMED. */
 export async function confirmAttendance(
   attendanceId: string,
   participationLevel?: string,
@@ -280,7 +281,7 @@ export async function getPendingConfirmations() {
  */
 async function resolveMismanRecord(kennelAttendanceId: string): Promise<
   | { ok: false; error: string }
-  | { ok: true; user: { id: string }; mismanRecord: Awaited<ReturnType<typeof prisma.kennelAttendance.findUnique>> & {}; existing: Awaited<ReturnType<typeof prisma.attendance.findUnique>> }
+  | { ok: true; user: { id: string }; mismanRecord: NonNullable<Awaited<ReturnType<typeof prisma.kennelAttendance.findUnique>>> & { event: { status: string } }; existing: Awaited<ReturnType<typeof prisma.attendance.findUnique>> }
 > {
   const user = await getOrCreateUser();
   if (!user) return { ok: false, error: "Not authenticated" };
@@ -293,6 +294,7 @@ async function resolveMismanRecord(kennelAttendanceId: string): Promise<
           userLink: { select: { userId: true, status: true } },
         },
       },
+      event: { select: { status: true } },
     },
   });
 
@@ -321,6 +323,11 @@ export async function confirmMismanAttendance(kennelAttendanceId: string): Promi
 
   if (existing) return { success: true, attendanceId: existing.id };
 
+  // Block confirmation of cancelled events
+  if (mismanRecord.event.status === "CANCELLED") {
+    return { error: "Event was cancelled" };
+  }
+
   try {
     const attendance = await prisma.attendance.create({
       data: {
@@ -341,8 +348,9 @@ export async function confirmMismanAttendance(kennelAttendanceId: string): Promi
       const raced = await prisma.attendance.findUnique({
         where: { userId_eventId: { userId: user.id, eventId: mismanRecord.eventId } },
       });
+      if (!raced) throw new Error("Race condition: P2002 but record not found");
       revalidatePath("/logbook");
-      return { success: true, attendanceId: raced!.id };
+      return { success: true, attendanceId: raced.id };
     }
     throw e;
   }

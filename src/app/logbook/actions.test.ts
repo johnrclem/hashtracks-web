@@ -30,6 +30,7 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+import { Prisma } from "@/generated/prisma/client";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
@@ -481,6 +482,7 @@ describe("confirmMismanAttendance", () => {
       kennelHasher: {
         userLink: { userId: "other_user", status: "CONFIRMED" },
       },
+      event: { status: "CONFIRMED" },
     } as never);
 
     const result = await confirmMismanAttendance("ka_1");
@@ -496,6 +498,7 @@ describe("confirmMismanAttendance", () => {
       kennelHasher: {
         userLink: { userId: "user_1", status: "CONFIRMED" },
       },
+      event: { status: "CONFIRMED" },
     } as never);
 
     // No existing logbook entry
@@ -525,6 +528,7 @@ describe("confirmMismanAttendance", () => {
       kennelHasher: {
         userLink: { userId: "user_1", status: "CONFIRMED" },
       },
+      event: { status: "CONFIRMED" },
     } as never);
 
     // Already has logbook entry
@@ -532,6 +536,25 @@ describe("confirmMismanAttendance", () => {
 
     const result = await confirmMismanAttendance("ka_1");
     expect(result).toEqual({ success: true, attendanceId: "att_existing" });
+    expect(mockAttCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns error when event is cancelled", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
+      id: "ka_1",
+      eventId: "evt_1",
+      haredThisTrail: false,
+      recordedBy: "misman_1",
+      kennelHasher: {
+        userLink: { userId: "user_1", status: "CONFIRMED" },
+      },
+      event: { status: "CANCELLED" },
+    } as never);
+
+    mockAttFind.mockResolvedValueOnce(null);
+
+    const result = await confirmMismanAttendance("ka_1");
+    expect(result).toEqual({ error: "Event was cancelled" });
     expect(mockAttCreate).not.toHaveBeenCalled();
   });
 });
@@ -617,6 +640,7 @@ describe("declineMismanAttendance", () => {
       kennelHasher: {
         userLink: { userId: "other_user", status: "CONFIRMED" },
       },
+      event: { status: "CONFIRMED" },
     } as never);
 
     const result = await declineMismanAttendance("ka_1");
@@ -632,6 +656,7 @@ describe("declineMismanAttendance", () => {
       kennelHasher: {
         userLink: { userId: "user_1", status: "CONFIRMED" },
       },
+      event: { status: "CONFIRMED" },
     } as never);
 
     mockAttFind.mockResolvedValueOnce(null);
@@ -658,6 +683,7 @@ describe("declineMismanAttendance", () => {
       kennelHasher: {
         userLink: { userId: "user_1", status: "CONFIRMED" },
       },
+      event: { status: "CONFIRMED" },
     } as never);
 
     mockAttFind.mockResolvedValueOnce({ id: "att_existing" } as never);
@@ -676,6 +702,7 @@ describe("declineMismanAttendance", () => {
       kennelHasher: {
         userLink: { userId: "user_1", status: "CONFIRMED" },
       },
+      event: { status: "CONFIRMED" },
     } as never);
 
     mockAttFind.mockResolvedValueOnce({
@@ -686,5 +713,31 @@ describe("declineMismanAttendance", () => {
     const result = await declineMismanAttendance("ka_1");
     expect(result).toEqual({ success: true });
     expect(mockAttCreate).not.toHaveBeenCalled();
+  });
+
+  it("handles P2002 race condition gracefully", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
+      id: "ka_1",
+      eventId: "evt_1",
+      haredThisTrail: false,
+      recordedBy: "misman_1",
+      kennelHasher: {
+        userLink: { userId: "user_1", status: "CONFIRMED" },
+      },
+      event: { status: "CONFIRMED" },
+    } as never);
+
+    // No existing attendance — will attempt create
+    mockAttFind.mockResolvedValueOnce(null);
+
+    // Simulate concurrent insert winning the race
+    const p2002 = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed",
+      { code: "P2002", clientVersion: "0.0.0" },
+    );
+    mockAttCreate.mockRejectedValueOnce(p2002);
+
+    const result = await declineMismanAttendance("ka_1");
+    expect(result).toEqual({ success: true });
   });
 });

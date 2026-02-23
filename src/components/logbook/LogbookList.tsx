@@ -40,7 +40,7 @@ export interface LogbookEntry {
     runNumber: number | null;
     title: string | null;
     startTime: string | null;
-    status: string;
+    status: "CONFIRMED" | "TENTATIVE" | "CANCELLED";
     kennel: {
       id: string;
       shortName: string;
@@ -393,6 +393,7 @@ export function LogbookList({ entries }: LogbookListProps) {
                     className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                     disabled={isPending}
                     title="Remove from logbook"
+                    aria-label="Remove from logbook"
                     onClick={() => handleRemove(entry.attendance.id)}
                   >
                     &times;

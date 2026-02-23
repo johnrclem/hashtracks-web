@@ -43,7 +43,7 @@ export default async function LogbookPage() {
         runNumber: a.event.runNumber,
         title: a.event.title,
         startTime: a.event.startTime,
-        status: a.event.status as string,
+        status: a.event.status,
         kennel: a.event.kennel,
       },
     }));
