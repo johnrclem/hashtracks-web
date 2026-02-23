@@ -76,14 +76,13 @@ async function suggestFromCalendarApi(calendarId: string): Promise<SuggestNameRe
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   if (!apiKey) return { error: "GOOGLE_CALENDAR_API_KEY not configured" };
 
-  const endpoint = new URL(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}`,
-  );
-  endpoint.searchParams.set("key", apiKey);
+  const rawUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}`;
+  const guard = validateFetchUrl(rawUrl);
   // Hostname assertion: encodeURIComponent cannot inject a different host
-  if (endpoint.hostname !== "www.googleapis.com") return { error: "SSRF guard" };
+  if (!guard.ok || guard.url.hostname !== "www.googleapis.com") return { error: "SSRF guard" };
+  guard.url.searchParams.set("key", apiKey);
 
-  const res = await fetch(endpoint, { signal: AbortSignal.timeout(5000) });
+  const res = await fetch(guard.url, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) return { error: `Calendar API error: ${res.status}` };
   const data = (await res.json()) as { summary?: string };
   if (!data.summary) return { error: "No calendar name found" };
@@ -106,15 +105,14 @@ async function suggestFromSheetsApi(
   }
   if (!sheetId) return { error: "No sheet ID found" };
 
-  const endpoint = new URL(
-    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}`,
-  );
-  endpoint.searchParams.set("fields", "properties.title");
-  endpoint.searchParams.set("key", apiKey);
+  const rawUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}`;
+  const guard = validateFetchUrl(rawUrl);
   // Hostname assertion: encodeURIComponent cannot inject a different host
-  if (endpoint.hostname !== "sheets.googleapis.com") return { error: "SSRF guard" };
+  if (!guard.ok || guard.url.hostname !== "sheets.googleapis.com") return { error: "SSRF guard" };
+  guard.url.searchParams.set("fields", "properties.title");
+  guard.url.searchParams.set("key", apiKey);
 
-  const res = await fetch(endpoint, { signal: AbortSignal.timeout(5000) });
+  const res = await fetch(guard.url, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) return { error: `Sheets API error: ${res.status}` };
   const data = (await res.json()) as { properties?: { title?: string } };
   const title = data.properties?.title;
