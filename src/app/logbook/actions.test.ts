@@ -50,6 +50,24 @@ const mockAttCreate = vi.mocked(prisma.attendance.create);
 const mockAttUpdate = vi.mocked(prisma.attendance.update);
 const mockAttDelete = vi.mocked(prisma.attendance.delete);
 
+// Helper: build a mock KennelAttendance record for misman tests
+function mockMismanRecord(overrides: {
+  userId?: string;
+  haredThisTrail?: boolean;
+  eventStatus?: string;
+} = {}) {
+  return {
+    id: "ka_1",
+    eventId: "evt_1",
+    haredThisTrail: overrides.haredThisTrail ?? false,
+    recordedBy: "misman_1",
+    kennelHasher: {
+      userLink: { userId: overrides.userId ?? "user_1", status: "CONFIRMED" },
+    },
+    event: { status: overrides.eventStatus ?? "CONFIRMED" },
+  } as never;
+}
+
 // Helper: create a UTC noon date for a given offset from today
 function utcNoonDate(daysOffset: number): Date {
   const now = new Date();
@@ -474,32 +492,18 @@ describe("confirmMismanAttendance", () => {
   });
 
   it("returns error when no confirmed link to hasher", async () => {
-    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
-      eventId: "evt_1",
-      haredThisTrail: false,
-      recordedBy: "misman_1",
-      kennelHasher: {
-        userLink: { userId: "other_user", status: "CONFIRMED" },
-      },
-      event: { status: "CONFIRMED" },
-    } as never);
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(
+      mockMismanRecord({ userId: "other_user" }),
+    );
 
     const result = await confirmMismanAttendance("ka_1");
     expect(result).toEqual({ error: "Not authorized — no confirmed link to this hasher" });
   });
 
   it("creates logbook entry with correct participation level", async () => {
-    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
-      eventId: "evt_1",
-      haredThisTrail: true,
-      recordedBy: "misman_1",
-      kennelHasher: {
-        userLink: { userId: "user_1", status: "CONFIRMED" },
-      },
-      event: { status: "CONFIRMED" },
-    } as never);
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(
+      mockMismanRecord({ haredThisTrail: true }),
+    );
 
     // No existing logbook entry
     mockAttFind.mockResolvedValueOnce(null);
@@ -520,16 +524,7 @@ describe("confirmMismanAttendance", () => {
   });
 
   it("is idempotent when logbook entry already exists", async () => {
-    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
-      eventId: "evt_1",
-      haredThisTrail: false,
-      recordedBy: "misman_1",
-      kennelHasher: {
-        userLink: { userId: "user_1", status: "CONFIRMED" },
-      },
-      event: { status: "CONFIRMED" },
-    } as never);
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(mockMismanRecord());
 
     // Already has logbook entry
     mockAttFind.mockResolvedValueOnce({ id: "att_existing" } as never);
@@ -540,16 +535,9 @@ describe("confirmMismanAttendance", () => {
   });
 
   it("returns error when event is cancelled", async () => {
-    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
-      eventId: "evt_1",
-      haredThisTrail: false,
-      recordedBy: "misman_1",
-      kennelHasher: {
-        userLink: { userId: "user_1", status: "CONFIRMED" },
-      },
-      event: { status: "CANCELLED" },
-    } as never);
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(
+      mockMismanRecord({ eventStatus: "CANCELLED" }),
+    );
 
     mockAttFind.mockResolvedValueOnce(null);
 
@@ -632,32 +620,16 @@ describe("declineMismanAttendance", () => {
   });
 
   it("returns error when no confirmed link to hasher", async () => {
-    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
-      eventId: "evt_1",
-      haredThisTrail: false,
-      recordedBy: "misman_1",
-      kennelHasher: {
-        userLink: { userId: "other_user", status: "CONFIRMED" },
-      },
-      event: { status: "CONFIRMED" },
-    } as never);
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(
+      mockMismanRecord({ userId: "other_user" }),
+    );
 
     const result = await declineMismanAttendance("ka_1");
     expect(result).toEqual({ error: "Not authorized — no confirmed link to this hasher" });
   });
 
   it("creates DECLINED attendance record", async () => {
-    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
-      eventId: "evt_1",
-      haredThisTrail: false,
-      recordedBy: "misman_1",
-      kennelHasher: {
-        userLink: { userId: "user_1", status: "CONFIRMED" },
-      },
-      event: { status: "CONFIRMED" },
-    } as never);
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(mockMismanRecord());
 
     mockAttFind.mockResolvedValueOnce(null);
     mockAttCreate.mockResolvedValueOnce({ id: "att_declined" } as never);
@@ -675,16 +647,7 @@ describe("declineMismanAttendance", () => {
   });
 
   it("is idempotent when logbook entry already exists", async () => {
-    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
-      eventId: "evt_1",
-      haredThisTrail: false,
-      recordedBy: "misman_1",
-      kennelHasher: {
-        userLink: { userId: "user_1", status: "CONFIRMED" },
-      },
-      event: { status: "CONFIRMED" },
-    } as never);
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(mockMismanRecord());
 
     mockAttFind.mockResolvedValueOnce({ id: "att_existing" } as never);
 
@@ -694,16 +657,7 @@ describe("declineMismanAttendance", () => {
   });
 
   it("returns success without creating when user already confirmed", async () => {
-    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
-      eventId: "evt_1",
-      haredThisTrail: false,
-      recordedBy: "misman_1",
-      kennelHasher: {
-        userLink: { userId: "user_1", status: "CONFIRMED" },
-      },
-      event: { status: "CONFIRMED" },
-    } as never);
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(mockMismanRecord());
 
     mockAttFind.mockResolvedValueOnce({
       id: "att_existing",
@@ -716,16 +670,7 @@ describe("declineMismanAttendance", () => {
   });
 
   it("handles P2002 race condition gracefully", async () => {
-    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
-      eventId: "evt_1",
-      haredThisTrail: false,
-      recordedBy: "misman_1",
-      kennelHasher: {
-        userLink: { userId: "user_1", status: "CONFIRMED" },
-      },
-      event: { status: "CONFIRMED" },
-    } as never);
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(mockMismanRecord());
 
     // No existing attendance — will attempt create
     mockAttFind.mockResolvedValueOnce(null);
