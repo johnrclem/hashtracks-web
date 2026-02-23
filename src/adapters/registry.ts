@@ -54,6 +54,35 @@ const htmlScrapersByUrl: [RegExp, () => SourceAdapter][] = [
   [/hangoverhash\.digitalpress/i, () => new HangoverAdapter()],
 ];
 
+/**
+ * Returns the adapter class name if the URL matches a known HTML scraper, else null.
+ * Used by the AI config suggestion to detect whether a custom adapter already exists.
+ */
+export function findHtmlAdapter(url: string): string | null {
+  const named: [RegExp, string][] = [
+    [/benfranklinmob/i, "BFMAdapter"],
+    [/hashphilly/i, "HashPhillyAdapter"],
+    [/cityhash\.org/i, "CityHashAdapter"],
+    [/westlondonhash/i, "WestLondonHashAdapter"],
+    [/barnesh3\.com/i, "BarnesHashAdapter"],
+    [/och3\.org/i, "OCH3Adapter"],
+    [/londonhash\.org\/slah3/i, "SlashHashAdapter"],
+    [/londonhash\.org/i, "LondonHashAdapter"],
+    [/enfieldhash\.org/i, "EnfieldHashAdapter"],
+    [/chicagohash\.org/i, "ChicagoHashAdapter"],
+    [/chicagoth3\.com/i, "ChicagoTH3Adapter"],
+    [/sfh3\.com/i, "SFH3Adapter"],
+    [/ewh3\.com/i, "EWH3Adapter"],
+    [/dch4\.org/i, "DCH4Adapter"],
+    [/ofh3\.com/i, "OFH3Adapter"],
+    [/hangoverhash\.digitalpress/i, "HangoverAdapter"],
+  ];
+  for (const [pattern, name] of named) {
+    if (pattern.test(url)) return name;
+  }
+  return null;
+}
+
 export function getAdapter(sourceType: SourceType, sourceUrl?: string): SourceAdapter {
   // For HTML scrapers, check URL-based routing first
   if (sourceType === "HTML_SCRAPER" && sourceUrl) {
