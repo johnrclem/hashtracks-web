@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -55,6 +56,10 @@ interface LogbookListProps {
   entries: LogbookEntry[];
 }
 
+function toggleFilter<T extends string>(setter: Dispatch<SetStateAction<T[]>>, value: T) {
+  setter((prev) => prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]);
+}
+
 export function LogbookList({ entries }: LogbookListProps) {
   const [editingAttendance, setEditingAttendance] = useState<AttendanceData | null>(null);
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
@@ -97,7 +102,7 @@ export function LogbookList({ entries }: LogbookListProps) {
 
   const regions = useMemo(() => {
     const set = new Set(entries.map((e) => e.event.kennel.region));
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [entries]);
 
   // Filter entries
@@ -163,11 +168,7 @@ export function LogbookList({ entries }: LogbookListProps) {
                   {regions.map((region) => (
                     <CommandItem
                       key={region}
-                      onSelect={() =>
-                        setSelectedRegions((prev) =>
-                          prev.includes(region) ? prev.filter((r) => r !== region) : [...prev, region],
-                        )
-                      }
+                      onSelect={() => toggleFilter(setSelectedRegions, region)}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
@@ -209,11 +210,7 @@ export function LogbookList({ entries }: LogbookListProps) {
                     <CommandItem
                       key={kennel.id}
                       value={`${kennel.shortName} ${kennel.fullName} ${kennel.region}`}
-                      onSelect={() =>
-                        setSelectedKennels((prev) =>
-                          prev.includes(kennel.id) ? prev.filter((k) => k !== kennel.id) : [...prev, kennel.id],
-                        )
-                      }
+                      onSelect={() => toggleFilter(setSelectedKennels, kennel.id)}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
@@ -252,11 +249,7 @@ export function LogbookList({ entries }: LogbookListProps) {
                   {PARTICIPATION_LEVELS.map((level) => (
                     <CommandItem
                       key={level}
-                      onSelect={() =>
-                        setSelectedLevels((prev) =>
-                          prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level],
-                        )
-                      }
+                      onSelect={() => toggleFilter(setSelectedLevels, level)}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${

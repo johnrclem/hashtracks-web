@@ -37,6 +37,27 @@ interface RosterFile {
   possibleDuplicates: unknown[];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function resolveKennelAndRoster(prisma: any, kennelShortName: string): Promise<{ kennelId: string; rosterGroupId: string; existingNames: Set<string> } | null> {
+  const kennel = await prisma.kennel.findFirst({ where: { shortName: kennelShortName }, select: { id: true } });
+  if (!kennel) {
+    console.warn(`  ⚠ Kennel "${kennelShortName}" not found in database`);
+    return null;
+  }
+  const rosterGroupKennel = await prisma.rosterGroupKennel.findUnique({ where: { kennelId: kennel.id }, select: { groupId: true } });
+  if (!rosterGroupKennel) {
+    console.warn(`  ⚠ Kennel "${kennelShortName}" has no RosterGroup`);
+    return null;
+  }
+  const existing = await prisma.kennelHasher.findMany({ where: { rosterGroupId: rosterGroupKennel.groupId }, select: { hashName: true, nerdName: true } });
+  const existingNames = new Set<string>();
+  for (const e of existing) {
+    if (e.hashName) existingNames.add(e.hashName.toLowerCase());
+    if (e.nerdName) existingNames.add(e.nerdName.toLowerCase());
+  }
+  return { kennelId: kennel.id, rosterGroupId: rosterGroupKennel.groupId, existingNames };
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
@@ -74,60 +95,23 @@ async function main() {
   let totalSkipped = 0;
 
   for (const [kennelShortName, data] of Object.entries(roster.kennels)) {
-    // Look up kennel by shortName (no longer globally unique, use findFirst)
-    const kennel = await prisma.kennel.findFirst({
-      where: { shortName: kennelShortName },
-      select: { id: true },
-    });
-
-    if (!kennel) {
-      console.warn(`  ⚠ Kennel "${kennelShortName}" not found in database — skipping ${data.count} hares`);
+    const resolved = await resolveKennelAndRoster(prisma, kennelShortName);
+    if (!resolved) {
       totalSkipped += data.count;
       continue;
     }
 
-    // Look up roster group for this kennel
-    const rosterGroupKennel = await prisma.rosterGroupKennel.findUnique({
-      where: { kennelId: kennel.id },
-      select: { groupId: true },
-    });
-
-    if (!rosterGroupKennel) {
-      console.warn(`  ⚠ Kennel "${kennelShortName}" has no RosterGroup — skipping ${data.count} hares`);
-      totalSkipped += data.count;
-      continue;
-    }
-
-    const rosterGroupId = rosterGroupKennel.groupId;
-
-    // Get existing roster entries (case-insensitive dedup)
-    const existing = await prisma.kennelHasher.findMany({
-      where: { rosterGroupId },
-      select: { hashName: true, nerdName: true },
-    });
-
-    const existingNames = new Set<string>();
-    for (const e of existing) {
-      if (e.hashName) existingNames.add(e.hashName.toLowerCase());
-      if (e.nerdName) existingNames.add(e.nerdName.toLowerCase());
-    }
-
-    // Filter to new names only
-    const newHares = data.hares.filter(
-      (h) => !existingNames.has(h.name.toLowerCase()),
-    );
-
+    const newHares = data.hares.filter((h) => !resolved.existingNames.has(h.name.toLowerCase()));
     if (newHares.length === 0) {
       console.log(`  ${kennelShortName}: 0 new (all ${data.count} already in roster)`);
       totalSkipped += data.count;
       continue;
     }
 
-    // Create new KennelHasher entries
     const result = await prisma.kennelHasher.createMany({
       data: newHares.map((h) => ({
-        rosterGroupId,
-        kennelId: kennel.id,
+        rosterGroupId: resolved.rosterGroupId,
+        kennelId: resolved.kennelId,
         hashName: h.name,
       })),
     });

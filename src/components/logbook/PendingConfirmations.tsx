@@ -34,6 +34,10 @@ export function PendingConfirmations() {
     });
   }, []);
 
+  function removePendingRecord(id: string) {
+    setPending((prev) => prev.filter((p) => p.kennelAttendanceId !== id));
+  }
+
   function handleConfirm(kennelAttendanceId: string) {
     startTransition(async () => {
       const result = await confirmMismanAttendance(kennelAttendanceId);
@@ -41,9 +45,7 @@ export function PendingConfirmations() {
         toast.error(result.error);
       } else {
         toast.success("Added to your logbook");
-        setPending((prev) =>
-          prev.filter((p) => p.kennelAttendanceId !== kennelAttendanceId),
-        );
+        removePendingRecord(kennelAttendanceId);
         router.refresh();
       }
     });

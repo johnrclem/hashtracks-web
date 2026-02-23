@@ -10,6 +10,158 @@ function toSlug(shortName: string): string {
     .replace(/^-|-$/g, "");  // Trim leading/trailing hyphens
 }
 
+const PROFILE_FIELDS = new Set([
+  "website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency",
+  "scheduleNotes", "hashCash", "facebookUrl", "instagramHandle",
+  "twitterHandle", "discordUrl", "contactEmail", "foundedYear", "description",
+]);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function upsertKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: string) => string) {
+  console.log("Seeding kennels...");
+  const kennelRecords = new Map<string, { id: string }>();
+  for (const kennel of kennels) {
+    const slug = toSlugFn(kennel.shortName);
+    const profileFields = Object.fromEntries(
+      Object.entries(kennel).filter(([k, v]) => PROFILE_FIELDS.has(k) && v !== undefined)
+    );
+    const record = await prisma.kennel.upsert({
+      where: { kennelCode: kennel.kennelCode },
+      update: { shortName: kennel.shortName, fullName: kennel.fullName, region: kennel.region, ...(kennel.country != null && { country: kennel.country }), slug, ...profileFields },
+      create: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, country: kennel.country ?? "USA", ...profileFields },
+    });
+    kennelRecords.set(kennel.kennelCode, record);
+  }
+  console.log(`  ✓ ${kennels.length} kennels upserted`);
+  return kennelRecords;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function upsertAliases(prisma: any, kennelAliases: Record<string, string[]>, kennelRecords: Map<string, { id: string }>) {
+  let aliasCount = 0;
+  for (const [code, aliases] of Object.entries(kennelAliases)) {
+    if (!kennelRecords.has(code)) { console.warn(`  ⚠ Kennel code "${code}" not found, skipping aliases`); continue; }
+    const kennel = kennelRecords.get(code)!;
+    for (const alias of aliases) {
+      await prisma.kennelAlias.upsert({
+        where: { kennelId_alias: { kennelId: kennel.id, alias } },
+        update: {},
+        create: { kennelId: kennel.id, alias },
+      });
+      aliasCount++;
+    }
+  }
+  console.log(`  ✓ ${aliasCount} kennel aliases upserted`);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function upsertSources(prisma: any, sources: any[], kennelRecords: Map<string, { id: string }>) {
+  console.log("Seeding sources...");
+  for (const source of sources) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { kennelCodes, ...sourceData } = source;
+    let existingSource = await prisma.source.findFirst({ where: { url: sourceData.url } });
+    if (!existingSource) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- sourceData contains nested config objects (InputJsonValue)
+      existingSource = await prisma.source.create({ data: sourceData });
+      console.log(`  ✓ Created source: ${sourceData.name}`);
+    } else {
+      await prisma.source.update({ where: { id: existingSource.id }, data: sourceData });
+      console.log(`  ✓ Source updated: ${sourceData.name}`);
+    }
+    await linkKennelsToSource(prisma, existingSource.id, kennelCodes, kennelRecords);
+    console.log(`  ✓ Linked ${kennelCodes.length} kennels to ${sourceData.name}`);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function linkKennelsToSource(prisma: any, sourceId: string, kennelCodes: string[], kennelRecords: Map<string, { id: string }>) {
+  for (const code of kennelCodes) {
+    const kennel = kennelRecords.get(code);
+    if (!kennel) { console.warn(`  ⚠ Kennel code "${code}" not found, skipping source link`); continue; }
+    await prisma.sourceKennel.upsert({
+      where: { sourceId_kennelId: { sourceId, kennelId: kennel.id } },
+      update: {},
+      create: { sourceId, kennelId: kennel.id },
+    });
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function upsertRosterGroups(prisma: any, rosterGroups: { name: string; kennelCodes: string[] }[], kennelRecords: Map<string, { id: string }>) {
+  console.log("Seeding roster groups...");
+  for (const group of rosterGroups) {
+    let rosterGroup = await prisma.rosterGroup.findFirst({ where: { name: group.name } });
+    if (!rosterGroup) {
+      rosterGroup = await prisma.rosterGroup.create({ data: { name: group.name } });
+      console.log(`  ✓ Created roster group: ${group.name}`);
+    } else {
+      console.log(`  ✓ Roster group already exists: ${group.name}`);
+    }
+    await linkKennelsToRosterGroup(prisma, rosterGroup.id, group.kennelCodes, kennelRecords);
+    console.log(`  ✓ Linked ${group.kennelCodes.length} kennels to ${group.name}`);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function linkKennelsToRosterGroup(prisma: any, groupId: string, kennelCodes: string[], kennelRecords: Map<string, { id: string }>) {
+  for (const code of kennelCodes) {
+    const kennel = kennelRecords.get(code);
+    if (!kennel) { console.warn(`  ⚠ Kennel code "${code}" not found, skipping roster group link`); continue; }
+    await prisma.rosterGroupKennel.upsert({
+      where: { kennelId: kennel.id },
+      update: { groupId },
+      create: { groupId, kennelId: kennel.id },
+    });
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function ensureAllKennelsHaveGroup(prisma: any, kennelRecords: Map<string, { id: string }>, codeToShortName: Map<string, string>) {
+  console.log("Ensuring all kennels have a roster group...");
+  for (const [code, record] of kennelRecords) {
+    const existing = await prisma.rosterGroupKennel.findUnique({ where: { kennelId: record.id } });
+    if (existing) continue;
+    const groupName = codeToShortName.get(code) ?? code;
+    let group = await prisma.rosterGroup.findFirst({ where: { name: groupName } });
+    if (!group) {
+      group = await prisma.rosterGroup.create({ data: { name: groupName } });
+    }
+    await prisma.rosterGroupKennel.upsert({
+      where: { kennelId: record.id },
+      update: { groupId: group.id },
+      create: { groupId: group.id, kennelId: record.id },
+    });
+    console.log(`  + Created standalone group for ${groupName}`);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function seedKennels(prisma: any, kennels: any[], kennelAliases: Record<string, string[]>, sources: any[], toSlugFn: (s: string) => string) {
+  const kennelRecords = await upsertKennelRecords(prisma, kennels, toSlugFn);
+  await upsertAliases(prisma, kennelAliases, kennelRecords);
+  await upsertSources(prisma, sources, kennelRecords);
+
+  const rosterGroups = [
+    { name: "NYC Metro", kennelCodes: ["nych3", "brh3", "nah3", "knick", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3"] },
+    { name: "Philly Area", kennelCodes: ["bfm", "philly-h3"] },
+  ];
+  await upsertRosterGroups(prisma, rosterGroups, kennelRecords);
+
+  const codeToShortName = new Map<string, string>();
+  for (const k of kennels) codeToShortName.set(k.kennelCode, k.shortName);
+  await ensureAllKennelsHaveGroup(prisma, kennelRecords, codeToShortName);
+
+  // Post-seed validation: check for duplicate fullNames
+  const dupes: Array<{ fullName: string; cnt: bigint }> = await prisma.$queryRaw`
+    SELECT "fullName", COUNT(*) as cnt FROM "Kennel" GROUP BY "fullName" HAVING COUNT(*) > 1
+  `;
+  if (dupes.length > 0) {
+    console.warn("\n⚠ Duplicate fullNames found:");
+    for (const d of dupes) console.warn(`  - "${d.fullName}" (${d.cnt} records)`);
+  }
+}
+
 // Dynamic import of the generated client to handle ESM
 async function main() {
   const { PrismaClient } = await import("../src/generated/prisma/client.js");
@@ -903,205 +1055,7 @@ async function main() {
     },
   ];
 
-  console.log("Seeding kennels...");
-
-  // Upsert all kennels (keyed by kennelCode — permanent identity)
-  const kennelRecords: Record<string, { id: string }> = {};
-  for (const kennel of kennels) {
-    const slug = toSlug(kennel.shortName);
-    // Extract profile fields (omit undefined to avoid overwriting existing data with null)
-    const profileFields: Record<string, string | number | undefined> = {};
-    for (const key of [
-      "website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency",
-      "scheduleNotes", "hashCash", "facebookUrl", "instagramHandle",
-      "twitterHandle", "discordUrl", "contactEmail", "foundedYear", "description",
-    ] as const) {
-      if (kennel[key] !== undefined) profileFields[key] = kennel[key];
-    }
-    const record = await prisma.kennel.upsert({
-      where: { kennelCode: kennel.kennelCode },
-      update: {
-        shortName: kennel.shortName,
-        fullName: kennel.fullName,
-        region: kennel.region,
-        slug,
-        ...profileFields,
-      },
-      create: {
-        kennelCode: kennel.kennelCode,
-        shortName: kennel.shortName,
-        slug,
-        fullName: kennel.fullName,
-        region: kennel.region,
-        country: kennel.country ?? "USA",
-        ...profileFields,
-      },
-    });
-    kennelRecords[kennel.kennelCode] = record;
-  }
-  console.log(`  ✓ ${kennels.length} kennels upserted`);
-
-  // Upsert all aliases (keyed by kennelCode)
-  let aliasCount = 0;
-  for (const [code, aliases] of Object.entries(kennelAliases)) {
-    const kennel = kennelRecords[code];
-    if (!kennel) {
-      console.warn(`  ⚠ Kennel code "${code}" not found, skipping aliases`);
-      continue;
-    }
-    for (const alias of aliases) {
-      await prisma.kennelAlias.upsert({
-        where: {
-          kennelId_alias: { kennelId: kennel.id, alias },
-        },
-        update: {},
-        create: {
-          kennelId: kennel.id,
-          alias,
-        },
-      });
-      aliasCount++;
-    }
-  }
-  console.log(`  ✓ ${aliasCount} kennel aliases upserted`);
-
-  // Upsert sources and source-kennel links
-  console.log("Seeding sources...");
-  for (const source of sources) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { kennelCodes, ...sourceData } = source;
-
-    let existingSource = await prisma.source.findFirst({
-      where: { url: sourceData.url },
-    });
-
-    if (!existingSource) {
-      existingSource = await prisma.source.create({
-        // Cast needed because Prisma's InputJsonValue doesn't accept deep object literals
-        data: sourceData as Parameters<typeof prisma.source.create>[0]["data"],
-      });
-      console.log(`  ✓ Created source: ${sourceData.name}`);
-    } else {
-      // Update config and scrapeDays if present
-      await prisma.source.update({
-        where: { id: existingSource.id },
-        data: sourceData as Parameters<typeof prisma.source.update>[0]["data"],
-      });
-      console.log(`  ✓ Source already exists: ${sourceData.name}`);
-    }
-
-    // Create SourceKennel links
-    for (const code of kennelCodes) {
-      const kennel = kennelRecords[code];
-      if (!kennel) {
-        console.warn(`  ⚠ Kennel code "${code}" not found, skipping source link`);
-        continue;
-      }
-
-      await prisma.sourceKennel.upsert({
-        where: {
-          sourceId_kennelId: {
-            sourceId: existingSource.id,
-            kennelId: kennel.id,
-          },
-        },
-        update: {},
-        create: {
-          sourceId: existingSource.id,
-          kennelId: kennel.id,
-        },
-      });
-    }
-    console.log(`  ✓ Linked ${kennelCodes.length} kennels to ${sourceData.name}`);
-  }
-
-  // ── ROSTER GROUPS ──
-
-  const rosterGroups = [
-    {
-      name: "NYC Metro",
-      kennelCodes: [
-        "nych3", "brh3", "nah3", "knick", "qbk", "si",
-        "columbia", "harriettes-nyc", "ggfm", "nawwh3",
-      ],
-    },
-    {
-      name: "Philly Area",
-      kennelCodes: ["bfm", "philly-h3"],
-    },
-  ];
-
-  console.log("Seeding roster groups...");
-  for (const group of rosterGroups) {
-    let rosterGroup = await prisma.rosterGroup.findFirst({
-      where: { name: group.name },
-    });
-
-    if (!rosterGroup) {
-      rosterGroup = await prisma.rosterGroup.create({
-        data: { name: group.name },
-      });
-      console.log(`  ✓ Created roster group: ${group.name}`);
-    } else {
-      console.log(`  ✓ Roster group already exists: ${group.name}`);
-    }
-
-    for (const code of group.kennelCodes) {
-      const kennel = kennelRecords[code];
-      if (!kennel) {
-        console.warn(`  ⚠ Kennel code "${code}" not found, skipping roster group link`);
-        continue;
-      }
-
-      await prisma.rosterGroupKennel.upsert({
-        where: { kennelId: kennel.id },
-        update: { groupId: rosterGroup.id },
-        create: {
-          groupId: rosterGroup.id,
-          kennelId: kennel.id,
-        },
-      });
-    }
-    console.log(`  ✓ Linked ${group.kennelCodes.length} kennels to ${group.name}`);
-  }
-
-  // Ensure every kennel has a RosterGroup (standalone kennels get single-member groups)
-  console.log("Ensuring all kennels have a roster group...");
-  // Build a code→shortName map for group naming
-  const codeToShortName: Record<string, string> = {};
-  for (const k of kennels) codeToShortName[k.kennelCode] = k.shortName;
-
-  for (const [code, record] of Object.entries(kennelRecords)) {
-    const existing = await prisma.rosterGroupKennel.findUnique({
-      where: { kennelId: record.id },
-    });
-    if (!existing) {
-      const groupName = codeToShortName[code] ?? code;
-      let group = await prisma.rosterGroup.findFirst({
-        where: { name: groupName },
-      });
-      if (!group) {
-        group = await prisma.rosterGroup.create({
-          data: { name: groupName },
-        });
-      }
-      await prisma.rosterGroupKennel.upsert({
-        where: { kennelId: record.id },
-        update: { groupId: group.id },
-        create: { groupId: group.id, kennelId: record.id },
-      });
-      console.log(`  + Created standalone group for ${groupName}`);
-    }
-  }
-
-  // Post-seed validation: check for duplicate fullNames
-  const dupes: Array<{ fullName: string; cnt: bigint }> = await prisma.$queryRaw`
-    SELECT "fullName", COUNT(*) as cnt FROM "Kennel" GROUP BY "fullName" HAVING COUNT(*) > 1
-  `;
-  if (dupes.length > 0) {
-    console.warn("\n⚠ Duplicate fullNames found:");
-    for (const d of dupes) console.warn(`  - "${d.fullName}" (${d.cnt} records)`);
-  }
+  await seedKennels(prisma, kennels, kennelAliases, sources, toSlug);
 
   console.log("\nSeed complete!");
   await prisma.$disconnect();

@@ -35,7 +35,7 @@ export function SuggestionChips({
   const [isEnhancing, startEnhance] = useTransition();
 
   // Reset AI state whenever the unmatched tag set changes (user re-ran "Test Config")
-  const unmatchedKey = unmatchedTags.slice().sort().join(",");
+  const unmatchedKey = unmatchedTags.slice().sort((a, b) => a.localeCompare(b)).join(",");
   useEffect(() => {
     setAiSuggestions(null);
     setAiDismissed(new Set());

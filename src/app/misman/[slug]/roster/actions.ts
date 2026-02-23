@@ -8,6 +8,86 @@ import { revalidatePath } from "next/cache";
 
 const USER_LINK_MATCH_THRESHOLD = 0.7;
 
+interface NameHolder {
+  hashName: string | null;
+  nerdName: string | null;
+}
+
+/**
+ * Compute the best fuzzy match score between two name holders.
+ * Compares all combinations: hashName↔hashName, nerdName↔nerdName, and cross-comparisons.
+ */
+function bestFuzzyScore(
+  a: NameHolder,
+  b: NameHolder,
+): { score: number; matchField: string } {
+  const pairs: [string | null, string | null, string][] = [
+    [a.hashName, b.hashName, "hashName"],
+    [a.nerdName, b.nerdName, "nerdName"],
+    [a.hashName, b.nerdName, "hashName↔nerdName"],
+    [a.nerdName, b.hashName, "nerdName↔hashName"],
+  ];
+
+  let best = { score: 0, matchField: "" };
+  for (const [nameA, nameB, field] of pairs) {
+    if (nameA && nameB) {
+      const s = fuzzyNameMatch(nameA, nameB);
+      if (s > best.score) best = { score: s, matchField: field };
+    }
+  }
+  return best;
+}
+
+/**
+ * Prepare attendance merge operations: OR-merge overlaps and reassign non-overlapping records.
+ */
+function buildAttendanceMergeOps(
+  allAttendances: Array<{ id: string; kennelHasherId: string; eventId: string; paid: boolean; haredThisTrail: boolean; isVirgin: boolean; isVisitor: boolean; visitorLocation: string | null }>,
+  primaryId: string,
+) {
+  const primaryAttendanceByEvent = new Map(
+    allAttendances
+      .filter((a) => a.kennelHasherId === primaryId)
+      .map((a) => [a.eventId, a]),
+  );
+
+  const updateOps: Array<ReturnType<typeof prisma.kennelAttendance.update>> = [];
+  const reassignOps: Array<ReturnType<typeof prisma.kennelAttendance.update>> = [];
+  const deleteAttendanceIds: string[] = [];
+
+  for (const att of allAttendances) {
+    if (att.kennelHasherId === primaryId) continue;
+
+    const existing = primaryAttendanceByEvent.get(att.eventId);
+    if (existing) {
+      updateOps.push(
+        prisma.kennelAttendance.update({
+          where: { id: existing.id },
+          data: {
+            paid: existing.paid || att.paid,
+            haredThisTrail: existing.haredThisTrail || att.haredThisTrail,
+            isVirgin: existing.isVirgin || att.isVirgin,
+            isVisitor: existing.isVisitor || att.isVisitor,
+            visitorLocation: existing.visitorLocation || att.visitorLocation,
+          },
+        }),
+      );
+      deleteAttendanceIds.push(att.id);
+    } else {
+      reassignOps.push(
+        prisma.kennelAttendance.update({
+          where: { id: att.id },
+          data: { kennelHasherId: primaryId },
+        }),
+      );
+      // Track this event as now claimed by primary to prevent duplicate reassigns
+      primaryAttendanceByEvent.set(att.eventId, att);
+    }
+  }
+
+  return { updateOps, reassignOps, deleteAttendanceIds };
+}
+
 /**
  * Create a new kennel hasher on the roster.
  */
@@ -253,44 +333,7 @@ export async function suggestUserLinks(kennelId: string) {
     let bestMatch: (typeof suggestions)[0] | null = null;
 
     for (const u of users) {
-      let score = 0;
-      let matchField = "";
-
-      // Compare hash names
-      if (hasher.hashName && u.hashName) {
-        const s = fuzzyNameMatch(hasher.hashName, u.hashName);
-        if (s > score) {
-          score = s;
-          matchField = "hashName";
-        }
-      }
-
-      // Compare nerd names
-      if (hasher.nerdName && u.nerdName) {
-        const s = fuzzyNameMatch(hasher.nerdName, u.nerdName);
-        if (s > score) {
-          score = s;
-          matchField = "nerdName";
-        }
-      }
-
-      // Cross-compare: hasher hashName vs user nerdName
-      if (hasher.hashName && u.nerdName) {
-        const s = fuzzyNameMatch(hasher.hashName, u.nerdName);
-        if (s > score) {
-          score = s;
-          matchField = "hashName↔nerdName";
-        }
-      }
-
-      // Cross-compare: hasher nerdName vs user hashName
-      if (hasher.nerdName && u.hashName) {
-        const s = fuzzyNameMatch(hasher.nerdName, u.hashName);
-        if (s > score) {
-          score = s;
-          matchField = "nerdName↔hashName";
-        }
-      }
+      const { score, matchField } = bestFuzzyScore(hasher, u);
 
       if (score >= USER_LINK_MATCH_THRESHOLD && (!bestMatch || score > bestMatch.matchScore)) {
         bestMatch = {
@@ -487,30 +530,7 @@ export async function scanDuplicates(kennelId: string) {
       const a = hashers[i];
       const b = hashers[j];
 
-      let bestScore = 0;
-      let matchField = "";
-
-      // hashName ↔ hashName
-      if (a.hashName && b.hashName) {
-        const s = fuzzyNameMatch(a.hashName, b.hashName);
-        if (s > bestScore) { bestScore = s; matchField = "hashName"; }
-      }
-
-      // nerdName ↔ nerdName
-      if (a.nerdName && b.nerdName) {
-        const s = fuzzyNameMatch(a.nerdName, b.nerdName);
-        if (s > bestScore) { bestScore = s; matchField = "nerdName"; }
-      }
-
-      // hashName ↔ nerdName (cross)
-      if (a.hashName && b.nerdName) {
-        const s = fuzzyNameMatch(a.hashName, b.nerdName);
-        if (s > bestScore) { bestScore = s; matchField = "hashName↔nerdName"; }
-      }
-      if (a.nerdName && b.hashName) {
-        const s = fuzzyNameMatch(a.nerdName, b.hashName);
-        if (s > bestScore) { bestScore = s; matchField = "nerdName↔hashName"; }
-      }
+      const { score: bestScore, matchField } = bestFuzzyScore(a, b);
 
       if (bestScore >= DUPLICATE_MATCH_THRESHOLD) {
         pairs.push({
@@ -717,47 +737,8 @@ export async function executeMerge(
     where: { kennelHasherId: { in: allIds } },
   });
 
-  // Group primary's attendance by eventId
-  const primaryAttendanceByEvent = new Map(
-    allAttendances
-      .filter((a) => a.kennelHasherId === primaryId)
-      .map((a) => [a.eventId, a]),
-  );
-
-  // Prepare operations
-  const updateOps: Array<ReturnType<typeof prisma.kennelAttendance.update>> = [];
-  const reassignOps: Array<ReturnType<typeof prisma.kennelAttendance.update>> = [];
-  const deleteAttendanceIds: string[] = [];
-
-  for (const att of allAttendances) {
-    if (att.kennelHasherId === primaryId) continue;
-
-    const existing = primaryAttendanceByEvent.get(att.eventId);
-    if (existing) {
-      // Overlap: OR-merge boolean flags into primary's record
-      updateOps.push(
-        prisma.kennelAttendance.update({
-          where: { id: existing.id },
-          data: {
-            paid: existing.paid || att.paid,
-            haredThisTrail: existing.haredThisTrail || att.haredThisTrail,
-            isVirgin: existing.isVirgin || att.isVirgin,
-            isVisitor: existing.isVisitor || att.isVisitor,
-            visitorLocation: existing.visitorLocation || att.visitorLocation,
-          },
-        }),
-      );
-      deleteAttendanceIds.push(att.id);
-    } else {
-      // No overlap: reassign to primary
-      reassignOps.push(
-        prisma.kennelAttendance.update({
-          where: { id: att.id },
-          data: { kennelHasherId: primaryId },
-        }),
-      );
-    }
-  }
+  const { updateOps, reassignOps, deleteAttendanceIds } =
+    buildAttendanceMergeOps(allAttendances, primaryId);
 
   // Transfer user link if primary has none but a secondary does
   const primaryHasLink =

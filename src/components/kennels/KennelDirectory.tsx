@@ -186,7 +186,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     return groups;
   }, [sorted, sort]);
 
-  const regionKeys = grouped ? Object.keys(grouped).sort() : [];
+  const regionKeys = grouped ? Object.keys(grouped).sort((a, b) => a.localeCompare(b)) : [];
 
   return (
     <div className="mt-6 space-y-4">

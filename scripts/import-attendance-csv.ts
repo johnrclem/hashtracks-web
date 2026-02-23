@@ -82,6 +82,54 @@ function parseArgs() {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function resolveImportingUser(prisma: any, recordedByEmail: string | undefined): Promise<string> {
+  if (recordedByEmail) {
+    const user = await prisma.user.findUnique({ where: { email: recordedByEmail }, select: { id: true } });
+    if (!user) { console.error(`User with email "${recordedByEmail}" not found in database.`); process.exit(1); }
+    console.log(`  Importing as: ${recordedByEmail}`);
+    return user.id;
+  }
+  const firstUser = await prisma.user.findFirst({ select: { id: true, email: true } });
+  if (!firstUser) { console.error("No users found in database. Use --recorded-by to specify an email."); process.exit(1); }
+  console.log(`  Importing as: ${firstUser.email} (default — use --recorded-by to override)`);
+  return firstUser.id;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function createUnmatchedHashers(prisma: any, unmatched: string[], rosterGroupId: string, kennelId: string, dryRun: boolean) {
+  const created: Array<{ csvName: string; kennelHasherId: string; matchType: "exact"; matchScore: number }> = [];
+  if (dryRun) {
+    console.log(`\n[DRY RUN] Would create ${unmatched.length} new roster entries.`);
+    return created;
+  }
+  console.log(`\nCreating ${unmatched.length} new roster entries...`);
+  for (const name of unmatched) {
+    const newHasher = await prisma.kennelHasher.create({ data: { rosterGroupId, kennelId, hashName: name } });
+    created.push({ csvName: name, kennelHasherId: newHasher.id, matchType: "exact", matchScore: 1 });
+    console.log(`  Created: ${name}`);
+  }
+  return created;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function executeImport(prisma: any, records: Array<{ kennelHasherId: string; eventId: string; paid: boolean; hared: boolean }>, recordedByUserId: string, filePath: string) {
+  const now = new Date().toISOString();
+  const importAuditEntry = { action: "import" as const, timestamp: now, userId: recordedByUserId, details: { source: filePath } };
+  const result = await prisma.kennelAttendance.createMany({
+    data: records.map((r) => ({ kennelHasherId: r.kennelHasherId, eventId: r.eventId, paid: r.paid, haredThisTrail: r.hared, recordedBy: recordedByUserId, editLog: [importAuditEntry] })),
+    skipDuplicates: true,
+  });
+  console.log(`  Created: ${result.count} attendance records`);
+  const eventsWithHares = new Set(records.filter((r) => r.hared).map((r) => r.eventId));
+  if (eventsWithHares.size > 0) {
+    console.log(`  Syncing EventHare for ${eventsWithHares.size} events...`);
+    for (const eventId of eventsWithHares) {
+      await syncEventHares(eventId);
+    }
+  }
+}
+
 async function main() {
   const opts = parseArgs();
 
@@ -132,29 +180,7 @@ async function main() {
     // Resolve the importing user (needed for recordedBy FK)
     let recordedByUserId: string | null = null;
     if (!opts.dryRun) {
-      if (opts.recordedByEmail) {
-        const user = await prisma.user.findUnique({
-          where: { email: opts.recordedByEmail },
-          select: { id: true },
-        });
-        if (!user) {
-          console.error(`User with email "${opts.recordedByEmail}" not found in database.`);
-          process.exit(1);
-        }
-        recordedByUserId = user.id;
-        console.log(`  Importing as: ${opts.recordedByEmail}`);
-      } else {
-        // Use the first user in the database
-        const firstUser = await prisma.user.findFirst({
-          select: { id: true, email: true },
-        });
-        if (!firstUser) {
-          console.error("No users found in database. Use --recorded-by to specify an email.");
-          process.exit(1);
-        }
-        recordedByUserId = firstUser.id;
-        console.log(`  Importing as: ${firstUser.email} (default — use --recorded-by to override)`);
-      }
+      recordedByUserId = await resolveImportingUser(prisma, opts.recordedByEmail);
     }
 
     // Get roster group
@@ -237,30 +263,8 @@ async function main() {
     // Handle creating new hashers for unmatched names
     let allHasherMatches = hasherResult.matched;
     if (opts.createHashers && hasherResult.unmatched.length > 0) {
-      if (opts.dryRun) {
-        console.log(`\n[DRY RUN] Would create ${hasherResult.unmatched.length} new roster entries.`);
-      } else {
-        console.log(`\nCreating ${hasherResult.unmatched.length} new roster entries...`);
-        for (const name of hasherResult.unmatched) {
-          const newHasher = await prisma.kennelHasher.create({
-            data: {
-              rosterGroupId,
-              kennelId: kennel.id,
-              hashName: name,
-            },
-          });
-          allHasherMatches = [
-            ...allHasherMatches,
-            {
-              csvName: name,
-              kennelHasherId: newHasher.id,
-              matchType: "exact" as const,
-              matchScore: 1,
-            },
-          ];
-          console.log(`  Created: ${name}`);
-        }
-      }
+      const created = await createUnmatchedHashers(prisma, hasherResult.unmatched, rosterGroupId, kennel.id, opts.dryRun);
+      allHasherMatches = [...allHasherMatches, ...created];
     }
 
     // Fetch existing attendance for dedup
@@ -305,40 +309,8 @@ async function main() {
 
     // Execute import
     console.log(`\nImporting ${records.length} attendance records...`);
-
-    const now = new Date().toISOString();
-    const importAuditEntry = {
-      action: "import" as const,
-      timestamp: now,
-      userId: recordedByUserId!,
-      details: { source: opts.filePath },
-    };
-
-    const result = await prisma.kennelAttendance.createMany({
-      data: records.map((r) => ({
-        kennelHasherId: r.kennelHasherId,
-        eventId: r.eventId,
-        paid: r.paid,
-        haredThisTrail: r.hared,
-        recordedBy: recordedByUserId!,
-        editLog: [importAuditEntry],
-      })),
-      skipDuplicates: true,
-    });
-
-    console.log(`  Created: ${result.count} attendance records`);
-
-    // Sync EventHare for events that have hare records
-    const eventsWithHares = new Set(
-      records.filter((r) => r.hared).map((r) => r.eventId),
-    );
-
-    if (eventsWithHares.size > 0) {
-      console.log(`  Syncing EventHare for ${eventsWithHares.size} events...`);
-      for (const eventId of eventsWithHares) {
-        await syncEventHares(eventId);
-      }
-    }
+    if (!recordedByUserId) throw new Error("recordedByUserId not resolved");
+    await executeImport(prisma, records, recordedByUserId, opts.filePath);
 
     console.log(`\nDone!`);
     await prisma.$disconnect();

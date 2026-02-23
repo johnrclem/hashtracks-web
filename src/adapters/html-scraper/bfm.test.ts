@@ -10,9 +10,8 @@ describe("parseBfmDate", () => {
   });
 
   it("parses full M/D/YYYY format: '8/8/2026'", () => {
-    // M/D is tried first and matches, so this returns with referenceYear
-    // The full M/D/YYYY branch is only reached when M/D regex doesn't match
-    expect(parseBfmDate("8/8/2026", 2025)).toBe("2025-08-08");
+    // M/D/YYYY is checked first, so the explicit year is used (not referenceYear)
+    expect(parseBfmDate("8/8/2026", 2025)).toBe("2026-08-08");
   });
 
   it("parses month name with ordinal: 'Feb 19th'", () => {

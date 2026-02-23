@@ -2,8 +2,10 @@ import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ParseError, ErrorDetails } from "../types";
+import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { MONTHS_ZERO, parse12HourTime, decodeEntities, stripHtmlTags } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 // Kennel regex patterns — LONGER strings before shorter substrings
 const KENNEL_PATTERNS: [RegExp, string][] = [
@@ -46,18 +48,18 @@ export function decodeHtmlEntities(text: string): string {
 export function extractYear(rowId: string | undefined, dateCellHtml: string): number | null {
   // Try row ID first
   if (rowId) {
-    const match = rowId.match(/^(\d{4})/);
-    if (match) return parseInt(match[1], 10);
+    const match = /^(\d{4})/.exec(rowId);
+    if (match) return Number.parseInt(match[1], 10);
   }
 
   // Try date cell HTML
-  const htmlMatch = dateCellHtml.match(/(\d{4})/);
-  if (htmlMatch) return parseInt(htmlMatch[1], 10);
+  const htmlMatch = /(\d{4})/.exec(dateCellHtml);
+  if (htmlMatch) return Number.parseInt(htmlMatch[1], 10);
 
   // Try cleaned text
   const cleaned = decodeHtmlEntities(dateCellHtml);
-  const textMatch = cleaned.match(/(\d{4})/);
-  if (textMatch) return parseInt(textMatch[1], 10);
+  const textMatch = /(\d{4})/.exec(cleaned);
+  if (textMatch) return Number.parseInt(textMatch[1], 10);
 
   return null;
 }
@@ -69,14 +71,14 @@ export function extractYear(rowId: string | undefined, dateCellHtml: string): nu
 export function extractMonthDay(
   dateText: string,
 ): { month: number; day: number } | null {
-  const match = dateText.match(/(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?/i);
+  const match = /(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?/i.exec(dateText);
   if (!match) return null;
 
   const monthStr = match[1].toLowerCase();
   const month = MONTHS_ZERO[monthStr];
   if (month === undefined) return null;
 
-  const day = parseInt(match[2], 10);
+  const day = Number.parseInt(match[2], 10);
   return { month, day };
 }
 
@@ -110,8 +112,8 @@ export function extractKennelTag(text: string): string {
  * Extract run number from text.
  */
 export function extractRunNumber(text: string): number | undefined {
-  const match = text.match(/(?:Run|Trail|#)\s*(\d+)/i);
-  return match ? parseInt(match[1], 10) : undefined;
+  const match = /(?:Run|Trail|#)\s*(\d+)/i.exec(text);
+  return match ? Number.parseInt(match[1], 10) : undefined;
 }
 
 /**
@@ -232,6 +234,108 @@ interface ParsedDetails {
   description?: string;
 }
 
+/** Extract location and location URL from the "Start:" block in cell HTML. */
+function extractLocationAndUrl(
+  cellHtml: string,
+  $: cheerio.CheerioAPI,
+  cell: cheerio.Cheerio<AnyNode>,
+): { location: string | undefined; locationUrl: string | undefined } {
+  let location: string | undefined;
+  let locationUrl: string | undefined;
+
+  const startIdx = cellHtml.search(/Start:\s*/i);
+  const startLabelMatch = startIdx >= 0 ? /Start:\s*/i.exec(cellHtml) : null;
+  if (startIdx >= 0 && startLabelMatch) {
+    const blockStart = startIdx + startLabelMatch[0].length;
+    const transitIdx = cellHtml.slice(blockStart).search(/Transit:/i);
+    const locationBlock = transitIdx >= 0
+      ? cellHtml.slice(blockStart, blockStart + transitIdx)
+      : cellHtml.slice(blockStart);
+
+    const $block = cheerio.load(`<div>${locationBlock}</div>`);
+    const mapsLink = $block("a[href]").filter((_i, el) => {
+      const href = $block(el).attr("href") ?? "";
+      return /maps\./i.test(href) || /google\.\w+\/maps/i.test(href);
+    }).first();
+
+    if (mapsLink.length) {
+      locationUrl = mapsLink.attr("href");
+    }
+
+    const locationText = decodeHtmlEntities(locationBlock).trim();
+    if (locationText) {
+      if (/^TBD/i.test(locationText)) {
+        location = "TBD";
+      } else {
+        location = locationText.replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
+      }
+    }
+  }
+
+  if (!locationUrl) {
+    cell.find("a[href]").each((_i, el) => {
+      const href = $(el).attr("href") ?? "";
+      if (/maps\./i.test(href) || /google\.\w+\/maps/i.test(href)) {
+        locationUrl = href;
+        return false;
+      }
+    });
+  }
+
+  return { location, locationUrl };
+}
+
+/** Extract description from <p> tags or text after Transit line. */
+function extractDescriptionFromCell(
+  $: cheerio.CheerioAPI,
+  cell: cheerio.Cheerio<AnyNode>,
+  cellHtml: string,
+  cellText: string,
+): string | undefined {
+  const paragraphs: string[] = [];
+  cell.find("p").each((_i, el) => {
+    const pText = $(el).text().trim();
+    if (pText) paragraphs.push(pText);
+  });
+
+  if (paragraphs.length > 0) {
+    return paragraphs.join("\n\n");
+  }
+
+  const restMatch = /Transit:[^<]*(?:<span[^>]*>[^<]*<\/span>[^<]*)*(?:<br\s*\/?>)([\s\S]*)/i.exec(cellHtml);
+  if (restMatch) {
+    const rest = decodeHtmlEntities(restMatch[1]).trim();
+    if (rest) return rest;
+  }
+
+  if (!/Transit:/i.test(cellHtml) && !/Start:/i.test(cellHtml)) {
+    let raw = cellText;
+    raw = raw.replace(/^[\s\S]*?(?:Run|Trail|#)\s*\d+\s*[:\-–—]?\s*/i, "").trim();
+    raw = raw.replace(/Start:[\s\S]*/i, "").trim();
+    if (raw && raw.length > 5) return raw;
+  }
+
+  return undefined;
+}
+
+/** Clean description by removing duplicate title/kennel/location info. */
+function cleanEventDescription(desc: string | undefined, eventName: string | undefined): string | undefined {
+  let description = desc;
+  if (description && eventName) {
+    if (description.startsWith(eventName)) {
+      description = description.substring(eventName.length).trim();
+      if (description.startsWith("-") || description.startsWith("–")) {
+        description = description.substring(1).trim();
+      }
+    }
+  }
+  if (description) {
+    const stripped = description.replace(/^[\w\s]+#\d+\s*/, "").trim();
+    if (!stripped) description = undefined;
+  }
+  return description;
+}
+
 /**
  * Parse the details cell HTML structurally (ported from NYCHashEventParser).
  * Extracts: eventName from <b> tags, location from Start:...Transit: block,
@@ -244,118 +348,30 @@ export function parseDetailsCell(
   const cellHtml = cell.html() ?? "";
   const cellText = decodeHtmlEntities(cellHtml);
 
-  // 1. Kennel tag and run number from text (existing logic)
   const kennelTag = extractKennelTag(cellText);
   const runNumber = extractRunNumber(cellText);
 
-  // 2. Event name from first <b> tag (NYCHashEventParser pattern)
   let eventName: string | undefined;
   const boldTag = cell.find("b").first();
   if (boldTag.length) {
     const boldText = boldTag.text().trim();
-    // Only use if it's a real title (not just the kennel name or run number)
     if (boldText && !/^(Run|Trail|#)\s*\d+$/i.test(boldText) && boldText.length > 1) {
       eventName = boldText;
     }
   }
 
-  // 3. Build structured title: "{eventName} - {kennelTag} #{runNumber}"
   let title: string | undefined;
   if (eventName) {
     const designation = runNumber ? `${kennelTag} #${runNumber}` : kennelTag;
     title = `${eventName} - ${designation}`;
   } else {
-    // Fallback: strip Start:/Transit: blocks before extracting title
     const fallbackText = cellText.replace(/Start:[\s\S]*/i, "").trim();
     title = extractTitle(fallbackText) || undefined;
   }
 
-  // 4. Location from "Start:" block (NYCHashEventParser pattern)
-  let location: string | undefined;
-  let locationUrl: string | undefined;
-
-  const startMatch = cellHtml.match(/Start:\s*([\s\S]*?)(?:Transit:|$)/i);
-  if (startMatch) {
-    const locationBlock = startMatch[1];
-
-    // Extract maps link from the location block
-    const $block = cheerio.load(`<div>${locationBlock}</div>`);
-    const mapsLink = $block("a[href]").filter((_i, el) => {
-      const href = $block(el).attr("href") ?? "";
-      return /maps\./i.test(href) || /google\.\w+\/maps/i.test(href);
-    }).first();
-
-    if (mapsLink.length) {
-      locationUrl = mapsLink.attr("href");
-    }
-
-    // Get clean text for location
-    const locationText = decodeHtmlEntities(locationBlock).trim();
-    if (locationText && !/^\s*$/.test(locationText)) {
-      // Handle TBD
-      if (/^TBD/i.test(locationText)) {
-        location = "TBD";
-      } else {
-        // Clean extra spaces around punctuation (from stripped HTML tags)
-        location = locationText.replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
-      }
-    }
-  }
-
-  // Also check for maps links anywhere in the cell if not found in Start block
-  if (!locationUrl) {
-    cell.find("a[href]").each((_i, el) => {
-      const href = $(el).attr("href") ?? "";
-      if (/maps\./i.test(href) || /google\.\w+\/maps/i.test(href)) {
-        locationUrl = href;
-        return false; // break
-      }
-    });
-  }
-
-  // 5. Description from <p> tags and text after Transit line
-  let description: string | undefined;
-  const paragraphs: string[] = [];
-
-  cell.find("p").each((_i, el) => {
-    const pText = $(el).text().trim();
-    if (pText) paragraphs.push(pText);
-  });
-
-  if (paragraphs.length > 0) {
-    description = paragraphs.join("\n\n");
-  } else {
-    // Fallback: get text after Transit line (skip the transit directions themselves)
-    const restMatch = cellHtml.match(/Transit:[^<]*(?:<span[^>]*>[^<]*<\/span>[^<]*)*(?:<br\s*\/?>)([\s\S]*)/i);
-    if (restMatch) {
-      const rest = decodeHtmlEntities(restMatch[1]).trim();
-      if (rest) description = rest;
-    } else if (!cellHtml.match(/Transit:/i) && !cellHtml.match(/Start:/i)) {
-      // No Start/Transit structure — try getting text after kennel/run# boilerplate
-      let raw = cellText;
-      // Strip kennel + run number prefix
-      raw = raw.replace(/^[\s\S]*?(?:Run|Trail|#)\s*\d+\s*[:\-–—]?\s*/i, "").trim();
-      // Strip Start:/Transit: blocks if somehow present in text
-      raw = raw.replace(/Start:[\s\S]*/i, "").trim();
-      if (raw && raw.length > 5) description = raw;
-    }
-  }
-
-  // Clean description: remove duplicate title/kennel/location info
-  if (description && eventName) {
-    if (description.startsWith(eventName)) {
-      description = description.substring(eventName.length).trim();
-      if (description.startsWith("-") || description.startsWith("–")) {
-        description = description.substring(1).trim();
-      }
-    }
-  }
-  // Strip descriptions that are just kennel boilerplate (e.g., "NYC #2136")
-  if (description) {
-    const stripped = description.replace(/^[\w\s]+#\d+\s*/, "").trim();
-    if (!stripped) description = undefined;
-  }
-  if (description && !description.trim()) description = undefined;
+  const { location, locationUrl } = extractLocationAndUrl(cellHtml, $, cell);
+  const rawDescription = extractDescriptionFromCell($, cell, cellHtml, cellText);
+  const description = cleanEventDescription(rawDescription, eventName);
 
   return {
     kennelTag,
@@ -495,7 +511,7 @@ export class HashNYCAdapter implements SourceAdapter {
     // 1. Scrape past events
     const pastUrl = `${baseUrl}/?days=${days}&backwards=true`;
     try {
-      const response = await fetch(pastUrl, {
+      const response = await safeFetch(pastUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       });
       if (!response.ok) {
@@ -524,7 +540,7 @@ export class HashNYCAdapter implements SourceAdapter {
     // 2. Scrape upcoming events
     const futureUrl = `${baseUrl}/?days=${days}`;
     try {
-      const response = await fetch(futureUrl, {
+      const response = await safeFetch(futureUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       });
       if (!response.ok) {
@@ -549,7 +565,7 @@ export class HashNYCAdapter implements SourceAdapter {
       errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: futureUrl, message }];
     }
 
-    const hasErrorDetails = (errorDetails.fetch?.length ?? 0) > 0 || (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events: allEvents,

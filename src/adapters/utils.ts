@@ -55,6 +55,99 @@ export const MONTHS_ZERO: Record<string, number> = {
 
 
 /**
+ * Check if an IPv4 address (as 4 octets) falls within private/reserved ranges.
+ */
+function isPrivateIPv4(a: number, b: number, c: number, d: number): boolean {
+  return (
+    a === 127 ||                                  // loopback 127.0.0.0/8
+    a === 10 ||                                   // private  10.0.0.0/8
+    (a === 172 && b >= 16 && b <= 31) ||          // private  172.16.0.0/12
+    (a === 192 && b === 168) ||                   // private  192.168.0.0/16
+    (a === 169 && b === 254) ||                   // link-local 169.254.0.0/16
+    (a === 0 && b === 0 && c === 0 && d === 0) || // 0.0.0.0
+    (a === 100 && b >= 64 && b <= 127) ||         // CGNAT    100.64.0.0/10
+    (a >= 224 && a <= 239) ||                     // multicast 224.0.0.0/4
+    a >= 240                                      // reserved  240.0.0.0/4 (incl broadcast)
+  );
+}
+
+/** Resolve IPv4-mapped IPv6 addresses to their IPv4 equivalent. */
+function resolveIPv4Mapped(bare: string): string {
+  const v4MappedDotted = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i.exec(bare);
+  if (v4MappedDotted) return v4MappedDotted[1];
+
+  const v4MappedHex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(bare);
+  if (v4MappedHex) {
+    const hi = Number.parseInt(v4MappedHex[1], 16);
+    const lo = Number.parseInt(v4MappedHex[2], 16);
+    return `${(hi >> 8) & 0xFF}.${hi & 0xFF}.${(lo >> 8) & 0xFF}.${lo & 0xFF}`;
+  }
+
+  return bare;
+}
+
+/** Check if a single-integer IP (decimal or hex) maps to a private IPv4 range. */
+function checkIntegerIP(ip: string): void {
+  if (!/^(?:0x[\da-f]+|\d+)$/i.test(ip)) return;
+  const num = Number(ip);
+  if (num >= 0 && num <= 0xFFFFFFFF) {
+    const a = (num >>> 24) & 0xFF;
+    const b = (num >>> 16) & 0xFF;
+    const c = (num >>> 8) & 0xFF;
+    const d = num & 0xFF;
+    if (isPrivateIPv4(a, b, c, d)) {
+      throw new Error("Blocked URL: private/reserved IP");
+    }
+  }
+}
+
+/** Check if an IPv6 address is in a private/reserved range. */
+function checkIPv6Private(bare: string): void {
+  if (!bare.includes(":")) return;
+  if (
+    bare === "::1" || bare === "::0" || bare === "::" ||
+    bare.startsWith("fc") || bare.startsWith("fd") ||  // unique-local
+    bare.startsWith("fe80")                              // link-local
+  ) {
+    throw new Error("Blocked URL: private/reserved IP");
+  }
+}
+
+/**
+ * Validate a source URL is safe for server-side fetching (SSRF prevention).
+ * Blocks non-HTTP protocols, localhost, private IPs (including alternate
+ * representations like decimal, hex, octal, IPv4-mapped IPv6), and cloud
+ * metadata endpoints.
+ */
+export function validateSourceUrl(url: string): void {
+  const parsed = new URL(url);
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Blocked URL: non-HTTP protocol");
+  }
+  const hostname = parsed.hostname.toLowerCase();
+
+  if (hostname === "localhost" || hostname === "metadata.google.internal") {
+    throw new Error("Blocked URL: internal hostname");
+  }
+
+  const bare = hostname.replace(/^\[/, "").replace(/\]$/, "");
+  const ipToCheck = resolveIPv4Mapped(bare);
+
+  // Check dotted IPv4 (standard notation)
+  const ipv4Match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ipToCheck);
+  if (ipv4Match) {
+    const [, a, b, c, d] = ipv4Match.map(Number);
+    if (isPrivateIPv4(a, b, c, d)) {
+      throw new Error("Blocked URL: private/reserved IP");
+    }
+    return;
+  }
+
+  checkIntegerIP(ipToCheck);
+  checkIPv6Private(bare);
+}
+
+/**
  * Build canonical + fallback URL base variants for host/protocol edge-routing issues.
  * Order: original, host variant (www/non-www), protocol variant (http/https), protocol+host variant.
  */
@@ -99,10 +192,10 @@ export function buildUrlVariantCandidates(baseUrl: string): string[] {
  * Returns undefined if no match found.
  */
 export function parse12HourTime(text: string): string | undefined {
-  const match = text.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
+  const match = /(\d{1,2}):(\d{2})\s*(am|pm)/i.exec(text);
   if (!match) return undefined;
 
-  let hours = parseInt(match[1], 10);
+  let hours = Number.parseInt(match[1], 10);
   const minutes = match[2];
   const ampm = match[3].toLowerCase();
 
@@ -177,6 +270,6 @@ export function buildDateWindow(days = 90): { minDate: Date; maxDate: Date } {
  * UK postcodes: "SE11 5JA", "SW18 2SS", "N1 9AA", "EC1A 1BB"
  */
 export function extractUkPostcode(text: string): string | null {
-  const match = text.match(/[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}/i);
+  const match = /[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}/i.exec(text);
   return match ? match[0].toUpperCase() : null;
 }

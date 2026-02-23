@@ -132,6 +132,35 @@ export interface RosterEntry {
   nerdName: string | null;
 }
 
+/** Find an exact case-insensitive match for a name in the roster. */
+function findExactHasherMatch(name: string, roster: RosterEntry[]): RosterEntry | undefined {
+  const nameLower = name.toLowerCase().trim();
+  return roster.find(
+    (r) =>
+      (r.hashName && r.hashName.toLowerCase().trim() === nameLower) ||
+      (r.nerdName && r.nerdName.toLowerCase().trim() === nameLower),
+  );
+}
+
+/** Find the best fuzzy match for a name in the roster above the given threshold. */
+function findFuzzyHasherMatch(
+  name: string,
+  roster: RosterEntry[],
+  threshold: number,
+): { entry: RosterEntry; score: number } | null {
+  let bestMatch: { entry: RosterEntry; score: number } | null = null;
+  for (const entry of roster) {
+    const scores: number[] = [];
+    if (entry.hashName) scores.push(fuzzyNameMatch(name, entry.hashName));
+    if (entry.nerdName) scores.push(fuzzyNameMatch(name, entry.nerdName));
+    const bestScore = Math.max(0, ...scores);
+    if (bestScore >= threshold && (!bestMatch || bestScore > bestMatch.score)) {
+      bestMatch = { entry, score: bestScore };
+    }
+  }
+  return bestMatch;
+}
+
 /**
  * Match CSV hasher names to KennelHasher records.
  */
@@ -144,44 +173,15 @@ export function matchHasherNames(
   const unmatched: string[] = [];
 
   for (const name of csvNames) {
-    const nameLower = name.toLowerCase().trim();
-
-    // Exact match on hashName or nerdName
-    const exact = roster.find(
-      (r) =>
-        (r.hashName && r.hashName.toLowerCase().trim() === nameLower) ||
-        (r.nerdName && r.nerdName.toLowerCase().trim() === nameLower),
-    );
-
+    const exact = findExactHasherMatch(name, roster);
     if (exact) {
-      matched.push({
-        csvName: name,
-        kennelHasherId: exact.id,
-        matchType: "exact",
-        matchScore: 1,
-      });
+      matched.push({ csvName: name, kennelHasherId: exact.id, matchType: "exact", matchScore: 1 });
       continue;
     }
 
-    // Fuzzy match
-    let bestMatch: { entry: RosterEntry; score: number } | null = null;
-    for (const entry of roster) {
-      const scores: number[] = [];
-      if (entry.hashName) scores.push(fuzzyNameMatch(name, entry.hashName));
-      if (entry.nerdName) scores.push(fuzzyNameMatch(name, entry.nerdName));
-      const bestScore = Math.max(0, ...scores);
-      if (bestScore >= threshold && (!bestMatch || bestScore > bestMatch.score)) {
-        bestMatch = { entry, score: bestScore };
-      }
-    }
-
-    if (bestMatch) {
-      matched.push({
-        csvName: name,
-        kennelHasherId: bestMatch.entry.id,
-        matchType: "fuzzy",
-        matchScore: bestMatch.score,
-      });
+    const fuzzy = findFuzzyHasherMatch(name, roster, threshold);
+    if (fuzzy) {
+      matched.push({ csvName: name, kennelHasherId: fuzzy.entry.id, matchType: "fuzzy", matchScore: fuzzy.score });
     } else {
       unmatched.push(name);
     }

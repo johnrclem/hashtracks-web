@@ -1,12 +1,15 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import type { ErrorDetails, AiRecoverySummary } from "@/adapters/types";
+import type { ErrorDetails, AiRecoverySummary, ScrapeResult, MergeResult } from "@/adapters/types";
+import { hasAnyErrors } from "@/adapters/types";
 import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
 import { reconcileStaleEvents } from "./reconcile";
 import { computeFillRates } from "./fill-rates";
+import type { FieldFillRates } from "./fill-rates";
 import { analyzeHealth, persistAlerts } from "./health";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
+import { validateSourceUrl } from "@/adapters/utils";
 
 export interface ScrapeSourceResult {
   success: boolean;
@@ -22,6 +25,168 @@ export interface ScrapeSourceResult {
   blockedTags: string[];
   errors: string[];
   aiRecovery?: AiRecoverySummary;
+}
+
+/**
+ * Run AI recovery on parse errors that have rawText.
+ * Modifies scrapeResult in place: adds recovered events, removes recovered errors.
+ */
+async function runAiRecovery(
+  scrapeResult: ScrapeResult,
+  sourceName: string,
+): Promise<AiRecoverySummary | undefined> {
+  const parseErrors = scrapeResult.errorDetails?.parse ?? [];
+  const recoverableErrors = parseErrors.filter((e) => e.rawText);
+
+  if (recoverableErrors.length === 0 || !isAiRecoveryAvailable()) {
+    return undefined;
+  }
+
+  const defaultKennelTag = scrapeResult.events[0]?.kennelTag
+    ?? parseErrors[0]?.partialData?.kennelTag
+    ?? sourceName;
+
+  const aiRecovery = await attemptAiRecovery(recoverableErrors, defaultKennelTag);
+
+  if (aiRecovery.succeeded > 0) {
+    for (const result of aiRecovery.results) {
+      scrapeResult.events.push(result.recovered);
+    }
+
+    const recoveredRows = new Set(aiRecovery.results.map((r) => r.parseError.row));
+    if (scrapeResult.errorDetails?.parse) {
+      scrapeResult.errorDetails.parse = scrapeResult.errorDetails.parse.filter(
+        (e) => !recoveredRows.has(e.row),
+      );
+    }
+    const recoveredErrorPrefixes = aiRecovery.results.map(
+      (r) => r.parseError.error,
+    );
+    const originalErrors = [...scrapeResult.errors];
+    scrapeResult.errors = originalErrors.filter(
+      (e) => !recoveredErrorPrefixes.some((prefix) => e === prefix || e.startsWith(prefix)),
+    );
+  }
+
+  scrapeResult.aiRecovery = aiRecovery;
+  return aiRecovery;
+}
+
+/** Combine scrape + merge errors into a unified ErrorDetails object. */
+function buildCombinedErrorDetails(
+  scrapeErrorDetails: ErrorDetails | undefined,
+  mergeErrorDetails: MergeResult["mergeErrorDetails"],
+): { combined: ErrorDetails; hasErrors: boolean } {
+  const combined: ErrorDetails = scrapeErrorDetails ? { ...scrapeErrorDetails } : {};
+  if (mergeErrorDetails && mergeErrorDetails.length > 0) {
+    combined.merge = mergeErrorDetails;
+  }
+  const hasErrors = hasAnyErrors(combined);
+  return { combined, hasErrors };
+}
+
+/** Build the diagnostic context record, including AI recovery metrics. */
+function buildDiagnosticContext(
+  baseDiagnostics: Record<string, unknown> | undefined,
+  aiRecovery: AiRecoverySummary | undefined,
+): Record<string, unknown> {
+  const diagnosticContext: Record<string, unknown> = baseDiagnostics ? { ...baseDiagnostics } : {};
+  if (aiRecovery && aiRecovery.attempted > 0) {
+    diagnosticContext.aiRecovery = {
+      attempted: aiRecovery.attempted,
+      succeeded: aiRecovery.succeeded,
+      failed: aiRecovery.failed,
+      durationMs: aiRecovery.durationMs,
+      recoveredFields: aiRecovery.results.map((r) => ({
+        fields: r.fieldsRecovered,
+        confidence: r.confidence,
+      })),
+    };
+  }
+  return diagnosticContext;
+}
+
+interface ScrapeLogUpdateParams {
+  scrapeLogId: string;
+  startedAt: Date;
+  scrapeResult: ScrapeResult;
+  mergeResult: MergeResult;
+  cancelledCount: number;
+  fillRates: FieldFillRates;
+  combinedErrorDetails: ErrorDetails;
+  hasErrorDetails: boolean;
+  diagnosticContext: Record<string, unknown>;
+  fetchDurationMs: number;
+  mergeDurationMs: number;
+}
+
+/** Update the ScrapeLog record with full results and quality metrics. */
+async function updateScrapeLogWithResults(params: ScrapeLogUpdateParams): Promise<void> {
+  const {
+    scrapeLogId, startedAt, scrapeResult, mergeResult, cancelledCount,
+    fillRates, combinedErrorDetails, hasErrorDetails, diagnosticContext,
+    fetchDurationMs, mergeDurationMs,
+  } = params;
+  const completedAt = new Date();
+  const hasErrors = scrapeResult.errors.length > 0;
+  await prisma.scrapeLog.update({
+    where: { id: scrapeLogId },
+    data: {
+      status: hasErrors ? "FAILED" : "SUCCESS",
+      completedAt,
+      durationMs: completedAt.getTime() - startedAt.getTime(),
+      eventsFound: scrapeResult.events.length,
+      eventsCreated: mergeResult.created,
+      eventsUpdated: mergeResult.updated,
+      eventsSkipped: mergeResult.skipped,
+      eventsCancelled: cancelledCount,
+      unmatchedTags: mergeResult.unmatched,
+      errors: [...scrapeResult.errors, ...mergeResult.eventErrorMessages],
+      fillRateTitle: fillRates.title,
+      fillRateLocation: fillRates.location,
+      fillRateHares: fillRates.hares,
+      fillRateStartTime: fillRates.startTime,
+      fillRateRunNumber: fillRates.runNumber,
+      structureHash: scrapeResult.structureHash,
+      errorDetails: hasErrorDetails
+        ? (combinedErrorDetails as unknown as Prisma.InputJsonValue)
+        : undefined,
+      sampleBlocked: mergeResult.sampleBlocked?.length
+        ? (mergeResult.sampleBlocked as unknown as Prisma.InputJsonValue)
+        : undefined,
+      sampleSkipped: mergeResult.sampleSkipped?.length
+        ? (mergeResult.sampleSkipped as unknown as Prisma.InputJsonValue)
+        : undefined,
+      fetchDurationMs,
+      mergeDurationMs,
+      diagnosticContext: Object.keys(diagnosticContext).length > 0
+        ? (diagnosticContext as unknown as Prisma.InputJsonValue)
+        : undefined,
+    },
+  });
+}
+
+/** Run health analysis, update source health, and persist any alerts. */
+async function runHealthAndAlerts(
+  sourceId: string,
+  scrapeLogId: string,
+  completedAt: Date,
+  healthInput: Parameters<typeof analyzeHealth>[2],
+): Promise<void> {
+  const health = await analyzeHealth(sourceId, scrapeLogId, healthInput);
+
+  await prisma.source.update({
+    where: { id: sourceId },
+    data: {
+      lastScrapeAt: completedAt,
+      lastSuccessAt: health.healthStatus !== "FAILING" ? completedAt : undefined,
+      healthStatus: health.healthStatus,
+    },
+  });
+
+  if (health.alerts.length > 0) {
+    await persistAlerts(sourceId, scrapeLogId, health.alerts);
+  }
 }
 
 /**
@@ -53,162 +218,50 @@ export async function scrapeSource(
   });
 
   try {
-    // If force mode, delete old RawEvents to allow full re-processing
+    // SSRF prevention: validate source URL before any destructive operations
+    validateSourceUrl(source.url);
+
     if (force) {
-      await prisma.rawEvent.deleteMany({
-        where: { sourceId },
-      });
+      await prisma.rawEvent.deleteMany({ where: { sourceId } });
     }
 
-    // Get the adapter for this source type (URL used for HTML scraper routing)
     const adapter = getAdapter(source.type, source.url);
 
-    // Run the scrape (Phase 3A: capture fetch timing)
     const fetchStart = Date.now();
     const scrapeResult = await adapter.fetch(source, { days });
     const fetchDurationMs = Date.now() - fetchStart;
 
-    // ── AI Recovery: attempt to recover events from parse errors ──
-    // If the adapter reported parse errors with rawText and Gemini is available,
-    // try to extract structured data that the deterministic parser missed.
-    let aiRecovery: AiRecoverySummary | undefined;
-    const parseErrors = scrapeResult.errorDetails?.parse ?? [];
-    const recoverableErrors = parseErrors.filter((e) => e.rawText);
+    // AI Recovery
+    const aiRecovery = await runAiRecovery(scrapeResult, source.name);
 
-    if (recoverableErrors.length > 0 && isAiRecoveryAvailable()) {
-      // Use first event's kennelTag as default, or source name as fallback
-      const defaultKennelTag = scrapeResult.events[0]?.kennelTag
-        ?? parseErrors[0]?.partialData?.kennelTag
-        ?? source.name;
-
-      aiRecovery = await attemptAiRecovery(recoverableErrors, defaultKennelTag);
-
-      // Add recovered events to the scrape result
-      if (aiRecovery.succeeded > 0) {
-        for (const result of aiRecovery.results) {
-          scrapeResult.events.push(result.recovered);
-        }
-
-        // Remove parse errors that were successfully recovered
-        const recoveredRows = new Set(aiRecovery.results.map((r) => r.parseError.row));
-        if (scrapeResult.errorDetails?.parse) {
-          scrapeResult.errorDetails.parse = scrapeResult.errorDetails.parse.filter(
-            (e) => !recoveredRows.has(e.row),
-          );
-        }
-        // Also remove corresponding flat errors
-        const recoveredErrorPrefixes = aiRecovery.results.map(
-          (r) => r.parseError.error,
-        );
-        const originalErrors = [...scrapeResult.errors];
-        scrapeResult.errors = originalErrors.filter(
-          (e) => !recoveredErrorPrefixes.some((prefix) => e.includes(prefix)),
-        );
-      }
-
-      scrapeResult.aiRecovery = aiRecovery;
-    }
-
-    // Compute field fill rates (now includes AI-recovered events)
     const fillRates = computeFillRates(scrapeResult.events);
 
-    // Process raw events through the merge pipeline (Phase 3A: capture merge timing)
     const mergeStart = Date.now();
     const mergeResult = await processRawEvents(sourceId, scrapeResult.events);
     const mergeDurationMs = Date.now() - mergeStart;
 
-    // Reconcile stale events: detect events removed from source
-    // Only on successful, non-forced scrapes with results
+    // Reconcile stale events
     let cancelledCount = 0;
     if (!force && scrapeResult.events.length > 0 && scrapeResult.errors.length === 0) {
       const reconciled = await reconcileStaleEvents(sourceId, scrapeResult.events, days);
       cancelledCount = reconciled.cancelled;
     }
 
-    // Combine scrape errors with merge event errors
-    const allErrors = [
-      ...scrapeResult.errors,
-      ...mergeResult.eventErrorMessages,
-    ];
+    const allErrors = [...scrapeResult.errors, ...mergeResult.eventErrorMessages];
+    const { combined: combinedErrorDetails, hasErrors: hasErrorDetails } =
+      buildCombinedErrorDetails(scrapeResult.errorDetails, mergeResult.mergeErrorDetails);
+    const diagnosticContext = buildDiagnosticContext(scrapeResult.diagnosticContext, aiRecovery);
 
-    // Phase 2A: Combine errorDetails from adapter + merge pipeline
-    const combinedErrorDetails: ErrorDetails = {
-      ...(scrapeResult.errorDetails ?? {}),
-    };
-    if (mergeResult.mergeErrorDetails && mergeResult.mergeErrorDetails.length > 0) {
-      combinedErrorDetails.merge = mergeResult.mergeErrorDetails;
-    }
-    const hasErrorDetails =
-      (combinedErrorDetails.fetch?.length ?? 0) > 0 ||
-      (combinedErrorDetails.parse?.length ?? 0) > 0 ||
-      (combinedErrorDetails.merge?.length ?? 0) > 0;
-
-    // Build diagnostic context (includes AI recovery metrics)
-    const diagnosticContext: Record<string, unknown> = {
-      ...(scrapeResult.diagnosticContext ?? {}),
-    };
-    if (aiRecovery && aiRecovery.attempted > 0) {
-      diagnosticContext.aiRecovery = {
-        attempted: aiRecovery.attempted,
-        succeeded: aiRecovery.succeeded,
-        failed: aiRecovery.failed,
-        durationMs: aiRecovery.durationMs,
-        recoveredFields: aiRecovery.results.map((r) => ({
-          fields: r.fieldsRecovered,
-          confidence: r.confidence,
-        })),
-      };
-    }
-
-    // Update ScrapeLog with results + quality metrics
-    const completedAt = new Date();
-    const hasErrors = scrapeResult.errors.length > 0;
-    await prisma.scrapeLog.update({
-      where: { id: scrapeLog.id },
-      data: {
-        status: hasErrors ? "FAILED" : "SUCCESS",
-        completedAt,
-        durationMs: completedAt.getTime() - startedAt.getTime(),
-        eventsFound: scrapeResult.events.length,
-        eventsCreated: mergeResult.created,
-        eventsUpdated: mergeResult.updated,
-        eventsSkipped: mergeResult.skipped,
-        eventsCancelled: cancelledCount,
-        unmatchedTags: mergeResult.unmatched,
-        errors: allErrors,
-        fillRateTitle: fillRates.title,
-        fillRateLocation: fillRates.location,
-        fillRateHares: fillRates.hares,
-        fillRateStartTime: fillRates.startTime,
-        fillRateRunNumber: fillRates.runNumber,
-        structureHash: scrapeResult.structureHash,
-        // Phase 2A: Structured error details
-        errorDetails: hasErrorDetails
-          ? (combinedErrorDetails as unknown as Prisma.InputJsonValue)
-          : undefined,
-        // Phase 2B: Store sample blocked/skipped events (only if non-empty;
-        // storing empty arrays would cause the page query to match scrape logs
-        // with no actual samples, masking older logs that had real samples)
-        sampleBlocked: mergeResult.sampleBlocked?.length
-          ? (mergeResult.sampleBlocked as unknown as Prisma.InputJsonValue)
-          : undefined,
-        sampleSkipped: mergeResult.sampleSkipped?.length
-          ? (mergeResult.sampleSkipped as unknown as Prisma.InputJsonValue)
-          : undefined,
-        // Phase 3A: Performance timing
-        fetchDurationMs,
-        mergeDurationMs,
-        // Phase 3B: Per-adapter diagnostic context (now includes AI recovery)
-        diagnosticContext: Object.keys(diagnosticContext).length > 0
-          ? (diagnosticContext as unknown as Prisma.InputJsonValue)
-          : undefined,
-      },
+    await updateScrapeLogWithResults({
+      scrapeLogId: scrapeLog.id, startedAt, scrapeResult, mergeResult,
+      cancelledCount, fillRates, combinedErrorDetails, hasErrorDetails,
+      diagnosticContext, fetchDurationMs, mergeDurationMs,
     });
 
-    // Analyze health and create/update alerts (include AI recovery context)
-    const health = await analyzeHealth(sourceId, scrapeLog.id, {
+    const completedAt = new Date();
+    await runHealthAndAlerts(sourceId, scrapeLog.id, completedAt, {
       eventsFound: scrapeResult.events.length,
-      scrapeFailed: hasErrors,
+      scrapeFailed: scrapeResult.errors.length > 0,
       errors: allErrors,
       unmatchedTags: mergeResult.unmatched,
       blockedTags: mergeResult.blockedTags,
@@ -218,21 +271,6 @@ export async function scrapeSource(
         ? { attempted: aiRecovery.attempted, succeeded: aiRecovery.succeeded, failed: aiRecovery.failed }
         : undefined,
     });
-
-    // Update source health status
-    await prisma.source.update({
-      where: { id: sourceId },
-      data: {
-        lastScrapeAt: completedAt,
-        lastSuccessAt: health.healthStatus !== "FAILING" ? completedAt : undefined,
-        healthStatus: health.healthStatus,
-      },
-    });
-
-    // Persist alerts
-    if (health.alerts.length > 0) {
-      await persistAlerts(sourceId, scrapeLog.id, health.alerts);
-    }
 
     return {
       success: true,
@@ -250,7 +288,6 @@ export async function scrapeSource(
       aiRecovery,
     };
   } catch (err) {
-    // Update ScrapeLog as failed
     const completedAt = new Date();
     const errorMsg = err instanceof Error ? err.message : String(err);
     await prisma.scrapeLog.update({
@@ -260,35 +297,19 @@ export async function scrapeSource(
         completedAt,
         durationMs: completedAt.getTime() - startedAt.getTime(),
         errors: [errorMsg],
-        // Phase 2A: Structured error for total failure
         errorDetails: {
           fetch: [{ message: errorMsg }],
         } as unknown as Prisma.InputJsonValue,
       },
     });
 
-    // Run health analysis for the failure case
-    const health = await analyzeHealth(sourceId, scrapeLog.id, {
+    await runHealthAndAlerts(sourceId, scrapeLog.id, completedAt, {
       eventsFound: 0,
       scrapeFailed: true,
       errors: [errorMsg],
       unmatchedTags: [],
       fillRates: { title: 0, location: 0, hares: 0, startTime: 0, runNumber: 0 },
     });
-
-    // Update source health
-    await prisma.source.update({
-      where: { id: sourceId },
-      data: {
-        lastScrapeAt: completedAt,
-        healthStatus: health.healthStatus,
-      },
-    });
-
-    // Persist alerts
-    if (health.alerts.length > 0) {
-      await persistAlerts(sourceId, scrapeLog.id, health.alerts);
-    }
 
     return {
       success: false,

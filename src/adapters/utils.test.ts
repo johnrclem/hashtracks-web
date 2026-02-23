@@ -8,6 +8,7 @@ import {
   decodeEntities,
   stripHtmlTags,
   buildUrlVariantCandidates,
+  validateSourceUrl,
 } from "./utils";
 
 describe("MONTHS", () => {
@@ -187,6 +188,88 @@ describe("stripHtmlTags", () => {
   });
 });
 
+
+describe("validateSourceUrl", () => {
+  it("accepts valid HTTPS URLs", () => {
+    expect(() => validateSourceUrl("https://hashnyc.com")).not.toThrow();
+    expect(() => validateSourceUrl("https://www.example.com/path")).not.toThrow();
+  });
+
+  it("accepts valid HTTPS URLs", () => {
+    expect(() => validateSourceUrl("https://hashnyc.com")).not.toThrow();
+  });
+
+  it("rejects non-HTTP protocols", () => {
+    expect(() => validateSourceUrl("ftp://example.com")).toThrow("non-HTTP protocol");
+    expect(() => validateSourceUrl("file:///etc/passwd")).toThrow("non-HTTP protocol");
+  });
+
+  it("rejects malformed URLs", () => {
+    expect(() => validateSourceUrl("not-a-url")).toThrow();
+  });
+
+  it("rejects localhost", () => {
+    expect(() => validateSourceUrl("http://localhost")).toThrow();
+    expect(() => validateSourceUrl("http://localhost:3000")).toThrow();
+  });
+
+  it("rejects 127.0.0.1", () => {
+    expect(() => validateSourceUrl("http://127.0.0.1")).toThrow("private/reserved IP");
+  });
+
+  it("rejects 0.0.0.0", () => {
+    expect(() => validateSourceUrl("http://0.0.0.0")).toThrow("private/reserved IP");
+  });
+
+  it("rejects cloud metadata endpoint", () => {
+    expect(() => validateSourceUrl("http://169.254.169.254")).toThrow("private/reserved IP");
+    expect(() => validateSourceUrl("http://metadata.google.internal")).toThrow("internal hostname");
+  });
+
+  it("rejects private 10.x.x.x range", () => {
+    expect(() => validateSourceUrl("http://10.0.0.1")).toThrow("private/reserved IP");
+    expect(() => validateSourceUrl("http://10.255.255.255")).toThrow("private/reserved IP");
+  });
+
+  it("rejects private 172.16-31.x.x range", () => {
+    expect(() => validateSourceUrl("http://172.16.0.1")).toThrow("private/reserved IP");
+    expect(() => validateSourceUrl("http://172.31.255.255")).toThrow("private/reserved IP");
+  });
+
+  it("allows public 172.x outside private range", () => {
+    expect(() => validateSourceUrl("http://172.15.0.1")).not.toThrow();
+    expect(() => validateSourceUrl("http://172.32.0.1")).not.toThrow();
+  });
+
+  it("rejects private 192.168.x.x range", () => {
+    expect(() => validateSourceUrl("http://192.168.1.1")).toThrow("private/reserved IP");
+  });
+
+  it("rejects decimal IP for loopback (2130706433 = 127.0.0.1)", () => {
+    expect(() => validateSourceUrl("http://2130706433")).toThrow("private/reserved IP");
+  });
+
+  it("rejects hex IP for loopback (0x7f000001 = 127.0.0.1)", () => {
+    expect(() => validateSourceUrl("http://0x7f000001")).toThrow("private/reserved IP");
+  });
+
+  it("rejects IPv4-mapped IPv6 (::ffff:127.0.0.1)", () => {
+    expect(() => validateSourceUrl("http://[::ffff:127.0.0.1]")).toThrow("private/reserved IP");
+  });
+
+  it("rejects IPv6 loopback (::1)", () => {
+    expect(() => validateSourceUrl("http://[::1]")).toThrow("private/reserved IP");
+  });
+
+  it("rejects IPv6 unique-local (fc00::)", () => {
+    expect(() => validateSourceUrl("http://[fc00::1]")).toThrow("private/reserved IP");
+    expect(() => validateSourceUrl("http://[fd00::1]")).toThrow("private/reserved IP");
+  });
+
+  it("rejects IPv6 link-local (fe80::)", () => {
+    expect(() => validateSourceUrl("http://[fe80::1]")).toThrow("private/reserved IP");
+  });
+});
 
 describe("buildUrlVariantCandidates", () => {
   it("builds protocol and host fallback variants", () => {

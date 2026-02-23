@@ -6,6 +6,7 @@ import type {
   ScrapeResult,
   ErrorDetails,
 } from "../types";
+import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
 const YEAR_ROLLOVER_DAY_THRESHOLD = 45;
@@ -25,48 +26,56 @@ const MONTHS: Record<string, number> = {
  *   "19th February 2026" → "2026-02-19"
  *   "19/02/2026" → "2026-02-19"
  */
-export function parseBarnesDate(text: string, referenceDate = new Date()): string | null {
-  // Try DD/MM/YYYY (or DD/MM/YY) first
+/** Try parsing DD/MM/YYYY or DD/MM/YY format. */
+function tryParseNumericDate(text: string): string | null {
   const numericWithYear = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
-  if (numericWithYear) {
-    const day = parseInt(numericWithYear[1], 10);
-    const month = parseInt(numericWithYear[2], 10);
-    let year = parseInt(numericWithYear[3], 10);
-    if (year < 100) year += 2000;
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
+  if (!numericWithYear) return null;
+  const day = parseInt(numericWithYear[1], 10);
+  const month = parseInt(numericWithYear[2], 10);
+  let year = parseInt(numericWithYear[3], 10);
+  if (year < 100) year += 2000;
+  if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   }
+  return null;
+}
 
-  // Try "DDth Month YYYY" or "DD Month YYYY" with optional year
+/** Try parsing "DDth Month YYYY" or "DD Month" with optional year. */
+function tryParseOrdinalDate(text: string, referenceDate: Date): string | null {
   const ordinalMatch = text.match(
     /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\.?\s*(\d{2,4})?/i,
   );
-  if (ordinalMatch) {
-    const day = parseInt(ordinalMatch[1], 10);
-    const monthNum = MONTHS[ordinalMatch[2].toLowerCase()];
-    let year = ordinalMatch[3] ? parseInt(ordinalMatch[3], 10) : undefined;
-    if (year !== undefined && year < 100) year += 2000;
-    if (monthNum && day >= 1 && day <= 31) {
-      if (year === undefined) {
-        year = inferLikelyYear(monthNum, day, referenceDate);
-      }
-      return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  if (!ordinalMatch) return null;
+  const day = parseInt(ordinalMatch[1], 10);
+  const monthNum = MONTHS[ordinalMatch[2].toLowerCase()];
+  let year = ordinalMatch[3] ? parseInt(ordinalMatch[3], 10) : undefined;
+  if (year !== undefined && year < 100) year += 2000;
+  if (monthNum && day >= 1 && day <= 31) {
+    if (year === undefined) {
+      year = inferLikelyYear(monthNum, day, referenceDate);
     }
+    return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   }
-
-  // Try DD/MM with no year
-  const numericNoYear = text.match(/(\d{1,2})\/(\d{1,2})(?!\/\d)/);
-  if (numericNoYear) {
-    const day = parseInt(numericNoYear[1], 10);
-    const month = parseInt(numericNoYear[2], 10);
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      const year = inferLikelyYear(month, day, referenceDate);
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-
   return null;
+}
+
+/** Try parsing DD/MM with no year, using inference. */
+function tryParseDateWithoutYear(text: string, referenceDate: Date): string | null {
+  const numericNoYear = text.match(/(\d{1,2})\/(\d{1,2})(?!\/\d)/);
+  if (!numericNoYear) return null;
+  const day = parseInt(numericNoYear[1], 10);
+  const month = parseInt(numericNoYear[2], 10);
+  if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+    const year = inferLikelyYear(month, day, referenceDate);
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  return null;
+}
+
+export function parseBarnesDate(text: string, referenceDate = new Date()): string | null {
+  return tryParseNumericDate(text)
+    ?? tryParseOrdinalDate(text, referenceDate)
+    ?? tryParseDateWithoutYear(text, referenceDate);
 }
 
 function inferLikelyYear(month: number, day: number, referenceDate: Date): number {
@@ -104,54 +113,60 @@ export function parseRunNumber(text: string): number | null {
  * Parse a single Barnes Hash table row into RawEventData.
  * Each row typically contains cells for: run number + date, hare(s), location + details.
  */
-export function parseBarnesRow(cells: string[], sourceUrl = "http://www.barnesh3.com/HareLine.htm"): RawEventData | null {
-  if (cells.length < 2) return null;
-
-  // Strategy: look for a date in all cells combined, then extract other fields
-  const allText = cells.join(" ");
-  const date = parseBarnesDate(allText);
-  if (!date) return null;
-
-  // Run number: look for 3-5 digit number (typically first cell)
-  const runNumber = parseRunNumber(cells[0]);
-
-  // Hares: typically in their own cell, look for names (not dates, not postcodes)
-  let hares: string | undefined;
+/** Find postcode and location from cells, skipping the first cell (run number). */
+function findPostcodeAndLocation(cells: string[]): { location: string | undefined; postcode: string | undefined } {
   let location: string | undefined;
   let postcode: string | undefined;
 
+  // First pass: look for cells with a UK postcode
   for (let i = 1; i < cells.length; i++) {
     const cell = cells[i].trim();
     if (!cell) continue;
 
-    // Check if this cell contains a postcode (likely location cell)
     const pc = extractPostcode(cell);
     if (pc) {
       postcode = pc;
-      // Location is the cell text (pub name + address)
       location = cell;
-      continue;
-    }
-
-    // If no date in this cell and no postcode, it's likely hares
-    if (!parseBarnesDate(cell) && !hares) {
-      // Skip cells that look like "On Inn" or directions
-      if (/^on[- ]inn/i.test(cell) || /^directions/i.test(cell)) continue;
-      hares = cell;
+      return { location, postcode };
     }
   }
 
-  // If no postcode found yet, check if any cell has location-like content
-  if (!location) {
-    for (let i = 1; i < cells.length; i++) {
-      const cell = cells[i].trim();
-      if (cell && /pub|inn|hotel|arms|tavern|head|swan|lion|bell|crown|anchor|horse|plough|red|white|black|star|king|queen|prince|rose|fox/i.test(cell)) {
-        location = cell;
-        postcode = extractPostcode(cell) ?? undefined;
-        break;
-      }
+  // Second pass: look for pub/venue names
+  for (let i = 1; i < cells.length; i++) {
+    const cell = cells[i].trim();
+    if (cell && /pub|inn|hotel|arms|tavern|head|swan|lion|bell|crown|anchor|horse|plough|red|white|black|star|king|queen|prince|rose|fox/i.test(cell)) {
+      location = cell;
+      postcode = extractPostcode(cell) ?? undefined;
+      return { location, postcode };
     }
   }
+
+  return { location, postcode };
+}
+
+/** Extract hares from cells, skipping date-containing and postcode-containing cells. */
+function extractHaresFromCells(cells: string[]): string | undefined {
+  for (let i = 1; i < cells.length; i++) {
+    const cell = cells[i].trim();
+    if (!cell) continue;
+    if (extractPostcode(cell)) continue;
+    if (parseBarnesDate(cell)) continue;
+    if (/^on[- ]inn/i.test(cell) || /^directions/i.test(cell)) continue;
+    return cell;
+  }
+  return undefined;
+}
+
+export function parseBarnesRow(cells: string[], sourceUrl = "http://www.barnesh3.com/HareLine.htm"): RawEventData | null {
+  if (cells.length < 2) return null;
+
+  const allText = cells.join(" ");
+  const date = parseBarnesDate(allText);
+  if (!date) return null;
+
+  const runNumber = parseRunNumber(cells[0]);
+  const { location, postcode } = findPostcodeAndLocation(cells);
+  const hares = extractHaresFromCells(cells);
 
   const locationUrl = postcode
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(postcode)}`
@@ -263,9 +278,7 @@ export class BarnesHashAdapter implements SourceAdapter {
       rowsParsed++;
     });
 
-    const hasErrorDetails =
-      (errorDetails.fetch?.length ?? 0) > 0 ||
-      (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,

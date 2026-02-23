@@ -55,7 +55,7 @@ export function EventFilters({
   // Derive available regions and kennels from events
   const regions = useMemo(() => {
     const regionSet = new Set(events.map((e) => e.kennel.region));
-    return Array.from(regionSet).sort();
+    return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
   }, [events]);
 
   const kennels = useMemo(() => {
@@ -83,7 +83,7 @@ export function EventFilters({
     for (const e of events) {
       if (e.kennel.country) countrySet.add(e.kennel.country);
     }
-    return Array.from(countrySet).sort();
+    return Array.from(countrySet).sort((a, b) => a.localeCompare(b));
   }, [events]);
 
   function toggleRegion(region: string) {

@@ -61,7 +61,7 @@ export function KennelFilters({
   // Derive available regions from kennel list
   const regions = useMemo(() => {
     const regionSet = new Set(kennels.map((k) => k.region));
-    return Array.from(regionSet).sort();
+    return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
   }, [kennels]);
 
   // Derive available frequencies
@@ -70,7 +70,7 @@ export function KennelFilters({
     for (const k of kennels) {
       if (k.scheduleFrequency) freqSet.add(k.scheduleFrequency);
     }
-    return Array.from(freqSet).sort();
+    return Array.from(freqSet).sort((a, b) => a.localeCompare(b));
   }, [kennels]);
 
   // Derive countries (only show if >1)
@@ -79,7 +79,7 @@ export function KennelFilters({
     for (const k of kennels) {
       if (k.country) countrySet.add(k.country);
     }
-    return Array.from(countrySet).sort();
+    return Array.from(countrySet).sort((a, b) => a.localeCompare(b));
   }, [kennels]);
 
   function toggleRegion(region: string) {

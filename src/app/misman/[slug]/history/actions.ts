@@ -222,6 +222,36 @@ function splitHareNames(haresText: string): string[] {
   return names;
 }
 
+/** Collect unique hare names from event haresText fields (case-insensitive dedup). */
+function collectUniqueHareNames(
+  events: Array<{ haresText: string | null }>,
+): Map<string, string> {
+  const uniqueNames = new Map<string, string>();
+  for (const e of events) {
+    if (!e.haresText) continue;
+    const names = splitHareNames(e.haresText);
+    for (const name of names) {
+      const key = name.toLowerCase();
+      if (!uniqueNames.has(key)) {
+        uniqueNames.set(key, name);
+      }
+    }
+  }
+  return uniqueNames;
+}
+
+/** Build a set of existing roster names (lowercase) for dedup. */
+function buildExistingNameSet(
+  existing: Array<{ hashName: string | null; nerdName: string | null }>,
+): Set<string> {
+  const names = new Set<string>();
+  for (const e of existing) {
+    if (e.hashName) names.add(e.hashName.toLowerCase());
+    if (e.nerdName) names.add(e.nerdName.toLowerCase());
+  }
+  return names;
+}
+
 /**
  * Seed the roster from Event.haresText data.
  * Queries events in the roster scope (last year), parses comma-separated
@@ -235,7 +265,6 @@ export async function seedRosterFromHares(kennelId: string) {
   const rosterKennelIds = await getRosterKennelIds(kennelId);
   const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
 
-  // Get all events with hare data in the roster scope (last year)
   const events = await prisma.event.findMany({
     where: {
       kennelId: { in: rosterKennelIds },
@@ -245,32 +274,14 @@ export async function seedRosterFromHares(kennelId: string) {
     select: { haresText: true },
   });
 
-  // Parse and deduplicate hare names (case-insensitive)
-  const uniqueNames = new Map<string, string>();
-  for (const e of events) {
-    if (!e.haresText) continue;
-    const names = splitHareNames(e.haresText);
-    for (const name of names) {
-      const key = name.toLowerCase();
-      if (!uniqueNames.has(key)) {
-        uniqueNames.set(key, name);
-      }
-    }
-  }
+  const uniqueNames = collectUniqueHareNames(events);
 
-  // Get existing roster entries for fuzzy dedup
   const existing = await prisma.kennelHasher.findMany({
     where: { rosterGroupId },
     select: { hashName: true, nerdName: true },
   });
+  const existingNames = buildExistingNameSet(existing);
 
-  const existingNames = new Set<string>();
-  for (const e of existing) {
-    if (e.hashName) existingNames.add(e.hashName.toLowerCase());
-    if (e.nerdName) existingNames.add(e.nerdName.toLowerCase());
-  }
-
-  // Filter out names that already exist in the roster
   const newNames: string[] = [];
   for (const [key, name] of uniqueNames) {
     if (!existingNames.has(key)) {
@@ -282,7 +293,6 @@ export async function seedRosterFromHares(kennelId: string) {
     return { success: true, created: 0, message: "All hare names already exist in the roster" };
   }
 
-  // Create new KennelHasher entries
   const created = await prisma.kennelHasher.createMany({
     data: newNames.map((name) => ({
       rosterGroupId,

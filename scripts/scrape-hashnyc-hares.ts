@@ -14,6 +14,7 @@
  */
 
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 import {
   extractHares,
   extractYear,
@@ -78,6 +79,28 @@ function similarity(a: string, b: string): number {
 
 // ── HTML Parsing (mirrors HashNYCAdapter.parseRows without needing the class) ──
 
+function resolveYear(
+  $: cheerio.CheerioAPI, row: AnyNode, isFuture: boolean, currentYear: number,
+): number | null {
+  if (isFuture) return currentYear;
+  const rowId = $(row).attr("id") ?? undefined;
+  const dateCellHtml = $(row).find("td").eq(0).html() ?? "";
+  return extractYear(rowId, dateCellHtml);
+}
+
+function resolveHaresText(
+  $: cheerio.CheerioAPI, row: AnyNode, cells: cheerio.Cheerio<AnyNode>, isFuture: boolean,
+): string {
+  let hares: string;
+  if (isFuture && cells.length >= 3) {
+    hares = decodeHtmlEntities(cells.eq(2).html() ?? "").trim();
+  } else {
+    hares = extractHares($, row);
+  }
+  if (hares && /sign up to hare/i.test(hares)) return "N/A";
+  return hares;
+}
+
 function parseRowsFromHtml(
   html: string,
   tableSelector: string,
@@ -94,19 +117,10 @@ function parseRowsFromHtml(
       const cells = $(row).find("td");
       if (cells.length < 2) return;
 
-      const dateCellHtml = cells.eq(0).html() ?? "";
-      const dateCellText = decodeHtmlEntities(dateCellHtml);
+      const dateCellText = decodeHtmlEntities(cells.eq(0).html() ?? "");
       const startTime = extractTime(dateCellText);
 
-      let year: number | null;
-
-      if (isFuture) {
-        year = currentYear;
-      } else {
-        const rowId = $(row).attr("id") ?? undefined;
-        year = extractYear(rowId, dateCellHtml);
-      }
-
+      let year = resolveYear($, row, isFuture, currentYear);
       if (!year || year < 2016) return;
 
       const monthDay = extractMonthDay(dateCellText);
@@ -116,24 +130,10 @@ function parseRowsFromHtml(
         year = currentYear + 1;
       }
 
-      const eventDate = new Date(
-        Date.UTC(year, monthDay.month, monthDay.day, 12, 0, 0),
-      );
+      const eventDate = new Date(Date.UTC(year, monthDay.month, monthDay.day, 12, 0, 0));
       const dateStr = eventDate.toISOString().split("T")[0];
-
-      const detailsCell = cells.eq(1);
-      const parsed = parseDetailsCell($, detailsCell);
-
-      let hares: string;
-      if (isFuture && cells.length >= 3) {
-        hares = decodeHtmlEntities(cells.eq(2).html() ?? "").trim();
-      } else {
-        hares = extractHares($, row);
-      }
-
-      if (hares && /sign up to hare/i.test(hares)) {
-        hares = "N/A";
-      }
+      const parsed = parseDetailsCell($, cells.eq(1));
+      const hares = resolveHaresText($, row, cells, isFuture);
 
       events.push({
         date: dateStr,
@@ -324,58 +324,62 @@ function tokenOverlap(a: string, b: string): number {
   return sharedCount / Math.min(tokensA.length, tokensB.length);
 }
 
-function findDuplicates(
-  rosterByKennel: Map<string, HareEntry[]>,
-): DuplicateCandidate[] {
-  const duplicates: DuplicateCandidate[] = [];
-  const seen = new Set<string>();
-
+function collectAllNames(rosterByKennel: Map<string, HareEntry[]>): Map<string, { kennels: Set<string>; totalCount: number }> {
   const allNames = new Map<string, { kennels: Set<string>; totalCount: number }>();
   for (const [kennel, entries] of rosterByKennel) {
     for (const entry of entries) {
       const key = entry.name.toLowerCase();
-      if (!allNames.has(key)) {
-        allNames.set(key, { kennels: new Set(), totalCount: 0 });
-      }
+      if (!allNames.has(key)) allNames.set(key, { kennels: new Set(), totalCount: 0 });
       const record = allNames.get(key)!;
       record.kennels.add(kennel);
       record.totalCount += entry.timesSeen;
     }
   }
+  return allNames;
+}
 
+function comparePairForDuplicate(
+  keyA: string, dataA: { kennels: Set<string>; totalCount: number },
+  keyB: string, dataB: { kennels: Set<string>; totalCount: number },
+  rosterByKennel: Map<string, HareEntry[]>,
+): DuplicateCandidate | null {
+  if (keyA === keyB) return null;
+  const levSim = similarity(keyA, keyB);
+  const tokSim = tokenOverlap(keyA, keyB);
+  if (levSim < FUZZY_THRESHOLD && tokSim < 0.5) return null;
+
+  const bestSim = Math.max(levSim, tokSim);
+  const nameA = findCanonicalName(rosterByKennel, keyA);
+  const nameB = findCanonicalName(rosterByKennel, keyB);
+  const kennels = [...new Set([...dataA.kennels, ...dataB.kennels])].sort((a, b) => a.localeCompare(b));
+  return {
+    names: [nameA, nameB],
+    kennels,
+    similarity: Math.round(bestSim * 100) / 100,
+    counts: [dataA.totalCount, dataB.totalCount],
+    matchType: tokSim > levSim ? "token" : "levenshtein",
+  };
+}
+
+function findDuplicates(
+  rosterByKennel: Map<string, HareEntry[]>,
+): DuplicateCandidate[] {
+  const duplicates: DuplicateCandidate[] = [];
+  const seen = new Set<string>();
+  const allNames = collectAllNames(rosterByKennel);
   const nameList = Array.from(allNames.entries());
+
   for (let i = 0; i < nameList.length; i++) {
     for (let j = i + 1; j < nameList.length; j++) {
       const [keyA, dataA] = nameList[i];
       const [keyB, dataB] = nameList[j];
+      const pairKey = [keyA, keyB].sort((a, b) => a.localeCompare(b)).join("|||");
+      if (seen.has(pairKey)) continue;
 
-      if (keyA === keyB) continue;
-
-      // Two-pronged matching: Levenshtein OR token overlap (different thresholds)
-      const levSim = similarity(keyA, keyB);
-      const tokSim = tokenOverlap(keyA, keyB);
-
-      const isLevMatch = levSim >= FUZZY_THRESHOLD;
-      const isTokMatch = tokSim >= 0.5; // Lower threshold for shared-word detection
-      const bestSim = Math.max(levSim, tokSim);
-
-      if (isLevMatch || isTokMatch) {
-        const pairKey = [keyA, keyB].sort().join("|||");
-        if (seen.has(pairKey)) continue;
+      const candidate = comparePairForDuplicate(keyA, dataA, keyB, dataB, rosterByKennel);
+      if (candidate) {
         seen.add(pairKey);
-
-        const nameA = findCanonicalName(rosterByKennel, keyA);
-        const nameB = findCanonicalName(rosterByKennel, keyB);
-        const kennels = [...new Set([...dataA.kennels, ...dataB.kennels])].sort();
-        const matchType = tokSim > levSim ? "token" : "levenshtein";
-
-        duplicates.push({
-          names: [nameA, nameB],
-          kennels,
-          similarity: Math.round(bestSim * 100) / 100,
-          counts: [dataA.totalCount, dataB.totalCount],
-          matchType,
-        });
+        duplicates.push(candidate);
       }
     }
   }
@@ -448,28 +452,8 @@ async function main() {
   // Find potential duplicates
   const duplicates = findDuplicates(roster);
 
-  // Build output
-  let totalUniqueHares = 0;
-  const kennels: Record<string, KennelRoster> = {};
-
-  for (const [kennel, entries] of roster) {
-    totalUniqueHares += entries.length;
-    kennels[kennel] = {
-      count: entries.length,
-      hares: entries.map((e) => ({
-        name: e.name,
-        timesSeen: e.timesSeen,
-        ...(e.variants.length > 0 ? { variants: e.variants } : {}),
-      })),
-    };
-  }
-
-  // Sort kennels alphabetically
-  const sortedKennels: Record<string, KennelRoster> = {};
-  for (const key of Object.keys(kennels).sort()) {
-    sortedKennels[key] = kennels[key];
-  }
-
+  // Build and write output
+  const { sortedKennels, totalUniqueHares } = buildOutput(roster);
   const output = {
     scrapedAt: new Date().toISOString().split("T")[0],
     lookbackDays: LOOKBACK_DAYS,
@@ -481,27 +465,45 @@ async function main() {
   };
 
   writeFileSync(OUTPUT_PATH, JSON.stringify(output, null, 2) + "\n");
+  printSummary(sortedKennels, totalUniqueHares, duplicates);
+}
+
+function buildOutput(roster: Map<string, HareEntry[]>) {
+  let totalUniqueHares = 0;
+  const kennels: Record<string, KennelRoster> = {};
+  for (const [kennel, entries] of roster) {
+    totalUniqueHares += entries.length;
+    kennels[kennel] = {
+      count: entries.length,
+      hares: entries.map((e) => ({
+        name: e.name,
+        timesSeen: e.timesSeen,
+        ...(e.variants.length > 0 ? { variants: e.variants } : {}),
+      })),
+    };
+  }
+  const sortedKennels: Record<string, KennelRoster> = {};
+  for (const key of Object.keys(kennels).sort((a, b) => a.localeCompare(b))) {
+    sortedKennels[key] = kennels[key];
+  }
+  return { sortedKennels, totalUniqueHares };
+}
+
+function printSummary(sortedKennels: Record<string, KennelRoster>, totalUniqueHares: number, duplicates: DuplicateCandidate[]) {
   console.log(`\nWrote roster to ${OUTPUT_PATH}`);
   console.log(`  Total unique hares: ${totalUniqueHares}`);
   console.log(`  Kennels: ${Object.keys(sortedKennels).join(", ")}`);
   console.log(`  Possible duplicates flagged: ${duplicates.length}`);
-
-  // Print summary per kennel
   console.log("\n── Per-Kennel Summary ──");
   for (const [kennel, data] of Object.entries(sortedKennels)) {
     console.log(`  ${kennel}: ${data.count} unique hares`);
   }
-
   if (duplicates.length > 0) {
     console.log("\n── Possible Duplicates (review manually) ──");
     for (const dup of duplicates.slice(0, 20)) {
-      console.log(
-        `  "${dup.names[0]}" ↔ "${dup.names[1]}" (${Math.round(dup.similarity * 100)}% ${dup.matchType ?? "similar"}, seen ${dup.counts[0]}/${dup.counts[1]} times, kennels: ${dup.kennels.join(", ")})`,
-      );
+      console.log(`  "${dup.names[0]}" ↔ "${dup.names[1]}" (${Math.round(dup.similarity * 100)}% ${dup.matchType ?? "similar"}, seen ${dup.counts[0]}/${dup.counts[1]} times, kennels: ${dup.kennels.join(", ")})`);
     }
-    if (duplicates.length > 20) {
-      console.log(`  ... and ${duplicates.length - 20} more (see JSON output)`);
-    }
+    if (duplicates.length > 20) console.log(`  ... and ${duplicates.length - 20} more (see JSON output)`);
   }
 }
 

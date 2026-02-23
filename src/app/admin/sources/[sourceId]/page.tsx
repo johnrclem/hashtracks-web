@@ -25,6 +25,39 @@ import { TYPE_LABELS } from "@/components/admin/SourceTable";
 import { fuzzyMatch } from "@/lib/fuzzy";
 import { cn } from "@/lib/utils";
 
+/** Detect which scrape log IDs had structure hash changes. */
+function detectHashChanges(
+  history: Array<{ id: string; structureHash: string | null }>,
+): Map<string, boolean> {
+  const changes = new Map<string, boolean>();
+  let prevHash: string | null = null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const curr = history.at(i);
+    if (!curr) continue;
+    if (curr.structureHash && prevHash && curr.structureHash !== prevHash) {
+      changes.set(curr.id, true);
+    }
+    prevHash = curr.structureHash;
+  }
+  return changes;
+}
+
+/** Compute fuzzy suggestions for unmatched tags in sample skipped events. */
+function computeSampleSuggestions(
+  sampleSkippedArr: unknown,
+  fuzzyCandidates: Array<{ id: string; shortName: string; fullName: string; aliases: string[] }>,
+): Map<string, { id: string; shortName: string; score: number }[]> {
+  const suggestions = new Map<string, { id: string; shortName: string; score: number }[]>();
+  if (!sampleSkippedArr || !Array.isArray(sampleSkippedArr)) return suggestions;
+
+  for (const sample of sampleSkippedArr as Array<{ kennelTag: string }>) {
+    if (typeof sample.kennelTag === "string" && !suggestions.has(sample.kennelTag)) {
+      suggestions.set(sample.kennelTag, fuzzyMatch(sample.kennelTag, fuzzyCandidates));
+    }
+  }
+  return suggestions;
+}
+
 const healthColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   HEALTHY: "default",
   DEGRADED: "secondary",
@@ -353,33 +386,18 @@ export default async function SourceDetailPage({
       }),
     ]);
 
-  // Phase 1: Detect hash changes and link to STRUCTURE_CHANGE alerts
-  const hashChanges = new Map<string, boolean>();
-  let prevHash: string | null = null;
-  for (let i = structureHashHistory.length - 1; i >= 0; i--) {
-    const curr = structureHashHistory[i];
-    if (curr.structureHash && prevHash && curr.structureHash !== prevHash) {
-      hashChanges.set(curr.id, true);
-    }
-    prevHash = curr.structureHash;
-  }
+  const hashChanges = detectHashChanges(structureHashHistory);
 
-  // Compute fuzzy suggestions for unmatched tags in sample events
   const fuzzyCandidates = allKennels.map((k) => ({
     id: k.id,
     shortName: k.shortName,
     fullName: k.fullName,
     aliases: k.aliases.map((a) => a.alias),
   }));
-  const sampleSuggestions: Record<string, { id: string; shortName: string; score: number }[]> = {};
-  const sampleSkippedArr = recentScrapeWithSamples?.sampleSkipped;
-  if (sampleSkippedArr && Array.isArray(sampleSkippedArr)) {
-    for (const sample of sampleSkippedArr as Array<{ kennelTag: string }>) {
-      if (!sampleSuggestions[sample.kennelTag]) {
-        sampleSuggestions[sample.kennelTag] = fuzzyMatch(sample.kennelTag, fuzzyCandidates);
-      }
-    }
-  }
+  const sampleSuggestions = computeSampleSuggestions(
+    recentScrapeWithSamples?.sampleSkipped,
+    fuzzyCandidates,
+  );
 
   // Get alerts linked to structure hash changes
   const structureAlerts = await prisma.alert.findMany({
@@ -662,7 +680,7 @@ export default async function SourceDetailPage({
                         reason={sample.reason}
                         kennelTag={sample.kennelTag}
                         allKennels={allKennels}
-                        suggestions={sampleSuggestions[sample.kennelTag]}
+                        suggestions={sampleSuggestions.get(sample.kennelTag)}
                       />
                     </div>
                   </div>
@@ -705,7 +723,7 @@ export default async function SourceDetailPage({
                         reason={sample.reason}
                         kennelTag={sample.kennelTag}
                         allKennels={allKennels}
-                        suggestions={sampleSuggestions[sample.kennelTag]}
+                        suggestions={sampleSuggestions.get(sample.kennelTag)}
                       />
                     </div>
                   </div>

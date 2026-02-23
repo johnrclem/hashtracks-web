@@ -42,25 +42,11 @@ export interface BloggerFetchResult {
  * @param maxResults - Maximum posts to retrieve (default 25)
  * @returns Posts array with blog ID, or error details
  */
-export async function fetchBloggerPosts(
+/** Discover blog ID from a URL using the Blogger API. Tries both http and https schemes. */
+async function discoverBlogId(
   sourceUrl: string,
-  maxResults = 25,
-): Promise<BloggerFetchResult> {
-  const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
-  if (!apiKey) {
-    return {
-      posts: [],
-      error: { message: "Missing GOOGLE_CALENDAR_API_KEY environment variable" },
-    };
-  }
-
-  const fetchStart = Date.now();
-
-  const authHeaders = { "X-Goog-Api-Key": apiKey };
-
-  // Step 1: Discover blog ID from URL
-  // Try original URL first, then toggle http/https on 404 (custom domains may be
-  // registered under either scheme in Blogger)
+  authHeaders: Record<string, string>,
+): Promise<{ blogId: string } | { error: { message: string; status?: number } }> {
   const urlsToTry = [sourceUrl];
   if (sourceUrl.startsWith("http://")) {
     urlsToTry.push(sourceUrl.replace("http://", "https://"));
@@ -68,7 +54,6 @@ export async function fetchBloggerPosts(
     urlsToTry.push(sourceUrl.replace("https://", "http://"));
   }
 
-  let blogId: string | undefined;
   let lastLookupError: { message: string; status?: number } | undefined;
 
   for (const tryUrl of urlsToTry) {
@@ -79,34 +64,31 @@ export async function fetchBloggerPosts(
       const blogResponse = await fetch(blogLookupUrl, { headers: authHeaders });
       if (blogResponse.ok) {
         const blogData = await blogResponse.json() as { id?: string };
-        blogId = blogData?.id;
-        if (blogId) break;
+        if (blogData?.id) return { blogId: blogData.id };
         lastLookupError = { message: "Blogger API returned no blog ID" };
-        break; // 200 OK but no ID — retrying with a different scheme won't help
-      } else {
-        const body = await blogResponse.text().catch(() => "");
-        lastLookupError = {
-          message: `Blogger API blog lookup failed: HTTP ${blogResponse.status} — ${body.slice(0, 200)}`,
-          status: blogResponse.status,
-        };
-        // Only retry on 404 (not found) — other errors (403, 500) won't resolve with a different scheme
-        if (blogResponse.status !== 404) break;
+        break;
       }
+      const body = await blogResponse.text().catch(() => "");
+      lastLookupError = {
+        message: `Blogger API blog lookup failed: HTTP ${blogResponse.status} — ${body.slice(0, 200)}`,
+        status: blogResponse.status,
+      };
+      if (blogResponse.status !== 404) break;
     } catch (err) {
       lastLookupError = { message: `Blogger API blog lookup error: ${err}` };
-      break; // Network errors won't resolve with a different URL scheme
+      break;
     }
   }
 
-  if (!blogId) {
-    return {
-      posts: [],
-      error: lastLookupError ?? { message: "Blogger API blog lookup failed" },
-      fetchDurationMs: Date.now() - fetchStart,
-    };
-  }
+  return { error: lastLookupError ?? { message: "Blogger API blog lookup failed" } };
+}
 
-  // Step 2: Fetch posts
+/** Fetch blog posts from a known blog ID. */
+async function fetchBlogItems(
+  blogId: string,
+  authHeaders: Record<string, string>,
+  maxResults: number,
+): Promise<{ posts: BloggerPost[] } | { error: { message: string; status?: number } }> {
   const postsParams = new URLSearchParams({
     maxResults: maxResults.toString(),
     fetchBodies: "true",
@@ -118,13 +100,10 @@ export async function fetchBloggerPosts(
     if (!postsResponse.ok) {
       const body = await postsResponse.text().catch(() => "");
       return {
-        posts: [],
-        blogId,
         error: {
           message: `Blogger API posts fetch failed: HTTP ${postsResponse.status} — ${body.slice(0, 200)}`,
           status: postsResponse.status,
         },
-        fetchDurationMs: Date.now() - fetchStart,
       };
     }
     const postsData = await postsResponse.json() as { items?: unknown[] };
@@ -139,17 +118,53 @@ export async function fetchBloggerPosts(
       published: item.published ?? "",
     }));
 
-    return {
-      posts,
-      blogId,
-      fetchDurationMs: Date.now() - fetchStart,
-    };
+    return { posts };
   } catch (err) {
+    return { error: { message: `Blogger API posts fetch error: ${err}` } };
+  }
+}
+
+export async function fetchBloggerPosts(
+  sourceUrl: string,
+  maxResults = 25,
+): Promise<BloggerFetchResult> {
+  const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
+  if (!apiKey) {
     return {
       posts: [],
-      blogId,
-      error: { message: `Blogger API posts fetch error: ${err}` },
+      error: { message: "Missing GOOGLE_CALENDAR_API_KEY environment variable" },
+    };
+  }
+
+  const fetchStart = Date.now();
+  const authHeaders = { "X-Goog-Api-Key": apiKey };
+
+  // Step 1: Discover blog ID from URL
+  const idResult = await discoverBlogId(sourceUrl, authHeaders);
+  if ("error" in idResult) {
+    return {
+      posts: [],
+      error: idResult.error,
       fetchDurationMs: Date.now() - fetchStart,
     };
   }
+
+  const { blogId } = idResult;
+
+  // Step 2: Fetch posts
+  const postsResult = await fetchBlogItems(blogId, authHeaders, maxResults);
+  if ("error" in postsResult) {
+    return {
+      posts: [],
+      blogId,
+      error: postsResult.error,
+      fetchDurationMs: Date.now() - fetchStart,
+    };
+  }
+
+  return {
+    posts: postsResult.posts,
+    blogId,
+    fetchDurationMs: Date.now() - fetchStart,
+  };
 }

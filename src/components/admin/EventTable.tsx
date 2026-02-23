@@ -82,6 +82,40 @@ interface EventTableProps {
 
 type SortableColumn = "date" | "kennelName" | "title" | "runNumber" | "attendanceCount";
 
+/** Build updated URL search params for filter changes. */
+function buildFilterParams(
+  searchParams: URLSearchParams,
+  key: string,
+  value: string | undefined,
+): string {
+  const params = new URLSearchParams(searchParams.toString());
+  if (value && value !== "all") {
+    params.set(key, value);
+  } else {
+    params.delete(key);
+  }
+  params.set("page", "1");
+  return params.toString();
+}
+
+/** Build updated URL search params for sort changes. */
+function buildSortParams(
+  searchParams: URLSearchParams,
+  column: SortableColumn,
+  currentSort: string,
+  currentDir: string,
+): string {
+  const params = new URLSearchParams(searchParams.toString());
+  if (currentSort === column) {
+    params.set("sortDir", currentDir === "asc" ? "desc" : "asc");
+  } else {
+    params.set("sortBy", column);
+    params.set("sortDir", column === "date" ? "desc" : "asc");
+  }
+  params.set("page", "1");
+  return params.toString();
+}
+
 export function EventTable({
   events,
   kennels,
@@ -111,28 +145,13 @@ export function EventTable({
   }, [searchParams]);
 
   function updateFilter(key: string, value: string | undefined) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value && value !== "all") {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
-    params.set("page", "1");
-    router.push(`/admin/events?${params.toString()}`);
+    router.push(`/admin/events?${buildFilterParams(searchParams, key, value)}`);
   }
 
   function updateSort(column: SortableColumn) {
-    const params = new URLSearchParams(searchParams.toString());
     const currentSort = filters.sortBy ?? "date";
     const currentDir = filters.sortDir ?? "desc";
-    if (currentSort === column) {
-      params.set("sortDir", currentDir === "asc" ? "desc" : "asc");
-    } else {
-      params.set("sortBy", column);
-      params.set("sortDir", column === "date" ? "desc" : "asc");
-    }
-    params.set("page", "1");
-    router.push(`/admin/events?${params.toString()}`);
+    router.push(`/admin/events?${buildSortParams(searchParams, column, currentSort, currentDir)}`);
   }
 
   function updatePage(page: number) {

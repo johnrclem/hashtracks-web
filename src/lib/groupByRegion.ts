@@ -10,7 +10,7 @@ export function groupByRegion<T extends { region: string; shortName: string }>(
     groups[item.region].push(item);
   }
   return Object.keys(groups)
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .map((region) => ({
       region,
       items: groups[region].sort((a, b) =>

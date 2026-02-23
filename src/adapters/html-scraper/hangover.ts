@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
+import { safeFetch } from "../safe-fetch";
 
 const DEFAULT_START_TIME = "10:15";
 
@@ -131,7 +132,7 @@ function shouldFetchDetailPage(fields: ReturnType<typeof parseHangoverBody>, eve
 
 async function fetchDetailBody(postUrl: string, headers: HeadersInit): Promise<string | null> {
   try {
-    const response = await fetch(postUrl, { headers });
+    const response = await safeFetch(postUrl, { headers });
     if (!response.ok) return null;
 
     const html = await response.text();
@@ -141,6 +142,40 @@ async function fetchDetailBody(postUrl: string, headers: HeadersInit): Promise<s
   } catch {
     return null;
   }
+}
+
+/** Enrich body fields from a detail page when listing page data is incomplete. */
+async function enrichFromDetailPage(
+  bodyFields: ReturnType<typeof parseHangoverBody>,
+  postUrl: string,
+  headers: HeadersInit,
+): Promise<{ bodyFields: ReturnType<typeof parseHangoverBody>; eventDate: string | undefined }> {
+  const detailBodyText = await fetchDetailBody(postUrl, headers);
+  if (!detailBodyText) {
+    return { bodyFields, eventDate: bodyFields.date };
+  }
+  const detailFields = parseHangoverBody(detailBodyText);
+  const merged = {
+    date: detailFields.date ?? bodyFields.date,
+    hares: detailFields.hares ?? bodyFields.hares,
+    location: detailFields.location ?? bodyFields.location,
+    hashCash: detailFields.hashCash ?? bodyFields.hashCash,
+    startTime: detailFields.startTime ?? bodyFields.startTime,
+    trailType: detailFields.trailType ?? bodyFields.trailType,
+    onAfter: detailFields.onAfter ?? bodyFields.onAfter,
+    distances: detailFields.distances ?? bodyFields.distances,
+  };
+  return { bodyFields: merged, eventDate: merged.date };
+}
+
+/** Build a description string from Hangover body fields. */
+function buildHangoverDescription(fields: ReturnType<typeof parseHangoverBody>): string | undefined {
+  const descParts: string[] = [];
+  if (fields.trailType) descParts.push(`Trail Type: ${fields.trailType}`);
+  if (fields.distances) descParts.push(fields.distances);
+  if (fields.hashCash) descParts.push(`Hash Cash: ${fields.hashCash}`);
+  if (fields.onAfter) descParts.push(`On After: ${fields.onAfter}`);
+  return descParts.length > 0 ? descParts.join(" | ") : undefined;
 }
 
 export class HangoverAdapter implements SourceAdapter {
@@ -164,9 +199,7 @@ export class HangoverAdapter implements SourceAdapter {
 
     let html: string;
     try {
-      const response = await fetch(baseUrl, {
-        headers: requestHeaders,
-      });
+      const response = await safeFetch(baseUrl, { headers: requestHeaders });
       if (!response.ok) {
         const message = `HTTP ${response.status}: ${response.statusText}`;
         errorDetails.fetch = [{ url: baseUrl, status: response.status, message }];
@@ -181,7 +214,6 @@ export class HangoverAdapter implements SourceAdapter {
 
     const structureHash = generateStructureHash(html);
     const $ = cheerio.load(html);
-
     const articles = $("article.gh-card, article.post, .post-card, article").toArray();
 
     for (let i = 0; i < articles.length; i++) {
@@ -189,53 +221,29 @@ export class HangoverAdapter implements SourceAdapter {
 
       const titleEl = article.find("h2 a, h3 a, .gh-card-title, .post-card-title, .gh-article-title").first();
       let titleText = titleEl.text().trim();
-      if (!titleText) {
-        titleText = article.find("h2, h3, h1").first().text().trim();
-      }
+      if (!titleText) titleText = article.find("h2, h3, h1").first().text().trim();
       const postHref = titleEl.attr("href") || article.find("a").first().attr("href");
       const postUrl = resolveUrl(baseUrl, postHref);
 
       if (!titleText) continue;
-
       const parsed = parseHangoverTitle(titleText);
       if (!parsed) continue;
 
       const bodyEl = article.find(".gh-content, .post-content, .gh-card-excerpt, .post-card-excerpt").first();
-      const listingBodyText = bodyEl.text() || "";
-      let bodyFields = parseHangoverBody(listingBodyText);
-
+      let bodyFields = parseHangoverBody(bodyEl.text() || "");
       let eventDate = bodyFields.date ?? extractIsoDateFromArticle(article);
 
       if (shouldFetchDetailPage(bodyFields, eventDate)) {
-        const detailBodyText = await fetchDetailBody(postUrl, requestHeaders);
-        if (detailBodyText) {
-          const detailFields = parseHangoverBody(detailBodyText);
-          bodyFields = {
-            date: detailFields.date ?? bodyFields.date,
-            hares: detailFields.hares ?? bodyFields.hares,
-            location: detailFields.location ?? bodyFields.location,
-            hashCash: detailFields.hashCash ?? bodyFields.hashCash,
-            startTime: detailFields.startTime ?? bodyFields.startTime,
-            trailType: detailFields.trailType ?? bodyFields.trailType,
-            onAfter: detailFields.onAfter ?? bodyFields.onAfter,
-            distances: detailFields.distances ?? bodyFields.distances,
-          };
-          eventDate = bodyFields.date ?? eventDate;
-        }
+        const enriched = await enrichFromDetailPage(bodyFields, postUrl, requestHeaders);
+        bodyFields = enriched.bodyFields;
+        eventDate = enriched.eventDate ?? eventDate;
       }
 
       if (!eventDate) continue;
 
-      const descParts: string[] = [];
-      if (bodyFields.trailType) descParts.push(`Trail Type: ${bodyFields.trailType}`);
-      if (bodyFields.distances) descParts.push(bodyFields.distances);
-      if (bodyFields.hashCash) descParts.push(`Hash Cash: ${bodyFields.hashCash}`);
-      if (bodyFields.onAfter) descParts.push(`On After: ${bodyFields.onAfter}`);
-
-      let locationUrl: string | undefined;
-      if (bodyFields.location) {
-        locationUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(bodyFields.location)}`;
-      }
+      const locationUrl = bodyFields.location
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(bodyFields.location)}`
+        : undefined;
 
       events.push({
         date: eventDate,
@@ -247,7 +255,7 @@ export class HangoverAdapter implements SourceAdapter {
         locationUrl,
         startTime: bodyFields.startTime || DEFAULT_START_TIME,
         sourceUrl: postUrl,
-        description: descParts.length > 0 ? descParts.join(" | ") : undefined,
+        description: buildHangoverDescription(bodyFields),
       });
     }
 

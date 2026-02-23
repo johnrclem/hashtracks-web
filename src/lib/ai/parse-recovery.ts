@@ -147,6 +147,43 @@ function parseGeminiResponse(
   }
 }
 
+/** Try to recover a single parse error via Gemini. Returns null on failure. */
+async function recoverSingleError(
+  parseError: ParseError,
+  kennelTag: string,
+): Promise<RecoveryResult | null> {
+  const prompt = buildExtractionPrompt(parseError);
+  const geminiResponse = await callGemini({ prompt });
+
+  if (!geminiResponse.text) return null;
+
+  const parsed = parseGeminiResponse(geminiResponse.text, parseError);
+  if (!parsed) return null;
+
+  // Merge: partialData (deterministic) + AI-extracted fields
+  const merged: RawEventData = {
+    kennelTag,
+    date: parseError.partialData?.date ?? parsed.event.date ?? "",
+    title: parseError.partialData?.title ?? parsed.event.title,
+    hares: parseError.partialData?.hares ?? parsed.event.hares,
+    location: parseError.partialData?.location ?? parsed.event.location,
+    startTime: parseError.partialData?.startTime ?? parsed.event.startTime,
+    runNumber: parseError.partialData?.runNumber ?? parsed.event.runNumber,
+    sourceUrl: parseError.partialData?.sourceUrl,
+    description: parseError.partialData?.description ?? parsed.event.description,
+    locationUrl: parseError.partialData?.locationUrl,
+  };
+
+  if (!merged.date) return null;
+
+  return {
+    parseError,
+    recovered: merged,
+    confidence: parsed.confidence,
+    fieldsRecovered: parsed.fieldsRecovered,
+  };
+}
+
 /**
  * Attempt AI recovery for parse errors that have rawText.
  *
@@ -172,48 +209,13 @@ export async function attemptAiRecovery(
   let failed = 0;
 
   for (const parseError of recoverable) {
-    const prompt = buildExtractionPrompt(parseError);
-    const geminiResponse = await callGemini({ prompt });
-
-    if (!geminiResponse.text) {
+    const result = await recoverSingleError(parseError, kennelTag);
+    if (result) {
+      results.push(result);
+      succeeded++;
+    } else {
       failed++;
-      continue;
     }
-
-    const parsed = parseGeminiResponse(geminiResponse.text, parseError);
-    if (!parsed) {
-      failed++;
-      continue;
-    }
-
-    // Merge: partialData (deterministic) + AI-extracted fields
-    // Deterministic data takes priority — AI only fills in gaps
-    const merged: RawEventData = {
-      kennelTag,
-      date: parseError.partialData?.date ?? parsed.event.date ?? "",
-      title: parseError.partialData?.title ?? parsed.event.title,
-      hares: parseError.partialData?.hares ?? parsed.event.hares,
-      location: parseError.partialData?.location ?? parsed.event.location,
-      startTime: parseError.partialData?.startTime ?? parsed.event.startTime,
-      runNumber: parseError.partialData?.runNumber ?? parsed.event.runNumber,
-      sourceUrl: parseError.partialData?.sourceUrl,
-      description: parseError.partialData?.description ?? parsed.event.description,
-      locationUrl: parseError.partialData?.locationUrl,
-    };
-
-    // A recovered event must have a date (minimum viable event)
-    if (!merged.date) {
-      failed++;
-      continue;
-    }
-
-    results.push({
-      parseError,
-      recovered: merged,
-      confidence: parsed.confidence,
-      fieldsRecovered: parsed.fieldsRecovered,
-    });
-    succeeded++;
   }
 
   return {

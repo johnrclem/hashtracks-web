@@ -8,8 +8,10 @@ import type {
   ScrapeResult,
   ErrorDetails,
 } from "../types";
+import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { MONTHS, extractUkPostcode, googleMapsSearchUrl } from "../utils";
+import { MONTHS, extractUkPostcode, googleMapsSearchUrl, validateSourceUrl } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 /**
  * Parse run number from WLH3 heading text.
@@ -139,6 +141,58 @@ export class WestLondonHashAdapter implements SourceAdapter {
 
   private maxPages = 3;
 
+  /** Fetch a page and return its HTML, or record an error. */
+  private async fetchPageWithErrorHandling(
+    url: string,
+    errorDetails: ErrorDetails,
+  ): Promise<string | null> {
+    try {
+      const response = await safeFetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+      });
+      if (!response.ok) {
+        const message = `HTTP ${response.status}: ${response.statusText}`;
+        errorDetails.fetch = [
+          ...(errorDetails.fetch ?? []),
+          { url, status: response.status, message },
+        ];
+        return null;
+      }
+      return await response.text();
+    } catch (err) {
+      const message = `Fetch failed: ${err}`;
+      errorDetails.fetch = [
+        ...(errorDetails.fetch ?? []),
+        { url, message },
+      ];
+      return null;
+    }
+  }
+
+  /** Find run item elements from the page using multiple strategies. */
+  private findRunItemElements($: CheerioAPI): Cheerio<AnyNode> {
+    let items = $(".wp-block-post-template > li");
+    if (items.length === 0) items = $("article");
+    if (items.length === 0) {
+      items = $("li").filter((_i, el) => {
+        return $(el).find("h4, h5").text().includes("Run Number");
+      });
+    }
+    return items;
+  }
+
+  /** Find the "Next Page" pagination link. */
+  private findNextPageUrl($: CheerioAPI, baseUrl: string): string | null {
+    const nextLink = $("a").filter((_i, el) => {
+      return /next\s*page/i.test($(el).text());
+    });
+    if (nextLink.length > 0) {
+      const nextHref = nextLink.attr("href");
+      return nextHref ? new URL(nextHref, baseUrl).toString() : null;
+    }
+    return null;
+  }
+
   async fetch(
     source: Source,
     _options?: { days?: number },
@@ -155,38 +209,15 @@ export class WestLondonHashAdapter implements SourceAdapter {
     let currentUrl: string | null = baseUrl;
 
     while (currentUrl && pagesFetched < this.maxPages) {
-      let html: string;
-      try {
-        const response = await fetch(currentUrl, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
-          },
-        });
-        if (!response.ok) {
-          const message = `HTTP ${response.status}: ${response.statusText}`;
-          errorDetails.fetch = [
-            ...(errorDetails.fetch ?? []),
-            { url: currentUrl, status: response.status, message },
-          ];
-          if (pagesFetched === 0) {
-            return { events: [], errors: [message], errorDetails };
-          }
-          break;
-        }
-        html = await response.text();
-      } catch (err) {
-        const message = `Fetch failed: ${err}`;
-        errorDetails.fetch = [
-          ...(errorDetails.fetch ?? []),
-          { url: currentUrl, message },
-        ];
+      const html = await this.fetchPageWithErrorHandling(currentUrl, errorDetails);
+      if (!html) {
         if (pagesFetched === 0) {
-          return { events: [], errors: [message], errorDetails };
+          const lastErr = errorDetails.fetch?.[errorDetails.fetch.length - 1];
+          return { events: [], errors: [lastErr?.message ?? "Fetch failed"], errorDetails };
         }
         break;
       }
 
-      // Only generate structure hash from first page
       if (pagesFetched === 0) {
         structureHash = generateStructureHash(html);
       }
@@ -194,17 +225,7 @@ export class WestLondonHashAdapter implements SourceAdapter {
       const $ = cheerio.load(html);
       pagesFetched++;
 
-      // Find run items: try WordPress post template list items, then articles
-      let items = $(".wp-block-post-template > li");
-      if (items.length === 0) {
-        items = $("article");
-      }
-      if (items.length === 0) {
-        // Fallback: look for any list items with h4 containing "Run Number"
-        items = $("li").filter((_i, el) => {
-          return $(el).find("h4, h5").text().includes("Run Number");
-        });
-      }
+      const items = this.findRunItemElements($);
 
       items.each((i, el) => {
         try {
@@ -226,23 +247,17 @@ export class WestLondonHashAdapter implements SourceAdapter {
         }
       });
 
-      // Find pagination "Next Page" link
-      const nextLink = $("a").filter((_i, el) => {
-        return /next\s*page/i.test($(el).text());
-      });
-      if (nextLink.length > 0) {
-        const nextHref = nextLink.attr("href");
-        currentUrl = nextHref ? new URL(nextHref, baseUrl).toString() : null;
-      } else {
-        currentUrl = null;
+      const nextUrl = this.findNextPageUrl($, baseUrl);
+      try {
+        if (nextUrl) validateSourceUrl(nextUrl);
+        currentUrl = nextUrl;
+      } catch {
+        currentUrl = null; // Pagination URL failed SSRF validation
       }
     }
 
     const fetchDurationMs = Date.now() - fetchStart;
-
-    const hasErrorDetails =
-      (errorDetails.fetch?.length ?? 0) > 0 ||
-      (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,

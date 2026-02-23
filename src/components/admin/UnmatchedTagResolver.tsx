@@ -28,7 +28,7 @@ export interface KennelOption {
 interface UnmatchedTagResolverProps {
   alertId: string;
   tags: string[];
-  suggestions: Record<string, KennelOption[]>; // tag → top kennel matches
+  suggestions: Map<string, KennelOption[]>; // tag → top kennel matches
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
 }
 
@@ -45,7 +45,7 @@ export function UnmatchedTagResolver({
           key={tag}
           alertId={alertId}
           tag={tag}
-          suggestions={suggestions[tag] ?? []}
+          suggestions={suggestions.get(tag) ?? []}
           allKennels={allKennels}
         />
       ))}

@@ -279,66 +279,76 @@ function extractAddressFromDescription(text: string): string | undefined {
   return addressMatch ? addressMatch[1].trim() : undefined;
 }
 
+/** Generate all YYYY-MM-DD date strings in a range (inclusive). */
+function generateDatesInRange(startDate: Date, endDate: Date): string[] {
+  const dates: string[] = [];
+  const current = new Date(startDate);
+  while (current <= endDate) {
+    const m = current.getUTCMonth() + 1;
+    const d = current.getUTCDate();
+    const y = current.getUTCFullYear();
+    dates.push(`${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+/** Extract per-day start times from description text. */
+function extractPerDayStartTimes(description: string, dateCount: number): string[] {
+  const startTimes: string[] = [];
+  const timePatterns = description.matchAll(
+    /(\d{1,2}):(\d{2})\s+(show|go|start)/gi,
+  );
+  for (const tm of timePatterns) {
+    const h = parseInt(tm[1], 10);
+    const min = parseInt(tm[2], 10);
+    const adjustedH = h < 12 && h >= 1 && h <= 9 ? h + 12 : h;
+    startTimes.push(
+      `${String(adjustedH).padStart(2, "0")}:${String(min).padStart(2, "0")}`,
+    );
+  }
+  while (startTimes.length < dateCount) {
+    startTimes.push(startTimes[0] || "");
+  }
+  return startTimes;
+}
+
+/** Try to parse a date range from the description and index entry. */
+function parseDateRangeFromDescription(
+  description: string,
+  indexEntry: IndexEntry,
+): { dates: string[]; startTimes: string[]; isMultiDay: boolean } | null {
+  const rangeMatch = description.match(
+    /(\d{1,2})\/(\d{1,2})\s+\d{1,2}:\d{2}\s*(?:AM|PM)\s+to\s+(\d{1,2})\/(\d{1,2})\s+\d{1,2}:\d{2}\s*(?:AM|PM)/i,
+  );
+  if (!rangeMatch) return null;
+
+  const year = parseYearFromIndex(indexEntry.startDate);
+  if (!year) return null;
+
+  const startMonth = parseInt(rangeMatch[1], 10);
+  const startDay = parseInt(rangeMatch[2], 10);
+  const endMonth = parseInt(rangeMatch[3], 10);
+  const endDay = parseInt(rangeMatch[4], 10);
+
+  const startDate = new Date(Date.UTC(year, startMonth - 1, startDay));
+  const endDate = new Date(Date.UTC(year, endMonth - 1, endDay));
+
+  const dates = generateDatesInRange(startDate, endDate);
+  const startTimes = extractPerDayStartTimes(description, dates.length);
+
+  return { dates, startTimes, isMultiDay: dates.length > 1 };
+}
+
 /** Extract dates and detect multi-day events */
 function extractDates(
   description: string,
   indexEntry?: IndexEntry,
 ): { dates: string[]; startTimes: string[]; isMultiDay: boolean } {
-  // First, try to detect date range from the description header
-  // Pattern: "MM/DD HH:MM AM/PM to MM/DD HH:MM AM/PM"
-  const rangeMatch = description.match(
-    /(\d{1,2})\/(\d{1,2})\s+\d{1,2}:\d{2}\s*(?:AM|PM)\s+to\s+(\d{1,2})\/(\d{1,2})\s+\d{1,2}:\d{2}\s*(?:AM|PM)/i,
-  );
-
-  if (rangeMatch && indexEntry) {
-    const year = parseYearFromIndex(indexEntry.startDate);
-    if (year) {
-      const startMonth = parseInt(rangeMatch[1], 10);
-      const startDay = parseInt(rangeMatch[2], 10);
-      const endMonth = parseInt(rangeMatch[3], 10);
-      const endDay = parseInt(rangeMatch[4], 10);
-
-      const dates: string[] = [];
-      const startTimes: string[] = [];
-
-      // Generate all dates in range
-      const startDate = new Date(Date.UTC(year, startMonth - 1, startDay));
-      const endDate = new Date(Date.UTC(year, endMonth - 1, endDay));
-
-      const current = new Date(startDate);
-      while (current <= endDate) {
-        const m = current.getUTCMonth() + 1;
-        const d = current.getUTCDate();
-        const y = current.getUTCFullYear();
-        dates.push(`${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
-        current.setUTCDate(current.getUTCDate() + 1);
-      }
-
-      // Try to extract per-day times from description
-      const timePatterns = description.matchAll(
-        /(\d{1,2}):(\d{2})\s+(show|go|start)/gi,
-      );
-      for (const tm of timePatterns) {
-        const h = parseInt(tm[1], 10);
-        const min = parseInt(tm[2], 10);
-        // Assume PM for typical hash start times (5-9 PM range)
-        const adjustedH = h < 12 && h >= 1 && h <= 9 ? h + 12 : h;
-        startTimes.push(
-          `${String(adjustedH).padStart(2, "0")}:${String(min).padStart(2, "0")}`,
-        );
-      }
-
-      // If we extracted some times, pad to match dates length
-      while (startTimes.length < dates.length) {
-        startTimes.push(startTimes[0] || "");
-      }
-
-      return { dates, startTimes, isMultiDay: dates.length > 1 };
-    }
-  }
-
-  // Single-day: use index entry date
   if (indexEntry) {
+    const rangeResult = parseDateRangeFromDescription(description, indexEntry);
+    if (rangeResult) return rangeResult;
+
     const date = parseHashRegoDate(indexEntry.startDate);
     const time = parseHashRegoTime(indexEntry.startTime);
     if (date) {
