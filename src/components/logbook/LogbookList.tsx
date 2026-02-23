@@ -72,6 +72,18 @@ export function LogbookList({ entries }: LogbookListProps) {
     12, 0, 0,
   );
 
+  function handleRemove(attendanceId: string) {
+    startTransition(async () => {
+      const result = await deleteAttendance(attendanceId);
+      if (!result.success) {
+        toast.error(result.error);
+      } else {
+        toast("Removed from logbook");
+      }
+      router.refresh();
+    });
+  }
+
   // Derive unique kennels and regions
   const kennels = useMemo(() => {
     const map = new Map<string, { id: string; shortName: string; fullName: string; region: string }>();
@@ -329,12 +341,24 @@ export function LogbookList({ entries }: LogbookListProps) {
                   Activity
                 </a>
               )}
-              {entry.event.status === "CANCELLED" && (
-                <Badge variant="destructive" className="text-xs">
-                  Cancelled
-                </Badge>
-              )}
-              {entry.attendance.status === "INTENDING" &&
+              {entry.event.status === "CANCELLED" ? (
+                <span className="flex items-center gap-2">
+                  <Badge variant="destructive" className="text-xs">
+                    Cancelled
+                  </Badge>
+                  {entry.attendance.status === "INTENDING" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs text-muted-foreground"
+                      disabled={isPending}
+                      onClick={() => handleRemove(entry.attendance.id)}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </span>
+              ) : entry.attendance.status === "INTENDING" &&
                new Date(entry.event.date).getTime() > todayUtcNoon ? (
                 <Badge
                   variant="outline"
@@ -343,28 +367,6 @@ export function LogbookList({ entries }: LogbookListProps) {
                 >
                   Going
                 </Badge>
-              ) : entry.attendance.status === "INTENDING" &&
-                entry.event.status === "CANCELLED" ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs text-muted-foreground"
-                  disabled={isPending}
-                  onClick={() => {
-                    const attendanceId = entry.attendance.id;
-                    startTransition(async () => {
-                      const result = await deleteAttendance(attendanceId);
-                      if (!result.success) {
-                        toast.error(result.error);
-                      } else {
-                        toast("Removed from logbook");
-                      }
-                      router.refresh();
-                    });
-                  }}
-                >
-                  Remove
-                </Button>
               ) : entry.attendance.status === "INTENDING" ? (
                 <span className="flex items-center gap-1">
                   <Badge
@@ -391,18 +393,7 @@ export function LogbookList({ entries }: LogbookListProps) {
                     className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                     disabled={isPending}
                     title="Remove from logbook"
-                    onClick={() => {
-                      const attendanceId = entry.attendance.id;
-                      startTransition(async () => {
-                        const result = await deleteAttendance(attendanceId);
-                        if (!result.success) {
-                          toast.error(result.error);
-                        } else {
-                          toast("Removed from logbook");
-                        }
-                        router.refresh();
-                      });
-                    }}
+                    onClick={() => handleRemove(entry.attendance.id)}
                   >
                     &times;
                   </Button>

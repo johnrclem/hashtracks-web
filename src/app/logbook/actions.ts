@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@/generated/prisma/client";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getTodayUtcNoon } from "@/lib/date";
@@ -308,19 +309,31 @@ export async function confirmMismanAttendance(kennelAttendanceId: string): Promi
   }
 
   // Create logbook entry
-  const attendance = await prisma.attendance.create({
-    data: {
-      userId: user.id,
-      eventId: mismanRecord.eventId,
-      status: "CONFIRMED",
-      participationLevel: mismanRecord.haredThisTrail ? "HARE" : "RUN",
-      isVerified: true,
-      verifiedBy: mismanRecord.recordedBy,
-    },
-  });
+  try {
+    const attendance = await prisma.attendance.create({
+      data: {
+        userId: user.id,
+        eventId: mismanRecord.eventId,
+        status: "CONFIRMED",
+        participationLevel: mismanRecord.haredThisTrail ? "HARE" : "RUN",
+        isVerified: true,
+        verifiedBy: mismanRecord.recordedBy,
+      },
+    });
 
-  revalidatePath("/logbook");
-  return { success: true, attendanceId: attendance.id };
+    revalidatePath("/logbook");
+    return { success: true, attendanceId: attendance.id };
+  } catch (e) {
+    // Concurrent insert won the race — treat as idempotent success
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      const existing = await prisma.attendance.findUnique({
+        where: { userId_eventId: { userId: user.id, eventId: mismanRecord.eventId } },
+      });
+      revalidatePath("/logbook");
+      return { success: true, attendanceId: existing!.id };
+    }
+    throw e;
+  }
 }
 
 /**
@@ -360,14 +373,23 @@ export async function declineMismanAttendance(kennelAttendanceId: string): Promi
   }
 
   // Create DECLINED logbook entry
-  await prisma.attendance.create({
-    data: {
-      userId: user.id,
-      eventId: mismanRecord.eventId,
-      status: "DECLINED",
-      participationLevel: "RUN",
-    },
-  });
+  try {
+    await prisma.attendance.create({
+      data: {
+        userId: user.id,
+        eventId: mismanRecord.eventId,
+        status: "DECLINED",
+        participationLevel: "RUN",
+      },
+    });
+  } catch (e) {
+    // Concurrent insert won the race — treat as idempotent success
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      revalidatePath("/logbook");
+      return { success: true };
+    }
+    throw e;
+  }
 
   revalidatePath("/logbook");
   return { success: true };

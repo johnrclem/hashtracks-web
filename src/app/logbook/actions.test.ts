@@ -666,4 +666,25 @@ describe("declineMismanAttendance", () => {
     expect(result).toEqual({ success: true });
     expect(mockAttCreate).not.toHaveBeenCalled();
   });
+
+  it("returns success without creating when user already confirmed", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
+      id: "ka_1",
+      eventId: "evt_1",
+      haredThisTrail: false,
+      recordedBy: "misman_1",
+      kennelHasher: {
+        userLink: { userId: "user_1", status: "CONFIRMED" },
+      },
+    } as never);
+
+    mockAttFind.mockResolvedValueOnce({
+      id: "att_existing",
+      status: "CONFIRMED",
+    } as never);
+
+    const result = await declineMismanAttendance("ka_1");
+    expect(result).toEqual({ success: true });
+    expect(mockAttCreate).not.toHaveBeenCalled();
+  });
 });

@@ -16,7 +16,7 @@ export default async function LogbookPage() {
   if (!user) redirect("/sign-in");
 
   const attendances = await prisma.attendance.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, status: { not: "DECLINED" as never } },
     include: {
       event: {
         include: {
@@ -29,9 +29,7 @@ export default async function LogbookPage() {
     orderBy: { event: { date: "desc" } },
   });
 
-  const entries = attendances
-    .filter((a) => a.status !== "DECLINED")
-    .map((a) => ({
+  const entries = attendances.map((a) => ({
       attendance: {
         id: a.id,
         participationLevel: a.participationLevel as string,
