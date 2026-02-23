@@ -3,7 +3,7 @@ import { MismanAdminTabs } from "@/components/admin/MismanRequestQueue";
 
 const INVITE_HISTORY_LIMIT = 200;
 
-export default async function AdminMismanRequestsPage() {
+export default async function AdminMismanPage() {
   // Phase 1: fetch the main data sets in parallel
   const [requests, kennels, invites, activeMismans] = await Promise.all([
     // Pending requests (Tab 1)
@@ -13,7 +13,7 @@ export default async function AdminMismanRequestsPage() {
         user: {
           select: { id: true, email: true, hashName: true, nerdName: true },
         },
-        kennel: { select: { shortName: true, slug: true } },
+        kennel: { select: { shortName: true, fullName: true, slug: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -25,7 +25,7 @@ export default async function AdminMismanRequestsPage() {
     // All invites (Tab 2)
     prisma.mismanInvite.findMany({
       include: {
-        kennel: { select: { shortName: true, slug: true } },
+        kennel: { select: { shortName: true, fullName: true, slug: true } },
         inviter: { select: { hashName: true, email: true } },
         acceptor: { select: { hashName: true, email: true } },
       },
@@ -39,7 +39,14 @@ export default async function AdminMismanRequestsPage() {
         user: {
           select: { id: true, email: true, hashName: true, nerdName: true },
         },
-        kennel: { select: { id: true, shortName: true, slug: true } },
+        kennel: {
+          select: {
+            id: true,
+            shortName: true,
+            fullName: true,
+            slug: true,
+          },
+        },
       },
       orderBy: [{ kennel: { shortName: "asc" } }, { createdAt: "asc" }],
     }),
@@ -87,6 +94,8 @@ export default async function AdminMismanRequestsPage() {
     return {
       id: inv.id,
       kennelShortName: inv.kennel.shortName,
+      kennelFullName: inv.kennel.fullName,
+      kennelSlug: inv.kennel.slug,
       inviteeEmail: inv.inviteeEmail,
       status: effectiveStatus,
       expiresAt: inv.expiresAt.toISOString(),

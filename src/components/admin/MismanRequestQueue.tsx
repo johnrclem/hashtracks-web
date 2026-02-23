@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
 import {
@@ -52,7 +53,20 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import type { KennelOptionData } from "@/components/kennels/KennelOptionLabel";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
@@ -67,7 +81,7 @@ type MismanRequestRow = {
     hashName: string | null;
     nerdName: string | null;
   };
-  kennel: { shortName: string; slug: string };
+  kennel: { shortName: string; fullName: string; slug: string };
   message: string | null;
   status: string;
   createdAt: string;
@@ -77,6 +91,8 @@ type MismanRequestRow = {
 type InviteRow = {
   id: string;
   kennelShortName: string;
+  kennelFullName: string;
+  kennelSlug: string;
   inviteeEmail: string | null;
   status: string;
   expiresAt: string;
@@ -95,7 +111,7 @@ type ActiveMismanRow = {
     hashName: string | null;
     nerdName: string | null;
   };
-  kennel: { id: string; shortName: string; slug: string };
+  kennel: { id: string; shortName: string; fullName: string; slug: string };
   role: string;
   since: string;
   grantSource: "request" | "invite" | "manual";
@@ -117,41 +133,181 @@ export function MismanAdminTabs({
   kennels,
 }: MismanAdminTabsProps) {
   const pendingRequests = requests.filter((r) => r.status === "PENDING");
+  const [requestKennelFilter, setRequestKennelFilter] = useState("all");
+  const [inviteKennelFilter, setInviteKennelFilter] = useState("all");
+  const [mismanKennelFilter, setMismanKennelFilter] = useState("all");
+
+  const requestKennels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of pendingRequests) {
+      if (!map.has(r.kennel.slug)) map.set(r.kennel.slug, r.kennel.fullName);
+    }
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [pendingRequests]);
+  const inviteKennels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const i of invites) {
+      if (!map.has(i.kennelSlug)) map.set(i.kennelSlug, i.kennelFullName);
+    }
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [invites]);
+  const mismanKennels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of mismans) {
+      if (!map.has(m.kennel.slug)) map.set(m.kennel.slug, m.kennel.fullName);
+    }
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [mismans]);
+
+  // Reset stale filters when selected kennel disappears from options
+  useEffect(() => {
+    if (requestKennelFilter !== "all" && !requestKennels.some((k) => k.value === requestKennelFilter)) {
+      setRequestKennelFilter("all");
+    }
+  }, [requestKennels, requestKennelFilter]);
+  useEffect(() => {
+    if (inviteKennelFilter !== "all" && !inviteKennels.some((k) => k.value === inviteKennelFilter)) {
+      setInviteKennelFilter("all");
+    }
+  }, [inviteKennels, inviteKennelFilter]);
+  useEffect(() => {
+    if (mismanKennelFilter !== "all" && !mismanKennels.some((k) => k.value === mismanKennelFilter)) {
+      setMismanKennelFilter("all");
+    }
+  }, [mismanKennels, mismanKennelFilter]);
+
+  const filteredRequests =
+    requestKennelFilter === "all"
+      ? pendingRequests
+      : pendingRequests.filter((r) => r.kennel.slug === requestKennelFilter);
+  const filteredInvites =
+    inviteKennelFilter === "all"
+      ? invites
+      : invites.filter((i) => i.kennelSlug === inviteKennelFilter);
+  const filteredMismans =
+    mismanKennelFilter === "all"
+      ? mismans
+      : mismans.filter((m) => m.kennel.slug === mismanKennelFilter);
 
   return (
-    <div>
-      <div className="mb-4 flex justify-end">
-        <InviteMismanDialog kennels={kennels} />
-      </div>
+    <TooltipProvider>
       <Tabs defaultValue="requests">
-        <TabsList>
-          <TabsTrigger value="requests">
-            Pending Requests ({pendingRequests.length})
-          </TabsTrigger>
-          <TabsTrigger value="invites">
-            Invite History ({invites.length})
-          </TabsTrigger>
-          <TabsTrigger value="mismans">
-            Active Mismans ({mismans.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-4">
+          <TabsList>
+            <TabsTrigger value="requests">
+              Pending Requests ({requestKennelFilter !== "all"
+                ? `${filteredRequests.length} / ${pendingRequests.length}`
+                : pendingRequests.length})
+            </TabsTrigger>
+            <TabsTrigger value="invites">
+              Invites Sent ({inviteKennelFilter !== "all"
+                ? `${filteredInvites.length} / ${invites.length}`
+                : invites.length})
+            </TabsTrigger>
+            <TabsTrigger value="mismans">
+              Active Mismanagement ({mismanKennelFilter !== "all"
+                ? `${filteredMismans.length} / ${mismans.length}`
+                : mismans.length})
+            </TabsTrigger>
+          </TabsList>
+          <InviteMismanDialog kennels={kennels} />
+        </div>
 
         <TabsContent value="requests" className="mt-4">
-          <PendingRequestsTab requests={pendingRequests} />
+          <KennelFilterBar
+            kennels={requestKennels}
+            value={requestKennelFilter}
+            onChange={setRequestKennelFilter}
+          />
+          <PendingRequestsTab requests={filteredRequests} />
         </TabsContent>
         <TabsContent value="invites" className="mt-4">
-          <InviteHistoryTab invites={invites} />
+          <KennelFilterBar
+            kennels={inviteKennels}
+            value={inviteKennelFilter}
+            onChange={setInviteKennelFilter}
+          />
+          <InviteHistoryTab invites={filteredInvites} />
         </TabsContent>
         <TabsContent value="mismans" className="mt-4">
-          <ActiveMismansTab mismans={mismans} />
+          <KennelFilterBar
+            kennels={mismanKennels}
+            value={mismanKennelFilter}
+            onChange={setMismanKennelFilter}
+          />
+          <ActiveMismansTab mismans={filteredMismans} />
         </TabsContent>
       </Tabs>
-    </div>
+    </TooltipProvider>
   );
 }
 
 // Keep old export name for backwards compat with any other importers
 export { MismanAdminTabs as MismanRequestQueue };
+
+// ── Shared Kennel Link ──
+
+function KennelLinkWithTooltip({
+  shortName,
+  fullName,
+  slug,
+}: {
+  shortName: string;
+  fullName: string;
+  slug: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link
+          href={`/kennels/${slug}`}
+          className="text-primary hover:underline"
+        >
+          {shortName}
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent>{fullName}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+// ── Kennel Filter ──
+
+function KennelFilterBar({
+  kennels,
+  value,
+  onChange,
+}: {
+  kennels: { value: string; label: string }[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  if (kennels.length <= 1) return null;
+
+  return (
+    <div className="mb-3">
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="w-72">
+          <SelectValue placeholder="All kennels" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All kennels</SelectItem>
+          {kennels.map((k) => (
+            <SelectItem key={k.value} value={k.value}>
+              {k.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 // ── Tab 1: Pending Requests ──
 
@@ -235,7 +391,11 @@ function MismanRequestRowComponent({
         </div>
       </TableCell>
       <TableCell className="font-medium">
-        {request.kennel.shortName}
+        <KennelLinkWithTooltip
+          shortName={request.kennel.shortName}
+          fullName={request.kennel.fullName}
+          slug={request.kennel.slug}
+        />
       </TableCell>
       <TableCell className="hidden sm:table-cell max-w-48 truncate">
         {request.message ?? "\u2014"}
@@ -311,9 +471,11 @@ function InviteRowComponent({ invite }: { invite: InviteRow }) {
   const statusVariant =
     invite.status === "ACCEPTED"
       ? "default"
-      : invite.status === "REVOKED" || invite.status === "EXPIRED"
+      : invite.status === "REVOKED"
         ? "destructive"
-        : "secondary";
+        : invite.status === "EXPIRED"
+          ? "outline"
+          : "secondary";
 
   function statusDetail() {
     if (invite.status === "ACCEPTED" && invite.acceptorName) {
@@ -345,7 +507,13 @@ function InviteRowComponent({ invite }: { invite: InviteRow }) {
 
   return (
     <TableRow>
-      <TableCell className="font-medium">{invite.kennelShortName}</TableCell>
+      <TableCell className="font-medium">
+        <KennelLinkWithTooltip
+          shortName={invite.kennelShortName}
+          fullName={invite.kennelFullName}
+          slug={invite.kennelSlug}
+        />
+      </TableCell>
       <TableCell>{invite.inviterName}</TableCell>
       <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
         {invite.inviteeEmail ?? "\u2014"}
@@ -361,14 +529,32 @@ function InviteRowComponent({ invite }: { invite: InviteRow }) {
       </TableCell>
       <TableCell className="text-right">
         {invite.status === "PENDING" && (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={isPending}
-            onClick={handleRevoke}
-          >
-            Revoke
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="outline" disabled={isPending}>
+                Revoke
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Revoke Invite</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will revoke the pending invite for{" "}
+                  <strong>{invite.kennelShortName}</strong>. The invite link
+                  will no longer be usable.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleRevoke}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Revoke Invite
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </TableCell>
     </TableRow>
@@ -392,7 +578,6 @@ function ActiveMismansTab({ mismans }: { mismans: ActiveMismanRow[] }) {
         <TableRow>
           <TableHead>User</TableHead>
           <TableHead>Kennel</TableHead>
-          <TableHead>Role</TableHead>
           <TableHead className="hidden sm:table-cell">Source</TableHead>
           <TableHead className="hidden sm:table-cell">Since</TableHead>
           <TableHead className="text-right">Actions</TableHead>
@@ -446,8 +631,6 @@ function ActiveMismanRowComponent({
     });
   }
 
-  const isAdmin = misman.role === "ADMIN";
-
   return (
     <TableRow>
       <TableCell>
@@ -461,12 +644,11 @@ function ActiveMismanRowComponent({
         </div>
       </TableCell>
       <TableCell className="font-medium">
-        {misman.kennel.shortName}
-      </TableCell>
-      <TableCell>
-        <Badge variant={isAdmin ? "default" : "secondary"}>
-          {misman.role}
-        </Badge>
+        <KennelLinkWithTooltip
+          shortName={misman.kennel.shortName}
+          fullName={misman.kennel.fullName}
+          slug={misman.kennel.slug}
+        />
       </TableCell>
       <TableCell className="hidden sm:table-cell">
         <Badge variant={sourceBadgeVariant}>
