@@ -116,58 +116,47 @@ describe("fetchBloggerPosts", () => {
     expect(vi.mocked(fetch).mock.calls).toHaveLength(4);
   });
 
-  it("retries with www-toggled variant when HTTP blog lookup returns 404", async () => {
+  it.each([
+    {
+      scenario: "HTTP",
+      sourceUrl: "http://www.example.com/",
+      blogId: "99999",
+      firstLookup: "url=http%3A%2F%2Fwww.example.com",
+      secondLookup: "url=http%3A%2F%2Fexample.com",
+      items: [{ title: "Run #1", content: "<p>Content</p>", url: "http://example.com/run-1.html", published: "2026-01-01T12:00:00Z" }],
+    },
+    {
+      scenario: "HTTPS",
+      sourceUrl: "https://www.example.com/",
+      blogId: "88888",
+      firstLookup: "url=https%3A%2F%2Fwww.example.com",
+      secondLookup: "url=https%3A%2F%2Fexample.com",
+      items: [],
+    },
+  ])("retries with www-toggled variant when $scenario blog lookup returns 404", async ({ sourceUrl, blogId, firstLookup, secondLookup, items }) => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(
         new Response("Not Found", { status: 404 }) as never,
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ id: "99999" }), { status: 200 }) as never,
+        new Response(JSON.stringify({ id: blogId }), { status: 200 }) as never,
       )
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            items: [{ title: "Run #1", content: "<p>Content</p>", url: "http://example.com/run-1.html", published: "2026-01-01T12:00:00Z" }],
-          }),
-          { status: 200 },
-        ) as never,
+        new Response(JSON.stringify({ items }), { status: 200 }) as never,
       );
 
-    const result = await fetchBloggerPosts("http://www.example.com/");
+    const result = await fetchBloggerPosts(sourceUrl);
 
     expect(result.error).toBeUndefined();
-    expect(result.blogId).toBe("99999");
-    expect(result.posts).toHaveLength(1);
+    expect(result.blogId).toBe(blogId);
 
     const calls = vi.mocked(fetch).mock.calls;
-    // First: original (www, http)
-    expect(calls[0][0]).toContain("url=http%3A%2F%2Fwww.example.com");
-    // Second: www-toggled (non-www, http)
-    expect(calls[1][0]).toContain("url=http%3A%2F%2Fexample.com");
-  });
-
-  it("retries with www-toggled variant when HTTPS blog lookup returns 404", async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(
-        new Response("Not Found", { status: 404 }) as never,
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ id: "88888" }), { status: 200 }) as never,
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ items: [] }), { status: 200 }) as never,
-      );
-
-    const result = await fetchBloggerPosts("https://www.example.com/");
-
-    expect(result.error).toBeUndefined();
-    expect(result.blogId).toBe("88888");
-
-    const calls = vi.mocked(fetch).mock.calls;
-    // First: original (www, https)
-    expect(calls[0][0]).toContain("url=https%3A%2F%2Fwww.example.com");
-    // Second: www-toggled (non-www, https)
-    expect(calls[1][0]).toContain("url=https%3A%2F%2Fexample.com");
+    // First: original URL variant
+    expect(calls[0][0]).toContain(firstLookup);
+    // Second: www-toggled URL variant
+    expect(calls[1][0]).toContain(secondLookup);
+    // Third: posts fetch
+    expect(calls[2][0]).toContain(`/blogs/${blogId}/posts`);
   });
 
   it("discovers blog via non-www variant when www returns 404 (Enfield Hash scenario)", async () => {

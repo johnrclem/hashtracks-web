@@ -58,18 +58,42 @@ async function upsertAliases(prisma: any, kennelAliases: Record<string, string[]
 async function upsertSources(prisma: any, sources: any[], kennelRecords: Map<string, { id: string }>) {
   console.log("Seeding sources...");
   for (const source of sources) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { kennelCodes, ...sourceData } = source;
-    let existingSource = await prisma.source.findFirst({ where: { url: sourceData.url } });
+
+    // Source.url is intentionally not unique in the schema, so seed identity uses either:
+    // 1) direct URL match, or 2) stable {name, type} match when URLs are edited in seed data.
+    const matchingSources = await prisma.source.findMany({
+      where: {
+        OR: [
+          { url: sourceData.url },
+          { name: sourceData.name, type: sourceData.type },
+        ],
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const sourceByUrl = matchingSources.find((candidate: { url: string }) => candidate.url === sourceData.url);
+    const existingSource = sourceByUrl ?? matchingSources[0];
+
+    let activeSource;
     if (!existingSource) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- sourceData contains nested config objects (InputJsonValue)
-      existingSource = await prisma.source.create({ data: sourceData });
+      activeSource = await prisma.source.create({ data: sourceData });
       console.log(`  ✓ Created source: ${sourceData.name}`);
     } else {
-      await prisma.source.update({ where: { id: existingSource.id }, data: sourceData });
+      activeSource = await prisma.source.update({ where: { id: existingSource.id }, data: sourceData });
       console.log(`  ✓ Source updated: ${sourceData.name}`);
     }
-    await linkKennelsToSource(prisma, existingSource.id, kennelCodes, kennelRecords);
+
+    const duplicateSources = matchingSources.filter((candidate: { id: string }) => candidate.id !== activeSource.id);
+    for (const duplicateSource of duplicateSources) {
+      await prisma.source.update({
+        where: { id: duplicateSource.id },
+        data: { enabled: false },
+      });
+      console.log(`  ✓ Disabled duplicate source: ${sourceData.name} (${duplicateSource.id})`);
+    }
+
+    await linkKennelsToSource(prisma, activeSource.id, kennelCodes, kennelRecords);
     console.log(`  ✓ Linked ${kennelCodes.length} kennels to ${sourceData.name}`);
   }
 }
