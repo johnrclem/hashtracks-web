@@ -68,14 +68,14 @@ interface SourceOnboardingWizardProps {
 
 function formatConfigKey(key: string): string {
   return key
-    .replace(/([A-Z])/g, " $1")
+    .replaceAll(/([A-Z])/g, " $1")
     .replace(/^./, (c) => c.toUpperCase())
     .trim();
 }
 
 function formatConfigValue(value: unknown): string {
   if (Array.isArray(value))
-    return `${value.length} item${value.length !== 1 ? "s" : ""}`;
+    return `${value.length} item${value.length === 1 ? "" : "s"}`;
   if (value && typeof value === "object") return "{…}";
   return String(value);
 }
@@ -380,7 +380,7 @@ export function SourceOnboardingWizard({
                     max={10}
                     value={trustLevel}
                     onChange={(e) =>
-                      setTrustLevel(parseInt(e.target.value) || 5)
+                      setTrustLevel(Number.parseInt(e.target.value) || 5)
                     }
                   />
                   <p className="text-xs text-muted-foreground">
@@ -415,7 +415,7 @@ export function SourceOnboardingWizard({
                   max={365}
                   value={scrapeDays}
                   onChange={(e) =>
-                    setScrapeDays(parseInt(e.target.value) || 90)
+                    setScrapeDays(Number.parseInt(e.target.value) || 90)
                   }
                 />
                 <p className="text-xs text-muted-foreground">

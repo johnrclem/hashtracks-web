@@ -74,11 +74,11 @@ function QuickKennelField({
   onChange,
   placeholder,
 }: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
+  readonly id: string;
+  readonly label: string;
+  readonly value: string;
+  readonly onChange: (v: string) => void;
+  readonly placeholder: string;
 }) {
   return (
     <div className="space-y-1">
@@ -99,15 +99,15 @@ function QuickKennelField({
 }
 
 export interface ConfigureAndTestProps {
-  url: string;
-  type: string;
-  config: Record<string, unknown> | null;
-  configJson: string;
-  selectedKennels: string[];
-  allKennels: KennelOption[];
-  geminiAvailable?: boolean;
-  onConfigChange: (config: Record<string, unknown> | null, json: string) => void;
-  onKennelsChange: (ids: string[]) => void;
+  readonly url: string;
+  readonly type: string;
+  readonly config: Record<string, unknown> | null;
+  readonly configJson: string;
+  readonly selectedKennels: string[];
+  readonly allKennels: KennelOption[];
+  readonly geminiAvailable?: boolean;
+  readonly onConfigChange: (config: Record<string, unknown> | null, json: string) => void;
+  readonly onKennelsChange: (ids: string[]) => void;
 }
 
 export function ConfigureAndTest({
@@ -202,7 +202,8 @@ export function ConfigureAndTest({
         // Build sample titles map for AI suggestions in panels
         const titles = result.data.events.reduce<Record<string, string[]>>((acc, e) => {
           if (!e.resolved && e.title) {
-            (acc[e.kennelTag] ??= []).push(e.title);
+            if (!acc[e.kennelTag]) acc[e.kennelTag] = [];
+            acc[e.kennelTag].push(e.title);
           }
           return acc;
         }, {});
@@ -263,14 +264,14 @@ export function ConfigureAndTest({
         fullName: quickKennelFullName.trim(),
         region: quickKennelRegion.trim(),
       });
-      if (!result.success) {
-        toast.error(result.error);
-      } else {
+      if (result.success) {
         const { success, ...newKennel } = result;
         setExtraKennels((prev) => [...prev, newKennel]);
         onKennelsChange([...selectedKennels, newKennel.id]);
         resetQuickKennelForm();
         toast.success(`Kennel "${newKennel.shortName}" created and linked`);
+      } else {
+        toast.error(result.error);
       }
     });
   }
@@ -287,6 +288,8 @@ export function ConfigureAndTest({
   const lastRunLabel = lastRunTime
     ? lastRunTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
     : null;
+
+  const testButtonLabel = isPreviewing ? "Testing…" : (hasRunTest ? "Re-run Test" : "Run Test");
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
@@ -343,7 +346,7 @@ export function ConfigureAndTest({
         {/* No config needed */}
         {!showConfigEditor && !hasPanel && (
           <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-            <p>No configuration needed for {type.replace(/_/g, " ").toLowerCase()} sources.</p>
+            <p>No configuration needed for {type.replaceAll("_", " ").toLowerCase()} sources.</p>
             {type === "HTML_SCRAPER" && (
               <p className="mt-1 text-xs">URL routing selects the scraper automatically.</p>
             )}
@@ -388,7 +391,7 @@ export function ConfigureAndTest({
             disabled={isPreviewing || !url.trim()}
             onClick={runPreview}
           >
-            {isPreviewing ? "Testing…" : hasRunTest ? "Re-run Test" : "Run Test"}
+            {testButtonLabel}
           </Button>
           {lastRunLabel && (
             <span className="text-xs text-muted-foreground">Last run: {lastRunLabel}</span>

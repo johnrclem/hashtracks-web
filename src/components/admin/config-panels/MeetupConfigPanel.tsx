@@ -11,9 +11,9 @@ export interface MeetupConfig {
 }
 
 interface MeetupConfigPanelProps {
-  config: MeetupConfig | null;
-  onChange: (config: MeetupConfig) => void;
-  allKennels?: KennelOption[];
+  readonly config: MeetupConfig | null;
+  readonly onChange: (config: MeetupConfig) => void;
+  readonly allKennels?: KennelOption[];
 }
 
 /** Extract the groupUrlname from a full meetup.com URL or return the value as-is. */

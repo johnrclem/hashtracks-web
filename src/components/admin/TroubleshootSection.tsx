@@ -5,12 +5,12 @@ import { ConfigureAndTest } from "./ConfigureAndTest";
 import type { KennelOption } from "./config-panels/KennelTagInput";
 
 interface TroubleshootSectionProps {
-  url: string;
-  type: string;
-  config: Record<string, unknown> | null;
-  allKennels: KennelOption[];
-  linkedKennelIds: string[];
-  geminiAvailable?: boolean;
+  readonly url: string;
+  readonly type: string;
+  readonly config: Record<string, unknown> | null;
+  readonly allKennels: KennelOption[];
+  readonly linkedKennelIds: string[];
+  readonly geminiAvailable?: boolean;
 }
 
 /**
@@ -40,7 +40,7 @@ export function TroubleshootSection({
         onClick={() => setIsOpen((v) => !v)}
         className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
       >
-        <span className="text-xs">{isOpen ? "▾" : "▸"}</span>
+        <span className="text-xs">{isOpen ? "▾" : "▸"}</span>{" "}
         Troubleshoot Config
       </button>
 

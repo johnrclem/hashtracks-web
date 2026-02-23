@@ -26,7 +26,7 @@ function validateFetchUrl(
   if (h === "localhost" || h === "127.0.0.1" || h === "::1") {
     return { ok: false, error: "Localhost not allowed" };
   }
-  const ipv4 = h.match(/^(\d+)\.(\d+)\./);
+  const ipv4 = /^(\d+)\.(\d+)\./.exec(h);
   if (ipv4) {
     const [, a, b] = ipv4.map(Number);
     if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
@@ -101,7 +101,7 @@ async function suggestFromSheetsApi(
   // Prefer sheetId from config, fall back to extracting from URL
   let sheetId = config?.sheetId as string | undefined;
   if (!sheetId) {
-    const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+    const match = /\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/.exec(url);
     sheetId = match?.[1];
   }
   if (!sheetId) return { error: "No sheet ID found" };
@@ -131,8 +131,7 @@ function suggestFromMeetupSlug(
   if (!slug) {
     // Try to extract from URL
     try {
-      const parts = new URL(url).pathname.split("/").filter(Boolean);
-      slug = parts[0];
+      slug = new URL(url).pathname.split("/").find(Boolean);
     } catch {
       // ignore
     }
@@ -208,12 +207,12 @@ async function suggestFromPageMeta(url: string): Promise<SuggestNameResult> {
     );
 
     // og:title
-    const ogMatch = text.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)
-      ?? text.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+    const ogMatch = /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i.exec(text)
+      ?? /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i.exec(text);
     if (ogMatch?.[1]) return { suggestedName: ogMatch[1].trim(), source: "page-meta" };
 
     // <title>
-    const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const titleMatch = /<title[^>]*>([^<]+)<\/title>/i.exec(text);
     if (titleMatch?.[1]) return { suggestedName: titleMatch[1].trim(), source: "page-meta" };
 
     return suggestFromDomain(url, "HTML_SCRAPER");
@@ -227,7 +226,7 @@ function suggestFromDomain(url: string, type?: string): SuggestNameResult {
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, "");
     const domainName = hostname.split(".")[0];
-    const suffix = type ? ` (${type.replace(/_/g, " ").toLowerCase()})` : "";
+    const suffix = type ? ` (${type.replaceAll("_", " ").toLowerCase()})` : "";
     const name = domainName.charAt(0).toUpperCase() + domainName.slice(1) + suffix;
     return { suggestedName: name, source: "heuristic" };
   } catch {

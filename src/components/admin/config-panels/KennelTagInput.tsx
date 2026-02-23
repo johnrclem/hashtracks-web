@@ -11,12 +11,12 @@ export interface KennelOption {
 }
 
 interface KennelTagInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  allKennels?: KennelOption[];
-  placeholder?: string;
-  id?: string;
-  className?: string;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly allKennels?: KennelOption[];
+  readonly placeholder?: string;
+  readonly id?: string;
+  readonly className?: string;
 }
 
 /**
