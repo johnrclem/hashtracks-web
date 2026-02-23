@@ -350,17 +350,18 @@ function RequestSharedRosterCTA({
   return (
     <div className="rounded-lg border border-dashed p-6 space-y-4">
       <div>
-        <h3 className="font-semibold">Share a roster?</h3>
+        <h3 className="font-semibold">Same pack, different kennels?</h3>
         <p className="text-sm text-muted-foreground">
-          If your kennels share hashers, request a shared roster to keep one
-          unified list across sister kennels.
+          When the same hashers show up across your kennels, there&apos;s no
+          need to add everyone twice. Share a common list so you enter each
+          hasher once and every misman in the group can see them.
         </p>
       </div>
       {hasPendingRequest ? (
         <Badge variant="outline">Request pending</Badge>
       ) : (
         <Button variant="outline" size="sm" onClick={onRequestClick}>
-          Request Shared Roster
+          Request Shared List
         </Button>
       )}
     </div>
