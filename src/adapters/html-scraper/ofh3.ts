@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchBloggerPosts } from "../blogger-api";
 import { decodeEntities } from "../utils";
@@ -238,9 +239,7 @@ export class OFH3Adapter implements SourceAdapter {
       if (event) events.push(event);
     }
 
-    const hasErrorDetails =
-      (errorDetails.fetch?.length ?? 0) > 0 ||
-      (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,

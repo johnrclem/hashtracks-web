@@ -1,5 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import { hasAnyErrors } from "../types";
 import { validateSourceConfig, stripHtmlTags, buildDateWindow } from "../utils";
 
 export interface MeetupConfig {
@@ -119,8 +120,7 @@ export class MeetupAdapter implements SourceAdapter {
       }
     }
 
-    const hasErrorDetails =
-      (errorDetails.fetch?.length ?? 0) > 0 || (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,

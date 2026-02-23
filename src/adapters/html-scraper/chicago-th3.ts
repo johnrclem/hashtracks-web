@@ -7,8 +7,8 @@ import type {
   ScrapeResult,
 } from "../types";
 import { MONTHS, googleMapsSearchUrl } from "../utils";
-export { parseRunNumber, parseDateFromDatetime, parseTimeString } from "./chicago-shared";
 import { parseRunNumber, parseDateFromDatetime, parseTimeString, fetchWordPressBlogEvents } from "./chicago-shared";
+export { parseRunNumber, parseDateFromDatetime, parseTimeString };
 
 const mapsUrl = googleMapsSearchUrl;
 

@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ParseError, ErrorDetails } from "../types";
+import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { MONTHS_ZERO, parse12HourTime, decodeEntities, stripHtmlTags } from "../utils";
 import { safeFetch } from "../safe-fetch";
@@ -564,7 +565,7 @@ export class HashNYCAdapter implements SourceAdapter {
       errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: futureUrl, message }];
     }
 
-    const hasErrorDetails = (errorDetails.fetch?.length ?? 0) > 0 || (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events: allEvents,

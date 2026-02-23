@@ -6,9 +6,11 @@ import type {
   ScrapeResult,
   ErrorDetails,
 } from "../types";
+import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchBloggerPosts } from "../blogger-api";
-import { buildUrlVariantCandidates, decodeEntities, validateSourceUrl } from "../utils";
+import { buildUrlVariantCandidates, decodeEntities } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
@@ -246,9 +248,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
       if (event) events.push(event);
     }
 
-    const hasErrorDetails =
-      (errorDetails.fetch?.length ?? 0) > 0 ||
-      (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       result: {
@@ -283,8 +283,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
 
     for (const candidateUrl of candidateUrls) {
       try {
-        validateSourceUrl(candidateUrl);
-        const response = await fetch(candidateUrl, { headers: requestHeaders });
+        const response = await safeFetch(candidateUrl, { headers: requestHeaders });
 
         if (response.ok) {
           const html = await response.text();
@@ -371,9 +370,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
       if (event) events.push(event);
     }
 
-    const hasErrorDetails =
-      (errorDetails.fetch?.length ?? 0) > 0 ||
-      (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,

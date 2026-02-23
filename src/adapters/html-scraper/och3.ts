@@ -6,7 +6,9 @@ import type {
   ScrapeResult,
   ErrorDetails,
 } from "../types";
+import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
+import { safeFetch } from "../safe-fetch";
 
 const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
@@ -296,7 +298,7 @@ export class OCH3Adapter implements SourceAdapter {
     let html: string;
     const fetchStart = Date.now();
     try {
-      const response = await fetch(baseUrl, {
+      const response = await safeFetch(baseUrl, {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -341,9 +343,7 @@ export class OCH3Adapter implements SourceAdapter {
       events.push(...this.parseFromDateSections(mainContent, errors));
     }
 
-    const hasErrorDetails =
-      (errorDetails.fetch?.length ?? 0) > 0 ||
-      (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,

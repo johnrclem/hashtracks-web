@@ -6,6 +6,7 @@ import type {
   ScrapeResult,
   ErrorDetails,
 } from "../types";
+import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { parse12HourTime } from "../utils";
 import { safeFetch } from "../safe-fetch";
@@ -145,9 +146,7 @@ export async function fetchWordPressBlogEvents(
   }
 
   const fetchDurationMs = Date.now() - fetchStart;
-  const hasErrorDetails =
-    (errorDetails.fetch?.length ?? 0) > 0 ||
-    (errorDetails.parse?.length ?? 0) > 0;
+  const hasErrorDetails = hasAnyErrors(errorDetails);
 
   return {
     events,

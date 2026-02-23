@@ -6,6 +6,7 @@ import type {
   ScrapeResult,
   ErrorDetails,
 } from "../types";
+import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
 const YEAR_ROLLOVER_DAY_THRESHOLD = 45;
@@ -277,9 +278,7 @@ export class BarnesHashAdapter implements SourceAdapter {
       rowsParsed++;
     });
 
-    const hasErrorDetails =
-      (errorDetails.fetch?.length ?? 0) > 0 ||
-      (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,

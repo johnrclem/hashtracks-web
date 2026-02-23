@@ -33,6 +33,11 @@ export interface ErrorDetails {
   merge?: Array<{ fingerprint?: string; reason: string }>; // Merge/dedup errors
 }
 
+/** Check whether an ErrorDetails object has any errors in any category. */
+export function hasAnyErrors(ed: ErrorDetails): boolean {
+  return (ed.fetch?.length ?? 0) > 0 || (ed.parse?.length ?? 0) > 0 || (ed.merge?.length ?? 0) > 0;
+}
+
 /** Sample event that was blocked or skipped (Phase 2B) */
 export interface EventSample {
   reason: string; // Why it was blocked/skipped (e.g., "SOURCE_KENNEL_MISMATCH", "UNMATCHED_TAG")

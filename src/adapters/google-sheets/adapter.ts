@@ -1,6 +1,8 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, validateSourceConfig } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 /** Config stored in Source.config JSON for Google Sheets sources */
 interface GoogleSheetsConfig {
@@ -153,7 +155,7 @@ async function discoverSheetTabs(sheetId: string, apiKey: string): Promise<{ tab
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
-    const metaRes = await fetch(metaUrl, { signal: controller.signal });
+    const metaRes = await safeFetch(metaUrl, { signal: controller.signal });
     if (!metaRes.ok) {
       const message = `Sheets API error ${metaRes.status}: ${await metaRes.text()}`;
       return { tabNames: [], error: { message, url: safeMetaUrl, status: metaRes.status } };
@@ -308,7 +310,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
       const csvController = new AbortController();
       const csvTimeout = setTimeout(() => csvController.abort(), 15_000);
       try {
-        const csvRes = await fetch(csvUrl, { signal: csvController.signal });
+        const csvRes = await safeFetch(csvUrl, { signal: csvController.signal });
         if (!csvRes.ok) {
           const message = `Failed to fetch tab "${tabName}": ${csvRes.status}`;
           errors.push(message);
@@ -367,7 +369,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
       }
     }
 
-    const hasErrorDetails = (errorDetails.fetch?.length ?? 0) > 0 || (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,

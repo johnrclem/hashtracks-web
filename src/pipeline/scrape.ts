@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import type { ErrorDetails, AiRecoverySummary, ScrapeResult, MergeResult } from "@/adapters/types";
+import { hasAnyErrors } from "@/adapters/types";
 import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
 import { reconcileStaleEvents } from "./reconcile";
@@ -80,10 +81,7 @@ function buildCombinedErrorDetails(
   if (mergeErrorDetails && mergeErrorDetails.length > 0) {
     combined.merge = mergeErrorDetails;
   }
-  const hasErrors =
-    (combined.fetch?.length ?? 0) > 0 ||
-    (combined.parse?.length ?? 0) > 0 ||
-    (combined.merge?.length ?? 0) > 0;
+  const hasErrors = hasAnyErrors(combined);
   return { combined, hasErrors };
 }
 

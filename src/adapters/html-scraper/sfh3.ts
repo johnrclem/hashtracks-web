@@ -6,6 +6,7 @@ import type {
   ScrapeResult,
   ErrorDetails,
 } from "../types";
+import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { parseICalSummary } from "../ical/adapter";
 
@@ -230,9 +231,7 @@ export class SFH3Adapter implements SourceAdapter {
       }
     }
 
-    const hasErrorDetails =
-      (errorDetails.fetch?.length ?? 0) > 0 ||
-      (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,

@@ -8,8 +8,10 @@ import type {
   ScrapeResult,
   ErrorDetails,
 } from "../types";
+import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { MONTHS, extractUkPostcode, googleMapsSearchUrl, validateSourceUrl } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 /**
  * Parse run number from WLH3 heading text.
@@ -145,8 +147,7 @@ export class WestLondonHashAdapter implements SourceAdapter {
     errorDetails: ErrorDetails,
   ): Promise<string | null> {
     try {
-      validateSourceUrl(url);
-      const response = await fetch(url, {
+      const response = await safeFetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       });
       if (!response.ok) {
@@ -256,9 +257,7 @@ export class WestLondonHashAdapter implements SourceAdapter {
     }
 
     const fetchDurationMs = Date.now() - fetchStart;
-    const hasErrorDetails =
-      (errorDetails.fetch?.length ?? 0) > 0 ||
-      (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,

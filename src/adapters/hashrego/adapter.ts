@@ -1,5 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import { hasAnyErrors } from "../types";
 import { validateSourceConfig } from "../utils";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import {
@@ -123,9 +124,7 @@ export class HashRegoAdapter implements SourceAdapter {
       }
     }
 
-    const hasErrorDetails =
-      (errorDetails.fetch?.length ?? 0) > 0 ||
-      (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,

@@ -1,5 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, decodeEntities, stripHtmlTags } from "../utils";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
@@ -298,7 +299,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
       pageToken = data.nextPageToken;
     } while (pageToken);
 
-    const hasErrorDetails = (errorDetails.fetch?.length ?? 0) > 0 || (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,

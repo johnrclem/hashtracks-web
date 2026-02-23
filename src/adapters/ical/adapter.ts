@@ -1,6 +1,8 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
-import { googleMapsSearchUrl, validateSourceUrl } from "../utils";
+import { hasAnyErrors } from "../types";
+import { googleMapsSearchUrl } from "../utils";
+import { safeFetch } from "../safe-fetch";
 import { sync as icalSync } from "node-ical";
 import type { VEvent, ParameterValue, DateWithTimeZone } from "node-ical";
 
@@ -143,6 +145,18 @@ function formatTime(dt: DateWithTimeZone): string | undefined {
 
 const mapsUrl = googleMapsSearchUrl;
 
+/** Build the shared diagnosticContext shape for iCal error/success results. */
+function icalDiagnostics(overrides: {
+  url: string;
+  fetchDurationMs: number;
+  icsBytes?: number;
+  contentType?: string;
+  [key: string]: unknown;
+}): Record<string, unknown> {
+  const { url, fetchDurationMs, icsBytes = 0, contentType, ...rest } = overrides;
+  return { url, totalVEvents: 0, eventsExtracted: 0, skippedDateRange: 0, skippedPattern: 0, fetchDurationMs, icsBytes, contentType, ...rest };
+}
+
 /** Fetch and validate ICS content from a URL. Returns icsText and contentType on success, or an error result. */
 async function fetchAndValidateIcsContent(
   url: string,
@@ -150,8 +164,7 @@ async function fetchAndValidateIcsContent(
 ): Promise<{ icsText: string; contentType: string | undefined } | { error: ScrapeResult }> {
   let contentType: string | undefined;
   try {
-    validateSourceUrl(url);
-    const resp = await fetch(url, {
+    const resp = await safeFetch(url, {
       headers: { "User-Agent": "HashTracks-Scraper" },
     });
 
@@ -164,7 +177,7 @@ async function fetchAndValidateIcsContent(
         error: {
           events: [], errors: [message],
           errorDetails: { fetch: [{ url, status: resp.status, message }] },
-          diagnosticContext: { url, totalVEvents: 0, eventsExtracted: 0, skippedDateRange: 0, skippedPattern: 0, fetchDurationMs: Date.now() - fetchStart, icsBytes: 0, contentType },
+          diagnosticContext: icalDiagnostics({ url, fetchDurationMs: Date.now() - fetchStart, contentType }),
         },
       };
     }
@@ -179,7 +192,7 @@ async function fetchAndValidateIcsContent(
         error: {
           events: [], errors: [message],
           errorDetails: { fetch: [{ url, message }] },
-          diagnosticContext: { url, totalVEvents: 0, eventsExtracted: 0, skippedDateRange: 0, skippedPattern: 0, fetchDurationMs: Date.now() - fetchStart, icsBytes: icsText.length, contentType, bodyPreview: preview },
+          diagnosticContext: icalDiagnostics({ url, fetchDurationMs: Date.now() - fetchStart, icsBytes: icsText.length, contentType, bodyPreview: preview }),
         },
       };
     }
@@ -191,7 +204,7 @@ async function fetchAndValidateIcsContent(
       error: {
         events: [], errors: [`iCal fetch error: ${message}`],
         errorDetails: { fetch: [{ url, message }] },
-        diagnosticContext: { url, totalVEvents: 0, eventsExtracted: 0, skippedDateRange: 0, skippedPattern: 0, fetchDurationMs: Date.now() - fetchStart, icsBytes: 0 },
+        diagnosticContext: icalDiagnostics({ url, fetchDurationMs: Date.now() - fetchStart }),
       },
     };
   }
@@ -212,7 +225,7 @@ function parseIcsCalendar(
       error: {
         events: [], errors: [`iCal parse error: ${message}`],
         errorDetails: { parse: [{ row: 0, error: message }] },
-        diagnosticContext: { url, totalVEvents: 0, eventsExtracted: 0, skippedDateRange: 0, skippedPattern: 0, fetchDurationMs, icsBytes: icsText.length, contentType },
+        diagnosticContext: icalDiagnostics({ url, fetchDurationMs, icsBytes: icsText.length, contentType }),
       },
     };
   }
@@ -365,9 +378,7 @@ export class ICalAdapter implements SourceAdapter {
       errorDetails.parse = parseErrors;
     }
 
-    const hasErrorDetails =
-      (errorDetails.fetch?.length ?? 0) > 0 ||
-      (errorDetails.parse?.length ?? 0) > 0;
+    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,
