@@ -150,7 +150,7 @@ async function fetchAndValidateIcsContent(
 ): Promise<{ icsText: string; contentType: string | undefined } | { error: ScrapeResult }> {
   let contentType: string | undefined;
   try {
-    const resp = await fetch(url, {
+    const resp = await fetch(url, { // nosemgrep: ssrf — URL validated by validateSourceUrl() in scrape.ts
       headers: { "User-Agent": "HashTracks-Scraper" },
     });
 

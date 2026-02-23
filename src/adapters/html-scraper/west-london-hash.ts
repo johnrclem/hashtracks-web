@@ -9,7 +9,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { MONTHS, extractUkPostcode, googleMapsSearchUrl } from "../utils";
+import { MONTHS, extractUkPostcode, googleMapsSearchUrl, validateSourceUrl } from "../utils";
 
 /**
  * Parse run number from WLH3 heading text.
@@ -145,7 +145,7 @@ export class WestLondonHashAdapter implements SourceAdapter {
     errorDetails: ErrorDetails,
   ): Promise<string | null> {
     try {
-      const response = await fetch(url, {
+      const response = await fetch(url, { // nosemgrep: ssrf — URL validated by validateSourceUrl() in scrape.ts + pagination check
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       });
       if (!response.ok) {
@@ -245,7 +245,13 @@ export class WestLondonHashAdapter implements SourceAdapter {
         }
       });
 
-      currentUrl = this.findNextPageUrl($, baseUrl);
+      const nextUrl = this.findNextPageUrl($, baseUrl);
+      try {
+        if (nextUrl) validateSourceUrl(nextUrl);
+        currentUrl = nextUrl;
+      } catch {
+        currentUrl = null; // Pagination URL failed SSRF validation
+      }
     }
 
     const fetchDurationMs = Date.now() - fetchStart;

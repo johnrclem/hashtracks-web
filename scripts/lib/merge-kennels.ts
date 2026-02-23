@@ -86,6 +86,10 @@ export async function mergeKennels(config: MergeConfig): Promise<void> {
     throw new Error(`${config.targetShortName} kennel not found!`);
   }
 
+  if (sourceKennel.id === targetKennel.id) {
+    throw new Error(`Source and target resolve to the same kennel (${sourceKennel.shortName}). Aborting.`);
+  }
+
   // 2. Print preview
   console.log("=== Kennel Merge Preview ===");
   console.log(`Source: "${sourceKennel.shortName}" (${sourceKennel.id})`);
@@ -138,7 +142,13 @@ export async function mergeKennels(config: MergeConfig): Promise<void> {
   // 7. Handle SourceKennel duplicates (source linked to both kennels)
   await resolveSourceKennelDuplicates(prisma, sourceKennel.id, targetKennel.id);
 
-  // 8. Execute transaction for remaining reassignments
+  // 8. Resolve target roster group for hasher reassignment
+  const targetRgLink = await prisma.rosterGroupKennel.findFirst({
+    where: { kennelId: targetKennel.id },
+    select: { rosterGroupId: true },
+  });
+
+  // 9. Execute transaction for remaining reassignments
   await prisma.$transaction([
     // Events (no conflicts checked above)
     prisma.event.updateMany({
@@ -155,7 +165,7 @@ export async function mergeKennels(config: MergeConfig): Promise<void> {
     // KennelHasher (duplicates handled above)
     prisma.kennelHasher.updateMany({
       where: { kennelId: sourceKennel.id },
-      data: { kennelId: targetKennel.id },
+      data: { kennelId: targetKennel.id, rosterGroupId: targetRgLink?.rosterGroupId ?? null },
     }),
 
     // MismanRequest

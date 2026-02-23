@@ -32,7 +32,7 @@ function detectHashChanges(
   const changes = new Map<string, boolean>();
   let prevHash: string | null = null;
   for (let i = history.length - 1; i >= 0; i--) {
-    const curr = history[i];
+    const curr = history[i]; // nosemgrep: object-injection — safe: array index, i is loop-bounded
     if (curr.structureHash && prevHash && curr.structureHash !== prevHash) {
       changes.set(curr.id, true);
     }

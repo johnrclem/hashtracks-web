@@ -63,7 +63,7 @@ async function runAiRecovery(
     );
     const originalErrors = [...scrapeResult.errors];
     scrapeResult.errors = originalErrors.filter(
-      (e) => !recoveredErrorPrefixes.some((prefix) => e.includes(prefix)),
+      (e) => !recoveredErrorPrefixes.some((prefix) => e === prefix || e.startsWith(prefix)),
     );
   }
 

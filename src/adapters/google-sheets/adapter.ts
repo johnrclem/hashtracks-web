@@ -75,7 +75,7 @@ function parseCSVField(text: string, startIdx: number): { value: string; nextIdx
   const len = text.length;
   let i = startIdx;
 
-  if (i < len && text[i] === '"') {
+  if (i < len && text[i] === '"') { // nosemgrep: object-injection — safe: string char access with integer index
     // Quoted field
     i++;
     let field = "";
@@ -145,11 +145,12 @@ const mapsUrl = googleMapsSearchUrl;
 /** Discover sheet tabs via Sheets API, returning year-prefixed tab names sorted newest-first. */
 async function discoverSheetTabs(sheetId: string, apiKey: string): Promise<{ tabNames: string[]; error?: { message: string; url?: string; status?: number } }> {
   const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title&key=${apiKey}`;
+  const safeMetaUrl = metaUrl.replace(/key=[^&]+/, "key=***");
   try {
     const metaRes = await fetch(metaUrl);
     if (!metaRes.ok) {
       const message = `Sheets API error ${metaRes.status}: ${await metaRes.text()}`;
-      return { tabNames: [], error: { message, url: metaUrl, status: metaRes.status } };
+      return { tabNames: [], error: { message, url: safeMetaUrl, status: metaRes.status } };
     }
     const meta = (await metaRes.json()) as {
       sheets: { properties: { title: string } }[];

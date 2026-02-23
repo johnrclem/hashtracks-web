@@ -7,7 +7,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { parse12HourTime } from "../utils";
+import { parse12HourTime, validateSourceUrl } from "../utils";
 
 /**
  * Extract run number from a WordPress post title.
@@ -47,7 +47,7 @@ export function parseTimeString(text: string): string | null {
 /** Fetch a URL and return its HTML text, or an error detail. */
 export async function fetchAndParseHtmlPage(url: string): Promise<{ html: string; error?: undefined } | { html?: undefined; error: { url: string; status?: number; message: string } }> {
   try {
-    const response = await fetch(url, {
+    const response = await fetch(url, { // nosemgrep: ssrf — URL validated by validateSourceUrl() in scrape.ts + pagination check
       headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
     });
     if (!response.ok) {
@@ -138,7 +138,13 @@ export async function fetchWordPressBlogEvents(
       }
     });
 
-    currentUrl = findNextPageLink($, baseUrl);
+    const nextUrl = findNextPageLink($, baseUrl);
+    try {
+      if (nextUrl) validateSourceUrl(nextUrl);
+      currentUrl = nextUrl;
+    } catch {
+      currentUrl = null; // Pagination URL failed SSRF validation
+    }
   }
 
   const fetchDurationMs = Date.now() - fetchStart;

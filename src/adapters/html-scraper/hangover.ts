@@ -198,7 +198,7 @@ export class HangoverAdapter implements SourceAdapter {
 
     let html: string;
     try {
-      const response = await fetch(baseUrl, { headers: requestHeaders });
+      const response = await fetch(baseUrl, { headers: requestHeaders }); // nosemgrep: ssrf — URL validated by validateSourceUrl() in scrape.ts
       if (!response.ok) {
         const message = `HTTP ${response.status}: ${response.statusText}`;
         errorDetails.fetch = [{ url: baseUrl, status: response.status, message }];

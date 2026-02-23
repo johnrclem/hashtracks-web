@@ -125,9 +125,12 @@ function extractDateTimeFromGCalItem(start: { dateTime?: string; date?: string }
     if (dtMatch) {
       return { dateISO: dtMatch[1], startTime: `${dtMatch[2]}:${dtMatch[3]}` };
     }
-    // Fallback: parse as Date
-    const d = new Date(start.dateTime);
-    return { dateISO: d.toISOString().split("T")[0], startTime: undefined };
+    // Fallback: extract date portion directly from the string (avoids UTC date shift)
+    const fallbackMatch = start.dateTime.match(/(\d{4}-\d{2}-\d{2})/);
+    if (fallbackMatch) {
+      return { dateISO: fallbackMatch[0], startTime: undefined };
+    }
+    return { dateISO: "", startTime: undefined };
   }
   // All-day event: start.date is already YYYY-MM-DD
   return { dateISO: start.date ?? "", startTime: undefined };

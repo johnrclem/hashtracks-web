@@ -75,9 +75,9 @@ function scrapeCurrentTrail(
 
   const runNumber = parseInt(trailMatch[1], 10);
   const trailName = trailMatch[2].trim();
-  const whenMatch = bodyText.match(/When:\s*(.+?)(?=(?:When|Where|Bring|Hares?|The Fun Part):|\n|$)/i);
-  const whereMatch = bodyText.match(/Where:\s*(.+?)(?=(?:When|Where|Bring|Hares?|The Fun Part):|\n|$)/i);
-  const hareMatch = bodyText.match(/Hares?:\s*(.+?)(?=(?:When|Where|Bring|The Fun Part):|\n|$)/i);
+  const whenMatch = bodyText.match(/When:\s*([^\n]*?)(?=(?:When|Where|Bring|Hares?|The Fun Part):|\n|$)/i);
+  const whereMatch = bodyText.match(/Where:\s*([^\n]*?)(?=(?:When|Where|Bring|Hares?|The Fun Part):|\n|$)/i);
+  const hareMatch = bodyText.match(/Hares?:\s*([^\n]*?)(?=(?:When|Where|Bring|The Fun Part):|\n|$)/i);
 
   let dateStr: string | null = null;
   let startTime: string | undefined;

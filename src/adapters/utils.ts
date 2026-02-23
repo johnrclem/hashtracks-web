@@ -55,27 +55,86 @@ export const MONTHS_ZERO: Record<string, number> = {
 
 
 /**
+ * Check if an IPv4 address (as 4 octets) falls within private/reserved ranges.
+ */
+function isPrivateIPv4(a: number, b: number, c: number, d: number): boolean {
+  return (
+    a === 127 ||                                  // loopback 127.0.0.0/8
+    a === 10 ||                                   // private  10.0.0.0/8
+    (a === 172 && b >= 16 && b <= 31) ||          // private  172.16.0.0/12
+    (a === 192 && b === 168) ||                   // private  192.168.0.0/16
+    (a === 169 && b === 254) ||                   // link-local 169.254.0.0/16
+    (a === 0 && b === 0 && c === 0 && d === 0)    // 0.0.0.0
+  );
+}
+
+/**
  * Validate a source URL is safe for server-side fetching (SSRF prevention).
- * Blocks non-HTTP protocols, localhost, private IPs, and cloud metadata endpoints.
+ * Blocks non-HTTP protocols, localhost, private IPs (including alternate
+ * representations like decimal, hex, octal, IPv4-mapped IPv6), and cloud
+ * metadata endpoints.
  */
 export function validateSourceUrl(url: string): void {
   const parsed = new URL(url);
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error(`Blocked URL protocol: ${parsed.protocol}`);
+    throw new Error("Blocked URL: non-HTTP protocol");
   }
   const hostname = parsed.hostname.toLowerCase();
-  if (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "[::1]" ||
-    hostname === "0.0.0.0" ||
-    hostname === "169.254.169.254" ||
-    hostname === "metadata.google.internal" ||
-    /^10\./.test(hostname) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
-    /^192\.168\./.test(hostname)
-  ) {
-    throw new Error(`Blocked internal/private URL: ${hostname}`);
+
+  // Block known internal hostnames
+  if (hostname === "localhost" || hostname === "metadata.google.internal") {
+    throw new Error("Blocked URL: internal hostname");
+  }
+
+  // Strip IPv6 brackets for analysis
+  const bare = hostname.replace(/^\[|\]$/g, "");
+
+  // Handle IPv4-mapped IPv6 — dotted quad form (::ffff:127.0.0.1)
+  const v4MappedDotted = bare.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i);
+  // Handle IPv4-mapped IPv6 — hex form (::ffff:7f00:1, as normalized by URL parser)
+  const v4MappedHex = bare.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
+  let ipToCheck = bare;
+  if (v4MappedDotted) {
+    ipToCheck = v4MappedDotted[1];
+  } else if (v4MappedHex) {
+    const hi = parseInt(v4MappedHex[1], 16);
+    const lo = parseInt(v4MappedHex[2], 16);
+    ipToCheck = `${(hi >> 8) & 0xFF}.${hi & 0xFF}.${(lo >> 8) & 0xFF}.${lo & 0xFF}`;
+  }
+
+  // Check dotted IPv4 (standard notation)
+  const ipv4Match = ipToCheck.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4Match) {
+    const [, a, b, c, d] = ipv4Match.map(Number);
+    if (isPrivateIPv4(a, b, c, d)) {
+      throw new Error("Blocked URL: private/reserved IP");
+    }
+    return; // Valid public IPv4
+  }
+
+  // Check single-integer IP (e.g., 2130706433 = 127.0.0.1, 0x7f000001)
+  if (/^(?:0x[\da-f]+|\d+)$/i.test(ipToCheck)) {
+    const num = Number(ipToCheck);
+    if (num >= 0 && num <= 0xFFFFFFFF) {
+      const a = (num >>> 24) & 0xFF;
+      const b = (num >>> 16) & 0xFF;
+      const c = (num >>> 8) & 0xFF;
+      const d = num & 0xFF;
+      if (isPrivateIPv4(a, b, c, d)) {
+        throw new Error("Blocked URL: private/reserved IP");
+      }
+    }
+  }
+
+  // Check IPv6 private ranges
+  if (bare.includes(":")) {
+    if (
+      bare === "::1" || bare === "::0" || bare === "::" ||
+      bare.startsWith("fc") || bare.startsWith("fd") ||  // unique-local
+      bare.startsWith("fe80")                              // link-local
+    ) {
+      throw new Error("Blocked URL: private/reserved IP");
+    }
   }
 }
 

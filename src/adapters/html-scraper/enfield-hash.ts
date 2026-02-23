@@ -283,7 +283,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
 
     for (const candidateUrl of candidateUrls) {
       try {
-        const response = await fetch(candidateUrl, { headers: requestHeaders });
+        const response = await fetch(candidateUrl, { headers: requestHeaders }); // nosemgrep: ssrf — URL validated by validateSourceUrl() in scrape.ts
 
         if (response.ok) {
           const html = await response.text();

@@ -263,13 +263,13 @@ export class OCH3Adapter implements SourceAdapter {
   private parseFromDateSections(mainContent: string, errors: string[]): RawEventData[] {
     const events: RawEventData[] = [];
     const datePattern = /(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4}/gi;
-    const matches = mainContent.match(datePattern);
-    if (!matches) return events;
+    const matchesIter = [...mainContent.matchAll(datePattern)];
+    if (matchesIter.length === 0) return events;
 
-    for (let i = 0; i < matches.length; i++) {
-      const matchStart = mainContent.indexOf(matches[i]);
-      const matchEnd = i + 1 < matches.length
-        ? mainContent.indexOf(matches[i + 1])
+    for (let i = 0; i < matchesIter.length; i++) {
+      const matchStart = matchesIter[i].index;
+      const matchEnd = i + 1 < matchesIter.length
+        ? matchesIter[i + 1].index
         : matchStart + 300;
       const section = mainContent.substring(matchStart, matchEnd);
 
