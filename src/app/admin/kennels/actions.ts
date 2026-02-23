@@ -408,6 +408,86 @@ interface MergeResult {
   };
 }
 
+/** Handle UserKennel deduplication: keep the higher role when both exist. */
+async function deduplicateUserKennels(sourceKennelId: string, targetKennelId: string): Promise<void> {
+  const roleRank: Record<string, number> = { ADMIN: 3, MISMAN: 2, MEMBER: 1 };
+
+  const userKennelDuplicates = await prisma.userKennel.findMany({
+    where: { kennelId: sourceKennelId },
+    select: { id: true, role: true, userId: true },
+  });
+
+  for (const uk of userKennelDuplicates) {
+    const existing = await prisma.userKennel.findUnique({
+      where: { userId_kennelId: { userId: uk.userId, kennelId: targetKennelId } },
+      select: { id: true, role: true },
+    });
+
+    if (existing) {
+      if ((roleRank[uk.role] || 0) > (roleRank[existing.role] || 0)) {
+        await prisma.userKennel.update({ where: { id: existing.id }, data: { role: uk.role } });
+      }
+      await prisma.userKennel.delete({ where: { id: uk.id } });
+    }
+  }
+}
+
+/** Handle KennelHasher deduplication: merge more-complete source data into target. */
+async function deduplicateHashers(sourceKennelId: string, targetKennelId: string): Promise<void> {
+  const hashers = await prisma.kennelHasher.findMany({
+    where: { kennelId: sourceKennelId },
+    select: { id: true, hashName: true, nerdName: true, email: true, phone: true, notes: true },
+  });
+
+  for (const hasher of hashers) {
+    const existing = await prisma.kennelHasher.findFirst({
+      where: {
+        kennelId: targetKennelId,
+        hashName: { equals: hasher.hashName, mode: "insensitive" },
+      },
+    });
+
+    if (existing) {
+      const sourceComplete = [hasher.email, hasher.phone, hasher.notes].filter(Boolean).length;
+      const targetComplete = [existing.email, existing.phone, existing.notes].filter(Boolean).length;
+
+      if (sourceComplete > targetComplete) {
+        await prisma.kennelHasher.update({
+          where: { id: existing.id },
+          data: {
+            nerdName: hasher.nerdName || existing.nerdName,
+            email: hasher.email || existing.email,
+            phone: hasher.phone || existing.phone,
+            notes: hasher.notes || existing.notes,
+          },
+        });
+      }
+
+      await prisma.kennelHasher.delete({ where: { id: hasher.id } });
+    }
+  }
+}
+
+/** Handle SourceKennel deduplication: delete source links that already exist on target. */
+async function deduplicateSourceKennels(sourceKennelId: string, targetKennelId: string): Promise<void> {
+  const sourceLinks = await prisma.sourceKennel.findMany({
+    where: { kennelId: sourceKennelId },
+    select: { sourceId: true },
+  });
+
+  for (const link of sourceLinks) {
+    const existingLink = await prisma.sourceKennel.findUnique({
+      where: { sourceId_kennelId: { sourceId: link.sourceId, kennelId: targetKennelId } },
+    });
+
+    if (existingLink) {
+      await prisma.sourceKennel.delete({
+        where: { sourceId_kennelId: { sourceId: link.sourceId, kennelId: sourceKennelId } },
+      });
+    }
+  }
+}
+
 /**
  * Merge two kennels: move all records from source to target, then delete source.
  * @param sourceKennelId - Kennel to merge FROM (will be deleted)
@@ -509,111 +589,10 @@ export async function mergeKennels(
     return { error: "Cannot proceed with merge due to conflicts. Please resolve manually." };
   }
 
-  // 5. Handle UserKennel duplicates
-  const userKennelDuplicates = await prisma.userKennel.findMany({
-    where: { kennelId: sourceKennel.id },
-    select: { id: true, role: true, userId: true },
-  });
-
-  const roleRank: Record<string, number> = { ADMIN: 3, MISMAN: 2, MEMBER: 1 };
-
-  for (const uk of userKennelDuplicates) {
-    const existingSubscription = await prisma.userKennel.findUnique({
-      where: {
-        userId_kennelId: { userId: uk.userId, kennelId: targetKennel.id },
-      },
-      select: { id: true, role: true },
-    });
-
-    if (existingSubscription) {
-      const sourceRank = roleRank[uk.role] || 0;
-      const targetRank = roleRank[existingSubscription.role] || 0;
-
-      if (sourceRank > targetRank) {
-        await prisma.userKennel.update({
-          where: { id: existingSubscription.id },
-          data: { role: uk.role },
-        });
-      }
-
-      await prisma.userKennel.delete({ where: { id: uk.id } });
-    }
-  }
-
-  // 6. Handle KennelHasher duplicates (by hashName, case-insensitive)
-  const hashers = await prisma.kennelHasher.findMany({
-    where: { kennelId: sourceKennel.id },
-    select: {
-      id: true,
-      hashName: true,
-      nerdName: true,
-      email: true,
-      phone: true,
-      notes: true,
-    },
-  });
-
-  for (const hasher of hashers) {
-    const existing = await prisma.kennelHasher.findFirst({
-      where: {
-        kennelId: targetKennel.id,
-        hashName: { equals: hasher.hashName, mode: "insensitive" },
-      },
-    });
-
-    if (existing) {
-      const sourceComplete = [hasher.email, hasher.phone, hasher.notes].filter(
-        Boolean,
-      ).length;
-      const targetComplete = [
-        existing.email,
-        existing.phone,
-        existing.notes,
-      ].filter(Boolean).length;
-
-      if (sourceComplete > targetComplete) {
-        await prisma.kennelHasher.update({
-          where: { id: existing.id },
-          data: {
-            nerdName: hasher.nerdName || existing.nerdName,
-            email: hasher.email || existing.email,
-            phone: hasher.phone || existing.phone,
-            notes: hasher.notes || existing.notes,
-          },
-        });
-      }
-
-      await prisma.kennelHasher.delete({ where: { id: hasher.id } });
-    }
-  }
-
-  // 7. Handle SourceKennel duplicates
-  const sourceLinks = await prisma.sourceKennel.findMany({
-    where: { kennelId: sourceKennel.id },
-    select: { sourceId: true },
-  });
-
-  for (const link of sourceLinks) {
-    const existingLink = await prisma.sourceKennel.findUnique({
-      where: {
-        sourceId_kennelId: {
-          sourceId: link.sourceId,
-          kennelId: targetKennel.id,
-        },
-      },
-    });
-
-    if (existingLink) {
-      await prisma.sourceKennel.delete({
-        where: {
-          sourceId_kennelId: {
-            sourceId: link.sourceId,
-            kennelId: sourceKennel.id,
-          },
-        },
-      });
-    }
-  }
+  // 5-7. Handle duplicates for UserKennel, KennelHasher, SourceKennel
+  await deduplicateUserKennels(sourceKennel.id, targetKennel.id);
+  await deduplicateHashers(sourceKennel.id, targetKennel.id);
+  await deduplicateSourceKennels(sourceKennel.id, targetKennel.id);
 
   // 8. Execute transaction for remaining reassignments
   const targetRosterGroupId = await getRosterGroupId(targetKennel.id);

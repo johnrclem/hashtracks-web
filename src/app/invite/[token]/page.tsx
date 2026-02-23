@@ -9,31 +9,31 @@ interface Props {
   params: Promise<{ token: string }>;
 }
 
+/** Validate an invite token and return an error message if invalid. */
+function validateInviteStatus(invite: {
+  status: string;
+  expiresAt: Date;
+} | null): string | null {
+  if (!invite) return "Invite not found";
+  if (invite.status === "ACCEPTED") return "This invite has already been used";
+  if (invite.status === "REVOKED") return "This invite was cancelled";
+  if (invite.status !== "PENDING") return "This invite is no longer valid";
+  if (invite.expiresAt <= new Date()) return "This invite has expired";
+  return null;
+}
+
 export default async function InvitePage({ params }: Props) {
   const { token } = await params;
 
-  // Check auth
   const user = await getOrCreateUser();
 
   if (user) {
-    // Authenticated: redeem invite inline (can't call server actions during render)
     const invite = await prisma.mismanInvite.findUnique({
       where: { token },
       include: { kennel: { select: { slug: true } } },
     });
 
-    let error: string | null = null;
-    if (!invite) {
-      error = "Invite not found";
-    } else if (invite.status === "ACCEPTED") {
-      error = "This invite has already been used";
-    } else if (invite.status === "REVOKED") {
-      error = "This invite was cancelled";
-    } else if (invite.status !== "PENDING") {
-      error = "This invite is no longer valid";
-    } else if (invite.expiresAt <= new Date()) {
-      error = "This invite has expired";
-    }
+    const error = validateInviteStatus(invite);
 
     if (!error && invite) {
       // Grant MISMAN role

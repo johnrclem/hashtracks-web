@@ -70,6 +70,45 @@ export function inferStartTime(
  * Minimal CSV parser for Google Sheets export.
  * Handles quoted fields with escaped double-quotes ("").
  */
+/** Parse a single CSV field (quoted or unquoted) starting at position startIdx. */
+function parseCSVField(text: string, startIdx: number): { value: string; nextIdx: number } {
+  const len = text.length;
+  let i = startIdx;
+
+  if (i < len && text[i] === '"') {
+    // Quoted field
+    i++;
+    let field = "";
+    while (i < len) {
+      if (text[i] === '"') {
+        if (i + 1 < len && text[i + 1] === '"') {
+          field += '"';
+          i += 2;
+        } else {
+          i++; // closing quote
+          break;
+        }
+      } else {
+        field += text[i];
+        i++;
+      }
+    }
+    return { value: field, nextIdx: i };
+  }
+
+  // Unquoted field
+  let field = "";
+  while (i < len && text[i] !== "," && text[i] !== "\n" && text[i] !== "\r") {
+    field += text[i];
+    i++;
+  }
+  return { value: field, nextIdx: i };
+}
+
+/**
+ * Minimal CSV parser for Google Sheets export.
+ * Handles quoted fields with escaped double-quotes ("").
+ */
 export function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
   let i = 0;
@@ -78,34 +117,9 @@ export function parseCSV(text: string): string[][] {
   while (i < len) {
     const row: string[] = [];
     while (i < len) {
-      if (text[i] === '"') {
-        // Quoted field
-        i++;
-        let field = "";
-        while (i < len) {
-          if (text[i] === '"') {
-            if (i + 1 < len && text[i + 1] === '"') {
-              field += '"';
-              i += 2;
-            } else {
-              i++; // closing quote
-              break;
-            }
-          } else {
-            field += text[i];
-            i++;
-          }
-        }
-        row.push(field);
-      } else {
-        // Unquoted field
-        let field = "";
-        while (i < len && text[i] !== "," && text[i] !== "\n" && text[i] !== "\r") {
-          field += text[i];
-          i++;
-        }
-        row.push(field);
-      }
+      const { value, nextIdx } = parseCSVField(text, i);
+      row.push(value);
+      i = nextIdx;
 
       if (i < len && text[i] === ",") {
         i++;
@@ -127,6 +141,95 @@ export function parseCSV(text: string): string[][] {
 }
 
 const mapsUrl = googleMapsSearchUrl;
+
+/** Discover sheet tabs via Sheets API, returning year-prefixed tab names sorted newest-first. */
+async function discoverSheetTabs(sheetId: string, apiKey: string): Promise<{ tabNames: string[]; error?: { message: string; url?: string; status?: number } }> {
+  const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title&key=${apiKey}`;
+  try {
+    const metaRes = await fetch(metaUrl);
+    if (!metaRes.ok) {
+      const message = `Sheets API error ${metaRes.status}: ${await metaRes.text()}`;
+      return { tabNames: [], error: { message, url: metaUrl, status: metaRes.status } };
+    }
+    const meta = (await metaRes.json()) as {
+      sheets: { properties: { title: string } }[];
+    };
+    const tabNames = meta.sheets
+      .map((s) => s.properties.title)
+      .filter((name) => /^\d/.test(name))
+      .sort((a, b) => a.localeCompare(b))
+      .reverse();
+    return { tabNames };
+  } catch (err) {
+    return { tabNames: [], error: { message: `Failed to discover tabs: ${err}` } };
+  }
+}
+
+/** Resolve kennel tag and run number from a sheet row. Returns null if the row should be skipped. */
+function resolveKennelTagFromSheetRow(
+  row: string[],
+  config: GoogleSheetsConfig,
+): { kennelTag: string; runNumber: number | undefined } | null {
+  const runNumberCell = row[config.columns.runNumber]?.trim();
+  const specialRunCell = config.columns.specialRun != null
+    ? row[config.columns.specialRun]?.trim()
+    : undefined;
+
+  if (specialRunCell && config.kennelTagRules.specialRunMap?.[specialRunCell]) {
+    return {
+      kennelTag: config.kennelTagRules.specialRunMap[specialRunCell],
+      runNumber: runNumberCell ? parseInt(runNumberCell, 10) || undefined : undefined,
+    };
+  }
+  if (specialRunCell && /^\d+$/.test(specialRunCell) && config.kennelTagRules.numericSpecialTag) {
+    return {
+      kennelTag: config.kennelTagRules.numericSpecialTag,
+      runNumber: parseInt(specialRunCell, 10),
+    };
+  }
+  if (runNumberCell && /^\d+$/.test(runNumberCell)) {
+    return {
+      kennelTag: config.kennelTagRules.default,
+      runNumber: parseInt(runNumberCell, 10),
+    };
+  }
+  return null;
+}
+
+/** Build a RawEventData from a sheet row. Returns null if the row should be skipped. */
+function buildEventFromSheetRow(
+  row: string[],
+  config: GoogleSheetsConfig,
+  sourceUrl: string,
+  dateStr: string,
+): RawEventData | null {
+  const resolved = resolveKennelTagFromSheetRow(row, config);
+  if (!resolved) return null;
+
+  const hares = row[config.columns.hares]?.trim() || undefined;
+  const location = row[config.columns.location]?.trim() || undefined;
+  const title = row[config.columns.title]?.trim() || undefined;
+  const writeUp = config.columns.description != null
+    ? row[config.columns.description]?.trim()
+    : undefined;
+  const description = writeUp
+    ? writeUp.substring(0, 2000) || undefined
+    : undefined;
+  const startTime = inferStartTime(dateStr, config.startTimeRules);
+
+  return {
+    date: dateStr,
+    kennelTag: resolved.kennelTag,
+    runNumber: resolved.runNumber,
+    title,
+    description,
+    hares,
+    location,
+    locationUrl: location ? mapsUrl(location) : undefined,
+    startTime,
+    sourceUrl,
+  };
+}
 
 export class GoogleSheetsAdapter implements SourceAdapter {
   type = "GOOGLE_SHEETS" as const;
@@ -173,34 +276,15 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     if (config.tabs && config.tabs.length > 0) {
       tabNames = config.tabs;
     } else {
-      try {
-        const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}?fields=sheets.properties.title&key=${apiKey}`;
-        const metaRes = await fetch(metaUrl);
-        if (!metaRes.ok) {
-          const message = `Sheets API error ${metaRes.status}: ${await metaRes.text()}`;
-          return {
-            events: [],
-            errors: [message],
-            errorDetails: { fetch: [{ url: metaUrl, status: metaRes.status, message }] },
-          };
-        }
-        const meta = (await metaRes.json()) as {
-          sheets: { properties: { title: string } }[];
-        };
-        // Filter to tabs that start with a digit (year-based data tabs)
-        tabNames = meta.sheets
-          .map((s) => s.properties.title)
-          .filter((name) => /^\d/.test(name))
-          .sort()
-          .reverse(); // newest first
-      } catch (err) {
-        const message = `Failed to discover tabs: ${err}`;
+      const discovery = await discoverSheetTabs(config.sheetId, apiKey);
+      if (discovery.error) {
         return {
           events: [],
-          errors: [message],
-          errorDetails: { fetch: [{ message }] },
+          errors: [discovery.error.message],
+          errorDetails: { fetch: [{ url: discovery.error.url, status: discovery.error.status, message: discovery.error.message }] },
         };
       }
+      tabNames = discovery.tabNames;
     }
 
     // Step 2: Process each tab (newest first, stop when all events are too old)
@@ -228,12 +312,10 @@ export class GoogleSheetsAdapter implements SourceAdapter {
       rowsPerTab[tabName] = rows.length;
       if (rows.length === 0) continue;
 
-      // Capture first tab's raw rows for AI column detection (preview mode only)
       if (sampleRows === undefined) {
         sampleRows = rows.slice(0, 10);
       }
 
-      // Skip header row (first row)
       let tabHasEventsInWindow = false;
 
       for (let rowIdx = 1; rowIdx < rows.length; rowIdx++) {
@@ -245,60 +327,11 @@ export class GoogleSheetsAdapter implements SourceAdapter {
           const dateStr = parseDate(dateCell);
           if (!dateStr) continue;
 
-          // Date window filter
           if (dateStr < minISO || dateStr > maxISO) continue;
           tabHasEventsInWindow = true;
 
-          // Kennel tag extraction
-          const runNumberCell = row[config.columns.runNumber]?.trim();
-          const specialRunCell = config.columns.specialRun != null
-            ? row[config.columns.specialRun]?.trim()
-            : undefined;
-
-          let kennelTag: string;
-          let runNumber: number | undefined;
-
-          if (specialRunCell && config.kennelTagRules.specialRunMap?.[specialRunCell]) {
-            // Named special run (e.g., "ASSSH3")
-            kennelTag = config.kennelTagRules.specialRunMap[specialRunCell];
-            runNumber = runNumberCell ? parseInt(runNumberCell, 10) || undefined : undefined;
-          } else if (specialRunCell && /^\d+$/.test(specialRunCell) && config.kennelTagRules.numericSpecialTag) {
-            // Numeric special run (SFM number)
-            kennelTag = config.kennelTagRules.numericSpecialTag;
-            runNumber = parseInt(specialRunCell, 10);
-          } else if (runNumberCell && /^\d+$/.test(runNumberCell)) {
-            // Regular run with number
-            kennelTag = config.kennelTagRules.default;
-            runNumber = parseInt(runNumberCell, 10);
-          } else {
-            // No run number, no special — skip (likely blank/header row)
-            continue;
-          }
-
-          const hares = row[config.columns.hares]?.trim() || undefined;
-          const location = row[config.columns.location]?.trim() || undefined;
-          const title = row[config.columns.title]?.trim() || undefined;
-          const writeUp = config.columns.description != null
-            ? row[config.columns.description]?.trim()
-            : undefined;
-          const description = writeUp
-            ? writeUp.substring(0, 2000) || undefined
-            : undefined;
-
-          const startTime = inferStartTime(dateStr, config.startTimeRules);
-
-          events.push({
-            date: dateStr,
-            kennelTag,
-            runNumber,
-            title,
-            description,
-            hares,
-            location,
-            locationUrl: location ? mapsUrl(location) : undefined,
-            startTime,
-            sourceUrl: source.url,
-          });
+          const event = buildEventFromSheetRow(row, config, source.url, dateStr);
+          if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           errors.push(`Row ${rowIdx} in tab "${tabName}": ${message}`);
@@ -311,8 +344,6 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         }
       }
 
-      // Optimization: if this tab had no events in our window and it's an older tab,
-      // we can stop (tabs are sorted newest-first)
       if (!tabHasEventsInWindow && events.length > 0) {
         break;
       }

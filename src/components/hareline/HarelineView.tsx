@@ -21,6 +21,51 @@ function parseList(value: string | null): string[] {
   return value.split(",").filter(Boolean);
 }
 
+interface FilterCriteria {
+  view: "list" | "calendar";
+  timeFilter: "upcoming" | "past";
+  scope: "my" | "all";
+  subscribedKennelIds: string[];
+  selectedRegions: string[];
+  selectedKennels: string[];
+  selectedDays: string[];
+  selectedCountry: string;
+  todayUtc: number;
+}
+
+/** Check whether a single event passes all active filters. */
+function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
+  const eventDate = new Date(event.date).getTime();
+
+  if (f.view !== "calendar") {
+    if (f.timeFilter === "upcoming" && eventDate < f.todayUtc) return false;
+    if (f.timeFilter === "past" && eventDate >= f.todayUtc) return false;
+  }
+  if (f.scope === "my" && !f.subscribedKennelIds.includes(event.kennelId)) return false;
+  if (f.selectedRegions.length > 0 && !f.selectedRegions.includes(event.kennel.region)) return false;
+  if (f.selectedKennels.length > 0 && !f.selectedKennels.includes(event.kennel.id)) return false;
+  if (f.selectedDays.length > 0 && !f.selectedDays.includes(getDayOfWeek(event.date))) return false;
+  if (f.selectedCountry && event.kennel.country !== f.selectedCountry) return false;
+
+  return true;
+}
+
+/** Sort events by date (direction depends on timeFilter) then by startTime. */
+function sortEvents(events: HarelineEvent[], timeFilter: "upcoming" | "past"): HarelineEvent[] {
+  const sorted = [...events];
+  sorted.sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    const dateDiff = timeFilter === "upcoming" ? dateA - dateB : dateB - dateA;
+    if (dateDiff !== 0) return dateDiff;
+    if (!a.startTime && !b.startTime) return 0;
+    if (!a.startTime) return 1;
+    if (!b.startTime) return -1;
+    return a.startTime.localeCompare(b.startTime);
+  });
+  return sorted;
+}
+
 export function HarelineView({
   events,
   subscribedKennelIds,
@@ -157,59 +202,15 @@ export function HarelineView({
     const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
 
     return events.filter((event) => {
-      const eventDate = new Date(event.date).getTime();
-
-      // Time filter — skip for calendar view (calendar shows all months)
-      if (view !== "calendar") {
-        if (timeFilter === "upcoming" && eventDate < todayUtc) return false;
-        if (timeFilter === "past" && eventDate >= todayUtc) return false;
-      }
-
-      // Scope filter (My Kennels)
-      if (scope === "my" && !subscribedKennelIds.includes(event.kennelId)) {
-        return false;
-      }
-
-      // Region filter
-      if (selectedRegions.length > 0 && !selectedRegions.includes(event.kennel.region)) {
-        return false;
-      }
-
-      // Kennel filter
-      if (selectedKennels.length > 0 && !selectedKennels.includes(event.kennel.id)) {
-        return false;
-      }
-
-      // Day of week filter
-      if (selectedDays.length > 0 && !selectedDays.includes(getDayOfWeek(event.date))) {
-        return false;
-      }
-
-      // Country filter
-      if (selectedCountry && event.kennel.country !== selectedCountry) {
-        return false;
-      }
-
-      return true;
+      return passesAllFilters(event, {
+        view, timeFilter, scope, subscribedKennelIds,
+        selectedRegions, selectedKennels, selectedDays, selectedCountry, todayUtc,
+      });
     });
   }, [events, view, timeFilter, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays, selectedCountry]);
 
-  // Sort: upcoming = ascending (nearest first), past = descending (most recent first)
-  // Secondary sort by startTime within the same day (events without time go last)
   const sortedEvents = useMemo(() => {
-    const sorted = [...filteredEvents];
-    sorted.sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      const dateDiff = timeFilter === "upcoming" ? dateA - dateB : dateB - dateA;
-      if (dateDiff !== 0) return dateDiff;
-      // Same date — sort by startTime ("HH:MM" string), nulls last
-      if (!a.startTime && !b.startTime) return 0;
-      if (!a.startTime) return 1;
-      if (!b.startTime) return -1;
-      return a.startTime.localeCompare(b.startTime);
-    });
-    return sorted;
+    return sortEvents(filteredEvents, timeFilter);
   }, [filteredEvents, timeFilter]);
 
   const listContent = (

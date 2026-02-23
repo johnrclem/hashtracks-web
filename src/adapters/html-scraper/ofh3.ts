@@ -16,35 +16,38 @@ const MONTHS: Record<string, number> = {
  * Parse a date string like "Saturday, March 14, 2026" into YYYY-MM-DD.
  * Also handles: "March 14, 2026", "March 14th, 2026", "3.14.26" (M.DD.YY)
  */
-export function parseOfh3Date(text: string): string | null {
-  // Try named month format first: "March 14, 2026", "March 14th, 2026"
+/** Try parsing a named month format: "March 14, 2026", "March 14th, 2026". */
+function tryParseNamedMonthFormat(text: string): string | null {
   const namedMatch = text.match(/(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/i);
-  if (namedMatch) {
-    const monthNum = MONTHS[namedMatch[1].toLowerCase()];
-    if (monthNum) {
-      const day = parseInt(namedMatch[2], 10);
-      const year = parseInt(namedMatch[3], 10);
-      if (day >= 1 && day <= 31) {
-        return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      }
-    }
+  if (!namedMatch) return null;
+  const monthNum = MONTHS[namedMatch[1].toLowerCase()];
+  if (!monthNum) return null;
+  const day = parseInt(namedMatch[2], 10);
+  const year = parseInt(namedMatch[3], 10);
+  if (day >= 1 && day <= 31) {
+    return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   }
-
-  // Try dot-separated format: "3.14.26" or "03.14.2026" (M.DD.YY or MM.DD.YYYY)
-  const dotMatch = text.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
-  if (dotMatch) {
-    const month = parseInt(dotMatch[1], 10);
-    const day = parseInt(dotMatch[2], 10);
-    let year = parseInt(dotMatch[3], 10);
-    if (year < 100) {
-      year += year < 50 ? 2000 : 1900;
-    }
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-
   return null;
+}
+
+/** Try parsing a dot-separated format: "3.14.26" or "03.14.2026". */
+function tryParseDotSeparatedFormat(text: string): string | null {
+  const dotMatch = text.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
+  if (!dotMatch) return null;
+  const month = parseInt(dotMatch[1], 10);
+  const day = parseInt(dotMatch[2], 10);
+  let year = parseInt(dotMatch[3], 10);
+  if (year < 100) {
+    year += year < 50 ? 2000 : 1900;
+  }
+  if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  return null;
+}
+
+export function parseOfh3Date(text: string): string | null {
+  return tryParseNamedMonthFormat(text) ?? tryParseDotSeparatedFormat(text);
 }
 
 /**
@@ -101,6 +104,26 @@ export function parseOfh3Body(text: string): {
  * Process a single OFH3 blog post into a RawEventData.
  * Returns null if the post cannot be parsed (e.g., missing date).
  */
+/** Resolve the event date from body fields or title text. Returns null if unresolvable. */
+function resolveOfh3EventDate(
+  bodyFields: ReturnType<typeof parseOfh3Body>,
+  titleText: string,
+): string | null {
+  if (bodyFields.date) return bodyFields.date;
+  return parseOfh3Date(titleText);
+}
+
+/** Build a description string from OFH3 body fields. */
+function buildOfh3Description(bodyFields: ReturnType<typeof parseOfh3Body>): string | undefined {
+  const descParts: string[] = [];
+  if (bodyFields.trailType) descParts.push(`Trail Type: ${bodyFields.trailType}`);
+  if (bodyFields.distances) descParts.push(`Distances: ${bodyFields.distances}`);
+  if (bodyFields.shiggyRating) descParts.push(`Shiggy: ${bodyFields.shiggyRating}`);
+  if (bodyFields.cost) descParts.push(`Cost: ${bodyFields.cost}`);
+  if (bodyFields.onAfter) descParts.push(`On After: ${bodyFields.onAfter}`);
+  return descParts.length > 0 ? descParts.join(" | ") : undefined;
+}
+
 function processPost(
   titleText: string,
   bodyText: string,
@@ -112,40 +135,27 @@ function processPost(
 ): RawEventData | null {
   const bodyFields = parseOfh3Body(bodyText);
 
-  if (!bodyFields.date) {
-    // Try extracting date from the title (e.g., "OFH3 Trail #387 - June 1, 2025 - ...")
-    const titleDate = parseOfh3Date(titleText);
-    if (!titleDate) {
-      if (bodyText.trim().length > 0) {
-        const dateError = `No date found in post: ${titleText || "(untitled)"}`;
-        errors.push(dateError);
-        errorDetails.parse = [...(errorDetails.parse ?? []), {
-          row: index, section: "post", field: "date",
-          error: dateError,
-          rawText: `Title: ${titleText}\n\n${bodyText}`.slice(0, 2000),
-          partialData: {
-            kennelTag: "OFH3",
-            title: titleText || undefined,
-            hares: bodyFields.hares,
-            location: bodyFields.location,
-            sourceUrl: postUrl.startsWith("http") ? postUrl : `${baseUrl.replace(/\/$/, "")}${postUrl}`,
-          },
-        }];
-      }
-      return null;
+  const eventDate = resolveOfh3EventDate(bodyFields, titleText);
+  if (!eventDate) {
+    if (bodyText.trim().length > 0) {
+      const dateError = `No date found in post: ${titleText || "(untitled)"}`;
+      errors.push(dateError);
+      errorDetails.parse = [...(errorDetails.parse ?? []), {
+        row: index, section: "post", field: "date",
+        error: dateError,
+        rawText: `Title: ${titleText}\n\n${bodyText}`.slice(0, 2000),
+        partialData: {
+          kennelTag: "OFH3",
+          title: titleText || undefined,
+          hares: bodyFields.hares,
+          location: bodyFields.location,
+          sourceUrl: postUrl.startsWith("http") ? postUrl : `${baseUrl.replace(/\/$/, "")}${postUrl}`,
+        },
+      }];
     }
-    bodyFields.date = titleDate;
+    return null;
   }
 
-  // Build description from trail details
-  const descParts: string[] = [];
-  if (bodyFields.trailType) descParts.push(`Trail Type: ${bodyFields.trailType}`);
-  if (bodyFields.distances) descParts.push(`Distances: ${bodyFields.distances}`);
-  if (bodyFields.shiggyRating) descParts.push(`Shiggy: ${bodyFields.shiggyRating}`);
-  if (bodyFields.cost) descParts.push(`Cost: ${bodyFields.cost}`);
-  if (bodyFields.onAfter) descParts.push(`On After: ${bodyFields.onAfter}`);
-
-  // Generate location URL
   let locationUrl: string | undefined;
   if (bodyFields.location && bodyFields.location.toLowerCase() !== "tba") {
     locationUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(bodyFields.location)}`;
@@ -154,15 +164,15 @@ function processPost(
   const sourceUrl = postUrl.startsWith("http") ? postUrl : `${baseUrl.replace(/\/$/, "")}${postUrl}`;
 
   return {
-    date: bodyFields.date,
+    date: eventDate,
     kennelTag: "OFH3",
     title: titleText || undefined,
     hares: bodyFields.hares,
     location: bodyFields.location && bodyFields.location.toLowerCase() !== "tba" ? bodyFields.location : undefined,
     locationUrl,
-    startTime: "11:00", // OFH3 standard: hares away at 11:00 AM
+    startTime: "11:00",
     sourceUrl,
-    description: descParts.length > 0 ? descParts.join(" | ") : undefined,
+    description: buildOfh3Description(bodyFields),
   };
 }
 

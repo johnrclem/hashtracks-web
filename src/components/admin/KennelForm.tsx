@@ -59,6 +59,13 @@ interface SimilarKennel {
   score: number;
 }
 
+/** Convert a boolean | null value to a tristate select default string. */
+function triStateDefault(value: boolean | null): string {
+  if (value === true) return "true";
+  if (value === false) return "false";
+  return "";
+}
+
 export function KennelForm({ kennel, trigger }: KennelFormProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -80,31 +87,35 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
     setAliases(aliases.filter((a) => a !== alias));
   }
 
+  function handleSubmitResult(
+    result: { error?: string; warning?: string; similarKennels?: SimilarKennel[]; success?: boolean },
+    formData: FormData,
+  ) {
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    if ("warning" in result && result.similarKennels) {
+      setSimilarKennels(result.similarKennels);
+      setPendingFormData(formData);
+      return;
+    }
+    toast.success(kennel ? "Kennel updated" : "Kennel created");
+    setOpen(false);
+    setSimilarKennels([]);
+    setPendingFormData(null);
+    if (!kennel) setAliases([]);
+    router.refresh();
+  }
+
   function handleSubmit(formData: FormData, force = false) {
-    // Inject aliases as comma-separated string
     formData.set("aliases", aliases.join(","));
 
     startTransition(async () => {
       const result = kennel
         ? await updateKennel(kennel.id, formData)
         : await createKennel(formData, force);
-
-      if (result.error) {
-        toast.error(result.error);
-      } else if ("warning" in result && result.similarKennels) {
-        // Similar kennels found - show confirmation
-        setSimilarKennels(result.similarKennels);
-        setPendingFormData(formData);
-      } else {
-        toast.success(kennel ? "Kennel updated" : "Kennel created");
-        setOpen(false);
-        setSimilarKennels([]);
-        setPendingFormData(null);
-        if (!kennel) {
-          setAliases([]);
-        }
-        router.refresh();
-      }
+      handleSubmitResult(result, formData);
     });
   }
 
@@ -468,7 +479,7 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
                 <select
                   id="dogFriendly"
                   name="dogFriendly"
-                  defaultValue={kennel?.dogFriendly === true ? "true" : kennel?.dogFriendly === false ? "false" : ""}
+                  defaultValue={triStateDefault(kennel?.dogFriendly ?? null)}
                   className="w-full rounded-md border px-3 py-2 text-sm"
                 >
                   <option value="">Unknown</option>
@@ -481,7 +492,7 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
                 <select
                   id="walkersWelcome"
                   name="walkersWelcome"
-                  defaultValue={kennel?.walkersWelcome === true ? "true" : kennel?.walkersWelcome === false ? "false" : ""}
+                  defaultValue={triStateDefault(kennel?.walkersWelcome ?? null)}
                   className="w-full rounded-md border px-3 py-2 text-sm"
                 >
                   <option value="">Unknown</option>

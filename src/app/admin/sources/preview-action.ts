@@ -36,6 +36,44 @@ export interface PreviewData {
 const MAX_PREVIEW_EVENTS = 25;
 const PREVIEW_LOOKBACK_DAYS = 30;
 
+/** Parse and validate config JSON for preview. */
+function parsePreviewConfig(
+  configRaw: string,
+  type: string,
+): { config: Record<string, unknown> | null; error?: string } {
+  let config: Record<string, unknown> | null = null;
+  if (configRaw) {
+    try {
+      config = JSON.parse(configRaw);
+    } catch {
+      return { config: null, error: "Invalid JSON in config field" };
+    }
+  }
+  const configErrors = validateSourceConfig(type, config);
+  if (configErrors.length > 0) {
+    return { config: null, error: `Config validation failed: ${configErrors.join("; ")}` };
+  }
+  return { config };
+}
+
+/** Resolve all unique kennel tags and return resolution map + unmatched list. */
+async function resolvePreviewTags(
+  events: Array<{ kennelTag: string }>,
+): Promise<{ tagResolution: Map<string, boolean>; unmatchedTags: string[] }> {
+  clearResolverCache();
+  const uniqueTags = [...new Set(events.map((e) => e.kennelTag))];
+  const tagResults = await Promise.all(
+    uniqueTags.map(async (tag) => {
+      const { matched } = await resolveKennelTag(tag);
+      return { tag, matched };
+    }),
+  );
+  const tagResolution = new Map<string, boolean>();
+  tagResults.forEach(({ tag, matched }) => tagResolution.set(tag, matched));
+  const unmatchedTags = uniqueTags.filter((t) => !tagResolution.get(t));
+  return { tagResolution, unmatchedTags };
+}
+
 export async function previewSourceConfig(
   formData: FormData,
 ): Promise<{ data?: PreviewData; error?: string }> {
@@ -50,31 +88,14 @@ export async function previewSourceConfig(
     return { error: "Type and URL are required for preview" };
   }
 
-  // SSRF protection: only allow http/https protocols, block private IPs.
-  // GOOGLE_CALENDAR is exempt — source.url is a raw calendarId, not a URL;
-  // the adapter builds its own googleapis.com URL internally.
   if (type !== "GOOGLE_CALENDAR") {
     const urlError = validatePreviewUrl(url);
     if (urlError) return { error: urlError };
   }
 
-  // Parse config JSON
-  let config: Record<string, unknown> | null = null;
-  if (configRaw) {
-    try {
-      config = JSON.parse(configRaw);
-    } catch {
-      return { error: "Invalid JSON in config field" };
-    }
-  }
+  const { config, error: configError } = parsePreviewConfig(configRaw, type);
+  if (configError) return { error: configError };
 
-  // Validate config
-  const configErrors = validateSourceConfig(type, config);
-  if (configErrors.length > 0) {
-    return { error: `Config validation failed: ${configErrors.join("; ")}` };
-  }
-
-  // Build mock Source object — adapters only access url, config, type, scrapeDays
   const mockSource = {
     id: "preview",
     name: "Preview",
@@ -91,7 +112,6 @@ export async function previewSourceConfig(
     updatedAt: new Date(),
   } as Source;
 
-  // Get adapter and fetch events
   let adapter;
   try {
     adapter = getAdapter(type as SourceType, url);
@@ -110,24 +130,9 @@ export async function previewSourceConfig(
     };
   }
 
-  // Compute fill rates
   const fillRates = computeFillRates(result.events);
+  const { tagResolution, unmatchedTags } = await resolvePreviewTags(result.events);
 
-  // Resolve kennel tags concurrently (read-only DB queries)
-  clearResolverCache();
-  const uniqueTags = [...new Set(result.events.map((e) => e.kennelTag))];
-  const tagResults = await Promise.all(
-    uniqueTags.map(async (tag) => {
-      const { matched } = await resolveKennelTag(tag);
-      return { tag, matched };
-    }),
-  );
-  const tagResolution = new Map<string, boolean>();
-  tagResults.forEach(({ tag, matched }) => tagResolution.set(tag, matched));
-
-  const unmatchedTags = uniqueTags.filter((t) => !tagResolution.get(t));
-
-  // Build preview events (capped at MAX_PREVIEW_EVENTS)
   const previewEvents: PreviewEvent[] = result.events
     .slice(0, MAX_PREVIEW_EVENTS)
     .map((e) => ({

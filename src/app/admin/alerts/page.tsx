@@ -6,6 +6,35 @@ import { AlertFilters } from "@/components/admin/AlertFilters";
 import { fuzzyMatch } from "@/lib/fuzzy";
 import type { KennelOption } from "@/components/admin/UnmatchedTagResolver";
 
+/** Build the Prisma where clause for alert status filtering. */
+function buildAlertsWhereClause(statusFilter: string) {
+  if (statusFilter === "all") return {};
+  if (statusFilter === "active") {
+    return { status: { in: ["OPEN" as const, "ACKNOWLEDGED" as const] } };
+  }
+  return { status: statusFilter as "OPEN" | "ACKNOWLEDGED" | "SNOOZED" | "RESOLVED" };
+}
+
+/** Compute fuzzy kennel suggestions for UNMATCHED_TAGS alerts. */
+function computeFuzzySuggestions(
+  alerts: Array<{ id: string; type: string; context: unknown }>,
+  fuzzyCandidates: Array<{ id: string; shortName: string; fullName: string; aliases: string[] }>,
+): Record<string, Record<string, KennelOption[]>> {
+  const suggestionsMap: Record<string, Record<string, KennelOption[]>> = {};
+  for (const alert of alerts) {
+    if (alert.type !== "UNMATCHED_TAGS" || !alert.context) continue;
+    const ctx = alert.context as { tags?: string[] };
+    if (!ctx.tags) continue;
+
+    const alertSuggestions: Record<string, KennelOption[]> = {};
+    for (const tag of ctx.tags) {
+      alertSuggestions[tag] = fuzzyMatch(tag, fuzzyCandidates);
+    }
+    suggestionsMap[alert.id] = alertSuggestions;
+  }
+  return suggestionsMap;
+}
+
 export default async function AlertsPage({
   searchParams,
 }: {
@@ -16,14 +45,7 @@ export default async function AlertsPage({
 
   const params = await searchParams;
   const statusFilter = params.status ?? "active";
-
-  // Build where clause based on filter
-  const where =
-    statusFilter === "all"
-      ? {}
-      : statusFilter === "active"
-        ? { status: { in: ["OPEN" as const, "ACKNOWLEDGED" as const] } }
-        : { status: statusFilter as "OPEN" | "ACKNOWLEDGED" | "SNOOZED" | "RESOLVED" };
+  const where = buildAlertsWhereClause(statusFilter);
 
   const [alerts, counts, allKennels] = await Promise.all([
     prisma.alert.findMany({
@@ -61,7 +83,6 @@ export default async function AlertsPage({
   const snoozedCount = countMap["SNOOZED"] ?? 0;
   const resolvedCount = countMap["RESOLVED"] ?? 0;
 
-  // Compute fuzzy suggestions for UNMATCHED_TAGS alerts
   const fuzzyCandidates = allKennels.map((k) => ({
     id: k.id,
     shortName: k.shortName,
@@ -69,19 +90,7 @@ export default async function AlertsPage({
     aliases: k.aliases.map((a) => a.alias),
   }));
 
-  const suggestionsMap: Record<string, Record<string, KennelOption[]>> = {};
-  for (const alert of alerts) {
-    if (alert.type === "UNMATCHED_TAGS" && alert.context) {
-      const ctx = alert.context as { tags?: string[] };
-      if (ctx.tags) {
-        const alertSuggestions: Record<string, KennelOption[]> = {};
-        for (const tag of ctx.tags) {
-          alertSuggestions[tag] = fuzzyMatch(tag, fuzzyCandidates);
-        }
-        suggestionsMap[alert.id] = alertSuggestions;
-      }
-    }
-  }
+  const suggestionsMap = computeFuzzySuggestions(alerts, fuzzyCandidates);
 
   const kennelList = allKennels.map((k) => ({
     id: k.id,

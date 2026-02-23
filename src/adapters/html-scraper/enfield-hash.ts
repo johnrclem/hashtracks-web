@@ -266,11 +266,11 @@ export class EnfieldHashAdapter implements SourceAdapter {
     };
   }
 
-  private async fetchViaHtmlScrape(baseUrl: string, bloggerApiError?: string): Promise<ScrapeResult> {
-    const events: RawEventData[] = [];
-    const errors: string[] = [];
-    const errorDetails: ErrorDetails = {};
-
+  /** Try fetching HTML from URL variants (original, http/https toggle), returning html + fetchUrl on success. */
+  private async tryFetchWithUrlVariants(
+    baseUrl: string,
+    errorDetails: ErrorDetails,
+  ): Promise<{ html: string; fetchUrl: string } | null> {
     const requestHeaders = {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -279,21 +279,15 @@ export class EnfieldHashAdapter implements SourceAdapter {
       "Accept-Language": "en-US,en;q=0.9",
     };
 
-    let html: string | undefined;
-    let fetchUrl = baseUrl;
-    const fetchStart = Date.now();
     const candidateUrls = buildUrlVariantCandidates(baseUrl);
 
     for (const candidateUrl of candidateUrls) {
       try {
-        const response = await fetch(candidateUrl, {
-          headers: requestHeaders,
-        });
+        const response = await fetch(candidateUrl, { headers: requestHeaders });
 
         if (response.ok) {
-          html = await response.text();
-          fetchUrl = candidateUrl;
-          break;
+          const html = await response.text();
+          return { html, fetchUrl: candidateUrl };
         }
 
         const message = `HTTP ${response.status}: ${response.statusText}`;
@@ -303,15 +297,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
         ];
 
         if (response.status !== 403 && response.status !== 404) {
-          return {
-            events: [],
-            errors: [message],
-            errorDetails,
-            diagnosticContext: {
-              fetchMethod: "html-scrape",
-              ...(bloggerApiError ? { bloggerApiError } : {}),
-            },
-          };
+          return null;
         }
       } catch (err) {
         const message = `Fetch failed: ${err}`;
@@ -322,7 +308,18 @@ export class EnfieldHashAdapter implements SourceAdapter {
       }
     }
 
-    if (!html) {
+    return null;
+  }
+
+  private async fetchViaHtmlScrape(baseUrl: string, bloggerApiError?: string): Promise<ScrapeResult> {
+    const events: RawEventData[] = [];
+    const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
+
+    const fetchStart = Date.now();
+    const fetchResult = await this.tryFetchWithUrlVariants(baseUrl, errorDetails);
+
+    if (!fetchResult) {
       const last = errorDetails.fetch?.[errorDetails.fetch.length - 1];
       const fallbackMessage = last?.message ?? "Fetch failed";
       return {
@@ -336,12 +333,12 @@ export class EnfieldHashAdapter implements SourceAdapter {
       };
     }
 
+    const { html, fetchUrl } = fetchResult;
     const fetchDurationMs = Date.now() - fetchStart;
 
     const structureHash = generateStructureHash(html);
     const $ = cheerio.load(html);
 
-    // Blogger uses nested .post-outer > .post — prefer outermost to avoid double-counting
     let posts = $(".post-outer").toArray();
     if (posts.length === 0) {
       posts = $(".post, .blog-post").toArray();

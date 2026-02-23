@@ -146,7 +146,7 @@ export function SourceTable({ sources, allKennels, geminiAvailable }: SourceTabl
   }
 
   // Only show types that exist in sources
-  const availableTypes = Array.from(new Set(sources.map((s) => s.type))).sort();
+  const availableTypes = Array.from(new Set(sources.map((s) => s.type))).sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="space-y-3">

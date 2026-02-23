@@ -78,30 +78,11 @@ export function parseSlashTime(text: string): string | null {
  * Expected cells: [run number, day, date, time, location, hare]
  * or variations thereof.
  */
-export function parseSlashRow(cells: string[]): RawEventData | null {
-  if (cells.length < 3) return null;
-
-  const allText = cells.join(" ");
-  const date = parseSlashDate(allText);
-  if (!date) return null;
-
-  // Run number: look for 3-digit number (SLASH is around #320)
-  let runNumber: number | undefined;
-  const runMatch = cells[0].match(/(\d{2,5})/);
-  if (runMatch) {
-    const num = parseInt(runMatch[1], 10);
-    // Reasonable range for SLASH run numbers
-    if (num >= 1 && num <= 9999) runNumber = num;
-  }
-
-  // Time: check all cells for time pattern
-  const time = parseSlashTime(allText) ?? "12:00";
-
-  // Hare: typically the last cell, or a cell containing names
-  let hares: string | undefined;
+/** Extract location and hares fields based on column count. */
+function extractFieldsByColumnCount(cells: string[]): { location: string | undefined; hares: string | undefined } {
   let location: string | undefined;
+  let hares: string | undefined;
 
-  // For a 6-column table [#, day, date, time, location, hare]
   if (cells.length >= 6) {
     location = cells[4].trim() || undefined;
     hares = cells[5].trim() || undefined;
@@ -112,7 +93,6 @@ export function parseSlashRow(cells: string[]): RawEventData | null {
     location = cells[2].trim() || undefined;
     hares = cells[3].trim() || undefined;
   } else {
-    // Try to find hares and location from remaining cells
     for (let i = 1; i < cells.length; i++) {
       const cell = cells[i].trim();
       if (!cell || parseSlashDate(cell)) continue;
@@ -124,13 +104,34 @@ export function parseSlashRow(cells: string[]): RawEventData | null {
     }
   }
 
-  // Clean up TBA/TBC values
-  if (hares && /^(tba|tbd|tbc|needed|required|\?\??)$/i.test(hares.trim())) {
-    hares = undefined;
+  return { location, hares };
+}
+
+/** Clean TBA/TBC placeholder values from hares and location. */
+function cleanupTBAValues(hares: string | undefined, location: string | undefined): { hares: string | undefined; location: string | undefined } {
+  const cleanedHares = hares && /^(tba|tbd|tbc|needed|required|\?\??)$/i.test(hares.trim()) ? undefined : hares;
+  const cleanedLocation = location && /^(tba|tbd|tbc|\?\??)$/i.test(location.trim()) ? undefined : location;
+  return { hares: cleanedHares, location: cleanedLocation };
+}
+
+export function parseSlashRow(cells: string[]): RawEventData | null {
+  if (cells.length < 3) return null;
+
+  const allText = cells.join(" ");
+  const date = parseSlashDate(allText);
+  if (!date) return null;
+
+  let runNumber: number | undefined;
+  const runMatch = cells[0].match(/(\d{2,5})/);
+  if (runMatch) {
+    const num = parseInt(runMatch[1], 10);
+    if (num >= 1 && num <= 9999) runNumber = num;
   }
-  if (location && /^(tba|tbd|tbc|\?\??)$/i.test(location.trim())) {
-    location = undefined;
-  }
+
+  const time = parseSlashTime(allText) ?? "12:00";
+
+  const rawFields = extractFieldsByColumnCount(cells);
+  const { hares, location } = cleanupTBAValues(rawFields.hares, rawFields.location);
 
   return {
     date,

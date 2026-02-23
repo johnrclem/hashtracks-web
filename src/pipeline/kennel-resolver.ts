@@ -13,6 +13,58 @@ export function clearResolverCache() {
   cache.clear();
 }
 
+/** Step 1-2: Try exact shortName match (source-scoped then global), then alias match. */
+async function resolveViaExactMatch(
+  normalized: string,
+  sourceId?: string,
+): Promise<ResolveResult | null> {
+  if (sourceId) {
+    const sourceLinked = await prisma.kennel.findFirst({
+      where: {
+        shortName: { equals: normalized, mode: "insensitive" },
+        sources: { some: { sourceId } },
+      },
+      select: { id: true },
+    });
+    if (sourceLinked) return { kennelId: sourceLinked.id, matched: true };
+  }
+
+  const kennel = await prisma.kennel.findFirst({
+    where: { shortName: { equals: normalized, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (kennel) return { kennelId: kennel.id, matched: true };
+
+  return null;
+}
+
+/** Step 2: Try alias match. */
+async function resolveViaAlias(normalized: string): Promise<ResolveResult | null> {
+  const alias = await prisma.kennelAlias.findFirst({
+    where: { alias: { equals: normalized, mode: "insensitive" } },
+    select: { kennelId: true },
+  });
+  if (alias) return { kennelId: alias.kennelId, matched: true };
+  return null;
+}
+
+/** Step 3: Pattern mapping + retry exact/alias with mapped name. */
+async function resolveViaPatternMapping(
+  normalized: string,
+  sourceId?: string,
+): Promise<ResolveResult | null> {
+  const mapped = mapKennelTag(normalized.toLowerCase());
+  if (!mapped) return null;
+
+  const exactResult = await resolveViaExactMatch(mapped, sourceId);
+  if (exactResult) return exactResult;
+
+  const aliasResult = await resolveViaAlias(mapped);
+  if (aliasResult) return aliasResult;
+
+  return null;
+}
+
 /**
  * Resolve a raw kennel tag to a Kennel ID.
  *
@@ -33,92 +85,19 @@ export async function resolveKennelTag(
   const normalized = tag.trim();
   if (!normalized) return { kennelId: null, matched: false };
 
-  // Check cache first (include sourceId in key for source-scoped resolution)
   const cacheKey = sourceId ? `${normalized.toLowerCase()}:${sourceId}` : normalized.toLowerCase();
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  // Step 1: Exact match on shortName (case-insensitive)
-  // When sourceId is provided and shortName matches multiple kennels, prefer the source-linked one
-  if (sourceId) {
-    const sourceLinked = await prisma.kennel.findFirst({
-      where: {
-        shortName: { equals: normalized, mode: "insensitive" },
-        sources: { some: { sourceId } },
-      },
-      select: { id: true },
-    });
-    if (sourceLinked) {
-      const result = { kennelId: sourceLinked.id, matched: true };
-      cache.set(cacheKey, result);
-      return result;
-    }
-  }
+  const exactResult = await resolveViaExactMatch(normalized, sourceId);
+  if (exactResult) { cache.set(cacheKey, exactResult); return exactResult; }
 
-  // Fallback: any kennel with that shortName
-  const kennel = await prisma.kennel.findFirst({
-    where: { shortName: { equals: normalized, mode: "insensitive" } },
-    select: { id: true },
-  });
-  if (kennel) {
-    const result = { kennelId: kennel.id, matched: true };
-    cache.set(cacheKey, result);
-    return result;
-  }
+  const aliasResult = await resolveViaAlias(normalized);
+  if (aliasResult) { cache.set(cacheKey, aliasResult); return aliasResult; }
 
-  // Step 2: Case-insensitive match on alias
-  const alias = await prisma.kennelAlias.findFirst({
-    where: { alias: { equals: normalized, mode: "insensitive" } },
-    select: { kennelId: true },
-  });
-  if (alias) {
-    const result = { kennelId: alias.kennelId, matched: true };
-    cache.set(cacheKey, result);
-    return result;
-  }
+  const patternResult = await resolveViaPatternMapping(normalized, sourceId);
+  if (patternResult) { cache.set(cacheKey, patternResult); return patternResult; }
 
-  // Step 3: Pattern matching fallback (PRD Appendix D.2)
-  const mapped = mapKennelTag(normalized.toLowerCase());
-  if (mapped) {
-    // Retry step 1 with the mapped short name (source-scoped)
-    if (sourceId) {
-      const mappedSourceLinked = await prisma.kennel.findFirst({
-        where: {
-          shortName: { equals: mapped, mode: "insensitive" },
-          sources: { some: { sourceId } },
-        },
-        select: { id: true },
-      });
-      if (mappedSourceLinked) {
-        const result = { kennelId: mappedSourceLinked.id, matched: true };
-        cache.set(cacheKey, result);
-        return result;
-      }
-    }
-
-    const mappedKennel = await prisma.kennel.findFirst({
-      where: { shortName: { equals: mapped, mode: "insensitive" } },
-      select: { id: true },
-    });
-    if (mappedKennel) {
-      const result = { kennelId: mappedKennel.id, matched: true };
-      cache.set(cacheKey, result);
-      return result;
-    }
-
-    // Retry step 2 with the mapped name as alias (handles renamed kennels)
-    const mappedAlias = await prisma.kennelAlias.findFirst({
-      where: { alias: { equals: mapped, mode: "insensitive" } },
-      select: { kennelId: true },
-    });
-    if (mappedAlias) {
-      const result = { kennelId: mappedAlias.kennelId, matched: true };
-      cache.set(cacheKey, result);
-      return result;
-    }
-  }
-
-  // Step 4: No match
   const result = { kennelId: null, matched: false };
   cache.set(cacheKey, result);
   return result;
@@ -126,68 +105,65 @@ export async function resolveKennelTag(
 
 /**
  * Pattern matching fallback from PRD Appendix D.2.
- * Multi-word patterns first, then shorter patterns.
+ * Data-driven: patterns are evaluated in order (multi-word first, then shorter).
  * Returns the canonical shortName or null.
  */
-export function mapKennelTag(input: string): string | null {
+const KENNEL_PATTERNS: [RegExp, string][] = [
   // Multi-word patterns FIRST (longer before shorter)
-  if (input.includes("ballbuster") || input.includes("bobbh3") || input.includes("b3h4"))
-    return "BoBBH3";
-  if (input.includes("queens black knights")) return "QBK";
-  if (input.includes("new amsterdam") || input.startsWith("nass"))
-    return "NAH3";
-  if (input.includes("long island") || input.includes("lunatics"))
-    return "LIL";
-  if (input.includes("staten island")) return "SI";
-  if (input.includes("drinking practice")) return "Drinking Practice (NYC)";
-  if (input.includes("knickerbocker")) return "Knick";
-  if (input.includes("pink taco") || input.includes("pt2h3")) return "Pink Taco";
+  [/ballbuster|bobbh3|b3h4/, "BoBBH3"],
+  [/queens black knights/, "QBK"],
+  [/new amsterdam|^nass/, "NAH3"],
+  [/long island|lunatics/, "LIL"],
+  [/staten island/, "SI"],
+  [/drinking practice/, "Drinking Practice (NYC)"],
+  [/knickerbocker/, "Knick"],
+  [/pink taco|pt2h3/, "Pink Taco"],
 
   // Brooklyn (before generic "br" patterns)
-  if (input.startsWith("brooklyn") || input.startsWith("brh3")) return "BrH3";
+  [/^brooklyn|^brh3/, "BrH3"],
 
   // NAWW
-  if (input.startsWith("naww") || input.includes("naww")) return "NAWWH3";
+  [/naww/, "NAWWH3"],
 
   // NAH3
-  if (input.startsWith("nah3")) return "NAH3";
+  [/^nah3/, "NAH3"],
 
   // NYC (after more specific NYC-area kennels)
-  if (input.startsWith("nyc") || input.startsWith("nych3")) return "NYCH3";
+  [/^nyc|^nych3/, "NYCH3"],
 
   // Boston area
-  if (
-    input.startsWith("boston hash") ||
-    input.startsWith("bh3") ||
-    input.startsWith("boh3")
-  )
-    return "BoH3";
-  if (input.includes("moon") || input.includes("moom")) return "Bos Moon";
-  if (input.includes("beantown")) return "Beantown";
+  [/^boston hash|^bh3|^boh3/, "BoH3"],
+  [/moon|moom/, "Bos Moon"],
+  [/beantown/, "Beantown"],
 
   // Remaining short patterns
-  if (input.includes("queens")) return "QBK";
-  if (input.includes("knick")) return "Knick";
-  if (input.includes("lil")) return "LIL";
-  if (input.includes("columbia")) return "Columbia";
-  if (input.includes("ggfm")) return "GGFM";
-  if (input.includes("harriettes")) return "Harriettes";
-  if (input.includes("si hash") || input === "si") return "SI";
-  if (input.includes("special")) return "Special (NYC)";
+  [/queens/, "QBK"],
+  [/knick/, "Knick"],
+  [/lil/, "LIL"],
+  [/columbia/, "Columbia"],
+  [/ggfm/, "GGFM"],
+  [/harriettes/, "Harriettes"],
+  [/si hash|^si$/, "SI"],
+  [/special/, "Special (NYC)"],
 
   // Philadelphia
-  if (input.includes("ben franklin") || input.includes("bfm")) return "BFM";
-  if (input.includes("philly") || input.includes("hashphilly")) return "Philly H3";
+  [/ben franklin|bfm/, "BFM"],
+  [/philly|hashphilly/, "Philly H3"],
 
   // Chicago
-  if (input.startsWith("ch3") || input.includes("chicago")) return "CH3";
+  [/^ch3|chicago/, "CH3"],
 
   // Summit / NJ area
-  if (input.includes("asssh3") || input.includes("all seasons summit shiggy"))
-    return "ASSSH3";
-  if (input.includes("summit full moon") || input === "sfm") return "SFM";
-  if (input.includes("summit")) return "Summit";
-  if (input.includes("rumson")) return "Rumson";
+  [/asssh3|all seasons summit shiggy/, "ASSSH3"],
+  [/summit full moon|^sfm$/, "SFM"],
+  [/summit/, "Summit"],
+  [/rumson/, "Rumson"],
+];
 
+export function mapKennelTag(input: string): string | null {
+  const normalized = input.trim();
+  for (const [pattern, result] of KENNEL_PATTERNS) {
+    if (pattern.test(normalized)) return result;
+  }
   return null;
 }

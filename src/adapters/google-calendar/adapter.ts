@@ -116,6 +116,94 @@ interface GCalListResponse {
   error?: { code: number; message: string };
 }
 
+/** Extract local date and time from a Google Calendar start object. */
+function extractDateTimeFromGCalItem(start: { dateTime?: string; date?: string }): { dateISO: string; startTime: string | undefined } {
+  if (start.dateTime) {
+    const dtMatch = start.dateTime.match(
+      /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/,
+    );
+    if (dtMatch) {
+      return { dateISO: dtMatch[1], startTime: `${dtMatch[2]}:${dtMatch[3]}` };
+    }
+    // Fallback: parse as Date
+    const d = new Date(start.dateTime);
+    return { dateISO: d.toISOString().split("T")[0], startTime: undefined };
+  }
+  // All-day event: start.date is already YYYY-MM-DD
+  return { dateISO: start.date!, startTime: undefined };
+}
+
+/** Strip HTML from description, preserving newlines, and truncate. */
+function normalizeGCalDescription(rawDesc: string | undefined): { rawDescription: string | undefined; description: string | undefined } {
+  if (!rawDesc) return { rawDescription: undefined, description: undefined };
+  const rawDescription = stripHtmlTags(decodeEntities(rawDesc), "\n");
+  const description = rawDescription
+    ? rawDescription.replace(/[ \t]+/g, " ").trim().substring(0, 2000) || undefined
+    : undefined;
+  return { rawDescription, description };
+}
+
+/** Resolve kennel tag from event summary using config patterns or Boston fallback. */
+function resolveKennelTagFromSummary(
+  summary: string,
+  sourceConfig: CalendarSourceConfig | null,
+): { kennelTag: string; useFullTitle: boolean } {
+  if (sourceConfig?.kennelPatterns) {
+    const kennelTag = matchConfigPatterns(summary, sourceConfig.kennelPatterns)
+      ?? sourceConfig.defaultKennelTag
+      ?? extractKennelTag(summary);
+    return { kennelTag, useFullTitle: true };
+  }
+  if (sourceConfig?.defaultKennelTag) {
+    return { kennelTag: sourceConfig.defaultKennelTag, useFullTitle: true };
+  }
+  return { kennelTag: extractKennelTag(summary), useFullTitle: false };
+}
+
+/** Parse source.config into CalendarSourceConfig or null. */
+function parseCalendarSourceConfig(config: unknown): CalendarSourceConfig | null {
+  return (config && typeof config === "object" && !Array.isArray(config))
+    ? config as CalendarSourceConfig
+    : null;
+}
+
+/** Build a RawEventData from a single Google Calendar event item. Returns null if the item should be skipped. */
+function buildRawEventFromGCalItem(
+  item: GCalEvent,
+  sourceConfig: CalendarSourceConfig | null,
+): RawEventData | null {
+  if (item.status === "cancelled") return null;
+  if (!item.summary) return null;
+  if (!item.start?.dateTime && !item.start?.date) return null;
+
+  const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start!);
+  const { rawDescription, description } = normalizeGCalDescription(item.description);
+  const hares = rawDescription ? extractHares(rawDescription) : undefined;
+  const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(item.summary, sourceConfig);
+
+  return {
+    date: dateISO,
+    kennelTag,
+    runNumber: extractRunNumber(item.summary, rawDescription),
+    title: useFullTitle ? item.summary : extractTitle(item.summary),
+    description,
+    hares,
+    location: item.location,
+    locationUrl: item.location ? mapsUrl(item.location) : undefined,
+    startTime,
+    sourceUrl: item.htmlLink,
+  };
+}
+
+/** Build diagnostic context for a parse error on a GCal item. */
+function buildGCalDiagnosticContext(item: GCalEvent): string {
+  const rawParts = [`Summary: ${item.summary ?? "unknown"}`];
+  if (item.description) rawParts.push(`Description: ${item.description}`);
+  if (item.location) rawParts.push(`Location: ${item.location}`);
+  if (item.start) rawParts.push(`Start: ${item.start.dateTime ?? item.start.date ?? ""}`);
+  return rawParts.join("\n").slice(0, 2000);
+}
+
 export class GoogleCalendarAdapter implements SourceAdapter {
   type = "GOOGLE_CALENDAR" as const;
 
@@ -141,6 +229,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     let pageToken: string | undefined;
     let totalItemsReturned = 0;
     let pagesProcessed = 0;
+    const sourceConfig = parseCalendarSourceConfig(source.config);
 
     do {
       const url = new URL(
@@ -182,92 +271,16 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
       for (const item of items) {
         try {
-          // Skip cancelled events
-          if (item.status === "cancelled") continue;
-          if (!item.summary) continue;
-          if (!item.start?.dateTime && !item.start?.date) continue;
-
-          // Extract LOCAL date and time from the ISO string.
-          // Google Calendar dateTime includes timezone offset, e.g. "2026-02-15T14:00:00-05:00".
-          // We need the local date (Feb 15) and local time (14:00), NOT UTC (which would be Feb 15 19:00).
-          let dateStr: string;
-          let startTime: string | undefined;
-
-          if (item.start.dateTime) {
-            // Extract date and time from ISO string directly (local time)
-            const dtMatch = item.start.dateTime.match(
-              /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/,
-            );
-            if (dtMatch) {
-              dateStr = dtMatch[1];
-              startTime = `${dtMatch[2]}:${dtMatch[3]}`;
-            } else {
-              // Fallback: parse as Date
-              const d = new Date(item.start.dateTime);
-              dateStr = d.toISOString().split("T")[0];
-            }
-          } else {
-            // All-day event: start.date is already YYYY-MM-DD
-            dateStr = item.start.date!;
-          }
-
-          // Strip HTML from description (preserve newlines for hare extraction)
-          // Decode entities first, then strip tags — safe order prevents encoded XSS payloads
-          const rawDescription = item.description
-            ? stripHtmlTags(decodeEntities(item.description), "\n")
-            : undefined;
-
-          const description = rawDescription
-            ? rawDescription.replace(/[ \t]+/g, " ").trim().substring(0, 2000) || undefined
-            : undefined;
-
-          // Extract hares from description (before collapsing newlines for display)
-          const hares = rawDescription
-            ? extractHares(rawDescription)
-            : undefined;
-
-          // Kennel tag resolution: config patterns → defaultKennelTag → Boston fallback
-          const sourceConfig = (source.config && typeof source.config === "object" && !Array.isArray(source.config))
-            ? source.config as CalendarSourceConfig
-            : null;
-          let kennelTag: string;
-          if (sourceConfig?.kennelPatterns) {
-            kennelTag = matchConfigPatterns(item.summary, sourceConfig.kennelPatterns)
-              ?? sourceConfig.defaultKennelTag
-              ?? extractKennelTag(item.summary);
-          } else if (sourceConfig?.defaultKennelTag) {
-            kennelTag = sourceConfig.defaultKennelTag;
-          } else {
-            kennelTag = extractKennelTag(item.summary);
-          }
-
-          // Use full summary as title when config-driven (not Boston pattern-based)
-          const useFullTitle = !!(sourceConfig?.kennelPatterns || sourceConfig?.defaultKennelTag);
-
-          events.push({
-            date: dateStr,
-            kennelTag,
-            runNumber: extractRunNumber(item.summary, rawDescription),
-            title: useFullTitle ? item.summary : extractTitle(item.summary),
-            description,
-            hares,
-            location: item.location,
-            locationUrl: item.location ? mapsUrl(item.location) : undefined,
-            startTime,
-            sourceUrl: item.htmlLink,
-          });
+          const event = buildRawEventFromGCalItem(item, sourceConfig);
+          if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           errors.push(`Event parse error (${item.summary ?? "unknown"}): ${message}`);
-          const rawParts = [`Summary: ${item.summary ?? "unknown"}`];
-          if (item.description) rawParts.push(`Description: ${item.description}`);
-          if (item.location) rawParts.push(`Location: ${item.location}`);
-          if (item.start) rawParts.push(`Start: ${item.start.dateTime ?? item.start.date ?? ""}`);
           errorDetails.parse = [...(errorDetails.parse ?? []), {
             row: eventIndex,
             section: "calendar_events",
             error: message,
-            rawText: rawParts.join("\n").slice(0, 2000),
+            rawText: buildGCalDiagnosticContext(item),
             partialData: { kennelTag: item.summary ?? "unknown", date: item.start?.dateTime ?? item.start?.date },
           }];
         }

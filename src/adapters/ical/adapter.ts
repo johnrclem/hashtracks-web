@@ -143,6 +143,137 @@ function formatTime(dt: DateWithTimeZone): string | undefined {
 
 const mapsUrl = googleMapsSearchUrl;
 
+/** Fetch and validate ICS content from a URL. Returns icsText and contentType on success, or an error result. */
+async function fetchAndValidateIcsContent(
+  url: string,
+  fetchStart: number,
+): Promise<{ icsText: string; contentType: string | undefined } | { error: ScrapeResult }> {
+  let contentType: string | undefined;
+  try {
+    const resp = await fetch(url, {
+      headers: { "User-Agent": "HashTracks-Scraper" },
+    });
+
+    contentType = resp.headers.get("content-type") ?? undefined;
+
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "");
+      const message = `iCal fetch failed ${resp.status}: ${body.substring(0, 500)}`;
+      return {
+        error: {
+          events: [], errors: [message],
+          errorDetails: { fetch: [{ url, status: resp.status, message }] },
+          diagnosticContext: { url, totalVEvents: 0, eventsExtracted: 0, skippedDateRange: 0, skippedPattern: 0, fetchDurationMs: Date.now() - fetchStart, icsBytes: 0, contentType },
+        },
+      };
+    }
+
+    const icsText = await resp.text();
+
+    const trimmed = icsText.trimStart().replace(/^\uFEFF/, "");
+    if (!trimmed.startsWith("BEGIN:VCALENDAR")) {
+      const preview = icsText.substring(0, 200).replace(/\n/g, "\\n");
+      const message = `Response is not valid ICS (content-type: ${contentType ?? "unknown"}, starts with: "${preview}")`;
+      return {
+        error: {
+          events: [], errors: [message],
+          errorDetails: { fetch: [{ url, message }] },
+          diagnosticContext: { url, totalVEvents: 0, eventsExtracted: 0, skippedDateRange: 0, skippedPattern: 0, fetchDurationMs: Date.now() - fetchStart, icsBytes: icsText.length, contentType, bodyPreview: preview },
+        },
+      };
+    }
+
+    return { icsText, contentType };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      error: {
+        events: [], errors: [`iCal fetch error: ${message}`],
+        errorDetails: { fetch: [{ url, message }] },
+        diagnosticContext: { url, totalVEvents: 0, eventsExtracted: 0, skippedDateRange: 0, skippedPattern: 0, fetchDurationMs: Date.now() - fetchStart, icsBytes: 0 },
+      },
+    };
+  }
+}
+
+/** Parse ICS text into a calendar object. Returns the calendar or an error result. */
+function parseIcsCalendar(
+  icsText: string,
+  url: string,
+  fetchDurationMs: number,
+  contentType: string | undefined,
+): { calendar: ReturnType<typeof icalSync.parseICS> } | { error: ScrapeResult } {
+  try {
+    return { calendar: icalSync.parseICS(icsText) };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      error: {
+        events: [], errors: [`iCal parse error: ${message}`],
+        errorDetails: { parse: [{ row: 0, error: message }] },
+        diagnosticContext: { url, totalVEvents: 0, eventsExtracted: 0, skippedDateRange: 0, skippedPattern: 0, fetchDurationMs, icsBytes: icsText.length, contentType },
+      },
+    };
+  }
+}
+
+/** Build a RawEventData from a VEvent. Returns null if the event should be skipped. */
+function buildRawEventFromVEvent(
+  vevent: VEvent,
+  config: ICalSourceConfig | null,
+): RawEventData | null {
+  if (vevent.status === "CANCELLED") return null;
+
+  const summary = paramValue(vevent.summary);
+  if (!summary) return null;
+  if (!vevent.start) return null;
+
+  const parsed = parseICalSummary(
+    summary,
+    config?.kennelPatterns,
+    config?.defaultKennelTag,
+  );
+
+  const dateStr = formatDate(vevent.start);
+  const startTime = formatTime(vevent.start);
+  const description = paramValue(vevent.description);
+  const hares = description ? extractHaresFromDescription(description) : undefined;
+  const location = paramValue(vevent.location);
+
+  let locationUrl: string | undefined;
+  if (vevent.geo) {
+    const geo = vevent.geo;
+    if (geo.lat != null && geo.lon != null) {
+      locationUrl = `https://www.google.com/maps/search/?api=1&query=${geo.lat},${geo.lon}`;
+    }
+  } else if (location) {
+    locationUrl = mapsUrl(location);
+  }
+
+  return {
+    date: dateStr,
+    kennelTag: parsed.kennelTag,
+    runNumber: parsed.runNumber,
+    title: parsed.title ?? summary,
+    description: description?.substring(0, 2000) || undefined,
+    hares,
+    location,
+    locationUrl,
+    startTime,
+    sourceUrl: vevent.url ?? undefined,
+  };
+}
+
+/** Build diagnostic context string for a VEvent parse error. */
+function buildICalDiagnosticContext(vevent: VEvent): { rawText: string; summary: string } {
+  const summary = paramValue(vevent.summary) ?? "unknown";
+  const rawParts = [`Summary: ${summary}`];
+  if (vevent.description) rawParts.push(`Description: ${paramValue(vevent.description) ?? ""}`);
+  if (vevent.location) rawParts.push(`Location: ${paramValue(vevent.location) ?? ""}`);
+  if (vevent.start) rawParts.push(`Start: ${String(vevent.start)}`);
+  return { rawText: rawParts.join("\n").slice(0, 2000), summary };
+}
+
 export class ICalAdapter implements SourceAdapter {
   type = "ICAL_FEED" as const;
 
@@ -153,125 +284,32 @@ export class ICalAdapter implements SourceAdapter {
     const days = options?.days ?? 90;
     const fetchStart = Date.now();
 
-    const events: RawEventData[] = [];
-    const errors: string[] = [];
-    const errorDetails: ErrorDetails = {};
-
-    // Date range filter
     const now = new Date();
     const minDate = new Date(now.getTime() - days * 86_400_000);
     const maxDate = new Date(now.getTime() + days * 86_400_000);
 
     // Step 1: Fetch the ICS content
-    let icsText: string;
-    let contentType: string | undefined;
-    try {
-      const resp = await fetch(source.url, {
-        headers: { "User-Agent": "HashTracks-Scraper" },
-      });
+    const fetchResult = await fetchAndValidateIcsContent(source.url, fetchStart);
+    if ("error" in fetchResult) return fetchResult.error;
 
-      contentType = resp.headers.get("content-type") ?? undefined;
-
-      if (!resp.ok) {
-        const body = await resp.text().catch(() => "");
-        const message = `iCal fetch failed ${resp.status}: ${body.substring(0, 500)}`;
-        errors.push(message);
-        errorDetails.fetch = [{ url: source.url, status: resp.status, message }];
-        return {
-          events,
-          errors,
-          errorDetails,
-          diagnosticContext: {
-            url: source.url,
-            totalVEvents: 0,
-            eventsExtracted: 0,
-            skippedDateRange: 0,
-            skippedPattern: 0,
-            fetchDurationMs: Date.now() - fetchStart,
-            icsBytes: 0,
-            contentType,
-          },
-        };
-      }
-
-      icsText = await resp.text();
-
-      // Validate response is actually ICS content (not HTML from a deactivated plugin, etc.)
-      const trimmed = icsText.trimStart().replace(/^\uFEFF/, ""); // strip BOM
-      if (!trimmed.startsWith("BEGIN:VCALENDAR")) {
-        const preview = icsText.substring(0, 200).replace(/\n/g, "\\n");
-        const message = `Response is not valid ICS (content-type: ${contentType ?? "unknown"}, starts with: "${preview}")`;
-        errors.push(message);
-        errorDetails.fetch = [{ url: source.url, message }];
-        return {
-          events,
-          errors,
-          errorDetails,
-          diagnosticContext: {
-            url: source.url,
-            totalVEvents: 0,
-            eventsExtracted: 0,
-            skippedDateRange: 0,
-            skippedPattern: 0,
-            fetchDurationMs: Date.now() - fetchStart,
-            icsBytes: icsText.length,
-            contentType,
-            bodyPreview: preview,
-          },
-        };
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      errors.push(`iCal fetch error: ${message}`);
-      errorDetails.fetch = [{ url: source.url, message }];
-      return {
-        events,
-        errors,
-        errorDetails,
-        diagnosticContext: {
-          url: source.url,
-          totalVEvents: 0,
-          eventsExtracted: 0,
-          skippedDateRange: 0,
-          skippedPattern: 0,
-          fetchDurationMs: Date.now() - fetchStart,
-          icsBytes: 0,
-        },
-      };
-    }
-
+    const { icsText, contentType } = fetchResult;
     const fetchDurationMs = Date.now() - fetchStart;
 
     // Step 2: Parse the ICS content
-    let calendar;
-    try {
-      calendar = icalSync.parseICS(icsText);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      errors.push(`iCal parse error: ${message}`);
-      errorDetails.parse = [{ row: 0, error: message }];
-      return {
-        events,
-        errors,
-        errorDetails,
-        diagnosticContext: {
-          url: source.url,
-          totalVEvents: 0,
-          eventsExtracted: 0,
-          skippedDateRange: 0,
-          skippedPattern: 0,
-          fetchDurationMs,
-          icsBytes: icsText.length,
-          contentType,
-        },
-      };
-    }
+    const parseResult = parseIcsCalendar(icsText, source.url, fetchDurationMs, contentType);
+    if ("error" in parseResult) return parseResult.error;
+
+    const { calendar } = parseResult;
 
     // Step 3: Process VEVENT entries
     const config = (source.config && typeof source.config === "object" && !Array.isArray(source.config))
       ? source.config as ICalSourceConfig
       : null;
     const skipPatterns = config?.skipPatterns?.map((p) => new RegExp(p, "i"));
+
+    const events: RawEventData[] = [];
+    const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
     let totalVEvents = 0;
     let skippedDateRange = 0;
     let skippedPattern = 0;
@@ -288,88 +326,34 @@ export class ICalAdapter implements SourceAdapter {
       eventIndex++;
 
       try {
-        // Skip cancelled events
-        if (vevent.status === "CANCELLED") continue;
-
-        // Get summary
         const summary = paramValue(vevent.summary);
         if (!summary) continue;
+        if (vevent.status === "CANCELLED") continue;
 
-        // Skip events matching skip patterns
         if (skipPatterns?.some((p) => p.test(summary))) {
           skippedPattern++;
           continue;
         }
 
-        // Must have a start date
         if (!vevent.start) continue;
-
-        // Date range filter
-        const startDate = vevent.start;
-        if (startDate < minDate || startDate > maxDate) {
+        if (vevent.start < minDate || vevent.start > maxDate) {
           skippedDateRange++;
           continue;
         }
 
-        // Parse summary into kennel tag, run number, and title
-        const parsed = parseICalSummary(
-          summary,
-          config?.kennelPatterns,
-          config?.defaultKennelTag,
-        );
-
-        // Extract date and time
-        const dateStr = formatDate(startDate);
-        const startTime = formatTime(startDate);
-
-        // Get description and extract hares
-        const description = paramValue(vevent.description);
-        const hares = description ? extractHaresFromDescription(description) : undefined;
-
-        // Get location
-        const location = paramValue(vevent.location);
-
-        // Build location URL from GEO field or location string
-        let locationUrl: string | undefined;
-        if (vevent.geo) {
-          const geo = vevent.geo;
-          if (geo.lat != null && geo.lon != null) {
-            locationUrl = `https://www.google.com/maps/search/?api=1&query=${geo.lat},${geo.lon}`;
-          }
-        } else if (location) {
-          locationUrl = mapsUrl(location);
-        }
-
-        // Get source URL
-        const sourceUrl = vevent.url ?? undefined;
-
-        events.push({
-          date: dateStr,
-          kennelTag: parsed.kennelTag,
-          runNumber: parsed.runNumber,
-          title: parsed.title ?? summary,
-          description: description?.substring(0, 2000) || undefined,
-          hares,
-          location,
-          locationUrl,
-          startTime,
-          sourceUrl,
-        });
+        const event = buildRawEventFromVEvent(vevent, config);
+        if (event) events.push(event);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const summary = paramValue(vevent.summary) ?? "unknown";
-        errors.push(`Event parse error (${summary}): ${message}`);
-        const rawParts = [`Summary: ${summary}`];
-        if (vevent.description) rawParts.push(`Description: ${paramValue(vevent.description) ?? ""}`);
-        if (vevent.location) rawParts.push(`Location: ${paramValue(vevent.location) ?? ""}`);
-        if (vevent.start) rawParts.push(`Start: ${String(vevent.start)}`);
+        const diag = buildICalDiagnosticContext(vevent);
+        errors.push(`Event parse error (${diag.summary}): ${message}`);
         parseErrors.push({
           row: eventIndex,
           section: "vevent",
           error: message,
-          rawText: rawParts.join("\n").slice(0, 2000),
+          rawText: diag.rawText,
           partialData: {
-            kennelTag: summary,
+            kennelTag: diag.summary,
             date: vevent.start ? formatDate(vevent.start) : undefined,
           },
         });

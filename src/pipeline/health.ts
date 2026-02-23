@@ -343,6 +343,44 @@ export async function analyzeHealth(
   return { healthStatus, alerts };
 }
 
+/** Handle an existing open/acknowledged alert by updating it with latest details. */
+async function handleExistingOpenAlert(
+  existingId: string,
+  candidate: AlertCandidate,
+  scrapeLogId: string,
+): Promise<void> {
+  await prisma.alert.update({
+    where: { id: existingId },
+    data: {
+      details: candidate.details,
+      severity: candidate.severity,
+      scrapeLogId,
+      ...(candidate.context ? { context: candidate.context as Prisma.InputJsonValue } : {}),
+    },
+  });
+}
+
+/** Handle a snoozed alert: re-open if snooze has expired. Returns true if handled. */
+async function handleSnoozedAlert(
+  snoozed: { id: string; snoozedUntil: Date | null },
+  candidate: AlertCandidate,
+  scrapeLogId: string,
+): Promise<void> {
+  if (snoozed.snoozedUntil && snoozed.snoozedUntil < new Date()) {
+    await prisma.alert.update({
+      where: { id: snoozed.id },
+      data: {
+        status: "OPEN",
+        details: candidate.details,
+        severity: candidate.severity,
+        scrapeLogId,
+        snoozedUntil: null,
+        ...(candidate.context ? { context: candidate.context as Prisma.InputJsonValue } : {}),
+      },
+    });
+  }
+}
+
 /**
  * Persist alerts from health analysis, deduplicating against existing open alerts.
  */
@@ -352,7 +390,6 @@ export async function persistAlerts(
   alertCandidates: AlertCandidate[],
 ): Promise<void> {
   for (const candidate of alertCandidates) {
-    // Check for existing open/acknowledged alert of same type
     const existing = await prisma.alert.findFirst({
       where: {
         sourceId,
@@ -362,20 +399,10 @@ export async function persistAlerts(
     });
 
     if (existing) {
-      // Update existing alert with latest details
-      await prisma.alert.update({
-        where: { id: existing.id },
-        data: {
-          details: candidate.details,
-          severity: candidate.severity,
-          scrapeLogId,
-          ...(candidate.context ? { context: candidate.context as Prisma.InputJsonValue } : {}),
-        },
-      });
+      await handleExistingOpenAlert(existing.id, candidate, scrapeLogId);
       continue;
     }
 
-    // Check for snoozed alert — re-open if snooze expired
     const snoozed = await prisma.alert.findFirst({
       where: {
         sourceId,
@@ -385,25 +412,10 @@ export async function persistAlerts(
     });
 
     if (snoozed) {
-      if (snoozed.snoozedUntil && snoozed.snoozedUntil < new Date()) {
-        // Snooze expired — re-open
-        await prisma.alert.update({
-          where: { id: snoozed.id },
-          data: {
-            status: "OPEN",
-            details: candidate.details,
-            severity: candidate.severity,
-            scrapeLogId,
-            snoozedUntil: null,
-            ...(candidate.context ? { context: candidate.context as Prisma.InputJsonValue } : {}),
-          },
-        });
-      }
-      // Still snoozed — skip
+      await handleSnoozedAlert(snoozed, candidate, scrapeLogId);
       continue;
     }
 
-    // Create new alert
     await prisma.alert.create({
       data: {
         sourceId,

@@ -212,6 +212,39 @@ export function parseArticle(
   };
 }
 
+/** Fetch a URL and return its HTML text, or an error detail. */
+async function fetchAndParseHtmlPage(url: string): Promise<{ html: string; error?: undefined } | { html?: undefined; error: { url: string; status?: number; message: string } }> {
+  try {
+    const response = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+    });
+    if (!response.ok) {
+      return { error: { url, status: response.status, message: `HTTP ${response.status}: ${response.statusText}` } };
+    }
+    return { html: await response.text() };
+  } catch (err) {
+    return { error: { url, message: `Fetch failed: ${err}` } };
+  }
+}
+
+/** Find the "next page" link in a WordPress paginated page. */
+function findNextPageLink($: CheerioAPI, baseUrl: string): string | null {
+  const nextLink = $("a").filter((_i, el) => {
+    const text = $(el).text().toLowerCase();
+    const classes = $(el).attr("class") ?? "";
+    return (
+      /older\s*posts/i.test(text) ||
+      /next/i.test(text) ||
+      classes.includes("next")
+    );
+  });
+  if (nextLink.length > 0) {
+    const nextHref = nextLink.first().attr("href");
+    return nextHref ? new URL(nextHref, baseUrl).toString() : null;
+  }
+  return null;
+}
+
 /**
  * Chicago Hash (CH3) WordPress Blog Scraper
  *
@@ -241,51 +274,23 @@ export class ChicagoHashAdapter implements SourceAdapter {
     let currentUrl: string | null = baseUrl;
 
     while (currentUrl && pagesFetched < this.maxPages) {
-      let html: string;
-      try {
-        const response = await fetch(currentUrl, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
-          },
-        });
-        if (!response.ok) {
-          const message = `HTTP ${response.status}: ${response.statusText}`;
-          errors.push(message);
-          errorDetails.fetch = [
-            ...(errorDetails.fetch ?? []),
-            { url: currentUrl, status: response.status, message },
-          ];
-          if (pagesFetched === 0) {
-            return { events: [], errors, errorDetails };
-          }
-          break;
-        }
-        html = await response.text();
-      } catch (err) {
-        const message = `Fetch failed: ${err}`;
-        errors.push(message);
-        errorDetails.fetch = [
-          ...(errorDetails.fetch ?? []),
-          { url: currentUrl, message },
-        ];
-        if (pagesFetched === 0) {
-          return { events: [], errors, errorDetails };
-        }
+      const pageResult = await fetchAndParseHtmlPage(currentUrl);
+
+      if (pageResult.error) {
+        errors.push(pageResult.error.message);
+        errorDetails.fetch = [...(errorDetails.fetch ?? []), pageResult.error];
+        if (pagesFetched === 0) return { events: [], errors, errorDetails };
         break;
       }
 
-      // Only generate structure hash from first page
       if (pagesFetched === 0) {
-        structureHash = generateStructureHash(html);
+        structureHash = generateStructureHash(pageResult.html);
       }
 
-      const $ = cheerio.load(html);
+      const $ = cheerio.load(pageResult.html);
       pagesFetched++;
 
-      // Find articles — WordPress uses <article> elements
-      const articles = $("article");
-
-      articles.each((i, el) => {
+      $("article").each((i, el) => {
         try {
           const event = parseArticle($, $(el), baseUrl);
           if (event) {
@@ -305,26 +310,10 @@ export class ChicagoHashAdapter implements SourceAdapter {
         }
       });
 
-      // Find pagination: WordPress "Older posts" or "next page-numbers" link
-      const nextLink = $("a").filter((_i, el) => {
-        const text = $(el).text().toLowerCase();
-        const classes = $(el).attr("class") ?? "";
-        return (
-          /older\s*posts/i.test(text) ||
-          /next/i.test(text) ||
-          classes.includes("next")
-        );
-      });
-      if (nextLink.length > 0) {
-        const nextHref = nextLink.first().attr("href");
-        currentUrl = nextHref ? new URL(nextHref, baseUrl).toString() : null;
-      } else {
-        currentUrl = null;
-      }
+      currentUrl = findNextPageLink($, baseUrl);
     }
 
     const fetchDurationMs = Date.now() - fetchStart;
-
     const hasErrorDetails =
       (errorDetails.fetch?.length ?? 0) > 0 ||
       (errorDetails.parse?.length ?? 0) > 0;

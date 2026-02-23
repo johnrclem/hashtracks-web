@@ -24,138 +24,90 @@ interface CheckInButtonProps {
   attendance: AttendanceData | null;
 }
 
-export function CheckInButton({
+/** Render the check-in button for a past event. */
+function PastEventButton({
   eventId,
-  eventDate,
-  isAuthenticated,
   attendance,
-}: CheckInButtonProps) {
+}: {
+  eventId: string;
+  attendance: AttendanceData | null;
+}) {
   const [isPending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
   const router = useRouter();
 
-  // Determine if event is today or in the past (client-side check)
-  const now = new Date();
-  const todayUtcNoon = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    12, 0, 0,
-  );
-  const eventTime = new Date(eventDate).getTime();
-  const isPast = eventTime <= todayUtcNoon;
-
-  // Not authenticated
-  if (!isAuthenticated) {
-    return isPast ? (
-      <Link
-        href="/sign-in"
-        className="text-sm text-primary hover:underline"
-      >
-        Sign in to check in
-      </Link>
-    ) : (
-      <Link
-        href="/sign-in"
-        className="text-sm text-primary hover:underline"
-      >
-        Sign in to RSVP
-      </Link>
-    );
-  }
-
-  // ── PAST EVENT ──
-
-  if (isPast) {
-    // INTENDING → show "Confirm" button to upgrade
-    if (attendance?.status === "INTENDING") {
-      const attendanceId = attendance.id;
-      function handleConfirm() {
-        startTransition(async () => {
-          const result = await confirmAttendance(attendanceId);
-          if (!result.success) {
-            toast.error(result.error);
-          } else {
-            toast.success("Attendance confirmed!");
-          }
-          router.refresh();
-        });
-      }
-
-      return (
-        <Button
-          size="sm"
-          onClick={handleConfirm}
-          disabled={isPending}
-        >
-          {isPending ? "..." : "Confirm"}
-        </Button>
-      );
-    }
-
-    // CONFIRMED → show badge + edit dialog
-    if (attendance?.status === "CONFIRMED") {
-      return (
-        <>
-          <AttendanceBadge
-            level={attendance.participationLevel}
-            onClick={() => setEditOpen(true)}
-          />
-          <EditAttendanceDialog
-            open={editOpen}
-            onOpenChange={setEditOpen}
-            attendance={attendance}
-          />
-        </>
-      );
-    }
-
-    // No attendance → "I Was There"
-    function handleCheckIn() {
-      startTransition(async () => {
-        const result = await checkIn(eventId);
-        if (!result.success) {
-          toast.error(result.error);
-        } else {
-          toast.success("Checked in!");
-        }
-        router.refresh();
-      });
-    }
-
+  if (attendance?.status === "INTENDING") {
+    const attendanceId = attendance.id;
     return (
       <Button
         size="sm"
-        onClick={handleCheckIn}
+        onClick={() => {
+          startTransition(async () => {
+            const result = await confirmAttendance(attendanceId);
+            if (!result.success) toast.error(result.error);
+            else toast.success("Attendance confirmed!");
+            router.refresh();
+          });
+        }}
         disabled={isPending}
       >
-        {isPending ? "..." : "I Was There"}
+        {isPending ? "..." : "Confirm"}
       </Button>
     );
   }
 
-  // ── FUTURE EVENT ──
+  if (attendance?.status === "CONFIRMED") {
+    return (
+      <>
+        <AttendanceBadge level={attendance.participationLevel} onClick={() => setEditOpen(true)} />
+        <EditAttendanceDialog open={editOpen} onOpenChange={setEditOpen} attendance={attendance} />
+      </>
+    );
+  }
 
-  // Already going → show "Going" badge (click to toggle off)
+  return (
+    <Button
+      size="sm"
+      onClick={() => {
+        startTransition(async () => {
+          const result = await checkIn(eventId);
+          if (!result.success) toast.error(result.error);
+          else toast.success("Checked in!");
+          router.refresh();
+        });
+      }}
+      disabled={isPending}
+    >
+      {isPending ? "..." : "I Was There"}
+    </Button>
+  );
+}
+
+/** Render the RSVP button for a future event. */
+function FutureEventButton({
+  eventId,
+  attendance,
+}: {
+  eventId: string;
+  attendance: AttendanceData | null;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
   if (attendance?.status === "INTENDING") {
-    function handleUnrsvp() {
-      startTransition(async () => {
-        const result = await rsvp(eventId);
-        if (!result.success) {
-          toast.error(result.error);
-        } else {
-          toast("RSVP removed");
-        }
-        router.refresh();
-      });
-    }
-
     return (
       <Button
         size="sm"
         variant="outline"
         className="border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
-        onClick={handleUnrsvp}
+        onClick={() => {
+          startTransition(async () => {
+            const result = await rsvp(eventId);
+            if (!result.success) toast.error(result.error);
+            else toast("RSVP removed");
+            router.refresh();
+          });
+        }}
         disabled={isPending}
       >
         {isPending ? "..." : "Going"}
@@ -163,27 +115,48 @@ export function CheckInButton({
     );
   }
 
-  // Not going → "I'm Going" button
-  function handleRsvp() {
-    startTransition(async () => {
-      const result = await rsvp(eventId);
-      if (!result.success) {
-        toast.error(result.error);
-      } else {
-        toast.success("You're going!");
-      }
-      router.refresh();
-    });
-  }
-
   return (
     <Button
       size="sm"
       variant="outline"
-      onClick={handleRsvp}
+      onClick={() => {
+        startTransition(async () => {
+          const result = await rsvp(eventId);
+          if (!result.success) toast.error(result.error);
+          else toast.success("You're going!");
+          router.refresh();
+        });
+      }}
       disabled={isPending}
     >
       {isPending ? "..." : "I'm Going"}
     </Button>
   );
+}
+
+export function CheckInButton({
+  eventId,
+  eventDate,
+  isAuthenticated,
+  attendance,
+}: CheckInButtonProps) {
+  const now = new Date();
+  const todayUtcNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
+  const eventTime = new Date(eventDate).getTime();
+  const isPast = eventTime <= todayUtcNoon;
+
+  if (!isAuthenticated) {
+    const label = isPast ? "Sign in to check in" : "Sign in to RSVP";
+    return (
+      <Link href="/sign-in" className="text-sm text-primary hover:underline">
+        {label}
+      </Link>
+    );
+  }
+
+  if (isPast) {
+    return <PastEventButton eventId={eventId} attendance={attendance} />;
+  }
+
+  return <FutureEventButton eventId={eventId} attendance={attendance} />;
 }

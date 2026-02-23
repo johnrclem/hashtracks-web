@@ -48,6 +48,76 @@ async function resolveRegion(kennelId: string, ctx: MergeContext): Promise<strin
 }
 
 /**
+ * Refresh dateUtc/timezone on a canonical Event for a processed duplicate.
+ * Only updates if the source has sufficient trust and values differ.
+ */
+async function refreshExistingEvent(
+  existingEventId: string,
+  event: RawEventData,
+  ctx: MergeContext,
+): Promise<void> {
+  const { kennelId, matched } = await resolveKennelTag(event.kennelTag, ctx.sourceId);
+  if (!matched || !kennelId || !ctx.linkedKennelIds.has(kennelId)) return;
+
+  const region = await resolveRegion(kennelId, ctx);
+  const timezone = regionTimezone(region);
+  const eventDate = parseUtcNoonDate(event.date);
+  const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
+  if (!composedUtc) return;
+
+  const existingEvent = await prisma.event.findUnique({
+    where: { id: existingEventId },
+    select: { trustLevel: true, dateUtc: true, timezone: true },
+  });
+  const isHigherOrEqualTrust = !existingEvent || ctx.trustLevel >= existingEvent.trustLevel;
+  const isAlreadyCurrent =
+    existingEvent?.dateUtc?.getTime() === composedUtc.getTime() &&
+    existingEvent?.timezone === timezone;
+  if (isHigherOrEqualTrust && !isAlreadyCurrent) {
+    await prisma.event.update({
+      where: { id: existingEventId },
+      data: { dateUtc: composedUtc, timezone },
+    });
+  }
+}
+
+/**
+ * Collect diagnostic samples for unprocessed duplicates (skipped/blocked).
+ */
+async function collectSkippedAndBlockedSamples(
+  event: RawEventData,
+  ctx: MergeContext,
+): Promise<void> {
+  const needSkippedSamples = ctx.result.sampleSkipped && ctx.result.sampleSkipped.length < 3;
+  const needBlockedSamples = ctx.result.sampleBlocked && ctx.result.sampleBlocked.length < 3;
+  if (!needSkippedSamples && !needBlockedSamples) return;
+
+  const { kennelId: resolvedId, matched: resolvedMatch } =
+    await resolveKennelTag(event.kennelTag, ctx.sourceId);
+
+  if (!resolvedMatch || !resolvedId) {
+    if (needSkippedSamples) {
+      ctx.result.sampleSkipped!.push({
+        reason: "UNMATCHED_TAG",
+        kennelTag: event.kennelTag,
+        event,
+        suggestedAction: `Create kennel or alias for "${event.kennelTag}"`,
+      });
+    }
+  } else if (!ctx.linkedKennelIds.has(resolvedId)) {
+    if (needBlockedSamples) {
+      const kennel = await prisma.kennel.findUnique({ where: { id: resolvedId }, select: { shortName: true } });
+      ctx.result.sampleBlocked!.push({
+        reason: "SOURCE_KENNEL_MISMATCH",
+        kennelTag: event.kennelTag,
+        event,
+        suggestedAction: `Link ${kennel?.shortName ?? resolvedId} to this source`,
+      });
+    }
+  }
+}
+
+/**
  * Check if the event fingerprint already exists (dedup).
  * If the RawEvent is already processed, refreshes dateUtc/timezone on the canonical Event.
  * Returns `false` if no duplicate exists (proceed with upsert).
@@ -66,69 +136,15 @@ async function handleDuplicateFingerprint(
 
   ctx.result.skipped++;
 
-  // Already processed — skip sample collection entirely.
-  // If also linked to a canonical Event, refresh timezone-derived fields.
   if (existing.processed) {
     if (existing.eventId) {
-      const { kennelId, matched } = await resolveKennelTag(event.kennelTag, ctx.sourceId);
-      if (matched && kennelId && ctx.linkedKennelIds.has(kennelId)) {
-        const region = await resolveRegion(kennelId, ctx);
-        const timezone = regionTimezone(region);
-        const eventDate = parseUtcNoonDate(event.date);
-        const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
-        // Only update if we have a real UTC time AND the source has sufficient trust
-        if (composedUtc) {
-          const existingEvent = await prisma.event.findUnique({
-            where: { id: existing.eventId },
-            select: { trustLevel: true, dateUtc: true, timezone: true },
-          });
-          // Trust guard: don't let lower-trust sources overwrite higher-trust event times
-          const isHigherOrEqualTrust = !existingEvent || ctx.trustLevel >= existingEvent.trustLevel;
-          // Skip write if values are already correct (avoid redundant DB writes on every scrape)
-          const isAlreadyCurrent =
-            existingEvent?.dateUtc?.getTime() === composedUtc.getTime() &&
-            existingEvent?.timezone === timezone;
-          if (isHigherOrEqualTrust && !isAlreadyCurrent) {
-            await prisma.event.update({
-              where: { id: existing.eventId },
-              data: { dateUtc: composedUtc, timezone },
-            });
-          }
-        }
-      }
+      await refreshExistingEvent(existing.eventId, event, ctx);
     }
     return existing.eventId;
   }
 
-  // Unprocessed duplicate — collect diagnostic samples as before
-  const needSkippedSamples = ctx.result.sampleSkipped && ctx.result.sampleSkipped.length < 3;
-  const needBlockedSamples = ctx.result.sampleBlocked && ctx.result.sampleBlocked.length < 3;
-
-  if (needSkippedSamples || needBlockedSamples) {
-    const { kennelId: resolvedId, matched: resolvedMatch } =
-      await resolveKennelTag(event.kennelTag, ctx.sourceId);
-
-    if (!resolvedMatch || !resolvedId) {
-      if (needSkippedSamples) {
-        ctx.result.sampleSkipped!.push({
-          reason: "UNMATCHED_TAG",
-          kennelTag: event.kennelTag,
-          event,
-          suggestedAction: `Create kennel or alias for "${event.kennelTag}"`,
-        });
-      }
-    } else if (!ctx.linkedKennelIds.has(resolvedId)) {
-      if (needBlockedSamples) {
-        const kennel = await prisma.kennel.findUnique({ where: { id: resolvedId }, select: { shortName: true } });
-        ctx.result.sampleBlocked!.push({
-          reason: "SOURCE_KENNEL_MISMATCH",
-          kennelTag: event.kennelTag,
-          event,
-          suggestedAction: `Link ${kennel?.shortName ?? resolvedId} to this source`,
-        });
-      }
-    }
-  }
+  // Unprocessed duplicate — collect diagnostic samples
+  await collectSkippedAndBlockedSamples(event, ctx);
 
   return existing.eventId; // May be null if unprocessed
 }
@@ -320,6 +336,56 @@ async function linkMultiDaySeries(
 }
 
 /**
+ * Process a single new raw event: create RawEvent, resolve kennel, upsert canonical Event,
+ * create EventLinks. Returns the canonical event ID or null if unresolvable.
+ */
+async function processNewRawEvent(
+  event: RawEventData,
+  fingerprint: string,
+  sourceId: string,
+  ctx: MergeContext,
+): Promise<string | null> {
+  const rawEvent = await prisma.rawEvent.create({
+    data: {
+      sourceId,
+      rawData: event as unknown as Prisma.InputJsonValue,
+      fingerprint,
+      processed: false,
+    },
+  });
+
+  const kennelId = await resolveAndGuardKennel(event, ctx);
+  if (!kennelId) return null;
+
+  const targetEventId = await upsertCanonicalEvent(event, kennelId, rawEvent.id, ctx);
+
+  await createEventLinks(targetEventId, sourceId, event.externalLinks);
+
+  return targetEventId;
+}
+
+/** Record a merge error in the result context. */
+function recordMergeError(
+  event: RawEventData,
+  err: unknown,
+  result: MergeResult,
+): void {
+  const reason = err instanceof Error ? err.message : String(err);
+  const msg = `${event.date}/${event.kennelTag}: ${reason}`;
+  console.error(`Merge error: ${msg}`);
+  result.eventErrors++;
+  if (result.eventErrorMessages.length < 50) {
+    result.eventErrorMessages.push(msg);
+  }
+  if (result.mergeErrorDetails && result.mergeErrorDetails.length < 50) {
+    result.mergeErrorDetails.push({
+      fingerprint: generateFingerprint(event),
+      reason,
+    });
+  }
+}
+
+/**
  * Process raw events from a scrape into RawEvent records and canonical Events.
  *
  * For each RawEventData:
@@ -349,88 +415,47 @@ export async function processRawEvents(
     sampleSkipped: [],
   };
 
-  // Get source trust level
   const source = await prisma.source.findUnique({
     where: { id: sourceId },
     select: { trustLevel: true },
   });
   const trustLevel = source?.trustLevel ?? 5;
 
-  // Fetch SourceKennel links once for the entire batch
   const sourceKennels = await prisma.sourceKennel.findMany({
     where: { sourceId },
     select: { kennelId: true },
   });
   const linkedKennelIds = new Set(sourceKennels.map(sk => sk.kennelId));
 
-  // Clear resolver cache for fresh lookups
   clearResolverCache();
 
   const regionCache = new Map<string, string>();
   const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, regionCache, result };
 
-  // Track series IDs → canonical event IDs for post-processing
   const seriesGroups = new Map<string, string[]>();
 
   for (const event of events) {
     try {
       const fingerprint = generateFingerprint(event);
 
-      // 1. Dedup by fingerprint; if already processed, refreshes dateUtc/timezone and
-      // creates any new EventLinks, then skips creating a new RawEvent.
-      // Returns false only when this is a brand-new fingerprint.
       const dupResult = await handleDuplicateFingerprint(event, fingerprint, ctx);
       if (dupResult !== false) {
-        // Already exists — still create any new EventLinks from this scrape run
         if (dupResult) await createEventLinks(dupResult, sourceId, event.externalLinks);
         continue;
       }
 
-      // 2. Create immutable RawEvent record
-      const rawEvent = await prisma.rawEvent.create({
-        data: {
-          sourceId,
-          rawData: event as unknown as Prisma.InputJsonValue,
-          fingerprint,
-          processed: false,
-        },
-      });
+      const targetEventId = await processNewRawEvent(event, fingerprint, sourceId, ctx);
 
-      // 3. Resolve kennel tag + source-kennel guard
-      const kennelId = await resolveAndGuardKennel(event, ctx);
-      if (!kennelId) continue;
-
-      // 4. Upsert canonical Event
-      const targetEventId = await upsertCanonicalEvent(event, kennelId, rawEvent.id, ctx);
-
-      // 5. Create EventLinks from externalLinks
-      await createEventLinks(targetEventId, sourceId, event.externalLinks);
-
-      // Track series membership for post-processing
-      if (event.seriesId) {
+      if (targetEventId && event.seriesId) {
         const group = seriesGroups.get(event.seriesId) ?? [];
         group.push(targetEventId);
         seriesGroups.set(event.seriesId, group);
       }
     } catch (err) {
-      // Log error but continue processing other events (graceful degradation)
-      const reason = err instanceof Error ? err.message : String(err);
-      const msg = `${event.date}/${event.kennelTag}: ${reason}`;
-      console.error(`Merge error: ${msg}`);
-      result.eventErrors++;
-      if (result.eventErrorMessages.length < 50) {
-        result.eventErrorMessages.push(msg);
-      }
-      if (result.mergeErrorDetails && result.mergeErrorDetails.length < 50) {
-        result.mergeErrorDetails.push({
-          fingerprint: generateFingerprint(event),
-          reason,
-        });
-      }
+      recordMergeError(event, err, result);
     }
   }
 
-  // Post-processing: Link multi-day series via parentEventId
   await linkMultiDaySeries(seriesGroups);
 
   return result;

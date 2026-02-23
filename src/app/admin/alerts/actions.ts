@@ -24,6 +24,50 @@ function appendRepairLog(
   return [...log, entry] as Prisma.InputJsonValue;
 }
 
+/** Build a repair log entry for a given action and result. */
+function buildRepairEntry(
+  action: string,
+  adminId: string,
+  details: Record<string, unknown>,
+  result: "success" | "error",
+  resultMessage?: string,
+): RepairLogEntry {
+  return {
+    action,
+    timestamp: new Date().toISOString(),
+    adminId,
+    details,
+    result,
+    resultMessage,
+  };
+}
+
+/**
+ * Auto-resolve an alert if all unmatched context tags now resolve.
+ * Shared by createAliasFromAlert and createKennelFromAlert.
+ */
+async function autoResolveIfAllTagsMatched(
+  alertId: string,
+  alertContext: unknown,
+  adminId: string,
+): Promise<void> {
+  const ctx = alertContext as { tags?: string[] } | null;
+  if (!ctx?.tags) return;
+
+  clearResolverCache();
+  const remaining: string[] = [];
+  for (const t of ctx.tags) {
+    const result = await resolveKennelTag(t);
+    if (!result.matched) remaining.push(t);
+  }
+  if (remaining.length === 0) {
+    await prisma.alert.update({
+      where: { id: alertId },
+      data: { status: "RESOLVED", resolvedAt: new Date(), resolvedBy: adminId },
+    });
+  }
+}
+
 export async function acknowledgeAlert(alertId: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };
@@ -119,14 +163,14 @@ export async function rescrapeFromAlert(alertId: string, force = false) {
   await prisma.alert.update({
     where: { id: alertId },
     data: {
-      repairLog: appendRepairLog(alert.repairLog, {
-        action: "rescrape",
-        timestamp: new Date().toISOString(),
-        adminId: admin.id,
-        details: { forced: force, eventsFound: result.eventsFound, created: result.created },
-        result: result.success ? "success" : "error",
-        resultMessage: result.errors.length > 0 ? result.errors.slice(0, 3).join("; ") : undefined,
-      }),
+      repairLog: appendRepairLog(alert.repairLog,
+        buildRepairEntry(
+          "rescrape", admin.id,
+          { forced: force, eventsFound: result.eventsFound, created: result.created },
+          result.success ? "success" : "error",
+          result.errors.length > 0 ? result.errors.slice(0, 3).join("; ") : undefined,
+        ),
+      ),
     },
   });
 
@@ -171,38 +215,18 @@ export async function createAliasFromAlert(
   await prisma.alert.update({
     where: { id: alertId },
     data: {
-      repairLog: appendRepairLog(alert.repairLog, {
-        action: "create_alias",
-        timestamp: new Date().toISOString(),
-        adminId: admin.id,
-        details: { tag, kennelId, kennelName: kennel?.shortName },
-        result: "success",
-      }),
+      repairLog: appendRepairLog(alert.repairLog,
+        buildRepairEntry("create_alias", admin.id, { tag, kennelId, kennelName: kennel?.shortName }, "success"),
+      ),
     },
   });
 
-  // Optionally re-scrape
   if (rescrapeAfter) {
     clearResolverCache();
     await scrapeSource(alert.sourceId);
   }
 
-  // Auto-resolve if all context tags are now matched
-  const ctx = alert.context as { tags?: string[] } | null;
-  if (ctx?.tags) {
-    clearResolverCache();
-    const remaining: string[] = [];
-    for (const t of ctx.tags) {
-      const result = await resolveKennelTag(t);
-      if (!result.matched) remaining.push(t);
-    }
-    if (remaining.length === 0) {
-      await prisma.alert.update({
-        where: { id: alertId },
-        data: { status: "RESOLVED", resolvedAt: new Date(), resolvedBy: admin.id },
-      });
-    }
-  }
+  await autoResolveIfAllTagsMatched(alertId, alert.context, admin.id);
 
   revalidatePath("/admin/alerts");
   revalidatePath(`/admin/sources/${alert.sourceId}`);
@@ -284,38 +308,18 @@ export async function createKennelFromAlert(
   await prisma.alert.update({
     where: { id: alertId },
     data: {
-      repairLog: appendRepairLog(alert.repairLog, {
-        action: "create_kennel",
-        timestamp: new Date().toISOString(),
-        adminId: admin.id,
-        details: { tag, shortName: kennelData.shortName, slug },
-        result: "success",
-      }),
+      repairLog: appendRepairLog(alert.repairLog,
+        buildRepairEntry("create_kennel", admin.id, { tag, shortName: kennelData.shortName, slug }, "success"),
+      ),
     },
   });
 
-  // Optionally re-scrape
   if (rescrapeAfter) {
     clearResolverCache();
     await scrapeSource(alert.sourceId);
   }
 
-  // Auto-resolve if all context tags are now matched
-  const ctx = alert.context as { tags?: string[] } | null;
-  if (ctx?.tags) {
-    clearResolverCache();
-    const remaining: string[] = [];
-    for (const t of ctx.tags) {
-      const result = await resolveKennelTag(t);
-      if (!result.matched) remaining.push(t);
-    }
-    if (remaining.length === 0) {
-      await prisma.alert.update({
-        where: { id: alertId },
-        data: { status: "RESOLVED", resolvedAt: new Date(), resolvedBy: admin.id },
-      });
-    }
-  }
+  await autoResolveIfAllTagsMatched(alertId, alert.context, admin.id);
 
   revalidatePath("/admin/alerts");
   revalidatePath(`/admin/sources/${alert.sourceId}`);

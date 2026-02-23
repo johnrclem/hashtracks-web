@@ -9,6 +9,57 @@ import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver
 import { scrapeSource } from "@/pipeline/scrape";
 import { validateSourceConfig } from "./config-validation";
 
+/** Parse and validate config JSON from form input. Returns the parsed value or an error. */
+function parseConfigJson(
+  configRaw: string,
+  type: string,
+  clearOnEmpty: boolean,
+): { config: Prisma.InputJsonValue | typeof Prisma.DbNull | undefined; error?: string } {
+  if (!configRaw) {
+    return { config: clearOnEmpty ? Prisma.DbNull : undefined };
+  }
+  try {
+    const config = JSON.parse(configRaw) as Prisma.InputJsonValue;
+    const configErrors = validateSourceConfig(type, config);
+    if (configErrors.length > 0) {
+      return { config: undefined, error: `Config validation failed: ${configErrors.join("; ")}` };
+    }
+    return { config };
+  } catch {
+    return { config: undefined, error: "Invalid JSON in config field" };
+  }
+}
+
+/**
+ * Auto-resolve UNMATCHED_TAGS alerts for a source when all tags are now resolvable.
+ */
+async function autoResolveUnmatchedAlerts(sourceId: string, adminId: string): Promise<void> {
+  const matchingAlerts = await prisma.alert.findMany({
+    where: {
+      sourceId,
+      type: "UNMATCHED_TAGS",
+      status: { in: ["OPEN", "ACKNOWLEDGED"] },
+    },
+  });
+  for (const alert of matchingAlerts) {
+    const ctx = alert.context as { tags?: string[] } | null;
+    if (!ctx?.tags) continue;
+
+    clearResolverCache();
+    const remaining: string[] = [];
+    for (const t of ctx.tags) {
+      const result = await resolveKennelTag(t);
+      if (!result.matched) remaining.push(t);
+    }
+    if (remaining.length === 0) {
+      await prisma.alert.update({
+        where: { id: alert.id },
+        data: { status: "RESOLVED", resolvedAt: new Date(), resolvedBy: adminId },
+      });
+    }
+  }
+}
+
 function buildKennelIdentifiers(shortName: string): { slug: string; kennelCode: string } {
   const slug = shortName
     .toLowerCase()
@@ -46,20 +97,15 @@ export async function createSource(formData: FormData) {
     return { error: "Name, URL, and type are required" };
   }
 
-  // Parse config JSON if provided
-  let config: Prisma.InputJsonValue | undefined = undefined;
-  if (configRaw) {
-    try {
-      config = JSON.parse(configRaw) as Prisma.InputJsonValue;
-    } catch {
-      return { error: "Invalid JSON in config field" };
-    }
-  }
+  const { config, error: configError } = parseConfigJson(configRaw, type, false);
+  if (configError) return { error: configError };
 
-  // Validate config shape and regex patterns (runs even when config is empty for types that require it)
-  const configErrors = validateSourceConfig(type, config ?? null);
-  if (configErrors.length > 0) {
-    return { error: `Config validation failed: ${configErrors.join("; ")}` };
+  // Also validate if config was empty but type requires it
+  if (config === undefined) {
+    const emptyConfigErrors = validateSourceConfig(type, null);
+    if (emptyConfigErrors.length > 0) {
+      return { error: `Config validation failed: ${emptyConfigErrors.join("; ")}` };
+    }
   }
 
   const source = await prisma.source.create({
@@ -112,22 +158,8 @@ export async function updateSource(sourceId: string, formData: FormData) {
     return { error: "Name, URL, and type are required" };
   }
 
-  // Parse config JSON if provided; DbNull if empty (clears existing config)
-  let config: Prisma.InputJsonValue | typeof Prisma.DbNull = Prisma.DbNull;
-  if (configRaw) {
-    try {
-      config = JSON.parse(configRaw) as Prisma.InputJsonValue;
-    } catch {
-      return { error: "Invalid JSON in config field" };
-    }
-  }
-
-  // Validate config shape and regex patterns (runs even when config is empty for types that require it)
-  const configForValidation = config === Prisma.DbNull ? null : config;
-  const configErrors = validateSourceConfig(type, configForValidation);
-  if (configErrors.length > 0) {
-    return { error: `Config validation failed: ${configErrors.join("; ")}` };
-  }
+  const { config, error: configError } = parseConfigJson(configRaw, type, true);
+  if (configError) return { error: configError };
 
   const ids = kennelIds
     .split(",")
@@ -259,33 +291,8 @@ export async function createAliasForSource(
     data: { kennelId, alias: tag },
   });
 
-  // Auto-resolve any matching UNMATCHED_TAGS alert
-  const matchingAlerts = await prisma.alert.findMany({
-    where: {
-      sourceId,
-      type: "UNMATCHED_TAGS",
-      status: { in: ["OPEN", "ACKNOWLEDGED"] },
-    },
-  });
-  for (const alert of matchingAlerts) {
-    const ctx = alert.context as { tags?: string[] } | null;
-    if (ctx?.tags) {
-      clearResolverCache();
-      const remaining: string[] = [];
-      for (const t of ctx.tags) {
-        const result = await resolveKennelTag(t);
-        if (!result.matched) remaining.push(t);
-      }
-      if (remaining.length === 0) {
-        await prisma.alert.update({
-          where: { id: alert.id },
-          data: { status: "RESOLVED", resolvedAt: new Date(), resolvedBy: admin.id },
-        });
-      }
-    }
-  }
+  await autoResolveUnmatchedAlerts(sourceId, admin.id);
 
-  // Re-scrape to pick up previously skipped events
   clearResolverCache();
   await scrapeSource(sourceId, { force: true });
 
@@ -400,33 +407,8 @@ export async function createKennelForSource(
     data: { sourceId, kennelId: newKennel.id },
   });
 
-  // Auto-resolve any matching UNMATCHED_TAGS alert
-  const matchingAlerts = await prisma.alert.findMany({
-    where: {
-      sourceId,
-      type: "UNMATCHED_TAGS",
-      status: { in: ["OPEN", "ACKNOWLEDGED"] },
-    },
-  });
-  for (const alert of matchingAlerts) {
-    const ctx = alert.context as { tags?: string[] } | null;
-    if (ctx?.tags) {
-      clearResolverCache();
-      const remaining: string[] = [];
-      for (const t of ctx.tags) {
-        const result = await resolveKennelTag(t);
-        if (!result.matched) remaining.push(t);
-      }
-      if (remaining.length === 0) {
-        await prisma.alert.update({
-          where: { id: alert.id },
-          data: { status: "RESOLVED", resolvedAt: new Date(), resolvedBy: admin.id },
-        });
-      }
-    }
-  }
+  await autoResolveUnmatchedAlerts(sourceId, admin.id);
 
-  // Re-scrape to pick up previously skipped events
   clearResolverCache();
   await scrapeSource(sourceId, { force: true });
 

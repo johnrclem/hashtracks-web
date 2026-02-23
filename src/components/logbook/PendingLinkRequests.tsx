@@ -48,6 +48,10 @@ export function PendingLinkRequests() {
     }
   }, []);
 
+  function removeLinkFromState(id: string) {
+    setLinks((prev) => prev.filter((l) => l.id !== id));
+  }
+
   function handleAccept(linkId: string) {
     startTransition(async () => {
       const result = await acceptLinkRequest(linkId);
@@ -55,7 +59,7 @@ export function PendingLinkRequests() {
         toast.error(result.error);
       } else {
         toast.success("Profile linked");
-        setLinks((prev) => prev.filter((l) => l.id !== linkId));
+        removeLinkFromState(linkId);
         router.refresh();
       }
     });

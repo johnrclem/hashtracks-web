@@ -151,6 +151,37 @@ export async function removeAttendance(kennelId: string, attendanceId: string) {
   return { success: true };
 }
 
+/** Build the update data object from partial attendance field inputs. */
+function buildAttendanceUpdateData(data: {
+  paid?: boolean;
+  haredThisTrail?: boolean;
+  isVirgin?: boolean;
+  isVisitor?: boolean;
+  visitorLocation?: string;
+  referralSource?: string;
+  referralOther?: string;
+}): Record<string, unknown> {
+  const updateData: Record<string, unknown> = {};
+  if (data.paid !== undefined) updateData.paid = data.paid;
+  if (data.haredThisTrail !== undefined) updateData.haredThisTrail = data.haredThisTrail;
+  if (data.isVirgin !== undefined) updateData.isVirgin = data.isVirgin;
+  if (data.isVisitor !== undefined) {
+    updateData.isVisitor = data.isVisitor;
+    if (!data.isVisitor) updateData.visitorLocation = null;
+  }
+  if (data.visitorLocation !== undefined) {
+    updateData.visitorLocation = data.visitorLocation?.trim() || null;
+  }
+  if (data.referralSource !== undefined) {
+    updateData.referralSource = data.referralSource || null;
+    if (data.referralSource !== "OTHER") updateData.referralOther = null;
+  }
+  if (data.referralOther !== undefined) {
+    updateData.referralOther = data.referralOther?.trim() || null;
+  }
+  return updateData;
+}
+
 /**
  * Update specific fields on an attendance record.
  */
@@ -175,37 +206,13 @@ export async function updateAttendance(
   });
   if (!record) return { error: "Attendance record not found" };
 
-  // Snapshot current values for audit log
   const before: Record<string, unknown> = {};
   for (const field of TRACKED_ATTENDANCE_FIELDS) {
     before[field] = record[field];
   }
 
-  const updateData: Record<string, unknown> = {};
+  const updateData = buildAttendanceUpdateData(data);
 
-  if (data.paid !== undefined) updateData.paid = data.paid;
-  if (data.haredThisTrail !== undefined) updateData.haredThisTrail = data.haredThisTrail;
-  if (data.isVirgin !== undefined) updateData.isVirgin = data.isVirgin;
-  if (data.isVisitor !== undefined) {
-    updateData.isVisitor = data.isVisitor;
-    if (!data.isVisitor) {
-      updateData.visitorLocation = null;
-    }
-  }
-  if (data.visitorLocation !== undefined) {
-    updateData.visitorLocation = data.visitorLocation?.trim() || null;
-  }
-  if (data.referralSource !== undefined) {
-    updateData.referralSource = data.referralSource || null;
-    if (data.referralSource !== "OTHER") {
-      updateData.referralOther = null;
-    }
-  }
-  if (data.referralOther !== undefined) {
-    updateData.referralOther = data.referralOther?.trim() || null;
-  }
-
-  // Build field changes for audit log
   const after = { ...before, ...updateData };
   const changes = buildFieldChanges(before, after, [...TRACKED_ATTENDANCE_FIELDS]);
   if (changes) {
@@ -222,7 +229,6 @@ export async function updateAttendance(
     data: updateData,
   });
 
-  // Sync EventHare records when hare flag changes
   if (data.haredThisTrail !== undefined) {
     await syncEventHares(record.eventId);
   }

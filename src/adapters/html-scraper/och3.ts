@@ -120,12 +120,63 @@ export function parseOCH3Entry(text: string): RawEventData | null {
 }
 
 
-function parseOCH3EntriesFromText(text: string, baseUrl: string): RawEventData[] {
-  const normalizedText = text
+/** Normalize raw text for line-based OCH3 parsing. */
+function normalizeOCH3Text(text: string): string {
+  return text
     .replace(/\r/g, "")
     .replace(/[–—]/g, "-")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Parse a single run entry section into a RawEventData. */
+function parseRunEntry(
+  section: string,
+  inferredYear: number | undefined,
+  baseUrl: string,
+): { entry: RawEventData | null; year: number | undefined } {
+  if (!section || /^upcoming runs:?$/i.test(section)) {
+    return { entry: null, year: inferredYear };
+  }
+
+  const explicitYearMatch = section.match(/\b(20\d{2})\b/);
+  if (explicitYearMatch) inferredYear = parseInt(explicitYearMatch[1], 10);
+
+  const date = parseOCH3Date(section, inferredYear);
+  if (!date) return { entry: null, year: inferredYear };
+
+  if (!inferredYear) {
+    inferredYear = parseInt(date.slice(0, 4), 10);
+  }
+
+  const withoutDatePrefix = section
+    .replace(/^(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\s*-?\s*/i, "")
+    .trim();
+
+  const segments = withoutDatePrefix.split(/\s+-\s+/).map((s) => s.trim()).filter(Boolean);
+  const title = segments.length > 0 ? segments[0] : undefined;
+
+  let location: string | undefined;
+  if (segments.length > 1) {
+    location = segments[segments.length - 1];
+    if (/details to follow/i.test(location)) location = undefined;
+  }
+
+  return {
+    entry: {
+      date,
+      kennelTag: "OCH3",
+      title,
+      location,
+      startTime: getStartTimeForDay(extractDayOfWeek(section)),
+      sourceUrl: baseUrl,
+    },
+    year: inferredYear,
+  };
+}
+
+function parseOCH3EntriesFromText(text: string, baseUrl: string): RawEventData[] {
+  const normalizedText = normalizeOCH3Text(text);
 
   const dateStartPattern = /(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?/gi;
   const matches = [...normalizedText.matchAll(dateStartPattern)];
@@ -142,41 +193,9 @@ function parseOCH3EntriesFromText(text: string, baseUrl: string): RawEventData[]
       : normalizedText.length;
 
     const section = normalizedText.slice(start, end).trim();
-    if (!section || /^upcoming runs:?$/i.test(section)) continue;
-
-    const explicitYearMatch = section.match(/\b(20\d{2})\b/);
-    if (explicitYearMatch) inferredYear = parseInt(explicitYearMatch[1], 10);
-
-    const date = parseOCH3Date(section, inferredYear);
-    if (!date) continue;
-
-    if (!inferredYear) {
-      inferredYear = parseInt(date.slice(0, 4), 10);
-    }
-
-    const withoutDatePrefix = section
-      .replace(/^(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\s*-?\s*/i, "")
-      .trim();
-
-    const segments = withoutDatePrefix.split(/\s+-\s+/).map((s) => s.trim()).filter(Boolean);
-    const title = segments.length > 0 ? segments[0] : undefined;
-
-    let location: string | undefined;
-    if (segments.length > 1) {
-      location = segments[segments.length - 1];
-      if (/details to follow/i.test(location)) {
-        location = undefined;
-      }
-    }
-
-    entries.push({
-      date,
-      kennelTag: "OCH3",
-      title,
-      location,
-      startTime: getStartTimeForDay(extractDayOfWeek(section)),
-      sourceUrl: baseUrl,
-    });
+    const { entry, year } = parseRunEntry(section, inferredYear, baseUrl);
+    inferredYear = year;
+    if (entry) entries.push(entry);
   }
 
   return entries;
@@ -192,6 +211,77 @@ function parseOCH3EntriesFromText(text: string, baseUrl: string): RawEventData[]
  */
 export class OCH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
+
+  /** Strategy 1: Parse from table rows. */
+  private parseFromTableRows($: cheerio.CheerioAPI, errorDetails: ErrorDetails): RawEventData[] {
+    const events: RawEventData[] = [];
+    const tableRows = $("table tr");
+    if (tableRows.length <= 1) return events;
+
+    tableRows.each((i, el) => {
+      const rowText = $(el).text().trim();
+      if (!rowText) return;
+      if (/^(date|day|location|hare|#)\s*$/i.test(rowText)) return;
+
+      try {
+        const event = parseOCH3Entry(rowText);
+        if (event) events.push(event);
+      } catch (err) {
+        errorDetails.parse = [
+          ...(errorDetails.parse ?? []),
+          { row: i, section: "table", error: String(err), rawText: rowText?.slice(0, 2000) },
+        ];
+      }
+    });
+    return events;
+  }
+
+  /** Strategy 2: Parse from paragraphs/divs containing dates. */
+  private parseFromContentBlocks($: cheerio.CheerioAPI, errorDetails: ErrorDetails): RawEventData[] {
+    const events: RawEventData[] = [];
+    const blocks = $("p, li, div.paragraph, .wsite-multicol-col, div[class*='run'], div[class*='event']");
+
+    blocks.each((i, el) => {
+      const text = $(el).text().trim();
+      if (!text || text.length < 10) return;
+      if (!parseOCH3Date(text)) return;
+
+      try {
+        const event = parseOCH3Entry(text);
+        if (event) events.push(event);
+      } catch (err) {
+        errorDetails.parse = [
+          ...(errorDetails.parse ?? []),
+          { row: i, section: "content", error: String(err), rawText: text?.slice(0, 2000) },
+        ];
+      }
+    });
+    return events;
+  }
+
+  /** Strategy 4: Split content by date patterns and parse each section. */
+  private parseFromDateSections(mainContent: string, errors: string[]): RawEventData[] {
+    const events: RawEventData[] = [];
+    const datePattern = /(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4}/gi;
+    const matches = mainContent.match(datePattern);
+    if (!matches) return events;
+
+    for (let i = 0; i < matches.length; i++) {
+      const matchStart = mainContent.indexOf(matches[i]);
+      const matchEnd = i + 1 < matches.length
+        ? mainContent.indexOf(matches[i + 1])
+        : matchStart + 300;
+      const section = mainContent.substring(matchStart, matchEnd);
+
+      try {
+        const event = parseOCH3Entry(section);
+        if (event) events.push(event);
+      } catch (err) {
+        errors.push(`Error parsing section ${i}: ${err}`);
+      }
+    }
+    return events;
+  }
 
   async fetch(
     source: Source,
@@ -216,9 +306,7 @@ export class OCH3Adapter implements SourceAdapter {
       });
       if (!response.ok) {
         const message = `HTTP ${response.status}: ${response.statusText}`;
-        errorDetails.fetch = [
-          { url: baseUrl, status: response.status, message },
-        ];
+        errorDetails.fetch = [{ url: baseUrl, status: response.status, message }];
         return { events: [], errors: [message], errorDetails };
       }
       html = await response.text();
@@ -232,90 +320,25 @@ export class OCH3Adapter implements SourceAdapter {
     const structureHash = generateStructureHash(html);
     const $ = cheerio.load(html);
 
-    // Strategy 1: Table rows (if the page uses a table layout)
-    const tableRows = $("table tr");
-    if (tableRows.length > 1) {
-      tableRows.each((i, el) => {
-        const rowText = $(el).text().trim();
-        if (!rowText) return;
-        // Skip header rows
-        if (/^(date|day|location|hare|#)\s*$/i.test(rowText)) return;
+    // Strategy 1: Table rows
+    events.push(...this.parseFromTableRows($, errorDetails));
 
-        try {
-          const event = parseOCH3Entry(rowText);
-          if (event) {
-            events.push(event);
-          }
-        } catch (err) {
-          errorDetails.parse = [
-            ...(errorDetails.parse ?? []),
-            { row: i, section: "table", error: String(err), rawText: rowText?.slice(0, 2000) },
-          ];
-        }
-      });
-    }
-
-    // Strategy 2: Paragraphs or divs with date-containing text blocks
+    // Strategy 2: Content blocks
     if (events.length === 0) {
-      const blocks = $("p, li, div.paragraph, .wsite-multicol-col, div[class*='run'], div[class*='event']");
-      let entriesFound = 0;
-
-      blocks.each((i, el) => {
-        const text = $(el).text().trim();
-        if (!text || text.length < 10) return;
-
-        // Only process blocks that contain a date
-        if (!parseOCH3Date(text)) return;
-
-        try {
-          const event = parseOCH3Entry(text);
-          if (event) {
-            events.push(event);
-            entriesFound++;
-          }
-        } catch (err) {
-          errorDetails.parse = [
-            ...(errorDetails.parse ?? []),
-            { row: i, section: "content", error: String(err), rawText: text?.slice(0, 2000) },
-          ];
-        }
-      });
+      events.push(...this.parseFromContentBlocks($, errorDetails));
     }
 
-    // Strategy 3: Line-based parsing for compact "Upcoming Runs" blocks
-    {
-      const mainContent = $("main, .main-content, #content, .wsite-section-wrap, body").first().text();
-      const parsedFromLines = parseOCH3EntriesFromText(mainContent, baseUrl);
-      if (parsedFromLines.length > events.length) {
-        events.length = 0;
-        events.push(...parsedFromLines);
-      }
+    // Strategy 3: Line-based parsing
+    const mainContent = $("main, .main-content, #content, .wsite-section-wrap, body").first().text();
+    const parsedFromLines = parseOCH3EntriesFromText(mainContent, baseUrl);
+    if (parsedFromLines.length > events.length) {
+      events.length = 0;
+      events.push(...parsedFromLines);
     }
 
-    // Strategy 4: Split page content by date patterns and parse each section
+    // Strategy 4: Date section splitting
     if (events.length === 0) {
-      const mainContent = $("main, .main-content, #content, .wsite-section-wrap, body").first().text();
-      const datePattern = /(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4}/gi;
-      const matches = mainContent.match(datePattern);
-
-      if (matches) {
-        for (let i = 0; i < matches.length; i++) {
-          const matchStart = mainContent.indexOf(matches[i]);
-          const matchEnd = i + 1 < matches.length
-            ? mainContent.indexOf(matches[i + 1])
-            : matchStart + 300;
-          const section = mainContent.substring(matchStart, matchEnd);
-
-          try {
-            const event = parseOCH3Entry(section);
-            if (event) {
-              events.push(event);
-            }
-          } catch (err) {
-            errors.push(`Error parsing section ${i}: ${err}`);
-          }
-        }
-      }
+      events.push(...this.parseFromDateSections(mainContent, errors));
     }
 
     const hasErrorDetails =

@@ -171,13 +171,17 @@ export function AttendanceForm({
     fetchAttendance();
   }
 
+  function removeRecordFromState(id: string) {
+    setRecords((prev) => prev.filter((r) => r.id !== id));
+  }
+
   function handleRemove(attendanceId: string) {
     startTransition(async () => {
       const result = await removeAttendance(kennelId, attendanceId);
       if (result.error) {
         toast.error(result.error);
       } else {
-        setRecords((prev) => prev.filter((r) => r.id !== attendanceId));
+        removeRecordFromState(attendanceId);
       }
     });
   }
