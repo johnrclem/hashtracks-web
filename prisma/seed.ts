@@ -63,6 +63,7 @@ async function upsertSources(prisma: any, sources: any[], kennelRecords: Record<
     const { kennelCodes, ...sourceData } = source;
     let existingSource = await prisma.source.findFirst({ where: { url: sourceData.url } });
     if (!existingSource) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- sourceData contains nested config objects (InputJsonValue)
       existingSource = await prisma.source.create({ data: sourceData });
       console.log(`  ✓ Created source: ${sourceData.name}`);
     } else {

@@ -10,7 +10,7 @@ function validateRegex(
   errors: string[],
 ): void {
   try {
-    const re = new RegExp(pattern, "i");
+    const re = new RegExp(pattern, "i"); // NOSONAR — intentional: validating user-supplied regex
     if (!isSafeRegex(re)) {
       errors.push(
         `${label}: regex "${pattern}" may cause catastrophic backtracking (ReDoS)`,
@@ -146,7 +146,9 @@ export function validateSourceConfig(
   validateSkipPatterns(obj, errors);
 
   // Type-specific validation
-  TYPE_VALIDATORS[type]?.(obj, errors);
+  if (Object.prototype.hasOwnProperty.call(TYPE_VALIDATORS, type)) {
+    TYPE_VALIDATORS[type](obj, errors);
+  }
 
   return errors;
 }

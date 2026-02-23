@@ -130,7 +130,7 @@ function extractDateTimeFromGCalItem(start: { dateTime?: string; date?: string }
     return { dateISO: d.toISOString().split("T")[0], startTime: undefined };
   }
   // All-day event: start.date is already YYYY-MM-DD
-  return { dateISO: start.date!, startTime: undefined };
+  return { dateISO: start.date ?? "", startTime: undefined };
 }
 
 /** Strip HTML from description, preserving newlines, and truncate. */
@@ -176,7 +176,7 @@ function buildRawEventFromGCalItem(
   if (!item.summary) return null;
   if (!item.start?.dateTime && !item.start?.date) return null;
 
-  const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start!);
+  const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start as NonNullable<typeof item.start>);
   const { rawDescription, description } = normalizeGCalDescription(item.description);
   const hares = rawDescription ? extractHares(rawDescription) : undefined;
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(item.summary, sourceConfig);

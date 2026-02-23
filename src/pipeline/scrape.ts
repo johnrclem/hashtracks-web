@@ -8,6 +8,7 @@ import { computeFillRates } from "./fill-rates";
 import type { FieldFillRates } from "./fill-rates";
 import { analyzeHealth, persistAlerts } from "./health";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
+import { validateSourceUrl } from "@/adapters/utils";
 
 export interface ScrapeSourceResult {
   success: boolean;
@@ -215,6 +216,9 @@ export async function scrapeSource(
     if (force) {
       await prisma.rawEvent.deleteMany({ where: { sourceId } });
     }
+
+    // SSRF prevention: validate source URL before fetching
+    validateSourceUrl(source.url);
 
     const adapter = getAdapter(source.type, source.url);
 

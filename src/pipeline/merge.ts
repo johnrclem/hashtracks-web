@@ -97,7 +97,7 @@ async function collectSkippedAndBlockedSamples(
 
   if (!resolvedMatch || !resolvedId) {
     if (needSkippedSamples) {
-      ctx.result.sampleSkipped!.push({
+      ctx.result.sampleSkipped?.push({
         reason: "UNMATCHED_TAG",
         kennelTag: event.kennelTag,
         event,
@@ -107,7 +107,7 @@ async function collectSkippedAndBlockedSamples(
   } else if (!ctx.linkedKennelIds.has(resolvedId)) {
     if (needBlockedSamples) {
       const kennel = await prisma.kennel.findUnique({ where: { id: resolvedId }, select: { shortName: true } });
-      ctx.result.sampleBlocked!.push({
+      ctx.result.sampleBlocked?.push({
         reason: "SOURCE_KENNEL_MISMATCH",
         kennelTag: event.kennelTag,
         event,

@@ -55,6 +55,31 @@ export const MONTHS_ZERO: Record<string, number> = {
 
 
 /**
+ * Validate a source URL is safe for server-side fetching (SSRF prevention).
+ * Blocks non-HTTP protocols, localhost, private IPs, and cloud metadata endpoints.
+ */
+export function validateSourceUrl(url: string): void {
+  const parsed = new URL(url);
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`Blocked URL protocol: ${parsed.protocol}`);
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname === "0.0.0.0" ||
+    hostname === "169.254.169.254" ||
+    hostname === "metadata.google.internal" ||
+    /^10\./.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+    /^192\.168\./.test(hostname)
+  ) {
+    throw new Error(`Blocked internal/private URL: ${hostname}`);
+  }
+}
+
+/**
  * Build canonical + fallback URL base variants for host/protocol edge-routing issues.
  * Order: original, host variant (www/non-www), protocol variant (http/https), protocol+host variant.
  */

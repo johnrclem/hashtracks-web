@@ -175,7 +175,7 @@ function resolveKennelTagFromSheetRow(
     ? row[config.columns.specialRun]?.trim()
     : undefined;
 
-  if (specialRunCell && config.kennelTagRules.specialRunMap?.[specialRunCell]) {
+  if (specialRunCell && config.kennelTagRules.specialRunMap && Object.prototype.hasOwnProperty.call(config.kennelTagRules.specialRunMap, specialRunCell)) {
     return {
       kennelTag: config.kennelTagRules.specialRunMap[specialRunCell],
       runNumber: runNumberCell ? parseInt(runNumberCell, 10) || undefined : undefined,

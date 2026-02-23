@@ -161,6 +161,14 @@ export async function updateSource(sourceId: string, formData: FormData) {
   const { config, error: configError } = parseConfigJson(configRaw, type, true);
   if (configError) return { error: configError };
 
+  // Validate that types requiring config aren't saved with empty config
+  if (config === Prisma.DbNull) {
+    const emptyConfigErrors = validateSourceConfig(type, null);
+    if (emptyConfigErrors.length > 0) {
+      return { error: `Config validation failed: ${emptyConfigErrors.join("; ")}` };
+    }
+  }
+
   const ids = kennelIds
     .split(",")
     .map((id) => id.trim())

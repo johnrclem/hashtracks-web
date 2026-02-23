@@ -309,7 +309,8 @@ async function main() {
 
     // Execute import
     console.log(`\nImporting ${records.length} attendance records...`);
-    await executeImport(prisma, records, recordedByUserId!, opts.filePath);
+    if (!recordedByUserId) throw new Error("recordedByUserId not resolved");
+    await executeImport(prisma, records, recordedByUserId, opts.filePath);
 
     console.log(`\nDone!`);
     await prisma.$disconnect();
