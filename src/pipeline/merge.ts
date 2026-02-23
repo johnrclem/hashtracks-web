@@ -6,6 +6,7 @@ import { regionTimezone } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
+import { extractCoordsFromMapsUrl } from "@/lib/geo";
 
 /**
  * Create EventLink records for an event from externalLinks + alternate sourceUrls.
@@ -201,6 +202,21 @@ async function resolveAndGuardKennel(
 }
 
 /**
+ * Extract lat/lng from a raw event, preferring explicit coords then parsing the locationUrl.
+ * Returns an empty object if no coordinates can be determined.
+ */
+function extractRawCoords(event: RawEventData): { latitude?: number; longitude?: number } {
+  if (event.latitude != null && event.longitude != null) {
+    return { latitude: event.latitude, longitude: event.longitude };
+  }
+  if (event.locationUrl) {
+    const coords = extractCoordsFromMapsUrl(event.locationUrl);
+    if (coords) return { latitude: coords.lat, longitude: coords.lng };
+  }
+  return {};
+}
+
+/**
  * Create or update the canonical Event record and link the RawEvent to it.
  * Returns the canonical event ID.
  */
@@ -231,6 +247,7 @@ async function upsertCanonicalEvent(
 
     // Update only if our source trust level >= existing
     if (ctx.trustLevel >= existingEvent.trustLevel) {
+      const rawCoords = extractRawCoords(event);
       await prisma.event.update({
         where: { id: existingEvent.id },
         data: {
@@ -248,6 +265,13 @@ async function upsertCanonicalEvent(
           // Preserve first source's URL; subsequent sources get EventLinks
           sourceUrl: existingEvent.sourceUrl ?? event.sourceUrl,
           trustLevel: ctx.trustLevel,
+          // Write coords if extracted; clear if locationAddress changed and no new coords
+          // (prevents stale pins when an event moves to an unparseable location URL)
+          ...(rawCoords.latitude != null && rawCoords.longitude != null
+            ? { latitude: rawCoords.latitude, longitude: rawCoords.longitude }
+            : (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)
+              ? { latitude: null, longitude: null }
+              : {}),
         },
       });
     }
@@ -270,6 +294,7 @@ async function upsertCanonicalEvent(
     ctx.result.updated++;
   } else {
     // Create new canonical Event
+    const rawCoords = extractRawCoords(event);
     const newEvent = await prisma.event.create({
       data: {
         kennelId,
@@ -285,6 +310,8 @@ async function upsertCanonicalEvent(
         startTime: event.startTime,
         sourceUrl: event.sourceUrl,
         trustLevel: ctx.trustLevel,
+        latitude: rawCoords.latitude,
+        longitude: rawCoords.longitude,
       },
     });
 

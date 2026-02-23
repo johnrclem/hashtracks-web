@@ -39,6 +39,8 @@ export type HarelineEvent = {
   sourceUrl: string | null;
   status: string;
   eventLinks?: { id: string; url: string; label: string }[];
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 function formatDate(iso: string): string {
