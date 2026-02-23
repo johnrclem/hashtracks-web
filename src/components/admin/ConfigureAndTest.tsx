@@ -289,7 +289,8 @@ export function ConfigureAndTest({
     ? lastRunTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
     : null;
 
-  const testButtonLabel = isPreviewing ? "Testing…" : (hasRunTest ? "Re-run Test" : "Run Test");
+  const runOrRerunLabel = hasRunTest ? "Re-run Test" : "Run Test";
+  const testButtonLabel = isPreviewing ? "Testing…" : runOrRerunLabel;
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
