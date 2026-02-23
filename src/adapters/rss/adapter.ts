@@ -7,6 +7,46 @@ export interface RssConfig {
   kennelTag: string; // Kennel shortName to assign all events from this feed to
 }
 
+type FeedItem = Parser.Item;
+
+/** Parse a date string into a YYYY-MM-DD date and Date object, or null if invalid. */
+function parseItemDate(
+  item: FeedItem,
+  minDate: Date,
+  maxDate: Date,
+): { dateStr: string; itemDate: Date } | null {
+  const rawDate = item.isoDate ?? item.pubDate;
+  if (!rawDate) return null;
+
+  const itemDate = new Date(rawDate);
+  if (Number.isNaN(itemDate.getTime())) return null;
+  if (itemDate < minDate || itemDate > maxDate) return null;
+
+  // Extract YYYY-MM-DD from the raw string when it's ISO 8601 (starts with YYYY-MM-DD).
+  // This preserves the publisher's local date and avoids UTC normalization — e.g.
+  // "2026-02-22T00:30:00+10:00" must not become "2026-02-21" when UTC-converted.
+  const isoMatch = rawDate.match(/^(\d{4}-\d{2}-\d{2})/);
+  const dateStr = isoMatch
+    ? isoMatch[1]
+    : [
+        itemDate.getFullYear(),
+        String(itemDate.getMonth() + 1).padStart(2, "0"),
+        String(itemDate.getDate()).padStart(2, "0"),
+      ].join("-");
+
+  return { dateStr, itemDate };
+}
+
+/** Extract a plain-text description from an RSS item's content fields. */
+function extractDescription(item: FeedItem): string | undefined {
+  // item.contentSnippet and item.summary are already HTML-stripped by rss-parser;
+  // only strip when falling back to item.content (which contains raw HTML).
+  if (item.content) {
+    return stripHtmlTags(item.content).slice(0, 2000) || undefined;
+  }
+  return (item.contentSnippet ?? item.summary)?.slice(0, 2000) || undefined;
+}
+
 /**
  * RSS Feed adapter — fetches events from any RSS 2.0 or Atom 1.0 feed.
  *
@@ -54,44 +94,15 @@ export class RssAdapter implements SourceAdapter {
 
     for (const [i, item] of feed.items.entries()) {
       try {
-        // Parse date: prefer isoDate (already ISO 8601), fall back to pubDate
-        const rawDate = item.isoDate ?? item.pubDate;
-        if (!rawDate) continue;
-
-        const itemDate = new Date(rawDate);
-        if (isNaN(itemDate.getTime())) continue;
-
-        // Filter to configured window
-        if (itemDate < minDate || itemDate > maxDate) continue;
-
-        // Extract YYYY-MM-DD from the raw string when it's ISO 8601 (starts with YYYY-MM-DD).
-        // This preserves the publisher's local date and avoids UTC normalization — e.g.
-        // "2026-02-22T00:30:00+10:00" must not become "2026-02-21" when UTC-converted.
-        const isoMatch = rawDate.match(/^(\d{4}-\d{2}-\d{2})/);
-        const dateStr = isoMatch
-          ? isoMatch[1]
-          : [
-              itemDate.getFullYear(),
-              String(itemDate.getMonth() + 1).padStart(2, "0"),
-              String(itemDate.getDate()).padStart(2, "0"),
-            ].join("-");
-
-        const title = item.title?.trim() || undefined;
-
-        // item.contentSnippet and item.summary are already HTML-stripped by rss-parser;
-        // only strip when falling back to item.content (which contains raw HTML).
-        const description = item.content
-          ? stripHtmlTags(item.content).slice(0, 2000) || undefined
-          : (item.contentSnippet ?? item.summary)?.slice(0, 2000) || undefined;
-
-        const sourceUrl = item.link?.trim() || undefined;
+        const parsed = parseItemDate(item, minDate, maxDate);
+        if (!parsed) continue;
 
         events.push({
-          date: dateStr,
+          date: parsed.dateStr,
           kennelTag: config.kennelTag,
-          title,
-          description,
-          sourceUrl,
+          title: item.title?.trim() || undefined,
+          description: extractDescription(item),
+          sourceUrl: item.link?.trim() || undefined,
         });
       } catch (err) {
         const msg = `Failed to parse RSS item ${i}: ${err instanceof Error ? err.message : String(err)}`;

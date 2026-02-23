@@ -8,8 +8,8 @@ export interface RssConfig {
 }
 
 interface RssConfigPanelProps {
-  config: RssConfig | null;
-  onChange: (config: RssConfig) => void;
+  readonly config: RssConfig | null;
+  readonly onChange: (config: RssConfig) => void;
 }
 
 /**
@@ -26,7 +26,7 @@ export function RssConfigPanel({ config, onChange }: RssConfigPanelProps) {
         <Input
           id="rss-kennel-tag"
           value={kennelTag}
-          onChange={(e) => { onChange({ ...(config ?? {}), kennelTag: e.target.value }); }}
+          onChange={(e) => { onChange({ ...config, kennelTag: e.target.value }); }}
           placeholder="e.g. EWH3"
         />
         <p className="text-xs text-muted-foreground">
