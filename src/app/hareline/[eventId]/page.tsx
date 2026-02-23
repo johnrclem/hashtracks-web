@@ -37,6 +37,9 @@ import { formatTime } from "@/lib/format";
 import { CheckInButton } from "@/components/logbook/CheckInButton";
 import { CalendarExportButton } from "@/components/hareline/CalendarExportButton";
 import { EventLocationMap } from "@/components/hareline/EventLocationMap";
+import { EventWeatherCard } from "@/components/hareline/EventWeatherCard";
+import { getEventDayWeather } from "@/lib/weather";
+import { REGION_CENTROIDS } from "@/lib/geo";
 
 export default async function EventDetailPage({
   params,
@@ -89,6 +92,15 @@ export default async function EventDetailPage({
     prisma.attendance.count({ where: { eventId, status: "CONFIRMED" } }),
     prisma.attendance.count({ where: { eventId, status: "INTENDING" } }),
   ]);
+
+  // Fetch weather forecast for upcoming events (0–10 days out)
+  const daysUntil = Math.ceil((event.date.getTime() - Date.now()) / 86_400_000);
+  const weatherLat = event.latitude ?? REGION_CENTROIDS[event.kennel.region]?.lat ?? null;
+  const weatherLng = event.longitude ?? REGION_CENTROIDS[event.kennel.region]?.lng ?? null;
+  const weather =
+    daysUntil >= 0 && daysUntil <= 10 && weatherLat != null && weatherLng != null
+      ? await getEventDayWeather(weatherLat, weatherLng, event.date).catch(() => null)
+      : null;
 
   const dateFormatted = event.date.toLocaleDateString("en-US", {
     weekday: "long",
@@ -207,12 +219,17 @@ export default async function EventDetailPage({
             </dd>
           </div>
         )}
+        {weather && (
+          <div className="sm:col-span-2">
+            <EventWeatherCard weather={weather} />
+          </div>
+        )}
       </div>
 
-      {event.latitude != null && event.longitude != null && (
+      {(event.latitude != null && event.longitude != null || event.locationName) && (
         <EventLocationMap
-          lat={event.latitude}
-          lng={event.longitude}
+          lat={event.latitude ?? undefined}
+          lng={event.longitude ?? undefined}
           locationName={event.locationName ?? undefined}
           locationAddress={event.locationAddress ?? undefined}
         />
