@@ -352,6 +352,7 @@ export async function confirmMismanAttendance(kennelAttendanceId: string): Promi
       revalidatePath("/logbook");
       return { success: true, attendanceId: raced.id };
     }
+    console.error("[confirmMismanAttendance] Unhandled error:", e);
     return { error: "Unable to confirm — please try again later" };
   }
 }
@@ -383,6 +384,7 @@ export async function declineMismanAttendance(kennelAttendanceId: string): Promi
       revalidatePath("/logbook");
       return { success: true };
     }
+    console.error("[declineMismanAttendance] Unhandled error:", e);
     return { error: "Unable to decline — please try again later" };
   }
 

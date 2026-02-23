@@ -545,6 +545,21 @@ describe("confirmMismanAttendance", () => {
     expect(result).toEqual({ error: "Event was cancelled" });
     expect(mockAttCreate).not.toHaveBeenCalled();
   });
+
+  it("returns error and logs when a non-P2002 exception occurs", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(mockMismanRecord());
+    mockAttFind.mockResolvedValueOnce(null);
+
+    const dbError = new Error("Connection lost");
+    mockAttCreate.mockRejectedValueOnce(dbError);
+
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await confirmMismanAttendance("ka_1");
+
+    expect(result).toEqual({ error: "Unable to confirm — please try again later" });
+    expect(spy).toHaveBeenCalledWith("[confirmMismanAttendance] Unhandled error:", dbError);
+    spy.mockRestore();
+  });
 });
 
 // ── confirmAttendance: cancelled event guard ──
@@ -684,5 +699,20 @@ describe("declineMismanAttendance", () => {
 
     const result = await declineMismanAttendance("ka_1");
     expect(result).toEqual({ success: true });
+  });
+
+  it("returns error and logs when a non-P2002 exception occurs", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce(mockMismanRecord());
+    mockAttFind.mockResolvedValueOnce(null);
+
+    const dbError = new Error("Connection lost");
+    mockAttCreate.mockRejectedValueOnce(dbError);
+
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await declineMismanAttendance("ka_1");
+
+    expect(result).toEqual({ error: "Unable to decline — please try again later" });
+    expect(spy).toHaveBeenCalledWith("[declineMismanAttendance] Unhandled error:", dbError);
+    spy.mockRestore();
   });
 });
