@@ -1,10 +1,10 @@
 "use client";
 
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { KennelPatternsEditor } from "./KennelPatternsEditor";
 import { StringArrayEditor } from "./StringArrayEditor";
 import { SuggestionChips } from "./SuggestionChips";
+import { KennelTagInput, type KennelOption } from "./KennelTagInput";
 
 export interface ICalConfig {
   kennelPatterns?: [string, string][];
@@ -21,6 +21,7 @@ interface ICalConfigPanelProps {
   sampleTitlesByTag?: Record<string, string[]>;
   /** Whether GEMINI_API_KEY is configured */
   geminiAvailable?: boolean;
+  allKennels?: KennelOption[];
 }
 
 export function ICalConfigPanel({
@@ -29,6 +30,7 @@ export function ICalConfigPanel({
   unmatchedTags = [],
   sampleTitlesByTag,
   geminiAvailable,
+  allKennels,
 }: ICalConfigPanelProps) {
   const current = config ?? {};
 
@@ -36,15 +38,16 @@ export function ICalConfigPanel({
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="defaultKennelTag">Default Kennel Tag</Label>
-        <Input
+        <KennelTagInput
           id="defaultKennelTag"
           value={current.defaultKennelTag ?? ""}
-          onChange={(e) =>
+          onChange={(v) =>
             onChange({
               ...current,
-              defaultKennelTag: e.target.value || undefined,
+              defaultKennelTag: v || undefined,
             })
           }
+          allKennels={allKennels}
           placeholder="e.g., EWH3"
           className="text-sm"
         />
@@ -67,6 +70,7 @@ export function ICalConfigPanel({
               kennelPatterns: patterns.length > 0 ? patterns : undefined,
             })
           }
+          allKennels={allKennels}
         />
         <SuggestionChips
           unmatchedTags={unmatchedTags}

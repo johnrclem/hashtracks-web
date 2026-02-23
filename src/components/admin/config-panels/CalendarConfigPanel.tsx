@@ -1,9 +1,9 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KennelPatternsEditor } from "./KennelPatternsEditor";
 import { SuggestionChips } from "./SuggestionChips";
+import { KennelTagInput, type KennelOption } from "./KennelTagInput";
 
 export interface CalendarConfig {
   kennelPatterns?: [string, string][];
@@ -19,6 +19,7 @@ interface CalendarConfigPanelProps {
   sampleTitlesByTag?: Record<string, string[]>;
   /** Whether GEMINI_API_KEY is configured */
   geminiAvailable?: boolean;
+  allKennels?: KennelOption[];
 }
 
 export function CalendarConfigPanel({
@@ -27,6 +28,7 @@ export function CalendarConfigPanel({
   unmatchedTags = [],
   sampleTitlesByTag,
   geminiAvailable,
+  allKennels,
 }: CalendarConfigPanelProps) {
   const current = config ?? {};
 
@@ -34,12 +36,13 @@ export function CalendarConfigPanel({
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="defaultKennelTag">Default Kennel Tag</Label>
-        <Input
+        <KennelTagInput
           id="defaultKennelTag"
           value={current.defaultKennelTag ?? ""}
-          onChange={(e) =>
-            onChange({ ...current, defaultKennelTag: e.target.value || undefined })
+          onChange={(v) =>
+            onChange({ ...current, defaultKennelTag: v || undefined })
           }
+          allKennels={allKennels}
           placeholder="e.g., EWH3"
           className="text-sm"
         />
@@ -62,6 +65,7 @@ export function CalendarConfigPanel({
               kennelPatterns: patterns.length > 0 ? patterns : undefined,
             })
           }
+          allKennels={allKennels}
         />
         <SuggestionChips
           unmatchedTags={unmatchedTags}
