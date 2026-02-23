@@ -18,17 +18,15 @@ function buildWeatherResponse(
   return {
     forecastDays: [
       {
-        date: { year, month, day },
+        displayDate: { year, month, day },
+        maxTemperature: { degrees: overrides?.highTempC ?? 20 },
+        minTemperature: { degrees: overrides?.lowTempC ?? 12 },
         daytimeForecast: {
           weatherCondition: {
             type: overrides?.conditionType ?? "PARTLY_CLOUDY",
             description: { text: overrides?.conditionText ?? "Partly Cloudy" },
           },
-          highTemperature: { value: overrides?.highTempC ?? 20 },
-          precipitationProbability: overrides?.precipProbability ?? 10,
-        },
-        nighttimeForecast: {
-          lowTemperature: { value: overrides?.lowTempC ?? 12 },
+          precipitation: { probability: { percent: overrides?.precipProbability ?? 10 } },
         },
       },
     ],
@@ -88,9 +86,9 @@ describe("getEventDayWeather", () => {
       json: () => Promise.resolve({
         forecastDays: [
           {
-            date: { year: 2026, month: 3, day: 1 },
-            daytimeForecast: { highTemperature: {} }, // missing value
-            nighttimeForecast: { lowTemperature: {} }, // missing value
+            displayDate: { year: 2026, month: 3, day: 1 },
+            maxTemperature: {}, // missing degrees
+            minTemperature: {}, // missing degrees
           },
         ],
       }),
@@ -138,12 +136,10 @@ describe("getEventDayWeather", () => {
       json: () => Promise.resolve({
         forecastDays: [
           {
-            date: { year: 2026, month: 3, day: 1 },
-            daytimeForecast: {
-              highTemperature: { value: 15 },
-              // no weatherCondition or precipitationProbability
-            },
-            nighttimeForecast: { lowTemperature: { value: 5 } },
+            displayDate: { year: 2026, month: 3, day: 1 },
+            maxTemperature: { degrees: 15 },
+            minTemperature: { degrees: 5 },
+            // no daytimeForecast weatherCondition or precipitation
           },
         ],
       }),
