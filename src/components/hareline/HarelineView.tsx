@@ -9,6 +9,8 @@ import { EventFilters } from "./EventFilters";
 import { CalendarView } from "./CalendarView";
 import { EventDetailPanel } from "./EventDetailPanel";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { haversineDistance, getEventCoords } from "@/lib/geo";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -41,6 +43,9 @@ interface FilterCriteria {
   selectedDays: string[];
   selectedCountry: string;
   todayUtc: number;
+  nearMeDistance: number | null;
+  userLat: number | null;
+  userLng: number | null;
 }
 
 /** Check whether an event passes the time filter (upcoming/past). */
@@ -61,6 +66,13 @@ function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
   if (f.selectedKennels.length > 0 && !f.selectedKennels.includes(event.kennel.id)) return false;
   if (f.selectedDays.length > 0 && !f.selectedDays.includes(getDayOfWeek(event.date))) return false;
   if (f.selectedCountry && event.kennel.country !== f.selectedCountry) return false;
+
+  // Near-me distance filter — only applies when geolocation is granted
+  if (f.nearMeDistance != null && f.userLat != null && f.userLng != null) {
+    const coords = getEventCoords(event.latitude ?? null, event.longitude ?? null, event.kennel.region);
+    if (!coords) return false; // no coords + no region centroid — exclude
+    if (haversineDistance(f.userLat, f.userLng, coords.lat, coords.lng) > f.nearMeDistance) return false;
+  }
 
   return true;
 }
@@ -119,6 +131,13 @@ export function HarelineView({
   const [selectedCountry, setSelectedCountryState] = useState<string>(
     searchParams.get("country") ?? "",
   );
+  const [nearMeDistance, setNearMeDistanceState] = useState<number | null>(() => {
+    const d = searchParams.get("dist");
+    return d ? Number(d) : null;
+  });
+
+  // Geolocation hook — only activates on user action
+  const [geoState, requestLocation] = useGeolocation();
 
   // Selected event for detail panel (desktop only)
   const [selectedEvent, setSelectedEvent] = useState<HarelineEvent | null>(null);
@@ -147,6 +166,7 @@ export function HarelineView({
         kennels: selectedKennels,
         days: selectedDays,
         country: selectedCountry,
+        dist: nearMeDistance != null ? String(nearMeDistance) : "",
         ...overrides,
       };
 
@@ -169,7 +189,7 @@ export function HarelineView({
       const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
       window.history.replaceState(window.history.state, "", newUrl);
     },
-    [timeFilter, view, density, scope, selectedRegions, selectedKennels, selectedDays, selectedCountry, defaultScope],
+    [timeFilter, view, density, scope, selectedRegions, selectedKennels, selectedDays, selectedCountry, nearMeDistance, defaultScope],
   );
 
   // Wrapper setters that sync to URL
@@ -211,19 +231,28 @@ export function HarelineView({
     setSelectedEvent(null);
     syncUrl({ country: v });
   }
+  function setNearMeDistance(v: number | null) {
+    setNearMeDistanceState(v);
+    setSelectedEvent(null);
+    syncUrl({ dist: v != null ? String(v) : "" });
+  }
 
   // Filter events
   const filteredEvents = useMemo(() => {
     const now = new Date();
     const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
 
+    const userLat = geoState.status === "granted" ? geoState.lat : null;
+    const userLng = geoState.status === "granted" ? geoState.lng : null;
+
     return events.filter((event) => {
       return passesAllFilters(event, {
         view, timeFilter, scope, subscribedKennelIds,
         selectedRegions, selectedKennels, selectedDays, selectedCountry, todayUtc,
+        nearMeDistance, userLat, userLng,
       });
     });
-  }, [events, view, timeFilter, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays, selectedCountry]);
+  }, [events, view, timeFilter, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays, selectedCountry, nearMeDistance, geoState]);
 
   const sortedEvents = useMemo(() => {
     return sortEvents(filteredEvents, timeFilter);
@@ -319,6 +348,10 @@ export function HarelineView({
         onDaysChange={setSelectedDays}
         selectedCountry={selectedCountry}
         onCountryChange={setSelectedCountry}
+        nearMeDistance={nearMeDistance}
+        onNearMeDistanceChange={setNearMeDistance}
+        geoState={geoState}
+        onRequestLocation={requestLocation}
       />
 
       {/* Results count */}
