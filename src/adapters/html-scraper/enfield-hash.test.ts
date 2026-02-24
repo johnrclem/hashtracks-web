@@ -98,6 +98,14 @@ describe("parseEnfieldDate", () => {
     // If text has "25 February 2025" with explicit year, use it
     expect(parseEnfieldDate("25 February 2025", now)).toBe("2025-02-25");
   });
+
+  it("trusts chrono for DD/MM/YY format", () => {
+    expect(parseEnfieldDate("25/02/26", now)).toBe("2026-02-25");
+  });
+
+  it("trusts chrono for DD/MM/YYYY format", () => {
+    expect(parseEnfieldDate("25/02/2026", now)).toBe("2026-02-25");
+  });
 });
 
 describe("parseEnfieldBody", () => {

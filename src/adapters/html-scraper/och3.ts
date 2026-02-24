@@ -26,7 +26,8 @@ export function parseOCH3Date(text: string, fallbackYear?: number): string | nul
   if (!result) return null;
   // If text has no explicit year and no fallbackYear was provided, return null.
   // This preserves behavior: year-less dates require context from earlier entries.
-  if (!fallbackYear && !/\b\d{4}\b/.test(text) && !/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(text)) {
+  // Checks: 4-digit year ("2026"), slash-form ("22/02/26"), or text-form 2-digit year ("February 26")
+  if (!fallbackYear && !/\b\d{4}\b/.test(text) && !/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(text) && !/[a-z]\s+\d{2}\b/i.test(text)) {
     return null;
   }
   return result;

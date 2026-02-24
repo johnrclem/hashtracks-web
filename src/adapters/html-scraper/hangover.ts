@@ -3,7 +3,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { safeFetch } from "../safe-fetch";
-import { chronoParseDate } from "../utils";
+import { chronoParseDate, parse12HourTime } from "../utils";
 
 const DEFAULT_START_TIME = "10:15";
 
@@ -29,19 +29,7 @@ export function parseHangoverDate(text: string): string | null {
   return chronoParseDate(text, "en-US");
 }
 
-function parseTime(text: string): string | undefined {
-  const match = text.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
-  if (!match) return undefined;
-
-  let hours = parseInt(match[1], 10);
-  const minutes = match[2];
-  const ampm = match[3].toLowerCase();
-
-  if (ampm === "pm" && hours !== 12) hours += 12;
-  if (ampm === "am" && hours === 12) hours = 0;
-
-  return `${hours.toString().padStart(2, "0")}:${minutes}`;
-}
+const parseTime = parse12HourTime;
 
 export function parseHangoverBody(text: string): {
   date?: string;

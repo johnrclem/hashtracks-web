@@ -328,11 +328,6 @@ describe("chronoParseDate", () => {
     expect(chronoParseDate("2026-02-15T14:00:00-06:00")).toBe("2026-02-15");
   });
 
-  // Dot-separated pre-processing (OFH3)
-  it("parses dot-separated M.DD.YY: '3.14.26'", () => {
-    expect(chronoParseDate("3.14.26", "en-US")).toBe("2026-03-14");
-  });
-
   // Locale disambiguation
   it("interprets 03/04/2026 as March 4 with en-US", () => {
     expect(chronoParseDate("03/04/2026", "en-US")).toBe("2026-03-04");

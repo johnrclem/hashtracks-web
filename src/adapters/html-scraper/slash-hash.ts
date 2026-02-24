@@ -8,7 +8,7 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { chronoParseDate } from "../utils";
+import { chronoParseDate, parse12HourTime } from "../utils";
 
 /**
  * Parse a date from SLASH run list text using chrono-node.
@@ -17,8 +17,13 @@ import { chronoParseDate } from "../utils";
  * to avoid false positives from bare day-of-week names like "Sat".
  */
 export function parseSlashDate(text: string): string | null {
-  // Guard: require a digit followed by a month-like word, or a numeric date pattern
-  if (!/\d{1,2}\s*[/]|(?:st|nd|rd|th)\s+\w|[a-z]+\s+\d{4}|\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(text)) {
+  // Guard: reject bare day-of-week names that chrono would false-positive on.
+  // Split into simple checks to stay under SonarCloud regex complexity limit.
+  const hasNumericSlash = /\d{1,2}\s*\//.test(text);
+  const hasOrdinalSuffix = /(?:st|nd|rd|th)\s+\w/.test(text);
+  const hasMonthYear = /[a-z]{3,}\s+\d{4}/i.test(text);
+  const hasDigitMonth = /\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(text);
+  if (!hasNumericSlash && !hasOrdinalSuffix && !hasMonthYear && !hasDigitMonth) {
     return null;
   }
   return chronoParseDate(text, "en-GB");
@@ -33,14 +38,18 @@ export function parseSlashDate(text: string): string | null {
 export function parseSlashTime(text: string): string | null {
   if (/\b(?:12\s+)?noon\b/i.test(text)) return "12:00";
 
-  const timeMatch = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
-  if (timeMatch) {
-    let hours = parseInt(timeMatch[1], 10);
-    const minutes = timeMatch[2] || "00";
-    const ampm = timeMatch[3].toLowerCase();
+  // Delegate HH:MM AM/PM to shared utility
+  const result = parse12HourTime(text);
+  if (result) return result;
+
+  // Handle bare "1pm" (no minutes) — not covered by parse12HourTime
+  const bare = text.match(/(\d{1,2})\s*(am|pm)/i);
+  if (bare) {
+    let hours = parseInt(bare[1], 10);
+    const ampm = bare[2].toLowerCase();
     if (ampm === "pm" && hours !== 12) hours += 12;
     if (ampm === "am" && hours === 12) hours = 0;
-    return `${hours.toString().padStart(2, "0")}:${minutes}`;
+    return `${hours.toString().padStart(2, "0")}:00`;
   }
 
   return null;

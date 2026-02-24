@@ -38,6 +38,10 @@ describe("parseOCH3Date", () => {
   it("returns null for empty string", () => {
     expect(parseOCH3Date("")).toBeNull();
   });
+
+  it("parses text-form 2-digit year: '22nd February 26'", () => {
+    expect(parseOCH3Date("22nd February 26")).toBe("2026-02-22");
+  });
 });
 
 describe("extractDayOfWeek", () => {

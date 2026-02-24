@@ -53,8 +53,9 @@ export function parseEnfieldDate(text: string, now?: Date): string | null {
   const day = parsed[2];
   const inferredYear = inferYear(month, day, now);
 
-  // Check if the text contains an explicit 4-digit year — if so, trust chrono's result
-  if (/\d{4}/.test(text)) return result;
+  // Check if the text contains an explicit year — if so, trust chrono's result.
+  // Matches: 4-digit year ("2026"), or slash-form with year ("25/02/26", "25/02/2026")
+  if (/\b\d{4}\b/.test(text) || /\d{1,2}\/\d{1,2}\/\d{2,4}/.test(text)) return result;
 
   // Year-less date: override with ±6 month inference
   return `${inferredYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;

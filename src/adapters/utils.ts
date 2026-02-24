@@ -256,17 +256,11 @@ export function chronoParseDate(
   referenceDate?: Date,
   options?: { forwardDate?: boolean },
 ): string | null {
-  // Pre-process: convert dot-separated "M.DD.YY" to "M/DD/YY" (OFH3 format)
-  const normalized = text.replace(
-    /(\d{1,2})\.(\d{1,2})\.(\d{2,4})/,
-    "$1/$2/$3",
-  );
-
   const parser = locale === "en-GB" ? chrono.en.GB : chrono.en;
   const ref: chrono.ParsingReference | undefined = referenceDate
     ? { instant: referenceDate }
     : undefined;
-  const results = parser.parse(normalized, ref, {
+  const results = parser.parse(text, ref, {
     forwardDate: options?.forwardDate ?? false,
   });
 
