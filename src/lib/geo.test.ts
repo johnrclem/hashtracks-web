@@ -1,4 +1,4 @@
-import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR } from "./geo";
+import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance } from "./geo";
 
 describe("extractCoordsFromMapsUrl", () => {
   it("parses @lat,lng,zoom path segment", () => {
@@ -118,5 +118,30 @@ describe("getRegionColor", () => {
 
   it("returns DEFAULT_PIN_COLOR for an unknown region", () => {
     expect(getRegionColor("Unknown Nowhere")).toBe(DEFAULT_PIN_COLOR);
+  });
+});
+
+describe("haversineDistance", () => {
+  it("returns 0 for the same point", () => {
+    expect(haversineDistance(40.7128, -74.006, 40.7128, -74.006)).toBe(0);
+  });
+
+  it("computes NYC → London as ~5570 km (±5%)", () => {
+    const dist = haversineDistance(40.7128, -74.006, 51.5074, -0.1278);
+    expect(dist).toBeGreaterThan(5570 * 0.95);
+    expect(dist).toBeLessThan(5570 * 1.05);
+  });
+
+  it("computes NYC → Brooklyn as ~5–8 km (short distance accuracy)", () => {
+    const dist = haversineDistance(40.7128, -74.006, 40.7614, -73.9776);
+    expect(dist).toBeGreaterThan(5);
+    expect(dist).toBeLessThan(8);
+  });
+
+  it("handles southern hemisphere (negative latitudes)", () => {
+    // Sydney → Melbourne ≈ 713 km
+    const dist = haversineDistance(-33.8688, 151.2093, -37.8136, 144.9631);
+    expect(dist).toBeGreaterThan(713 * 0.95);
+    expect(dist).toBeLessThan(713 * 1.05);
   });
 });

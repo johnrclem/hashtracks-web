@@ -1,11 +1,21 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { KennelCard, type KennelCardData } from "@/components/kennels/KennelCard";
 import { KennelFilters, DAY_FULL } from "@/components/kennels/KennelFilters";
+
+const KennelMapView = dynamic(() => import("./KennelMapView"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[500px] items-center justify-center rounded-md border text-sm text-muted-foreground">
+      Loading map…
+    </div>
+  ),
+});
 
 interface KennelDirectoryProps {
   kennels: KennelCardData[];
@@ -39,6 +49,9 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   const [sort, setSortState] = useState<"alpha" | "active">(
     (searchParams.get("sort") as "alpha" | "active") || "alpha",
   );
+  const [displayView, setDisplayViewState] = useState<"grid" | "map">(
+    searchParams.get("display") === "map" ? "map" : "grid",
+  );
 
   // Sync state to URL via replaceState
   const syncUrl = useCallback(
@@ -52,6 +65,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         upcoming: showUpcomingOnly,
         country: selectedCountry,
         sort,
+        display: displayView,
         ...overrides,
       };
 
@@ -67,6 +81,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         // Only add non-default values
         const isDefault =
           (key === "sort" && str === "alpha") ||
+          (key === "display" && str === "grid") ||
           (key === "upcoming" && str !== "true") ||
           str === "";
         if (!isDefault) {
@@ -78,7 +93,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
       window.history.replaceState(window.history.state, "", newUrl);
     },
-    [search, selectedRegions, selectedDays, selectedFrequency, showUpcomingOnly, selectedCountry, sort],
+    [search, selectedRegions, selectedDays, selectedFrequency, showUpcomingOnly, selectedCountry, sort, displayView],
   );
 
   // Wrapper setters that sync URL
@@ -109,6 +124,15 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   function setSort(v: "alpha" | "active") {
     setSortState(v);
     syncUrl({ sort: v });
+  }
+  function setDisplayView(v: "grid" | "map") {
+    setDisplayViewState(v);
+    syncUrl({ display: v });
+  }
+  function handleRegionSelect(region: string) {
+    setSelectedRegionsState([region]);
+    setDisplayViewState("grid");
+    syncUrl({ regions: [region], display: "grid" });
   }
 
   // Filter pipeline
@@ -199,16 +223,31 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
           className="max-w-sm"
         />
 
-        <ToggleGroup
-          type="single"
-          value={sort}
-          onValueChange={(v) => v && setSort(v as "alpha" | "active")}
-          variant="outline"
-          size="sm"
-        >
-          <ToggleGroupItem value="alpha">A–Z</ToggleGroupItem>
-          <ToggleGroupItem value="active">Recently Active</ToggleGroupItem>
-        </ToggleGroup>
+        <div className="flex items-center gap-2">
+          {displayView === "grid" && (
+            <ToggleGroup
+              type="single"
+              value={sort}
+              onValueChange={(v) => v && setSort(v as "alpha" | "active")}
+              variant="outline"
+              size="sm"
+            >
+              <ToggleGroupItem value="alpha">A–Z</ToggleGroupItem>
+              <ToggleGroupItem value="active">Recently Active</ToggleGroupItem>
+            </ToggleGroup>
+          )}
+
+          <ToggleGroup
+            type="single"
+            value={displayView}
+            onValueChange={(v) => v && setDisplayView(v as "grid" | "map")}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="grid">Grid</ToggleGroupItem>
+            <ToggleGroupItem value="map">Map</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </div>
 
       {/* Filters */}
@@ -231,8 +270,10 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         {filtered.length} {filtered.length === 1 ? "kennel" : "kennels"}
       </p>
 
-      {/* Grid */}
-      {filtered.length === 0 ? (
+      {/* Map or Grid */}
+      {displayView === "map" ? (
+        <KennelMapView kennels={filtered} onRegionSelect={handleRegionSelect} />
+      ) : filtered.length === 0 ? (
         <div className="py-12 text-center">
           <p className="text-muted-foreground">No kennels match your filters.</p>
         </div>

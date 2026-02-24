@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,8 +16,16 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { MapPin, Loader2, X } from "lucide-react";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import type { HarelineEvent } from "./EventCard";
+import type { GeoState } from "@/hooks/useGeolocation";
+import { DISTANCE_OPTIONS } from "@/lib/geo";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -35,6 +43,10 @@ interface EventFiltersProps {
   onDaysChange: (days: string[]) => void;
   selectedCountry: string;
   onCountryChange: (country: string) => void;
+  nearMeDistance: number | null;
+  onNearMeDistanceChange: (distance: number | null) => void;
+  geoState: GeoState;
+  onRequestLocation: () => void;
 }
 
 export function EventFilters({
@@ -51,6 +63,10 @@ export function EventFilters({
   onDaysChange,
   selectedCountry,
   onCountryChange,
+  nearMeDistance,
+  onNearMeDistanceChange,
+  geoState,
+  onRequestLocation,
 }: EventFiltersProps) {
   // Derive available regions and kennels from events
   const regions = useMemo(() => {
@@ -111,7 +127,7 @@ export function EventFilters({
   }
 
   const activeFilterCount =
-    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0);
+    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance != null ? 1 : 0);
 
   return (
     <div className="space-y-3">
@@ -263,6 +279,14 @@ export function EventFilters({
           </div>
         )}
 
+        {/* Near me filter */}
+        <NearMeFilter
+          nearMeDistance={nearMeDistance}
+          onNearMeDistanceChange={onNearMeDistanceChange}
+          geoState={geoState}
+          onRequestLocation={onRequestLocation}
+        />
+
         {/* Clear filters */}
         {activeFilterCount > 0 && (
           <Button
@@ -274,6 +298,7 @@ export function EventFilters({
               onKennelsChange([]);
               onDaysChange([]);
               onCountryChange("");
+              onNearMeDistanceChange(null);
             }}
           >
             Clear filters
@@ -281,5 +306,96 @@ export function EventFilters({
         )}
       </div>
     </div>
+  );
+}
+
+interface NearMeFilterProps {
+  nearMeDistance: number | null;
+  onNearMeDistanceChange: (distance: number | null) => void;
+  geoState: GeoState;
+  onRequestLocation: () => void;
+}
+
+function NearMeFilter({ nearMeDistance, onNearMeDistanceChange, geoState, onRequestLocation }: NearMeFilterProps) {
+  // Defer geolocation support check to after mount to avoid SSR/hydration mismatch.
+  // Default to true so the button is rendered on both server and client during hydration.
+  const [geoSupported, setGeoSupported] = useState(true);
+  useEffect(() => {
+    setGeoSupported("geolocation" in navigator);
+  }, []);
+
+  if (!geoSupported) return null;
+
+  // Active state: granted + distance selected
+  if (geoState.status === "granted" && nearMeDistance != null) {
+    return (
+      <div className="flex items-center gap-1 rounded-md border bg-primary/5 px-2 py-1">
+        <MapPin className="h-3 w-3 text-primary" />
+        <span className="text-xs text-primary">Within</span>
+        <div className="flex gap-0.5">
+          {DISTANCE_OPTIONS.map((km) => (
+            <button
+              key={km}
+              onClick={() => onNearMeDistanceChange(km)}
+              className={`rounded px-1.5 py-0.5 text-xs font-medium transition-colors ${
+                nearMeDistance === km
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {km}km
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => onNearMeDistanceChange(null)}
+          className="ml-0.5 rounded p-0.5 text-muted-foreground hover:text-foreground"
+          aria-label="Clear near me filter"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (geoState.status === "loading") {
+    return (
+      <Button variant="outline" size="sm" className="h-8 text-xs" disabled>
+        <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+        Getting location…
+      </Button>
+    );
+  }
+
+  // Denied state
+  if (geoState.status === "denied") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="outline" size="sm" className="h-8 cursor-not-allowed text-xs opacity-60" disabled>
+            <MapPin className="mr-1.5 h-3 w-3" />
+            Near me
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{geoState.error}</TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  // Idle (and partially: granted but no distance set yet — shouldn't happen in practice)
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="h-8 text-xs"
+      onClick={() => {
+        onRequestLocation();
+        onNearMeDistanceChange(25); // default 25km
+      }}
+    >
+      <MapPin className="mr-1.5 h-3 w-3" />
+      Near me
+    </Button>
   );
 }
