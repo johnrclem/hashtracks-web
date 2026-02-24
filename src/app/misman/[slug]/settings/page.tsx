@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getMismanUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { KennelSettingsForm } from "@/components/misman/KennelSettingsForm";
@@ -49,7 +49,7 @@ export default async function SettingsPage({ params }: Props) {
   if (!kennel) notFound();
 
   const user = await getMismanUser(kennel.id);
-  if (!user) notFound();
+  if (!user) redirect("/misman");
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -60,7 +60,7 @@ export default async function SettingsPage({ params }: Props) {
           region, contact an admin.
         </p>
       </div>
-      <KennelSettingsForm kennel={kennel} />
+      <KennelSettingsForm kennel={kennel} currentYear={new Date().getFullYear()} />
     </div>
   );
 }

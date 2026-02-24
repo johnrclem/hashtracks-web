@@ -43,6 +43,7 @@ interface KennelData {
 
 interface KennelSettingsFormProps {
   kennel: KennelData;
+  currentYear: number;
 }
 
 function triStateValue(val: boolean | null): string {
@@ -51,8 +52,9 @@ function triStateValue(val: boolean | null): string {
   return "";
 }
 
-export function KennelSettingsForm({ kennel }: KennelSettingsFormProps) {
-  const formRef = useRef<HTMLFormElement>(undefined);
+/** Kennel profile editing form for mismans. Edits 19 profile fields (no identity fields). */
+export function KennelSettingsForm({ kennel, currentYear }: KennelSettingsFormProps) {
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent) {
@@ -60,11 +62,15 @@ export function KennelSettingsForm({ kennel }: KennelSettingsFormProps) {
     if (!formRef.current) return;
     const formData = new FormData(formRef.current);
     startTransition(async () => {
-      const result = await updateKennelSettings(kennel.id, formData);
-      if ("error" in result) {
-        toast.error(result.error);
-      } else {
-        toast.success("Profile updated");
+      try {
+        const result = await updateKennelSettings(kennel.id, formData);
+        if ("error" in result) {
+          toast.error(result.error);
+        } else {
+          toast.success("Profile updated");
+        }
+      } catch {
+        toast.error("Unable to update profile");
       }
     });
   }
@@ -150,7 +156,7 @@ export function KennelSettingsForm({ kennel }: KennelSettingsFormProps) {
       {/* Social & Contact */}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          Social &amp; Contact
+          Social & Contact
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
@@ -257,7 +263,7 @@ export function KennelSettingsForm({ kennel }: KennelSettingsFormProps) {
               name="foundedYear"
               type="number"
               min={1938}
-              max={new Date().getFullYear()}
+              max={currentYear}
               defaultValue={kennel.foundedYear ?? ""}
               placeholder="1990"
             />
