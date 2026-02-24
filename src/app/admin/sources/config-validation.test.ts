@@ -1,7 +1,11 @@
 import { validateSourceConfig } from "./config-validation";
 
 describe("validateSourceConfig", () => {
-  describe("config shape validation", () => {
+  // ---------------------------------------------------------------------------
+  // Null/undefined config — parameterized to eliminate per-type duplication
+  // ---------------------------------------------------------------------------
+
+  describe("null/undefined config handling", () => {
     it("accepts null/undefined config for optional types", () => {
       expect(validateSourceConfig("GOOGLE_CALENDAR", null)).toEqual([]);
       expect(validateSourceConfig("GOOGLE_CALENDAR", undefined)).toEqual([]);
@@ -9,16 +13,30 @@ describe("validateSourceConfig", () => {
       expect(validateSourceConfig("HTML_SCRAPER", null)).toEqual([]);
     });
 
-    it("rejects null/undefined config for types that require it", () => {
-      const sheetsErrors = validateSourceConfig("GOOGLE_SHEETS", null);
-      expect(sheetsErrors).toHaveLength(1);
-      expect(sheetsErrors[0]).toContain("requires a config");
+    it.each(["GOOGLE_SHEETS", "HASHREGO", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"])(
+      "rejects null config for %s",
+      (type) => {
+        const errors = validateSourceConfig(type, null);
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain("requires a config");
+      },
+    );
 
-      const regoErrors = validateSourceConfig("HASHREGO", undefined);
-      expect(regoErrors).toHaveLength(1);
-      expect(regoErrors[0]).toContain("requires a config");
-    });
+    it.each(["GOOGLE_SHEETS", "HASHREGO", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"])(
+      "rejects undefined config for %s",
+      (type) => {
+        const errors = validateSourceConfig(type, undefined);
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain("requires a config");
+      },
+    );
+  });
 
+  // ---------------------------------------------------------------------------
+  // Config shape validation
+  // ---------------------------------------------------------------------------
+
+  describe("config shape validation", () => {
     it("rejects non-object config (array)", () => {
       const errors = validateSourceConfig("GOOGLE_CALENDAR", [1, 2, 3]);
       expect(errors).toHaveLength(1);
@@ -41,6 +59,10 @@ describe("validateSourceConfig", () => {
       expect(validateSourceConfig("GOOGLE_CALENDAR", {})).toEqual([]);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // kennelPatterns validation
+  // ---------------------------------------------------------------------------
 
   describe("kennelPatterns validation", () => {
     it("accepts valid kennelPatterns", () => {
@@ -114,6 +136,10 @@ describe("validateSourceConfig", () => {
     });
   });
 
+  // ---------------------------------------------------------------------------
+  // skipPatterns validation
+  // ---------------------------------------------------------------------------
+
   describe("skipPatterns validation", () => {
     it("accepts valid skipPatterns", () => {
       const config = {
@@ -156,6 +182,10 @@ describe("validateSourceConfig", () => {
     });
   });
 
+  // ---------------------------------------------------------------------------
+  // GOOGLE_SHEETS required fields
+  // ---------------------------------------------------------------------------
+
   describe("GOOGLE_SHEETS required fields", () => {
     it("requires sheetId, columns, and kennelTagRules", () => {
       const errors = validateSourceConfig("GOOGLE_SHEETS", {});
@@ -182,13 +212,11 @@ describe("validateSourceConfig", () => {
       });
       expect(errors.some((e) => e.includes("kennelTagRules"))).toBe(true);
     });
-
-    it("rejects null config for GOOGLE_SHEETS", () => {
-      const errors = validateSourceConfig("GOOGLE_SHEETS", null);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("requires a config");
-    });
   });
+
+  // ---------------------------------------------------------------------------
+  // HASHREGO required fields
+  // ---------------------------------------------------------------------------
 
   describe("HASHREGO required fields", () => {
     it("requires non-empty kennelSlugs array", () => {
@@ -207,13 +235,11 @@ describe("validateSourceConfig", () => {
       const config = { kennelSlugs: ["BFMH3", "EWH3"] };
       expect(validateSourceConfig("HASHREGO", config)).toEqual([]);
     });
-
-    it("rejects null config for HASHREGO", () => {
-      const errors = validateSourceConfig("HASHREGO", null);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("requires a config");
-    });
   });
+
+  // ---------------------------------------------------------------------------
+  // Real-world configs
+  // ---------------------------------------------------------------------------
 
   describe("real-world configs", () => {
     it("validates SFH3 iCal config (14 patterns + 2 skip)", () => {
@@ -254,14 +280,13 @@ describe("validateSourceConfig", () => {
     });
   });
 
+  // ---------------------------------------------------------------------------
+  // RSS_FEED config validation
+  // ---------------------------------------------------------------------------
+
   describe("RSS_FEED config validation", () => {
     it("accepts valid RSS_FEED config", () => {
-      const config = { kennelTag: "EWH3" };
-      expect(validateSourceConfig("RSS_FEED", config)).toEqual([]);
-    });
-
-    it("requires config object for RSS_FEED", () => {
-      expect(validateSourceConfig("RSS_FEED", null)).toContain("RSS_FEED requires a config object");
+      expect(validateSourceConfig("RSS_FEED", { kennelTag: "EWH3" })).toEqual([]);
     });
 
     it("requires non-empty kennelTag", () => {
@@ -276,6 +301,10 @@ describe("validateSourceConfig", () => {
     });
   });
 
+  // ---------------------------------------------------------------------------
+  // STATIC_SCHEDULE config validation
+  // ---------------------------------------------------------------------------
+
   describe("STATIC_SCHEDULE config validation", () => {
     it("accepts valid STATIC_SCHEDULE config", () => {
       const config = {
@@ -286,12 +315,6 @@ describe("validateSourceConfig", () => {
         defaultTitle: "Rumson H3 Weekly Run",
       };
       expect(validateSourceConfig("STATIC_SCHEDULE", config)).toEqual([]);
-    });
-
-    it("requires config object for STATIC_SCHEDULE", () => {
-      expect(validateSourceConfig("STATIC_SCHEDULE", null)).toContain(
-        "STATIC_SCHEDULE requires a config object",
-      );
     });
 
     it("requires non-empty kennelTag", () => {
@@ -347,8 +370,7 @@ describe("validateSourceConfig", () => {
     });
 
     it("reports both errors when both required fields are missing", () => {
-      const config = {};
-      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
+      const errors = validateSourceConfig("STATIC_SCHEDULE", {});
       expect(errors).toHaveLength(2);
     });
 
@@ -358,14 +380,14 @@ describe("validateSourceConfig", () => {
     });
   });
 
+  // ---------------------------------------------------------------------------
+  // MEETUP config validation
+  // ---------------------------------------------------------------------------
+
   describe("MEETUP config validation", () => {
     it("accepts valid MEETUP config", () => {
       const config = { groupUrlname: "brooklyn-hash-house-harriers", kennelTag: "BrH3" };
       expect(validateSourceConfig("MEETUP", config)).toEqual([]);
-    });
-
-    it("requires config object for MEETUP", () => {
-      expect(validateSourceConfig("MEETUP", null)).toContain("MEETUP requires a config object");
     });
 
     it("requires non-empty groupUrlname", () => {
@@ -381,8 +403,7 @@ describe("validateSourceConfig", () => {
     });
 
     it("reports both errors when both fields are missing", () => {
-      const config = {};
-      const errors = validateSourceConfig("MEETUP", config);
+      const errors = validateSourceConfig("MEETUP", {});
       expect(errors).toHaveLength(2);
     });
   });

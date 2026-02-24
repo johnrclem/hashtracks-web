@@ -119,7 +119,7 @@ function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: stri
   }
   if (typeof obj.rrule !== "string" || !obj.rrule.trim()) {
     errors.push("Static Schedule config requires a non-empty rrule");
-  } else if (!/^FREQ=/i.test((obj.rrule as string).trim())) {
+  } else if (!/^FREQ=/i.test(obj.rrule.trim())) {
     errors.push("Static Schedule rrule must start with FREQ= (e.g. FREQ=WEEKLY;BYDAY=SA)");
   }
   if (obj.startTime !== undefined) {

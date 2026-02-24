@@ -30,6 +30,51 @@ const DAY_MAP: Record<string, number> = {
 };
 
 /**
+ * Parse INTERVAL from RRULE parts. Returns 1 if not specified.
+ * @throws {Error} If INTERVAL is not a finite positive integer.
+ */
+function parseInterval(parts: Record<string, string>): number {
+  if (!parts.INTERVAL) return 1;
+  const interval = Number.parseInt(parts.INTERVAL, 10);
+  if (!Number.isFinite(interval) || interval < 1) {
+    throw new Error(`Invalid INTERVAL: ${parts.INTERVAL} (must be >= 1)`);
+  }
+  return interval;
+}
+
+/**
+ * Parse BYDAY from RRULE parts. Supports formats like "SA", "2SA" (2nd Saturday),
+ * "-1FR" (last Friday). Returns undefined if BYDAY is not present.
+ * @throws {Error} If BYDAY format is invalid, day abbreviation is unknown, or nth is 0.
+ */
+function parseByDay(parts: Record<string, string>): { day: number; nth?: number } | undefined {
+  if (!parts.BYDAY) return undefined;
+  const match = /^(-?\d+)?([A-Z]{2})$/.exec(parts.BYDAY);
+  if (!match) throw new Error(`Invalid BYDAY: ${parts.BYDAY}`);
+  const dayNum = DAY_MAP[match[2]];
+  if (dayNum === undefined) throw new Error(`Unknown day: ${match[2]}`);
+  if (match[1]) {
+    const nth = Number.parseInt(match[1], 10);
+    if (nth === 0) throw new Error("BYDAY nth position cannot be 0");
+    return { day: dayNum, nth };
+  }
+  return { day: dayNum };
+}
+
+/**
+ * Parse BYMONTHDAY from RRULE parts. Returns undefined if not present.
+ * @throws {Error} If BYMONTHDAY is not a valid day of month (1-31).
+ */
+function parseByMonthDay(parts: Record<string, string>): number | undefined {
+  if (!parts.BYMONTHDAY) return undefined;
+  const byMonthDay = Number.parseInt(parts.BYMONTHDAY, 10);
+  if (!Number.isFinite(byMonthDay) || byMonthDay < 1 || byMonthDay > 31) {
+    throw new Error(`Invalid BYMONTHDAY: ${parts.BYMONTHDAY} (must be 1-31)`);
+  }
+  return byMonthDay;
+}
+
+/**
  * Parse an RRULE string into structured parts.
  * Supports: FREQ (WEEKLY|MONTHLY), BYDAY (with optional nth prefix), INTERVAL, BYMONTHDAY.
  * Whitespace around semicolons and equals signs is trimmed.
@@ -52,47 +97,155 @@ export function parseRRule(rrule: string): {
   }
 
   if (!parts.FREQ) throw new Error("RRULE missing FREQ");
-
   const freq = parts.FREQ;
   if (!SUPPORTED_FREQS.has(freq)) {
     throw new Error(`Unsupported FREQ: ${freq} (supported: WEEKLY, MONTHLY)`);
   }
 
-  const interval = parts.INTERVAL ? Number.parseInt(parts.INTERVAL, 10) : 1;
-  if (!Number.isFinite(interval) || interval < 1) {
-    throw new Error(`Invalid INTERVAL: ${parts.INTERVAL} (must be >= 1)`);
-  }
+  const interval = parseInterval(parts);
+  const byDay = parseByDay(parts);
+  const byMonthDay = parseByMonthDay(parts);
 
-  let byDay: { day: number; nth?: number } | undefined;
-  if (parts.BYDAY) {
-    // e.g. "SA", "2SA" (2nd Saturday), "-1FR" (last Friday)
-    const match = /^(-?\d+)?([A-Z]{2})$/.exec(parts.BYDAY);
-    if (!match) throw new Error(`Invalid BYDAY: ${parts.BYDAY}`);
-    const dayNum = DAY_MAP[match[2]];
-    if (dayNum === undefined) throw new Error(`Unknown day: ${match[2]}`);
-    if (match[1]) {
-      const nth = Number.parseInt(match[1], 10);
-      if (nth === 0) throw new Error("BYDAY nth position cannot be 0");
-      byDay = { day: dayNum, nth };
-    } else {
-      byDay = { day: dayNum };
-    }
-  }
-
-  // WEEKLY requires BYDAY
   if (freq === "WEEKLY" && !byDay) {
     throw new Error("WEEKLY RRULE requires BYDAY");
   }
 
-  let byMonthDay: number | undefined;
-  if (parts.BYMONTHDAY) {
-    byMonthDay = Number.parseInt(parts.BYMONTHDAY, 10);
-    if (!Number.isFinite(byMonthDay) || byMonthDay < 1 || byMonthDay > 31) {
-      throw new Error(`Invalid BYMONTHDAY: ${parts.BYMONTHDAY} (must be 1-31)`);
+  return { freq, interval, byDay, byMonthDay };
+}
+
+/**
+ * Generate weekly occurrence dates within a window. Supports anchor-based alignment
+ * for intervals > 1 (e.g., biweekly) so dates remain stable across shifting windows.
+ */
+function generateWeeklyDates(
+  targetDay: number,
+  interval: number,
+  windowStart: Date,
+  windowEnd: Date,
+  anchorDate?: string,
+): string[] {
+  const dates: string[] = [];
+  const intervalDays = interval * 7;
+  let cursor: Date;
+
+  if (anchorDate && interval > 1) {
+    const anchor = new Date(anchorDate + "T12:00:00Z");
+    const anchorMs = anchor.getTime();
+    const windowStartMs = windowStart.getTime();
+    const intervalMs = intervalDays * 86_400_000;
+
+    if (anchorMs <= windowStartMs) {
+      const stepCount = Math.floor((windowStartMs - anchorMs) / intervalMs);
+      cursor = new Date(anchorMs + stepCount * intervalMs);
+    } else {
+      const stepCount = Math.ceil((anchorMs - windowStartMs) / intervalMs);
+      cursor = new Date(anchorMs - stepCount * intervalMs);
     }
+    if (cursor < windowStart) {
+      cursor = new Date(cursor.getTime() + intervalMs);
+    }
+  } else {
+    const start = new Date(windowStart);
+    const daysUntilTarget = (targetDay - start.getUTCDay() + 7) % 7;
+    cursor = new Date(Date.UTC(
+      start.getUTCFullYear(),
+      start.getUTCMonth(),
+      start.getUTCDate() + daysUntilTarget,
+      12, 0, 0,
+    ));
   }
 
-  return { freq, interval, byDay, byMonthDay };
+  while (cursor <= windowEnd) {
+    dates.push(formatDateUTC(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + intervalDays);
+  }
+  return dates;
+}
+
+/**
+ * Generate monthly dates for the nth weekday of the month (e.g., 2nd Saturday).
+ * Supports negative nth for counting from end of month (e.g., -1 = last).
+ */
+function generateMonthlyNthWeekdayDates(
+  day: number,
+  nth: number,
+  interval: number,
+  windowStart: Date,
+  windowEnd: Date,
+): string[] {
+  const dates: string[] = [];
+  const cursor = new Date(Date.UTC(
+    windowStart.getUTCFullYear(),
+    windowStart.getUTCMonth(),
+    1, 12, 0, 0,
+  ));
+
+  while (cursor <= windowEnd) {
+    const date = nthWeekdayOfMonth(cursor.getUTCFullYear(), cursor.getUTCMonth(), day, nth);
+    if (date && date >= windowStart && date <= windowEnd) {
+      dates.push(formatDateUTC(date));
+    }
+    cursor.setUTCMonth(cursor.getUTCMonth() + interval);
+  }
+  return dates;
+}
+
+/**
+ * Generate monthly dates for a specific day of the month (e.g., the 15th).
+ * Clamps to the last day of the month when the target day exceeds the month length.
+ */
+function generateMonthlyByMonthDayDates(
+  byMonthDay: number,
+  interval: number,
+  windowStart: Date,
+  windowEnd: Date,
+): string[] {
+  const dates: string[] = [];
+  const cursor = new Date(Date.UTC(
+    windowStart.getUTCFullYear(),
+    windowStart.getUTCMonth(),
+    1, 12, 0, 0,
+  ));
+
+  while (cursor <= windowEnd) {
+    const year = cursor.getUTCFullYear();
+    const month = cursor.getUTCMonth();
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const dayOfMonth = Math.min(byMonthDay, daysInMonth);
+    const date = new Date(Date.UTC(year, month, dayOfMonth, 12, 0, 0));
+    if (date >= windowStart && date <= windowEnd) {
+      dates.push(formatDateUTC(date));
+    }
+    cursor.setUTCMonth(cursor.getUTCMonth() + interval);
+  }
+  return dates;
+}
+
+/**
+ * Generate monthly dates for a specific weekday without an nth position.
+ * Uses the first occurrence of that weekday in the month.
+ */
+function generateMonthlyByWeekdayDates(
+  day: number,
+  interval: number,
+  windowStart: Date,
+  windowEnd: Date,
+): string[] {
+  const dates: string[] = [];
+  const cursor = new Date(Date.UTC(
+    windowStart.getUTCFullYear(),
+    windowStart.getUTCMonth(),
+    1, 12, 0, 0,
+  ));
+
+  while (cursor <= windowEnd) {
+    const date = nthWeekdayOfMonth(cursor.getUTCFullYear(), cursor.getUTCMonth(), day, 1);
+    if (date && date >= windowStart && date <= windowEnd) {
+      dates.push(formatDateUTC(date));
+    }
+    cursor.setUTCMonth(cursor.getUTCMonth() + interval);
+  }
+  return dates;
 }
 
 /**
@@ -109,123 +262,21 @@ export function generateOccurrences(
   windowEnd: Date,
   anchorDate?: string,
 ): string[] {
-  const dates: string[] = [];
-
   if (rule.freq === "WEEKLY" && rule.byDay) {
-    const targetDay = rule.byDay.day;
-    const intervalDays = rule.interval * 7;
-
-    let cursor: Date;
-
-    if (anchorDate && rule.interval > 1) {
-      // Anchor-based: walk from a known occurrence to stabilize interval > 1
-      const anchor = new Date(anchorDate + "T12:00:00Z");
-      // Walk forward/backward from anchor to find first occurrence >= windowStart
-      const anchorMs = anchor.getTime();
-      const windowStartMs = windowStart.getTime();
-      const intervalMs = intervalDays * 86_400_000;
-
-      if (anchorMs <= windowStartMs) {
-        // Walk forward from anchor
-        const stepCount = Math.floor((windowStartMs - anchorMs) / intervalMs);
-        cursor = new Date(anchorMs + stepCount * intervalMs);
-        // Ensure cursor >= windowStart
-        if (cursor < windowStart) {
-          cursor = new Date(cursor.getTime() + intervalMs);
-        }
-      } else {
-        // Walk backward from anchor
-        const stepCount = Math.ceil((anchorMs - windowStartMs) / intervalMs);
-        cursor = new Date(anchorMs - stepCount * intervalMs);
-        // Ensure cursor >= windowStart
-        if (cursor < windowStart) {
-          cursor = new Date(cursor.getTime() + intervalMs);
-        }
-      }
-    } else {
-      // No anchor: find first occurrence of targetDay on or after windowStart
-      const start = new Date(windowStart);
-      const startDow = start.getUTCDay();
-      const daysUntilTarget = (targetDay - startDow + 7) % 7;
-      cursor = new Date(Date.UTC(
-        start.getUTCFullYear(),
-        start.getUTCMonth(),
-        start.getUTCDate() + daysUntilTarget,
-        12, 0, 0,
-      ));
-    }
-
-    while (cursor <= windowEnd) {
-      dates.push(formatDateUTC(cursor));
-      cursor.setUTCDate(cursor.getUTCDate() + intervalDays);
-    }
-  } else if (rule.freq === "MONTHLY") {
+    return generateWeeklyDates(rule.byDay.day, rule.interval, windowStart, windowEnd, anchorDate);
+  }
+  if (rule.freq === "MONTHLY") {
     if (rule.byDay?.nth !== undefined) {
-      // Nth weekday of month (e.g., 2nd Saturday)
-      const { day, nth } = rule.byDay;
-      const cursor = new Date(Date.UTC(
-        windowStart.getUTCFullYear(),
-        windowStart.getUTCMonth(),
-        1, 12, 0, 0,
-      ));
-
-      while (cursor <= windowEnd) {
-        const date = nthWeekdayOfMonth(
-          cursor.getUTCFullYear(),
-          cursor.getUTCMonth(),
-          day,
-          nth!,
-        );
-        if (date && date >= windowStart && date <= windowEnd) {
-          dates.push(formatDateUTC(date));
-        }
-        // Advance by interval months
-        cursor.setUTCMonth(cursor.getUTCMonth() + rule.interval);
-      }
-    } else if (rule.byMonthDay) {
-      // Specific day of month (e.g., 15th)
-      const cursor = new Date(Date.UTC(
-        windowStart.getUTCFullYear(),
-        windowStart.getUTCMonth(),
-        1, 12, 0, 0,
-      ));
-
-      while (cursor <= windowEnd) {
-        const year = cursor.getUTCFullYear();
-        const month = cursor.getUTCMonth();
-        const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-        const dayOfMonth = Math.min(rule.byMonthDay, daysInMonth);
-        const date = new Date(Date.UTC(year, month, dayOfMonth, 12, 0, 0));
-        if (date >= windowStart && date <= windowEnd) {
-          dates.push(formatDateUTC(date));
-        }
-        cursor.setUTCMonth(cursor.getUTCMonth() + rule.interval);
-      }
-    } else if (rule.byDay) {
-      // Every Nth month, on a specific weekday (pick first occurrence)
-      const { day } = rule.byDay;
-      const cursor = new Date(Date.UTC(
-        windowStart.getUTCFullYear(),
-        windowStart.getUTCMonth(),
-        1, 12, 0, 0,
-      ));
-
-      while (cursor <= windowEnd) {
-        const date = nthWeekdayOfMonth(
-          cursor.getUTCFullYear(),
-          cursor.getUTCMonth(),
-          day,
-          1,
-        );
-        if (date && date >= windowStart && date <= windowEnd) {
-          dates.push(formatDateUTC(date));
-        }
-        cursor.setUTCMonth(cursor.getUTCMonth() + rule.interval);
-      }
+      return generateMonthlyNthWeekdayDates(rule.byDay.day, rule.byDay.nth, rule.interval, windowStart, windowEnd);
+    }
+    if (rule.byMonthDay) {
+      return generateMonthlyByMonthDayDates(rule.byMonthDay, rule.interval, windowStart, windowEnd);
+    }
+    if (rule.byDay) {
+      return generateMonthlyByWeekdayDates(rule.byDay.day, rule.interval, windowStart, windowEnd);
     }
   }
-
-  return dates;
+  return [];
 }
 
 /** Find the nth weekday of a given month. Supports negative nth (-1 = last). */
