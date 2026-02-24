@@ -60,6 +60,33 @@ function toggleFilter<T extends string>(setter: Dispatch<SetStateAction<T[]>>, v
   setter((prev) => prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]);
 }
 
+/** Format ISO date string to locale-friendly display (exported for testing). */
+export function formatLogbookDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** Filter logbook entries by region, kennel, and participation level (exported for testing). */
+export function filterLogbookEntries(
+  entries: LogbookEntry[],
+  selectedRegions: string[],
+  selectedKennels: string[],
+  selectedLevels: string[],
+): LogbookEntry[] {
+  return entries.filter((e) => {
+    if (selectedRegions.length > 0 && !selectedRegions.includes(e.event.kennel.region)) return false;
+    if (selectedKennels.length > 0 && !selectedKennels.includes(e.event.kennel.id)) return false;
+    if (selectedLevels.length > 0 && !selectedLevels.includes(e.attendance.participationLevel)) return false;
+    return true;
+  });
+}
+
 export function LogbookList({ entries }: LogbookListProps) {
   const [editingAttendance, setEditingAttendance] = useState<AttendanceData | null>(null);
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
@@ -105,28 +132,16 @@ export function LogbookList({ entries }: LogbookListProps) {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [entries]);
 
-  // Filter entries
-  const filtered = useMemo(() => {
-    return entries.filter((e) => {
-      if (selectedRegions.length > 0 && !selectedRegions.includes(e.event.kennel.region)) return false;
-      if (selectedKennels.length > 0 && !selectedKennels.includes(e.event.kennel.id)) return false;
-      if (selectedLevels.length > 0 && !selectedLevels.includes(e.attendance.participationLevel)) return false;
-      return true;
-    });
-  }, [entries, selectedRegions, selectedKennels, selectedLevels]);
+  // Filter entries (uses module-level filterLogbookEntries, exported for testing)
+  const filtered = useMemo(
+    () => filterLogbookEntries(entries, selectedRegions, selectedKennels, selectedLevels),
+    [entries, selectedRegions, selectedKennels, selectedLevels],
+  );
 
   const activeFilterCount = selectedRegions.length + selectedKennels.length + selectedLevels.length;
 
-  function formatDate(iso: string): string {
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-US", {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      timeZone: "UTC",
-    });
-  }
+  // Use module-level formatLogbookDate (exported for testing)
+  const formatDate = formatLogbookDate;
 
   if (entries.length === 0) {
     return (
@@ -296,110 +311,126 @@ export function LogbookList({ entries }: LogbookListProps) {
         {filtered.map((entry) => (
           <div
             key={entry.attendance.id}
-            className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm"
+            className="rounded-md border px-3 py-2 text-sm"
           >
-            <span className="w-36 shrink-0 font-medium">
-              {formatDate(entry.event.date)}
-            </span>
-            <span className="w-20 shrink-0">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href={`/kennels/${entry.event.kennel.slug}`}
-                    className="text-primary hover:underline"
-                  >
-                    {entry.event.kennel.shortName}
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>{entry.event.kennel.fullName}</TooltipContent>
-              </Tooltip>
-            </span>
-            <RegionBadge region={entry.event.kennel.region} size="sm" />
-            {entry.event.runNumber && (
-              <span className="w-12 shrink-0 text-muted-foreground">
-                #{entry.event.runNumber}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="shrink-0 font-medium sm:w-36">
+                {formatDate(entry.event.date)}
               </span>
-            )}
-            <span className="truncate text-muted-foreground">
-              {entry.event.title || ""}
-            </span>
-            <span className="ml-auto flex shrink-0 items-center gap-2">
-              {entry.attendance.stravaUrl && (
-                <a
-                  href={entry.attendance.stravaUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary hover:underline"
-                >
-                  Activity
-                </a>
+              <span className="shrink-0 sm:w-20">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={`/kennels/${entry.event.kennel.slug}`}
+                      className="text-primary hover:underline"
+                    >
+                      {entry.event.kennel.shortName}
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>{entry.event.kennel.fullName}</TooltipContent>
+                </Tooltip>
+              </span>
+              <span className="hidden sm:inline-flex">
+                <RegionBadge region={entry.event.kennel.region} size="sm" />
+              </span>
+              {entry.event.runNumber && (
+                <span className="hidden sm:inline-block w-12 shrink-0 text-muted-foreground">
+                  #{entry.event.runNumber}
+                </span>
               )}
-              {entry.event.status === "CANCELLED" ? (
-                <span className="flex items-center gap-2">
-                  <Badge variant="destructive" className="text-xs">
-                    Cancelled
+              <span className="hidden sm:block min-w-0 flex-1 truncate text-muted-foreground">
+                {entry.event.title || ""}
+              </span>
+              <span className="ml-auto flex shrink-0 items-center gap-2">
+                {entry.attendance.stravaUrl && (
+                  <a
+                    href={entry.attendance.stravaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Activity
+                  </a>
+                )}
+                {entry.event.status === "CANCELLED" ? (
+                  <span className="flex items-center gap-2">
+                    <Badge variant="destructive" className="text-xs">
+                      Cancelled
+                    </Badge>
+                    {entry.attendance.status === "INTENDING" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs text-muted-foreground"
+                        disabled={isPending}
+                        onClick={() => handleRemove(entry.attendance.id)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </span>
+                ) : entry.attendance.status === "INTENDING" &&
+                 new Date(entry.event.date).getTime() > todayUtcNoon ? (
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer border-blue-300 text-blue-700"
+                    onClick={() => setEditingAttendance(entry.attendance)}
+                  >
+                    Going
                   </Badge>
-                  {entry.attendance.status === "INTENDING" && (
+                ) : entry.attendance.status === "INTENDING" ? (
+                  <span className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 border-amber-300 text-amber-700 hover:bg-amber-50"
+                      disabled={isPending}
+                      onClick={() => {
+                        const attendanceId = entry.attendance.id;
+                        startTransition(async () => {
+                          const result = await confirmAttendance(attendanceId);
+                          if (!result.success) {
+                            toast.error(result.error);
+                          } else {
+                            toast.success("Attendance confirmed!");
+                          }
+                          router.refresh();
+                        });
+                      }}
+                    >
+                      {isPending ? "..." : (
+                        <>
+                          <span className="hidden sm:inline">Confirm Attendance</span>
+                          <span className="sm:hidden">Confirm</span>
+                        </>
+                      )}
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 text-xs text-muted-foreground"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                       disabled={isPending}
+                      title="Remove from logbook"
+                      aria-label="Remove from logbook"
                       onClick={() => handleRemove(entry.attendance.id)}
                     >
-                      Remove
+                      &times;
                     </Button>
-                  )}
-                </span>
-              ) : entry.attendance.status === "INTENDING" &&
-               new Date(entry.event.date).getTime() > todayUtcNoon ? (
-                <Badge
-                  variant="outline"
-                  className="cursor-pointer border-blue-300 text-blue-700"
-                  onClick={() => setEditingAttendance(entry.attendance)}
-                >
-                  Going
-                </Badge>
-              ) : entry.attendance.status === "INTENDING" ? (
-                <span className="flex items-center gap-1">
-                  <Badge
-                    variant="outline"
-                    className="cursor-pointer border-amber-300 text-amber-700"
-                    onClick={() => {
-                      const attendanceId = entry.attendance.id;
-                      startTransition(async () => {
-                        const result = await confirmAttendance(attendanceId);
-                        if (!result.success) {
-                          toast.error(result.error);
-                        } else {
-                          toast.success("Attendance confirmed!");
-                        }
-                        router.refresh();
-                      });
-                    }}
-                  >
-                    {isPending ? "..." : "Confirm Attendance"}
-                  </Badge>
-                  <Button
-                    variant="ghost"
+                  </span>
+                ) : (
+                  <AttendanceBadge
+                    level={entry.attendance.participationLevel}
                     size="sm"
-                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                    disabled={isPending}
-                    title="Remove from logbook"
-                    aria-label="Remove from logbook"
-                    onClick={() => handleRemove(entry.attendance.id)}
-                  >
-                    &times;
-                  </Button>
-                </span>
-              ) : (
-                <AttendanceBadge
-                  level={entry.attendance.participationLevel}
-                  size="sm"
-                  onClick={() => setEditingAttendance(entry.attendance)}
-                />
-              )}
-            </span>
+                    onClick={() => setEditingAttendance(entry.attendance)}
+                  />
+                )}
+              </span>
+            </div>
+            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground sm:hidden">
+              <RegionBadge region={entry.event.kennel.region} size="sm" />
+              {entry.event.runNumber && <span>#{entry.event.runNumber}</span>}
+              {entry.event.title && <span className="min-w-0 flex-1 truncate">{entry.event.title}</span>}
+            </div>
           </div>
         ))}
       </div>
