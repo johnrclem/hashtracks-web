@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback } from "react";
+import { useState, useEffect, useMemo, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -223,7 +223,10 @@ export function AttendanceForm({
   }
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
-  const attendedHasherIds = new Set(records.map((r) => r.kennelHasherId));
+  const attendedHasherIds = useMemo(
+    () => new Set(records.map((r) => r.kennelHasherId)),
+    [records],
+  );
 
   // Stats
   const paidCount = records.filter((r) => r.paid).length;
@@ -273,6 +276,18 @@ export function AttendanceForm({
             )}
           </div>
 
+          {/* User Activity (RSVPs + check-ins from site users) */}
+          {userActivity.length > 0 && (
+            <UserActivitySection
+              userActivity={userActivity}
+              kennelId={kennelId}
+              disabled={isPending}
+              onRefresh={fetchAttendance}
+              attendedHasherIds={attendedHasherIds}
+              onAddToAttendance={handleAddHasher}
+            />
+          )}
+
           {/* Smart suggestions */}
           {suggestions.length > 0 && (
             <SuggestionList
@@ -305,16 +320,6 @@ export function AttendanceForm({
               />
             ))}
           </div>
-
-          {/* User Activity (RSVPs + check-ins from site users) */}
-          {userActivity.length > 0 && (
-            <UserActivitySection
-              userActivity={userActivity}
-              kennelId={kennelId}
-              disabled={isPending}
-              onRefresh={fetchAttendance}
-            />
-          )}
 
           {/* Clear button */}
           {records.length > 0 && (

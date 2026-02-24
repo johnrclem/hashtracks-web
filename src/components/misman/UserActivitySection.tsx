@@ -1,20 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useMemo, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   suggestUserLinks,
   createUserLink,
 } from "@/app/misman/[slug]/roster/actions";
 
-interface UserActivityItem {
+export interface UserActivityItem {
   userId: string;
   hashName: string | null;
   email: string;
@@ -23,11 +18,46 @@ interface UserActivityItem {
   linkedHasherId: string | null;
 }
 
+export type UserActivityState = "addable" | "unlinked" | "already-recorded";
+
+/** Classify a user activity item into one of three states. */
+export function classifyUserActivity(
+  item: UserActivityItem,
+  attendedHasherIds: Set<string>,
+): UserActivityState {
+  if (item.isLinked && item.linkedHasherId && !attendedHasherIds.has(item.linkedHasherId)) {
+    return "addable";
+  }
+  if (!item.isLinked || !item.linkedHasherId) {
+    return "unlinked";
+  }
+  return "already-recorded";
+}
+
+/** Sort user activity items by actionability: addable first, then unlinked, then already-recorded. */
+export function sortUserActivity(
+  items: UserActivityItem[],
+  attendedHasherIds: Set<string>,
+): UserActivityItem[] {
+  const order: Record<UserActivityState, number> = {
+    addable: 0,
+    unlinked: 1,
+    "already-recorded": 2,
+  };
+  return [...items].sort(
+    (a, b) =>
+      order[classifyUserActivity(a, attendedHasherIds)] -
+      order[classifyUserActivity(b, attendedHasherIds)],
+  );
+}
+
 interface UserActivitySectionProps {
   userActivity: UserActivityItem[];
   kennelId: string;
   disabled: boolean;
   onRefresh: () => void;
+  attendedHasherIds: Set<string>;
+  onAddToAttendance: (kennelHasherId: string) => void;
 }
 
 export function UserActivitySection({
@@ -35,9 +65,12 @@ export function UserActivitySection({
   kennelId,
   disabled,
   onRefresh,
+  attendedHasherIds,
+  onAddToAttendance,
 }: UserActivitySectionProps) {
   const [isPending, startTransition] = useTransition();
   const [linkingUserId, setLinkingUserId] = useState<string | null>(null);
+  const [addingHasherId, setAddingHasherId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<
     Array<{
       kennelHasherId: string;
@@ -46,6 +79,25 @@ export function UserActivitySection({
       matchField: string;
     }>
   >([]);
+
+  // Clear addingHasherId once the hasher appears in attendedHasherIds
+  useEffect(() => {
+    if (addingHasherId && attendedHasherIds.has(addingHasherId)) {
+      setAddingHasherId(null);
+    }
+  }, [addingHasherId, attendedHasherIds]);
+
+  // Safety net: clear stuck addingHasherId after 5s so the user can retry on failure
+  useEffect(() => {
+    if (!addingHasherId) return;
+    const timeout = setTimeout(() => setAddingHasherId(null), 5000);
+    return () => clearTimeout(timeout);
+  }, [addingHasherId]);
+
+  function handleAddToAttendance(linkedHasherId: string) {
+    setAddingHasherId(linkedHasherId);
+    onAddToAttendance(linkedHasherId);
+  }
 
   function handleFindMatch(userId: string) {
     setLinkingUserId(userId);
@@ -96,47 +148,106 @@ export function UserActivitySection({
     setSuggestions([]);
   }
 
+  const { sorted, addableCount } = useMemo(() => {
+    const order: Record<UserActivityState, number> = {
+      addable: 0,
+      unlinked: 1,
+      "already-recorded": 2,
+    };
+    const classified = userActivity.map((u) => ({
+      ...u,
+      state: classifyUserActivity(u, attendedHasherIds),
+    }));
+    classified.sort((a, b) => order[a.state] - order[b.state]);
+    const count = classified.filter((c) => c.state === "addable").length;
+    return { sorted: classified, addableCount: count };
+  }, [userActivity, attendedHasherIds]);
+
+  const statusBadgeClass = (status: string) =>
+    status === "CONFIRMED"
+      ? "border-green-300 text-green-700 dark:border-green-700 dark:text-green-300"
+      : "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300";
+
   return (
     <div className="rounded-lg border p-3 space-y-2">
       <div className="flex items-center gap-2">
-        <h4 className="text-sm font-semibold">User Activity</h4>
+        <h4 className="text-sm font-semibold">RSVPs</h4>
         <Badge variant="secondary" className="text-xs">
           {userActivity.length}
         </Badge>
+        {addableCount > 0 && (
+          <span className="text-xs text-green-600 dark:text-green-400">
+            {addableCount} to add
+          </span>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">
-        Site users who RSVPed or checked in to this event
+        Tap linked users to record attendance
       </p>
       <div className="space-y-1">
-        {userActivity.map((u) => (
-          <div
-            key={u.userId}
-            className="flex items-center justify-between gap-2 rounded border px-3 py-2 text-sm"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="font-medium truncate">
-                {u.hashName || u.email}
-              </span>
-              <Badge
-                variant="outline"
-                className={
-                  u.status === "CONFIRMED"
-                    ? "border-green-300 text-green-700 dark:border-green-700 dark:text-green-300"
-                    : "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300"
-                }
+        {sorted.map((u) => {
+          const isAdding = addingHasherId === u.linkedHasherId;
+
+          if (u.state === "addable") {
+            return (
+              <Button
+                key={u.userId}
+                variant="ghost"
+                className="w-full flex items-center justify-between gap-2 rounded border border-l-2 border-l-green-400 px-3 py-2 text-sm h-auto font-normal hover:bg-muted"
+                onClick={() => handleAddToAttendance(u.linkedHasherId!)}
+                disabled={disabled || isPending || isAdding}
+                aria-label={`Add ${u.hashName || u.email} to attendance`}
               >
-                {u.status === "CONFIRMED" ? "Checked In" : "Going"}
-              </Badge>
-              {u.isLinked && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-xs text-green-600 dark:text-green-400 cursor-default" tabIndex={0}>Linked</span>
-                  </TooltipTrigger>
-                  <TooltipContent>This user is linked to a roster entry</TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-            {!u.isLinked && (
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-medium truncate">
+                    {u.hashName || u.email}
+                  </span>
+                  <Badge variant="outline" className={statusBadgeClass(u.status)}>
+                    {u.status === "CONFIRMED" ? "Checked In" : "Going"}
+                  </Badge>
+                </div>
+                <span className="text-green-600 dark:text-green-400 text-lg font-bold shrink-0" aria-hidden="true">
+                  {isAdding ? "..." : "+"}
+                </span>
+              </Button>
+            );
+          }
+
+          if (u.state === "already-recorded") {
+            return (
+              <div
+                key={u.userId}
+                className="flex items-center justify-between gap-2 rounded border px-3 py-2 text-sm bg-muted/50 opacity-60"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-medium truncate">
+                    {u.hashName || u.email}
+                  </span>
+                  <Badge variant="outline" className={statusBadgeClass(u.status)}>
+                    {u.status === "CONFIRMED" ? "Checked In" : "Going"}
+                  </Badge>
+                </div>
+                <span className="text-xs text-green-600 dark:text-green-400 shrink-0">
+                  Added
+                </span>
+              </div>
+            );
+          }
+
+          // state === "unlinked"
+          return (
+            <div
+              key={u.userId}
+              className="flex items-center justify-between gap-2 rounded border px-3 py-2 text-sm"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-medium truncate">
+                  {u.hashName || u.email}
+                </span>
+                <Badge variant="outline" className={statusBadgeClass(u.status)}>
+                  {u.status === "CONFIRMED" ? "Checked In" : "Going"}
+                </Badge>
+              </div>
               <Button
                 size="sm"
                 variant="outline"
@@ -146,9 +257,9 @@ export function UserActivitySection({
               >
                 Link to Roster
               </Button>
-            )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       {/* Inline matching results */}
