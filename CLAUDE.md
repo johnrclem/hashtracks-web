@@ -7,7 +7,7 @@ calendar + personal logbook + kennel directory.
 
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
-- `npm run build` — Production build (runs `prisma db push --skip-generate` then `next build`)
+- `npm run build` — Production build
 - `npm test` — Run test suite (Vitest, 69 test files)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
