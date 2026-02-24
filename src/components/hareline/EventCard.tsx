@@ -175,8 +175,8 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
       >
         <div className="min-w-0 space-y-0.5">
           {/* Line 1: date · kennel · run# · time — all on one line */}
-          <div className="flex items-center gap-1.5 text-sm">
-            <span className="font-medium" suppressHydrationWarning>{displayDateStr}</span>
+          <div className="flex flex-nowrap items-center gap-1.5 overflow-hidden text-sm">
+            <span className="shrink-0 whitespace-nowrap font-medium" suppressHydrationWarning>{displayDateStr}</span>
             <span className="text-muted-foreground">·</span>
             <Tooltip>
               <TooltipTrigger asChild>
