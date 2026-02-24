@@ -41,7 +41,7 @@ import { EventTimeDisplay } from "@/components/hareline/EventTimeDisplay";
 import { SourcesDropdown } from "@/components/hareline/SourcesDropdown";
 import { getEventDayWeather } from "@/lib/weather";
 import { REGION_CENTROIDS } from "@/lib/geo";
-import { Info } from "lucide-react";
+import { InfoPopover } from "@/components/ui/info-popover";
 
 export default async function EventDetailPage({
   params,
@@ -143,14 +143,9 @@ export default async function EventDetailPage({
           >
             {event.kennel.fullName}
           </Link>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
-            </TooltipTrigger>
-            <TooltipContent>
-              Event details are pulled from public sources. Always confirm with your kennel.
-            </TooltipContent>
-          </Tooltip>
+          <InfoPopover title="Data source">
+            Event details are pulled from public sources. Always confirm with your kennel.
+          </InfoPopover>
           <Badge>{event.kennel.region}</Badge>
           {event.status === "CANCELLED" && (
             <Badge variant="destructive">Cancelled</Badge>
