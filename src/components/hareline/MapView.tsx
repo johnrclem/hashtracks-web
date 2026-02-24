@@ -1,11 +1,21 @@
 "use client";
 
 import { useMemo } from "react";
-import { APIProvider, Map, AdvancedMarker } from "@vis.gl/react-google-maps";
+import { APIProvider, Map } from "@vis.gl/react-google-maps";
 import { getEventCoords, getRegionColor } from "@/lib/geo";
+import { ClusteredMarkers, type EventWithCoords } from "./ClusteredMarkers";
 import type { HarelineEvent } from "./EventCard";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
+
+/** Shared base styles for legend teardrop icons. */
+const LEGEND_ICON_BASE: React.CSSProperties = {
+  width: 10,
+  height: 10,
+  borderRadius: "50% 50% 50% 0",
+  transform: "rotate(-45deg)",
+  opacity: 0.5,
+};
 
 /** Props for the interactive MapView — renders hareline events as region-colored map pins. */
 interface MapViewProps {
@@ -14,16 +24,6 @@ interface MapViewProps {
   selectedEventId?: string | null;
   /** Callback when a map pin is clicked. */
   onSelectEvent: (event: HarelineEvent) => void;
-}
-
-/** Internal: event enriched with resolved coordinates and pin color for map rendering. */
-interface EventWithCoords {
-  event: HarelineEvent;
-  lat: number;
-  lng: number;
-  /** True if coordinates come from the event's DB record; false if using region centroid fallback. */
-  precise: boolean;
-  color: string;
 }
 
 export default function MapView({ events, selectedEventId, onSelectEvent }: MapViewProps) {
@@ -65,7 +65,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
 
   if (!apiKey) {
     return (
-      <div className="flex h-96 items-center justify-center rounded-md border text-sm text-muted-foreground">
+      <div className="flex h-[calc(100vh-16rem)] min-h-[400px] items-center justify-center rounded-md border text-sm text-muted-foreground">
         Google Maps API key not configured.
       </div>
     );
@@ -73,7 +73,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
 
   if (eventsWithCoords.length === 0) {
     return (
-      <div className="flex h-96 items-center justify-center rounded-md border text-sm text-muted-foreground">
+      <div className="flex h-[calc(100vh-16rem)] min-h-[400px] items-center justify-center rounded-md border text-sm text-muted-foreground">
         No events to display on the map.
       </div>
     );
@@ -82,7 +82,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
   return (
     <div className="flex flex-col gap-2">
       <APIProvider apiKey={apiKey}>
-        <div className="h-[600px] overflow-hidden rounded-md border">
+        <div className="h-[calc(100vh-16rem)] min-h-[400px] overflow-hidden rounded-md border">
           <Map
             mapId={MAP_ID}
             defaultBounds={defaultBounds}
@@ -91,33 +91,11 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
             mapTypeControl={false}
             streetViewControl={false}
           >
-            {eventsWithCoords.map(({ event, lat, lng, precise, color }) => {
-              const isSelected = selectedEventId === event.id;
-              const size = isSelected ? 24 : precise ? 18 : 14;
-              return (
-                <AdvancedMarker
-                  key={event.id}
-                  position={{ lat, lng }}
-                  onClick={() => onSelectEvent(event)}
-                  title={event.locationName ?? event.kennel.shortName ?? undefined}
-                >
-                  <div
-                    style={{
-                      width: size,
-                      height: size,
-                      borderRadius: "50%",
-                      backgroundColor: precise ? color : "transparent",
-                      border: `${isSelected ? 3 : 2}px solid ${color}`,
-                      boxShadow: isSelected
-                        ? `0 0 0 2px white, 0 0 0 4px ${color}`
-                        : "0 1px 4px rgba(0,0,0,0.4)",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                    }}
-                  />
-                </AdvancedMarker>
-              );
-            })}
+            <ClusteredMarkers
+              events={eventsWithCoords}
+              selectedEventId={selectedEventId}
+              onSelectEvent={onSelectEvent}
+            />
           </Map>
         </div>
       </APIProvider>
@@ -126,7 +104,8 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
         {preciseCount > 0 && (
           <span>
             <span
-              className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-foreground/50 align-middle"
+              className="mr-1 inline-block align-middle"
+              style={{ ...LEGEND_ICON_BASE, backgroundColor: "currentColor" }}
             />
             {preciseCount} {preciseCount === 1 ? "event" : "events"} with exact location
           </span>
@@ -135,7 +114,8 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
         {centroidCount > 0 && (
           <span>
             <span
-              className="mr-1 inline-block h-2.5 w-2.5 rounded-full border border-foreground/50 align-middle"
+              className="mr-1 inline-block align-middle"
+              style={{ ...LEGEND_ICON_BASE, backgroundColor: "transparent", border: "1.5px solid currentColor" }}
             />
             {centroidCount} shown at approximate region center
           </span>
