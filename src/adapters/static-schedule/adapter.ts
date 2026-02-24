@@ -8,25 +8,33 @@
 
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
-import { validateSourceConfig, parse12HourTime } from "../utils";
+import { validateSourceConfig } from "../utils";
 
+/** Configuration shape for a STATIC_SCHEDULE source. */
 export interface StaticScheduleConfig {
   kennelTag: string;           // Kennel shortName for all generated events (e.g. "Rumson")
   rrule: string;               // RRULE string, e.g. "FREQ=WEEKLY;BYDAY=SA"
-  startTime?: string;          // "10:17 AM" or "10:17" — normalized to HH:MM
+  anchorDate?: string;         // YYYY-MM-DD — a known past occurrence, stabilizes INTERVAL > 1
+  startTime?: string;          // "HH:MM" 24-hour format (e.g. "10:17", "19:00")
   defaultTitle?: string;       // e.g. "Rumson H3 Weekly Run"
   defaultLocation?: string;    // e.g. "Rumson, NJ"
   defaultDescription?: string; // e.g. "Check Facebook for start location"
 }
 
-// Day abbreviation → JS Date.getUTCDay() number (Sunday=0)
+/** Supported FREQ values. Other values (DAILY, YEARLY, etc.) are rejected. */
+const SUPPORTED_FREQS = new Set(["WEEKLY", "MONTHLY"]);
+
+/** Day abbreviation to JS Date.getUTCDay() number (Sunday=0). */
 const DAY_MAP: Record<string, number> = {
   SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6,
 };
 
 /**
  * Parse an RRULE string into structured parts.
- * Supports: FREQ, BYDAY (with optional nth prefix), INTERVAL, BYMONTHDAY.
+ * Supports: FREQ (WEEKLY|MONTHLY), BYDAY (with optional nth prefix), INTERVAL, BYMONTHDAY.
+ * Whitespace around semicolons and equals signs is trimmed.
+ *
+ * @throws {Error} On missing FREQ, unsupported FREQ, invalid INTERVAL/BYMONTHDAY/BYDAY values.
  */
 export function parseRRule(rrule: string): {
   freq: string;
@@ -36,14 +44,24 @@ export function parseRRule(rrule: string): {
 } {
   const parts: Record<string, string> = {};
   for (const segment of rrule.split(";")) {
-    const [key, value] = segment.split("=");
-    if (key && value) parts[key.toUpperCase()] = value.toUpperCase();
+    const eqIdx = segment.indexOf("=");
+    if (eqIdx < 0) continue;
+    const key = segment.slice(0, eqIdx).trim().toUpperCase();
+    const value = segment.slice(eqIdx + 1).trim().toUpperCase();
+    if (key && value) parts[key] = value;
   }
 
   if (!parts.FREQ) throw new Error("RRULE missing FREQ");
 
   const freq = parts.FREQ;
+  if (!SUPPORTED_FREQS.has(freq)) {
+    throw new Error(`Unsupported FREQ: ${freq} (supported: WEEKLY, MONTHLY)`);
+  }
+
   const interval = parts.INTERVAL ? Number.parseInt(parts.INTERVAL, 10) : 1;
+  if (!Number.isFinite(interval) || interval < 1) {
+    throw new Error(`Invalid INTERVAL: ${parts.INTERVAL} (must be >= 1)`);
+  }
 
   let byDay: { day: number; nth?: number } | undefined;
   if (parts.BYDAY) {
@@ -52,12 +70,26 @@ export function parseRRule(rrule: string): {
     if (!match) throw new Error(`Invalid BYDAY: ${parts.BYDAY}`);
     const dayNum = DAY_MAP[match[2]];
     if (dayNum === undefined) throw new Error(`Unknown day: ${match[2]}`);
-    byDay = { day: dayNum, nth: match[1] ? Number.parseInt(match[1], 10) : undefined };
+    if (match[1]) {
+      const nth = Number.parseInt(match[1], 10);
+      if (nth === 0) throw new Error("BYDAY nth position cannot be 0");
+      byDay = { day: dayNum, nth };
+    } else {
+      byDay = { day: dayNum };
+    }
+  }
+
+  // WEEKLY requires BYDAY
+  if (freq === "WEEKLY" && !byDay) {
+    throw new Error("WEEKLY RRULE requires BYDAY");
   }
 
   let byMonthDay: number | undefined;
   if (parts.BYMONTHDAY) {
     byMonthDay = Number.parseInt(parts.BYMONTHDAY, 10);
+    if (!Number.isFinite(byMonthDay) || byMonthDay < 1 || byMonthDay > 31) {
+      throw new Error(`Invalid BYMONTHDAY: ${parts.BYMONTHDAY} (must be 1-31)`);
+    }
   }
 
   return { freq, interval, byDay, byMonthDay };
@@ -66,31 +98,63 @@ export function parseRRule(rrule: string): {
 /**
  * Generate all occurrence dates within [windowStart, windowEnd] for a parsed RRULE.
  * Returns dates as YYYY-MM-DD strings.
+ *
+ * @param anchorDate - Optional YYYY-MM-DD anchor for stable interval > 1 generation.
+ *   When interval > 1, the cursor is aligned to the anchor so occurrences don't shift
+ *   as the window moves.
  */
 export function generateOccurrences(
   rule: ReturnType<typeof parseRRule>,
   windowStart: Date,
   windowEnd: Date,
+  anchorDate?: string,
 ): string[] {
   const dates: string[] = [];
 
   if (rule.freq === "WEEKLY" && rule.byDay) {
-    // Walk through weeks in the window, finding the target day
     const targetDay = rule.byDay.day;
-    const start = new Date(windowStart);
-
-    // Find the first occurrence of targetDay on or after windowStart
-    const startDow = start.getUTCDay();
-    const daysUntilTarget = (targetDay - startDow + 7) % 7;
-
-    const cursor = new Date(Date.UTC(
-      start.getUTCFullYear(),
-      start.getUTCMonth(),
-      start.getUTCDate() + daysUntilTarget,
-      12, 0, 0, // UTC noon to avoid DST issues
-    ));
-
     const intervalDays = rule.interval * 7;
+
+    let cursor: Date;
+
+    if (anchorDate && rule.interval > 1) {
+      // Anchor-based: walk from a known occurrence to stabilize interval > 1
+      const anchor = new Date(anchorDate + "T12:00:00Z");
+      // Walk forward/backward from anchor to find first occurrence >= windowStart
+      const anchorMs = anchor.getTime();
+      const windowStartMs = windowStart.getTime();
+      const intervalMs = intervalDays * 86_400_000;
+
+      if (anchorMs <= windowStartMs) {
+        // Walk forward from anchor
+        const stepCount = Math.floor((windowStartMs - anchorMs) / intervalMs);
+        cursor = new Date(anchorMs + stepCount * intervalMs);
+        // Ensure cursor >= windowStart
+        if (cursor < windowStart) {
+          cursor = new Date(cursor.getTime() + intervalMs);
+        }
+      } else {
+        // Walk backward from anchor
+        const stepCount = Math.ceil((anchorMs - windowStartMs) / intervalMs);
+        cursor = new Date(anchorMs - stepCount * intervalMs);
+        // Ensure cursor >= windowStart
+        if (cursor < windowStart) {
+          cursor = new Date(cursor.getTime() + intervalMs);
+        }
+      }
+    } else {
+      // No anchor: find first occurrence of targetDay on or after windowStart
+      const start = new Date(windowStart);
+      const startDow = start.getUTCDay();
+      const daysUntilTarget = (targetDay - startDow + 7) % 7;
+      cursor = new Date(Date.UTC(
+        start.getUTCFullYear(),
+        start.getUTCMonth(),
+        start.getUTCDate() + daysUntilTarget,
+        12, 0, 0,
+      ));
+    }
+
     while (cursor <= windowEnd) {
       dates.push(formatDateUTC(cursor));
       cursor.setUTCDate(cursor.getUTCDate() + intervalDays);
@@ -139,7 +203,6 @@ export function generateOccurrences(
       }
     } else if (rule.byDay) {
       // Every Nth month, on a specific weekday (pick first occurrence)
-      // This is a less common pattern, treat it like "1st occurrence"
       const { day } = rule.byDay;
       const cursor = new Date(Date.UTC(
         windowStart.getUTCFullYear(),
@@ -191,7 +254,7 @@ function nthWeekdayOfMonth(
   }
 }
 
-/** Format a UTC date as YYYY-MM-DD */
+/** Format a UTC date as YYYY-MM-DD. */
 function formatDateUTC(d: Date): string {
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
@@ -200,14 +263,19 @@ function formatDateUTC(d: Date): string {
 }
 
 /**
- * Normalize a time string to "HH:MM" format.
- * Accepts "HH:MM" (24h) or "h:mm AM/PM" (12h).
+ * Validate a time string is in strict HH:MM 24-hour format.
+ * Returns the time string if valid, undefined otherwise.
  */
 function normalizeTime(raw: string): string | undefined {
   if (/^\d{2}:\d{2}$/.test(raw)) return raw;
-  return parse12HourTime(raw);
+  return undefined;
 }
 
+/**
+ * Adapter for kennels that operate on a consistent, predictable schedule but lack
+ * a scrapeable website (e.g., Facebook-only groups). Generates recurring events
+ * purely from config — no network I/O.
+ */
 export class StaticScheduleAdapter implements SourceAdapter {
   type = "STATIC_SCHEDULE" as const;
 
@@ -229,8 +297,9 @@ export class StaticScheduleAdapter implements SourceAdapter {
 
     const days = options?.days ?? 90;
     const now = new Date();
-    const windowStart = new Date(now.getTime() - days * 86_400_000);
-    const windowEnd = new Date(now.getTime() + days * 86_400_000);
+    const todayNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
+    const windowStart = new Date(todayNoon - days * 86_400_000);
+    const windowEnd = new Date(todayNoon + days * 86_400_000);
 
     let rule: ReturnType<typeof parseRRule>;
     try {
@@ -240,7 +309,12 @@ export class StaticScheduleAdapter implements SourceAdapter {
       return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
     }
 
-    const occurrences = generateOccurrences(rule, windowStart, windowEnd);
+    const occurrences = generateOccurrences(rule, windowStart, windowEnd, config.anchorDate);
+
+    if (occurrences.length === 0) {
+      const message = `RRULE "${config.rrule}" generated 0 events in ${days}-day window — check schedule configuration`;
+      return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
+    }
 
     const startTime = config.startTime
       ? normalizeTime(config.startTime)

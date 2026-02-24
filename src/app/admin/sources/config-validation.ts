@@ -122,8 +122,19 @@ function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: stri
   } else if (!/^FREQ=/i.test((obj.rrule as string).trim())) {
     errors.push("Static Schedule rrule must start with FREQ= (e.g. FREQ=WEEKLY;BYDAY=SA)");
   }
-  if (obj.startTime !== undefined && typeof obj.startTime !== "string") {
-    errors.push("Static Schedule config startTime must be a string");
+  if (obj.startTime !== undefined) {
+    if (typeof obj.startTime !== "string") {
+      errors.push("Static Schedule config startTime must be a string");
+    } else if (!/^\d{2}:\d{2}$/.test(obj.startTime)) {
+      errors.push('Static Schedule config startTime must be HH:MM format (e.g. "10:17", "19:00")');
+    }
+  }
+  if (obj.anchorDate !== undefined) {
+    if (typeof obj.anchorDate !== "string") {
+      errors.push("Static Schedule config anchorDate must be a string");
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(obj.anchorDate)) {
+      errors.push('Static Schedule config anchorDate must be YYYY-MM-DD format (e.g. "2026-01-03")');
+    }
   }
 }
 

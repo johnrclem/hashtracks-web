@@ -281,7 +281,8 @@ describe("validateSourceConfig", () => {
       const config = {
         kennelTag: "Rumson",
         rrule: "FREQ=WEEKLY;BYDAY=SA",
-        startTime: "10:17 AM",
+        startTime: "10:17",
+        anchorDate: "2026-01-03",
         defaultTitle: "Rumson H3 Weekly Run",
       };
       expect(validateSourceConfig("STATIC_SCHEDULE", config)).toEqual([]);
@@ -315,6 +316,34 @@ describe("validateSourceConfig", () => {
       const config = { kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: 123 };
       const errors = validateSourceConfig("STATIC_SCHEDULE", config);
       expect(errors.some((e) => e.includes("startTime"))).toBe(true);
+    });
+
+    it("rejects non-HH:MM startTime format", () => {
+      const config = { kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "10:17 AM" };
+      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
+      expect(errors.some((e) => e.includes("HH:MM"))).toBe(true);
+    });
+
+    it("accepts valid HH:MM startTime", () => {
+      const config = { kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "19:00" };
+      expect(validateSourceConfig("STATIC_SCHEDULE", config)).toEqual([]);
+    });
+
+    it("rejects non-string anchorDate", () => {
+      const config = { kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", anchorDate: 123 };
+      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
+      expect(errors.some((e) => e.includes("anchorDate"))).toBe(true);
+    });
+
+    it("rejects invalid anchorDate format", () => {
+      const config = { kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", anchorDate: "Jan 3 2026" };
+      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
+      expect(errors.some((e) => e.includes("YYYY-MM-DD"))).toBe(true);
+    });
+
+    it("accepts valid anchorDate", () => {
+      const config = { kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", anchorDate: "2026-01-03" };
+      expect(validateSourceConfig("STATIC_SCHEDULE", config)).toEqual([]);
     });
 
     it("reports both errors when both required fields are missing", () => {

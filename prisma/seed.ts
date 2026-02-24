@@ -793,7 +793,8 @@ async function main() {
       config: {
         kennelTag: "Rumson",
         rrule: "FREQ=WEEKLY;BYDAY=SA",
-        startTime: "10:17 AM",
+        anchorDate: "2026-01-03",
+        startTime: "10:17",
         defaultTitle: "Rumson H3 Weekly Run",
         defaultLocation: "Rumson, NJ",
         defaultDescription: "Weekly Saturday morning trail. Check Facebook for start location and hare details.",

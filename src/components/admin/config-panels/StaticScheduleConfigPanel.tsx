@@ -7,6 +7,7 @@ import { KennelTagInput, type KennelOption } from "./KennelTagInput";
 export interface StaticScheduleConfig {
   kennelTag?: string;
   rrule?: string;
+  anchorDate?: string;
   startTime?: string;
   defaultTitle?: string;
   defaultLocation?: string;
@@ -66,6 +67,22 @@ export function StaticScheduleConfigPanel({
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="ss-anchor-date">Anchor Date</Label>
+        <Input
+          id="ss-anchor-date"
+          value={current.anchorDate ?? ""}
+          onChange={(e) =>
+            onChange({ ...current, anchorDate: e.target.value || undefined })
+          }
+          placeholder="2026-01-03"
+        />
+        <p className="text-xs text-muted-foreground">
+          YYYY-MM-DD of a known past occurrence. Required for INTERVAL &gt; 1 to
+          keep generated dates stable between scrapes.
+        </p>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="ss-start-time">Start Time</Label>
         <Input
           id="ss-start-time"
@@ -73,10 +90,10 @@ export function StaticScheduleConfigPanel({
           onChange={(e) =>
             onChange({ ...current, startTime: e.target.value || undefined })
           }
-          placeholder="10:17 AM"
+          placeholder="10:17"
         />
         <p className="text-xs text-muted-foreground">
-          12-hour (e.g. &quot;10:17 AM&quot;) or 24-hour (e.g. &quot;10:17&quot;) format.
+          24-hour format, e.g. &quot;10:17&quot;, &quot;19:00&quot;.
         </p>
       </div>
 

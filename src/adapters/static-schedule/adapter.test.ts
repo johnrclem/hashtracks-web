@@ -1,4 +1,3 @@
-import { describe, it, expect } from "vitest";
 import {
   StaticScheduleAdapter,
   parseRRule,
@@ -29,14 +28,14 @@ describe("parseRRule", () => {
     const rule = parseRRule("FREQ=WEEKLY;BYDAY=SA");
     expect(rule.freq).toBe("WEEKLY");
     expect(rule.interval).toBe(1);
-    expect(rule.byDay).toEqual({ day: 6, nth: undefined });
+    expect(rule.byDay).toEqual({ day: 6 });
   });
 
   it("parses biweekly Saturday", () => {
     const rule = parseRRule("FREQ=WEEKLY;INTERVAL=2;BYDAY=SA");
     expect(rule.freq).toBe("WEEKLY");
     expect(rule.interval).toBe(2);
-    expect(rule.byDay).toEqual({ day: 6, nth: undefined });
+    expect(rule.byDay).toEqual({ day: 6 });
   });
 
   it("parses monthly 2nd Saturday", () => {
@@ -63,6 +62,53 @@ describe("parseRRule", () => {
 
   it("throws on invalid BYDAY", () => {
     expect(() => parseRRule("FREQ=WEEKLY;BYDAY=XX")).toThrow("Unknown day");
+  });
+
+  // Fix 3: Whitespace handling
+  it("handles whitespace around semicolons", () => {
+    const rule = parseRRule("FREQ=WEEKLY; BYDAY=SA");
+    expect(rule.freq).toBe("WEEKLY");
+    expect(rule.byDay).toEqual({ day: 6 });
+  });
+
+  it("handles whitespace around equals", () => {
+    const rule = parseRRule("FREQ = WEEKLY ; BYDAY = SA");
+    expect(rule.freq).toBe("WEEKLY");
+    expect(rule.byDay).toEqual({ day: 6 });
+  });
+
+  // Fix 1: Validation
+  it("throws on INTERVAL=0", () => {
+    expect(() => parseRRule("FREQ=WEEKLY;INTERVAL=0;BYDAY=SA")).toThrow("Invalid INTERVAL");
+  });
+
+  it("throws on INTERVAL=-1", () => {
+    expect(() => parseRRule("FREQ=WEEKLY;INTERVAL=-1;BYDAY=SA")).toThrow("Invalid INTERVAL");
+  });
+
+  it("throws on BYMONTHDAY=0", () => {
+    expect(() => parseRRule("FREQ=MONTHLY;BYMONTHDAY=0")).toThrow("Invalid BYMONTHDAY");
+  });
+
+  it("throws on BYMONTHDAY=32", () => {
+    expect(() => parseRRule("FREQ=MONTHLY;BYMONTHDAY=32")).toThrow("Invalid BYMONTHDAY");
+  });
+
+  it("throws on BYDAY=0SA (nth cannot be 0)", () => {
+    expect(() => parseRRule("FREQ=MONTHLY;BYDAY=0SA")).toThrow("nth position cannot be 0");
+  });
+
+  // Fix 4: Unsupported FREQ / missing BYDAY
+  it("throws on unsupported FREQ=DAILY", () => {
+    expect(() => parseRRule("FREQ=DAILY;BYDAY=SA")).toThrow("Unsupported FREQ");
+  });
+
+  it("throws on unsupported FREQ=YEARLY", () => {
+    expect(() => parseRRule("FREQ=YEARLY;BYDAY=SA")).toThrow("Unsupported FREQ");
+  });
+
+  it("throws on WEEKLY without BYDAY", () => {
+    expect(() => parseRRule("FREQ=WEEKLY")).toThrow("WEEKLY RRULE requires BYDAY");
   });
 });
 
@@ -96,6 +142,32 @@ describe("generateOccurrences", () => {
     for (const d of dates) {
       const dayOfWeek = new Date(d + "T12:00:00Z").getUTCDay();
       expect(dayOfWeek).toBe(6);
+    }
+  });
+
+  it("generates stable biweekly dates with anchorDate", () => {
+    const rule = parseRRule("FREQ=WEEKLY;INTERVAL=2;BYDAY=SA");
+    const anchor = "2026-01-03"; // Known Saturday
+
+    // Two different windows that partially overlap
+    const window1Start = new Date(Date.UTC(2026, 0, 1, 12, 0, 0));
+    const window1End = new Date(Date.UTC(2026, 1, 28, 12, 0, 0));
+    const dates1 = generateOccurrences(rule, window1Start, window1End, anchor);
+
+    const window2Start = new Date(Date.UTC(2026, 0, 10, 12, 0, 0));
+    const window2End = new Date(Date.UTC(2026, 2, 10, 12, 0, 0));
+    const dates2 = generateOccurrences(rule, window2Start, window2End, anchor);
+
+    // Overlapping dates should match — dates in both windows should be identical
+    const overlap = dates1.filter((d) => dates2.includes(d));
+    expect(overlap.length).toBeGreaterThan(0);
+
+    // All dates should be every-other Saturday from the anchor
+    const anchorMs = new Date(anchor + "T12:00:00Z").getTime();
+    for (const d of [...dates1, ...dates2]) {
+      const dateMs = new Date(d + "T12:00:00Z").getTime();
+      const daysDiff = Math.round((dateMs - anchorMs) / 86_400_000);
+      expect(daysDiff % 14).toBe(0); // exactly 14-day intervals from anchor
     }
   });
 
@@ -173,10 +245,17 @@ describe("StaticScheduleAdapter", () => {
   });
 
   it("returns error for invalid rrule syntax", async () => {
-    const source = makeSource({ kennelTag: "Rumson", rrule: "BYDAY=SA" });
+    const source = makeSource({ kennelTag: "Rumson", rrule: "NOTAFREQ=WEEKLY;BYDAY=SA" });
     const result = await adapter.fetch(source);
     expect(result.events).toHaveLength(0);
     expect(result.errors[0]).toContain("RRULE");
+  });
+
+  it("returns error for unsupported FREQ", async () => {
+    const source = makeSource({ kennelTag: "Rumson", rrule: "FREQ=DAILY;BYDAY=SA" });
+    const result = await adapter.fetch(source);
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toContain("Unsupported FREQ");
   });
 
   it("generates events for weekly Saturday within default 90-day window", async () => {
@@ -217,11 +296,11 @@ describe("StaticScheduleAdapter", () => {
     }
   });
 
-  it("normalizes 12-hour startTime to HH:MM", async () => {
+  it("accepts 24-hour startTime HH:MM", async () => {
     const source = makeSource({
       kennelTag: "Rumson",
       rrule: "FREQ=WEEKLY;BYDAY=SA",
-      startTime: "10:17 AM",
+      startTime: "10:17",
     });
     const result = await adapter.fetch(source);
 
@@ -231,16 +310,16 @@ describe("StaticScheduleAdapter", () => {
     }
   });
 
-  it("passes through 24-hour startTime as-is", async () => {
+  it("rejects non-HH:MM startTime (returns undefined)", async () => {
     const source = makeSource({
       kennelTag: "Rumson",
       rrule: "FREQ=WEEKLY;BYDAY=SA",
-      startTime: "22:30",
+      startTime: "10:17 AM",
     });
     const result = await adapter.fetch(source);
 
     for (const event of result.events) {
-      expect(event.startTime).toBe("22:30");
+      expect(event.startTime).toBeUndefined();
     }
   });
 
@@ -380,6 +459,24 @@ describe("StaticScheduleAdapter", () => {
       // Should be between 8th and 14th (2nd week)
       expect(date.getUTCDate()).toBeGreaterThanOrEqual(8);
       expect(date.getUTCDate()).toBeLessThanOrEqual(14);
+    }
+  });
+
+  it("passes anchorDate through to generateOccurrences", async () => {
+    const source = makeSource({
+      kennelTag: "Rumson",
+      rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      anchorDate: "2026-01-03",
+    });
+    const result = await adapter.fetch(source);
+
+    expect(result.errors).toHaveLength(0);
+    // All dates should be exactly 14-day multiples from anchor
+    const anchorMs = new Date("2026-01-03T12:00:00Z").getTime();
+    for (const event of result.events) {
+      const dateMs = new Date(event.date + "T12:00:00Z").getTime();
+      const daysDiff = Math.round((dateMs - anchorMs) / 86_400_000);
+      expect(daysDiff % 14).toBe(0);
     }
   });
 });
