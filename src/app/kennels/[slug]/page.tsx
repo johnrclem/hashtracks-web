@@ -36,7 +36,6 @@ export default async function KennelDetailPage({
   const kennel = await prisma.kennel.findUnique({
     where: { slug },
     include: {
-      aliases: { select: { alias: true }, orderBy: { alias: "asc" } },
       _count: { select: { members: true } },
     },
   });
@@ -169,22 +168,6 @@ export default async function KennelDetailPage({
           kennelId={kennel.id}
           kennelShortName={kennel.shortName}
         />
-      )}
-
-      {/* Aliases */}
-      {kennel.aliases.length > 0 && (
-        <div>
-          <h2 className="text-sm font-medium text-muted-foreground">
-            Also known as
-          </h2>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {kennel.aliases.map((a) => (
-              <Badge key={a.alias} variant="secondary">
-                {a.alias}
-              </Badge>
-            ))}
-          </div>
-        </div>
       )}
 
       {/* Upcoming Events */}
