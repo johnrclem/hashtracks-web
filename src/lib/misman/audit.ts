@@ -7,6 +7,7 @@
 
 import type { Prisma } from "@/generated/prisma/client";
 
+/** Actions that can be recorded in a KennelAttendance audit log. */
 export type AuditAction =
   | "record"
   | "update"
@@ -15,14 +16,20 @@ export type AuditAction =
   | "import"
   | "hare_sync";
 
+/** A single entry in the KennelAttendance audit log (stored as JSON array). */
 export interface AuditLogEntry {
   action: AuditAction;
+  /** ISO 8601 timestamp of the action. */
   timestamp: string;
+  /** Clerk user ID of the person who performed the action. */
   userId: string;
+  /** Field-level before/after diffs (present for "update" actions). */
   changes?: Record<string, { old: unknown; new: unknown }>;
+  /** Additional context (e.g. import batch size, sync source). */
   details?: Record<string, unknown>;
 }
 
+/** Append a new entry to an existing JSON audit log array (or start a new one). */
 export function appendAuditLog(
   existing: Prisma.JsonValue | null,
   entry: AuditLogEntry,

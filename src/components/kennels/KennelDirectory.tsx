@@ -17,6 +17,7 @@ const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ),
 });
 
+/** Props for the KennelDirectory — searchable, filterable, sortable directory of all kennels. */
 interface KennelDirectoryProps {
   kennels: KennelCardData[];
 }

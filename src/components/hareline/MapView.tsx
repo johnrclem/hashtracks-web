@@ -7,16 +7,21 @@ import type { HarelineEvent } from "./EventCard";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
 
+/** Props for the interactive MapView — renders hareline events as region-colored map pins. */
 interface MapViewProps {
   events: HarelineEvent[];
+  /** Currently selected event ID (for highlighting its pin). */
   selectedEventId?: string | null;
+  /** Callback when a map pin is clicked. */
   onSelectEvent: (event: HarelineEvent) => void;
 }
 
+/** Internal: event enriched with resolved coordinates and pin color for map rendering. */
 interface EventWithCoords {
   event: HarelineEvent;
   lat: number;
   lng: number;
+  /** True if coordinates come from the event's DB record; false if using region centroid fallback. */
   precise: boolean;
   color: string;
 }

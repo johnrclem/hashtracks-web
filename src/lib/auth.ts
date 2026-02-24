@@ -2,6 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import type { User } from "@/generated/prisma/client";
 
+/** Get the current user from DB, creating a record on first sign-in (Clerk → DB sync). */
 export async function getOrCreateUser(): Promise<User | null> {
   const clerkUser = await currentUser();
   if (!clerkUser) return null;
@@ -25,6 +26,7 @@ export async function getOrCreateUser(): Promise<User | null> {
   });
 }
 
+/** Get the current user if they have the "admin" role in Clerk metadata. Returns null otherwise. */
 export async function getAdminUser(): Promise<User | null> {
   const clerkUser = await currentUser();
   if (!clerkUser) return null;

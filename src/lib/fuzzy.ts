@@ -41,16 +41,20 @@ export function fuzzyNameMatch(a: string, b: string): number {
   return 1 - levenshtein(na, nb) / maxLen;
 }
 
+/** A kennel (or similar entity) to rank against a search term via `fuzzyMatch()`. */
 export interface FuzzyCandidate {
   id: string;
   shortName: string;
   fullName: string | null;
+  /** Optional alias strings that are also checked for similarity. */
   aliases?: string[];
 }
 
+/** A ranked match result from `fuzzyMatch()`, sorted by score descending. */
 export interface FuzzyMatch {
   id: string;
   shortName: string;
+  /** Similarity score from 0 (no match) to 1 (exact match). */
   score: number;
 }
 

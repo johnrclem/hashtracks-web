@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/db";
 
+/** Outcome of resolving a raw kennel tag to a database Kennel record. */
 interface ResolveResult {
+  /** The matched Kennel ID, or null if no match was found. */
   kennelId: string | null;
+  /** Whether the tag was successfully matched (via exact, alias, or pattern). */
   matched: boolean;
 }
 
@@ -106,7 +109,7 @@ export async function resolveKennelTag(
 /**
  * Pattern matching fallback from PRD Appendix D.2.
  * Data-driven: patterns are evaluated in order (multi-word first, then shorter).
- * Returns the canonical shortName or null.
+ * Each entry maps a regex to the canonical kennel shortName.
  */
 const KENNEL_PATTERNS: readonly [RegExp, string][] = [
   // Multi-word patterns FIRST (longer before shorter)
@@ -160,6 +163,7 @@ const KENNEL_PATTERNS: readonly [RegExp, string][] = [
   [/rumson/, "Rumson"],
 ];
 
+/** Apply regex pattern matching to map a raw kennel tag to a canonical shortName. Returns null if no pattern matches. */
 export function mapKennelTag(input: string): string | null {
   const normalized = input.trim();
   for (const [pattern, result] of KENNEL_PATTERNS) {

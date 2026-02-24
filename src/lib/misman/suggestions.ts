@@ -16,12 +16,14 @@ export const LOOKBACK_DAYS = 180;
 export const MIN_EVENTS_FOR_SUGGESTIONS = 3;
 export const MAX_STREAK = 4;
 
+/** A single attendance record within the lookback window, used for scoring. */
 export interface AttendanceRecord {
   kennelHasherId: string;
   eventId: string;
   eventDate: Date;
 }
 
+/** A kennel event within the lookback window, used to compute attendance rates. */
 export interface KennelEvent {
   id: string;
   date: Date;

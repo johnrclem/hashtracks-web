@@ -68,6 +68,7 @@ async function autoResolveIfAllTagsMatched(
   }
 }
 
+/** Mark an OPEN alert as ACKNOWLEDGED (admin has seen it). */
 export async function acknowledgeAlert(alertId: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };
@@ -86,6 +87,7 @@ export async function acknowledgeAlert(alertId: string) {
   return { success: true };
 }
 
+/** Snooze an alert for a specified number of hours. It will re-open if the issue persists after the snooze expires. */
 export async function snoozeAlert(alertId: string, hours: number) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };
@@ -106,6 +108,7 @@ export async function snoozeAlert(alertId: string, hours: number) {
   return { success: true };
 }
 
+/** Manually resolve an alert (marks it as fixed by an admin). */
 export async function resolveAlert(alertId: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };

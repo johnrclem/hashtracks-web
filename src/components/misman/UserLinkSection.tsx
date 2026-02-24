@@ -45,11 +45,14 @@ interface InviteData {
   expiresAt: string | null;
 }
 
+/** Props for the UserLinkSection — manages linking a KennelHasher to a user account (suggest, invite, revoke). */
 interface UserLinkSectionProps {
   kennelId: string;
   kennelHasherId: string;
+  /** Existing user link, or null if unlinked. */
   userLink: UserLinkData | null;
   hasherDisplayName: string;
+  /** Active profile invite for this hasher (token + expiry). */
   invite: InviteData;
 }
 

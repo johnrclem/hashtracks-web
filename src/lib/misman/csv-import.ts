@@ -10,15 +10,23 @@
 import { parseCSV } from "@/adapters/google-sheets/adapter";
 import { fuzzyNameMatch } from "@/lib/fuzzy";
 
+/** Configuration for parsing and importing a CSV attendance matrix. */
 export interface CSVImportConfig {
   kennelId: string;
   rosterGroupId: string;
+  /** User ID of the misman performing the import. */
   importedBy: string;
+  /** Zero-based column index containing hasher names. */
   nameColumn: number;
+  /** Zero-based column index where attendance data columns begin. */
   dataStartColumn: number;
+  /** Zero-based row index of the header row (date/run-number labels). */
   headerRow: number;
+  /** Zero-based row index where data rows (hasher names + cells) begin. */
   dataStartRow: number;
+  /** Minimum fuzzy match score (0–1) for matching CSV names to roster entries. */
   fuzzyThreshold: number;
+  /** Cell value markers that indicate attendance, payment, or haring. */
   cellMarkers: {
     attended: string[];
     paid: string[];
@@ -26,12 +34,14 @@ export interface CSVImportConfig {
   };
 }
 
+/** Default cell value markers for attendance CSV import. */
 export const DEFAULT_CELL_MARKERS = {
   attended: ["X", "x", "1", "\u2713", "true", "yes", "Y", "y"],
   paid: ["P", "p", "$", "paid"],
   hare: ["H", "h", "hare"],
 };
 
+/** Result of matching a CSV hasher name to a KennelHasher roster entry. */
 export interface HasherMatch {
   csvName: string;
   kennelHasherId: string;
@@ -39,13 +49,18 @@ export interface HasherMatch {
   matchScore: number;
 }
 
+/** Result of matching a CSV column header to an Event record (by date or run number). */
 export interface EventMatch {
+  /** Absolute column index in the CSV. */
   columnIndex: number;
+  /** Raw header text from the CSV (e.g. "1/15/26" or "#42"). */
   columnHeader: string;
   eventId: string;
+  /** Matched event date as "YYYY-MM-DD". */
   date: string;
 }
 
+/** A single attendance record to create from the CSV import. */
 export interface AttendanceImportRecord {
   kennelHasherId: string;
   eventId: string;
@@ -54,19 +69,26 @@ export interface AttendanceImportRecord {
   hared: boolean;
 }
 
+/** Full result of a CSV import preview: matched/unmatched hashers, events, and records. */
 export interface CSVImportResult {
   matchedHashers: HasherMatch[];
   unmatchedHashers: string[];
   matchedEvents: EventMatch[];
   unmatchedColumns: string[];
   records: AttendanceImportRecord[];
+  /** Number of records skipped because attendance already exists. */
   duplicateCount: number;
 }
 
+/** Parsed CSV matrix with extracted headers, hasher names, and per-row attendance cells. */
 export interface ParsedCSV {
+  /** All rows from the raw CSV. */
   rows: string[][];
+  /** Column headers from the header row (data columns only). */
   headers: string[];
+  /** Hasher names extracted from the name column. */
   hasherNames: string[];
+  /** Data rows: each has the hasher name and their attendance cell values. */
   dataRows: { name: string; cells: string[] }[];
 }
 
@@ -126,6 +148,7 @@ export function parseCellValue(
   return { attended, paid: isPaid, hared: isHare };
 }
 
+/** Minimal KennelHasher shape used for CSV name matching. */
 export interface RosterEntry {
   id: string;
   hashName: string | null;
@@ -190,6 +213,7 @@ export function matchHasherNames(
   return { matched, unmatched };
 }
 
+/** Minimal Event shape used for matching CSV column headers to events. */
 export interface EventLookup {
   id: string;
   date: Date;

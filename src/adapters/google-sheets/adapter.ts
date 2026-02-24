@@ -247,6 +247,7 @@ function buildEventFromSheetRow(
   };
 }
 
+/** Google Sheets CSV adapter. Fetches published spreadsheet tabs as CSV and parses config-driven column mappings. */
 export class GoogleSheetsAdapter implements SourceAdapter {
   type = "GOOGLE_SHEETS" as const;
 

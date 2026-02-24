@@ -3,9 +3,12 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { hasAnyErrors } from "../types";
 import { validateSourceConfig, stripHtmlTags, buildDateWindow } from "../utils";
 
+/** Source.config shape for Meetup sources. */
 export interface MeetupConfig {
-  groupUrlname: string; // Meetup group URL name, e.g. "brooklyn-hash-house-harriers"
-  kennelTag: string; // Kennel shortName to assign all events to
+  /** Meetup group URL name, e.g. "brooklyn-hash-house-harriers". */
+  groupUrlname: string;
+  /** Kennel shortName to assign all events to. */
+  kennelTag: string;
 }
 
 interface MeetupEvent {
@@ -60,6 +63,7 @@ function buildRawEventFromMeetupEvent(ev: MeetupEvent, kennelTag: string): RawEv
   };
 }
 
+/** Meetup.com public API adapter. Fetches upcoming and past events from a public Meetup group (no API key required). */
 export class MeetupAdapter implements SourceAdapter {
   type = "MEETUP" as const;
 

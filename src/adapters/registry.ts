@@ -75,6 +75,7 @@ export function findHtmlAdapter(url: string): string | null {
   return null;
 }
 
+/** Factory function: returns the appropriate SourceAdapter for a given source type and URL. URL-based routing applies for HTML_SCRAPER types. */
 export function getAdapter(sourceType: SourceType, sourceUrl?: string): SourceAdapter {
   // For HTML scrapers, check URL-based routing first
   if (sourceType === "HTML_SCRAPER" && sourceUrl) {

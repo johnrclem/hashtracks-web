@@ -11,19 +11,33 @@ import { analyzeHealth, persistAlerts } from "./health";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
 import { validateSourceUrl } from "@/adapters/utils";
 
+/** Result returned by `scrapeSource()` summarizing the full scrape-merge-reconcile cycle. */
 export interface ScrapeSourceResult {
+  /** Whether the scrape completed without fatal errors. */
   success: boolean;
+  /** ID of the ScrapeLog record created for this run. */
   scrapeLogId: string;
+  /** Whether this was a forced re-scrape (all existing RawEvents deleted first). */
   forced: boolean;
+  /** Total events returned by the adapter. */
   eventsFound: number;
+  /** New canonical Events created by the merge pipeline. */
   created: number;
+  /** Existing canonical Events updated with fresher data. */
   updated: number;
+  /** RawEvents skipped because a matching fingerprint already existed. */
   skipped: number;
+  /** Events blocked by the source-kennel guard (resolved but not linked). */
   blocked: number;
+  /** Events cancelled by stale-event reconciliation. */
   cancelled: number;
+  /** Kennel tags that could not be resolved to any known kennel. */
   unmatched: string[];
+  /** Kennel tags blocked by the source-kennel mismatch guard. */
   blockedTags: string[];
+  /** Error messages from scraping and/or merging. */
   errors: string[];
+  /** AI parse-error recovery metrics, if recovery was attempted. */
   aiRecovery?: AiRecoverySummary;
 }
 
@@ -106,6 +120,7 @@ function buildDiagnosticContext(
   return diagnosticContext;
 }
 
+/** Parameters for the ScrapeLog update after merge completes. */
 interface ScrapeLogUpdateParams {
   scrapeLogId: string;
   startedAt: Date;
