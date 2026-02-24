@@ -30,6 +30,7 @@ interface RequestQueueProps {
   requests: KennelRequest[];
 }
 
+/** Table of kennel requests with approve/reject actions. */
 export function RequestQueue({ requests }: RequestQueueProps) {
   if (requests.length === 0) {
     return (

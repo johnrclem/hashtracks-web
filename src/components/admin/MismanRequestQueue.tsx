@@ -126,6 +126,7 @@ interface MismanAdminTabsProps {
 
 // ── Main Component ──
 
+/** Tabbed admin interface for misman requests, invites, and active mismans. */
 export function MismanAdminTabs({
   requests,
   invites,
@@ -198,24 +199,26 @@ export function MismanAdminTabs({
   return (
     <TooltipProvider>
       <Tabs defaultValue="requests">
-        <div className="flex items-center justify-between gap-4">
-          <TabsList>
-            <TabsTrigger value="requests">
-              Pending Requests ({requestKennelFilter !== "all"
-                ? `${filteredRequests.length} / ${pendingRequests.length}`
-                : pendingRequests.length})
-            </TabsTrigger>
-            <TabsTrigger value="invites">
-              Invites Sent ({inviteKennelFilter !== "all"
-                ? `${filteredInvites.length} / ${invites.length}`
-                : invites.length})
-            </TabsTrigger>
-            <TabsTrigger value="mismans">
-              Active Mismanagement ({mismanKennelFilter !== "all"
-                ? `${filteredMismans.length} / ${mismans.length}`
-                : mismans.length})
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="overflow-x-auto -mx-1 px-1">
+            <TabsList className="inline-flex w-max">
+              <TabsTrigger value="requests">
+                Pending ({requestKennelFilter !== "all"
+                  ? `${filteredRequests.length} / ${pendingRequests.length}`
+                  : pendingRequests.length})
+              </TabsTrigger>
+              <TabsTrigger value="invites">
+                Invites ({inviteKennelFilter !== "all"
+                  ? `${filteredInvites.length} / ${invites.length}`
+                  : invites.length})
+              </TabsTrigger>
+              <TabsTrigger value="mismans">
+                Active ({mismanKennelFilter !== "all"
+                  ? `${filteredMismans.length} / ${mismans.length}`
+                  : mismans.length})
+              </TabsTrigger>
+            </TabsList>
+          </div>
           <InviteMismanDialog kennels={kennels} />
         </div>
 
@@ -279,6 +282,7 @@ function KennelLinkWithTooltip({
 
 // ── Kennel Filter ──
 
+/** Dropdown filter to narrow tab content by kennel. Hidden when ≤1 kennel. */
 function KennelFilterBar({
   kennels,
   value,
@@ -293,7 +297,7 @@ function KennelFilterBar({
   return (
     <div className="mb-3">
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="w-72">
+        <SelectTrigger className="w-full sm:w-72">
           <SelectValue placeholder="All kennels" />
         </SelectTrigger>
         <SelectContent>
@@ -311,6 +315,7 @@ function KennelFilterBar({
 
 // ── Tab 1: Pending Requests ──
 
+/** Table of pending misman access requests with approve/reject actions. */
 function PendingRequestsTab({ requests }: { requests: MismanRequestRow[] }) {
   if (requests.length === 0) {
     return (
@@ -436,6 +441,7 @@ function MismanRequestRowComponent({
 
 // ── Tab 2: Invite History ──
 
+/** Table of misman invite history with revoke action for pending invites. */
 function InviteHistoryTab({ invites }: { invites: InviteRow[] }) {
   if (invites.length === 0) {
     return (
@@ -569,6 +575,7 @@ function InviteRowComponent({ invite }: { invite: InviteRow }) {
 
 // ── Tab 3: Active Mismans ──
 
+/** Table of active mismans with revoke access action. */
 function ActiveMismansTab({ mismans }: { mismans: ActiveMismanRow[] }) {
   if (mismans.length === 0) {
     return (
@@ -710,6 +717,7 @@ type InviteResult = {
   inviteUrl: string;
 };
 
+/** Dialog for generating misman invite links for one or more kennels. */
 function InviteMismanDialog({ kennels }: { kennels: KennelOptionData[] }) {
   const [open, setOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
