@@ -83,7 +83,7 @@ interface EventTableProps {
 type SortableColumn = "date" | "kennelName" | "title" | "runNumber" | "attendanceCount";
 
 /** Build updated URL search params for filter changes. */
-function buildFilterParams(
+export function buildFilterParams(
   searchParams: URLSearchParams,
   key: string,
   value: string | undefined,
@@ -99,7 +99,7 @@ function buildFilterParams(
 }
 
 /** Build updated URL search params for sort changes. */
-function buildSortParams(
+export function buildSortParams(
   searchParams: URLSearchParams,
   column: SortableColumn,
   currentSort: string,
@@ -116,6 +116,7 @@ function buildSortParams(
   return params.toString();
 }
 
+/** Admin event table with filtering, sorting, pagination, and bulk delete. */
 export function EventTable({
   events,
   kennels,
@@ -378,7 +379,6 @@ export function EventTable({
               : "No events in the database."}
           </p>
         ) : (
-          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -473,7 +473,6 @@ export function EventTable({
               ))}
             </TableBody>
           </Table>
-          </div>
         )}
 
         {/* Selection action bar */}
@@ -658,7 +657,8 @@ export function EventTable({
   );
 }
 
-function formatDate(iso: string): string {
+/** Format an ISO date string as a short US locale date (e.g. "Jan 5, 2025"). */
+export function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", {
     month: "short",

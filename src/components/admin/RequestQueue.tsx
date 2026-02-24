@@ -30,6 +30,7 @@ interface RequestQueueProps {
   requests: KennelRequest[];
 }
 
+/** Table of kennel requests with approve/reject actions. */
 export function RequestQueue({ requests }: RequestQueueProps) {
   if (requests.length === 0) {
     return (
@@ -43,7 +44,6 @@ export function RequestQueue({ requests }: RequestQueueProps) {
   }
 
   return (
-    <div className="overflow-x-auto">
     <Table>
       <TableHeader>
         <TableRow>
@@ -62,7 +62,6 @@ export function RequestQueue({ requests }: RequestQueueProps) {
         ))}
       </TableBody>
     </Table>
-    </div>
   );
 }
 

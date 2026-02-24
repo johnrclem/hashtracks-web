@@ -126,6 +126,7 @@ interface MismanAdminTabsProps {
 
 // ── Main Component ──
 
+/** Tabbed admin interface for misman requests, invites, and active mismans. */
 export function MismanAdminTabs({
   requests,
   invites,
@@ -281,6 +282,7 @@ function KennelLinkWithTooltip({
 
 // ── Kennel Filter ──
 
+/** Dropdown filter to narrow tab content by kennel. Hidden when ≤1 kennel. */
 function KennelFilterBar({
   kennels,
   value,
@@ -313,6 +315,7 @@ function KennelFilterBar({
 
 // ── Tab 1: Pending Requests ──
 
+/** Table of pending misman access requests with approve/reject actions. */
 function PendingRequestsTab({ requests }: { requests: MismanRequestRow[] }) {
   if (requests.length === 0) {
     return (
@@ -438,6 +441,7 @@ function MismanRequestRowComponent({
 
 // ── Tab 2: Invite History ──
 
+/** Table of misman invite history with revoke action for pending invites. */
 function InviteHistoryTab({ invites }: { invites: InviteRow[] }) {
   if (invites.length === 0) {
     return (
@@ -571,6 +575,7 @@ function InviteRowComponent({ invite }: { invite: InviteRow }) {
 
 // ── Tab 3: Active Mismans ──
 
+/** Table of active mismans with revoke access action. */
 function ActiveMismansTab({ mismans }: { mismans: ActiveMismanRow[] }) {
   if (mismans.length === 0) {
     return (
@@ -712,6 +717,7 @@ type InviteResult = {
   inviteUrl: string;
 };
 
+/** Dialog for generating misman invite links for one or more kennels. */
 function InviteMismanDialog({ kennels }: { kennels: KennelOptionData[] }) {
   const [open, setOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
