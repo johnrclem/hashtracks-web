@@ -24,7 +24,7 @@ export function useGeolocation(): [GeoState, () => void] {
 
     setState({ status: "loading" });
 
-    navigator.geolocation.getCurrentPosition(
+    navigator.geolocation.getCurrentPosition( // NOSONAR - user-initiated, privacy-first; only called on explicit user action
       (position) => {
         setState({
           status: "granted",

@@ -130,8 +130,9 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     syncUrl({ display: v });
   }
   function handleRegionSelect(region: string) {
-    setSelectedRegions([region]);
-    setDisplayView("grid");
+    setSelectedRegionsState([region]);
+    setDisplayViewState("grid");
+    syncUrl({ regions: [region], display: "grid" });
   }
 
   // Filter pipeline

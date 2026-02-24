@@ -133,7 +133,8 @@ export function HarelineView({
   );
   const [nearMeDistance, setNearMeDistanceState] = useState<number | null>(() => {
     const d = searchParams.get("dist");
-    return d ? Number(d) : null;
+    const n = d ? Number(d) : null;
+    return n != null && !Number.isNaN(n) ? n : null;
   });
 
   // Geolocation hook — only activates on user action

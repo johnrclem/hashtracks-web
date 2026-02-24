@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -317,8 +317,14 @@ interface NearMeFilterProps {
 }
 
 function NearMeFilter({ nearMeDistance, onNearMeDistanceChange, geoState, onRequestLocation }: NearMeFilterProps) {
-  // Hide if geolocation is not supported
-  if (typeof window !== "undefined" && !("geolocation" in navigator)) return null;
+  // Defer geolocation support check to after mount to avoid SSR/hydration mismatch.
+  // Default to true so the button is rendered on both server and client during hydration.
+  const [geoSupported, setGeoSupported] = useState(true);
+  useEffect(() => {
+    setGeoSupported("geolocation" in navigator);
+  }, []);
+
+  if (!geoSupported) return null;
 
   // Active state: granted + distance selected
   if (geoState.status === "granted" && nearMeDistance != null) {

@@ -57,7 +57,12 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
       if (p.lng < west) west = p.lng;
       if (p.lng > east) east = p.lng;
     }
-    return { south: south - pad, north: north + pad, west: west - pad, east: east + pad };
+    return {
+      south: south - pad,
+      north: north + pad,
+      west: Math.max(-180, west - pad),
+      east: Math.min(180, east + pad),
+    };
   }, [regionPins]);
 
   // Unmapped kennels (no centroid entry)
@@ -121,6 +126,7 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
                       color: "white",
                       transition: "transform 0.15s ease",
                       userSelect: "none",
+                      transform: "scale(1)",
                     }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1.15)"; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"; }}
