@@ -30,7 +30,7 @@ export async function updateKennelSettings(
     if (val === "false") return false;
     return null;
   };
-  const currentYear = new Date().getFullYear();
+  const currentYear = new Date().getUTCFullYear();
   const intInRange = (name: string, min: number, max: number) => {
     const val = (formData.get(name) as string | null)?.trim();
     if (!val) return null;

@@ -60,7 +60,7 @@ export default async function SettingsPage({ params }: Props) {
           region, contact an admin.
         </p>
       </div>
-      <KennelSettingsForm kennel={kennel} currentYear={new Date().getFullYear()} />
+      <KennelSettingsForm kennel={kennel} currentYear={new Date().getUTCFullYear()} />
     </div>
   );
 }
