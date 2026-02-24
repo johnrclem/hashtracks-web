@@ -37,20 +37,12 @@ describe("validateSourceConfig", () => {
   // ---------------------------------------------------------------------------
 
   describe("config shape validation", () => {
-    it("rejects non-object config (array)", () => {
-      const errors = validateSourceConfig("GOOGLE_CALENDAR", [1, 2, 3]);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("must be a JSON object");
-    });
-
-    it("rejects non-object config (string)", () => {
-      const errors = validateSourceConfig("ICAL_FEED", "not an object");
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("must be a JSON object");
-    });
-
-    it("rejects non-object config (number)", () => {
-      const errors = validateSourceConfig("GOOGLE_CALENDAR", 42);
+    it.each([
+      ["GOOGLE_CALENDAR", [1, 2, 3], "array"],
+      ["ICAL_FEED", "not an object", "string"],
+      ["GOOGLE_CALENDAR", 42, "number"],
+    ])("rejects non-object config (%s with %s)", (type, config) => {
+      const errors = validateSourceConfig(type, config);
       expect(errors).toHaveLength(1);
       expect(errors[0]).toContain("must be a JSON object");
     });
@@ -92,36 +84,17 @@ describe("validateSourceConfig", () => {
       expect(errors[0]).toContain("[regex, tag] pair");
     });
 
-    it("rejects non-string pattern values", () => {
+    it.each([
+      [[[123, "TAG"]], "must be strings"],
+      [[["^EWH3", "  "]], "cannot be empty"],
+      [[["[invalid(", "TAG"]], "invalid regex"],
+      [[["(a+)+$", "TAG"]], "catastrophic backtracking"],
+    ])("rejects invalid kennelPattern entry: %s", (patterns, expectedMsg) => {
       const errors = validateSourceConfig("GOOGLE_CALENDAR", {
-        kennelPatterns: [[123, "TAG"]],
+        kennelPatterns: patterns,
       });
       expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("must be strings");
-    });
-
-    it("rejects empty kennel tag", () => {
-      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
-        kennelPatterns: [["^EWH3", "  "]],
-      });
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("cannot be empty");
-    });
-
-    it("rejects invalid regex patterns", () => {
-      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
-        kennelPatterns: [["[invalid(", "TAG"]],
-      });
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("invalid regex");
-    });
-
-    it("rejects ReDoS-vulnerable patterns", () => {
-      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
-        kennelPatterns: [["(a+)+$", "TAG"]],
-      });
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("catastrophic backtracking");
+      expect(errors[0]).toContain(expectedMsg);
     });
 
     it("collects multiple errors", () => {
@@ -157,28 +130,16 @@ describe("validateSourceConfig", () => {
       expect(errors[0]).toContain("must be an array");
     });
 
-    it("rejects invalid skip regex", () => {
+    it.each([
+      [["[broken("], "invalid regex"],
+      [[123], "must be a string"],
+      [["(x+x+)+y"], "catastrophic backtracking"],
+    ])("rejects invalid skip pattern: %s", (patterns, expectedMsg) => {
       const errors = validateSourceConfig("ICAL_FEED", {
-        skipPatterns: ["[broken("],
+        skipPatterns: patterns,
       });
       expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("invalid regex");
-    });
-
-    it("rejects non-string skip patterns", () => {
-      const errors = validateSourceConfig("ICAL_FEED", {
-        skipPatterns: [123],
-      });
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("must be a string");
-    });
-
-    it("rejects ReDoS-vulnerable skip patterns", () => {
-      const errors = validateSourceConfig("ICAL_FEED", {
-        skipPatterns: ["(x+x+)+y"],
-      });
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("catastrophic backtracking");
+      expect(errors[0]).toContain(expectedMsg);
     });
   });
 
@@ -317,34 +278,15 @@ describe("validateSourceConfig", () => {
       expect(validateSourceConfig("STATIC_SCHEDULE", config)).toEqual([]);
     });
 
-    it("requires non-empty kennelTag", () => {
-      const config = { kennelTag: "", rrule: "FREQ=WEEKLY;BYDAY=SA" };
+    it.each([
+      [{ kennelTag: "", rrule: "FREQ=WEEKLY;BYDAY=SA" }, "kennelTag"],
+      [{ kennelTag: "Rumson", rrule: "" }, "rrule"],
+      [{ kennelTag: "Rumson", rrule: "BYDAY=SA" }, "FREQ="],
+      [{ kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: 123 }, "startTime"],
+      [{ kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "10:17 AM" }, "HH:MM"],
+    ])("rejects invalid STATIC_SCHEDULE config: expects error containing %s", (config, expectedField) => {
       const errors = validateSourceConfig("STATIC_SCHEDULE", config);
-      expect(errors.some((e) => e.includes("kennelTag"))).toBe(true);
-    });
-
-    it("requires non-empty rrule", () => {
-      const config = { kennelTag: "Rumson", rrule: "" };
-      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
-      expect(errors.some((e) => e.includes("rrule"))).toBe(true);
-    });
-
-    it("requires rrule to start with FREQ=", () => {
-      const config = { kennelTag: "Rumson", rrule: "BYDAY=SA" };
-      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
-      expect(errors.some((e) => e.includes("FREQ="))).toBe(true);
-    });
-
-    it("rejects non-string startTime", () => {
-      const config = { kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: 123 };
-      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
-      expect(errors.some((e) => e.includes("startTime"))).toBe(true);
-    });
-
-    it("rejects non-HH:MM startTime format", () => {
-      const config = { kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "10:17 AM" };
-      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
-      expect(errors.some((e) => e.includes("HH:MM"))).toBe(true);
+      expect(errors.some((e) => e.includes(expectedField as string))).toBe(true);
     });
 
     it("accepts valid HH:MM startTime", () => {
@@ -352,16 +294,12 @@ describe("validateSourceConfig", () => {
       expect(validateSourceConfig("STATIC_SCHEDULE", config)).toEqual([]);
     });
 
-    it("rejects non-string anchorDate", () => {
-      const config = { kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", anchorDate: 123 };
+    it.each([
+      [{ kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", anchorDate: 123 }, "anchorDate"],
+      [{ kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", anchorDate: "Jan 3 2026" }, "YYYY-MM-DD"],
+    ])("rejects invalid anchorDate: expects error containing %s", (config, expectedField) => {
       const errors = validateSourceConfig("STATIC_SCHEDULE", config);
-      expect(errors.some((e) => e.includes("anchorDate"))).toBe(true);
-    });
-
-    it("rejects invalid anchorDate format", () => {
-      const config = { kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", anchorDate: "Jan 3 2026" };
-      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
-      expect(errors.some((e) => e.includes("YYYY-MM-DD"))).toBe(true);
+      expect(errors.some((e) => e.includes(expectedField as string))).toBe(true);
     });
 
     it("accepts valid anchorDate", () => {

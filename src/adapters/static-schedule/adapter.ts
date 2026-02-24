@@ -330,6 +330,10 @@ function normalizeTime(raw: string): string | undefined {
 export class StaticScheduleAdapter implements SourceAdapter {
   type = "STATIC_SCHEDULE" as const;
 
+  /**
+   * Generate recurring events from the source's RRULE schedule config.
+   * Produces events within a symmetric window around today (default ±90 days).
+   */
   async fetch(
     source: Source,
     options?: { days?: number },

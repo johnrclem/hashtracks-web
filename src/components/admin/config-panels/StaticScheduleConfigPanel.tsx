@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KennelTagInput, type KennelOption } from "./KennelTagInput";
 
+/** Form-level config shape for the STATIC_SCHEDULE source type. */
 export interface StaticScheduleConfig {
   kennelTag?: string;
   rrule?: string;
@@ -20,6 +21,7 @@ interface StaticScheduleConfigPanelProps {
   readonly allKennels?: KennelOption[];
 }
 
+/** Admin panel for editing STATIC_SCHEDULE source config (RRULE, kennel tag, defaults). */
 export function StaticScheduleConfigPanel({
   config,
   onChange,

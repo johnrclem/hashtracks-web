@@ -128,6 +128,7 @@ function hasICalConfigShape(config: unknown): boolean {
   );
 }
 
+/** Dialog form for creating or editing a data source (name, URL, type, config, kennel links). */
 export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable, trigger }: SourceFormProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();

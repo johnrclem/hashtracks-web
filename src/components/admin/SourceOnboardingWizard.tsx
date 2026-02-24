@@ -82,6 +82,7 @@ function formatConfigValue(value: unknown): string {
   return String(value);
 }
 
+/** Multi-phase guided wizard for onboarding a new data source (URL detection, config, preview). */
 export function SourceOnboardingWizard({
   allKennels,
   geminiAvailable,

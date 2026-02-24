@@ -88,14 +88,6 @@ describe("parseRRule", () => {
     expect(rule.byMonthDay).toBe(15);
   });
 
-  it("throws on missing FREQ", () => {
-    expect(() => parseRRule("BYDAY=SA")).toThrow("missing FREQ");
-  });
-
-  it("throws on invalid BYDAY", () => {
-    expect(() => parseRRule("FREQ=WEEKLY;BYDAY=XX")).toThrow("Unknown day");
-  });
-
   it("handles whitespace around semicolons", () => {
     const rule = parseRRule("FREQ=WEEKLY; BYDAY=SA");
     expect(rule.freq).toBe("WEEKLY");
@@ -108,36 +100,19 @@ describe("parseRRule", () => {
     expect(rule.byDay).toEqual({ day: 6 });
   });
 
-  it("throws on INTERVAL=0", () => {
-    expect(() => parseRRule("FREQ=WEEKLY;INTERVAL=0;BYDAY=SA")).toThrow("Invalid INTERVAL");
-  });
-
-  it("throws on INTERVAL=-1", () => {
-    expect(() => parseRRule("FREQ=WEEKLY;INTERVAL=-1;BYDAY=SA")).toThrow("Invalid INTERVAL");
-  });
-
-  it("throws on BYMONTHDAY=0", () => {
-    expect(() => parseRRule("FREQ=MONTHLY;BYMONTHDAY=0")).toThrow("Invalid BYMONTHDAY");
-  });
-
-  it("throws on BYMONTHDAY=32", () => {
-    expect(() => parseRRule("FREQ=MONTHLY;BYMONTHDAY=32")).toThrow("Invalid BYMONTHDAY");
-  });
-
-  it("throws on BYDAY=0SA (nth cannot be 0)", () => {
-    expect(() => parseRRule("FREQ=MONTHLY;BYDAY=0SA")).toThrow("nth position cannot be 0");
-  });
-
-  it("throws on unsupported FREQ=DAILY", () => {
-    expect(() => parseRRule("FREQ=DAILY;BYDAY=SA")).toThrow("Unsupported FREQ");
-  });
-
-  it("throws on unsupported FREQ=YEARLY", () => {
-    expect(() => parseRRule("FREQ=YEARLY;BYDAY=SA")).toThrow("Unsupported FREQ");
-  });
-
-  it("throws on WEEKLY without BYDAY", () => {
-    expect(() => parseRRule("FREQ=WEEKLY")).toThrow("WEEKLY RRULE requires BYDAY");
+  it.each([
+    ["BYDAY=SA", "missing FREQ"],
+    ["FREQ=WEEKLY;BYDAY=XX", "Unknown day"],
+    ["FREQ=WEEKLY;INTERVAL=0;BYDAY=SA", "Invalid INTERVAL"],
+    ["FREQ=WEEKLY;INTERVAL=-1;BYDAY=SA", "Invalid INTERVAL"],
+    ["FREQ=MONTHLY;BYMONTHDAY=0", "Invalid BYMONTHDAY"],
+    ["FREQ=MONTHLY;BYMONTHDAY=32", "Invalid BYMONTHDAY"],
+    ["FREQ=MONTHLY;BYDAY=0SA", "nth position cannot be 0"],
+    ["FREQ=DAILY;BYDAY=SA", "Unsupported FREQ"],
+    ["FREQ=YEARLY;BYDAY=SA", "Unsupported FREQ"],
+    ["FREQ=WEEKLY", "WEEKLY RRULE requires BYDAY"],
+  ])("throws on invalid input: %s", (rrule, expectedError) => {
+    expect(() => parseRRule(rrule)).toThrow(expectedError);
   });
 });
 
