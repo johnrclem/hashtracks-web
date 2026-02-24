@@ -67,6 +67,7 @@ const SOURCE_TYPES = [
   "HASHREGO",
   "MEETUP",
   "RSS_FEED",
+  "STATIC_SCHEDULE",
   "JSON_API",
   "MANUAL",
 ] as const;
@@ -79,10 +80,11 @@ const CONFIG_TYPES = new Set([
   "HASHREGO",
   "MEETUP",
   "RSS_FEED",
+  "STATIC_SCHEDULE",
 ]);
 
 /** Types that get a dedicated config panel (vs raw JSON) */
-const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HASHREGO", "GOOGLE_SHEETS", "MEETUP", "RSS_FEED"]);
+const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HASHREGO", "GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"]);
 
 type SourceData = {
   id: string;

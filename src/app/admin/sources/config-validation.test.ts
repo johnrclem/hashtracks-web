@@ -276,6 +276,59 @@ describe("validateSourceConfig", () => {
     });
   });
 
+  describe("STATIC_SCHEDULE config validation", () => {
+    it("accepts valid STATIC_SCHEDULE config", () => {
+      const config = {
+        kennelTag: "Rumson",
+        rrule: "FREQ=WEEKLY;BYDAY=SA",
+        startTime: "10:17 AM",
+        defaultTitle: "Rumson H3 Weekly Run",
+      };
+      expect(validateSourceConfig("STATIC_SCHEDULE", config)).toEqual([]);
+    });
+
+    it("requires config object for STATIC_SCHEDULE", () => {
+      expect(validateSourceConfig("STATIC_SCHEDULE", null)).toContain(
+        "STATIC_SCHEDULE requires a config object",
+      );
+    });
+
+    it("requires non-empty kennelTag", () => {
+      const config = { kennelTag: "", rrule: "FREQ=WEEKLY;BYDAY=SA" };
+      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
+      expect(errors.some((e) => e.includes("kennelTag"))).toBe(true);
+    });
+
+    it("requires non-empty rrule", () => {
+      const config = { kennelTag: "Rumson", rrule: "" };
+      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
+      expect(errors.some((e) => e.includes("rrule"))).toBe(true);
+    });
+
+    it("requires rrule to start with FREQ=", () => {
+      const config = { kennelTag: "Rumson", rrule: "BYDAY=SA" };
+      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
+      expect(errors.some((e) => e.includes("FREQ="))).toBe(true);
+    });
+
+    it("rejects non-string startTime", () => {
+      const config = { kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: 123 };
+      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
+      expect(errors.some((e) => e.includes("startTime"))).toBe(true);
+    });
+
+    it("reports both errors when both required fields are missing", () => {
+      const config = {};
+      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
+      expect(errors).toHaveLength(2);
+    });
+
+    it("accepts minimal config with only required fields", () => {
+      const config = { kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA" };
+      expect(validateSourceConfig("STATIC_SCHEDULE", config)).toEqual([]);
+    });
+  });
+
   describe("MEETUP config validation", () => {
     it("accepts valid MEETUP config", () => {
       const config = { groupUrlname: "brooklyn-hash-house-harriers", kennelTag: "BrH3" };

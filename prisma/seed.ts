@@ -272,7 +272,12 @@ async function main() {
       scheduleFrequency: "Full Moon",
     },
     { kennelCode: "asssh3", shortName: "ASSSH3", fullName: "All Seasons Summit Shiggy H3", region: "North NJ" },
-    { kennelCode: "rumson", shortName: "Rumson", fullName: "Rumson Hash House Harriers", region: "New Jersey" },
+    {
+      kennelCode: "rumson", shortName: "Rumson", fullName: "Rumson Hash House Harriers", region: "New Jersey",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "10:17 AM", scheduleFrequency: "Weekly",
+      facebookUrl: "https://www.facebook.com/p/Rumson-H3-100063637060523/",
+      description: "Weekly Saturday morning trail in the Rumson area. Check Facebook for start location.",
+    },
     // Philadelphia
     {
       kennelCode: "bfm", shortName: "BFM", fullName: "Ben Franklin Mob H3", region: "Philadelphia, PA",
@@ -652,6 +657,7 @@ async function main() {
     "summit": ["Summit", "Summit H3", "Summit Hash", "SH3"],
     "sfm": ["SFM", "SFM H3", "Summit Full Moon", "Summit Full Moon H3"],
     "asssh3": ["ASSSH3", "ASSS H3", "All Seasons Summit Shiggy"],
+    "rumson": ["RH3", "Rumson H3", "Rumson Hash", "Rumson HHH"],
     // Chicago area
     "ch3": ["Chicago Hash", "Chicago H3", "CHH3"],
     "th3": ["Thirstday", "Thirstday Hash", "Thirstday H3", "Thursday Hash"],
@@ -776,6 +782,23 @@ async function main() {
         startTimeRules: { byDayOfWeek: { "Mon": "19:00", "Sat": "15:00", "Fri": "19:00" }, default: "15:00" },
       },
       kennelCodes: ["summit", "sfm", "asssh3"],
+    },
+    {
+      name: "Rumson H3 Static Schedule",
+      url: "https://www.facebook.com/p/Rumson-H3-100063637060523/",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "Rumson",
+        rrule: "FREQ=WEEKLY;BYDAY=SA",
+        startTime: "10:17 AM",
+        defaultTitle: "Rumson H3 Weekly Run",
+        defaultLocation: "Rumson, NJ",
+        defaultDescription: "Weekly Saturday morning trail. Check Facebook for start location and hare details.",
+      },
+      kennelCodes: ["rumson"],
     },
     {
       name: "BFM Google Calendar",

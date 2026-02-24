@@ -47,6 +47,10 @@ import {
   RssConfigPanel,
   type RssConfig,
 } from "./config-panels/RssConfigPanel";
+import {
+  StaticScheduleConfigPanel,
+  type StaticScheduleConfig,
+} from "./config-panels/StaticScheduleConfigPanel";
 import type { KennelOption } from "./config-panels/KennelTagInput";
 
 /** Types that use the config JSON field */
@@ -57,6 +61,7 @@ const CONFIG_TYPES = new Set([
   "HASHREGO",
   "MEETUP",
   "RSS_FEED",
+  "STATIC_SCHEDULE",
 ]);
 
 /** Types that get a dedicated config panel UI */
@@ -67,6 +72,7 @@ const PANEL_TYPES = new Set([
   "GOOGLE_SHEETS",
   "MEETUP",
   "RSS_FEED",
+  "STATIC_SCHEDULE",
 ]);
 
 /**
@@ -170,7 +176,7 @@ export function ConfigureAndTest({
   const hasPanel =
     PANEL_TYPES.has(type) || (type === "HTML_SCRAPER" && hasICalConfigShape(config));
 
-  function getPanelType(): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | "rss" | null {
+  function getPanelType(): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | "rss" | "static-schedule" | null {
     if (type === "ICAL_FEED" || (type === "HTML_SCRAPER" && hasICalConfigShape(config)))
       return "ical";
     if (type === "GOOGLE_CALENDAR") return "calendar";
@@ -178,6 +184,7 @@ export function ConfigureAndTest({
     if (type === "GOOGLE_SHEETS") return "sheets";
     if (type === "MEETUP") return "meetup";
     if (type === "RSS_FEED") return "rss";
+    if (type === "STATIC_SCHEDULE") return "static-schedule";
     return null;
   }
 
@@ -261,7 +268,7 @@ export function ConfigureAndTest({
   );
 
   function handleConfigChange(
-    newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig | MeetupConfig,
+    newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig | MeetupConfig | StaticScheduleConfig,
   ) {
     const entries = Object.entries(newConfig).filter(([, v]) => v !== undefined);
     const cleaned = Object.fromEntries(entries) as Record<string, unknown>;
@@ -463,6 +470,14 @@ export function ConfigureAndTest({
           <RssConfigPanel
             config={config as RssConfig | null}
             onChange={handleConfigChange}
+          />
+        )}
+
+        {panelType === "static-schedule" && (
+          <StaticScheduleConfigPanel
+            config={config as StaticScheduleConfig | null}
+            onChange={handleConfigChange}
+            allKennels={allKennelsWithExtra}
           />
         )}
 
