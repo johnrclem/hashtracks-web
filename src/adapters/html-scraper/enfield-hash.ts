@@ -8,7 +8,6 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { fetchBloggerPosts } from "../blogger-api";
 import { buildUrlVariantCandidates, decodeEntities } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
@@ -20,14 +19,43 @@ const MONTHS: Record<string, number> = {
 };
 
 /**
- * Parse a date from Enfield Hash blog post text.
- * Formats:
+ * Infer the year for a month/day when the source omits the year.
+ * Picks the year that places the date closest to `now` (within ±6 months).
+ *   - If the candidate date with the current year is >6 months in the future → previous year
+ *   - If it's >6 months in the past → next year
+ *   - Otherwise → current year
+ *
+ * Exported for testing.
+ */
+export function inferYear(
+  monthNum: number,
+  day: number,
+  now: Date = new Date(),
+): number {
+  const currentYear = now.getFullYear();
+  const candidate = new Date(Date.UTC(currentYear, monthNum - 1, day));
+  const diffMs = candidate.getTime() - now.getTime();
+  const SIX_MONTHS_MS = 183 * 24 * 60 * 60 * 1000;
+
+  if (diffMs > SIX_MONTHS_MS) return currentYear - 1;
+  if (diffMs < -SIX_MONTHS_MS) return currentYear + 1;
+  return currentYear;
+}
+
+/**
+ * Parse a date from Enfield Hash text.
+ *
+ * Formats with explicit year:
  *   "Wednesday 18th March 2026" → "2026-03-18"
  *   "18th March 2026" → "2026-03-18"
  *   "March 18, 2026" → "2026-03-18"
  *   "18/03/2026" → "2026-03-18"
+ *
+ * Formats without year (new site format):
+ *   "Wed 25 February" → infers year via inferYear()
+ *   "25 February" → infers year via inferYear()
  */
-export function parseEnfieldDate(text: string): string | null {
+export function parseEnfieldDate(text: string, now?: Date): string | null {
   // Try DD/MM/YYYY format first
   const numericMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (numericMatch) {
@@ -39,7 +67,7 @@ export function parseEnfieldDate(text: string): string | null {
     }
   }
 
-  // Try UK format: "DDth Month YYYY" (e.g., "18th March 2026")
+  // Try UK format with year: "DDth Month YYYY" (e.g., "18th March 2026")
   const ukMatch = text.match(
     /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i,
   );
@@ -65,22 +93,36 @@ export function parseEnfieldDate(text: string): string | null {
     }
   }
 
+  // Try year-less format: "DD Month" or "DDth Month" (e.g., "25 February", "Wed 25 February")
+  // Negative lookahead ensures we don't match dates that already have a year (handled above)
+  const noYearMatch = text.match(
+    /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+([a-zA-Z]+)(?!\s+\d{4})/i,
+  );
+  if (noYearMatch) {
+    const day = parseInt(noYearMatch[1], 10);
+    const monthNum = MONTHS[noYearMatch[2].toLowerCase()];
+    if (monthNum && day >= 1 && day <= 31) {
+      const year = inferYear(monthNum, day, now);
+      return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
+
   return null;
 }
 
 /**
  * Parse labeled fields from an Enfield Hash blog post body.
  *
- * Expected patterns in blog posts:
+ * Handles structured posts with labels:
  *   "Date: Wednesday 18th March 2026"
  *   "Pub: The King's Head"
  *   "Station: Enfield Chase"
  *   "Hare: Name"
- *   "Start: 7:30pm"
  *
- * Also handles unlabeled text where date/pub/station appear in prose.
+ * Also handles unstructured prose (new site format):
+ *   "Rose and Crown pub, Clay Hill, Enfield. P trail from Gordon Hill station."
  */
-export function parseEnfieldBody(text: string): {
+export function parseEnfieldBody(text: string, now?: Date): {
   date?: string;
   hares?: string;
   location?: string;
@@ -93,7 +135,7 @@ export function parseEnfieldBody(text: string): {
 
   // Date from "Date:" or "When:" label
   const dateMatch = text.match(new RegExp(`(?:Date|When):\\s*(.+?)${stopPattern}`, "i"));
-  const date = dateMatch ? parseEnfieldDate(dateMatch[1].trim()) : parseEnfieldDate(text);
+  const date = dateMatch ? parseEnfieldDate(dateMatch[1].trim(), now) : parseEnfieldDate(text, now);
 
   // Hare from "Hare:" or "Hares:" label
   const hareMatch = text.match(new RegExp(`Hares?:\\s*(.+?)${stopPattern}`, "i"));
@@ -107,11 +149,27 @@ export function parseEnfieldBody(text: string): {
 
   // Location from "Pub:" or "Where:" or "Location:" label
   const pubMatch = text.match(new RegExp(`(?:Pub|Where|Location|Venue):\\s*(.+?)${stopPattern}`, "i"));
-  const location = pubMatch ? pubMatch[1].trim() : undefined;
+  let location = pubMatch ? pubMatch[1].trim() : undefined;
 
   // Station from "Station:" label
   const stationMatch = text.match(new RegExp(`Station:\\s*(.+?)${stopPattern}`, "i"));
-  const station = stationMatch ? stationMatch[1].trim() : undefined;
+  let station = stationMatch ? stationMatch[1].trim() : undefined;
+
+  // Fallback: extract station from prose like "P trail from Gordon Hill station"
+  if (!station) {
+    const proseStation = text.match(/trail from\s+(.+?)\s+station/i);
+    if (proseStation) {
+      station = proseStation[1].trim();
+    }
+  }
+
+  // Fallback: extract location from prose like "running from The Wonder"
+  if (!location) {
+    const proseLocation = text.match(/running from\s+(.+?)(?:[,.]|$)/i);
+    if (proseLocation) {
+      location = proseLocation[1].trim();
+    }
+  }
 
   return {
     date: date ?? undefined,
@@ -121,24 +179,32 @@ export function parseEnfieldBody(text: string): {
   };
 }
 
+/**
+ * Extract a run number from an Enfield Hash title.
+ *   "Run 318 - Wed 25 February" → 318
+ */
+function extractRunNumber(title: string): number | undefined {
+  const match = title.match(/Run\s+(\d+)/i);
+  return match ? parseInt(match[1], 10) : undefined;
+}
 
 /**
- * Process a single blog post (from either Blogger API or HTML scrape) into a RawEventData.
+ * Process a single post into a RawEventData.
  * Returns null if the post cannot be parsed (e.g., missing date).
  */
 function processPost(
   titleText: string,
   bodyText: string,
-  postUrl: string,
-  baseUrl: string,
+  sourceUrl: string,
   index: number,
   errors: string[],
   errorDetails: ErrorDetails,
+  now?: Date,
 ): RawEventData | null {
-  const bodyFields = parseEnfieldBody(bodyText);
+  const bodyFields = parseEnfieldBody(bodyText, now);
 
   if (!bodyFields.date) {
-    const titleDate = parseEnfieldDate(titleText);
+    const titleDate = parseEnfieldDate(titleText, now);
     if (!titleDate) {
       if (bodyText.trim().length > 0) {
         errors.push(
@@ -161,16 +227,11 @@ function processPost(
     bodyFields.date = titleDate;
   }
 
+  const runNumber = extractRunNumber(titleText);
   const descParts: string[] = [];
-  if (bodyFields.station) {
-    descParts.push(`Nearest station: ${bodyFields.station}`);
-  }
-  const description =
-    descParts.length > 0 ? descParts.join(". ") : undefined;
-
-  const sourceUrl = postUrl.startsWith("http")
-    ? postUrl
-    : `${baseUrl.replace(/\/$/, "")}${postUrl}`;
+  if (runNumber) descParts.push(`Run #${runNumber}`);
+  if (bodyFields.station) descParts.push(`Nearest station: ${bodyFields.station}`);
+  const description = descParts.length > 0 ? descParts.join(". ") : undefined;
 
   return {
     date: bodyFields.date,
@@ -178,22 +239,20 @@ function processPost(
     title: titleText || undefined,
     hares: bodyFields.hares,
     location: bodyFields.location,
-    startTime: "19:30", // EH3: always 3rd Wednesday 7:30 PM
+    startTime: "19:30", // EH3: 3rd Wednesday 7:30 PM
     sourceUrl,
     description,
   };
 }
 
 /**
- * Enfield Hash House Harriers (EH3) Blogspot Scraper
+ * Enfield Hash House Harriers (EH3) Website Scraper
  *
- * Scrapes enfieldhash.org (Blogger/Blogspot) for run announcements.
- * Each blog post announces the next run with date, pub name, station,
- * and directions. Monthly kennel (3rd Wednesday, 7:30 PM).
+ * Scrapes enfieldhash.org for run announcements. The site hosts a simple
+ * HTML page with .paragraph-box containers, each containing an <h1> title
+ * (with run number and date) and <p> paragraphs with details.
  *
- * Uses the Blogger API v3 as primary fetch method (direct HTML scraping
- * is blocked by Google's bot detection on cloud IPs). Falls back to
- * HTML scraping if the Blogger API is unavailable.
+ * Monthly kennel (3rd Wednesday, 7:30 PM).
  */
 export class EnfieldHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
@@ -202,81 +261,30 @@ export class EnfieldHashAdapter implements SourceAdapter {
     source: Source,
     _options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const baseUrl = source.url || "http://www.enfieldhash.org/";
-
-    // Try Blogger API first
-    const { result: apiResult, apiError } = await this.fetchViaBloggerApi(baseUrl);
-    if (apiResult) return apiResult;
-
-    // Fall back to HTML scraping (pass API error for diagnostics if both paths fail)
-    return this.fetchViaHtmlScrape(baseUrl, apiError);
+    const baseUrl = source.url || "https://www.enfieldhash.org/";
+    return this.fetchViaHtmlScrape(baseUrl);
   }
 
-  private async fetchViaBloggerApi(baseUrl: string): Promise<{
-    result: ScrapeResult | null;
-    apiError?: string;
-  }> {
-    const bloggerResult = await fetchBloggerPosts(baseUrl);
-
-    // If the Blogger API errored (missing key, API not enabled, etc.), return null to trigger fallback
-    if (bloggerResult.error) {
-      return { result: null, apiError: bloggerResult.error.message };
-    }
-
-    const events: RawEventData[] = [];
-    const errors: string[] = [];
-    const errorDetails: ErrorDetails = {};
-
-    for (let i = 0; i < bloggerResult.posts.length; i++) {
-      const post = bloggerResult.posts[i];
-
-      // Extract text from HTML content
-      const $ = cheerio.load(post.content);
-      const bodyText = $.text();
-      const titleText = decodeEntities(post.title);
-      const postUrl = post.url;
-
-      const event = processPost(
-        titleText,
-        bodyText,
-        postUrl,
-        baseUrl,
-        i,
-        errors,
-        errorDetails,
-      );
-      if (event) events.push(event);
-    }
-
-    const hasErrorDetails = hasAnyErrors(errorDetails);
-
-    return {
-      result: {
-        events,
-        errors,
-        errorDetails: hasErrorDetails ? errorDetails : undefined,
-        diagnosticContext: {
-          fetchMethod: "blogger-api",
-          blogId: bloggerResult.blogId,
-          postsFound: bloggerResult.posts.length,
-          eventsParsed: events.length,
-          fetchDurationMs: bloggerResult.fetchDurationMs,
-        },
-      },
-    };
-  }
-
-  /** Try fetching HTML from URL variants (original, http/https toggle), returning html + fetchUrl on success. */
+  /** Try fetching HTML from URL variants with browser-like headers. */
   private async tryFetchWithUrlVariants(
     baseUrl: string,
     errorDetails: ErrorDetails,
   ): Promise<{ html: string; fetchUrl: string } | null> {
     const requestHeaders = {
       "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept":
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       "Accept-Language": "en-US,en;q=0.9",
+      "Cache-Control": "max-age=0",
+      "Sec-Ch-Ua": '"Chromium";v="124", "Not(A:Brand";v="24", "Google Chrome";v="124"',
+      "Sec-Ch-Ua-Mobile": "?0",
+      "Sec-Ch-Ua-Platform": '"Windows"',
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
+      "Upgrade-Insecure-Requests": "1",
     };
 
     const candidateUrls = buildUrlVariantCandidates(baseUrl);
@@ -296,6 +304,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
           { url: candidateUrl, status: response.status, message },
         ];
 
+        // Only continue trying variants on 403/404 (host/protocol mismatch)
         if (response.status !== 403 && response.status !== 404) {
           return null;
         }
@@ -311,7 +320,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
     return null;
   }
 
-  private async fetchViaHtmlScrape(baseUrl: string, bloggerApiError?: string): Promise<ScrapeResult> {
+  private async fetchViaHtmlScrape(baseUrl: string): Promise<ScrapeResult> {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
@@ -326,10 +335,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
         events: [],
         errors: [fallbackMessage],
         errorDetails,
-        diagnosticContext: {
-          fetchMethod: "html-scrape",
-          ...(bloggerApiError ? { bloggerApiError } : {}),
-        },
+        diagnosticContext: { fetchMethod: "html-scrape" },
       };
     }
 
@@ -339,7 +345,13 @@ export class EnfieldHashAdapter implements SourceAdapter {
     const structureHash = generateStructureHash(html);
     const $ = cheerio.load(html);
 
-    let posts = $(".post-outer").toArray();
+    // New site structure: .paragraph-box containers with <h1> title
+    let posts = $(".paragraph-box").toArray();
+
+    // Fallback: try legacy Blogger selectors in case the site reverts
+    if (posts.length === 0) {
+      posts = $(".post-outer").toArray();
+    }
     if (posts.length === 0) {
       posts = $(".post, .blog-post").toArray();
     }
@@ -347,22 +359,37 @@ export class EnfieldHashAdapter implements SourceAdapter {
     for (let i = 0; i < posts.length; i++) {
       const post = $(posts[i]);
 
-      const titleEl = post
-        .find(".post-title a, .entry-title a, h3.post-title a")
-        .first();
-      const titleText =
-        titleEl.text().trim() ||
-        post.find(".post-title, .entry-title, h3").first().text().trim();
-      const postUrl = titleEl.attr("href") || baseUrl;
+      // New format: <h1> inside .paragraph-box
+      let titleText = decodeEntities(post.find("h1").first().text().trim());
+      let postUrl = fetchUrl;
 
-      const bodyEl = post.find(".post-body, .entry-content").first();
-      const bodyText = bodyEl.text() || "";
+      // Legacy fallback: Blogger title links
+      if (!titleText) {
+        const titleEl = post
+          .find(".post-title a, .entry-title a, h3.post-title a")
+          .first();
+        titleText = titleEl.text().trim() ||
+          post.find(".post-title, .entry-title, h3").first().text().trim();
+        postUrl = titleEl.attr("href") || fetchUrl;
+      }
+
+      // Body: combine <p> elements (new format) or find .post-body (legacy)
+      const paragraphs = post.find("p").toArray();
+      let bodyText: string;
+      if (paragraphs.length > 0) {
+        bodyText = paragraphs
+          .map((p) => $(p).text().trim())
+          .filter((t) => t.length > 0 && !/^on\s*on$/i.test(t))
+          .join("\n");
+      } else {
+        const bodyEl = post.find(".post-body, .entry-content").first();
+        bodyText = bodyEl.text() || "";
+      }
 
       const event = processPost(
         titleText,
         bodyText,
         postUrl,
-        fetchUrl,
         i,
         errors,
         errorDetails,
@@ -370,19 +397,16 @@ export class EnfieldHashAdapter implements SourceAdapter {
       if (event) events.push(event);
     }
 
-    const hasErrorDetails = hasAnyErrors(errorDetails);
-
     return {
       events,
       errors,
       structureHash,
-      errorDetails: hasErrorDetails ? errorDetails : undefined,
+      errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
       diagnosticContext: {
         fetchMethod: "html-scrape",
         postsFound: posts.length,
         eventsParsed: events.length,
         fetchDurationMs,
-        ...(bloggerApiError ? { bloggerApiError } : {}),
       },
     };
   }
