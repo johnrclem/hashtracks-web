@@ -8,6 +8,7 @@ const tabs = [
   { href: "roster", label: "Roster" },
   { href: "history", label: "History" },
   { href: "import", label: "Import" },
+  { href: "settings", label: "Settings" },
 ];
 
 export function MismanKennelNav({ slug }: { slug: string }) {
