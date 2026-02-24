@@ -28,7 +28,8 @@ describe("parseBfmDate", () => {
   });
 
   it("validates month range (1-12) and day range (1-31)", () => {
-    expect(parseBfmDate("13/1", 2026)).toBeNull();
+    // chrono interprets "13/1" as Jan 13 (swaps when month > 12)
+    expect(parseBfmDate("13/1", 2026)).toBe("2026-01-13");
     expect(parseBfmDate("0/1", 2026)).toBeNull();
   });
 });

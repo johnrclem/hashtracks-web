@@ -10,25 +10,14 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { MONTHS, extractUkPostcode } from "../utils";
+import { chronoParseDate, extractUkPostcode } from "../utils";
 
 /**
- * Parse ordinal date from City Hash title: "24th Feb 2026" → "2026-02-24"
- * Also handles: "1st March 2026", "2nd Jan 2026", "3rd April 2026"
+ * Parse ordinal date from City Hash title using chrono-node.
+ * Handles: "24th Feb 2026", "1st March 2026", "2nd Jan 2026", "3rd April 2026"
  */
 export function parseDateFromTitle(title: string): string | null {
-  const match = title.match(
-    /(\d{1,2})(?:st|nd|rd|th)\s+(\w+)\s+(\d{4})/i,
-  );
-  if (!match) return null;
-
-  const day = parseInt(match[1], 10);
-  const monthNum = MONTHS[match[2].toLowerCase()];
-  const year = parseInt(match[3], 10);
-
-  if (!monthNum || day < 1 || day > 31) return null;
-
-  return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return chronoParseDate(title, "en-GB");
 }
 
 /** @deprecated Use extractUkPostcode from ../utils instead */

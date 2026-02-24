@@ -9,6 +9,7 @@ import {
   stripHtmlTags,
   buildUrlVariantCandidates,
   validateSourceUrl,
+  chronoParseDate,
 } from "./utils";
 
 describe("MONTHS", () => {
@@ -292,5 +293,92 @@ describe("buildUrlVariantCandidates", () => {
 
   it("returns normalized input when URL is malformed", () => {
     expect(buildUrlVariantCandidates("not a valid url/")).toEqual(["not a valid url"]);
+  });
+});
+
+describe("chronoParseDate", () => {
+  // UK formats (en-GB)
+  it("parses UK ordinal date: '18th March 2026'", () => {
+    expect(chronoParseDate("18th March 2026", "en-GB")).toBe("2026-03-18");
+  });
+
+  it("parses UK verbose: 'Saturday 21st of February 2026'", () => {
+    expect(chronoParseDate("Saturday 21st of February 2026", "en-GB")).toBe("2026-02-21");
+  });
+
+  it("parses UK numeric DD/MM/YYYY: '21/02/2026'", () => {
+    expect(chronoParseDate("21/02/2026", "en-GB")).toBe("2026-02-21");
+  });
+
+  it("parses UK ordinal without year and uses reference year", () => {
+    const ref = new Date(Date.UTC(2026, 5, 15)); // mid-2026
+    expect(chronoParseDate("25 February", "en-GB", ref)).toBe("2026-02-25");
+  });
+
+  // US formats (en-US)
+  it("parses US Month-Day-Year: 'March 14, 2026'", () => {
+    expect(chronoParseDate("March 14, 2026", "en-US")).toBe("2026-03-14");
+  });
+
+  it("parses US Month-Day-Year with ordinal: 'January 29th, 2026'", () => {
+    expect(chronoParseDate("January 29th, 2026", "en-US")).toBe("2026-01-29");
+  });
+
+  it("parses ISO 8601 datetime prefix", () => {
+    expect(chronoParseDate("2026-02-15T14:00:00-06:00")).toBe("2026-02-15");
+  });
+
+  // Dot-separated pre-processing (OFH3)
+  it("parses dot-separated M.DD.YY: '3.14.26'", () => {
+    expect(chronoParseDate("3.14.26", "en-US")).toBe("2026-03-14");
+  });
+
+  // Locale disambiguation
+  it("interprets 03/04/2026 as March 4 with en-US", () => {
+    expect(chronoParseDate("03/04/2026", "en-US")).toBe("2026-03-04");
+  });
+
+  it("interprets 03/04/2026 as April 3 with en-GB", () => {
+    expect(chronoParseDate("03/04/2026", "en-GB")).toBe("2026-04-03");
+  });
+
+  // Invalid inputs
+  it("returns null for empty string", () => {
+    expect(chronoParseDate("")).toBeNull();
+  });
+
+  it("returns null for nonsense text", () => {
+    expect(chronoParseDate("no date here at all")).toBeNull();
+  });
+
+  // Year-less with forwardDate option
+  it("infers future year for past month with forwardDate option", () => {
+    const ref = new Date(Date.UTC(2026, 11, 15)); // Dec 15, 2026
+    expect(chronoParseDate("5th January", "en-GB", ref, { forwardDate: true })).toBe("2027-01-05");
+  });
+
+  it("uses reference year without forwardDate option", () => {
+    const ref = new Date(Date.UTC(2026, 5, 15)); // June 15, 2026
+    expect(chronoParseDate("5th March", "en-GB", ref)).toBe("2026-03-05");
+  });
+
+  // M/D/YYYY format (US)
+  it("parses US numeric M/D/YYYY: '2/12/2026'", () => {
+    expect(chronoParseDate("2/12/2026", "en-US")).toBe("2026-02-12");
+  });
+
+  // Date with day-of-week prefix
+  it("parses 'Thursday, 2/12/2026' (en-US)", () => {
+    expect(chronoParseDate("Thursday, 2/12/2026", "en-US")).toBe("2026-02-12");
+  });
+
+  // Abbreviated month names
+  it("parses abbreviated month: 'Dec 25 2025'", () => {
+    expect(chronoParseDate("Dec 25 2025", "en-US")).toBe("2025-12-25");
+  });
+
+  it("parses abbreviated month with ordinal: 'Feb 19th'", () => {
+    const ref = new Date(Date.UTC(2026, 0, 1)); // Jan 1, 2026
+    expect(chronoParseDate("Feb 19th", "en-US", ref)).toBe("2026-02-19");
   });
 });

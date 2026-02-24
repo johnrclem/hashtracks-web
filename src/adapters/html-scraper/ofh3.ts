@@ -4,51 +4,29 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchBloggerPosts } from "../blogger-api";
-import { decodeEntities } from "../utils";
-
-const MONTHS: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-  aug: 8, august: 8, sep: 9, september: 9, oct: 10, october: 10,
-  nov: 11, november: 11, dec: 12, december: 12,
-};
+import { chronoParseDate, decodeEntities } from "../utils";
 
 /**
- * Parse a date string like "Saturday, March 14, 2026" into YYYY-MM-DD.
- * Also handles: "March 14, 2026", "March 14th, 2026", "3.14.26" (M.DD.YY)
+ * Parse a date string from OFH3 content.
+ * Handles: "Saturday, March 14, 2026", "March 14th, 2026", "3.14.26" (M.DD.YY)
+ *
+ * Tries dot-separated format first (specific to OFH3) to avoid chrono picking
+ * up a stray month name before the dot-separated date in title text.
  */
-/** Try parsing a named month format: "March 14, 2026", "March 14th, 2026". */
-function tryParseNamedMonthFormat(text: string): string | null {
-  const namedMatch = text.match(/(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/i);
-  if (!namedMatch) return null;
-  const monthNum = MONTHS[namedMatch[1].toLowerCase()];
-  if (!monthNum) return null;
-  const day = parseInt(namedMatch[2], 10);
-  const year = parseInt(namedMatch[3], 10);
-  if (day >= 1 && day <= 31) {
-    return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-  return null;
-}
-
-/** Try parsing a dot-separated format: "3.14.26" or "03.14.2026". */
-function tryParseDotSeparatedFormat(text: string): string | null {
-  const dotMatch = text.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
-  if (!dotMatch) return null;
-  const month = parseInt(dotMatch[1], 10);
-  const day = parseInt(dotMatch[2], 10);
-  let year = parseInt(dotMatch[3], 10);
-  if (year < 100) {
-    year += year < 50 ? 2000 : 1900;
-  }
-  if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-  return null;
-}
-
 export function parseOfh3Date(text: string): string | null {
-  return tryParseNamedMonthFormat(text) ?? tryParseDotSeparatedFormat(text);
+  // Try dot-separated format first: "3.14.26" or "03.14.2026"
+  const dotMatch = text.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
+  if (dotMatch) {
+    const month = parseInt(dotMatch[1], 10);
+    const day = parseInt(dotMatch[2], 10);
+    let year = parseInt(dotMatch[3], 10);
+    if (year < 100) year += year < 50 ? 2000 : 1900;
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
+  // Fall back to chrono-node for standard date formats
+  return chronoParseDate(text, "en-US");
 }
 
 /**
