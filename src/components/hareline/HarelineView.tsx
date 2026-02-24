@@ -15,7 +15,7 @@ import { haversineDistance, getEventCoords } from "@/lib/geo";
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-96 items-center justify-center rounded-md border text-sm text-muted-foreground">
+    <div className="flex h-[calc(100vh-16rem)] min-h-[400px] items-center justify-center rounded-md border text-sm text-muted-foreground">
       Loading map…
     </div>
   ),
@@ -154,6 +154,13 @@ export function HarelineView({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [selectedEvent]);
 
+  // Clear near-me filter when geolocation permission is denied
+  useEffect(() => {
+    if (geoState.status === "denied" && nearMeDistance != null) {
+      setNearMeDistance(null);
+    }
+  }, [geoState.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Sync state to URL via replaceState (no re-render, no history entry)
   const syncUrl = useCallback(
     (overrides: Record<string, string | string[]>) => {
@@ -258,6 +265,19 @@ export function HarelineView({
   const sortedEvents = useMemo(() => {
     return sortEvents(filteredEvents, timeFilter);
   }, [filteredEvents, timeFilter]);
+
+  const detailPanel = selectedEvent ? (
+    <div className="hidden lg:block">
+      <div className="sticky top-8 max-h-[calc(100vh-4rem)]">
+        <EventDetailPanel
+          event={selectedEvent}
+          attendance={attendanceMap[selectedEvent.id] ?? null}
+          isAuthenticated={isAuthenticated}
+          onDismiss={() => setSelectedEvent(null)}
+        />
+      </div>
+    </div>
+  ) : null;
 
   const listContent = (
     <>
@@ -364,7 +384,7 @@ export function HarelineView({
         {view !== "calendar" ? (timeFilter === "upcoming" ? "upcoming " : "past ") : ""}
         {filteredEvents.length === 1 ? "event" : "events"}
         {scope === "my" ? " from your kennels" : ""}
-        {nearMeDistance != null ? ` within ${nearMeDistance} km` : ""}
+        {nearMeDistance != null && geoState.status === "granted" ? ` within ${nearMeDistance} km` : ""}
       </p>
 
       {/* Content: master-detail on desktop (panel appears on selection), single column on mobile */}
@@ -372,20 +392,7 @@ export function HarelineView({
         <div className={selectedEvent ? "lg:grid lg:grid-cols-[1fr_380px] lg:gap-6" : ""}>
           {/* Left: event list */}
           <div className="min-w-0">{listContent}</div>
-
-          {/* Right: detail panel (desktop only, visible when event selected) */}
-          {selectedEvent && (
-            <div className="hidden lg:block">
-              <div className="sticky top-8 max-h-[calc(100vh-4rem)]">
-                <EventDetailPanel
-                  event={selectedEvent}
-                  attendance={attendanceMap[selectedEvent.id] ?? null}
-                  isAuthenticated={isAuthenticated}
-                  onDismiss={() => setSelectedEvent(null)}
-                />
-              </div>
-            </div>
-          )}
+          {detailPanel}
         </div>
       ) : view === "calendar" ? (
         <CalendarView events={filteredEvents} />
@@ -399,20 +406,7 @@ export function HarelineView({
               onSelectEvent={setSelectedEvent}
             />
           </div>
-
-          {/* Right: detail panel (desktop only, visible when event selected) */}
-          {selectedEvent && (
-            <div className="hidden lg:block">
-              <div className="sticky top-8 max-h-[calc(100vh-4rem)]">
-                <EventDetailPanel
-                  event={selectedEvent}
-                  attendance={attendanceMap[selectedEvent.id] ?? null}
-                  isAuthenticated={isAuthenticated}
-                  onDismiss={() => setSelectedEvent(null)}
-                />
-              </div>
-            </div>
-          )}
+          {detailPanel}
         </div>
       )}
     </div>

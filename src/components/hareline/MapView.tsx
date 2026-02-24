@@ -8,6 +8,15 @@ import type { HarelineEvent } from "./EventCard";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
 
+/** Shared base styles for legend teardrop icons. */
+const LEGEND_ICON_BASE: React.CSSProperties = {
+  width: 10,
+  height: 10,
+  borderRadius: "50% 50% 50% 0",
+  transform: "rotate(-45deg)",
+  opacity: 0.5,
+};
+
 /** Props for the interactive MapView — renders hareline events as region-colored map pins. */
 interface MapViewProps {
   events: HarelineEvent[];
@@ -96,14 +105,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
           <span>
             <span
               className="mr-1 inline-block align-middle"
-              style={{
-                width: 10,
-                height: 10,
-                backgroundColor: "currentColor",
-                borderRadius: "50% 50% 50% 0",
-                transform: "rotate(-45deg)",
-                opacity: 0.5,
-              }}
+              style={{ ...LEGEND_ICON_BASE, backgroundColor: "currentColor" }}
             />
             {preciseCount} {preciseCount === 1 ? "event" : "events"} with exact location
           </span>
@@ -113,15 +115,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
           <span>
             <span
               className="mr-1 inline-block align-middle"
-              style={{
-                width: 10,
-                height: 10,
-                backgroundColor: "transparent",
-                border: "1.5px solid currentColor",
-                borderRadius: "50% 50% 50% 0",
-                transform: "rotate(-45deg)",
-                opacity: 0.5,
-              }}
+              style={{ ...LEGEND_ICON_BASE, backgroundColor: "transparent", border: "1.5px solid currentColor" }}
             />
             {centroidCount} shown at approximate region center
           </span>

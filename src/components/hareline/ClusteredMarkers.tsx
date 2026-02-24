@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useMap, AdvancedMarker } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import type { Marker } from "@googlemaps/markerclusterer";
@@ -22,10 +22,40 @@ interface ClusteredMarkersProps {
   onSelectEvent: (event: HarelineEvent) => void;
 }
 
+/** Compute marker size based on selection and precision state. */
+export function getMarkerSize(isSelected: boolean, precise: boolean): number {
+  if (isSelected) return 24;
+  if (precise) return 18;
+  return 14;
+}
+
+/** Build inline style for a teardrop map pin marker. */
+export function getMarkerStyle(
+  size: number,
+  color: string,
+  precise: boolean,
+  isSelected: boolean,
+): React.CSSProperties {
+  return {
+    width: size,
+    height: size,
+    backgroundColor: precise ? color : "transparent",
+    border: `${isSelected ? 3 : 2}px solid ${color}`,
+    borderRadius: "50% 50% 50% 0",
+    transform: "rotate(-45deg)",
+    boxShadow: isSelected
+      ? `0 0 0 2px white, 0 0 0 4px ${color}`
+      : "0 1px 4px rgba(0,0,0,0.4)",
+    cursor: "pointer",
+    transition: "all 0.15s ease",
+  };
+}
+
 export function ClusteredMarkers({ events, selectedEventId, onSelectEvent }: ClusteredMarkersProps) {
   const map = useMap();
   const clustererRef = useRef<MarkerClusterer | null>(null);
-  const [markers, setMarkers] = useState<Record<string, Marker>>({});
+  const markersRef = useRef<Map<string, Marker>>(new Map());
+  const refCallbacksRef = useRef<Map<string, (marker: Marker | null) => void>>(new Map());
 
   // Initialize clusterer when map is ready
   useEffect(() => {
@@ -36,60 +66,47 @@ export function ClusteredMarkers({ events, selectedEventId, onSelectEvent }: Clu
     return () => {
       clustererRef.current?.clearMarkers();
       clustererRef.current = null;
+      markersRef.current.clear();
+      refCallbacksRef.current.clear();
     };
   }, [map]);
 
-  // Sync markers to clusterer when markers collection changes
-  useEffect(() => {
-    if (!clustererRef.current) return;
-    clustererRef.current.clearMarkers();
-    clustererRef.current.addMarkers(Object.values(markers));
-  }, [markers]);
-
-  // Ref callback for each AdvancedMarker
-  const setMarkerRef = useCallback((marker: Marker | null, eventId: string) => {
-    setMarkers((prev) => {
-      if (marker && prev[eventId] !== marker) {
-        return { ...prev, [eventId]: marker };
-      }
-      if (!marker && eventId in prev) {
-        const next = { ...prev };
-        delete next[eventId];
-        return next;
-      }
-      return prev;
-    });
+  // Stable per-event ref callback factory — avoids new function identity on every render
+  const getRefCallback = useCallback((eventId: string) => {
+    let cb = refCallbacksRef.current.get(eventId);
+    if (!cb) {
+      cb = (marker: Marker | null) => {
+        const prev = markersRef.current.get(eventId);
+        if (marker) {
+          if (prev !== marker) {
+            if (prev) clustererRef.current?.removeMarker(prev);
+            markersRef.current.set(eventId, marker);
+            clustererRef.current?.addMarker(marker);
+          }
+        } else if (prev) {
+          clustererRef.current?.removeMarker(prev);
+          markersRef.current.delete(eventId);
+        }
+      };
+      refCallbacksRef.current.set(eventId, cb);
+    }
+    return cb;
   }, []);
 
   return (
     <>
       {events.map(({ event, lat, lng, precise, color }) => {
         const isSelected = selectedEventId === event.id;
-        const size = isSelected ? 24 : precise ? 18 : 14;
+        const size = getMarkerSize(isSelected, precise);
         return (
           <AdvancedMarker
             key={event.id}
             position={{ lat, lng }}
             onClick={() => onSelectEvent(event)}
             title={event.locationName ?? event.kennel.shortName ?? undefined}
-            ref={(marker) => setMarkerRef(marker as Marker | null, event.id)}
+            ref={getRefCallback(event.id) as React.Ref<never>}
           >
-            {/* Teardrop pin: rounded top + sides, pointed bottom via rotated border-radius */}
-            <div
-              style={{
-                width: size,
-                height: size,
-                backgroundColor: precise ? color : "transparent",
-                border: `${isSelected ? 3 : 2}px solid ${color}`,
-                borderRadius: "50% 50% 50% 0",
-                transform: "rotate(-45deg)",
-                boxShadow: isSelected
-                  ? `0 0 0 2px white, 0 0 0 4px ${color}`
-                  : "0 1px 4px rgba(0,0,0,0.4)",
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
-            />
+            <div style={getMarkerStyle(size, color, precise, isSelected)} />
           </AdvancedMarker>
         );
       })}
