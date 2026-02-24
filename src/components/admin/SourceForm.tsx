@@ -58,6 +58,10 @@ import {
   RssConfigPanel,
   type RssConfig,
 } from "./config-panels/RssConfigPanel";
+import {
+  StaticScheduleConfigPanel,
+  type StaticScheduleConfig,
+} from "./config-panels/StaticScheduleConfigPanel";
 
 const SOURCE_TYPES = [
   "HTML_SCRAPER",
@@ -67,6 +71,7 @@ const SOURCE_TYPES = [
   "HASHREGO",
   "MEETUP",
   "RSS_FEED",
+  "STATIC_SCHEDULE",
   "JSON_API",
   "MANUAL",
 ] as const;
@@ -79,10 +84,11 @@ const CONFIG_TYPES = new Set([
   "HASHREGO",
   "MEETUP",
   "RSS_FEED",
+  "STATIC_SCHEDULE",
 ]);
 
 /** Types that get a dedicated config panel (vs raw JSON) */
-const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HASHREGO", "GOOGLE_SHEETS", "MEETUP", "RSS_FEED"]);
+const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HASHREGO", "GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"]);
 
 type SourceData = {
   id: string;
@@ -122,6 +128,7 @@ function hasICalConfigShape(config: unknown): boolean {
   );
 }
 
+/** Dialog form for creating or editing a data source (name, URL, type, config, kennel links). */
 export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable, trigger }: SourceFormProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -184,13 +191,14 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
   function getPanelType(
     type: string,
     config: Record<string, unknown> | null,
-  ): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | "rss" | null {
+  ): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | "rss" | "static-schedule" | null {
     if (type === "ICAL_FEED" || (type === "HTML_SCRAPER" && hasICalConfigShape(config))) return "ical";
     if (type === "GOOGLE_CALENDAR") return "calendar";
     if (type === "HASHREGO") return "hashrego";
     if (type === "GOOGLE_SHEETS") return "sheets";
     if (type === "MEETUP") return "meetup";
     if (type === "RSS_FEED") return "rss";
+    if (type === "STATIC_SCHEDULE") return "static-schedule";
     return null;
   }
 
@@ -205,7 +213,7 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
   }
 
   /** Sync structured config object → raw JSON string */
-  function handleConfigChange(newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig | MeetupConfig | RssConfig) {
+  function handleConfigChange(newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig | MeetupConfig | RssConfig | StaticScheduleConfig) {
     // Clean undefined values
     const entries = Object.entries(newConfig).filter(
       ([, v]) => v !== undefined,
@@ -572,6 +580,18 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
               </Label>
               <RssConfigPanel
                 config={configObj as RssConfig | null}
+                onChange={handleConfigChange}
+              />
+            </div>
+          )}
+
+          {panelType === "static-schedule" && (
+            <div className="space-y-2 rounded-md border p-4">
+              <Label className="text-sm font-semibold">
+                Static Schedule Configuration
+              </Label>
+              <StaticScheduleConfigPanel
+                config={configObj as StaticScheduleConfig | null}
                 onChange={handleConfigChange}
               />
             </div>

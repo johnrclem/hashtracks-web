@@ -15,6 +15,7 @@ import { SlashHashAdapter } from "./html-scraper/slash-hash";
 import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
 import { SFH3Adapter } from "./html-scraper/sfh3";
 import { RssAdapter } from "./rss/adapter";
+import { StaticScheduleAdapter } from "./static-schedule/adapter";
 
 describe("getAdapter", () => {
   it("returns HashNYCAdapter for HTML_SCRAPER (default)", () => {
@@ -83,6 +84,10 @@ describe("getAdapter", () => {
 
   it("returns RssAdapter for RSS_FEED", () => {
     expect(getAdapter("RSS_FEED")).toBeInstanceOf(RssAdapter);
+  });
+
+  it("returns StaticScheduleAdapter for STATIC_SCHEDULE", () => {
+    expect(getAdapter("STATIC_SCHEDULE")).toBeInstanceOf(StaticScheduleAdapter);
   });
 
   it("throws for unimplemented source type", () => {

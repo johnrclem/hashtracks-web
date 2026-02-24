@@ -36,6 +36,7 @@ const SOURCE_TYPES = [
   "HASHREGO",
   "MEETUP",
   "RSS_FEED",
+  "STATIC_SCHEDULE",
   "JSON_API",
   "MANUAL",
 ] as const;
@@ -48,6 +49,7 @@ const SOURCE_TYPE_DESCRIPTIONS: Record<string, string> = {
   HASHREGO: "Hash Rego event aggregator",
   MEETUP: "Meetup.com public group (no API key needed)",
   RSS_FEED: "RSS/Atom event feed",
+  STATIC_SCHEDULE: "Auto-generates recurring events from schedule rules (no scraping)",
   JSON_API: "JSON API endpoint",
   MANUAL: "Manually entered events",
 };
@@ -80,6 +82,7 @@ function formatConfigValue(value: unknown): string {
   return String(value);
 }
 
+/** Multi-phase guided wizard for onboarding a new data source (URL detection, config, preview). */
 export function SourceOnboardingWizard({
   allKennels,
   geminiAvailable,

@@ -39,6 +39,7 @@ const VALID_SOURCE_TYPES = new Set<string>([
   "HASHREGO",
   "MEETUP",
   "RSS_FEED",
+  "STATIC_SCHEDULE",
 ]);
 
 /**
@@ -64,6 +65,21 @@ export async function suggestSourceConfig(
   // HTML_SCRAPER: check for named adapter — no Gemini needed
   if (type === "HTML_SCRAPER") {
     return buildHtmlScraperSuggestion(url);
+  }
+
+  // STATIC_SCHEDULE: no live data to analyze — configure manually via panel
+  if (type === "STATIC_SCHEDULE") {
+    return {
+      suggestion: {
+        suggestedConfig: {},
+        suggestedKennelTags: [],
+        explanation:
+          "Static Schedule sources generate events from RRULE schedule rules. " +
+          "Configure the kennelTag, rrule, and startTime in the config panel.",
+        confidence: "high",
+        adapterNote: "No live data to analyze — configure schedule rules manually.",
+      },
+    };
   }
 
   // GOOGLE_SHEETS: handled by the column-detection button in SheetsConfigPanel

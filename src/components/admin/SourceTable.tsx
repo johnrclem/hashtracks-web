@@ -76,6 +76,7 @@ export const TYPE_LABELS: Record<string, string> = {
   RSS_FEED: "RSS Feed",
   JSON_API: "JSON API",
   HASHREGO: "Hash Rego",
+  STATIC_SCHEDULE: "Static Schedule",
   MANUAL: "Manual",
 };
 
