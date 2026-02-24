@@ -273,6 +273,18 @@ export function AttendanceForm({
             )}
           </div>
 
+          {/* User Activity (RSVPs + check-ins from site users) */}
+          {userActivity.length > 0 && (
+            <UserActivitySection
+              userActivity={userActivity}
+              kennelId={kennelId}
+              disabled={isPending}
+              onRefresh={fetchAttendance}
+              attendedHasherIds={attendedHasherIds}
+              onAddToAttendance={handleAddHasher}
+            />
+          )}
+
           {/* Smart suggestions */}
           {suggestions.length > 0 && (
             <SuggestionList
@@ -305,16 +317,6 @@ export function AttendanceForm({
               />
             ))}
           </div>
-
-          {/* User Activity (RSVPs + check-ins from site users) */}
-          {userActivity.length > 0 && (
-            <UserActivitySection
-              userActivity={userActivity}
-              kennelId={kennelId}
-              disabled={isPending}
-              onRefresh={fetchAttendance}
-            />
-          )}
 
           {/* Clear button */}
           {records.length > 0 && (
