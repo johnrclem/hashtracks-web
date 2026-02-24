@@ -56,7 +56,7 @@ export default async function LogbookPage() {
   ).length;
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">My Logbook</h1>
