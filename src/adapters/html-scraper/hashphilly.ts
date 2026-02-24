@@ -2,26 +2,16 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { MONTHS, parse12HourTime, googleMapsSearchUrl } from "../utils";
+import { chronoParseDate, parse12HourTime, googleMapsSearchUrl } from "../utils";
 
 const mapsUrl = googleMapsSearchUrl;
 
 /**
- * Parse a Philly H3 date string into YYYY-MM-DD.
- * Format: "Sat, Feb 14, 2026" or "Sat, February 14, 2026"
+ * Parse a Philly H3 date string using chrono-node.
+ * Handles: "Sat, Feb 14, 2026", "Sat, February 14, 2026"
  */
 export function parsePhillyDate(text: string): string | null {
-  // "Sat, Feb 14, 2026" or "February 14, 2026"
-  const match = text.match(/(\w+)\s+(\d{1,2}),?\s*(\d{4})/);
-  if (!match) return null;
-
-  const monthNum = MONTHS[match[1].toLowerCase()];
-  if (!monthNum) return null;
-
-  const day = parseInt(match[2], 10);
-  const year = parseInt(match[3], 10);
-
-  return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return chronoParseDate(text, "en-US");
 }
 
 /**

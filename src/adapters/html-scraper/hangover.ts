@@ -3,15 +3,9 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { safeFetch } from "../safe-fetch";
+import { chronoParseDate, parse12HourTime } from "../utils";
 
 const DEFAULT_START_TIME = "10:15";
-
-const MONTHS: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-  aug: 8, august: 8, sep: 9, september: 9, oct: 10, october: 10,
-  nov: 11, november: 11, dec: 12, december: 12,
-};
 
 export function parseHangoverTitle(title: string): {
   runNumber?: number;
@@ -27,34 +21,15 @@ export function parseHangoverTitle(title: string): {
   return null;
 }
 
+/**
+ * Parse a date string using chrono-node.
+ * Handles: "February 19, 2026", "January 29th, 2026", "Dec 25 2025"
+ */
 export function parseHangoverDate(text: string): string | null {
-  const match = text.match(/(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/i);
-  if (!match) return null;
-
-  const monthNum = MONTHS[match[1].toLowerCase()];
-  if (!monthNum) return null;
-
-  const day = parseInt(match[2], 10);
-  const year = parseInt(match[3], 10);
-
-  if (day < 1 || day > 31) return null;
-
-  return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return chronoParseDate(text, "en-US");
 }
 
-function parseTime(text: string): string | undefined {
-  const match = text.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
-  if (!match) return undefined;
-
-  let hours = parseInt(match[1], 10);
-  const minutes = match[2];
-  const ampm = match[3].toLowerCase();
-
-  if (ampm === "pm" && hours !== 12) hours += 12;
-  if (ampm === "am" && hours === 12) hours = 0;
-
-  return `${hours.toString().padStart(2, "0")}:${minutes}`;
-}
+const parseTime = parse12HourTime;
 
 export function parseHangoverBody(text: string): {
   date?: string;

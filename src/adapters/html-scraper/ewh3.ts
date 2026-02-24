@@ -3,32 +3,14 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchWordPressPosts } from "../wordpress-api";
-
-const MONTHS: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-  aug: 8, august: 8, sep: 9, september: 9, oct: 10, october: 10,
-  nov: 11, november: 11, dec: 12, december: 12,
-};
+import { chronoParseDate } from "../utils";
 
 /**
- * Parse a date string like "February 19, 2026" or "Dec 25 2025" or "January 29th, 2026"
- * into YYYY-MM-DD format.
+ * Parse a date string using chrono-node.
+ * Handles: "February 19, 2026", "Dec 25 2025", "January 29th, 2026"
  */
 export function parseEwh3Date(text: string): string | null {
-  // Match: "February 19, 2026", "January 29th, 2026", "Dec 25 2025"
-  const match = text.match(/(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/i);
-  if (!match) return null;
-
-  const monthNum = MONTHS[match[1].toLowerCase()];
-  if (!monthNum) return null;
-
-  const day = parseInt(match[2], 10);
-  const year = parseInt(match[3], 10);
-
-  if (day < 1 || day > 31) return null;
-
-  return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return chronoParseDate(text, "en-US");
 }
 
 /**

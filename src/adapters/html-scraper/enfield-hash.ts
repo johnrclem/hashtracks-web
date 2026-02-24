@@ -8,15 +8,8 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { buildUrlVariantCandidates, decodeEntities } from "../utils";
+import { buildUrlVariantCandidates, chronoParseDate, decodeEntities } from "../utils";
 import { safeFetch } from "../safe-fetch";
-
-const MONTHS: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-  aug: 8, august: 8, sep: 9, september: 9, oct: 10, october: 10,
-  nov: 11, november: 11, dec: 12, december: 12,
-};
 
 /**
  * Infer the year for a month/day when the source omits the year.
@@ -43,71 +36,29 @@ export function inferYear(
 }
 
 /**
- * Parse a date from Enfield Hash text.
+ * Parse a date from Enfield Hash text using chrono-node.
  *
- * Formats with explicit year:
- *   "Wednesday 18th March 2026" → "2026-03-18"
- *   "18th March 2026" → "2026-03-18"
- *   "March 18, 2026" → "2026-03-18"
- *   "18/03/2026" → "2026-03-18"
- *
- * Formats without year (new site format):
- *   "Wed 25 February" → infers year via inferYear()
- *   "25 February" → infers year via inferYear()
+ * Handles all formats:
+ *   "Wednesday 18th March 2026", "18th March 2026", "March 18, 2026",
+ *   "18/03/2026", "Wed 25 February" (year inferred via ±6 month window)
  */
 export function parseEnfieldDate(text: string, now?: Date): string | null {
-  // Try DD/MM/YYYY format first
-  const numericMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (numericMatch) {
-    const day = parseInt(numericMatch[1], 10);
-    const month = parseInt(numericMatch[2], 10);
-    const year = parseInt(numericMatch[3], 10);
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
+  const result = chronoParseDate(text, "en-GB", now);
+  if (!result || !now) return result;
 
-  // Try UK format with year: "DDth Month YYYY" (e.g., "18th March 2026")
-  const ukMatch = text.match(
-    /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i,
-  );
-  if (ukMatch) {
-    const day = parseInt(ukMatch[1], 10);
-    const monthNum = MONTHS[ukMatch[2].toLowerCase()];
-    const year = parseInt(ukMatch[3], 10);
-    if (monthNum && day >= 1 && day <= 31) {
-      return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
+  // If chrono parsed a year from the text (explicit year), use as-is.
+  // If year was inferred (year-less input), apply ±6 month window logic.
+  const parsed = result.split("-").map(Number);
+  const month = parsed[1];
+  const day = parsed[2];
+  const inferredYear = inferYear(month, day, now);
 
-  // Try US format: "Month DD, YYYY" (e.g., "March 18, 2026")
-  const usMatch = text.match(/(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/i);
-  if (usMatch) {
-    const monthNum = MONTHS[usMatch[1].toLowerCase()];
-    if (monthNum) {
-      const day = parseInt(usMatch[2], 10);
-      const year = parseInt(usMatch[3], 10);
-      if (day >= 1 && day <= 31) {
-        return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      }
-    }
-  }
+  // Check if the text contains an explicit year — if so, trust chrono's result.
+  // Matches: 4-digit year ("2026"), or slash-form with year ("25/02/26", "25/02/2026")
+  if (/\b\d{4}\b/.test(text) || /\d{1,2}\/\d{1,2}\/\d{2,4}/.test(text)) return result;
 
-  // Try year-less format: "DD Month" or "DDth Month" (e.g., "25 February", "Wed 25 February")
-  // Negative lookahead ensures we don't match dates that already have a year (handled above)
-  const noYearMatch = text.match(
-    /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+([a-zA-Z]+)(?!\s+\d{4})/i,
-  );
-  if (noYearMatch) {
-    const day = parseInt(noYearMatch[1], 10);
-    const monthNum = MONTHS[noYearMatch[2].toLowerCase()];
-    if (monthNum && day >= 1 && day <= 31) {
-      const year = inferYear(monthNum, day, now);
-      return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-
-  return null;
+  // Year-less date: override with ±6 month inference
+  return `${inferredYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 /**

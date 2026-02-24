@@ -3,6 +3,7 @@
  */
 
 import * as cheerio from "cheerio";
+import * as chrono from "chrono-node";
 import he from "he";
 import { buildUrlVariantCandidates } from "@/adapters/url-variants";
 
@@ -236,4 +237,41 @@ export function buildDateWindow(days = 90): { minDate: Date; maxDate: Date } {
 export function extractUkPostcode(text: string): string | null {
   const match = /[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}/i.exec(text);
   return match ? match[0].toUpperCase() : null;
+}
+
+export type DateLocale = "en-US" | "en-GB";
+
+/**
+ * Parse a natural-language date string into "YYYY-MM-DD" format using chrono-node.
+ *
+ * @param text - Date text (e.g., "18th March 2026", "March 14, 2026", "21/02/2026")
+ * @param locale - "en-US" for MM/DD interpretation, "en-GB" for DD/MM interpretation
+ * @param referenceDate - Optional reference date for year inference when year is omitted
+ * @param options - Optional parsing options (forwardDate: prefer next future occurrence)
+ * @returns "YYYY-MM-DD" string, or null if parsing fails
+ */
+export function chronoParseDate(
+  text: string,
+  locale: DateLocale = "en-US",
+  referenceDate?: Date,
+  options?: { forwardDate?: boolean },
+): string | null {
+  const parser = locale === "en-GB" ? chrono.en.GB : chrono.en;
+  const ref: chrono.ParsingReference | undefined = referenceDate
+    ? { instant: referenceDate }
+    : undefined;
+  const results = parser.parse(text, ref, {
+    forwardDate: options?.forwardDate ?? false,
+  });
+
+  if (results.length === 0) return null;
+
+  const parsed = results[0].start;
+  const year = parsed.get("year");
+  const month = parsed.get("month");
+  const day = parsed.get("day");
+
+  if (year == null || month == null || day == null) return null;
+
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }

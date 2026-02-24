@@ -8,48 +8,25 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-
-const MONTHS: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-  aug: 8, august: 8, sep: 9, september: 9, oct: 10, october: 10,
-  nov: 11, november: 11, dec: 12, december: 12,
-};
+import { chronoParseDate, parse12HourTime } from "../utils";
 
 /**
- * Parse a date from SLASH run list text.
- * Formats:
- *   "12th March 2026" → "2026-03-12"
- *   "Saturday 12th March 2026" → "2026-03-12"
- *   "12 March 2026" → "2026-03-12"
- *   "12/03/2026" → "2026-03-12"
+ * Parse a date from SLASH run list text using chrono-node.
+ * Handles: "12th March 2026", "Saturday 12th March 2026", "12/03/2026", etc.
+ * Requires text to contain a numeric date pattern (digits + month or DD/MM)
+ * to avoid false positives from bare day-of-week names like "Sat".
  */
 export function parseSlashDate(text: string): string | null {
-  // Try DD/MM/YYYY format first
-  const numericMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (numericMatch) {
-    const day = parseInt(numericMatch[1], 10);
-    const month = parseInt(numericMatch[2], 10);
-    const year = parseInt(numericMatch[3], 10);
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
+  // Guard: reject bare day-of-week names that chrono would false-positive on.
+  // Split into simple checks to stay under SonarCloud regex complexity limit.
+  const hasNumericSlash = /\d{1,2}\s*\//.test(text);
+  const hasOrdinalSuffix = /(?:st|nd|rd|th)\s+\w/.test(text);
+  const hasMonthYear = /[a-z]{3,}\s+\d{4}/i.test(text);
+  const hasDigitMonth = /\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(text);
+  if (!hasNumericSlash && !hasOrdinalSuffix && !hasMonthYear && !hasDigitMonth) {
+    return null;
   }
-
-  // Try "DDth Month YYYY" or "DD Month YYYY"
-  const ordinalMatch = text.match(
-    /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i,
-  );
-  if (ordinalMatch) {
-    const day = parseInt(ordinalMatch[1], 10);
-    const monthNum = MONTHS[ordinalMatch[2].toLowerCase()];
-    const year = parseInt(ordinalMatch[3], 10);
-    if (monthNum && day >= 1 && day <= 31) {
-      return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-
-  return null;
+  return chronoParseDate(text, "en-GB");
 }
 
 /**
@@ -61,14 +38,18 @@ export function parseSlashDate(text: string): string | null {
 export function parseSlashTime(text: string): string | null {
   if (/\b(?:12\s+)?noon\b/i.test(text)) return "12:00";
 
-  const timeMatch = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
-  if (timeMatch) {
-    let hours = parseInt(timeMatch[1], 10);
-    const minutes = timeMatch[2] || "00";
-    const ampm = timeMatch[3].toLowerCase();
+  // Delegate HH:MM AM/PM to shared utility
+  const result = parse12HourTime(text);
+  if (result) return result;
+
+  // Handle bare "1pm" (no minutes) — not covered by parse12HourTime
+  const bare = text.match(/(\d{1,2})\s*(am|pm)/i);
+  if (bare) {
+    let hours = parseInt(bare[1], 10);
+    const ampm = bare[2].toLowerCase();
     if (ampm === "pm" && hours !== 12) hours += 12;
     if (ampm === "am" && hours === 12) hours = 0;
-    return `${hours.toString().padStart(2, "0")}:${minutes}`;
+    return `${hours.toString().padStart(2, "0")}:00`;
   }
 
   return null;
