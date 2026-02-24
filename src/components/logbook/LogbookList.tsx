@@ -60,6 +60,33 @@ function toggleFilter<T extends string>(setter: Dispatch<SetStateAction<T[]>>, v
   setter((prev) => prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]);
 }
 
+/** Format ISO date string to locale-friendly display (exported for testing). */
+export function formatLogbookDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** Filter logbook entries by region, kennel, and participation level (exported for testing). */
+export function filterLogbookEntries(
+  entries: LogbookEntry[],
+  selectedRegions: string[],
+  selectedKennels: string[],
+  selectedLevels: string[],
+): LogbookEntry[] {
+  return entries.filter((e) => {
+    if (selectedRegions.length > 0 && !selectedRegions.includes(e.event.kennel.region)) return false;
+    if (selectedKennels.length > 0 && !selectedKennels.includes(e.event.kennel.id)) return false;
+    if (selectedLevels.length > 0 && !selectedLevels.includes(e.attendance.participationLevel)) return false;
+    return true;
+  });
+}
+
 export function LogbookList({ entries }: LogbookListProps) {
   const [editingAttendance, setEditingAttendance] = useState<AttendanceData | null>(null);
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
@@ -105,28 +132,16 @@ export function LogbookList({ entries }: LogbookListProps) {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [entries]);
 
-  // Filter entries
-  const filtered = useMemo(() => {
-    return entries.filter((e) => {
-      if (selectedRegions.length > 0 && !selectedRegions.includes(e.event.kennel.region)) return false;
-      if (selectedKennels.length > 0 && !selectedKennels.includes(e.event.kennel.id)) return false;
-      if (selectedLevels.length > 0 && !selectedLevels.includes(e.attendance.participationLevel)) return false;
-      return true;
-    });
-  }, [entries, selectedRegions, selectedKennels, selectedLevels]);
+  // Filter entries (uses module-level filterLogbookEntries, exported for testing)
+  const filtered = useMemo(
+    () => filterLogbookEntries(entries, selectedRegions, selectedKennels, selectedLevels),
+    [entries, selectedRegions, selectedKennels, selectedLevels],
+  );
 
   const activeFilterCount = selectedRegions.length + selectedKennels.length + selectedLevels.length;
 
-  function formatDate(iso: string): string {
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-US", {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      timeZone: "UTC",
-    });
-  }
+  // Use module-level formatLogbookDate (exported for testing)
+  const formatDate = formatLogbookDate;
 
   if (entries.length === 0) {
     return (
@@ -365,9 +380,11 @@ export function LogbookList({ entries }: LogbookListProps) {
                   </Badge>
                 ) : entry.attendance.status === "INTENDING" ? (
                   <span className="flex items-center gap-1">
-                    <Badge
+                    <Button
                       variant="outline"
-                      className="cursor-pointer border-amber-300 text-amber-700"
+                      size="sm"
+                      className="h-7 border-amber-300 text-amber-700 hover:bg-amber-50"
+                      disabled={isPending}
                       onClick={() => {
                         const attendanceId = entry.attendance.id;
                         startTransition(async () => {
@@ -381,9 +398,13 @@ export function LogbookList({ entries }: LogbookListProps) {
                         });
                       }}
                     >
-                      <span className="hidden sm:inline">Confirm Attendance</span>
-                      <span className="sm:hidden">Confirm</span>
-                    </Badge>
+                      {isPending ? "..." : (
+                        <>
+                          <span className="hidden sm:inline">Confirm Attendance</span>
+                          <span className="sm:hidden">Confirm</span>
+                        </>
+                      )}
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -408,7 +429,7 @@ export function LogbookList({ entries }: LogbookListProps) {
             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground sm:hidden">
               <RegionBadge region={entry.event.kennel.region} size="sm" />
               {entry.event.runNumber && <span>#{entry.event.runNumber}</span>}
-              {entry.event.title && <span className="truncate">{entry.event.title}</span>}
+              {entry.event.title && <span className="min-w-0 flex-1 truncate">{entry.event.title}</span>}
             </div>
           </div>
         ))}
