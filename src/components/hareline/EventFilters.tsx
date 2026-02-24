@@ -334,17 +334,21 @@ function NearMeFilter({ nearMeDistance, onNearMeDistanceChange, geoState, onRequ
         <span className="text-xs text-primary">Within</span>
         <div className="flex gap-0.5">
           {DISTANCE_OPTIONS.map((km) => (
-            <button
-              key={km}
-              onClick={() => onNearMeDistanceChange(km)}
-              className={`rounded px-1.5 py-0.5 text-xs font-medium transition-colors ${
-                nearMeDistance === km
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {km}km
-            </button>
+            <Tooltip key={km}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onNearMeDistanceChange(km)}
+                  className={`rounded px-1.5 py-0.5 text-xs font-medium transition-colors ${
+                    nearMeDistance === km
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {km} km
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>≈ {Math.round(km * 0.621)} mi</TooltipContent>
+            </Tooltip>
           ))}
         </div>
         <button
