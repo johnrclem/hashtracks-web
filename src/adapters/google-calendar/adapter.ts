@@ -24,6 +24,7 @@ const BOSTON_KENNEL_PATTERNS: [RegExp, string][] = [
   [/BH3/i, "BoH3"],
 ];
 
+/** Extract kennel tag from a Google Calendar event summary using Boston Hash kennel patterns. Falls back to "BoH3". */
 export function extractKennelTag(summary: string): string {
   for (const [pattern, tag] of BOSTON_KENNEL_PATTERNS) {
     if (pattern.test(summary)) return tag;
@@ -31,6 +32,7 @@ export function extractKennelTag(summary: string): string {
   return "BoH3";
 }
 
+/** Extract run number from summary (e.g. "#2781") or description. Checks summary first, then description patterns. */
 export function extractRunNumber(summary: string, description?: string): number | undefined {
   // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781")
   const summaryMatch = /#(\d+)/.exec(summary);
@@ -49,6 +51,7 @@ export function extractRunNumber(summary: string, description?: string): number 
   return undefined;
 }
 
+/** Strip the "Kennel: " or "Kennel #N: " prefix from a calendar summary to extract the event title. */
 export function extractTitle(summary: string): string {
   // Strip "Kennel: " or "Kennel #123: " prefix to get the event name
   const stripped = summary.replace(/^[^:]+:\s*/, "").trim();
@@ -213,6 +216,7 @@ function buildGCalDiagnosticContext(item: GCalEvent): string {
   return rawParts.join("\n").slice(0, 2000);
 }
 
+/** Google Calendar API v3 adapter. Fetches events from a public calendar and extracts kennel tags via configurable patterns. */
 export class GoogleCalendarAdapter implements SourceAdapter {
   type = "GOOGLE_CALENDAR" as const;
 

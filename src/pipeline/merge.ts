@@ -29,10 +29,14 @@ async function createEventLinks(
 
 // ── Helper types for internal decomposition ──
 
+/** Per-batch state threaded through all merge helper functions. */
 interface MergeContext {
   sourceId: string;
+  /** Source trust level (1–10); higher-trust sources overwrite lower-trust data. */
   trustLevel: number;
+  /** Kennel IDs linked to this source via SourceKennel (for the guard check). */
   linkedKennelIds: Set<string>;
+  /** Per-batch cache of kennelId → region string to avoid N+1 queries. */
   regionCache: Map<string, string>;
   result: MergeResult;
 }

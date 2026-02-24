@@ -9,15 +9,23 @@
 const GEMINI_MODEL = "gemini-2.0-flash";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
+/** Request parameters for `callGemini()`. */
 export interface GeminiRequest {
+  /** The full prompt text sent to Gemini (including any structured extraction instructions). */
   prompt: string;
+  /** Max output tokens (default 4096). */
   maxOutputTokens?: number;
+  /** Sampling temperature (default 0.1 for deterministic extraction). */
   temperature?: number;
 }
 
+/** Response from `callGemini()`. Check `text` for null and `error` for failure details. */
 export interface GeminiResponse {
+  /** Raw JSON text from the model, or null if the call failed. */
   text: string | null;
+  /** Error message if the API was unavailable, returned non-200, or produced empty output. */
   error?: string;
+  /** Wall-clock duration of the API call in milliseconds. */
   durationMs: number;
 }
 

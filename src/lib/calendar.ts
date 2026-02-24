@@ -3,11 +3,15 @@
  * Both work client-side from event data already in the page.
  */
 
+/** Minimal event shape consumed by the calendar export builders. */
 export interface CalendarEvent {
   title?: string | null;
-  date: string; // ISO string (UTC noon)
-  startTime?: string | null; // "HH:MM"
-  timezone?: string | null; // IANA timezone
+  /** ISO date string (UTC noon, e.g. "2026-02-14T12:00:00.000Z"). */
+  date: string;
+  /** Optional start time as "HH:MM" (24-hour). */
+  startTime?: string | null;
+  /** IANA timezone for time-aware calendar entries (e.g. "America/New_York"). */
+  timezone?: string | null;
   description?: string | null;
   haresText?: string | null;
   locationName?: string | null;
@@ -16,6 +20,7 @@ export interface CalendarEvent {
   runNumber?: number | null;
 }
 
+/** Build a calendar event title: "KennelName — Run #N — Title". */
 export function buildTitle(event: CalendarEvent): string {
   const parts = [event.kennel.shortName];
   if (event.runNumber) parts.push(`Run #${event.runNumber}`);
@@ -23,6 +28,7 @@ export function buildTitle(event: CalendarEvent): string {
   return parts.join(" — ");
 }
 
+/** Build the calendar event description body (hares, description, source URL). */
 export function buildDetails(event: CalendarEvent): string {
   const lines: string[] = [];
   if (event.haresText) lines.push(`Hares: ${event.haresText}`);
@@ -49,6 +55,7 @@ export function parseDateParts(date: string, startTime?: string | null) {
   return { ymd, allDay: false, start: startHHMMSS, end: endHHMMSS };
 }
 
+/** Generate a Google Calendar "Add Event" URL with pre-filled fields. */
 export function buildGoogleCalendarUrl(event: CalendarEvent): string {
   const title = buildTitle(event);
   const details = buildDetails(event);
@@ -78,6 +85,7 @@ export function buildGoogleCalendarUrl(event: CalendarEvent): string {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
+/** Generate an iCalendar (.ics) file string for downloading/importing into calendar apps. */
 export function buildIcsContent(event: CalendarEvent): string {
   const title = buildTitle(event);
   const details = buildDetails(event);
@@ -120,10 +128,12 @@ export function buildIcsContent(event: CalendarEvent): string {
   return lines.join("\r\n");
 }
 
+/** Escape special characters per the iCalendar (RFC 5545) spec. */
 export function escapeIcs(text: string): string {
   return text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
 
+/** Add one day to a "YYYYMMDD" date string. Used for all-day calendar event end dates. */
 export function incrementDate(ymd: string): string {
   // ymd = "YYYYMMDD"
   const y = parseInt(ymd.slice(0, 4), 10);

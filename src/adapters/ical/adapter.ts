@@ -288,6 +288,7 @@ function buildICalDiagnosticContext(vevent: VEvent): { rawText: string; summary:
   return { rawText: rawParts.join("\n").slice(0, 2000), summary };
 }
 
+/** iCal feed adapter. Parses .ics feeds using node-ical, supports kennel pattern matching and multi-kennel feeds. */
 export class ICalAdapter implements SourceAdapter {
   type = "ICAL_FEED" as const;
 

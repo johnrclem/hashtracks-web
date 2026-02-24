@@ -25,6 +25,7 @@ import { AlertContextDisplay } from "./AlertContextDisplay";
 import { UnmatchedTagResolver } from "./UnmatchedTagResolver";
 import type { KennelOption } from "./UnmatchedTagResolver";
 
+/** Alert record shape passed to AlertCard for display and repair actions. */
 export interface AlertData {
   id: string;
   sourceId: string;
@@ -50,9 +51,12 @@ interface RepairLogEntry {
   resultMessage?: string;
 }
 
+/** Props for the AlertCard component — displays an alert with status controls and repair actions. */
 interface AlertCardProps {
   alert: AlertData;
+  /** All kennels for the "link kennel to source" repair action. */
   allKennels?: { id: string; shortName: string; fullName: string; region: string }[];
+  /** Pre-computed fuzzy kennel suggestions keyed by unmatched tag. */
   suggestions?: Map<string, KennelOption[]>;
 }
 

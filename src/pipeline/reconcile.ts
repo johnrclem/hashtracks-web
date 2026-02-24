@@ -2,8 +2,11 @@ import { prisma } from "@/lib/db";
 import type { RawEventData } from "@/adapters/types";
 import { resolveKennelTag } from "./kennel-resolver";
 
+/** Result of stale-event reconciliation after a successful scrape. */
 export interface ReconcileResult {
+  /** Number of sole-source events marked CANCELLED. */
   cancelled: number;
+  /** IDs of the cancelled Event records. */
   cancelledEventIds: string[];
 }
 

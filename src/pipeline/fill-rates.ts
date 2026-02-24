@@ -1,5 +1,6 @@
 import type { RawEventData } from "@/adapters/types";
 
+/** Per-field population percentages (0–100) for a batch of scraped events. */
 export interface FieldFillRates {
   title: number; // 0-100
   location: number;
