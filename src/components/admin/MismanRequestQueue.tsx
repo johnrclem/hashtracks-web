@@ -198,24 +198,26 @@ export function MismanAdminTabs({
   return (
     <TooltipProvider>
       <Tabs defaultValue="requests">
-        <div className="flex items-center justify-between gap-4">
-          <TabsList>
-            <TabsTrigger value="requests">
-              Pending Requests ({requestKennelFilter !== "all"
-                ? `${filteredRequests.length} / ${pendingRequests.length}`
-                : pendingRequests.length})
-            </TabsTrigger>
-            <TabsTrigger value="invites">
-              Invites Sent ({inviteKennelFilter !== "all"
-                ? `${filteredInvites.length} / ${invites.length}`
-                : invites.length})
-            </TabsTrigger>
-            <TabsTrigger value="mismans">
-              Active Mismanagement ({mismanKennelFilter !== "all"
-                ? `${filteredMismans.length} / ${mismans.length}`
-                : mismans.length})
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="overflow-x-auto -mx-1 px-1">
+            <TabsList className="inline-flex w-max">
+              <TabsTrigger value="requests">
+                Pending ({requestKennelFilter !== "all"
+                  ? `${filteredRequests.length} / ${pendingRequests.length}`
+                  : pendingRequests.length})
+              </TabsTrigger>
+              <TabsTrigger value="invites">
+                Invites ({inviteKennelFilter !== "all"
+                  ? `${filteredInvites.length} / ${invites.length}`
+                  : invites.length})
+              </TabsTrigger>
+              <TabsTrigger value="mismans">
+                Active ({mismanKennelFilter !== "all"
+                  ? `${filteredMismans.length} / ${mismans.length}`
+                  : mismans.length})
+              </TabsTrigger>
+            </TabsList>
+          </div>
           <InviteMismanDialog kennels={kennels} />
         </div>
 
@@ -293,7 +295,7 @@ function KennelFilterBar({
   return (
     <div className="mb-3">
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="w-72">
+        <SelectTrigger className="w-full sm:w-72">
           <SelectValue placeholder="All kennels" />
         </SelectTrigger>
         <SelectContent>

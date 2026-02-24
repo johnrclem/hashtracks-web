@@ -296,6 +296,7 @@ export function SourceTable({ sources, allKennels, geminiAvailable }: SourceTabl
         )}
       </div>
 
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -319,6 +320,7 @@ export function SourceTable({ sources, allKennels, geminiAvailable }: SourceTabl
           ))}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

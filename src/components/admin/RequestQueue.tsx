@@ -43,6 +43,7 @@ export function RequestQueue({ requests }: RequestQueueProps) {
   }
 
   return (
+    <div className="overflow-x-auto">
     <Table>
       <TableHeader>
         <TableRow>
@@ -61,6 +62,7 @@ export function RequestQueue({ requests }: RequestQueueProps) {
         ))}
       </TableBody>
     </Table>
+    </div>
   );
 }
 

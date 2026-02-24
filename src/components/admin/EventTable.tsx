@@ -378,6 +378,7 @@ export function EventTable({
               : "No events in the database."}
           </p>
         ) : (
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -472,6 +473,7 @@ export function EventTable({
               ))}
             </TableBody>
           </Table>
+          </div>
         )}
 
         {/* Selection action bar */}
