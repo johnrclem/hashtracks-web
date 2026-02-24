@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback } from "react";
+import { useState, useEffect, useMemo, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -223,7 +223,10 @@ export function AttendanceForm({
   }
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
-  const attendedHasherIds = new Set(records.map((r) => r.kennelHasherId));
+  const attendedHasherIds = useMemo(
+    () => new Set(records.map((r) => r.kennelHasherId)),
+    [records],
+  );
 
   // Stats
   const paidCount = records.filter((r) => r.paid).length;

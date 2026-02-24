@@ -1,13 +1,8 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useMemo, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   suggestUserLinks,
@@ -92,6 +87,13 @@ export function UserActivitySection({
     }
   }, [addingHasherId, attendedHasherIds]);
 
+  // Safety net: clear stuck addingHasherId after 5s so the user can retry on failure
+  useEffect(() => {
+    if (!addingHasherId) return;
+    const timeout = setTimeout(() => setAddingHasherId(null), 5000);
+    return () => clearTimeout(timeout);
+  }, [addingHasherId]);
+
   function handleAddToAttendance(linkedHasherId: string) {
     setAddingHasherId(linkedHasherId);
     onAddToAttendance(linkedHasherId);
@@ -146,11 +148,20 @@ export function UserActivitySection({
     setSuggestions([]);
   }
 
-  const sorted = sortUserActivity(userActivity, attendedHasherIds);
-
-  const addableCount = userActivity.filter(
-    (u) => classifyUserActivity(u, attendedHasherIds) === "addable",
-  ).length;
+  const { sorted, addableCount } = useMemo(() => {
+    const order: Record<UserActivityState, number> = {
+      addable: 0,
+      unlinked: 1,
+      "already-recorded": 2,
+    };
+    const classified = userActivity.map((u) => ({
+      ...u,
+      state: classifyUserActivity(u, attendedHasherIds),
+    }));
+    classified.sort((a, b) => order[a.state] - order[b.state]);
+    const count = classified.filter((c) => c.state === "addable").length;
+    return { sorted: classified, addableCount: count };
+  }, [userActivity, attendedHasherIds]);
 
   const statusBadgeClass = (status: string) =>
     status === "CONFIRMED"
@@ -175,14 +186,14 @@ export function UserActivitySection({
       </p>
       <div className="space-y-1">
         {sorted.map((u) => {
-          const state = classifyUserActivity(u, attendedHasherIds);
           const isAdding = addingHasherId === u.linkedHasherId;
 
-          if (state === "addable") {
+          if (u.state === "addable") {
             return (
-              <button
+              <Button
                 key={u.userId}
-                className="w-full flex items-center justify-between gap-2 rounded border border-l-2 border-l-green-400 px-3 py-2 text-sm hover:bg-muted transition-colors cursor-pointer text-left"
+                variant="ghost"
+                className="w-full flex items-center justify-between gap-2 rounded border border-l-2 border-l-green-400 px-3 py-2 text-sm h-auto font-normal hover:bg-muted"
                 onClick={() => handleAddToAttendance(u.linkedHasherId!)}
                 disabled={disabled || isPending || isAdding}
                 aria-label={`Add ${u.hashName || u.email} to attendance`}
@@ -198,11 +209,11 @@ export function UserActivitySection({
                 <span className="text-green-600 dark:text-green-400 text-lg font-bold shrink-0" aria-hidden="true">
                   {isAdding ? "..." : "+"}
                 </span>
-              </button>
+              </Button>
             );
           }
 
-          if (state === "already-recorded") {
+          if (u.state === "already-recorded") {
             return (
               <div
                 key={u.userId}
