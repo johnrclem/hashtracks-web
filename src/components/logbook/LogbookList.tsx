@@ -54,6 +54,7 @@ export interface LogbookEntry {
 
 interface LogbookListProps {
   entries: LogbookEntry[];
+  stravaConnected?: boolean;
 }
 
 function toggleFilter<T extends string>(setter: Dispatch<SetStateAction<T[]>>, value: T) {
@@ -87,8 +88,8 @@ export function filterLogbookEntries(
   });
 }
 
-export function LogbookList({ entries }: LogbookListProps) {
-  const [editingAttendance, setEditingAttendance] = useState<AttendanceData | null>(null);
+export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
+  const [editingEntry, setEditingEntry] = useState<LogbookEntry | null>(null);
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
@@ -349,7 +350,9 @@ export function LogbookList({ entries }: LogbookListProps) {
                     rel="noopener noreferrer"
                     className="text-xs text-primary hover:underline"
                   >
-                    Activity
+                    {entry.attendance.stravaUrl.includes("strava.com")
+                      ? "Strava"
+                      : "Activity"}
                   </a>
                 )}
                 {entry.event.status === "CANCELLED" ? (
@@ -374,7 +377,7 @@ export function LogbookList({ entries }: LogbookListProps) {
                   <Badge
                     variant="outline"
                     className="cursor-pointer border-blue-300 text-blue-700"
-                    onClick={() => setEditingAttendance(entry.attendance)}
+                    onClick={() => setEditingEntry(entry)}
                   >
                     Going
                   </Badge>
@@ -421,7 +424,7 @@ export function LogbookList({ entries }: LogbookListProps) {
                   <AttendanceBadge
                     level={entry.attendance.participationLevel}
                     size="sm"
-                    onClick={() => setEditingAttendance(entry.attendance)}
+                    onClick={() => setEditingEntry(entry)}
                   />
                 )}
               </span>
@@ -436,13 +439,15 @@ export function LogbookList({ entries }: LogbookListProps) {
       </div>
 
       {/* Edit dialog */}
-      {editingAttendance && (
+      {editingEntry && (
         <EditAttendanceDialog
-          open={!!editingAttendance}
+          open={!!editingEntry}
           onOpenChange={(open) => {
-            if (!open) setEditingAttendance(null);
+            if (!open) setEditingEntry(null);
           }}
-          attendance={editingAttendance}
+          attendance={editingEntry.attendance}
+          eventDate={editingEntry.event.date}
+          stravaConnected={stravaConnected}
         />
       )}
     </div>

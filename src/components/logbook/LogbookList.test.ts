@@ -6,6 +6,10 @@ vi.mock("@/app/logbook/actions", () => ({
   deleteAttendance: vi.fn(),
   updateAttendance: vi.fn(),
 }));
+vi.mock("@/app/strava/actions", () => ({
+  getStravaActivitiesForDate: vi.fn(),
+  attachStravaActivity: vi.fn(),
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 import type { LogbookEntry } from "./LogbookList";

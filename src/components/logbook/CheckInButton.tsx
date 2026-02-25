@@ -22,15 +22,20 @@ interface CheckInButtonProps {
   readonly eventDate: string; // ISO string
   readonly isAuthenticated: boolean;
   readonly attendance: AttendanceData | null;
+  readonly stravaConnected?: boolean;
 }
 
 /** Render the check-in button for a past event. */
 function PastEventButton({
   eventId,
+  eventDate,
   attendance,
+  stravaConnected,
 }: Readonly<{
   eventId: string;
+  eventDate: string;
   attendance: AttendanceData | null;
+  stravaConnected?: boolean;
 }>) {
   const [isPending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
@@ -60,7 +65,13 @@ function PastEventButton({
     return (
       <>
         <AttendanceBadge level={attendance.participationLevel} onClick={() => setEditOpen(true)} />
-        <EditAttendanceDialog open={editOpen} onOpenChange={setEditOpen} attendance={attendance} />
+        <EditAttendanceDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          attendance={attendance}
+          eventDate={eventDate}
+          stravaConnected={stravaConnected}
+        />
       </>
     );
   }
@@ -139,6 +150,7 @@ export function CheckInButton({
   eventDate,
   isAuthenticated,
   attendance,
+  stravaConnected,
 }: CheckInButtonProps) {
   const now = new Date();
   const todayUtcNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
@@ -155,7 +167,7 @@ export function CheckInButton({
   }
 
   if (isPast) {
-    return <PastEventButton eventId={eventId} attendance={attendance} />;
+    return <PastEventButton eventId={eventId} eventDate={eventDate} attendance={attendance} stravaConnected={stravaConnected} />;
   }
 
   return <FutureEventButton eventId={eventId} attendance={attendance} />;

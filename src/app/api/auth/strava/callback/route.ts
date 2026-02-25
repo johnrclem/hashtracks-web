@@ -1,0 +1,115 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getOrCreateUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { exchangeStravaCode } from "@/lib/strava/client";
+import type { Prisma } from "@/generated/prisma/client";
+
+const STATE_COOKIE = "strava_oauth_state";
+
+/**
+ * GET /api/auth/strava/callback — Strava OAuth callback handler.
+ *
+ * 1. Validate CSRF state parameter against cookie
+ * 2. Handle user denial (error=access_denied)
+ * 3. Exchange authorization code for tokens
+ * 4. Check for duplicate athlete (one Strava account per HashTracks user)
+ * 5. Upsert StravaConnection
+ * 6. Redirect to profile page
+ */
+export async function GET(request: NextRequest) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const searchParams = request.nextUrl.searchParams;
+
+  // Handle user denial
+  const error = searchParams.get("error");
+  if (error) {
+    const response = NextResponse.redirect(
+      new URL("/profile?strava=denied", appUrl),
+    );
+    response.cookies.delete(STATE_COOKIE);
+    return response;
+  }
+
+  // Validate CSRF state
+  const state = searchParams.get("state");
+  const storedState = request.cookies.get(STATE_COOKIE)?.value;
+
+  if (!state || !storedState || state !== storedState) {
+    return NextResponse.redirect(
+      new URL("/profile?strava=error&reason=invalid_state", appUrl),
+    );
+  }
+
+  const code = searchParams.get("code");
+  if (!code) {
+    return NextResponse.redirect(
+      new URL("/profile?strava=error&reason=no_code", appUrl),
+    );
+  }
+
+  // Verify user is authenticated
+  const user = await getOrCreateUser();
+  if (!user) {
+    return NextResponse.redirect(new URL("/sign-in", appUrl));
+  }
+
+  try {
+    // Exchange code for tokens
+    const tokenData = await exchangeStravaCode(code);
+    const athleteId = String(tokenData.athlete.id);
+
+    // Check if this Strava athlete is already connected to another user
+    const existingConnection = await prisma.stravaConnection.findUnique({
+      where: { athleteId },
+      select: { userId: true },
+    });
+
+    if (existingConnection && existingConnection.userId !== user.id) {
+      const response = NextResponse.redirect(
+        new URL("/profile?strava=error&reason=athlete_linked", appUrl),
+      );
+      response.cookies.delete(STATE_COOKIE);
+      return response;
+    }
+
+    // Upsert StravaConnection (handles reconnect case)
+    const athleteData: Prisma.InputJsonValue = {
+      firstname: tokenData.athlete.firstname,
+      lastname: tokenData.athlete.lastname,
+      profile: tokenData.athlete.profile,
+    };
+
+    await prisma.stravaConnection.upsert({
+      where: { userId: user.id },
+      create: {
+        userId: user.id,
+        athleteId,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        expiresAt: new Date(tokenData.expires_at * 1000),
+        athleteData,
+      },
+      update: {
+        athleteId,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        expiresAt: new Date(tokenData.expires_at * 1000),
+        athleteData,
+      },
+    });
+
+    // Clear state cookie and redirect to profile
+    const response = NextResponse.redirect(
+      new URL("/profile?strava=connected", appUrl),
+    );
+    response.cookies.delete(STATE_COOKIE);
+    return response;
+  } catch (err) {
+    console.error("Strava OAuth callback error:", err);
+    const response = NextResponse.redirect(
+      new URL("/profile?strava=error&reason=token_exchange", appUrl),
+    );
+    response.cookies.delete(STATE_COOKIE);
+    return response;
+  }
+}

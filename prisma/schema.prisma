@@ -30,6 +30,8 @@ model User {
   sentInvites           MismanInvite[]     @relation("SentInvites")
   acceptedInvites       MismanInvite[]     @relation("AcceptedInvites")
   rosterGroupRequests   RosterGroupRequest[]
+  // Strava
+  stravaConnection    StravaConnection?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -607,4 +609,53 @@ model RosterGroupRequest {
   createdAt     DateTime      @default(now())
 
   @@index([status])
+}
+
+// ── STRAVA INTEGRATION ──
+
+model StravaConnection {
+  id            String    @id @default(cuid())
+  userId        String    @unique           // One Strava account per user
+  athleteId     String    @unique           // Strava athlete ID (stored as String to avoid BigInt serialization)
+  accessToken   String                      // Current access token (server-side only, never exposed to client)
+  refreshToken  String                      // Long-lived refresh token
+  expiresAt     DateTime                    // When accessToken expires
+  scope         String    @default("activity:read_all")
+  athleteData   Json?                       // Cached athlete profile (name, pic URL — user-scoped only per Strava API agreement)
+  lastSyncAt    DateTime?                   // Last successful activity sync
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities    StravaActivity[]
+
+  @@index([userId])
+}
+
+model StravaActivity {
+  id                  String    @id @default(cuid())
+  stravaConnectionId  String
+  stravaActivityId    String    @unique      // Strava's activity ID (as String)
+  name                String                 // Activity name from Strava
+  sportType           String                 // "Run", "TrailRun", "Walk", "Hike", etc. (use sport_type, NOT deprecated type)
+  dateLocal           String                 // "YYYY-MM-DD" — extracted as string from start_date_local, NEVER parsed through new Date()
+  timeLocal           String?                // "HH:MM" — extracted as string from start_date_local
+  distanceMeters      Float                  // Distance in meters
+  movingTimeSecs      Int                    // Moving time in seconds
+  startLat            Float?                 // start_latlng[0] — null for privacy zones
+  startLng            Float?                 // start_latlng[1] — null for privacy zones
+  timezone            String?                // Strava timezone string
+
+  // Match tracking (V1: set on manual pick; V2: auto-suggest will populate these)
+  matchedAttendanceId String?               // Attendance record this was attached to
+  matchDismissed      Boolean   @default(false) // User dismissed this match suggestion (V2)
+
+  connection    StravaConnection @relation(fields: [stravaConnectionId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([stravaConnectionId, dateLocal])
+  @@index([matchedAttendanceId])
+  @@index([dateLocal])
 }
