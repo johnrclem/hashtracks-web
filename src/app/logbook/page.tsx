@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { LogbookList } from "@/components/logbook/LogbookList";
 import { PendingConfirmations } from "@/components/logbook/PendingConfirmations";
 import { PendingLinkRequests } from "@/components/logbook/PendingLinkRequests";
+import { getStravaConnection } from "@/app/strava/actions";
 
 export const metadata: Metadata = {
   title: "My Logbook · HashTracks",
@@ -15,19 +16,24 @@ export default async function LogbookPage() {
   const user = await getOrCreateUser();
   if (!user) redirect("/sign-in");
 
-  const attendances = await prisma.attendance.findMany({
-    where: { userId: user.id, status: { in: ["CONFIRMED", "INTENDING"] } },
-    include: {
-      event: {
-        include: {
-          kennel: {
-            select: { id: true, shortName: true, fullName: true, slug: true, region: true },
+  const [attendances, stravaResult] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { userId: user.id, status: { in: ["CONFIRMED", "INTENDING"] } },
+      include: {
+        event: {
+          include: {
+            kennel: {
+              select: { id: true, shortName: true, fullName: true, slug: true, region: true },
+            },
           },
         },
       },
-    },
-    orderBy: { event: { date: "desc" } },
-  });
+      orderBy: { event: { date: "desc" } },
+    }),
+    getStravaConnection(),
+  ]);
+
+  const stravaConnected = stravaResult.success ? stravaResult.connected : false;
 
   const entries = attendances.map((a) => ({
       attendance: {
@@ -76,7 +82,7 @@ export default async function LogbookPage() {
       <div className="mt-6 space-y-6">
         <PendingLinkRequests />
         <PendingConfirmations />
-        <LogbookList entries={entries} />
+        <LogbookList entries={entries} stravaConnected={stravaConnected} />
       </div>
     </div>
   );

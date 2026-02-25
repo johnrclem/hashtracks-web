@@ -7,6 +7,8 @@ import type {
   KennelHasherLink,
   EventHare,
   MismanInvite,
+  StravaConnection,
+  StravaActivity,
 } from "@/generated/prisma/client";
 
 export function buildRawEvent(overrides?: Partial<RawEventData>): RawEventData {
@@ -167,6 +169,49 @@ export function buildMismanInvite(
     acceptedAt: null,
     revokedAt: null,
     createdAt: new Date("2026-01-01"),
+    ...overrides,
+  };
+}
+
+export function buildStravaConnection(
+  overrides?: Partial<StravaConnection>,
+): StravaConnection {
+  return {
+    id: "sc_1",
+    userId: "user_1",
+    athleteId: "12345678",
+    accessToken: "access_token_abc",
+    refreshToken: "refresh_token_xyz",
+    expiresAt: new Date(Date.now() + 3600 * 1000),
+    scope: "read,activity:read",
+    athleteData: { firstname: "Test", lastname: "Runner" },
+    lastSyncAt: null,
+    createdAt: new Date("2026-01-01"),
+    updatedAt: new Date("2026-01-01"),
+    ...overrides,
+  };
+}
+
+export function buildStravaActivity(
+  overrides?: Partial<StravaActivity>,
+): StravaActivity {
+  return {
+    id: "sa_1",
+    stravaConnectionId: "sc_1",
+    stravaActivityId: "9876543210",
+    name: "Morning Run",
+    sportType: "Run",
+    dateLocal: "2026-02-14",
+    timeLocal: "07:30",
+    distanceMeters: 8046.72,
+    movingTimeSecs: 2400,
+    startLat: null,
+    startLng: null,
+    timezone: "(GMT-05:00) America/New_York",
+    matchedAttendanceId: null,
+    matchDismissed: false,
+    createdAt: new Date("2026-01-01"),
+    updatedAt: new Date("2026-01-01"),
     ...overrides,
   };
 }

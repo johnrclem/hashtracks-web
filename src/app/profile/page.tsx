@@ -4,14 +4,16 @@ import { redirect } from "next/navigation";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { MyKennels } from "@/components/profile/MyKennels";
 import { KennelConnections } from "@/components/profile/KennelConnections";
+import { StravaConnectionCard } from "@/components/profile/StravaConnectionCard";
 import { Separator } from "@/components/ui/separator";
 import { getMyKennelLinks } from "./actions";
+import { getStravaConnection } from "@/app/strava/actions";
 
 export default async function ProfilePage() {
   const user = await getOrCreateUser();
   if (!user) redirect("/sign-in");
 
-  const [subscriptions, linksResult] = await Promise.all([
+  const [subscriptions, linksResult, stravaResult] = await Promise.all([
     prisma.userKennel.findMany({
     where: { userId: user.id },
     include: {
@@ -22,9 +24,13 @@ export default async function ProfilePage() {
     orderBy: { createdAt: "desc" },
   }),
     getMyKennelLinks(),
+    getStravaConnection(),
   ]);
 
   const kennelLinks = linksResult.data ?? [];
+  const stravaConnection = stravaResult.success
+    ? stravaResult
+    : { connected: false as const };
 
   return (
     <div className="space-y-8">
@@ -43,6 +49,18 @@ export default async function ProfilePage() {
           bio: user.bio,
         }}
       />
+
+      <Separator />
+
+      <div>
+        <h2 className="text-lg font-semibold">Strava</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Link your Strava account to auto-match activities
+        </p>
+        <div className="mt-3">
+          <StravaConnectionCard connection={stravaConnection} />
+        </div>
+      </div>
 
       <Separator />
 

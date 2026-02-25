@@ -197,6 +197,12 @@ export async function deleteAttendance(attendanceId: string): Promise<ActionResu
   if (!attendance) return { error: "Attendance not found" };
   if (attendance.userId !== user.id) return { error: "Not authorized" };
 
+  // Clear any Strava activity match pointing to this attendance (prevent orphans)
+  await prisma.stravaActivity.updateMany({
+    where: { matchedAttendanceId: attendanceId },
+    data: { matchedAttendanceId: null },
+  });
+
   await prisma.attendance.delete({
     where: { id: attendanceId },
   });
