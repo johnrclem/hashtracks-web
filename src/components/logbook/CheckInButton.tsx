@@ -103,7 +103,6 @@ function PastEventButton({
             } else {
               toast.error(result.error);
             }
-            router.refresh();
           });
         }}
         disabled={isPending}
