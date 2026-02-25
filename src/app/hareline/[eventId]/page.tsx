@@ -26,6 +26,7 @@ export async function generateMetadata({
   return { title: `${dateStr} · ${event.kennel.shortName} · HashTracks` };
 }
 import { getOrCreateUser } from "@/lib/auth";
+import { getStravaConnection } from "@/app/strava/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -90,10 +91,13 @@ export default async function EventDetailPage({
     }
   }
 
-  const [confirmedCount, goingCount] = await Promise.all([
+  const [confirmedCount, goingCount, stravaResult] = await Promise.all([
     prisma.attendance.count({ where: { eventId, status: "CONFIRMED" } }),
     prisma.attendance.count({ where: { eventId, status: "INTENDING" } }),
+    user ? getStravaConnection() : Promise.resolve(null),
   ]);
+
+  const stravaConnected = stravaResult?.success ? stravaResult.connected : false;
 
   // Fetch weather forecast for upcoming events (0–10 days out).
   // Compare at the calendar-day level (midnight UTC) to avoid off-by-one from UTC noon storage.
@@ -168,6 +172,7 @@ export default async function EventDetailPage({
           eventDate={event.date.toISOString()}
           isAuthenticated={!!user}
           attendance={attendance}
+          stravaConnected={stravaConnected}
         />
         {(confirmedCount > 0 || goingCount > 0) && (
           <span className="text-sm text-muted-foreground">

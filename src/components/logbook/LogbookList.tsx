@@ -315,9 +315,12 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
             className="rounded-md border px-3 py-2 text-sm"
           >
             <div className="flex items-center gap-2 sm:gap-3">
-              <span className="shrink-0 font-medium sm:w-36">
+              <Link
+                href={`/hareline/${entry.event.id}`}
+                className="shrink-0 font-medium hover:underline sm:w-36"
+              >
                 {formatDate(entry.event.date)}
-              </span>
+              </Link>
               <span className="shrink-0 sm:w-20">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -339,9 +342,16 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                   #{entry.event.runNumber}
                 </span>
               )}
-              <span className="hidden sm:block min-w-0 flex-1 truncate text-muted-foreground">
-                {entry.event.title || ""}
-              </span>
+              {entry.event.title ? (
+                <Link
+                  href={`/hareline/${entry.event.id}`}
+                  className="hidden sm:block min-w-0 flex-1 truncate text-muted-foreground hover:underline"
+                >
+                  {entry.event.title}
+                </Link>
+              ) : (
+                <span className="hidden sm:block min-w-0 flex-1" />
+              )}
               <span className="ml-auto flex shrink-0 items-center gap-2">
                 {entry.attendance.stravaUrl && (
                   <a
@@ -432,7 +442,14 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground sm:hidden">
               <RegionBadge region={entry.event.kennel.region} size="sm" />
               {entry.event.runNumber && <span>#{entry.event.runNumber}</span>}
-              {entry.event.title && <span className="min-w-0 flex-1 truncate">{entry.event.title}</span>}
+              {entry.event.title && (
+                <Link
+                  href={`/hareline/${entry.event.id}`}
+                  className="min-w-0 flex-1 truncate hover:underline"
+                >
+                  {entry.event.title}
+                </Link>
+              )}
             </div>
           </div>
         ))}

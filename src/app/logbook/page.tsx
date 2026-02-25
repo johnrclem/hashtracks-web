@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { LogbookList } from "@/components/logbook/LogbookList";
 import { PendingConfirmations } from "@/components/logbook/PendingConfirmations";
 import { PendingLinkRequests } from "@/components/logbook/PendingLinkRequests";
+import { StravaNudgeBanner } from "@/components/logbook/StravaNudgeBanner";
 import { getStravaConnection } from "@/app/strava/actions";
 
 export const metadata: Metadata = {
@@ -82,6 +83,7 @@ export default async function LogbookPage() {
       <div className="mt-6 space-y-6">
         <PendingLinkRequests />
         <PendingConfirmations />
+        <StravaNudgeBanner stravaConnected={stravaConnected} />
         <LogbookList entries={entries} stravaConnected={stravaConnected} />
       </div>
     </div>
