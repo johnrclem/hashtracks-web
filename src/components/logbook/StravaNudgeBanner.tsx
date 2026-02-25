@@ -44,10 +44,19 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
       setLoaded(true);
       return;
     }
-    getUnmatchedStravaActivities().then((result) => {
-      if (result.success) setMatches(result.matches);
-      setLoaded(true);
-    });
+    let cancelled = false;
+    async function fetchMatches() {
+      try {
+        const result = await getUnmatchedStravaActivities();
+        if (!cancelled && result.success) setMatches(result.matches);
+      } catch (err) {
+        console.error("Failed to fetch Strava matches:", err);
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    }
+    fetchMatches();
+    return () => { cancelled = true; };
   }, [stravaConnected]);
 
   if (!stravaConnected || !loaded || hidden || matches.length === 0) return null;
