@@ -35,10 +35,11 @@ export async function getStravaConnection(): Promise<
     return { success: true, connected: false };
   }
 
-  const athleteData = connection.athleteData as {
-    firstname?: string;
-    lastname?: string;
-  } | null;
+  const athleteData = (
+    connection.athleteData && typeof connection.athleteData === "object"
+      ? connection.athleteData
+      : null
+  ) as { firstname?: string; lastname?: string } | null;
 
   const athleteName = athleteData
     ? [athleteData.firstname, athleteData.lastname].filter(Boolean).join(" ")
@@ -151,6 +152,11 @@ export async function getStravaActivitiesForDate(
     return { success: true, activities: [] };
   }
 
+  // Validate date format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+    return { error: "Invalid date format (expected YYYY-MM-DD)" };
+  }
+
   // Parse the event date and compute +/- 1 day range
   const [year, month, day] = eventDate.split("-").map(Number);
   const eventDateObj = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
@@ -216,10 +222,26 @@ export async function attachStravaActivity(
   if (!activity) return { error: "Strava activity not found" };
   if (activity.connection.userId !== user.id) return { error: "Not authorized" };
 
-  // Build canonical URL and update both records
+  // Clear any previous match on this attendance (prevents stranded activities)
+  const previousMatch = await prisma.stravaActivity.findFirst({
+    where: { matchedAttendanceId: attendanceId },
+    select: { id: true },
+  });
+
+  // Build canonical URL and update records in a single transaction
   const stravaUrl = buildStravaUrl(activity.stravaActivityId);
 
   await prisma.$transaction([
+    // Clear previous match if one exists
+    ...(previousMatch
+      ? [
+          prisma.stravaActivity.update({
+            where: { id: previousMatch.id },
+            data: { matchedAttendanceId: null },
+          }),
+        ]
+      : []),
+    // Set new match
     prisma.attendance.update({
       where: { id: attendanceId },
       data: { stravaUrl },

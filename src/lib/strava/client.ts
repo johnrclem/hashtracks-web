@@ -24,9 +24,13 @@ function getClientSecret(): string {
   return secret;
 }
 
+/** Get the application base URL (centralized to avoid duplication). */
+export function getAppUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+}
+
 function getRedirectUri(): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  return `${appUrl}/api/auth/strava/callback`;
+  return `${getAppUrl()}/api/auth/strava/callback`;
 }
 
 // ── OAuth ──

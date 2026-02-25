@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { exchangeStravaCode } from "@/lib/strava/client";
+import { exchangeStravaCode, getAppUrl } from "@/lib/strava/client";
 import type { Prisma } from "@/generated/prisma/client";
 
 const STATE_COOKIE = "strava_oauth_state";
@@ -17,7 +17,7 @@ const STATE_COOKIE = "strava_oauth_state";
  * 6. Redirect to profile page
  */
 export async function GET(request: NextRequest) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getAppUrl();
   const searchParams = request.nextUrl.searchParams;
 
   // Handle user denial
@@ -73,29 +73,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Upsert StravaConnection (handles reconnect case)
-    const athleteData: Prisma.InputJsonValue = {
-      firstname: tokenData.athlete.firstname,
-      lastname: tokenData.athlete.lastname,
-      profile: tokenData.athlete.profile,
+    const connectionData = {
+      athleteId,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      expiresAt: new Date(tokenData.expires_at * 1000),
+      athleteData: {
+        firstname: tokenData.athlete.firstname,
+        lastname: tokenData.athlete.lastname,
+        profile: tokenData.athlete.profile,
+      } as Prisma.InputJsonValue,
     };
 
     await prisma.stravaConnection.upsert({
       where: { userId: user.id },
-      create: {
-        userId: user.id,
-        athleteId,
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        expiresAt: new Date(tokenData.expires_at * 1000),
-        athleteData,
-      },
-      update: {
-        athleteId,
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        expiresAt: new Date(tokenData.expires_at * 1000),
-        athleteData,
-      },
+      create: { userId: user.id, ...connectionData },
+      update: connectionData,
     });
 
     // Clear state cookie and redirect to profile

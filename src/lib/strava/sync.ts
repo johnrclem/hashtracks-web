@@ -75,53 +75,63 @@ export async function syncStravaActivities(
     return { created: 0, updated: 0, total: 0, error: message };
   }
 
-  // Upsert each activity
-  let created = 0;
-  let updated = 0;
+  // Parse all activities and batch by create vs update
+  const parsed = rawActivities.map(parseStravaActivity);
+  const stravaIds = parsed.map((p) => p.stravaActivityId);
 
-  for (const raw of rawActivities) {
-    const parsed = parseStravaActivity(raw);
+  // Single query to find all existing activities
+  const existingActivities = await prisma.stravaActivity.findMany({
+    where: { stravaActivityId: { in: stravaIds } },
+    select: { stravaActivityId: true },
+  });
+  const existingIdSet = new Set(existingActivities.map((a) => a.stravaActivityId));
 
-    const existing = await prisma.stravaActivity.findUnique({
-      where: { stravaActivityId: parsed.stravaActivityId },
-      select: { id: true },
+  const toCreate = parsed.filter((p) => !existingIdSet.has(p.stravaActivityId));
+  const toUpdate = parsed.filter((p) => existingIdSet.has(p.stravaActivityId));
+
+  // Batch create new activities
+  if (toCreate.length > 0) {
+    await prisma.stravaActivity.createMany({
+      data: toCreate.map((p) => ({
+        stravaConnectionId: connection.id,
+        stravaActivityId: p.stravaActivityId,
+        name: p.name,
+        sportType: p.sportType,
+        dateLocal: p.dateLocal,
+        timeLocal: p.timeLocal,
+        distanceMeters: p.distanceMeters,
+        movingTimeSecs: p.movingTimeSecs,
+        startLat: p.startLat,
+        startLng: p.startLng,
+        timezone: p.timezone,
+      })),
     });
-
-    if (existing) {
-      await prisma.stravaActivity.update({
-        where: { stravaActivityId: parsed.stravaActivityId },
-        data: {
-          name: parsed.name,
-          sportType: parsed.sportType,
-          dateLocal: parsed.dateLocal,
-          timeLocal: parsed.timeLocal,
-          distanceMeters: parsed.distanceMeters,
-          movingTimeSecs: parsed.movingTimeSecs,
-          startLat: parsed.startLat,
-          startLng: parsed.startLng,
-          timezone: parsed.timezone,
-        },
-      });
-      updated++;
-    } else {
-      await prisma.stravaActivity.create({
-        data: {
-          stravaConnectionId: connection.id,
-          stravaActivityId: parsed.stravaActivityId,
-          name: parsed.name,
-          sportType: parsed.sportType,
-          dateLocal: parsed.dateLocal,
-          timeLocal: parsed.timeLocal,
-          distanceMeters: parsed.distanceMeters,
-          movingTimeSecs: parsed.movingTimeSecs,
-          startLat: parsed.startLat,
-          startLng: parsed.startLng,
-          timezone: parsed.timezone,
-        },
-      });
-      created++;
-    }
   }
+
+  // Batch update existing activities in a single transaction
+  if (toUpdate.length > 0) {
+    await prisma.$transaction(
+      toUpdate.map((p) =>
+        prisma.stravaActivity.update({
+          where: { stravaActivityId: p.stravaActivityId },
+          data: {
+            name: p.name,
+            sportType: p.sportType,
+            dateLocal: p.dateLocal,
+            timeLocal: p.timeLocal,
+            distanceMeters: p.distanceMeters,
+            movingTimeSecs: p.movingTimeSecs,
+            startLat: p.startLat,
+            startLng: p.startLng,
+            timezone: p.timezone,
+          },
+        }),
+      ),
+    );
+  }
+
+  const created = toCreate.length;
+  const updated = toUpdate.length;
 
   // Update lastSyncAt
   await prisma.stravaConnection.update({

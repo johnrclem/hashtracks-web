@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getStravaAuthUrl } from "@/lib/strava/client";
+import { getStravaAuthUrl, getAppUrl } from "@/lib/strava/client";
 
 const STATE_COOKIE = "strava_oauth_state";
 
@@ -17,7 +17,7 @@ const STATE_COOKIE = "strava_oauth_state";
 export async function GET() {
   const user = await getOrCreateUser();
   if (!user) {
-    return NextResponse.redirect(new URL("/sign-in", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"));
+    return NextResponse.redirect(new URL("/sign-in", getAppUrl()));
   }
 
   // Check if user already has a Strava connection
@@ -26,7 +26,7 @@ export async function GET() {
     select: { id: true },
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getAppUrl();
 
   if (existing) {
     return NextResponse.redirect(

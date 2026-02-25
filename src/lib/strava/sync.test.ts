@@ -9,10 +9,11 @@ vi.mock("@/lib/db", () => ({
       update: vi.fn(),
     },
     stravaActivity: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
+      findMany: vi.fn(),
+      createMany: vi.fn(),
       update: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -38,6 +39,21 @@ const mockedParseActivity = vi.mocked(parseStravaActivity);
 beforeEach(() => {
   vi.clearAllMocks();
 });
+
+function makeParsed(id: string, name: string) {
+  return {
+    stravaActivityId: id,
+    name,
+    sportType: "Run",
+    dateLocal: "2026-02-14",
+    timeLocal: null,
+    distanceMeters: 5000,
+    movingTimeSecs: 1800,
+    startLat: null,
+    startLng: null,
+    timezone: null,
+  };
+}
 
 describe("syncStravaActivities", () => {
   it("returns error when no connection exists", async () => {
@@ -72,6 +88,7 @@ describe("syncStravaActivities", () => {
     mockedPrisma.stravaConnection.findUnique.mockResolvedValue(connection as never);
     mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
     mockedFetchActivities.mockResolvedValue([]);
+    mockedPrisma.stravaActivity.findMany.mockResolvedValue([] as never);
 
     const result = await syncStravaActivities("user_1", {
       forceRefresh: true,
@@ -81,66 +98,46 @@ describe("syncStravaActivities", () => {
     expect(result.total).toBe(0);
   });
 
-  it("creates new activities that don't exist yet", async () => {
+  it("batch creates new activities via createMany", async () => {
     const connection = buildStravaConnection({ lastSyncAt: null });
     mockedPrisma.stravaConnection.findUnique.mockResolvedValue(connection as never);
     mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
 
-    const rawActivity = { id: 111, name: "Run" };
-    mockedFetchActivities.mockResolvedValue([rawActivity] as never);
-    mockedParseActivity.mockReturnValue({
-      stravaActivityId: "111",
-      name: "Run",
-      sportType: "Run",
-      dateLocal: "2026-02-14",
-      timeLocal: "07:30",
-      distanceMeters: 5000,
-      movingTimeSecs: 1800,
-      startLat: null,
-      startLng: null,
-      timezone: null,
-    });
+    mockedFetchActivities.mockResolvedValue([{ id: 111, name: "Run" }] as never);
+    mockedParseActivity.mockReturnValue(makeParsed("111", "Run"));
 
-    // Activity doesn't exist
-    mockedPrisma.stravaActivity.findUnique.mockResolvedValue(null as never);
+    // No existing activities
+    mockedPrisma.stravaActivity.findMany.mockResolvedValue([] as never);
 
     const result = await syncStravaActivities("user_1");
 
     expect(result.created).toBe(1);
     expect(result.updated).toBe(0);
     expect(result.total).toBe(1);
-    expect(mockedPrisma.stravaActivity.create).toHaveBeenCalledOnce();
+    expect(mockedPrisma.stravaActivity.createMany).toHaveBeenCalledOnce();
+    expect(mockedPrisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("updates existing activities", async () => {
+  it("batch updates existing activities via $transaction", async () => {
     const connection = buildStravaConnection({ lastSyncAt: null });
     mockedPrisma.stravaConnection.findUnique.mockResolvedValue(connection as never);
     mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
 
-    const rawActivity = { id: 222, name: "Updated Run" };
-    mockedFetchActivities.mockResolvedValue([rawActivity] as never);
-    mockedParseActivity.mockReturnValue({
-      stravaActivityId: "222",
-      name: "Updated Run",
-      sportType: "Run",
-      dateLocal: "2026-02-14",
-      timeLocal: "08:00",
-      distanceMeters: 6000,
-      movingTimeSecs: 2100,
-      startLat: null,
-      startLng: null,
-      timezone: null,
-    });
+    mockedFetchActivities.mockResolvedValue([{ id: 222, name: "Updated" }] as never);
+    mockedParseActivity.mockReturnValue(makeParsed("222", "Updated"));
 
     // Activity already exists
-    mockedPrisma.stravaActivity.findUnique.mockResolvedValue({ id: "sa_existing" } as never);
+    mockedPrisma.stravaActivity.findMany.mockResolvedValue([
+      { stravaActivityId: "222" },
+    ] as never);
 
     const result = await syncStravaActivities("user_1");
 
     expect(result.created).toBe(0);
     expect(result.updated).toBe(1);
     expect(result.total).toBe(1);
-    expect(mockedPrisma.stravaActivity.update).toHaveBeenCalled();
+    expect(mockedPrisma.$transaction).toHaveBeenCalledOnce();
+    expect(mockedPrisma.stravaActivity.createMany).not.toHaveBeenCalled();
   });
 
   it("updates lastSyncAt after successful sync", async () => {
@@ -148,6 +145,7 @@ describe("syncStravaActivities", () => {
     mockedPrisma.stravaConnection.findUnique.mockResolvedValue(connection as never);
     mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
     mockedFetchActivities.mockResolvedValue([]);
+    mockedPrisma.stravaActivity.findMany.mockResolvedValue([] as never);
 
     await syncStravaActivities("user_1");
 
@@ -191,40 +189,20 @@ describe("syncStravaActivities", () => {
     ] as never);
 
     mockedParseActivity
-      .mockReturnValueOnce({
-        stravaActivityId: "1",
-        name: "New",
-        sportType: "Run",
-        dateLocal: "2026-02-14",
-        timeLocal: null,
-        distanceMeters: 5000,
-        movingTimeSecs: 1800,
-        startLat: null,
-        startLng: null,
-        timezone: null,
-      })
-      .mockReturnValueOnce({
-        stravaActivityId: "2",
-        name: "Existing",
-        sportType: "Run",
-        dateLocal: "2026-02-15",
-        timeLocal: null,
-        distanceMeters: 3000,
-        movingTimeSecs: 1200,
-        startLat: null,
-        startLng: null,
-        timezone: null,
-      });
+      .mockReturnValueOnce(makeParsed("1", "New"))
+      .mockReturnValueOnce(makeParsed("2", "Existing"));
 
-    // First not found, second found
-    mockedPrisma.stravaActivity.findUnique
-      .mockResolvedValueOnce(null as never)
-      .mockResolvedValueOnce({ id: "existing" } as never);
+    // Only activity "2" exists
+    mockedPrisma.stravaActivity.findMany.mockResolvedValue([
+      { stravaActivityId: "2" },
+    ] as never);
 
     const result = await syncStravaActivities("user_1");
 
     expect(result.created).toBe(1);
     expect(result.updated).toBe(1);
     expect(result.total).toBe(2);
+    expect(mockedPrisma.stravaActivity.createMany).toHaveBeenCalledOnce();
+    expect(mockedPrisma.$transaction).toHaveBeenCalledOnce();
   });
 });
