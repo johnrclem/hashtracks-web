@@ -8,6 +8,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getOrCreateUser } from "@/lib/auth";
+import { clerkAppearance } from "@/lib/clerk-appearance";
 import { TimePreferenceProvider } from "@/components/providers/time-preference-provider";
 import { UnitsPreferenceProvider } from "@/components/providers/units-preference-provider";
 import "./globals.css";
@@ -36,7 +37,7 @@ export default async function RootLayout({
   const timeDisplayPref = user?.timeDisplayPref ?? "EVENT_LOCAL";
 
   return (
-    <ClerkProvider>
+    <ClerkProvider appearance={clerkAppearance}>
       <html lang="en">
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
