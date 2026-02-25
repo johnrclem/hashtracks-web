@@ -256,6 +256,140 @@ export async function attachStravaActivity(
   return { success: true };
 }
 
+// ── Nudge: Unmatched Activities ──
+
+export interface UnmatchedStravaMatch {
+  stravaActivityDbId: string;
+  attendanceId: string;
+  kennelShortName: string;
+  eventDate: string;
+  activityName: string;
+  distanceMeters: number;
+}
+
+/**
+ * Find confirmed attendances (last 90 days, no stravaUrl) that have
+ * matching StravaActivities (by date ±1 day, unmatched, not dismissed).
+ */
+export async function getUnmatchedStravaActivities(): Promise<
+  ActionResult<{ matches: UnmatchedStravaMatch[] }>
+> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const connection = await prisma.stravaConnection.findUnique({
+    where: { userId: user.id },
+    select: { id: true },
+  });
+  if (!connection) return { success: true, matches: [] };
+
+  // Get confirmed attendances from last 90 days without a stravaUrl
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 90);
+
+  const attendances = await prisma.attendance.findMany({
+    where: {
+      userId: user.id,
+      status: "CONFIRMED",
+      stravaUrl: null,
+      event: { date: { gte: cutoff } },
+    },
+    include: {
+      event: {
+        select: {
+          id: true,
+          date: true,
+          kennel: { select: { shortName: true } },
+        },
+      },
+    },
+    orderBy: { event: { date: "desc" } },
+    take: 50,
+  });
+
+  if (attendances.length === 0) return { success: true, matches: [] };
+
+  // Get all unmatched, non-dismissed Strava activities
+  const activities = await prisma.stravaActivity.findMany({
+    where: {
+      stravaConnectionId: connection.id,
+      matchedAttendanceId: null,
+      matchDismissed: false,
+    },
+    select: {
+      id: true,
+      name: true,
+      dateLocal: true,
+      distanceMeters: true,
+    },
+  });
+
+  if (activities.length === 0) return { success: true, matches: [] };
+
+  // Build a map of activity dates for quick lookup (activity date → activities)
+  const activityByDate = new Map<string, typeof activities>();
+  for (const a of activities) {
+    const existing = activityByDate.get(a.dateLocal) ?? [];
+    existing.push(a);
+    activityByDate.set(a.dateLocal, existing);
+  }
+
+  // Match attendances to activities by date ±1 day
+  const matches: UnmatchedStravaMatch[] = [];
+
+  for (const att of attendances) {
+    const eventDate = att.event.date;
+    const eventDateStr = eventDate.toISOString().substring(0, 10);
+    const dayBefore = new Date(eventDate.getTime() - 24 * 60 * 60 * 1000)
+      .toISOString()
+      .substring(0, 10);
+    const dayAfter = new Date(eventDate.getTime() + 24 * 60 * 60 * 1000)
+      .toISOString()
+      .substring(0, 10);
+
+    for (const dateKey of [dayBefore, eventDateStr, dayAfter]) {
+      const candidates = activityByDate.get(dateKey);
+      if (!candidates) continue;
+      for (const activity of candidates) {
+        matches.push({
+          stravaActivityDbId: activity.id,
+          attendanceId: att.id,
+          kennelShortName: att.event.kennel.shortName,
+          eventDate: eventDateStr,
+          activityName: activity.name,
+          distanceMeters: activity.distanceMeters,
+        });
+      }
+    }
+  }
+
+  return { success: true, matches };
+}
+
+/** Dismiss a Strava activity match suggestion (sets matchDismissed flag). */
+export async function dismissStravaMatch(
+  stravaActivityDbId: string,
+): Promise<ActionResult> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  // Validate user owns the activity via connection
+  const activity = await prisma.stravaActivity.findUnique({
+    where: { id: stravaActivityDbId },
+    include: { connection: { select: { userId: true } } },
+  });
+  if (!activity) return { error: "Activity not found" };
+  if (activity.connection.userId !== user.id) return { error: "Not authorized" };
+
+  await prisma.stravaActivity.update({
+    where: { id: stravaActivityDbId },
+    data: { matchDismissed: true },
+  });
+
+  revalidatePath("/logbook");
+  return { success: true };
+}
+
 /** Detach a Strava activity from an attendance record. */
 export async function detachStravaActivity(
   attendanceId: string,

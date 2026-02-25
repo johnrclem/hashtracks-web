@@ -39,7 +39,13 @@ function PastEventButton({
 }>) {
   const [isPending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
+  // After a fresh check-in, we construct AttendanceData from known defaults
+  // so EditAttendanceDialog can open immediately without waiting for page refresh.
+  const [postCheckInAttendance, setPostCheckInAttendance] = useState<AttendanceData | null>(null);
   const router = useRouter();
+
+  // The attendance data to show in the dialog: real data takes priority, then post-check-in
+  const dialogAttendance = attendance ?? postCheckInAttendance;
 
   if (attendance?.status === "INTENDING") {
     const attendanceId = attendance.id;
@@ -77,20 +83,49 @@ function PastEventButton({
   }
 
   return (
-    <Button
-      size="sm"
-      onClick={() => {
-        startTransition(async () => {
-          const result = await checkIn(eventId);
-          if (result.success) toast.success("Checked in!");
-          else toast.error(result.error);
-          router.refresh();
-        });
-      }}
-      disabled={isPending}
-    >
-      {isPending ? "..." : "I Was There"}
-    </Button>
+    <>
+      <Button
+        size="sm"
+        onClick={() => {
+          startTransition(async () => {
+            const result = await checkIn(eventId);
+            if (result.success) {
+              toast.success("Checked in!");
+              // Auto-open edit dialog so user can attach Strava / add notes
+              setPostCheckInAttendance({
+                id: result.attendanceId,
+                participationLevel: "RUN",
+                status: "CONFIRMED",
+                stravaUrl: null,
+                notes: null,
+              });
+              setEditOpen(true);
+            } else {
+              toast.error(result.error);
+            }
+            router.refresh();
+          });
+        }}
+        disabled={isPending}
+      >
+        {isPending ? "..." : "I Was There"}
+      </Button>
+      {dialogAttendance && (
+        <EditAttendanceDialog
+          open={editOpen}
+          onOpenChange={(open) => {
+            setEditOpen(open);
+            if (!open) {
+              setPostCheckInAttendance(null);
+              router.refresh();
+            }
+          }}
+          attendance={dialogAttendance}
+          eventDate={eventDate}
+          stravaConnected={stravaConnected}
+        />
+      )}
+    </>
   );
 }
 
