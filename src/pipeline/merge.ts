@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
-import { regionTimezone } from "@/lib/format";
+import { regionTimezone, getLabelForUrl } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
@@ -284,7 +284,7 @@ async function upsertCanonicalEvent(
     if (event.sourceUrl && existingEvent.sourceUrl && event.sourceUrl !== existingEvent.sourceUrl) {
       await prisma.eventLink.upsert({
         where: { eventId_url: { eventId: existingEvent.id, url: event.sourceUrl } },
-        create: { eventId: existingEvent.id, url: event.sourceUrl, label: "Source", sourceId: ctx.sourceId },
+        create: { eventId: existingEvent.id, url: event.sourceUrl, label: getLabelForUrl(event.sourceUrl), sourceId: ctx.sourceId },
         update: {},
       });
     }
