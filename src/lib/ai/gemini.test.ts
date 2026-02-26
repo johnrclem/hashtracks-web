@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { callGemini } from "./gemini";
+import { callGemini, clearGeminiCache } from "./gemini";
 
 const originalFetch = globalThis.fetch;
 
 beforeEach(() => {
   vi.stubEnv("GEMINI_API_KEY", "test-key");
+  clearGeminiCache();
 });
 
 afterEach(() => {
@@ -66,14 +67,24 @@ describe("callGemini", () => {
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
   });
 
-  it("returns error on HTTP failure", async () => {
+  it("returns friendly error on 429 rate limit", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response("Rate limited", { status: 429 }),
     );
 
-    const result = await callGemini({ prompt: "test" });
+    const result = await callGemini({ prompt: "test-429" });
     expect(result.text).toBeNull();
-    expect(result.error).toContain("Gemini API 429");
+    expect(result.error).toBe("Rate limit exceeded — try again in a few minutes");
+  });
+
+  it("returns error on other HTTP failures", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response("Internal Server Error", { status: 500 }),
+    );
+
+    const result = await callGemini({ prompt: "test-500" });
+    expect(result.text).toBeNull();
+    expect(result.error).toContain("Gemini API 500");
   });
 
   it("returns error on network failure", async () => {
