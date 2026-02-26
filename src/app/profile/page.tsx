@@ -11,6 +11,11 @@ import { Separator } from "@/components/ui/separator";
 import { getMyKennelLinks } from "./actions";
 import { getStravaConnection } from "@/app/strava/actions";
 
+/**
+ * Profile page — displays the user's hash identity, Strava connection,
+ * kennel connections, and subscribed kennels. Redirects to sign-in if
+ * the user is unauthenticated.
+ */
 export default async function ProfilePage() {
   const user = await getOrCreateUser();
   if (!user) redirect("/sign-in");
