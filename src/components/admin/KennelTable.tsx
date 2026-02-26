@@ -31,7 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { KennelForm } from "./KennelForm";
+import { KennelForm, type RegionOption } from "./KennelForm";
 import { toast } from "sonner";
 
 type Kennel = {
@@ -39,6 +39,7 @@ type Kennel = {
   shortName: string;
   fullName: string;
   region: string;
+  regionId: string | null;
   country: string;
   description: string | null;
   website: string | null;
@@ -66,13 +67,14 @@ type Kennel = {
 
 interface KennelTableProps {
   kennels: Kennel[];
+  regions: RegionOption[];
 }
 
-export function KennelTable({ kennels }: KennelTableProps) {
+export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
   const [search, setSearch] = useState("");
   const [regionFilter, setRegionFilter] = useState("all");
 
-  const regions = useMemo(() => {
+  const regionNames = useMemo(() => {
     const set = new Set(kennels.map((k) => k.region));
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [kennels]);
@@ -113,7 +115,7 @@ export function KennelTable({ kennels }: KennelTableProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All regions</SelectItem>
-            {regions.map((r) => (
+            {regionNames.map((r) => (
               <SelectItem key={r} value={r}>{r}</SelectItem>
             ))}
           </SelectContent>
@@ -145,7 +147,7 @@ export function KennelTable({ kennels }: KennelTableProps) {
               </TableRow>
             ) : (
               filtered.map((kennel) => (
-                <KennelRow key={kennel.id} kennel={kennel} />
+                <KennelRow key={kennel.id} kennel={kennel} regions={regions} />
               ))
             )}
           </TableBody>
@@ -155,7 +157,7 @@ export function KennelTable({ kennels }: KennelTableProps) {
   );
 }
 
-function KennelRow({ kennel }: { kennel: Kennel }) {
+function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[] }) {
   const [isPending, startTransition] = useTransition();
   const [showDelete, setShowDelete] = useState(false);
   const router = useRouter();
@@ -185,6 +187,7 @@ function KennelRow({ kennel }: { kennel: Kennel }) {
         <div className="flex justify-end gap-2">
           <KennelForm
             kennel={kennel}
+            regions={regions}
             trigger={<Button size="sm" variant="outline">Edit</Button>}
           />
           <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
