@@ -25,7 +25,7 @@ export async function generateMetadata({
   });
   return { title: `${dateStr} · ${event.kennel.shortName} · HashTracks` };
 }
-import { getOrCreateUser } from "@/lib/auth";
+import { getOrCreateUser, getMismanUser } from "@/lib/auth";
 import { getStravaConnection } from "@/app/strava/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,20 +91,15 @@ export default async function EventDetailPage({
     }
   }
 
-  const [confirmedCount, goingCount, stravaResult, mismanMembership] = await Promise.all([
+  const [confirmedCount, goingCount, stravaResult, mismanUser] = await Promise.all([
     prisma.attendance.count({ where: { eventId, status: "CONFIRMED" } }),
     prisma.attendance.count({ where: { eventId, status: "INTENDING" } }),
     user ? getStravaConnection() : Promise.resolve(null),
-    user
-      ? prisma.userKennel.findUnique({
-          where: { userId_kennelId: { userId: user.id, kennelId: event.kennelId } },
-          select: { role: true },
-        })
-      : Promise.resolve(null),
+    user ? getMismanUser(event.kennelId) : Promise.resolve(null),
   ]);
 
   const stravaConnected = stravaResult?.success ? stravaResult.connected : false;
-  const isMisman = mismanMembership?.role === "MISMAN" || mismanMembership?.role === "ADMIN";
+  const isMisman = !!mismanUser;
 
   // Fetch weather forecast for upcoming events (0–10 days out).
   // Compare at the calendar-day level (midnight UTC) to avoid off-by-one from UTC noon storage.
