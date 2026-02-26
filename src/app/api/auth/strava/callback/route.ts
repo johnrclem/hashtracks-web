@@ -13,12 +13,19 @@ const STATE_COOKIE = "strava_oauth_state";
 /**
  * GET /api/auth/strava/callback — Strava OAuth callback handler.
  *
- * 1. Validate CSRF state parameter against cookie
- * 2. Handle user denial (error=access_denied)
+ * @remarks
+ * This route uses `NextResponse.redirect()` instead of the standard
+ * `{ data, error?, meta? }` JSON envelope because it is an OAuth callback:
+ * the browser navigates here directly from Strava's authorization page, so
+ * the response must redirect the user back to the app UI. Returning JSON
+ * would leave the user stranded on a raw JSON page.
+ *
+ * 1. Handle user denial (error=access_denied)
+ * 2. Validate CSRF state parameter against cookie
  * 3. Exchange authorization code for tokens
  * 4. Check for duplicate athlete (one Strava account per HashTracks user)
  * 5. Upsert StravaConnection
- * 6. Redirect to profile page
+ * 6. Redirect to profile page with status query param
  */
 export async function GET(request: NextRequest) {
   const appUrl = getAppUrl();
