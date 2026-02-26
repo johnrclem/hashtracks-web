@@ -91,13 +91,20 @@ export default async function EventDetailPage({
     }
   }
 
-  const [confirmedCount, goingCount, stravaResult] = await Promise.all([
+  const [confirmedCount, goingCount, stravaResult, mismanMembership] = await Promise.all([
     prisma.attendance.count({ where: { eventId, status: "CONFIRMED" } }),
     prisma.attendance.count({ where: { eventId, status: "INTENDING" } }),
     user ? getStravaConnection() : Promise.resolve(null),
+    user
+      ? prisma.userKennel.findUnique({
+          where: { userId_kennelId: { userId: user.id, kennelId: event.kennelId } },
+          select: { role: true },
+        })
+      : Promise.resolve(null),
   ]);
 
   const stravaConnected = stravaResult?.success ? stravaResult.connected : false;
+  const isMisman = mismanMembership?.role === "MISMAN" || mismanMembership?.role === "ADMIN";
 
   // Fetch weather forecast for upcoming events (0–10 days out).
   // Compare at the calendar-day level (midnight UTC) to avoid off-by-one from UTC noon storage.
@@ -280,6 +287,13 @@ export default async function EventDetailPage({
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
+        {isMisman && (
+          <Button size="sm" asChild>
+            <Link href={`/misman/${event.kennel.slug}/attendance/${event.id}`}>
+              Take Attendance
+            </Link>
+          </Button>
+        )}
         <CalendarExportButton event={{ ...event, date: event.date.toISOString(), kennel: event.kennel }} />
         <SourcesDropdown sourceUrl={event.sourceUrl} eventLinks={event.eventLinks} />
         <Tooltip>
