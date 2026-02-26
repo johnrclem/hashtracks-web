@@ -180,32 +180,25 @@ describe("displayDomain", () => {
 });
 
 describe("getLabelForUrl", () => {
-  it("returns 'Google Calendar' for calendar.google.com URLs", () => {
-    expect(getLabelForUrl("https://calendar.google.com/calendar/event?eid=abc123")).toBe("Google Calendar");
+  it.each([
+    ["https://calendar.google.com/calendar/event?eid=abc123", "Google Calendar"],
+    ["https://www.google.com/calendar/event?eid=abc123", "Google Calendar"],
+    ["https://www.facebook.com/profile.php?id=100063637060523", "Facebook"],
+    ["https://hashrego.com/events/bfmh3-agm-2026", "Hash Rego"],
+    ["https://www.meetup.com/some-hash/events/123", "Meetup"],
+    ["https://docs.google.com/spreadsheets/d/abc/edit", "Google Sheets"],
+    ["https://somehash.blogspot.com/2026/03/run-42.html", "Blogspot"],
+    ["https://hangoverhash.digitalpress.blog/214/", "DigitalPress"],
+  ])("derives label for %s → %s", (url, expected) => {
+    expect(getLabelForUrl(url)).toBe(expected);
   });
-  it("returns 'Google Calendar' for google.com/calendar URLs", () => {
-    expect(getLabelForUrl("https://www.google.com/calendar/event?eid=abc123")).toBe("Google Calendar");
-  });
+
   it("does not treat google.com non-calendar paths as Google Calendar", () => {
     expect(getLabelForUrl("https://www.google.com/search?q=hash")).toBe("google.com");
   });
-  it("returns 'Facebook' for facebook.com URLs", () => {
-    expect(getLabelForUrl("https://www.facebook.com/profile.php?id=100063637060523")).toBe("Facebook");
-  });
-  it("returns 'Hash Rego' for hashrego.com URLs", () => {
-    expect(getLabelForUrl("https://hashrego.com/events/bfmh3-agm-2026")).toBe("Hash Rego");
-  });
-  it("returns 'Meetup' for meetup.com URLs", () => {
-    expect(getLabelForUrl("https://www.meetup.com/some-hash/events/123")).toBe("Meetup");
-  });
-  it("returns 'Google Sheets' for docs.google.com URLs", () => {
-    expect(getLabelForUrl("https://docs.google.com/spreadsheets/d/abc/edit")).toBe("Google Sheets");
-  });
-  it("returns 'Blogspot' for blogspot.com URLs", () => {
-    expect(getLabelForUrl("https://somehash.blogspot.com/2026/03/run-42.html")).toBe("Blogspot");
-  });
-  it("returns 'DigitalPress' for digitalpress.blog URLs", () => {
-    expect(getLabelForUrl("https://hangoverhash.digitalpress.blog/214/")).toBe("DigitalPress");
+  it("rejects spoofed subdomains", () => {
+    expect(getLabelForUrl("https://facebook.com.evil.com/phish")).toBe("facebook.com.evil.com");
+    expect(getLabelForUrl("https://calendar.google.com.attacker.com/")).toBe("calendar.google.com.attacker.com");
   });
   it("falls back to bare hostname for unknown domains", () => {
     expect(getLabelForUrl("https://hashnyc.com/events")).toBe("hashnyc.com");
