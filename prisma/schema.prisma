@@ -59,6 +59,35 @@ enum UserKennelRole {
   MISMAN // Can manage roster + attendance for this kennel
 }
 
+// ── REGIONS ──
+
+model Region {
+  id            String    @id @default(cuid())
+  name          String    @unique    // "New York City, NY", "London"
+  slug          String    @unique    // "new-york-city-ny", "london"
+  country       String    @default("USA")
+  timezone      String               // IANA: "America/New_York", "Europe/London"
+  abbrev        String               // "NYC", "LDN"
+  colorClasses  String               // Tailwind: "bg-blue-200 text-blue-800"
+  pinColor      String               // Hex: "#2563eb"
+  centroidLat   Float?               // Region center latitude
+  centroidLng   Float?               // Region center longitude
+
+  // Hierarchy (optional, max 2 levels)
+  parentId      String?
+  parent        Region?   @relation("RegionHierarchy", fields: [parentId], references: [id])
+  children      Region[]  @relation("RegionHierarchy")
+
+  // Relations
+  kennels       Kennel[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([parentId])
+  @@index([country])
+}
+
 // ── KENNELS ──
 
 model Kennel {
@@ -67,7 +96,9 @@ model Kennel {
   shortName   String         // Display name (unique within region, not globally)
   slug        String         @unique // URL-safe: "nych3", "bos-moon"
   fullName    String         // "New York City Hash House Harriers"
-  region      String         // "New York City, NY"
+  region      String         // "New York City, NY" — denormalized from Region.name
+  regionId    String?        // FK to Region (optional during migration, will become required)
+  regionRef   Region?        @relation(fields: [regionId], references: [id])
   country     String         @default("USA")
   description String?
   website     String?

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Check, ChevronsUpDown, ChevronDown, ChevronRight } from "lucide-react";
 import { createKennel, updateKennel } from "@/app/admin/kennels/actions";
 import {
   Dialog,
@@ -11,18 +11,40 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+export type RegionOption = {
+  id: string;
+  name: string;
+  country: string;
+  abbrev: string;
+};
 
 type KennelData = {
   id: string;
   shortName: string;
   fullName: string;
   region: string;
+  regionId: string | null;
   country: string;
   description: string | null;
   website: string | null;
@@ -49,6 +71,7 @@ type KennelData = {
 
 interface KennelFormProps {
   kennel?: KennelData;
+  regions: RegionOption[];
   trigger: React.ReactNode;
 }
 
@@ -133,14 +156,18 @@ function TriStateRadio({
   );
 }
 
-export function KennelForm({ kennel, trigger }: KennelFormProps) {
+export function KennelForm({ kennel, regions, trigger }: KennelFormProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [aliases, setAliases] = useState<string[]>(kennel?.aliases ?? []);
   const [aliasInput, setAliasInput] = useState("");
   const [similarKennels, setSimilarKennels] = useState<SimilarKennel[]>([]);
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
+  const [selectedRegionId, setSelectedRegionId] = useState<string>(kennel?.regionId ?? "");
+  const [regionPopoverOpen, setRegionPopoverOpen] = useState(false);
   const router = useRouter();
+
+  const selectedRegion = regions.find((r) => r.id === selectedRegionId);
 
   function addAlias() {
     const trimmed = aliasInput.trim();
@@ -287,14 +314,63 @@ export function KennelForm({ kennel, trigger }: KennelFormProps) {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="region">Region *</Label>
-              <Input
-                id="region"
-                name="region"
-                required
-                defaultValue={kennel?.region ?? ""}
-                placeholder="New York City, NY"
-              />
+              <Label>Region *</Label>
+              <input type="hidden" name="regionId" value={selectedRegionId} />
+              <input type="hidden" name="region" value={selectedRegion?.name ?? ""} />
+              <Popover open={regionPopoverOpen} onOpenChange={setRegionPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={regionPopoverOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {selectedRegion
+                      ? `${selectedRegion.name} (${selectedRegion.abbrev})`
+                      : "Select region..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search regions..." />
+                    <CommandList>
+                      <CommandEmpty>No region found.</CommandEmpty>
+                      {/* Group by country */}
+                      {Object.entries(
+                        regions.reduce<Record<string, RegionOption[]>>((acc, r) => {
+                          (acc[r.country] ??= []).push(r);
+                          return acc;
+                        }, {}),
+                      ).map(([country, countryRegions]) => (
+                        <CommandGroup key={country} heading={country}>
+                          {countryRegions.map((r) => (
+                            <CommandItem
+                              key={r.id}
+                              value={`${r.name} ${r.abbrev}`}
+                              onSelect={() => {
+                                setSelectedRegionId(r.id);
+                                setRegionPopoverOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedRegionId === r.id ? "opacity-100" : "opacity-0",
+                                )}
+                              />
+                              {r.name}
+                              <span className="ml-auto text-xs text-muted-foreground">
+                                {r.abbrev}
+                              </span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      ))}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label htmlFor="country">Country</Label>

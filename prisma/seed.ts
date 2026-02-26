@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { REGION_SEED_DATA, regionSlug } from "../src/lib/region";
 
 function toSlug(shortName: string): string {
   return shortName
@@ -17,7 +18,49 @@ const PROFILE_FIELDS = new Set([
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function upsertKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: string) => string) {
+async function upsertRegionRecords(prisma: any) {
+  console.log("Seeding regions...");
+  const regionMap = new Map<string, string>(); // name → id
+  for (const r of REGION_SEED_DATA) {
+    const slug = regionSlug(r.name);
+    const record = await prisma.region.upsert({
+      where: { name: r.name },
+      update: {
+        slug,
+        country: r.country,
+        timezone: r.timezone,
+        abbrev: r.abbrev,
+        colorClasses: r.colorClasses,
+        pinColor: r.pinColor,
+        centroidLat: r.centroidLat,
+        centroidLng: r.centroidLng,
+      },
+      create: {
+        name: r.name,
+        slug,
+        country: r.country,
+        timezone: r.timezone,
+        abbrev: r.abbrev,
+        colorClasses: r.colorClasses,
+        pinColor: r.pinColor,
+        centroidLat: r.centroidLat,
+        centroidLng: r.centroidLng,
+      },
+    });
+    regionMap.set(r.name, record.id);
+    // Also map aliases to the canonical region id
+    if (r.aliases) {
+      for (const alias of r.aliases) {
+        regionMap.set(alias, record.id);
+      }
+    }
+  }
+  console.log(`  ✓ ${REGION_SEED_DATA.length} regions upserted`);
+  return regionMap;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function upsertKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: string) => string, regionMap: Map<string, string>) {
   console.log("Seeding kennels...");
   const kennelRecords = new Map<string, { id: string }>();
   for (const kennel of kennels) {
@@ -25,10 +68,14 @@ async function upsertKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
     const profileFields = Object.fromEntries(
       Object.entries(kennel).filter(([k, v]) => PROFILE_FIELDS.has(k) && v !== undefined)
     );
+    const regionId = regionMap.get(kennel.region) ?? null;
+    if (!regionId) {
+      console.warn(`  ⚠ No region found for "${kennel.region}" (kennel: ${kennel.shortName})`);
+    }
     const record = await prisma.kennel.upsert({
       where: { kennelCode: kennel.kennelCode },
-      update: { shortName: kennel.shortName, fullName: kennel.fullName, region: kennel.region, ...(kennel.country != null && { country: kennel.country }), slug, ...profileFields },
-      create: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, country: kennel.country ?? "USA", ...profileFields },
+      update: { shortName: kennel.shortName, fullName: kennel.fullName, region: kennel.region, regionId, ...(kennel.country != null && { country: kennel.country }), slug, ...profileFields },
+      create: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, regionId, country: kennel.country ?? "USA", ...profileFields },
     });
     kennelRecords.set(kennel.kennelCode, record);
   }
@@ -162,7 +209,8 @@ async function ensureAllKennelsHaveGroup(prisma: any, kennelRecords: Map<string,
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function seedKennels(prisma: any, kennels: any[], kennelAliases: Record<string, string[]>, sources: any[], toSlugFn: (s: string) => string) {
-  const kennelRecords = await upsertKennelRecords(prisma, kennels, toSlugFn);
+  const regionMap = await upsertRegionRecords(prisma);
+  const kennelRecords = await upsertKennelRecords(prisma, kennels, toSlugFn, regionMap);
   await upsertAliases(prisma, kennelAliases, kennelRecords);
   await upsertSources(prisma, sources, kennelRecords);
 
