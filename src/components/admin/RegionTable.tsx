@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import {
   Table,
   TableBody,
@@ -91,28 +91,24 @@ export function RegionTable({ regions }: { regions: RegionRow[] }) {
           {/* Country filter */}
           {countries.length > 1 && (
             <div className="flex gap-1">
-              <button
+              <Button
+                size="sm"
+                variant={!countryFilter ? "default" : "outline"}
+                className="h-7 text-xs"
                 onClick={() => setCountryFilter("")}
-                className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                  !countryFilter
-                    ? "bg-primary text-primary-foreground"
-                    : "border text-muted-foreground hover:text-foreground"
-                }`}
               >
                 All
-              </button>
+              </Button>
               {countries.map((c) => (
-                <button
+                <Button
                   key={c}
+                  size="sm"
+                  variant={countryFilter === c ? "default" : "outline"}
+                  className="h-7 text-xs"
                   onClick={() => setCountryFilter(countryFilter === c ? "" : c)}
-                  className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                    countryFilter === c
-                      ? "bg-primary text-primary-foreground"
-                      : "border text-muted-foreground hover:text-foreground"
-                  }`}
                 >
                   {c}
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -141,9 +137,8 @@ export function RegionTable({ regions }: { regions: RegionRow[] }) {
           </TableHeader>
           <TableBody>
             {filtered.map((region) => (
-              <>
+              <Fragment key={region.id}>
                 <TableRow
-                  key={region.id}
                   className="cursor-pointer"
                   onClick={() =>
                     setExpandedId(expandedId === region.id ? null : region.id)
@@ -208,7 +203,7 @@ export function RegionTable({ regions }: { regions: RegionRow[] }) {
                 </TableRow>
 
                 {expandedId === region.id && (
-                  <TableRow key={`${region.id}-detail`}>
+                  <TableRow>
                     <TableCell colSpan={7} className="bg-muted/50 px-8 py-3">
                       {region.kennels.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
@@ -231,7 +226,7 @@ export function RegionTable({ regions }: { regions: RegionRow[] }) {
                     </TableCell>
                   </TableRow>
                 )}
-              </>
+              </Fragment>
             ))}
 
             {filtered.length === 0 && (

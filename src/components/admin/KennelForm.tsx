@@ -203,6 +203,10 @@ export function KennelForm({ kennel, regions, trigger }: KennelFormProps) {
   }
 
   function handleSubmit(formData: FormData, force = false) {
+    if (!selectedRegionId) {
+      toast.error("Please select a region");
+      return;
+    }
     formData.set("aliases", aliases.join(","));
 
     startTransition(async () => {

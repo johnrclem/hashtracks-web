@@ -141,6 +141,7 @@ model Kennel {
   updatedAt   DateTime       @updatedAt
 
   @@unique([shortName, region])
+  @@index([regionId])
 }
 
 model KennelAlias {

@@ -23,29 +23,20 @@ async function upsertRegionRecords(prisma: any) {
   const regionMap = new Map<string, string>(); // name → id
   for (const r of REGION_SEED_DATA) {
     const slug = regionSlug(r.name);
+    const data = {
+      slug,
+      country: r.country,
+      timezone: r.timezone,
+      abbrev: r.abbrev,
+      colorClasses: r.colorClasses,
+      pinColor: r.pinColor,
+      centroidLat: r.centroidLat,
+      centroidLng: r.centroidLng,
+    };
     const record = await prisma.region.upsert({
       where: { name: r.name },
-      update: {
-        slug,
-        country: r.country,
-        timezone: r.timezone,
-        abbrev: r.abbrev,
-        colorClasses: r.colorClasses,
-        pinColor: r.pinColor,
-        centroidLat: r.centroidLat,
-        centroidLng: r.centroidLng,
-      },
-      create: {
-        name: r.name,
-        slug,
-        country: r.country,
-        timezone: r.timezone,
-        abbrev: r.abbrev,
-        colorClasses: r.colorClasses,
-        pinColor: r.pinColor,
-        centroidLat: r.centroidLat,
-        centroidLng: r.centroidLng,
-      },
+      update: data,
+      create: { name: r.name, ...data },
     });
     regionMap.set(r.name, record.id);
     // Also map aliases to the canonical region id

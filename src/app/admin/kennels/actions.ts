@@ -56,6 +56,15 @@ function toSlug(shortName: string): string {
     .replace(/^-|-$/g, "");
 }
 
+/** Resolve region name from regionId, falling back to the raw form value. */
+async function resolveRegionName(regionId: string | null, formRegion: string): Promise<string> {
+  if (regionId) {
+    const record = await prisma.region.findUnique({ where: { id: regionId }, select: { name: true } });
+    if (record) return record.name;
+  }
+  return formRegion;
+}
+
 /** Generate a permanent kennelCode from a shortName. Lowercase, alphanumeric + hyphens only. */
 function toKennelCode(shortName: string): string {
   return shortName
@@ -117,13 +126,8 @@ export async function createKennel(formData: FormData, force: boolean = false) {
   const aliasesRaw = (formData.get("aliases") as string)?.trim() || "";
 
   // Resolve region name from regionId (dual-write: regionId FK + denormalized region string)
-  let region = (formData.get("region") as string)?.trim() || "";
-  if (regionId) {
-    const regionRecord = await prisma.region.findUnique({ where: { id: regionId }, select: { name: true } });
-    if (regionRecord) {
-      region = regionRecord.name;
-    }
-  }
+  const formRegion = (formData.get("region") as string)?.trim() || "";
+  const region = await resolveRegionName(regionId, formRegion);
 
   if (!shortName || !fullName || !region) {
     return { error: "Short name, full name, and region are required" };
@@ -177,7 +181,7 @@ export async function createKennel(formData: FormData, force: boolean = false) {
       slug,
       fullName,
       region,
-      regionId: regionId || undefined,
+      regionId: regionId === "" ? null : regionId ?? undefined,
       country,
       description,
       website,
@@ -206,13 +210,8 @@ export async function updateKennel(kennelId: string, formData: FormData) {
   const aliasesRaw = (formData.get("aliases") as string)?.trim() || "";
 
   // Resolve region name from regionId (dual-write: regionId FK + denormalized region string)
-  let region = (formData.get("region") as string)?.trim() || "";
-  if (regionId) {
-    const regionRecord = await prisma.region.findUnique({ where: { id: regionId }, select: { name: true } });
-    if (regionRecord) {
-      region = regionRecord.name;
-    }
-  }
+  const formRegion = (formData.get("region") as string)?.trim() || "";
+  const region = await resolveRegionName(regionId, formRegion);
 
   if (!shortName || !fullName || !region) {
     return { error: "Short name, full name, and region are required" };
@@ -267,7 +266,7 @@ export async function updateKennel(kennelId: string, formData: FormData) {
         slug,
         fullName,
         region,
-        regionId: regionId || undefined,
+        regionId: regionId === "" ? null : regionId ?? undefined,
         country,
         description,
         website,
