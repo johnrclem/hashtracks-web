@@ -49,7 +49,7 @@ interface KennelSettingsFormProps {
 function triStateValue(val: boolean | null): string {
   if (val === true) return "true";
   if (val === false) return "false";
-  return "";
+  return "unknown";
 }
 
 /** Kennel profile editing form for mismans. Edits 19 profile fields (no identity fields). */
@@ -285,7 +285,7 @@ export function KennelSettingsForm({ kennel, currentYear }: KennelSettingsFormPr
                 <SelectValue placeholder="Unknown" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Unknown</SelectItem>
+                <SelectItem value="unknown">Unknown</SelectItem>
                 <SelectItem value="true">Yes</SelectItem>
                 <SelectItem value="false">No</SelectItem>
               </SelectContent>
@@ -298,7 +298,7 @@ export function KennelSettingsForm({ kennel, currentYear }: KennelSettingsFormPr
                 <SelectValue placeholder="Unknown" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Unknown</SelectItem>
+                <SelectItem value="unknown">Unknown</SelectItem>
                 <SelectItem value="true">Yes</SelectItem>
                 <SelectItem value="false">No</SelectItem>
               </SelectContent>
