@@ -13,6 +13,7 @@ import {
   instagramUrl,
   twitterUrl,
   displayDomain,
+  getLabelForUrl,
 } from "./format";
 
 describe("formatTime", () => {
@@ -175,5 +176,47 @@ describe("displayDomain", () => {
   });
   it("returns raw string on invalid URL", () => {
     expect(displayDomain("not-a-url")).toBe("not-a-url");
+  });
+});
+
+describe("getLabelForUrl", () => {
+  it.each([
+    ["https://calendar.google.com/calendar/event?eid=abc123", "Google Calendar"],
+    ["https://www.google.com/calendar/event?eid=abc123", "Google Calendar"],
+    ["https://www.facebook.com/profile.php?id=100063637060523", "Facebook"],
+    ["https://hashrego.com/events/bfmh3-agm-2026", "Hash Rego"],
+    ["https://www.meetup.com/some-hash/events/123", "Meetup"],
+    ["https://docs.google.com/spreadsheets/d/abc/edit", "Google Sheets"],
+    ["https://somehash.blogspot.com/2026/03/run-42.html", "Blogspot"],
+    ["https://hangoverhash.digitalpress.blog/214/", "DigitalPress"],
+  ])("derives label for %s → %s", (url, expected) => {
+    expect(getLabelForUrl(url)).toBe(expected);
+  });
+
+  it("does not treat google.com non-calendar paths as Google Calendar", () => {
+    expect(getLabelForUrl("https://www.google.com/search?q=hash")).toBe("google.com");
+  });
+  it("rejects spoofed subdomains", () => {
+    expect(getLabelForUrl("https://facebook.com.evil.com/phish")).toBe("facebook.com.evil.com");
+    expect(getLabelForUrl("https://calendar.google.com.attacker.com/")).toBe("calendar.google.com.attacker.com");
+  });
+  it("falls back to bare hostname for unknown domains", () => {
+    expect(getLabelForUrl("https://hashnyc.com/events")).toBe("hashnyc.com");
+  });
+  it("strips www. from fallback hostname", () => {
+    expect(getLabelForUrl("https://www.ewh3.com/2026/02/trail-1506/")).toBe("ewh3.com");
+  });
+  it("returns 'Source' for unparseable URLs", () => {
+    expect(getLabelForUrl("not-a-url")).toBe("Source");
+  });
+  it("preserves existing descriptive label", () => {
+    expect(getLabelForUrl("https://hashrego.com/events/foo", "Hash Rego")).toBe("Hash Rego");
+  });
+  it("overrides generic 'Source' label with derived label", () => {
+    expect(getLabelForUrl("https://www.facebook.com/groups/h3", "Source")).toBe("Facebook");
+  });
+  it("derives label when existing label is null or undefined", () => {
+    expect(getLabelForUrl("https://meetup.com/hash/events/1", null)).toBe("Meetup");
+    expect(getLabelForUrl("https://meetup.com/hash/events/1", undefined)).toBe("Meetup");
   });
 });
