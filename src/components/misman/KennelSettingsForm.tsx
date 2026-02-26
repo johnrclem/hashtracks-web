@@ -46,10 +46,14 @@ interface KennelSettingsFormProps {
   currentYear: number;
 }
 
+/** Sentinel value for the null/unset state of tri-state boolean Selects. Non-empty to avoid Radix UI crash. */
+const TRI_STATE_UNKNOWN = "unknown";
+
+/** Map a nullable boolean to a string value for Radix Select. */
 function triStateValue(val: boolean | null): string {
   if (val === true) return "true";
   if (val === false) return "false";
-  return "unknown";
+  return TRI_STATE_UNKNOWN;
 }
 
 /** Kennel profile editing form for mismans. Edits 19 profile fields (no identity fields). */
@@ -285,7 +289,7 @@ export function KennelSettingsForm({ kennel, currentYear }: KennelSettingsFormPr
                 <SelectValue placeholder="Unknown" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unknown">Unknown</SelectItem>
+                <SelectItem value={TRI_STATE_UNKNOWN}>Unknown</SelectItem>
                 <SelectItem value="true">Yes</SelectItem>
                 <SelectItem value="false">No</SelectItem>
               </SelectContent>
@@ -298,7 +302,7 @@ export function KennelSettingsForm({ kennel, currentYear }: KennelSettingsFormPr
                 <SelectValue placeholder="Unknown" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unknown">Unknown</SelectItem>
+                <SelectItem value={TRI_STATE_UNKNOWN}>Unknown</SelectItem>
                 <SelectItem value="true">Yes</SelectItem>
                 <SelectItem value="false">No</SelectItem>
               </SelectContent>

@@ -5,6 +5,16 @@ import type {
   ParsedStravaActivity,
 } from "./types";
 
+// ── Errors ──
+
+/** Thrown when Strava returns 403 due to connected athlete limit. */
+export class StravaAthleteLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StravaAthleteLimitError";
+  }
+}
+
 // ── Configuration ──
 
 const STRAVA_AUTH_URL = "https://www.strava.com/oauth/authorize";
@@ -64,6 +74,11 @@ export async function exchangeStravaCode(
 
   if (!res.ok) {
     const text = await res.text();
+    if (res.status === 403) {
+      throw new StravaAthleteLimitError(
+        `Strava athlete limit exceeded (403): ${text}`,
+      );
+    }
     throw new Error(`Strava token exchange failed (${res.status}): ${text}`);
   }
 

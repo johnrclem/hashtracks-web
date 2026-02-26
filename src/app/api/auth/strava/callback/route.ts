@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { exchangeStravaCode, getAppUrl } from "@/lib/strava/client";
+import {
+  exchangeStravaCode,
+  getAppUrl,
+  StravaAthleteLimitError,
+} from "@/lib/strava/client";
 import type { Prisma } from "@/generated/prisma/client";
 
 const STATE_COOKIE = "strava_oauth_state";
@@ -99,8 +103,12 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (err) {
     console.error("Strava OAuth callback error:", err);
+    const reason =
+      err instanceof StravaAthleteLimitError
+        ? "athlete_limit"
+        : "token_exchange";
     const response = NextResponse.redirect(
-      new URL("/profile?strava=error&reason=token_exchange", appUrl),
+      new URL(`/profile?strava=error&reason=${reason}`, appUrl),
     );
     response.cookies.delete(STATE_COOKIE);
     return response;
