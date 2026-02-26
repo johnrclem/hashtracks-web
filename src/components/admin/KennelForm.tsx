@@ -67,6 +67,7 @@ type KennelData = {
   logoUrl: string | null;
   dogFriendly: boolean | null;
   walkersWelcome: boolean | null;
+  isHidden: boolean;
 };
 
 interface KennelFormProps {
@@ -165,6 +166,7 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const [selectedRegionId, setSelectedRegionId] = useState<string>(kennel?.regionId ?? "");
   const [regionPopoverOpen, setRegionPopoverOpen] = useState(false);
+  const [isHidden, setIsHidden] = useState(kennel?.isHidden ?? false);
   const router = useRouter();
 
   const selectedRegion = regions.find((r) => r.id === selectedRegionId);
@@ -408,6 +410,21 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
               defaultValue={kennel?.website ?? ""}
               placeholder="https://example.com"
             />
+          </div>
+
+          {/* Hidden from public */}
+          <div className="flex items-center gap-2">
+            <input type="hidden" name="isHidden" value={isHidden ? "true" : "false"} />
+            <input
+              type="checkbox"
+              id="isHidden"
+              checked={isHidden}
+              onChange={(e) => setIsHidden(e.target.checked)}
+              className="accent-primary"
+            />
+            <Label htmlFor="isHidden" className="cursor-pointer text-sm font-normal">
+              Hidden from public directory and hareline
+            </Label>
           </div>
 
           <div className="space-y-2">

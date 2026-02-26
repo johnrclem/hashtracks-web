@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { deleteKennel } from "@/app/admin/kennels/actions";
+import { deleteKennel, toggleKennelVisibility } from "@/app/admin/kennels/actions";
+import { MoreHorizontal, Eye, EyeOff } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -31,6 +32,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { KennelForm, type RegionOption } from "./KennelForm";
 import { toast } from "sonner";
 
@@ -63,6 +70,7 @@ type Kennel = {
   logoUrl: string | null;
   dogFriendly: boolean | null;
   walkersWelcome: boolean | null;
+  isHidden: boolean;
 };
 
 interface KennelTableProps {
@@ -175,9 +183,28 @@ function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[
     });
   }
 
+  function handleToggleVisibility() {
+    startTransition(async () => {
+      const result = await toggleKennelVisibility(kennel.id);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(result.isHidden ? "Kennel hidden" : "Kennel visible");
+      }
+      router.refresh();
+    });
+  }
+
   return (
-    <TableRow>
-      <TableCell className="font-medium sticky left-0 bg-background z-10">{kennel.shortName}</TableCell>
+    <TableRow className={kennel.isHidden ? "opacity-50" : undefined}>
+      <TableCell className="font-medium sticky left-0 bg-background z-10">
+        <span className="flex items-center gap-1.5">
+          {kennel.shortName}
+          {kennel.isHidden && (
+            <Badge variant="secondary" className="text-[10px] px-1 py-0">Hidden</Badge>
+          )}
+        </span>
+      </TableCell>
       <TableCell className="hidden sm:table-cell">{kennel.fullName}</TableCell>
       <TableCell>
         <Badge variant="outline">{kennel.region}</Badge>
@@ -190,16 +217,31 @@ function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[
             regions={regions}
             trigger={<Button size="sm" variant="outline">Edit</Button>}
           />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={isPending}>
+                <MoreHorizontal className="size-4" />
+                <span className="sr-only">More actions</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleToggleVisibility} disabled={isPending}>
+                {kennel.isHidden ? (
+                  <><Eye className="mr-2 size-4" /> Show Kennel</>
+                ) : (
+                  <><EyeOff className="mr-2 size-4" /> Hide Kennel</>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setShowDelete(true)}
+                disabled={isPending}
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-destructive hover:text-destructive"
-              disabled={isPending}
-              onClick={() => setShowDelete(true)}
-            >
-              {isPending ? "..." : "Delete"}
-            </Button>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Kennel?</AlertDialogTitle>

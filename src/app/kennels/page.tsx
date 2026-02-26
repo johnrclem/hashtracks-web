@@ -15,6 +15,7 @@ export default async function KennelsPage() {
 
   const [kennels, upcomingEvents] = await Promise.all([
     prisma.kennel.findMany({
+      where: { isHidden: false },
       orderBy: [{ region: "asc" }, { fullName: "asc" }],
       select: {
         id: true,
@@ -31,7 +32,7 @@ export default async function KennelsPage() {
       },
     }),
     prisma.event.findMany({
-      where: { date: { gte: todayUtc }, status: "CONFIRMED" },
+      where: { date: { gte: todayUtc }, status: "CONFIRMED", kennel: { isHidden: false } },
       orderBy: { date: "asc" },
       select: { kennelId: true, date: true, title: true },
     }),
