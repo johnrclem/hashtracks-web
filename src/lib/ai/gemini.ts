@@ -12,6 +12,32 @@ const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models
 /** Simple in-memory response cache (survives within a single server instance). */
 const responseCache = new Map<string, { response: GeminiResponse; expiresAt: number }>();
 const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const MAX_CACHE_ENTRIES = 100;
+
+/** Build a deterministic cache key from the full request parameters. */
+function buildCacheKey(request: GeminiRequest): string {
+  return JSON.stringify({
+    prompt: request.prompt,
+    temperature: request.temperature ?? 0.1,
+    maxOutputTokens: request.maxOutputTokens ?? 4096,
+  });
+}
+
+/** Evict expired entries and enforce max size (oldest-first). */
+function pruneCache(): void {
+  const now = Date.now();
+  for (const [key, entry] of responseCache) {
+    if (entry.expiresAt <= now) {
+      responseCache.delete(key);
+    }
+  }
+  // If still over limit, evict oldest entries (Map iterates in insertion order)
+  while (responseCache.size > MAX_CACHE_ENTRIES) {
+    const firstKey = responseCache.keys().next().value;
+    if (firstKey !== undefined) responseCache.delete(firstKey);
+    else break;
+  }
+}
 
 /** Clear the in-memory response cache. Exported for test isolation. */
 export function clearGeminiCache(): void {
@@ -49,12 +75,15 @@ export async function callGemini(request: GeminiRequest, cacheTtlMs = DEFAULT_CA
     return { text: null, error: "GEMINI_API_KEY not configured", durationMs: 0 };
   }
 
-  // Check cache (keyed on prompt text)
+  // Check cache (keyed on prompt + generation config)
+  const cacheKey = buildCacheKey(request);
   if (cacheTtlMs > 0) {
-    const cached = responseCache.get(request.prompt);
+    const cached = responseCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return { ...cached.response, durationMs: 0 };
     }
+    // Evict expired entry on miss
+    if (cached) responseCache.delete(cacheKey);
   }
 
   const url = `${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
@@ -105,7 +134,8 @@ export async function callGemini(request: GeminiRequest, cacheTtlMs = DEFAULT_CA
 
     const result: GeminiResponse = { text, durationMs };
     if (cacheTtlMs > 0) {
-      responseCache.set(request.prompt, { response: result, expiresAt: Date.now() + cacheTtlMs });
+      responseCache.set(cacheKey, { response: result, expiresAt: Date.now() + cacheTtlMs });
+      pruneCache();
     }
     return result;
   } catch (err) {
