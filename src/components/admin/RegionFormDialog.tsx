@@ -47,11 +47,11 @@ export function RegionFormDialog({
   region,
   regions,
   onClose,
-}: {
+}: Readonly<{
   region?: RegionRow;
   regions: RegionRow[];
   onClose: () => void;
-}) {
+}>) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const isEdit = !!region;
@@ -68,7 +68,7 @@ export function RegionFormDialog({
       if (result.error) {
         toast.error(result.error);
       } else {
-        toast.success(isEdit ? `Updated "${formData.get("name")}"` : "Region created");
+        toast.success(isEdit ? `Updated "${String(formData.get("name"))}"` : "Region created");
         router.refresh();
         onClose();
       }
@@ -223,7 +223,7 @@ export function RegionFormDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Saving..." : isEdit ? "Update" : "Create"}
+              {isPending ? "Saving..." : (isEdit ? "Update" : "Create")}
             </Button>
           </div>
         </form>

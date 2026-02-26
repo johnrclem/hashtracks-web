@@ -156,7 +156,7 @@ function TriStateRadio({
   );
 }
 
-export function KennelForm({ kennel, regions, trigger }: KennelFormProps) {
+export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProps>) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [aliases, setAliases] = useState<string[]>(kennel?.aliases ?? []);
@@ -203,7 +203,7 @@ export function KennelForm({ kennel, regions, trigger }: KennelFormProps) {
   }
 
   function handleSubmit(formData: FormData, force = false) {
-    if (!selectedRegionId) {
+    if (!selectedRegion) {
       toast.error("Please select a region");
       return;
     }
@@ -343,7 +343,8 @@ export function KennelForm({ kennel, regions, trigger }: KennelFormProps) {
                       {/* Group by country */}
                       {Object.entries(
                         regions.reduce<Record<string, RegionOption[]>>((acc, r) => {
-                          (acc[r.country] ??= []).push(r);
+                          if (!acc[r.country]) acc[r.country] = [];
+                          acc[r.country].push(r);
                           return acc;
                         }, {}),
                       ).map(([country, countryRegions]) => (

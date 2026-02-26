@@ -12,8 +12,8 @@ export function extractCoordsFromMapsUrl(url: string): { lat: number; lng: numbe
     // e.g. https://www.google.com/maps/place/Name/@40.748,-73.985,17z
     const atMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
     if (atMatch) {
-      const lat = parseFloat(atMatch[1]);
-      const lng = parseFloat(atMatch[2]);
+      const lat = Number.parseFloat(atMatch[1]);
+      const lng = Number.parseFloat(atMatch[2]);
       if (isValidCoords(lat, lng)) return { lat, lng };
     }
 
@@ -25,8 +25,8 @@ export function extractCoordsFromMapsUrl(url: string): { lat: number; lng: numbe
     if (q) {
       const qMatch = q.match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/);
       if (qMatch) {
-        const lat = parseFloat(qMatch[1]);
-        const lng = parseFloat(qMatch[2]);
+        const lat = Number.parseFloat(qMatch[1]);
+        const lng = Number.parseFloat(qMatch[2]);
         if (isValidCoords(lat, lng)) return { lat, lng };
       }
     }
@@ -37,8 +37,8 @@ export function extractCoordsFromMapsUrl(url: string): { lat: number; lng: numbe
     if (ll) {
       const llMatch = ll.match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/);
       if (llMatch) {
-        const lat = parseFloat(llMatch[1]);
-        const lng = parseFloat(llMatch[2]);
+        const lat = Number.parseFloat(llMatch[1]);
+        const lng = Number.parseFloat(llMatch[2]);
         if (isValidCoords(lat, lng)) return { lat, lng };
       }
     }
@@ -49,8 +49,8 @@ export function extractCoordsFromMapsUrl(url: string): { lat: number; lng: numbe
     if (query) {
       const queryMatch = query.match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/);
       if (queryMatch) {
-        const lat = parseFloat(queryMatch[1]);
-        const lng = parseFloat(queryMatch[2]);
+        const lat = Number.parseFloat(queryMatch[1]);
+        const lng = Number.parseFloat(queryMatch[2]);
         if (isValidCoords(lat, lng)) return { lat, lng };
       }
     }
@@ -63,17 +63,12 @@ export function extractCoordsFromMapsUrl(url: string): { lat: number; lng: numbe
 }
 
 function isValidCoords(lat: number, lng: number): boolean {
-  return !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  return !Number.isNaN(lat) && !Number.isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
 
 // ── Region centroids & colors (delegated to src/lib/region.ts — single source of truth) ──
 
-import {
-  REGION_SEED_DATA,
-  getRegionColor,
-  getRegionCentroid,
-  DEFAULT_PIN_COLOR,
-} from "@/lib/region";
+import { REGION_SEED_DATA, getRegionCentroid } from "@/lib/region";
 
 /**
  * Region center coordinates for approximate pin fallback.
@@ -95,7 +90,8 @@ export const REGION_CENTROIDS: Record<string, { lat: number; lng: number }> = ((
   return map;
 })();
 
-export { getRegionColor, getRegionCentroid, DEFAULT_PIN_COLOR };
+export { getRegionColor, getRegionCentroid, DEFAULT_PIN_COLOR } from "@/lib/region";
+// Note: getRegionCentroid is also imported above for local use in getEventCoords
 
 /**
  * Calculates the great-circle distance between two points using the Haversine formula.

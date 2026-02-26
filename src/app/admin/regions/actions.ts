@@ -24,20 +24,35 @@ export async function getRegionsWithKennels() {
   return regions;
 }
 
-export async function createRegion(formData: FormData) {
-  const admin = await getAdminUser();
-  if (!admin) return { error: "Not authorized" };
+/** Parse a centroid coordinate string into a validated number or null. */
+function parseSafeCoord(value: string | undefined): number | null {
+  if (!value) return null;
+  const n = Number.parseFloat(value);
+  return Number.isNaN(n) ? null : n;
+}
 
+/** Parse common region form fields. */
+function parseRegionFormData(formData: FormData) {
   const name = (formData.get("name") as string)?.trim();
   const country = (formData.get("country") as string)?.trim() || "USA";
   const timezone = (formData.get("timezone") as string)?.trim();
   const abbrev = (formData.get("abbrev") as string)?.trim();
   const colorClasses = (formData.get("colorClasses") as string)?.trim();
   const pinColor = (formData.get("pinColor") as string)?.trim();
-  const centroidLatStr = (formData.get("centroidLat") as string)?.trim();
-  const centroidLngStr = (formData.get("centroidLng") as string)?.trim();
+  const centroidLat = parseSafeCoord((formData.get("centroidLat") as string)?.trim());
+  const centroidLng = parseSafeCoord((formData.get("centroidLng") as string)?.trim());
   const parentRaw = (formData.get("parentId") as string)?.trim();
-  const parentId = !parentRaw || parentRaw === "none" ? null : parentRaw;
+  const parentId = parentRaw && parentRaw !== "none" ? parentRaw : null;
+
+  return { name, country, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId };
+}
+
+export async function createRegion(formData: FormData) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const { name, country, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId } =
+    parseRegionFormData(formData);
 
   if (!name || !timezone || !abbrev || !colorClasses || !pinColor) {
     return { error: "Name, timezone, abbreviation, color classes, and pin color are required" };
@@ -56,23 +71,9 @@ export async function createRegion(formData: FormData) {
     return { error: `A region with slug "${slug}" already exists` };
   }
 
-  const centroidLat = centroidLatStr ? parseFloat(centroidLatStr) : null;
-  const centroidLng = centroidLngStr ? parseFloat(centroidLngStr) : null;
-
   try {
     await prisma.region.create({
-      data: {
-        name,
-        slug,
-        country,
-        timezone,
-        abbrev,
-        colorClasses,
-        pinColor,
-        centroidLat: centroidLat !== null && !Number.isNaN(centroidLat) ? centroidLat : null,
-        centroidLng: centroidLng !== null && !Number.isNaN(centroidLng) ? centroidLng : null,
-        parentId,
-      },
+      data: { name, slug, country, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId },
     });
   } catch (err) {
     console.error("[createRegion] failed:", err);
@@ -87,67 +88,61 @@ export async function updateRegion(regionId: string, formData: FormData) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  const name = (formData.get("name") as string)?.trim();
-  const country = (formData.get("country") as string)?.trim() || "USA";
-  const timezone = (formData.get("timezone") as string)?.trim();
-  const abbrev = (formData.get("abbrev") as string)?.trim();
-  const colorClasses = (formData.get("colorClasses") as string)?.trim();
-  const pinColor = (formData.get("pinColor") as string)?.trim();
-  const centroidLatStr = (formData.get("centroidLat") as string)?.trim();
-  const centroidLngStr = (formData.get("centroidLng") as string)?.trim();
-  const parentRaw = (formData.get("parentId") as string)?.trim();
-  const parentId = !parentRaw || parentRaw === "none" ? null : parentRaw;
+  const { name, country, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId } =
+    parseRegionFormData(formData);
 
   if (!name || !timezone || !abbrev || !colorClasses || !pinColor) {
     return { error: "Name, timezone, abbreviation, color classes, and pin color are required" };
   }
 
+  if (parentId === regionId) {
+    return { error: "A region cannot be its own parent" };
+  }
+
   const existing = await prisma.region.findUnique({ where: { id: regionId } });
   if (!existing) return { error: "Region not found" };
 
-  const centroidLat = centroidLatStr ? parseFloat(centroidLatStr) : null;
-  const centroidLng = centroidLngStr ? parseFloat(centroidLngStr) : null;
-  const safeLat = centroidLat !== null && !Number.isNaN(centroidLat) ? centroidLat : null;
-  const safeLng = centroidLng !== null && !Number.isNaN(centroidLng) ? centroidLng : null;
-
   try {
-    // If name changed, check uniqueness and update denormalized kennel.region strings
     if (name !== existing.name) {
-      const duplicate = await prisma.region.findUnique({ where: { name } });
-      if (duplicate) return { error: `A region named "${name}" already exists` };
-
-      const slug = regionSlug(name);
-      const slugDupe = await prisma.region.findFirst({ where: { slug, id: { not: regionId } } });
-      if (slugDupe) return { error: `A region with slug "${slug}" already exists` };
-
-      // Atomic: update region + update all kennel denormalized strings
-      await prisma.$transaction([
-        prisma.region.update({
-          where: { id: regionId },
-          data: {
-            name, slug, country, timezone, abbrev, colorClasses, pinColor,
-            centroidLat: safeLat, centroidLng: safeLng, parentId,
-          },
-        }),
-        // Update denormalized region string on all linked kennels
-        prisma.kennel.updateMany({
-          where: { regionId },
-          data: { region: name },
-        }),
-      ]);
-    } else {
-      await prisma.region.update({
-        where: { id: regionId },
-        data: {
-          country, timezone, abbrev, colorClasses, pinColor,
-          centroidLat: safeLat, centroidLng: safeLng, parentId,
-        },
-      });
+      return await updateRegionWithRename(regionId, name, { country, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId });
     }
+    await prisma.region.update({
+      where: { id: regionId },
+      data: { country, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId },
+    });
   } catch (err) {
     console.error("[updateRegion] failed:", err);
     return { error: "Failed to update region" };
   }
+
+  revalidatePath("/admin/regions");
+  revalidatePath("/admin/kennels");
+  return { success: true };
+}
+
+/** Handle region rename: check uniqueness, update region + denormalized kennel strings atomically. */
+async function updateRegionWithRename(
+  regionId: string,
+  name: string,
+  fields: { country: string; timezone: string; abbrev: string; colorClasses: string; pinColor: string; centroidLat: number | null; centroidLng: number | null; parentId: string | null },
+) {
+  const duplicate = await prisma.region.findUnique({ where: { name } });
+  if (duplicate) return { error: `A region named "${name}" already exists` };
+
+  const slug = regionSlug(name);
+  const slugDupe = await prisma.region.findFirst({ where: { slug, id: { not: regionId } } });
+  if (slugDupe) return { error: `A region with slug "${slug}" already exists` };
+
+  await prisma.$transaction([
+    prisma.region.update({
+      where: { id: regionId },
+      data: { name, slug, ...fields },
+    }),
+    prisma.kennel.updateMany({
+      where: { regionId },
+      data: { region: name },
+    }),
+  ]);
 
   revalidatePath("/admin/regions");
   revalidatePath("/admin/kennels");
@@ -246,15 +241,20 @@ export async function mergeRegions(
   }
 
   await prisma.$transaction([
-    // Reassign kennels to target region
+    // Reassign kennels linked via FK to target region
     prisma.kennel.updateMany({
       where: { regionId: sourceRegionId },
+      data: { regionId: targetRegionId, region: target.name },
+    }),
+    // Also update legacy kennels that only have denormalized region string (no FK)
+    prisma.kennel.updateMany({
+      where: { regionId: null, region: source.name },
       data: { regionId: targetRegionId, region: target.name },
     }),
     // Move any child regions to target's parent (or make them top-level)
     prisma.region.updateMany({
       where: { parentId: sourceRegionId },
-      data: { parentId: target.id },
+      data: { parentId: target.parentId ?? null },
     }),
     // Delete the source region
     prisma.region.delete({ where: { id: sourceRegionId } }),
@@ -337,48 +337,33 @@ function haversineKm(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/**
- * Rule-based region suggestions. Runs fast, no API call needed.
- */
-function analyzeRegionsRuleBased(
-  regions: {
-    id: string;
-    name: string;
-    country: string;
-    centroidLat: number | null;
-    centroidLng: number | null;
-    kennelCount: number;
-    kennelNames: string[];
-  }[],
-): RegionSuggestion[] {
-  const suggestions: RegionSuggestion[] = [];
+type RegionData = {
+  id: string;
+  name: string;
+  country: string;
+  centroidLat: number | null;
+  centroidLng: number | null;
+  kennelCount: number;
+  kennelNames: string[];
+};
 
-  // Rule 1: Single-kennel regions close to another region → merge candidate
+/** Rule 1: Single-kennel regions near another region → merge candidate. */
+function findProximityMergeCandidates(regions: RegionData[]): RegionSuggestion[] {
+  const results: RegionSuggestion[] = [];
   const singleKennelRegions = regions.filter((r) => r.kennelCount === 1);
+
   for (const small of singleKennelRegions) {
     if (small.centroidLat == null || small.centroidLng == null) continue;
 
     const nearby = regions
-      .filter(
-        (r) =>
-          r.id !== small.id &&
-          r.country === small.country &&
-          r.centroidLat != null &&
-          r.centroidLng != null,
-      )
-      .map((r) => ({
-        ...r,
-        distance: haversineKm(
-          small.centroidLat!, small.centroidLng!,
-          r.centroidLat!, r.centroidLng!,
-        ),
-      }))
-      .filter((r) => r.distance < 50) // within 50km
+      .filter((r) => r.id !== small.id && r.country === small.country && r.centroidLat != null && r.centroidLng != null)
+      .map((r) => ({ ...r, distance: haversineKm(small.centroidLat!, small.centroidLng!, r.centroidLat!, r.centroidLng!) }))
+      .filter((r) => r.distance < 50)
       .sort((a, b) => a.distance - b.distance);
 
     if (nearby.length > 0) {
       const closest = nearby[0];
-      suggestions.push({
+      results.push({
         type: "merge",
         confidence: closest.distance < 20 ? "high" : "medium",
         title: `Merge "${small.name}" into "${closest.name}"`,
@@ -387,34 +372,34 @@ function analyzeRegionsRuleBased(
       });
     }
   }
+  return results;
+}
 
-  // Rule 2: Large regions (>10 kennels) → consider splitting
-  const largeRegions = regions.filter((r) => r.kennelCount > 10);
-  for (const large of largeRegions) {
-    suggestions.push({
-      type: "split",
-      confidence: large.kennelCount > 15 ? "medium" : "low",
+/** Rule 2: Large regions (>10 kennels) → split candidate. */
+function findSplitCandidates(regions: RegionData[]): RegionSuggestion[] {
+  return regions
+    .filter((r) => r.kennelCount > 10)
+    .map((large) => ({
+      type: "split" as const,
+      confidence: (large.kennelCount > 15 ? "medium" : "low") as "medium" | "low",
       title: `Consider splitting "${large.name}"`,
       description: `"${large.name}" has ${large.kennelCount} kennels. As it grows, consider splitting into sub-regions for better organization.`,
       regionIds: [large.id],
-    });
-  }
+    }));
+}
 
-  // Rule 3: Regions with very similar names → merge candidates
+/** Rule 3: Regions with overlapping names in the same country → merge candidate. */
+function findSimilarNameCandidates(regions: RegionData[]): RegionSuggestion[] {
+  const results: RegionSuggestion[] = [];
   for (let i = 0; i < regions.length; i++) {
     for (let j = i + 1; j < regions.length; j++) {
       const a = regions[i];
       const b = regions[j];
       if (a.country !== b.country) continue;
-
-      // Check if one name is a substring of the other
       const aLower = a.name.toLowerCase();
       const bLower = b.name.toLowerCase();
-      if (
-        (aLower.includes(bLower) || bLower.includes(aLower)) &&
-        aLower !== bLower
-      ) {
-        suggestions.push({
+      if ((aLower.includes(bLower) || bLower.includes(aLower)) && aLower !== bLower) {
+        results.push({
           type: "merge",
           confidence: "low",
           title: `"${a.name}" and "${b.name}" have similar names`,
@@ -424,8 +409,16 @@ function analyzeRegionsRuleBased(
       }
     }
   }
+  return results;
+}
 
-  return suggestions;
+/** Rule-based region suggestions. Runs fast, no API call needed. */
+function analyzeRegionsRuleBased(regions: RegionData[]): RegionSuggestion[] {
+  return [
+    ...findProximityMergeCandidates(regions),
+    ...findSplitCandidates(regions),
+    ...findSimilarNameCandidates(regions),
+  ];
 }
 
 /**

@@ -111,7 +111,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     abbrev: "IN",
     colorClasses: "bg-violet-200 text-violet-800",
     pinColor: "#7c3aed",
-    centroidLat: 41.60,
+    centroidLat: 41.6,
     centroidLng: -87.34,
   },
   // ── US DC / DMV ──
@@ -133,7 +133,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     colorClasses: "bg-stone-200 text-stone-800",
     pinColor: "#57534e",
     centroidLat: 38.85,
-    centroidLng: -77.20,
+    centroidLng: -77.2,
   },
   {
     name: "Baltimore, MD",
@@ -162,7 +162,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     abbrev: "FXBG",
     colorClasses: "bg-stone-100 text-stone-700",
     pinColor: "#78716c",
-    centroidLat: 38.30,
+    centroidLat: 38.3,
     centroidLng: -77.46,
   },
   {
@@ -173,7 +173,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     colorClasses: "bg-orange-100 text-orange-700",
     pinColor: "#f97316",
     centroidLat: 38.55,
-    centroidLng: -76.80,
+    centroidLng: -76.8,
   },
   {
     name: "Jefferson County, WV",
@@ -203,7 +203,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     abbrev: "OAK",
     colorClasses: "bg-teal-100 text-teal-700",
     pinColor: "#14b8a6",
-    centroidLat: 37.80,
+    centroidLat: 37.8,
     centroidLng: -122.27,
   },
   {
@@ -246,7 +246,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     colorClasses: "bg-rose-200 text-rose-800",
     pinColor: "#e11d48",
     centroidLat: 51.46,
-    centroidLng: -0.20,
+    centroidLng: -0.2,
   },
   {
     name: "Surrey",
@@ -267,7 +267,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     colorClasses: "bg-pink-100 text-pink-700",
     pinColor: "#ec4899",
     centroidLat: 51.32,
-    centroidLng: -0.10,
+    centroidLng: -0.1,
   },
   {
     name: "Enfield",

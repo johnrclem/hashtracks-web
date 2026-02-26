@@ -11,13 +11,6 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { deleteRegion } from "@/app/admin/regions/actions";
 import { RegionFormDialog } from "./RegionFormDialog";
@@ -41,7 +34,7 @@ export interface RegionRow {
   childCount: number;
 }
 
-export function RegionTable({ regions }: { regions: RegionRow[] }) {
+export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [showCreate, setShowCreate] = useState(false);
@@ -50,7 +43,7 @@ export function RegionTable({ regions }: { regions: RegionRow[] }) {
   const [countryFilter, setCountryFilter] = useState("");
   const router = useRouter();
 
-  const countries = Array.from(new Set(regions.map((r) => r.country))).sort();
+  const countries = Array.from(new Set(regions.map((r) => r.country))).sort((a, b) => a.localeCompare(b));
 
   const filtered = countryFilter
     ? regions.filter((r) => r.country === countryFilter)
@@ -93,7 +86,7 @@ export function RegionTable({ regions }: { regions: RegionRow[] }) {
             <div className="flex gap-1">
               <Button
                 size="sm"
-                variant={!countryFilter ? "default" : "outline"}
+                variant={countryFilter ? "outline" : "default"}
                 className="h-7 text-xs"
                 onClick={() => setCountryFilter("")}
               >

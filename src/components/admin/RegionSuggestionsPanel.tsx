@@ -92,7 +92,7 @@ export function RegionSuggestionsPanel() {
           </Badge>
           {suggestions !== null && (
             <span className="text-xs text-muted-foreground">
-              {suggestions.length} suggestion{suggestions.length !== 1 ? "s" : ""}
+              {suggestions.length} suggestion{suggestions.length === 1 ? "" : "s"}
             </span>
           )}
         </div>
@@ -108,9 +108,9 @@ export function RegionSuggestionsPanel() {
 
       {suggestions !== null && suggestions.length > 0 && (
         <div className="space-y-2">
-          {suggestions.map((s, i) => (
+          {suggestions.map((s) => (
             <div
-              key={i}
+              key={`${s.type}-${s.regionIds.join("-")}`}
               className="rounded-lg border p-3 space-y-1.5"
             >
               <div className="flex items-start gap-2">

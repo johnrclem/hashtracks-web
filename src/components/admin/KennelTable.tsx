@@ -70,7 +70,7 @@ interface KennelTableProps {
   regions: RegionOption[];
 }
 
-export function KennelTable({ kennels, regions }: KennelTableProps) {
+export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
   const [search, setSearch] = useState("");
   const [regionFilter, setRegionFilter] = useState("all");
 
