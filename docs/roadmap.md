@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-22
+Last updated: 2026-02-26
 
 **Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
 
@@ -175,6 +175,29 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] Gemini column auto-detection for Google Sheets adapter
 - [x] AI-assisted alert classification
 
+### AI Integration Enhancements — COMPLETE
+- [x] Gemini response caching: in-memory 1hr TTL prevents redundant API calls (`src/lib/ai/gemini.ts`)
+- [x] 429 rate-limit handling: friendly user-facing error message
+- [x] Applied to region suggestions, kennel pattern suggestions, column auto-detection
+
+### Region as First-Class Model — COMPLETE
+- [x] Region Prisma model: name, slug, country, timezone, colors, pin color, centroids, optional parentId (max 2-level hierarchy)
+- [x] 26 region seed records (`src/lib/region.ts`) spanning USA + UK
+- [x] Dual-write migration: `Kennel.regionId` FK + denormalized `Kennel.region` string (backward compat)
+- [x] Region admin CRUD at `/admin/regions` with table, form dialog, merge dialog
+- [x] Region combobox in KennelForm (searchable, grouped by country)
+- [x] RegionSuggestionsPanel: AI (Gemini) + rule-based suggestions for split/merge/rename/reassign
+- [x] Sync fallback helpers for build-time and test-time access (`src/lib/region.ts`)
+
+### Strava Integration MVP — COMPLETE
+- [x] StravaConnection + StravaActivity models (OAuth tokens, activity cache)
+- [x] OAuth flow with token refresh, expiration tracking
+- [x] Activity sync with date string extraction (no `new Date()` — avoids timezone bugs)
+- [x] Auto-suggest matches: Strava activities to canonical Events by date + region
+- [x] One-click attach: normalize URL to `https://www.strava.com/activities/{id}`
+- [x] Post-check-in prompt: suggest linking activity after attendance check-in
+- [x] Check-in nudge banner: gentle reminder to sync Strava or check in
+
 ### Event Reconciliation — COMPLETE
 - [x] Stale event detection and cancellation when sources are disabled/modified (`src/pipeline/reconcile.ts`)
 - [x] ReconcileSource field tracks last reconciliation per source
@@ -209,11 +232,10 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] Seed: Hash Rego source with 7 kennel slugs (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3)
 
 ### Current Stats
-- 79 kennels (with rich profiles: schedule, social, hash cash, flags), 238 aliases, 29 sources
-- 21 regions across 6 metro areas: NYC/NJ/Philly (17 kennels), Boston (5), Chicago (11), DC/DMV (19), SF Bay Area (13), London/UK (10), + South Shore IN (1), Rumson NJ (1)
-- 7 adapter types: HTML_SCRAPER (22 scrapers), GOOGLE_CALENDAR (5), GOOGLE_SHEETS (2), ICAL_FEED (3), HASHREGO (1), MEETUP (1), WORDPRESS_API (1)
-- 22 models, 17 enums in Prisma schema
-- 69 test files
+- 79 kennels (with rich profiles), 246 aliases, 29 sources, 26 regions (first-class model with hierarchy)
+- 7 adapter types: HTML_SCRAPER (22), GOOGLE_CALENDAR (5), GOOGLE_SHEETS (2), ICAL_FEED (3), HASHREGO (1), MEETUP (1), WORDPRESS_API (1)
+- 25 models, 17 enums in Prisma schema
+- 83 test files, 900+ test cases
 
 ---
 
@@ -268,48 +290,24 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 ## Priority 2: Strava Integration
 
-**Strategic rationale:** Zero hashing platforms integrate with fitness tracking apps. Harrier Central, gotothehash.net, half-mind.com — none of them connect runs to GPS data. This is the feature that makes "The Strava of Hashing" literal, not just a tagline. The existing activity link field (manual URL paste, Sprint 5) proves user interest — OAuth automates what users already do manually.
+**Status: MVP COMPLETE** (PRs #126, #128)
+
+**Strategic rationale:** Zero hashing platforms integrate with fitness tracking apps. Harrier Central, gotothehash.net, half-mind.com — none of them connect runs to GPS data. This is the feature that makes "The Strava of Hashing" literal, not just a tagline.
 
 **See:** [competitive-analysis.md](competitive-analysis.md) — "What HashTracks Has That HC Doesn't"
 
-**Full implementation reference:** PRD Appendix C (Strava API Reference) in `HASHTRACKS_PRD.md`
+- [x] **Strava OAuth flow** — real redirect, refresh token storage, auto-refresh (`src/lib/strava/client.ts`)
+- [x] **Activity history fetch + server-side cache** — StravaActivity model, date string extraction (`src/lib/strava/sync.ts`)
+- [x] **Auto-suggest matches** — by date + region, privacy zone fallback to timezone
+- [x] **One-click attach** — normalize URL to `https://www.strava.com/activities/{id}`
+- [x] **Post-check-in prompt** — suggest linking activity after attendance check-in
+- [x] **Check-in nudge banner** — gentle reminder on logbook page (`StravaNudgeBanner.tsx`)
+- [x] **Rate limit handling** — 429 errors with user-friendly messaging
 
-- [ ] **Strava OAuth flow** — real redirect (not manual code copy from GAS prototype)
-  - Redirect URI: `/api/auth/strava/callback`
-  - Scope: `activity:read_all`
-  - Store `refresh_token` server-side per user (never expose to client)
-  - Token refresh: 6-hour lifetime, cache for 3 hours
-  - New env vars: `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`
-  - New schema: `StravaConnection` model (userId, accessToken, refreshToken, expiresAt, athleteId)
-
-- [ ] **Activity history fetch + server-side cache**
-  - `GET /api/v3/athlete/activities?after={unix}&before={unix}&per_page=50`
-  - Timestamps are Unix seconds (not milliseconds)
-  - Cache responses keyed by user + date range
-  - Never call Strava on every page load — fetch once, cache, serve from cache
-
-- [ ] **Auto-suggest matches**
-  - Match Strava activities to canonical Events by date + region
-  - Use `start_latlng` for location (not deprecated `location_city` fields)
-  - Handle privacy zones: `start_latlng` returns null/[0,0] → fallback to timezone-based region
-  - **Critical: `start_date_local` timezone bug** — extract date/time as strings, never parse through `new Date()`:
-    ```typescript
-    const activityDate = activity.start_date_local.substring(0, 10); // "2024-10-25"
-    const activityTime = activity.start_date_local.substring(11, 16); // "14:30"
-    ```
-
-- [ ] **One-click attach** Strava link to attendance record
-  - UI on logbook: "We found a Strava activity that matches this run — attach it?"
-  - Normalize URL to canonical form: `https://www.strava.com/activities/{id}`
-
-- [ ] **Out-of-town run discovery**
-  - Strava activities in regions with no logged attendance → suggest logging
-  - Feeds into "Log Unlisted Run" feature (Priority 4)
-
-- [ ] **Rate limit handling**
-  - 100 requests per 15 minutes, 1,000 per day
-  - Batch fetch activities by date range (one API call per week, not per event)
-  - Queue-based processing if needed for multi-user sync
+### Remaining Strava Work
+- [ ] **Out-of-town run discovery** — Strava activities in regions with no logged attendance → suggest logging
+- [ ] **Advanced matching** — distance/genre validation, multi-day event correlation
+- [ ] **Queue-based sync** — needed when scaling past ~50 concurrent users
 
 ---
 

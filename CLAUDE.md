@@ -14,6 +14,14 @@ calendar + personal logbook + kennel directory.
 - `npx prisma migrate dev` — Create migration
 - `npx prisma db seed` — Seed launch kennels and aliases
 
+## Database (Railway)
+- **Host:** `trolley.proxy.rlwy.net:18763` (public TCP proxy → PostgreSQL)
+- **Connection:** `DATABASE_URL` in `.env` and `.env.local` (both must stay in sync)
+- **Prisma config:** `prisma.config.ts` loads `DATABASE_URL` via `dotenv/config` (reads `.env`)
+- **Node version:** Prisma 7 requires Node 20+ — run `eval "$(fnm env)" && fnm use 20` before any `npx prisma` command
+- **Schema sync:** `npx prisma db push` runs automatically during Vercel builds, but **`npx prisma db seed` must be run manually** when new seed data is added (regions, kennels, sources, aliases)
+- **Direct access:** The Railway DB is reachable from the dev environment (no VPN/SSH needed) — just ensure Node 20 is active
+
 ## Architecture
 - **Framework:** Next.js 16 App Router, TypeScript strict mode
 - **Database:** PostgreSQL via Prisma ORM (Railway hosted)
@@ -63,15 +71,18 @@ calendar + personal logbook + kennel directory.
 - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY= # For MapView (interactive) + EventLocationMap (static) — browser-exposed by design
 - GOOGLE_WEATHER_API_KEY= # Server-only (NOT NEXT_PUBLIC_) — same GCP project as Maps
 - GITHUB_TOKEN=           # GitHub PAT with repo scope (for filing issues from alerts + user feedback)
+- STRAVA_CLIENT_ID=      # Strava OAuth app client ID
+- STRAVA_CLIENT_SECRET=  # Strava OAuth app client secret
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
 
 ## Important Files
-- `prisma/schema.prisma` — Full data model, 22 models + 17 enums (THE source of truth for types)
-- `prisma/seed.ts` — 79 kennels, 238 aliases, 29 sources across 21 regions
+- `prisma/schema.prisma` — Full data model, 25 models + 17 enums (THE source of truth for types)
+- `prisma/seed.ts` — 79 kennels, 246 aliases, 29 sources, 26 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
-- `src/lib/format.ts` — Shared utilities: time formatting, date formatting, region config/colors (20 regions), participation levels, schedule formatting, social URL helpers
+- `src/lib/format.ts` — Shared utilities: time formatting, date formatting, participation levels, schedule formatting, social URL helpers
+- `src/lib/region.ts` — Region seed data (26 regions), sync fallback lookups (timezone, colors, centroids, abbrev), region slug generation
 - `src/lib/calendar.ts` — Google Calendar URL + .ics file generation (client-side)
 - `src/middleware.ts` — Clerk route protection (public vs authenticated routes)
 - `src/adapters/types.ts` — SourceAdapter interface + RawEventData types
@@ -110,6 +121,8 @@ calendar + personal logbook + kennel directory.
 - `src/pipeline/fill-rates.ts` — Per-field fill rate computation for RawEvents
 - `src/pipeline/structure-hash.ts` — HTML structural fingerprinting (SHA-256)
 - `src/app/admin/alerts/actions.ts` — Alert repair actions (re-scrape, create alias/kennel, link kennel to source, file GitHub issue)
+- `src/app/admin/regions/actions.ts` — Region CRUD, merge, AI suggestions (rule-based + Gemini), hierarchy validation
+- `src/app/admin/regions/page.tsx` — Admin region management page (RegionTable + RegionSuggestionsPanel)
 - `src/app/admin/events/actions.ts` — Admin event management (delete, bulk delete with cascade)
 - `src/app/admin/misman-requests/page.tsx` — Admin misman request approval (reuses misman server actions)
 - `src/app/admin/sources/new/page.tsx` — Source onboarding wizard (multi-phase guided setup with preview)
@@ -144,16 +157,20 @@ calendar + personal logbook + kennel directory.
 - `src/components/misman/DuplicateScanResults.tsx` — Scan for duplicate hashers + merge trigger
 - `src/components/misman/MergePreviewDialog.tsx` — Side-by-side merge preview with stats/conflicts
 - `src/components/logbook/PendingConfirmations.tsx` — Pending misman confirmations on logbook page
+- `src/lib/strava/client.ts` — Strava OAuth token management (exchange, refresh, revoke)
+- `src/lib/strava/sync.ts` — Strava activity sync, date string extraction, match suggestions
+- `src/app/strava/actions.ts` — Strava server actions (connect, disconnect, sync, attach to attendance)
+- `src/components/logbook/StravaNudgeBanner.tsx` — Strava sync reminder banner on logbook page
 - `src/components/admin/RosterGroupsAdmin.tsx` — Admin roster group management (create, rename, dissolve, pending requests)
 - `src/app/admin/roster-groups/actions.ts` — Roster group CRUD + roster group request approve/reject
 - `src/components/feedback/FeedbackDialog.tsx` — In-app user feedback dialog (files GitHub issues with category labels)
 - `src/components/ui/alert-dialog.tsx` — Radix AlertDialog wrapper (confirmation dialogs)
-- `src/lib/ai/gemini.ts` — Gemini 2.0 Flash API wrapper (low-temp structured extraction)
+- `src/lib/ai/gemini.ts` — Gemini 2.0 Flash API wrapper (low-temp structured extraction, 1hr in-memory response cache, 429 rate-limit handling)
 - `src/lib/ai/parse-recovery.ts` — AI fallback for scraper parse errors (prompt sanitization + confidence tracking)
 - `src/lib/source-detect.ts` — Auto-detection of source type from URL (Sheets, Calendar, Hash Rego, Meetup)
 - `src/lib/timezone.ts` — IANA timezone utilities (composeUtcStart, formatTimeInZone)
 - `src/lib/fuzzy.ts` — Levenshtein-based fuzzy string matching for kennel tag resolution + pairwise name matching
-- `src/lib/geo.ts` — Coordinate utilities: extractCoordsFromMapsUrl (4 URL patterns), getEventCoords, REGION_CENTROIDS, REGION_COLORS, getRegionColor, DEFAULT_PIN_COLOR
+- `src/lib/geo.ts` — Coordinate utilities: extractCoordsFromMapsUrl (4 URL patterns), getEventCoords, haversineDistance, REGION_CENTROIDS; region color/centroid helpers re-exported from region.ts
 - `src/lib/weather.ts` — Google Weather API fetch utility (getEventDayWeather, 30-min cache, region centroid fallback)
 - `src/components/hareline/EventLocationMap.tsx` — Static map image (Google Maps Static API; accepts coords or text address fallback)
 - `src/components/hareline/MapView.tsx` — Interactive map tab for Hareline (@vis.gl/react-google-maps, region-colored pins)
@@ -223,7 +240,7 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (69 test files)
+- **Run:** `npm test` (83 test files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
@@ -231,10 +248,12 @@ See `docs/roadmap.md` for implementation roadmap.
 - **Coverage areas:**
   - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, Blogger API v3 utility, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Philly (BFM, HashPhilly), Hash Rego (index parsing, detail parsing, multi-day splitting), Meetup.com API, WordPress REST API, shared adapter utilities
   - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation, event reconciliation
-  - AI: Gemini API wrapper, parse recovery fallback
+  - AI: Gemini API wrapper (caching, rate-limit handling), parse recovery fallback
   - Server actions: logbook CRUD, profile, kennel subscriptions, admin CRUD, misman attendance/roster/history
   - Admin: config validation (with ReDoS detection), source type detection
   - Misman: audit log, hare sync, CSV import parsing, suggestion scoring, verification status, invite tokens
+  - Region: region admin CRUD, hierarchy validation, merge re-parenting, self-parent guard
+  - Strava: OAuth token refresh, activity date parsing, match suggestions, privacy zone handling
   - Utilities: format helpers, calendar URL/ICS generation, auth (Clerk→DB sync), fuzzy matching, timezone utilities, geo utilities (coordinate extraction, region colors), weather forecast (API integration, date matching, null handling)
 
 ## What NOT To Do

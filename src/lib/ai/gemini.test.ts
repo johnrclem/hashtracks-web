@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { callGemini } from "./gemini";
+import { callGemini, clearGeminiCache } from "./gemini";
 
 const originalFetch = globalThis.fetch;
 
 beforeEach(() => {
   vi.stubEnv("GEMINI_API_KEY", "test-key");
+  clearGeminiCache();
 });
 
 afterEach(() => {
@@ -66,14 +67,24 @@ describe("callGemini", () => {
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
   });
 
-  it("returns error on HTTP failure", async () => {
+  it("returns friendly error on 429 rate limit", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response("Rate limited", { status: 429 }),
     );
 
-    const result = await callGemini({ prompt: "test" });
+    const result = await callGemini({ prompt: "test-429" });
     expect(result.text).toBeNull();
-    expect(result.error).toContain("Gemini API 429");
+    expect(result.error).toBe("Rate limit exceeded — try again in a few minutes");
+  });
+
+  it("returns error on other HTTP failures", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response("Internal Server Error", { status: 500 }),
+    );
+
+    const result = await callGemini({ prompt: "test-500" });
+    expect(result.text).toBeNull();
+    expect(result.error).toContain("Gemini API 500");
   });
 
   it("returns error on network failure", async () => {
@@ -108,5 +119,52 @@ describe("callGemini", () => {
     const body = JSON.parse(capturedBody!);
     expect(body.generationConfig.temperature).toBe(0.1);
     expect(body.generationConfig.maxOutputTokens).toBe(4096);
+  });
+
+  it("returns cached response on repeated calls", async () => {
+    let fetchCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      fetchCount++;
+      return new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: '{"cached": true}' }] } }],
+      }));
+    });
+
+    const first = await callGemini({ prompt: "cache-test" });
+    const second = await callGemini({ prompt: "cache-test" });
+
+    expect(fetchCount).toBe(1);
+    expect(second.text).toBe(first.text);
+    expect(second.durationMs).toBe(0);
+  });
+
+  it("uses separate cache entries for different generation config", async () => {
+    let fetchCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      fetchCount++;
+      return new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: `{"call": ${fetchCount}}` }] } }],
+      }));
+    });
+
+    await callGemini({ prompt: "same-prompt", temperature: 0.1 });
+    await callGemini({ prompt: "same-prompt", temperature: 0.9 });
+
+    expect(fetchCount).toBe(2);
+  });
+
+  it("skips cache when cacheTtlMs is 0", async () => {
+    let fetchCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      fetchCount++;
+      return new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: "{}" }] } }],
+      }));
+    });
+
+    await callGemini({ prompt: "no-cache" }, 0);
+    await callGemini({ prompt: "no-cache" }, 0);
+
+    expect(fetchCount).toBe(2);
   });
 });
