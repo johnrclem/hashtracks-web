@@ -28,11 +28,9 @@ jobs:
             You are triaging a HashTracks scraper alert that was auto-filed as a GitHub issue.
 
             ISSUE NUMBER: ${{ github.event.issue.number }}
-            ISSUE TITLE: ${{ github.event.issue.title }}
-            ISSUE BODY: ${{ github.event.issue.body }}
 
             Instructions:
-            1. Read the issue body carefully to understand the alert type and context.
+            1. Use `gh issue view ${{ github.event.issue.number }} --json title,body,labels` to read the full issue content.
             2. Look for the <!-- AGENT_CONTEXT --> block in the issue body — it contains machine-readable JSON with the exact adapter file, test file, and alert metadata.
             3. Read the relevant source files listed in the issue (especially the adapter file and its test file).
             4. Identify the root cause of the failure.

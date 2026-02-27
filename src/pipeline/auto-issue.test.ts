@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -24,10 +24,21 @@ const mockAlertFindFirst = vi.mocked(prisma.alert.findFirst);
 const mockAlertFindUnique = vi.mocked(prisma.alert.findUnique);
 const mockAlertUpdate = vi.mocked(prisma.alert.update);
 
+// Save/restore GITHUB_TOKEN to prevent env leakage between tests
+let savedToken: string | undefined;
+
 beforeEach(() => {
   vi.clearAllMocks();
-  // Clear global fetch mock
+  savedToken = process.env.GITHUB_TOKEN;
+});
+
+afterEach(() => {
   vi.restoreAllMocks();
+  if (savedToken !== undefined) {
+    process.env.GITHUB_TOKEN = savedToken;
+  } else {
+    delete process.env.GITHUB_TOKEN;
+  }
 });
 
 // ── resolveAdapterFile ──
@@ -180,9 +191,40 @@ describe("buildIssueBody", () => {
     expect(body).toContain("Network timeout");
     expect(body).toContain("ECONNREFUSED");
   });
+
+  it("escapes --> in context to prevent HTML comment breakout", () => {
+    const alert = {
+      ...baseAlert,
+      context: {
+        previousHash: "abc-->inject",
+        currentHash: "xyz-->more",
+      },
+    };
+    const { body } = buildIssueBody(alert);
+    // The AGENT_CONTEXT block should not contain raw -->
+    const agentContextMatch = body.match(/<!-- AGENT_CONTEXT\n([\s\S]*?)\n-->/);
+    expect(agentContextMatch).toBeTruthy();
+    const agentContextContent = agentContextMatch![1];
+    expect(agentContextContent).not.toContain("-->");
+    expect(agentContextContent).toContain("--&gt;");
+  });
 });
 
 // ── autoFileIssuesForAlerts ──
+
+/** Helper to build a valid eligible alert for auto-filing */
+function buildEligibleAlert(overrides?: Record<string, unknown>) {
+  return {
+    id: "alert_1",
+    type: "STRUCTURE_CHANGE",
+    severity: "CRITICAL",
+    title: "HTML structure changed",
+    sourceId: "src_1",
+    context: { previousHash: "abc", currentHash: "xyz" },
+    source: { name: "Test Source", url: "https://test.com", type: "HTML_SCRAPER" },
+    ...overrides,
+  };
+}
 
 describe("autoFileIssuesForAlerts", () => {
   it("returns early with no alert IDs", async () => {
@@ -192,28 +234,15 @@ describe("autoFileIssuesForAlerts", () => {
   });
 
   it("skips when GITHUB_TOKEN is not set", async () => {
-    const origToken = process.env.GITHUB_TOKEN;
     delete process.env.GITHUB_TOKEN;
-    try {
-      const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
-      expect(result).toEqual({ filed: 0, skipped: 1 });
-    } finally {
-      if (origToken) process.env.GITHUB_TOKEN = origToken;
-    }
+    const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+    expect(result).toEqual({ filed: 0, skipped: 1 });
   });
 
   it("skips alerts with ineligible types", async () => {
     process.env.GITHUB_TOKEN = "test-token";
     mockAlertFindMany.mockResolvedValueOnce([
-      {
-        id: "alert_1",
-        type: "UNMATCHED_TAGS", // not in AUTO_FILE_ALERT_TYPES
-        severity: "WARNING",
-        title: "Unmatched tags",
-        sourceId: "src_1",
-        context: { tags: ["NewTag"] },
-        source: { name: "Test Source", url: "https://test.com", type: "HTML_SCRAPER" },
-      },
+      buildEligibleAlert({ type: "UNMATCHED_TAGS" }),
     ] as never);
 
     const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
@@ -224,19 +253,210 @@ describe("autoFileIssuesForAlerts", () => {
   it("skips alerts with INFO severity", async () => {
     process.env.GITHUB_TOKEN = "test-token";
     mockAlertFindMany.mockResolvedValueOnce([
-      {
-        id: "alert_1",
-        type: "STRUCTURE_CHANGE",
-        severity: "INFO", // not in AUTO_FILE_SEVERITIES
-        title: "Structure change",
-        sourceId: "src_1",
-        context: {},
-        source: { name: "Test Source", url: "https://test.com", type: "HTML_SCRAPER" },
-      },
+      buildEligibleAlert({ severity: "INFO" }),
     ] as never);
 
     const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
     expect(result.skipped).toBe(1);
     expect(result.filed).toBe(0);
+  });
+
+  it("files a GitHub issue for eligible alerts", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+
+    mockAlertFindMany.mockResolvedValueOnce([buildEligibleAlert()] as never);
+    // isRateLimited → no alerts with repairLog today
+    mockAlertFindMany.mockResolvedValueOnce([] as never);
+    // isOnCooldown → no recent auto-filed
+    mockAlertFindFirst.mockResolvedValueOnce(null as never);
+
+    // Mock hasExistingOpenIssue fetch → no existing issues
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy
+      // hasExistingOpenIssue → empty list
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      } as Response)
+      // fileGitHubIssue → success
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ html_url: "https://github.com/test/1", number: 1 }),
+      } as Response);
+
+    // Read existing repairLog → empty
+    mockAlertFindUnique.mockResolvedValueOnce({ repairLog: null } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+    expect(result.filed).toBe(1);
+    expect(result.skipped).toBe(0);
+
+    // Verify the issue creation fetch call
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const createCall = fetchSpy.mock.calls[1];
+    expect(createCall[0]).toContain("/issues");
+    const createOpts = createCall[1] as RequestInit;
+    expect(createOpts.method).toBe("POST");
+
+    // Verify repairLog was updated with auto_file_issue entry
+    expect(mockAlertUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "alert_1" },
+        data: expect.objectContaining({
+          repairLog: expect.arrayContaining([
+            expect.objectContaining({
+              action: "auto_file_issue",
+              adminId: "system",
+              result: "success",
+              details: expect.objectContaining({
+                issueUrl: "https://github.com/test/1",
+                issueNumber: 1,
+              }),
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it("appends to existing repairLog without overwriting", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+
+    mockAlertFindMany.mockResolvedValueOnce([buildEligibleAlert()] as never);
+    mockAlertFindMany.mockResolvedValueOnce([] as never);
+    mockAlertFindFirst.mockResolvedValueOnce(null as never);
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy
+      .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ html_url: "https://github.com/test/2", number: 2 }),
+      } as Response);
+
+    // Existing repairLog has a prior entry
+    const existingLog = [
+      { action: "rescrape", timestamp: "2026-01-01T00:00:00Z", adminId: "admin_1", result: "success" },
+    ];
+    mockAlertFindUnique.mockResolvedValueOnce({ repairLog: existingLog } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+
+    // Verify the update preserves the existing entry AND adds the new one
+    const updateCall = mockAlertUpdate.mock.calls[0];
+    const repairLog = (updateCall[0] as { data: { repairLog: unknown[] } }).data.repairLog;
+    expect(repairLog).toHaveLength(2);
+    expect(repairLog[0]).toEqual(existingLog[0]);
+    expect(repairLog[1]).toMatchObject({ action: "auto_file_issue" });
+  });
+
+  it("skips when rate limited (3+ issues filed today)", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+
+    mockAlertFindMany.mockResolvedValueOnce([buildEligibleAlert()] as never);
+    // isRateLimited → 3 alerts with auto_file_issue entries today
+    const today = new Date();
+    today.setUTCHours(12, 0, 0, 0);
+    mockAlertFindMany.mockResolvedValueOnce([
+      { repairLog: [{ action: "auto_file_issue", timestamp: today.toISOString() }] },
+      { repairLog: [{ action: "auto_file_issue", timestamp: today.toISOString() }] },
+      { repairLog: [{ action: "auto_file_issue", timestamp: today.toISOString() }] },
+    ] as never);
+
+    const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+    expect(result.skipped).toBe(1);
+    expect(result.filed).toBe(0);
+  });
+
+  it("skips when on cooldown (recent auto_file_issue entry)", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+
+    mockAlertFindMany.mockResolvedValueOnce([buildEligibleAlert()] as never);
+    // isRateLimited → not limited
+    mockAlertFindMany.mockResolvedValueOnce([] as never);
+    // isOnCooldown → recent entry found
+    mockAlertFindFirst.mockResolvedValueOnce({
+      repairLog: [{ action: "auto_file_issue", timestamp: new Date().toISOString() }],
+    } as never);
+
+    const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+    expect(result.skipped).toBe(1);
+    expect(result.filed).toBe(0);
+  });
+
+  it("skips when an open issue already exists for the same source", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+
+    mockAlertFindMany.mockResolvedValueOnce([buildEligibleAlert()] as never);
+    mockAlertFindMany.mockResolvedValueOnce([] as never);
+    mockAlertFindFirst.mockResolvedValueOnce(null as never);
+
+    // hasExistingOpenIssue → returns an issue whose body contains the source ID
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{ body: "Some issue body containing src_1 as context" }],
+    } as Response);
+
+    const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+    expect(result.skipped).toBe(1);
+    expect(result.filed).toBe(0);
+  });
+
+  it("handles GitHub API failure gracefully", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+
+    mockAlertFindMany.mockResolvedValueOnce([buildEligibleAlert()] as never);
+    mockAlertFindMany.mockResolvedValueOnce([] as never);
+    mockAlertFindFirst.mockResolvedValueOnce(null as never);
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy
+      // hasExistingOpenIssue → no existing issues
+      .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)
+      // fileGitHubIssue → API error
+      .mockResolvedValueOnce({ ok: false, status: 500 } as Response);
+
+    // Suppress console.error for this test
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+    expect(result.filed).toBe(0);
+    expect(result.skipped).toBe(1);
+
+    consoleSpy.mockRestore();
+  });
+
+  it("uses GITHUB_REPOSITORY env var for API URL when set", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.GITHUB_REPOSITORY = "other-org/other-repo";
+
+    mockAlertFindMany.mockResolvedValueOnce([buildEligibleAlert()] as never);
+    mockAlertFindMany.mockResolvedValueOnce([] as never);
+    mockAlertFindFirst.mockResolvedValueOnce(null as never);
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy
+      .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ html_url: "https://github.com/test/1", number: 1 }),
+      } as Response);
+    mockAlertFindUnique.mockResolvedValueOnce({ repairLog: null } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+
+    // Verify the dedup check used the custom repo
+    const dedupUrl = fetchSpy.mock.calls[0][0] as string;
+    expect(dedupUrl).toContain("other-org/other-repo");
+
+    // Verify the issue creation used the custom repo
+    const createUrl = fetchSpy.mock.calls[1][0] as string;
+    expect(createUrl).toContain("other-org/other-repo");
+
+    delete process.env.GITHUB_REPOSITORY;
   });
 });

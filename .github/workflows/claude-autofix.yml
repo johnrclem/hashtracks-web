@@ -36,11 +36,9 @@ jobs:
 
             REPO: ${{ github.repository }}
             ISSUE NUMBER: ${{ github.event.issue.number }}
-            ISSUE TITLE: ${{ github.event.issue.title }}
-            ISSUE BODY: ${{ github.event.issue.body }}
 
             Instructions:
-            1. Read all comments on this issue to understand the triage analysis and proposed fix.
+            1. Use `gh issue view ${{ github.event.issue.number }} --json title,body,labels,comments` to read the full issue and all comments.
             2. Look for the <!-- AGENT_CONTEXT --> block in the issue body for machine-readable metadata (adapter file, test file, alert type).
             3. Read the affected files identified in the triage comment.
             4. Implement the fix as described in the triage analysis.

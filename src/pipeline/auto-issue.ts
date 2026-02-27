@@ -9,9 +9,15 @@
  */
 
 import { prisma } from "@/lib/db";
+import type { AlertType } from "@/generated/prisma/client";
 
-const GITHUB_REPO = "johnrclem/hashtracks-web";
-const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/issues`;
+/** GitHub repo slug — reads GITHUB_REPOSITORY env var (set by GitHub Actions) with fallback. */
+function getGithubRepo(): string {
+  return process.env.GITHUB_REPOSITORY ?? "johnrclem/hashtracks-web";
+}
+
+/** GitHub API timeout for issue creation and search (10 seconds). */
+const FETCH_TIMEOUT_MS = 10_000;
 
 /** Alert types eligible for automatic issue filing. */
 const AUTO_FILE_ALERT_TYPES = new Set([
@@ -185,7 +191,7 @@ export function buildIssueBody(alert: AlertWithSource): { title: string; body: s
   const contextSection = buildContextSection(alert.type, ctx);
   const suggestedApproach = buildSuggestedApproach(alert.type, ctx);
 
-  const agentContext = JSON.stringify({
+  const agentContextRaw = JSON.stringify({
     alertId: alert.id,
     alertType: alert.type,
     sourceId: alert.sourceId,
@@ -198,6 +204,8 @@ export function buildIssueBody(alert: AlertWithSource): { title: string; body: s
     relevantFiles,
     context: ctx,
   }, null, 2);
+  // Escape HTML comment close sequence to prevent prompt injection via scraped data
+  const agentContext = agentContextRaw.replace(/-->/g, "--&gt;");
 
   const title = `[Alert] ${alert.title} — ${alert.source.name}`;
 
@@ -236,7 +244,7 @@ async function isOnCooldown(sourceId: string, alertType: string): Promise<boolea
   const recentAlert = await prisma.alert.findFirst({
     where: {
       sourceId,
-      type: alertType as never,
+      type: alertType as AlertType,
       repairLog: { not: { equals: null } },
       updatedAt: { gte: cutoff },
     },
@@ -253,7 +261,7 @@ async function isOnCooldown(sourceId: string, alertType: string): Promise<boolea
 /** Check rate limit: max issues per source per day. */
 async function isRateLimited(sourceId: string): Promise<boolean> {
   const dayStart = new Date();
-  dayStart.setHours(0, 0, 0, 0);
+  dayStart.setUTCHours(0, 0, 0, 0);
 
   const alerts = await prisma.alert.findMany({
     where: {
@@ -286,13 +294,15 @@ async function hasExistingOpenIssue(sourceId: string, alertType: string): Promis
   const typeLabel = `alert:${alertType.toLowerCase().replace(/_/g, "-")}`;
 
   try {
+    const repo = getGithubRepo();
     const res = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/issues?state=open&labels=${encodeURIComponent(typeLabel)},alert&per_page=20`,
+      `https://api.github.com/repos/${repo}/issues?state=open&labels=${encodeURIComponent(typeLabel)},alert&per_page=100`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/vnd.github+json",
         },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       },
     );
 
@@ -319,15 +329,20 @@ async function fileGitHubIssue(
   const { title, body, labels } = buildIssueBody(alert);
 
   try {
-    const res = await fetch(GITHUB_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json",
+    const repo = getGithubRepo();
+    const res = await fetch(
+      `https://api.github.com/repos/${repo}/issues`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title, body, labels }),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       },
-      body: JSON.stringify({ title, body, labels }),
-    });
+    );
 
     if (!res.ok) {
       console.error(`[auto-issue] GitHub API ${res.status} for alert ${alert.id}`);
@@ -336,18 +351,7 @@ async function fileGitHubIssue(
 
     const issue = (await res.json()) as { html_url: string; number: number };
 
-    // Record in repair log
-    await prisma.alert.update({
-      where: { id: alert.id },
-      data: {
-        repairLog: {
-          // Append to existing repair log
-          ...(Array.isArray(alert.context) ? {} : {}),
-        },
-      },
-    });
-
-    // Use raw update to append to JSON array
+    // Read existing repair log and append new entry
     const existing = await prisma.alert.findUnique({
       where: { id: alert.id },
       select: { repairLog: true },

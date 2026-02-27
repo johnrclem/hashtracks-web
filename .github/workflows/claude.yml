@@ -38,7 +38,7 @@ jobs:
 
           # Trigger on issue assignment to @claude or label "claude-fix"
           assignee_trigger: 'claude'
-          label_trigger: 'claude'
+          label_trigger: 'claude-fix'
 
           # Allow Claude to read CI results on PRs
           additional_permissions: |
