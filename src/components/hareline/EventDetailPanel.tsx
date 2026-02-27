@@ -10,7 +10,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { formatTime } from "@/lib/format";
+import { formatTime, getLabelForUrl } from "@/lib/format";
 import { formatDateLong, type HarelineEvent } from "./EventCard";
 import { RegionBadge } from "./RegionBadge";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
@@ -198,14 +198,14 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
         {event.sourceUrl && (
           <Button variant="outline" size="sm" asChild>
             <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer">
-              View Source
+              {getLabelForUrl(event.sourceUrl)}
             </a>
           </Button>
         )}
         {event.eventLinks?.map((link) => (
           <Button key={link.id} variant="outline" size="sm" asChild>
             <a href={link.url} target="_blank" rel="noopener noreferrer">
-              {link.label}
+              {getLabelForUrl(link.url, link.label)}
             </a>
           </Button>
         ))}

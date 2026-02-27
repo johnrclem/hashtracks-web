@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
@@ -5,10 +6,16 @@ import { ProfileForm } from "@/components/profile/ProfileForm";
 import { MyKennels } from "@/components/profile/MyKennels";
 import { KennelConnections } from "@/components/profile/KennelConnections";
 import { StravaConnectionCard } from "@/components/profile/StravaConnectionCard";
+import { StravaStatusToast } from "@/components/profile/StravaStatusToast";
 import { Separator } from "@/components/ui/separator";
 import { getMyKennelLinks } from "./actions";
 import { getStravaConnection } from "@/app/strava/actions";
 
+/**
+ * Profile page — displays the user's hash identity, Strava connection,
+ * kennel connections, and subscribed kennels. Redirects to sign-in if
+ * the user is unauthenticated.
+ */
 export default async function ProfilePage() {
   const user = await getOrCreateUser();
   if (!user) redirect("/sign-in");
@@ -34,6 +41,9 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-8">
+      <Suspense>
+        <StravaStatusToast />
+      </Suspense>
       <div>
         <h1 className="text-2xl font-bold">Profile</h1>
         <p className="mt-1 text-muted-foreground">

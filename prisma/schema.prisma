@@ -127,6 +127,7 @@ model Kennel {
   // ── FLAGS ──
   dogFriendly        Boolean?  // null = unknown
   walkersWelcome     Boolean?  // null = unknown
+  isHidden           Boolean   @default(false) // Hide from public directory/hareline
 
   aliases     KennelAlias[]
   sources     SourceKennel[]

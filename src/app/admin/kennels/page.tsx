@@ -55,6 +55,7 @@ export default async function AdminKennelsPage() {
     logoUrl: k.logoUrl,
     dogFriendly: k.dogFriendly,
     walkersWelcome: k.walkersWelcome,
+    isHidden: k.isHidden,
   }));
 
   // Simplified kennel list for merge dialog

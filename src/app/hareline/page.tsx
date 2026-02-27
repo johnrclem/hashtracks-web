@@ -11,7 +11,7 @@ import { REGION_DATA_SELECT } from "@/lib/types/region";
 
 export default async function HarelinePage() {
   const events = await prisma.event.findMany({
-    where: { status: { not: "CANCELLED" } },
+    where: { status: { not: "CANCELLED" }, kennel: { isHidden: false } },
     include: {
       kennel: {
         select: { id: true, shortName: true, fullName: true, slug: true, country: true, regionRef: { select: REGION_DATA_SELECT } },

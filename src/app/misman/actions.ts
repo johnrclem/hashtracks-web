@@ -277,6 +277,7 @@ export async function getKennelsForRosterPicker() {
   if (!user) return { error: "Not authenticated" as const };
 
   const kennels = await prisma.kennel.findMany({
+    where: { isHidden: false },
     select: {
       id: true,
       shortName: true,

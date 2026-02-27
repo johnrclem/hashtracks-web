@@ -233,8 +233,13 @@ export async function scrapeSource(
   });
 
   try {
-    // SSRF prevention: validate source URL before any destructive operations
-    validateSourceUrl(source.url);
+    // SSRF prevention: validate source URL before any destructive operations.
+    // GOOGLE_CALENDAR stores a calendar ID (not a URL) — the adapter constructs
+    // the googleapis.com URL itself. STATIC_SCHEDULE and MANUAL have no fetch URL.
+    const urlBasedTypes = ["HTML_SCRAPER", "GOOGLE_SHEETS", "ICAL_FEED", "RSS_FEED", "JSON_API", "HASHREGO", "MEETUP"];
+    if (urlBasedTypes.includes(source.type)) {
+      validateSourceUrl(source.url);
+    }
 
     if (force) {
       await prisma.rawEvent.deleteMany({ where: { sourceId } });

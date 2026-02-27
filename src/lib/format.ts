@@ -143,3 +143,30 @@ export function displayDomain(url: string): string {
     return url;
   }
 }
+
+/**
+ * Derive a human-readable label from a URL.
+ * Recognizes well-known services and falls back to the bare hostname.
+ * If an existing label is provided and is not the generic "Source" placeholder,
+ * it is returned as-is.
+ */
+export function getLabelForUrl(url: string, existingLabel?: string | null): string {
+  if (existingLabel && existingLabel !== "Source") return existingLabel;
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.replace(/^www\./, "");
+    const isDomain = (d: string) => hostname === d || hostname.endsWith("." + d);
+
+    if (isDomain("calendar.google.com")) return "Google Calendar";
+    if (hostname === "google.com" && parsed.pathname.startsWith("/calendar")) return "Google Calendar";
+    if (isDomain("docs.google.com")) return "Google Sheets";
+    if (isDomain("facebook.com")) return "Facebook";
+    if (isDomain("hashrego.com")) return "Hash Rego";
+    if (isDomain("meetup.com")) return "Meetup";
+    if (isDomain("blogspot.com")) return "Blogspot";
+    if (isDomain("digitalpress.blog")) return "DigitalPress";
+    return hostname;
+  } catch {
+    return "Source";
+  }
+}
