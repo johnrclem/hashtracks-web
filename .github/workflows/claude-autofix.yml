@@ -1,0 +1,76 @@
+name: Claude Auto-Fix
+
+on:
+  issues:
+    types: [labeled]
+
+# Prevent multiple fix attempts for the same issue
+concurrency:
+  group: autofix-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  autofix:
+    if: github.event.label.name == 'claude-autofix'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are fixing a HashTracks scraper issue that has been triaged and approved for auto-fix.
+
+            REPO: ${{ github.repository }}
+            ISSUE NUMBER: ${{ github.event.issue.number }}
+            ISSUE TITLE: ${{ github.event.issue.title }}
+            ISSUE BODY: ${{ github.event.issue.body }}
+
+            Instructions:
+            1. Read all comments on this issue to understand the triage analysis and proposed fix.
+            2. Look for the <!-- AGENT_CONTEXT --> block in the issue body for machine-readable metadata (adapter file, test file, alert type).
+            3. Read the affected files identified in the triage comment.
+            4. Implement the fix as described in the triage analysis.
+            5. Update or add tests to cover the fix. Every code change must have a corresponding test.
+            6. Run `npm test` to verify ALL tests pass (not just the new ones).
+            7. Run `npx tsc --noEmit` to verify TypeScript types.
+            8. Create a pull request with:
+               - Title: "fix: [concise description] (closes #${{ github.event.issue.number }})"
+               - Body that includes:
+                 - Link to the issue
+                 - Root cause explanation
+                 - What was changed and why
+                 - Test coverage added
+               - Label: "auto-fix"
+
+            IMPORTANT SAFETY CONSTRAINTS:
+            - You may ONLY modify files in these directories:
+              - src/adapters/ (scraper adapters and their tests)
+              - prisma/seed.ts (kennel aliases and seed data)
+              - src/pipeline/kennel-resolver.ts (alias resolution)
+              - Test files (*.test.ts) anywhere
+            - You must NOT modify:
+              - src/lib/auth.ts, src/lib/db.ts, src/middleware.ts
+              - src/pipeline/merge.ts, src/pipeline/health.ts
+              - src/app/api/ (API routes)
+              - .env, .env.local, or any secrets
+            - If the fix requires changes outside the safe zone, do NOT proceed.
+              Instead, comment on the issue explaining why, add the label "needs-human",
+              and remove the "claude-autofix" label.
+            - If tests fail after your changes, revert and comment with the failure details.
+          claude_args: |
+            --model claude-opus-4-6
+            --max-turns 30

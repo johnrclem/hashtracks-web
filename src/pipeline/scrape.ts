@@ -8,6 +8,7 @@ import { reconcileStaleEvents } from "./reconcile";
 import { computeFillRates } from "./fill-rates";
 import type { FieldFillRates } from "./fill-rates";
 import { analyzeHealth, persistAlerts } from "./health";
+import { autoFileIssuesForAlerts } from "./auto-issue";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
 import { validateSourceUrl } from "@/adapters/utils";
 
@@ -181,7 +182,7 @@ async function updateScrapeLogWithResults(params: ScrapeLogUpdateParams): Promis
   });
 }
 
-/** Run health analysis, update source health, and persist any alerts. */
+/** Run health analysis, update source health, persist alerts, and auto-file GitHub issues. */
 async function runHealthAndAlerts(
   sourceId: string,
   scrapeLogId: string,
@@ -200,7 +201,17 @@ async function runHealthAndAlerts(
   });
 
   if (health.alerts.length > 0) {
-    await persistAlerts(sourceId, scrapeLogId, health.alerts);
+    const alertIds = await persistAlerts(sourceId, scrapeLogId, health.alerts);
+
+    // Auto-file GitHub issues for newly created alerts (self-healing pipeline)
+    if (alertIds.length > 0) {
+      try {
+        await autoFileIssuesForAlerts(sourceId, alertIds);
+      } catch (err) {
+        // Non-fatal: don't break the scrape pipeline if issue filing fails
+        console.error("[auto-issue] Failed to auto-file issues:", err);
+      }
+    }
   }
 }
 
