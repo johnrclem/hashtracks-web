@@ -8,6 +8,7 @@ import { PendingConfirmations } from "@/components/logbook/PendingConfirmations"
 import { PendingLinkRequests } from "@/components/logbook/PendingLinkRequests";
 import { StravaNudgeBanner } from "@/components/logbook/StravaNudgeBanner";
 import { getStravaConnection } from "@/app/strava/actions";
+import { REGION_DATA_SELECT } from "@/lib/types/region";
 
 export const metadata: Metadata = {
   title: "My Logbook · HashTracks",
@@ -24,7 +25,7 @@ export default async function LogbookPage() {
         event: {
           include: {
             kennel: {
-              select: { id: true, shortName: true, fullName: true, slug: true, region: true },
+              select: { id: true, shortName: true, fullName: true, slug: true, regionRef: { select: REGION_DATA_SELECT } },
             },
           },
         },
@@ -51,7 +52,7 @@ export default async function LogbookPage() {
         title: a.event.title,
         startTime: a.event.startTime,
         status: a.event.status,
-        kennel: a.event.kennel,
+        kennel: { ...a.event.kennel, regionData: a.event.kennel.regionRef },
       },
     }));
 

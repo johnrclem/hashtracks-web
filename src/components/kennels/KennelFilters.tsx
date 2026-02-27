@@ -33,6 +33,7 @@ const DAY_FULL: Record<string, string> = {
 
 interface KennelFiltersProps {
   kennels: KennelCardData[];
+  /** Selected region slugs. */
   selectedRegions: string[];
   onRegionsChange: (regions: string[]) => void;
   selectedDays: string[];
@@ -58,10 +59,17 @@ export function KennelFilters({
   selectedCountry,
   onCountryChange,
 }: KennelFiltersProps) {
-  // Derive available regions from kennel list
+  // Derive available regions as {slug, name} from kennel list
   const regions = useMemo(() => {
-    const regionSet = new Set(kennels.map((k) => k.region));
-    return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
+    const seen = new Map<string, string>();
+    for (const k of kennels) {
+      if (!seen.has(k.regionData.slug)) {
+        seen.set(k.regionData.slug, k.regionData.name);
+      }
+    }
+    return Array.from(seen.entries())
+      .map(([slug, name]) => ({ slug, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [kennels]);
 
   // Derive available frequencies
@@ -82,11 +90,11 @@ export function KennelFilters({
     return Array.from(countrySet).sort((a, b) => a.localeCompare(b));
   }, [kennels]);
 
-  function toggleRegion(region: string) {
-    if (selectedRegions.includes(region)) {
-      onRegionsChange(selectedRegions.filter((r) => r !== region));
+  function toggleRegion(slug: string) {
+    if (selectedRegions.includes(slug)) {
+      onRegionsChange(selectedRegions.filter((r) => r !== slug));
     } else {
-      onRegionsChange([...selectedRegions, region]);
+      onRegionsChange([...selectedRegions, slug]);
     }
   }
 
@@ -125,21 +133,21 @@ export function KennelFilters({
             <CommandList>
               <CommandEmpty>No regions found.</CommandEmpty>
               <CommandGroup>
-                {regions.map((region) => (
+                {regions.map((r) => (
                   <CommandItem
-                    key={region}
-                    onSelect={() => toggleRegion(region)}
+                    key={r.slug}
+                    onSelect={() => toggleRegion(r.slug)}
                   >
                     <span
                       className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                        selectedRegions.includes(region)
+                        selectedRegions.includes(r.slug)
                           ? "bg-primary border-primary text-primary-foreground"
                           : "opacity-50"
                       }`}
                     >
-                      {selectedRegions.includes(region) && "✓"}
+                      {selectedRegions.includes(r.slug) && "✓"}
                     </span>
-                    {region}
+                    {r.name}
                   </CommandItem>
                 ))}
               </CommandGroup>

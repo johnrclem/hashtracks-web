@@ -14,10 +14,11 @@ import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { RegionBadge } from "./RegionBadge";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
+import type { RegionData } from "@/lib/types/region";
 
 export type HarelineEvent = {
   id: string;
-  date: string; // ISO string 
+  date: string; // ISO string
   dateUtc: Date | null;
   timezone: string | null;
   kennelId: string;
@@ -26,8 +27,8 @@ export type HarelineEvent = {
     shortName: string;
     fullName: string;
     slug: string;
-    region: string;
     country: string;
+    regionData: RegionData;
   };
   runNumber: number | null;
   title: string | null;
@@ -137,7 +138,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
               <TooltipContent>{event.kennel.fullName}</TooltipContent>
             </Tooltip>
           </span>
-          <RegionBadge region={event.kennel.region} size="sm" />
+          <RegionBadge regionData={event.kennel.regionData} size="sm" />
           {event.runNumber && (
             <span className="w-12 shrink-0 text-muted-foreground">
               #{event.runNumber}
@@ -190,7 +191,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
               </TooltipTrigger>
               <TooltipContent>{event.kennel.fullName}</TooltipContent>
             </Tooltip>
-            <RegionBadge region={event.kennel.region} size="sm" />
+            <RegionBadge regionData={event.kennel.regionData} size="sm" />
             {event.runNumber && (
               <>
                 <span className="text-muted-foreground">·</span>

@@ -68,28 +68,36 @@ export function EventFilters({
   geoState,
   onRequestLocation,
 }: EventFiltersProps) {
-  // Derive available regions and kennels from events
+  // Derive available regions as {slug, name} from events
   const regions = useMemo(() => {
-    const regionSet = new Set(events.map((e) => e.kennel.region));
-    return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
+    const seen = new Map<string, string>();
+    for (const e of events) {
+      if (!seen.has(e.kennel.regionData.slug)) {
+        seen.set(e.kennel.regionData.slug, e.kennel.regionData.name);
+      }
+    }
+    return Array.from(seen.entries())
+      .map(([slug, name]) => ({ slug, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [events]);
 
   const kennels = useMemo(() => {
-    const kennelMap = new Map<string, { id: string; shortName: string; fullName: string; region: string }>();
+    const kennelMap = new Map<string, { id: string; shortName: string; fullName: string; regionName: string; regionSlug: string }>();
     for (const e of events) {
       if (!kennelMap.has(e.kennel.id)) {
         kennelMap.set(e.kennel.id, {
           id: e.kennel.id,
           shortName: e.kennel.shortName,
           fullName: e.kennel.fullName,
-          region: e.kennel.region,
+          regionName: e.kennel.regionData.name,
+          regionSlug: e.kennel.regionData.slug,
         });
       }
     }
-    // Filter by selected regions if any
+    // Filter by selected region slugs if any
     const all = Array.from(kennelMap.values());
     if (selectedRegions.length > 0) {
-      return all.filter((k) => selectedRegions.includes(k.region));
+      return all.filter((k) => selectedRegions.includes(k.regionSlug));
     }
     return all.sort((a, b) => a.shortName.localeCompare(b.shortName));
   }, [events, selectedRegions]);
@@ -102,11 +110,11 @@ export function EventFilters({
     return Array.from(countrySet).sort((a, b) => a.localeCompare(b));
   }, [events]);
 
-  function toggleRegion(region: string) {
-    if (selectedRegions.includes(region)) {
-      onRegionsChange(selectedRegions.filter((r) => r !== region));
+  function toggleRegion(slug: string) {
+    if (selectedRegions.includes(slug)) {
+      onRegionsChange(selectedRegions.filter((r) => r !== slug));
     } else {
-      onRegionsChange([...selectedRegions, region]);
+      onRegionsChange([...selectedRegions, slug]);
     }
   }
 
@@ -176,21 +184,21 @@ export function EventFilters({
               <CommandList>
                 <CommandEmpty>No regions found.</CommandEmpty>
                 <CommandGroup>
-                  {regions.map((region) => (
+                  {regions.map((r) => (
                     <CommandItem
-                      key={region}
-                      onSelect={() => toggleRegion(region)}
+                      key={r.slug}
+                      onSelect={() => toggleRegion(r.slug)}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                          selectedRegions.includes(region)
+                          selectedRegions.includes(r.slug)
                             ? "bg-primary border-primary text-primary-foreground"
                             : "opacity-50"
                         }`}
                       >
-                        {selectedRegions.includes(region) && "✓"}
+                        {selectedRegions.includes(r.slug) && "✓"}
                       </span>
-                      {region}
+                      {r.name}
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -220,7 +228,7 @@ export function EventFilters({
                   {kennels.map((kennel) => (
                     <CommandItem
                       key={kennel.id}
-                      value={`${kennel.shortName} ${kennel.fullName} ${kennel.region}`}
+                      value={`${kennel.shortName} ${kennel.fullName} ${kennel.regionName}`}
                       onSelect={() => toggleKennel(kennel.id)}
                     >
                       <span

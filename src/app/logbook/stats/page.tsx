@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { REGION_DATA_SELECT } from "@/lib/types/region";
 import { LogbookStats } from "@/components/logbook/LogbookStats";
 
 export const metadata: Metadata = {
@@ -37,7 +38,7 @@ export default async function StatsPage() {
       event: {
         include: {
           kennel: {
-            select: { id: true, shortName: true, fullName: true, slug: true, region: true },
+            select: { id: true, shortName: true, fullName: true, slug: true, regionRef: { select: REGION_DATA_SELECT } },
           },
         },
       },
@@ -49,14 +50,14 @@ export default async function StatsPage() {
   const totalHares = attendances.filter((a) => a.participationLevel === "HARE").length;
 
   // By kennel
-  const kennelMap = new Map<string, { kennelId: string; shortName: string; fullName: string; slug: string; region: string; count: number }>();
+  const kennelMap = new Map<string, { kennelId: string; shortName: string; fullName: string; slug: string; regionName: string; count: number }>();
   for (const a of attendances) {
     const k = a.event.kennel;
     const existing = kennelMap.get(k.id);
     if (existing) {
       existing.count++;
     } else {
-      kennelMap.set(k.id, { kennelId: k.id, shortName: k.shortName, fullName: k.fullName, slug: k.slug, region: k.region, count: 1 });
+      kennelMap.set(k.id, { kennelId: k.id, shortName: k.shortName, fullName: k.fullName, slug: k.slug, regionName: k.regionRef.name, count: 1 });
     }
   }
   const byKennel = Array.from(kennelMap.values()).sort((a, b) => b.count - a.count);
@@ -64,7 +65,7 @@ export default async function StatsPage() {
   // By region
   const regionMap = new Map<string, number>();
   for (const a of attendances) {
-    const r = a.event.kennel.region;
+    const r = a.event.kennel.regionRef.name;
     regionMap.set(r, (regionMap.get(r) ?? 0) + 1);
   }
   const byRegion = Array.from(regionMap.entries())

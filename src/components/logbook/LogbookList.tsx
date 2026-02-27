@@ -32,6 +32,7 @@ import type { AttendanceData } from "./CheckInButton";
 import { formatTime, participationLevelLabel, PARTICIPATION_LEVELS } from "@/lib/format";
 import { confirmAttendance, deleteAttendance } from "@/app/logbook/actions";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
+import type { RegionData } from "@/lib/types/region";
 
 export interface LogbookEntry {
   attendance: AttendanceData;
@@ -47,7 +48,7 @@ export interface LogbookEntry {
       shortName: string;
       fullName: string;
       slug: string;
-      region: string;
+      regionData: RegionData;
     };
   };
 }
@@ -81,7 +82,7 @@ export function filterLogbookEntries(
   selectedLevels: string[],
 ): LogbookEntry[] {
   return entries.filter((e) => {
-    if (selectedRegions.length > 0 && !selectedRegions.includes(e.event.kennel.region)) return false;
+    if (selectedRegions.length > 0 && !selectedRegions.includes(e.event.kennel.regionData.name)) return false;
     if (selectedKennels.length > 0 && !selectedKennels.includes(e.event.kennel.id)) return false;
     if (selectedLevels.length > 0 && !selectedLevels.includes(e.attendance.participationLevel)) return false;
     return true;
@@ -119,17 +120,18 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
 
   // Derive unique kennels and regions
   const kennels = useMemo(() => {
-    const map = new Map<string, { id: string; shortName: string; fullName: string; region: string }>();
+    const map = new Map<string, { id: string; shortName: string; fullName: string; regionName: string }>();
     for (const e of entries) {
       if (!map.has(e.event.kennel.id)) {
-        map.set(e.event.kennel.id, e.event.kennel);
+        const k = e.event.kennel;
+        map.set(k.id, { id: k.id, shortName: k.shortName, fullName: k.fullName, regionName: k.regionData.name });
       }
     }
     return Array.from(map.values()).sort((a, b) => a.shortName.localeCompare(b.shortName));
   }, [entries]);
 
   const regions = useMemo(() => {
-    const set = new Set(entries.map((e) => e.event.kennel.region));
+    const set = new Set(entries.map((e) => e.event.kennel.regionData.name));
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [entries]);
 
@@ -225,7 +227,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                   {kennels.map((kennel) => (
                     <CommandItem
                       key={kennel.id}
-                      value={`${kennel.shortName} ${kennel.fullName} ${kennel.region}`}
+                      value={`${kennel.shortName} ${kennel.fullName} ${kennel.regionName}`}
                       onSelect={() => toggleFilter(setSelectedKennels, kennel.id)}
                     >
                       <span
@@ -335,7 +337,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                 </Tooltip>
               </span>
               <span className="hidden sm:inline-flex">
-                <RegionBadge region={entry.event.kennel.region} size="sm" />
+                <RegionBadge regionData={entry.event.kennel.regionData} size="sm" />
               </span>
               {entry.event.runNumber && (
                 <span className="hidden sm:inline-block w-12 shrink-0 text-muted-foreground">
@@ -440,7 +442,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
               </span>
             </div>
             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground sm:hidden">
-              <RegionBadge region={entry.event.kennel.region} size="sm" />
+              <RegionBadge regionData={entry.event.kennel.regionData} size="sm" />
               {entry.event.runNumber && <span>#{entry.event.runNumber}</span>}
               {entry.event.title && (
                 <Link

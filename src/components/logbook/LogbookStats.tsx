@@ -6,7 +6,7 @@ interface KennelStat {
   shortName: string;
   fullName: string;
   slug: string;
-  region: string;
+  regionName: string;
   count: number;
 }
 

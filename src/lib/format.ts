@@ -69,6 +69,7 @@ export {
   regionTimezone,
   regionAbbrev,
   regionColorClasses,
+  regionNameToSlug,
 } from "@/lib/region";
 
 /**

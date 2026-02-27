@@ -7,13 +7,14 @@ export const metadata: Metadata = {
 };
 import { getOrCreateUser } from "@/lib/auth";
 import { HarelineView } from "@/components/hareline/HarelineView";
+import { REGION_DATA_SELECT } from "@/lib/types/region";
 
 export default async function HarelinePage() {
   const events = await prisma.event.findMany({
     where: { status: { not: "CANCELLED" } },
     include: {
       kennel: {
-        select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
+        select: { id: true, shortName: true, fullName: true, slug: true, country: true, regionRef: { select: REGION_DATA_SELECT } },
       },
     },
     orderBy: { date: "asc" },
@@ -52,7 +53,7 @@ export default async function HarelinePage() {
     dateUtc: e.dateUtc,
     timezone: e.timezone,
     kennelId: e.kennelId,
-    kennel: e.kennel,
+    kennel: { ...e.kennel, regionData: e.kennel.regionRef },
     runNumber: e.runNumber,
     title: e.title,
     haresText: e.haresText,
