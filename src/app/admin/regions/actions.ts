@@ -246,11 +246,6 @@ export async function mergeRegions(
       where: { regionId: sourceRegionId },
       data: { regionId: targetRegionId, region: target.name },
     }),
-    // Also update legacy kennels that only have denormalized region string (no FK)
-    prisma.kennel.updateMany({
-      where: { regionId: null, region: source.name },
-      data: { regionId: targetRegionId, region: target.name },
-    }),
     // Move any child regions to target's parent (or make them top-level)
     prisma.region.updateMany({
       where: { parentId: sourceRegionId },
