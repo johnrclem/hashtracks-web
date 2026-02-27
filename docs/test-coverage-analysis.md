@@ -4,7 +4,7 @@
 
 ## Current State
 
-- **83 test files** covering 900+ test cases
+- **84 test files** covering 1711 test cases
 - **Test framework:** Vitest with globals, co-located test files (`*.test.ts`)
 - **Mocking pattern:** `vi.mock()` + `vi.mocked()` with Prisma client mocking
 - **Test data:** Shared factories in `src/test/factories.ts`
@@ -16,7 +16,8 @@ The existing suite is high-quality. These areas have thorough, edge-case-aware c
 | Area | Files | Tests | Quality |
 |------|-------|-------|---------|
 | Adapters (scrapers/parsers) | 22 | ~300+ | Excellent — realistic HTML fixtures, date/time edge cases |
-| Pipeline (merge, scrape, health, kennel-resolver, fingerprint) | 5 | ~60+ | Strong — dedup logic, trust levels, source-kennel guards |
+| Pipeline (merge, scrape, health, kennel-resolver, fingerprint, auto-issue) | 6 | ~90+ | Strong — dedup logic, trust levels, source-kennel guards, auto-issue filing |
+| Self-healing (auto-issue filing) | 1 | 30 | Strong — adapter resolution, rate limiting, cooldown, dedup, sanitization |
 | Server actions (logbook, misman, admin CRUD) | 15 | ~280+ | Exemplary — auth checks, date boundaries, state transitions |
 | Library utils (format, calendar, fuzzy, auth, invite, strava, region) | 14 | ~170+ | Good — pure function coverage, role-based auth |
 
@@ -53,7 +54,9 @@ These are correctness-critical, easy to test, and have zero coverage:
 ### Priority 2: Complex server actions without tests
 
 #### `src/app/admin/alerts/actions.ts` — Alert repair workflows (601 LOC, 11 functions)
-- This is the largest untested file in the codebase
+
+> **Update:** `src/pipeline/auto-issue.ts` (30 tests) now covers the auto-filing pipeline including adapter resolution, rate limiting, cooldown, dedup, and AGENT_CONTEXT sanitization.
+
 - Contains 4 repair workflows (rescrape, create-alias, create-kennel, link-kennel)
 - Auto-resolution logic after alias/kennel creation
 - GitHub issue filing with 7 alert-type-specific body templates
