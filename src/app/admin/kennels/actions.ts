@@ -4,6 +4,7 @@ import { getAdminUser, getRosterGroupId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { fuzzyMatch } from "@/lib/fuzzy";
+import { toSlug, toKennelCode } from "@/lib/kennel-utils";
 
 function extractProfileFields(formData: FormData) {
   const result: Record<string, string | number | boolean | null> = {};
@@ -49,15 +50,6 @@ function extractProfileFields(formData: FormData) {
   return result;
 }
 
-function toSlug(shortName: string): string {
-  return shortName
-    .toLowerCase()
-    .replace(/[()]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
 /** Resolve region name from regionId, falling back to the raw form value. */
 async function resolveRegionName(regionId: string | null, formRegion: string): Promise<string> {
   if (regionId) {
@@ -65,14 +57,6 @@ async function resolveRegionName(regionId: string | null, formRegion: string): P
     if (record) return record.name;
   }
   return formRegion;
-}
-
-/** Generate a permanent kennelCode from a shortName. Lowercase, alphanumeric + hyphens only. */
-function toKennelCode(shortName: string): string {
-  return shortName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 interface SimilarKennel {
@@ -706,3 +690,4 @@ export async function toggleKennelVisibility(kennelId: string) {
   revalidatePath("/misman");
   return { success: true, isHidden: newValue };
 }
+

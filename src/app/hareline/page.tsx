@@ -47,13 +47,15 @@ export default async function HarelinePage() {
   }
 
   // Serialize dates for client component
-  const serializedEvents = events.map((e) => ({
+  const serializedEvents = events.map((e) => {
+    const { regionRef, ...kennelRest } = e.kennel;
+    return {
     id: e.id,
     date: e.date.toISOString(),
     dateUtc: e.dateUtc,
     timezone: e.timezone,
     kennelId: e.kennelId,
-    kennel: { ...e.kennel, regionData: e.kennel.regionRef },
+    kennel: { ...kennelRest, regionData: regionRef },
     runNumber: e.runNumber,
     title: e.title,
     haresText: e.haresText,
@@ -65,7 +67,8 @@ export default async function HarelinePage() {
     status: e.status,
     latitude: e.latitude ?? null,
     longitude: e.longitude ?? null,
-  }));
+  };
+  });
 
   return (
     <div>

@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
 import { scrapeSource } from "@/pipeline/scrape";
 import { validateSourceConfig } from "./config-validation";
+import { buildKennelIdentifiers, resolveRegionByName } from "@/lib/kennel-utils";
 
 /** Parse and validate config JSON from form input. Returns the parsed value or an error. */
 function parseConfigJson(
@@ -60,19 +61,6 @@ async function autoResolveUnmatchedAlerts(sourceId: string, adminId: string): Pr
   }
 }
 
-function buildKennelIdentifiers(shortName: string): { slug: string; kennelCode: string } {
-  const slug = shortName
-    .toLowerCase()
-    .replace(/[()]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-  const kennelCode = shortName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  return { slug, kennelCode };
-}
 
 export async function createSource(formData: FormData) {
   const admin = await getAdminUser();
@@ -347,7 +335,7 @@ export async function createQuickKennel(data: {
     return { error: "shortName, fullName, and region are required" };
   }
 
-  const regionRecord = await prisma.region.findUnique({ where: { name: region } });
+  const regionRecord = await resolveRegionByName(region);
   if (!regionRecord) return { error: `Region "${region}" not found — create it first in Admin → Regions` };
 
   const { slug, kennelCode } = buildKennelIdentifiers(shortName);
@@ -387,9 +375,8 @@ export async function createKennelForSource(
 
   const { slug, kennelCode } = buildKennelIdentifiers(kennelData.shortName);
 
-  // Resolve region FK
   const regionName = kennelData.region || "Unknown";
-  const regionRecord = await prisma.region.findUnique({ where: { name: regionName } });
+  const regionRecord = await resolveRegionByName(regionName);
   if (!regionRecord) return { error: `Region "${regionName}" not found — create it first in Admin → Regions` };
 
   // Check uniqueness

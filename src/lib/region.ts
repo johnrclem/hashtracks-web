@@ -31,6 +31,9 @@ export interface RegionSeedRecord {
  * and REGION_COLORS into a single array. Deduplicated: variants like
  * "London, England" / "London, UK" map to the canonical "London" record via aliases.
  */
+// NOTE: colorClasses values below are referenced by RegionBadge via the DB.
+// Tailwind scans this file at build time, so these classes are NOT purged.
+// Do not remove these string literals without updating tailwind.config.ts safelist.
 export const REGION_SEED_DATA: RegionSeedRecord[] = [
   // ── US East Coast ──
   {

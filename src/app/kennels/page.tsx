@@ -48,10 +48,11 @@ export default async function KennelsPage() {
 
   // Serialize for client
   const kennelsWithNext = kennels.map((k) => {
+    const { regionRef, ...kennelRest } = k;
     const next = nextEventMap.get(k.id);
     return {
-      ...k,
-      regionData: k.regionRef,
+      ...kennelRest,
+      regionData: regionRef,
       nextEvent: next ? { date: next.date.toISOString(), title: next.title } : null,
     };
   });

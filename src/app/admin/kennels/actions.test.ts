@@ -6,6 +6,7 @@ vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     kennel: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    region: { findUnique: vi.fn() },
     kennelAlias: { deleteMany: vi.fn() },
     sourceKennel: { deleteMany: vi.fn() },
     kennelAttendance: { count: vi.fn() },
@@ -41,6 +42,8 @@ beforeEach(() => {
   mockAdminAuth.mockResolvedValue(mockAdmin as never);
   // findSimilarKennels() in createKennel needs this
   mockKennelFindMany.mockResolvedValue([] as never);
+  // resolveRegionName() requires prisma.region.findUnique
+  vi.mocked(prisma.region.findUnique).mockResolvedValue({ id: "region_1", name: "NYC" } as never);
 });
 
 describe("createKennel", () => {
@@ -67,6 +70,7 @@ describe("createKennel", () => {
     fd.set("shortName", "NYCH3");
     fd.set("fullName", "NYC Hash");
     fd.set("region", "NYC");
+    fd.set("regionId", "region_1");
     expect(await createKennel(fd)).toEqual({
       error: 'A kennel with code "nych3" already exists',
     });
@@ -80,12 +84,14 @@ describe("createKennel", () => {
     fd.set("shortName", "NYCH3");
     fd.set("fullName", "NYC Hash");
     fd.set("region", "NYC");
+    fd.set("regionId", "region_1");
     expect(await createKennel(fd)).toEqual({
       error: 'A kennel with slug "nych3" already exists',
     });
   });
 
   it("returns error when shortName + region already exists", async () => {
+    vi.mocked(prisma.region.findUnique).mockResolvedValueOnce({ id: "region_1", name: "New York City, NY" } as never);
     mockKennelFindUnique
       .mockResolvedValueOnce(null)  // kennelCode check
       .mockResolvedValueOnce(null); // slug check
@@ -94,6 +100,7 @@ describe("createKennel", () => {
     fd.set("shortName", "NYCH3");
     fd.set("fullName", "NYC Hash");
     fd.set("region", "New York City, NY");
+    fd.set("regionId", "region_1");
     expect(await createKennel(fd)).toEqual({
       error: 'A kennel named "NYCH3" already exists in New York City, NY',
     });
@@ -109,6 +116,7 @@ describe("createKennel", () => {
     fd.set("shortName", "TestH3");
     fd.set("fullName", "Test Hash");
     fd.set("region", "Boston, MA");
+    fd.set("regionId", "region_1");
     const result = await createKennel(fd);
     expect(result).toEqual({ success: true });
   });
@@ -123,6 +131,7 @@ describe("createKennel", () => {
     fd.set("shortName", "TestH3");
     fd.set("fullName", "Test Hash");
     fd.set("region", "NYC");
+    fd.set("regionId", "region_1");
     fd.set("aliases", "Test, TH3");
     const result = await createKennel(fd);
     expect(result).toEqual({ success: true });
@@ -148,6 +157,7 @@ describe("createKennel", () => {
     fd.set("shortName", "Drinking Practice (NYC)");
     fd.set("fullName", "Drinking Practice NYC");
     fd.set("region", "NYC");
+    fd.set("regionId", "region_1");
     await createKennel(fd);
     expect(mockKennelCreate).toHaveBeenCalledWith(
       expect.objectContaining({

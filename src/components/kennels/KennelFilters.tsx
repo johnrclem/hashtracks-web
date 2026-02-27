@@ -17,6 +17,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import type { KennelCardData } from "./KennelCard";
+import { toggleArrayItem } from "@/lib/format";
 
 const SCHEDULE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -91,19 +92,11 @@ export function KennelFilters({
   }, [kennels]);
 
   function toggleRegion(slug: string) {
-    if (selectedRegions.includes(slug)) {
-      onRegionsChange(selectedRegions.filter((r) => r !== slug));
-    } else {
-      onRegionsChange([...selectedRegions, slug]);
-    }
+    onRegionsChange(toggleArrayItem(selectedRegions, slug));
   }
 
   function toggleDay(day: string) {
-    if (selectedDays.includes(day)) {
-      onDaysChange(selectedDays.filter((d) => d !== day));
-    } else {
-      onDaysChange([...selectedDays, day]);
-    }
+    onDaysChange(toggleArrayItem(selectedDays, day));
   }
 
   const activeFilterCount =

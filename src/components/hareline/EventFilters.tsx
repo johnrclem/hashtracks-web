@@ -26,6 +26,7 @@ import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import type { HarelineEvent } from "./EventCard";
 import type { GeoState } from "@/hooks/useGeolocation";
 import { DISTANCE_OPTIONS } from "@/lib/geo";
+import { toggleArrayItem } from "@/lib/format";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -94,12 +95,11 @@ export function EventFilters({
         });
       }
     }
-    // Filter by selected region slugs if any
     const all = Array.from(kennelMap.values());
-    if (selectedRegions.length > 0) {
-      return all.filter((k) => selectedRegions.includes(k.regionSlug));
-    }
-    return all.sort((a, b) => a.shortName.localeCompare(b.shortName));
+    const filtered = selectedRegions.length > 0
+      ? all.filter((k) => selectedRegions.includes(k.regionSlug))
+      : all;
+    return filtered.sort((a, b) => a.shortName.localeCompare(b.shortName));
   }, [events, selectedRegions]);
 
   const countries = useMemo(() => {
@@ -111,27 +111,15 @@ export function EventFilters({
   }, [events]);
 
   function toggleRegion(slug: string) {
-    if (selectedRegions.includes(slug)) {
-      onRegionsChange(selectedRegions.filter((r) => r !== slug));
-    } else {
-      onRegionsChange([...selectedRegions, slug]);
-    }
+    onRegionsChange(toggleArrayItem(selectedRegions, slug));
   }
 
   function toggleKennel(kennelId: string) {
-    if (selectedKennels.includes(kennelId)) {
-      onKennelsChange(selectedKennels.filter((k) => k !== kennelId));
-    } else {
-      onKennelsChange([...selectedKennels, kennelId]);
-    }
+    onKennelsChange(toggleArrayItem(selectedKennels, kennelId));
   }
 
   function toggleDay(day: string) {
-    if (selectedDays.includes(day)) {
-      onDaysChange(selectedDays.filter((d) => d !== day));
-    } else {
-      onDaysChange([...selectedDays, day]);
-    }
+    onDaysChange(toggleArrayItem(selectedDays, day));
   }
 
   const activeFilterCount =

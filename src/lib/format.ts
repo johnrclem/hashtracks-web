@@ -72,6 +72,15 @@ export {
   regionNameToSlug,
 } from "@/lib/region";
 
+// ── Array toggle helper (shared by filter components) ──
+
+/** Toggle an item in an array: add if missing, remove if present. Returns a new array. */
+export function toggleArrayItem<T>(array: T[], value: T): T[] {
+  return array.includes(value)
+    ? array.filter((v) => v !== value)
+    : [...array, value];
+}
+
 // ── URL param helpers (shared by KennelDirectory + HarelineView) ──
 
 /** Parse a comma-separated URL param into an array of non-empty strings. */
@@ -80,7 +89,11 @@ export function parseList(value: string | null): string[] {
   return value.split(",").filter(Boolean);
 }
 
-/** Parse region URL param with backward compat — resolves old name strings to slugs. */
+/**
+ * Parse region URL param with backward compat — resolves old name strings to slugs.
+ * Comma splitting is safe because URL params now store slugs (e.g. "washington-dc"),
+ * which never contain commas.
+ */
 export function parseRegionList(value: string | null): string[] {
   const raw = parseList(value);
   return raw.map((v) => regionNameToSlug(v) ?? v);

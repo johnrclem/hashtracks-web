@@ -37,7 +37,9 @@ export default async function LogbookPage() {
 
   const stravaConnected = stravaResult.success ? stravaResult.connected : false;
 
-  const entries = attendances.map((a) => ({
+  const entries = attendances.map((a) => {
+    const { regionRef, ...kennelRest } = a.event.kennel;
+    return {
       attendance: {
         id: a.id,
         participationLevel: a.participationLevel as string,
@@ -52,9 +54,10 @@ export default async function LogbookPage() {
         title: a.event.title,
         startTime: a.event.startTime,
         status: a.event.status,
-        kennel: { ...a.event.kennel, regionData: a.event.kennel.regionRef },
+        kennel: { ...kennelRest, regionData: regionRef },
       },
-    }));
+    };
+  });
 
   const confirmedCount = entries.filter((e) => e.attendance.status === "CONFIRMED").length;
   const now = new Date();

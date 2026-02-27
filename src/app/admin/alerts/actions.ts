@@ -5,6 +5,7 @@ import { getAdminUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { scrapeSource } from "@/pipeline/scrape";
 import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
+import { buildKennelIdentifiers, resolveRegionByName } from "@/lib/kennel-utils";
 import type { Prisma } from "@/generated/prisma/client";
 
 interface RepairLogEntry {
@@ -249,21 +250,10 @@ export async function createKennelFromAlert(
   const alert = await prisma.alert.findUnique({ where: { id: alertId } });
   if (!alert) return { error: "Alert not found" };
 
-  // Generate slug and kennelCode
-  const slug = kennelData.shortName
-    .toLowerCase()
-    .replace(/[()]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-  const kennelCode = kennelData.shortName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+  const { slug, kennelCode } = buildKennelIdentifiers(kennelData.shortName);
 
-  // Resolve region FK
   const regionName = kennelData.region || "Unknown";
-  const regionRecord = await prisma.region.findUnique({ where: { name: regionName } });
+  const regionRecord = await resolveRegionByName(regionName);
   if (!regionRecord) return { error: `Region "${regionName}" not found — create it first in Admin → Regions` };
 
   // Check uniqueness

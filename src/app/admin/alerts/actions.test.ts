@@ -22,6 +22,9 @@ vi.mock("@/lib/db", () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
     },
+    region: {
+      findUnique: vi.fn(),
+    },
     sourceKennel: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
@@ -75,6 +78,7 @@ const mockScrape = vi.mocked(scrapeSource);
 const mockResolve = vi.mocked(resolveKennelTag);
 const mockClearCache = vi.mocked(clearResolverCache);
 const mockTransaction = vi.mocked(prisma.$transaction);
+const mockRegionFind = vi.mocked(prisma.region.findUnique);
 
 function baseAlert(overrides = {}) {
   return {
@@ -379,6 +383,10 @@ describe("createAliasFromAlert", () => {
 
 describe("createKennelFromAlert", () => {
   const kennelData = { shortName: "TestH3", fullName: "Test Hash House Harriers", region: "NYC" };
+
+  beforeEach(() => {
+    mockRegionFind.mockResolvedValue({ id: "region_1", name: "NYC" } as never);
+  });
 
   it("returns error when unauthorized", async () => {
     mockAuth.mockResolvedValueOnce(null as never);
