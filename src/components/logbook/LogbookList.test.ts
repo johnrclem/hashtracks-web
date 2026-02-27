@@ -101,10 +101,10 @@ describe("filterLogbookEntries", () => {
     expect(result).toHaveLength(3);
   });
 
-  it("filters by region", () => {
-    const result = filterLogbookEntries(entries, ["NYC"], [], []);
+  it("filters by region slug", () => {
+    const result = filterLogbookEntries(entries, ["nyc"], [], []);
     expect(result).toHaveLength(2);
-    expect(result.every((e) => e.event.kennel.regionData.name === "NYC")).toBe(true);
+    expect(result.every((e) => e.event.kennel.regionData.slug === "nyc")).toBe(true);
   });
 
   it("filters by kennel id", () => {
@@ -120,24 +120,24 @@ describe("filterLogbookEntries", () => {
   });
 
   it("combines multiple filters with AND logic", () => {
-    const result = filterLogbookEntries(entries, ["NYC"], [], ["WALK"]);
+    const result = filterLogbookEntries(entries, ["nyc"], [], ["WALK"]);
     expect(result).toHaveLength(1);
     expect(result[0].attendance.participationLevel).toBe("WALK");
-    expect(result[0].event.kennel.regionData.name).toBe("NYC");
+    expect(result[0].event.kennel.regionData.slug).toBe("nyc");
   });
 
   it("supports multiple values per filter dimension (OR within dimension)", () => {
-    const result = filterLogbookEntries(entries, ["NYC", "Boston"], [], []);
+    const result = filterLogbookEntries(entries, ["nyc", "boston"], [], []);
     expect(result).toHaveLength(3);
   });
 
   it("returns empty when filters match nothing", () => {
-    const result = filterLogbookEntries(entries, ["London"], [], []);
+    const result = filterLogbookEntries(entries, ["london"], [], []);
     expect(result).toHaveLength(0);
   });
 
   it("handles empty entries array", () => {
-    const result = filterLogbookEntries([], ["NYC"], ["k_1"], ["RUN"]);
+    const result = filterLogbookEntries([], ["nyc"], ["k_1"], ["RUN"]);
     expect(result).toHaveLength(0);
   });
 });

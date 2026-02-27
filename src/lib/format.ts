@@ -72,6 +72,20 @@ export {
   regionNameToSlug,
 } from "@/lib/region";
 
+// ── URL param helpers (shared by KennelDirectory + HarelineView) ──
+
+/** Parse a comma-separated URL param into an array of non-empty strings. */
+export function parseList(value: string | null): string[] {
+  if (!value) return [];
+  return value.split(",").filter(Boolean);
+}
+
+/** Parse region URL param with backward compat — resolves old name strings to slugs. */
+export function parseRegionList(value: string | null): string[] {
+  const raw = parseList(value);
+  return raw.map((v) => regionNameToSlug(v) ?? v);
+}
+
 /**
  * Format ISO date string to short display: "Wed, Feb 18".
  * Uses UTC to match the date storage convention (UTC noon).

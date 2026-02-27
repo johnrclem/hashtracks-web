@@ -347,6 +347,9 @@ export async function createQuickKennel(data: {
     return { error: "shortName, fullName, and region are required" };
   }
 
+  const regionRecord = await prisma.region.findUnique({ where: { name: region } });
+  if (!regionRecord) return { error: `Region "${region}" not found — create it first in Admin → Regions` };
+
   const { slug, kennelCode } = buildKennelIdentifiers(shortName);
 
   const [existingCode, existingSlug] = await Promise.all([
@@ -358,7 +361,7 @@ export async function createQuickKennel(data: {
   }
 
   const kennel = await prisma.kennel.create({
-    data: { kennelCode, shortName, fullName, slug, region },
+    data: { kennelCode, shortName, fullName, slug, region, regionRef: { connect: { id: regionRecord.id } } },
   });
 
   revalidatePath("/admin/kennels");
@@ -384,13 +387,18 @@ export async function createKennelForSource(
 
   const { slug, kennelCode } = buildKennelIdentifiers(kennelData.shortName);
 
+  // Resolve region FK
+  const regionName = kennelData.region || "Unknown";
+  const regionRecord = await prisma.region.findUnique({ where: { name: regionName } });
+  if (!regionRecord) return { error: `Region "${regionName}" not found — create it first in Admin → Regions` };
+
   // Check uniqueness
   const existingKennel = await prisma.kennel.findFirst({
     where: {
       OR: [
         { kennelCode },
         { slug },
-        { shortName: kennelData.shortName, region: kennelData.region || "Unknown" },
+        { shortName: kennelData.shortName, regionId: regionRecord.id },
       ],
     },
   });
@@ -403,7 +411,8 @@ export async function createKennelForSource(
       shortName: kennelData.shortName,
       fullName: kennelData.fullName || kennelData.shortName,
       slug,
-      region: kennelData.region || "Unknown",
+      region: regionName,
+      regionRef: { connect: { id: regionRecord.id } },
       aliases: {
         create: tag !== kennelData.shortName ? [{ alias: tag }] : [],
       },

@@ -11,7 +11,7 @@ import { EventDetailPanel } from "./EventDetailPanel";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { haversineDistance, getEventCoordsFromRegionData } from "@/lib/geo";
-import { regionNameToSlug } from "@/lib/format"; // kept for parseRegionList backward compat
+import { parseList, parseRegionList } from "@/lib/format";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -27,17 +27,6 @@ interface HarelineViewProps {
   subscribedKennelIds: string[];
   isAuthenticated: boolean;
   attendanceMap?: Record<string, AttendanceData>;
-}
-
-function parseList(value: string | null): string[] {
-  if (!value) return [];
-  return value.split(",").filter(Boolean);
-}
-
-/** Parse region URL param with backward compat — resolves old name strings to slugs. */
-function parseRegionList(value: string | null): string[] {
-  const raw = parseList(value);
-  return raw.map((v) => regionNameToSlug(v) ?? v);
 }
 
 interface FilterCriteria {

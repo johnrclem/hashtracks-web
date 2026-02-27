@@ -261,19 +261,24 @@ export async function createKennelFromAlert(
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
+  // Resolve region FK
+  const regionName = kennelData.region || "Unknown";
+  const regionRecord = await prisma.region.findUnique({ where: { name: regionName } });
+  if (!regionRecord) return { error: `Region "${regionName}" not found — create it first in Admin → Regions` };
+
   // Check uniqueness
   const existingKennel = await prisma.kennel.findFirst({
     where: {
       OR: [
         { kennelCode },
         { slug },
-        { shortName: kennelData.shortName, region: kennelData.region || "Unknown" },
+        { shortName: kennelData.shortName, regionId: regionRecord.id },
       ],
     },
   });
   if (existingKennel) return { error: `Kennel "${kennelData.shortName}" already exists` };
 
-  // Create kennel + alias + source link in transaction
+  // Create kennel + alias in transaction
   await prisma.$transaction([
     prisma.kennel.create({
       data: {
@@ -281,20 +286,14 @@ export async function createKennelFromAlert(
         shortName: kennelData.shortName,
         fullName: kennelData.fullName || kennelData.shortName,
         slug,
-        region: kennelData.region || "Unknown",
+        region: regionName,
+        regionRef: { connect: { id: regionRecord.id } },
         aliases: {
           create: tag !== kennelData.shortName ? [{ alias: tag }] : [],
         },
       },
     }),
-    // Link to the alert's source
-    prisma.sourceKennel.create({
-      data: {
-        sourceId: alert.sourceId,
-        kennelId: "", // Placeholder — filled below
-      },
-    }),
-  ].slice(0, 1)); // Only create kennel in transaction
+  ]);
 
   // Get the new kennel ID and create the source link
   const newKennel = await prisma.kennel.findFirst({

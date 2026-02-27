@@ -129,7 +129,7 @@ export async function createKennel(formData: FormData, force: boolean = false) {
   const formRegion = (formData.get("region") as string)?.trim() || "";
   const region = await resolveRegionName(regionId, formRegion);
 
-  if (!shortName || !fullName || !region) {
+  if (!shortName || !fullName || !region || !regionId) {
     return { error: "Short name, full name, and region are required" };
   }
 
@@ -148,9 +148,9 @@ export async function createKennel(formData: FormData, force: boolean = false) {
     return { error: `A kennel with slug "${slug}" already exists` };
   }
 
-  // Check uniqueness: (shortName, region) must be unique
+  // Check uniqueness: (shortName, regionId) must be unique
   const existingInRegion = await prisma.kennel.findFirst({
-    where: { shortName, region },
+    where: { shortName, regionId },
   });
   if (existingInRegion) {
     return { error: `A kennel named "${shortName}" already exists in ${region}` };
@@ -181,7 +181,7 @@ export async function createKennel(formData: FormData, force: boolean = false) {
       slug,
       fullName,
       region,
-      regionId: regionId ?? undefined,
+      regionRef: { connect: { id: regionId } },
       country,
       description,
       website,
@@ -266,7 +266,7 @@ export async function updateKennel(kennelId: string, formData: FormData) {
         slug,
         fullName,
         region,
-        regionId: regionId ?? undefined,
+        ...(regionId ? { regionRef: { connect: { id: regionId } } } : {}),
         country,
         description,
         website,

@@ -82,7 +82,7 @@ export function filterLogbookEntries(
   selectedLevels: string[],
 ): LogbookEntry[] {
   return entries.filter((e) => {
-    if (selectedRegions.length > 0 && !selectedRegions.includes(e.event.kennel.regionData.name)) return false;
+    if (selectedRegions.length > 0 && !selectedRegions.includes(e.event.kennel.regionData.slug)) return false;
     if (selectedKennels.length > 0 && !selectedKennels.includes(e.event.kennel.id)) return false;
     if (selectedLevels.length > 0 && !selectedLevels.includes(e.attendance.participationLevel)) return false;
     return true;
@@ -131,8 +131,12 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
   }, [entries]);
 
   const regions = useMemo(() => {
-    const set = new Set(entries.map((e) => e.event.kennel.regionData.name));
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    const map = new Map<string, { slug: string; name: string }>();
+    for (const e of entries) {
+      const rd = e.event.kennel.regionData;
+      if (!map.has(rd.slug)) map.set(rd.slug, { slug: rd.slug, name: rd.name });
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [entries]);
 
   // Filter entries (uses module-level filterLogbookEntries, exported for testing)
@@ -183,21 +187,22 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
               <CommandList>
                 <CommandEmpty>No regions found.</CommandEmpty>
                 <CommandGroup>
-                  {regions.map((region) => (
+                  {regions.map((r) => (
                     <CommandItem
-                      key={region}
-                      onSelect={() => toggleFilter(setSelectedRegions, region)}
+                      key={r.slug}
+                      value={r.name}
+                      onSelect={() => toggleFilter(setSelectedRegions, r.slug)}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                          selectedRegions.includes(region)
+                          selectedRegions.includes(r.slug)
                             ? "bg-primary border-primary text-primary-foreground"
                             : "opacity-50"
                         }`}
                       >
-                        {selectedRegions.includes(region) && "✓"}
+                        {selectedRegions.includes(r.slug) && "✓"}
                       </span>
-                      {region}
+                      {r.name}
                     </CommandItem>
                   ))}
                 </CommandGroup>

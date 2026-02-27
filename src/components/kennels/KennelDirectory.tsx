@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { KennelCard, type KennelCardData } from "@/components/kennels/KennelCard";
 import { KennelFilters, DAY_FULL } from "@/components/kennels/KennelFilters";
-import { regionNameToSlug } from "@/lib/format"; // kept for parseRegionList backward compat
+import { parseList, parseRegionList } from "@/lib/format";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ssr: false,
@@ -21,17 +21,6 @@ const KennelMapView = dynamic(() => import("./KennelMapView"), {
 /** Props for the KennelDirectory — searchable, filterable, sortable directory of all kennels. */
 interface KennelDirectoryProps {
   kennels: KennelCardData[];
-}
-
-function parseList(value: string | null): string[] {
-  if (!value) return [];
-  return value.split(",").filter(Boolean);
-}
-
-/** Parse region URL param with backward compat — resolves old name strings to slugs. */
-function parseRegionList(value: string | null): string[] {
-  const raw = parseList(value);
-  return raw.map((v) => regionNameToSlug(v) ?? v);
 }
 
 export function KennelDirectory({ kennels }: KennelDirectoryProps) {
