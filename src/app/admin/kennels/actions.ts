@@ -44,6 +44,8 @@ function extractProfileFields(formData: FormData) {
   triState("dogFriendly");
   triState("walkersWelcome");
 
+  result.isHidden = formData.get("isHidden") === "true";
+
   return result;
 }
 
@@ -668,4 +670,39 @@ export async function mergeKennels(
   revalidatePath("/kennels");
   revalidatePath(`/kennels/${targetKennel.slug}`);
   return { success: true };
+}
+
+/**
+ * Toggle kennel visibility (isHidden flag). Admin only.
+ */
+export async function toggleKennelVisibility(kennelId: string) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const kennel = await prisma.kennel.findUnique({
+    where: { id: kennelId },
+    select: { isHidden: true, shortName: true, slug: true },
+  });
+  if (!kennel) return { error: "Kennel not found" };
+
+  const newValue = !kennel.isHidden;
+  await prisma.kennel.update({
+    where: { id: kennelId },
+    data: { isHidden: newValue },
+  });
+
+  console.log("[admin-audit] toggleKennelVisibility", JSON.stringify({
+    adminId: admin.id,
+    action: newValue ? "hide_kennel" : "show_kennel",
+    kennelId,
+    kennelName: kennel.shortName,
+    timestamp: new Date().toISOString(),
+  }));
+
+  revalidatePath("/admin/kennels");
+  revalidatePath("/kennels");
+  revalidatePath(`/kennels/${kennel.slug}`);
+  revalidatePath("/hareline");
+  revalidatePath("/misman");
+  return { success: true, isHidden: newValue };
 }

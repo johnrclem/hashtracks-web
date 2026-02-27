@@ -10,7 +10,7 @@ import { HarelineView } from "@/components/hareline/HarelineView";
 
 export default async function HarelinePage() {
   const events = await prisma.event.findMany({
-    where: { status: { not: "CANCELLED" } },
+    where: { status: { not: "CANCELLED" }, kennel: { isHidden: false } },
     include: {
       kennel: {
         select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
