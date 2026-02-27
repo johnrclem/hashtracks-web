@@ -5,7 +5,7 @@ import { getAdminUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { scrapeSource } from "@/pipeline/scrape";
 import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
-import { buildKennelIdentifiers, resolveRegionByName } from "@/lib/kennel-utils";
+import { buildKennelIdentifiers, createKennelRecord } from "@/lib/kennel-utils";
 import type { Prisma } from "@/generated/prisma/client";
 
 interface RepairLogEntry {
@@ -250,51 +250,15 @@ export async function createKennelFromAlert(
   const alert = await prisma.alert.findUnique({ where: { id: alertId } });
   if (!alert) return { error: "Alert not found" };
 
-  const { slug, kennelCode } = buildKennelIdentifiers(kennelData.shortName);
+  const result = await createKennelRecord(kennelData, tag);
+  if ("error" in result) return result;
 
-  const regionName = kennelData.region || "Unknown";
-  const regionRecord = await resolveRegionByName(regionName);
-  if (!regionRecord) return { error: `Region "${regionName}" not found — create it first in Admin → Regions` };
-
-  // Check uniqueness
-  const existingKennel = await prisma.kennel.findFirst({
-    where: {
-      OR: [
-        { kennelCode },
-        { slug },
-        { shortName: kennelData.shortName, regionId: regionRecord.id },
-      ],
-    },
+  // Link new kennel to source
+  await prisma.sourceKennel.create({
+    data: { sourceId: alert.sourceId, kennelId: result.kennelId },
   });
-  if (existingKennel) return { error: `Kennel "${kennelData.shortName}" already exists` };
 
-  // Create kennel + alias in transaction
-  await prisma.$transaction([
-    prisma.kennel.create({
-      data: {
-        kennelCode,
-        shortName: kennelData.shortName,
-        fullName: kennelData.fullName || kennelData.shortName,
-        slug,
-        region: regionName,
-        regionRef: { connect: { id: regionRecord.id } },
-        aliases: {
-          create: tag !== kennelData.shortName ? [{ alias: tag }] : [],
-        },
-      },
-    }),
-  ]);
-
-  // Get the new kennel ID and create the source link
-  const newKennel = await prisma.kennel.findFirst({
-    where: { slug },
-    select: { id: true },
-  });
-  if (newKennel) {
-    await prisma.sourceKennel.create({
-      data: { sourceId: alert.sourceId, kennelId: newKennel.id },
-    });
-  }
+  const { slug } = buildKennelIdentifiers(kennelData.shortName);
 
   // Record repair
   await prisma.alert.update({

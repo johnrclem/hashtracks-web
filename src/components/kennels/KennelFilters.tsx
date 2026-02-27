@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -16,6 +15,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { RegionFilterPopover } from "@/components/shared/RegionFilterPopover";
 import type { KennelCardData } from "./KennelCard";
 import { toggleArrayItem } from "@/lib/format";
 
@@ -109,45 +109,11 @@ export function KennelFilters({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {/* Region filter */}
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 text-xs">
-            Region
-            {selectedRegions.length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs">
-                {selectedRegions.length}
-              </Badge>
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-56 p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Search regions..." />
-            <CommandList>
-              <CommandEmpty>No regions found.</CommandEmpty>
-              <CommandGroup>
-                {regions.map((r) => (
-                  <CommandItem
-                    key={r.slug}
-                    onSelect={() => toggleRegion(r.slug)}
-                  >
-                    <span
-                      className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                        selectedRegions.includes(r.slug)
-                          ? "bg-primary border-primary text-primary-foreground"
-                          : "opacity-50"
-                      }`}
-                    >
-                      {selectedRegions.includes(r.slug) && "✓"}
-                    </span>
-                    {r.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+      <RegionFilterPopover
+        regions={regions}
+        selectedRegions={selectedRegions}
+        onToggle={toggleRegion}
+      />
 
       {/* Run day chips */}
       <div className="flex gap-1">

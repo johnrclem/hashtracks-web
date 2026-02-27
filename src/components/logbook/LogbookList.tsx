@@ -20,12 +20,13 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
+import { RegionFilterPopover } from "@/components/shared/RegionFilterPopover";
+import { KennelFilterPopover } from "@/components/shared/KennelFilterPopover";
 import { AttendanceBadge } from "./AttendanceBadge";
 import { EditAttendanceDialog } from "./EditAttendanceDialog";
 import type { AttendanceData } from "./CheckInButton";
@@ -170,88 +171,18 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         {/* Region filter */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
-              Region
-              {selectedRegions.length > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs">
-                  {selectedRegions.length}
-                </Badge>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Search regions..." />
-              <CommandList>
-                <CommandEmpty>No regions found.</CommandEmpty>
-                <CommandGroup>
-                  {regions.map((r) => (
-                    <CommandItem
-                      key={r.slug}
-                      value={r.name}
-                      onSelect={() => toggleFilter(setSelectedRegions, r.slug)}
-                    >
-                      <span
-                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                          selectedRegions.includes(r.slug)
-                            ? "bg-primary border-primary text-primary-foreground"
-                            : "opacity-50"
-                        }`}
-                      >
-                        {selectedRegions.includes(r.slug) && "✓"}
-                      </span>
-                      {r.name}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        <RegionFilterPopover
+          regions={regions}
+          selectedRegions={selectedRegions}
+          onToggle={(slug) => toggleFilter(setSelectedRegions, slug)}
+        />
 
         {/* Kennel filter */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
-              Kennel
-              {selectedKennels.length > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs">
-                  {selectedKennels.length}
-                </Badge>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Search kennels..." />
-              <CommandList>
-                <CommandEmpty>No kennels found.</CommandEmpty>
-                <CommandGroup>
-                  {kennels.map((kennel) => (
-                    <CommandItem
-                      key={kennel.id}
-                      value={`${kennel.shortName} ${kennel.fullName} ${kennel.regionName}`}
-                      onSelect={() => toggleFilter(setSelectedKennels, kennel.id)}
-                    >
-                      <span
-                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                          selectedKennels.includes(kennel.id)
-                            ? "bg-primary border-primary text-primary-foreground"
-                            : "opacity-50"
-                        }`}
-                      >
-                        {selectedKennels.includes(kennel.id) && "✓"}
-                      </span>
-                      <KennelOptionLabel kennel={kennel} />
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        <KennelFilterPopover
+          kennels={kennels}
+          selectedKennels={selectedKennels}
+          onToggle={(id) => toggleFilter(setSelectedKennels, id)}
+        />
 
         {/* Level filter */}
         <Popover>

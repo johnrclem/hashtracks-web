@@ -71,6 +71,7 @@ const mockAliasFind = vi.mocked(prisma.kennelAlias.findFirst);
 const mockAliasCreate = vi.mocked(prisma.kennelAlias.create);
 const mockKennelFind = vi.mocked(prisma.kennel.findUnique);
 const mockKennelFindFirst = vi.mocked(prisma.kennel.findFirst);
+const mockKennelCreate = vi.mocked(prisma.kennel.create);
 const mockSourceKennelFind = vi.mocked(prisma.sourceKennel.findUnique);
 const mockSourceKennelFindMany = vi.mocked(prisma.sourceKennel.findMany);
 const mockSourceKennelCreate = vi.mocked(prisma.sourceKennel.create);
@@ -404,10 +405,8 @@ describe("createKennelFromAlert", () => {
 
   it("creates kennel with correct slug and kennelCode", async () => {
     mockAlertFind.mockResolvedValueOnce(baseAlert({ context: null }) as never);
-    mockKennelFindFirst
-      .mockResolvedValueOnce(null as never) // uniqueness check
-      .mockResolvedValueOnce({ id: "new_kennel_1" } as never); // after creation
-    mockTransaction.mockResolvedValueOnce([{}] as never);
+    mockKennelFindFirst.mockResolvedValueOnce(null as never); // uniqueness check
+    mockKennelCreate.mockResolvedValueOnce({ id: "new_kennel_1" } as never);
     mockSourceKennelCreate.mockResolvedValueOnce({} as never);
     mockAlertUpdate.mockResolvedValueOnce({} as never);
 
@@ -423,10 +422,8 @@ describe("createKennelFromAlert", () => {
     mockAlertFind.mockResolvedValueOnce(
       baseAlert({ context: { tags: ["TestTag"] } }) as never,
     );
-    mockKennelFindFirst
-      .mockResolvedValueOnce(null as never) // uniqueness check
-      .mockResolvedValueOnce({ id: "new_kennel_1" } as never); // after creation
-    mockTransaction.mockResolvedValueOnce([{}] as never);
+    mockKennelFindFirst.mockResolvedValueOnce(null as never); // uniqueness check
+    mockKennelCreate.mockResolvedValueOnce({ id: "new_kennel_1" } as never);
     mockSourceKennelCreate.mockResolvedValueOnce({} as never);
     mockAlertUpdate.mockResolvedValueOnce({} as never); // repair log
     mockResolve.mockResolvedValueOnce({ matched: true, kennelId: "new_kennel_1" } as never);

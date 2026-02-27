@@ -263,24 +263,28 @@ describe("assignMismanRole", () => {
     });
   });
 
-  it("returns error when user not found", async () => {
-    mockKennelFindUnique.mockResolvedValueOnce({ slug: "nych3" } as never);
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(null);
-    expect(await assignMismanRole("k1", "u1")).toEqual({
-      error: "User not found",
+  describe("when kennel exists", () => {
+    beforeEach(() => {
+      mockKennelFindUnique.mockResolvedValueOnce({ slug: "nych3" } as never);
     });
-  });
 
-  it("assigns MISMAN role via upsert", async () => {
-    mockKennelFindUnique.mockResolvedValueOnce({ slug: "nych3" } as never);
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({ id: "u1" } as never);
+    it("returns error when user not found", async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(null);
+      expect(await assignMismanRole("k1", "u1")).toEqual({
+        error: "User not found",
+      });
+    });
 
-    const result = await assignMismanRole("k1", "u1");
-    expect(result).toEqual({ success: true });
-    expect(prisma.userKennel.upsert).toHaveBeenCalledWith({
-      where: { userId_kennelId: { userId: "u1", kennelId: "k1" } },
-      update: { role: "MISMAN" },
-      create: { userId: "u1", kennelId: "k1", role: "MISMAN" },
+    it("assigns MISMAN role via upsert", async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({ id: "u1" } as never);
+
+      const result = await assignMismanRole("k1", "u1");
+      expect(result).toEqual({ success: true });
+      expect(prisma.userKennel.upsert).toHaveBeenCalledWith({
+        where: { userId_kennelId: { userId: "u1", kennelId: "k1" } },
+        update: { role: "MISMAN" },
+        create: { userId: "u1", kennelId: "k1", role: "MISMAN" },
+      });
     });
   });
 });

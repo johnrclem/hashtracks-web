@@ -49,6 +49,50 @@ interface RosterGroupData {
   hasherCount: number;
 }
 
+function KennelChecklist({ kennels, selectedIds, onToggle, idPrefix, currentIds }: {
+  kennels: KennelOption[];
+  selectedIds: Set<string>;
+  onToggle: (id: string) => void;
+  idPrefix: string;
+  currentIds?: Set<string>;
+}) {
+  return (
+    <>
+      {groupByRegion(kennels).map(({ region, items }) => (
+        <div key={region} className="space-y-1.5">
+          <div className="flex items-center gap-1.5 pt-1 first:pt-0">
+            <RegionBadge regionData={regionNameToData(region)} size="sm" />
+            <span className="text-xs font-medium text-muted-foreground">
+              {region}
+            </span>
+          </div>
+          {items.map((k) => (
+            <div key={k.id} className="flex items-center gap-2 pl-2">
+              <Checkbox
+                id={`${idPrefix}-${k.id}`}
+                checked={selectedIds.has(k.id)}
+                onCheckedChange={() => onToggle(k.id)}
+              />
+              <Label
+                htmlFor={`${idPrefix}-${k.id}`}
+                className="text-sm font-normal cursor-pointer"
+              >
+                {k.fullName}
+                <span className="ml-1 text-xs text-muted-foreground">
+                  ({k.shortName})
+                </span>
+                {currentIds?.has(k.id) && (
+                  <span className="ml-1 text-xs text-muted-foreground">(current)</span>
+                )}
+              </Label>
+            </div>
+          ))}
+        </div>
+      ))}
+    </>
+  );
+}
+
 interface PendingGroupRequest {
   id: string;
   user: { id: string; email: string; hashName: string | null; nerdName: string | null };
@@ -450,34 +494,12 @@ function CreateGroupDialog({
                   No standalone kennels available.
                 </p>
               ) : (
-                groupByRegion(standaloneKennels).map(({ region, items }) => (
-                  <div key={region} className="space-y-1.5">
-                    <div className="flex items-center gap-1.5 pt-1 first:pt-0">
-                      <RegionBadge regionData={regionNameToData(region)} size="sm" />
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {region}
-                      </span>
-                    </div>
-                    {items.map((k) => (
-                      <div key={k.id} className="flex items-center gap-2 pl-2">
-                        <Checkbox
-                          id={`kennel-${k.id}`}
-                          checked={selectedIds.has(k.id)}
-                          onCheckedChange={() => handleToggle(k.id)}
-                        />
-                        <Label
-                          htmlFor={`kennel-${k.id}`}
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {k.fullName}
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            ({k.shortName})
-                          </span>
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                ))
+                <KennelChecklist
+                  kennels={standaloneKennels}
+                  selectedIds={selectedIds}
+                  onToggle={handleToggle}
+                  idPrefix="kennel"
+                />
               )}
             </div>
           </div>
@@ -621,37 +643,13 @@ function EditGroupDialog({
           <div className="space-y-2">
             <Label>Kennels ({selectedIds.size} selected)</Label>
             <div className="max-h-72 overflow-y-auto space-y-3 rounded-md border p-3">
-              {groupByRegion(allKennels).map(({ region, items }) => (
-                <div key={region} className="space-y-1.5">
-                  <div className="flex items-center gap-1.5 pt-1 first:pt-0">
-                    <RegionBadge regionData={regionNameToData(region)} size="sm" />
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {region}
-                    </span>
-                  </div>
-                  {items.map((k) => (
-                    <div key={k.id} className="flex items-center gap-2 pl-2">
-                      <Checkbox
-                        id={`edit-kennel-${k.id}`}
-                        checked={selectedIds.has(k.id)}
-                        onCheckedChange={() => handleToggle(k.id)}
-                      />
-                      <Label
-                        htmlFor={`edit-kennel-${k.id}`}
-                        className="text-sm font-normal cursor-pointer"
-                      >
-                        {k.fullName}
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          ({k.shortName})
-                        </span>
-                        {currentIds.has(k.id) && (
-                          <span className="ml-1 text-xs text-muted-foreground">(current)</span>
-                        )}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              ))}
+              <KennelChecklist
+                kennels={allKennels}
+                selectedIds={selectedIds}
+                onToggle={handleToggle}
+                idPrefix="edit-kennel"
+                currentIds={currentIds}
+              />
             </div>
           </div>
         </div>
