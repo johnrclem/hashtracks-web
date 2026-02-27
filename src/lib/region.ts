@@ -1,3 +1,5 @@
+import type { RegionData } from "@/lib/types/region";
+
 /**
  * Region data module — single source of truth for region display data.
  *
@@ -425,6 +427,20 @@ export function regionSlug(name: string): string {
     .replace(/[,.\s]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+/** Convert a region name string to a RegionData object using sync fallback maps. */
+export function regionNameToData(name: string): RegionData {
+  const centroid = getRegionCentroid(name);
+  return {
+    slug: regionNameToSlug(name) ?? regionSlug(name),
+    name,
+    abbrev: regionAbbrev(name),
+    colorClasses: regionColorClasses(name),
+    pinColor: getRegionColor(name),
+    centroidLat: centroid?.lat ?? null,
+    centroidLng: centroid?.lng ?? null,
+  };
 }
 
 /** Default pin color for unknown regions. */
