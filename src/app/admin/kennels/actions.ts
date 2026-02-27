@@ -44,10 +44,7 @@ function extractProfileFields(formData: FormData) {
   triState("dogFriendly");
   triState("walkersWelcome");
 
-  // isHidden is a non-nullable boolean (checkbox), only include if present in form
-  if (formData.has("isHidden")) {
-    result.isHidden = formData.get("isHidden") === "true";
-  }
+  result.isHidden = formData.get("isHidden") === "true";
 
   return result;
 }
@@ -706,5 +703,6 @@ export async function toggleKennelVisibility(kennelId: string) {
   revalidatePath("/kennels");
   revalidatePath(`/kennels/${kennel.slug}`);
   revalidatePath("/hareline");
+  revalidatePath("/misman");
   return { success: true, isHidden: newValue };
 }

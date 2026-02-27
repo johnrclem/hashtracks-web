@@ -236,6 +236,9 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
       if (!isOpen) {
         setSimilarKennels([]);
         setPendingFormData(null);
+        setAliases(kennel?.aliases ?? []);
+        setSelectedRegionId(kennel?.regionId ?? "");
+        setIsHidden(kennel?.isHidden ?? false);
       }
     }}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
