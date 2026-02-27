@@ -1,0 +1,65 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { verifyCronAuth } from "@/lib/cron-auth";
+import { scrapeSource } from "@/pipeline/scrape";
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ sourceId: string }> },
+) {
+  const auth = await verifyCronAuth(request);
+  if (!auth.authenticated) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { sourceId } = await params;
+
+  const source = await prisma.source.findUnique({
+    where: { id: sourceId },
+    select: { id: true, name: true, enabled: true, scrapeDays: true },
+  });
+
+  if (!source) {
+    return NextResponse.json({ error: "Source not found" }, { status: 404 });
+  }
+
+  if (!source.enabled) {
+    return NextResponse.json({
+      success: true,
+      skipped: true,
+      reason: "Source is disabled",
+      sourceId: source.id,
+      name: source.name,
+    });
+  }
+
+  // Read optional days override from request body (QStash message payload)
+  let days = source.scrapeDays;
+  try {
+    const body = await request.clone().text();
+    if (body) {
+      const parsed = JSON.parse(body);
+      if (typeof parsed.days === "number") days = parsed.days;
+    }
+  } catch {
+    // No body or invalid JSON — use source default
+  }
+
+  console.log(`[cron/source] Scraping ${source.name} (${sourceId}), days=${days}, auth=${auth.method}`);
+
+  const result = await scrapeSource(sourceId, { days });
+
+  if (!result.success) {
+    // Return 500 so QStash retries this source
+    return NextResponse.json(
+      { ...result, sourceId, name: source.name },
+      { status: 500 },
+    );
+  }
+
+  return NextResponse.json({
+    ...result,
+    sourceId,
+    name: source.name,
+  });
+}

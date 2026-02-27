@@ -1,4 +1,4 @@
-import { shouldScrape } from "./route";
+import { shouldScrape } from "@/pipeline/schedule";
 
 describe("shouldScrape", () => {
   it("returns true when lastScrapeAt is null (never scraped)", () => {
