@@ -10,14 +10,13 @@ export async function generateMetadata({
   const { slug } = await params;
   const kennel = await prisma.kennel.findUnique({
     where: { slug },
-    select: { shortName: true, isHidden: true },
+    select: { shortName: true },
   });
-  if (!kennel || kennel.isHidden) return { title: "Kennel · HashTracks" };
+  if (!kennel) return { title: "Kennel · HashTracks" };
   return { title: `${kennel.shortName} · Kennels · HashTracks` };
 }
 import { getOrCreateUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
-import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { SubscribeButton } from "@/components/kennels/SubscribeButton";
 import { MismanAccessButton } from "@/components/kennels/MismanAccessButton";
 import type { HarelineEvent } from "@/components/hareline/EventCard";
@@ -26,7 +25,6 @@ import { MismanManagementSection } from "@/components/kennels/MismanManagementSe
 import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
 import { SocialLinks } from "@/components/kennels/SocialLinks";
 import { KennelStats } from "@/components/kennels/KennelStats";
-import { REGION_DATA_SELECT } from "@/lib/types/region";
 
 export default async function KennelDetailPage({
   params,
@@ -39,11 +37,10 @@ export default async function KennelDetailPage({
     where: { slug },
     include: {
       _count: { select: { members: true } },
-      regionRef: { select: REGION_DATA_SELECT },
     },
   });
 
-  if (!kennel || kennel.isHidden) notFound();
+  if (!kennel) notFound();
 
   const [user, events] = await Promise.all([
     getOrCreateUser(),
@@ -51,7 +48,7 @@ export default async function KennelDetailPage({
       where: { kennelId: kennel.id, status: { not: "CANCELLED" } },
       include: {
         kennel: {
-          select: { id: true, shortName: true, fullName: true, slug: true, country: true, regionRef: { select: REGION_DATA_SELECT } },
+          select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
         },
       },
       orderBy: { date: "asc" },
@@ -85,7 +82,7 @@ export default async function KennelDetailPage({
     dateUtc: e.dateUtc,
     timezone: e.timezone,
     kennelId: e.kennelId,
-    kennel: { ...e.kennel, regionData: e.kennel.regionRef },
+    kennel: e.kennel,
     runNumber: e.runNumber,
     title: e.title,
     haresText: e.haresText,
@@ -127,7 +124,7 @@ export default async function KennelDetailPage({
             {kennel.shortName}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <RegionBadge regionData={kennel.regionRef} />
+            <Badge>{kennel.region}</Badge>
             <Badge variant="outline">{kennel.country}</Badge>
             <span className="text-sm text-muted-foreground">
               {kennel._count.members}{" "}

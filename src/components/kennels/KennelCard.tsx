@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { formatSchedule, formatDateShort } from "@/lib/format";
-import type { RegionData } from "@/lib/types/region";
 
 export interface KennelCardData {
   id: string;
   slug: string;
   shortName: string;
   fullName: string;
+  region: string;
   country: string;
-  regionData: RegionData;
   description: string | null;
   foundedYear: number | null;
   scheduleDayOfWeek: string | null;
@@ -43,7 +42,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
               {kennel.fullName}
             </p>
           </div>
-          <RegionBadge regionData={kennel.regionData} size="sm" />
+          <RegionBadge region={kennel.region} size="sm" />
         </div>
 
         {/* Schedule + founded */}

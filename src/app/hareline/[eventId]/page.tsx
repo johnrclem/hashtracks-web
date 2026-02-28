@@ -41,8 +41,7 @@ import { EventWeatherCard } from "@/components/hareline/EventWeatherCard";
 import { EventTimeDisplay } from "@/components/hareline/EventTimeDisplay";
 import { SourcesDropdown } from "@/components/hareline/SourcesDropdown";
 import { getEventDayWeather } from "@/lib/weather";
-import { REGION_DATA_SELECT } from "@/lib/types/region";
-import { RegionBadge } from "@/components/hareline/RegionBadge";
+import { REGION_CENTROIDS } from "@/lib/geo";
 import { InfoPopover } from "@/components/ui/info-popover";
 
 export default async function EventDetailPage({
@@ -56,7 +55,7 @@ export default async function EventDetailPage({
     where: { id: eventId },
     include: {
       kennel: {
-        select: { shortName: true, fullName: true, slug: true, regionRef: { select: REGION_DATA_SELECT } },
+        select: { shortName: true, fullName: true, slug: true, region: true },
       },
       hares: {
         select: {
@@ -110,8 +109,8 @@ export default async function EventDetailPage({
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const daysUntil = Math.round((eventDay.getTime() - today.getTime()) / MS_PER_DAY);
-  const weatherLat = event.latitude ?? event.kennel.regionRef.centroidLat ?? null;
-  const weatherLng = event.longitude ?? event.kennel.regionRef.centroidLng ?? null;
+  const weatherLat = event.latitude ?? REGION_CENTROIDS[event.kennel.region]?.lat ?? null;
+  const weatherLng = event.longitude ?? REGION_CENTROIDS[event.kennel.region]?.lng ?? null;
   const weather =
     daysUntil >= 0 && daysUntil <= 10 && weatherLat != null && weatherLng != null
       ? await getEventDayWeather(weatherLat, weatherLng, event.date).catch(() => null)
@@ -153,7 +152,7 @@ export default async function EventDetailPage({
           <InfoPopover title="Data source">
             Event details are pulled from public sources. Always confirm with your kennel.
           </InfoPopover>
-          <RegionBadge regionData={event.kennel.regionRef} />
+          <Badge>{event.kennel.region}</Badge>
           {event.status === "CANCELLED" && (
             <Badge variant="destructive">Cancelled</Badge>
           )}

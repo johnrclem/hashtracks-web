@@ -63,9 +63,8 @@ export default async function MismanPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  // Fetch all kennels for the "request another kennel" picker (exclude hidden)
+  // Fetch all kennels for the "request another kennel" picker
   const allKennels = await prisma.kennel.findMany({
-    where: { isHidden: false },
     select: { id: true, shortName: true, fullName: true, region: true },
     orderBy: { shortName: "asc" },
   });

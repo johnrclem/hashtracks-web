@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { KennelCard, type KennelCardData } from "@/components/kennels/KennelCard";
 import { KennelFilters, DAY_FULL } from "@/components/kennels/KennelFilters";
-import { parseList, parseRegionList } from "@/lib/format";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ssr: false,
@@ -23,13 +22,18 @@ interface KennelDirectoryProps {
   kennels: KennelCardData[];
 }
 
+function parseList(value: string | null): string[] {
+  if (!value) return [];
+  return value.split(",").filter(Boolean);
+}
+
 export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   const searchParams = useSearchParams();
 
   // Initialize state from URL params
   const [search, setSearchState] = useState(searchParams.get("q") ?? "");
   const [selectedRegions, setSelectedRegionsState] = useState<string[]>(
-    parseRegionList(searchParams.get("regions")),
+    parseList(searchParams.get("regions")),
   );
   const [selectedDays, setSelectedDaysState] = useState<string[]>(
     parseList(searchParams.get("days")),
@@ -141,13 +145,13 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         query &&
         !k.shortName.toLowerCase().includes(query) &&
         !k.fullName.toLowerCase().includes(query) &&
-        !k.regionData.name.toLowerCase().includes(query)
+        !k.region.toLowerCase().includes(query)
       ) {
         return false;
       }
-      // Region (compare by slug)
-      if (selectedRegions.length > 0) {
-        if (!selectedRegions.includes(k.regionData.slug)) return false;
+      // Region
+      if (selectedRegions.length > 0 && !selectedRegions.includes(k.region)) {
+        return false;
       }
       // Run day (match on scheduleDayOfWeek)
       if (selectedDays.length > 0) {
@@ -186,9 +190,9 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         return a.shortName.localeCompare(b.shortName);
       });
     } else {
-      // Alphabetical by shortName (region-grouped)
+      // Alphabetical by shortName (already region-grouped from server ordering)
       items.sort((a, b) => {
-        const regionCmp = a.regionData.name.localeCompare(b.regionData.name);
+        const regionCmp = a.region.localeCompare(b.region);
         if (regionCmp !== 0) return regionCmp;
         return a.shortName.localeCompare(b.shortName);
       });
@@ -196,14 +200,13 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     return items;
   }, [filtered, sort]);
 
-  // Group by region name (only for alpha sort)
+  // Group by region (only for alpha sort)
   const grouped = useMemo(() => {
     if (sort !== "alpha") return null;
     const groups: Record<string, KennelCardData[]> = {};
     for (const k of sorted) {
-      const regionName = k.regionData.name;
-      if (!groups[regionName]) groups[regionName] = [];
-      groups[regionName].push(k);
+      if (!groups[k.region]) groups[k.region] = [];
+      groups[k.region].push(k);
     }
     return groups;
   }, [sorted, sort]);

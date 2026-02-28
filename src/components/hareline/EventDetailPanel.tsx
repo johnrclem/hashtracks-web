@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/tooltip";
 import { formatTime, getLabelForUrl } from "@/lib/format";
 import { formatDateLong, type HarelineEvent } from "./EventCard";
-import { RegionBadge } from "./RegionBadge";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
 import { CheckInButton } from "@/components/logbook/CheckInButton";
@@ -103,7 +102,9 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             >
               {event.kennel.fullName}
             </Link>
-            <RegionBadge regionData={event.kennel.regionData} size="sm" />
+            <Badge variant="outline" className="text-xs">
+              {event.kennel.region}
+            </Badge>
             {event.status === "CANCELLED" && (
               <Badge variant="destructive">Cancelled</Badge>
             )}

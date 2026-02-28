@@ -8,7 +8,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { EventCard, type HarelineEvent } from "./EventCard";
-import { formatTimeCompact } from "@/lib/format";
+import { regionColorClasses, formatTimeCompact } from "@/lib/format";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -167,7 +167,7 @@ export function CalendarView({ events }: CalendarViewProps) {
                         <Tooltip key={e.id}>
                           <TooltipTrigger asChild>
                             <span
-                              className={`inline-flex w-fit max-w-full items-center truncate rounded-full px-1 py-0.5 text-[10px] font-medium leading-tight ${e.kennel.regionData.colorClasses}`}
+                              className={`inline-flex w-fit max-w-full items-center truncate rounded-full px-1 py-0.5 text-[10px] font-medium leading-tight ${regionColorClasses(e.kennel.region)}`}
                             >
                               {e.startTime && (
                                 <span className="mr-0.5 font-normal opacity-70">

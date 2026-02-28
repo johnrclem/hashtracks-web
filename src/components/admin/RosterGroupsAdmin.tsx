@@ -38,7 +38,6 @@ import {
 } from "@/app/admin/roster-groups/actions";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { groupByRegion } from "@/lib/groupByRegion";
-import { regionNameToData } from "@/lib/region";
 
 type KennelOption = { id: string; shortName: string; fullName: string; region: string };
 
@@ -61,7 +60,7 @@ function KennelChecklist({ kennels, selectedIds, onToggle, idPrefix, currentIds 
       {groupByRegion(kennels).map(({ region, items }) => (
         <div key={region} className="space-y-1.5">
           <div className="flex items-center gap-1.5 pt-1 first:pt-0">
-            <RegionBadge regionData={regionNameToData(region)} size="sm" />
+            <RegionBadge region={region} size="sm" />
             <span className="text-xs font-medium text-muted-foreground">
               {region}
             </span>

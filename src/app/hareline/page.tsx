@@ -7,14 +7,13 @@ export const metadata: Metadata = {
 };
 import { getOrCreateUser } from "@/lib/auth";
 import { HarelineView } from "@/components/hareline/HarelineView";
-import { REGION_DATA_SELECT } from "@/lib/types/region";
 
 export default async function HarelinePage() {
   const events = await prisma.event.findMany({
-    where: { status: { not: "CANCELLED" }, kennel: { isHidden: false } },
+    where: { status: { not: "CANCELLED" } },
     include: {
       kennel: {
-        select: { id: true, shortName: true, fullName: true, slug: true, country: true, regionRef: { select: REGION_DATA_SELECT } },
+        select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
       },
     },
     orderBy: { date: "asc" },
@@ -47,15 +46,13 @@ export default async function HarelinePage() {
   }
 
   // Serialize dates for client component
-  const serializedEvents = events.map((e) => {
-    const { regionRef, ...kennelRest } = e.kennel;
-    return {
+  const serializedEvents = events.map((e) => ({
     id: e.id,
     date: e.date.toISOString(),
     dateUtc: e.dateUtc,
     timezone: e.timezone,
     kennelId: e.kennelId,
-    kennel: { ...kennelRest, regionData: regionRef },
+    kennel: e.kennel,
     runNumber: e.runNumber,
     title: e.title,
     haresText: e.haresText,
@@ -67,8 +64,7 @@ export default async function HarelinePage() {
     status: e.status,
     latitude: e.latitude ?? null,
     longitude: e.longitude ?? null,
-  };
-  });
+  }));
 
   return (
     <div>
