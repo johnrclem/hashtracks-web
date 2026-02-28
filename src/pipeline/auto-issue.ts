@@ -119,32 +119,51 @@ function buildContextSection(alertType: string, ctx: Record<string, unknown> | n
   if (!ctx) return "";
 
   switch (alertType) {
-    case "UNMATCHED_TAGS":
-      return `### Unmatched Tags\n${((ctx.tags as string[]) ?? []).map((t) => `- \`${t}\``).join("\n")}\n\nThese tags appeared in scraped events but couldn't be resolved to any kennel.\nThe kennel resolver checked: shortName → alias → pattern match → no match.`;
+    case "UNMATCHED_TAGS": {
+      const tagList = ((ctx.tags as string[]) ?? []).map((t) => "- `" + t + "`").join("\n");
+      return `### Unmatched Tags\n${tagList}\n\nThese tags appeared in scraped events but couldn't be resolved to any kennel.\nThe kennel resolver checked: shortName → alias → pattern match → no match.`;
+    }
     case "EVENT_COUNT_ANOMALY":
       return `### Event Count\n- **Baseline avg:** ${ctx.baselineAvg} (last ${ctx.baselineWindow} scrapes)\n- **Current:** ${ctx.currentCount}\n- **Drop:** ${ctx.dropPercent}%`;
-    case "FIELD_FILL_DROP":
-      return `### Field Quality\n- **Field:** ${ctx.field}\n- **Baseline:** ${ctx.baselineAvg}%\n- **Current:** ${ctx.currentRate}%\n- **Drop:** ${(ctx.baselineAvg as number) - (ctx.currentRate as number)}pp`;
-    case "STRUCTURE_CHANGE":
-      return `### Structure Change\n- **Previous hash:** \`${(ctx.previousHash as string)?.slice(0, 16)}...\`\n- **Current hash:** \`${(ctx.currentHash as string)?.slice(0, 16)}...\`\n\nThe HTML tag hierarchy changed between scrapes, which may break field extraction.`;
+    case "FIELD_FILL_DROP": {
+      const drop = (ctx.baselineAvg as number) - (ctx.currentRate as number);
+      return `### Field Quality\n- **Field:** ${ctx.field}\n- **Baseline:** ${ctx.baselineAvg}%\n- **Current:** ${ctx.currentRate}%\n- **Drop:** ${drop}pp`;
+    }
+    case "STRUCTURE_CHANGE": {
+      const prevHash = (ctx.previousHash as string)?.slice(0, 16) ?? "";
+      const currHash = (ctx.currentHash as string)?.slice(0, 16) ?? "";
+      return `### Structure Change\n- **Previous hash:** \`${prevHash}...\`\n- **Current hash:** \`${currHash}...\`\n\nThe HTML tag hierarchy changed between scrapes, which may break field extraction.`;
+    }
     case "SCRAPE_FAILURE":
-    case "CONSECUTIVE_FAILURES":
-      return `### Errors\n${((ctx.errorMessages as string[]) ?? []).slice(0, 5).map((e) => `- ${e}`).join("\n")}${ctx.consecutiveCount ? `\n\n**Consecutive failures:** ${ctx.consecutiveCount}` : ""}`;
-    case "SOURCE_KENNEL_MISMATCH":
-      return `### Blocked Tags\n${((ctx.tags as string[]) ?? []).map((t) => `- \`${t}\``).join("\n")}\n\nThese tags resolved to valid kennels but those kennels are not linked to this source via SourceKennel.`;
+    case "CONSECUTIVE_FAILURES": {
+      const errorList = ((ctx.errorMessages as string[]) ?? []).slice(0, 5).map((e) => "- " + e).join("\n");
+      const failureSuffix = typeof ctx.consecutiveCount === "number"
+        ? `\n\n**Consecutive failures:** ${ctx.consecutiveCount}`
+        : "";
+      return `### Errors\n${errorList}${failureSuffix}`;
+    }
+    case "SOURCE_KENNEL_MISMATCH": {
+      const blockedList = ((ctx.tags as string[]) ?? []).map((t) => "- `" + t + "`").join("\n");
+      return `### Blocked Tags\n${blockedList}\n\nThese tags resolved to valid kennels but those kennels are not linked to this source via SourceKennel.`;
+    }
     default:
       return "";
   }
 }
 
+/** Format AI recovery note for the issue body. */
+function formatAiNote(ai: { attempted?: number; succeeded?: number; failed?: number } | undefined): string {
+  if (!ai?.attempted) return "";
+  if (ai.failed && ai.failed > 0) {
+    return `\n\n**AI Recovery:** Attempted on ${ai.attempted} parse errors — ${ai.succeeded} recovered, ${ai.failed} failed. The failures likely represent format changes that need code-level fixes.`;
+  }
+  return `\n\n**AI Recovery:** All ${ai.succeeded} parse errors were automatically recovered by AI. Consider adding the new format pattern to the deterministic parser.`;
+}
+
 /** Build suggested approach text for the issue body. */
 function buildSuggestedApproach(alertType: string, ctx: Record<string, unknown> | null): string {
   const ai = ctx?.aiRecovery as { attempted?: number; succeeded?: number; failed?: number } | undefined;
-  const aiNote = ai && ai.attempted
-    ? ai.failed && ai.failed > 0
-      ? `\n\n**AI Recovery:** Attempted on ${ai.attempted} parse errors — ${ai.succeeded} recovered, ${ai.failed} failed. The failures likely represent format changes that need code-level fixes.`
-      : `\n\n**AI Recovery:** All ${ai.succeeded} parse errors were automatically recovered by AI. Consider adding the new format pattern to the deterministic parser.`
-    : "";
+  const aiNote = formatAiNote(ai);
 
   switch (alertType) {
     case "UNMATCHED_TAGS":
@@ -182,7 +201,7 @@ interface AlertWithSource {
 /** Build a GitHub issue body from an alert, including machine-readable agent context. */
 export function buildIssueBody(alert: AlertWithSource): { title: string; body: string; labels: string[] } {
   const ctx = alert.context as Record<string, unknown> | null;
-  const typeName = alert.type.replace(/_/g, " ").toLowerCase();
+  const typeName = alert.type.replaceAll("_", " ").toLowerCase();
 
   const adapterFile = resolveAdapterFile(alert.source.type, alert.source.url);
   const testFile = resolveTestFile(adapterFile);
@@ -205,7 +224,7 @@ export function buildIssueBody(alert: AlertWithSource): { title: string; body: s
     context: ctx,
   }, null, 2);
   // Escape HTML comment close sequence to prevent prompt injection via scraped data
-  const agentContext = agentContextRaw.replace(/-->/g, "--&gt;");
+  const agentContext = agentContextRaw.replaceAll("-->", "--&gt;");
 
   const title = `[Alert] ${alert.title} — ${alert.source.name}`;
 
@@ -231,7 +250,7 @@ ${suggestedApproach}
 ${agentContext}
 -->`;
 
-  const typeLabel = `alert:${alert.type.toLowerCase().replace(/_/g, "-")}`;
+  const typeLabel = `alert:${alert.type.toLowerCase().replaceAll("_", "-")}`;
   const severityLabel = `severity:${alert.severity.toLowerCase()}`;
   const labels = ["alert", typeLabel, severityLabel, "claude-fix"];
 
@@ -291,7 +310,7 @@ async function hasExistingOpenIssue(sourceId: string, alertType: string): Promis
   const token = process.env.GITHUB_TOKEN;
   if (!token) return false;
 
-  const typeLabel = `alert:${alertType.toLowerCase().replace(/_/g, "-")}`;
+  const typeLabel = `alert:${alertType.toLowerCase().replaceAll("_", "-")}`;
 
   try {
     const repo = getGithubRepo();
