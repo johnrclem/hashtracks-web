@@ -120,7 +120,7 @@ function buildContextSection(alertType: string, ctx: Record<string, unknown> | n
 
   switch (alertType) {
     case "UNMATCHED_TAGS":
-      return `### Unmatched Tags\n${(ctx.tags as string[]).map((t) => `- \`${t}\``).join("\n")}\n\nThese tags appeared in scraped events but couldn't be resolved to any kennel.\nThe kennel resolver checked: shortName → alias → pattern match → no match.`;
+      return `### Unmatched Tags\n${((ctx.tags as string[]) ?? []).map((t) => `- \`${t}\``).join("\n")}\n\nThese tags appeared in scraped events but couldn't be resolved to any kennel.\nThe kennel resolver checked: shortName → alias → pattern match → no match.`;
     case "EVENT_COUNT_ANOMALY":
       return `### Event Count\n- **Baseline avg:** ${ctx.baselineAvg} (last ${ctx.baselineWindow} scrapes)\n- **Current:** ${ctx.currentCount}\n- **Drop:** ${ctx.dropPercent}%`;
     case "FIELD_FILL_DROP":
@@ -131,7 +131,7 @@ function buildContextSection(alertType: string, ctx: Record<string, unknown> | n
     case "CONSECUTIVE_FAILURES":
       return `### Errors\n${((ctx.errorMessages as string[]) ?? []).slice(0, 5).map((e) => `- ${e}`).join("\n")}${ctx.consecutiveCount ? `\n\n**Consecutive failures:** ${ctx.consecutiveCount}` : ""}`;
     case "SOURCE_KENNEL_MISMATCH":
-      return `### Blocked Tags\n${(ctx.tags as string[]).map((t) => `- \`${t}\``).join("\n")}\n\nThese tags resolved to valid kennels but those kennels are not linked to this source via SourceKennel.`;
+      return `### Blocked Tags\n${((ctx.tags as string[]) ?? []).map((t) => `- \`${t}\``).join("\n")}\n\nThese tags resolved to valid kennels but those kennels are not linked to this source via SourceKennel.`;
     default:
       return "";
   }

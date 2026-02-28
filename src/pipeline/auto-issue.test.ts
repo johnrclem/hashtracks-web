@@ -192,6 +192,36 @@ describe("buildIssueBody", () => {
     expect(body).toContain("ECONNREFUSED");
   });
 
+  it("handles UNMATCHED_TAGS with null tags gracefully", () => {
+    const alert = {
+      ...baseAlert,
+      type: "UNMATCHED_TAGS",
+      context: { tags: null },
+    };
+    const { body } = buildIssueBody(alert);
+    expect(body).toContain("### Unmatched Tags");
+  });
+
+  it("handles UNMATCHED_TAGS with missing tags gracefully", () => {
+    const alert = {
+      ...baseAlert,
+      type: "UNMATCHED_TAGS",
+      context: {},
+    };
+    const { body } = buildIssueBody(alert);
+    expect(body).toContain("### Unmatched Tags");
+  });
+
+  it("handles SOURCE_KENNEL_MISMATCH with null tags gracefully", () => {
+    const alert = {
+      ...baseAlert,
+      type: "SOURCE_KENNEL_MISMATCH",
+      context: { tags: null },
+    };
+    const { body } = buildIssueBody(alert);
+    expect(body).toContain("### Blocked Tags");
+  });
+
   it("escapes --> in context to prevent HTML comment breakout", () => {
     const alert = {
       ...baseAlert,

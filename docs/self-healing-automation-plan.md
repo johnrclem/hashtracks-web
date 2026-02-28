@@ -137,7 +137,7 @@ Rationale: Lowest integration cost (already deployed), native GitHub flow, respe
 
 ### Data Flow: Error → PR
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        TRIGGER LAYER                                │
 │                                                                     │
