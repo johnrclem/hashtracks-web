@@ -29,12 +29,12 @@ export async function POST(request: Request) {
     },
   });
 
-  const dueSources = sources.filter((s) =>
-    shouldScrape(s.scrapeFreq, s.lastScrapeAt),
-  );
-  const skippedSources = sources.filter(
-    (s) => !shouldScrape(s.scrapeFreq, s.lastScrapeAt),
-  );
+  // Single-pass partitioning to avoid evaluating shouldScrape() twice per source
+  const dueSources: typeof sources = [];
+  const skippedSources: typeof sources = [];
+  for (const s of sources) {
+    (shouldScrape(s.scrapeFreq, s.lastScrapeAt) ? dueSources : skippedSources).push(s);
+  }
 
   console.log(
     `[cron/dispatch] ${dueSources.length} due, ${skippedSources.length} skipped, auth=${auth.method}`,
@@ -51,22 +51,26 @@ export async function POST(request: Request) {
   }
 
   const client = getQStashClient();
-  const results: Array<{ sourceId: string; name: string; dispatched: boolean; error?: string }> = [];
 
-  for (const source of dueSources) {
-    try {
-      await client.publishJSON({
+  // Publish all messages in parallel — fan-out is the whole point
+  const settled = await Promise.allSettled(
+    dueSources.map((source) =>
+      client.publishJSON({
         url: `${appUrl}/api/cron/scrape/${source.id}`,
         body: { days: source.scrapeDays },
         retries: 2,
-      });
-      results.push({ sourceId: source.id, name: source.name, dispatched: true });
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(`[cron/dispatch] Failed to dispatch ${source.name}: ${errorMsg}`);
-      results.push({ sourceId: source.id, name: source.name, dispatched: false, error: errorMsg });
+      }).then(() => ({ sourceId: source.id, name: source.name })),
+    ),
+  );
+
+  const results = settled.map((outcome, i) => {
+    if (outcome.status === "fulfilled") {
+      return { sourceId: outcome.value.sourceId, name: outcome.value.name, dispatched: true };
     }
-  }
+    const errorMsg = outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
+    console.error(`[cron/dispatch] Failed to dispatch ${dueSources[i].name}: ${errorMsg}`);
+    return { sourceId: dueSources[i].id, name: dueSources[i].name, dispatched: false, error: errorMsg };
+  });
 
   const dispatched = results.filter((r) => r.dispatched).length;
   const failed = results.filter((r) => !r.dispatched).length;

@@ -14,7 +14,7 @@ reliability, and support future growth (hourly/6h scraping frequencies, more sou
 
 ## Current Architecture
 
-```
+```text
 vercel.json (cron: "0 6 * * *")
   → GET /api/cron/scrape
     → Auth: Bearer CRON_SECRET (timing-safe)
@@ -175,7 +175,7 @@ calling one big endpoint, QStash can fan out individual HTTP requests to per-sou
 endpoints — each completing well within the 60s Hobby timeout.
 
 ### How it would work
-```
+```text
 QStash Schedule (cron: "0 6 * * *")
   → POST /api/cron/dispatch
     → For each due source: publish QStash message to /api/cron/scrape/[sourceId]
@@ -185,7 +185,7 @@ QStash Schedule (cron: "0 6 * * *")
 ```
 
 ### Architecture
-```
+```text
 QStash Cron Schedule
   ↓
 /api/cron/dispatch (lightweight fan-out, <5s)

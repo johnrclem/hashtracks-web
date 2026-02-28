@@ -41,8 +41,8 @@ export async function POST(
       const parsed = JSON.parse(body);
       if (typeof parsed.days === "number") days = parsed.days;
     }
-  } catch {
-    // No body or invalid JSON — use source default
+  } catch (err) {
+    console.warn(`[cron/source] Failed to parse request body for ${sourceId}:`, err);
   }
 
   console.log(`[cron/source] Scraping ${source.name} (${sourceId}), days=${days}, auth=${auth.method}`);
