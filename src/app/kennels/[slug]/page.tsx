@@ -17,6 +17,7 @@ export async function generateMetadata({
 }
 import { getOrCreateUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
+import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { SubscribeButton } from "@/components/kennels/SubscribeButton";
 import { MismanAccessButton } from "@/components/kennels/MismanAccessButton";
 import type { HarelineEvent } from "@/components/hareline/EventCard";
@@ -25,6 +26,7 @@ import { MismanManagementSection } from "@/components/kennels/MismanManagementSe
 import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
 import { SocialLinks } from "@/components/kennels/SocialLinks";
 import { KennelStats } from "@/components/kennels/KennelStats";
+import { REGION_DATA_SELECT } from "@/lib/types/region";
 
 export default async function KennelDetailPage({
   params,
@@ -37,6 +39,7 @@ export default async function KennelDetailPage({
     where: { slug },
     include: {
       _count: { select: { members: true } },
+      regionRef: { select: REGION_DATA_SELECT },
     },
   });
 
@@ -48,7 +51,7 @@ export default async function KennelDetailPage({
       where: { kennelId: kennel.id, status: { not: "CANCELLED" } },
       include: {
         kennel: {
-          select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
+          select: { id: true, shortName: true, fullName: true, slug: true, country: true, regionRef: { select: REGION_DATA_SELECT } },
         },
       },
       orderBy: { date: "asc" },
@@ -82,7 +85,7 @@ export default async function KennelDetailPage({
     dateUtc: e.dateUtc,
     timezone: e.timezone,
     kennelId: e.kennelId,
-    kennel: e.kennel,
+    kennel: { ...e.kennel, regionData: e.kennel.regionRef },
     runNumber: e.runNumber,
     title: e.title,
     haresText: e.haresText,
@@ -124,7 +127,7 @@ export default async function KennelDetailPage({
             {kennel.shortName}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Badge>{kennel.region}</Badge>
+            <RegionBadge regionData={kennel.regionRef} />
             <Badge variant="outline">{kennel.country}</Badge>
             <span className="text-sm text-muted-foreground">
               {kennel._count.members}{" "}

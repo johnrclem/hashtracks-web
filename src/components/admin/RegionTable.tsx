@@ -57,7 +57,7 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
     if (!confirm(`Delete region "${name}"?`)) return;
     startTransition(async () => {
       const result = await deleteRegion(regionId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Deleted "${name}"`);

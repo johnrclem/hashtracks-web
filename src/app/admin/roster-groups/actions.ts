@@ -307,7 +307,7 @@ export async function approveRosterGroupRequest(requestId: string) {
   // Create the group using the existing function (without admin re-check since we already checked)
   const kennelIds = request.kennelIds as string[];
   const result = await createRosterGroup(request.proposedName, kennelIds);
-  if (result.error) return { error: result.error };
+  if ("error" in result) return { error: result.error };
 
   // Mark request as approved
   await prisma.rosterGroupRequest.update({

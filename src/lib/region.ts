@@ -1,3 +1,5 @@
+import type { RegionData } from "@/lib/types/region";
+
 /**
  * Region data module — single source of truth for region display data.
  *
@@ -31,6 +33,9 @@ export interface RegionSeedRecord {
  * and REGION_COLORS into a single array. Deduplicated: variants like
  * "London, England" / "London, UK" map to the canonical "London" record via aliases.
  */
+// NOTE: colorClasses values below are referenced by RegionBadge via the DB.
+// Tailwind scans this file at build time, so these classes are NOT purged.
+// Do not remove these string literals without updating tailwind.config.ts safelist.
 export const REGION_SEED_DATA: RegionSeedRecord[] = [
   // ── US East Coast ──
   {
@@ -303,8 +308,9 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
 
-interface RegionLookup {
+export interface RegionLookup {
   name: string;
+  slug: string;
   timezone: string;
   abbrev: string;
   colorClasses: string;
@@ -313,12 +319,28 @@ interface RegionLookup {
   centroidLng: number | null;
 }
 
+/** Generate a slug from a region name. */
+export function regionSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[()]/g, "")
+    .replace(/[,.\s]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 /** Map from region name (and aliases) to canonical data. */
 const REGION_MAP = new Map<string, RegionLookup>();
+/** Map from region slug to canonical data. */
+const REGION_SLUG_MAP = new Map<string, RegionLookup>();
+/** Map from region name (and aliases) to slug — for backward-compat URL migration. */
+const REGION_NAME_TO_SLUG = new Map<string, string>();
 
 for (const r of REGION_SEED_DATA) {
+  const slug = regionSlug(r.name);
   const entry: RegionLookup = {
     name: r.name,
+    slug,
     timezone: r.timezone,
     abbrev: r.abbrev,
     colorClasses: r.colorClasses,
@@ -327,16 +349,47 @@ for (const r of REGION_SEED_DATA) {
     centroidLng: r.centroidLng,
   };
   REGION_MAP.set(r.name, entry);
+  REGION_SLUG_MAP.set(slug, entry);
+  REGION_NAME_TO_SLUG.set(r.name, slug);
   if (r.aliases) {
     for (const alias of r.aliases) {
       REGION_MAP.set(alias, entry);
+      REGION_NAME_TO_SLUG.set(alias, slug);
     }
   }
 }
 
-/** Get the primary IANA timezone for a region string, defaults to America/New_York */
+// ── Lookup helper — checks slug map first, then name map ──
+
+/** Resolve a region key (name, alias, or slug) to its canonical lookup entry. */
+function resolveRegion(key: string): RegionLookup | undefined {
+  return REGION_SLUG_MAP.get(key) ?? REGION_MAP.get(key);
+}
+
+// ── Public lookup functions ──
+
+/** Look up full region data by slug. Returns null for unknown slugs. */
+export function regionBySlug(slug: string): RegionLookup | null {
+  return REGION_SLUG_MAP.get(slug) ?? null;
+}
+
+/** Convert a region name (or alias) to its canonical slug. Returns null for unknown names. */
+export function regionNameToSlug(name: string): string | null {
+  return REGION_NAME_TO_SLUG.get(name) ?? null;
+}
+
+/** All regions as {slug, name, abbrev} tuples — for filter dropdowns. */
+export function allRegionOptions(): { slug: string; name: string; abbrev: string }[] {
+  return REGION_SEED_DATA.map((r) => ({
+    slug: REGION_NAME_TO_SLUG.get(r.name) ?? regionSlug(r.name),
+    name: r.name,
+    abbrev: r.abbrev,
+  }));
+}
+
+/** Get the primary IANA timezone for a region string or slug, defaults to America/New_York */
 export function regionTimezone(region: string): string {
-  const entry = REGION_MAP.get(region);
+  const entry = resolveRegion(region);
   if (entry) return entry.timezone;
 
   // Case-insensitive partial match fallback
@@ -350,40 +403,44 @@ export function regionTimezone(region: string): string {
   return "America/New_York";
 }
 
-/** Short abbreviation for a region. "New York City, NY" → "NYC" */
+/** Short abbreviation for a region. Accepts name, alias, or slug. */
 export function regionAbbrev(region: string): string {
-  return REGION_MAP.get(region)?.abbrev ?? region;
+  return resolveRegion(region)?.abbrev ?? region;
 }
 
-/** Tailwind color classes for a region badge. Falls back to gray. */
+/** Tailwind color classes for a region badge. Accepts name, alias, or slug. Falls back to gray. */
 export function regionColorClasses(region: string): string {
-  return REGION_MAP.get(region)?.colorClasses ?? "bg-gray-200 text-gray-800";
+  return resolveRegion(region)?.colorClasses ?? "bg-gray-200 text-gray-800";
 }
 
-/** Hex pin color for a region on maps. Falls back to gray. */
+/** Hex pin color for a region on maps. Accepts name, alias, or slug. Falls back to gray. */
 export function getRegionColor(region: string): string {
-  return REGION_MAP.get(region)?.pinColor ?? "#6b7280";
+  return resolveRegion(region)?.pinColor ?? "#6b7280";
 }
 
-/** Region centroid {lat, lng} for map fallback. Returns null for unknown regions. */
+/** Region centroid {lat, lng} for map fallback. Accepts name, alias, or slug. */
 export function getRegionCentroid(
   region: string,
 ): { lat: number; lng: number } | null {
-  const entry = REGION_MAP.get(region);
+  const entry = resolveRegion(region);
   if (entry?.centroidLat != null && entry?.centroidLng != null) {
     return { lat: entry.centroidLat, lng: entry.centroidLng };
   }
   return null;
 }
 
-/** Generate a slug from a region name. */
-export function regionSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[()]/g, "")
-    .replace(/[,.\s]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+/** Convert a region name string to a RegionData object using sync fallback maps. */
+export function regionNameToData(name: string): RegionData {
+  const centroid = getRegionCentroid(name);
+  return {
+    slug: regionNameToSlug(name) ?? regionSlug(name),
+    name,
+    abbrev: regionAbbrev(name),
+    colorClasses: regionColorClasses(name),
+    pinColor: getRegionColor(name),
+    centroidLat: centroid?.lat ?? null,
+    centroidLng: centroid?.lng ?? null,
+  };
 }
 
 /** Default pin color for unknown regions. */

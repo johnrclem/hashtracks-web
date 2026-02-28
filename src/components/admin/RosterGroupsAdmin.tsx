@@ -38,6 +38,7 @@ import {
 } from "@/app/admin/roster-groups/actions";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { groupByRegion } from "@/lib/groupByRegion";
+import { regionNameToData } from "@/lib/region";
 
 type KennelOption = { id: string; shortName: string; fullName: string; region: string };
 
@@ -46,6 +47,50 @@ interface RosterGroupData {
   name: string;
   kennels: Array<KennelOption & { slug: string }>;
   hasherCount: number;
+}
+
+function KennelChecklist({ kennels, selectedIds, onToggle, idPrefix, currentIds }: {
+  readonly kennels: readonly KennelOption[];
+  readonly selectedIds: ReadonlySet<string>;
+  readonly onToggle: (id: string) => void;
+  readonly idPrefix: string;
+  readonly currentIds?: ReadonlySet<string>;
+}) {
+  return (
+    <>
+      {groupByRegion(kennels).map(({ region, items }) => (
+        <div key={region} className="space-y-1.5">
+          <div className="flex items-center gap-1.5 pt-1 first:pt-0">
+            <RegionBadge regionData={regionNameToData(region)} size="sm" />
+            <span className="text-xs font-medium text-muted-foreground">
+              {region}
+            </span>
+          </div>
+          {items.map((k) => (
+            <div key={k.id} className="flex items-center gap-2 pl-2">
+              <Checkbox
+                id={`${idPrefix}-${k.id}`}
+                checked={selectedIds.has(k.id)}
+                onCheckedChange={() => onToggle(k.id)}
+              />
+              <Label
+                htmlFor={`${idPrefix}-${k.id}`}
+                className="text-sm font-normal cursor-pointer"
+              >
+                {k.fullName}
+                <span className="ml-1 text-xs text-muted-foreground">
+                  ({k.shortName})
+                </span>
+                {currentIds?.has(k.id) && (
+                  <span className="ml-1 text-xs text-muted-foreground">(current)</span>
+                )}
+              </Label>
+            </div>
+          ))}
+        </div>
+      ))}
+    </>
+  );
 }
 
 interface PendingGroupRequest {
@@ -80,7 +125,7 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
     if (!removeTarget) return;
     startTransition(async () => {
       const result = await removeKennelFromGroup(removeTarget.groupId, removeTarget.kennelId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`${removeTarget.kennelName} removed from group`);
@@ -94,7 +139,7 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
     if (!deleteTarget) return;
     startTransition(async () => {
       const result = await deleteRosterGroup(deleteTarget.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Group dissolved — kennels are now standalone");
@@ -107,7 +152,7 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
   function handleApproveRequest(requestId: string) {
     startTransition(async () => {
       const result = await approveRosterGroupRequest(requestId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Request approved — roster group created");
@@ -119,7 +164,7 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
   function handleRejectRequest(requestId: string) {
     startTransition(async () => {
       const result = await rejectRosterGroupRequest(requestId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Request rejected");
@@ -402,7 +447,7 @@ function CreateGroupDialog({
   function handleCreate() {
     startTransition(async () => {
       const result = await createRosterGroup(name, Array.from(selectedIds));
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Roster group created");
@@ -449,34 +494,12 @@ function CreateGroupDialog({
                   No standalone kennels available.
                 </p>
               ) : (
-                groupByRegion(standaloneKennels).map(({ region, items }) => (
-                  <div key={region} className="space-y-1.5">
-                    <div className="flex items-center gap-1.5 pt-1 first:pt-0">
-                      <RegionBadge region={region} size="sm" />
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {region}
-                      </span>
-                    </div>
-                    {items.map((k) => (
-                      <div key={k.id} className="flex items-center gap-2 pl-2">
-                        <Checkbox
-                          id={`kennel-${k.id}`}
-                          checked={selectedIds.has(k.id)}
-                          onCheckedChange={() => handleToggle(k.id)}
-                        />
-                        <Label
-                          htmlFor={`kennel-${k.id}`}
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {k.fullName}
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            ({k.shortName})
-                          </span>
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                ))
+                <KennelChecklist
+                  kennels={standaloneKennels}
+                  selectedIds={selectedIds}
+                  onToggle={handleToggle}
+                  idPrefix="kennel"
+                />
               )}
             </div>
           </div>
@@ -548,7 +571,7 @@ function EditGroupDialog({
       // Rename if changed
       if (nameChanged && groupName.trim()) {
         const result = await renameRosterGroup(group.id, groupName.trim());
-        if (result.error) {
+        if ("error" in result) {
           toast.error(result.error);
           hasError = true;
         }
@@ -557,7 +580,7 @@ function EditGroupDialog({
       if (!hasError) {
         for (const kennelId of toAdd) {
           const result = await addKennelToGroup(group.id, kennelId);
-          if (result.error) {
+          if ("error" in result) {
             toast.error(result.error);
             hasError = true;
             break;
@@ -568,7 +591,7 @@ function EditGroupDialog({
       if (!hasError) {
         for (const kennelId of toRemove) {
           const result = await removeKennelFromGroup(group.id, kennelId);
-          if (result.error) {
+          if ("error" in result) {
             toast.error(result.error);
             hasError = true;
             break;
@@ -620,37 +643,13 @@ function EditGroupDialog({
           <div className="space-y-2">
             <Label>Kennels ({selectedIds.size} selected)</Label>
             <div className="max-h-72 overflow-y-auto space-y-3 rounded-md border p-3">
-              {groupByRegion(allKennels).map(({ region, items }) => (
-                <div key={region} className="space-y-1.5">
-                  <div className="flex items-center gap-1.5 pt-1 first:pt-0">
-                    <RegionBadge region={region} size="sm" />
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {region}
-                    </span>
-                  </div>
-                  {items.map((k) => (
-                    <div key={k.id} className="flex items-center gap-2 pl-2">
-                      <Checkbox
-                        id={`edit-kennel-${k.id}`}
-                        checked={selectedIds.has(k.id)}
-                        onCheckedChange={() => handleToggle(k.id)}
-                      />
-                      <Label
-                        htmlFor={`edit-kennel-${k.id}`}
-                        className="text-sm font-normal cursor-pointer"
-                      >
-                        {k.fullName}
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          ({k.shortName})
-                        </span>
-                        {currentIds.has(k.id) && (
-                          <span className="ml-1 text-xs text-muted-foreground">(current)</span>
-                        )}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              ))}
+              <KennelChecklist
+                kennels={allKennels}
+                selectedIds={selectedIds}
+                onToggle={handleToggle}
+                idPrefix="edit-kennel"
+                currentIds={currentIds}
+              />
             </div>
           </div>
         </div>

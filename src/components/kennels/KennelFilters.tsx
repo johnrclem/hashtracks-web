@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -10,13 +9,13 @@ import {
 } from "@/components/ui/popover";
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { RegionFilterPopover } from "@/components/shared/RegionFilterPopover";
 import type { KennelCardData } from "./KennelCard";
+import { toggleArrayItem } from "@/lib/format";
 
 const SCHEDULE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -33,6 +32,7 @@ const DAY_FULL: Record<string, string> = {
 
 interface KennelFiltersProps {
   kennels: KennelCardData[];
+  /** Selected region slugs. */
   selectedRegions: string[];
   onRegionsChange: (regions: string[]) => void;
   selectedDays: string[];
@@ -58,10 +58,17 @@ export function KennelFilters({
   selectedCountry,
   onCountryChange,
 }: KennelFiltersProps) {
-  // Derive available regions from kennel list
+  // Derive available regions as {slug, name} from kennel list
   const regions = useMemo(() => {
-    const regionSet = new Set(kennels.map((k) => k.region));
-    return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
+    const seen = new Map<string, string>();
+    for (const k of kennels) {
+      if (!seen.has(k.regionData.slug)) {
+        seen.set(k.regionData.slug, k.regionData.name);
+      }
+    }
+    return Array.from(seen.entries())
+      .map(([slug, name]) => ({ slug, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [kennels]);
 
   // Derive available frequencies
@@ -82,20 +89,12 @@ export function KennelFilters({
     return Array.from(countrySet).sort((a, b) => a.localeCompare(b));
   }, [kennels]);
 
-  function toggleRegion(region: string) {
-    if (selectedRegions.includes(region)) {
-      onRegionsChange(selectedRegions.filter((r) => r !== region));
-    } else {
-      onRegionsChange([...selectedRegions, region]);
-    }
+  function toggleRegion(slug: string) {
+    onRegionsChange(toggleArrayItem(selectedRegions, slug));
   }
 
   function toggleDay(day: string) {
-    if (selectedDays.includes(day)) {
-      onDaysChange(selectedDays.filter((d) => d !== day));
-    } else {
-      onDaysChange([...selectedDays, day]);
-    }
+    onDaysChange(toggleArrayItem(selectedDays, day));
   }
 
   const activeFilterCount =
@@ -108,45 +107,11 @@ export function KennelFilters({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {/* Region filter */}
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 text-xs">
-            Region
-            {selectedRegions.length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs">
-                {selectedRegions.length}
-              </Badge>
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-56 p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Search regions..." />
-            <CommandList>
-              <CommandEmpty>No regions found.</CommandEmpty>
-              <CommandGroup>
-                {regions.map((region) => (
-                  <CommandItem
-                    key={region}
-                    onSelect={() => toggleRegion(region)}
-                  >
-                    <span
-                      className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                        selectedRegions.includes(region)
-                          ? "bg-primary border-primary text-primary-foreground"
-                          : "opacity-50"
-                      }`}
-                    >
-                      {selectedRegions.includes(region) && "✓"}
-                    </span>
-                    {region}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+      <RegionFilterPopover
+        regions={regions}
+        selectedRegions={selectedRegions}
+        onToggle={toggleRegion}
+      />
 
       {/* Run day chips */}
       <div className="flex gap-1">

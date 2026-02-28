@@ -315,8 +315,8 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
     startPreview(async () => {
       setPreviewError(null);
       const result = await previewSourceConfig(fd);
-      if (result.error) {
-        setPreviewError(result.error);
+      if ("error" in result) {
+        setPreviewError(result.error ?? null);
         setPreviewData(null);
         setSampleTitlesByTag({});
       } else if (result.data) {
@@ -346,7 +346,7 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
         ? await updateSource(source.id, formData)
         : await createSource(formData);
 
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(source ? "Source updated" : "Source created");

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
+import { regionNameToData } from "@/lib/region";
 import { Users, SearchIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -96,7 +97,7 @@ export function RequestSharedRosterSection({
         Array.from(selectedIds),
         message || undefined,
       );
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(
@@ -215,7 +216,7 @@ export function RequestSharedRosterSection({
                     grouped.map(({ region, items }) => (
                       <div key={region} className="space-y-1.5">
                         <div className="flex items-center gap-1.5 pt-1 first:pt-0">
-                          <RegionBadge region={region} size="sm" />
+                          <RegionBadge regionData={regionNameToData(region)} size="sm" />
                           <span className="text-xs font-medium text-muted-foreground">
                             {region}
                           </span>

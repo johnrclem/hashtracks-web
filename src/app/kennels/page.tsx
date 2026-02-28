@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { Button } from "@/components/ui/button";
+import { REGION_DATA_SELECT } from "@/lib/types/region";
 
 export const metadata: Metadata = {
   title: "Kennels · HashTracks",
@@ -15,24 +16,23 @@ export default async function KennelsPage() {
 
   const [kennels, upcomingEvents] = await Promise.all([
     prisma.kennel.findMany({
-      where: { isHidden: false },
-      orderBy: [{ region: "asc" }, { fullName: "asc" }],
+      orderBy: [{ regionRef: { name: "asc" } }, { fullName: "asc" }],
       select: {
         id: true,
         slug: true,
         shortName: true,
         fullName: true,
-        region: true,
         country: true,
         description: true,
         foundedYear: true,
         scheduleDayOfWeek: true,
         scheduleTime: true,
         scheduleFrequency: true,
+        regionRef: { select: REGION_DATA_SELECT },
       },
     }),
     prisma.event.findMany({
-      where: { date: { gte: todayUtc }, status: "CONFIRMED", kennel: { isHidden: false } },
+      where: { date: { gte: todayUtc }, status: "CONFIRMED" },
       orderBy: { date: "asc" },
       select: { kennelId: true, date: true, title: true },
     }),
@@ -48,9 +48,11 @@ export default async function KennelsPage() {
 
   // Serialize for client
   const kennelsWithNext = kennels.map((k) => {
+    const { regionRef, ...kennelRest } = k;
     const next = nextEventMap.get(k.id);
     return {
-      ...k,
+      ...kennelRest,
+      regionData: regionRef,
       nextEvent: next ? { date: next.date.toISOString(), title: next.title } : null,
     };
   });

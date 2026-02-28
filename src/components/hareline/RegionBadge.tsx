@@ -1,33 +1,30 @@
-import { regionAbbrev, regionColorClasses } from "@/lib/format";
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
+import type { RegionData } from "@/lib/types/region";
 
 interface RegionBadgeProps {
-  region: string;
+  regionData: RegionData;
   size?: "sm" | "md";
 }
 
-export function RegionBadge({ region, size = "md" }: RegionBadgeProps) {
-  const abbrev = regionAbbrev(region);
-  const colors = regionColorClasses(region);
-
+export function RegionBadge({ regionData, size = "md" }: RegionBadgeProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <span
-          className={`inline-flex items-center justify-center rounded-full font-semibold shrink-0 ${colors} ${
+          className={`inline-flex items-center justify-center rounded-full font-semibold shrink-0 ${regionData.colorClasses} ${
             size === "sm"
               ? "px-1.5 py-0 text-[10px] leading-4"
               : "px-2 py-0.5 text-xs"
           }`}
         >
-          {abbrev}
+          {regionData.abbrev}
         </span>
       </TooltipTrigger>
-      <TooltipContent>{region}</TooltipContent>
+      <TooltipContent>{regionData.name}</TooltipContent>
     </Tooltip>
   );
 }

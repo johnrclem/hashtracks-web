@@ -72,7 +72,7 @@ function RequestRow({ request }: { request: KennelRequest }) {
   function handleAction(action: typeof approveRequest) {
     startTransition(async () => {
       const result = await action(request.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(

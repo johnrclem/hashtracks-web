@@ -2,7 +2,8 @@ export type KennelOptionData = {
   id: string;
   shortName: string;
   fullName: string;
-  region: string;
+  region?: string;
+  regionName?: string;
 };
 
 interface KennelOptionLabelProps {
@@ -14,6 +15,7 @@ export function KennelOptionLabel({
   kennel,
   showRegion = true,
 }: KennelOptionLabelProps) {
+  const displayRegion = kennel.regionName ?? kennel.region;
   return (
     <>
       <span className="flex-1 truncate">
@@ -22,9 +24,9 @@ export function KennelOptionLabel({
           — {kennel.fullName}
         </span>
       </span>
-      {showRegion && (
+      {showRegion && displayRegion && (
         <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-          {kennel.region}
+          {displayRegion}
         </span>
       )}
     </>

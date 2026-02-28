@@ -32,7 +32,7 @@ export function DuplicateScanResults({
   function handleScan() {
     startScan(async () => {
       const result = await scanDuplicates(kennelId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
         return;
       }

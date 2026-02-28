@@ -62,7 +62,7 @@ export function HasherForm({
         ? await updateKennelHasher(hasher!.id, data)
         : await createKennelHasher(kennelId, data);
 
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(isEditing ? "Hasher updated" : "Hasher added to roster");

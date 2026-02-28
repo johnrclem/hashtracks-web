@@ -14,24 +14,24 @@ import {
 } from "@/components/ui/popover";
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
+import { RegionFilterPopover } from "@/components/shared/RegionFilterPopover";
+import { KennelFilterPopover } from "@/components/shared/KennelFilterPopover";
 import { AttendanceBadge } from "./AttendanceBadge";
 import { EditAttendanceDialog } from "./EditAttendanceDialog";
 import type { AttendanceData } from "./CheckInButton";
 import { formatTime, participationLevelLabel, PARTICIPATION_LEVELS } from "@/lib/format";
 import { confirmAttendance, deleteAttendance } from "@/app/logbook/actions";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
+import type { RegionData } from "@/lib/types/region";
 
 export interface LogbookEntry {
   attendance: AttendanceData;
@@ -47,7 +47,7 @@ export interface LogbookEntry {
       shortName: string;
       fullName: string;
       slug: string;
-      region: string;
+      regionData: RegionData;
     };
   };
 }
@@ -81,7 +81,7 @@ export function filterLogbookEntries(
   selectedLevels: string[],
 ): LogbookEntry[] {
   return entries.filter((e) => {
-    if (selectedRegions.length > 0 && !selectedRegions.includes(e.event.kennel.region)) return false;
+    if (selectedRegions.length > 0 && !selectedRegions.includes(e.event.kennel.regionData.slug)) return false;
     if (selectedKennels.length > 0 && !selectedKennels.includes(e.event.kennel.id)) return false;
     if (selectedLevels.length > 0 && !selectedLevels.includes(e.attendance.participationLevel)) return false;
     return true;
@@ -119,18 +119,23 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
 
   // Derive unique kennels and regions
   const kennels = useMemo(() => {
-    const map = new Map<string, { id: string; shortName: string; fullName: string; region: string }>();
+    const map = new Map<string, { id: string; shortName: string; fullName: string; regionName: string }>();
     for (const e of entries) {
       if (!map.has(e.event.kennel.id)) {
-        map.set(e.event.kennel.id, e.event.kennel);
+        const k = e.event.kennel;
+        map.set(k.id, { id: k.id, shortName: k.shortName, fullName: k.fullName, regionName: k.regionData.name });
       }
     }
     return Array.from(map.values()).sort((a, b) => a.shortName.localeCompare(b.shortName));
   }, [entries]);
 
   const regions = useMemo(() => {
-    const set = new Set(entries.map((e) => e.event.kennel.region));
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    const map = new Map<string, { slug: string; name: string }>();
+    for (const e of entries) {
+      const rd = e.event.kennel.regionData;
+      if (!map.has(rd.slug)) map.set(rd.slug, { slug: rd.slug, name: rd.name });
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [entries]);
 
   // Filter entries (uses module-level filterLogbookEntries, exported for testing)
@@ -164,87 +169,18 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         {/* Region filter */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
-              Region
-              {selectedRegions.length > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs">
-                  {selectedRegions.length}
-                </Badge>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Search regions..." />
-              <CommandList>
-                <CommandEmpty>No regions found.</CommandEmpty>
-                <CommandGroup>
-                  {regions.map((region) => (
-                    <CommandItem
-                      key={region}
-                      onSelect={() => toggleFilter(setSelectedRegions, region)}
-                    >
-                      <span
-                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                          selectedRegions.includes(region)
-                            ? "bg-primary border-primary text-primary-foreground"
-                            : "opacity-50"
-                        }`}
-                      >
-                        {selectedRegions.includes(region) && "✓"}
-                      </span>
-                      {region}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        <RegionFilterPopover
+          regions={regions}
+          selectedRegions={selectedRegions}
+          onToggle={(slug) => toggleFilter(setSelectedRegions, slug)}
+        />
 
         {/* Kennel filter */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
-              Kennel
-              {selectedKennels.length > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs">
-                  {selectedKennels.length}
-                </Badge>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Search kennels..." />
-              <CommandList>
-                <CommandEmpty>No kennels found.</CommandEmpty>
-                <CommandGroup>
-                  {kennels.map((kennel) => (
-                    <CommandItem
-                      key={kennel.id}
-                      value={`${kennel.shortName} ${kennel.fullName} ${kennel.region}`}
-                      onSelect={() => toggleFilter(setSelectedKennels, kennel.id)}
-                    >
-                      <span
-                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                          selectedKennels.includes(kennel.id)
-                            ? "bg-primary border-primary text-primary-foreground"
-                            : "opacity-50"
-                        }`}
-                      >
-                        {selectedKennels.includes(kennel.id) && "✓"}
-                      </span>
-                      <KennelOptionLabel kennel={kennel} />
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        <KennelFilterPopover
+          kennels={kennels}
+          selectedKennels={selectedKennels}
+          onToggle={(id) => toggleFilter(setSelectedKennels, id)}
+        />
 
         {/* Level filter */}
         <Popover>
@@ -335,7 +271,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                 </Tooltip>
               </span>
               <span className="hidden sm:inline-flex">
-                <RegionBadge region={entry.event.kennel.region} size="sm" />
+                <RegionBadge regionData={entry.event.kennel.regionData} size="sm" />
               </span>
               {entry.event.runNumber && (
                 <span className="hidden sm:inline-block w-12 shrink-0 text-muted-foreground">
@@ -440,7 +376,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
               </span>
             </div>
             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground sm:hidden">
-              <RegionBadge region={entry.event.kennel.region} size="sm" />
+              <RegionBadge regionData={entry.event.kennel.regionData} size="sm" />
               {entry.event.runNumber && <span>#{entry.event.runNumber}</span>}
               {entry.event.title && (
                 <Link

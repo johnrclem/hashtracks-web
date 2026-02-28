@@ -134,7 +134,7 @@ export function AttendanceForm({
   function handleAddHasher(hasherId: string) {
     startTransition(async () => {
       const result = await recordAttendance(kennelId, selectedEventId!, hasherId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         await fetchAttendance();
@@ -146,7 +146,7 @@ export function AttendanceForm({
     if (!selectedEventId) return;
     startTransition(async () => {
       const result = await quickAddHasher(kennelId, selectedEventId, data);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Hasher added");
@@ -157,7 +157,7 @@ export function AttendanceForm({
 
   async function handleEdit(record: AttendanceRecord) {
     const result = await getHasherForEdit(kennelId, record.kennelHasherId);
-    if (result.error) {
+    if ("error" in result) {
       toast.error(result.error);
       return;
     }
@@ -178,7 +178,7 @@ export function AttendanceForm({
   function handleRemove(attendanceId: string) {
     startTransition(async () => {
       const result = await removeAttendance(kennelId, attendanceId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         removeRecordFromState(attendanceId);
@@ -200,7 +200,7 @@ export function AttendanceForm({
   ) {
     startTransition(async () => {
       const result = await updateAttendance(kennelId, attendanceId, data);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         await fetchAttendance();
@@ -212,7 +212,7 @@ export function AttendanceForm({
     if (!selectedEventId) return;
     startTransition(async () => {
       const result = await clearEventAttendance(kennelId, selectedEventId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Cleared ${result.deleted} record(s)`);

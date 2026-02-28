@@ -344,7 +344,7 @@ function SourceRow({
     setMenuOpen(false);
     startTransition(async () => {
       const result = await toggleSourceEnabled(source.id, !source.enabled);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(source.enabled ? "Source disabled" : "Source enabled");
@@ -361,7 +361,7 @@ function SourceRow({
     setMenuOpen(false);
     startTransition(async () => {
       const result = await deleteSource(source.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Source deleted");

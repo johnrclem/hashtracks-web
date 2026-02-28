@@ -10,7 +10,8 @@ import { CalendarView } from "./CalendarView";
 import { EventDetailPanel } from "./EventDetailPanel";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { haversineDistance, getEventCoords } from "@/lib/geo";
+import { haversineDistance, getEventCoordsFromRegionData } from "@/lib/geo";
+import { parseList, parseRegionList } from "@/lib/format";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -26,11 +27,6 @@ interface HarelineViewProps {
   subscribedKennelIds: string[];
   isAuthenticated: boolean;
   attendanceMap?: Record<string, AttendanceData>;
-}
-
-function parseList(value: string | null): string[] {
-  if (!value) return [];
-  return value.split(",").filter(Boolean);
 }
 
 interface FilterCriteria {
@@ -62,14 +58,14 @@ function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
 
   if (!passesTimeFilter(eventDate, f.view, f.timeFilter, f.todayUtc)) return false;
   if (f.scope === "my" && !f.subscribedKennelIds.includes(event.kennelId)) return false;
-  if (f.selectedRegions.length > 0 && !f.selectedRegions.includes(event.kennel.region)) return false;
+  if (f.selectedRegions.length > 0 && !f.selectedRegions.includes(event.kennel.regionData.slug)) return false;
   if (f.selectedKennels.length > 0 && !f.selectedKennels.includes(event.kennel.id)) return false;
   if (f.selectedDays.length > 0 && !f.selectedDays.includes(getDayOfWeek(event.date))) return false;
   if (f.selectedCountry && event.kennel.country !== f.selectedCountry) return false;
 
   // Near-me distance filter — only applies when geolocation is granted
   if (f.nearMeDistance != null && f.userLat != null && f.userLng != null) {
-    const coords = getEventCoords(event.latitude ?? null, event.longitude ?? null, event.kennel.region);
+    const coords = getEventCoordsFromRegionData(event.latitude ?? null, event.longitude ?? null, event.kennel.regionData);
     if (!coords) return false; // no coords + no region centroid — exclude
     if (haversineDistance(f.userLat, f.userLng, coords.lat, coords.lng) > f.nearMeDistance) return false;
   }
@@ -120,7 +116,7 @@ export function HarelineView({
     (searchParams.get("scope") as "my" | "all") || defaultScope,
   );
   const [selectedRegions, setSelectedRegionsState] = useState<string[]>(
-    parseList(searchParams.get("regions")),
+    parseRegionList(searchParams.get("regions")),
   );
   const [selectedKennels, setSelectedKennelsState] = useState<string[]>(
     parseList(searchParams.get("kennels")),

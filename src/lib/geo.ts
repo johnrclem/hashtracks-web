@@ -68,11 +68,11 @@ function isValidCoords(lat: number, lng: number): boolean {
 
 // ── Region centroids & colors (delegated to src/lib/region.ts — single source of truth) ──
 
-import { REGION_SEED_DATA, getRegionCentroid } from "@/lib/region";
+import { REGION_SEED_DATA, getRegionCentroid, regionSlug } from "@/lib/region";
 
 /**
  * Region center coordinates for approximate pin fallback.
- * Built from REGION_SEED_DATA (includes aliases for backward compat).
+ * Built from REGION_SEED_DATA. Keyed by name, slug, and aliases.
  */
 export const REGION_CENTROIDS: Record<string, { lat: number; lng: number }> = (() => {
   const map: Record<string, { lat: number; lng: number }> = {};
@@ -80,6 +80,7 @@ export const REGION_CENTROIDS: Record<string, { lat: number; lng: number }> = ((
     if (r.centroidLat != null && r.centroidLng != null) {
       const coords = { lat: r.centroidLat, lng: r.centroidLng };
       map[r.name] = coords;
+      map[regionSlug(r.name)] = coords;
       if (r.aliases) {
         for (const alias of r.aliases) {
           map[alias] = coords;
@@ -125,6 +126,24 @@ export function getEventCoords(
   const centroid = getRegionCentroid(region);
   if (centroid) {
     return { lat: centroid.lat, lng: centroid.lng, precise: false };
+  }
+  return null;
+}
+
+/**
+ * Returns coordinates for an event using RegionData directly (no string lookup).
+ * Prefer this over getEventCoords when regionData is available.
+ */
+export function getEventCoordsFromRegionData(
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+  regionData: { centroidLat: number | null; centroidLng: number | null },
+): { lat: number; lng: number; precise: boolean } | null {
+  if (lat != null && lng != null) {
+    return { lat, lng, precise: true };
+  }
+  if (regionData.centroidLat != null && regionData.centroidLng != null) {
+    return { lat: regionData.centroidLat, lng: regionData.centroidLng, precise: false };
   }
   return null;
 }

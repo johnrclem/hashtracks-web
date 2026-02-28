@@ -97,8 +97,8 @@ model Kennel {
   slug        String         @unique // URL-safe: "nych3", "bos-moon"
   fullName    String         // "New York City Hash House Harriers"
   region      String         // "New York City, NY" — denormalized from Region.name
-  regionId    String?        // FK to Region (optional during migration, will become required)
-  regionRef   Region?        @relation(fields: [regionId], references: [id])
+  regionId    String         // FK to Region (required)
+  regionRef   Region         @relation(fields: [regionId], references: [id])
   country     String         @default("USA")
   description String?
   website     String?
@@ -141,7 +141,7 @@ model Kennel {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  @@unique([shortName, region])
+  @@unique([shortName, regionId])
   @@index([regionId])
 }
 

@@ -50,7 +50,7 @@ export function RegionMergeDialog({
 
     startTransition(async () => {
       const result = await mergeRegions(sourceId, targetId, true);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else if (result.preview) {
         setPreview(result.preview);
@@ -62,7 +62,7 @@ export function RegionMergeDialog({
   function handleExecute() {
     startTransition(async () => {
       const result = await mergeRegions(sourceId, targetId, false);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(

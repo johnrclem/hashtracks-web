@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { APIProvider, Map } from "@vis.gl/react-google-maps";
-import { getEventCoords, getRegionColor } from "@/lib/geo";
+import { getEventCoordsFromRegionData } from "@/lib/geo";
 import { ClusteredMarkers, type EventWithCoords } from "./ClusteredMarkers";
 import type { HarelineEvent } from "./EventCard";
 
@@ -31,7 +31,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
 
   const eventsWithCoords = useMemo<EventWithCoords[]>(() => {
     return events.flatMap((event) => {
-      const coords = getEventCoords(event.latitude, event.longitude, event.kennel.region);
+      const coords = getEventCoordsFromRegionData(event.latitude, event.longitude, event.kennel.regionData);
       if (!coords) return [];
       return [
         {
@@ -39,7 +39,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
           lat: coords.lat,
           lng: coords.lng,
           precise: coords.precise,
-          color: getRegionColor(event.kennel.region),
+          color: event.kennel.regionData.pinColor,
         },
       ];
     });

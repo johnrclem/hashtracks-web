@@ -4,6 +4,7 @@ import { getAdminUser, getRosterGroupId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { fuzzyMatch } from "@/lib/fuzzy";
+import { toSlug, toKennelCode } from "@/lib/kennel-utils";
 
 function extractProfileFields(formData: FormData) {
   const result: Record<string, string | number | boolean | null> = {};
@@ -49,15 +50,6 @@ function extractProfileFields(formData: FormData) {
   return result;
 }
 
-function toSlug(shortName: string): string {
-  return shortName
-    .toLowerCase()
-    .replace(/[()]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
 /** Resolve region name from regionId, falling back to the raw form value. */
 async function resolveRegionName(regionId: string | null, formRegion: string): Promise<string> {
   if (regionId) {
@@ -65,14 +57,6 @@ async function resolveRegionName(regionId: string | null, formRegion: string): P
     if (record) return record.name;
   }
   return formRegion;
-}
-
-/** Generate a permanent kennelCode from a shortName. Lowercase, alphanumeric + hyphens only. */
-function toKennelCode(shortName: string): string {
-  return shortName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 interface SimilarKennel {
@@ -131,7 +115,7 @@ export async function createKennel(formData: FormData, force: boolean = false) {
   const formRegion = (formData.get("region") as string)?.trim() || "";
   const region = await resolveRegionName(regionId, formRegion);
 
-  if (!shortName || !fullName || !region) {
+  if (!shortName || !fullName || !region || !regionId) {
     return { error: "Short name, full name, and region are required" };
   }
 
@@ -150,9 +134,9 @@ export async function createKennel(formData: FormData, force: boolean = false) {
     return { error: `A kennel with slug "${slug}" already exists` };
   }
 
-  // Check uniqueness: (shortName, region) must be unique
+  // Check uniqueness: (shortName, regionId) must be unique
   const existingInRegion = await prisma.kennel.findFirst({
-    where: { shortName, region },
+    where: { shortName, regionId },
   });
   if (existingInRegion) {
     return { error: `A kennel named "${shortName}" already exists in ${region}` };
@@ -183,7 +167,7 @@ export async function createKennel(formData: FormData, force: boolean = false) {
       slug,
       fullName,
       region,
-      regionId: regionId ?? undefined,
+      regionRef: { connect: { id: regionId } },
       country,
       description,
       website,
@@ -231,7 +215,11 @@ export async function updateKennel(kennelId: string, formData: FormData) {
 
   // Check (shortName, region) uniqueness (exclude current kennel)
   const existingInRegion = await prisma.kennel.findFirst({
-    where: { shortName, region, NOT: { id: kennelId } },
+    where: {
+      shortName,
+      ...(regionId ? { regionId } : { region }),
+      NOT: { id: kennelId },
+    },
   });
   if (existingInRegion) {
     return { error: `A kennel named "${shortName}" already exists in ${region}` };
@@ -268,7 +256,7 @@ export async function updateKennel(kennelId: string, formData: FormData) {
         slug,
         fullName,
         region,
-        regionId: regionId ?? undefined,
+        ...(regionId ? { regionRef: { connect: { id: regionId } } } : {}),
         country,
         description,
         website,
@@ -706,3 +694,4 @@ export async function toggleKennelVisibility(kennelId: string) {
   revalidatePath("/misman");
   return { success: true, isHidden: newValue };
 }
+

@@ -187,7 +187,7 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
     result: { error?: string; warning?: string; similarKennels?: SimilarKennel[]; success?: boolean },
     formData: FormData,
   ) {
-    if (result.error) {
+    if ("error" in result) {
       toast.error(result.error);
       return;
     }
