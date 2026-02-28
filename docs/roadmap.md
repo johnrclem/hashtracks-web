@@ -106,6 +106,11 @@ See [misman-attendance-requirements.md](misman-attendance-requirements.md) and [
 - [x] Admin alerts page with 6 alert types, filter tabs, structured context display
 - [x] Self-healing actions: re-scrape, create alias/kennel, file GitHub issue — all from alert card
 - [x] Repair history timeline, auto-resolve for stable structure changes
+- [x] **CI gate:** GitHub Actions enforces type check + lint + tests on all PRs (`.github/workflows/ci.yml`)
+- [x] **Auto-issue filing:** Critical/warning alerts auto-create GitHub issues with structured AGENT_CONTEXT (`src/pipeline/auto-issue.ts`)
+- [x] **AI triage:** Claude Sonnet analyzes issues, posts confidence-scored diagnosis, labels for auto-fix or human review
+- [x] **AI auto-fix:** Claude Opus implements fixes for high-confidence issues (adapters, seed.ts, test files), creates PRs validated by CI
+- [x] Architecture plan with confidence scoring rubric: see [self-healing-automation-plan.md](self-healing-automation-plan.md)
 
 ### Scrape Logging — COMPLETE
 - [x] Structured errors (fetch/parse/merge) across all 5 adapters
@@ -235,7 +240,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - 79 kennels (with rich profiles), 246 aliases, 29 sources, 26 regions (first-class model with hierarchy)
 - 7 adapter types: HTML_SCRAPER (22), GOOGLE_CALENDAR (5), GOOGLE_SHEETS (2), ICAL_FEED (3), HASHREGO (1), MEETUP (1), WORDPRESS_API (1)
 - 25 models, 17 enums in Prisma schema
-- 83 test files, 900+ test cases
+- 84 test files, 1711 test cases
 
 ---
 
@@ -272,6 +277,7 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 - HTML_SCRAPER sources require ~1-2 hours of adapter code + URL-based routing in registry
 - Google Calendar sources require ~15 min of config + seed entry
 - Always verify `kennelShortNames` in seed covers ALL kennels the source produces (source-kennel guard)
+- Self-healing automation reduces maintenance burden: alerts auto-file issues → Claude triages/fixes CSS selector changes and alias gaps → PR → CI validates → merge
 
 ### Config-Driven Source Onboarding (Admin UI) — COMPLETE
 
@@ -573,6 +579,13 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - [ ] Double-header handling (same kennel, same day, two events)
 - [ ] Email/notification integration for source health alerts
 
+### Self-Healing Hardening (Phase 4)
+- [ ] Post-merge verification: re-scrape after auto-fix PR merged, verify alert auto-resolves
+- [ ] Fix success rate dashboard: per alert type, per source
+- [ ] Structured logging: replace console.error with JSON logs (source ID, alert type, error category)
+- [ ] PR size guard: auto-fix PRs > 500 lines changed → auto-label "needs-human"
+- [ ] External monitoring: Vercel deployment failures → GitHub issue via webhook
+
 ### Admin UX Architecture
 
 *Larger structural improvements to the admin section identified during PR #93 review. Each is a standalone PR.*
@@ -649,5 +662,6 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - [Misman Implementation Plan](misman-implementation-plan.md) — sprint plan for misman feature
 - [Config-Driven Onboarding Plan](config-driven-onboarding-plan.md) — source onboarding wizard design (6-phase)
 - [Test Coverage Analysis](test-coverage-analysis.md) — test coverage gap analysis and priorities
+- [Self-Healing Automation Plan](self-healing-automation-plan.md) — automation loop architecture, confidence scoring, implementation roadmap
 - [HASHTRACKS_PRD.md](../HASHTRACKS_PRD.md) — original product requirements document (includes Strava API reference in Appendix C)
 - [HASHTRACKS_IMPLEMENTATION_PLAN.md](../HASHTRACKS_IMPLEMENTATION_PLAN.md) — original sprint plan (Sprints 1-4 complete, evolved beyond this plan)

@@ -1,8 +1,6 @@
-import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
-import { generateStructureHash } from "@/pipeline/structure-hash";
-import { chronoParseDate, parse12HourTime, googleMapsSearchUrl } from "../utils";
+import { chronoParseDate, parse12HourTime, googleMapsSearchUrl, fetchHTMLPage } from "../utils";
 
 const mapsUrl = googleMapsSearchUrl;
 
@@ -35,30 +33,13 @@ export class HashPhillyAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://hashphilly.com/nexthash/";
 
+    const page = await fetchHTMLPage(baseUrl);
+    if (!page.ok) return page.result;
+    const { $, structureHash } = page;
+
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let structureHash: string | undefined;
-
-    let html: string;
-    try {
-      const response = await fetch(baseUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
-      });
-      if (!response.ok) {
-        const message = `HTTP ${response.status}: ${response.statusText}`;
-        errorDetails.fetch = [{ url: baseUrl, status: response.status, message }];
-        return { events: [], errors: [message], errorDetails };
-      }
-      html = await response.text();
-    } catch (err) {
-      const message = `Fetch failed: ${err}`;
-      errorDetails.fetch = [{ url: baseUrl, message }];
-      return { events: [], errors: [message], errorDetails };
-    }
-
-    structureHash = generateStructureHash(html);
-    const $ = cheerio.load(html);
     const bodyText = $("body").text();
 
     // Extract fields using label:value pattern

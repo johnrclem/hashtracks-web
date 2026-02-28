@@ -316,7 +316,7 @@ describe("EnfieldHashAdapter.fetch (new site structure)", () => {
     const second = result.events[1];
     expect(second.title).toBe("Run 317 - Wed 21 January");
     expect(second.date).toMatch(/^\d{4}-01-21$/);
-    expect(second.station).toBeUndefined(); // station goes to description
+    expect((second as unknown as Record<string, unknown>).station).toBeUndefined(); // station goes to description
     expect(second.description).toContain("Gordon Hill");
 
     expect(result.diagnosticContext).toMatchObject({

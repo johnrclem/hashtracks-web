@@ -416,23 +416,28 @@ describe("HashRegoAdapter", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns empty events when no kennelSlugs configured", async () => {
-    const adapter = new HashRegoAdapter();
-    const source = {
+  function buildSource(configOverrides?: { kennelSlugs?: string[] }) {
+    return {
       id: "src1",
       name: "Hash Rego",
       url: "https://hashrego.com/events",
       type: "HASHREGO" as const,
-      config: { kennelSlugs: [] },
+      config: { kennelSlugs: configOverrides?.kennelSlugs ?? [] },
       trustLevel: 8,
       scrapeFreq: "daily",
       lastScrapeAt: null,
       lastSuccessAt: null,
       healthStatus: "UNKNOWN" as const,
       scrapeDays: 90,
+      enabled: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+  }
+
+  it("returns empty events when no kennelSlugs configured", async () => {
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
     const result = await adapter.fetch(source);
     expect(result.events).toHaveLength(0);
     expect(result.errors[0]).toContain("No kennelSlugs configured");
@@ -451,21 +456,7 @@ describe("HashRegoAdapter", () => {
     );
 
     const adapter = new HashRegoAdapter();
-    const source = {
-      id: "src1",
-      name: "Hash Rego",
-      url: "https://hashrego.com/events",
-      type: "HASHREGO" as const,
-      config: { kennelSlugs: ["EWH3"] },
-      trustLevel: 8,
-      scrapeFreq: "daily",
-      lastScrapeAt: null,
-      lastSuccessAt: null,
-      healthStatus: "UNKNOWN" as const,
-      scrapeDays: 90,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const source = buildSource({ kennelSlugs: ["EWH3"] });
 
     const result = await adapter.fetch(source);
 
@@ -488,21 +479,7 @@ describe("HashRegoAdapter", () => {
     );
 
     const adapter = new HashRegoAdapter();
-    const source = {
-      id: "src1",
-      name: "Hash Rego",
-      url: "https://hashrego.com/events",
-      type: "HASHREGO" as const,
-      config: { kennelSlugs: ["EWH3"] },
-      trustLevel: 8,
-      scrapeFreq: "daily",
-      lastScrapeAt: null,
-      lastSuccessAt: null,
-      healthStatus: "UNKNOWN" as const,
-      scrapeDays: 90,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const source = buildSource({ kennelSlugs: ["EWH3"] });
 
     const result = await adapter.fetch(source);
 
@@ -524,21 +501,7 @@ describe("HashRegoAdapter", () => {
     );
 
     const adapter = new HashRegoAdapter();
-    const source = {
-      id: "src1",
-      name: "Hash Rego",
-      url: "https://hashrego.com/events",
-      type: "HASHREGO" as const,
-      config: { kennelSlugs: ["ewh3"] }, // lowercase
-      trustLevel: 8,
-      scrapeFreq: "daily",
-      lastScrapeAt: null,
-      lastSuccessAt: null,
-      healthStatus: "UNKNOWN" as const,
-      scrapeDays: 90,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const source = buildSource({ kennelSlugs: ["ewh3"] }); // lowercase
 
     const result = await adapter.fetch(source);
     // Should have matched EWH3 despite lowercase config
@@ -552,21 +515,7 @@ describe("HashRegoAdapter", () => {
     );
 
     const adapter = new HashRegoAdapter();
-    const source = {
-      id: "src1",
-      name: "Hash Rego",
-      url: "https://hashrego.com/events",
-      type: "HASHREGO" as const,
-      config: { kennelSlugs: ["NONEXISTENT"] },
-      trustLevel: 8,
-      scrapeFreq: "daily",
-      lastScrapeAt: null,
-      lastSuccessAt: null,
-      healthStatus: "UNKNOWN" as const,
-      scrapeDays: 90,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const source = buildSource({ kennelSlugs: ["NONEXISTENT"] });
 
     const result = await adapter.fetch(source);
     expect(result.diagnosticContext).toBeDefined();

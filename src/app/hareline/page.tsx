@@ -22,7 +22,7 @@ export default async function HarelinePage() {
   // Get user's subscribed kennels + attendance (if authenticated)
   const user = await getOrCreateUser();
   let subscribedKennelIds: string[] = [];
-  let attendanceMap: Record<string, { id: string; participationLevel: string; status: string; stravaUrl: string | null; notes: string | null }> = {};
+  const attendanceMap: Record<string, { id: string; participationLevel: string; status: string; stravaUrl: string | null; notes: string | null }> = {};
   if (user) {
     const subscriptions = await prisma.userKennel.findMany({
       where: { userId: user.id },

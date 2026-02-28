@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ICalAdapter, parseICalSummary, extractHaresFromDescription, paramValue } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
+import type { ParameterValue } from "node-ical";
 
 // Minimal ICS content for testing
 const SAMPLE_ICS = `BEGIN:VCALENDAR
@@ -123,7 +124,7 @@ describe("paramValue", () => {
 
   it("returns undefined for null/undefined", () => {
     expect(paramValue(undefined)).toBeUndefined();
-    expect(paramValue(null as any)).toBeUndefined();
+    expect(paramValue(null as unknown as ParameterValue)).toBeUndefined();
   });
 });
 

@@ -79,7 +79,7 @@ describe("deleteEvent", () => {
 
     // Verify transaction was called
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-    const txArgs = vi.mocked(prisma.$transaction).mock.calls[0][0] as unknown[];
+    const txArgs = vi.mocked(prisma.$transaction).mock.calls[0][0] as unknown as unknown[];
     expect(txArgs).toHaveLength(5); // unlink rawEvents, delete hares, delete attendance, delete kennelAttendance, delete event
   });
 });
@@ -205,7 +205,7 @@ describe("deleteSelectedEvents", () => {
     const result = await deleteSelectedEvents(["evt_1", "evt_2", "evt_3"]);
     expect(result).toEqual({ success: true, deletedCount: 3 });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-    const txArgs = vi.mocked(prisma.$transaction).mock.calls[0][0] as unknown[];
+    const txArgs = vi.mocked(prisma.$transaction).mock.calls[0][0] as unknown as unknown[];
     expect(txArgs).toHaveLength(5); // unlink rawEvents, delete hares, delete attendance, delete kennelAttendance, delete events
   });
 

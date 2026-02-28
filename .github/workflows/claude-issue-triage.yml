@@ -1,0 +1,72 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [labeled]
+
+# Prevent multiple triage runs for the same issue
+concurrency:
+  group: triage-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    if: github.event.label.name == 'claude-fix'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: anthropics/claude-code-action@ba7fa4bcf054319261202aef93d71a89112a8d00 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are triaging a HashTracks scraper alert that was auto-filed as a GitHub issue.
+
+            ISSUE NUMBER: ${{ github.event.issue.number }}
+
+            Instructions:
+            1. Use `gh issue view ${{ github.event.issue.number }} --json title,body,labels` to read the full issue content.
+            2. Look for the <!-- AGENT_CONTEXT --> block in the issue body — it contains machine-readable JSON with the exact adapter file, test file, and alert metadata.
+            3. Read the relevant source files listed in the issue (especially the adapter file and its test file).
+            4. Identify the root cause of the failure.
+            5. Assess your confidence in diagnosing AND fixing this issue using this rubric:
+               - Error Clarity (0-25): Is the error specific? Stack trace with line number = 25, vague "scrape failed" = 5
+               - Root Cause Isolation (0-25): Single file fix = 25, multi-module = 10, unclear = 0
+               - Test Coverage (0-20): Module has tests >80% = 20, >50% = 15, <50% = 5, none = 0
+               - Pattern Match (0-15): CSS selector update = 15, new adapter logic = 5
+               - Blast Radius (0-15): Isolated adapter = 15, pipeline = 10, shared util = 5
+
+            6. Post a comment on this issue with your analysis in EXACTLY this format:
+
+            ## Triage Analysis
+
+            **Root Cause:** [clear description of what broke and why]
+
+            **Affected Files:**
+            - `path/to/file.ts` — [what needs to change]
+
+            **Proposed Fix:** [specific description of the code changes needed]
+
+            **Confidence Score:** [total]/100
+
+            **Score Breakdown:**
+            - Error Clarity: X/25
+            - Root Cause Isolation: X/25
+            - Test Coverage: X/20
+            - Pattern Match: X/15
+            - Blast Radius: X/15
+
+            **Recommendation:** AUTO-FIX or NEEDS-HUMAN
+
+            7. IMPORTANT ACTIONS:
+            - If your total confidence score is >= 80, add the label "claude-autofix" to this issue.
+            - If your total confidence score is < 80, add the label "needs-human" to this issue.
+            - Never add both labels.
+          claude_args: |
+            --model claude-sonnet-4-6
+            --max-turns 15
