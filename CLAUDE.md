@@ -33,7 +33,7 @@ calendar + personal logbook + kennel directory.
 - **Deployment:** Vercel (auto-deploy from main branch)
 
 ## Data Flow
-1. **Sources** (hashnyc.com, Google Calendar, Google Sheets, etc.) are scraped on cron schedule
+1. **Sources** (hashnyc.com, Google Calendar, Google Sheets, etc.) are scraped via QStash fan-out (dispatch → per-source jobs)
 2. Each scrape produces **RawEvents** (immutable — never edit scraped data)
 3. **Merge Pipeline** deduplicates RawEvents into **Canonical Events** using `kennel + date`
 4. Users see Canonical Events in the **Hareline** (calendar)
@@ -66,7 +66,10 @@ calendar + personal logbook + kennel directory.
 - NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 - NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 - GEMINI_API_KEY=         # Google AI API key (Sprint 10+)
-- CRON_SECRET=            # Secret for Vercel Cron auth (set in Vercel dashboard)
+- CRON_SECRET=            # Secret for cron auth (Bearer token fallback)
+- QSTASH_TOKEN=           # Upstash QStash API token (fan-out job dispatch)
+- QSTASH_CURRENT_SIGNING_KEY= # QStash signature verification (current key)
+- QSTASH_NEXT_SIGNING_KEY=    # QStash signature verification (next key for rotation)
 - GOOGLE_CALENDAR_API_KEY= # For Google Calendar + Sheets APIs
 - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY= # For MapView (interactive) + EventLocationMap (static) — browser-exposed by design
 - GOOGLE_WEATHER_API_KEY= # Server-only (NOT NEXT_PUBLIC_) — same GCP project as Maps
@@ -176,7 +179,12 @@ calendar + personal logbook + kennel directory.
 - `src/components/hareline/MapView.tsx` — Interactive map tab for Hareline (@vis.gl/react-google-maps, region-colored pins)
 - `src/components/hareline/EventWeatherCard.tsx` — Weather forecast display (condition emoji, °F/°C, precip ≥20%)
 - `src/components/providers/units-preference-provider.tsx` — °F/°C preference context (localStorage-based, useUnitsPreference hook)
-- `vercel.json` — Vercel Cron config (daily scrape at 6:00 AM UTC)
+- `vercel.json` — Vercel Cron config (triggers QStash dispatch at 6:00 AM UTC)
+- `src/lib/qstash.ts` — QStash Client + Receiver singletons (Upstash fan-out queue)
+- `src/lib/cron-auth.ts` — Dual auth: QStash signature verification → Bearer CRON_SECRET fallback
+- `src/pipeline/schedule.ts` — Shared scheduling logic (shouldScrape, frequency intervals)
+- `src/app/api/cron/dispatch/route.ts` — Fan-out dispatcher: queries due sources, publishes QStash messages
+- `src/app/api/cron/scrape/[sourceId]/route.ts` — Per-source scrape endpoint (called by QStash)
 - `vitest.config.ts` — Test runner config (globals, path aliases)
 - `src/test/factories.ts` — Shared test data builders
 
@@ -262,4 +270,4 @@ See `docs/roadmap.md` for implementation roadmap.
 - Don't store secrets in code — use environment variables
 - Don't modify RawEvent records after creation (they're immutable audit trail)
 - Don't build custom auth — Clerk handles everything
-- Don't add Redis/BullMQ yet — cron is sufficient for <50 sources
+- Don't add Redis/BullMQ — QStash handles job fan-out for scraping
