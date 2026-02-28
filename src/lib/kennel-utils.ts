@@ -1,21 +1,22 @@
 import { prisma } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
 
 /** Generate a URL-safe slug from a kennel shortName. Strips parens, collapses hyphens. */
 export function toSlug(shortName: string): string {
   return shortName
     .toLowerCase()
-    .replace(/[()]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replaceAll(/[()]/g, "")
+    .replaceAll(/\s+/g, "-")
+    .replaceAll(/-+/g, "-")
+    .replaceAll(/^-|-$/g, "");
 }
 
 /** Generate a permanent kennelCode from a shortName. Lowercase alphanumeric + hyphens only. */
 export function toKennelCode(shortName: string): string {
   return shortName
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-|-$/g, "");
 }
 
 /** Convenience wrapper returning both identifiers at once. */
@@ -23,9 +24,12 @@ export function buildKennelIdentifiers(shortName: string): { slug: string; kenne
   return { slug: toSlug(shortName), kennelCode: toKennelCode(shortName) };
 }
 
-/** Look up a Region record by name. Returns `{ id }` or `null` if not found. */
+/** Look up a Region record by name (case-insensitive). Returns `{ id, name }` or `null` if not found. */
 export async function resolveRegionByName(regionName: string): Promise<{ id: string; name: string } | null> {
-  return prisma.region.findUnique({ where: { name: regionName }, select: { id: true, name: true } });
+  return prisma.region.findFirst({
+    where: { name: { equals: regionName, mode: "insensitive" } },
+    select: { id: true, name: true },
+  });
 }
 
 /**
@@ -37,9 +41,13 @@ export async function createKennelRecord(
   kennelData: { shortName: string; fullName?: string; region?: string },
   tag: string,
 ): Promise<{ kennelId: string } | { error: string }> {
-  const { slug, kennelCode } = buildKennelIdentifiers(kennelData.shortName);
+  const trimmedShort = kennelData.shortName?.trim();
+  const trimmedTag = tag?.trim();
+  if (!trimmedShort) return { error: "Short name is required" };
 
-  const regionName = kennelData.region || "Unknown";
+  const { slug, kennelCode } = buildKennelIdentifiers(trimmedShort);
+
+  const regionName = kennelData.region?.trim() || "Unknown";
   const regionRecord = await resolveRegionByName(regionName);
   if (!regionRecord) return { error: `Region "${regionName}" not found — create it first in Admin → Regions` };
 
@@ -48,25 +56,31 @@ export async function createKennelRecord(
       OR: [
         { kennelCode },
         { slug },
-        { shortName: kennelData.shortName, regionId: regionRecord.id },
+        { shortName: trimmedShort, regionId: regionRecord.id },
       ],
     },
   });
-  if (existingKennel) return { error: `Kennel "${kennelData.shortName}" already exists` };
+  if (existingKennel) return { error: `Kennel "${trimmedShort}" already exists` };
 
-  const newKennel = await prisma.kennel.create({
-    data: {
-      kennelCode,
-      shortName: kennelData.shortName,
-      fullName: kennelData.fullName || kennelData.shortName,
-      slug,
-      region: regionName,
-      regionRef: { connect: { id: regionRecord.id } },
-      aliases: {
-        create: tag !== kennelData.shortName ? [{ alias: tag }] : [],
+  try {
+    const newKennel = await prisma.kennel.create({
+      data: {
+        kennelCode,
+        shortName: trimmedShort,
+        fullName: kennelData.fullName?.trim() || trimmedShort,
+        slug,
+        region: regionRecord.name,
+        regionRef: { connect: { id: regionRecord.id } },
+        aliases: {
+          create: trimmedTag === trimmedShort ? [] : [{ alias: trimmedTag }],
+        },
       },
-    },
-  });
-
-  return { kennelId: newKennel.id };
+    });
+    return { kennelId: newKennel.id };
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { error: `Kennel "${trimmedShort}" already exists` };
+    }
+    throw e;
+  }
 }

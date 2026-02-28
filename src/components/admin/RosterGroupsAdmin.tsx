@@ -50,11 +50,11 @@ interface RosterGroupData {
 }
 
 function KennelChecklist({ kennels, selectedIds, onToggle, idPrefix, currentIds }: {
-  kennels: KennelOption[];
-  selectedIds: Set<string>;
-  onToggle: (id: string) => void;
-  idPrefix: string;
-  currentIds?: Set<string>;
+  readonly kennels: readonly KennelOption[];
+  readonly selectedIds: ReadonlySet<string>;
+  readonly onToggle: (id: string) => void;
+  readonly idPrefix: string;
+  readonly currentIds?: ReadonlySet<string>;
 }) {
   return (
     <>

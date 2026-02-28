@@ -319,6 +319,16 @@ export interface RegionLookup {
   centroidLng: number | null;
 }
 
+/** Generate a slug from a region name. */
+export function regionSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[()]/g, "")
+    .replace(/[,.\s]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 /** Map from region name (and aliases) to canonical data. */
 const REGION_MAP = new Map<string, RegionLookup>();
 /** Map from region slug to canonical data. */
@@ -371,7 +381,7 @@ export function regionNameToSlug(name: string): string | null {
 /** All regions as {slug, name, abbrev} tuples — for filter dropdowns. */
 export function allRegionOptions(): { slug: string; name: string; abbrev: string }[] {
   return REGION_SEED_DATA.map((r) => ({
-    slug: regionSlug(r.name),
+    slug: REGION_NAME_TO_SLUG.get(r.name) ?? regionSlug(r.name),
     name: r.name,
     abbrev: r.abbrev,
   }));
@@ -417,16 +427,6 @@ export function getRegionCentroid(
     return { lat: entry.centroidLat, lng: entry.centroidLng };
   }
   return null;
-}
-
-/** Generate a slug from a region name. */
-export function regionSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[()]/g, "")
-    .replace(/[,.\s]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 /** Convert a region name string to a RegionData object using sync fallback maps. */

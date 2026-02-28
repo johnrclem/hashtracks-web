@@ -215,7 +215,11 @@ export async function updateKennel(kennelId: string, formData: FormData) {
 
   // Check (shortName, region) uniqueness (exclude current kennel)
   const existingInRegion = await prisma.kennel.findFirst({
-    where: { shortName, region, NOT: { id: kennelId } },
+    where: {
+      shortName,
+      ...(regionId ? { regionId } : { region }),
+      NOT: { id: kennelId },
+    },
   });
   if (existingInRegion) {
     return { error: `A kennel named "${shortName}" already exists in ${region}` };

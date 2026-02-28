@@ -66,12 +66,15 @@ function parseSourceFormData(formData: FormData) {
   const name = (formData.get("name") as string)?.trim();
   const url = (formData.get("url") as string)?.trim();
   const type = (formData.get("type") as string)?.trim();
-  const trustLevel = parseInt((formData.get("trustLevel") as string) || "5", 10);
+  const trustLevel = Number.parseInt((formData.get("trustLevel") as string) || "5", 10);
   const scrapeFreq = (formData.get("scrapeFreq") as string)?.trim() || "daily";
-  const scrapeDays = parseInt((formData.get("scrapeDays") as string) || "90", 10);
+  const scrapeDays = Number.parseInt((formData.get("scrapeDays") as string) || "90", 10);
   const configRaw = (formData.get("config") as string)?.trim() || "";
   const kennelIds = (formData.get("kennelIds") as string)?.trim() || "";
   if (!name || !url || !type) return { error: "Name, URL, and type are required" as const };
+  if (Number.isNaN(trustLevel) || Number.isNaN(scrapeDays)) {
+    return { error: "Trust level and scrape days must be numbers" as const };
+  }
   return { name, url, type, trustLevel, scrapeFreq, scrapeDays, configRaw, kennelIds };
 }
 

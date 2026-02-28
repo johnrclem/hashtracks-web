@@ -24,6 +24,7 @@ vi.mock("@/lib/db", () => ({
     },
     region: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     sourceKennel: {
       findUnique: vi.fn(),
@@ -79,7 +80,7 @@ const mockScrape = vi.mocked(scrapeSource);
 const mockResolve = vi.mocked(resolveKennelTag);
 const mockClearCache = vi.mocked(clearResolverCache);
 const mockTransaction = vi.mocked(prisma.$transaction);
-const mockRegionFind = vi.mocked(prisma.region.findUnique);
+const mockRegionFind = vi.mocked(prisma.region.findFirst);
 
 function baseAlert(overrides = {}) {
   return {

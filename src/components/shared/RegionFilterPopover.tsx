@@ -17,9 +17,9 @@ import {
 } from "@/components/ui/command";
 
 interface RegionFilterPopoverProps {
-  regions: { slug: string; name: string }[];
-  selectedRegions: string[];
-  onToggle: (slug: string) => void;
+  readonly regions: readonly { slug: string; name: string }[];
+  readonly selectedRegions: readonly string[];
+  readonly onToggle: (slug: string) => void;
 }
 
 export function RegionFilterPopover({ regions, selectedRegions, onToggle }: RegionFilterPopoverProps) {

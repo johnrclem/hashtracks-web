@@ -18,9 +18,9 @@ import {
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 
 interface KennelFilterPopoverProps {
-  kennels: { id: string; shortName: string; fullName: string; regionName: string }[];
-  selectedKennels: string[];
-  onToggle: (kennelId: string) => void;
+  readonly kennels: readonly { id: string; shortName: string; fullName: string; regionName: string }[];
+  readonly selectedKennels: readonly string[];
+  readonly onToggle: (kennelId: string) => void;
 }
 
 export function KennelFilterPopover({ kennels, selectedKennels, onToggle }: KennelFilterPopoverProps) {
