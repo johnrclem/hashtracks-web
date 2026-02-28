@@ -45,7 +45,7 @@ export function RegionFilterPopover({ regions, selectedRegions, onToggle }: Regi
                 <CommandItem
                   key={r.slug}
                   value={r.name}
-                  onSelect={() => onToggle(r.slug)}
+                  onSelect={() => { onToggle(r.slug); }}
                 >
                   <span
                     className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${

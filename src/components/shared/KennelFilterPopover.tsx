@@ -46,7 +46,7 @@ export function KennelFilterPopover({ kennels, selectedKennels, onToggle }: Kenn
                 <CommandItem
                   key={kennel.id}
                   value={`${kennel.shortName} ${kennel.fullName} ${kennel.regionName}`}
-                  onSelect={() => onToggle(kennel.id)}
+                  onSelect={() => { onToggle(kennel.id); }}
                 >
                   <span
                     className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
