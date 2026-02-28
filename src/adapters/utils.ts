@@ -6,6 +6,9 @@ import * as cheerio from "cheerio";
 import * as chrono from "chrono-node";
 import he from "he";
 import { buildUrlVariantCandidates } from "@/adapters/url-variants";
+import { safeFetch } from "./safe-fetch";
+import { generateStructureHash } from "@/pipeline/structure-hash";
+import type { ErrorDetails, ScrapeResult } from "./types";
 
 /**
  * Decode all HTML entities (named, hex, decimal) in a string.
@@ -274,4 +277,52 @@ export function chronoParseDate(
   if (year == null || month == null || day == null) return null;
 
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+// ---------------------------------------------------------------------------
+// Shared HTML fetch helper — eliminates boilerplate across HTML scrapers
+// ---------------------------------------------------------------------------
+
+export type FetchHTMLSuccess = {
+  ok: true;
+  html: string;
+  $: cheerio.CheerioAPI;
+  structureHash: string;
+  fetchDurationMs: number;
+};
+
+type FetchHTMLError = { ok: false; result: ScrapeResult };
+
+export type FetchHTMLResult = FetchHTMLSuccess | FetchHTMLError;
+
+/**
+ * Fetch a URL, validate via safeFetch, compute structureHash, and load Cheerio.
+ * Returns a discriminated union: check `result.ok` before accessing fields.
+ */
+export async function fetchHTMLPage(url: string): Promise<FetchHTMLResult> {
+  const fetchStart = Date.now();
+  try {
+    const response = await safeFetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+    });
+    if (!response.ok) {
+      const message = `HTTP ${response.status}: ${response.statusText}`;
+      const errorDetails: ErrorDetails = {
+        fetch: [{ url, status: response.status, message }],
+      };
+      return { ok: false, result: { events: [], errors: [message], errorDetails } };
+    }
+    const html = await response.text();
+    return {
+      ok: true,
+      html,
+      $: cheerio.load(html),
+      structureHash: generateStructureHash(html),
+      fetchDurationMs: Date.now() - fetchStart,
+    };
+  } catch (err) {
+    const message = `Fetch failed: ${err}`;
+    const errorDetails: ErrorDetails = { fetch: [{ url, message }] };
+    return { ok: false, result: { events: [], errors: [message], errorDetails } };
+  }
 }

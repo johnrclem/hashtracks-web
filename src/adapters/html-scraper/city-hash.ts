@@ -9,8 +9,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { generateStructureHash } from "@/pipeline/structure-hash";
-import { chronoParseDate, extractUkPostcode } from "../utils";
+import { chronoParseDate, extractUkPostcode, fetchHTMLPage } from "../utils";
 
 /**
  * Parse ordinal date from City Hash title using chrono-node.
@@ -123,34 +122,13 @@ export class CityHashAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://cityhash.org.uk/";
 
+    const page = await fetchHTMLPage(baseUrl);
+    if (!page.ok) return page.result;
+    const { $, structureHash, fetchDurationMs } = page;
+
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let html: string;
-    const fetchStart = Date.now();
-    try {
-      const response = await fetch(baseUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
-        },
-      });
-      if (!response.ok) {
-        const message = `HTTP ${response.status}: ${response.statusText}`;
-        errorDetails.fetch = [
-          { url: baseUrl, status: response.status, message },
-        ];
-        return { events: [], errors: [message], errorDetails };
-      }
-      html = await response.text();
-    } catch (err) {
-      const message = `Fetch failed: ${err}`;
-      errorDetails.fetch = [{ url: baseUrl, message }];
-      return { events: [], errors: [message], errorDetails };
-    }
-    const fetchDurationMs = Date.now() - fetchStart;
-
-    const structureHash = generateStructureHash(html);
-    const $ = cheerio.load(html);
 
     // Parse all .ch-run cards
     const cards = $(".ch-run");

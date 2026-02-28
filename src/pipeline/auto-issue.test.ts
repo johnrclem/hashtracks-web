@@ -4,7 +4,6 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     alert: {
       findMany: vi.fn(),
-      findFirst: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
     },
@@ -12,6 +11,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { prisma } from "@/lib/db";
+import { buildAlert } from "@/test/factories";
 import {
   resolveAdapterFile,
   buildRelevantFiles,
@@ -20,39 +20,15 @@ import {
 } from "./auto-issue";
 
 const mockAlertFindMany = vi.mocked(prisma.alert.findMany);
-const mockAlertFindFirst = vi.mocked(prisma.alert.findFirst);
 const mockAlertFindUnique = vi.mocked(prisma.alert.findUnique);
 const mockAlertUpdate = vi.mocked(prisma.alert.update);
-
-// ── Shared fixtures ──
-
-/** Build an alert object with sensible defaults and optional overrides. */
-function buildAlert(overrides?: Record<string, unknown>) {
-  return {
-    id: "alert_123",
-    type: "STRUCTURE_CHANGE",
-    severity: "CRITICAL",
-    title: "HTML structure changed",
-    sourceId: "src_456",
-    context: {
-      previousHash: "abc123def456789012345678901234567890",
-      currentHash: "xyz789abc123456789012345678901234567890",
-    },
-    source: {
-      name: "hashnyc.com",
-      url: "https://hashnyc.com/hareline",
-      type: "HTML_SCRAPER",
-    },
-    ...overrides,
-  };
-}
 
 // ── Shared mock helpers ──
 
 /** Mock rate-limit and cooldown checks to pass (no limits, no cooldown). */
 function setupPassingGuards() {
   mockAlertFindMany.mockResolvedValueOnce([] as never); // isRateLimited → pass
-  mockAlertFindFirst.mockResolvedValueOnce(null as never); // isOnCooldown → pass
+  mockAlertFindMany.mockResolvedValueOnce([] as never); // isOnCooldown → pass
 }
 
 /** Mock fetch: no duplicate issues found, then successful issue creation. */
@@ -86,10 +62,12 @@ function mockFetchNoDuplicates() {
 // ── Env save/restore ──
 
 let savedToken: string | undefined;
+let savedRepository: string | undefined;
 
 beforeEach(() => {
   vi.clearAllMocks();
   savedToken = process.env.GITHUB_TOKEN;
+  savedRepository = process.env.GITHUB_REPOSITORY;
 });
 
 afterEach(() => {
@@ -98,6 +76,11 @@ afterEach(() => {
     delete process.env.GITHUB_TOKEN;
   } else {
     process.env.GITHUB_TOKEN = savedToken;
+  }
+  if (savedRepository === undefined) {
+    delete process.env.GITHUB_REPOSITORY;
+  } else {
+    process.env.GITHUB_REPOSITORY = savedRepository;
   }
 });
 
@@ -402,9 +385,9 @@ describe("autoFileIssuesForAlerts", () => {
       buildAlert({ id: "alert_1", sourceId: "src_1" }),
     ] as never);
     mockAlertFindMany.mockResolvedValueOnce([] as never); // isRateLimited → pass
-    mockAlertFindFirst.mockResolvedValueOnce({
-      repairLog: [{ action: "auto_file_issue", timestamp: new Date().toISOString() }],
-    } as never);
+    mockAlertFindMany.mockResolvedValueOnce([
+      { repairLog: [{ action: "auto_file_issue", timestamp: new Date().toISOString() }] },
+    ] as never); // isOnCooldown → hit
 
     const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
     expect(result.skipped).toBe(1);
@@ -468,7 +451,5 @@ describe("autoFileIssuesForAlerts", () => {
     // Verify both API calls used the custom repo
     expect((fetchSpy.mock.calls[0][0] as string)).toContain("other-org/other-repo");
     expect((fetchSpy.mock.calls[1][0] as string)).toContain("other-org/other-repo");
-
-    delete process.env.GITHUB_REPOSITORY;
   });
 });

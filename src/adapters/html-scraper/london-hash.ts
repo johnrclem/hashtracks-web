@@ -7,8 +7,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { generateStructureHash } from "@/pipeline/structure-hash";
-import { chronoParseDate, parse12HourTime } from "../utils";
+import { chronoParseDate, parse12HourTime, fetchHTMLPage } from "../utils";
 
 /** Represents a parsed run block from the London Hash run list page. */
 export interface RunBlock {
@@ -204,34 +203,13 @@ export class LondonHashAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://www.londonhash.org/runlist.php";
 
+    const page = await fetchHTMLPage(baseUrl);
+    if (!page.ok) return page.result;
+    const { html, structureHash, fetchDurationMs } = page;
+
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let html: string;
-    const fetchStart = Date.now();
-    try {
-      const response = await fetch(baseUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
-        },
-      });
-      if (!response.ok) {
-        const message = `HTTP ${response.status}: ${response.statusText}`;
-        errorDetails.fetch = [
-          { url: baseUrl, status: response.status, message },
-        ];
-        return { events: [], errors: [message], errorDetails };
-      }
-      html = await response.text();
-    } catch (err) {
-      const message = `Fetch failed: ${err}`;
-      errorDetails.fetch = [{ url: baseUrl, message }];
-      return { events: [], errors: [message], errorDetails };
-    }
-    const fetchDurationMs = Date.now() - fetchStart;
-
-    const structureHash = generateStructureHash(html);
-
     const currentYear = new Date().getFullYear();
     const blocks = parseRunBlocks(html);
 

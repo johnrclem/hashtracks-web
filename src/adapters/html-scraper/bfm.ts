@@ -2,8 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { generateStructureHash } from "@/pipeline/structure-hash";
-import { chronoParseDate, parse12HourTime, googleMapsSearchUrl } from "../utils";
+import { chronoParseDate, parse12HourTime, googleMapsSearchUrl, fetchHTMLPage } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
 const mapsUrl = googleMapsSearchUrl;
@@ -224,28 +223,13 @@ export class BFMAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://benfranklinmob.com";
 
+    const page = await fetchHTMLPage(baseUrl);
+    if (!page.ok) return page.result;
+    const { $, structureHash } = page;
+
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let html: string;
-    try {
-      const response = await safeFetch(baseUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
-      });
-      if (!response.ok) {
-        const message = `HTTP ${response.status}: ${response.statusText}`;
-        errorDetails.fetch = [{ url: baseUrl, status: response.status, message }];
-        return { events: [], errors: [message], errorDetails };
-      }
-      html = await response.text();
-    } catch (err) {
-      const message = `Fetch failed: ${err}`;
-      errorDetails.fetch = [{ url: baseUrl, message }];
-      return { events: [], errors: [message], errorDetails };
-    }
-
-    const structureHash = generateStructureHash(html);
-    const $ = cheerio.load(html);
     const currentYear = new Date().getFullYear();
     const bodyText = $("body").text();
 

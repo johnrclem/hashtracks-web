@@ -19,7 +19,7 @@ jobs:
       pull-requests: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - uses: anthropics/claude-code-action@ba7fa4bcf054319261202aef93d71a89112a8d00 # v1
         with:

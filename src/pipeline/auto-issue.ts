@@ -120,7 +120,7 @@ function buildContextSection(alertType: string, ctx: Record<string, unknown> | n
 
   switch (alertType) {
     case "UNMATCHED_TAGS": {
-      const tagList = ((ctx.tags as string[]) ?? []).map((t) => "- `" + t + "`").join("\n");
+      const tagList = (Array.isArray(ctx.tags) ? ctx.tags : []).map((t: string) => "- `" + t + "`").join("\n");
       return `### Unmatched Tags\n${tagList}\n\nThese tags appeared in scraped events but couldn't be resolved to any kennel.\nThe kennel resolver checked: shortName → alias → pattern match → no match.`;
     }
     case "EVENT_COUNT_ANOMALY":
@@ -136,14 +136,14 @@ function buildContextSection(alertType: string, ctx: Record<string, unknown> | n
     }
     case "SCRAPE_FAILURE":
     case "CONSECUTIVE_FAILURES": {
-      const errorList = ((ctx.errorMessages as string[]) ?? []).slice(0, 5).map((e) => "- " + e).join("\n");
+      const errorList = (Array.isArray(ctx.errorMessages) ? ctx.errorMessages : []).slice(0, 5).map((e: string) => "- " + e).join("\n");
       const failureSuffix = typeof ctx.consecutiveCount === "number"
         ? `\n\n**Consecutive failures:** ${ctx.consecutiveCount}`
         : "";
       return `### Errors\n${errorList}${failureSuffix}`;
     }
     case "SOURCE_KENNEL_MISMATCH": {
-      const blockedList = ((ctx.tags as string[]) ?? []).map((t) => "- `" + t + "`").join("\n");
+      const blockedList = (Array.isArray(ctx.tags) ? ctx.tags : []).map((t: string) => "- `" + t + "`").join("\n");
       return `### Blocked Tags\n${blockedList}\n\nThese tags resolved to valid kennels but those kennels are not linked to this source via SourceKennel.`;
     }
     default:
@@ -260,7 +260,7 @@ ${agentContext}
 /** Check if we've recently filed an issue for this alert type + source (cooldown). */
 async function isOnCooldown(sourceId: string, alertType: string): Promise<boolean> {
   const cutoff = new Date(Date.now() - COOLDOWN_HOURS * 60 * 60 * 1000);
-  const recentAlert = await prisma.alert.findFirst({
+  const recentAlerts = await prisma.alert.findMany({
     where: {
       sourceId,
       type: alertType as AlertType,
@@ -270,11 +270,12 @@ async function isOnCooldown(sourceId: string, alertType: string): Promise<boolea
     select: { repairLog: true },
   });
 
-  if (!recentAlert?.repairLog || !Array.isArray(recentAlert.repairLog)) return false;
-
-  return (recentAlert.repairLog as { action: string }[]).some(
-    (entry) => entry.action === "auto_file_issue",
-  );
+  return recentAlerts.some((alert) => {
+    if (!Array.isArray(alert.repairLog)) return false;
+    return (alert.repairLog as { action: string }[]).some(
+      (entry) => entry.action === "auto_file_issue",
+    );
+  });
 }
 
 /** Check rate limit: max issues per source per day. */
@@ -416,7 +417,7 @@ export async function autoFileIssuesForAlerts(
 
   // Fetch alerts with source info
   const alerts = await prisma.alert.findMany({
-    where: { id: { in: alertIds } },
+    where: { id: { in: alertIds }, sourceId },
     include: { source: { select: { name: true, url: true, type: true } } },
   });
 
@@ -431,19 +432,19 @@ export async function autoFileIssuesForAlerts(
     }
 
     // Check rate limit
-    if (await isRateLimited(sourceId)) {
+    if (await isRateLimited(alert.sourceId)) {
       skipped++;
       continue;
     }
 
     // Check cooldown
-    if (await isOnCooldown(sourceId, alert.type)) {
+    if (await isOnCooldown(alert.sourceId, alert.type)) {
       skipped++;
       continue;
     }
 
     // Check for existing open issue
-    if (await hasExistingOpenIssue(sourceId, alert.type)) {
+    if (await hasExistingOpenIssue(alert.sourceId, alert.type)) {
       skipped++;
       continue;
     }

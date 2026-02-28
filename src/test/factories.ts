@@ -215,3 +215,24 @@ export function buildStravaActivity(
     ...overrides,
   };
 }
+
+/** Build an alert object with source relation for auto-issue tests. */
+export function buildAlert(overrides?: Record<string, unknown>) {
+  return {
+    id: "alert_123",
+    type: "STRUCTURE_CHANGE",
+    severity: "CRITICAL",
+    title: "HTML structure changed",
+    sourceId: "src_456",
+    context: {
+      previousHash: "abc123def456789012345678901234567890",
+      currentHash: "xyz789abc123456789012345678901234567890",
+    },
+    source: {
+      name: "hashnyc.com",
+      url: "https://hashnyc.com/hareline",
+      type: "HTML_SCRAPER",
+    },
+    ...overrides,
+  };
+}

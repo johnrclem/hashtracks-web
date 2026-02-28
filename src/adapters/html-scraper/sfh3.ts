@@ -7,7 +7,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { generateStructureHash } from "@/pipeline/structure-hash";
+import { fetchHTMLPage } from "../utils";
 import { parseICalSummary } from "../ical/adapter";
 
 /** Config shape — reuses same kennelPatterns/skipPatterns as iCal adapter */
@@ -148,33 +148,13 @@ export class SFH3Adapter implements SourceAdapter {
     const { kennelPatterns, defaultKennelTag } = config;
     const skipPatterns = config.skipPatterns?.map((p) => new RegExp(p, "i"));
 
+    const page = await fetchHTMLPage(baseUrl);
+    if (!page.ok) return page.result;
+    const { html, structureHash, fetchDurationMs } = page;
+
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let html: string;
-    const fetchStart = Date.now();
-    try {
-      const response = await fetch(baseUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
-        },
-      });
-      if (!response.ok) {
-        const message = `HTTP ${response.status}: ${response.statusText}`;
-        errorDetails.fetch = [
-          { url: baseUrl, status: response.status, message },
-        ];
-        return { events: [], errors: [message], errorDetails };
-      }
-      html = await response.text();
-    } catch (err) {
-      const message = `Fetch failed: ${err}`;
-      errorDetails.fetch = [{ url: baseUrl, message }];
-      return { events: [], errors: [message], errorDetails };
-    }
-    const fetchDurationMs = Date.now() - fetchStart;
-
-    const structureHash = generateStructureHash(html);
 
     const rows = parseHarelineRows(html);
     let skippedPattern = 0;

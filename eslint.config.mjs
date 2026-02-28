@@ -15,7 +15,7 @@ const eslintConfig = defineConfig([
   ]),
   // Downgrade React Compiler rules to warnings — pre-existing patterns
   // that work at runtime but flag under strict React Compiler analysis.
-  // TODO: Fix these incrementally and promote back to errors.
+  // Tracked for incremental fix — promote back to errors as patterns are resolved.
   {
     rules: {
       "react-hooks/purity": "warn",
