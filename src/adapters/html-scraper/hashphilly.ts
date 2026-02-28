@@ -38,8 +38,6 @@ export class HashPhillyAdapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let structureHash: string | undefined;
-
     let html: string;
     try {
       const response = await fetch(baseUrl, {
@@ -57,7 +55,7 @@ export class HashPhillyAdapter implements SourceAdapter {
       return { events: [], errors: [message], errorDetails };
     }
 
-    structureHash = generateStructureHash(html);
+    const structureHash = generateStructureHash(html);
     const $ = cheerio.load(html);
     const bodyText = $("body").text();
 

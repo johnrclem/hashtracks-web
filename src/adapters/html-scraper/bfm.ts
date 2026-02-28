@@ -227,8 +227,6 @@ export class BFMAdapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let structureHash: string | undefined;
-
     let html: string;
     try {
       const response = await safeFetch(baseUrl, {
@@ -246,7 +244,7 @@ export class BFMAdapter implements SourceAdapter {
       return { events: [], errors: [message], errorDetails };
     }
 
-    structureHash = generateStructureHash(html);
+    const structureHash = generateStructureHash(html);
     const $ = cheerio.load(html);
     const currentYear = new Date().getFullYear();
     const bodyText = $("body").text();

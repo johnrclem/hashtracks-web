@@ -207,8 +207,6 @@ export class LondonHashAdapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let structureHash: string | undefined;
-
     let html: string;
     const fetchStart = Date.now();
     try {
@@ -232,7 +230,7 @@ export class LondonHashAdapter implements SourceAdapter {
     }
     const fetchDurationMs = Date.now() - fetchStart;
 
-    structureHash = generateStructureHash(html);
+    const structureHash = generateStructureHash(html);
 
     const currentYear = new Date().getFullYear();
     const blocks = parseRunBlocks(html);

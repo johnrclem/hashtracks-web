@@ -369,7 +369,7 @@ describe("autoFileIssuesForAlerts", () => {
 
     // Verify the update preserves the existing entry AND adds the new one
     const updateCall = mockAlertUpdate.mock.calls[0];
-    const repairLog = (updateCall[0] as { data: { repairLog: unknown[] } }).data.repairLog;
+    const repairLog = (updateCall[0] as unknown as { data: { repairLog: unknown[] } }).data.repairLog;
     expect(repairLog).toHaveLength(2);
     expect(repairLog[0]).toEqual(existingLog[0]);
     expect(repairLog[1]).toMatchObject({ action: "auto_file_issue" });

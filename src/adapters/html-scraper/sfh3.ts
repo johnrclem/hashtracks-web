@@ -151,8 +151,6 @@ export class SFH3Adapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let structureHash: string | undefined;
-
     let html: string;
     const fetchStart = Date.now();
     try {
@@ -176,7 +174,7 @@ export class SFH3Adapter implements SourceAdapter {
     }
     const fetchDurationMs = Date.now() - fetchStart;
 
-    structureHash = generateStructureHash(html);
+    const structureHash = generateStructureHash(html);
 
     const rows = parseHarelineRows(html);
     let skippedPattern = 0;

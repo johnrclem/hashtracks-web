@@ -84,7 +84,7 @@ export function Header() {
               >
                 <div className="flex flex-col gap-1">
                   <span className="font-medium flex items-center gap-2"><Globe className="h-4 w-4" /> Event Local Time</span>
-                  <span className="text-xs text-muted-foreground">Times match the event's physical location</span>
+                  <span className="text-xs text-muted-foreground">Times match the event&apos;s physical location</span>
                 </div>
               </DropdownMenuItem>
               <DropdownMenuItem

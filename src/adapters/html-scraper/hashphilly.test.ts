@@ -72,7 +72,7 @@ describe("HashPhillyAdapter.fetch", () => {
     expect(event.startTime).toBe("15:00");
     expect(event.location).toBe("Love Park, Philadelphia PA");
     expect(event.locationUrl).toBeDefined();
-    expect(event.structureHash ?? result.structureHash).toBeDefined();
+    expect(result.structureHash).toBeDefined();
   });
 
   it("returns error when no date field found", async () => {

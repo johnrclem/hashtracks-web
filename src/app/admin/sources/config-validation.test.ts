@@ -41,7 +41,7 @@ describe("validateSourceConfig", () => {
       ["GOOGLE_CALENDAR", [1, 2, 3], "array"],
       ["ICAL_FEED", "not an object", "string"],
       ["GOOGLE_CALENDAR", 42, "number"],
-    ])("rejects non-object config (%s with %s)", (type, config) => {
+    ])("rejects non-object config (%s with %s)", (type, config, _label) => {
       const errors = validateSourceConfig(type, config);
       expect(errors).toHaveLength(1);
       expect(errors[0]).toContain("must be a JSON object");

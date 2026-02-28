@@ -430,6 +430,7 @@ describe("HashRegoAdapter", () => {
       lastSuccessAt: null,
       healthStatus: "UNKNOWN" as const,
       scrapeDays: 90,
+      enabled: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -463,6 +464,7 @@ describe("HashRegoAdapter", () => {
       lastSuccessAt: null,
       healthStatus: "UNKNOWN" as const,
       scrapeDays: 90,
+      enabled: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -500,6 +502,7 @@ describe("HashRegoAdapter", () => {
       lastSuccessAt: null,
       healthStatus: "UNKNOWN" as const,
       scrapeDays: 90,
+      enabled: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -536,6 +539,7 @@ describe("HashRegoAdapter", () => {
       lastSuccessAt: null,
       healthStatus: "UNKNOWN" as const,
       scrapeDays: 90,
+      enabled: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -564,6 +568,7 @@ describe("HashRegoAdapter", () => {
       lastSuccessAt: null,
       healthStatus: "UNKNOWN" as const,
       scrapeDays: 90,
+      enabled: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
