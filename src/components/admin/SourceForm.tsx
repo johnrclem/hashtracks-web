@@ -316,7 +316,7 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
       setPreviewError(null);
       const result = await previewSourceConfig(fd);
       if ("error" in result) {
-        setPreviewError(result.error);
+        setPreviewError(result.error ?? null);
         setPreviewData(null);
         setSampleTitlesByTag({});
       } else if (result.data) {

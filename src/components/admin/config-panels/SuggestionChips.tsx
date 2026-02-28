@@ -71,7 +71,7 @@ export function SuggestionChips({
       setAiError(null);
       const result = await getGeminiSuggestions(unmatchedTags, sampleTitlesByTag);
       if ("error" in result) {
-        setAiError(result.error);
+        setAiError(result.error ?? null);
       } else {
         setAiSuggestions(result.suggestions ?? []);
       }

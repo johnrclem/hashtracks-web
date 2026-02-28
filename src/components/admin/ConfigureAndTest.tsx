@@ -236,7 +236,7 @@ export function ConfigureAndTest({
         setHasRunTest(true);
 
         if ("error" in result) {
-          setPreviewError(result.error);
+          setPreviewError(result.error ?? null);
           setPreviewData(null);
           setSampleTitlesByTag({});
         } else if (result.data) {

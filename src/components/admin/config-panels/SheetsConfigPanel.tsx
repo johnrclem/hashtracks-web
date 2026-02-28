@@ -119,7 +119,7 @@ export function SheetsConfigPanel({
         config as Record<string, unknown> | null,
       );
       if ("error" in result) {
-        setAiError(result.error);
+        setAiError(result.error ?? null);
       } else {
         setAiSuggestions(result.suggestions ?? []);
       }
