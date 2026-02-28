@@ -103,7 +103,7 @@ export function UserActivitySection({
     setLinkingUserId(userId);
     startTransition(async () => {
       const result = await suggestUserLinks(kennelId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
         setLinkingUserId(null);
         return;
@@ -132,7 +132,7 @@ export function UserActivitySection({
     if (!linkingUserId) return;
     startTransition(async () => {
       const result = await createUserLink(kennelId, kennelHasherId, linkingUserId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("User linked to roster entry");

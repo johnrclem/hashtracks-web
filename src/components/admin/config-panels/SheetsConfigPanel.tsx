@@ -118,7 +118,7 @@ export function SheetsConfigPanel({
         sampleRows!,
         config as Record<string, unknown> | null,
       );
-      if (result.error) {
+      if ("error" in result) {
         setAiError(result.error);
       } else {
         setAiSuggestions(result.suggestions ?? []);

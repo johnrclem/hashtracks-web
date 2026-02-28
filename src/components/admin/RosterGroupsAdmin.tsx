@@ -125,7 +125,7 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
     if (!removeTarget) return;
     startTransition(async () => {
       const result = await removeKennelFromGroup(removeTarget.groupId, removeTarget.kennelId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`${removeTarget.kennelName} removed from group`);
@@ -139,7 +139,7 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
     if (!deleteTarget) return;
     startTransition(async () => {
       const result = await deleteRosterGroup(deleteTarget.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Group dissolved — kennels are now standalone");
@@ -152,7 +152,7 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
   function handleApproveRequest(requestId: string) {
     startTransition(async () => {
       const result = await approveRosterGroupRequest(requestId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Request approved — roster group created");
@@ -164,7 +164,7 @@ export function RosterGroupsAdmin({ groups, pendingRequests = [] }: RosterGroups
   function handleRejectRequest(requestId: string) {
     startTransition(async () => {
       const result = await rejectRosterGroupRequest(requestId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Request rejected");
@@ -447,7 +447,7 @@ function CreateGroupDialog({
   function handleCreate() {
     startTransition(async () => {
       const result = await createRosterGroup(name, Array.from(selectedIds));
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Roster group created");
@@ -571,7 +571,7 @@ function EditGroupDialog({
       // Rename if changed
       if (nameChanged && groupName.trim()) {
         const result = await renameRosterGroup(group.id, groupName.trim());
-        if (result.error) {
+        if ("error" in result) {
           toast.error(result.error);
           hasError = true;
         }
@@ -580,7 +580,7 @@ function EditGroupDialog({
       if (!hasError) {
         for (const kennelId of toAdd) {
           const result = await addKennelToGroup(group.id, kennelId);
-          if (result.error) {
+          if ("error" in result) {
             toast.error(result.error);
             hasError = true;
             break;
@@ -591,7 +591,7 @@ function EditGroupDialog({
       if (!hasError) {
         for (const kennelId of toRemove) {
           const result = await removeKennelFromGroup(group.id, kennelId);
-          if (result.error) {
+          if ("error" in result) {
             toast.error(result.error);
             hasError = true;
             break;

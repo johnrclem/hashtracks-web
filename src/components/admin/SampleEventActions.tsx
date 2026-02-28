@@ -83,7 +83,7 @@ function LinkToSourceAction({
   function handleLink() {
     startTransition(async () => {
       const result = await linkKennelToSourceDirect(sourceId, kennelTag);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Linked "${kennelTag}" to source`);

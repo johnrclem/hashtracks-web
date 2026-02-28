@@ -32,7 +32,7 @@ export function SubscribeButton({
     startTransition(async () => {
       const action = isSubscribed ? unsubscribeFromKennel : subscribeToKennel;
       const result = await action(kennelId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(isSubscribed ? "Unsubscribed" : "Subscribed!");

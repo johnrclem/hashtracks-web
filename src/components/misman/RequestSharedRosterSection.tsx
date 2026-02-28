@@ -97,7 +97,7 @@ export function RequestSharedRosterSection({
         Array.from(selectedIds),
         message || undefined,
       );
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(

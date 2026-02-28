@@ -254,7 +254,7 @@ function RequestAnotherKennelSection({
         selectedKennel.id,
         message || undefined,
       );
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(
@@ -424,7 +424,7 @@ function RequestRosterGroupDialog({
         kennelNames,
         message || undefined,
       );
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Roster group request submitted");
@@ -513,7 +513,7 @@ function RequestCard({ request }: { request: PendingRequest }) {
   function handleApprove() {
     startTransition(async () => {
       const result = await approveMismanRequest(request.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(
@@ -527,7 +527,7 @@ function RequestCard({ request }: { request: PendingRequest }) {
   function handleReject() {
     startTransition(async () => {
       const result = await rejectMismanRequest(request.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Request rejected");

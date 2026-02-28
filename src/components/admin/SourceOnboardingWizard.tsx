@@ -174,7 +174,7 @@ export function SourceOnboardingWizard({
 
     startSubmitting(async () => {
       const result = await createSource(fd);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Source created successfully");

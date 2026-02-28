@@ -363,7 +363,7 @@ function MismanRequestRowComponent({
   function handleApprove() {
     startTransition(async () => {
       const result = await approveMismanRequest(request.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(
@@ -377,7 +377,7 @@ function MismanRequestRowComponent({
   function handleReject() {
     startTransition(async () => {
       const result = await rejectMismanRequest(request.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Request rejected");
@@ -636,7 +636,7 @@ function ActiveMismanRowComponent({
   function handleRevoke() {
     startTransition(async () => {
       const result = await revokeMismanAccess(misman.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(
@@ -767,7 +767,7 @@ function InviteMismanDialog({ kennels }: { kennels: KennelOptionData[] }) {
           kennelId,
           email.trim() || undefined,
         );
-        if (result.error) {
+        if ("error" in result) {
           inviteErrors.push(`${kennel?.shortName ?? kennelId}: ${result.error}`);
         } else if (result.data) {
           inviteResults.push({

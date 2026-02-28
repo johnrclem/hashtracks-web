@@ -235,7 +235,7 @@ export function ConfigureAndTest({
         setLastRunTime(new Date());
         setHasRunTest(true);
 
-        if (result.error) {
+        if ("error" in result) {
           setPreviewError(result.error);
           setPreviewData(null);
           setSampleTitlesByTag({});

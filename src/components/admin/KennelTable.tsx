@@ -173,7 +173,7 @@ function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[
   function handleDelete() {
     startTransition(async () => {
       const result = await deleteKennel(kennel.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Kennel deleted");
@@ -186,7 +186,7 @@ function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[
   function handleToggleVisibility() {
     startTransition(async () => {
       const result = await toggleKennelVisibility(kennel.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(result.isHidden ? "Kennel hidden" : "Kennel visible");

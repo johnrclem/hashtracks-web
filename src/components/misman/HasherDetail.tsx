@@ -109,7 +109,7 @@ export function HasherDetail({ hasher, kennelId, kennelSlug }: HasherDetailProps
 
     startTransition(async () => {
       const result = await deleteKennelHasher(hasher.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Hasher removed from roster");

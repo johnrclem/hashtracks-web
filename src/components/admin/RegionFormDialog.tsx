@@ -65,7 +65,7 @@ export function RegionFormDialog({
         ? await updateRegion(region.id, formData)
         : await createRegion(formData);
 
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(isEdit ? `Updated "${String(formData.get("name"))}"` : "Region created");

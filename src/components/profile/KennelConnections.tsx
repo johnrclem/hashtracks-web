@@ -82,7 +82,7 @@ function PendingLinkRow({ link }: { link: KennelLinkData }) {
   function handleAccept() {
     startTransition(async () => {
       const result = await acceptLinkRequest(link.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Linked to ${link.kennelShortName}`);
@@ -94,7 +94,7 @@ function PendingLinkRow({ link }: { link: KennelLinkData }) {
   function handleDecline() {
     startTransition(async () => {
       const result = await declineLinkRequest(link.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Link request declined");
@@ -149,7 +149,7 @@ function ConfirmedLinkRow({ link }: { link: KennelLinkData }) {
   function handleRevoke() {
     startTransition(async () => {
       const result = await revokeMyLink(link.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Unlinked from ${link.kennelShortName}`);

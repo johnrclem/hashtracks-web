@@ -86,7 +86,7 @@ export function KennelMergeDialog({ kennels, trigger }: KennelMergeDialogProps) 
     startTransition(async () => {
       const result = await mergeKennels(sourceKennelId, targetKennelId, true);
 
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
         return;
       }
@@ -105,7 +105,7 @@ export function KennelMergeDialog({ kennels, trigger }: KennelMergeDialogProps) 
       setStep("executing");
       const result = await mergeKennels(sourceKennelId, targetKennelId, false);
 
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
         setStep("preview");
         return;

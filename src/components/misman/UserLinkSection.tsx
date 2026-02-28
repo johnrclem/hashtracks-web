@@ -79,7 +79,7 @@ export function UserLinkSection({
   function handleFindLinks() {
     startTransition(async () => {
       const result = await suggestUserLinks(kennelId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
         return;
       }
@@ -98,7 +98,7 @@ export function UserLinkSection({
   function handleCreateLink(userId: string) {
     startTransition(async () => {
       const result = await createUserLink(kennelId, kennelHasherId, userId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Link suggestion created");
@@ -112,7 +112,7 @@ export function UserLinkSection({
     if (!userLink) return;
     startTransition(async () => {
       const result = await dismissUserLink(kennelId, userLink.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Link dismissed");
@@ -125,7 +125,7 @@ export function UserLinkSection({
     if (!userLink) return;
     startTransition(async () => {
       const result = await revokeUserLink(kennelId, userLink.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Link revoked");
@@ -138,7 +138,7 @@ export function UserLinkSection({
   function handleSendInvite() {
     startTransition(async () => {
       const result = await createProfileInvite(kennelId, kennelHasherId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else if (result.data) {
         setInviteUrl(result.data.inviteUrl);
@@ -155,7 +155,7 @@ export function UserLinkSection({
   function handleRevokeInvite() {
     startTransition(async () => {
       const result = await revokeProfileInvite(kennelId, kennelHasherId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         setInvite({ token: null, expiresAt: null });

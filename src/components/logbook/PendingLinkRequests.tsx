@@ -55,7 +55,7 @@ export function PendingLinkRequests() {
   function handleAccept(linkId: string) {
     startTransition(async () => {
       const result = await acceptLinkRequest(linkId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Profile linked");

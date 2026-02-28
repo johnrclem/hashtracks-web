@@ -65,7 +65,7 @@ export function MismanAccessButton({
   function handleSubmit() {
     startTransition(async () => {
       const result = await requestMismanAccess(kennelId, message);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Misman access requested!");
