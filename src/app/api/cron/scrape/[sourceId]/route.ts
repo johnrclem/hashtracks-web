@@ -3,6 +3,11 @@ import { prisma } from "@/lib/db";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { scrapeSource } from "@/pipeline/scrape";
 
+/**
+ * Per-source scrape handler invoked by QStash. Validates the source exists and is enabled,
+ * reads an optional `days` override from the message body, and runs the scrape pipeline.
+ * Returns 500 on failure to trigger QStash automatic retry.
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ sourceId: string }> },
@@ -39,7 +44,9 @@ export async function POST(
     const body = await request.clone().text();
     if (body) {
       const parsed = JSON.parse(body);
-      if (typeof parsed.days === "number") days = parsed.days;
+      if (typeof parsed.days === "number" && parsed.days >= 1 && parsed.days <= 365) {
+        days = parsed.days;
+      }
     }
   } catch (err) {
     console.warn(`[cron/source] Failed to parse request body for ${sourceId}:`, err);

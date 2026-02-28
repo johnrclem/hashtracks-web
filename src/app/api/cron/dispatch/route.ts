@@ -4,16 +4,22 @@ import { verifyCronAuth } from "@/lib/cron-auth";
 import { getQStashClient } from "@/lib/qstash";
 import { shouldScrape } from "@/pipeline/schedule";
 
+/**
+ * Fan-out dispatcher: queries all enabled sources, filters to those due for scraping,
+ * and publishes a QStash message per source to `/api/cron/scrape/[sourceId]`.
+ */
 export async function POST(request: Request) {
   const auth = await verifyCronAuth(request);
   if (!auth.authenticated) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
   if (!appUrl) {
     return NextResponse.json(
-      { error: "NEXT_PUBLIC_APP_URL is not configured" },
+      { error: "NEXT_PUBLIC_APP_URL (or VERCEL_URL) is not configured" },
       { status: 500 },
     );
   }
@@ -89,7 +95,10 @@ export async function POST(request: Request) {
   });
 }
 
-// Also accept GET for Vercel Cron during transition (Vercel Cron sends GET)
+/**
+ * GET handler that delegates to POST for Vercel Cron compatibility.
+ * Vercel Cron sends GET requests; this wrapper allows a seamless transition to QStash.
+ */
 export async function GET(request: Request) {
   return POST(request);
 }

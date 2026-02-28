@@ -5,6 +5,11 @@ const globalForQStash = globalThis as unknown as {
   qstashReceiver: Receiver | undefined;
 };
 
+/**
+ * Returns a singleton QStash Client for publishing messages.
+ * Lazily initialized and cached on `globalThis` to survive hot reloads.
+ * Requires the `QSTASH_TOKEN` environment variable.
+ */
 export function getQStashClient(): Client {
   if (globalForQStash.qstashClient) return globalForQStash.qstashClient;
 
@@ -16,6 +21,11 @@ export function getQStashClient(): Client {
   return client;
 }
 
+/**
+ * Returns a singleton QStash Receiver for verifying message signatures.
+ * Lazily initialized and cached on `globalThis` to survive hot reloads.
+ * Requires `QSTASH_CURRENT_SIGNING_KEY` and `QSTASH_NEXT_SIGNING_KEY`.
+ */
 export function getQStashReceiver(): Receiver {
   if (globalForQStash.qstashReceiver) return globalForQStash.qstashReceiver;
 

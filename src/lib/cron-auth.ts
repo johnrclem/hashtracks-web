@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "crypto";
 import { getQStashReceiver } from "@/lib/qstash";
 
+/** Result of cron request authentication indicating success and which method matched. */
 export interface CronAuthResult {
   authenticated: boolean;
   method: "qstash" | "bearer" | "none";
