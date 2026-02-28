@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { Button } from "@/components/ui/button";
-import { REGION_DATA_SELECT } from "@/lib/types/region";
 
 export const metadata: Metadata = {
   title: "Kennels · HashTracks",
@@ -16,19 +15,19 @@ export default async function KennelsPage() {
 
   const [kennels, upcomingEvents] = await Promise.all([
     prisma.kennel.findMany({
-      orderBy: [{ regionRef: { name: "asc" } }, { fullName: "asc" }],
+      orderBy: [{ region: "asc" }, { fullName: "asc" }],
       select: {
         id: true,
         slug: true,
         shortName: true,
         fullName: true,
+        region: true,
         country: true,
         description: true,
         foundedYear: true,
         scheduleDayOfWeek: true,
         scheduleTime: true,
         scheduleFrequency: true,
-        regionRef: { select: REGION_DATA_SELECT },
       },
     }),
     prisma.event.findMany({
@@ -48,11 +47,9 @@ export default async function KennelsPage() {
 
   // Serialize for client
   const kennelsWithNext = kennels.map((k) => {
-    const { regionRef, ...kennelRest } = k;
     const next = nextEventMap.get(k.id);
     return {
-      ...kennelRest,
-      regionData: regionRef,
+      ...k,
       nextEvent: next ? { date: next.date.toISOString(), title: next.title } : null,
     };
   });

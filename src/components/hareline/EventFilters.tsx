@@ -1,19 +1,31 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { MapPin, Loader2, X } from "lucide-react";
-import { RegionFilterPopover } from "@/components/shared/RegionFilterPopover";
-import { KennelFilterPopover } from "@/components/shared/KennelFilterPopover";
+import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import type { HarelineEvent } from "./EventCard";
 import type { GeoState } from "@/hooks/useGeolocation";
 import { DISTANCE_OPTIONS } from "@/lib/geo";
-import { toggleArrayItem } from "@/lib/format";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -56,37 +68,30 @@ export function EventFilters({
   geoState,
   onRequestLocation,
 }: EventFiltersProps) {
-  // Derive available regions as {slug, name} from events
+  // Derive available regions and kennels from events
   const regions = useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const e of events) {
-      if (!seen.has(e.kennel.regionData.slug)) {
-        seen.set(e.kennel.regionData.slug, e.kennel.regionData.name);
-      }
-    }
-    return Array.from(seen.entries())
-      .map(([slug, name]) => ({ slug, name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const regionSet = new Set(events.map((e) => e.kennel.region));
+    return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
   }, [events]);
 
   const kennels = useMemo(() => {
-    const kennelMap = new Map<string, { id: string; shortName: string; fullName: string; regionName: string; regionSlug: string }>();
+    const kennelMap = new Map<string, { id: string; shortName: string; fullName: string; region: string }>();
     for (const e of events) {
       if (!kennelMap.has(e.kennel.id)) {
         kennelMap.set(e.kennel.id, {
           id: e.kennel.id,
           shortName: e.kennel.shortName,
           fullName: e.kennel.fullName,
-          regionName: e.kennel.regionData.name,
-          regionSlug: e.kennel.regionData.slug,
+          region: e.kennel.region,
         });
       }
     }
+    // Filter by selected regions if any
     const all = Array.from(kennelMap.values());
-    const filtered = selectedRegions.length > 0
-      ? all.filter((k) => selectedRegions.includes(k.regionSlug))
-      : all;
-    return filtered.sort((a, b) => a.shortName.localeCompare(b.shortName));
+    if (selectedRegions.length > 0) {
+      return all.filter((k) => selectedRegions.includes(k.region));
+    }
+    return all.sort((a, b) => a.shortName.localeCompare(b.shortName));
   }, [events, selectedRegions]);
 
   const countries = useMemo(() => {
@@ -97,16 +102,28 @@ export function EventFilters({
     return Array.from(countrySet).sort((a, b) => a.localeCompare(b));
   }, [events]);
 
-  function toggleRegion(slug: string) {
-    onRegionsChange(toggleArrayItem(selectedRegions, slug));
+  function toggleRegion(region: string) {
+    if (selectedRegions.includes(region)) {
+      onRegionsChange(selectedRegions.filter((r) => r !== region));
+    } else {
+      onRegionsChange([...selectedRegions, region]);
+    }
   }
 
   function toggleKennel(kennelId: string) {
-    onKennelsChange(toggleArrayItem(selectedKennels, kennelId));
+    if (selectedKennels.includes(kennelId)) {
+      onKennelsChange(selectedKennels.filter((k) => k !== kennelId));
+    } else {
+      onKennelsChange([...selectedKennels, kennelId]);
+    }
   }
 
   function toggleDay(day: string) {
-    onDaysChange(toggleArrayItem(selectedDays, day));
+    if (selectedDays.includes(day)) {
+      onDaysChange(selectedDays.filter((d) => d !== day));
+    } else {
+      onDaysChange([...selectedDays, day]);
+    }
   }
 
   const activeFilterCount =
@@ -142,18 +159,87 @@ export function EventFilters({
         )}
 
         {/* Region filter */}
-        <RegionFilterPopover
-          regions={regions}
-          selectedRegions={selectedRegions}
-          onToggle={toggleRegion}
-        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 text-xs">
+              Region
+              {selectedRegions.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {selectedRegions.length}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search regions..." />
+              <CommandList>
+                <CommandEmpty>No regions found.</CommandEmpty>
+                <CommandGroup>
+                  {regions.map((region) => (
+                    <CommandItem
+                      key={region}
+                      onSelect={() => toggleRegion(region)}
+                    >
+                      <span
+                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                          selectedRegions.includes(region)
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "opacity-50"
+                        }`}
+                      >
+                        {selectedRegions.includes(region) && "✓"}
+                      </span>
+                      {region}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
 
         {/* Kennel filter */}
-        <KennelFilterPopover
-          kennels={kennels}
-          selectedKennels={selectedKennels}
-          onToggle={toggleKennel}
-        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 text-xs">
+              Kennel
+              {selectedKennels.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {selectedKennels.length}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search kennels..." />
+              <CommandList>
+                <CommandEmpty>No kennels found.</CommandEmpty>
+                <CommandGroup>
+                  {kennels.map((kennel) => (
+                    <CommandItem
+                      key={kennel.id}
+                      value={`${kennel.shortName} ${kennel.fullName} ${kennel.region}`}
+                      onSelect={() => toggleKennel(kennel.id)}
+                    >
+                      <span
+                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                          selectedKennels.includes(kennel.id)
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "opacity-50"
+                        }`}
+                      >
+                        {selectedKennels.includes(kennel.id) && "✓"}
+                      </span>
+                      <KennelOptionLabel kennel={kennel} />
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
 
         {/* Day of week chips */}
         <div className="flex gap-1">

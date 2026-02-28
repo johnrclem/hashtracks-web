@@ -2,18 +2,18 @@
 
 import { useMemo } from "react";
 import { APIProvider, Map as GoogleMap, AdvancedMarker } from "@vis.gl/react-google-maps";
+import { REGION_CENTROIDS, getRegionColor } from "@/lib/geo";
 import type { KennelCardData } from "./KennelCard";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
 
 interface KennelMapViewProps {
   kennels: KennelCardData[];
-  onRegionSelect: (regionSlug: string) => void;
+  onRegionSelect: (region: string) => void;
 }
 
 interface RegionPin {
-  slug: string;
-  name: string;
+  region: string;
   lat: number;
   lng: number;
   count: number;
@@ -23,29 +23,24 @@ interface RegionPin {
 export default function KennelMapView({ kennels, onRegionSelect }: KennelMapViewProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
 
-  // Group kennels by region slug and compute pin positions
+  // Group kennels by region and compute pin positions
   const regionPins = useMemo<RegionPin[]>(() => {
-    const groups = new Map<string, { name: string; count: number; lat: number; lng: number; color: string }>();
+    const groups = new Map<string, number>();
     for (const kennel of kennels) {
-      const rd = kennel.regionData;
-      const existing = groups.get(rd.slug);
-      if (existing) {
-        existing.count++;
-      } else {
-        if (rd.centroidLat == null || rd.centroidLng == null) continue;
-        groups.set(rd.slug, {
-          name: rd.name,
-          count: 1,
-          lat: rd.centroidLat,
-          lng: rd.centroidLng,
-          color: rd.pinColor,
-        });
-      }
+      groups.set(kennel.region, (groups.get(kennel.region) ?? 0) + 1);
     }
 
     const pins: RegionPin[] = [];
-    for (const [slug, data] of groups.entries()) {
-      pins.push({ slug, ...data });
+    for (const [region, count] of groups.entries()) {
+      const centroid = REGION_CENTROIDS[region];
+      if (!centroid) continue; // skip regions with no centroid data
+      pins.push({
+        region,
+        lat: centroid.lat,
+        lng: centroid.lng,
+        count,
+        color: getRegionColor(region),
+      });
     }
     return pins;
   }, [kennels]);
@@ -70,10 +65,10 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
     };
   }, [regionPins]);
 
-  // Unmapped kennels (no centroid in region)
+  // Unmapped kennels (no centroid entry)
   const unmappedCount = useMemo(() => {
-    const mappedSlugs = new Set(regionPins.map((p) => p.slug));
-    return kennels.filter((k) => !mappedSlugs.has(k.regionData.slug)).length;
+    const mappedRegions = new Set(regionPins.map((p) => p.region));
+    return kennels.filter((k) => !mappedRegions.has(k.region)).length;
   }, [kennels, regionPins]);
 
   if (!apiKey) {
@@ -104,15 +99,15 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
             mapTypeControl={false}
             streetViewControl={false}
           >
-            {regionPins.map(({ slug, name, lat, lng, count, color }) => {
+            {regionPins.map(({ region, lat, lng, count, color }) => {
               // Pin size scales logarithmically: 32px for 1 kennel, up to ~56px for 10+
               const size = Math.round(32 + Math.min(24, Math.log10(count + 1) * 24));
               return (
                 <AdvancedMarker
-                  key={slug}
+                  key={region}
                   position={{ lat, lng }}
-                  onClick={() => onRegionSelect(slug)}
-                  title={`${name} (${count} ${count === 1 ? "kennel" : "kennels"}) — click to filter`}
+                  onClick={() => onRegionSelect(region)}
+                  title={`${region} (${count} ${count === 1 ? "kennel" : "kennels"}) — click to filter`}
                 >
                   <div
                     style={{
