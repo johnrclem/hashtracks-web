@@ -79,6 +79,34 @@ describe("analyzeHealth", () => {
     expect((alert!.context!.tags as string[])).toContain("NewKennel");
   });
 
+  it("includes all check types in checkedTypes when baseline exists", async () => {
+    const result = await analyzeHealth("src_1", "log_1", baseInput());
+    expect(result.checkedTypes).toContain("SCRAPE_FAILURE");
+    expect(result.checkedTypes).toContain("CONSECUTIVE_FAILURES");
+    expect(result.checkedTypes).toContain("EVENT_COUNT_ANOMALY");
+    expect(result.checkedTypes).toContain("FIELD_FILL_DROP");
+    expect(result.checkedTypes).toContain("STRUCTURE_CHANGE");
+    expect(result.checkedTypes).toContain("UNMATCHED_TAGS");
+    expect(result.checkedTypes).toContain("SOURCE_KENNEL_MISMATCH");
+  });
+
+  it("omits trend check types from checkedTypes when no baseline", async () => {
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce([] as never)  // no baseline
+      .mockResolvedValueOnce([] as never);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput());
+    expect(result.checkedTypes).toContain("SCRAPE_FAILURE");
+    expect(result.checkedTypes).toContain("CONSECUTIVE_FAILURES");
+    expect(result.checkedTypes).toContain("SOURCE_KENNEL_MISMATCH");
+    // Trend checks not evaluated without baseline
+    expect(result.checkedTypes).not.toContain("EVENT_COUNT_ANOMALY");
+    expect(result.checkedTypes).not.toContain("FIELD_FILL_DROP");
+    expect(result.checkedTypes).not.toContain("STRUCTURE_CHANGE");
+    expect(result.checkedTypes).not.toContain("UNMATCHED_TAGS");
+  });
+
   it("does not generate UNMATCHED_TAGS for previously seen tags", async () => {
     // Baseline already had this tag
     mockScrapeLogFind.mockReset();
@@ -229,5 +257,37 @@ describe("autoResolveCleared", () => {
         details: expect.stringContaining("[Auto-resolved:"),
       }),
     });
+  });
+
+  it("does not resolve alerts whose type was not in checkedTypes", async () => {
+    mockAlertFindMany.mockResolvedValueOnce([
+      { id: "alert_1", type: "EVENT_COUNT_ANOMALY", details: "Drop" },
+      { id: "alert_2", type: "SCRAPE_FAILURE", details: "Fail" },
+    ] as never);
+    mockAlertUpdate.mockResolvedValue({} as never);
+
+    // Only SCRAPE_FAILURE was checked; EVENT_COUNT_ANOMALY was not evaluated
+    const checkedTypes = new Set(["SCRAPE_FAILURE"]);
+    const count = await autoResolveCleared("src_1", new Set(), false, checkedTypes);
+
+    expect(count).toBe(1);
+    expect(mockAlertUpdate).toHaveBeenCalledTimes(1);
+    expect(mockAlertUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "alert_2" } }),
+    );
+  });
+
+  it("resolves all cleared alerts when checkedTypes is omitted", async () => {
+    mockAlertFindMany.mockResolvedValueOnce([
+      { id: "alert_1", type: "EVENT_COUNT_ANOMALY", details: "Drop" },
+      { id: "alert_2", type: "FIELD_FILL_DROP", details: "Fill" },
+    ] as never);
+    mockAlertUpdate.mockResolvedValue({} as never);
+
+    // No checkedTypes passed — backward-compatible, resolves all non-candidate
+    const count = await autoResolveCleared("src_1", new Set(), false);
+
+    expect(count).toBe(2);
+    expect(mockAlertUpdate).toHaveBeenCalledTimes(2);
   });
 });

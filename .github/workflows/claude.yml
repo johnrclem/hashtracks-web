@@ -17,7 +17,7 @@ jobs:
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && github.event.action == 'assigned' && github.event.assignee.login == 'claude') ||
-      (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'claude-fix' && !contains(toJSON(github.event.issue.labels.*.name), 'alert'))
+      (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'claude-fix' && !contains(github.event.issue.labels.*.name, 'alert'))
     runs-on: ubuntu-latest
     permissions:
       contents: write

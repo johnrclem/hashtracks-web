@@ -222,7 +222,15 @@ async function runHealthAndAlerts(
   // Auto-resolve alerts whose condition has cleared on this scrape
   try {
     const candidateTypes = new Set(health.alerts.map((a) => a.type));
-    await autoResolveCleared(sourceId, candidateTypes, healthInput.scrapeFailed);
+    // UNMATCHED_TAGS only fires for *novel* tags, but persistent unmatched tags
+    // mean the condition is still active — don't auto-resolve
+    if (healthInput.unmatchedTags.length > 0) {
+      candidateTypes.add("UNMATCHED_TAGS");
+    }
+    if (healthInput.blockedTags && healthInput.blockedTags.length > 0) {
+      candidateTypes.add("SOURCE_KENNEL_MISMATCH");
+    }
+    await autoResolveCleared(sourceId, candidateTypes, healthInput.scrapeFailed, health.checkedTypes);
   } catch (err) {
     console.error("[auto-resolve] Failed to auto-resolve cleared alerts:", err);
   }
