@@ -61,25 +61,22 @@ export async function POST(request: Request) {
   const client = getQStashClient();
 
   // Publish all messages in parallel — fan-out is the whole point
-  const settled = await Promise.allSettled(
-    dueSources.map((source) =>
-      client.publishJSON({
-        url: `${appUrl}/api/cron/scrape/${source.id}`,
-        body: { days: source.scrapeDays },
-        retries: 2,
-      }).then((res) => ({ sourceId: source.id, name: source.name, messageId: res.messageId })),
-    ),
+  const results = await Promise.all(
+    dueSources.map(async (source) => {
+      try {
+        const res = await client.publishJSON({
+          url: `${appUrl}/api/cron/scrape/${source.id}`,
+          body: { days: source.scrapeDays },
+          retries: 2,
+        });
+        return { sourceId: source.id, name: source.name, dispatched: true, messageId: res.messageId };
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.error(`[cron/dispatch] Failed to dispatch ${source.name}: ${errorMsg}`);
+        return { sourceId: source.id, name: source.name, dispatched: false, error: errorMsg };
+      }
+    }),
   );
-
-  const results = settled.map((outcome, i) => {
-    const source = dueSources[i];
-    if (outcome.status === "fulfilled") {
-      return { sourceId: outcome.value.sourceId, name: outcome.value.name, dispatched: true, messageId: outcome.value.messageId };
-    }
-    const errorMsg = outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
-    console.error(`[cron/dispatch] Failed to dispatch ${source.name}: ${errorMsg}`);
-    return { sourceId: source.id, name: source.name, dispatched: false, error: errorMsg };
-  });
 
   const dispatched = results.filter((r) => r.dispatched).length;
   const failed = results.filter((r) => !r.dispatched).length;
