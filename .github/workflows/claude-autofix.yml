@@ -19,16 +19,37 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
+      - name: Check daily auto-fix PR limit
+        id: rate-check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TODAY=$(date -u +%Y-%m-%d)
+          COUNT=$(gh pr list --repo "${{ github.repository }}" --label auto-fix --state all --search "created:>=$TODAY" --json number --jq 'length')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          if [ "$COUNT" -ge 5 ]; then
+            echo "rate_limited=true" >> "$GITHUB_OUTPUT"
+            gh issue comment "${{ github.event.issue.number }}" \
+              --repo "${{ github.repository }}" \
+              --body "Auto-fix rate limit reached ($COUNT/5 PRs created today). This issue will be retried on the next daily scrape."
+          else
+            echo "rate_limited=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        if: steps.rate-check.outputs.rate_limited != 'true'
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: steps.rate-check.outputs.rate_limited != 'true'
         with:
           node-version: 20
           cache: npm
 
       - run: npm ci
+        if: steps.rate-check.outputs.rate_limited != 'true'
 
       - uses: anthropics/claude-code-action@ba7fa4bcf054319261202aef93d71a89112a8d00 # v1
+        if: steps.rate-check.outputs.rate_limited != 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -58,7 +79,6 @@ jobs:
             - You may ONLY modify files in these directories:
               - src/adapters/ (scraper adapters and their tests)
               - prisma/seed.ts (kennel aliases and seed data)
-              - src/pipeline/kennel-resolver.ts (alias resolution)
               - Test files (*.test.ts) anywhere
             - You must NOT modify:
               - src/lib/auth.ts, src/lib/db.ts, src/middleware.ts

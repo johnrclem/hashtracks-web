@@ -9,6 +9,7 @@ import { computeFillRates } from "./fill-rates";
 import type { FieldFillRates } from "./fill-rates";
 import { analyzeHealth, persistAlerts } from "./health";
 import { autoFileIssuesForAlerts } from "./auto-issue";
+import { verifyResolvedAutoFixes } from "./verify-fixes";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
 import { validateSourceUrl } from "@/adapters/utils";
 
@@ -236,6 +237,13 @@ async function runHealthAndAlerts(
     }
   } catch (err) {
     console.error("[auto-issue] Failed to retry unfiled alerts:", err);
+  }
+
+  // Verify resolved auto-fixes: remove "pending-verification" labels from confirmed fixes
+  try {
+    await verifyResolvedAutoFixes(sourceId);
+  } catch (err) {
+    console.error("[verify-fixes] Failed to verify resolved auto-fixes:", err);
   }
 }
 
