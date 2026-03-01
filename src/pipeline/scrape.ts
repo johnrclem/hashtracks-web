@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import type { ErrorDetails, AiRecoverySummary, ScrapeResult, MergeResult } from "@/adapters/types";
 import { hasAnyErrors } from "@/adapters/types";
 import { getAdapter } from "@/adapters/registry";
@@ -200,8 +200,12 @@ async function runHealthAndAlerts(
     },
   });
 
+  const newAlertIds = new Set<string>();
+
   if (health.alerts.length > 0) {
     const alertIds = await persistAlerts(sourceId, scrapeLogId, health.alerts);
+
+    for (const id of alertIds) newAlertIds.add(id);
 
     // Auto-file GitHub issues for newly created alerts (self-healing pipeline)
     if (alertIds.length > 0) {
@@ -212,6 +216,26 @@ async function runHealthAndAlerts(
         console.error("[auto-issue] Failed to auto-file issues:", err);
       }
     }
+  }
+
+  // Retry filing for existing OPEN alerts that were never filed (e.g., previous GITHUB_TOKEN missing)
+  try {
+    const unfiledAlerts = await prisma.alert.findMany({
+      where: {
+        sourceId,
+        status: "OPEN",
+        OR: [{ repairLog: { equals: Prisma.DbNull } }, { repairLog: { equals: [] } }],
+      },
+      select: { id: true },
+    });
+    const unfiledIds = unfiledAlerts
+      .map((a) => a.id)
+      .filter((id) => !newAlertIds.has(id));
+    if (unfiledIds.length > 0) {
+      await autoFileIssuesForAlerts(sourceId, unfiledIds);
+    }
+  } catch (err) {
+    console.error("[auto-issue] Failed to retry unfiled alerts:", err);
   }
 }
 

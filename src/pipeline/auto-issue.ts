@@ -9,7 +9,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import type { AlertType } from "@/generated/prisma/client";
+import type { AlertType, Prisma } from "@/generated/prisma/client";
 
 /** GitHub repo slug — reads GITHUB_REPOSITORY env var (set by GitHub Actions) with fallback. */
 function getGithubRepo(): string {
@@ -25,6 +25,7 @@ const AUTO_FILE_ALERT_TYPES = new Set([
   "CONSECUTIVE_FAILURES",
   "STRUCTURE_CHANGE",
   "FIELD_FILL_DROP",
+  "UNMATCHED_TAGS",
 ]);
 
 /** Severities eligible for automatic issue filing. */
@@ -74,7 +75,7 @@ export function resolveAdapterFile(sourceType: string, sourceUrl: string): strin
     for (const [pattern, file] of HTML_SCRAPER_FILE_MAP) {
       if (pattern.test(sourceUrl)) return file;
     }
-    return "src/adapters/html-scraper/hashnyc.ts"; // default HTML scraper
+    return "src/adapters/registry.ts"; // generic fallback for unrecognized HTML scrapers
   }
   return ADAPTER_FILE_MAP[sourceType] ?? "src/adapters/registry.ts";
 }
@@ -184,6 +185,11 @@ function buildSuggestedApproach(alertType: string, ctx: Record<string, unknown> 
   }
 }
 
+/** Neutralize @claude mentions so auto-filed issues don't trigger the Claude workflow. */
+function sanitizeMentions(text: string): string {
+  return text.replaceAll("@claude", "@\u200Bclaude");
+}
+
 interface AlertWithSource {
   id: string;
   type: string;
@@ -254,7 +260,7 @@ ${agentContext}
   const severityLabel = `severity:${alert.severity.toLowerCase()}`;
   const labels = ["alert", typeLabel, severityLabel, "claude-fix"];
 
-  return { title, body, labels };
+  return { title: sanitizeMentions(title), body: sanitizeMentions(body), labels };
 }
 
 /** Check if we've recently filed an issue for this alert type + source (cooldown). */
@@ -272,8 +278,11 @@ async function isOnCooldown(sourceId: string, alertType: string): Promise<boolea
 
   return recentAlerts.some((alert) => {
     if (!Array.isArray(alert.repairLog)) return false;
-    return (alert.repairLog as { action: string }[]).some(
-      (entry) => entry.action === "auto_file_issue",
+    return (alert.repairLog as { action: string; timestamp?: string }[]).some(
+      (entry) =>
+        entry.action === "auto_file_issue" &&
+        entry.timestamp &&
+        new Date(entry.timestamp) >= cutoff,
     );
   });
 }
@@ -371,26 +380,28 @@ async function fileGitHubIssue(
 
     const issue = (await res.json()) as { html_url: string; number: number };
 
-    // Read existing repair log and append new entry
-    const existing = await prisma.alert.findUnique({
-      where: { id: alert.id },
-      select: { repairLog: true },
-    });
-    const log = Array.isArray(existing?.repairLog) ? existing.repairLog : [];
-    await prisma.alert.update({
-      where: { id: alert.id },
-      data: {
-        repairLog: [
-          ...log,
-          {
-            action: "auto_file_issue",
-            timestamp: new Date().toISOString(),
-            adminId: "system",
-            details: { issueUrl: issue.html_url, issueNumber: issue.number },
-            result: "success",
-          },
-        ] as unknown as never,
-      },
+    // Read-modify-write in a transaction to avoid race conditions
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.alert.findUnique({
+        where: { id: alert.id },
+        select: { repairLog: true },
+      });
+      const log = Array.isArray(existing?.repairLog) ? existing.repairLog : [];
+      await tx.alert.update({
+        where: { id: alert.id },
+        data: {
+          repairLog: [
+            ...log,
+            {
+              action: "auto_file_issue",
+              timestamp: new Date().toISOString(),
+              adminId: "system",
+              details: { issueUrl: issue.html_url, issueNumber: issue.number },
+              result: "success",
+            },
+          ] as Prisma.InputJsonValue,
+        },
+      });
     });
 
     return issue.html_url;

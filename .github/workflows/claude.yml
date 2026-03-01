@@ -6,7 +6,7 @@ on:
   pull_request_review_comment:
     types: [created]
   issues:
-    types: [opened, assigned, labeled]
+    types: [assigned, labeled]
   pull_request_review:
     types: [submitted]
 
@@ -16,7 +16,6 @@ jobs:
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && github.event.action == 'opened' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))) ||
       (github.event_name == 'issues' && github.event.action == 'assigned' && github.event.assignee.login == 'claude') ||
       (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'claude-fix')
     runs-on: ubuntu-latest

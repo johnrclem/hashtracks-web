@@ -1,14 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    alert: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      update: vi.fn(),
+vi.mock("@/lib/db", () => {
+  const alertMethods = {
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    update: vi.fn(),
+  };
+  return {
+    prisma: {
+      alert: alertMethods,
+      $transaction: vi.fn((fn: (tx: unknown) => Promise<unknown>) =>
+        fn({ alert: alertMethods }),
+      ),
     },
-  },
-}));
+  };
+});
 
 import { prisma } from "@/lib/db";
 import { buildAlert } from "@/test/factories";
@@ -111,9 +117,9 @@ describe("resolveAdapterFile", () => {
     );
   });
 
-  it("falls back to hashnyc for unrecognized HTML scraper URLs", () => {
+  it("falls back to registry for unrecognized HTML scraper URLs", () => {
     expect(resolveAdapterFile("HTML_SCRAPER", "https://unknown-hash.com")).toBe(
-      "src/adapters/html-scraper/hashnyc.ts",
+      "src/adapters/registry.ts",
     );
   });
 
@@ -272,7 +278,7 @@ describe("autoFileIssuesForAlerts", () => {
   it("skips alerts with ineligible types", async () => {
     process.env.GITHUB_TOKEN = "test-token";
     mockAlertFindMany.mockResolvedValueOnce([
-      buildAlert({ id: "alert_1", sourceId: "src_1", type: "UNMATCHED_TAGS" }),
+      buildAlert({ id: "alert_1", sourceId: "src_1", type: "EVENT_COUNT_ANOMALY" }),
     ] as never);
 
     const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
@@ -451,5 +457,73 @@ describe("autoFileIssuesForAlerts", () => {
     // Verify both API calls used the custom repo
     expect((fetchSpy.mock.calls[0][0] as string)).toContain("other-org/other-repo");
     expect((fetchSpy.mock.calls[1][0] as string)).toContain("other-org/other-repo");
+  });
+
+  it("files issues for UNMATCHED_TAGS alerts (eligible type)", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+
+    mockAlertFindMany.mockResolvedValueOnce([
+      buildAlert({ id: "alert_1", sourceId: "src_1", type: "UNMATCHED_TAGS", severity: "WARNING" }),
+    ] as never);
+    setupPassingGuards();
+    const fetchSpy = mockFetchForIssueCreation();
+    mockAlertFindUnique.mockResolvedValueOnce({ repairLog: null } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+    expect(result.filed).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores cooldown entries older than the 48h window", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+
+    mockAlertFindMany.mockResolvedValueOnce([
+      buildAlert({ id: "alert_1", sourceId: "src_1" }),
+    ] as never);
+    mockAlertFindMany.mockResolvedValueOnce([] as never); // isRateLimited → pass
+    // isOnCooldown → entry exists but timestamp is 72h ago (outside window)
+    const oldTimestamp = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+    mockAlertFindMany.mockResolvedValueOnce([
+      { repairLog: [{ action: "auto_file_issue", timestamp: oldTimestamp }] },
+    ] as never);
+
+    const fetchSpy = mockFetchForIssueCreation();
+    mockAlertFindUnique.mockResolvedValueOnce({ repairLog: null } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+    expect(result.filed).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ── @claude mention sanitization ──
+
+describe("buildIssueBody @claude sanitization", () => {
+  it("neutralizes @claude mentions in title and body from scraped context", () => {
+    const { title, body } = buildIssueBody(buildAlert({
+      title: "Alert mentioning @claude in title",
+      context: {
+        errorMessages: ["Error from @claude triggered scrape"],
+        previousHash: "abc",
+        currentHash: "xyz",
+      },
+    }));
+
+    // @claude should be neutralized with a zero-width space
+    expect(title).not.toContain("@claude");
+    expect(title).toContain("@\u200Bclaude");
+    expect(body).not.toContain("@claude");
+    expect(body).toContain("@\u200Bclaude");
+  });
+
+  it("leaves body intact when no @claude mentions present", () => {
+    const { title, body } = buildIssueBody(buildAlert());
+    // No @claude in the default alert, so no zero-width spaces should be added
+    expect(title).not.toContain("\u200B");
+    expect(body).not.toContain("@claude");
   });
 });
