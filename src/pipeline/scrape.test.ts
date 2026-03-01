@@ -141,6 +141,7 @@ describe("scrapeSource", () => {
     mockAnalyzeHealth.mockResolvedValueOnce({
       healthStatus: "FAILING",
       alerts: [],
+      checkedTypes: new Set(["SCRAPE_FAILURE", "CONSECUTIVE_FAILURES"]),
     });
 
     const result = await scrapeSource("src_1");

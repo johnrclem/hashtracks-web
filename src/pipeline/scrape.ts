@@ -7,7 +7,7 @@ import { processRawEvents } from "./merge";
 import { reconcileStaleEvents } from "./reconcile";
 import { computeFillRates } from "./fill-rates";
 import type { FieldFillRates } from "./fill-rates";
-import { analyzeHealth, persistAlerts } from "./health";
+import { analyzeHealth, persistAlerts, autoResolveCleared } from "./health";
 import { autoFileIssuesForAlerts } from "./auto-issue";
 import { verifyResolvedAutoFixes } from "./verify-fixes";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
@@ -217,6 +217,22 @@ async function runHealthAndAlerts(
         console.error("[auto-issue] Failed to auto-file issues:", err);
       }
     }
+  }
+
+  // Auto-resolve alerts whose condition has cleared on this scrape
+  try {
+    const candidateTypes = new Set(health.alerts.map((a) => a.type));
+    // UNMATCHED_TAGS only fires for *novel* tags, but persistent unmatched tags
+    // mean the condition is still active — don't auto-resolve
+    if (healthInput.unmatchedTags.length > 0) {
+      candidateTypes.add("UNMATCHED_TAGS");
+    }
+    if (healthInput.blockedTags && healthInput.blockedTags.length > 0) {
+      candidateTypes.add("SOURCE_KENNEL_MISMATCH");
+    }
+    await autoResolveCleared(sourceId, candidateTypes, healthInput.scrapeFailed, health.checkedTypes);
+  } catch (err) {
+    console.error("[auto-resolve] Failed to auto-resolve cleared alerts:", err);
   }
 
   // Retry filing for existing OPEN alerts that were never filed (e.g., previous GITHUB_TOKEN missing)

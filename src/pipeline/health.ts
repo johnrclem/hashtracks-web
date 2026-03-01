@@ -16,6 +16,8 @@ interface AlertCandidate {
 export interface HealthAnalysis {
   healthStatus: SourceHealth;
   alerts: AlertCandidate[];
+  /** Alert types that were actually evaluated on this run (for safe auto-resolution). */
+  checkedTypes: Set<string>;
 }
 
 /** AI recovery stats passed into health checks to annotate alert messages. */
@@ -251,7 +253,7 @@ function checkUnmatchedTags(
 
   return {
     type: "UNMATCHED_TAGS",
-    severity: "INFO",
+    severity: "WARNING",
     title: `${novelTags.length} new unmatched kennel tag${novelTags.length !== 1 ? "s" : ""}`,
     details: `New tags: ${novelTags.join(", ")}. These need alias mapping in the kennel resolver.`,
     context: { tags: novelTags },
@@ -284,6 +286,8 @@ export async function analyzeHealth(
   input: AnalyzeInput,
 ): Promise<HealthAnalysis> {
   const alerts: AlertCandidate[] = [];
+  // Track which alert types were actually evaluated (for safe auto-resolution)
+  const checkedTypes = new Set<string>();
 
   // Fetch last 10 successful scrapes for baseline (excluding current)
   const recentSuccessful = await prisma.scrapeLog.findMany({
@@ -310,33 +314,40 @@ export async function analyzeHealth(
     select: { status: true },
   });
 
-  // 1. Scrape failure
+  // 1. Scrape failure (always checked)
+  checkedTypes.add("SCRAPE_FAILURE");
   const failureAlert = checkScrapeFailure(input);
   if (failureAlert) alerts.push(failureAlert);
 
-  // 2. Consecutive failures
+  // 2. Consecutive failures (always checked)
+  checkedTypes.add("CONSECUTIVE_FAILURES");
   const consecutiveAlert = checkConsecutiveFailures(input, recentAll);
   if (consecutiveAlert) alerts.push(consecutiveAlert);
 
   // Trend checks require baseline data and a successful scrape
   if (!input.scrapeFailed && recentSuccessful.length > 0) {
     // 3. Event count anomaly
+    checkedTypes.add("EVENT_COUNT_ANOMALY");
     const countAlert = checkEventCountAnomaly(input, recentSuccessful);
     if (countAlert) alerts.push(countAlert);
 
     // 4. Field fill rate drops
+    checkedTypes.add("FIELD_FILL_DROP");
     alerts.push(...checkFieldFillDrops(input, recentSuccessful));
 
     // 5. Structural change detection
+    checkedTypes.add("STRUCTURE_CHANGE");
     const structureAlert = await checkStructuralChange(sourceId, input, recentSuccessful);
     if (structureAlert) alerts.push(structureAlert);
 
     // 6. New unmatched kennel tags
+    checkedTypes.add("UNMATCHED_TAGS");
     const unmatchedAlert = checkUnmatchedTags(input, recentSuccessful);
     if (unmatchedAlert) alerts.push(unmatchedAlert);
   }
 
   // 7. Source-kennel mismatches (always check, even without baseline)
+  checkedTypes.add("SOURCE_KENNEL_MISMATCH");
   const mismatchAlert = checkSourceKennelMismatches(input);
   if (mismatchAlert) alerts.push(mismatchAlert);
 
@@ -353,7 +364,7 @@ export async function analyzeHealth(
     healthStatus = "HEALTHY";
   }
 
-  return { healthStatus, alerts };
+  return { healthStatus, alerts, checkedTypes };
 }
 
 /** Handle an existing open/acknowledged alert by updating it with latest details. */
@@ -454,6 +465,50 @@ function avgFillRate(
   const rates = logs.map((l) => l[field]).filter((v): v is number => v != null);
   if (rates.length === 0) return 0;
   return Math.round(rates.reduce((sum, v) => sum + v, 0) / rates.length);
+}
+
+/**
+ * Auto-resolve OPEN/ACKNOWLEDGED alerts whose condition has cleared.
+ * An alert type is "cleared" if it was NOT re-raised on this scrape (i.e., not in candidateTypes)
+ * AND was actually evaluated (i.e., in checkedTypes).
+ * Skips when scrapeFailed is true (trend checks were skipped — can't confirm conditions cleared).
+ * Returns the count of resolved alerts.
+ */
+export async function autoResolveCleared(
+  sourceId: string,
+  candidateTypes: Set<string>,
+  scrapeFailed: boolean,
+  checkedTypes?: Set<string>,
+): Promise<number> {
+  if (scrapeFailed) return 0;
+
+  const openAlerts = await prisma.alert.findMany({
+    where: {
+      sourceId,
+      status: { in: ["OPEN", "ACKNOWLEDGED"] },
+    },
+  });
+
+  const alertsToResolve = openAlerts.filter(
+    (alert) =>
+      !candidateTypes.has(alert.type) &&
+      (!checkedTypes || checkedTypes.has(alert.type)),
+  );
+
+  await Promise.all(
+    alertsToResolve.map((alert) =>
+      prisma.alert.update({
+        where: { id: alert.id },
+        data: {
+          status: "RESOLVED",
+          resolvedAt: new Date(),
+          details: (alert.details ?? "") + " [Auto-resolved: condition cleared on subsequent scrape]",
+        },
+      }),
+    ),
+  );
+
+  return alertsToResolve.length;
 }
 
 /** Auto-resolve open STRUCTURE_CHANGE alerts when structure hash stabilizes. */
