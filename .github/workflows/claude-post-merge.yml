@@ -16,12 +16,13 @@ jobs:
       - name: Extract linked issue and track merge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          # Extract issue number from "closes #N" or "fixes #N" patterns in PR body
-          ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oiE '(closes|fixes|resolves)\s+#([0-9]+)' | head -1 | grep -oE '[0-9]+')
+          # Extract issue number from "closes #N" or "fixes #N" patterns in PR title or body
+          ISSUE_NUMBER=$(echo "$PR_TITLE"$'\n'"$PR_BODY" | grep -oiE '(closes|fixes|resolves)[[:space:]]+#([0-9]+)' | head -1 | grep -oE '[0-9]+')
 
           if [ -z "$ISSUE_NUMBER" ]; then
             echo "No linked issue found in PR body. Skipping verification tracking."

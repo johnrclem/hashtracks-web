@@ -21,6 +21,19 @@ interface AutoFileEntry {
   details?: { issueNumber?: number; issueUrl?: string };
 }
 
+/** Runtime type guard — validates repairLog entries before use. */
+function isAutoFileEntry(value: unknown): value is AutoFileEntry {
+  if (typeof value !== "object" || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.action !== "string") return false;
+  if (obj.details !== undefined) {
+    if (typeof obj.details !== "object" || obj.details === null) return false;
+    const d = obj.details as Record<string, unknown>;
+    if (d.issueNumber !== undefined && typeof d.issueNumber !== "number") return false;
+  }
+  return true;
+}
+
 /**
  * Check recently resolved alerts for auto-filed issues that need verification
  * confirmation on GitHub.
@@ -51,7 +64,7 @@ export async function verifyResolvedAutoFixes(sourceId: string): Promise<{ verif
   for (const alert of resolvedAlerts) {
     if (!Array.isArray(alert.repairLog)) continue;
 
-    const entries = alert.repairLog as unknown as AutoFileEntry[];
+    const entries = (alert.repairLog as unknown[]).filter(isAutoFileEntry);
     const autoFileEntry = entries.find(
       (e) => e.action === "auto_file_issue" && e.details?.issueNumber,
     );
@@ -68,8 +81,10 @@ export async function verifyResolvedAutoFixes(sourceId: string): Promise<{ verif
     if (!hasLabel) continue;
 
     // Remove the label and post confirmation
-    await removeLabelFromIssue(repo, issueNumber, "pending-verification", token);
-    await postVerificationComment(repo, issueNumber, alert.type, token);
+    const labelRemoved = await removeLabelFromIssue(repo, issueNumber, "pending-verification", token);
+    const commentPosted = await postVerificationComment(repo, issueNumber, alert.type, token);
+
+    const success = labelRemoved && commentPosted;
 
     // Record verification in repairLog
     await prisma.alert.update({
@@ -81,14 +96,14 @@ export async function verifyResolvedAutoFixes(sourceId: string): Promise<{ verif
             action: "auto_fix_verified",
             timestamp: new Date().toISOString(),
             adminId: "system",
-            result: "success",
+            result: success ? "success" : "error",
             details: { issueNumber, verifiedAt: new Date().toISOString() },
           },
         ] as Prisma.InputJsonValue,
       },
     });
 
-    verified++;
+    if (success) verified++;
   }
 
   return { verified };
@@ -115,20 +130,21 @@ async function issueHasLabel(
     if (!res.ok) return false;
     const labels = (await res.json()) as { name: string }[];
     return labels.some((l) => l.name === label);
-  } catch {
+  } catch (err) {
+    console.error(`Failed to check labels on issue #${issueNumber}:`, err);
     return false;
   }
 }
 
-/** Remove a label from a GitHub issue. */
+/** Remove a label from a GitHub issue. Returns true on success. */
 async function removeLabelFromIssue(
   repo: string,
   issueNumber: number,
   label: string,
   token: string,
-): Promise<void> {
+): Promise<boolean> {
   try {
-    await fetch(
+    const res = await fetch(
       `https://api.github.com/repos/${repo}/issues/${issueNumber}/labels/${encodeURIComponent(label)}`,
       {
         method: "DELETE",
@@ -139,23 +155,25 @@ async function removeLabelFromIssue(
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       },
     );
-  } catch {
-    // Non-fatal
+    return res.ok;
+  } catch (err) {
+    console.error(`Failed to remove label from issue #${issueNumber}:`, err);
+    return false;
   }
 }
 
-/** Post a verification success comment on the GitHub issue. */
+/** Post a verification success comment on the GitHub issue. Returns true on success. */
 async function postVerificationComment(
   repo: string,
   issueNumber: number,
   alertType: string,
   token: string,
-): Promise<void> {
+): Promise<boolean> {
   const typeName = alertType.replaceAll("_", " ").toLowerCase();
   const body = `### Fix Verified ✓\n\nThe auto-fix has been verified successfully. The **${typeName}** alert did not recur on the next scrape after the fix was merged.\n\nThis issue can be considered fully resolved.`;
 
   try {
-    await fetch(
+    const res = await fetch(
       `https://api.github.com/repos/${repo}/issues/${issueNumber}/comments`,
       {
         method: "POST",
@@ -168,7 +186,9 @@ async function postVerificationComment(
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       },
     );
-  } catch {
-    // Non-fatal
+    return res.ok;
+  } catch (err) {
+    console.error(`Failed to post verification comment on issue #${issueNumber}:`, err);
+    return false;
   }
 }

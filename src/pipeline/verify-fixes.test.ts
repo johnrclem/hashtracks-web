@@ -1,5 +1,3 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-
 vi.mock("@/lib/db", () => ({
   prisma: {
     alert: {
@@ -204,5 +202,53 @@ describe("verifyResolvedAutoFixes", () => {
 
     const result = await verifyResolvedAutoFixes("src_1");
     expect(result).toEqual({ verified: 0 });
+  });
+
+  it("records result 'error' when GitHub label removal fails", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.GITHUB_REPOSITORY = "test/repo";
+
+    mockAlertFindMany.mockResolvedValueOnce([
+      {
+        id: "alert_1",
+        type: "STRUCTURE_CHANGE",
+        repairLog: [
+          { action: "auto_file_issue", details: { issueNumber: 42 } },
+        ],
+      },
+    ] as never);
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    // issueHasLabel → returns labels including pending-verification
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{ name: "pending-verification" }],
+    } as Response);
+
+    // removeLabelFromIssue → API failure (500)
+    fetchSpy.mockResolvedValueOnce({ ok: false, status: 500 } as Response);
+
+    // postVerificationComment → success
+    fetchSpy.mockResolvedValueOnce({ ok: true } as Response);
+
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await verifyResolvedAutoFixes("src_1");
+
+    // Should NOT count as verified
+    expect(result).toEqual({ verified: 0 });
+
+    // Should still record in repairLog with result: "error"
+    expect(mockAlertUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "alert_1" },
+        data: expect.objectContaining({
+          repairLog: expect.arrayContaining([
+            expect.objectContaining({ action: "auto_fix_verified", result: "error" }),
+          ]),
+        }),
+      }),
+    );
   });
 });

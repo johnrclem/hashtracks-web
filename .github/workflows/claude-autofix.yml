@@ -25,7 +25,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TODAY=$(date -u +%Y-%m-%d)
-          COUNT=$(gh pr list --repo "${{ github.repository }}" --label auto-fix --search "created:>=$TODAY" --json number --jq 'length')
+          COUNT=$(gh pr list --repo "${{ github.repository }}" --label auto-fix --state all --search "created:>=$TODAY" --json number --jq 'length')
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
           if [ "$COUNT" -ge 5 ]; then
             echo "rate_limited=true" >> "$GITHUB_OUTPUT"
@@ -79,7 +79,6 @@ jobs:
             - You may ONLY modify files in these directories:
               - src/adapters/ (scraper adapters and their tests)
               - prisma/seed.ts (kennel aliases and seed data)
-              - src/pipeline/kennel-resolver.ts (alias resolution)
               - Test files (*.test.ts) anywhere
             - You must NOT modify:
               - src/lib/auth.ts, src/lib/db.ts, src/middleware.ts
