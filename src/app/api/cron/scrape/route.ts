@@ -2,24 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import { scrapeSource } from "@/pipeline/scrape";
-
-/** Map scrapeFreq values to minimum interval in milliseconds */
-const FREQ_INTERVALS: Record<string, number> = {
-  hourly: 60 * 60 * 1000,           // 1 hour
-  every_6h: 6 * 60 * 60 * 1000,     // 6 hours
-  daily: 24 * 60 * 60 * 1000,       // 24 hours
-  weekly: 7 * 24 * 60 * 60 * 1000,  // 7 days
-};
-
-/** 10-minute buffer to avoid edge-case misses near interval boundaries */
-const BUFFER_MS = 10 * 60 * 1000;
-
-export function shouldScrape(scrapeFreq: string, lastScrapeAt: Date | null): boolean {
-  if (!lastScrapeAt) return true; // Never scraped — always scrape
-  const interval = FREQ_INTERVALS[scrapeFreq] ?? FREQ_INTERVALS.daily;
-  const elapsed = Date.now() - lastScrapeAt.getTime();
-  return elapsed >= interval - BUFFER_MS;
-}
+import { shouldScrape } from "@/pipeline/schedule";
 
 export async function GET(request: NextRequest) {
   // Validate CRON_SECRET (timing-safe comparison to prevent timing attacks)

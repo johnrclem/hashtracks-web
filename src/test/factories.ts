@@ -154,6 +154,31 @@ export function buildEventHare(
   };
 }
 
+export function buildSource(
+  overrides?: Partial<{
+    id: string;
+    name: string;
+    enabled: boolean;
+    scrapeDays: number;
+    scrapeFreq: string;
+    type: string;
+    url: string;
+    lastScrapeAt: Date | null;
+  }>,
+) {
+  return {
+    id: overrides?.id ?? "src-1",
+    name: overrides?.name ?? "Test Source",
+    enabled: overrides?.enabled ?? true,
+    scrapeDays: overrides?.scrapeDays ?? 90,
+    scrapeFreq: overrides?.scrapeFreq ?? "daily",
+    type: overrides?.type ?? "HTML_SCRAPER",
+    url: overrides?.url ?? "https://example.com",
+    lastScrapeAt: overrides?.lastScrapeAt ?? null,
+    ...overrides,
+  };
+}
+
 export function buildMismanInvite(
   overrides?: Partial<MismanInvite>,
 ): MismanInvite {
