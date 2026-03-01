@@ -16,8 +16,8 @@ vi.mock("@/pipeline/schedule");
 
 const APP_URL = "https://hashtracks.com";
 
-function makeRequest(): Request {
-  return new Request("https://example.com/api/cron/dispatch", {
+function makeRequest(queryString = ""): Request {
+  return new Request(`https://example.com/api/cron/dispatch${queryString}`, {
     method: "POST",
   });
 }
@@ -143,6 +143,35 @@ describe("POST /api/cron/dispatch", () => {
     expect(data.data.dispatched).toBe(3);
     expect(data.data.skipped).toBe(0);
     expect(data.data.success).toBe(true);
+    expect(data.data.force).toBe(false);
     expect(mockPublishJSON).toHaveBeenCalledTimes(3);
+  });
+
+  it("dispatches all sources when force=true, bypassing shouldScrape", async () => {
+    vi.mocked(prisma.source.findMany).mockResolvedValue(mockSources as never);
+    vi.mocked(shouldScrape).mockReturnValue(false);
+
+    const res = await POST(makeRequest("?force=true"));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+
+    expect(data.data.force).toBe(true);
+    expect(data.data.dispatched).toBe(3);
+    expect(data.data.skipped).toBe(0);
+    expect(data.data.total).toBe(3);
+    expect(shouldScrape).not.toHaveBeenCalled();
+    expect(mockPublishJSON).toHaveBeenCalledTimes(3);
+  });
+
+  it("includes force=false in response when force param is absent", async () => {
+    vi.mocked(prisma.source.findMany).mockResolvedValue(mockSources as never);
+    vi.mocked(shouldScrape).mockReturnValue(false);
+
+    const res = await POST(makeRequest());
+    const data = await res.json();
+
+    expect(data.data.force).toBe(false);
+    expect(data.data.dispatched).toBe(0);
+    expect(shouldScrape).toHaveBeenCalledTimes(3);
   });
 });
