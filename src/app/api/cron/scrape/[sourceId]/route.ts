@@ -30,26 +30,25 @@ export async function POST(
 
   if (!source.enabled) {
     return NextResponse.json({
-      success: true,
-      skipped: true,
-      reason: "Source is disabled",
-      sourceId: source.id,
-      name: source.name,
+      data: {
+        success: true,
+        skipped: true,
+        reason: "Source is disabled",
+        sourceId: source.id,
+        name: source.name,
+      },
     });
   }
 
   // Read optional days override from request body (QStash message payload)
   let days = source.scrapeDays;
   try {
-    const body = await request.clone().text();
-    if (body) {
-      const parsed = JSON.parse(body);
-      if (typeof parsed.days === "number" && parsed.days >= 1 && parsed.days <= 365) {
-        days = parsed.days;
-      }
+    const body = await request.clone().json();
+    if (typeof body?.days === "number" && body.days >= 1 && body.days <= 365) {
+      days = body.days;
     }
-  } catch (err) {
-    console.warn(`[cron/source] Failed to parse request body for ${sourceId}:`, err);
+  } catch {
+    // No body or invalid JSON — use source default
   }
 
   console.log(`[cron/source] Scraping ${source.name} (${sourceId}), days=${days}, auth=${auth.method}`);
@@ -59,14 +58,16 @@ export async function POST(
   if (!result.success) {
     // Return 500 so QStash retries this source
     return NextResponse.json(
-      { ...result, sourceId, name: source.name },
+      { data: { ...result, sourceId, name: source.name } },
       { status: 500 },
     );
   }
 
   return NextResponse.json({
-    ...result,
-    sourceId,
-    name: source.name,
+    data: {
+      ...result,
+      sourceId,
+      name: source.name,
+    },
   });
 }

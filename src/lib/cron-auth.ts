@@ -15,8 +15,15 @@ export async function verifyCronAuth(request: Request): Promise<CronAuthResult> 
   // Try QStash signature verification first
   const signature = request.headers.get("upstash-signature");
   if (signature) {
+    let receiver;
     try {
-      const receiver = getQStashReceiver();
+      receiver = getQStashReceiver();
+    } catch (err) {
+      console.error("[cron-auth] QStash receiver setup failed (check signing key env vars):", err);
+      // Don't fall through to bearer — this is a config error
+      return { authenticated: false, method: "none" };
+    }
+    try {
       const body = await request.clone().text();
       await receiver.verify({ signature, body });
       return { authenticated: true, method: "qstash" };
@@ -35,6 +42,7 @@ export async function verifyCronAuth(request: Request): Promise<CronAuthResult> 
   const expected = `Bearer ${cronSecret}`;
   const authBuf = Buffer.from(authHeader);
   const expectedBuf = Buffer.from(expected);
+  // Length check required by timingSafeEqual; minimal timing leak is acceptable for cron auth
   if (authBuf.length === expectedBuf.length && timingSafeEqual(authBuf, expectedBuf)) {
     return { authenticated: true, method: "bearer" };
   }

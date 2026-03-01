@@ -2,6 +2,7 @@ import { POST } from "./route";
 import { prisma } from "@/lib/db";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { scrapeSource } from "@/pipeline/scrape";
+import { buildSource } from "@/test/factories";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -21,12 +22,7 @@ function makeRequest(body?: Record<string, unknown>): Request {
 
 const mockParams = Promise.resolve({ sourceId: "src-1" });
 
-const mockSource = {
-  id: "src-1",
-  name: "Test Source",
-  enabled: true,
-  scrapeDays: 90,
-};
+const mockSource = buildSource();
 
 describe("POST /api/cron/scrape/[sourceId]", () => {
   beforeEach(() => {
@@ -57,7 +53,7 @@ describe("POST /api/cron/scrape/[sourceId]", () => {
     const res = await POST(makeRequest(), { params: mockParams });
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.skipped).toBe(true);
+    expect(data.data.skipped).toBe(true);
     expect(scrapeSource).not.toHaveBeenCalled();
   });
 
@@ -81,8 +77,8 @@ describe("POST /api/cron/scrape/[sourceId]", () => {
     const res = await POST(makeRequest(), { params: mockParams });
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.success).toBe(true);
-    expect(data.eventsFound).toBe(5);
+    expect(data.data.success).toBe(true);
+    expect(data.data.eventsFound).toBe(5);
     expect(scrapeSource).toHaveBeenCalledWith("src-1", { days: 90 });
   });
 
@@ -106,8 +102,8 @@ describe("POST /api/cron/scrape/[sourceId]", () => {
     const res = await POST(makeRequest(), { params: mockParams });
     expect(res.status).toBe(500);
     const data = await res.json();
-    expect(data.success).toBe(false);
-    expect(data.errors).toContain("Connection timeout");
+    expect(data.data.success).toBe(false);
+    expect(data.data.errors).toContain("Connection timeout");
   });
 
   it("uses days override from request body", async () => {

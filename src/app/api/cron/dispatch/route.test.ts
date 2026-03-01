@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { getQStashClient } from "@/lib/qstash";
 import { shouldScrape } from "@/pipeline/schedule";
+import { buildSource } from "@/test/factories";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -22,9 +23,9 @@ function makeRequest(): Request {
 }
 
 const mockSources = [
-  { id: "src-1", name: "Source One", scrapeDays: 90, scrapeFreq: "daily", lastScrapeAt: null },
-  { id: "src-2", name: "Source Two", scrapeDays: 60, scrapeFreq: "daily", lastScrapeAt: new Date() },
-  { id: "src-3", name: "Source Three", scrapeDays: 30, scrapeFreq: "hourly", lastScrapeAt: null },
+  buildSource({ id: "src-1", name: "Source One", scrapeDays: 90, lastScrapeAt: null }),
+  buildSource({ id: "src-2", name: "Source Two", scrapeDays: 60, lastScrapeAt: new Date() }),
+  buildSource({ id: "src-3", name: "Source Three", scrapeDays: 30, scrapeFreq: "hourly", lastScrapeAt: null }),
 ];
 
 describe("POST /api/cron/dispatch", () => {
@@ -86,9 +87,9 @@ describe("POST /api/cron/dispatch", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
 
-    expect(data.dispatched).toBe(2);
-    expect(data.skipped).toBe(1);
-    expect(data.total).toBe(3);
+    expect(data.data.dispatched).toBe(2);
+    expect(data.data.skipped).toBe(1);
+    expect(data.data.total).toBe(3);
     expect(mockPublishJSON).toHaveBeenCalledTimes(2);
 
     expect(mockPublishJSON).toHaveBeenCalledWith({
@@ -111,8 +112,8 @@ describe("POST /api/cron/dispatch", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
 
-    expect(data.dispatched).toBe(0);
-    expect(data.skipped).toBe(3);
+    expect(data.data.dispatched).toBe(0);
+    expect(data.data.skipped).toBe(3);
     expect(mockPublishJSON).not.toHaveBeenCalled();
   });
 
@@ -125,10 +126,10 @@ describe("POST /api/cron/dispatch", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
 
-    expect(data.success).toBe(false);
-    expect(data.dispatched).toBe(0);
-    expect(data.failed).toBe(1);
-    expect(data.results[0].error).toBe("QStash unavailable");
+    expect(data.data.success).toBe(false);
+    expect(data.data.dispatched).toBe(0);
+    expect(data.data.failed).toBe(1);
+    expect(data.data.results[0].error).toBe("QStash unavailable");
   });
 
   it("dispatches all sources when all are due", async () => {
@@ -139,9 +140,9 @@ describe("POST /api/cron/dispatch", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
 
-    expect(data.dispatched).toBe(3);
-    expect(data.skipped).toBe(0);
-    expect(data.success).toBe(true);
+    expect(data.data.dispatched).toBe(3);
+    expect(data.data.skipped).toBe(0);
+    expect(data.data.success).toBe(true);
     expect(mockPublishJSON).toHaveBeenCalledTimes(3);
   });
 });

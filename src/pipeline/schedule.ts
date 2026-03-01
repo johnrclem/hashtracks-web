@@ -15,7 +15,10 @@ export const BUFFER_MS = 10 * 60 * 1000;
  */
 export function shouldScrape(scrapeFreq: string, lastScrapeAt: Date | null): boolean {
   if (!lastScrapeAt) return true; // Never scraped — always scrape
-  const interval = FREQ_INTERVALS[scrapeFreq] ?? FREQ_INTERVALS.daily;
+  const interval = FREQ_INTERVALS[scrapeFreq];
+  if (!interval) {
+    console.warn(`[schedule] Unknown scrapeFreq "${scrapeFreq}", defaulting to daily`);
+  }
   const elapsed = Date.now() - lastScrapeAt.getTime();
-  return elapsed >= interval - BUFFER_MS;
+  return elapsed >= (interval ?? FREQ_INTERVALS.daily) - BUFFER_MS;
 }

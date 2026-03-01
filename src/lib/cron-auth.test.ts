@@ -75,6 +75,27 @@ describe("verifyCronAuth", () => {
     expect(result).toEqual({ authenticated: true, method: "bearer" });
   });
 
+  it("returns unauthenticated with error when QStash receiver setup fails", async () => {
+    vi.mocked(getQStashReceiver).mockImplementation(() => {
+      throw new Error("Missing QSTASH_CURRENT_SIGNING_KEY");
+    });
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const req = makeRequest({
+      "upstash-signature": "some-sig",
+      authorization: `Bearer ${CRON_SECRET}`,
+    }, "{}");
+    const result = await verifyCronAuth(req);
+
+    expect(result).toEqual({ authenticated: false, method: "none" });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[cron-auth] QStash receiver setup failed"),
+      expect.any(Error),
+    );
+    // Crucially: bearer fallback is NOT attempted despite valid bearer header
+    consoleSpy.mockRestore();
+  });
+
   it("rejects when both QStash signature and Bearer are invalid", async () => {
     const mockReceiver = { verify: vi.fn().mockRejectedValue(new Error("invalid")) };
     vi.mocked(getQStashReceiver).mockReturnValue(mockReceiver as never);

@@ -48,11 +48,13 @@ export async function POST(request: Request) {
 
   if (dueSources.length === 0) {
     return NextResponse.json({
-      success: true,
-      dispatched: 0,
-      failed: 0,
-      skipped: skippedSources.length,
-      total: sources.length,
+      data: {
+        success: true,
+        dispatched: 0,
+        failed: 0,
+        skipped: skippedSources.length,
+        total: sources.length,
+      },
     });
   }
 
@@ -65,13 +67,13 @@ export async function POST(request: Request) {
         url: `${appUrl}/api/cron/scrape/${source.id}`,
         body: { days: source.scrapeDays },
         retries: 2,
-      }).then(() => ({ sourceId: source.id, name: source.name })),
+      }).then((res) => ({ sourceId: source.id, name: source.name, messageId: res.messageId })),
     ),
   );
 
   const results = settled.map((outcome, i) => {
     if (outcome.status === "fulfilled") {
-      return { sourceId: outcome.value.sourceId, name: outcome.value.name, dispatched: true };
+      return { sourceId: outcome.value.sourceId, name: outcome.value.name, dispatched: true, messageId: outcome.value.messageId };
     }
     const errorMsg = outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
     console.error(`[cron/dispatch] Failed to dispatch ${dueSources[i].name}: ${errorMsg}`);
@@ -86,12 +88,14 @@ export async function POST(request: Request) {
   );
 
   return NextResponse.json({
-    success: failed === 0,
-    dispatched,
-    failed,
-    skipped: skippedSources.length,
-    total: sources.length,
-    results,
+    data: {
+      success: failed === 0,
+      dispatched,
+      failed,
+      skipped: skippedSources.length,
+      total: sources.length,
+      results,
+    },
   });
 }
 
