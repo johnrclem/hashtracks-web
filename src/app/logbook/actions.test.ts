@@ -23,6 +23,7 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
+    stravaActivity: { updateMany: vi.fn() },
   },
 }));
 

@@ -285,9 +285,12 @@ describe("EnfieldHashAdapter.fetch (new site structure)", () => {
 
   beforeEach(() => {
     adapter = new EnfieldHashAdapter();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-02-24T12:00:00Z"));
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
