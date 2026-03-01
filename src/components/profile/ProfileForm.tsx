@@ -43,6 +43,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
           defaultValue={user.hashName ?? ""}
           placeholder="Your hash name (public)"
         />
+        <p className="text-xs text-muted-foreground mt-1">Visible to all hashers</p>
       </div>
 
       <div className="space-y-2">
@@ -53,6 +54,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
           defaultValue={user.nerdName ?? ""}
           placeholder="Your real name (private)"
         />
+        <p className="text-xs text-muted-foreground mt-1">Only visible to you and kennel mismanagement</p>
       </div>
 
       <div className="space-y-2">

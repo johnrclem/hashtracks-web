@@ -15,9 +15,7 @@ export function generateInviteToken(): string {
 
 /** Compute an expiration date from now. */
 export function computeExpiresAt(days: number = DEFAULT_EXPIRY_DAYS): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d;
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 }
 
 /** Cookie name for persisting invite token across auth redirect. */

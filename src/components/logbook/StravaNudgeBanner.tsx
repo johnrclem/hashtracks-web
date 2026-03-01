@@ -12,6 +12,7 @@ import {
 import type { UnmatchedStravaMatch } from "@/app/strava/actions";
 
 const HIDE_KEY = "hashtracks:strava-nudge-hidden";
+const VISIBLE_CAP = 5;
 
 function formatDistance(meters: number): string {
   const miles = meters / 1609.344;
@@ -33,6 +34,8 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
   const [matches, setMatches] = useState<UnmatchedStravaMatch[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -89,10 +92,65 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
     });
   }
 
+  function handleDismissAll() {
+    startTransition(async () => {
+      const results = await Promise.all(
+        matches.map(async (match) => {
+          const result = await dismissStravaMatch(match.stravaActivityDbId);
+          return { id: match.stravaActivityDbId, success: result.success };
+        }),
+      );
+      const dismissedIds = new Set(results.filter((r) => r.success).map((r) => r.id));
+      const failures = results.filter((r) => !r.success).length;
+
+      if (dismissedIds.size > 0) {
+        setMatches((prev) => prev.filter((m) => !dismissedIds.has(m.stravaActivityDbId)));
+      }
+      if (failures > 0) {
+        toast.error(`${failures} match${failures === 1 ? "" : "es"} failed to dismiss`);
+      } else {
+        toast.success("All matches dismissed");
+      }
+    });
+  }
+
   function handleHideAll() {
     localStorage.setItem(HIDE_KEY, "true");
     setHidden(true);
   }
+
+  // Collapsed state: compact banner
+  if (!expanded) {
+    return (
+      <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+        <p className="text-sm">
+          <span className="font-medium">{matches.length}</span>{" "}
+          Strava {matches.length === 1 ? "activity" : "activities"} may match your runs
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => setExpanded(true)}
+          >
+            Review
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-muted-foreground"
+            onClick={handleHideAll}
+          >
+            Hide
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Expanded state: show matches (capped at VISIBLE_CAP unless showAll)
+  const visibleMatches = showAll ? matches : matches.slice(0, VISIBLE_CAP);
 
   return (
     <div className="space-y-3">
@@ -100,20 +158,31 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
         <h3 className="text-sm font-semibold">
           Strava Matches ({matches.length})
         </h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 text-xs text-muted-foreground"
-          onClick={handleHideAll}
-        >
-          Hide
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs text-muted-foreground"
+            onClick={handleDismissAll}
+            disabled={isPending}
+          >
+            Dismiss All
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs text-muted-foreground"
+            onClick={handleHideAll}
+          >
+            Hide
+          </Button>
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">
         We found Strava activities that match your recent check-ins. Link them to your logbook.
       </p>
       <div className="space-y-2">
-        {matches.map((match) => (
+        {visibleMatches.map((match) => (
           <div
             key={`${match.stravaActivityDbId}-${match.attendanceId}`}
             className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
@@ -157,6 +226,16 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
           </div>
         ))}
       </div>
+      {!showAll && matches.length > VISIBLE_CAP && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs"
+          onClick={() => setShowAll(true)}
+        >
+          Show all {matches.length} matches
+        </Button>
+      )}
     </div>
   );
 }

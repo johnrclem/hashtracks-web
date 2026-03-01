@@ -275,6 +275,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
+    const now = new Date();
 
     const fetchStart = Date.now();
     const fetchResult = await this.tryFetchWithUrlVariants(baseUrl, errorDetails);
@@ -344,6 +345,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
         i,
         errors,
         errorDetails,
+        now,
       );
       if (event) events.push(event);
     }

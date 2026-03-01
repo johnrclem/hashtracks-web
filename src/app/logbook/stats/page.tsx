@@ -82,7 +82,7 @@ export default async function StatsPage() {
     .sort((a, b) => b.count - a.count);
 
   // Milestones — attendances are ordered by date ascending
-  const milestones = MILESTONES.map((m) => {
+  const allMilestones = MILESTONES.map((m) => {
     if (totalRuns >= m.target) {
       const milestoneAttendance = attendances[m.target - 1];
       return {
@@ -100,6 +100,11 @@ export default async function StatsPage() {
     }
     return { ...m, reached: false };
   });
+
+  // Show reached milestones + next 3 unreached (skip distant ones)
+  const reached = allMilestones.filter((m) => m.reached);
+  const unreached = allMilestones.filter((m) => !m.reached);
+  const milestones = [...reached, ...unreached.slice(0, 3)];
 
   return (
     <div>

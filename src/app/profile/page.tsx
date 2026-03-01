@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getOrCreateUser } from "@/lib/auth";
+
+export const metadata: Metadata = {
+  title: "Profile · HashTracks",
+};
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { ProfileForm } from "@/components/profile/ProfileForm";
@@ -40,7 +45,7 @@ export default async function ProfilePage() {
     : { connected: false as const };
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-2xl space-y-8">
       <Suspense>
         <StravaStatusToast />
       </Suspense>
