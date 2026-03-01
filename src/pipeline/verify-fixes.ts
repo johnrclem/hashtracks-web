@@ -15,6 +15,17 @@ import type { Prisma } from "@/generated/prisma/client";
 /** GitHub API timeout (10 seconds). */
 const FETCH_TIMEOUT_MS = 10_000;
 
+/** Validates repo format (owner/name) to prevent SSRF via crafted repository strings. */
+const REPO_PATTERN = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
+
+/** Builds a validated GitHub API URL. Throws on invalid inputs. */
+function githubApiUrl(repo: string, path: string): string {
+  if (!REPO_PATTERN.test(repo)) {
+    throw new Error(`Invalid GitHub repository format: ${repo}`);
+  }
+  return `https://api.github.com/repos/${repo}${path}`;
+}
+
 /** Repair log entry shape for auto_file_issue actions. */
 interface AutoFileEntry {
   action: string;
@@ -64,14 +75,17 @@ export async function verifyResolvedAutoFixes(sourceId: string): Promise<{ verif
   for (const alert of resolvedAlerts) {
     if (!Array.isArray(alert.repairLog)) continue;
 
-    const entries = (alert.repairLog as unknown[]).filter(isAutoFileEntry);
+    const rawLog = alert.repairLog as unknown[];
+    const entries = rawLog.filter(isAutoFileEntry);
     const autoFileEntry = entries.find(
       (e) => e.action === "auto_file_issue" && e.details?.issueNumber,
     );
     if (!autoFileEntry?.details?.issueNumber) continue;
 
-    // Check if this alert was already verified (avoid duplicate comments)
-    const alreadyVerified = entries.some((e) => e.action === "auto_fix_verified");
+    // Check if this alert was already successfully verified (avoid duplicate comments)
+    const alreadyVerified = entries.some(
+      (e) => e.action === "auto_fix_verified" && (e as AutoFileEntry & { result?: string }).result === "success",
+    );
     if (alreadyVerified) continue;
 
     const issueNumber = autoFileEntry.details.issueNumber;
@@ -85,19 +99,20 @@ export async function verifyResolvedAutoFixes(sourceId: string): Promise<{ verif
     const commentPosted = await postVerificationComment(repo, issueNumber, alert.type, token);
 
     const success = labelRemoved && commentPosted;
+    const now = new Date().toISOString();
 
-    // Record verification in repairLog
+    // Record verification in repairLog (preserve all original entries)
     await prisma.alert.update({
       where: { id: alert.id },
       data: {
         repairLog: [
-          ...entries,
+          ...rawLog,
           {
             action: "auto_fix_verified",
-            timestamp: new Date().toISOString(),
+            timestamp: now,
             adminId: "system",
             result: success ? "success" : "error",
-            details: { issueNumber, verifiedAt: new Date().toISOString() },
+            details: { issueNumber, verifiedAt: now },
           },
         ] as Prisma.InputJsonValue,
       },
@@ -118,7 +133,7 @@ async function issueHasLabel(
 ): Promise<boolean> {
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${repo}/issues/${issueNumber}/labels`,
+      githubApiUrl(repo, `/issues/${issueNumber}/labels`),
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -145,7 +160,7 @@ async function removeLabelFromIssue(
 ): Promise<boolean> {
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${repo}/issues/${issueNumber}/labels/${encodeURIComponent(label)}`,
+      githubApiUrl(repo, `/issues/${issueNumber}/labels/${encodeURIComponent(label)}`),
       {
         method: "DELETE",
         headers: {
@@ -174,7 +189,7 @@ async function postVerificationComment(
 
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${repo}/issues/${issueNumber}/comments`,
+      githubApiUrl(repo, `/issues/${issueNumber}/comments`),
       {
         method: "POST",
         headers: {

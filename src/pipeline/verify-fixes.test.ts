@@ -79,7 +79,7 @@ describe("verifyResolvedAutoFixes", () => {
     expect(mockAlertUpdate).not.toHaveBeenCalled();
   });
 
-  it("skips alerts already marked as verified", async () => {
+  it("skips alerts already successfully verified", async () => {
     process.env.GITHUB_TOKEN = "test-token";
     process.env.GITHUB_REPOSITORY = "test/repo";
 
@@ -89,7 +89,7 @@ describe("verifyResolvedAutoFixes", () => {
         type: "STRUCTURE_CHANGE",
         repairLog: [
           { action: "auto_file_issue", details: { issueNumber: 42 } },
-          { action: "auto_fix_verified", details: { issueNumber: 42 } },
+          { action: "auto_fix_verified", result: "success", details: { issueNumber: 42 } },
         ],
       },
     ] as never);
@@ -97,6 +97,53 @@ describe("verifyResolvedAutoFixes", () => {
     const result = await verifyResolvedAutoFixes("src_1");
     expect(result).toEqual({ verified: 0 });
     expect(mockAlertUpdate).not.toHaveBeenCalled();
+  });
+
+  it("retries verification after a previous error result", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.GITHUB_REPOSITORY = "test/repo";
+
+    mockAlertFindMany.mockResolvedValueOnce([
+      {
+        id: "alert_1",
+        type: "STRUCTURE_CHANGE",
+        repairLog: [
+          { action: "auto_file_issue", details: { issueNumber: 42 } },
+          { action: "auto_fix_verified", result: "error", details: { issueNumber: 42 } },
+        ],
+      },
+    ] as never);
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    // issueHasLabel → has pending-verification
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{ name: "pending-verification" }],
+    } as Response);
+
+    // removeLabelFromIssue → success this time
+    fetchSpy.mockResolvedValueOnce({ ok: true } as Response);
+
+    // postVerificationComment → success
+    fetchSpy.mockResolvedValueOnce({ ok: true } as Response);
+
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await verifyResolvedAutoFixes("src_1");
+    expect(result).toEqual({ verified: 1 });
+
+    // Should preserve the original error entry and append the new success entry
+    expect(mockAlertUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          repairLog: expect.arrayContaining([
+            expect.objectContaining({ action: "auto_fix_verified", result: "error" }),
+            expect.objectContaining({ action: "auto_fix_verified", result: "success" }),
+          ]),
+        }),
+      }),
+    );
   });
 
   it("verifies a resolved alert with pending-verification label", async () => {
