@@ -251,7 +251,7 @@ function checkUnmatchedTags(
 
   return {
     type: "UNMATCHED_TAGS",
-    severity: "INFO",
+    severity: "WARNING",
     title: `${novelTags.length} new unmatched kennel tag${novelTags.length !== 1 ? "s" : ""}`,
     details: `New tags: ${novelTags.join(", ")}. These need alias mapping in the kennel resolver.`,
     context: { tags: novelTags },
@@ -454,6 +454,44 @@ function avgFillRate(
   const rates = logs.map((l) => l[field]).filter((v): v is number => v != null);
   if (rates.length === 0) return 0;
   return Math.round(rates.reduce((sum, v) => sum + v, 0) / rates.length);
+}
+
+/**
+ * Auto-resolve OPEN/ACKNOWLEDGED alerts whose condition has cleared.
+ * An alert type is "cleared" if it was NOT re-raised on this scrape (i.e., not in candidateTypes).
+ * Skips when scrapeFailed is true (trend checks were skipped — can't confirm conditions cleared).
+ * Returns the count of resolved alerts.
+ */
+export async function autoResolveCleared(
+  sourceId: string,
+  candidateTypes: Set<string>,
+  scrapeFailed: boolean,
+): Promise<number> {
+  if (scrapeFailed) return 0;
+
+  const openAlerts = await prisma.alert.findMany({
+    where: {
+      sourceId,
+      status: { in: ["OPEN", "ACKNOWLEDGED"] },
+    },
+  });
+
+  let resolved = 0;
+  for (const alert of openAlerts) {
+    if (candidateTypes.has(alert.type)) continue;
+
+    await prisma.alert.update({
+      where: { id: alert.id },
+      data: {
+        status: "RESOLVED",
+        resolvedAt: new Date(),
+        details: (alert.details ?? "") + " [Auto-resolved: condition cleared on subsequent scrape]",
+      },
+    });
+    resolved++;
+  }
+
+  return resolved;
 }
 
 /** Auto-resolve open STRUCTURE_CHANGE alerts when structure hash stabilizes. */

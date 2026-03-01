@@ -3,11 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/db", () => ({
   prisma: {
     scrapeLog: { findMany: vi.fn() },
+    alert: { findMany: vi.fn(), update: vi.fn() },
   },
 }));
 
 import { prisma } from "@/lib/db";
-import { analyzeHealth } from "./health";
+import { analyzeHealth, autoResolveCleared } from "./health";
 
 const mockScrapeLogFind = vi.mocked(prisma.scrapeLog.findMany);
 
@@ -73,6 +74,8 @@ describe("analyzeHealth", () => {
     }));
     const alert = result.alerts.find(a => a.type === "UNMATCHED_TAGS");
     expect(alert).toBeDefined();
+    expect(alert!.severity).toBe("WARNING");
+    expect(result.healthStatus).toBe("DEGRADED");
     expect((alert!.context!.tags as string[])).toContain("NewKennel");
   });
 
@@ -145,5 +148,86 @@ describe("SOURCE_KENNEL_MISMATCH alerts", () => {
     const alert = result.alerts.find(a => a.type === "SOURCE_KENNEL_MISMATCH");
     expect(alert!.title).toContain("1 kennel tag blocked");
     expect(alert!.title).not.toContain("tags");
+  });
+});
+
+const mockAlertFindMany = vi.mocked(prisma.alert.findMany);
+const mockAlertUpdate = vi.mocked(prisma.alert.update);
+
+describe("autoResolveCleared", () => {
+  beforeEach(() => {
+    mockAlertFindMany.mockReset();
+    mockAlertUpdate.mockReset();
+  });
+
+  it("resolves OPEN alerts whose type is not in candidate set", async () => {
+    mockAlertFindMany.mockResolvedValueOnce([
+      { id: "alert_1", type: "EVENT_COUNT_ANOMALY", details: "Old details" },
+    ] as never);
+    mockAlertUpdate.mockResolvedValue({} as never);
+
+    const count = await autoResolveCleared("src_1", new Set(["SCRAPE_FAILURE"]), false);
+
+    expect(count).toBe(1);
+    expect(mockAlertUpdate).toHaveBeenCalledWith({
+      where: { id: "alert_1" },
+      data: expect.objectContaining({
+        status: "RESOLVED",
+        resolvedAt: expect.any(Date),
+      }),
+    });
+  });
+
+  it("does not resolve alerts whose type IS in candidate set", async () => {
+    mockAlertFindMany.mockResolvedValueOnce([
+      { id: "alert_1", type: "SCRAPE_FAILURE", details: "Still failing" },
+    ] as never);
+
+    const count = await autoResolveCleared("src_1", new Set(["SCRAPE_FAILURE"]), false);
+
+    expect(count).toBe(0);
+    expect(mockAlertUpdate).not.toHaveBeenCalled();
+  });
+
+  it("skips entirely when scrapeFailed is true", async () => {
+    const count = await autoResolveCleared("src_1", new Set(), true);
+
+    expect(count).toBe(0);
+    expect(mockAlertFindMany).not.toHaveBeenCalled();
+  });
+
+  it("resolves multiple alerts of different types (partial)", async () => {
+    mockAlertFindMany.mockResolvedValueOnce([
+      { id: "alert_1", type: "EVENT_COUNT_ANOMALY", details: "Drop" },
+      { id: "alert_2", type: "FIELD_FILL_DROP", details: "Fill drop" },
+      { id: "alert_3", type: "UNMATCHED_TAGS", details: "Tags" },
+    ] as never);
+    mockAlertUpdate.mockResolvedValue({} as never);
+
+    const count = await autoResolveCleared("src_1", new Set(["UNMATCHED_TAGS"]), false);
+
+    expect(count).toBe(2);
+    expect(mockAlertUpdate).toHaveBeenCalledTimes(2);
+    const updatedIds = mockAlertUpdate.mock.calls.map(c => c[0].where.id);
+    expect(updatedIds).toContain("alert_1");
+    expect(updatedIds).toContain("alert_2");
+    expect(updatedIds).not.toContain("alert_3");
+  });
+
+  it("handles null details gracefully", async () => {
+    mockAlertFindMany.mockResolvedValueOnce([
+      { id: "alert_1", type: "EVENT_COUNT_ANOMALY", details: null },
+    ] as never);
+    mockAlertUpdate.mockResolvedValue({} as never);
+
+    const count = await autoResolveCleared("src_1", new Set(), false);
+
+    expect(count).toBe(1);
+    expect(mockAlertUpdate).toHaveBeenCalledWith({
+      where: { id: "alert_1" },
+      data: expect.objectContaining({
+        details: expect.stringContaining("[Auto-resolved:"),
+      }),
+    });
   });
 });
