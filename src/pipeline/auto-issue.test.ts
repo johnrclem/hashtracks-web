@@ -74,6 +74,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   savedToken = process.env.GITHUB_TOKEN;
   savedRepository = process.env.GITHUB_REPOSITORY;
+  // Default repo for tests — getGithubRepo() returns null when unset
+  process.env.GITHUB_REPOSITORY = "johnrclem/hashtracks-web";
 });
 
 afterEach(() => {

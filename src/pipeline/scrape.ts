@@ -224,7 +224,7 @@ async function runHealthAndAlerts(
       where: {
         sourceId,
         status: "OPEN",
-        OR: [{ repairLog: { equals: Prisma.DbNull } }, { repairLog: { equals: [] } }],
+        repairLog: { equals: Prisma.DbNull },
       },
       select: { id: true },
     });

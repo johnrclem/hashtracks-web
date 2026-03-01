@@ -290,7 +290,7 @@ The agent assigns a confidence score during triage. Score determines the action 
 
 1. **`src/pipeline/scrape.ts`** — Add auto-issue filing after alert persistence
    - After `persistAlerts()` call, invoke new `autoFileIssuesForAlerts()` function
-   - File for alerts matching both AUTO_FILE_ALERT_TYPES (SCRAPE_FAILURE, CONSECUTIVE_FAILURES, STRUCTURE_CHANGE, FIELD_FILL_DROP) and AUTO_FILE_SEVERITIES (CRITICAL, WARNING)
+   - File for alerts matching both AUTO_FILE_ALERT_TYPES (SCRAPE_FAILURE, CONSECUTIVE_FAILURES, STRUCTURE_CHANGE, FIELD_FILL_DROP, UNMATCHED_TAGS) and AUTO_FILE_SEVERITIES (CRITICAL, WARNING)
    - Reuse existing `createIssueFromAlert()` logic from `src/app/admin/alerts/actions.ts`
    - Add "claude-fix" label to auto-filed issues
    - Add structured `<!-- AGENT_CONTEXT -->` block with machine-readable JSON (alert type, source ID, error details, relevant files)

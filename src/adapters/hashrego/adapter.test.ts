@@ -411,29 +411,29 @@ describe("splitToRawEvents", () => {
 
 // ── HashRegoAdapter.fetch ──
 
+function buildSource(configOverrides?: { kennelSlugs?: string[] }) {
+  return {
+    id: "src1",
+    name: "Hash Rego",
+    url: "https://hashrego.com/events",
+    type: "HASHREGO" as const,
+    config: { kennelSlugs: configOverrides?.kennelSlugs ?? [] },
+    trustLevel: 8,
+    scrapeFreq: "daily",
+    lastScrapeAt: null,
+    lastSuccessAt: null,
+    healthStatus: "UNKNOWN" as const,
+    scrapeDays: 90,
+    enabled: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
 describe("HashRegoAdapter", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
-
-  function buildSource(configOverrides?: { kennelSlugs?: string[] }) {
-    return {
-      id: "src1",
-      name: "Hash Rego",
-      url: "https://hashrego.com/events",
-      type: "HASHREGO" as const,
-      config: { kennelSlugs: configOverrides?.kennelSlugs ?? [] },
-      trustLevel: 8,
-      scrapeFreq: "daily",
-      lastScrapeAt: null,
-      lastSuccessAt: null,
-      healthStatus: "UNKNOWN" as const,
-      scrapeDays: 90,
-      enabled: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-  }
 
   it("returns empty events when no kennelSlugs configured", async () => {
     const adapter = new HashRegoAdapter();

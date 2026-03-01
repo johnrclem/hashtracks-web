@@ -11,9 +11,9 @@
 import { prisma } from "@/lib/db";
 import type { AlertType, Prisma } from "@/generated/prisma/client";
 
-/** GitHub repo slug — reads GITHUB_REPOSITORY env var (set by GitHub Actions) with fallback. */
-function getGithubRepo(): string {
-  return process.env.GITHUB_REPOSITORY ?? "johnrclem/hashtracks-web";
+/** GitHub repo slug — reads GITHUB_REPOSITORY env var (set by GitHub Actions). Returns null when unset. */
+function getGithubRepo(): string | null {
+  return process.env.GITHUB_REPOSITORY ?? null;
 }
 
 /** GitHub API timeout for issue creation and search (10 seconds). */
@@ -320,10 +320,13 @@ async function hasExistingOpenIssue(sourceId: string, alertType: string): Promis
   const token = process.env.GITHUB_TOKEN;
   if (!token) return false;
 
+  const repo = getGithubRepo();
+  if (!repo) return false;
+
   const typeLabel = `alert:${alertType.toLowerCase().replaceAll("_", "-")}`;
 
   try {
-    const repo = getGithubRepo();
+    // SSRF-safe: URL is always api.github.com with repo from GITHUB_REPOSITORY env (set by GitHub Actions)
     const res = await fetch(
       `https://api.github.com/repos/${repo}/issues?state=open&labels=${encodeURIComponent(typeLabel)},alert&per_page=100`,
       {
@@ -355,10 +358,13 @@ async function fileGitHubIssue(
   const token = process.env.GITHUB_TOKEN;
   if (!token) return null;
 
+  const repo = getGithubRepo();
+  if (!repo) return null;
+
   const { title, body, labels } = buildIssueBody(alert);
 
   try {
-    const repo = getGithubRepo();
+    // SSRF-safe: URL is always api.github.com with repo from GITHUB_REPOSITORY env (set by GitHub Actions)
     const res = await fetch(
       `https://api.github.com/repos/${repo}/issues`,
       {
