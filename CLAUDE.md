@@ -123,6 +123,7 @@ calendar + personal logbook + kennel directory.
 - `src/pipeline/fill-rates.ts` — Per-field fill rate computation for RawEvents
 - `src/pipeline/structure-hash.ts` — HTML structural fingerprinting (SHA-256)
 - `src/pipeline/auto-issue.ts` — Auto-file GitHub issues from alerts (adapter resolution, rate limiting, cooldown, dedup, AGENT_CONTEXT)
+- `src/pipeline/verify-fixes.ts` — Post-merge fix verification (removes pending-verification label, posts confirmation comment)
 - `src/app/admin/alerts/actions.ts` — Alert repair actions (re-scrape, create alias/kennel, link kennel to source, file GitHub issue)
 - `src/app/admin/regions/actions.ts` — Region CRUD, merge, AI suggestions (rule-based + Gemini), hierarchy validation
 - `src/app/admin/regions/page.tsx` — Admin region management page (RegionTable + RegionSuggestionsPanel)
@@ -185,7 +186,8 @@ calendar + personal logbook + kennel directory.
 - `.github/workflows/ci.yml` — CI gate: type check, lint, tests on all PRs + push to main
 - `.github/workflows/claude.yml` — Claude Code interactive (issue/PR @claude mentions, label_trigger: claude-fix)
 - `.github/workflows/claude-issue-triage.yml` — AI triage: reads alert issue, posts confidence-scored diagnosis, labels claude-autofix or needs-human
-- `.github/workflows/claude-autofix.yml` — AI fix: implements code changes, runs tests, creates PR (safe zone: adapters, seed.ts, test files only)
+- `.github/workflows/claude-autofix.yml` — AI fix: implements code changes, runs tests, creates PR (safe zone: adapters, seed.ts, test files only; rate-limited to 5 PRs/day)
+- `.github/workflows/claude-post-merge.yml` — Post-merge: adds pending-verification label + tracking comment on linked issue
 
 ## Documentation
 - `docs/source-onboarding-playbook.md` — Step-by-step guide for adding new data sources
@@ -255,7 +257,7 @@ See `docs/roadmap.md` for implementation roadmap.
 - **Convention:** Test files live next to source files as `*.test.ts`
 - **Coverage areas:**
   - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, Blogger API v3 utility, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Philly (BFM, HashPhilly), Hash Rego (index parsing, detail parsing, multi-day splitting), Meetup.com API, WordPress REST API, shared adapter utilities
-  - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation, event reconciliation, auto-issue filing (adapter resolution, rate limiting, cooldown, dedup, AGENT_CONTEXT sanitization)
+  - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation, event reconciliation, auto-issue filing (adapter resolution, rate limiting, cooldown, dedup, AGENT_CONTEXT sanitization), post-merge fix verification
   - AI: Gemini API wrapper (caching, rate-limit handling), parse recovery fallback
   - Server actions: logbook CRUD, profile, kennel subscriptions, admin CRUD, misman attendance/roster/history
   - Admin: config validation (with ReDoS detection), source type detection

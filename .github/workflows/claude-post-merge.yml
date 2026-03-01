@@ -1,0 +1,59 @@
+name: Auto-Fix Post-Merge Verification
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  track-merge:
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'auto-fix')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Extract linked issue and track merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          # Extract issue number from "closes #N" or "fixes #N" patterns in PR body
+          ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oiE '(closes|fixes|resolves)\s+#([0-9]+)' | head -1 | grep -oE '[0-9]+')
+
+          if [ -z "$ISSUE_NUMBER" ]; then
+            echo "No linked issue found in PR body. Skipping verification tracking."
+            exit 0
+          fi
+
+          echo "Found linked issue: #$ISSUE_NUMBER"
+
+          # Add pending-verification label (create if needed)
+          gh label create "pending-verification" \
+            --repo "${{ github.repository }}" \
+            --description "Auto-fix merged, awaiting next scrape to verify" \
+            --color "FBCA04" 2>/dev/null || true
+
+          gh issue edit "$ISSUE_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --add-label "pending-verification"
+
+          # Post tracking comment
+          gh issue comment "$ISSUE_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --body "$(cat <<BODY
+          ### Auto-Fix Merged
+
+          PR $PR_URL has been merged. The fix will be verified automatically at the next daily scrape (6:00 AM UTC).
+
+          **What happens next:**
+          - If the alert does **not** recur → this issue stays closed ✓
+          - If the alert **recurs** → a new issue will be filed with a link back to this one
+
+          Label \`pending-verification\` will be removed after the next successful scrape of the affected source.
+          BODY
+          )"
+
+          echo "Posted verification tracking comment on issue #$ISSUE_NUMBER"

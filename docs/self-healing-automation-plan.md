@@ -242,7 +242,7 @@ The agent assigns a confidence score during triage. Score determines the action 
 
 ## Task 4: Implementation Roadmap
 
-### Phase 1: Foundation — CI Test Gate (Week 1)
+### Phase 1: Foundation — CI Test Gate (Week 1) ✅ COMPLETE
 
 **Goal:** Ensure all PRs (human and AI) must pass tests before merge.
 
@@ -282,7 +282,7 @@ The agent assigns a confidence score during triage. Score determines the action 
 
 ---
 
-### Phase 2: Auto-Issue Creation + Triage (Weeks 2–3)
+### Phase 2: Auto-Issue Creation + Triage (Weeks 2–3) ✅ COMPLETE
 
 **Goal:** Alerts automatically create GitHub issues; Claude triages them with a diagnosis comment.
 
@@ -379,7 +379,7 @@ The agent assigns a confidence score during triage. Score determines the action 
 
 ---
 
-### Phase 3: Autonomous Fix + PR (Weeks 4–6)
+### Phase 3: Autonomous Fix + PR (Weeks 4–6) ✅ COMPLETE
 
 **Goal:** For high-confidence issues, Claude implements the fix and creates a PR.
 
@@ -453,30 +453,32 @@ The agent assigns a confidence score during triage. Score determines the action 
 
 ---
 
-### Phase 4: Production Hardening (Weeks 7–10)
+### Phase 4: Production Hardening (Weeks 7–10) — IN PROGRESS
 
 **Goal:** Rate limiting, monitoring, feedback loop, and safety guardrails.
 
 **Changes:**
 
-1. **Rate Limiting** — Add to auto-issue workflow:
-   - Max 3 auto-filed issues per day per source
-   - Max 5 total auto-fix PRs per day (prevent runaway costs)
-   - Cooldown: Don't re-file for same alert type + source within 48 hours
+1. **Rate Limiting** ✅
+   - Max 3 auto-filed issues per day per source (`auto-issue.ts: isRateLimited()`)
+   - Max 5 total auto-fix PRs per day (`claude-autofix.yml: rate-check step`)
+   - Cooldown: Don't re-file for same alert type + source within 48 hours (`auto-issue.ts: isOnCooldown()`)
 
-2. **Feedback Loop** — Track fix success:
-   - After PR merged: re-scrape the affected source, verify alert resolves
-   - Record outcome in alert `repairLog`: `{ action: "auto_fix", prUrl, merged, alertResolved }`
-   - Dashboard: success rate per alert type, per source
+2. **Feedback Loop** ✅
+   - After PR merged: `claude-post-merge.yml` adds `pending-verification` label and tracking comment
+   - On next scrape: `verify-fixes.ts` checks resolved alerts → removes label, posts confirmation
+   - Verification recorded in alert `repairLog`: `{ action: "auto_fix_verified", ... }`
+   - Dashboard: success rate per alert type — **deferred** (future admin UI work)
 
-3. **Structured Logging** — Add to scrape pipeline:
+3. **Structured Logging** — **deferred** (future work):
    - Replace `console.error` with structured JSON logs (source ID, alert type, error category)
    - Consider Vercel Log Drain → external service for long-term analysis
 
-4. **Safety Guardrails:**
-   - Allowlist of files the agent can modify (adapters, seed.ts, test files)
-   - Blocklist: middleware.ts, auth.ts, db.ts, API routes, pipeline core
-   - PR size limit: auto-fix PRs > 500 lines changed → auto-label "needs-human"
+4. **Safety Guardrails** ✅
+   - Allowlist of files the agent can modify (`claude-autofix.yml` prompt constraints)
+   - Blocklist: middleware.ts, auth.ts, db.ts, API routes, pipeline core (`claude-autofix.yml` prompt)
+   - PR size limit: auto-fix PRs > 500 lines changed → auto-label "needs-human" (`ci.yml: autofix-size-guard`)
+   - Code review enhanced for auto-fix PRs: checklist comment + SHA-pinned actions (`claude-code-review.yml`)
    - Require 1 human approval even for auto-fix PRs (never auto-merge)
 
 5. **External Monitoring Integration (Future):**
@@ -491,14 +493,20 @@ The agent assigns a confidence score during triage. Score determines the action 
 | File | Role in Self-Healing |
 |------|---------------------|
 | `src/pipeline/health.ts` | Alert generation — triggers the loop |
-| `src/pipeline/scrape.ts` | Scrape orchestration — where auto-issue filing hooks in |
-| `src/app/admin/alerts/actions.ts` | Existing `createIssueFromAlert()` — reuse for auto-filing |
+| `src/pipeline/scrape.ts` | Scrape orchestration — where auto-issue filing + verification hooks in |
+| `src/pipeline/auto-issue.ts` | Auto-file GitHub issues from alerts (rate limiting, cooldown, dedup) |
+| `src/pipeline/verify-fixes.ts` | Post-merge fix verification (removes pending-verification label on success) |
+| `src/app/admin/alerts/actions.ts` | Admin alert repair actions (manual issue filing, re-scrape) |
 | `src/adapters/types.ts` | `ErrorDetails`, `ParseError` — structured error context |
 | `src/adapters/registry.ts` | Adapter factory — agent's primary fix target |
 | `src/adapters/html-scraper/*.ts` | Individual scrapers — most common fix targets |
 | `prisma/seed.ts` | Kennel aliases — data-only fixes |
-| `.github/workflows/claude.yml` | Existing interactive workflow — upgrade permissions |
-| `.github/workflows/claude-code-review.yml` | Existing PR review — validates agent PRs |
+| `.github/workflows/ci.yml` | CI gate + auto-fix PR size guard |
+| `.github/workflows/claude.yml` | Interactive Claude workflow (issue/PR triggers) |
+| `.github/workflows/claude-issue-triage.yml` | AI triage: confidence scoring + label assignment |
+| `.github/workflows/claude-autofix.yml` | AI fix: code changes + PR creation (rate limited) |
+| `.github/workflows/claude-post-merge.yml` | Post-merge: pending-verification label + tracking comment |
+| `.github/workflows/claude-code-review.yml` | PR review + extra scrutiny for auto-fix PRs |
 | `CLAUDE.md` | Project context — agent reads this for codebase understanding |
 
 ## Verification Plan

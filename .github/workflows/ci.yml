@@ -33,3 +33,33 @@ jobs:
 
       - name: Tests
         run: npm test
+
+  # Safety check: auto-fix PRs exceeding 500 changed lines get flagged for human review
+  autofix-size-guard:
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'auto-fix')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Check PR size
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ADDITIONS=$(gh pr view "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --json additions --jq '.additions')
+          DELETIONS=$(gh pr view "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --json deletions --jq '.deletions')
+          TOTAL=$((ADDITIONS + DELETIONS))
+          echo "PR changes: +$ADDITIONS -$DELETIONS = $TOTAL total lines"
+
+          if [ "$TOTAL" -gt 500 ]; then
+            echo "::warning::Auto-fix PR exceeds 500-line limit ($TOTAL lines). Flagging for human review."
+            gh pr edit "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" \
+              --add-label "needs-human"
+            gh pr comment "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" \
+              --body "This auto-fix PR changes $TOTAL lines (limit: 500). Added **needs-human** label for manual review before merge."
+          else
+            echo "PR size ($TOTAL lines) is within the 500-line auto-fix limit."
+          fi
