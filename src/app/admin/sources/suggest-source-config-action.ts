@@ -384,7 +384,6 @@ function isSafeRegexString(p: unknown): boolean {
   let regex: RegExp;
   try {
     // Intentional: constructing from non-literal to validate user-supplied patterns.
-    // eslint-disable-next-line security/detect-non-literal-regexp
     regex = new RegExp(p);
   } catch {
     return false;

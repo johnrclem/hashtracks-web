@@ -10,7 +10,7 @@ The Strava of Hashing — a community platform where hashers discover upcoming r
 - **Database:** PostgreSQL (Railway) via Prisma 7
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS v4 + shadcn/ui
-- **Testing:** Vitest (71 test files)
+- **Testing:** Vitest (84 test files)
 - **Deployment:** Vercel (auto-deploy from `main`, daily cron scrapes)
 
 ## Local Development
@@ -42,7 +42,7 @@ Open [http://localhost:3000](http://localhost:3000).
 |---------|-------------|
 | `npm run dev` | Start dev server |
 | `npm run build` | Production build |
-| `npm test` | Run test suite (71 test files) |
+| `npm test` | Run test suite (84 test files) |
 | `npx prisma studio` | Visual database browser |
 | `npx prisma db push` | Push schema changes to DB |
 | `npx prisma db seed` | Seed kennels, aliases, and sources |
@@ -94,6 +94,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - 6 alert types: event count anomaly, field fill drop, structure change, scrape failure, consecutive failures, unmatched tags
 - AI-assisted alert classification and repair suggestions
 - Self-healing alert actions: one-click re-scrape, unmatched tag resolver with fuzzy matching, GitHub issue creation
+- Self-healing automation loop: critical alerts auto-create GitHub issues → Claude AI triages with confidence scoring → high-confidence issues trigger auto-fix PRs → CI validates → human reviews
 - Structured error display: per-adapter fetch/parse/merge error breakdown with row-level context
 - Performance timing: fetch vs merge duration split per scrape
 - Per-adapter diagnostic context (row counts, calendar IDs, sheet tabs)
@@ -107,6 +108,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - Alert dashboard with acknowledge/snooze/resolve workflow and repair history
 - Misman request queue with approve/reject and invite link generation
 - Roster group management: create, rename, dissolve, approve requests
+- CI enforcement: type checking, linting, and tests required on all PRs via GitHub Actions
 
 ### User Feedback
 - In-app "Send Feedback" dialog (bug report, feature request, question, other)
@@ -136,6 +138,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - [`docs/misman-attendance-requirements.md`](docs/misman-attendance-requirements.md) — Misman tool requirements
 - [`docs/config-driven-onboarding-plan.md`](docs/config-driven-onboarding-plan.md) — Source onboarding wizard design
 - [`docs/test-coverage-analysis.md`](docs/test-coverage-analysis.md) — Test coverage gap analysis
+- [`docs/self-healing-automation-plan.md`](docs/self-healing-automation-plan.md) — Self-healing automation architecture
 - [`CLAUDE.md`](CLAUDE.md) — AI assistant context (architecture, conventions, file map)
 
 ## Project Status
@@ -172,3 +175,4 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Config validation:** Server-side validation with ReDoS protection for all source types
 - **Map-based discovery (PR #95):** Interactive Map tab on Hareline with Google Maps JS, region-colored pins (precise = filled, centroid = hollow), EventLocationMap static image on event detail pages, coordinate extraction from Maps URLs in merge pipeline
 - **Weather forecast + units toggle (PR #97):** Google Weather API forecast on upcoming event pages (0–10 days), °F/°C header toggle persisted in localStorage, EventLocationMap text-address fallback (works without lat/lng)
+- **Self-healing automation:** CI gate (type check + lint + tests on all PRs), auto-issue filing from alerts, Claude AI triage + auto-fix workflows with confidence scoring and safe-zone constraints

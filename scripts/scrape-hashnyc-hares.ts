@@ -24,6 +24,7 @@ import {
   decodeHtmlEntities,
 } from "../src/adapters/html-scraper/hashnyc";
 import type { RawEventData } from "../src/adapters/types";
+import type { Source } from "../src/generated/prisma/client";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { resolve } from "path";
 
@@ -167,7 +168,7 @@ async function fetchLive(): Promise<{ events: RawEventData[]; errors: string[] }
   const adapter = new HashNYCAdapter();
 
   // Minimal Source mock — adapter only uses source.url
-  const mockSource = { url: BASE_URL } as any;
+  const mockSource = { url: BASE_URL } as unknown as Source;
   return adapter.fetch(mockSource, { days: LOOKBACK_DAYS });
 }
 

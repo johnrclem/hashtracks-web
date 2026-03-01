@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import type { ErrorDetails, AiRecoverySummary, ScrapeResult, MergeResult } from "@/adapters/types";
 import { hasAnyErrors } from "@/adapters/types";
 import { getAdapter } from "@/adapters/registry";
@@ -8,6 +8,7 @@ import { reconcileStaleEvents } from "./reconcile";
 import { computeFillRates } from "./fill-rates";
 import type { FieldFillRates } from "./fill-rates";
 import { analyzeHealth, persistAlerts } from "./health";
+import { autoFileIssuesForAlerts } from "./auto-issue";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
 import { validateSourceUrl } from "@/adapters/utils";
 
@@ -181,7 +182,7 @@ async function updateScrapeLogWithResults(params: ScrapeLogUpdateParams): Promis
   });
 }
 
-/** Run health analysis, update source health, and persist any alerts. */
+/** Run health analysis, update source health, persist alerts, and auto-file GitHub issues. */
 async function runHealthAndAlerts(
   sourceId: string,
   scrapeLogId: string,
@@ -199,8 +200,42 @@ async function runHealthAndAlerts(
     },
   });
 
+  const newAlertIds = new Set<string>();
+
   if (health.alerts.length > 0) {
-    await persistAlerts(sourceId, scrapeLogId, health.alerts);
+    const alertIds = await persistAlerts(sourceId, scrapeLogId, health.alerts);
+
+    for (const id of alertIds) newAlertIds.add(id);
+
+    // Auto-file GitHub issues for newly created alerts (self-healing pipeline)
+    if (alertIds.length > 0) {
+      try {
+        await autoFileIssuesForAlerts(sourceId, alertIds);
+      } catch (err) {
+        // Non-fatal: don't break the scrape pipeline if issue filing fails
+        console.error("[auto-issue] Failed to auto-file issues:", err);
+      }
+    }
+  }
+
+  // Retry filing for existing OPEN alerts that were never filed (e.g., previous GITHUB_TOKEN missing)
+  try {
+    const unfiledAlerts = await prisma.alert.findMany({
+      where: {
+        sourceId,
+        status: "OPEN",
+        repairLog: { equals: Prisma.DbNull },
+      },
+      select: { id: true },
+    });
+    const unfiledIds = unfiledAlerts
+      .map((a) => a.id)
+      .filter((id) => !newAlertIds.has(id));
+    if (unfiledIds.length > 0) {
+      await autoFileIssuesForAlerts(sourceId, unfiledIds);
+    }
+  } catch (err) {
+    console.error("[auto-issue] Failed to retry unfiled alerts:", err);
   }
 }
 

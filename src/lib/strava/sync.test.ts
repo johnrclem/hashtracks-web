@@ -31,7 +31,11 @@ import {
 } from "./client";
 import { syncStravaActivities } from "./sync";
 
-const mockedPrisma = vi.mocked(prisma);
+const mockConnectionFindUnique = vi.mocked(prisma.stravaConnection.findUnique);
+const mockConnectionUpdate = vi.mocked(prisma.stravaConnection.update);
+const mockActivityFindMany = vi.mocked(prisma.stravaActivity.findMany);
+const mockActivityCreateMany = vi.mocked(prisma.stravaActivity.createMany);
+const mockTransaction = vi.mocked(prisma.$transaction);
 const mockedGetToken = vi.mocked(getValidAccessToken);
 const mockedFetchActivities = vi.mocked(fetchStravaActivities);
 const mockedParseActivity = vi.mocked(parseStravaActivity);
@@ -57,7 +61,7 @@ function makeParsed(id: string, name: string) {
 
 describe("syncStravaActivities", () => {
   it("returns error when no connection exists", async () => {
-    mockedPrisma.stravaConnection.findUnique.mockResolvedValue(null as never);
+    mockConnectionFindUnique.mockResolvedValue(null as never);
 
     const result = await syncStravaActivities("user_1");
 
@@ -73,7 +77,7 @@ describe("syncStravaActivities", () => {
     const connection = buildStravaConnection({
       lastSyncAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
     });
-    mockedPrisma.stravaConnection.findUnique.mockResolvedValue(connection as never);
+    mockConnectionFindUnique.mockResolvedValue(connection as never);
 
     const result = await syncStravaActivities("user_1");
 
@@ -85,10 +89,10 @@ describe("syncStravaActivities", () => {
     const connection = buildStravaConnection({
       lastSyncAt: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
     });
-    mockedPrisma.stravaConnection.findUnique.mockResolvedValue(connection as never);
+    mockConnectionFindUnique.mockResolvedValue(connection as never);
     mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
     mockedFetchActivities.mockResolvedValue([]);
-    mockedPrisma.stravaActivity.findMany.mockResolvedValue([] as never);
+    mockActivityFindMany.mockResolvedValue([] as never);
 
     const result = await syncStravaActivities("user_1", {
       forceRefresh: true,
@@ -100,34 +104,34 @@ describe("syncStravaActivities", () => {
 
   it("batch creates new activities via createMany", async () => {
     const connection = buildStravaConnection({ lastSyncAt: null });
-    mockedPrisma.stravaConnection.findUnique.mockResolvedValue(connection as never);
+    mockConnectionFindUnique.mockResolvedValue(connection as never);
     mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
 
     mockedFetchActivities.mockResolvedValue([{ id: 111, name: "Run" }] as never);
     mockedParseActivity.mockReturnValue(makeParsed("111", "Run"));
 
     // No existing activities
-    mockedPrisma.stravaActivity.findMany.mockResolvedValue([] as never);
+    mockActivityFindMany.mockResolvedValue([] as never);
 
     const result = await syncStravaActivities("user_1");
 
     expect(result.created).toBe(1);
     expect(result.updated).toBe(0);
     expect(result.total).toBe(1);
-    expect(mockedPrisma.stravaActivity.createMany).toHaveBeenCalledOnce();
-    expect(mockedPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockActivityCreateMany).toHaveBeenCalledOnce();
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 
   it("batch updates existing activities via $transaction", async () => {
     const connection = buildStravaConnection({ lastSyncAt: null });
-    mockedPrisma.stravaConnection.findUnique.mockResolvedValue(connection as never);
+    mockConnectionFindUnique.mockResolvedValue(connection as never);
     mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
 
     mockedFetchActivities.mockResolvedValue([{ id: 222, name: "Updated" }] as never);
     mockedParseActivity.mockReturnValue(makeParsed("222", "Updated"));
 
     // Activity already exists
-    mockedPrisma.stravaActivity.findMany.mockResolvedValue([
+    mockActivityFindMany.mockResolvedValue([
       { stravaActivityId: "222" },
     ] as never);
 
@@ -136,20 +140,20 @@ describe("syncStravaActivities", () => {
     expect(result.created).toBe(0);
     expect(result.updated).toBe(1);
     expect(result.total).toBe(1);
-    expect(mockedPrisma.$transaction).toHaveBeenCalledOnce();
-    expect(mockedPrisma.stravaActivity.createMany).not.toHaveBeenCalled();
+    expect(mockTransaction).toHaveBeenCalledOnce();
+    expect(mockActivityCreateMany).not.toHaveBeenCalled();
   });
 
   it("updates lastSyncAt after successful sync", async () => {
     const connection = buildStravaConnection({ lastSyncAt: null });
-    mockedPrisma.stravaConnection.findUnique.mockResolvedValue(connection as never);
+    mockConnectionFindUnique.mockResolvedValue(connection as never);
     mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
     mockedFetchActivities.mockResolvedValue([]);
-    mockedPrisma.stravaActivity.findMany.mockResolvedValue([] as never);
+    mockActivityFindMany.mockResolvedValue([] as never);
 
     await syncStravaActivities("user_1");
 
-    expect(mockedPrisma.stravaConnection.update).toHaveBeenCalledWith({
+    expect(mockConnectionUpdate).toHaveBeenCalledWith({
       where: { id: connection.id },
       data: { lastSyncAt: expect.any(Date) },
     });
@@ -157,7 +161,7 @@ describe("syncStravaActivities", () => {
 
   it("returns error when token refresh fails", async () => {
     const connection = buildStravaConnection({ lastSyncAt: null });
-    mockedPrisma.stravaConnection.findUnique.mockResolvedValue(connection as never);
+    mockConnectionFindUnique.mockResolvedValue(connection as never);
     mockedGetToken.mockRejectedValue(new Error("Token expired"));
 
     const result = await syncStravaActivities("user_1");
@@ -168,7 +172,7 @@ describe("syncStravaActivities", () => {
 
   it("returns error when activity fetch fails", async () => {
     const connection = buildStravaConnection({ lastSyncAt: null });
-    mockedPrisma.stravaConnection.findUnique.mockResolvedValue(connection as never);
+    mockConnectionFindUnique.mockResolvedValue(connection as never);
     mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
     mockedFetchActivities.mockRejectedValue(new Error("Rate limited"));
 
@@ -180,7 +184,7 @@ describe("syncStravaActivities", () => {
 
   it("handles mix of new and existing activities", async () => {
     const connection = buildStravaConnection({ lastSyncAt: null });
-    mockedPrisma.stravaConnection.findUnique.mockResolvedValue(connection as never);
+    mockConnectionFindUnique.mockResolvedValue(connection as never);
     mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
 
     mockedFetchActivities.mockResolvedValue([
@@ -193,7 +197,7 @@ describe("syncStravaActivities", () => {
       .mockReturnValueOnce(makeParsed("2", "Existing"));
 
     // Only activity "2" exists
-    mockedPrisma.stravaActivity.findMany.mockResolvedValue([
+    mockActivityFindMany.mockResolvedValue([
       { stravaActivityId: "2" },
     ] as never);
 
@@ -202,7 +206,7 @@ describe("syncStravaActivities", () => {
     expect(result.created).toBe(1);
     expect(result.updated).toBe(1);
     expect(result.total).toBe(2);
-    expect(mockedPrisma.stravaActivity.createMany).toHaveBeenCalledOnce();
-    expect(mockedPrisma.$transaction).toHaveBeenCalledOnce();
+    expect(mockActivityCreateMany).toHaveBeenCalledOnce();
+    expect(mockTransaction).toHaveBeenCalledOnce();
   });
 });
