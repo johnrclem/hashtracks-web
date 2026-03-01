@@ -30,6 +30,7 @@ interface RequestQueueProps {
   requests: KennelRequest[];
 }
 
+/** Table of kennel requests with approve/reject actions. */
 export function RequestQueue({ requests }: RequestQueueProps) {
   if (requests.length === 0) {
     return (
@@ -71,7 +72,7 @@ function RequestRow({ request }: { request: KennelRequest }) {
   function handleAction(action: typeof approveRequest) {
     startTransition(async () => {
       const result = await action(request.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(

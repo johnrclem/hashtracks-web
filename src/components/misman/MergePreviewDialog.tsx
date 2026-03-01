@@ -74,7 +74,7 @@ export function MergePreviewDialog({
     }
     setLoading(true);
     previewMerge(kennelId, primaryId, [secondaryId]).then((result) => {
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
         onClose();
         return;
@@ -101,7 +101,7 @@ export function MergePreviewDialog({
         phone: preview.primary.phone ?? secondary?.phone ?? undefined,
         notes: preview.primary.notes ?? secondary?.notes ?? undefined,
       });
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Merged ${result.mergedCount} duplicate(s)`);

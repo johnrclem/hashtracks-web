@@ -26,7 +26,7 @@ describe("appendAuditLog", () => {
     const existing: AuditLogEntry[] = [
       { action: "record", timestamp: "2026-02-14T12:00:00.000Z", userId: "user_1" },
     ];
-    const result = appendAuditLog(existing as never, entry);
+    const result = appendAuditLog(existing as never, entry) as unknown as AuditLogEntry[];
     expect(result).toHaveLength(2);
     expect(result[0]).toEqual(existing[0]);
     expect(result[1]).toEqual(entry);

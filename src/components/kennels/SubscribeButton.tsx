@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { subscribeToKennel, unsubscribeFromKennel } from "@/app/kennels/actions";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import Link from "next/link";
 
 interface SubscribeButtonProps {
   kennelId: string;
@@ -23,7 +24,7 @@ export function SubscribeButton({
   if (!isAuthenticated) {
     return (
       <Button variant="outline" size="sm" asChild>
-        <a href="/sign-in">Sign in to subscribe</a>
+        <Link href="/sign-in">Sign in to subscribe</Link>
       </Button>
     );
   }
@@ -32,7 +33,7 @@ export function SubscribeButton({
     startTransition(async () => {
       const action = isSubscribed ? unsubscribeFromKennel : subscribeToKennel;
       const result = await action(kennelId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(isSubscribed ? "Unsubscribed" : "Subscribed!");

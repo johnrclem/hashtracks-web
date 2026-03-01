@@ -46,7 +46,7 @@ export function SourceDetailActions({
 
     startTransition(async () => {
       const result = await deleteSource(source.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Source deleted");

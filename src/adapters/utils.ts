@@ -3,8 +3,12 @@
  */
 
 import * as cheerio from "cheerio";
+import * as chrono from "chrono-node";
 import he from "he";
 import { buildUrlVariantCandidates } from "@/adapters/url-variants";
+import { safeFetch } from "./safe-fetch";
+import { generateStructureHash } from "@/pipeline/structure-hash";
+import type { ErrorDetails, ScrapeResult } from "./types";
 
 /**
  * Decode all HTML entities (named, hex, decimal) in a string.
@@ -236,4 +240,89 @@ export function buildDateWindow(days = 90): { minDate: Date; maxDate: Date } {
 export function extractUkPostcode(text: string): string | null {
   const match = /[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}/i.exec(text);
   return match ? match[0].toUpperCase() : null;
+}
+
+export type DateLocale = "en-US" | "en-GB";
+
+/**
+ * Parse a natural-language date string into "YYYY-MM-DD" format using chrono-node.
+ *
+ * @param text - Date text (e.g., "18th March 2026", "March 14, 2026", "21/02/2026")
+ * @param locale - "en-US" for MM/DD interpretation, "en-GB" for DD/MM interpretation
+ * @param referenceDate - Optional reference date for year inference when year is omitted
+ * @param options - Optional parsing options (forwardDate: prefer next future occurrence)
+ * @returns "YYYY-MM-DD" string, or null if parsing fails
+ */
+export function chronoParseDate(
+  text: string,
+  locale: DateLocale = "en-US",
+  referenceDate?: Date,
+  options?: { forwardDate?: boolean },
+): string | null {
+  const parser = locale === "en-GB" ? chrono.en.GB : chrono.en;
+  const ref: chrono.ParsingReference | undefined = referenceDate
+    ? { instant: referenceDate }
+    : undefined;
+  const results = parser.parse(text, ref, {
+    forwardDate: options?.forwardDate ?? false,
+  });
+
+  if (results.length === 0) return null;
+
+  const parsed = results[0].start;
+  const year = parsed.get("year");
+  const month = parsed.get("month");
+  const day = parsed.get("day");
+
+  if (year == null || month == null || day == null) return null;
+
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+// ---------------------------------------------------------------------------
+// Shared HTML fetch helper — eliminates boilerplate across HTML scrapers
+// ---------------------------------------------------------------------------
+
+export type FetchHTMLSuccess = {
+  ok: true;
+  html: string;
+  $: cheerio.CheerioAPI;
+  structureHash: string;
+  fetchDurationMs: number;
+};
+
+type FetchHTMLError = { ok: false; result: ScrapeResult };
+
+export type FetchHTMLResult = FetchHTMLSuccess | FetchHTMLError;
+
+/**
+ * Fetch a URL, validate via safeFetch, compute structureHash, and load Cheerio.
+ * Returns a discriminated union: check `result.ok` before accessing fields.
+ */
+export async function fetchHTMLPage(url: string): Promise<FetchHTMLResult> {
+  const fetchStart = Date.now();
+  try {
+    const response = await safeFetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+    });
+    if (!response.ok) {
+      const message = `HTTP ${response.status}: ${response.statusText}`;
+      const errorDetails: ErrorDetails = {
+        fetch: [{ url, status: response.status, message }],
+      };
+      return { ok: false, result: { events: [], errors: [message], errorDetails } };
+    }
+    const html = await response.text();
+    return {
+      ok: true,
+      html,
+      $: cheerio.load(html),
+      structureHash: generateStructureHash(html),
+      fetchDurationMs: Date.now() - fetchStart,
+    };
+  } catch (err) {
+    const message = `Fetch failed: ${err}`;
+    const errorDetails: ErrorDetails = { fetch: [{ url, message }] };
+    return { ok: false, result: { events: [], errors: [message], errorDetails } };
+  }
 }

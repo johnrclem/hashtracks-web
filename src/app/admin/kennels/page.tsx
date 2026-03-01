@@ -5,19 +5,33 @@ import { KennelMergeDialog } from "@/components/admin/KennelMergeDialog";
 import { Button } from "@/components/ui/button";
 
 export default async function AdminKennelsPage() {
-  const kennels = await prisma.kennel.findMany({
-    orderBy: [{ region: "asc" }, { shortName: "asc" }],
-    include: {
-      aliases: { select: { alias: true } },
-      _count: { select: { members: true, aliases: true } },
-    },
-  });
+  const [kennels, regions] = await Promise.all([
+    prisma.kennel.findMany({
+      orderBy: [{ region: "asc" }, { shortName: "asc" }],
+      include: {
+        aliases: { select: { alias: true } },
+        _count: { select: { members: true, aliases: true } },
+      },
+    }),
+    prisma.region.findMany({
+      orderBy: [{ country: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, country: true, abbrev: true },
+    }),
+  ]);
+
+  const regionOptions = regions.map((r) => ({
+    id: r.id,
+    name: r.name,
+    country: r.country,
+    abbrev: r.abbrev,
+  }));
 
   const serialized = kennels.map((k) => ({
     id: k.id,
     shortName: k.shortName,
     fullName: k.fullName,
     region: k.region,
+    regionId: k.regionId,
     country: k.country,
     description: k.description,
     website: k.website,
@@ -41,6 +55,7 @@ export default async function AdminKennelsPage() {
     logoUrl: k.logoUrl,
     dogFriendly: k.dogFriendly,
     walkersWelcome: k.walkersWelcome,
+    isHidden: k.isHidden,
   }));
 
   // Simplified kennel list for merge dialog
@@ -54,7 +69,7 @@ export default async function AdminKennelsPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Kennels</h2>
         <div className="flex items-center gap-2">
           <KennelMergeDialog
@@ -62,12 +77,13 @@ export default async function AdminKennelsPage() {
             trigger={<Button size="sm" variant="outline">Merge Kennels</Button>}
           />
           <KennelForm
+            regions={regionOptions}
             trigger={<Button size="sm">Add Kennel</Button>}
           />
         </div>
       </div>
 
-      <KennelTable kennels={serialized} />
+      <KennelTable kennels={serialized} regions={regionOptions} />
     </div>
   );
 }

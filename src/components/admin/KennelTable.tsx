@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { deleteKennel } from "@/app/admin/kennels/actions";
+import { deleteKennel, toggleKennelVisibility } from "@/app/admin/kennels/actions";
+import { MoreHorizontal, Eye, EyeOff } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -31,7 +32,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { KennelForm } from "./KennelForm";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { KennelForm, type RegionOption } from "./KennelForm";
 import { toast } from "sonner";
 
 type Kennel = {
@@ -39,6 +46,7 @@ type Kennel = {
   shortName: string;
   fullName: string;
   region: string;
+  regionId: string | null;
   country: string;
   description: string | null;
   website: string | null;
@@ -62,17 +70,19 @@ type Kennel = {
   logoUrl: string | null;
   dogFriendly: boolean | null;
   walkersWelcome: boolean | null;
+  isHidden: boolean;
 };
 
 interface KennelTableProps {
   kennels: Kennel[];
+  regions: RegionOption[];
 }
 
-export function KennelTable({ kennels }: KennelTableProps) {
+export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
   const [search, setSearch] = useState("");
   const [regionFilter, setRegionFilter] = useState("all");
 
-  const regions = useMemo(() => {
+  const regionNames = useMemo(() => {
     const set = new Set(kennels.map((k) => k.region));
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [kennels]);
@@ -113,7 +123,7 @@ export function KennelTable({ kennels }: KennelTableProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All regions</SelectItem>
-            {regions.map((r) => (
+            {regionNames.map((r) => (
               <SelectItem key={r} value={r}>{r}</SelectItem>
             ))}
           </SelectContent>
@@ -145,7 +155,7 @@ export function KennelTable({ kennels }: KennelTableProps) {
               </TableRow>
             ) : (
               filtered.map((kennel) => (
-                <KennelRow key={kennel.id} kennel={kennel} />
+                <KennelRow key={kennel.id} kennel={kennel} regions={regions} />
               ))
             )}
           </TableBody>
@@ -155,7 +165,7 @@ export function KennelTable({ kennels }: KennelTableProps) {
   );
 }
 
-function KennelRow({ kennel }: { kennel: Kennel }) {
+function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[] }) {
   const [isPending, startTransition] = useTransition();
   const [showDelete, setShowDelete] = useState(false);
   const router = useRouter();
@@ -163,7 +173,7 @@ function KennelRow({ kennel }: { kennel: Kennel }) {
   function handleDelete() {
     startTransition(async () => {
       const result = await deleteKennel(kennel.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Kennel deleted");
@@ -173,9 +183,28 @@ function KennelRow({ kennel }: { kennel: Kennel }) {
     });
   }
 
+  function handleToggleVisibility() {
+    startTransition(async () => {
+      const result = await toggleKennelVisibility(kennel.id);
+      if ("error" in result) {
+        toast.error(result.error);
+      } else {
+        toast.success(result.isHidden ? "Kennel hidden" : "Kennel visible");
+      }
+      router.refresh();
+    });
+  }
+
   return (
-    <TableRow>
-      <TableCell className="font-medium sticky left-0 bg-background z-10">{kennel.shortName}</TableCell>
+    <TableRow className={kennel.isHidden ? "opacity-50" : undefined}>
+      <TableCell className="font-medium sticky left-0 bg-background z-10">
+        <span className="flex items-center gap-1.5">
+          {kennel.shortName}
+          {kennel.isHidden && (
+            <Badge variant="secondary" className="text-[10px] px-1 py-0">Hidden</Badge>
+          )}
+        </span>
+      </TableCell>
       <TableCell className="hidden sm:table-cell">{kennel.fullName}</TableCell>
       <TableCell>
         <Badge variant="outline">{kennel.region}</Badge>
@@ -185,18 +214,34 @@ function KennelRow({ kennel }: { kennel: Kennel }) {
         <div className="flex justify-end gap-2">
           <KennelForm
             kennel={kennel}
+            regions={regions}
             trigger={<Button size="sm" variant="outline">Edit</Button>}
           />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={isPending}>
+                <MoreHorizontal className="size-4" />
+                <span className="sr-only">More actions</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleToggleVisibility} disabled={isPending}>
+                {kennel.isHidden ? (
+                  <><Eye className="mr-2 size-4" /> Show Kennel</>
+                ) : (
+                  <><EyeOff className="mr-2 size-4" /> Hide Kennel</>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setShowDelete(true)}
+                disabled={isPending}
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-destructive hover:text-destructive"
-              disabled={isPending}
-              onClick={() => setShowDelete(true)}
-            >
-              {isPending ? "..." : "Delete"}
-            </Button>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Kennel?</AlertDialogTitle>

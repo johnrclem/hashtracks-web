@@ -9,6 +9,7 @@ const TAB_ROUTES = [
   { value: "requests", href: "/admin/requests", label: "Requests" },
   { value: "misman", href: "/admin/misman", label: "Misman" },
   { value: "kennels", href: "/admin/kennels", label: "Kennels" },
+  { value: "regions", href: "/admin/regions", label: "Regions" },
   { value: "sources", href: "/admin/sources", label: "Sources" },
   { value: "roster-groups", href: "/admin/roster-groups", label: "Roster Groups" },
   { value: "events", href: "/admin/events", label: "Events" },

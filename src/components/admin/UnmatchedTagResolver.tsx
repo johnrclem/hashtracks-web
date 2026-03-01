@@ -97,7 +97,7 @@ function TagRow({
         selectedKennelId,
         rescrapeAfter,
       );
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Mapped "${tag}" to kennel`);
@@ -120,7 +120,7 @@ function TagRow({
         },
         rescrapeAfter,
       );
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Created kennel "${newShortName}" and mapped "${tag}"`);

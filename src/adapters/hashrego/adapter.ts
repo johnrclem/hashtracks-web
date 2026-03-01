@@ -54,7 +54,6 @@ export class HashRegoAdapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let structureHash: string | undefined;
     const fetchStart = Date.now();
 
     // Step 1: Fetch events index
@@ -75,7 +74,7 @@ export class HashRegoAdapter implements SourceAdapter {
       return { events: [], errors: [msg], errorDetails };
     }
 
-    structureHash = generateStructureHash(indexHtml);
+    const structureHash = generateStructureHash(indexHtml);
 
     // Step 2: Parse index and filter by configured kennel slugs
     const allEntries = parseEventsIndex(indexHtml);

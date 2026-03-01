@@ -10,7 +10,7 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { MONTHS, extractUkPostcode, googleMapsSearchUrl, validateSourceUrl } from "../utils";
+import { chronoParseDate, extractUkPostcode, googleMapsSearchUrl, validateSourceUrl } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
 /**
@@ -23,22 +23,11 @@ export function parseRunNumberFromHeading(heading: string): number | null {
 }
 
 /**
- * Parse date from WLH3 heading text.
- * "Run Number 2081 – 19 February 2026-Clapham Junction" → "2026-02-19"
- * Also handles: "Run Number 2082 – 26 February 2026-North Harrow"
+ * Parse date from WLH3 heading text using chrono-node.
+ * Handles: "Run Number 2081 – 19 February 2026-Clapham Junction"
  */
 export function parseDateFromHeading(heading: string): string | null {
-  // Match "DD Month YYYY" pattern after the dash separator
-  const match = heading.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
-  if (!match) return null;
-
-  const day = parseInt(match[1], 10);
-  const monthNum = MONTHS[match[2].toLowerCase()];
-  const year = parseInt(match[3], 10);
-
-  if (!monthNum || day < 1 || day > 31) return null;
-
-  return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return chronoParseDate(heading, "en-GB");
 }
 
 /**

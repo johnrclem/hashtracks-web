@@ -7,8 +7,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { generateStructureHash } from "@/pipeline/structure-hash";
-import { MONTHS, parse12HourTime } from "../utils";
+import { chronoParseDate, parse12HourTime, fetchHTMLPage } from "../utils";
 
 /** Represents a parsed run block from the London Hash run list page. */
 export interface RunBlock {
@@ -93,42 +92,14 @@ export function parseRunBlocks(html: string): RunBlock[] {
 }
 
 /**
- * Parse a date from a London Hash run block.
- * Formats:
- *   "Saturday 21st of February" (needs current year inference)
- *   "Saturday 28th of February 2026"
- *   "Monday 22nd June" (summer format)
- *   "21/02/2026"
+ * Parse a date from a London Hash run block using chrono-node.
+ * Handles: "Saturday 21st of February 2026", "21/02/2026", "Monday 22nd June", etc.
  */
 export function parseDateFromBlock(text: string, referenceYear?: number): string | null {
-  const year = referenceYear ?? new Date().getFullYear();
-
-  // Try DD/MM/YYYY format first
-  const numericMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (numericMatch) {
-    const day = parseInt(numericMatch[1], 10);
-    const month = parseInt(numericMatch[2], 10);
-    const yr = parseInt(numericMatch[3], 10);
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return `${yr}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-
-  // Try "DDth of Month YYYY" or "DDth of Month" or "DDth Month YYYY" or "DDth Month"
-  // (?<!\d) prevents matching "20" inside "2820" (the run number)
-  const ordinalMatch = text.match(
-    /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(\w+)(?:\s+(\d{4}))?/i,
-  );
-  if (ordinalMatch) {
-    const day = parseInt(ordinalMatch[1], 10);
-    const monthNum = MONTHS[ordinalMatch[2].toLowerCase()];
-    const yr = ordinalMatch[3] ? parseInt(ordinalMatch[3], 10) : year;
-    if (monthNum && day >= 1 && day <= 31) {
-      return `${yr}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-
-  return null;
+  const refDate = referenceYear
+    ? new Date(Date.UTC(referenceYear, 0, 1)) // Jan 1 of reference year
+    : undefined;
+  return chronoParseDate(text, "en-GB", refDate);
 }
 
 /**
@@ -232,36 +203,13 @@ export class LondonHashAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://www.londonhash.org/runlist.php";
 
+    const page = await fetchHTMLPage(baseUrl);
+    if (!page.ok) return page.result;
+    const { html, structureHash, fetchDurationMs } = page;
+
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let structureHash: string | undefined;
-
-    let html: string;
-    const fetchStart = Date.now();
-    try {
-      const response = await fetch(baseUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
-        },
-      });
-      if (!response.ok) {
-        const message = `HTTP ${response.status}: ${response.statusText}`;
-        errorDetails.fetch = [
-          { url: baseUrl, status: response.status, message },
-        ];
-        return { events: [], errors: [message], errorDetails };
-      }
-      html = await response.text();
-    } catch (err) {
-      const message = `Fetch failed: ${err}`;
-      errorDetails.fetch = [{ url: baseUrl, message }];
-      return { events: [], errors: [message], errorDetails };
-    }
-    const fetchDurationMs = Date.now() - fetchStart;
-
-    structureHash = generateStructureHash(html);
-
     const currentYear = new Date().getFullYear();
     const blocks = parseRunBlocks(html);
 

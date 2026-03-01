@@ -2,8 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { generateStructureHash } from "@/pipeline/structure-hash";
-import { MONTHS, parse12HourTime, googleMapsSearchUrl } from "../utils";
+import { chronoParseDate, parse12HourTime, googleMapsSearchUrl, fetchHTMLPage } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
 const mapsUrl = googleMapsSearchUrl;
@@ -41,40 +40,12 @@ function extractBfmField(bodyText: string, labelPattern: RegExp): string | null 
 }
 
 /**
- * Parse a BFM-style date string into YYYY-MM-DD.
- * Accepts: "2/12", "Thursday, 2/12", "Feb 19th", "March 5th"
+ * Parse a BFM-style date string into YYYY-MM-DD using chrono-node.
+ * Handles: "2/12", "Thursday, 2/12", "8/8/2026", "Feb 19th", "March 5th"
  */
 export function parseBfmDate(text: string, referenceYear: number): string | null {
-  // Try M/D/YYYY format first: "8/8/2026" (must precede M/D to avoid prefix match)
-  const fullMatch = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(text);
-  if (fullMatch) {
-    const month = Number.parseInt(fullMatch[1], 10);
-    const day = Number.parseInt(fullMatch[2], 10);
-    const year = Number.parseInt(fullMatch[3], 10);
-    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-
-  // Try M/D format: "2/12" or "Thursday, 2/12"
-  const mdMatch = /(\d{1,2})\/(\d{1,2})/.exec(text);
-  if (mdMatch) {
-    const month = Number.parseInt(mdMatch[1], 10);
-    const day = Number.parseInt(mdMatch[2], 10);
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return `${referenceYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-
-  // Try month name format: "Feb 19th", "March 5"
-  const monthNameMatch = /(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?/i.exec(text);
-  if (monthNameMatch) {
-    const monthNum = MONTHS[monthNameMatch[1].toLowerCase()];
-    if (monthNum) {
-      const day = Number.parseInt(monthNameMatch[2], 10);
-      return `${referenceYear}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-
-  return null;
+  const ref = new Date(Date.UTC(referenceYear, 0, 1));
+  return chronoParseDate(text, "en-US", ref);
 }
 
 /**
@@ -252,30 +223,13 @@ export class BFMAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://benfranklinmob.com";
 
+    const page = await fetchHTMLPage(baseUrl);
+    if (!page.ok) return page.result;
+    const { $, structureHash } = page;
+
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let structureHash: string | undefined;
-
-    let html: string;
-    try {
-      const response = await safeFetch(baseUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
-      });
-      if (!response.ok) {
-        const message = `HTTP ${response.status}: ${response.statusText}`;
-        errorDetails.fetch = [{ url: baseUrl, status: response.status, message }];
-        return { events: [], errors: [message], errorDetails };
-      }
-      html = await response.text();
-    } catch (err) {
-      const message = `Fetch failed: ${err}`;
-      errorDetails.fetch = [{ url: baseUrl, message }];
-      return { events: [], errors: [message], errorDetails };
-    }
-
-    structureHash = generateStructureHash(html);
-    const $ = cheerio.load(html);
     const currentYear = new Date().getFullYear();
     const bodyText = $("body").text();
 

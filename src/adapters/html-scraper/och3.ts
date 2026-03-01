@@ -9,52 +9,28 @@ import type {
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { safeFetch } from "../safe-fetch";
-
-const MONTHS: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-  aug: 8, august: 8, sep: 9, september: 9, oct: 10, october: 10,
-  nov: 11, november: 11, dec: 12, december: 12,
-};
+import { chronoParseDate } from "../utils";
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 /**
- * Parse a UK-format date from OCH3 run list text.
- * Formats:
- *   "Sunday 22nd February 2026" → "2026-02-22"
- *   "Monday 23rd February 2026" → "2026-02-23"
- *   "22 February 2026" → "2026-02-22"
- *   "22/02/2026" → "2026-02-22"
+ * Parse a UK-format date from OCH3 run list text using chrono-node.
+ * Handles: "Sunday 22nd February 2026", "22/02/2026", "22 February 2026", etc.
+ * Year-less dates require a fallbackYear to produce a result.
  */
 export function parseOCH3Date(text: string, fallbackYear?: number): string | null {
-  // Try DD/MM/YYYY format first
-  const numericMatch = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
-  if (numericMatch) {
-    const day = parseInt(numericMatch[1], 10);
-    const month = parseInt(numericMatch[2], 10);
-    let year = parseInt(numericMatch[3], 10);
-    if (year < 100) year += 2000;
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
+  const ref = fallbackYear
+    ? new Date(Date.UTC(fallbackYear, 0, 1)) // Jan 1 of fallback year
+    : undefined;
+  const result = chronoParseDate(text, "en-GB", ref);
+  if (!result) return null;
+  // If text has no explicit year and no fallbackYear was provided, return null.
+  // This preserves behavior: year-less dates require context from earlier entries.
+  // Checks: 4-digit year ("2026"), slash-form ("22/02/26"), or text-form 2-digit year ("February 26")
+  if (!fallbackYear && !/\b\d{4}\b/.test(text) && !/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(text) && !/[a-z]\s+\d{2}\b/i.test(text)) {
+    return null;
   }
-
-  // Try "DDth Month YYYY" or "DD Month YYYY"
-  const ordinalMatch = text.match(
-    /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+(\w+)(?:\s+(\d{2,4}))?/i,
-  );
-  if (ordinalMatch) {
-    const day = parseInt(ordinalMatch[1], 10);
-    const monthNum = MONTHS[ordinalMatch[2].toLowerCase()];
-    let year = ordinalMatch[3] ? parseInt(ordinalMatch[3], 10) : fallbackYear;
-    if (year !== undefined && year < 100) year += 2000;
-    if (monthNum && day >= 1 && day <= 31 && year !== undefined) {
-      return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-
-  return null;
+  return result;
 }
 
 /**

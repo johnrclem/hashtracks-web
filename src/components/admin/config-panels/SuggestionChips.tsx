@@ -70,8 +70,8 @@ export function SuggestionChips({
     startEnhance(async () => {
       setAiError(null);
       const result = await getGeminiSuggestions(unmatchedTags, sampleTitlesByTag);
-      if (result.error) {
-        setAiError(result.error);
+      if ("error" in result) {
+        setAiError(result.error ?? null);
       } else {
         setAiSuggestions(result.suggestions ?? []);
       }

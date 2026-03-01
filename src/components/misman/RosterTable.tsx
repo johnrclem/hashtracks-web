@@ -101,7 +101,7 @@ export function RosterTable({
     setDeletingId(deleteTarget.id);
     startTransition(async () => {
       const result = await deleteKennelHasher(deleteTarget.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Hasher removed from roster");

@@ -4,6 +4,7 @@ import { getAdminUser, getRosterGroupId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { fuzzyMatch } from "@/lib/fuzzy";
+import { toSlug, toKennelCode } from "@/lib/kennel-utils";
 
 function extractProfileFields(formData: FormData) {
   const result: Record<string, string | number | boolean | null> = {};
@@ -44,24 +45,18 @@ function extractProfileFields(formData: FormData) {
   triState("dogFriendly");
   triState("walkersWelcome");
 
+  result.isHidden = formData.get("isHidden") === "true";
+
   return result;
 }
 
-function toSlug(shortName: string): string {
-  return shortName
-    .toLowerCase()
-    .replace(/[()]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-/** Generate a permanent kennelCode from a shortName. Lowercase, alphanumeric + hyphens only. */
-function toKennelCode(shortName: string): string {
-  return shortName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+/** Resolve region name from regionId, falling back to the raw form value. */
+async function resolveRegionName(regionId: string | null, formRegion: string): Promise<string> {
+  if (regionId) {
+    const record = await prisma.region.findUnique({ where: { id: regionId }, select: { name: true } });
+    if (record) return record.name;
+  }
+  return formRegion;
 }
 
 interface SimilarKennel {
@@ -110,13 +105,17 @@ export async function createKennel(formData: FormData, force: boolean = false) {
 
   const shortName = (formData.get("shortName") as string)?.trim();
   const fullName = (formData.get("fullName") as string)?.trim();
-  const region = (formData.get("region") as string)?.trim();
+  const regionId = (formData.get("regionId") as string)?.trim() || null;
   const country = (formData.get("country") as string)?.trim() || "USA";
   const description = (formData.get("description") as string)?.trim() || null;
   const website = (formData.get("website") as string)?.trim() || null;
   const aliasesRaw = (formData.get("aliases") as string)?.trim() || "";
 
-  if (!shortName || !fullName || !region) {
+  // Resolve region name from regionId (dual-write: regionId FK + denormalized region string)
+  const formRegion = (formData.get("region") as string)?.trim() || "";
+  const region = await resolveRegionName(regionId, formRegion);
+
+  if (!shortName || !fullName || !region || !regionId) {
     return { error: "Short name, full name, and region are required" };
   }
 
@@ -135,9 +134,9 @@ export async function createKennel(formData: FormData, force: boolean = false) {
     return { error: `A kennel with slug "${slug}" already exists` };
   }
 
-  // Check uniqueness: (shortName, region) must be unique
+  // Check uniqueness: (shortName, regionId) must be unique
   const existingInRegion = await prisma.kennel.findFirst({
-    where: { shortName, region },
+    where: { shortName, regionId },
   });
   if (existingInRegion) {
     return { error: `A kennel named "${shortName}" already exists in ${region}` };
@@ -168,6 +167,7 @@ export async function createKennel(formData: FormData, force: boolean = false) {
       slug,
       fullName,
       region,
+      regionRef: { connect: { id: regionId } },
       country,
       description,
       website,
@@ -189,11 +189,15 @@ export async function updateKennel(kennelId: string, formData: FormData) {
 
   const shortName = (formData.get("shortName") as string)?.trim();
   const fullName = (formData.get("fullName") as string)?.trim();
-  const region = (formData.get("region") as string)?.trim();
+  const regionId = (formData.get("regionId") as string)?.trim() || null;
   const country = (formData.get("country") as string)?.trim() || "USA";
   const description = (formData.get("description") as string)?.trim() || null;
   const website = (formData.get("website") as string)?.trim() || null;
   const aliasesRaw = (formData.get("aliases") as string)?.trim() || "";
+
+  // Resolve region name from regionId (dual-write: regionId FK + denormalized region string)
+  const formRegion = (formData.get("region") as string)?.trim() || "";
+  const region = await resolveRegionName(regionId, formRegion);
 
   if (!shortName || !fullName || !region) {
     return { error: "Short name, full name, and region are required" };
@@ -211,7 +215,11 @@ export async function updateKennel(kennelId: string, formData: FormData) {
 
   // Check (shortName, region) uniqueness (exclude current kennel)
   const existingInRegion = await prisma.kennel.findFirst({
-    where: { shortName, region, NOT: { id: kennelId } },
+    where: {
+      shortName,
+      ...(regionId ? { regionId } : { region }),
+      NOT: { id: kennelId },
+    },
   });
   if (existingInRegion) {
     return { error: `A kennel named "${shortName}" already exists in ${region}` };
@@ -248,6 +256,7 @@ export async function updateKennel(kennelId: string, formData: FormData) {
         slug,
         fullName,
         region,
+        ...(regionId ? { regionRef: { connect: { id: regionId } } } : {}),
         country,
         description,
         website,
@@ -650,3 +659,39 @@ export async function mergeKennels(
   revalidatePath(`/kennels/${targetKennel.slug}`);
   return { success: true };
 }
+
+/**
+ * Toggle kennel visibility (isHidden flag). Admin only.
+ */
+export async function toggleKennelVisibility(kennelId: string) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const kennel = await prisma.kennel.findUnique({
+    where: { id: kennelId },
+    select: { isHidden: true, shortName: true, slug: true },
+  });
+  if (!kennel) return { error: "Kennel not found" };
+
+  const newValue = !kennel.isHidden;
+  await prisma.kennel.update({
+    where: { id: kennelId },
+    data: { isHidden: newValue },
+  });
+
+  console.log("[admin-audit] toggleKennelVisibility", JSON.stringify({
+    adminId: admin.id,
+    action: newValue ? "hide_kennel" : "show_kennel",
+    kennelId,
+    kennelName: kennel.shortName,
+    timestamp: new Date().toISOString(),
+  }));
+
+  revalidatePath("/admin/kennels");
+  revalidatePath("/kennels");
+  revalidatePath(`/kennels/${kennel.slug}`);
+  revalidatePath("/hareline");
+  revalidatePath("/misman");
+  return { success: true, isHidden: newValue };
+}
+

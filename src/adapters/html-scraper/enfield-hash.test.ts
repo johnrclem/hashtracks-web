@@ -98,6 +98,14 @@ describe("parseEnfieldDate", () => {
     // If text has "25 February 2025" with explicit year, use it
     expect(parseEnfieldDate("25 February 2025", now)).toBe("2025-02-25");
   });
+
+  it("trusts chrono for DD/MM/YY format", () => {
+    expect(parseEnfieldDate("25/02/26", now)).toBe("2026-02-25");
+  });
+
+  it("trusts chrono for DD/MM/YYYY format", () => {
+    expect(parseEnfieldDate("25/02/2026", now)).toBe("2026-02-25");
+  });
 });
 
 describe("parseEnfieldBody", () => {
@@ -277,9 +285,12 @@ describe("EnfieldHashAdapter.fetch (new site structure)", () => {
 
   beforeEach(() => {
     adapter = new EnfieldHashAdapter();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-02-24T12:00:00Z"));
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -308,7 +319,7 @@ describe("EnfieldHashAdapter.fetch (new site structure)", () => {
     const second = result.events[1];
     expect(second.title).toBe("Run 317 - Wed 21 January");
     expect(second.date).toMatch(/^\d{4}-01-21$/);
-    expect(second.station).toBeUndefined(); // station goes to description
+    expect((second as unknown as Record<string, unknown>).station).toBeUndefined(); // station goes to description
     expect(second.description).toContain("Gordon Hill");
 
     expect(result.diagnosticContext).toMatchObject({

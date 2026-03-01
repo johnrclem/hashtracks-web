@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -29,6 +30,9 @@ export function Header() {
   const isAdmin = (user?.publicMetadata as { role?: string } | undefined)?.role === "admin";
   const { preference, setPreference, isLoading } = useTimePreference();
   const { tempUnit, setTempUnit } = useUnitsPreference();
+  const pathname = usePathname();
+
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <header className="border-b bg-background">
@@ -43,7 +47,7 @@ export function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className={`text-sm font-medium transition-colors hover:text-foreground ${isActive(link.href) ? "text-foreground" : "text-muted-foreground"}`}
             >
               {link.label}
             </Link>
@@ -51,7 +55,7 @@ export function Header() {
           {user && (
             <Link
               href="/misman"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className={`text-sm font-medium transition-colors hover:text-foreground ${isActive("/misman") ? "text-foreground" : "text-muted-foreground"}`}
             >
               Misman
             </Link>
@@ -59,7 +63,7 @@ export function Header() {
           {isAdmin && (
             <Link
               href="/admin"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className={`text-sm font-medium transition-colors hover:text-foreground ${isActive("/admin") ? "text-foreground" : "text-muted-foreground"}`}
             >
               Admin
             </Link>
@@ -70,7 +74,7 @@ export function Header() {
           {/* Timezone Toggle */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Time display preference" disabled={isLoading}>
+              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Time display preference" title="Time display" disabled={isLoading}>
                 {preference === "USER_LOCAL" ? <Clock className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
                 <span className="sr-only">Toggle time display preference</span>
               </Button>
@@ -84,7 +88,7 @@ export function Header() {
               >
                 <div className="flex flex-col gap-1">
                   <span className="font-medium flex items-center gap-2"><Globe className="h-4 w-4" /> Event Local Time</span>
-                  <span className="text-xs text-muted-foreground">Times match the event's physical location</span>
+                  <span className="text-xs text-muted-foreground">Times match the event&apos;s physical location</span>
                 </div>
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -102,7 +106,7 @@ export function Header() {
           {/* Temperature Units Toggle */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Temperature units">
+              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Temperature units" title="Temperature units">
                 <Thermometer className="h-4 w-4" />
                 <span className="sr-only">Toggle temperature units</span>
               </Button>
@@ -166,7 +170,7 @@ export function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="block py-2 text-sm font-medium text-muted-foreground"
+              className={`block py-2 text-sm font-medium ${isActive(link.href) ? "text-foreground" : "text-muted-foreground"}`}
               onClick={() => setMobileMenuOpen(false)}
             >
               {link.label}
@@ -175,7 +179,7 @@ export function Header() {
           {user && (
             <Link
               href="/misman"
-              className="block py-2 text-sm font-medium text-muted-foreground"
+              className={`block py-2 text-sm font-medium ${isActive("/misman") ? "text-foreground" : "text-muted-foreground"}`}
               onClick={() => setMobileMenuOpen(false)}
             >
               Misman
@@ -184,7 +188,7 @@ export function Header() {
           {isAdmin && (
             <Link
               href="/admin"
-              className="block py-2 text-sm font-medium text-muted-foreground"
+              className={`block py-2 text-sm font-medium ${isActive("/admin") ? "text-foreground" : "text-muted-foreground"}`}
               onClick={() => setMobileMenuOpen(false)}
             >
               Admin

@@ -181,6 +181,18 @@ describe("scrapeSource", () => {
     expect(updateData.data.sampleSkipped).toBeUndefined();
   });
 
+  it("does not reject GOOGLE_CALENDAR sources with calendar-ID URLs", async () => {
+    const gcalSource = { id: "src_gcal", type: "GOOGLE_CALENDAR", url: "bostonhash@gmail.com" };
+    mockSourceFind.mockResolvedValueOnce(gcalSource as never);
+    mockGetAdapter.mockReturnValue({
+      type: "GOOGLE_CALENDAR",
+      fetch: vi.fn().mockResolvedValue({ events: [{ date: "2026-03-01", kennelTag: "BH3" }], errors: [] }),
+    } as never);
+
+    const result = await scrapeSource("src_gcal");
+    expect(result.success).toBe(true);
+  });
+
   it("stores non-empty sample arrays in ScrapeLog", async () => {
     const sampleBlocked = [{ reason: "SOURCE_KENNEL_MISMATCH", kennelTag: "OtherH3", event: {}, suggestedAction: "Link" }];
     const sampleSkipped = [{ reason: "UNMATCHED_TAG", kennelTag: "UnknownH3", event: {}, suggestedAction: "Create" }];

@@ -254,7 +254,7 @@ export function PreviewResults({ data, allKennels, onAliasCreated }: PreviewResu
     startLinking(async () => {
       const result = await createInlineAlias(tag, kennelId);
       setLinkingTag(null);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Alias "${tag}" created — re-running preview…`);

@@ -15,7 +15,7 @@ import { haversineDistance, getEventCoords } from "@/lib/geo";
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-96 items-center justify-center rounded-md border text-sm text-muted-foreground">
+    <div className="flex h-[calc(100vh-16rem)] min-h-[400px] items-center justify-center rounded-md border text-sm text-muted-foreground">
       Loading map…
     </div>
   ),
@@ -50,7 +50,7 @@ interface FilterCriteria {
 
 /** Check whether an event passes the time filter (upcoming/past). */
 function passesTimeFilter(eventDate: number, view: FilterCriteria["view"], timeFilter: FilterCriteria["timeFilter"], todayUtc: number): boolean {
-  if (view === "calendar" || view === "map") return true; // map shows all events across time
+  if (view === "calendar") return true; // calendar has its own month navigation
   if (timeFilter === "upcoming" && eventDate < todayUtc) return false;
   if (timeFilter === "past" && eventDate >= todayUtc) return false;
   return true;
@@ -153,6 +153,13 @@ export function HarelineView({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [selectedEvent]);
+
+  // Clear near-me filter when geolocation permission is denied
+  useEffect(() => {
+    if (geoState.status === "denied" && nearMeDistance != null) {
+      setNearMeDistance(null);
+    }
+  }, [geoState.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync state to URL via replaceState (no re-render, no history entry)
   const syncUrl = useCallback(
@@ -259,6 +266,19 @@ export function HarelineView({
     return sortEvents(filteredEvents, timeFilter);
   }, [filteredEvents, timeFilter]);
 
+  const detailPanel = selectedEvent ? (
+    <div className="hidden lg:block">
+      <div className="sticky top-8 max-h-[calc(100vh-4rem)]">
+        <EventDetailPanel
+          event={selectedEvent}
+          attendance={attendanceMap[selectedEvent.id] ?? null}
+          isAuthenticated={isAuthenticated}
+          onDismiss={() => setSelectedEvent(null)}
+        />
+      </div>
+    </div>
+  ) : null;
+
   const listContent = (
     <>
       {sortedEvents.length === 0 ? (
@@ -290,22 +310,26 @@ export function HarelineView({
     <div className="mt-6 space-y-4">
       {/* Controls bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Time toggle (hidden in calendar/map view — those show all events) */}
-        {view === "list" && (
-          <ToggleGroup
-            type="single"
-            value={timeFilter}
-            onValueChange={(v) => v && setTimeFilter(v as "upcoming" | "past")}
-            variant="outline"
-            size="sm"
-          >
-            <ToggleGroupItem value="upcoming">Upcoming</ToggleGroupItem>
-            <ToggleGroupItem value="past">Past</ToggleGroupItem>
-          </ToggleGroup>
-        )}
+        {/* Left: time toggle (visible for list + map; spacer for calendar to keep layout stable) */}
+        <div className="flex items-center">
+          {view !== "calendar" ? (
+            <ToggleGroup
+              type="single"
+              value={timeFilter}
+              onValueChange={(v) => v && setTimeFilter(v as "upcoming" | "past")}
+              variant="outline"
+              size="sm"
+            >
+              <ToggleGroupItem value="upcoming">Upcoming</ToggleGroupItem>
+              <ToggleGroupItem value="past">Past</ToggleGroupItem>
+            </ToggleGroup>
+          ) : (
+            <div className="h-8" />
+          )}
+        </div>
 
+        {/* Right: view toggle + optional density */}
         <div className="flex items-center gap-2">
-          {/* View toggle */}
           <ToggleGroup
             type="single"
             value={view}
@@ -318,7 +342,6 @@ export function HarelineView({
             <ToggleGroupItem value="map">Map</ToggleGroupItem>
           </ToggleGroup>
 
-          {/* Density toggle (only in list view) */}
           {view === "list" && (
             <ToggleGroup
               type="single"
@@ -357,32 +380,24 @@ export function HarelineView({
 
       {/* Results count */}
       <p className="text-sm text-muted-foreground">
-        {filteredEvents.length} {filteredEvents.length === 1 ? "event" : "events"}
+        {filteredEvents.length}{" "}
+        {view !== "calendar" ? (timeFilter === "upcoming" ? "upcoming " : "past ") : ""}
+        {filteredEvents.length === 1 ? "event" : "events"}
         {scope === "my" ? " from your kennels" : ""}
+        {nearMeDistance != null && geoState.status === "granted" ? ` within ${nearMeDistance} km` : ""}
       </p>
 
-      {/* Content: master-detail on desktop, single column on mobile */}
+      {/* Content: master-detail on desktop (panel appears on selection), single column on mobile */}
       {view === "list" ? (
-        <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-6">
+        <div className={selectedEvent ? "lg:grid lg:grid-cols-[1fr_380px] lg:gap-6" : ""}>
           {/* Left: event list */}
           <div className="min-w-0">{listContent}</div>
-
-          {/* Right: detail panel (desktop only) */}
-          <div className="hidden lg:block">
-            <div className="sticky top-8 max-h-[calc(100vh-4rem)]">
-              <EventDetailPanel
-                event={selectedEvent}
-                attendance={selectedEvent ? (attendanceMap[selectedEvent.id] ?? null) : null}
-                isAuthenticated={isAuthenticated}
-                onDismiss={() => setSelectedEvent(null)}
-              />
-            </div>
-          </div>
+          {detailPanel}
         </div>
       ) : view === "calendar" ? (
         <CalendarView events={filteredEvents} />
       ) : (
-        <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-6">
+        <div className={selectedEvent ? "lg:grid lg:grid-cols-[1fr_380px] lg:gap-6" : ""}>
           {/* Left: map */}
           <div className="min-w-0">
             <MapView
@@ -391,18 +406,7 @@ export function HarelineView({
               onSelectEvent={setSelectedEvent}
             />
           </div>
-
-          {/* Right: detail panel (desktop only) */}
-          <div className="hidden lg:block">
-            <div className="sticky top-8 max-h-[calc(100vh-4rem)]">
-              <EventDetailPanel
-                event={selectedEvent}
-                attendance={selectedEvent ? (attendanceMap[selectedEvent.id] ?? null) : null}
-                isAuthenticated={isAuthenticated}
-                onDismiss={() => setSelectedEvent(null)}
-              />
-            </div>
-          </div>
+          {detailPanel}
         </div>
       )}
     </div>

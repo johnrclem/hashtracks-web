@@ -49,14 +49,14 @@ export default async function StatsPage() {
   const totalHares = attendances.filter((a) => a.participationLevel === "HARE").length;
 
   // By kennel
-  const kennelMap = new Map<string, { kennelId: string; shortName: string; fullName: string; slug: string; region: string; count: number }>();
+  const kennelMap = new Map<string, { kennelId: string; shortName: string; fullName: string; slug: string; regionName: string; count: number }>();
   for (const a of attendances) {
     const k = a.event.kennel;
     const existing = kennelMap.get(k.id);
     if (existing) {
       existing.count++;
     } else {
-      kennelMap.set(k.id, { kennelId: k.id, shortName: k.shortName, fullName: k.fullName, slug: k.slug, region: k.region, count: 1 });
+      kennelMap.set(k.id, { kennelId: k.id, shortName: k.shortName, fullName: k.fullName, slug: k.slug, regionName: k.region, count: 1 });
     }
   }
   const byKennel = Array.from(kennelMap.values()).sort((a, b) => b.count - a.count);
@@ -82,7 +82,7 @@ export default async function StatsPage() {
     .sort((a, b) => b.count - a.count);
 
   // Milestones — attendances are ordered by date ascending
-  const milestones = MILESTONES.map((m) => {
+  const allMilestones = MILESTONES.map((m) => {
     if (totalRuns >= m.target) {
       const milestoneAttendance = attendances[m.target - 1];
       return {
@@ -100,6 +100,11 @@ export default async function StatsPage() {
     }
     return { ...m, reached: false };
   });
+
+  // Show reached milestones + next 3 unreached (skip distant ones)
+  const reached = allMilestones.filter((m) => m.reached);
+  const unreached = allMilestones.filter((m) => !m.reached);
+  const milestones = [...reached, ...unreached.slice(0, 3)];
 
   return (
     <div>

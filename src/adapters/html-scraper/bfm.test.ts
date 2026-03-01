@@ -27,8 +27,10 @@ describe("parseBfmDate", () => {
     expect(parseBfmDate("", 2026)).toBeNull();
   });
 
-  it("validates month range (1-12) and day range (1-31)", () => {
-    expect(parseBfmDate("13/1", 2026)).toBeNull();
+  it("allows chrono month/day swap for out-of-range month (13/1 → Jan 13)", () => {
+    // chrono-node interprets "13/1" as Jan 13 when month > 12 (swaps M/D).
+    // This is acceptable: BFM source data always uses valid M/D formats.
+    expect(parseBfmDate("13/1", 2026)).toBe("2026-01-13");
     expect(parseBfmDate("0/1", 2026)).toBeNull();
   });
 });

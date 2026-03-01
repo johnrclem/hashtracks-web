@@ -25,7 +25,8 @@ export async function generateMetadata({
   });
   return { title: `${dateStr} · ${event.kennel.shortName} · HashTracks` };
 }
-import { getOrCreateUser } from "@/lib/auth";
+import { getOrCreateUser, getMismanUser } from "@/lib/auth";
+import { getStravaConnection } from "@/app/strava/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -90,10 +91,15 @@ export default async function EventDetailPage({
     }
   }
 
-  const [confirmedCount, goingCount] = await Promise.all([
+  const [confirmedCount, goingCount, stravaResult, mismanUser] = await Promise.all([
     prisma.attendance.count({ where: { eventId, status: "CONFIRMED" } }),
     prisma.attendance.count({ where: { eventId, status: "INTENDING" } }),
+    user ? getStravaConnection() : Promise.resolve(null),
+    user ? getMismanUser(event.kennelId) : Promise.resolve(null),
   ]);
+
+  const stravaConnected = stravaResult?.success ? stravaResult.connected : false;
+  const isMisman = !!mismanUser;
 
   // Fetch weather forecast for upcoming events (0–10 days out).
   // Compare at the calendar-day level (midnight UTC) to avoid off-by-one from UTC noon storage.
@@ -118,6 +124,12 @@ export default async function EventDetailPage({
     timeZone: "UTC",
   });
 
+  const breadcrumbDate = event.date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+
   const hasLocation =
     (event.latitude != null && event.longitude != null) || !!event.locationName;
 
@@ -129,7 +141,7 @@ export default async function EventDetailPage({
           Hareline
         </Link>
         <span>/</span>
-        <span className="text-foreground">Event Detail</span>
+        <span className="text-foreground">{event.kennel.shortName} — {breadcrumbDate}</span>
       </nav>
 
       {/* Header */}
@@ -168,6 +180,7 @@ export default async function EventDetailPage({
           eventDate={event.date.toISOString()}
           isAuthenticated={!!user}
           attendance={attendance}
+          stravaConnected={stravaConnected}
         />
         {(confirmedCount > 0 || goingCount > 0) && (
           <span className="text-sm text-muted-foreground">
@@ -275,6 +288,13 @@ export default async function EventDetailPage({
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
+        {isMisman && (
+          <Button size="sm" asChild>
+            <Link href={`/misman/${event.kennel.slug}/attendance/${event.id}`}>
+              Take Attendance
+            </Link>
+          </Button>
+        )}
         <CalendarExportButton event={{ ...event, date: event.date.toISOString(), kennel: event.kennel }} />
         <SourcesDropdown sourceUrl={event.sourceUrl} eventLinks={event.eventLinks} />
         <Tooltip>

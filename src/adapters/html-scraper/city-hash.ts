@@ -9,26 +9,14 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { generateStructureHash } from "@/pipeline/structure-hash";
-import { MONTHS, extractUkPostcode } from "../utils";
+import { chronoParseDate, extractUkPostcode, fetchHTMLPage } from "../utils";
 
 /**
- * Parse ordinal date from City Hash title: "24th Feb 2026" → "2026-02-24"
- * Also handles: "1st March 2026", "2nd Jan 2026", "3rd April 2026"
+ * Parse ordinal date from City Hash title using chrono-node.
+ * Handles: "24th Feb 2026", "1st March 2026", "2nd Jan 2026", "3rd April 2026"
  */
 export function parseDateFromTitle(title: string): string | null {
-  const match = title.match(
-    /(\d{1,2})(?:st|nd|rd|th)\s+(\w+)\s+(\d{4})/i,
-  );
-  if (!match) return null;
-
-  const day = parseInt(match[1], 10);
-  const monthNum = MONTHS[match[2].toLowerCase()];
-  const year = parseInt(match[3], 10);
-
-  if (!monthNum || day < 1 || day > 31) return null;
-
-  return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return chronoParseDate(title, "en-GB");
 }
 
 /** @deprecated Use extractUkPostcode from ../utils instead */
@@ -134,36 +122,13 @@ export class CityHashAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://cityhash.org.uk/";
 
+    const page = await fetchHTMLPage(baseUrl);
+    if (!page.ok) return page.result;
+    const { $, structureHash, fetchDurationMs } = page;
+
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let structureHash: string | undefined;
-
-    let html: string;
-    const fetchStart = Date.now();
-    try {
-      const response = await fetch(baseUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
-        },
-      });
-      if (!response.ok) {
-        const message = `HTTP ${response.status}: ${response.statusText}`;
-        errorDetails.fetch = [
-          { url: baseUrl, status: response.status, message },
-        ];
-        return { events: [], errors: [message], errorDetails };
-      }
-      html = await response.text();
-    } catch (err) {
-      const message = `Fetch failed: ${err}`;
-      errorDetails.fetch = [{ url: baseUrl, message }];
-      return { events: [], errors: [message], errorDetails };
-    }
-    const fetchDurationMs = Date.now() - fetchStart;
-
-    structureHash = generateStructureHash(html);
-    const $ = cheerio.load(html);
 
     // Parse all .ch-run cards
     const cards = $(".ch-run");

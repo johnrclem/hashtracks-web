@@ -59,7 +59,7 @@ function KennelRow({
   function handleUnsubscribe() {
     startTransition(async () => {
       const result = await unsubscribeFromKennel(userKennel.kennelId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Unsubscribed from ${kennel.shortName}`);

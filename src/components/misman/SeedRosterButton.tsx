@@ -24,7 +24,7 @@ export function SeedRosterButton({ kennelId }: SeedRosterButtonProps) {
 
     startTransition(async () => {
       const result = await seedRosterFromHares(kennelId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(result.message);

@@ -1,17 +1,31 @@
+import type { Metadata } from "next";
+import { Suspense } from "react";
 import { getOrCreateUser } from "@/lib/auth";
+
+export const metadata: Metadata = {
+  title: "Profile · HashTracks",
+};
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { MyKennels } from "@/components/profile/MyKennels";
 import { KennelConnections } from "@/components/profile/KennelConnections";
+import { StravaConnectionCard } from "@/components/profile/StravaConnectionCard";
+import { StravaStatusToast } from "@/components/profile/StravaStatusToast";
 import { Separator } from "@/components/ui/separator";
 import { getMyKennelLinks } from "./actions";
+import { getStravaConnection } from "@/app/strava/actions";
 
+/**
+ * Profile page — displays the user's hash identity, Strava connection,
+ * kennel connections, and subscribed kennels. Redirects to sign-in if
+ * the user is unauthenticated.
+ */
 export default async function ProfilePage() {
   const user = await getOrCreateUser();
   if (!user) redirect("/sign-in");
 
-  const [subscriptions, linksResult] = await Promise.all([
+  const [subscriptions, linksResult, stravaResult] = await Promise.all([
     prisma.userKennel.findMany({
     where: { userId: user.id },
     include: {
@@ -22,12 +36,19 @@ export default async function ProfilePage() {
     orderBy: { createdAt: "desc" },
   }),
     getMyKennelLinks(),
+    getStravaConnection(),
   ]);
 
   const kennelLinks = linksResult.data ?? [];
+  const stravaConnection = stravaResult.success
+    ? stravaResult
+    : { connected: false as const };
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-2xl space-y-8">
+      <Suspense>
+        <StravaStatusToast />
+      </Suspense>
       <div>
         <h1 className="text-2xl font-bold">Profile</h1>
         <p className="mt-1 text-muted-foreground">
@@ -43,6 +64,18 @@ export default async function ProfilePage() {
           bio: user.bio,
         }}
       />
+
+      <Separator />
+
+      <div>
+        <h2 className="text-lg font-semibold">Strava</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Link your Strava account to auto-match activities
+        </p>
+        <div className="mt-3">
+          <StravaConnectionCard connection={stravaConnection} />
+        </div>
+      </div>
 
       <Separator />
 

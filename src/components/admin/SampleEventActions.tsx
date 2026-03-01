@@ -83,7 +83,7 @@ function LinkToSourceAction({
   function handleLink() {
     startTransition(async () => {
       const result = await linkKennelToSourceDirect(sourceId, kennelTag);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Linked "${kennelTag}" to source`);
@@ -140,7 +140,7 @@ function UnmatchedTagAction({
     if (!selectedKennelId) return;
     startTransition(async () => {
       const result = await createAliasForSource(sourceId, kennelTag, selectedKennelId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Mapped "${kennelTag}" to kennel`);
@@ -158,7 +158,7 @@ function UnmatchedTagAction({
         fullName: newFullName.trim(),
         region: newRegion.trim(),
       });
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(`Created kennel "${newShortName}" and mapped "${kennelTag}"`);

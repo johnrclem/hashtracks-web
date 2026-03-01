@@ -1,10 +1,10 @@
 # Test Coverage Analysis
 
-> Generated: 2026-02-21
+> Generated: 2026-02-26
 
 ## Current State
 
-- **57 test files** covering 1,140+ test cases
+- **84 test files** covering 1711 test cases
 - **Test framework:** Vitest with globals, co-located test files (`*.test.ts`)
 - **Mocking pattern:** `vi.mock()` + `vi.mocked()` with Prisma client mocking
 - **Test data:** Shared factories in `src/test/factories.ts`
@@ -16,9 +16,10 @@ The existing suite is high-quality. These areas have thorough, edge-case-aware c
 | Area | Files | Tests | Quality |
 |------|-------|-------|---------|
 | Adapters (scrapers/parsers) | 22 | ~300+ | Excellent — realistic HTML fixtures, date/time edge cases |
-| Pipeline (merge, scrape, health, kennel-resolver, fingerprint) | 5 | ~60+ | Strong — dedup logic, trust levels, source-kennel guards |
-| Server actions (logbook, misman, admin CRUD) | 13 | ~250+ | Exemplary — auth checks, date boundaries, state transitions |
-| Library utils (format, calendar, fuzzy, auth, invite) | 12 | ~150+ | Good — pure function coverage, role-based auth |
+| Pipeline (merge, scrape, health, kennel-resolver, fingerprint, auto-issue) | 6 | ~90+ | Strong — dedup logic, trust levels, source-kennel guards, auto-issue filing |
+| Self-healing (auto-issue filing) | 1 | 30 | Strong — adapter resolution, rate limiting, cooldown, dedup, sanitization |
+| Server actions (logbook, misman, admin CRUD) | 15 | ~280+ | Exemplary — auth checks, date boundaries, state transitions |
+| Library utils (format, calendar, fuzzy, auth, invite, strava, region) | 14 | ~170+ | Good — pure function coverage, role-based auth |
 
 ### Standout test files
 
@@ -26,6 +27,8 @@ The existing suite is high-quality. These areas have thorough, edge-case-aware c
 - **`misman/roster/actions.test.ts`** (46 tests) — Thorough merge preview, duplicate scanning, user link lifecycle
 - **`misman/attendance/actions.test.ts`** (30 tests) — Smart suggestions scoring, roster scope enforcement
 - **`hashrego/adapter.test.ts`** (20 tests) — Multi-day event splitting, time sentinel handling, fetch mocking
+- **`ai/gemini.test.ts`** (9 tests) — Response caching, 429 rate-limit handling, request structure validation
+- **`strava/client.test.ts`** + **`strava/sync.test.ts`** — OAuth token refresh, activity date parsing, match suggestions
 
 ---
 
@@ -51,7 +54,9 @@ These are correctness-critical, easy to test, and have zero coverage:
 ### Priority 2: Complex server actions without tests
 
 #### `src/app/admin/alerts/actions.ts` — Alert repair workflows (601 LOC, 11 functions)
-- This is the largest untested file in the codebase
+
+> **Update:** `src/pipeline/auto-issue.ts` (30 tests) now covers the auto-filing pipeline including adapter resolution, rate limiting, cooldown, dedup, and AGENT_CONTEXT sanitization.
+
 - Contains 4 repair workflows (rescrape, create-alias, create-kennel, link-kennel)
 - Auto-resolution logic after alias/kennel creation
 - GitHub issue filing with 7 alert-type-specific body templates
@@ -62,6 +67,11 @@ These are correctness-critical, easy to test, and have zero coverage:
 - Multi-step process: parse CSV → fuzzy-match hashers → dedup → bulk insert → hare sync
 - The pure parsing logic is tested in `csv-import.test.ts`, but the server action orchestration is not
 - **Recommended tests:** Preview dedup counts, createHashers flag behavior, skipDuplicates, hare sync triggering
+
+#### `src/app/admin/regions/actions.ts` — Region CRUD + merge + AI suggestions (500+ LOC)
+- 6 server actions: createRegion, updateRegion, deleteRegion, mergeRegions, getRegionSuggestions, analyzeRegionsRuleBased
+- Merge re-parenting, self-parent guard, legacy kennel migration
+- **Recommended tests:** Auth guards, self-parent rejection, merge re-parenting to correct parent, legacy kennel update
 
 #### `src/app/admin/sources/gemini-suggestions-action.ts` — AI-powered pattern suggestions (126 LOC)
 - Gemini API integration with JSON response parsing and type-guard validation

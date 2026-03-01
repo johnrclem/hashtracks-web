@@ -42,7 +42,7 @@ export function RosterGroupChangeRequest({
         kennelId,
         message,
       );
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Change request submitted — an admin will review it");

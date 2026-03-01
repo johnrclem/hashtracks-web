@@ -8,88 +8,14 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-
-const YEAR_ROLLOVER_DAY_THRESHOLD = 45;
-
-const MONTHS: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
-  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-  aug: 8, august: 8, sep: 9, september: 9, oct: 10, october: 10,
-  nov: 11, november: 11, dec: 12, december: 12,
-};
+import { chronoParseDate } from "../utils";
 
 /**
- * Parse a UK-format date from Barnes Hash table text.
- * Formats:
- *   "Wednesday 19th February 2026" → "2026-02-19"
- *   "Wed 19 Feb 2026" → "2026-02-19"
- *   "19th February 2026" → "2026-02-19"
- *   "19/02/2026" → "2026-02-19"
+ * Parse a UK-format date from Barnes Hash table text using chrono-node.
+ * Handles: "Wednesday 19th February 2026", "19/02/2026", "19th February", "19/02", etc.
  */
-/** Try parsing DD/MM/YYYY or DD/MM/YY format. */
-function tryParseNumericDate(text: string): string | null {
-  const numericWithYear = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
-  if (!numericWithYear) return null;
-  const day = parseInt(numericWithYear[1], 10);
-  const month = parseInt(numericWithYear[2], 10);
-  let year = parseInt(numericWithYear[3], 10);
-  if (year < 100) year += 2000;
-  if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-  return null;
-}
-
-/** Try parsing "DDth Month YYYY" or "DD Month" with optional year. */
-function tryParseOrdinalDate(text: string, referenceDate: Date): string | null {
-  const ordinalMatch = text.match(
-    /(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\.?\s*(\d{2,4})?/i,
-  );
-  if (!ordinalMatch) return null;
-  const day = parseInt(ordinalMatch[1], 10);
-  const monthNum = MONTHS[ordinalMatch[2].toLowerCase()];
-  let year = ordinalMatch[3] ? parseInt(ordinalMatch[3], 10) : undefined;
-  if (year !== undefined && year < 100) year += 2000;
-  if (monthNum && day >= 1 && day <= 31) {
-    if (year === undefined) {
-      year = inferLikelyYear(monthNum, day, referenceDate);
-    }
-    return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-  return null;
-}
-
-/** Try parsing DD/MM with no year, using inference. */
-function tryParseDateWithoutYear(text: string, referenceDate: Date): string | null {
-  const numericNoYear = text.match(/(\d{1,2})\/(\d{1,2})(?!\/\d)/);
-  if (!numericNoYear) return null;
-  const day = parseInt(numericNoYear[1], 10);
-  const month = parseInt(numericNoYear[2], 10);
-  if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-    const year = inferLikelyYear(month, day, referenceDate);
-    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-  return null;
-}
-
 export function parseBarnesDate(text: string, referenceDate = new Date()): string | null {
-  return tryParseNumericDate(text)
-    ?? tryParseOrdinalDate(text, referenceDate)
-    ?? tryParseDateWithoutYear(text, referenceDate);
-}
-
-function inferLikelyYear(month: number, day: number, referenceDate: Date): number {
-  const currentYear = referenceDate.getFullYear();
-  const candidate = new Date(Date.UTC(currentYear, month - 1, day));
-  const refUtc = new Date(Date.UTC(
-    referenceDate.getUTCFullYear(),
-    referenceDate.getUTCMonth(),
-    referenceDate.getUTCDate(),
-  ));
-
-  // If inferred date is far in the past, treat as next year's schedule entry.
-  const dayDiff = Math.floor((candidate.getTime() - refUtc.getTime()) / (24 * 60 * 60 * 1000));
-  return dayDiff < -YEAR_ROLLOVER_DAY_THRESHOLD ? currentYear + 1 : currentYear;
+  return chronoParseDate(text, "en-GB", referenceDate, { forwardDate: true });
 }
 
 /**

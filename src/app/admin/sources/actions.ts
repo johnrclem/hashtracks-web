@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
 import { scrapeSource } from "@/pipeline/scrape";
 import { validateSourceConfig } from "./config-validation";
+import { buildKennelIdentifiers, resolveRegionByName, createKennelRecord } from "@/lib/kennel-utils";
 
 /** Parse and validate config JSON from form input. Returns the parsed value or an error. */
 function parseConfigJson(
@@ -60,42 +61,30 @@ async function autoResolveUnmatchedAlerts(sourceId: string, adminId: string): Pr
   }
 }
 
-function buildKennelIdentifiers(shortName: string): { slug: string; kennelCode: string } {
-  const slug = shortName
-    .toLowerCase()
-    .replace(/[()]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-  const kennelCode = shortName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  return { slug, kennelCode };
+
+function parseSourceFormData(formData: FormData) {
+  const name = (formData.get("name") as string)?.trim();
+  const url = (formData.get("url") as string)?.trim();
+  const type = (formData.get("type") as string)?.trim();
+  const trustLevel = Number.parseInt((formData.get("trustLevel") as string) || "5", 10);
+  const scrapeFreq = (formData.get("scrapeFreq") as string)?.trim() || "daily";
+  const scrapeDays = Number.parseInt((formData.get("scrapeDays") as string) || "90", 10);
+  const configRaw = (formData.get("config") as string)?.trim() || "";
+  const kennelIds = (formData.get("kennelIds") as string)?.trim() || "";
+  if (!name || !url || !type) return { error: "Name, URL, and type are required" as const };
+  if (Number.isNaN(trustLevel) || Number.isNaN(scrapeDays)) {
+    return { error: "Trust level and scrape days must be numbers" as const };
+  }
+  return { name, url, type, trustLevel, scrapeFreq, scrapeDays, configRaw, kennelIds };
 }
 
 export async function createSource(formData: FormData) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  const name = (formData.get("name") as string)?.trim();
-  const url = (formData.get("url") as string)?.trim();
-  const type = (formData.get("type") as string)?.trim();
-  const trustLevel = parseInt(
-    (formData.get("trustLevel") as string) || "5",
-    10,
-  );
-  const scrapeFreq = (formData.get("scrapeFreq") as string)?.trim() || "daily";
-  const scrapeDays = parseInt(
-    (formData.get("scrapeDays") as string) || "90",
-    10,
-  );
-  const configRaw = (formData.get("config") as string)?.trim() || "";
-  const kennelIds = (formData.get("kennelIds") as string)?.trim() || "";
-
-  if (!name || !url || !type) {
-    return { error: "Name, URL, and type are required" };
-  }
+  const parsed = parseSourceFormData(formData);
+  if ("error" in parsed) return parsed;
+  const { name, url, type, trustLevel, scrapeFreq, scrapeDays, configRaw, kennelIds } = parsed;
 
   const { config, error: configError } = parseConfigJson(configRaw, type, false);
   if (configError) return { error: configError };
@@ -139,24 +128,9 @@ export async function updateSource(sourceId: string, formData: FormData) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  const name = (formData.get("name") as string)?.trim();
-  const url = (formData.get("url") as string)?.trim();
-  const type = (formData.get("type") as string)?.trim();
-  const trustLevel = parseInt(
-    (formData.get("trustLevel") as string) || "5",
-    10,
-  );
-  const scrapeFreq = (formData.get("scrapeFreq") as string)?.trim() || "daily";
-  const scrapeDays = parseInt(
-    (formData.get("scrapeDays") as string) || "90",
-    10,
-  );
-  const configRaw = (formData.get("config") as string)?.trim() || "";
-  const kennelIds = (formData.get("kennelIds") as string)?.trim() || "";
-
-  if (!name || !url || !type) {
-    return { error: "Name, URL, and type are required" };
-  }
+  const parsed = parseSourceFormData(formData);
+  if ("error" in parsed) return parsed;
+  const { name, url, type, trustLevel, scrapeFreq, scrapeDays, configRaw, kennelIds } = parsed;
 
   const { config, error: configError } = parseConfigJson(configRaw, type, true);
   if (configError) return { error: configError };
@@ -347,6 +321,9 @@ export async function createQuickKennel(data: {
     return { error: "shortName, fullName, and region are required" };
   }
 
+  const regionRecord = await resolveRegionByName(region);
+  if (!regionRecord) return { error: `Region "${region}" not found — create it first in Admin → Regions` };
+
   const { slug, kennelCode } = buildKennelIdentifiers(shortName);
 
   const [existingCode, existingSlug] = await Promise.all([
@@ -358,7 +335,7 @@ export async function createQuickKennel(data: {
   }
 
   const kennel = await prisma.kennel.create({
-    data: { kennelCode, shortName, fullName, slug, region },
+    data: { kennelCode, shortName, fullName, slug, region, regionRef: { connect: { id: regionRecord.id } } },
   });
 
   revalidatePath("/admin/kennels");
@@ -382,37 +359,12 @@ export async function createKennelForSource(
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };
 
-  const { slug, kennelCode } = buildKennelIdentifiers(kennelData.shortName);
-
-  // Check uniqueness
-  const existingKennel = await prisma.kennel.findFirst({
-    where: {
-      OR: [
-        { kennelCode },
-        { slug },
-        { shortName: kennelData.shortName, region: kennelData.region || "Unknown" },
-      ],
-    },
-  });
-  if (existingKennel) return { error: `Kennel "${kennelData.shortName}" already exists` };
-
-  // Create kennel
-  const newKennel = await prisma.kennel.create({
-    data: {
-      kennelCode,
-      shortName: kennelData.shortName,
-      fullName: kennelData.fullName || kennelData.shortName,
-      slug,
-      region: kennelData.region || "Unknown",
-      aliases: {
-        create: tag !== kennelData.shortName ? [{ alias: tag }] : [],
-      },
-    },
-  });
+  const result = await createKennelRecord(kennelData, tag);
+  if ("error" in result) return result;
 
   // Link to source
   await prisma.sourceKennel.create({
-    data: { sourceId, kennelId: newKennel.id },
+    data: { sourceId, kennelId: result.kennelId },
   });
 
   await autoResolveUnmatchedAlerts(sourceId, admin.id);

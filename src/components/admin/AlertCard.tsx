@@ -131,7 +131,7 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
   function handleAcknowledge() {
     startTransition(async () => {
       const result = await acknowledgeAlert(alert.id);
-      if (result.error) toast.error(result.error);
+      if ("error" in result) toast.error(result.error);
       else toast.success("Alert acknowledged");
       router.refresh();
     });
@@ -140,7 +140,7 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
   function handleSnooze(hours: number) {
     startTransition(async () => {
       const result = await snoozeAlert(alert.id, hours);
-      if (result.error) toast.error(result.error);
+      if ("error" in result) toast.error(result.error);
       else toast.success(`Snoozed for ${hours}h`);
       router.refresh();
     });
@@ -149,7 +149,7 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
   function handleResolve() {
     startTransition(async () => {
       const result = await resolveAlert(alert.id);
-      if (result.error) toast.error(result.error);
+      if ("error" in result) toast.error(result.error);
       else toast.success("Alert resolved");
       router.refresh();
     });
@@ -158,7 +158,7 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
   function handleRescrape() {
     startTransition(async () => {
       const result = await rescrapeFromAlert(alert.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(
@@ -172,7 +172,7 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
   function handleFileIssue() {
     startTransition(async () => {
       const result = await createIssueFromAlert(alert.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else if (result.issueUrl) {
         toast.success("GitHub issue created", {

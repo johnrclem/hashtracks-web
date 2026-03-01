@@ -76,11 +76,13 @@ export const TYPE_LABELS: Record<string, string> = {
   RSS_FEED: "RSS Feed",
   JSON_API: "JSON API",
   HASHREGO: "Hash Rego",
+  STATIC_SCHEDULE: "Static Schedule",
   MANUAL: "Manual",
 };
 
 const HEALTH_OPTIONS = ["HEALTHY", "DEGRADED", "FAILING", "STALE", "UNKNOWN"];
 
+/** Format a date string as a relative time label (e.g. "5m ago", "2d ago"). */
 function relativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
@@ -94,6 +96,7 @@ function relativeTime(dateStr: string): string {
   return `${diffDay}d ago`;
 }
 
+/** Admin source table with kennel/type/health filtering and per-row actions. */
 export function SourceTable({ sources, allKennels, geminiAvailable }: SourceTableProps) {
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -341,7 +344,7 @@ function SourceRow({
     setMenuOpen(false);
     startTransition(async () => {
       const result = await toggleSourceEnabled(source.id, !source.enabled);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success(source.enabled ? "Source disabled" : "Source enabled");
@@ -358,7 +361,7 @@ function SourceRow({
     setMenuOpen(false);
     startTransition(async () => {
       const result = await deleteSource(source.id);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Source deleted");

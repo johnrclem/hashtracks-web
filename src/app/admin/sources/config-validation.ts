@@ -1,7 +1,7 @@
 import isSafeRegex from "safe-regex2";
 
 /** Types that require a non-empty config object */
-const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "HASHREGO", "MEETUP", "RSS_FEED"]);
+const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "HASHREGO", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"]);
 
 /** Validate a single regex pattern for syntax and ReDoS safety */
 function validateRegex(
@@ -112,12 +112,39 @@ function validateRssFeedConfig(obj: Record<string, unknown>, errors: string[]): 
   }
 }
 
+/** Validate STATIC_SCHEDULE required fields. */
+function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: string[]): void {
+  if (typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
+    errors.push("Static Schedule config requires a non-empty kennelTag");
+  }
+  if (typeof obj.rrule !== "string" || !obj.rrule.trim()) {
+    errors.push("Static Schedule config requires a non-empty rrule");
+  } else if (!/^FREQ=/i.test(obj.rrule.trim())) {
+    errors.push("Static Schedule rrule must start with FREQ= (e.g. FREQ=WEEKLY;BYDAY=SA)");
+  }
+  if (obj.startTime !== undefined) {
+    if (typeof obj.startTime !== "string") {
+      errors.push("Static Schedule config startTime must be a string");
+    } else if (!/^\d{2}:\d{2}$/.test(obj.startTime)) {
+      errors.push('Static Schedule config startTime must be HH:MM format (e.g. "10:17", "19:00")');
+    }
+  }
+  if (obj.anchorDate !== undefined) {
+    if (typeof obj.anchorDate !== "string") {
+      errors.push("Static Schedule config anchorDate must be a string");
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(obj.anchorDate)) {
+      errors.push('Static Schedule config anchorDate must be YYYY-MM-DD format (e.g. "2026-01-03")');
+    }
+  }
+}
+
 /** Run type-specific validation for a source config. */
 function runTypeValidator(type: string, obj: Record<string, unknown>, errors: string[]): void {
   if (type === "GOOGLE_SHEETS") validateGoogleSheetsConfig(obj, errors);
   else if (type === "HASHREGO") validateHashRegoConfig(obj, errors);
   else if (type === "MEETUP") validateMeetupConfig(obj, errors);
   else if (type === "RSS_FEED") validateRssFeedConfig(obj, errors);
+  else if (type === "STATIC_SCHEDULE") validateStaticScheduleConfig(obj, errors);
 }
 
 /**

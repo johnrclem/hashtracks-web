@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getLabelForUrl } from "@/lib/format";
 
 interface SourcesDropdownProps {
   sourceUrl: string | null;
@@ -17,21 +18,6 @@ interface SourcesDropdownProps {
 /** Only allow http/https URLs to prevent javascript: XSS. */
 function isSafeUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);
-}
-
-/** Derives a human-readable label from a source URL. */
-function getLabelForUrl(url: string, existingLabel?: string | null): string {
-  // Use existing label if it's descriptive (not the generic "Source" placeholder)
-  if (existingLabel && existingLabel !== "Source") return existingLabel;
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, "");
-    if (hostname.includes("calendar.google.com")) return "Google Calendar";
-    if (hostname.includes("hashrego.com")) return "Hash Rego";
-    if (hostname.includes("meetup.com")) return "Meetup";
-    return hostname;
-  } catch {
-    return "Source";
-  }
 }
 
 /**

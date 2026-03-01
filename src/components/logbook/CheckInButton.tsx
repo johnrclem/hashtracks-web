@@ -22,19 +22,30 @@ interface CheckInButtonProps {
   readonly eventDate: string; // ISO string
   readonly isAuthenticated: boolean;
   readonly attendance: AttendanceData | null;
+  readonly stravaConnected?: boolean;
 }
 
 /** Render the check-in button for a past event. */
 function PastEventButton({
   eventId,
+  eventDate,
   attendance,
+  stravaConnected,
 }: Readonly<{
   eventId: string;
+  eventDate: string;
   attendance: AttendanceData | null;
+  stravaConnected?: boolean;
 }>) {
   const [isPending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
+  // After a fresh check-in, we construct AttendanceData from known defaults
+  // so EditAttendanceDialog can open immediately without waiting for page refresh.
+  const [postCheckInAttendance, setPostCheckInAttendance] = useState<AttendanceData | null>(null);
   const router = useRouter();
+
+  // The attendance data to show in the dialog: real data takes priority, then post-check-in
+  const dialogAttendance = attendance ?? postCheckInAttendance;
 
   if (attendance?.status === "INTENDING") {
     const attendanceId = attendance.id;
@@ -60,26 +71,60 @@ function PastEventButton({
     return (
       <>
         <AttendanceBadge level={attendance.participationLevel} onClick={() => setEditOpen(true)} />
-        <EditAttendanceDialog open={editOpen} onOpenChange={setEditOpen} attendance={attendance} />
+        <EditAttendanceDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          attendance={attendance}
+          eventDate={eventDate}
+          stravaConnected={stravaConnected}
+        />
       </>
     );
   }
 
   return (
-    <Button
-      size="sm"
-      onClick={() => {
-        startTransition(async () => {
-          const result = await checkIn(eventId);
-          if (result.success) toast.success("Checked in!");
-          else toast.error(result.error);
-          router.refresh();
-        });
-      }}
-      disabled={isPending}
-    >
-      {isPending ? "..." : "I Was There"}
-    </Button>
+    <>
+      <Button
+        size="sm"
+        onClick={() => {
+          startTransition(async () => {
+            const result = await checkIn(eventId);
+            if (result.success) {
+              toast.success("Checked in!");
+              // Auto-open edit dialog so user can attach Strava / add notes
+              setPostCheckInAttendance({
+                id: result.attendanceId,
+                participationLevel: "RUN",
+                status: "CONFIRMED",
+                stravaUrl: null,
+                notes: null,
+              });
+              setEditOpen(true);
+            } else {
+              toast.error(result.error);
+            }
+          });
+        }}
+        disabled={isPending}
+      >
+        {isPending ? "..." : "I Was There"}
+      </Button>
+      {dialogAttendance && (
+        <EditAttendanceDialog
+          open={editOpen}
+          onOpenChange={(open) => {
+            setEditOpen(open);
+            if (!open) {
+              setPostCheckInAttendance(null);
+              router.refresh();
+            }
+          }}
+          attendance={dialogAttendance}
+          eventDate={eventDate}
+          stravaConnected={stravaConnected}
+        />
+      )}
+    </>
   );
 }
 
@@ -139,6 +184,7 @@ export function CheckInButton({
   eventDate,
   isAuthenticated,
   attendance,
+  stravaConnected,
 }: CheckInButtonProps) {
   const now = new Date();
   const todayUtcNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
@@ -155,7 +201,7 @@ export function CheckInButton({
   }
 
   if (isPast) {
-    return <PastEventButton eventId={eventId} attendance={attendance} />;
+    return <PastEventButton eventId={eventId} eventDate={eventDate} attendance={attendance} stravaConnected={stravaConnected} />;
   }
 
   return <FutureEventButton eventId={eventId} attendance={attendance} />;

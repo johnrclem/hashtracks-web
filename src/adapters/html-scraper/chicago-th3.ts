@@ -6,31 +6,18 @@ import type {
   RawEventData,
   ScrapeResult,
 } from "../types";
-import { MONTHS, googleMapsSearchUrl } from "../utils";
+import { chronoParseDate, googleMapsSearchUrl } from "../utils";
 import { parseRunNumber, parseDateFromDatetime, parseTimeString, fetchWordPressBlogEvents } from "./chicago-shared";
 export { parseRunNumber, parseDateFromDatetime, parseTimeString };
 
 const mapsUrl = googleMapsSearchUrl;
 
 /**
- * Parse a date from TH3 title format.
- * "TH3 #1060 – October 3, 2024" → "2024-10-03"
- * "TH3 #1058 – September 19, 2024" → "2024-09-19"
- * Also handles: "February 15, 2026", "Feb 15, 2026"
+ * Parse a date from TH3 title format using chrono-node.
+ * Handles: "TH3 #1060 – October 3, 2024", "February 15, 2026", "Feb 15, 2026"
  */
 export function parseDateFromTitle(title: string): string | null {
-  const match = /(\w+)\s+(\d{1,2}),?\s+(\d{4})/.exec(title);
-  if (!match) return null;
-
-  const monthNum = MONTHS[match[1].toLowerCase()];
-  if (!monthNum) return null;
-
-  const day = Number.parseInt(match[2], 10);
-  const year = Number.parseInt(match[3], 10);
-
-  if (day < 1 || day > 31) return null;
-
-  return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return chronoParseDate(title, "en-US");
 }
 
 /**

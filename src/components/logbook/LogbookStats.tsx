@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { participationLevelLabel } from "@/lib/format";
+import { RegionBadge } from "@/components/hareline/RegionBadge";
 
 interface KennelStat {
   kennelId: string;
   shortName: string;
   fullName: string;
   slug: string;
-  region: string;
+  regionName: string;
   count: number;
 }
 
@@ -88,12 +89,15 @@ export function LogbookStats({
               key={k.kennelId}
               className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
             >
-              <Link
-                href={`/kennels/${k.slug}`}
-                className="font-medium text-primary hover:underline"
-              >
-                {k.shortName}
-              </Link>
+              <span className="flex items-center gap-2">
+                <Link
+                  href={`/kennels/${k.slug}`}
+                  className="font-medium text-primary hover:underline"
+                >
+                  {k.shortName}
+                </Link>
+                <RegionBadge region={k.regionName} size="sm" />
+              </span>
               <span className="text-muted-foreground">
                 {k.count} {k.count === 1 ? "run" : "runs"}
               </span>

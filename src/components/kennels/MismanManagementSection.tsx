@@ -83,7 +83,7 @@ export function MismanManagementSection({
         inviteeEmail || undefined,
         expiryDays,
       );
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
         return;
       }
@@ -105,7 +105,7 @@ export function MismanManagementSection({
   function handleRevoke(inviteId: string) {
     startTransition(async () => {
       const result = await revokeMismanInvite(inviteId);
-      if (result.error) {
+      if ("error" in result) {
         toast.error(result.error);
       } else {
         toast.success("Invite revoked");

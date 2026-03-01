@@ -1,3 +1,5 @@
+import { regionNameToSlug } from "@/lib/region";
+
 /**
  * Convert 24-hour "HH:MM" string to 12-hour AM/PM format.
  * e.g. "14:30" → "2:30 PM", "09:00" → "9:00 AM"
@@ -63,68 +65,40 @@ export function parseParticipationLevel(value: string | undefined): Participatio
   return "RUN";
 }
 
-// ── Region display ──
+// ── Region display (delegated to src/lib/region.ts — single source of truth) ──
 
-const REGION_CONFIG: Record<string, { abbrev: string; classes: string; tz: string }> = {
-  // US East Coast
-  "New York City, NY": { abbrev: "NYC", classes: "bg-blue-200 text-blue-800", tz: "America/New_York" },
-  "Long Island, NY": { abbrev: "LI", classes: "bg-cyan-200 text-cyan-800", tz: "America/New_York" },
-  "Boston, MA": { abbrev: "BOS", classes: "bg-red-200 text-red-800", tz: "America/New_York" },
-  "North NJ": { abbrev: "NNJ", classes: "bg-emerald-200 text-emerald-800", tz: "America/New_York" },
-  "New Jersey": { abbrev: "NJ", classes: "bg-green-200 text-green-800", tz: "America/New_York" },
-  "Philadelphia, PA": { abbrev: "PHI", classes: "bg-amber-200 text-amber-800", tz: "America/New_York" },
-  // US Midwest
-  "Chicago, IL": { abbrev: "CHI", classes: "bg-purple-200 text-purple-800", tz: "America/Chicago" },
-  "South Shore, IN": { abbrev: "IN", classes: "bg-violet-200 text-violet-800", tz: "America/Chicago" },
-  // US DC / DMV
-  "Washington, DC": { abbrev: "DC", classes: "bg-slate-200 text-slate-800", tz: "America/New_York" },
-  "Northern Virginia": { abbrev: "NoVA", classes: "bg-stone-200 text-stone-800", tz: "America/New_York" },
-  "Baltimore, MD": { abbrev: "BAL", classes: "bg-orange-200 text-orange-800", tz: "America/New_York" },
-  "Frederick, MD": { abbrev: "FRD", classes: "bg-orange-100 text-orange-700", tz: "America/New_York" },
-  "Fredericksburg, VA": { abbrev: "FXBG", classes: "bg-stone-100 text-stone-700", tz: "America/New_York" },
-  "Southern Maryland": { abbrev: "SMD", classes: "bg-orange-100 text-orange-700", tz: "America/New_York" },
-  "Jefferson County, WV": { abbrev: "WV", classes: "bg-lime-200 text-lime-800", tz: "America/New_York" },
-  // US West Coast
-  "San Francisco, CA": { abbrev: "SF", classes: "bg-teal-200 text-teal-800", tz: "America/Los_Angeles" },
-  "Oakland, CA": { abbrev: "OAK", classes: "bg-teal-100 text-teal-700", tz: "America/Los_Angeles" },
-  "San Jose, CA": { abbrev: "SJ", classes: "bg-sky-200 text-sky-800", tz: "America/Los_Angeles" },
-  "Marin County, CA": { abbrev: "MRN", classes: "bg-teal-100 text-teal-700", tz: "America/Los_Angeles" },
-  // UK
-  "London": { abbrev: "LDN", classes: "bg-rose-200 text-rose-800", tz: "Europe/London" },
-  "London, England": { abbrev: "LDN", classes: "bg-rose-200 text-rose-800", tz: "Europe/London" },
-  "London, UK": { abbrev: "LDN", classes: "bg-rose-200 text-rose-800", tz: "Europe/London" },
-  "South West London": { abbrev: "SWL", classes: "bg-rose-200 text-rose-800", tz: "Europe/London" },
-  "Surrey": { abbrev: "SRY", classes: "bg-pink-200 text-pink-800", tz: "Europe/London" },
-  "Surrey, UK": { abbrev: "SRY", classes: "bg-pink-200 text-pink-800", tz: "Europe/London" },
-  "Old Coulsdon": { abbrev: "OC", classes: "bg-pink-100 text-pink-700", tz: "Europe/London" },
-  "Enfield": { abbrev: "ENF", classes: "bg-pink-100 text-pink-700", tz: "Europe/London" },
-  "Barnes": { abbrev: "BRN", classes: "bg-pink-200 text-pink-800", tz: "Europe/London" },
-  "West London": { abbrev: "WL", classes: "bg-rose-100 text-rose-700", tz: "Europe/London" },
-};
+export {
+  regionTimezone,
+  regionAbbrev,
+  regionColorClasses,
+  regionNameToSlug,
+} from "@/lib/region";
 
-/** Get the primary IANA timezone for a region string, defaults to America/New_York */
-export function regionTimezone(region: string): string {
-  // Exact match first
-  if (REGION_CONFIG[region]?.tz) return REGION_CONFIG[region].tz;
-  // Case-insensitive partial match fallback (handles variants like "London, England")
-  const lc = region.toLowerCase();
-  for (const [key, cfg] of Object.entries(REGION_CONFIG)) {
-    const keyLc = key.toLowerCase();
-    if (lc.includes(keyLc) || keyLc.includes(lc)) {
-      return cfg.tz;
-    }
-  }
-  return "America/New_York";
+// ── Array toggle helper (shared by filter components) ──
+
+/** Toggle an item in an array: add if missing, remove if present. Returns a new array. */
+export function toggleArrayItem<T>(array: T[], value: T): T[] {
+  return array.includes(value)
+    ? array.filter((v) => v !== value)
+    : [...array, value];
 }
 
-/** Short abbreviation for a region. "New York City, NY" → "NYC" */
-export function regionAbbrev(region: string): string {
-  return REGION_CONFIG[region]?.abbrev ?? region;
+// ── URL param helpers (shared by KennelDirectory + HarelineView) ──
+
+/** Parse a comma-separated URL param into an array of non-empty strings. */
+export function parseList(value: string | null): string[] {
+  if (!value) return [];
+  return value.split(",").filter(Boolean);
 }
 
-/** Tailwind color classes for a region badge. Falls back to gray. */
-export function regionColorClasses(region: string): string {
-  return REGION_CONFIG[region]?.classes ?? "bg-gray-200 text-gray-800";
+/**
+ * Parse region URL param with backward compat — resolves old name strings to slugs.
+ * Comma splitting is safe because URL params now store slugs (e.g. "washington-dc"),
+ * which never contain commas.
+ */
+export function parseRegionList(value: string | null): string[] {
+  const raw = parseList(value);
+  return raw.map((v) => regionNameToSlug(v) ?? v);
 }
 
 /**
@@ -182,5 +156,32 @@ export function displayDomain(url: string): string {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
     return url;
+  }
+}
+
+/**
+ * Derive a human-readable label from a URL.
+ * Recognizes well-known services and falls back to the bare hostname.
+ * If an existing label is provided and is not the generic "Source" placeholder,
+ * it is returned as-is.
+ */
+export function getLabelForUrl(url: string, existingLabel?: string | null): string {
+  if (existingLabel && existingLabel !== "Source") return existingLabel;
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.replace(/^www\./, "");
+    const isDomain = (d: string) => hostname === d || hostname.endsWith("." + d);
+
+    if (isDomain("calendar.google.com")) return "Google Calendar";
+    if (hostname === "google.com" && parsed.pathname.startsWith("/calendar")) return "Google Calendar";
+    if (isDomain("docs.google.com")) return "Google Sheets";
+    if (isDomain("facebook.com")) return "Facebook";
+    if (isDomain("hashrego.com")) return "Hash Rego";
+    if (isDomain("meetup.com")) return "Meetup";
+    if (isDomain("blogspot.com")) return "Blogspot";
+    if (isDomain("digitalpress.blog")) return "DigitalPress";
+    return hostname;
+  } catch {
+    return "Source";
   }
 }

@@ -6,28 +6,20 @@ import type {
   RawEventData,
   ScrapeResult,
 } from "../types";
-import { MONTHS, googleMapsSearchUrl } from "../utils";
+import { chronoParseDate, googleMapsSearchUrl } from "../utils";
 export { parseRunNumber, parseDateFromDatetime, parseTimeString } from "./chicago-shared";
 import { parseRunNumber, parseDateFromDatetime, parseTimeString, fetchWordPressBlogEvents } from "./chicago-shared";
 
 const mapsUrl = googleMapsSearchUrl;
 
 /**
- * Parse a date from text like "February 15, 2026" or "Feb 15, 2026".
+ * Parse a date from text using chrono-node.
+ * Handles: "February 15, 2026", "Feb 15, 2026"
+ * Requires an explicit 4-digit year in the text.
  */
 export function parseDateFromText(text: string): string | null {
-  const match = text.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/);
-  if (!match) return null;
-
-  const monthNum = MONTHS[match[1].toLowerCase()];
-  if (!monthNum) return null;
-
-  const day = parseInt(match[2], 10);
-  const year = parseInt(match[3], 10);
-
-  if (day < 1 || day > 31) return null;
-
-  return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  if (!/\b\d{4}\b/.test(text)) return null;
+  return chronoParseDate(text, "en-US");
 }
 
 /**
