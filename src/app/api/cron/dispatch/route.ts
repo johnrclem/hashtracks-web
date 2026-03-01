@@ -7,12 +7,16 @@ import { shouldScrape } from "@/pipeline/schedule";
 /**
  * Fan-out dispatcher: queries all enabled sources, filters to those due for scraping,
  * and publishes a QStash message per source to `/api/cron/scrape/[sourceId]`.
+ * Supports `?force=true` query param to bypass schedule checks (all sources treated as due).
  */
 export async function POST(request: Request) {
   const auth = await verifyCronAuth(request);
   if (!auth.authenticated) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const url = new URL(request.url);
+  const force = url.searchParams.get("force") === "true";
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -38,18 +42,23 @@ export async function POST(request: Request) {
   // Single-pass partitioning to avoid evaluating shouldScrape() twice per source
   const dueSources: typeof sources = [];
   const skippedSources: typeof sources = [];
-  for (const s of sources) {
-    (shouldScrape(s.scrapeFreq, s.lastScrapeAt) ? dueSources : skippedSources).push(s);
+  if (force) {
+    dueSources.push(...sources);
+  } else {
+    for (const s of sources) {
+      (shouldScrape(s.scrapeFreq, s.lastScrapeAt) ? dueSources : skippedSources).push(s);
+    }
   }
 
   console.log(
-    `[cron/dispatch] ${dueSources.length} due, ${skippedSources.length} skipped, auth=${auth.method}`,
+    `[cron/dispatch] ${dueSources.length} due, ${skippedSources.length} skipped, auth=${auth.method}${force ? ", force=true" : ""}`,
   );
 
   if (dueSources.length === 0) {
     return NextResponse.json({
       data: {
         success: true,
+        force,
         dispatched: 0,
         failed: 0,
         skipped: skippedSources.length,
@@ -88,6 +97,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     data: {
       success: failed === 0,
+      force,
       dispatched,
       failed,
       skipped: skippedSources.length,
