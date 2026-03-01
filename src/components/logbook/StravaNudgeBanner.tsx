@@ -94,15 +94,23 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
 
   function handleDismissAll() {
     startTransition(async () => {
-      for (const match of matches) {
-        const result = await dismissStravaMatch(match.stravaActivityDbId);
-        if (!result.success) {
-          toast.error(result.error);
-          return;
-        }
+      const results = await Promise.all(
+        matches.map(async (match) => {
+          const result = await dismissStravaMatch(match.stravaActivityDbId);
+          return { id: match.stravaActivityDbId, success: result.success };
+        }),
+      );
+      const dismissedIds = new Set(results.filter((r) => r.success).map((r) => r.id));
+      const failures = results.filter((r) => !r.success).length;
+
+      if (dismissedIds.size > 0) {
+        setMatches((prev) => prev.filter((m) => !dismissedIds.has(m.stravaActivityDbId)));
       }
-      setMatches([]);
-      toast.success("All matches dismissed");
+      if (failures > 0) {
+        toast.error(`${failures} match${failures === 1 ? "" : "es"} failed to dismiss`);
+      } else {
+        toast.success("All matches dismissed");
+      }
     });
   }
 

@@ -32,7 +32,7 @@ export function Header() {
   const { tempUnit, setTempUnit } = useUnitsPreference();
   const pathname = usePathname();
 
-  const isActive = (href: string) => pathname.startsWith(href);
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <header className="border-b bg-background">

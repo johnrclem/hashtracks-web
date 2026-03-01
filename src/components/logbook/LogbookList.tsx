@@ -309,9 +309,9 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
             (e) => e.attendance.status === "INTENDING" && new Date(e.event.date).getTime() > todayUtcNoon,
           ).length;
           const parts: string[] = [];
-          if (confirmed > 0) parts.push(`${confirmed} ${confirmed === 1 ? "run" : "runs"} logged`);
+          parts.push(`${confirmed} ${confirmed === 1 ? "run" : "runs"} logged`);
           if (going > 0) parts.push(`${going} upcoming`);
-          const label = parts.length > 0 ? parts.join(" · ") : "0 runs";
+          const label = parts.join(" · ");
           return activeFilterCount > 0 ? `${label} (filtered)` : label;
         })()}
       </p>
