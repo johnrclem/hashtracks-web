@@ -72,12 +72,13 @@ export async function POST(request: Request) {
   );
 
   const results = settled.map((outcome, i) => {
+    const source = dueSources[i];
     if (outcome.status === "fulfilled") {
       return { sourceId: outcome.value.sourceId, name: outcome.value.name, dispatched: true, messageId: outcome.value.messageId };
     }
     const errorMsg = outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
-    console.error(`[cron/dispatch] Failed to dispatch ${dueSources[i].name}: ${errorMsg}`);
-    return { sourceId: dueSources[i].id, name: dueSources[i].name, dispatched: false, error: errorMsg };
+    console.error(`[cron/dispatch] Failed to dispatch ${source.name}: ${errorMsg}`);
+    return { sourceId: source.id, name: source.name, dispatched: false, error: errorMsg };
   });
 
   const dispatched = results.filter((r) => r.dispatched).length;
