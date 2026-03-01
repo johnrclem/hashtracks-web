@@ -30,6 +30,8 @@ model User {
   sentInvites           MismanInvite[]     @relation("SentInvites")
   acceptedInvites       MismanInvite[]     @relation("AcceptedInvites")
   rosterGroupRequests   RosterGroupRequest[]
+  // Strava
+  stravaConnection    StravaConnection?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -57,6 +59,35 @@ enum UserKennelRole {
   MISMAN // Can manage roster + attendance for this kennel
 }
 
+// ── REGIONS ──
+
+model Region {
+  id            String    @id @default(cuid())
+  name          String    @unique    // "New York City, NY", "London"
+  slug          String    @unique    // "new-york-city-ny", "london"
+  country       String    @default("USA")
+  timezone      String               // IANA: "America/New_York", "Europe/London"
+  abbrev        String               // "NYC", "LDN"
+  colorClasses  String               // Tailwind: "bg-blue-200 text-blue-800"
+  pinColor      String               // Hex: "#2563eb"
+  centroidLat   Float?               // Region center latitude
+  centroidLng   Float?               // Region center longitude
+
+  // Hierarchy (optional, max 2 levels)
+  parentId      String?
+  parent        Region?   @relation("RegionHierarchy", fields: [parentId], references: [id])
+  children      Region[]  @relation("RegionHierarchy")
+
+  // Relations
+  kennels       Kennel[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([parentId])
+  @@index([country])
+}
+
 // ── KENNELS ──
 
 model Kennel {
@@ -65,7 +96,9 @@ model Kennel {
   shortName   String         // Display name (unique within region, not globally)
   slug        String         @unique // URL-safe: "nych3", "bos-moon"
   fullName    String         // "New York City Hash House Harriers"
-  region      String         // "New York City, NY"
+  region      String         // "New York City, NY" — denormalized from Region.name
+  regionId    String         // FK to Region (required)
+  regionRef   Region         @relation(fields: [regionId], references: [id])
   country     String         @default("USA")
   description String?
   website     String?
@@ -94,6 +127,7 @@ model Kennel {
   // ── FLAGS ──
   dogFriendly        Boolean?  // null = unknown
   walkersWelcome     Boolean?  // null = unknown
+  isHidden           Boolean   @default(false) // Hide from public directory/hareline
 
   aliases     KennelAlias[]
   sources     SourceKennel[]
@@ -107,7 +141,8 @@ model Kennel {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  @@unique([shortName, region])
+  @@unique([shortName, regionId])
+  @@index([regionId])
 }
 
 model KennelAlias {
@@ -153,6 +188,7 @@ enum SourceType {
   JSON_API        // Generic JSON API
   HASHREGO        // hashrego.com event pages
   MEETUP          // meetup.com group events
+  STATIC_SCHEDULE // Auto-generated events from schedule rules (Facebook-only kennels)
   MANUAL          // User-submitted events
 }
 
@@ -606,4 +642,53 @@ model RosterGroupRequest {
   createdAt     DateTime      @default(now())
 
   @@index([status])
+}
+
+// ── STRAVA INTEGRATION ──
+
+model StravaConnection {
+  id            String    @id @default(cuid())
+  userId        String    @unique           // One Strava account per user
+  athleteId     String    @unique           // Strava athlete ID (stored as String to avoid BigInt serialization)
+  accessToken   String                      // Current access token (server-side only, never exposed to client)
+  refreshToken  String                      // Long-lived refresh token
+  expiresAt     DateTime                    // When accessToken expires
+  scope         String    @default("activity:read_all")
+  athleteData   Json?                       // Cached athlete profile (name, pic URL — user-scoped only per Strava API agreement)
+  lastSyncAt    DateTime?                   // Last successful activity sync
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities    StravaActivity[]
+
+  @@index([userId])
+}
+
+model StravaActivity {
+  id                  String    @id @default(cuid())
+  stravaConnectionId  String
+  stravaActivityId    String    @unique      // Strava's activity ID (as String)
+  name                String                 // Activity name from Strava
+  sportType           String                 // "Run", "TrailRun", "Walk", "Hike", etc. (use sport_type, NOT deprecated type)
+  dateLocal           String                 // "YYYY-MM-DD" — extracted as string from start_date_local, NEVER parsed through new Date()
+  timeLocal           String?                // "HH:MM" — extracted as string from start_date_local
+  distanceMeters      Float                  // Distance in meters
+  movingTimeSecs      Int                    // Moving time in seconds
+  startLat            Float?                 // start_latlng[0] — null for privacy zones
+  startLng            Float?                 // start_latlng[1] — null for privacy zones
+  timezone            String?                // Strava timezone string
+
+  // Match tracking (V1: set on manual pick; V2: auto-suggest will populate these)
+  matchedAttendanceId String?               // Attendance record this was attached to
+  matchDismissed      Boolean   @default(false) // User dismissed this match suggestion (V2)
+
+  connection    StravaConnection @relation(fields: [stravaConnectionId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([stravaConnectionId, dateLocal])
+  @@index([matchedAttendanceId])
+  @@index([dateLocal])
 }
