@@ -72,6 +72,7 @@ calendar + personal logbook + kennel directory.
 - QSTASH_TOKEN=           # Upstash QStash API token (fan-out job dispatch)
 - QSTASH_CURRENT_SIGNING_KEY= # QStash signature verification (current key)
 - QSTASH_NEXT_SIGNING_KEY=    # QStash signature verification (next key for rotation)
+- QSTASH_URL=              # QStash regional base URL (sdk reads automatically)
 - GOOGLE_CALENDAR_API_KEY= # For Google Calendar + Sheets APIs
 - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY= # For MapView (interactive) + EventLocationMap (static) — browser-exposed by design
 - GOOGLE_WEATHER_API_KEY= # Server-only (NOT NEXT_PUBLIC_) — same GCP project as Maps
