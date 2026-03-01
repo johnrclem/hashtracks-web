@@ -124,6 +124,12 @@ export default async function EventDetailPage({
     timeZone: "UTC",
   });
 
+  const breadcrumbDate = event.date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+
   const hasLocation =
     (event.latitude != null && event.longitude != null) || !!event.locationName;
 
@@ -135,7 +141,7 @@ export default async function EventDetailPage({
           Hareline
         </Link>
         <span>/</span>
-        <span className="text-foreground">Event Detail</span>
+        <span className="text-foreground">{event.kennel.shortName} — {breadcrumbDate}</span>
       </nav>
 
       {/* Header */}

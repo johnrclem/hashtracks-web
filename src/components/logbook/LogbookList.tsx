@@ -303,8 +303,17 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
 
       {/* Count */}
       <p className="text-sm text-muted-foreground">
-        {filtered.length} {filtered.length === 1 ? "run" : "runs"}
-        {activeFilterCount > 0 ? " (filtered)" : ""}
+        {(() => {
+          const confirmed = filtered.filter((e) => e.attendance.status === "CONFIRMED").length;
+          const going = filtered.filter(
+            (e) => e.attendance.status === "INTENDING" && new Date(e.event.date).getTime() > todayUtcNoon,
+          ).length;
+          const parts: string[] = [];
+          if (confirmed > 0) parts.push(`${confirmed} ${confirmed === 1 ? "run" : "runs"} logged`);
+          if (going > 0) parts.push(`${going} upcoming`);
+          const label = parts.length > 0 ? parts.join(" · ") : "0 runs";
+          return activeFilterCount > 0 ? `${label} (filtered)` : label;
+        })()}
       </p>
 
       {/* List */}
