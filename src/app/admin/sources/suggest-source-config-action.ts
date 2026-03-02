@@ -101,7 +101,7 @@ export async function suggestSourceConfig(
 
   // MEETUP: extract groupUrlname from URL to bootstrap event fetching (adapter needs config)
   if (type === "MEETUP") {
-    const groupUrlname = extractMeetupGroupUrlname(url);
+    const groupUrlname = await extractMeetupGroupUrlname(url);
     if (!groupUrlname) {
       return { error: "Could not extract Meetup group name from URL" };
     }
@@ -154,7 +154,7 @@ function buildHtmlScraperSuggestion(url: string): SuggestConfigResult {
 }
 
 /** Extract the Meetup group URL name from a meetup.com URL. */
-export function extractMeetupGroupUrlname(rawUrl: string): string | null {
+export async function extractMeetupGroupUrlname(rawUrl: string): Promise<string | null> {
   try {
     const url = new URL(rawUrl);
     if (url.hostname !== "meetup.com" && !url.hostname.endsWith(".meetup.com")) return null;
