@@ -17,7 +17,10 @@ export default async function HomePage() {
       where: { date: { gte: todayUtcNoon }, status: { not: "CANCELLED" } },
     }),
     prisma.kennel.count(),
-    prisma.region.count(),
+    prisma.kennel.findMany({
+      select: { regionId: true },
+      distinct: ["regionId"],
+    }).then((rows) => rows.length),
     prisma.event.findMany({
       where: { date: { gte: todayUtcNoon }, status: { not: "CANCELLED" } },
       select: {
@@ -75,7 +78,7 @@ export default async function HomePage() {
                     {event.kennel.shortName}
                   </span>
                   <RegionBadge region={event.kennel.region} size="sm" />
-                  {event.runNumber && (
+                  {event.runNumber != null && (
                     <>
                       <span className="text-muted-foreground">&middot;</span>
                       <span className="shrink-0 text-muted-foreground">#{event.runNumber}</span>
