@@ -44,6 +44,10 @@ export async function submitFeedback(
 
   const issueTitle = `[Feedback] ${title}`;
   const heading = CATEGORY_HEADINGS[category] || "Feedback";
+  const feedbackContext =
+    category === "bug"
+      ? `\n\n<!-- FEEDBACK_CONTEXT ${JSON.stringify({ category, pageUrl: pageUrl || null })} -->`
+      : "";
   const issueBody = `## ${heading}
 
 ${description}
@@ -53,9 +57,10 @@ ${description}
 **Page:** ${pageUrl || "N/A"}
 **Date:** ${new Date().toISOString()}
 
-*Submitted via HashTracks in-app feedback*`;
+*Submitted via HashTracks in-app feedback*${feedbackContext}`;
 
   const labels = ["user-feedback", CATEGORY_LABELS[category] || "feedback"];
+  if (category === "bug") labels.push("claude-fix");
 
   try {
     const res = await fetch(

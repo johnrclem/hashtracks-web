@@ -97,9 +97,9 @@ export function SourceOnboardingWizard({
   const [name, setName] = useState("");
   const [isSuggestingName, setIsSuggestingName] = useState(false);
   const [nameSuggested, setNameSuggested] = useState(false);
-  const [trustLevel, setTrustLevel] = useState(5);
+  const [trustLevel, setTrustLevel] = useState<number | string>(5);
   const [scrapeFreq, setScrapeFreq] = useState("daily");
-  const [scrapeDays, setScrapeDays] = useState(90);
+  const [scrapeDays, setScrapeDays] = useState<number | string>(90);
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
   const [configObj, setConfigObj] = useState<Record<string, unknown> | null>(null);
   const [configJson, setConfigJson] = useState("");
@@ -166,9 +166,9 @@ export function SourceOnboardingWizard({
     fd.set("name", name);
     fd.set("url", urlValue);
     fd.set("type", selectedType);
-    fd.set("trustLevel", String(trustLevel));
+    fd.set("trustLevel", String(trustLevel || 5));
     fd.set("scrapeFreq", scrapeFreq);
-    fd.set("scrapeDays", String(scrapeDays));
+    fd.set("scrapeDays", String(scrapeDays || 90));
     fd.set("kennelIds", selectedKennels.join(","));
     if (configJson.trim()) fd.set("config", configJson.trim());
 
@@ -382,8 +382,16 @@ export function SourceOnboardingWizard({
                     max={10}
                     value={trustLevel}
                     onChange={(e) =>
-                      setTrustLevel(Number.parseInt(e.target.value) || 5)
+                      setTrustLevel(
+                        e.target.value === ""
+                          ? ""
+                          : Number.parseInt(e.target.value) || trustLevel,
+                      )
                     }
+                    onBlur={() => {
+                      if (trustLevel === "" || trustLevel === 0)
+                        setTrustLevel(5);
+                    }}
                   />
                   <p className="text-xs text-muted-foreground">
                     Higher = preferred when merging duplicate events. Use 5
@@ -417,8 +425,16 @@ export function SourceOnboardingWizard({
                   max={365}
                   value={scrapeDays}
                   onChange={(e) =>
-                    setScrapeDays(Number.parseInt(e.target.value) || 90)
+                    setScrapeDays(
+                      e.target.value === ""
+                        ? ""
+                        : Number.parseInt(e.target.value) || scrapeDays,
+                    )
                   }
+                  onBlur={() => {
+                    if (scrapeDays === "" || scrapeDays === 0)
+                      setScrapeDays(90);
+                  }}
                 />
                 <p className="text-xs text-muted-foreground">
                   How far back to look when scraping. Default: 90 days.
@@ -507,7 +523,7 @@ export function SourceOnboardingWizard({
                     <span className="text-xs font-medium text-muted-foreground">
                       Trust Level
                     </span>
-                    <p>{trustLevel}/10</p>
+                    <p>{trustLevel || 5}/10</p>
                   </div>
                   <div>
                     <span className="text-xs font-medium text-muted-foreground">
@@ -519,7 +535,7 @@ export function SourceOnboardingWizard({
                     <span className="text-xs font-medium text-muted-foreground">
                       Lookback
                     </span>
-                    <p>{scrapeDays} days</p>
+                    <p>{scrapeDays || 90} days</p>
                   </div>
                 </div>
 

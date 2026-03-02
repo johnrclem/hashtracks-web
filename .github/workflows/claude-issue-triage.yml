@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   triage:
-    if: github.event.label.name == 'claude-fix'
+    if: github.event.label.name == 'claude-fix' && contains(github.event.issue.labels.*.name, 'alert')
     runs-on: ubuntu-latest
     permissions:
       contents: read
