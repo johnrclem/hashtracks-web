@@ -342,7 +342,7 @@ Rules:
     }
 
     // Cross-check: only include suggestedNewKennel if the kennelTag is NOT already known
-    const kennelTagFromConfig = typeof suggestedConfig.kennelTag === "string" ? suggestedConfig.kennelTag : null;
+    const kennelTagFromConfig = typeof suggestedConfig.kennelTag === "string" ? suggestedConfig.kennelTag.trim() : null;
     if (suggestedNewKennel && kennelTagFromConfig) {
       const isKnown = kennels.some(
         (k) => k.shortName.toLowerCase() === kennelTagFromConfig.toLowerCase(),

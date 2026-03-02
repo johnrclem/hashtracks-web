@@ -64,8 +64,21 @@ describe("buildGeminiSuggestion — suggestedNewKennel", () => {
     mockKennelFindMany.mockResolvedValue(KNOWN_KENNELS as never);
   });
 
+  /** Call buildGeminiSuggestion with a mocked Gemini response and assert it returns a suggestion. */
+  async function callAndExpectSuggestion(
+    geminiResponse: Record<string, unknown>,
+    url = "https://meetup.com/test-hash",
+    kennelTag = "test-hash",
+  ) {
+    const client = makeGeminiClient(geminiResponse);
+    const result = await buildGeminiSuggestion(url, "MEETUP", makeSampleEvents(kennelTag), client);
+    expect("suggestion" in result).toBe(true);
+    if (!("suggestion" in result)) throw new Error("Expected suggestion");
+    return result.suggestion;
+  }
+
   it("includes suggestedNewKennel when kennelTag is not in known kennels", async () => {
-    const client = makeGeminiClient({
+    const s = await callAndExpectSuggestion({
       suggestedConfig: { kennelTag: "SavH3" },
       suggestedKennelTags: [],
       explanation: "Derived from Savannah Hash group.",
@@ -77,22 +90,15 @@ describe("buildGeminiSuggestion — suggestedNewKennel", () => {
       },
     });
 
-    const result = await buildGeminiSuggestion(
-      "https://meetup.com/savannah-hash", "MEETUP", makeSampleEvents("savannah-hash"), client,
-    );
-
-    expect("suggestion" in result).toBe(true);
-    if ("suggestion" in result) {
-      expect(result.suggestion.suggestedNewKennel).toEqual({
-        shortName: "SavH3",
-        fullName: "Savannah Hash House Harriers",
-        region: "Savannah, GA",
-      });
-    }
+    expect(s.suggestedNewKennel).toEqual({
+      shortName: "SavH3",
+      fullName: "Savannah Hash House Harriers",
+      region: "Savannah, GA",
+    });
   });
 
   it("omits suggestedNewKennel when kennelTag matches a known kennel", async () => {
-    const client = makeGeminiClient({
+    const s = await callAndExpectSuggestion({
       suggestedConfig: { kennelTag: "NYCH3" },
       suggestedKennelTags: ["NYCH3"],
       explanation: "Matched to NYCH3.",
@@ -104,18 +110,11 @@ describe("buildGeminiSuggestion — suggestedNewKennel", () => {
       },
     });
 
-    const result = await buildGeminiSuggestion(
-      "https://meetup.com/nyc-hash", "MEETUP", makeSampleEvents("nyc-hash"), client,
-    );
-
-    expect("suggestion" in result).toBe(true);
-    if ("suggestion" in result) {
-      expect(result.suggestion.suggestedNewKennel).toBeNull();
-    }
+    expect(s.suggestedNewKennel).toBeNull();
   });
 
   it("omits suggestedNewKennel when Gemini returns invalid shape", async () => {
-    const client = makeGeminiClient({
+    const s = await callAndExpectSuggestion({
       suggestedConfig: { kennelTag: "SavH3" },
       suggestedKennelTags: [],
       explanation: "Test.",
@@ -123,18 +122,11 @@ describe("buildGeminiSuggestion — suggestedNewKennel", () => {
       suggestedNewKennel: { shortName: "SavH3" }, // missing fullName and region
     });
 
-    const result = await buildGeminiSuggestion(
-      "https://meetup.com/savannah-hash", "MEETUP", makeSampleEvents("savannah-hash"), client,
-    );
-
-    expect("suggestion" in result).toBe(true);
-    if ("suggestion" in result) {
-      expect(result.suggestion.suggestedNewKennel).toBeNull();
-    }
+    expect(s.suggestedNewKennel).toBeNull();
   });
 
   it("handles case-insensitive kennel matching for cross-check", async () => {
-    const client = makeGeminiClient({
+    const s = await callAndExpectSuggestion({
       suggestedConfig: { kennelTag: "nych3" },
       suggestedKennelTags: ["NYCH3"],
       explanation: "Matched.",
@@ -146,31 +138,33 @@ describe("buildGeminiSuggestion — suggestedNewKennel", () => {
       },
     });
 
-    const result = await buildGeminiSuggestion(
-      "https://meetup.com/nyc-hash", "MEETUP", makeSampleEvents("nyc-hash"), client,
-    );
-
-    expect("suggestion" in result).toBe(true);
-    if ("suggestion" in result) {
-      expect(result.suggestion.suggestedNewKennel).toBeNull();
-    }
+    expect(s.suggestedNewKennel).toBeNull();
   });
 
   it("returns null suggestedNewKennel when Gemini omits the field", async () => {
-    const client = makeGeminiClient({
+    const s = await callAndExpectSuggestion({
       suggestedConfig: { kennelTag: "SavH3" },
       suggestedKennelTags: [],
       explanation: "Test.",
       confidence: "medium",
     });
 
-    const result = await buildGeminiSuggestion(
-      "https://meetup.com/savannah-hash", "MEETUP", makeSampleEvents("savannah-hash"), client,
-    );
+    expect(s.suggestedNewKennel).toBeNull();
+  });
 
-    expect("suggestion" in result).toBe(true);
-    if ("suggestion" in result) {
-      expect(result.suggestion.suggestedNewKennel).toBeNull();
-    }
+  it("handles whitespace in kennelTag for cross-check", async () => {
+    const s = await callAndExpectSuggestion({
+      suggestedConfig: { kennelTag: "  NYCH3  " },
+      suggestedKennelTags: ["NYCH3"],
+      explanation: "Matched with whitespace.",
+      confidence: "high",
+      suggestedNewKennel: {
+        shortName: "NYCH3",
+        fullName: "New York City Hash House Harriers",
+        region: "New York, NY",
+      },
+    });
+
+    expect(s.suggestedNewKennel).toBeNull();
   });
 });
