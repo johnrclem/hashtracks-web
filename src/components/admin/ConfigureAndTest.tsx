@@ -458,7 +458,7 @@ export function ConfigureAndTest({
                     <Badge variant="secondary" className="text-xs">{aiSuggestion.adapterNote}</Badge>
                   )}
                   {aiSuggestion.suggestedNewKennel && (
-                    <Badge variant="secondary" className="border-blue-300 text-blue-700 text-xs">
+                    <Badge variant="secondary" className="border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300 text-xs">
                       New kennel: {aiSuggestion.suggestedNewKennel.shortName}
                     </Badge>
                   )}
@@ -468,7 +468,7 @@ export function ConfigureAndTest({
               <button
                 type="button"
                 className="shrink-0 text-muted-foreground hover:text-foreground"
-                onClick={() => setAiState("dismissed")}
+                onClick={() => { setAiState("dismissed"); setAiSuggestion(null); }}
               >
                 ✕
               </button>

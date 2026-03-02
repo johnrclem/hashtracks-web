@@ -22,7 +22,7 @@ export interface ConfigSuggestion {
   /** Non-null when a known HTML adapter was matched (no config needed). */
   adapterNote: string | null;
   /** When suggestedConfig.kennelTag doesn't match an existing kennel, AI suggests details for creating one. */
-  suggestedNewKennel?: { shortName: string; fullName: string; region: string } | null;
+  suggestedNewKennel: { shortName: string; fullName: string; region: string } | null;
 }
 
 export type SuggestConfigResult =
@@ -80,6 +80,7 @@ export async function suggestSourceConfig(
           "Configure the kennelTag, rrule, and startTime in the config panel.",
         confidence: "high",
         adapterNote: "No live data to analyze — configure schedule rules manually.",
+        suggestedNewKennel: null,
       },
     };
   }
@@ -125,6 +126,7 @@ function buildHtmlScraperSuggestion(url: string): SuggestConfigResult {
         explanation: `This URL is handled by the ${adapterName}. No additional configuration is needed — the adapter is already coded to parse this site.`,
         confidence: "high",
         adapterNote: `Matched existing adapter: ${adapterName}`,
+        suggestedNewKennel: null,
       },
     };
   }
@@ -136,6 +138,7 @@ function buildHtmlScraperSuggestion(url: string): SuggestConfigResult {
         "No site-specific adapter matches this URL. The default scraper will attempt to parse it, but a custom adapter may be needed for reliable extraction.",
       confidence: "low",
       adapterNote: null,
+      suggestedNewKennel: null,
     },
   };
 }
