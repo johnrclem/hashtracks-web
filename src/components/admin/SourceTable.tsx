@@ -57,6 +57,7 @@ type SourceData = {
 interface SourceTableProps {
   sources: SourceData[];
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
+  allRegions: { id: string; name: string; country: string; abbrev: string }[];
   geminiAvailable?: boolean;
 }
 
@@ -97,7 +98,7 @@ function relativeTime(dateStr: string): string {
 }
 
 /** Admin source table with kennel/type/health filtering and per-row actions. */
-export function SourceTable({ sources, allKennels, geminiAvailable }: SourceTableProps) {
+export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }: SourceTableProps) {
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedHealth, setSelectedHealth] = useState<string[]>([]);
@@ -317,6 +318,7 @@ export function SourceTable({ sources, allKennels, geminiAvailable }: SourceTabl
               key={source.id}
               source={source}
               allKennels={allKennels}
+              allRegions={allRegions}
               geminiAvailable={geminiAvailable}
             />
           ))}
@@ -329,10 +331,12 @@ export function SourceTable({ sources, allKennels, geminiAvailable }: SourceTabl
 function SourceRow({
   source,
   allKennels,
+  allRegions,
   geminiAvailable,
 }: {
   source: SourceData;
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
+  allRegions: { id: string; name: string; country: string; abbrev: string }[];
   geminiAvailable?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -514,6 +518,7 @@ function SourceRow({
               openAlertTags={source.openAlertTags}
               geminiAvailable={geminiAvailable}
               allKennels={allKennels}
+              allRegions={allRegions}
               trigger={
                 <button
                   className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent"

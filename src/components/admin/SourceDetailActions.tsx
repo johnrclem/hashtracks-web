@@ -28,11 +28,13 @@ type SourceDetailData = {
 interface SourceDetailActionsProps {
   source: SourceDetailData;
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
+  allRegions: { id: string; name: string; country: string; abbrev: string }[];
 }
 
 export function SourceDetailActions({
   source,
   allKennels,
+  allRegions,
 }: SourceDetailActionsProps) {
   const [isPending, startTransition] = useTransition();
   const [isScraping, setIsScraping] = useState(false);
@@ -153,6 +155,7 @@ export function SourceDetailActions({
             <SourceForm
               source={source}
               allKennels={allKennels}
+              allRegions={allRegions}
               trigger={
                 <Button size="sm" variant="outline">
                   Edit

@@ -310,7 +310,7 @@ export default async function SourceDetailPage({
   if (!source) notFound();
 
   // Get scrape logs, counts, alerts (most recent first)
-  const [scrapeLogs, rawEventCount, linkedEventCount, allKennels, openAlertCount, recentAlerts, structureHashHistory, recentScrapeWithSamples, recentRawEvents] =
+  const [scrapeLogs, rawEventCount, linkedEventCount, allKennels, allRegions, openAlertCount, recentAlerts, structureHashHistory, recentScrapeWithSamples, recentRawEvents] =
     await Promise.all([
       prisma.scrapeLog.findMany({
         where: { sourceId },
@@ -332,6 +332,10 @@ export default async function SourceDetailPage({
           region: true,
           aliases: { select: { alias: true } },
         },
+      }),
+      prisma.region.findMany({
+        orderBy: [{ country: "asc" }, { name: "asc" }],
+        select: { id: true, name: true, country: true, abbrev: true },
       }),
       prisma.alert.count({
         where: { sourceId, status: { in: ["OPEN", "ACKNOWLEDGED"] } },
@@ -446,6 +450,7 @@ export default async function SourceDetailPage({
           linkedKennelIds: source.kennels.map((sk) => sk.kennelId),
         }}
         allKennels={allKennels}
+        allRegions={allRegions}
       />
 
       {/* Stats grid */}

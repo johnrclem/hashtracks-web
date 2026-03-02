@@ -25,10 +25,16 @@ export default async function AdminSourcesPage() {
     }),
   ]);
 
-  const allKennels = await prisma.kennel.findMany({
-    orderBy: { shortName: "asc" },
-    select: { id: true, shortName: true, fullName: true, region: true },
-  });
+  const [allKennels, allRegions] = await Promise.all([
+    prisma.kennel.findMany({
+      orderBy: { shortName: "asc" },
+      select: { id: true, shortName: true, fullName: true, region: true },
+    }),
+    prisma.region.findMany({
+      orderBy: [{ country: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, country: true, abbrev: true },
+    }),
+  ]);
 
   // Build a map of sourceId → unmatched tags from open alerts
   const alertTagsBySource = new Map<string, string[]>();
@@ -80,7 +86,7 @@ export default async function AdminSourcesPage() {
         </div>
       </div>
 
-      <SourceTable sources={serialized} allKennels={allKennels} geminiAvailable={geminiAvailable} />
+      <SourceTable sources={serialized} allKennels={allKennels} allRegions={allRegions} geminiAvailable={geminiAvailable} />
     </div>
   );
 }

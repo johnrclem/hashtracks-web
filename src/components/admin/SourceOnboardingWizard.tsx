@@ -65,6 +65,7 @@ type StepId = (typeof STEPS)[number]["id"];
 
 interface SourceOnboardingWizardProps {
   allKennels: KennelOption[];
+  allRegions: { id: string; name: string; country: string; abbrev: string }[];
   geminiAvailable?: boolean;
 }
 
@@ -106,6 +107,7 @@ function useNumericField(defaultValue: number, min: number, max: number) {
 /** Multi-phase guided wizard for onboarding a new data source (URL detection, config, preview). */
 export function SourceOnboardingWizard({
   allKennels,
+  allRegions,
   geminiAvailable,
 }: SourceOnboardingWizardProps) {
   const router = useRouter();
@@ -465,6 +467,7 @@ export function SourceOnboardingWizard({
                 configJson={configJson}
                 selectedKennels={selectedKennels}
                 allKennels={allKennels}
+                allRegions={allRegions}
                 geminiAvailable={geminiAvailable}
                 onConfigChange={(c, j) => {
                   setConfigObj(c);

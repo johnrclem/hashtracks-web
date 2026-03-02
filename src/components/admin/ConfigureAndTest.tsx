@@ -11,6 +11,7 @@ import {
   type ConfigSuggestion,
 } from "@/app/admin/sources/suggest-source-config-action";
 import { PreviewResults } from "./PreviewResults";
+import type { RegionOption } from "./KennelForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   CalendarConfigPanel,
@@ -128,6 +144,7 @@ export interface ConfigureAndTestProps {
   readonly configJson: string;
   readonly selectedKennels: string[];
   readonly allKennels: KennelOption[];
+  readonly allRegions: RegionOption[];
   readonly geminiAvailable?: boolean;
   readonly onConfigChange: (config: Record<string, unknown> | null, json: string) => void;
   readonly onKennelsChange: (ids: string[]) => void;
@@ -140,6 +157,7 @@ export function ConfigureAndTest({
   configJson,
   selectedKennels,
   allKennels,
+  allRegions,
   geminiAvailable,
   onConfigChange,
   onKennelsChange,
@@ -157,7 +175,8 @@ export function ConfigureAndTest({
   const [quickKennelOpen, setQuickKennelOpen] = useState(false);
   const [quickKennelShortName, setQuickKennelShortName] = useState("");
   const [quickKennelFullName, setQuickKennelFullName] = useState("");
-  const [quickKennelRegion, setQuickKennelRegion] = useState("");
+  const [quickKennelRegionId, setQuickKennelRegionId] = useState("");
+  const [regionPopoverOpen, setRegionPopoverOpen] = useState(false);
   const [isCreatingKennel, startCreatingKennel] = useTransition();
 
   // Kennel search
@@ -355,7 +374,12 @@ export function ConfigureAndTest({
       if (!isKnown) {
         setQuickKennelShortName(shortName);
         setQuickKennelFullName(fullName);
-        setQuickKennelRegion(region);
+        // Try to match AI-suggested region string to a RegionOption
+        const matchedRegion = allRegions.find(
+          (r) => r.name.toLowerCase() === region.toLowerCase() ||
+                 r.abbrev.toLowerCase() === region.toLowerCase(),
+        );
+        setQuickKennelRegionId(matchedRegion?.id ?? "");
         setQuickKennelOpen(true);
       }
     }
@@ -377,7 +401,7 @@ export function ConfigureAndTest({
     setQuickKennelOpen(false);
     setQuickKennelShortName("");
     setQuickKennelFullName("");
-    setQuickKennelRegion("");
+    setQuickKennelRegionId("");
   }
 
   function handleQuickKennelCreate() {
@@ -385,7 +409,7 @@ export function ConfigureAndTest({
       const result = await createQuickKennel({
         shortName: quickKennelShortName.trim(),
         fullName: quickKennelFullName.trim(),
-        region: quickKennelRegion.trim(),
+        regionId: quickKennelRegionId,
       });
       if (result.success) {
         const { success, ...newKennel } = result;
@@ -711,13 +735,62 @@ export function ConfigureAndTest({
                   onChange={setQuickKennelShortName}
                   placeholder="NYCH3"
                 />
-                <QuickKennelField
-                  id="qk-region"
-                  label="Region *"
-                  value={quickKennelRegion}
-                  onChange={setQuickKennelRegion}
-                  placeholder="New York City, NY"
-                />
+                <div className="space-y-1">
+                  <Label htmlFor="qk-region" className="text-xs">Region *</Label>
+                  <Popover open={regionPopoverOpen} onOpenChange={setRegionPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="qk-region"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={regionPopoverOpen}
+                        className="h-7 w-full justify-between text-xs font-normal"
+                      >
+                        {quickKennelRegionId
+                          ? allRegions.find((r) => r.id === quickKennelRegionId)?.name ?? "Select region..."
+                          : "Select region..."}
+                        <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[280px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search regions..." className="h-8 text-xs" />
+                        <CommandList>
+                          <CommandEmpty>No region found.</CommandEmpty>
+                          {Object.entries(
+                            allRegions.reduce<Record<string, RegionOption[]>>((acc, r) => {
+                              if (!acc[r.country]) acc[r.country] = [];
+                              acc[r.country].push(r);
+                              return acc;
+                            }, {}),
+                          ).map(([country, countryRegions]) => (
+                            <CommandGroup key={country} heading={country}>
+                              {countryRegions.map((r) => (
+                                <CommandItem
+                                  key={r.id}
+                                  value={`${r.name} ${r.abbrev}`}
+                                  onSelect={() => {
+                                    setQuickKennelRegionId(r.id);
+                                    setRegionPopoverOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-3 w-3",
+                                      quickKennelRegionId === r.id ? "opacity-100" : "opacity-0",
+                                    )}
+                                  />
+                                  <span className="text-xs">{r.name}</span>
+                                  <span className="ml-auto text-xs text-muted-foreground">{r.abbrev}</span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          ))}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
               <QuickKennelField
                 id="qk-fullName"
@@ -735,7 +808,7 @@ export function ConfigureAndTest({
                     isCreatingKennel ||
                     !quickKennelShortName.trim() ||
                     !quickKennelFullName.trim() ||
-                    !quickKennelRegion.trim()
+                    !quickKennelRegionId
                   }
                   onClick={handleQuickKennelCreate}
                 >

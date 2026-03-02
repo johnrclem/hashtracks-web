@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
 import { scrapeSource } from "@/pipeline/scrape";
 import { validateSourceConfig } from "./config-validation";
-import { buildKennelIdentifiers, resolveRegionByName, createKennelRecord } from "@/lib/kennel-utils";
+import { buildKennelIdentifiers, createKennelRecord } from "@/lib/kennel-utils";
 
 /** Parse and validate config JSON from form input. Returns the parsed value or an error. */
 function parseConfigJson(
@@ -308,7 +308,7 @@ export async function toggleSourceEnabled(sourceId: string, enabled: boolean) {
 export async function createQuickKennel(data: {
   shortName: string;
   fullName: string;
-  region: string;
+  regionId: string;
 }): Promise<
   | { success: true; id: string; shortName: string; fullName: string; region: string }
   | { success?: false; error: string }
@@ -316,13 +316,16 @@ export async function createQuickKennel(data: {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  const { shortName, fullName, region } = data;
-  if (!shortName || !fullName || !region) {
+  const { shortName, fullName, regionId } = data;
+  if (!shortName || !fullName || !regionId) {
     return { error: "shortName, fullName, and region are required" };
   }
 
-  const regionRecord = await resolveRegionByName(region);
-  if (!regionRecord) return { error: `Region "${region}" not found — create it first in Admin → Regions` };
+  const regionRecord = await prisma.region.findUnique({
+    where: { id: regionId },
+    select: { id: true, name: true },
+  });
+  if (!regionRecord) return { error: "Region not found" };
 
   const { slug, kennelCode } = buildKennelIdentifiers(shortName);
 
@@ -335,7 +338,7 @@ export async function createQuickKennel(data: {
   }
 
   const kennel = await prisma.kennel.create({
-    data: { kennelCode, shortName, fullName, slug, region, regionRef: { connect: { id: regionRecord.id } } },
+    data: { kennelCode, shortName, fullName, slug, region: regionRecord.name, regionRef: { connect: { id: regionRecord.id } } },
   });
 
   revalidatePath("/admin/kennels");
