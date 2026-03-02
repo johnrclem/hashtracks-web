@@ -12,7 +12,7 @@ import { shouldScrape } from "@/pipeline/schedule";
 export async function POST(request: Request) {
   const auth = await verifyCronAuth(request);
   if (!auth.authenticated) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
   }
 
   const url = new URL(request.url);
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
   if (!appUrl) {
     return NextResponse.json(
-      { error: "NEXT_PUBLIC_APP_URL (or VERCEL_URL) is not configured" },
+      { data: null, error: "NEXT_PUBLIC_APP_URL (or VERCEL_URL) is not configured" },
       { status: 500 },
     );
   }
@@ -67,7 +67,16 @@ export async function POST(request: Request) {
     });
   }
 
-  const client = getQStashClient();
+  let client;
+  try {
+    client = getQStashClient();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { data: null, error: `QStash client setup failed: ${msg}` },
+      { status: 500 },
+    );
+  }
 
   // Publish all messages in parallel — fan-out is the whole point
   const results = await Promise.all(

@@ -41,6 +41,7 @@ describe("POST /api/cron/dispatch", () => {
 
   afterEach(() => {
     delete process.env.NEXT_PUBLIC_APP_URL;
+    delete process.env.VERCEL_URL;
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -48,6 +49,8 @@ describe("POST /api/cron/dispatch", () => {
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body).toEqual({ data: null, error: "Unauthorized" });
   });
 
   it("returns 500 when neither NEXT_PUBLIC_APP_URL nor VERCEL_URL is set", async () => {
@@ -56,8 +59,9 @@ describe("POST /api/cron/dispatch", () => {
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(500);
-    const data = await res.json();
-    expect(data.error).toContain("NEXT_PUBLIC_APP_URL");
+    const body = await res.json();
+    expect(body.data).toBeNull();
+    expect(body.error).toContain("NEXT_PUBLIC_APP_URL");
   });
 
   it("falls back to VERCEL_URL when NEXT_PUBLIC_APP_URL is not set", async () => {
@@ -74,8 +78,6 @@ describe("POST /api/cron/dispatch", () => {
         url: "https://my-app.vercel.app/api/cron/scrape/src-1",
       }),
     );
-
-    delete process.env.VERCEL_URL;
   });
 
   it("dispatches only due sources", async () => {

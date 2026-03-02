@@ -35,6 +35,8 @@ describe("POST /api/cron/scrape/[sourceId]", () => {
 
     const res = await POST(makeRequest(), { params: mockParams });
     expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body).toEqual({ data: null, error: "Unauthorized" });
   });
 
   it("returns 404 for unknown source", async () => {
@@ -42,6 +44,8 @@ describe("POST /api/cron/scrape/[sourceId]", () => {
 
     const res = await POST(makeRequest(), { params: mockParams });
     expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body).toEqual({ data: null, error: "Source not found" });
   });
 
   it("returns 200 skip for disabled source", async () => {
