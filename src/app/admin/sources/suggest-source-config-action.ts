@@ -105,12 +105,14 @@ export async function suggestSourceConfig(
     if (!groupUrlname) {
       return { error: "Could not extract Meetup group name from URL" };
     }
-    const sampleResult = await fetchMeetupSampleEvents(url, groupUrlname);
+    const sampleResult = await fetchSampleEvents(
+      url, "MEETUP", { groupUrlname, kennelTag: groupUrlname }, "this Meetup group",
+    );
     if ("error" in sampleResult) return { error: sampleResult.error };
 
     const result = await buildGeminiSuggestion(url, type, sampleResult.events, client);
     // Ensure groupUrlname is included so "Accept & Test" produces a complete config
-    if ("suggestion" in result && groupUrlname) {
+    if ("suggestion" in result) {
       result.suggestion.suggestedConfig = {
         groupUrlname,
         ...result.suggestion.suggestedConfig,
@@ -165,56 +167,19 @@ export async function extractMeetupGroupUrlname(rawUrl: string): Promise<string 
   }
 }
 
-/** Fetch sample events for a Meetup source using only the groupUrlname (placeholder kennelTag). */
-async function fetchMeetupSampleEvents(
-  url: string,
-  groupUrlname: string,
-): Promise<{ events: RawEventData[] } | { error: string }> {
-  const mockSource = {
-    id: "preview",
-    name: "Preview",
-    url,
-    type: "MEETUP" as const,
-    config: { groupUrlname, kennelTag: groupUrlname },
-    trustLevel: 5,
-    scrapeFreq: "daily",
-    scrapeDays: SAMPLE_LOOKBACK_DAYS,
-    healthStatus: "UNKNOWN",
-    enabled: true,
-    lastScrapeAt: null,
-    lastSuccessAt: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  } as Source;
-
-  try {
-    const adapter = getAdapter("MEETUP", url);
-    const result = await adapter.fetch(mockSource, { days: SAMPLE_LOOKBACK_DAYS });
-    if (result.events.length === 0) {
-      const detail = result.errors.length > 0 ? ` (${result.errors[0]})` : "";
-      return {
-        error: `No events found for this Meetup group${detail} — check that the group URL is correct and public.`,
-      };
-    }
-    return { events: result.events };
-  } catch {
-    return {
-      error: "Could not fetch Meetup events — check that the group URL is correct and public.",
-    };
-  }
-}
-
 /** Fetch sample events via mock-Source pattern. Returns events or a user-safe error message. */
 async function fetchSampleEvents(
   url: string,
   type: SourceType,
+  config?: Record<string, unknown>,
+  contextLabel = "this URL",
 ): Promise<{ events: RawEventData[] } | { error: string }> {
   const mockSource = {
     id: "preview",
     name: "Preview",
     url,
     type,
-    config: null,
+    config: config ?? null,
     trustLevel: 5,
     scrapeFreq: "daily",
     scrapeDays: SAMPLE_LOOKBACK_DAYS,
@@ -232,13 +197,13 @@ async function fetchSampleEvents(
     if (result.events.length === 0) {
       const detail = result.errors.length > 0 ? ` (${result.errors[0]})` : "";
       return {
-        error: `No events found at this URL${detail} — check that the URL is correct and accessible.`,
+        error: `No events found at ${contextLabel}${detail} — check that the URL is correct and accessible.`,
       };
     }
     return { events: result.events };
   } catch {
     return {
-      error: "Could not fetch sample events — check that the URL is correct and accessible.",
+      error: `Could not fetch sample events from ${contextLabel} — check that the URL is correct and accessible.`,
     };
   }
 }
@@ -372,7 +337,7 @@ function buildTypeInstructions(type: string, tagCounts: Map<string, number>): st
 
     case "RSS_FEED":
     case "MEETUP":
-      return buildSingleKennelInstructions(uniqueTags, firstTag);
+      return buildSingleKennelInstructions(type, uniqueTags, firstTag);
 
     case "HASHREGO": {
       const tags = [...tagCounts.keys()];
@@ -398,8 +363,8 @@ Each pattern [regex, tag] should match event titles to their kennel. Use the mos
 Also add skipPatterns if any events appear to be non-hash content.`;
 }
 
-function buildSingleKennelInstructions(uniqueTags: number, firstTag: string | undefined): string {
-  const isPlaceholderSlug = firstTag && firstTag.includes("-");
+function buildSingleKennelInstructions(type: string, uniqueTags: number, firstTag: string | undefined): string {
+  const isPlaceholderSlug = type === "MEETUP" && firstTag && firstTag.includes("-");
   if (uniqueTags === 1 && firstTag) {
     return `This source has a single kennel tag "${firstTag}".${isPlaceholderSlug ? " (This is a Meetup URL slug used as placeholder — derive the real kennel shortName from event titles and the known kennels list.)" : ""} Suggest config:
 {"kennelTag":"MATCHED_SHORTNAME"}

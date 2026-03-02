@@ -200,12 +200,8 @@ export function ConfigureAndTest({
     // (has groupUrlname from URL detection but no kennelTag yet)
     if (configJson.trim()) {
       if (type !== "MEETUP") return;
-      try {
-        const parsed = JSON.parse(configJson);
-        if (parsed.kennelTag) return; // MEETUP fully configured, skip
-      } catch {
-        return;
-      }
+      const c = config as Record<string, unknown> | null;
+      if (c?.kennelTag) return; // MEETUP fully configured, skip
     }
     if (!url.trim()) return;
     setAiState("loading");
@@ -224,12 +220,8 @@ export function ConfigureAndTest({
     if (configJson.trim() && url.trim()) {
       // Don't auto-preview MEETUP with partial config (missing kennelTag)
       if (type === "MEETUP") {
-        try {
-          const parsed = JSON.parse(configJson);
-          if (!parsed.kennelTag) return;
-        } catch {
-          return;
-        }
+        const c = config as Record<string, unknown> | null;
+        if (!c?.kennelTag) return;
       }
       runPreview();
     }
