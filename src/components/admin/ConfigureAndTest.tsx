@@ -342,6 +342,8 @@ export function ConfigureAndTest({
     if (newIds.length > 0) onKennelsChange(mergedKennels);
 
     setAiState("dismissed");
+    // For MEETUP: don't auto-preview if kennelTag is missing (partial config from URL extraction only)
+    if (type === "MEETUP" && suggested && !suggested.kennelTag) return;
     if (hasConfig) runPreview(json, mergedKennels);
   }
 

@@ -1,3 +1,7 @@
+import { vi } from "vitest";
+
+vi.mock("@/lib/db");
+
 import { extractMeetupGroupUrlname } from "./suggest-source-config-action";
 
 describe("extractMeetupGroupUrlname", () => {
@@ -33,5 +37,13 @@ describe("extractMeetupGroupUrlname", () => {
 
   it("returns null for empty string", () => {
     expect(extractMeetupGroupUrlname("")).toBeNull();
+  });
+
+  it("rejects lookalike domains like notmeetup.com", () => {
+    expect(extractMeetupGroupUrlname("https://notmeetup.com/some-group")).toBeNull();
+  });
+
+  it("rejects meetup.com.evil domain", () => {
+    expect(extractMeetupGroupUrlname("https://meetup.com.evil/some-group")).toBeNull();
   });
 });

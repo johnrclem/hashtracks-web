@@ -157,7 +157,7 @@ function buildHtmlScraperSuggestion(url: string): SuggestConfigResult {
 export function extractMeetupGroupUrlname(rawUrl: string): string | null {
   try {
     const url = new URL(rawUrl);
-    if (!url.hostname.includes("meetup.com")) return null;
+    if (url.hostname !== "meetup.com" && !url.hostname.endsWith(".meetup.com")) return null;
     const parts = url.pathname.split("/").filter(Boolean);
     return parts[0] ?? null;
   } catch {
