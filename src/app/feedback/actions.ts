@@ -42,9 +42,12 @@ export async function submitFeedback(
   if (!description) return { error: "Description is required" };
   if (description.length > 5000) return { error: "Description is too long (max 5,000 characters)" };
 
-  const issueTitle = `[Feedback] ${title}`;
+  // Sanitize @claude mentions to prevent accidental workflow triggering (matches auto-issue.ts pattern)
+  const sanitize = (s: string) => s.replaceAll("@claude", "@\u200Bclaude");
+
+  const issueTitle = sanitize(`[Feedback] ${title}`);
   const heading = CATEGORY_HEADINGS[category] || "Feedback";
-  const issueBody = `## ${heading}
+  const issueBody = sanitize(`## ${heading}
 
 ${description}
 
@@ -53,7 +56,7 @@ ${description}
 **Page:** ${pageUrl || "N/A"}
 **Date:** ${new Date().toISOString()}
 
-*Submitted via HashTracks in-app feedback*`;
+*Submitted via HashTracks in-app feedback*`);
 
   const labels = ["user-feedback", CATEGORY_LABELS[category] || "feedback"];
 
