@@ -6,7 +6,7 @@ import { regionTimezone, getLabelForUrl } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
-import { extractCoordsFromMapsUrl } from "@/lib/geo";
+import { extractCoordsFromMapsUrl, geocodeAddress } from "@/lib/geo";
 
 /**
  * Create EventLink records for an event from externalLinks + alternate sourceUrls.
@@ -221,6 +221,35 @@ function extractRawCoords(event: RawEventData): { latitude?: number; longitude?:
 }
 
 /**
+ * Resolve coordinates for a raw event: explicit coords → URL extraction → geocode fallback.
+ * Optionally skips geocoding if the canonical event already has stored coords and
+ * the location text hasn't changed.
+ */
+async function resolveCoords(
+  event: RawEventData,
+  existingCoords?: { latitude: number | null; longitude: number | null; locationAddress: string | null },
+): Promise<{ latitude?: number; longitude?: number }> {
+  const rawCoords = extractRawCoords(event);
+  if (rawCoords.latitude != null) return rawCoords;
+
+  // Skip geocoding when the canonical event already has coords and location hasn't changed
+  if (
+    existingCoords &&
+    existingCoords.latitude != null &&
+    existingCoords.longitude != null &&
+    (event.locationUrl ?? null) === (existingCoords.locationAddress ?? null)
+  ) {
+    return { latitude: existingCoords.latitude, longitude: existingCoords.longitude };
+  }
+
+  if (event.location) {
+    const geocoded = await geocodeAddress(event.location);
+    if (geocoded) return { latitude: geocoded.lat, longitude: geocoded.lng };
+  }
+  return {};
+}
+
+/**
  * Create or update the canonical Event record and link the RawEvent to it.
  * Returns the canonical event ID.
  */
@@ -251,7 +280,11 @@ async function upsertCanonicalEvent(
 
     // Update only if our source trust level >= existing
     if (ctx.trustLevel >= existingEvent.trustLevel) {
-      const rawCoords = extractRawCoords(event);
+      const coords = await resolveCoords(event, {
+        latitude: existingEvent.latitude,
+        longitude: existingEvent.longitude,
+        locationAddress: existingEvent.locationAddress,
+      });
       await prisma.event.update({
         where: { id: existingEvent.id },
         data: {
@@ -269,10 +302,10 @@ async function upsertCanonicalEvent(
           // Preserve first source's URL; subsequent sources get EventLinks
           sourceUrl: existingEvent.sourceUrl ?? event.sourceUrl,
           trustLevel: ctx.trustLevel,
-          // Write coords if extracted; clear if locationAddress changed and no new coords
+          // Write coords if resolved; clear if locationAddress changed and no new coords
           // (prevents stale pins when an event moves to an unparseable location URL)
-          ...(rawCoords.latitude != null && rawCoords.longitude != null
-            ? { latitude: rawCoords.latitude, longitude: rawCoords.longitude }
+          ...(coords.latitude != null && coords.longitude != null
+            ? { latitude: coords.latitude, longitude: coords.longitude }
             : (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)
               ? { latitude: null, longitude: null }
               : {}),
@@ -298,7 +331,7 @@ async function upsertCanonicalEvent(
     ctx.result.updated++;
   } else {
     // Create new canonical Event
-    const rawCoords = extractRawCoords(event);
+    const coords = await resolveCoords(event);
     const newEvent = await prisma.event.create({
       data: {
         kennelId,
@@ -314,8 +347,8 @@ async function upsertCanonicalEvent(
         startTime: event.startTime,
         sourceUrl: event.sourceUrl,
         trustLevel: ctx.trustLevel,
-        latitude: rawCoords.latitude,
-        longitude: rawCoords.longitude,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
       },
     });
 

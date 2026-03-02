@@ -133,6 +133,20 @@ export default async function EventDetailPage({
   const hasLocation =
     (event.latitude != null && event.longitude != null) || !!event.locationName;
 
+  function getAttendancePrompt(eventDate: Date, status: string | null): string {
+    // Compare at UTC noon to match date storage convention (Appendix F.4)
+    const now = new Date();
+    const todayNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
+    const isPast = eventDate.getTime() < todayNoon;
+    if (isPast) {
+      if (status === "CONFIRMED") return "You attended this run.";
+      if (status === "INTENDING") return "Confirm your attendance after the run.";
+      return "Log that you were at this run.";
+    }
+    if (status === "INTENDING") return "You\u2019ve RSVP\u2019d for this run.";
+    return "Let others know you plan to attend.";
+  }
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -174,21 +188,33 @@ export default async function EventDetailPage({
       )}
 
       {/* Check-in */}
-      <div className="flex items-center gap-3">
-        <CheckInButton
-          eventId={event.id}
-          eventDate={event.date.toISOString()}
-          isAuthenticated={!!user}
-          attendance={attendance}
-          stravaConnected={stravaConnected}
-        />
-        {(confirmedCount > 0 || goingCount > 0) && (
-          <span className="text-sm text-muted-foreground">
-            {confirmedCount > 0 && `${confirmedCount} checked in`}
-            {confirmedCount > 0 && goingCount > 0 && " · "}
-            {goingCount > 0 && `${goingCount} going`}
-          </span>
-        )}
+      <div>
+        <div className="flex items-center gap-3">
+          <CheckInButton
+            eventId={event.id}
+            eventDate={event.date.toISOString()}
+            isAuthenticated={!!user}
+            attendance={attendance}
+            stravaConnected={stravaConnected}
+          />
+          {(confirmedCount > 0 || goingCount > 0) && (
+            <div className="flex items-center gap-1.5">
+              {confirmedCount > 0 && (
+                <Badge variant="secondary" className="text-xs font-normal">
+                  {confirmedCount} checked in
+                </Badge>
+              )}
+              {goingCount > 0 && (
+                <Badge variant="secondary" className="text-xs font-normal">
+                  {goingCount} going
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {getAttendancePrompt(event.date, attendance?.status ?? null)}
+        </p>
       </div>
 
       {/* Side-by-side: detail fields + description (left) | map (right) */}
@@ -289,7 +315,7 @@ export default async function EventDetailPage({
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
         {isMisman && (
-          <Button size="sm" asChild>
+          <Button variant="outline" size="sm" asChild>
             <Link href={`/misman/${event.kennel.slug}/attendance/${event.id}`}>
               Take Attendance
             </Link>

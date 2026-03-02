@@ -10,8 +10,8 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { formatTime, getLabelForUrl } from "@/lib/format";
-import { formatDateLong, type HarelineEvent } from "./EventCard";
+import { formatTime, formatDateLong, getLabelForUrl } from "@/lib/format";
+import type { HarelineEvent } from "./EventCard";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
 import { CheckInButton } from "@/components/logbook/CheckInButton";

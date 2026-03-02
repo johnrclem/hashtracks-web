@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { EventCard, getDayOfWeek, type HarelineEvent } from "./EventCard";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { SearchX } from "lucide-react";
+import { EventCard, type HarelineEvent } from "./EventCard";
+import { getDayOfWeek, formatDateLong, parseList } from "@/lib/format";
 import { EventFilters } from "./EventFilters";
 import { CalendarView } from "./CalendarView";
 import { EventDetailPanel } from "./EventDetailPanel";
@@ -28,14 +32,8 @@ interface HarelineViewProps {
   attendanceMap?: Record<string, AttendanceData>;
 }
 
-function parseList(value: string | null): string[] {
-  if (!value) return [];
-  return value.split(",").filter(Boolean);
-}
-
 interface FilterCriteria {
-  view: "list" | "calendar" | "map";
-  timeFilter: "upcoming" | "past";
+  timeFilter: "upcoming" | "past" | "all";
   scope: "my" | "all";
   subscribedKennelIds: string[];
   selectedRegions: string[];
@@ -48,9 +46,9 @@ interface FilterCriteria {
   userLng: number | null;
 }
 
-/** Check whether an event passes the time filter (upcoming/past). */
-function passesTimeFilter(eventDate: number, view: FilterCriteria["view"], timeFilter: FilterCriteria["timeFilter"], todayUtc: number): boolean {
-  if (view === "calendar") return true; // calendar has its own month navigation
+/** Check whether an event passes the time filter (upcoming/past/all). */
+function passesTimeFilter(eventDate: number, timeFilter: FilterCriteria["timeFilter"], todayUtc: number): boolean {
+  if (timeFilter === "all") return true;
   if (timeFilter === "upcoming" && eventDate < todayUtc) return false;
   if (timeFilter === "past" && eventDate >= todayUtc) return false;
   return true;
@@ -60,7 +58,7 @@ function passesTimeFilter(eventDate: number, view: FilterCriteria["view"], timeF
 function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
   const eventDate = new Date(event.date).getTime();
 
-  if (!passesTimeFilter(eventDate, f.view, f.timeFilter, f.todayUtc)) return false;
+  if (!passesTimeFilter(eventDate, f.timeFilter, f.todayUtc)) return false;
   if (f.scope === "my" && !f.subscribedKennelIds.includes(event.kennelId)) return false;
   if (f.selectedRegions.length > 0 && !f.selectedRegions.includes(event.kennel.region)) return false;
   if (f.selectedKennels.length > 0 && !f.selectedKennels.includes(event.kennel.id)) return false;
@@ -93,6 +91,25 @@ function sortEvents(events: HarelineEvent[], timeFilter: "upcoming" | "past"): H
   return sorted;
 }
 
+const PAGE_SIZE = 25;
+
+/** Group sorted events by calendar date for sticky date headers. */
+function groupEventsByDate(events: HarelineEvent[]): { dateKey: string; dateLabel: string; events: HarelineEvent[] }[] {
+  const groups: { dateKey: string; dateLabel: string; events: HarelineEvent[] }[] = [];
+  let current: (typeof groups)[number] | null = null;
+  for (const event of events) {
+    const dateKey = event.date.slice(0, 10); // ISO YYYY-MM-DD
+    if (!current || current.dateKey !== dateKey) {
+      current = { dateKey, dateLabel: formatDateLong(event.date), events: [] };
+      groups.push(current);
+    }
+    current.events.push(event);
+  }
+  return groups;
+}
+
+type ViewMode = "list" | "calendar" | "map";
+
 export function HarelineView({
   events,
   subscribedKennelIds,
@@ -107,7 +124,7 @@ export function HarelineView({
 
   // Initialize state from URL search params
   const rawView = searchParams.get("view");
-  const [view, setViewState] = useState<"list" | "calendar" | "map">(
+  const [view, setViewState] = useState<ViewMode>(
     rawView === "list" || rawView === "calendar" || rawView === "map" ? rawView : "list",
   );
   const [density, setDensityState] = useState<"medium" | "compact">(
@@ -139,6 +156,13 @@ export function HarelineView({
 
   // Geolocation hook — only activates on user action
   const [geoState, requestLocation] = useGeolocation();
+
+  // Pagination for list view
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Accessible live region for filter result count
+  const liveRegionRef = useRef<HTMLDivElement>(null);
+  const announceTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Selected event for detail panel (desktop only)
   const [selectedEvent, setSelectedEvent] = useState<HarelineEvent | null>(null);
@@ -201,7 +225,7 @@ export function HarelineView({
   );
 
   // Wrapper setters that sync to URL
-  function setView(v: "list" | "calendar" | "map") {
+  function setView(v: ViewMode) {
     setViewState(v);
     syncUrl({ view: v });
   }
@@ -209,62 +233,116 @@ export function HarelineView({
     setDensityState(v);
     syncUrl({ density: v });
   }
+  function resetListState() {
+    setSelectedEvent(null);
+    setVisibleCount(PAGE_SIZE);
+  }
   function setTimeFilter(v: "upcoming" | "past") {
     setTimeFilterState(v);
-    setSelectedEvent(null);
+    resetListState();
     syncUrl({ time: v });
   }
   function setScope(v: "my" | "all") {
     setScopeState(v);
-    setSelectedEvent(null);
+    resetListState();
     syncUrl({ scope: v });
   }
   function setSelectedRegions(v: string[]) {
     setSelectedRegionsState(v);
-    setSelectedEvent(null);
+    resetListState();
     syncUrl({ regions: v });
   }
   function setSelectedKennels(v: string[]) {
     setSelectedKennelsState(v);
-    setSelectedEvent(null);
+    resetListState();
     syncUrl({ kennels: v });
   }
   function setSelectedDays(v: string[]) {
     setSelectedDaysState(v);
-    setSelectedEvent(null);
+    resetListState();
     syncUrl({ days: v });
   }
   function setSelectedCountry(v: string) {
     setSelectedCountryState(v);
-    setSelectedEvent(null);
+    resetListState();
     syncUrl({ country: v });
   }
   function setNearMeDistance(v: number | null) {
     setNearMeDistanceState(v);
-    setSelectedEvent(null);
+    resetListState();
     syncUrl({ dist: v != null ? String(v) : "" });
   }
 
-  // Filter events
-  const filteredEvents = useMemo(() => {
+  // Shared filter context (recomputed once per render)
+  const filterContext = useMemo(() => {
     const now = new Date();
     const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
-
     const userLat = geoState.status === "granted" ? geoState.lat : null;
     const userLng = geoState.status === "granted" ? geoState.lng : null;
+    return { todayUtc, userLat, userLng };
+  }, [geoState]);
 
+  // Calendar events — all filters EXCEPT time (calendar has its own month navigation)
+  const calendarEvents = useMemo(() => {
     return events.filter((event) => {
       return passesAllFilters(event, {
-        view, timeFilter, scope, subscribedKennelIds,
-        selectedRegions, selectedKennels, selectedDays, selectedCountry, todayUtc,
-        nearMeDistance, userLat, userLng,
+        timeFilter: "all", scope, subscribedKennelIds,
+        selectedRegions, selectedKennels, selectedDays, selectedCountry,
+        todayUtc: filterContext.todayUtc, nearMeDistance,
+        userLat: filterContext.userLat, userLng: filterContext.userLng,
       });
     });
-  }, [events, view, timeFilter, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays, selectedCountry, nearMeDistance, geoState]);
+  }, [events, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays, selectedCountry, nearMeDistance, filterContext]);
+
+  // List/map events — derived from calendarEvents by applying time filter on the smaller set
+  const filteredEvents = useMemo(() => {
+    return calendarEvents.filter((event) =>
+      passesTimeFilter(new Date(event.date).getTime(), timeFilter, filterContext.todayUtc),
+    );
+  }, [calendarEvents, timeFilter, filterContext.todayUtc]);
 
   const sortedEvents = useMemo(() => {
     return sortEvents(filteredEvents, timeFilter);
   }, [filteredEvents, timeFilter]);
+
+  // Debounced screen-reader announcement when filtered count changes
+  useEffect(() => {
+    if (announceTimerRef.current) clearTimeout(announceTimerRef.current);
+    announceTimerRef.current = setTimeout(() => {
+      if (liveRegionRef.current) {
+        const timeLabel = timeFilter === "upcoming" ? "upcoming " : "past ";
+        liveRegionRef.current.textContent = `${filteredEvents.length} ${timeLabel}${filteredEvents.length === 1 ? "event" : "events"}`;
+      }
+    }, 500);
+    return () => {
+      if (announceTimerRef.current) clearTimeout(announceTimerRef.current);
+    };
+  }, [filteredEvents.length, timeFilter]);
+
+  // Paginated events for list view
+  const visibleEvents = useMemo(() => {
+    return sortedEvents.slice(0, visibleCount);
+  }, [sortedEvents, visibleCount]);
+
+  const dateGroups = useMemo(() => {
+    return groupEventsByDate(visibleEvents);
+  }, [visibleEvents]);
+
+  const hasMore = visibleCount < sortedEvents.length;
+  const remaining = sortedEvents.length - visibleCount;
+
+  const activeFilterCount =
+    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance != null ? 1 : 0);
+
+  function clearAllFilters() {
+    setSelectedRegionsState([]);
+    setSelectedKennelsState([]);
+    setSelectedDaysState([]);
+    setSelectedCountryState("");
+    setNearMeDistanceState(null);
+    resetListState();
+    syncUrl({ regions: [], kennels: [], days: [], country: "", dist: "" });
+  }
 
   const detailPanel = selectedEvent ? (
     <div className="hidden lg:block">
@@ -279,63 +357,104 @@ export function HarelineView({
     </div>
   ) : null;
 
+  const emptyState = (
+    <div className="flex flex-col items-center gap-3 py-16 text-center">
+      <SearchX className="h-10 w-10 text-muted-foreground/50" />
+      <div>
+        <p className="text-base font-medium text-foreground">No events found</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {scope === "my"
+            ? "No events from your subscribed kennels match these filters."
+            : "No events match your current filters."}
+        </p>
+      </div>
+      <div className="flex gap-2">
+        {activeFilterCount > 0 && (
+          <Button variant="outline" size="sm" onClick={clearAllFilters}>
+            Clear all filters
+          </Button>
+        )}
+        {scope === "my" && (
+          <Button variant="outline" size="sm" onClick={() => setScope("all")}>
+            Switch to All Kennels
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
   const listContent = (
     <>
       {sortedEvents.length === 0 ? (
-        <div className="py-12 text-center">
-          <p className="text-muted-foreground">
-            {scope === "my"
-              ? "No events from your subscribed kennels. Try switching to \"All Kennels\"."
-              : "No events match your filters."}
-          </p>
-        </div>
+        emptyState
       ) : (
-        <div className={density === "compact" ? "space-y-1" : "space-y-2"}>
-          {sortedEvents.map((event) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              density={density}
-              onSelect={setSelectedEvent}
-              isSelected={selectedEvent?.id === event.id}
-              attendance={attendanceMap[event.id] ?? null}
-            />
+        <div>
+          {dateGroups.map((group) => (
+            <div key={group.dateKey}>
+              <div className="sticky top-0 z-10 border-b bg-background/95 px-1 py-1.5 backdrop-blur-sm">
+                <h3 className="text-sm font-semibold">{group.dateLabel}</h3>
+              </div>
+              <div className={`${density === "compact" ? "space-y-1" : "space-y-2"} py-2`}>
+                {group.events.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    density={density}
+                    onSelect={setSelectedEvent}
+                    isSelected={selectedEvent?.id === event.id}
+                    attendance={attendanceMap[event.id] ?? null}
+                    hideDate
+                  />
+                ))}
+              </div>
+            </div>
           ))}
+          {hasMore && (
+            <div className="flex justify-center py-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+              >
+                Show {Math.min(PAGE_SIZE, remaining)} more ({remaining} remaining)
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </>
   );
 
   return (
-    <div className="mt-6 space-y-4">
+    <div className="mt-3 space-y-4">
       {/* Controls bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Left: time toggle (visible for list + map; spacer for calendar to keep layout stable) */}
-        <div className="flex items-center">
-          {view !== "calendar" ? (
-            <ToggleGroup
-              type="single"
-              value={timeFilter}
-              onValueChange={(v) => v && setTimeFilter(v as "upcoming" | "past")}
-              variant="outline"
-              size="sm"
-            >
-              <ToggleGroupItem value="upcoming">Upcoming</ToggleGroupItem>
-              <ToggleGroupItem value="past">Past</ToggleGroupItem>
-            </ToggleGroup>
-          ) : (
-            <div className="h-8" />
-          )}
+        {/* Left: time toggle */}
+        <div className="flex items-center gap-2">
+          <span className="sr-only">Time range</span>
+          <ToggleGroup
+            type="single"
+            value={timeFilter}
+            onValueChange={(v) => v && setTimeFilter(v as "upcoming" | "past")}
+            variant="outline"
+            size="sm"
+            aria-label="Time range"
+          >
+            <ToggleGroupItem value="upcoming">Upcoming</ToggleGroupItem>
+            <ToggleGroupItem value="past">Past</ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
         {/* Right: view toggle + optional density */}
         <div className="flex items-center gap-2">
+          <span className="hidden text-xs text-muted-foreground sm:inline">View:</span>
           <ToggleGroup
             type="single"
             value={view}
-            onValueChange={(v) => v && setView(v as "list" | "calendar" | "map")}
+            onValueChange={(v) => v && setView(v as ViewMode)}
             variant="outline"
             size="sm"
+            aria-label="View mode"
           >
             <ToggleGroupItem value="list">List</ToggleGroupItem>
             <ToggleGroupItem value="calendar">Calendar</ToggleGroupItem>
@@ -349,6 +468,7 @@ export function HarelineView({
               onValueChange={(v) => v && setDensity(v as "medium" | "compact")}
               variant="outline"
               size="sm"
+              aria-label="Display density"
             >
               <ToggleGroupItem value="medium">Medium</ToggleGroupItem>
               <ToggleGroupItem value="compact">Compact</ToggleGroupItem>
@@ -356,6 +476,8 @@ export function HarelineView({
           )}
         </div>
       </div>
+
+      <Separator className="my-1" />
 
       {/* Filters */}
       <EventFilters
@@ -376,16 +498,24 @@ export function HarelineView({
         onNearMeDistanceChange={setNearMeDistance}
         geoState={geoState}
         onRequestLocation={requestLocation}
+        activeFilterCount={activeFilterCount}
+        onClearAll={clearAllFilters}
       />
 
-      {/* Results count */}
-      <p className="text-sm text-muted-foreground">
-        {filteredEvents.length}{" "}
-        {view !== "calendar" ? (timeFilter === "upcoming" ? "upcoming " : "past ") : ""}
-        {filteredEvents.length === 1 ? "event" : "events"}
-        {scope === "my" ? " from your kennels" : ""}
-        {nearMeDistance != null && geoState.status === "granted" ? ` within ${nearMeDistance} km` : ""}
-      </p>
+      {/* Results count (hidden for calendar — it shows its own month count) */}
+      {(view === "list" || view === "map") && (
+        <p className="text-sm text-muted-foreground" aria-hidden="true">
+          {view === "list" && hasMore
+            ? `Showing ${visibleCount} of ${sortedEvents.length} `
+            : `${filteredEvents.length} `}
+          {timeFilter === "upcoming" ? "upcoming " : "past "}
+          {filteredEvents.length === 1 ? "event" : "events"}
+          {scope === "my" ? " from your kennels" : ""}
+          {nearMeDistance != null && geoState.status === "granted" ? ` within ${nearMeDistance} km` : ""}
+        </p>
+      )}
+      {/* Screen-reader live region for filter count (debounced) */}
+      <div ref={liveRegionRef} className="sr-only" aria-live="polite" aria-atomic="true" />
 
       {/* Content: master-detail on desktop (panel appears on selection), single column on mobile */}
       {view === "list" ? (
@@ -395,7 +525,7 @@ export function HarelineView({
           {detailPanel}
         </div>
       ) : view === "calendar" ? (
-        <CalendarView events={filteredEvents} />
+        <CalendarView events={calendarEvents} />
       ) : (
         <div className={selectedEvent ? "lg:grid lg:grid-cols-[1fr_380px] lg:gap-6" : ""}>
           {/* Left: map */}

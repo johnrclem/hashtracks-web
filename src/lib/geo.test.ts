@@ -1,4 +1,4 @@
-import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance } from "./geo";
+import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress } from "./geo";
 
 describe("extractCoordsFromMapsUrl", () => {
   it("parses @lat,lng,zoom path segment", () => {
@@ -143,5 +143,92 @@ describe("haversineDistance", () => {
     const dist = haversineDistance(-33.8688, 151.2093, -37.8136, 144.9631);
     expect(dist).toBeGreaterThan(713 * 0.95);
     expect(dist).toBeLessThan(713 * 1.05);
+  });
+});
+
+describe("geocodeAddress", () => {
+  const originalEnv = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = "test-api-key";
+  });
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = originalEnv;
+    vi.restoreAllMocks();
+  });
+
+  it("returns coordinates for a successful geocode response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [{ geometry: { location: { lat: 40.748, lng: -73.985 } } }],
+      }),
+    } as Response);
+
+    const result = await geocodeAddress("Empire State Building, New York");
+    expect(result).toEqual({ lat: 40.748, lng: -73.985 });
+  });
+
+  it("returns null when API returns ZERO_RESULTS", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ status: "ZERO_RESULTS", results: [] }),
+    } as Response);
+
+    const result = await geocodeAddress("xyznonexistentplace123");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when fetch fails (network error)", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("Network error"));
+
+    const result = await geocodeAddress("Some Address");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when API key is missing", async () => {
+    delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const result = await geocodeAddress("Some Address");
+    expect(result).toBeNull();
+  });
+
+  it("returns null for empty address string", async () => {
+    const result = await geocodeAddress("   ");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when HTTP response is not ok", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+    } as Response);
+
+    const result = await geocodeAddress("Some Address");
+    expect(result).toBeNull();
+  });
+
+  it("passes an AbortSignal to fetch for timeout", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [{ geometry: { location: { lat: 40.0, lng: -74.0 } } }],
+      }),
+    } as Response);
+
+    await geocodeAddress("Test Address");
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it("returns null when fetch is aborted (timeout)", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new DOMException("Aborted", "AbortError"));
+
+    const result = await geocodeAddress("Slow Address");
+    expect(result).toBeNull();
   });
 });
