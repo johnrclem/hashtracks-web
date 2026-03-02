@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
+import { formatDateShort, formatTimeCompact } from "@/lib/format";
 
 export default async function HomePage() {
   const { userId } = await auth();
@@ -17,12 +18,21 @@ export default async function HomePage() {
     }),
     prisma.kennel.count(),
     prisma.kennel.findMany({
-      select: { region: true },
-      distinct: ["region"],
+      select: { regionId: true },
+      distinct: ["regionId"],
     }).then((rows) => rows.length),
     prisma.event.findMany({
       where: { date: { gte: todayUtcNoon }, status: { not: "CANCELLED" } },
-      include: { kennel: { select: { shortName: true, slug: true, region: true } } },
+      select: {
+        id: true,
+        date: true,
+        runNumber: true,
+        title: true,
+        haresText: true,
+        startTime: true,
+        locationName: true,
+        kennel: { select: { shortName: true, fullName: true, region: true } },
+      },
       orderBy: { date: "asc" },
       take: 3,
     }),
@@ -47,39 +57,69 @@ export default async function HomePage() {
 
       {/* Next events preview */}
       {nextEvents.length > 0 && (
-        <div className="w-full max-w-md space-y-2">
+        <div className="w-full max-w-lg space-y-2">
           <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Coming Up
           </h2>
-          {nextEvents.map((event) => {
-            const dateStr = event.date.toLocaleDateString("en-US", {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-              timeZone: "UTC",
-            });
-            return (
-              <Link
-                key={event.id}
-                href={`/hareline/${event.id}`}
-                className="flex items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
-              >
-                <span className="w-24 shrink-0 text-muted-foreground">{dateStr}</span>
-                <span className="shrink-0 font-medium">{event.kennel.shortName}</span>
-                <RegionBadge region={event.kennel.region} size="sm" />
-                {event.title && (
-                  <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                    {event.title}
+          {nextEvents.map((event) => (
+            <Link
+              key={event.id}
+              href={`/hareline/${event.id}`}
+              className="block rounded-lg border px-3 py-2 text-left shadow-sm transition-colors hover:border-foreground/20"
+            >
+              <div className="min-w-0 space-y-0.5">
+                {/* Line 1: date · kennel · region · run# · time */}
+                <div className="flex flex-nowrap items-center gap-1.5 overflow-hidden text-sm">
+                  <span className="shrink-0 whitespace-nowrap font-medium">
+                    {formatDateShort(event.date.toISOString())}
                   </span>
+                  <span className="text-muted-foreground">&middot;</span>
+                  <span className="shrink-0 font-medium text-primary" title={event.kennel.fullName}>
+                    {event.kennel.shortName}
+                  </span>
+                  <RegionBadge region={event.kennel.region} size="sm" />
+                  {event.runNumber != null && (
+                    <>
+                      <span className="text-muted-foreground">&middot;</span>
+                      <span className="shrink-0 text-muted-foreground">#{event.runNumber}</span>
+                    </>
+                  )}
+                  {event.startTime && (
+                    <>
+                      <span className="text-muted-foreground">&middot;</span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {formatTimeCompact(event.startTime)}
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Line 2: title */}
+                {event.title && (
+                  <p className="truncate text-sm">{event.title}</p>
                 )}
-              </Link>
-            );
-          })}
+
+                {/* Line 3: hares */}
+                {event.haresText && (
+                  <p className="truncate text-sm text-muted-foreground">
+                    Hares: {event.haresText}
+                  </p>
+                )}
+
+                {/* Line 4: location */}
+                {event.locationName && (
+                  <p className="truncate text-sm text-muted-foreground">
+                    {event.locationName}
+                  </p>
+                )}
+              </div>
+            </Link>
+          ))}
           <Link
             href="/hareline"
             className="inline-block text-xs text-primary hover:underline"
           >
-            View full hareline
+            View full hareline &rarr;
           </Link>
         </div>
       )}
