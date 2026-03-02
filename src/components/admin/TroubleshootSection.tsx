@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { ConfigureAndTest } from "./ConfigureAndTest";
 import type { KennelOption } from "./config-panels/KennelTagInput";
+import type { RegionOption } from "./KennelForm";
 
 interface TroubleshootSectionProps {
   readonly url: string;
   readonly type: string;
   readonly config: Record<string, unknown> | null;
   readonly allKennels: KennelOption[];
-  readonly allRegions: { id: string; name: string; country: string; abbrev: string }[];
+  readonly allRegions: RegionOption[];
   readonly linkedKennelIds: string[];
   readonly geminiAvailable?: boolean;
 }

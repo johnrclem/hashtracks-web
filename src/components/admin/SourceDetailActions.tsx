@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { SourceForm } from "./SourceForm";
 import { toast } from "sonner";
+import type { RegionOption } from "./KennelForm";
 
 type SourceDetailData = {
   id: string;
@@ -28,7 +29,7 @@ type SourceDetailData = {
 interface SourceDetailActionsProps {
   source: SourceDetailData;
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
-  allRegions: { id: string; name: string; country: string; abbrev: string }[];
+  allRegions: RegionOption[];
 }
 
 export function SourceDetailActions({

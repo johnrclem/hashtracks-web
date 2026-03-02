@@ -12,6 +12,7 @@ import {
 import type { SourceType, Source } from "@/generated/prisma/client";
 import type { FieldFillRates } from "@/pipeline/fill-rates";
 import type { ErrorDetails } from "@/adapters/types";
+import { UNKNOWN_KENNEL_SENTINEL, UNTAGGED_KENNEL_DISPLAY } from "./preview-constants";
 
 export interface PreviewEvent {
   date: string;
@@ -106,7 +107,7 @@ export async function previewSourceConfig(
 
   // For GOOGLE_CALENDAR without config, use sentinel to prevent Boston fallback
   const effectiveConfig = config ?? (
-    type === "GOOGLE_CALENDAR" ? { defaultKennelTag: "__unknown__" } as Record<string, unknown> : null
+    type === "GOOGLE_CALENDAR" ? { defaultKennelTag: UNKNOWN_KENNEL_SENTINEL } as Record<string, unknown> : null
   );
 
   const mockSource = {
@@ -152,7 +153,7 @@ export async function previewSourceConfig(
     .slice(0, MAX_PREVIEW_EVENTS)
     .map((e) => ({
       date: e.date,
-      kennelTag: e.kennelTag === "__unknown__" ? "(untagged)" : e.kennelTag,
+      kennelTag: e.kennelTag === UNKNOWN_KENNEL_SENTINEL ? UNTAGGED_KENNEL_DISPLAY : e.kennelTag,
       title: e.title,
       location: e.location,
       hares: e.hares,
@@ -168,7 +169,7 @@ export async function previewSourceConfig(
       errors: result.errors,
       errorDetails: result.errorDetails,
       diagnosticContext: result.diagnosticContext,
-      unmatchedTags: unmatchedTags.filter(t => t !== "__unknown__"),
+      unmatchedTags: unmatchedTags.filter(t => t !== UNKNOWN_KENNEL_SENTINEL),
       fillRates,
       sampleRows: result.sampleRows,
     },

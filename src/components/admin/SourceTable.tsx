@@ -35,6 +35,7 @@ import {
 import { SourceForm } from "./SourceForm";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import { toast } from "sonner";
+import type { RegionOption } from "./KennelForm";
 
 type SourceData = {
   id: string;
@@ -57,7 +58,7 @@ type SourceData = {
 interface SourceTableProps {
   sources: SourceData[];
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
-  allRegions: { id: string; name: string; country: string; abbrev: string }[];
+  allRegions: RegionOption[];
   geminiAvailable?: boolean;
 }
 
@@ -336,7 +337,7 @@ function SourceRow({
 }: {
   source: SourceData;
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
-  allRegions: { id: string; name: string; country: string; abbrev: string }[];
+  allRegions: RegionOption[];
   geminiAvailable?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();

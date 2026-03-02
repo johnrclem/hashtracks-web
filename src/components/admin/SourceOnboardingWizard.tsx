@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import { toast } from "sonner";
 import type { KennelOption } from "./config-panels/KennelTagInput";
+import type { RegionOption } from "./KennelForm";
 
 const SOURCE_TYPES = [
   "HTML_SCRAPER",
@@ -65,7 +66,7 @@ type StepId = (typeof STEPS)[number]["id"];
 
 interface SourceOnboardingWizardProps {
   allKennels: KennelOption[];
-  allRegions: { id: string; name: string; country: string; abbrev: string }[];
+  allRegions: RegionOption[];
   geminiAvailable?: boolean;
 }
 
@@ -154,14 +155,15 @@ export function SourceOnboardingWizard({
     };
   }, [currentStep, name, urlValue, selectedType, configObj]);
 
-  function handleUrlDetect(urlOverride?: string) {
+  function handleUrlDetect(urlOverride?: string, { rewriteUrl = false } = {}) {
     const url = urlOverride ?? urlValue;
     const detected = detectSourceType(url);
     if (detected) {
       setSelectedType(detected.type);
       setDetectedType(detected.type);
 
-      if (detected.extractedUrl) {
+      // Only rewrite the URL field on blur to avoid replacing input mid-type
+      if (rewriteUrl && detected.extractedUrl) {
         setUrlValue(detected.extractedUrl);
       }
 
@@ -202,11 +204,8 @@ export function SourceOnboardingWizard({
         toast.error(result.error);
       } else {
         toast.success("Source created successfully");
-        // Small delay so the toast is visible before navigation
-        setTimeout(() => {
-          router.push("/admin/sources");
-          router.refresh();
-        }, 500);
+        router.push("/admin/sources");
+        router.refresh();
       }
     });
   }
@@ -316,7 +315,7 @@ export function SourceOnboardingWizard({
                     setUrlValue(e.target.value);
                     handleUrlDetect(e.target.value);
                   }}
-                  onBlur={() => handleUrlDetect()}
+                  onBlur={() => handleUrlDetect(undefined, { rewriteUrl: true })}
                   placeholder={
                     selectedType === "GOOGLE_CALENDAR"
                       ? "e.g., pormeh3hashcash@gmail.com or full calendar URL"

@@ -9,6 +9,7 @@ import { validateFetchUrl } from "@/lib/url-validation";
 import type { SourceType, Source } from "@/generated/prisma/client";
 import type { RawEventData } from "@/adapters/types";
 import type { GoogleGenAI } from "@google/genai";
+import { UNKNOWN_KENNEL_SENTINEL, UNTAGGED_KENNEL_DISPLAY } from "./preview-constants";
 
 export interface ConfigSuggestion {
   /** Suggested adapter config object (may be empty for HTML_SCRAPER with matched adapter). */
@@ -194,7 +195,7 @@ async function fetchSampleEvents(
   // For GOOGLE_CALENDAR without config, use a sentinel defaultKennelTag
   // to prevent the adapter's hard-coded Boston fallback from poisoning tags
   const effectiveConfig = config ?? (
-    type === "GOOGLE_CALENDAR" ? { defaultKennelTag: "__unknown__" } : null
+    type === "GOOGLE_CALENDAR" ? { defaultKennelTag: UNKNOWN_KENNEL_SENTINEL } : null
   );
 
   const mockSource = {
@@ -245,9 +246,9 @@ export async function buildGeminiSuggestion(
   });
   const kennelList = kennels.map((k) => `${k.shortName} | ${k.fullName}`).join("\n");
 
-  // Replace sentinel __unknown__ tags with "(untagged)" so Gemini derives kennels from titles
+  // Replace sentinel __unknown__ tags with UNTAGGED_KENNEL_DISPLAY so Gemini derives kennels from titles
   const cleanEvents = events.map(e =>
-    e.kennelTag === "__unknown__" ? { ...e, kennelTag: "(untagged)" } : e
+    e.kennelTag === UNKNOWN_KENNEL_SENTINEL ? { ...e, kennelTag: UNTAGGED_KENNEL_DISPLAY } : e
   );
 
   const sampleLines = cleanEvents
@@ -407,7 +408,7 @@ The kennelSlugs must exactly match the kennel identifiers used on hashrego.com â
 
 function buildCalendarInstructions(uniqueTags: number, firstTag: string | undefined): string {
   // When all events are untagged (new calendar with no config), ask Gemini to derive kennels from titles
-  const allUntagged = uniqueTags <= 1 && (!firstTag || firstTag === "(untagged)");
+  const allUntagged = uniqueTags <= 1 && (!firstTag || firstTag === UNTAGGED_KENNEL_DISPLAY);
   if (allUntagged) {
     return `This is a new Google Calendar source with no kennel configuration yet.
 Analyze the event titles to identify which kennel(s) this calendar serves.
