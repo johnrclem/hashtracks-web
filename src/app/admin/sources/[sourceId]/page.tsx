@@ -494,6 +494,7 @@ export default async function SourceDetailPage({
         type={source.type}
         config={source.config as Record<string, unknown> | null}
         allKennels={allKennels}
+        allRegions={allRegions}
         linkedKennelIds={source.kennels.map((sk) => sk.kennelId)}
         geminiAvailable={!!process.env.GEMINI_API_KEY}
       />

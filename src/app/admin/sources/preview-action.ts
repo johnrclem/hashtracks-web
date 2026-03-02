@@ -104,12 +104,17 @@ export async function previewSourceConfig(
   const { config, error: configError } = parsePreviewConfig(configRaw, type);
   if (configError) return { error: configError };
 
+  // For GOOGLE_CALENDAR without config, use sentinel to prevent Boston fallback
+  const effectiveConfig = config ?? (
+    type === "GOOGLE_CALENDAR" ? { defaultKennelTag: "__unknown__" } as Record<string, unknown> : null
+  );
+
   const mockSource = {
     id: "preview",
     name: "Preview",
     url,
     type: type as SourceType,
-    config,
+    config: effectiveConfig,
     trustLevel: 5,
     scrapeFreq: "daily",
     scrapeDays: PREVIEW_LOOKBACK_DAYS,
@@ -142,11 +147,12 @@ export async function previewSourceConfig(
   const { tagResolution, unmatchedTags } = await resolvePreviewTags(result.events);
 
   // Build preview events (capped at MAX_PREVIEW_EVENTS)
+  // Replace sentinel __unknown__ with user-friendly label
   const previewEvents: PreviewEvent[] = result.events
     .slice(0, MAX_PREVIEW_EVENTS)
     .map((e) => ({
       date: e.date,
-      kennelTag: e.kennelTag,
+      kennelTag: e.kennelTag === "__unknown__" ? "(untagged)" : e.kennelTag,
       title: e.title,
       location: e.location,
       hares: e.hares,
@@ -162,7 +168,7 @@ export async function previewSourceConfig(
       errors: result.errors,
       errorDetails: result.errorDetails,
       diagnosticContext: result.diagnosticContext,
-      unmatchedTags,
+      unmatchedTags: unmatchedTags.filter(t => t !== "__unknown__"),
       fillRates,
       sampleRows: result.sampleRows,
     },

@@ -154,8 +154,9 @@ export function SourceOnboardingWizard({
     };
   }, [currentStep, name, urlValue, selectedType, configObj]);
 
-  function handleUrlDetect() {
-    const detected = detectSourceType(urlValue);
+  function handleUrlDetect(urlOverride?: string) {
+    const url = urlOverride ?? urlValue;
+    const detected = detectSourceType(url);
     if (detected) {
       setSelectedType(detected.type);
       setDetectedType(detected.type);
@@ -201,8 +202,11 @@ export function SourceOnboardingWizard({
         toast.error(result.error);
       } else {
         toast.success("Source created successfully");
-        router.push("/admin/sources");
-        router.refresh();
+        // Small delay so the toast is visible before navigation
+        setTimeout(() => {
+          router.push("/admin/sources");
+          router.refresh();
+        }, 500);
       }
     });
   }
@@ -302,13 +306,22 @@ export function SourceOnboardingWizard({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="url">URL *</Label>
+                <Label htmlFor="url">
+                  {selectedType === "GOOGLE_CALENDAR" ? "Calendar ID or URL" : "URL"} *
+                </Label>
                 <Input
                   id="url"
                   value={urlValue}
-                  onChange={(e) => setUrlValue(e.target.value)}
-                  onBlur={handleUrlDetect}
-                  placeholder="https://hashnyc.com or a Google Calendar/Sheets URL"
+                  onChange={(e) => {
+                    setUrlValue(e.target.value);
+                    handleUrlDetect(e.target.value);
+                  }}
+                  onBlur={() => handleUrlDetect()}
+                  placeholder={
+                    selectedType === "GOOGLE_CALENDAR"
+                      ? "e.g., pormeh3hashcash@gmail.com or full calendar URL"
+                      : "https://hashnyc.com or a Google Calendar/Sheets URL"
+                  }
                   autoFocus
                 />
                 {detectedType && (

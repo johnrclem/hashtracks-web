@@ -9,6 +9,7 @@ interface TroubleshootSectionProps {
   readonly type: string;
   readonly config: Record<string, unknown> | null;
   readonly allKennels: KennelOption[];
+  readonly allRegions: { id: string; name: string; country: string; abbrev: string }[];
   readonly linkedKennelIds: string[];
   readonly geminiAvailable?: boolean;
 }
@@ -23,6 +24,7 @@ export function TroubleshootSection({
   type,
   config,
   allKennels,
+  allRegions,
   linkedKennelIds,
   geminiAvailable,
 }: TroubleshootSectionProps) {
@@ -57,6 +59,7 @@ export function TroubleshootSection({
             configJson={configJson}
             selectedKennels={selectedKennels}
             allKennels={allKennels}
+            allRegions={allRegions}
             geminiAvailable={geminiAvailable}
             onConfigChange={(c, j) => {
               setConfigObj(c);
