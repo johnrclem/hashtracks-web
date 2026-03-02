@@ -14,7 +14,7 @@ export async function POST(
 ) {
   const auth = await verifyCronAuth(request);
   if (!auth.authenticated) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
   }
 
   const { sourceId } = await params;
@@ -25,7 +25,7 @@ export async function POST(
   });
 
   if (!source) {
-    return NextResponse.json({ error: "Source not found" }, { status: 404 });
+    return NextResponse.json({ data: null, error: "Source not found" }, { status: 404 });
   }
 
   if (!source.enabled) {
@@ -58,7 +58,7 @@ export async function POST(
   if (!result.success) {
     // Return 500 so QStash retries this source
     return NextResponse.json(
-      { data: { ...result, sourceId, name: source.name } },
+      { data: { ...result, sourceId, name: source.name }, error: "Scrape failed" },
       { status: 500 },
     );
   }

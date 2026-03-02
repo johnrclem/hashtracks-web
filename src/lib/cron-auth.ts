@@ -19,16 +19,17 @@ export async function verifyCronAuth(request: Request): Promise<CronAuthResult> 
     try {
       receiver = getQStashReceiver();
     } catch (err) {
-      console.error("[cron-auth] QStash receiver setup failed (check signing key env vars):", err);
-      // Don't fall through to bearer — this is a config error
-      return { authenticated: false, method: "none" };
+      console.error("[cron-auth] QStash receiver setup failed:", err);
+      // Fall through to Bearer check
     }
-    try {
-      const body = await request.clone().text();
-      await receiver.verify({ signature, body });
-      return { authenticated: true, method: "qstash" };
-    } catch {
-      // QStash signature invalid — fall through to Bearer check
+    if (receiver) {
+      try {
+        const body = await request.clone().text();
+        await receiver.verify({ signature, body, url: request.url });
+        return { authenticated: true, method: "qstash" };
+      } catch {
+        // QStash signature invalid — fall through to Bearer check
+      }
     }
   }
 
