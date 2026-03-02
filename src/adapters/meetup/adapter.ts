@@ -1,3 +1,4 @@
+import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
@@ -12,7 +13,7 @@ export interface MeetupConfig {
   kennelTag: string;
 }
 
-/** Shape of an event entry in Meetup's __APOLLO_STATE__ JSON. */
+/** Shape of an event entry in Meetup's __NEXT_DATA__ Apollo state. */
 interface ApolloEvent {
   __typename: string;
   id: string;
@@ -26,28 +27,30 @@ interface ApolloEvent {
 }
 
 /**
- * Extract Event objects from Meetup's __APOLLO_STATE__ embedded JSON.
+ * Extract Event objects from Meetup's __NEXT_DATA__ script tag (Apollo state).
  * Returns an empty array if the state isn't found or can't be parsed.
  */
 export function extractApolloEvents(html: string): { events: ApolloEvent[]; state: Record<string, Record<string, unknown>> } {
-  const match = /__APOLLO_STATE__\s*=\s*({[\s\S]+?});?\s*<\/script>/.exec(html);
-  if (!match) return { events: [], state: {} };
+  const $ = cheerio.load(html);
+  const scriptEl = $("#__NEXT_DATA__");
+  if (!scriptEl.length) return { events: [], state: {} };
 
-  let state: Record<string, Record<string, unknown>>;
   try {
-    state = JSON.parse(match[1]);
+    const nextData = JSON.parse(scriptEl.text());
+    const state: Record<string, Record<string, unknown>> = nextData?.props?.pageProps?.__APOLLO_STATE__;
+    if (!state || typeof state !== "object") return { events: [], state: {} };
+
+    const events: ApolloEvent[] = [];
+    for (const v of Object.values(state)) {
+      if (v != null && typeof v === "object" && (v as Record<string, unknown>).__typename === "Event") {
+        events.push(v as unknown as ApolloEvent);
+      }
+    }
+
+    return { events, state };
   } catch {
     return { events: [], state: {} };
   }
-
-  const events: ApolloEvent[] = [];
-  for (const v of Object.values(state)) {
-    if (v != null && typeof v === "object" && (v as Record<string, unknown>).__typename === "Event") {
-      events.push(v as unknown as ApolloEvent);
-    }
-  }
-
-  return { events, state };
 }
 
 /**
@@ -173,7 +176,7 @@ export class MeetupAdapter implements SourceAdapter {
     const { events: apolloEvents, state } = extractApolloEvents(html);
 
     if (apolloEvents.length === 0) {
-      const message = "No __APOLLO_STATE__ events found in page HTML";
+      const message = "No events found in __NEXT_DATA__ Apollo state";
       errors.push(message);
       errorDetails.parse = [{ row: 0, error: message }];
     }

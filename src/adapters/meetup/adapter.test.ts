@@ -44,15 +44,17 @@ const VENUE_ENTRY = {
   lng: -73.9754,
 };
 
-/** Wrap Apollo state entries into a realistic HTML page. */
+/** Wrap Apollo state entries into a realistic __NEXT_DATA__ HTML page. */
 function buildMeetupHtml(
   stateEntries: Record<string, unknown>,
 ): string {
-  const json = JSON.stringify(stateEntries);
+  const nextData = JSON.stringify({
+    props: { pageProps: { __APOLLO_STATE__: stateEntries } },
+  });
   return `<!DOCTYPE html>
 <html><head><title>Meetup</title></head>
 <body>
-<script>window.__APOLLO_STATE__ = ${json};</script>
+<script id="__NEXT_DATA__" type="application/json">${nextData}</script>
 <div id="app"></div>
 </body></html>`;
 }
@@ -85,7 +87,7 @@ describe("extractApolloEvents", () => {
   });
 
   it("returns empty array on malformed JSON", () => {
-    const html = '<script>window.__APOLLO_STATE__ = {broken json};</script>';
+    const html = '<script id="__NEXT_DATA__" type="application/json">{broken json}</script>';
     const { events } = extractApolloEvents(html);
     expect(events).toHaveLength(0);
   });
@@ -306,7 +308,7 @@ describe("MeetupAdapter", () => {
       { days: 365 },
     );
     expect(result.events).toHaveLength(0);
-    expect(result.errors[0]).toMatch(/APOLLO_STATE/);
+    expect(result.errors[0]).toMatch(/NEXT_DATA/);
   });
 
   it("uses safeFetch with correct URL", async () => {
