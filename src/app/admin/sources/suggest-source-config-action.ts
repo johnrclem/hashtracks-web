@@ -101,24 +101,7 @@ export async function suggestSourceConfig(
 
   // MEETUP: extract groupUrlname from URL to bootstrap event fetching (adapter needs config)
   if (type === "MEETUP") {
-    const groupUrlname = await extractMeetupGroupUrlname(url);
-    if (!groupUrlname) {
-      return { error: "Could not extract Meetup group name from URL" };
-    }
-    const sampleResult = await fetchSampleEvents(
-      url, "MEETUP", { groupUrlname, kennelTag: groupUrlname }, "this Meetup group",
-    );
-    if ("error" in sampleResult) return { error: sampleResult.error };
-
-    const result = await buildGeminiSuggestion(url, type, sampleResult.events, client);
-    // Ensure groupUrlname is included so "Accept & Test" produces a complete config
-    if ("suggestion" in result) {
-      result.suggestion.suggestedConfig = {
-        groupUrlname,
-        ...result.suggestion.suggestedConfig,
-      };
-    }
-    return result;
+    return buildMeetupSuggestion(url, type, client);
   }
 
   const sampleResult = await fetchSampleEvents(url, type as SourceType);
@@ -155,13 +138,38 @@ function buildHtmlScraperSuggestion(url: string): SuggestConfigResult {
   };
 }
 
+/** Bootstrap a Meetup config suggestion by extracting groupUrlname from the URL. */
+async function buildMeetupSuggestion(
+  url: string,
+  type: string,
+  client: GoogleGenAI,
+): Promise<SuggestConfigResult> {
+  const groupUrlname = await extractMeetupGroupUrlname(url);
+  if (!groupUrlname) {
+    return { error: "Could not extract Meetup group name from URL" };
+  }
+  const sampleResult = await fetchSampleEvents(
+    url, "MEETUP", { groupUrlname, kennelTag: groupUrlname }, "this Meetup group",
+  );
+  if ("error" in sampleResult) return { error: sampleResult.error };
+
+  const result = await buildGeminiSuggestion(url, type, sampleResult.events, client);
+  // Ensure groupUrlname is included so "Accept & Test" produces a complete config
+  if ("suggestion" in result) {
+    result.suggestion.suggestedConfig = {
+      groupUrlname,
+      ...result.suggestion.suggestedConfig,
+    };
+  }
+  return result;
+}
+
 /** Extract the Meetup group URL name from a meetup.com URL. */
 export async function extractMeetupGroupUrlname(rawUrl: string): Promise<string | null> {
   try {
     const url = new URL(rawUrl);
     if (url.hostname !== "meetup.com" && !url.hostname.endsWith(".meetup.com")) return null;
-    const parts = url.pathname.split("/").filter(Boolean);
-    return parts[0] ?? null;
+    return url.pathname.split("/").find(Boolean) ?? null;
   } catch {
     return null;
   }
@@ -364,7 +372,7 @@ Also add skipPatterns if any events appear to be non-hash content.`;
 }
 
 function buildSingleKennelInstructions(type: string, uniqueTags: number, firstTag: string | undefined): string {
-  const isPlaceholderSlug = type === "MEETUP" && firstTag && firstTag.includes("-");
+  const isPlaceholderSlug = type === "MEETUP" && firstTag?.includes("-");
   if (uniqueTags === 1 && firstTag) {
     return `This source has a single kennel tag "${firstTag}".${isPlaceholderSlug ? " (This is a Meetup URL slug used as placeholder — derive the real kennel shortName from event titles and the known kennels list.)" : ""} Suggest config:
 {"kennelTag":"MATCHED_SHORTNAME"}

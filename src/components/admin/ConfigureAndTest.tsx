@@ -200,8 +200,7 @@ export function ConfigureAndTest({
     // (has groupUrlname from URL detection but no kennelTag yet)
     if (configJson.trim()) {
       if (type !== "MEETUP") return;
-      const c = config as Record<string, unknown> | null;
-      if (c?.kennelTag) return; // MEETUP fully configured, skip
+      if (config?.kennelTag) return; // MEETUP fully configured, skip
     }
     if (!url.trim()) return;
     setAiState("loading");
@@ -220,8 +219,7 @@ export function ConfigureAndTest({
     if (configJson.trim() && url.trim()) {
       // Don't auto-preview MEETUP with partial config (missing kennelTag)
       if (type === "MEETUP") {
-        const c = config as Record<string, unknown> | null;
-        if (!c?.kennelTag) return;
+        if (!config?.kennelTag) return;
       }
       runPreview();
     }
@@ -313,10 +311,9 @@ export function ConfigureAndTest({
     if (!aiSuggestion) return;
     let suggested = aiSuggestion.suggestedConfig;
     // For MEETUP: preserve existing groupUrlname if the suggestion doesn't include it
-    if (type === "MEETUP" && config && typeof config === "object") {
-      const existing = config as Record<string, unknown>;
-      if (existing.groupUrlname && !suggested.groupUrlname) {
-        suggested = { groupUrlname: existing.groupUrlname, ...suggested };
+    if (type === "MEETUP" && config) {
+      if (config.groupUrlname && !suggested.groupUrlname) {
+        suggested = { groupUrlname: config.groupUrlname, ...suggested };
       }
     }
     const hasConfig = Object.keys(suggested).length > 0;

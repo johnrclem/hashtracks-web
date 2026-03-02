@@ -5,45 +5,22 @@ vi.mock("@/lib/db");
 import { extractMeetupGroupUrlname } from "./suggest-source-config-action";
 
 describe("extractMeetupGroupUrlname", () => {
-  it("extracts group name from standard meetup URL", async () => {
-    expect(
-      await extractMeetupGroupUrlname("https://www.meetup.com/savannah-hash-house-harriers/events/"),
-    ).toBe("savannah-hash-house-harriers");
+  it.each([
+    ["standard meetup URL with path", "https://www.meetup.com/savannah-hash-house-harriers/events/", "savannah-hash-house-harriers"],
+    ["URL without trailing path", "https://meetup.com/brooklyn-hash-house-harriers", "brooklyn-hash-house-harriers"],
+    ["subdomain URL", "https://www.meetup.com/some-group/", "some-group"],
+  ])("extracts group name from %s", async (_, url, expected) => {
+    expect(await extractMeetupGroupUrlname(url)).toBe(expected);
   });
 
-  it("extracts group name from URL without trailing path", async () => {
-    expect(
-      await extractMeetupGroupUrlname("https://meetup.com/brooklyn-hash-house-harriers"),
-    ).toBe("brooklyn-hash-house-harriers");
-  });
-
-  it("extracts group name from subdomain URL", async () => {
-    expect(
-      await extractMeetupGroupUrlname("https://www.meetup.com/some-group/"),
-    ).toBe("some-group");
-  });
-
-  it("returns null for non-meetup URL", async () => {
-    expect(await extractMeetupGroupUrlname("https://example.com/some-path")).toBeNull();
-  });
-
-  it("returns null for bare meetup.com with no path", async () => {
-    expect(await extractMeetupGroupUrlname("https://meetup.com/")).toBeNull();
-  });
-
-  it("returns null for invalid URL", async () => {
-    expect(await extractMeetupGroupUrlname("not-a-url")).toBeNull();
-  });
-
-  it("returns null for empty string", async () => {
-    expect(await extractMeetupGroupUrlname("")).toBeNull();
-  });
-
-  it("rejects lookalike domains like notmeetup.com", async () => {
-    expect(await extractMeetupGroupUrlname("https://notmeetup.com/some-group")).toBeNull();
-  });
-
-  it("rejects meetup.com.evil domain", async () => {
-    expect(await extractMeetupGroupUrlname("https://meetup.com.evil/some-group")).toBeNull();
+  it.each([
+    ["non-meetup URL", "https://example.com/some-path"],
+    ["bare meetup.com with no path", "https://meetup.com/"],
+    ["invalid URL", "not-a-url"],
+    ["empty string", ""],
+    ["lookalike domain notmeetup.com", "https://notmeetup.com/some-group"],
+    ["meetup.com.evil domain", "https://meetup.com.evil/some-group"],
+  ])("returns null for %s", async (_, url) => {
+    expect(await extractMeetupGroupUrlname(url)).toBeNull();
   });
 });
