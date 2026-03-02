@@ -133,6 +133,20 @@ export default async function EventDetailPage({
   const hasLocation =
     (event.latitude != null && event.longitude != null) || !!event.locationName;
 
+  function getAttendancePrompt(eventDate: Date, status: string | null): string {
+    // Compare at UTC noon to match date storage convention (Appendix F.4)
+    const now = new Date();
+    const todayNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
+    const isPast = eventDate.getTime() < todayNoon;
+    if (isPast) {
+      if (status === "CONFIRMED") return "You attended this run.";
+      if (status === "INTENDING") return "Confirm your attendance after the run.";
+      return "Log that you were at this run.";
+    }
+    if (status === "INTENDING") return "You\u2019ve RSVP\u2019d for this run.";
+    return "Let others know you plan to attend.";
+  }
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -199,19 +213,7 @@ export default async function EventDetailPage({
           )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          {(() => {
-            // Compare at UTC noon to match date storage convention (Appendix F.4)
-            const now = new Date();
-            const todayNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
-            const isPast = event.date.getTime() <= todayNoon;
-            if (isPast) {
-              if (attendance?.status === "CONFIRMED") return "You attended this run.";
-              if (attendance?.status === "INTENDING") return "Confirm your attendance after the run.";
-              return "Log that you were at this run.";
-            }
-            if (attendance?.status === "INTENDING") return "You\u2019ve RSVP\u2019d for this run.";
-            return "Let others know you plan to attend.";
-          })()}
+          {getAttendancePrompt(event.date, attendance?.status ?? null)}
         </p>
       </div>
 

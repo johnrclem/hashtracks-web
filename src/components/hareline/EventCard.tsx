@@ -123,6 +123,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.target !== e.currentTarget) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       handleClick();

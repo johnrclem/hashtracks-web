@@ -208,4 +208,27 @@ describe("geocodeAddress", () => {
     const result = await geocodeAddress("Some Address");
     expect(result).toBeNull();
   });
+
+  it("passes an AbortSignal to fetch for timeout", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [{ geometry: { location: { lat: 40.0, lng: -74.0 } } }],
+      }),
+    } as Response);
+
+    await geocodeAddress("Test Address");
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it("returns null when fetch is aborted (timeout)", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new DOMException("Aborted", "AbortError"));
+
+    const result = await geocodeAddress("Slow Address");
+    expect(result).toBeNull();
+  });
 });

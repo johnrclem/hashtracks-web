@@ -531,7 +531,7 @@ export function regionColorClasses(region: string): string {
 /** Tailwind background class only (no text class). Useful for color dots/indicators. */
 export function regionBgClass(region: string): string {
   const classes = regionColorClasses(region);
-  return classes.split(" ")[0];
+  return classes.split(/\s+/).find(c => c.startsWith("bg-")) ?? "bg-gray-200";
 }
 
 /** Hex pin color for a region on maps. Accepts name, alias, or slug. Falls back to gray. */
