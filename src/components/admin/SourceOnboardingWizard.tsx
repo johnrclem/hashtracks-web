@@ -97,9 +97,9 @@ export function SourceOnboardingWizard({
   const [name, setName] = useState("");
   const [isSuggestingName, setIsSuggestingName] = useState(false);
   const [nameSuggested, setNameSuggested] = useState(false);
-  const [trustLevel, setTrustLevel] = useState(5);
+  const [trustLevel, setTrustLevel] = useState("5");
   const [scrapeFreq, setScrapeFreq] = useState("daily");
-  const [scrapeDays, setScrapeDays] = useState(90);
+  const [scrapeDays, setScrapeDays] = useState("90");
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
   const [configObj, setConfigObj] = useState<Record<string, unknown> | null>(null);
   const [configJson, setConfigJson] = useState("");
@@ -166,9 +166,9 @@ export function SourceOnboardingWizard({
     fd.set("name", name);
     fd.set("url", urlValue);
     fd.set("type", selectedType);
-    fd.set("trustLevel", String(trustLevel));
+    fd.set("trustLevel", String(Math.min(10, Math.max(1, Number.parseInt(trustLevel) || 5))));
     fd.set("scrapeFreq", scrapeFreq);
-    fd.set("scrapeDays", String(scrapeDays));
+    fd.set("scrapeDays", String(Math.min(365, Math.max(1, Number.parseInt(scrapeDays) || 90))));
     fd.set("kennelIds", selectedKennels.join(","));
     if (configJson.trim()) fd.set("config", configJson.trim());
 
@@ -381,9 +381,11 @@ export function SourceOnboardingWizard({
                     min={1}
                     max={10}
                     value={trustLevel}
-                    onChange={(e) =>
-                      setTrustLevel(Number.parseInt(e.target.value) || 5)
-                    }
+                    onChange={(e) => setTrustLevel(e.target.value)}
+                    onBlur={(e) => {
+                      const n = Number.parseInt(e.target.value);
+                      setTrustLevel(String(isNaN(n) ? 5 : Math.min(10, Math.max(1, n))));
+                    }}
                   />
                   <p className="text-xs text-muted-foreground">
                     Higher = preferred when merging duplicate events. Use 5
@@ -416,9 +418,11 @@ export function SourceOnboardingWizard({
                   min={1}
                   max={365}
                   value={scrapeDays}
-                  onChange={(e) =>
-                    setScrapeDays(Number.parseInt(e.target.value) || 90)
-                  }
+                  onChange={(e) => setScrapeDays(e.target.value)}
+                  onBlur={(e) => {
+                    const n = Number.parseInt(e.target.value);
+                    setScrapeDays(String(isNaN(n) ? 90 : Math.min(365, Math.max(1, n))));
+                  }}
                 />
                 <p className="text-xs text-muted-foreground">
                   How far back to look when scraping. Default: 90 days.
