@@ -297,7 +297,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     pinColor: "#4f46e5",
     centroidLat: 47.61,
     centroidLng: -122.33,
-    aliases: ["Washington", "Seattle, Washington"],
+    aliases: ["Washington State", "Seattle, Washington"],
   },
   {
     name: "Portland, OR",
