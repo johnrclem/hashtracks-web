@@ -173,7 +173,7 @@ export async function previewSourceConfig(
       unmatchedTags: unmatchedTags.filter(t => t !== UNKNOWN_KENNEL_SENTINEL),
       fillRates,
       sampleRows: result.sampleRows,
-      sourceType: type,
+      sourceType: type as SourceType,
     },
   };
 }
