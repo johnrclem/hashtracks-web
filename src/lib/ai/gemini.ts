@@ -2,11 +2,11 @@
  * Gemini REST API client — thin wrapper for structured extraction.
  *
  * Uses the REST API directly (no SDK dependency) per PRD Appendix E.1.
- * Model: gemini-2.0-flash (fast, cheap — ideal for structured extraction).
+ * Model: gemini-2.5-flash-lite (fast, cheapest — ideal for structured extraction).
  * Temperature: 0.1 (deterministic for reproducible results).
  */
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-2.5-flash-lite";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 /** Simple in-memory response cache (survives within a single server instance). */
