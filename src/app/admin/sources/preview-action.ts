@@ -35,7 +35,7 @@ export interface PreviewData {
   unmatchedTags: string[];
   fillRates: FieldFillRates;
   sampleRows?: string[][]; // First 10 raw CSV rows (Google Sheets only — for Gemini column detection)
-  sourceType?: string; // Source type for context-aware fill rate notes
+  sourceType?: SourceType; // Source type for context-aware fill rate notes
 }
 
 const MAX_PREVIEW_EVENTS = 25;

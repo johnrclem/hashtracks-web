@@ -29,6 +29,17 @@ const FILL_RATE_NOTES: Record<string, Partial<Record<"hares" | "runNumber", stri
   },
 };
 
+/** Renders a fill rate value with an optional source-type limitation note. */
+function FillRateField({ label, rate, note }: { readonly label: string; readonly rate: number; readonly note?: string }) {
+  const hasNote = rate === 0 && note;
+  return (
+    <span className={hasNote ? "opacity-60" : undefined}>
+      {label}: {rate}%
+      {hasNote && <span className="ml-0.5 text-[10px] italic">({note})</span>}
+    </span>
+  );
+}
+
 interface PreviewResultsProps {
   data: PreviewData;
   /** All kennels for the alias link popover */
@@ -304,23 +315,9 @@ export function PreviewResults({ data, allKennels, onAliasCreated }: PreviewResu
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span>Title: {data.fillRates.title}%</span>
         <span>Location: {data.fillRates.location}%</span>
-        <span className={data.fillRates.hares === 0 && FILL_RATE_NOTES[data.sourceType ?? ""]?.hares ? "opacity-60" : undefined}>
-          Hares: {data.fillRates.hares}%
-          {data.fillRates.hares === 0 && FILL_RATE_NOTES[data.sourceType ?? ""]?.hares && (
-            <span className="ml-0.5 text-[10px] italic">
-              ({FILL_RATE_NOTES[data.sourceType!]!.hares})
-            </span>
-          )}
-        </span>
+        <FillRateField label="Hares" rate={data.fillRates.hares} note={FILL_RATE_NOTES[data.sourceType ?? ""]?.hares} />
         <span>Time: {data.fillRates.startTime}%</span>
-        <span className={data.fillRates.runNumber === 0 && FILL_RATE_NOTES[data.sourceType ?? ""]?.runNumber ? "opacity-60" : undefined}>
-          Run#: {data.fillRates.runNumber}%
-          {data.fillRates.runNumber === 0 && FILL_RATE_NOTES[data.sourceType ?? ""]?.runNumber && (
-            <span className="ml-0.5 text-[10px] italic">
-              ({FILL_RATE_NOTES[data.sourceType!]!.runNumber})
-            </span>
-          )}
-        </span>
+        <FillRateField label="Run#" rate={data.fillRates.runNumber} note={FILL_RATE_NOTES[data.sourceType ?? ""]?.runNumber} />
       </div>
 
       {/* Event table */}
