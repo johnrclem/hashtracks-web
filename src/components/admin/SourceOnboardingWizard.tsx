@@ -85,8 +85,8 @@ function formatConfigValue(value: unknown): string {
 const DEFAULT_TRUST_LEVEL = 5;
 const DEFAULT_SCRAPE_DAYS = 90;
 
-/** Numeric input state that allows temporary empty value while editing. */
-function useNumericField(defaultValue: number) {
+/** Numeric input state that allows temporary empty value while editing, with bounds clamping. */
+function useNumericField(defaultValue: number, min: number, max: number) {
   const [value, setValue] = useState<number | "">(defaultValue);
   const onChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.value === "") {
@@ -94,7 +94,7 @@ function useNumericField(defaultValue: number) {
       return;
     }
     const parsed = Number.parseInt(e.target.value);
-    if (!Number.isNaN(parsed)) setValue(parsed);
+    if (!Number.isNaN(parsed)) setValue(Math.max(min, Math.min(max, parsed)));
   };
   const onBlur = () => {
     if (value === "" || value === 0) setValue(defaultValue);
@@ -118,9 +118,9 @@ export function SourceOnboardingWizard({
   const [name, setName] = useState("");
   const [isSuggestingName, setIsSuggestingName] = useState(false);
   const [nameSuggested, setNameSuggested] = useState(false);
-  const trustLevel = useNumericField(DEFAULT_TRUST_LEVEL);
+  const trustLevel = useNumericField(DEFAULT_TRUST_LEVEL, 1, 10);
   const [scrapeFreq, setScrapeFreq] = useState("daily");
-  const scrapeDays = useNumericField(DEFAULT_SCRAPE_DAYS);
+  const scrapeDays = useNumericField(DEFAULT_SCRAPE_DAYS, 1, 365);
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
   const [configObj, setConfigObj] = useState<Record<string, unknown> | null>(null);
   const [configJson, setConfigJson] = useState("");
