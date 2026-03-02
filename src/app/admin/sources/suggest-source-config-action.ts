@@ -21,6 +21,8 @@ export interface ConfigSuggestion {
   confidence: "high" | "medium" | "low";
   /** Non-null when a known HTML adapter was matched (no config needed). */
   adapterNote: string | null;
+  /** When suggestedConfig.kennelTag doesn't match an existing kennel, AI suggests details for creating one. */
+  suggestedNewKennel: { shortName: string; fullName: string; region: string } | null;
 }
 
 export type SuggestConfigResult =
@@ -78,6 +80,7 @@ export async function suggestSourceConfig(
           "Configure the kennelTag, rrule, and startTime in the config panel.",
         confidence: "high",
         adapterNote: "No live data to analyze — configure schedule rules manually.",
+        suggestedNewKennel: null,
       },
     };
   }
@@ -123,6 +126,7 @@ function buildHtmlScraperSuggestion(url: string): SuggestConfigResult {
         explanation: `This URL is handled by the ${adapterName}. No additional configuration is needed — the adapter is already coded to parse this site.`,
         confidence: "high",
         adapterNote: `Matched existing adapter: ${adapterName}`,
+        suggestedNewKennel: null,
       },
     };
   }
@@ -134,6 +138,7 @@ function buildHtmlScraperSuggestion(url: string): SuggestConfigResult {
         "No site-specific adapter matches this URL. The default scraper will attempt to parse it, but a custom adapter may be needed for reliable extraction.",
       confidence: "low",
       adapterNote: null,
+      suggestedNewKennel: null,
     },
   };
 }
@@ -146,12 +151,16 @@ async function buildMeetupSuggestion(
 ): Promise<SuggestConfigResult> {
   const groupUrlname = await extractMeetupGroupUrlname(url);
   if (!groupUrlname) {
+    console.error("[buildMeetupSuggestion] Could not extract group URL name from:", url);
     return { error: "Could not extract Meetup group name from URL" };
   }
   const sampleResult = await fetchSampleEvents(
     url, "MEETUP", { groupUrlname, kennelTag: groupUrlname }, "this Meetup group",
   );
-  if ("error" in sampleResult) return { error: sampleResult.error };
+  if ("error" in sampleResult) {
+    console.error("[buildMeetupSuggestion] Sample fetch failed:", sampleResult.error);
+    return { error: sampleResult.error };
+  }
 
   const result = await buildGeminiSuggestion(url, type, sampleResult.events, client);
   // Ensure groupUrlname is included so "Accept & Test" produces a complete config
@@ -209,15 +218,16 @@ async function fetchSampleEvents(
       };
     }
     return { events: result.events };
-  } catch {
+  } catch (err) {
+    console.error("[fetchSampleEvents] Failed to fetch from", contextLabel, err);
     return {
       error: `Could not fetch sample events from ${contextLabel} — check that the URL is correct and accessible.`,
     };
   }
 }
 
-/** Call Gemini to analyse sample events and return a config suggestion. */
-async function buildGeminiSuggestion(
+/** Call Gemini to analyse sample events and return a config suggestion. Exported for testing. */
+export async function buildGeminiSuggestion(
   url: string,
   type: string,
   events: RawEventData[],
@@ -262,16 +272,18 @@ ${sampleLines}
 ---DATA END---
 
 Return JSON in exactly this format:
-{"suggestedConfig":{},"suggestedKennelTags":[],"explanation":"","confidence":"high"}
+{"suggestedConfig":{},"suggestedKennelTags":[],"explanation":"","confidence":"high","suggestedNewKennel":null}
 
 Where:
 - suggestedConfig: the adapter config object (see type-specific instructions above)
 - suggestedKennelTags: array of kennel shortNames from the known kennels list that match the event tags
 - explanation: 1–3 sentences describing what you found and why you chose this config
 - confidence: "high" (clear single kennel or well-matched patterns), "medium" (multiple kennels, best-effort), or "low" (ambiguous or unknown kennels)
+- suggestedNewKennel: if the primary kennelTag in suggestedConfig does NOT match any kennel in the known kennels list, provide {"shortName":"TAG","fullName":"Full Hash House Harriers Name","region":"City, ST"} to help create it — otherwise null
 
 Rules:
 - Only use shortNames from the known kennels list for suggestedKennelTags; omit tags with no match
+- If the primary kennelTag in suggestedConfig is NOT in the known kennels list, you MUST populate suggestedNewKennel with a reasonable shortName, fullName, and region (derive region from event locations or the group name)
 - For kennelPatterns, use valid JavaScript regex strings (no delimiters, no flags)
 - Keep explanation factual and brief`;
 
@@ -316,6 +328,28 @@ Rules:
         ? rawConfidence
         : "medium";
 
+    // Parse suggestedNewKennel if present and valid
+    let suggestedNewKennel: { shortName: string; fullName: string; region: string } | null = null;
+    if (obj.suggestedNewKennel && typeof obj.suggestedNewKennel === "object" && !Array.isArray(obj.suggestedNewKennel)) {
+      const nk = obj.suggestedNewKennel as Record<string, unknown>;
+      if (isNonEmptyString(nk.shortName) && isNonEmptyString(nk.fullName) && isNonEmptyString(nk.region)) {
+        suggestedNewKennel = {
+          shortName: (nk.shortName as string).trim(),
+          fullName: (nk.fullName as string).trim(),
+          region: (nk.region as string).trim(),
+        };
+      }
+    }
+
+    // Cross-check: only include suggestedNewKennel if the kennelTag is NOT already known
+    const kennelTagFromConfig = typeof suggestedConfig.kennelTag === "string" ? suggestedConfig.kennelTag.trim() : null;
+    if (suggestedNewKennel && kennelTagFromConfig) {
+      const isKnown = kennels.some(
+        (k) => k.shortName.toLowerCase() === kennelTagFromConfig.toLowerCase(),
+      );
+      if (isKnown) suggestedNewKennel = null;
+    }
+
     return {
       suggestion: {
         suggestedConfig,
@@ -323,6 +357,7 @@ Rules:
         explanation,
         confidence,
         adapterNote: null,
+        suggestedNewKennel,
       },
     };
   } catch (err) {
