@@ -330,15 +330,28 @@ Rules:
           (t): t is string => typeof t === "string" && t.length > 0,
         )
       : [];
-    const explanation =
+    let explanation =
       typeof obj.explanation === "string" && obj.explanation.trim()
         ? obj.explanation.trim()
         : "AI configuration suggestion generated.";
     const rawConfidence = obj.confidence;
-    const confidence: "high" | "medium" | "low" =
+    let confidence: "high" | "medium" | "low" =
       rawConfidence === "high" || rawConfidence === "medium" || rawConfidence === "low"
         ? rawConfidence
         : "medium";
+
+    // Post-processing: if AI suggested single-kennel but titles suggest multiple kennels, downgrade confidence
+    if (
+      (type === "GOOGLE_CALENDAR" || type === "ICAL_FEED") &&
+      suggestedConfig.defaultKennelTag &&
+      !Array.isArray(suggestedConfig.kennelPatterns)
+    ) {
+      const distinctNames = detectDistinctKennelNames(events);
+      if (distinctNames.size > 1) {
+        confidence = "low";
+        explanation += ` (Note: event titles suggest ${distinctNames.size} distinct kennels: ${[...distinctNames].join(", ")}. Consider using kennelPatterns instead of defaultKennelTag.)`;
+      }
+    }
 
     // Parse suggestedNewKennel if present and valid
     let suggestedNewKennel: { shortName: string; fullName: string; region: string } | null = null;
@@ -411,11 +424,20 @@ function buildCalendarInstructions(uniqueTags: number, firstTag: string | undefi
   const allUntagged = uniqueTags <= 1 && (!firstTag || firstTag === UNTAGGED_KENNEL_DISPLAY);
   if (allUntagged) {
     return `This is a new Google Calendar source with no kennel configuration yet.
-Analyze the event titles to identify which kennel(s) this calendar serves.
-Suggest config: {"defaultKennelTag":"SHORTNAME"} for single-kennel calendars,
-or {"kennelPatterns":[["regex","TAG"]],"defaultKennelTag":"FALLBACK"} for multi-kennel.
-Derive the kennel shortName from the event titles and match against the known kennels list when possible.
-Also add skipPatterns if any events appear to be non-hash content.`;
+IMPORTANT: First, examine ALL event titles to determine how many distinct kennel/organization names appear.
+If event titles reference 2 or more different hash groups (e.g., "PorME H3 Trail #5" and "Knightvillain H3 Run #8"),
+you MUST use kennelPatterns to route events to the correct kennel — do NOT use defaultKennelTag alone.
+
+For MULTI-kennel calendars (titles reference 2+ different groups):
+  {"kennelPatterns":[["regex1","TAG1"],["regex2","TAG2"]],"defaultKennelTag":"FALLBACK"}
+  Use the most specific regex patterns that match each group's naming convention in event titles.
+  Set confidence to "medium" when multiple organizations are detected.
+
+For SINGLE-kennel calendars (ALL titles reference the same group):
+  {"defaultKennelTag":"SHORTNAME"}
+
+Derive kennel shortNames from the event titles and match against the known kennels list when possible.
+Also add skipPatterns if any events appear to be non-hash content (e.g., "Board Meeting", "Social Event").`;
   }
   if (uniqueTags === 1 && firstTag) {
     return `This source has a single kennel tag "${firstTag}". Suggest config:
@@ -499,4 +521,16 @@ function isValidPatternEntry(entry: unknown): boolean {
   const [pattern, tag] = entry;
   if (typeof pattern !== "string" || typeof tag !== "string") return false;
   return isSafeRegexString(pattern);
+}
+
+/** Scan event titles for distinct hash kennel name patterns (e.g., "XYZ H3", "ABC HHH"). */
+function detectDistinctKennelNames(events: RawEventData[]): Set<string> {
+  const names = new Set<string>();
+  const hashPattern = /\b([A-Za-z][A-Za-z0-9]*(?:[\s-][A-Za-z0-9]+)*\s*(?:H3|HHH|H4|Hash))\b/i;
+  for (const e of events) {
+    if (!e.title) continue;
+    const match = e.title.match(hashPattern);
+    if (match) names.add(match[1].trim());
+  }
+  return names;
 }

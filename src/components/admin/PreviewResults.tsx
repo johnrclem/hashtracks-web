@@ -21,6 +21,25 @@ import { createInlineAlias } from "@/app/admin/sources/inline-alias-action";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+/** Known data limitations by source type — fields that are typically unavailable. */
+const FILL_RATE_NOTES: Record<string, Partial<Record<"hares" | "runNumber", string>>> = {
+  MEETUP: {
+    hares: "Not available from Meetup",
+    runNumber: "Not available from Meetup",
+  },
+};
+
+/** Renders a fill rate value with an optional source-type limitation note. */
+function FillRateField({ label, rate, note }: { readonly label: string; readonly rate: number; readonly note?: string }) {
+  const hasNote = rate === 0 && note;
+  return (
+    <span className={hasNote ? "opacity-60" : undefined}>
+      {label}: {rate}%
+      {hasNote && <span className="ml-0.5 text-[10px] italic">({note})</span>}
+    </span>
+  );
+}
+
 interface PreviewResultsProps {
   data: PreviewData;
   /** All kennels for the alias link popover */
@@ -294,11 +313,11 @@ export function PreviewResults({ data, allKennels, onAliasCreated }: PreviewResu
 
       {/* Fill rates */}
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-        <span>Title: {data.fillRates.title}%</span>
-        <span>Location: {data.fillRates.location}%</span>
-        <span>Hares: {data.fillRates.hares}%</span>
-        <span>Time: {data.fillRates.startTime}%</span>
-        <span>Run#: {data.fillRates.runNumber}%</span>
+        <FillRateField label="Title" rate={data.fillRates.title} />
+        <FillRateField label="Location" rate={data.fillRates.location} />
+        <FillRateField label="Hares" rate={data.fillRates.hares} note={FILL_RATE_NOTES[data.sourceType ?? ""]?.hares} />
+        <FillRateField label="Time" rate={data.fillRates.startTime} />
+        <FillRateField label="Run#" rate={data.fillRates.runNumber} note={FILL_RATE_NOTES[data.sourceType ?? ""]?.runNumber} />
       </div>
 
       {/* Event table */}

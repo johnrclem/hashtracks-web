@@ -35,6 +35,7 @@ export interface PreviewData {
   unmatchedTags: string[];
   fillRates: FieldFillRates;
   sampleRows?: string[][]; // First 10 raw CSV rows (Google Sheets only — for Gemini column detection)
+  sourceType?: SourceType; // Source type for context-aware fill rate notes
 }
 
 const MAX_PREVIEW_EVENTS = 25;
@@ -172,6 +173,7 @@ export async function previewSourceConfig(
       unmatchedTags: unmatchedTags.filter(t => t !== UNKNOWN_KENNEL_SENTINEL),
       fillRates,
       sampleRows: result.sampleRows,
+      sourceType: type as SourceType,
     },
   };
 }
