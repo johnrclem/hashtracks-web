@@ -2,6 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { validateSourceConfig, stripHtmlTags, buildDateWindow } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 /** Source.config shape for Meetup sources. */
 export interface MeetupConfig {
@@ -11,37 +12,63 @@ export interface MeetupConfig {
   kennelTag: string;
 }
 
-interface MeetupEvent {
+/** Shape of an event entry in Meetup's __APOLLO_STATE__ JSON. */
+interface ApolloEvent {
+  __typename: string;
   id: string;
-  name: string;
-  status: string;
-  time: number;        // Unix ms timestamp — used only for window filtering
-  local_date: string;  // YYYY-MM-DD in the event's local timezone
-  local_time: string;  // HH:mm in the event's local timezone
-  duration?: number;
+  title?: string;
+  dateTime?: string;
+  endTime?: string;
+  status?: string;
   description?: string;
-  venue?: {
-    name?: string;
-    address_1?: string;
-    city?: string;
-    state?: string;
-  };
-  link: string;
+  eventUrl?: string;
+  venue?: { __ref?: string; name?: string; address?: string; city?: string; state?: string; lat?: number; lng?: number } | null;
 }
 
 /**
- * Meetup adapter — fetches events from a public Meetup.com group.
- *
- * Uses the Meetup v3 public API: GET /groups/{groupUrlname}/events
- * No API key required for public groups (rate-limited at ~200 req/hr).
- *
- * Config: { groupUrlname: string, kennelTag: string }
+ * Extract Event objects from Meetup's __APOLLO_STATE__ embedded JSON.
+ * Returns an empty array if the state isn't found or can't be parsed.
  */
-/** Build location string from a Meetup venue object. */
-function buildLocationFromVenue(venue: MeetupEvent["venue"]): string | undefined {
-  if (!venue) return undefined;
-  const parts = [venue.name, venue.address_1, venue.city, venue.state].filter(Boolean);
-  return parts.length > 0 ? parts.join(", ") : undefined;
+export function extractApolloEvents(html: string): { events: ApolloEvent[]; state: Record<string, Record<string, unknown>> } {
+  const match = /__APOLLO_STATE__\s*=\s*({[\s\S]+?});?\s*<\/script>/.exec(html);
+  if (!match) return { events: [], state: {} };
+
+  let state: Record<string, Record<string, unknown>>;
+  try {
+    state = JSON.parse(match[1]);
+  } catch {
+    return { events: [], state: {} };
+  }
+
+  const events: ApolloEvent[] = [];
+  for (const v of Object.values(state)) {
+    if (v != null && typeof v === "object" && (v as Record<string, unknown>).__typename === "Event") {
+      events.push(v as unknown as ApolloEvent);
+    }
+  }
+
+  return { events, state };
+}
+
+/**
+ * Resolve a venue from Apollo state — handles both inline objects and __ref lookups.
+ */
+function resolveVenue(
+  state: Record<string, Record<string, unknown>>,
+  venue: ApolloEvent["venue"],
+): { location?: string; latitude?: number; longitude?: number } {
+  if (!venue) return {};
+
+  // Resolve __ref if present
+  const resolved = venue.__ref ? (state[venue.__ref] as ApolloEvent["venue"]) : venue;
+  if (!resolved) return {};
+
+  const parts = [resolved.name, resolved.address, resolved.city, resolved.state].filter(Boolean);
+  return {
+    location: parts.length > 0 ? parts.join(", ") : undefined,
+    latitude: typeof resolved.lat === "number" ? resolved.lat : undefined,
+    longitude: typeof resolved.lng === "number" ? resolved.lng : undefined,
+  };
 }
 
 /** Strip HTML tags from Meetup description and truncate. */
@@ -50,20 +77,52 @@ function cleanMeetupDescription(desc: string | undefined): string | undefined {
   return stripHtmlTags(desc).slice(0, 2000) || undefined;
 }
 
-/** Build a RawEventData from a single Meetup event. */
-function buildRawEventFromMeetupEvent(ev: MeetupEvent, kennelTag: string): RawEventData {
+/**
+ * Extract local date and time from an ISO 8601 dateTime string.
+ * "2026-03-05T18:30:00-05:00" → { date: "2026-03-05", startTime: "18:30" }
+ * Uses the local portion of the string (not UTC conversion).
+ */
+function extractDateTime(dateTime: string): { date: string; startTime: string } {
   return {
-    date: ev.local_date,
-    kennelTag,
-    title: ev.name || undefined,
-    description: cleanMeetupDescription(ev.description),
-    location: buildLocationFromVenue(ev.venue),
-    startTime: ev.local_time,
-    sourceUrl: ev.link,
+    date: dateTime.slice(0, 10),
+    startTime: dateTime.slice(11, 16),
   };
 }
 
-/** Meetup.com public API adapter. Fetches upcoming and past events from a public Meetup group (no API key required). */
+/** Build a RawEventData from an Apollo event entry. */
+function buildRawEventFromApollo(
+  ev: ApolloEvent,
+  state: Record<string, Record<string, unknown>>,
+  kennelTag: string,
+): RawEventData {
+  const { date, startTime } = ev.dateTime
+    ? extractDateTime(ev.dateTime)
+    : { date: "", startTime: undefined };
+
+  const venueInfo = resolveVenue(state, ev.venue);
+
+  return {
+    date,
+    kennelTag,
+    title: ev.title || undefined,
+    description: cleanMeetupDescription(ev.description),
+    location: venueInfo.location,
+    latitude: venueInfo.latitude,
+    longitude: venueInfo.longitude,
+    startTime,
+    sourceUrl: ev.eventUrl || undefined,
+  };
+}
+
+/**
+ * Meetup.com HTML scraper adapter.
+ *
+ * Scrapes the public events page and extracts event data from the
+ * embedded __APOLLO_STATE__ JSON (the Meetup v3 REST API was shut down
+ * in Jan 2022 and the GraphQL API requires OAuth).
+ *
+ * Config: { groupUrlname: string, kennelTag: string }
+ */
 export class MeetupAdapter implements SourceAdapter {
   type = "MEETUP" as const;
 
@@ -88,35 +147,45 @@ export class MeetupAdapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
 
-    const apiUrl = `https://api.meetup.com/${encodeURIComponent(config.groupUrlname)}/events?status=upcoming,past&page=100&only=id,name,status,time,local_date,local_time,duration,description,venue,link`;
+    const pageUrl = `https://www.meetup.com/${encodeURIComponent(config.groupUrlname)}/events/`;
 
-    let rawEvents: MeetupEvent[];
+    let html: string;
     try {
-      const res = await fetch(apiUrl, {
-        headers: { Accept: "application/json" },
+      const res = await safeFetch(pageUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       });
 
       if (!res.ok) {
-        const message = `Meetup API error ${res.status} for group "${config.groupUrlname}"`;
+        const message = `Meetup page error ${res.status} for group "${config.groupUrlname}"`;
         return {
           events: [],
           errors: [message],
-          errorDetails: { fetch: [{ url: apiUrl, status: res.status, message }] },
+          errorDetails: { fetch: [{ url: pageUrl, status: res.status, message }] },
         };
       }
 
-      rawEvents = (await res.json()) as MeetupEvent[];
+      html = await res.text();
     } catch (err) {
       const message = `Failed to fetch Meetup events: ${err instanceof Error ? err.message : String(err)}`;
-      return { events: [], errors: [message], errorDetails: { fetch: [{ url: apiUrl, message }] } };
+      return { events: [], errors: [message], errorDetails: { fetch: [{ url: pageUrl, message }] } };
     }
 
-    for (const [i, ev] of rawEvents.entries()) {
+    const { events: apolloEvents, state } = extractApolloEvents(html);
+
+    if (apolloEvents.length === 0) {
+      const message = "No __APOLLO_STATE__ events found in page HTML";
+      errors.push(message);
+      errorDetails.parse = [{ row: 0, error: message }];
+    }
+
+    for (const [i, ev] of apolloEvents.entries()) {
       try {
-        const eventDate = new Date(ev.time);
+        if (!ev.dateTime) continue;
+
+        const eventDate = new Date(ev.dateTime);
         if (eventDate < minDate || eventDate > maxDate) continue;
 
-        events.push(buildRawEventFromMeetupEvent(ev, config.kennelTag));
+        events.push(buildRawEventFromApollo(ev, state, config.kennelTag));
       } catch (err) {
         const msg = `Failed to parse event "${ev.id}": ${err instanceof Error ? err.message : String(err)}`;
         errors.push(msg);
@@ -130,7 +199,7 @@ export class MeetupAdapter implements SourceAdapter {
       events,
       errors,
       errorDetails: hasErrorDetails ? errorDetails : undefined,
-      diagnosticContext: { groupUrlname: config.groupUrlname, eventsFound: rawEvents.length },
+      diagnosticContext: { groupUrlname: config.groupUrlname, eventsFound: apolloEvents.length },
     };
   }
 }

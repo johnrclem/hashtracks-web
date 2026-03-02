@@ -56,13 +56,13 @@ export function MeetupConfigPanel({ config, onChange, allKennels }: MeetupConfig
         <p className="text-xs text-muted-foreground">
           Paste the full Meetup group URL or just the slug (e.g.{" "}
           <code className="rounded bg-muted px-1">brooklyn-hash-house-harriers</code>).
-          The group must be public — no API key required.
+          Scrapes the public events page — the group must be public.
         </p>
         {current.groupUrlname && (
           <p className="text-xs text-muted-foreground">
-            API URL:{" "}
+            Scrape URL:{" "}
             <code className="rounded bg-muted px-1">
-              api.meetup.com/{current.groupUrlname}/events
+              meetup.com/{current.groupUrlname}/events
             </code>
           </p>
         )}
