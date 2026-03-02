@@ -212,7 +212,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     pinColor: "#eab308",
     centroidLat: 33.75,
     centroidLng: -84.39,
-    aliases: ["Georgia", "Atlanta, Georgia"],
+    aliases: ["Atlanta, Georgia"],
   },
   {
     name: "Savannah, GA",

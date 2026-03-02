@@ -526,7 +526,7 @@ function isValidPatternEntry(entry: unknown): boolean {
 /** Scan event titles for distinct hash kennel name patterns (e.g., "XYZ H3", "ABC HHH"). */
 function detectDistinctKennelNames(events: RawEventData[]): Set<string> {
   const names = new Set<string>();
-  const hashPattern = /\b([A-Za-z][A-Za-z0-9]+\s*(?:H3|HHH|H4|Hash))\b/i;
+  const hashPattern = /\b([A-Za-z][A-Za-z0-9]*(?:[\s-][A-Za-z0-9]+)*\s*(?:H3|HHH|H4|Hash))\b/i;
   for (const e of events) {
     if (!e.title) continue;
     const match = e.title.match(hashPattern);
