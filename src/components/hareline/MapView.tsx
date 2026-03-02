@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
-import { APIProvider, Map } from "@vis.gl/react-google-maps";
+import { useMemo, useState, useEffect } from "react";
+import { APIProvider, Map, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
+import { Button } from "@/components/ui/button";
+import { LocateFixed, X } from "lucide-react";
 import { getEventCoords, getRegionColor } from "@/lib/geo";
 import { ClusteredMarkers, type EventWithCoords } from "./ClusteredMarkers";
 import type { HarelineEvent } from "./EventCard";
@@ -17,13 +19,62 @@ const LEGEND_ICON_BASE: React.CSSProperties = {
   opacity: 0.5,
 };
 
+/** Reset view button — fits map back to the initial bounds. */
+function ResetViewControl({ bounds }: { bounds: { south: number; north: number; west: number; east: number } }) {
+  const map = useMap();
+  return (
+    <MapControl position={ControlPosition.TOP_RIGHT}>
+      <div className="m-2.5">
+        <Button
+          variant="outline"
+          size="sm"
+          className="bg-background shadow-sm"
+          onClick={() => map?.fitBounds(bounds)}
+          aria-label="Reset map to show all events"
+        >
+          <LocateFixed className="mr-1.5 h-3.5 w-3.5" />
+          Reset view
+        </Button>
+      </div>
+    </MapControl>
+  );
+}
+
+/** First-time precision banner — dismissible, persisted via localStorage. */
+function PrecisionBanner() {
+  const [dismissed, setDismissed] = useState(true); // default true to avoid flash
+  useEffect(() => {
+    setDismissed(localStorage.getItem("map-precision-dismissed") === "true");
+  }, []);
+
+  if (dismissed) return null;
+
+  return (
+    <MapControl position={ControlPosition.TOP_CENTER}>
+      <div className="mx-2 mt-2.5 flex items-center gap-2 rounded-md border bg-background/95 px-3 py-1.5 text-xs shadow-sm backdrop-blur-sm">
+        <span>Filled pins = exact locations · Hollow pins = approximate region centers</span>
+        <button
+          onClick={() => {
+            setDismissed(true);
+            localStorage.setItem("map-precision-dismissed", "true");
+          }}
+          className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+          aria-label="Dismiss precision info"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    </MapControl>
+  );
+}
+
 /** Props for the interactive MapView — renders hareline events as region-colored map pins. */
 interface MapViewProps {
   events: HarelineEvent[];
   /** Currently selected event ID (for highlighting its pin). */
   selectedEventId?: string | null;
   /** Callback when a map pin is clicked. */
-  onSelectEvent: (event: HarelineEvent) => void;
+  onSelectEvent: (event: HarelineEvent | null) => void;
 }
 
 export default function MapView({ events, selectedEventId, onSelectEvent }: MapViewProps) {
@@ -65,7 +116,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
 
   if (!apiKey) {
     return (
-      <div className="flex h-[calc(100vh-16rem)] min-h-[400px] items-center justify-center rounded-md border text-sm text-muted-foreground">
+      <div className="flex h-[calc(100vh-14rem)] min-h-[400px] items-center justify-center rounded-md border text-sm text-muted-foreground">
         Google Maps API key not configured.
       </div>
     );
@@ -73,54 +124,62 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
 
   if (eventsWithCoords.length === 0) {
     return (
-      <div className="flex h-[calc(100vh-16rem)] min-h-[400px] items-center justify-center rounded-md border text-sm text-muted-foreground">
+      <div className="flex h-[calc(100vh-14rem)] min-h-[400px] items-center justify-center rounded-md border text-sm text-muted-foreground">
         No events to display on the map.
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <APIProvider apiKey={apiKey}>
-        <div className="h-[calc(100vh-16rem)] min-h-[400px] overflow-hidden rounded-md border">
-          <Map
-            mapId={MAP_ID}
-            defaultBounds={defaultBounds}
-            gestureHandling="greedy"
-            disableDefaultUI={false}
-            mapTypeControl={false}
-            streetViewControl={false}
-          >
-            <ClusteredMarkers
-              events={eventsWithCoords}
-              selectedEventId={selectedEventId}
-              onSelectEvent={onSelectEvent}
-            />
-          </Map>
-        </div>
-      </APIProvider>
+    <APIProvider apiKey={apiKey}>
+      <div className="h-[calc(100vh-14rem)] min-h-[400px] overflow-hidden rounded-md border">
+        <Map
+          mapId={MAP_ID}
+          defaultBounds={defaultBounds}
+          gestureHandling="greedy"
+          disableDefaultUI={false}
+          mapTypeControl={false}
+          streetViewControl={false}
+          onClick={() => onSelectEvent(null)}
+        >
+          <ClusteredMarkers
+            events={eventsWithCoords}
+            selectedEventId={selectedEventId}
+            onSelectEvent={onSelectEvent}
+          />
 
-      <p className="text-xs text-muted-foreground">
-        {preciseCount > 0 && (
-          <span>
-            <span
-              className="mr-1 inline-block align-middle"
-              style={{ ...LEGEND_ICON_BASE, backgroundColor: "currentColor" }}
-            />
-            {preciseCount} {preciseCount === 1 ? "event" : "events"} with exact location
-          </span>
-        )}
-        {preciseCount > 0 && centroidCount > 0 && <span className="mx-1.5">·</span>}
-        {centroidCount > 0 && (
-          <span>
-            <span
-              className="mr-1 inline-block align-middle"
-              style={{ ...LEGEND_ICON_BASE, backgroundColor: "transparent", border: "1.5px solid currentColor" }}
-            />
-            {centroidCount} shown at approximate region center
-          </span>
-        )}
-      </p>
-    </div>
+          {/* Reset view button */}
+          {defaultBounds && <ResetViewControl bounds={defaultBounds} />}
+
+          {/* First-time precision info banner */}
+          <PrecisionBanner />
+
+          {/* Legend overlay */}
+          <MapControl position={ControlPosition.BOTTOM_LEFT}>
+            <div className="m-2.5 rounded-md border bg-background/90 px-3 py-1.5 text-xs shadow-sm backdrop-blur-sm">
+              {preciseCount > 0 && (
+                <span>
+                  <span
+                    className="mr-1 inline-block align-middle"
+                    style={{ ...LEGEND_ICON_BASE, backgroundColor: "currentColor" }}
+                  />
+                  {preciseCount} with exact location
+                </span>
+              )}
+              {preciseCount > 0 && centroidCount > 0 && <span className="mx-1.5">·</span>}
+              {centroidCount > 0 && (
+                <span>
+                  <span
+                    className="mr-1 inline-block align-middle"
+                    style={{ ...LEGEND_ICON_BASE, backgroundColor: "transparent", border: "1.5px solid currentColor" }}
+                  />
+                  {centroidCount} at region center (approx.)
+                </span>
+              )}
+            </div>
+          </MapControl>
+        </Map>
+      </div>
+    </APIProvider>
   );
 }

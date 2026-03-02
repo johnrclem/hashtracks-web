@@ -23,11 +23,28 @@ import {
 } from "@/components/ui/tooltip";
 import { MapPin, Loader2, X } from "lucide-react";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
+import { toggleArrayItem } from "@/lib/format";
 import type { HarelineEvent } from "./EventCard";
 import type { GeoState } from "@/hooks/useGeolocation";
 import { DISTANCE_OPTIONS } from "@/lib/geo";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** Small inline clear button used inside filter trigger buttons. */
+function ClearFilterButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      className="ml-1 rounded-full p-0.5 hover:bg-muted"
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onClick(); } }}
+      aria-label={label}
+    >
+      <X className="h-3 w-3" />
+    </span>
+  );
+}
 
 interface EventFiltersProps {
   events: HarelineEvent[];
@@ -47,6 +64,8 @@ interface EventFiltersProps {
   onNearMeDistanceChange: (distance: number | null) => void;
   geoState: GeoState;
   onRequestLocation: () => void;
+  activeFilterCount: number;
+  onClearAll: () => void;
 }
 
 export function EventFilters({
@@ -67,6 +86,8 @@ export function EventFilters({
   onNearMeDistanceChange,
   geoState,
   onRequestLocation,
+  activeFilterCount,
+  onClearAll,
 }: EventFiltersProps) {
   // Derive available regions and kennels from events
   const regions = useMemo(() => {
@@ -103,38 +124,23 @@ export function EventFilters({
   }, [events]);
 
   function toggleRegion(region: string) {
-    if (selectedRegions.includes(region)) {
-      onRegionsChange(selectedRegions.filter((r) => r !== region));
-    } else {
-      onRegionsChange([...selectedRegions, region]);
-    }
+    onRegionsChange(toggleArrayItem(selectedRegions, region));
   }
 
   function toggleKennel(kennelId: string) {
-    if (selectedKennels.includes(kennelId)) {
-      onKennelsChange(selectedKennels.filter((k) => k !== kennelId));
-    } else {
-      onKennelsChange([...selectedKennels, kennelId]);
-    }
+    onKennelsChange(toggleArrayItem(selectedKennels, kennelId));
   }
 
   function toggleDay(day: string) {
-    if (selectedDays.includes(day)) {
-      onDaysChange(selectedDays.filter((d) => d !== day));
-    } else {
-      onDaysChange([...selectedDays, day]);
-    }
+    onDaysChange(toggleArrayItem(selectedDays, day));
   }
-
-  const activeFilterCount =
-    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance != null ? 1 : 0);
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
         {/* My Kennels / All Kennels scope */}
         {isAuthenticated && hasSubscriptions && (
-          <div className="flex rounded-md border">
+          <div className="flex shrink-0 rounded-md border" role="group" aria-label="Kennel scope">
             <button
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 scope === "my"
@@ -142,6 +148,7 @@ export function EventFilters({
                   : "text-muted-foreground hover:text-foreground"
               } rounded-l-md`}
               onClick={() => onScopeChange("my")}
+              aria-pressed={scope === "my"}
             >
               My Kennels
             </button>
@@ -152,6 +159,7 @@ export function EventFilters({
                   : "text-muted-foreground hover:text-foreground"
               } rounded-r-md`}
               onClick={() => onScopeChange("all")}
+              aria-pressed={scope === "all"}
             >
               All Kennels
             </button>
@@ -161,25 +169,34 @@ export function EventFilters({
         {/* Region filter */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
-              Region
-              {selectedRegions.length > 0 && (
+            <Button
+              variant={selectedRegions.length > 0 ? "secondary" : "outline"}
+              size="sm"
+              className={`h-8 shrink-0 text-xs ${selectedRegions.length > 0 ? "border-primary/50" : ""}`}
+            >
+              {selectedRegions.length === 1 ? `Region: ${selectedRegions[0]}` : "Region"}
+              {selectedRegions.length > 1 && (
                 <Badge variant="secondary" className="ml-1 text-xs">
                   {selectedRegions.length}
                 </Badge>
               )}
+              {selectedRegions.length > 0 && (
+                <ClearFilterButton onClick={() => onRegionsChange([])} label="Clear region filter" />
+              )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-56 p-0" align="start">
+          <PopoverContent className="w-72 p-0" align="start">
             <Command>
               <CommandInput placeholder="Search regions..." />
-              <CommandList>
+              <CommandList role="listbox">
                 <CommandEmpty>No regions found.</CommandEmpty>
                 <CommandGroup>
                   {regions.map((region) => (
                     <CommandItem
                       key={region}
                       onSelect={() => toggleRegion(region)}
+                      role="option"
+                      aria-selected={selectedRegions.includes(region)}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
@@ -202,19 +219,26 @@ export function EventFilters({
         {/* Kennel filter */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
+            <Button
+              variant={selectedKennels.length > 0 ? "secondary" : "outline"}
+              size="sm"
+              className={`h-8 shrink-0 text-xs ${selectedKennels.length > 0 ? "border-primary/50" : ""}`}
+            >
               Kennel
               {selectedKennels.length > 0 && (
                 <Badge variant="secondary" className="ml-1 text-xs">
                   {selectedKennels.length}
                 </Badge>
               )}
+              {selectedKennels.length > 0 && (
+                <ClearFilterButton onClick={() => onKennelsChange([])} label="Clear kennel filter" />
+              )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="start">
+          <PopoverContent className="w-72 p-0" align="start">
             <Command>
               <CommandInput placeholder="Search kennels..." />
-              <CommandList>
+              <CommandList role="listbox">
                 <CommandEmpty>No kennels found.</CommandEmpty>
                 <CommandGroup>
                   {kennels.map((kennel) => (
@@ -222,6 +246,8 @@ export function EventFilters({
                       key={kennel.id}
                       value={`${kennel.shortName} ${kennel.fullName} ${kennel.region}`}
                       onSelect={() => toggleKennel(kennel.id)}
+                      role="option"
+                      aria-selected={selectedKennels.includes(kennel.id)}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
@@ -242,14 +268,15 @@ export function EventFilters({
         </Popover>
 
         {/* Day of week chips */}
-        <div className="flex gap-1">
+        <div className="flex shrink-0 gap-1" role="group" aria-label="Day of week filter">
           {DAYS_OF_WEEK.map((day) => (
             <button
               key={day}
               onClick={() => toggleDay(day)}
+              aria-pressed={selectedDays.includes(day)}
               className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
                 selectedDays.includes(day)
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-primary text-primary-foreground border-primary"
                   : "border text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -260,16 +287,17 @@ export function EventFilters({
 
         {/* Country filter — only if >1 country */}
         {countries.length > 1 && (
-          <div className="flex gap-1">
+          <div className="flex shrink-0 gap-1" role="group" aria-label="Country filter">
             {countries.map((country) => (
               <button
                 key={country}
                 onClick={() =>
                   onCountryChange(selectedCountry === country ? "" : country)
                 }
+                aria-pressed={selectedCountry === country}
                 className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
                   selectedCountry === country
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-primary text-primary-foreground border-primary"
                     : "border text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -292,14 +320,8 @@ export function EventFilters({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 text-xs"
-            onClick={() => {
-              onRegionsChange([]);
-              onKennelsChange([]);
-              onDaysChange([]);
-              onCountryChange("");
-              onNearMeDistanceChange(null);
-            }}
+            className="h-8 shrink-0 text-xs"
+            onClick={onClearAll}
           >
             Clear filters
           </Button>
@@ -375,15 +397,13 @@ function NearMeFilter({ nearMeDistance, onNearMeDistanceChange, geoState, onRequ
   // Denied state
   if (geoState.status === "denied") {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 cursor-not-allowed text-xs opacity-60" disabled>
-            <MapPin className="mr-1.5 h-3 w-3" />
-            Near me
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{geoState.error}</TooltipContent>
-      </Tooltip>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <Button variant="outline" size="sm" className="h-8 cursor-not-allowed text-xs opacity-60" disabled>
+          <MapPin className="mr-1.5 h-3 w-3" />
+          Near me
+        </Button>
+        <span className="text-xs text-destructive">Location blocked</span>
+      </div>
     );
   }
 

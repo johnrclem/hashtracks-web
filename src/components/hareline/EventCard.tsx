@@ -17,7 +17,7 @@ import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowser
 
 export type HarelineEvent = {
   id: string;
-  date: string; // ISO string 
+  date: string; // ISO string
   dateUtc: Date | null;
   timezone: string | null;
   kennelId: string;
@@ -53,23 +53,31 @@ function formatDate(iso: string): string {
   });
 }
 
-function formatDateLong(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+export { formatDate };
+
+/** Display title for events with missing or parenthetical titles. */
+function getDisplayTitle(event: HarelineEvent): string {
+  const title = event.title?.trim() ?? "";
+  if (!title || /^\(.*\)$/.test(title)) {
+    return event.runNumber
+      ? `${event.kennel.shortName} \u2014 Run #${event.runNumber}`
+      : event.kennel.shortName;
+  }
+  return title;
 }
 
-function getDayOfWeek(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+/** Compose an accessible label from event fields. */
+function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null): string {
+  const parts: string[] = [event.kennel.shortName];
+  const title = getDisplayTitle(event);
+  if (title && title !== event.kennel.shortName) parts.push(title);
+  parts.push(formatDate(event.date));
+  if (event.runNumber) parts.push(`Run #${event.runNumber}`);
+  if (event.startTime) parts.push(formatTime(event.startTime));
+  if (attendance?.status === "INTENDING") parts.push("Going");
+  if (attendance?.status === "CONFIRMED") parts.push("Checked in");
+  return parts.join(", ");
 }
-
-export { formatDate, formatDateLong, getDayOfWeek };
 
 // lg breakpoint (1024px) — matches Tailwind's lg:
 const LG_BREAKPOINT = 1024;
@@ -80,9 +88,10 @@ interface EventCardProps {
   onSelect?: (event: HarelineEvent) => void;
   isSelected?: boolean;
   attendance?: AttendanceData | null;
+  hideDate?: boolean;
 }
 
-export function EventCard({ event, density, onSelect, isSelected, attendance }: EventCardProps) {
+export function EventCard({ event, density, onSelect, isSelected, attendance, hideDate }: EventCardProps) {
   const router = useRouter();
   const { preference } = useTimePreference();
 
@@ -113,16 +122,38 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
     router.push(`/hareline/${event.id}`);
   }
 
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleClick();
+    }
+  }
+
+  const goingBadge = (
+    <Badge variant="outline" className="border-blue-300 text-blue-700 text-[10px] px-1.5 py-0">
+      Going
+    </Badge>
+  );
+
   if (density === "compact") {
     return (
-      <div className="cursor-pointer" onClick={handleClick}>
+      <div
+        role="link"
+        tabIndex={0}
+        className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md"
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        aria-label={buildAriaLabel(event, attendance)}
+      >
         <div
-          className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/50 ${isSelected ? "border-primary bg-primary/5" : ""
+          className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-all hover:bg-muted/50 hover:shadow-sm active:bg-muted/70 ${isSelected ? "border-primary bg-primary/5" : ""
             }`}
         >
-          <span className="w-24 shrink-0 font-medium" suppressHydrationWarning>
-            {displayDateStr}
-          </span>
+          {!hideDate && (
+            <span className="w-24 shrink-0 font-medium" suppressHydrationWarning>
+              {displayDateStr}
+            </span>
+          )}
           <span className="w-20 shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -138,13 +169,16 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
             </Tooltip>
           </span>
           <RegionBadge region={event.kennel.region} size="sm" />
-          {event.runNumber && (
-            <span className="w-12 shrink-0 text-muted-foreground">
-              #{event.runNumber}
+          {attendance?.status === "INTENDING" && (
+            <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
+              {goingBadge}
             </span>
           )}
+          <span className="w-12 shrink-0 text-muted-foreground">
+            {event.runNumber ? `#${event.runNumber}` : "\u2014"}
+          </span>
           <span className="truncate text-muted-foreground">
-            {event.haresText || event.title || ""}
+            {event.haresText || getDisplayTitle(event)}
           </span>
           {displayTimeStr && (
             <span className="ml-auto flex items-center gap-1 shrink-0 text-xs text-muted-foreground" suppressHydrationWarning>
@@ -152,13 +186,9 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
               {tzAbbrev && <span className="text-[10px] font-medium opacity-70" suppressHydrationWarning>{tzAbbrev}</span>}
             </span>
           )}
-          {attendance && (
+          {attendance?.status === "CONFIRMED" && (
             <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
-              {attendance.status === "INTENDING" ? (
-                <Badge variant="outline" className="border-blue-300 text-blue-700 text-[10px] px-1.5 py-0">Going</Badge>
-              ) : (
-                <AttendanceBadge level={attendance.participationLevel} size="sm" />
-              )}
+              <AttendanceBadge level={attendance.participationLevel} size="sm" />
             </span>
           )}
         </div>
@@ -168,21 +198,32 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
 
   // Medium density — plain div instead of Card (which has py-6 baked in)
   return (
-    <div className="cursor-pointer" onClick={handleClick}>
+    <div
+      role="link"
+      tabIndex={0}
+      className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      aria-label={buildAriaLabel(event, attendance)}
+    >
       <div
-        className={`rounded-lg border px-3 py-2 shadow-sm transition-colors hover:border-foreground/20 ${isSelected ? "border-primary bg-primary/5" : ""
+        className={`rounded-lg border px-3 py-2 shadow-sm transition-all hover:bg-muted/30 hover:shadow-md hover:-translate-y-px active:shadow-sm active:translate-y-0 ${isSelected ? "border-primary bg-primary/5" : ""
           }`}
       >
         <div className="min-w-0 space-y-0.5">
-          {/* Line 1: date · kennel · run# · time — all on one line */}
-          <div className="flex flex-nowrap items-center gap-1.5 overflow-hidden text-sm">
-            <span className="shrink-0 whitespace-nowrap font-medium" suppressHydrationWarning>{displayDateStr}</span>
-            <span className="text-muted-foreground">·</span>
+          {/* Line 1: date · kennel · run# · time — metadata row */}
+          <div className="flex flex-nowrap items-center gap-1.5 overflow-hidden text-[13px] text-muted-foreground">
+            {!hideDate && (
+              <>
+                <span className="shrink-0 whitespace-nowrap" suppressHydrationWarning>{displayDateStr}</span>
+                <span>·</span>
+              </>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link
                   href={`/kennels/${event.kennel.slug}`}
-                  className="font-medium text-primary hover:underline"
+                  className="text-primary hover:underline"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {event.kennel.shortName}
@@ -193,18 +234,16 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
             <RegionBadge region={event.kennel.region} size="sm" />
             {event.runNumber && (
               <>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-muted-foreground">
-                  Run #{event.runNumber}
-                </span>
+                <span>·</span>
+                <span>Run #{event.runNumber}</span>
               </>
             )}
             {displayTimeStr && (
               <>
-                <span className="text-muted-foreground">·</span>
-                <span className="flex items-center gap-1 text-muted-foreground" suppressHydrationWarning>
+                <span>·</span>
+                <span className="flex items-center gap-1" suppressHydrationWarning>
                   {displayTimeStr}
-                  {tzAbbrev && <span className="text-xs font-medium opacity-70" suppressHydrationWarning>{tzAbbrev}</span>}
+                  {tzAbbrev && <span className="text-[10px] font-medium opacity-70" suppressHydrationWarning>{tzAbbrev}</span>}
                 </span>
               </>
             )}
@@ -221,7 +260,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
             {attendance && (
               <span className="ml-1" onClick={(e) => e.stopPropagation()}>
                 {attendance.status === "INTENDING" ? (
-                  <Badge variant="outline" className="border-blue-300 text-blue-700 text-[10px] px-1.5 py-0">Going</Badge>
+                  goingBadge
                 ) : (
                   <AttendanceBadge level={attendance.participationLevel} size="sm" />
                 )}
@@ -229,21 +268,19 @@ export function EventCard({ event, density, onSelect, isSelected, attendance }: 
             )}
           </div>
 
-          {/* Line 2 (optional): title */}
-          {event.title && (
-            <p className="truncate text-sm">{event.title}</p>
-          )}
+          {/* Line 2: title (always shown, with fallback) */}
+          <p className="truncate text-base font-semibold text-foreground">{getDisplayTitle(event)}</p>
 
           {/* Line 3 (optional): hares */}
           {event.haresText && (
-            <p className="truncate text-sm text-muted-foreground">
+            <p className="truncate text-[13px] text-muted-foreground/80">
               Hares: {event.haresText}
             </p>
           )}
 
           {/* Line 4 (optional): location */}
           {event.locationName && (
-            <p className="truncate text-sm text-muted-foreground">
+            <p className="truncate text-[13px] text-muted-foreground/80">
               {event.locationName}
             </p>
           )}

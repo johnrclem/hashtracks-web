@@ -71,6 +71,7 @@ export {
   regionTimezone,
   regionAbbrev,
   regionColorClasses,
+  regionBgClass,
   regionNameToSlug,
 } from "@/lib/region";
 
@@ -113,6 +114,30 @@ export function formatDateShort(iso: string): string {
     day: "numeric",
     timeZone: "UTC",
   });
+}
+
+/**
+ * Format ISO date string to long display: "Monday, March 2, 2026".
+ * Uses UTC to match the date storage convention (UTC noon).
+ */
+export function formatDateLong(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
+ * Short weekday abbreviation from ISO date: "Mon", "Tue", etc.
+ * Uses UTC to match the date storage convention (UTC noon).
+ */
+export function getDayOfWeek(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
 }
 
 // ── Kennel profile helpers ──

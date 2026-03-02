@@ -18,11 +18,14 @@ export function RegionBadge({ region, size = "md" }: RegionBadgeProps) {
     <Tooltip>
       <TooltipTrigger asChild>
         <span
-          className={`inline-flex items-center justify-center rounded-full font-semibold shrink-0 ${colors} ${
+          className={`inline-flex items-center justify-center rounded-full font-bold shrink-0 ${colors} ${
             size === "sm"
-              ? "px-1.5 py-0 text-[10px] leading-4"
+              ? "h-5 px-1.5 text-[10px] leading-5"
               : "px-2 py-0.5 text-xs"
           }`}
+          aria-label={`Region: ${region}`}
+          title={region}
+          role="img"
         >
           {abbrev}
         </span>

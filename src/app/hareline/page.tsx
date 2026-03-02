@@ -70,7 +70,7 @@ export default async function HarelinePage() {
     <div>
       <div>
         <h1 className="text-2xl font-bold">The Hareline</h1>
-        <p className="mt-1 text-muted-foreground">
+        <p className="mt-0.5 text-sm text-muted-foreground">
           Discover upcoming and past hashing events.
         </p>
       </div>

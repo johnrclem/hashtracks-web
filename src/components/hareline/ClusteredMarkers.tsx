@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
-import { useMap, AdvancedMarker } from "@vis.gl/react-google-maps";
+import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useMap, AdvancedMarker, InfoWindow } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import type { Marker } from "@googlemaps/markerclusterer";
 import type { HarelineEvent } from "./EventCard";
+import { formatTimeCompact } from "@/lib/format";
 
 /** Event enriched with resolved coordinates and pin color for map rendering. */
 export interface EventWithCoords {
@@ -19,7 +20,7 @@ export interface EventWithCoords {
 interface ClusteredMarkersProps {
   events: EventWithCoords[];
   selectedEventId?: string | null;
-  onSelectEvent: (event: HarelineEvent) => void;
+  onSelectEvent: (event: HarelineEvent | null) => void;
 }
 
 /** Compute marker size based on selection and precision state. */
@@ -93,6 +94,12 @@ export function ClusteredMarkers({ events, selectedEventId, onSelectEvent }: Clu
     return cb;
   }, []);
 
+  // Resolve selected event coordinates for InfoWindow positioning
+  const selectedInfo = useMemo(() => {
+    if (!selectedEventId) return null;
+    return events.find((e) => e.event.id === selectedEventId) ?? null;
+  }, [events, selectedEventId]);
+
   return (
     <>
       {events.map(({ event, lat, lng, precise, color }) => {
@@ -110,6 +117,33 @@ export function ClusteredMarkers({ events, selectedEventId, onSelectEvent }: Clu
           </AdvancedMarker>
         );
       })}
+
+      {selectedInfo && (
+        <InfoWindow
+          position={{ lat: selectedInfo.lat, lng: selectedInfo.lng }}
+          onCloseClick={() => onSelectEvent(null)}
+          pixelOffset={[0, -20]}
+        >
+          <div className="min-w-[160px] max-w-[240px]">
+            <p className="m-0 text-[13px] font-semibold">{selectedInfo.event.kennel.shortName}</p>
+            {selectedInfo.event.title && (
+              <p className="mt-0.5 text-xs text-muted-foreground">{selectedInfo.event.title}</p>
+            )}
+            {selectedInfo.event.startTime && (
+              <p className="mt-0.5 text-xs text-muted-foreground">{formatTimeCompact(selectedInfo.event.startTime)}</p>
+            )}
+            {selectedInfo.event.locationName && (
+              <p className="mt-0.5 text-[11px] text-muted-foreground/70">{selectedInfo.event.locationName}</p>
+            )}
+            <a
+              href={`/hareline/${selectedInfo.event.id}`}
+              className="mt-1.5 inline-block text-xs text-primary no-underline hover:underline"
+            >
+              View details →
+            </a>
+          </div>
+        </InfoWindow>
+      )}
     </>
   );
 }

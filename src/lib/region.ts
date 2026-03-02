@@ -147,7 +147,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     country: "USA",
     timezone: "America/New_York",
     abbrev: "NoVA",
-    colorClasses: "bg-stone-200 text-stone-800",
+    colorClasses: "bg-stone-300 text-stone-900",
     pinColor: "#57534e",
     centroidLat: 38.85,
     centroidLng: -77.2,
@@ -177,7 +177,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     country: "USA",
     timezone: "America/New_York",
     abbrev: "FXBG",
-    colorClasses: "bg-stone-100 text-stone-700",
+    colorClasses: "bg-stone-200 text-stone-900",
     pinColor: "#78716c",
     centroidLat: 38.3,
     centroidLng: -77.46,
@@ -526,6 +526,12 @@ export function regionAbbrev(region: string): string {
 /** Tailwind color classes for a region badge. Accepts name, alias, or slug. Falls back to gray. */
 export function regionColorClasses(region: string): string {
   return resolveRegion(region)?.colorClasses ?? "bg-gray-200 text-gray-800";
+}
+
+/** Tailwind background class only (no text class). Useful for color dots/indicators. */
+export function regionBgClass(region: string): string {
+  const classes = regionColorClasses(region);
+  return classes.split(" ")[0];
 }
 
 /** Hex pin color for a region on maps. Accepts name, alias, or slug. Falls back to gray. */
