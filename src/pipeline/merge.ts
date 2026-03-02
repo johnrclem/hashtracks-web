@@ -6,7 +6,7 @@ import { regionTimezone, getLabelForUrl } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
-import { extractCoordsFromMapsUrl } from "@/lib/geo";
+import { extractCoordsFromMapsUrl, geocodeAddress } from "@/lib/geo";
 
 /**
  * Create EventLink records for an event from externalLinks + alternate sourceUrls.
@@ -251,7 +251,12 @@ async function upsertCanonicalEvent(
 
     // Update only if our source trust level >= existing
     if (ctx.trustLevel >= existingEvent.trustLevel) {
-      const rawCoords = extractRawCoords(event);
+      let rawCoords = extractRawCoords(event);
+      // Geocode text address when no coords extracted from URL/raw data
+      if (rawCoords.latitude == null && event.location) {
+        const geocoded = await geocodeAddress(event.location);
+        if (geocoded) rawCoords = { latitude: geocoded.lat, longitude: geocoded.lng };
+      }
       await prisma.event.update({
         where: { id: existingEvent.id },
         data: {
@@ -298,7 +303,12 @@ async function upsertCanonicalEvent(
     ctx.result.updated++;
   } else {
     // Create new canonical Event
-    const rawCoords = extractRawCoords(event);
+    let rawCoords = extractRawCoords(event);
+    // Geocode text address when no coords extracted from URL/raw data
+    if (rawCoords.latitude == null && event.location) {
+      const geocoded = await geocodeAddress(event.location);
+      if (geocoded) rawCoords = { latitude: geocoded.lat, longitude: geocoded.lng };
+    }
     const newEvent = await prisma.event.create({
       data: {
         kennelId,

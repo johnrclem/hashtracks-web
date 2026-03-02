@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { useMap, AdvancedMarker, InfoWindow } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import type { Marker } from "@googlemaps/markerclusterer";
@@ -135,12 +136,12 @@ export function ClusteredMarkers({ events, selectedEventId, onSelectEvent }: Clu
             {selectedInfo.event.locationName && (
               <p className="mt-0.5 text-[11px] text-muted-foreground/70">{selectedInfo.event.locationName}</p>
             )}
-            <a
+            <Link
               href={`/hareline/${selectedInfo.event.id}`}
               className="mt-1.5 inline-block text-xs text-primary no-underline hover:underline"
             >
               View details →
-            </a>
+            </Link>
           </div>
         </InfoWindow>
       )}

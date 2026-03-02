@@ -83,12 +83,12 @@ function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null
 const LG_BREAKPOINT = 1024;
 
 interface EventCardProps {
-  event: HarelineEvent;
-  density: "medium" | "compact";
-  onSelect?: (event: HarelineEvent) => void;
-  isSelected?: boolean;
-  attendance?: AttendanceData | null;
-  hideDate?: boolean;
+  readonly event: HarelineEvent;
+  readonly density: "medium" | "compact";
+  readonly onSelect?: (event: HarelineEvent) => void;
+  readonly isSelected?: boolean;
+  readonly attendance?: AttendanceData | null;
+  readonly hideDate?: boolean;
 }
 
 export function EventCard({ event, density, onSelect, isSelected, attendance, hideDate }: EventCardProps) {
@@ -138,7 +138,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   if (density === "compact") {
     return (
       <div
-        role="link"
+        role="button"
         tabIndex={0}
         className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md"
         onClick={handleClick}
@@ -170,7 +170,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
           </span>
           <RegionBadge region={event.kennel.region} size="sm" />
           {attendance?.status === "INTENDING" && (
-            <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
+            <span className="shrink-0">
               {goingBadge}
             </span>
           )}
@@ -187,7 +187,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
             </span>
           )}
           {attendance?.status === "CONFIRMED" && (
-            <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
+            <span className="shrink-0">
               <AttendanceBadge level={attendance.participationLevel} size="sm" />
             </span>
           )}
@@ -199,7 +199,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   // Medium density — plain div instead of Card (which has py-6 baked in)
   return (
     <div
-      role="link"
+      role="button"
       tabIndex={0}
       className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
       onClick={handleClick}
@@ -258,7 +258,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               </Badge>
             )}
             {attendance && (
-              <span className="ml-1" onClick={(e) => e.stopPropagation()}>
+              <span className="ml-1">
                 {attendance.status === "INTENDING" ? (
                   goingBadge
                 ) : (

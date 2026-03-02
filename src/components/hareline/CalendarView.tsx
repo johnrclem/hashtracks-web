@@ -25,7 +25,61 @@ const MONTH_NAMES = [
 const DAY_HEADERS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 interface CalendarViewProps {
-  events: HarelineEvent[];
+  readonly events: HarelineEvent[];
+}
+
+/** Compute the initial focus day for roving tabindex. */
+function computeFocusDay(
+  selectedDay: string | null,
+  year: number,
+  month: number,
+  todayKey: string,
+  todayDate: Date,
+  daysInMonth: number,
+): number {
+  if (selectedDay) {
+    return Math.min(Number(selectedDay.split("-")[2]), daysInMonth);
+  }
+  if (todayKey.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)) {
+    return Math.min(todayDate.getUTCDate(), daysInMonth);
+  }
+  return 1;
+}
+
+/** Build accessible label for a calendar day cell. */
+function buildCellLabel(fullDateLabel: string, eventCount: number): string {
+  if (eventCount > 0) {
+    return `${fullDateLabel}, ${eventCount} event${eventCount > 1 ? "s" : ""}`;
+  }
+  return fullDateLabel;
+}
+
+/** Overflow popover content shown when a day has more than 2 events. */
+function OverflowPopover({ dayEvents, cellDate, onNavigate }: Readonly<{
+  dayEvents: HarelineEvent[];
+  cellDate: Date;
+  onNavigate: (eventId: string) => void;
+}>) {
+  return (
+    <PopoverContent side="bottom" align="start" className="w-56 p-2" onClick={(ev) => ev.stopPropagation()}>
+      <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+        {cellDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })}
+      </p>
+      <div className="space-y-1">
+        {dayEvents.map((ev) => (
+          <button
+            key={ev.id}
+            onClick={() => onNavigate(ev.id)}
+            className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-xs hover:bg-muted"
+          >
+            <span className={`h-2 w-2 shrink-0 rounded-full ${regionBgClass(ev.kennel.region)}`} />
+            <span className="truncate font-medium">{ev.kennel.shortName}</span>
+            {ev.startTime && <span className="shrink-0 text-muted-foreground">{formatTimeCompact(ev.startTime)}</span>}
+          </button>
+        ))}
+      </div>
+    </PopoverContent>
+  );
 }
 
 function getDateKey(iso: string): string {
@@ -88,16 +142,13 @@ export function CalendarView({ events }: CalendarViewProps) {
   const gridRef = useRef<HTMLDivElement>(null);
 
   // Determine which day should receive tabIndex={0} (roving tabindex)
-  const focusDay = selectedDay
-    ? Number(selectedDay.split("-")[2])
-    : todayKey.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)
-      ? today.getUTCDate()
-      : 1;
+  const focusDay = computeFocusDay(selectedDay, year, month, todayKey, today, daysInMonth);
 
   // Arrow key navigation between day cells
   const handleGridKeyDown = useCallback((e: React.KeyboardEvent) => {
-    const target = e.target as HTMLElement;
-    const dayAttr = target.getAttribute("data-day");
+    const dayCell = (e.target as HTMLElement).closest<HTMLElement>("[data-day]");
+    if (!dayCell) return;
+    const dayAttr = dayCell.dataset.day;
     if (!dayAttr) return;
 
     const currentDay = Number(dayAttr);
@@ -204,6 +255,7 @@ export function CalendarView({ events }: CalendarViewProps) {
           <div
             ref={gridRef}
             role="grid"
+            tabIndex={-1}
             aria-label={`${MONTH_NAMES[month]} ${year} calendar`}
             onKeyDown={handleGridKeyDown}
             className="overflow-hidden rounded-md bg-border/30"
@@ -219,7 +271,7 @@ export function CalendarView({ events }: CalendarViewProps) {
 
             {/* Week rows */}
             {weeks.map((week, wi) => (
-              <div key={wi} role="row" className="grid grid-cols-7 gap-px">
+              <div key={`week-${year}-${month}-${wi}`} role="row" className="grid grid-cols-7 gap-px">
                 {week.map((day, di) => {
                   if (day === null) {
                     return <div key={`empty-${wi}-${di}`} role="gridcell" className="min-h-20 bg-background" />;
@@ -233,9 +285,7 @@ export function CalendarView({ events }: CalendarViewProps) {
                   const isPast = cellDate < todayDate && !isToday;
 
                   const fullDateLabel = ariaDateFormatter.format(cellDate);
-                  const cellAriaLabel = dayEvents.length > 0
-                    ? `${fullDateLabel}, ${dayEvents.length} event${dayEvents.length > 1 ? "s" : ""}`
-                    : fullDateLabel;
+                  const cellAriaLabel = buildCellLabel(fullDateLabel, dayEvents.length);
 
                   return (
                     <div
@@ -244,7 +294,7 @@ export function CalendarView({ events }: CalendarViewProps) {
                       tabIndex={day === focusDay ? 0 : -1}
                       data-day={day}
                       onClick={() => setSelectedDay(isSelected ? null : dateKey)}
-                      onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); setSelectedDay(isSelected ? null : dateKey); } }}
+                      onKeyDown={(ev) => { if (ev.target !== ev.currentTarget) return; if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); setSelectedDay(isSelected ? null : dateKey); } }}
                       aria-label={cellAriaLabel}
                       aria-selected={isSelected}
                       className={`min-h-20 bg-background p-1 text-left text-sm transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
@@ -301,24 +351,7 @@ export function CalendarView({ events }: CalendarViewProps) {
                                   +{dayEvents.length - 2} more
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent side="bottom" align="start" className="w-56 p-2" onClick={(ev) => ev.stopPropagation()}>
-                                <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-                                  {cellDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })}
-                                </p>
-                                <div className="space-y-1">
-                                  {dayEvents.map((ev) => (
-                                    <button
-                                      key={ev.id}
-                                      onClick={() => router.push(`/hareline/${ev.id}`)}
-                                      className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-xs hover:bg-muted"
-                                    >
-                                      <span className={`h-2 w-2 shrink-0 rounded-full ${regionBgClass(ev.kennel.region)}`} />
-                                      <span className="truncate font-medium">{ev.kennel.shortName}</span>
-                                      {ev.startTime && <span className="shrink-0 text-muted-foreground">{formatTimeCompact(ev.startTime)}</span>}
-                                    </button>
-                                  ))}
-                                </div>
-                              </PopoverContent>
+                              <OverflowPopover dayEvents={dayEvents} cellDate={cellDate} onNavigate={(id) => router.push(`/hareline/${id}`)} />
                             </Popover>
                           )}
                         </div>

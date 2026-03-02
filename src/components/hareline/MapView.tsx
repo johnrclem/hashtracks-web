@@ -70,11 +70,11 @@ function PrecisionBanner() {
 
 /** Props for the interactive MapView — renders hareline events as region-colored map pins. */
 interface MapViewProps {
-  events: HarelineEvent[];
+  readonly events: HarelineEvent[];
   /** Currently selected event ID (for highlighting its pin). */
-  selectedEventId?: string | null;
+  readonly selectedEventId?: string | null;
   /** Callback when a map pin is clicked. */
-  onSelectEvent: (event: HarelineEvent | null) => void;
+  readonly onSelectEvent: (event: HarelineEvent | null) => void;
 }
 
 export default function MapView({ events, selectedEventId, onSelectEvent }: MapViewProps) {
@@ -140,7 +140,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
           disableDefaultUI={false}
           mapTypeControl={false}
           streetViewControl={false}
-          onClick={() => onSelectEvent(null)}
+          onClick={() => { onSelectEvent(null); }}
         >
           <ClusteredMarkers
             events={eventsWithCoords}

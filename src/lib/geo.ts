@@ -147,3 +147,30 @@ export function getEventCoordsFromRegionData(
   }
   return null;
 }
+
+/**
+ * Geocode a text address using the Google Maps Geocoding API.
+ * Returns the first result's coordinates, or null on failure.
+ * Uses NEXT_PUBLIC_GOOGLE_MAPS_API_KEY (same key used by Static Maps).
+ */
+export async function geocodeAddress(
+  address: string,
+): Promise<{ lat: number; lng: number } | null> {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  if (!apiKey || !address.trim()) return null;
+
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    if (data.status !== "OK" || !data.results?.length) return null;
+
+    const { lat, lng } = data.results[0].geometry.location;
+    if (typeof lat !== "number" || typeof lng !== "number") return null;
+    return { lat, lng };
+  } catch {
+    return null;
+  }
+}

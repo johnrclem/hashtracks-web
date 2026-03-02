@@ -108,6 +108,8 @@ function groupEventsByDate(events: HarelineEvent[]): { dateKey: string; dateLabe
   return groups;
 }
 
+type ViewMode = "list" | "calendar" | "map";
+
 export function HarelineView({
   events,
   subscribedKennelIds,
@@ -122,7 +124,7 @@ export function HarelineView({
 
   // Initialize state from URL search params
   const rawView = searchParams.get("view");
-  const [view, setViewState] = useState<"list" | "calendar" | "map">(
+  const [view, setViewState] = useState<ViewMode>(
     rawView === "list" || rawView === "calendar" || rawView === "map" ? rawView : "list",
   );
   const [density, setDensityState] = useState<"medium" | "compact">(
@@ -223,7 +225,7 @@ export function HarelineView({
   );
 
   // Wrapper setters that sync to URL
-  function setView(v: "list" | "calendar" | "map") {
+  function setView(v: ViewMode) {
     setViewState(v);
     syncUrl({ view: v });
   }
@@ -333,11 +335,13 @@ export function HarelineView({
     selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance != null ? 1 : 0);
 
   function clearAllFilters() {
-    setSelectedRegions([]);
-    setSelectedKennels([]);
-    setSelectedDays([]);
-    setSelectedCountry("");
-    setNearMeDistance(null);
+    setSelectedRegionsState([]);
+    setSelectedKennelsState([]);
+    setSelectedDaysState([]);
+    setSelectedCountryState("");
+    setNearMeDistanceState(null);
+    resetListState();
+    syncUrl({ regions: [], kennels: [], days: [], country: "", dist: "" });
   }
 
   const detailPanel = selectedEvent ? (
@@ -447,7 +451,7 @@ export function HarelineView({
           <ToggleGroup
             type="single"
             value={view}
-            onValueChange={(v) => v && setView(v as "list" | "calendar" | "map")}
+            onValueChange={(v) => v && setView(v as ViewMode)}
             variant="outline"
             size="sm"
             aria-label="View mode"
@@ -499,7 +503,7 @@ export function HarelineView({
       />
 
       {/* Results count (hidden for calendar — it shows its own month count) */}
-      {view !== "calendar" && (
+      {(view === "list" || view === "map") && (
         <p className="text-sm text-muted-foreground" aria-hidden="true">
           {view === "list" && hasMore
             ? `Showing ${visibleCount} of ${sortedEvents.length} `

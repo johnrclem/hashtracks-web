@@ -31,14 +31,12 @@ import { DISTANCE_OPTIONS } from "@/lib/geo";
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** Small inline clear button used inside filter trigger buttons. */
-function ClearFilterButton({ onClick, label }: { onClick: () => void; label: string }) {
+function ClearFilterButton({ onClick, label }: Readonly<{ onClick: () => void; label: string }>) {
   return (
     <span
-      role="button"
-      tabIndex={0}
       className="ml-1 rounded-full p-0.5 hover:bg-muted"
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onClick(); } }}
+      onMouseDown={(e) => { e.preventDefault(); }}
       aria-label={label}
     >
       <X className="h-3 w-3" />
@@ -47,25 +45,25 @@ function ClearFilterButton({ onClick, label }: { onClick: () => void; label: str
 }
 
 interface EventFiltersProps {
-  events: HarelineEvent[];
-  isAuthenticated: boolean;
-  hasSubscriptions: boolean;
-  scope: "my" | "all";
-  onScopeChange: (scope: "my" | "all") => void;
-  selectedRegions: string[];
-  onRegionsChange: (regions: string[]) => void;
-  selectedKennels: string[];
-  onKennelsChange: (kennels: string[]) => void;
-  selectedDays: string[];
-  onDaysChange: (days: string[]) => void;
-  selectedCountry: string;
-  onCountryChange: (country: string) => void;
-  nearMeDistance: number | null;
-  onNearMeDistanceChange: (distance: number | null) => void;
-  geoState: GeoState;
-  onRequestLocation: () => void;
-  activeFilterCount: number;
-  onClearAll: () => void;
+  readonly events: HarelineEvent[];
+  readonly isAuthenticated: boolean;
+  readonly hasSubscriptions: boolean;
+  readonly scope: "my" | "all";
+  readonly onScopeChange: (scope: "my" | "all") => void;
+  readonly selectedRegions: string[];
+  readonly onRegionsChange: (regions: string[]) => void;
+  readonly selectedKennels: string[];
+  readonly onKennelsChange: (kennels: string[]) => void;
+  readonly selectedDays: string[];
+  readonly onDaysChange: (days: string[]) => void;
+  readonly selectedCountry: string;
+  readonly onCountryChange: (country: string) => void;
+  readonly nearMeDistance: number | null;
+  readonly onNearMeDistanceChange: (distance: number | null) => void;
+  readonly geoState: GeoState;
+  readonly onRequestLocation: () => void;
+  readonly activeFilterCount: number;
+  readonly onClearAll: () => void;
 }
 
 export function EventFilters({
@@ -140,7 +138,7 @@ export function EventFilters({
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
         {/* My Kennels / All Kennels scope */}
         {isAuthenticated && hasSubscriptions && (
-          <div className="flex shrink-0 rounded-md border" role="group" aria-label="Kennel scope">
+          <fieldset className="flex shrink-0 rounded-md border" aria-label="Kennel scope">
             <button
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 scope === "my"
@@ -163,7 +161,7 @@ export function EventFilters({
             >
               All Kennels
             </button>
-          </div>
+          </fieldset>
         )}
 
         {/* Region filter */}
@@ -268,43 +266,47 @@ export function EventFilters({
         </Popover>
 
         {/* Day of week chips */}
-        <div className="flex shrink-0 gap-1" role="group" aria-label="Day of week filter">
-          {DAYS_OF_WEEK.map((day) => (
-            <button
-              key={day}
-              onClick={() => toggleDay(day)}
-              aria-pressed={selectedDays.includes(day)}
-              className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                selectedDays.includes(day)
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {day}
-            </button>
-          ))}
-        </div>
-
-        {/* Country filter — only if >1 country */}
-        {countries.length > 1 && (
-          <div className="flex shrink-0 gap-1" role="group" aria-label="Country filter">
-            {countries.map((country) => (
+        <fieldset className="contents" aria-label="Day of week filter">
+          <div className="flex shrink-0 gap-1">
+            {DAYS_OF_WEEK.map((day) => (
               <button
-                key={country}
-                onClick={() =>
-                  onCountryChange(selectedCountry === country ? "" : country)
-                }
-                aria-pressed={selectedCountry === country}
+                key={day}
+                onClick={() => toggleDay(day)}
+                aria-pressed={selectedDays.includes(day)}
                 className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                  selectedCountry === country
+                  selectedDays.includes(day)
                     ? "bg-primary text-primary-foreground border-primary"
                     : "border text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {country}
+                {day}
               </button>
             ))}
           </div>
+        </fieldset>
+
+        {/* Country filter — only if >1 country */}
+        {countries.length > 1 && (
+          <fieldset className="contents" aria-label="Country filter">
+            <div className="flex shrink-0 gap-1">
+              {countries.map((country) => (
+                <button
+                  key={country}
+                  onClick={() =>
+                    onCountryChange(selectedCountry === country ? "" : country)
+                  }
+                  aria-pressed={selectedCountry === country}
+                  className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                    selectedCountry === country
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {country}
+                </button>
+              ))}
+            </div>
+          </fieldset>
         )}
 
         {/* Near me filter */}

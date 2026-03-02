@@ -200,11 +200,17 @@ export default async function EventDetailPage({
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           {(() => {
-            const isPast = event.date <= new Date();
+            // Compare at UTC noon to match date storage convention (Appendix F.4)
+            const now = new Date();
+            const todayNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
+            const isPast = event.date.getTime() <= todayNoon;
             if (isPast) {
-              return attendance ? "Confirm your attendance after the run." : "Log that you were at this run.";
+              if (attendance?.status === "CONFIRMED") return "You attended this run.";
+              if (attendance?.status === "INTENDING") return "Confirm your attendance after the run.";
+              return "Log that you were at this run.";
             }
-            return attendance?.status === "INTENDING" ? "You\u2019ve RSVP\u2019d for this run." : "Let others know you plan to attend.";
+            if (attendance?.status === "INTENDING") return "You\u2019ve RSVP\u2019d for this run.";
+            return "Let others know you plan to attend.";
           })()}
         </p>
       </div>
