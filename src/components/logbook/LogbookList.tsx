@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import { useState, useMemo, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
+import { ChevronDown, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +29,8 @@ import {
 import { AttendanceBadge } from "./AttendanceBadge";
 import { EditAttendanceDialog } from "./EditAttendanceDialog";
 import type { AttendanceData } from "./CheckInButton";
-import { formatTime, participationLevelLabel, PARTICIPATION_LEVELS } from "@/lib/format";
+import { participationLevelAbbrev, participationLevelLabel, PARTICIPATION_LEVELS, toggleArrayItem } from "@/lib/format";
+import { getTodayUtcNoon } from "@/lib/date";
 import { confirmAttendance, deleteAttendance } from "@/app/logbook/actions";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 
@@ -57,9 +58,6 @@ interface LogbookListProps {
   stravaConnected?: boolean;
 }
 
-function toggleFilter<T extends string>(setter: Dispatch<SetStateAction<T[]>>, value: T) {
-  setter((prev) => prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]);
-}
 
 /** Format ISO date string to locale-friendly display (exported for testing). */
 export function formatLogbookDate(iso: string): string {
@@ -88,6 +86,37 @@ export function filterLogbookEntries(
   });
 }
 
+/** Check whether a logbook entry represents a future RSVP. */
+function isUpcomingEntry(entry: LogbookEntry, todayUtcNoon: number): boolean {
+  return entry.attendance.status === "INTENDING"
+    && new Date(entry.event.date).getTime() > todayUtcNoon;
+}
+
+/** Derive a status label for accessibility (screen reader row summary). */
+function getStatusLabel(entry: LogbookEntry, todayUtcNoon: number): string {
+  if (entry.event.status === "CANCELLED") return "Cancelled";
+  if (isUpcomingEntry(entry, todayUtcNoon)) return "Going";
+  if (entry.attendance.status === "INTENDING") return "Pending confirmation";
+  return participationLevelLabel(entry.attendance.participationLevel);
+}
+
+/** Column header row shared between sections. */
+function ColumnHeaders() {
+  return (
+    <div
+      className="flex items-center gap-2 sm:gap-3 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b bg-muted/50 sticky top-14 z-10"
+      role="presentation"
+    >
+      <span className="shrink-0 sm:w-36">Date</span>
+      <span className="shrink-0 sm:w-20">Kennel</span>
+      <span className="hidden sm:inline-flex w-10">Region</span>
+      <span className="hidden sm:inline-block w-12">Run #</span>
+      <span className="hidden sm:block flex-1">Trail Name</span>
+      <span className="ml-auto">Status</span>
+    </div>
+  );
+}
+
 export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
   const [editingEntry, setEditingEntry] = useState<LogbookEntry | null>(null);
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
@@ -96,14 +125,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  // Determine "today" boundary for past/future event checks (UTC noon)
-  const now = new Date();
-  const todayUtcNoon = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    12, 0, 0,
-  );
+  const todayUtcNoon = getTodayUtcNoon();
 
   function handleRemove(attendanceId: string) {
     startTransition(async () => {
@@ -115,6 +137,12 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
       }
       router.refresh();
     });
+  }
+
+  function clearFilters() {
+    setSelectedRegions([]);
+    setSelectedKennels([]);
+    setSelectedLevels([]);
   }
 
   // Derive unique kennels and regions
@@ -141,8 +169,39 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
 
   const activeFilterCount = selectedRegions.length + selectedKennels.length + selectedLevels.length;
 
-  // Use module-level formatLogbookDate (exported for testing)
-  const formatDate = formatLogbookDate;
+  // Split into upcoming and past sections in a single pass (UX-01)
+  const { upcoming, past } = useMemo(() => {
+    const up: LogbookEntry[] = [];
+    const pa: LogbookEntry[] = [];
+    for (const e of filtered) {
+      if (isUpcomingEntry(e, todayUtcNoon)) {
+        up.push(e);
+      } else {
+        pa.push(e);
+      }
+    }
+    return { upcoming: up, past: pa };
+  }, [filtered, todayUtcNoon]);
+
+  // Screen reader announcement for filter changes (a11y-04)
+  // Use a ref-based approach: clear the live region briefly then set new text,
+  // ensuring re-announcement even when the resulting text is identical.
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    // Clear then set to force screen reader re-announcement
+    setLiveAnnouncement("");
+    const id = requestAnimationFrame(() => {
+      const total = filtered.length;
+      const base = `Showing ${total} ${total === 1 ? "run" : "runs"}`;
+      setLiveAnnouncement(activeFilterCount > 0 ? `${base}, filtered` : base);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [filtered.length, activeFilterCount, selectedRegions, selectedKennels, selectedLevels]);
 
   if (entries.length === 0) {
     return (
@@ -159,6 +218,179 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
     );
   }
 
+  function renderRow(entry: LogbookEntry, index: number) {
+    const isUpcoming = isUpcomingEntry(entry, todayUtcNoon);
+    const statusLabel = getStatusLabel(entry, todayUtcNoon);
+    const rowLabel = `${formatLogbookDate(entry.event.date)} at ${entry.event.kennel.shortName}, ${entry.event.title || "no trail name"}, ${statusLabel}`;
+
+    return (
+      <li
+        key={entry.attendance.id}
+        className={`rounded-md border px-4 py-3 text-sm min-h-12 ${
+          isUpcoming ? "border-l-2 border-l-primary" : ""
+        } ${index % 2 === 1 ? "bg-muted/30" : ""}`}
+        aria-label={rowLabel}
+      >
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link
+            href={`/hareline/${entry.event.id}`}
+            className="shrink-0 font-medium hover:underline sm:w-36"
+          >
+            {formatLogbookDate(entry.event.date)}
+          </Link>
+          <span className="shrink-0 sm:w-20">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href={`/kennels/${entry.event.kennel.slug}`}
+                  className="text-primary hover:underline"
+                >
+                  {entry.event.kennel.shortName}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent>{entry.event.kennel.fullName}</TooltipContent>
+            </Tooltip>
+          </span>
+          <span className="hidden sm:inline-flex">
+            <RegionBadge region={entry.event.kennel.region} size="sm" />
+          </span>
+          {entry.event.runNumber && (
+            <span className="hidden sm:inline-block w-12 shrink-0 text-muted-foreground">
+              #{entry.event.runNumber}
+            </span>
+          )}
+          {entry.event.title ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href={`/hareline/${entry.event.id}`}
+                  className="hidden sm:block min-w-0 flex-1 truncate text-muted-foreground hover:underline"
+                >
+                  {entry.event.title}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs break-words">
+                {entry.event.title}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <span className="hidden sm:block min-w-0 flex-1 italic text-muted-foreground/60">
+              No trail name
+            </span>
+          )}
+          <span className="ml-auto flex shrink-0 items-center gap-2">
+            {entry.attendance.stravaUrl && (
+              <a
+                href={entry.attendance.stravaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-full border border-[#FC4C02] px-2 py-0.5 text-xs font-medium text-[#FC4C02] hover:bg-[#FC4C02] hover:text-white transition-colors"
+              >
+                <ExternalLink size={10} />
+                {entry.attendance.stravaUrl.includes("strava.com")
+                  ? "Strava"
+                  : "Activity"}
+              </a>
+            )}
+            {entry.event.status === "CANCELLED" ? (
+              <span className="flex items-center gap-2">
+                <Badge variant="destructive" className="h-7 text-xs">
+                  Cancelled
+                </Badge>
+                {entry.attendance.status === "INTENDING" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs text-muted-foreground"
+                    disabled={isPending}
+                    onClick={() => handleRemove(entry.attendance.id)}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </span>
+            ) : isUpcoming ? (
+              <Badge
+                variant="outline"
+                className="h-7 cursor-pointer border-blue-300 text-blue-700 focus-visible:ring-2 focus-visible:ring-ring"
+                role="button"
+                tabIndex={0}
+                onClick={() => setEditingEntry(entry)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setEditingEntry(entry);
+                  }
+                }}
+              >
+                Going
+              </Badge>
+            ) : entry.attendance.status === "INTENDING" ? (
+              <span className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 border-amber-300 text-amber-700 hover:bg-amber-50"
+                  disabled={isPending}
+                  onClick={() => {
+                    const attendanceId = entry.attendance.id;
+                    startTransition(async () => {
+                      const result = await confirmAttendance(attendanceId);
+                      if (!result.success) {
+                        toast.error(result.error);
+                      } else {
+                        toast.success("Attendance confirmed!");
+                      }
+                      router.refresh();
+                    });
+                  }}
+                >
+                  {isPending ? "..." : (
+                    <>
+                      <span className="hidden sm:inline">Confirm Attendance</span>
+                      <span className="sm:hidden">Confirm</span>
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                  disabled={isPending}
+                  title="Remove from logbook"
+                  aria-label="Remove from logbook"
+                  onClick={() => handleRemove(entry.attendance.id)}
+                >
+                  &times;
+                </Button>
+              </span>
+            ) : (
+              <AttendanceBadge
+                level={entry.attendance.participationLevel}
+                size="sm"
+                onClick={() => setEditingEntry(entry)}
+              />
+            )}
+          </span>
+        </div>
+        {/* Mobile-only secondary row (a11y-05: hidden from screen readers) */}
+        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground sm:hidden" aria-hidden="true">
+          <RegionBadge region={entry.event.kennel.region} size="sm" />
+          {entry.event.runNumber && <span>#{entry.event.runNumber}</span>}
+          {entry.event.title && (
+            <Link
+              href={`/hareline/${entry.event.id}`}
+              className="min-w-0 flex-1 truncate hover:underline"
+              tabIndex={-1}
+            >
+              {entry.event.title}
+            </Link>
+          )}
+        </div>
+      </li>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -166,13 +398,14 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
         {/* Region filter */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
+            <Button variant="outline" size="sm" className="h-8 text-xs" aria-label="Filter by Region">
               Region
               {selectedRegions.length > 0 && (
                 <Badge variant="secondary" className="ml-1 text-xs">
                   {selectedRegions.length}
                 </Badge>
               )}
+              <ChevronDown size={14} className="ml-1 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-56 p-0" align="start">
@@ -184,7 +417,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                   {regions.map((region) => (
                     <CommandItem
                       key={region}
-                      onSelect={() => toggleFilter(setSelectedRegions, region)}
+                      onSelect={() => setSelectedRegions(prev => toggleArrayItem(prev, region))}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
@@ -207,13 +440,14 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
         {/* Kennel filter */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
+            <Button variant="outline" size="sm" className="h-8 text-xs" aria-label="Filter by Kennel">
               Kennel
               {selectedKennels.length > 0 && (
                 <Badge variant="secondary" className="ml-1 text-xs">
                   {selectedKennels.length}
                 </Badge>
               )}
+              <ChevronDown size={14} className="ml-1 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-80 p-0" align="start">
@@ -226,7 +460,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                     <CommandItem
                       key={kennel.id}
                       value={`${kennel.shortName} ${kennel.fullName} ${kennel.region}`}
-                      onSelect={() => toggleFilter(setSelectedKennels, kennel.id)}
+                      onSelect={() => setSelectedKennels(prev => toggleArrayItem(prev, kennel.id))}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
@@ -249,13 +483,14 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
         {/* Level filter */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
+            <Button variant="outline" size="sm" className="h-8 text-xs" aria-label="Filter by Level">
               Level
               {selectedLevels.length > 0 && (
                 <Badge variant="secondary" className="ml-1 text-xs">
                   {selectedLevels.length}
                 </Badge>
               )}
+              <ChevronDown size={14} className="ml-1 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-48 p-0" align="start">
@@ -265,7 +500,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                   {PARTICIPATION_LEVELS.map((level) => (
                     <CommandItem
                       key={level}
-                      onSelect={() => toggleFilter(setSelectedLevels, level)}
+                      onSelect={() => setSelectedLevels(prev => toggleArrayItem(prev, level))}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
@@ -290,179 +525,71 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
             variant="ghost"
             size="sm"
             className="h-8 text-xs"
-            onClick={() => {
-              setSelectedRegions([]);
-              setSelectedKennels([]);
-              setSelectedLevels([]);
-            }}
+            onClick={clearFilters}
           >
             Clear filters
           </Button>
         )}
       </div>
 
-      {/* Count */}
-      <p className="text-sm text-muted-foreground">
-        {(() => {
-          const confirmed = filtered.filter((e) => e.attendance.status === "CONFIRMED").length;
-          const going = filtered.filter(
-            (e) => e.attendance.status === "INTENDING" && new Date(e.event.date).getTime() > todayUtcNoon,
-          ).length;
-          const parts: string[] = [];
-          parts.push(`${confirmed} ${confirmed === 1 ? "run" : "runs"} logged`);
-          if (going > 0) parts.push(`${going} upcoming`);
-          const label = parts.join(" · ");
-          return activeFilterCount > 0 ? `${label} (filtered)` : label;
-        })()}
+      {/* Role legend (UI-04) */}
+      <p className="text-xs text-muted-foreground">
+        {PARTICIPATION_LEVELS.map((level, i) => (
+          <span key={level}>
+            {i > 0 && " · "}
+            <span className="font-medium">{participationLevelAbbrev(level)}</span>{" "}
+            {participationLevelLabel(level)}
+          </span>
+        ))}
       </p>
 
-      {/* List */}
-      <div className="space-y-1">
-        {filtered.map((entry) => (
-          <div
-            key={entry.attendance.id}
-            className="rounded-md border px-3 py-2 text-sm"
-          >
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Link
-                href={`/hareline/${entry.event.id}`}
-                className="shrink-0 font-medium hover:underline sm:w-36"
-              >
-                {formatDate(entry.event.date)}
-              </Link>
-              <span className="shrink-0 sm:w-20">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      href={`/kennels/${entry.event.kennel.slug}`}
-                      className="text-primary hover:underline"
-                    >
-                      {entry.event.kennel.shortName}
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>{entry.event.kennel.fullName}</TooltipContent>
-                </Tooltip>
-              </span>
-              <span className="hidden sm:inline-flex">
-                <RegionBadge region={entry.event.kennel.region} size="sm" />
-              </span>
-              {entry.event.runNumber && (
-                <span className="hidden sm:inline-block w-12 shrink-0 text-muted-foreground">
-                  #{entry.event.runNumber}
-                </span>
-              )}
-              {entry.event.title ? (
-                <Link
-                  href={`/hareline/${entry.event.id}`}
-                  className="hidden sm:block min-w-0 flex-1 truncate text-muted-foreground hover:underline"
-                >
-                  {entry.event.title}
-                </Link>
-              ) : (
-                <span className="hidden sm:block min-w-0 flex-1" />
-              )}
-              <span className="ml-auto flex shrink-0 items-center gap-2">
-                {entry.attendance.stravaUrl && (
-                  <a
-                    href={entry.attendance.stravaUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline"
-                  >
-                    {entry.attendance.stravaUrl.includes("strava.com")
-                      ? "Strava"
-                      : "Activity"}
-                  </a>
-                )}
-                {entry.event.status === "CANCELLED" ? (
-                  <span className="flex items-center gap-2">
-                    <Badge variant="destructive" className="text-xs">
-                      Cancelled
-                    </Badge>
-                    {entry.attendance.status === "INTENDING" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-xs text-muted-foreground"
-                        disabled={isPending}
-                        onClick={() => handleRemove(entry.attendance.id)}
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </span>
-                ) : entry.attendance.status === "INTENDING" &&
-                 new Date(entry.event.date).getTime() > todayUtcNoon ? (
-                  <Badge
-                    variant="outline"
-                    className="cursor-pointer border-blue-300 text-blue-700"
-                    onClick={() => setEditingEntry(entry)}
-                  >
-                    Going
-                  </Badge>
-                ) : entry.attendance.status === "INTENDING" ? (
-                  <span className="flex items-center gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 border-amber-300 text-amber-700 hover:bg-amber-50"
-                      disabled={isPending}
-                      onClick={() => {
-                        const attendanceId = entry.attendance.id;
-                        startTransition(async () => {
-                          const result = await confirmAttendance(attendanceId);
-                          if (!result.success) {
-                            toast.error(result.error);
-                          } else {
-                            toast.success("Attendance confirmed!");
-                          }
-                          router.refresh();
-                        });
-                      }}
-                    >
-                      {isPending ? "..." : (
-                        <>
-                          <span className="hidden sm:inline">Confirm Attendance</span>
-                          <span className="sm:hidden">Confirm</span>
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                      disabled={isPending}
-                      title="Remove from logbook"
-                      aria-label="Remove from logbook"
-                      onClick={() => handleRemove(entry.attendance.id)}
-                    >
-                      &times;
-                    </Button>
-                  </span>
-                ) : (
-                  <AttendanceBadge
-                    level={entry.attendance.participationLevel}
-                    size="sm"
-                    onClick={() => setEditingEntry(entry)}
-                  />
-                )}
-              </span>
-            </div>
-            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground sm:hidden">
-              <RegionBadge region={entry.event.kennel.region} size="sm" />
-              {entry.event.runNumber && <span>#{entry.event.runNumber}</span>}
-              {entry.event.title && (
-                <Link
-                  href={`/hareline/${entry.event.id}`}
-                  className="min-w-0 flex-1 truncate hover:underline"
-                >
-                  {entry.event.title}
-                </Link>
-              )}
-            </div>
-          </div>
-        ))}
+      {/* Live region for filter announcements (a11y-04) */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {liveAnnouncement}
       </div>
+
+      {/* Empty filtered state (UX-05) */}
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
+          <p className="text-sm">No runs match your filters.</p>
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </div>
+      ) : (
+        <>
+          {/* Upcoming section (UX-01) */}
+          {upcoming.length > 0 && (
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 px-1">
+                Upcoming
+              </h2>
+              <ColumnHeaders />
+              <ul role="list" aria-label="Upcoming runs" className="space-y-1 mt-1">
+                {upcoming.map((entry, i) => renderRow(entry, i))}
+              </ul>
+            </div>
+          )}
+
+          {/* Divider between sections */}
+          {upcoming.length > 0 && past.length > 0 && (
+            <div className="my-4 border-t" />
+          )}
+
+          {/* Past runs section (UX-01) */}
+          {past.length > 0 && (
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 px-1">
+                Past Runs
+              </h2>
+              <ColumnHeaders />
+              <ul role="list" aria-label="Past runs" className="space-y-1 mt-1">
+                {past.map((entry, i) => renderRow(entry, i))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Edit dialog */}
       {editingEntry && (

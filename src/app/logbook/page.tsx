@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { ChartNoAxesColumn } from "lucide-react";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { LogbookList } from "@/components/logbook/LogbookList";
@@ -66,7 +67,7 @@ export default async function LogbookPage() {
     <div className="min-w-0">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">My Logbook</h1>
+          <h1 className="text-3xl font-bold tracking-tight">My Logbook</h1>
           <p className="mt-1 text-muted-foreground">
             {confirmedCount} {confirmedCount === 1 ? "run" : "runs"} logged
             {goingCount > 0 && ` · ${goingCount} upcoming`}
@@ -74,8 +75,9 @@ export default async function LogbookPage() {
         </div>
         <Link
           href="/logbook/stats"
-          className="text-sm text-primary hover:underline"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
         >
+          <ChartNoAxesColumn size={14} />
           View Stats
         </Link>
       </div>
