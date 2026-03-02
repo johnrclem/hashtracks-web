@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MeetupAdapter } from "./adapter";
+import { MeetupAdapter, extractApolloEvents } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
 
-const mockFetch = vi.fn();
-vi.stubGlobal("fetch", mockFetch);
+vi.mock("../safe-fetch", () => ({
+  safeFetch: vi.fn(),
+}));
+
+import { safeFetch } from "../safe-fetch";
+const mockSafeFetch = vi.mocked(safeFetch);
 
 function makeSource(config: unknown): Source {
   return {
@@ -14,29 +18,78 @@ function makeSource(config: unknown): Source {
   } as unknown as Source;
 }
 
-const UPCOMING_EVENT = {
-  id: "evt-1",
-  name: "Trail #42 — Central Park",
-  status: "upcoming",
-  time: new Date("2026-03-15T18:00:00Z").getTime(),
-  local_date: "2026-03-15",
-  local_time: "18:00",
-  duration: 7200000,
-  description: "<p>Join us for a fun trail!</p>",
-  venue: { name: "Central Park Tavern", address_1: "100 W 67th St", city: "New York", state: "NY" },
-  link: "https://meetup.com/test-hash/events/evt-1",
+/** Build a minimal Apollo event object. */
+function buildApolloEvent(overrides: Record<string, unknown> = {}) {
+  return {
+    __typename: "Event",
+    id: "313348941",
+    title: "Trail #42 — Central Park",
+    dateTime: "2026-03-15T18:00:00-05:00",
+    endTime: "2026-03-15T21:00:00-05:00",
+    status: "ACTIVE",
+    description: "<p>Join us for a fun trail!</p>",
+    eventUrl: "https://www.meetup.com/test-hash/events/313348941/",
+    venue: { __ref: "Venue:123" },
+    ...overrides,
+  };
+}
+
+const VENUE_ENTRY = {
+  __typename: "Venue",
+  name: "Central Park Tavern",
+  address: "100 W 67th St",
+  city: "New York",
+  state: "NY",
+  lat: 40.7749,
+  lng: -73.9754,
 };
 
-const PAST_EVENT = {
-  id: "evt-0",
-  name: "Trail #41",
-  status: "past",
-  time: new Date("2026-02-01T14:00:00Z").getTime(),
-  local_date: "2026-02-01",
-  local_time: "14:00",
-  venue: { name: "Some Bar", city: "Brooklyn" },
-  link: "https://meetup.com/test-hash/events/evt-0",
-};
+/** Wrap Apollo state entries into a realistic HTML page. */
+function buildMeetupHtml(
+  stateEntries: Record<string, unknown>,
+): string {
+  const json = JSON.stringify(stateEntries);
+  return `<!DOCTYPE html>
+<html><head><title>Meetup</title></head>
+<body>
+<script>window.__APOLLO_STATE__ = ${json};</script>
+<div id="app"></div>
+</body></html>`;
+}
+
+function mockHtmlResponse(html: string) {
+  mockSafeFetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    text: async () => html,
+  } as unknown as Response);
+}
+
+describe("extractApolloEvents", () => {
+  it("extracts events from Apollo state HTML", () => {
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent({ id: "1" }),
+      "Event:2": buildApolloEvent({ id: "2", title: "Second Run" }),
+      "Venue:123": VENUE_ENTRY,
+      ROOT_QUERY: { __typename: "Query" },
+    });
+    const { events } = extractApolloEvents(html);
+    expect(events).toHaveLength(2);
+    expect(events.map((e) => e.id)).toContain("1");
+    expect(events.map((e) => e.id)).toContain("2");
+  });
+
+  it("returns empty array when no Apollo state found", () => {
+    const { events } = extractApolloEvents("<html><body>No state here</body></html>");
+    expect(events).toHaveLength(0);
+  });
+
+  it("returns empty array on malformed JSON", () => {
+    const html = '<script>window.__APOLLO_STATE__ = {broken json};</script>';
+    const { events } = extractApolloEvents(html);
+    expect(events).toHaveLength(0);
+  });
+});
 
 describe("MeetupAdapter", () => {
   beforeEach(() => {
@@ -56,37 +109,51 @@ describe("MeetupAdapter", () => {
     expect(result.errors[0]).toMatch(/groupUrlname/i);
   });
 
-  it("returns error on non-ok API response", async () => {
-    mockFetch.mockResolvedValue({ ok: false, status: 404 });
+  it("returns error on non-ok HTTP response", async () => {
+    mockSafeFetch.mockResolvedValue({
+      ok: false,
+      status: 404,
+    } as unknown as Response);
     const adapter = new MeetupAdapter();
     const result = await adapter.fetch(makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }));
     expect(result.events).toHaveLength(0);
     expect(result.errors[0]).toMatch(/404/);
   });
 
+  it("returns error on fetch failure", async () => {
+    mockSafeFetch.mockRejectedValue(new Error("Network error"));
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }));
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toMatch(/Network error/);
+  });
+
   it("parses events and assigns kennelTag", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => [UPCOMING_EVENT, PAST_EVENT],
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent(),
+      "Venue:123": VENUE_ENTRY,
     });
+    mockHtmlResponse(html);
+
     const adapter = new MeetupAdapter();
     const result = await adapter.fetch(
       makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
       { days: 365 },
     );
-    expect(result.errors).toHaveLength(0);
-    expect(result.events.length).toBe(2);
+    expect(result.events.length).toBe(1);
     expect(result.events[0].kennelTag).toBe("NYCH3");
     expect(result.events[0].title).toBe("Trail #42 — Central Park");
     expect(result.events[0].date).toBe("2026-03-15");
     expect(result.events[0].startTime).toBe("18:00");
   });
 
-  it("builds location from venue fields", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => [UPCOMING_EVENT],
+  it("builds location from venue ref", async () => {
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent(),
+      "Venue:123": VENUE_ENTRY,
     });
+    mockHtmlResponse(html);
+
     const adapter = new MeetupAdapter();
     const result = await adapter.fetch(
       makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
@@ -95,11 +162,59 @@ describe("MeetupAdapter", () => {
     expect(result.events[0].location).toBe("Central Park Tavern, 100 W 67th St, New York, NY");
   });
 
-  it("strips HTML tags from description", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => [UPCOMING_EVENT],
+  it("extracts lat/lng from venue", async () => {
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent(),
+      "Venue:123": VENUE_ENTRY,
     });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events[0].latitude).toBe(40.7749);
+    expect(result.events[0].longitude).toBe(-73.9754);
+  });
+
+  it("handles inline venue (no __ref)", async () => {
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent({
+        venue: { name: "Some Bar", city: "Brooklyn" },
+      }),
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events[0].location).toBe("Some Bar, Brooklyn");
+  });
+
+  it("handles null venue", async () => {
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent({ venue: null }),
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events[0].location).toBeUndefined();
+  });
+
+  it("strips HTML tags from description", async () => {
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent(),
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockHtmlResponse(html);
+
     const adapter = new MeetupAdapter();
     const result = await adapter.fetch(
       makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
@@ -109,52 +224,103 @@ describe("MeetupAdapter", () => {
   });
 
   it("filters events outside the lookback window", async () => {
-    const futureTime = Date.now() + 200 * 24 * 60 * 60 * 1000;
-    const futureDate = new Date(futureTime);
-    const futureEvent = {
-      ...UPCOMING_EVENT,
-      id: "evt-future",
-      time: futureTime,
-      local_date: futureDate.toISOString().slice(0, 10),
-      local_time: "18:00",
-    };
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => [UPCOMING_EVENT, futureEvent],
+    const futureDate = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000);
+    const futureIso = futureDate.toISOString().slice(0, 19) + "-05:00";
+
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent(),
+      "Event:2": buildApolloEvent({
+        id: "far-future",
+        title: "Far Future Run",
+        dateTime: futureIso,
+        eventUrl: "https://www.meetup.com/test-hash/events/far-future/",
+      }),
+      "Venue:123": VENUE_ENTRY,
     });
+    mockHtmlResponse(html);
+
     const adapter = new MeetupAdapter();
     const result = await adapter.fetch(
       makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
       { days: 90 },
     );
-    // futureEvent is >90 days out and should be excluded; UPCOMING_EVENT is within window
+    // far-future event is >90 days out and should be excluded
     expect(result.events).toHaveLength(1);
     expect(result.events[0].title).toBe("Trail #42 — Central Park");
   });
 
-  it("includes sourceUrl from event link", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => [UPCOMING_EVENT],
+  it("skips events without dateTime", async () => {
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent({ dateTime: undefined }),
+      "Event:2": buildApolloEvent({ id: "2", title: "Valid Run" }),
+      "Venue:123": VENUE_ENTRY,
     });
+    mockHtmlResponse(html);
+
     const adapter = new MeetupAdapter();
     const result = await adapter.fetch(
       makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
       { days: 365 },
     );
-    expect(result.events[0].sourceUrl).toBe(UPCOMING_EVENT.link);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toBe("Valid Run");
+  });
+
+  it("includes sourceUrl from eventUrl", async () => {
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent(),
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events[0].sourceUrl).toBe("https://www.meetup.com/test-hash/events/313348941/");
   });
 
   it("populates diagnosticContext", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => [UPCOMING_EVENT],
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent(),
+      "Venue:123": VENUE_ENTRY,
     });
+    mockHtmlResponse(html);
+
     const adapter = new MeetupAdapter();
     const result = await adapter.fetch(
       makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
       { days: 365 },
     );
     expect(result.diagnosticContext?.groupUrlname).toBe("test-hash");
+    expect(result.diagnosticContext?.eventsFound).toBe(1);
+  });
+
+  it("reports error when no Apollo state found in HTML", async () => {
+    mockHtmlResponse("<html><body>No events here</body></html>");
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toMatch(/APOLLO_STATE/);
+  });
+
+  it("uses safeFetch with correct URL", async () => {
+    const html = buildMeetupHtml({ "Event:1": buildApolloEvent() });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    await adapter.fetch(
+      makeSource({ groupUrlname: "savannah-hash-house-harriers", kennelTag: "SavH3" }),
+      { days: 365 },
+    );
+    expect(mockSafeFetch).toHaveBeenCalledWith(
+      "https://www.meetup.com/savannah-hash-house-harriers/events/",
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
   });
 });
