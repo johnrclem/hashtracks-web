@@ -409,6 +409,10 @@ export function ConfigureAndTest({
         onKennelsChange([...selectedKennels, newKennel.id]);
         resetQuickKennelForm();
         toast.success(`Kennel "${newKennel.shortName}" created and linked`);
+        // Re-run preview to refresh unmatched tags (kennel now exists in DB)
+        if (previewData) {
+          runPreview();
+        }
       } else {
         toast.error(result.error);
       }

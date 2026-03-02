@@ -21,6 +21,14 @@ import { createInlineAlias } from "@/app/admin/sources/inline-alias-action";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+/** Known data limitations by source type — fields that are typically unavailable. */
+const FILL_RATE_NOTES: Record<string, Partial<Record<"hares" | "runNumber", string>>> = {
+  MEETUP: {
+    hares: "Not available from Meetup",
+    runNumber: "Not available from Meetup",
+  },
+};
+
 interface PreviewResultsProps {
   data: PreviewData;
   /** All kennels for the alias link popover */
@@ -296,9 +304,23 @@ export function PreviewResults({ data, allKennels, onAliasCreated }: PreviewResu
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span>Title: {data.fillRates.title}%</span>
         <span>Location: {data.fillRates.location}%</span>
-        <span>Hares: {data.fillRates.hares}%</span>
+        <span className={data.fillRates.hares === 0 && FILL_RATE_NOTES[data.sourceType ?? ""]?.hares ? "opacity-60" : undefined}>
+          Hares: {data.fillRates.hares}%
+          {data.fillRates.hares === 0 && FILL_RATE_NOTES[data.sourceType ?? ""]?.hares && (
+            <span className="ml-0.5 text-[10px] italic">
+              ({FILL_RATE_NOTES[data.sourceType!]!.hares})
+            </span>
+          )}
+        </span>
         <span>Time: {data.fillRates.startTime}%</span>
-        <span>Run#: {data.fillRates.runNumber}%</span>
+        <span className={data.fillRates.runNumber === 0 && FILL_RATE_NOTES[data.sourceType ?? ""]?.runNumber ? "opacity-60" : undefined}>
+          Run#: {data.fillRates.runNumber}%
+          {data.fillRates.runNumber === 0 && FILL_RATE_NOTES[data.sourceType ?? ""]?.runNumber && (
+            <span className="ml-0.5 text-[10px] italic">
+              ({FILL_RATE_NOTES[data.sourceType!]!.runNumber})
+            </span>
+          )}
+        </span>
       </div>
 
       {/* Event table */}
