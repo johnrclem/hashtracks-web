@@ -1,3 +1,4 @@
+import type React from "react";
 import { participationLevelAbbrev, participationLevelLabel } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,11 +21,21 @@ export function AttendanceBadge({ level, size = "md", onClick }: AttendanceBadge
     <Badge
       variant="default"
       className={`cursor-default bg-green-600 hover:bg-green-600 ${
-        onClick ? "cursor-pointer hover:bg-green-700" : ""
+        onClick ? "cursor-pointer hover:bg-green-700 focus-visible:ring-2 focus-visible:ring-ring" : ""
       } ${size === "sm" ? "px-1.5 py-0.5 text-xs" : "px-1.5 py-0 text-xs"}`}
       onClick={onClick}
       aria-label={`Role: ${label}`}
       title={label}
+      {...(onClick ? {
+        role: "button" as const,
+        tabIndex: 0,
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick();
+          }
+        },
+      } : {})}
     >
       {abbrev}
     </Badge>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -183,13 +183,25 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
     return { upcoming: up, past: pa };
   }, [filtered, todayUtcNoon]);
 
-  // Derive screen reader announcement from filter state (a11y-04)
-  const liveAnnouncement = useMemo(() => {
-    const total = filtered.length;
-    return activeFilterCount > 0
-      ? `Showing ${total} ${total === 1 ? "run" : "runs"}, filtered`
-      : `Showing ${total} ${total === 1 ? "run" : "runs"}`;
-  }, [filtered.length, activeFilterCount]);
+  // Screen reader announcement for filter changes (a11y-04)
+  // Use a ref-based approach: clear the live region briefly then set new text,
+  // ensuring re-announcement even when the resulting text is identical.
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    // Clear then set to force screen reader re-announcement
+    setLiveAnnouncement("");
+    const id = requestAnimationFrame(() => {
+      const total = filtered.length;
+      const base = `Showing ${total} ${total === 1 ? "run" : "runs"}`;
+      setLiveAnnouncement(activeFilterCount > 0 ? `${base}, filtered` : base);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [filtered.length, activeFilterCount, selectedRegions, selectedKennels, selectedLevels]);
 
   if (entries.length === 0) {
     return (
@@ -300,8 +312,16 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
             ) : isUpcoming ? (
               <Badge
                 variant="outline"
-                className="h-7 cursor-pointer border-blue-300 text-blue-700"
+                className="h-7 cursor-pointer border-blue-300 text-blue-700 focus-visible:ring-2 focus-visible:ring-ring"
+                role="button"
+                tabIndex={0}
                 onClick={() => setEditingEntry(entry)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setEditingEntry(entry);
+                  }
+                }}
               >
                 Going
               </Badge>

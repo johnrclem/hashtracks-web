@@ -52,7 +52,7 @@ export default async function RootLayout({
             <TimePreferenceProvider initialPreference={timeDisplayPref}>
               <UnitsPreferenceProvider>
                 <Header />
-                <main id="main-content" className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8">
+                <main id="main-content" tabIndex={-1} className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8 focus:outline-none">
                   {children}
                 </main>
                 <Footer />
