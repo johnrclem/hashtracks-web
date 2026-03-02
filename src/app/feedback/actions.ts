@@ -46,7 +46,7 @@ export async function submitFeedback(
   const heading = CATEGORY_HEADINGS[category] || "Feedback";
   const feedbackContext =
     category === "bug"
-      ? `\n\n<!-- FEEDBACK_CONTEXT ${JSON.stringify({ category, pageUrl: pageUrl || null })} -->`
+      ? `\n\n<!-- FEEDBACK_CONTEXT ${JSON.stringify({ category, pageUrl: pageUrl || null }).replaceAll("-->", "--&gt;")} -->`
       : "";
   const issueBody = `## ${heading}
 

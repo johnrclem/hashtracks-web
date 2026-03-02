@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSource } from "@/app/admin/sources/actions";
@@ -82,6 +82,27 @@ function formatConfigValue(value: unknown): string {
   return String(value);
 }
 
+const DEFAULT_TRUST_LEVEL = 5;
+const DEFAULT_SCRAPE_DAYS = 90;
+
+/** Numeric input state that allows temporary empty value while editing. */
+function useNumericField(defaultValue: number) {
+  const [value, setValue] = useState<number | "">(defaultValue);
+  const onChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.value === "") {
+      setValue("");
+      return;
+    }
+    const parsed = Number.parseInt(e.target.value);
+    if (!Number.isNaN(parsed)) setValue(parsed);
+  };
+  const onBlur = () => {
+    if (value === "" || value === 0) setValue(defaultValue);
+  };
+  const resolved = value === "" || value === 0 ? defaultValue : value;
+  return { value, onChange, onBlur, resolved };
+}
+
 /** Multi-phase guided wizard for onboarding a new data source (URL detection, config, preview). */
 export function SourceOnboardingWizard({
   allKennels,
@@ -97,9 +118,9 @@ export function SourceOnboardingWizard({
   const [name, setName] = useState("");
   const [isSuggestingName, setIsSuggestingName] = useState(false);
   const [nameSuggested, setNameSuggested] = useState(false);
-  const [trustLevel, setTrustLevel] = useState<number | string>(5);
+  const trustLevel = useNumericField(DEFAULT_TRUST_LEVEL);
   const [scrapeFreq, setScrapeFreq] = useState("daily");
-  const [scrapeDays, setScrapeDays] = useState<number | string>(90);
+  const scrapeDays = useNumericField(DEFAULT_SCRAPE_DAYS);
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
   const [configObj, setConfigObj] = useState<Record<string, unknown> | null>(null);
   const [configJson, setConfigJson] = useState("");
@@ -166,9 +187,9 @@ export function SourceOnboardingWizard({
     fd.set("name", name);
     fd.set("url", urlValue);
     fd.set("type", selectedType);
-    fd.set("trustLevel", String(trustLevel || 5));
+    fd.set("trustLevel", String(trustLevel.resolved));
     fd.set("scrapeFreq", scrapeFreq);
-    fd.set("scrapeDays", String(scrapeDays || 90));
+    fd.set("scrapeDays", String(scrapeDays.resolved));
     fd.set("kennelIds", selectedKennels.join(","));
     if (configJson.trim()) fd.set("config", configJson.trim());
 
@@ -380,18 +401,9 @@ export function SourceOnboardingWizard({
                     type="number"
                     min={1}
                     max={10}
-                    value={trustLevel}
-                    onChange={(e) =>
-                      setTrustLevel(
-                        e.target.value === ""
-                          ? ""
-                          : Number.parseInt(e.target.value) || trustLevel,
-                      )
-                    }
-                    onBlur={() => {
-                      if (trustLevel === "" || trustLevel === 0)
-                        setTrustLevel(5);
-                    }}
+                    value={trustLevel.value}
+                    onChange={trustLevel.onChange}
+                    onBlur={trustLevel.onBlur}
                   />
                   <p className="text-xs text-muted-foreground">
                     Higher = preferred when merging duplicate events. Use 5
@@ -423,18 +435,9 @@ export function SourceOnboardingWizard({
                   type="number"
                   min={1}
                   max={365}
-                  value={scrapeDays}
-                  onChange={(e) =>
-                    setScrapeDays(
-                      e.target.value === ""
-                        ? ""
-                        : Number.parseInt(e.target.value) || scrapeDays,
-                    )
-                  }
-                  onBlur={() => {
-                    if (scrapeDays === "" || scrapeDays === 0)
-                      setScrapeDays(90);
-                  }}
+                  value={scrapeDays.value}
+                  onChange={scrapeDays.onChange}
+                  onBlur={scrapeDays.onBlur}
                 />
                 <p className="text-xs text-muted-foreground">
                   How far back to look when scraping. Default: 90 days.
@@ -523,7 +526,7 @@ export function SourceOnboardingWizard({
                     <span className="text-xs font-medium text-muted-foreground">
                       Trust Level
                     </span>
-                    <p>{trustLevel || 5}/10</p>
+                    <p>{trustLevel.resolved}/10</p>
                   </div>
                   <div>
                     <span className="text-xs font-medium text-muted-foreground">
@@ -535,7 +538,7 @@ export function SourceOnboardingWizard({
                     <span className="text-xs font-medium text-muted-foreground">
                       Lookback
                     </span>
-                    <p>{scrapeDays || 90} days</p>
+                    <p>{scrapeDays.resolved} days</p>
                   </div>
                 </div>
 
