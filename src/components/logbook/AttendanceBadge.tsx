@@ -21,8 +21,10 @@ export function AttendanceBadge({ level, size = "md", onClick }: AttendanceBadge
       variant="default"
       className={`cursor-default bg-green-600 hover:bg-green-600 ${
         onClick ? "cursor-pointer hover:bg-green-700" : ""
-      } ${size === "sm" ? "px-1 py-0 text-[10px]" : "px-1.5 py-0 text-xs"}`}
+      } ${size === "sm" ? "px-1.5 py-0.5 text-xs" : "px-1.5 py-0 text-xs"}`}
       onClick={onClick}
+      aria-label={`Role: ${label}`}
+      title={label}
     >
       {abbrev}
     </Badge>

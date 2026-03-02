@@ -35,7 +35,7 @@ export function Header() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <header className="border-b bg-background">
+    <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur-sm">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         <Link href="/" className="text-lg font-bold tracking-tight">
           HashTracks

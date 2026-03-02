@@ -42,11 +42,17 @@ export default async function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:text-sm focus:font-medium"
+          >
+            Skip to main content
+          </a>
           <TooltipProvider>
             <TimePreferenceProvider initialPreference={timeDisplayPref}>
               <UnitsPreferenceProvider>
                 <Header />
-                <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8">
+                <main id="main-content" className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8">
                   {children}
                 </main>
                 <Footer />
