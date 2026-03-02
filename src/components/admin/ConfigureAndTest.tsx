@@ -11,6 +11,7 @@ import {
   type ConfigSuggestion,
 } from "@/app/admin/sources/suggest-source-config-action";
 import { PreviewResults } from "./PreviewResults";
+import type { RegionOption } from "./RegionCombobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { RegionCombobox } from "./RegionCombobox";
 import { toast } from "sonner";
 import {
   CalendarConfigPanel,
@@ -128,6 +130,7 @@ export interface ConfigureAndTestProps {
   readonly configJson: string;
   readonly selectedKennels: string[];
   readonly allKennels: KennelOption[];
+  readonly allRegions: RegionOption[];
   readonly geminiAvailable?: boolean;
   readonly onConfigChange: (config: Record<string, unknown> | null, json: string) => void;
   readonly onKennelsChange: (ids: string[]) => void;
@@ -140,6 +143,7 @@ export function ConfigureAndTest({
   configJson,
   selectedKennels,
   allKennels,
+  allRegions,
   geminiAvailable,
   onConfigChange,
   onKennelsChange,
@@ -157,7 +161,7 @@ export function ConfigureAndTest({
   const [quickKennelOpen, setQuickKennelOpen] = useState(false);
   const [quickKennelShortName, setQuickKennelShortName] = useState("");
   const [quickKennelFullName, setQuickKennelFullName] = useState("");
-  const [quickKennelRegion, setQuickKennelRegion] = useState("");
+  const [quickKennelRegionId, setQuickKennelRegionId] = useState("");
   const [isCreatingKennel, startCreatingKennel] = useTransition();
 
   // Kennel search
@@ -355,7 +359,19 @@ export function ConfigureAndTest({
       if (!isKnown) {
         setQuickKennelShortName(shortName);
         setQuickKennelFullName(fullName);
-        setQuickKennelRegion(region);
+        // Try to match AI-suggested region string to a RegionOption
+        // AI returns "City, ST" format — try exact, then substring match
+        const regionLower = region.toLowerCase();
+        const matchedRegion =
+          allRegions.find(
+            (r) => r.name.toLowerCase() === regionLower ||
+                   r.abbrev.toLowerCase() === regionLower,
+          ) ??
+          allRegions.find(
+            (r) => regionLower.includes(r.name.toLowerCase()) ||
+                   r.name.toLowerCase().includes(regionLower),
+          );
+        setQuickKennelRegionId(matchedRegion?.id ?? "");
         setQuickKennelOpen(true);
       }
     }
@@ -377,7 +393,7 @@ export function ConfigureAndTest({
     setQuickKennelOpen(false);
     setQuickKennelShortName("");
     setQuickKennelFullName("");
-    setQuickKennelRegion("");
+    setQuickKennelRegionId("");
   }
 
   function handleQuickKennelCreate() {
@@ -385,7 +401,7 @@ export function ConfigureAndTest({
       const result = await createQuickKennel({
         shortName: quickKennelShortName.trim(),
         fullName: quickKennelFullName.trim(),
-        region: quickKennelRegion.trim(),
+        regionId: quickKennelRegionId,
       });
       if (result.success) {
         const { success, ...newKennel } = result;
@@ -711,13 +727,16 @@ export function ConfigureAndTest({
                   onChange={setQuickKennelShortName}
                   placeholder="NYCH3"
                 />
-                <QuickKennelField
-                  id="qk-region"
-                  label="Region *"
-                  value={quickKennelRegion}
-                  onChange={setQuickKennelRegion}
-                  placeholder="New York City, NY"
-                />
+                <div className="space-y-1">
+                  <Label htmlFor="qk-region" className="text-xs">Region *</Label>
+                  <RegionCombobox
+                    id="qk-region"
+                    value={quickKennelRegionId}
+                    regions={allRegions}
+                    onSelect={setQuickKennelRegionId}
+                    size="sm"
+                  />
+                </div>
               </div>
               <QuickKennelField
                 id="qk-fullName"
@@ -726,6 +745,11 @@ export function ConfigureAndTest({
                 onChange={setQuickKennelFullName}
                 placeholder="New York City Hash House Harriers"
               />
+              {!quickKennelRegionId && quickKennelShortName.trim() && (
+                <p className="text-xs text-amber-600">
+                  Select a region to enable &ldquo;Create &amp; Link&rdquo;
+                </p>
+              )}
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -735,7 +759,7 @@ export function ConfigureAndTest({
                     isCreatingKennel ||
                     !quickKennelShortName.trim() ||
                     !quickKennelFullName.trim() ||
-                    !quickKennelRegion.trim()
+                    !quickKennelRegionId
                   }
                   onClick={handleQuickKennelCreate}
                 >

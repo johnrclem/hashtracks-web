@@ -9,6 +9,7 @@ import { validateFetchUrl } from "@/lib/url-validation";
 import type { SourceType, Source } from "@/generated/prisma/client";
 import type { RawEventData } from "@/adapters/types";
 import type { GoogleGenAI } from "@google/genai";
+import { UNKNOWN_KENNEL_SENTINEL, UNTAGGED_KENNEL_DISPLAY } from "./preview-constants";
 
 export interface ConfigSuggestion {
   /** Suggested adapter config object (may be empty for HTML_SCRAPER with matched adapter). */
@@ -191,12 +192,18 @@ async function fetchSampleEvents(
   config?: Record<string, unknown>,
   contextLabel = "this URL",
 ): Promise<{ events: RawEventData[] } | { error: string }> {
+  // For GOOGLE_CALENDAR without config, use a sentinel defaultKennelTag
+  // to prevent the adapter's hard-coded Boston fallback from poisoning tags
+  const effectiveConfig = config ?? (
+    type === "GOOGLE_CALENDAR" ? { defaultKennelTag: UNKNOWN_KENNEL_SENTINEL } : null
+  );
+
   const mockSource = {
     id: "preview",
     name: "Preview",
     url,
     type,
-    config: config ?? null,
+    config: effectiveConfig,
     trustLevel: 5,
     scrapeFreq: "daily",
     scrapeDays: SAMPLE_LOOKBACK_DAYS,
@@ -239,13 +246,18 @@ export async function buildGeminiSuggestion(
   });
   const kennelList = kennels.map((k) => `${k.shortName} | ${k.fullName}`).join("\n");
 
-  const sampleLines = events
+  // Replace sentinel __unknown__ tags with UNTAGGED_KENNEL_DISPLAY so Gemini derives kennels from titles
+  const cleanEvents = events.map(e =>
+    e.kennelTag === UNKNOWN_KENNEL_SENTINEL ? { ...e, kennelTag: UNTAGGED_KENNEL_DISPLAY } : e
+  );
+
+  const sampleLines = cleanEvents
     .slice(0, MAX_SAMPLE_EVENTS)
     .map((e) => `${e.date}: [${e.kennelTag}] ${e.title ?? "(no title)"}`)
     .join("\n");
 
   const tagCounts = new Map<string, number>();
-  for (const e of events) {
+  for (const e of cleanEvents) {
     tagCounts.set(e.kennelTag, (tagCounts.get(e.kennelTag) ?? 0) + 1);
   }
   const tagSummary = [...tagCounts.entries()]
@@ -395,6 +407,16 @@ The kennelSlugs must exactly match the kennel identifiers used on hashrego.com â
 }
 
 function buildCalendarInstructions(uniqueTags: number, firstTag: string | undefined): string {
+  // When all events are untagged (new calendar with no config), ask Gemini to derive kennels from titles
+  const allUntagged = uniqueTags <= 1 && (!firstTag || firstTag === UNTAGGED_KENNEL_DISPLAY);
+  if (allUntagged) {
+    return `This is a new Google Calendar source with no kennel configuration yet.
+Analyze the event titles to identify which kennel(s) this calendar serves.
+Suggest config: {"defaultKennelTag":"SHORTNAME"} for single-kennel calendars,
+or {"kennelPatterns":[["regex","TAG"]],"defaultKennelTag":"FALLBACK"} for multi-kennel.
+Derive the kennel shortName from the event titles and match against the known kennels list when possible.
+Also add skipPatterns if any events appear to be non-hash content.`;
+  }
   if (uniqueTags === 1 && firstTag) {
     return `This source has a single kennel tag "${firstTag}". Suggest config:
 {"defaultKennelTag":"${firstTag}"}

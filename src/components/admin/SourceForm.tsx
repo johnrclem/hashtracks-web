@@ -33,6 +33,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { RegionCombobox, type RegionOption } from "./RegionCombobox";
 import { toast } from "sonner";
 import {
   CalendarConfigPanel,
@@ -110,6 +111,7 @@ interface SourceFormProps {
     fullName: string;
     region: string;
   }[];
+  allRegions: RegionOption[];
   /** Open UNMATCHED_TAGS alert tags for this source (edit mode only) */
   openAlertTags?: string[];
   /** Whether GEMINI_API_KEY is configured — enables "Enhance with AI" button */
@@ -129,7 +131,7 @@ function hasICalConfigShape(config: unknown): boolean {
 }
 
 /** Dialog form for creating or editing a data source (name, URL, type, config, kennel links). */
-export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable, trigger }: SourceFormProps) {
+export function SourceForm({ source, allKennels, allRegions, openAlertTags, geminiAvailable, trigger }: SourceFormProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [selectedKennels, setSelectedKennels] = useState<string[]>(
@@ -172,7 +174,7 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
   const [quickKennelOpen, setQuickKennelOpen] = useState(false);
   const [quickKennelShortName, setQuickKennelShortName] = useState("");
   const [quickKennelFullName, setQuickKennelFullName] = useState("");
-  const [quickKennelRegion, setQuickKennelRegion] = useState("");
+  const [quickKennelRegionId, setQuickKennelRegionId] = useState("");
   const [isCreatingKennel, startCreatingKennel] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
@@ -256,7 +258,7 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
     setQuickKennelOpen(false);
     setQuickKennelShortName("");
     setQuickKennelFullName("");
-    setQuickKennelRegion("");
+    setQuickKennelRegionId("");
   }
 
   function handleQuickKennelCreate() {
@@ -264,7 +266,7 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
       const result = await createQuickKennel({
         shortName: quickKennelShortName.trim(),
         fullName: quickKennelFullName.trim(),
-        region: quickKennelRegion.trim(),
+        regionId: quickKennelRegionId,
       });
       if (!result.success) {
         toast.error(result.error);
@@ -717,12 +719,12 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="qk-region" className="text-xs">Region *</Label>
-                  <Input
+                  <RegionCombobox
                     id="qk-region"
-                    value={quickKennelRegion}
-                    onChange={(e) => setQuickKennelRegion(e.target.value)}
-                    placeholder="New York City, NY"
-                    className="h-7 text-xs"
+                    value={quickKennelRegionId}
+                    regions={allRegions}
+                    onSelect={setQuickKennelRegionId}
+                    size="sm"
                   />
                 </div>
               </div>
@@ -745,7 +747,7 @@ export function SourceForm({ source, allKennels, openAlertTags, geminiAvailable,
                     isCreatingKennel ||
                     !quickKennelShortName.trim() ||
                     !quickKennelFullName.trim() ||
-                    !quickKennelRegion.trim()
+                    !quickKennelRegionId
                   }
                   onClick={handleQuickKennelCreate}
                 >

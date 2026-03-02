@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { ConfigureAndTest } from "./ConfigureAndTest";
 import type { KennelOption } from "./config-panels/KennelTagInput";
+import type { RegionOption } from "./RegionCombobox";
 
 interface TroubleshootSectionProps {
   readonly url: string;
   readonly type: string;
   readonly config: Record<string, unknown> | null;
   readonly allKennels: KennelOption[];
+  readonly allRegions: RegionOption[];
   readonly linkedKennelIds: string[];
   readonly geminiAvailable?: boolean;
 }
@@ -23,6 +25,7 @@ export function TroubleshootSection({
   type,
   config,
   allKennels,
+  allRegions,
   linkedKennelIds,
   geminiAvailable,
 }: TroubleshootSectionProps) {
@@ -57,6 +60,7 @@ export function TroubleshootSection({
             configJson={configJson}
             selectedKennels={selectedKennels}
             allKennels={allKennels}
+            allRegions={allRegions}
             geminiAvailable={geminiAvailable}
             onConfigChange={(c, j) => {
               setConfigObj(c);

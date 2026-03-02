@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { SourceForm } from "./SourceForm";
 import { toast } from "sonner";
+import type { RegionOption } from "./RegionCombobox";
 
 type SourceDetailData = {
   id: string;
@@ -28,11 +29,13 @@ type SourceDetailData = {
 interface SourceDetailActionsProps {
   source: SourceDetailData;
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
+  allRegions: RegionOption[];
 }
 
 export function SourceDetailActions({
   source,
   allKennels,
+  allRegions,
 }: SourceDetailActionsProps) {
   const [isPending, startTransition] = useTransition();
   const [isScraping, setIsScraping] = useState(false);
@@ -153,6 +156,7 @@ export function SourceDetailActions({
             <SourceForm
               source={source}
               allKennels={allKennels}
+              allRegions={allRegions}
               trigger={
                 <Button size="sm" variant="outline">
                   Edit

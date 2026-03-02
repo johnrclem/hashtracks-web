@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import { toast } from "sonner";
 import type { KennelOption } from "./config-panels/KennelTagInput";
+import type { RegionOption } from "./RegionCombobox";
 
 const SOURCE_TYPES = [
   "HTML_SCRAPER",
@@ -65,6 +66,7 @@ type StepId = (typeof STEPS)[number]["id"];
 
 interface SourceOnboardingWizardProps {
   allKennels: KennelOption[];
+  allRegions: RegionOption[];
   geminiAvailable?: boolean;
 }
 
@@ -106,6 +108,7 @@ function useNumericField(defaultValue: number, min: number, max: number) {
 /** Multi-phase guided wizard for onboarding a new data source (URL detection, config, preview). */
 export function SourceOnboardingWizard({
   allKennels,
+  allRegions,
   geminiAvailable,
 }: SourceOnboardingWizardProps) {
   const router = useRouter();
@@ -152,13 +155,15 @@ export function SourceOnboardingWizard({
     };
   }, [currentStep, name, urlValue, selectedType, configObj]);
 
-  function handleUrlDetect() {
-    const detected = detectSourceType(urlValue);
+  function handleUrlDetect(urlOverride?: string, { rewriteUrl = false } = {}) {
+    const url = urlOverride ?? urlValue;
+    const detected = detectSourceType(url);
     if (detected) {
       setSelectedType(detected.type);
       setDetectedType(detected.type);
 
-      if (detected.extractedUrl) {
+      // Only rewrite the URL field on blur to avoid replacing input mid-type
+      if (rewriteUrl && detected.extractedUrl) {
         setUrlValue(detected.extractedUrl);
       }
 
@@ -300,13 +305,22 @@ export function SourceOnboardingWizard({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="url">URL *</Label>
+                <Label htmlFor="url">
+                  {selectedType === "GOOGLE_CALENDAR" ? "Calendar ID or URL" : "URL"} *
+                </Label>
                 <Input
                   id="url"
                   value={urlValue}
-                  onChange={(e) => setUrlValue(e.target.value)}
-                  onBlur={handleUrlDetect}
-                  placeholder="https://hashnyc.com or a Google Calendar/Sheets URL"
+                  onChange={(e) => {
+                    setUrlValue(e.target.value);
+                    handleUrlDetect(e.target.value);
+                  }}
+                  onBlur={() => handleUrlDetect(undefined, { rewriteUrl: true })}
+                  placeholder={
+                    selectedType === "GOOGLE_CALENDAR"
+                      ? "e.g., pormeh3hashcash@gmail.com or full calendar URL"
+                      : "https://hashnyc.com or a Google Calendar/Sheets URL"
+                  }
                   autoFocus
                 />
                 {detectedType && (
@@ -465,6 +479,7 @@ export function SourceOnboardingWizard({
                 configJson={configJson}
                 selectedKennels={selectedKennels}
                 allKennels={allKennels}
+                allRegions={allRegions}
                 geminiAvailable={geminiAvailable}
                 onConfigChange={(c, j) => {
                   setConfigObj(c);
@@ -598,6 +613,11 @@ export function SourceOnboardingWizard({
               {!urlValue.trim() && (
                 <p className="text-sm text-destructive">
                   Source URL is required. Go back to the URL step.
+                </p>
+              )}
+              {selectedKennels.length === 0 && name.trim() && urlValue.trim() && (
+                <p className="text-sm text-amber-600">
+                  No kennels linked — events from this source won&apos;t appear in the hareline until at least one kennel is linked.
                 </p>
               )}
             </CardContent>
