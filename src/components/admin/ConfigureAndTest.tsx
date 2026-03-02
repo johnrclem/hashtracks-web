@@ -170,6 +170,7 @@ export function ConfigureAndTest({
   type AiSuggestionState = "idle" | "loading" | "done" | "dismissed" | "error";
   const [aiState, setAiState] = useState<AiSuggestionState>("idle");
   const [aiSuggestion, setAiSuggestion] = useState<ConfigSuggestion | null>(null);
+  const [aiErrorMessage, setAiErrorMessage] = useState<string | null>(null);
 
   const allKennelsWithExtra = [...allKennels, ...extraKennels];
 
@@ -191,8 +192,27 @@ export function ConfigureAndTest({
 
   const panelType = getPanelType();
 
+  const triggerAiSuggestion = useCallback(() => {
+    setAiState("loading");
+    setAiErrorMessage(null);
+    suggestSourceConfig(url, type)
+      .then((result) => {
+        if ("error" in result) {
+          setAiErrorMessage(result.error);
+          setAiState("error");
+          return;
+        }
+        setAiSuggestion(result.suggestion);
+        setAiErrorMessage(null);
+        setAiState("done");
+      })
+      .catch((err) => {
+        setAiErrorMessage(err instanceof Error ? err.message : "Unexpected error — try again.");
+        setAiState("error");
+      });
+  }, [url, type]);
+
   // Auto-trigger AI config suggestion on mount when config is empty or incomplete
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!TYPES_WITH_AI_SUGGESTION.has(type)) return;
     if (type !== "HTML_SCRAPER" && !geminiAvailable) return;
@@ -203,18 +223,11 @@ export function ConfigureAndTest({
       if (config?.kennelTag) return; // MEETUP fully configured, skip
     }
     if (!url.trim()) return;
-    setAiState("loading");
-    suggestSourceConfig(url, type)
-      .then((result) => {
-        if ("error" in result) { setAiState("error"); return; }
-        setAiSuggestion(result.suggestion);
-        setAiState("done");
-      })
-      .catch(() => setAiState("error"));
+    triggerAiSuggestion();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only on mount
 
   // Auto-run on mount if config is non-empty
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (configJson.trim() && url.trim()) {
       // Don't auto-preview MEETUP with partial config (missing kennelTag)
@@ -223,6 +236,7 @@ export function ConfigureAndTest({
       }
       runPreview();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only on mount
 
   /**
@@ -331,6 +345,21 @@ export function ConfigureAndTest({
     if (newIds.length > 0) onKennelsChange(mergedKennels);
 
     setAiState("dismissed");
+
+    // If AI suggested a new kennel that doesn't exist yet, pre-populate the Quick Kennel form
+    if (aiSuggestion.suggestedNewKennel) {
+      const { shortName, fullName, region } = aiSuggestion.suggestedNewKennel;
+      const isKnown = allKennelsWithExtra.some(
+        (k) => k.shortName.toLowerCase() === shortName.toLowerCase(),
+      );
+      if (!isKnown) {
+        setQuickKennelShortName(shortName);
+        setQuickKennelFullName(fullName);
+        setQuickKennelRegion(region);
+        setQuickKennelOpen(true);
+      }
+    }
+
     // For MEETUP: don't auto-preview if kennelTag is missing (partial config from URL extraction only)
     if (type === "MEETUP" && suggested && !suggested.kennelTag) return;
     if (hasConfig) runPreview(json, mergedKennels);
@@ -397,15 +426,25 @@ export function ConfigureAndTest({
           </div>
         )}
         {aiState === "error" && (
-          <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-            <span>AI suggestion unavailable — configure manually below.</span>
-            <button
-              type="button"
-              className="shrink-0 opacity-70 hover:opacity-100"
-              onClick={() => setAiState("dismissed")}
+          <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            <div className="flex items-center justify-between gap-2">
+              <span>{aiErrorMessage ?? "AI suggestion unavailable — configure manually below."}</span>
+              <button
+                type="button"
+                className="shrink-0 opacity-70 hover:opacity-100"
+                onClick={() => { setAiState("dismissed"); setAiErrorMessage(null); }}
+              >
+                ✕
+              </button>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={triggerAiSuggestion}
             >
-              ✕
-            </button>
+              Retry
+            </Button>
           </div>
         )}
         {aiState === "done" && aiSuggestion && (
@@ -417,6 +456,11 @@ export function ConfigureAndTest({
                   <Badge variant="outline" className="text-xs">{aiSuggestion.confidence}</Badge>
                   {aiSuggestion.adapterNote && (
                     <Badge variant="secondary" className="text-xs">{aiSuggestion.adapterNote}</Badge>
+                  )}
+                  {aiSuggestion.suggestedNewKennel && (
+                    <Badge variant="secondary" className="border-blue-300 text-blue-700 text-xs">
+                      New kennel: {aiSuggestion.suggestedNewKennel.shortName}
+                    </Badge>
                   )}
                 </p>
                 <p className="text-xs text-muted-foreground">{aiSuggestion.explanation}</p>
