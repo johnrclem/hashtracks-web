@@ -278,6 +278,12 @@ export function PreviewResults({ data, allKennels, onAliasCreated }: PreviewResu
             — showing first {data.events.length}
           </span>
         )}
+        {typeof data.diagnosticContext?.eventsFound === "number" &&
+          data.diagnosticContext.eventsFound > data.totalCount && (
+          <span className="text-xs text-muted-foreground">
+            ({data.diagnosticContext.eventsFound} total from source, {data.totalCount} within lookback window)
+          </span>
+        )}
         {data.unmatchedTags.length > 0 && (
           <Badge variant="outline" className="border-amber-300 text-amber-700">
             {data.unmatchedTags.length} unmatched
@@ -331,13 +337,13 @@ export function PreviewResults({ data, allKennels, onAliasCreated }: PreviewResu
                       {event.kennelTag}
                     </Badge>
                   </td>
-                  <td className="max-w-[200px] truncate px-2 py-1">
+                  <td className="max-w-[200px] truncate px-2 py-1" title={event.title || undefined}>
                     {event.title || "—"}
                   </td>
-                  <td className="hidden max-w-[150px] truncate px-2 py-1 sm:table-cell">
+                  <td className="hidden max-w-[150px] truncate px-2 py-1 sm:table-cell" title={event.location || undefined}>
                     {event.location || "—"}
                   </td>
-                  <td className="hidden max-w-[120px] truncate px-2 py-1 md:table-cell">
+                  <td className="hidden max-w-[120px] truncate px-2 py-1 md:table-cell" title={event.hares || undefined}>
                     {event.hares || "—"}
                   </td>
                   <td className="whitespace-nowrap px-2 py-1">

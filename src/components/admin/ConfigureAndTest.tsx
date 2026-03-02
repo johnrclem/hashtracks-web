@@ -360,10 +360,17 @@ export function ConfigureAndTest({
         setQuickKennelShortName(shortName);
         setQuickKennelFullName(fullName);
         // Try to match AI-suggested region string to a RegionOption
-        const matchedRegion = allRegions.find(
-          (r) => r.name.toLowerCase() === region.toLowerCase() ||
-                 r.abbrev.toLowerCase() === region.toLowerCase(),
-        );
+        // AI returns "City, ST" format — try exact, then substring match
+        const regionLower = region.toLowerCase();
+        const matchedRegion =
+          allRegions.find(
+            (r) => r.name.toLowerCase() === regionLower ||
+                   r.abbrev.toLowerCase() === regionLower,
+          ) ??
+          allRegions.find(
+            (r) => regionLower.includes(r.name.toLowerCase()) ||
+                   r.name.toLowerCase().includes(regionLower),
+          );
         setQuickKennelRegionId(matchedRegion?.id ?? "");
         setQuickKennelOpen(true);
       }
@@ -738,6 +745,11 @@ export function ConfigureAndTest({
                 onChange={setQuickKennelFullName}
                 placeholder="New York City Hash House Harriers"
               />
+              {!quickKennelRegionId && quickKennelShortName.trim() && (
+                <p className="text-xs text-amber-600">
+                  Select a region to enable &ldquo;Create &amp; Link&rdquo;
+                </p>
+              )}
               <div className="flex gap-2">
                 <Button
                   type="button"

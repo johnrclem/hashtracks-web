@@ -615,6 +615,11 @@ export function SourceOnboardingWizard({
                   Source URL is required. Go back to the URL step.
                 </p>
               )}
+              {selectedKennels.length === 0 && name.trim() && urlValue.trim() && (
+                <p className="text-sm text-amber-600">
+                  No kennels linked — events from this source won&apos;t appear in the hareline until at least one kennel is linked.
+                </p>
+              )}
             </CardContent>
           </>
         )}
