@@ -23,14 +23,14 @@ Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent
 
 ## What Varies Per Source (the adapter-specific work)
 
-| Concern | HTML Scraper | Google Calendar | Google Sheets | iCal Feed | Blogger API |
-|---------|-------------|----------------|--------------|-----------|-------------|
-| Data access | HTTP GET + Cheerio parse | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse | Blogger API v3 (blog ID discovery + posts endpoint) |
-| Auth needed | None | API key | API key (tab discovery only) | None | API key (same `GOOGLE_CALENDAR_API_KEY`) |
-| Kennel tags | Regex patterns on event text | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` | Hardcoded per adapter (single-kennel Blogspot blogs) |
-| Date format | Site-specific (ordinals, DD/MM/YYYY, US dates) | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY | ISO 8601 / DTSTART | API returns ISO 8601 `published`; post body parsed with site-specific logic |
-| Routing | URL-based (`htmlScrapersByUrl` in registry) | Shared adapter (single class) | Shared adapter (config-driven) | Shared adapter (config-driven) | URL-based (reuses `htmlScrapersByUrl` routing, Blogger API is primary fetch with HTML fallback) |
-| Complexity | High (structural HTML, site-specific) | Medium (clean API) | Low (column mapping) | Low-Medium (config-driven, but iCal quirks) | Medium (shared `fetchBloggerPosts()` utility + site-specific body parsing) |
+| Concern | HTML Scraper | Google Calendar | Google Sheets | iCal Feed | Blogger API | Meetup | Hash Rego |
+|---------|-------------|----------------|--------------|-----------|-------------|--------|-----------|
+| Data access | HTTP GET + Cheerio parse | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse | Blogger API v3 (blog ID discovery + posts endpoint) | Meetup public REST API | HTTP GET + Cheerio parse (index + detail pages) |
+| Auth needed | None | API key | API key (tab discovery only) | None | API key (same `GOOGLE_CALENDAR_API_KEY`) | None (public groups) | None |
+| Kennel tags | Regex patterns on event text | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` | Hardcoded per adapter (single-kennel Blogspot blogs) | `config.kennelTag` (single kennel, all events) | Per-event from Hash Rego data, filtered by `config.kennelSlugs` |
+| Date format | Site-specific (ordinals, DD/MM/YYYY, US dates) | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY | ISO 8601 / DTSTART | API returns ISO 8601 `published`; post body parsed with site-specific logic | ISO 8601 (`local_date`) | Site-specific HTML parsing |
+| Routing | URL-based (`htmlScrapersByUrl` in registry) | Shared adapter (single class) | Shared adapter (config-driven) | Shared adapter (config-driven) | URL-based (reuses `htmlScrapersByUrl` routing, Blogger API is primary fetch with HTML fallback) | Shared adapter (config-driven) | Shared adapter (config-driven) |
+| Complexity | High (structural HTML, site-specific) | Medium (clean API) | Low (column mapping) | Low-Medium (config-driven, but iCal quirks) | Medium (shared `fetchBloggerPosts()` utility + site-specific body parsing) | Low (config-driven, AI-assisted) | Medium (index + detail page scraping) |
 
 ---
 
@@ -62,6 +62,13 @@ curl "https://sheets.googleapis.com/v4/spreadsheets/{sheetId}?fields=sheets.prop
 curl "https://docs.google.com/spreadsheets/d/{sheetId}/gviz/tq?tqx=out:csv&sheet={tabName}"
 ```
 
+**For Meetup groups:**
+```bash
+curl -s "https://api.meetup.com/savannah-hash-house-harriers/events" | jq '.[0]'
+# Look for: name, local_date, local_time, venue.name, venue.address_1, description
+# No API key needed — public groups are accessible without auth
+```
+
 **For iCal feeds:**
 ```bash
 curl -s "https://example.com/calendar.ics" | head -100
@@ -89,6 +96,8 @@ Existing adapter types:
 - `GOOGLE_CALENDAR` — For Google Calendar API v3 feeds. Single shared adapter, configured via `Source.config` JSON (kennelPatterns, defaultKennelTag). Currently: Boston, BFM, Philly, Chicagoland, EWH3, SHITH3.
 - `GOOGLE_SHEETS` — For published Google Sheets (config-driven, reusable without code changes). Column mappings, kennel tag rules, start time rules in `Source.config`. Currently: Summit H3, W3H3.
 - `ICAL_FEED` — For standard iCal (.ics) feeds via `node-ical`. Config-driven kennelPatterns + skipPatterns. Currently: SFH3 MultiHash aggregator.
+- `MEETUP` — For public Meetup.com groups. Single shared adapter, config-driven (no code changes needed). Config requires `groupUrlname` (extracted from URL) and `kennelTag` (single kennel shortName). Currently: Hash Rego lists some Meetup-hosted kennels. **No API key required** — uses Meetup's public REST API.
+- `HASHREGO` — For kennels listed on hashrego.com. Config-driven with `kennelSlugs` array (multi-kennel). Currently: 8 kennels (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3, FCH3).
 
 If none fit, create a new adapter implementing `SourceAdapter` from `src/adapters/types.ts`.
 
@@ -116,6 +125,29 @@ config: {
   ],
   defaultKennelTag: "SFH3",
   skipPatterns: ["^Hand Pump", "^Workday"], // events to exclude entirely
+}
+```
+
+**For Meetup groups (config-driven, AI-assisted):**
+Use the **Admin → Sources → New** wizard. Paste the Meetup group URL (e.g., `https://www.meetup.com/savannah-hash-house-harriers/events/`). The wizard will:
+1. Auto-detect the source type as `MEETUP`
+2. Auto-populate `groupUrlname` from the URL
+3. Fire an AI suggestion that fetches sample events and suggests the proper `kennelTag`
+4. Accept the suggestion → both fields populated, ready to test
+
+The resulting config is simple:
+```typescript
+config: {
+  groupUrlname: "savannah-hash-house-harriers",
+  kennelTag: "SavH3",    // all events from this group map to this kennel
+}
+```
+**Note**: If the kennel doesn't exist yet, create it first via Admin → Kennels (or the quick-create in the wizard), then re-test.
+
+**For Hash Rego (config-driven, multi-kennel):**
+```typescript
+config: {
+  kennelSlugs: ["BFMH3", "EWH3", "WH4", "GFH3"],  // Hash Rego kennel identifiers
 }
 ```
 
@@ -349,6 +381,8 @@ git add . && git commit && git push
 23. **Google/Blogger blocks cloud provider IPs** — Blogspot/Blogger sites return 403 Forbidden to server-side requests from Vercel, AWS, GCP, and other cloud IPs. This is a platform-level block (bot detection), not a header issue. Use the **Blogger API v3** instead of direct HTML scraping for any Blogspot-hosted source.
 24. **Blogger API v3 uses the same Google API key** — Enable the Blogger API in GCP Console, then use `GOOGLE_CALENDAR_API_KEY` (same key as Calendar/Sheets). No new env var needed. Blog ID discovery via `/blogs/byurl` + post fetching via `/blogs/{id}/posts`.
 25. **Always add HTML scraping fallback for Blogger API sources** — If the API key is missing or the Blogger API isn't enabled, the adapter should fall back to direct HTML scraping. This ensures the scraper works in development environments without API keys (though it will still 403 from cloud IPs).
+26. **Meetup sources need zero code changes** — The MEETUP adapter is fully config-driven. The admin wizard auto-detects the source type from the URL, auto-populates `groupUrlname`, and uses AI to suggest the `kennelTag`. No API key required — Meetup's public REST API is unauthenticated for public groups.
+27. **AI config suggestion bootstraps Meetup onboarding** — The Meetup adapter requires both `groupUrlname` and `kennelTag` in config, but the AI suggestion flow extracts `groupUrlname` from the URL and uses it as a placeholder to fetch sample events. Gemini then analyzes event titles against known kennels to suggest the proper `kennelTag`. This solves the chicken-and-egg problem where config is needed to fetch, but fetching is needed to suggest config.
 
 ---
 

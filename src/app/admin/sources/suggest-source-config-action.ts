@@ -99,6 +99,11 @@ export async function suggestSourceConfig(
     if (urlError) return { error: urlError };
   }
 
+  // MEETUP: extract groupUrlname from URL to bootstrap event fetching (adapter needs config)
+  if (type === "MEETUP") {
+    return buildMeetupSuggestion(url, type, client);
+  }
+
   const sampleResult = await fetchSampleEvents(url, type as SourceType);
   if ("error" in sampleResult) return { error: sampleResult.error };
 
@@ -133,17 +138,56 @@ function buildHtmlScraperSuggestion(url: string): SuggestConfigResult {
   };
 }
 
+/** Bootstrap a Meetup config suggestion by extracting groupUrlname from the URL. */
+async function buildMeetupSuggestion(
+  url: string,
+  type: string,
+  client: GoogleGenAI,
+): Promise<SuggestConfigResult> {
+  const groupUrlname = await extractMeetupGroupUrlname(url);
+  if (!groupUrlname) {
+    return { error: "Could not extract Meetup group name from URL" };
+  }
+  const sampleResult = await fetchSampleEvents(
+    url, "MEETUP", { groupUrlname, kennelTag: groupUrlname }, "this Meetup group",
+  );
+  if ("error" in sampleResult) return { error: sampleResult.error };
+
+  const result = await buildGeminiSuggestion(url, type, sampleResult.events, client);
+  // Ensure groupUrlname is included so "Accept & Test" produces a complete config
+  if ("suggestion" in result) {
+    result.suggestion.suggestedConfig = {
+      groupUrlname,
+      ...result.suggestion.suggestedConfig,
+    };
+  }
+  return result;
+}
+
+/** Extract the Meetup group URL name from a meetup.com URL. */
+export async function extractMeetupGroupUrlname(rawUrl: string): Promise<string | null> {
+  try {
+    const url = new URL(rawUrl);
+    if (url.hostname !== "meetup.com" && !url.hostname.endsWith(".meetup.com")) return null;
+    return url.pathname.split("/").find(Boolean) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Fetch sample events via mock-Source pattern. Returns events or a user-safe error message. */
 async function fetchSampleEvents(
   url: string,
   type: SourceType,
+  config?: Record<string, unknown>,
+  contextLabel = "this URL",
 ): Promise<{ events: RawEventData[] } | { error: string }> {
   const mockSource = {
     id: "preview",
     name: "Preview",
     url,
     type,
-    config: null,
+    config: config ?? null,
     trustLevel: 5,
     scrapeFreq: "daily",
     scrapeDays: SAMPLE_LOOKBACK_DAYS,
@@ -161,13 +205,13 @@ async function fetchSampleEvents(
     if (result.events.length === 0) {
       const detail = result.errors.length > 0 ? ` (${result.errors[0]})` : "";
       return {
-        error: `No events found at this URL${detail} — check that the URL is correct and accessible.`,
+        error: `No events found at ${contextLabel}${detail} — check that the URL is correct and accessible.`,
       };
     }
     return { events: result.events };
   } catch {
     return {
-      error: "Could not fetch sample events — check that the URL is correct and accessible.",
+      error: `Could not fetch sample events from ${contextLabel} — check that the URL is correct and accessible.`,
     };
   }
 }
@@ -301,7 +345,7 @@ function buildTypeInstructions(type: string, tagCounts: Map<string, number>): st
 
     case "RSS_FEED":
     case "MEETUP":
-      return buildSingleKennelInstructions(uniqueTags, firstTag);
+      return buildSingleKennelInstructions(type, uniqueTags, firstTag);
 
     case "HASHREGO": {
       const tags = [...tagCounts.keys()];
@@ -327,15 +371,16 @@ Each pattern [regex, tag] should match event titles to their kennel. Use the mos
 Also add skipPatterns if any events appear to be non-hash content.`;
 }
 
-function buildSingleKennelInstructions(uniqueTags: number, firstTag: string | undefined): string {
+function buildSingleKennelInstructions(type: string, uniqueTags: number, firstTag: string | undefined): string {
+  const isPlaceholderSlug = type === "MEETUP" && firstTag?.includes("-");
   if (uniqueTags === 1 && firstTag) {
-    return `This source has a single kennel tag "${firstTag}". Suggest config:
+    return `This source has a single kennel tag "${firstTag}".${isPlaceholderSlug ? " (This is a Meetup URL slug used as placeholder — derive the real kennel shortName from event titles and the known kennels list.)" : ""} Suggest config:
 {"kennelTag":"MATCHED_SHORTNAME"}
-Match the tag to the closest kennel shortName in the known kennels list.`;
+Match the tag to the closest kennel shortName in the known kennels list. If no exact match exists, suggest a reasonable shortName abbreviation (e.g. "SavH3" for Savannah Hash House Harriers).`;
   }
   return `This source has ${uniqueTags} kennel tags. Suggest the dominant kennel tag:
 {"kennelTag":"MATCHED_SHORTNAME"}
-Use the tag with the most events. Match it to the closest kennel shortName in the known kennels list.`;
+Use the tag with the most events. Match it to the closest kennel shortName in the known kennels list. If no exact match exists, suggest a reasonable shortName abbreviation.`;
 }
 
 // ─── Config validation ────────────────────────────────────────────────────────

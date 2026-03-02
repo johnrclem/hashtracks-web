@@ -20,7 +20,7 @@ interface MeetupConfigPanelProps {
 function extractGroupUrlname(value: string): string {
   try {
     const url = new URL(value.startsWith("http") ? value : `https://${value}`);
-    if (url.hostname.includes("meetup.com")) {
+    if (url.hostname === "meetup.com" || url.hostname.endsWith(".meetup.com")) {
       // https://www.meetup.com/brooklyn-hash-house-harriers/
       const parts = url.pathname.split("/").filter(Boolean);
       if (parts.length > 0) return parts[0];

@@ -76,11 +76,12 @@ const PANEL_TYPES = new Set([
 ]);
 
 /**
- * Types that can receive an AI config suggestion on mount (empty config only).
- * Only includes types whose adapters can fetch sample events without pre-existing config.
- * RSS_FEED, MEETUP, HASHREGO are excluded — they require config to fetch any events.
+ * Types that can receive an AI config suggestion on mount.
+ * MEETUP is included: the AI extracts groupUrlname from the URL to bootstrap event fetching,
+ * then suggests a proper kennelTag from the event data.
+ * RSS_FEED, HASHREGO are excluded — they require full config to fetch any events.
  */
-const TYPES_WITH_AI_SUGGESTION = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HTML_SCRAPER"]);
+const TYPES_WITH_AI_SUGGESTION = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HTML_SCRAPER", "MEETUP"]);
 
 function hasICalConfigShape(config: unknown): boolean {
   if (!config || typeof config !== "object" || Array.isArray(config)) return false;
@@ -190,12 +191,17 @@ export function ConfigureAndTest({
 
   const panelType = getPanelType();
 
-  // Auto-trigger AI config suggestion on mount when config is empty
+  // Auto-trigger AI config suggestion on mount when config is empty or incomplete
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!TYPES_WITH_AI_SUGGESTION.has(type)) return;
     if (type !== "HTML_SCRAPER" && !geminiAvailable) return;
-    if (configJson.trim()) return; // skip if already configured
+    // Skip if fully configured — but for MEETUP, trigger even with partial config
+    // (has groupUrlname from URL detection but no kennelTag yet)
+    if (configJson.trim()) {
+      if (type !== "MEETUP") return;
+      if (config?.kennelTag) return; // MEETUP fully configured, skip
+    }
     if (!url.trim()) return;
     setAiState("loading");
     suggestSourceConfig(url, type)
@@ -211,6 +217,10 @@ export function ConfigureAndTest({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (configJson.trim() && url.trim()) {
+      // Don't auto-preview MEETUP with partial config (missing kennelTag)
+      if (type === "MEETUP") {
+        if (!config?.kennelTag) return;
+      }
       runPreview();
     }
   }, []); // Only on mount
@@ -299,10 +309,17 @@ export function ConfigureAndTest({
 
   function handleAcceptSuggestion() {
     if (!aiSuggestion) return;
-    const hasConfig = Object.keys(aiSuggestion.suggestedConfig).length > 0;
+    let suggested = aiSuggestion.suggestedConfig;
+    // For MEETUP: preserve existing groupUrlname if the suggestion doesn't include it
+    if (type === "MEETUP" && config) {
+      if (config.groupUrlname && !suggested.groupUrlname) {
+        suggested = { groupUrlname: config.groupUrlname, ...suggested };
+      }
+    }
+    const hasConfig = Object.keys(suggested).length > 0;
     // Use empty string (not "{}") so the "config is empty" checks remain consistent
-    const configObj = hasConfig ? aiSuggestion.suggestedConfig : null;
-    const json = hasConfig ? JSON.stringify(aiSuggestion.suggestedConfig, null, 2) : "";
+    const configObj = hasConfig ? suggested : null;
+    const json = hasConfig ? JSON.stringify(suggested, null, 2) : "";
     onConfigChange(configObj, json);
 
     // Compute the merged kennel list once to avoid stale-closure issues in the preview callback
@@ -314,6 +331,8 @@ export function ConfigureAndTest({
     if (newIds.length > 0) onKennelsChange(mergedKennels);
 
     setAiState("dismissed");
+    // For MEETUP: don't auto-preview if kennelTag is missing (partial config from URL extraction only)
+    if (type === "MEETUP" && suggested && !suggested.kennelTag) return;
     if (hasConfig) runPreview(json, mergedKennels);
   }
 
