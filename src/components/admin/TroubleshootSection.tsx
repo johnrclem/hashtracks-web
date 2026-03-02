@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ConfigureAndTest } from "./ConfigureAndTest";
 import type { KennelOption } from "./config-panels/KennelTagInput";
-import type { RegionOption } from "./KennelForm";
+import type { RegionOption } from "./RegionCombobox";
 
 interface TroubleshootSectionProps {
   readonly url: string;

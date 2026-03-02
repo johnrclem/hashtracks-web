@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { fetchKennelsAndRegions } from "./queries";
 import { SourceTable } from "@/components/admin/SourceTable";
 import { RefreshAllButton } from "@/components/admin/RefreshAllButton";
 import { Button } from "@/components/ui/button";
@@ -25,16 +26,7 @@ export default async function AdminSourcesPage() {
     }),
   ]);
 
-  const [allKennels, allRegions] = await Promise.all([
-    prisma.kennel.findMany({
-      orderBy: { shortName: "asc" },
-      select: { id: true, shortName: true, fullName: true, region: true },
-    }),
-    prisma.region.findMany({
-      orderBy: [{ country: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, country: true, abbrev: true },
-    }),
-  ]);
+  const { allKennels, allRegions } = await fetchKennelsAndRegions();
 
   // Build a map of sourceId → unmatched tags from open alerts
   const alertTagsBySource = new Map<string, string[]>();

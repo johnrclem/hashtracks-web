@@ -38,7 +38,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { KennelForm, type RegionOption } from "./KennelForm";
+import { KennelForm } from "./KennelForm";
+import type { RegionOption } from "./RegionCombobox";
 import { toast } from "sonner";
 
 type Kennel = {

@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/card";
 import { toast } from "sonner";
 import type { KennelOption } from "./config-panels/KennelTagInput";
-import type { RegionOption } from "./KennelForm";
+import type { RegionOption } from "./RegionCombobox";
 
 const SOURCE_TYPES = [
   "HTML_SCRAPER",

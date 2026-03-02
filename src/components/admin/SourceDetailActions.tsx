@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { SourceForm } from "./SourceForm";
 import { toast } from "sonner";
-import type { RegionOption } from "./KennelForm";
+import type { RegionOption } from "./RegionCombobox";
 
 type SourceDetailData = {
   id: string;

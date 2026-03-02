@@ -35,7 +35,7 @@ import {
 import { SourceForm } from "./SourceForm";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import { toast } from "sonner";
-import type { RegionOption } from "./KennelForm";
+import type { RegionOption } from "./RegionCombobox";
 
 type SourceData = {
   id: string;

@@ -11,7 +11,7 @@ import {
   type ConfigSuggestion,
 } from "@/app/admin/sources/suggest-source-config-action";
 import { PreviewResults } from "./PreviewResults";
-import type { RegionOption } from "./KennelForm";
+import type { RegionOption } from "./RegionCombobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,21 +23,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { RegionCombobox } from "./RegionCombobox";
 import { toast } from "sonner";
 import {
   CalendarConfigPanel,
@@ -176,7 +162,6 @@ export function ConfigureAndTest({
   const [quickKennelShortName, setQuickKennelShortName] = useState("");
   const [quickKennelFullName, setQuickKennelFullName] = useState("");
   const [quickKennelRegionId, setQuickKennelRegionId] = useState("");
-  const [regionPopoverOpen, setRegionPopoverOpen] = useState(false);
   const [isCreatingKennel, startCreatingKennel] = useTransition();
 
   // Kennel search
@@ -737,59 +722,13 @@ export function ConfigureAndTest({
                 />
                 <div className="space-y-1">
                   <Label htmlFor="qk-region" className="text-xs">Region *</Label>
-                  <Popover open={regionPopoverOpen} onOpenChange={setRegionPopoverOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id="qk-region"
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={regionPopoverOpen}
-                        className="h-7 w-full justify-between text-xs font-normal"
-                      >
-                        {quickKennelRegionId
-                          ? allRegions.find((r) => r.id === quickKennelRegionId)?.name ?? "Select region..."
-                          : "Select region..."}
-                        <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[280px] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Search regions..." className="h-8 text-xs" />
-                        <CommandList>
-                          <CommandEmpty>No region found.</CommandEmpty>
-                          {Object.entries(
-                            allRegions.reduce<Record<string, RegionOption[]>>((acc, r) => {
-                              if (!acc[r.country]) acc[r.country] = [];
-                              acc[r.country].push(r);
-                              return acc;
-                            }, {}),
-                          ).map(([country, countryRegions]) => (
-                            <CommandGroup key={country} heading={country}>
-                              {countryRegions.map((r) => (
-                                <CommandItem
-                                  key={r.id}
-                                  value={`${r.name} ${r.abbrev}`}
-                                  onSelect={() => {
-                                    setQuickKennelRegionId(r.id);
-                                    setRegionPopoverOpen(false);
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-3 w-3",
-                                      quickKennelRegionId === r.id ? "opacity-100" : "opacity-0",
-                                    )}
-                                  />
-                                  <span className="text-xs">{r.name}</span>
-                                  <span className="ml-auto text-xs text-muted-foreground">{r.abbrev}</span>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          ))}
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                  <RegionCombobox
+                    id="qk-region"
+                    value={quickKennelRegionId}
+                    regions={allRegions}
+                    onSelect={setQuickKennelRegionId}
+                    size="sm"
+                  />
                 </div>
               </div>
               <QuickKennelField
