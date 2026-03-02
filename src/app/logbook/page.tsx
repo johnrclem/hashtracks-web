@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { BarChart2 } from "lucide-react";
+import { ChartNoAxesColumn } from "lucide-react";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { LogbookList } from "@/components/logbook/LogbookList";
@@ -77,7 +77,7 @@ export default async function LogbookPage() {
           href="/logbook/stats"
           className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
         >
-          <BarChart2 size={14} />
+          <ChartNoAxesColumn size={14} />
           View Stats
         </Link>
       </div>

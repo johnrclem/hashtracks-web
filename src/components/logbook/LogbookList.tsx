@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useTransition } from "react";
-import type { Dispatch, SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -30,7 +29,8 @@ import {
 import { AttendanceBadge } from "./AttendanceBadge";
 import { EditAttendanceDialog } from "./EditAttendanceDialog";
 import type { AttendanceData } from "./CheckInButton";
-import { participationLevelAbbrev, participationLevelLabel, PARTICIPATION_LEVELS } from "@/lib/format";
+import { participationLevelAbbrev, participationLevelLabel, PARTICIPATION_LEVELS, toggleArrayItem } from "@/lib/format";
+import { getTodayUtcNoon } from "@/lib/date";
 import { confirmAttendance, deleteAttendance } from "@/app/logbook/actions";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 
@@ -58,9 +58,6 @@ interface LogbookListProps {
   stravaConnected?: boolean;
 }
 
-function toggleFilter<T extends string>(setter: Dispatch<SetStateAction<T[]>>, value: T) {
-  setter((prev) => prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]);
-}
 
 /** Format ISO date string to locale-friendly display (exported for testing). */
 export function formatLogbookDate(iso: string): string {
@@ -128,14 +125,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  // Determine "today" boundary for past/future event checks (UTC noon)
-  const now = new Date();
-  const todayUtcNoon = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    12, 0, 0,
-  );
+  const todayUtcNoon = getTodayUtcNoon();
 
   function handleRemove(attendanceId: string) {
     startTransition(async () => {
@@ -407,7 +397,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                   {regions.map((region) => (
                     <CommandItem
                       key={region}
-                      onSelect={() => toggleFilter(setSelectedRegions, region)}
+                      onSelect={() => setSelectedRegions(prev => toggleArrayItem(prev, region))}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
@@ -450,7 +440,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                     <CommandItem
                       key={kennel.id}
                       value={`${kennel.shortName} ${kennel.fullName} ${kennel.region}`}
-                      onSelect={() => toggleFilter(setSelectedKennels, kennel.id)}
+                      onSelect={() => setSelectedKennels(prev => toggleArrayItem(prev, kennel.id))}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
@@ -490,7 +480,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                   {PARTICIPATION_LEVELS.map((level) => (
                     <CommandItem
                       key={level}
-                      onSelect={() => toggleFilter(setSelectedLevels, level)}
+                      onSelect={() => setSelectedLevels(prev => toggleArrayItem(prev, level))}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
