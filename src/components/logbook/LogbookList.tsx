@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition, useEffect } from "react";
+import { useState, useMemo, useTransition } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -30,7 +30,7 @@ import {
 import { AttendanceBadge } from "./AttendanceBadge";
 import { EditAttendanceDialog } from "./EditAttendanceDialog";
 import type { AttendanceData } from "./CheckInButton";
-import { formatTime, participationLevelLabel, PARTICIPATION_LEVELS } from "@/lib/format";
+import { participationLevelAbbrev, participationLevelLabel, PARTICIPATION_LEVELS } from "@/lib/format";
 import { confirmAttendance, deleteAttendance } from "@/app/logbook/actions";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 
@@ -89,10 +89,16 @@ export function filterLogbookEntries(
   });
 }
 
+/** Check whether a logbook entry represents a future RSVP. */
+function isUpcomingEntry(entry: LogbookEntry, todayUtcNoon: number): boolean {
+  return entry.attendance.status === "INTENDING"
+    && new Date(entry.event.date).getTime() > todayUtcNoon;
+}
+
 /** Derive a status label for accessibility (screen reader row summary). */
 function getStatusLabel(entry: LogbookEntry, todayUtcNoon: number): string {
   if (entry.event.status === "CANCELLED") return "Cancelled";
-  if (entry.attendance.status === "INTENDING" && new Date(entry.event.date).getTime() > todayUtcNoon) return "Going";
+  if (isUpcomingEntry(entry, todayUtcNoon)) return "Going";
   if (entry.attendance.status === "INTENDING") return "Pending confirmation";
   return participationLevelLabel(entry.attendance.participationLevel);
 }
@@ -120,7 +126,6 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
-  const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const router = useRouter();
 
   // Determine "today" boundary for past/future event checks (UTC noon)
@@ -174,32 +179,27 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
 
   const activeFilterCount = selectedRegions.length + selectedKennels.length + selectedLevels.length;
 
-  // Split into upcoming and past sections (UX-01)
-  const upcoming = useMemo(
-    () => filtered.filter((e) =>
-      e.attendance.status === "INTENDING" && new Date(e.event.date).getTime() > todayUtcNoon
-    ),
-    [filtered, todayUtcNoon],
-  );
+  // Split into upcoming and past sections in a single pass (UX-01)
+  const { upcoming, past } = useMemo(() => {
+    const up: LogbookEntry[] = [];
+    const pa: LogbookEntry[] = [];
+    for (const e of filtered) {
+      if (isUpcomingEntry(e, todayUtcNoon)) {
+        up.push(e);
+      } else {
+        pa.push(e);
+      }
+    }
+    return { upcoming: up, past: pa };
+  }, [filtered, todayUtcNoon]);
 
-  const past = useMemo(
-    () => filtered.filter((e) =>
-      !(e.attendance.status === "INTENDING" && new Date(e.event.date).getTime() > todayUtcNoon)
-    ),
-    [filtered, todayUtcNoon],
-  );
-
-  // Announce filter results to screen readers (a11y-04)
-  useEffect(() => {
+  // Derive screen reader announcement from filter state (a11y-04)
+  const liveAnnouncement = useMemo(() => {
     const total = filtered.length;
-    const msg = activeFilterCount > 0
+    return activeFilterCount > 0
       ? `Showing ${total} ${total === 1 ? "run" : "runs"}, filtered`
       : `Showing ${total} ${total === 1 ? "run" : "runs"}`;
-    setLiveAnnouncement(msg);
   }, [filtered.length, activeFilterCount]);
-
-  // Use module-level formatLogbookDate (exported for testing)
-  const formatDate = formatLogbookDate;
 
   if (entries.length === 0) {
     return (
@@ -217,9 +217,9 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
   }
 
   function renderRow(entry: LogbookEntry, index: number) {
-    const isUpcoming = entry.attendance.status === "INTENDING" && new Date(entry.event.date).getTime() > todayUtcNoon;
+    const isUpcoming = isUpcomingEntry(entry, todayUtcNoon);
     const statusLabel = getStatusLabel(entry, todayUtcNoon);
-    const rowLabel = `${formatDate(entry.event.date)} at ${entry.event.kennel.shortName}, ${entry.event.title || "no trail name"}, ${statusLabel}`;
+    const rowLabel = `${formatLogbookDate(entry.event.date)} at ${entry.event.kennel.shortName}, ${entry.event.title || "no trail name"}, ${statusLabel}`;
 
     return (
       <li
@@ -234,7 +234,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
             href={`/hareline/${entry.event.id}`}
             className="shrink-0 font-medium hover:underline sm:w-36"
           >
-            {formatDate(entry.event.date)}
+            {formatLogbookDate(entry.event.date)}
           </Link>
           <span className="shrink-0 sm:w-20">
             <Tooltip>
@@ -307,8 +307,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                   </Button>
                 )}
               </span>
-            ) : entry.attendance.status === "INTENDING" &&
-             new Date(entry.event.date).getTime() > todayUtcNoon ? (
+            ) : isUpcoming ? (
               <Badge
                 variant="outline"
                 className="h-7 cursor-pointer border-blue-300 text-blue-700"
@@ -525,7 +524,13 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
 
       {/* Role legend (UI-04) */}
       <p className="text-xs text-muted-foreground">
-        <span className="font-medium">R</span> Runner · <span className="font-medium">H</span> Hare · <span className="font-medium">W</span> Walk · <span className="font-medium">BH</span> Bag Hero · <span className="font-medium">DC</span> Drink Check · <span className="font-medium">BM</span> Beer Mile · <span className="font-medium">C</span> Circle Only
+        {PARTICIPATION_LEVELS.map((level, i) => (
+          <span key={level}>
+            {i > 0 && " · "}
+            <span className="font-medium">{participationLevelAbbrev(level)}</span>{" "}
+            {participationLevelLabel(level)}
+          </span>
+        ))}
       </p>
 
       {/* Live region for filter announcements (a11y-04) */}
