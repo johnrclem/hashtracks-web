@@ -410,8 +410,9 @@ export function ConfigureAndTest({
         resetQuickKennelForm();
         toast.success(`Kennel "${newKennel.shortName}" created and linked`);
         // Re-run preview to refresh unmatched tags (kennel now exists in DB)
+        // Pass updated kennels explicitly to avoid stale closure over selectedKennels
         if (previewData) {
-          runPreview();
+          runPreview(undefined, [...selectedKennels, newKennel.id]);
         }
       } else {
         toast.error(result.error);

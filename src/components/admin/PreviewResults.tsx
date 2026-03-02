@@ -313,10 +313,10 @@ export function PreviewResults({ data, allKennels, onAliasCreated }: PreviewResu
 
       {/* Fill rates */}
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-        <span>Title: {data.fillRates.title}%</span>
-        <span>Location: {data.fillRates.location}%</span>
+        <FillRateField label="Title" rate={data.fillRates.title} />
+        <FillRateField label="Location" rate={data.fillRates.location} />
         <FillRateField label="Hares" rate={data.fillRates.hares} note={FILL_RATE_NOTES[data.sourceType ?? ""]?.hares} />
-        <span>Time: {data.fillRates.startTime}%</span>
+        <FillRateField label="Time" rate={data.fillRates.startTime} />
         <FillRateField label="Run#" rate={data.fillRates.runNumber} note={FILL_RATE_NOTES[data.sourceType ?? ""]?.runNumber} />
       </div>
 
