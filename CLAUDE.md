@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 84 test files)
+- `npm test` — Run test suite (Vitest, 90 test files)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -82,12 +82,12 @@ calendar + personal logbook + kennel directory.
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 25 models + 17 enums (THE source of truth for types)
-- `prisma/seed.ts` — 79 kennels, 246 aliases, 29 sources, 26 regions (first-class model with hierarchy)
+- `prisma/seed.ts` — 76 kennels, 246 aliases, 30 sources, 36 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
 - `src/lib/format.ts` — Shared utilities: time formatting, date formatting, participation levels, schedule formatting, social URL helpers
-- `src/lib/region.ts` — Region seed data (26 regions), sync fallback lookups (timezone, colors, centroids, abbrev), region slug generation
+- `src/lib/region.ts` — Region seed data (36 regions), sync fallback lookups (timezone, colors, centroids, abbrev), region slug generation
 - `src/lib/calendar.ts` — Google Calendar URL + .ics file generation (client-side)
 - `src/middleware.ts` — Clerk route protection (public vs authenticated routes)
 - `src/adapters/types.ts` — SourceAdapter interface + RawEventData types
@@ -209,11 +209,12 @@ calendar + personal logbook + kennel directory.
 - `docs/test-coverage-analysis.md` — Test coverage gap analysis and priorities
 - `docs/self-healing-automation-plan.md` — Self-healing automation loop architecture, confidence scoring rubric, implementation roadmap
 
-## Active Sources (29)
+## Active Sources (30)
 
-### NYC / NJ / Philly (7 sources)
+### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
 - **Summit H3 Spreadsheet** → GOOGLE_SHEETS → 3 NJ kennels (Summit, SFM, ASSSH3)
+- **Rumson H3 Static Schedule** → STATIC_SCHEDULE → Rumson H3
 - **BFM Google Calendar** → GOOGLE_CALENDAR → BFM, Philly H3
 - **Philly H3 Google Calendar** → GOOGLE_CALENDAR → BFM, Philly H3
 - **BFM Website** → HTML_SCRAPER → BFM
@@ -258,7 +259,7 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (84 test files)
+- **Run:** `npm test` (90 test files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)

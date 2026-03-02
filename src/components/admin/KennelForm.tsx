@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { createKennel, updateKennel } from "@/app/admin/kennels/actions";
@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { generateAliases } from "@/lib/auto-aliases";
 
 type KennelData = {
   id: string;
@@ -146,6 +147,8 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const [selectedRegionId, setSelectedRegionId] = useState<string>(kennel?.regionId ?? "");
   const [isHidden, setIsHidden] = useState(kennel?.isHidden ?? false);
+  const shortNameRef = useRef<HTMLInputElement>(null);
+  const fullNameRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const selectedRegion = regions.find((r) => r.id === selectedRegionId);
@@ -160,6 +163,30 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
 
   function removeAlias(alias: string) {
     setAliases(aliases.filter((a) => a !== alias));
+  }
+
+  function handleGenerateAliases() {
+    const short = shortNameRef.current?.value?.trim() ?? "";
+    const full = fullNameRef.current?.value?.trim() ?? "";
+    if (!short && !full) {
+      toast.error("Enter a short name or full name first");
+      return;
+    }
+    const generated = generateAliases(short, full);
+    if (generated.length === 0) {
+      toast.info("No aliases could be generated");
+      return;
+    }
+    setAliases((prev) => {
+      const seen = new Set(prev.map((a) => a.toLowerCase()));
+      const added = generated.filter((a) => !seen.has(a.toLowerCase()));
+      if (added.length === 0) {
+        setTimeout(() => toast.info("All aliases already present"), 0);
+      } else {
+        setTimeout(() => toast.success(`Added ${added.length} new alias${added.length !== 1 ? "es" : ""}`), 0);
+      }
+      return [...prev, ...added];
+    });
   }
 
   function handleSubmitResult(
@@ -281,6 +308,7 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
             <div className="space-y-2">
               <Label htmlFor="shortName">Short Name *</Label>
               <Input
+                ref={shortNameRef}
                 id="shortName"
                 name="shortName"
                 required
@@ -291,6 +319,7 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name *</Label>
               <Input
+                ref={fullNameRef}
                 id="fullName"
                 name="fullName"
                 required
@@ -380,6 +409,14 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
                 onClick={addAlias}
               >
                 Add
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateAliases}
+              >
+                Generate
               </Button>
             </div>
             {aliases.length > 0 && (

@@ -22,6 +22,8 @@ export default async function CoveragePage() {
               type: true,
               healthStatus: true,
               enabled: true,
+              lastScrapeAt: true,
+              lastSuccessAt: true,
             },
           },
         },
@@ -42,6 +44,8 @@ export default async function CoveragePage() {
       type: sk.source.type,
       healthStatus: sk.source.healthStatus,
       enabled: sk.source.enabled,
+      lastScrapeAt: sk.source.lastScrapeAt?.toISOString() ?? null,
+      lastSuccessAt: sk.source.lastSuccessAt?.toISOString() ?? null,
     })),
   }));
 

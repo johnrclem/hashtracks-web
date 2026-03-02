@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-02-26
+Last updated: 2026-03-02
 
 **Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
 
@@ -18,11 +18,12 @@ Last updated: 2026-02-26
 - [x] Master-detail layout: event list + detail panel on desktop, full-page on mobile
 - [x] Admin UI: source management, manual scrape trigger, scrape logs, source health
 
-### Data Sources (29 live)
+### Data Sources (30 live)
 
-**NYC / NJ / Philly (7 sources)**
+**NYC / NJ / Philly (8 sources)**
 - [x] **hashnyc.com** (HTML Scraper) — 11 NYC-area kennels
 - [x] **Summit H3 Spreadsheet** (Google Sheets) — 3 NJ kennels (Summit, SFM, ASSSH3)
+- [x] **Rumson H3 Static Schedule** (Static Schedule) — Rumson H3 (weekly Saturday)
 - [x] **BFM Google Calendar** (Google Calendar API) — BFM, Philly H3
 - [x] **Philly H3 Google Calendar** (Google Calendar API) — BFM, Philly H3
 - [x] **BFM Website** (HTML Scraper) — benfranklinmob.com + special events page
@@ -187,7 +188,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 
 ### Region as First-Class Model — COMPLETE
 - [x] Region Prisma model: name, slug, country, timezone, colors, pin color, centroids, optional parentId (max 2-level hierarchy)
-- [x] 26 region seed records (`src/lib/region.ts`) spanning USA + UK
+- [x] 36 region seed records (`src/lib/region.ts`) spanning USA + UK
 - [x] Dual-write migration: `Kennel.regionId` FK + denormalized `Kennel.region` string (backward compat)
 - [x] Region admin CRUD at `/admin/regions` with table, form dialog, merge dialog
 - [x] Region combobox in KennelForm (searchable, grouped by country)
@@ -236,11 +237,19 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] Event detail page + sidebar panel render EventLink buttons
 - [x] Seed: Hash Rego source with 7 kennel slugs (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3)
 
+### Hareline UX Overhaul (PR #160) — COMPLETE
+- [x] Accessibility: skip nav, focus management, ARIA labels, keyboard-navigable EventCard
+- [x] Filtering: distance filter (near me / custom location), kennel multi-select, time preference toggle
+- [x] Calendar: month navigation, day detail panel, improved region badges
+- [x] Map: distance-based clustering, region-colored pins, interactive tooltips
+- [x] Geocoding in merge pipeline: text-address → lat/lng via Google Geocoding API (5s timeout, skip-if-cached)
+- [x] resolveCoords() DRY helper, regionBgClass hardening, same-day isPast fix
+
 ### Current Stats
-- 79 kennels (with rich profiles), 246 aliases, 29 sources, 26 regions (first-class model with hierarchy)
-- 7 adapter types: HTML_SCRAPER (22), GOOGLE_CALENDAR (5), GOOGLE_SHEETS (2), ICAL_FEED (3), HASHREGO (1), MEETUP (1), WORDPRESS_API (1)
+- 76 kennels (with rich profiles), 246 aliases, 30 sources, 36 regions (first-class model with hierarchy)
+- 8 adapter types: HTML_SCRAPER (22), GOOGLE_CALENDAR (5), GOOGLE_SHEETS (2), ICAL_FEED (3), HASHREGO (1), MEETUP (1), STATIC_SCHEDULE (1), WORDPRESS_API (1)
 - 25 models, 17 enums in Prisma schema
-- 84 test files, 1711 test cases
+- 90 test files, 1807 test cases
 
 ---
 
@@ -625,11 +634,36 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 ---
 
+## Priority 10: Kennel Onboarding Scaling
+
+**Strategic rationale:** The biggest remaining friction in scaling HashTracks is adding new kennels. Config-driven sources (Calendar, Sheets, iCal, Meetup, Hash Rego) take ~5 min via the admin wizard, but HTML scrapers still require ~3-4 hours of custom adapter code per site. Kennel discovery is entirely manual — admin must already know a kennel exists and where its data lives. Three sprints address this:
+
+### Sprint A: Coverage Dashboard + Auto-Aliases (Size: S-M)
+- [ ] **Enhance coverage page** (`/admin/sources/coverage`) — stale source flags (>7 days), research gap analysis (cross-ref `docs/kennel-research/` against DB), health bar per region, inline quick-action buttons
+- [ ] **Auto-alias generation** — pure function `generateAliases(shortName, fullName)` integrated into `createKennel()`, auto-generates abbreviations, H3/Hash variants, name fragments from existing 246-alias corpus patterns
+- [ ] **KennelForm alias chips** — show auto-generated aliases as removable pre-filled chips
+
+### Sprint B: Kennel Discovery via Hash Rego (Size: M)
+- [ ] **Hash Rego directory scraper** — parse `hashrego.com/kennels` to extract registered kennels with metadata
+- [ ] **KennelDiscovery model** — persist discovered-but-not-onboarded kennels (status: NEW → MATCHED | ADDED | DISMISSED)
+- [ ] **Discovery queue admin page** at `/admin/discovery` — table with fuzzy match scores, one-click "Add to DB" / "Dismiss" / "Already exists"
+- [ ] **Weekly discovery sync** — cron extension or API endpoint
+
+### Sprint C: Generic Config-Driven HTML Scraper (Size: L)
+- [ ] **Generic HTML adapter** — `HTML_SCRAPER` sources with `containerSelector` in config use CSS selectors instead of custom adapter code
+- [ ] **GenericHtmlConfigPanel** — config panel in onboarding wizard with selector inputs, date format, kennel tag, live preview
+- [ ] **Gemini selector suggestion** — "Suggest Selectors" button fetches page HTML, uses AI to propose CSS selectors with confidence score
+- [ ] **Registry integration** — `HTML_SCRAPER` + no URL-matched named adapter + config has `containerSelector` → GenericHtmlAdapter (named adapters remain as fallback)
+
+**Sprint order:** A → B → C (each builds on the last: visibility → pipeline → tooling)
+
+---
+
 ## Scaling Trajectory
 
 | Phase | Sources | Effort per Source | Code Changes |
 |-------|---------|-------------------|--------------|
-| **Manual** (HTML scrapers) | 29 | ~1-2 hours | Adapter code + seed + resolver |
+| **Manual** (HTML scrapers) | 30 | ~1-2 hours | Adapter code + seed + resolver |
 | **Admin wizard** (COMPLETE) | 30-50 | ~5 min | None (form-based config for Calendar/Sheets/iCal/Meetup) |
 | **AI-assisted** (Long-term) | 50+ | ~5 min review | None |
 | **Community** (Long-term) | 100+ | ~1 min approval | None |
@@ -649,6 +683,7 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 | 7 | **Social Visibility** (who's going, event comments) | Engagement, coordination | Small per feature | RSVP visibility, Trail Chat |
 | 8 | **Data Portability** (CSV exports, payment links) | Trust, data ownership, lightweight Hash Cash | Small per feature | Excel export, Hash Cash |
 | 9 | **Additional Integrations** (iCal, RSS, event series, SEO) | Coverage depth, discoverability | Varies | Feature parity |
+| 10 | **Kennel Onboarding Scaling** (coverage dashboard, discovery, generic HTML) | Automate growth, eliminate manual bottleneck | 3 sprints | No competitor automates source onboarding |
 
 ---
 

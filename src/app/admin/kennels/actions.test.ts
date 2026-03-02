@@ -141,7 +141,12 @@ describe("createKennel", () => {
           kennelCode: "testh3",
           shortName: "TestH3",
           slug: "testh3",
-          aliases: { create: [{ alias: "Test" }, { alias: "TH3" }] },
+          aliases: {
+            create: expect.arrayContaining([
+              { alias: "Test" },
+              { alias: "TH3" },
+            ]),
+          },
         }),
       }),
     );

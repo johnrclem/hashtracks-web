@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { fuzzyMatch } from "@/lib/fuzzy";
 import { toSlug, toKennelCode } from "@/lib/kennel-utils";
+import { generateAliases } from "@/lib/auto-aliases";
 
 function extractProfileFields(formData: FormData) {
   const result: Record<string, string | number | boolean | null> = {};
@@ -153,10 +154,22 @@ export async function createKennel(formData: FormData, force: boolean = false) {
     }
   }
 
-  const aliases = aliasesRaw
+  const manualAliases = aliasesRaw
     .split(",")
     .map((a) => a.trim())
     .filter(Boolean);
+
+  // Merge manual aliases with auto-generated ones (case-insensitive dedup)
+  const autoAliases = generateAliases(shortName, fullName);
+  const seen = new Set<string>();
+  const aliases: string[] = [];
+  for (const a of [...manualAliases, ...autoAliases]) {
+    const key = a.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      aliases.push(a);
+    }
+  }
 
   const profileFields = extractProfileFields(formData);
 
