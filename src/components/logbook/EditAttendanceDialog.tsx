@@ -26,7 +26,6 @@ import {
   getStravaActivitiesForDate,
   attachStravaActivity,
 } from "@/app/strava/actions";
-import { buildStravaUrl } from "@/lib/strava/client";
 import {
   participationLevelLabel,
   PARTICIPATION_LEVELS,
@@ -35,6 +34,7 @@ import {
   formatSportType,
   formatTime,
 } from "@/lib/format";
+import { buildStravaUrl } from "@/lib/strava/url";
 import { ExternalLink } from "lucide-react";
 import type { AttendanceData } from "./CheckInButton";
 import type { StravaActivityOption } from "@/lib/strava/types";

@@ -10,9 +10,9 @@ import {
   dismissStravaMatch,
   dismissAllStravaMatches,
 } from "@/app/strava/actions";
-import { buildStravaUrl } from "@/lib/strava/client";
 import type { UnmatchedStravaMatch } from "@/app/strava/actions";
 import { formatTime, formatDateShort, formatDistance, formatDuration, formatSportType } from "@/lib/format";
+import { buildStravaUrl } from "@/lib/strava/url";
 import {
   ExternalLink,
   ChevronDown,
