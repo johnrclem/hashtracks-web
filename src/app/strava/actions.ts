@@ -384,9 +384,11 @@ export async function getUnmatchedStravaActivities(): Promise<
       const dayAfter = dAfter.toISOString().substring(0, 10);
 
       for (const dateKey of [dayBefore, eventDateStr, dayAfter]) {
+        if (matches.length >= MATCH_CAP) break;
         const candidates = activityByDate.get(dateKey);
         if (!candidates) continue;
         for (const activity of candidates) {
+          if (matches.length >= MATCH_CAP) break;
           matches.push({
             stravaActivityDbId: activity.id,
             attendanceId: att.id,
@@ -457,20 +459,11 @@ export async function dismissAllStravaMatches(
   if (stravaActivityDbIds.length === 0) return { success: true, dismissedCount: 0 };
 
   try {
-    // Validate user owns all activities via connection in a single query
-    const activities = await prisma.stravaActivity.findMany({
-      where: { id: { in: stravaActivityDbIds } },
-      select: { id: true, connection: { select: { userId: true } } },
-    });
-
-    const ownedIds = activities
-      .filter((a) => a.connection.userId === user.id)
-      .map((a) => a.id);
-
-    if (ownedIds.length === 0) return { success: true, dismissedCount: 0 };
-
     const result = await prisma.stravaActivity.updateMany({
-      where: { id: { in: ownedIds } },
+      where: {
+        id: { in: stravaActivityDbIds },
+        connection: { userId: user.id },
+      },
       data: { matchDismissed: true },
     });
 
