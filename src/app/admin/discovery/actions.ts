@@ -1,8 +1,5 @@
 "use server";
 
-// Extend Vercel function timeout — API enrichment alone takes 24+ seconds (117 kennels at 5/sec)
-export const maxDuration = 120;
-
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
@@ -39,7 +36,11 @@ export async function runDiscoverySync() {
   try {
     const result = await syncKennelDiscovery();
     revalidatePath("/admin/discovery");
-    return { success: true, ...result };
+    const sanitizedErrors = (result.errors ?? []).map((e: string) => {
+      const match = e.match(/^Error processing ([^:]+)/);
+      return match ? `Failed to enrich ${match[1]}` : "Enrichment error";
+    });
+    return { success: true, ...result, errors: sanitizedErrors };
   } catch (err) {
     return { error: `Sync failed: ${err}` };
   }
