@@ -249,7 +249,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - 76 kennels (with rich profiles), 246 aliases, 30 sources, 36 regions (first-class model with hierarchy)
 - 8 adapter types: HTML_SCRAPER (22), GOOGLE_CALENDAR (5), GOOGLE_SHEETS (2), ICAL_FEED (3), HASHREGO (1), MEETUP (1), STATIC_SCHEDULE (1), WORDPRESS_API (1)
 - 25 models, 17 enums in Prisma schema
-- 90 test files, 1807 test cases
+- 93 test files, 1877 test cases
 
 ---
 
@@ -568,9 +568,9 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - [ ] Nudge hashers who haven't hared in N runs: "You've run 10 times since your last hare!"
 - [ ] Hare volunteer signup from event detail page
 
-### AI-Assisted Source Onboarding
-- [ ] **Phase 1**: AI analyzes URL/HTML → proposes field mappings → human reviews
-- [ ] **Phase 2**: AI generates adapter config JSON → human approves → preview → save
+### AI-Assisted Source Onboarding — Phase 1 COMPLETE (Sprint B)
+- [x] **Phase 1**: AI analyzes URL/HTML → proposes CSS selectors + column mappings → admin reviews in interactive preview → corrects via dropdown reassignment or text feedback → Refine with AI → save
+- [ ] **Phase 2**: Autonomous agent discovers kennels + URLs → batch-analyzes → proposes sources for admin approval (Sprint D)
 - [ ] **Phase 3**: Users submit source URLs → AI creates draft config → admin approves → live
 
 ### Infrastructure Scaling
@@ -638,24 +638,38 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 **Strategic rationale:** The biggest remaining friction in scaling HashTracks is adding new kennels. Config-driven sources (Calendar, Sheets, iCal, Meetup, Hash Rego) take ~5 min via the admin wizard, but HTML scrapers still require ~3-4 hours of custom adapter code per site. Kennel discovery is entirely manual — admin must already know a kennel exists and where its data lives. Three sprints address this:
 
-### Sprint A: Coverage Dashboard + Auto-Aliases (Size: S-M)
-- [ ] **Enhance coverage page** (`/admin/sources/coverage`) — stale source flags (>7 days), research gap analysis (cross-ref `docs/kennel-research/` against DB), health bar per region, inline quick-action buttons
-- [ ] **Auto-alias generation** — pure function `generateAliases(shortName, fullName)` integrated into `createKennel()`, auto-generates abbreviations, H3/Hash variants, name fragments from existing 246-alias corpus patterns
-- [ ] **KennelForm alias chips** — show auto-generated aliases as removable pre-filled chips
+### Sprint A: Coverage Dashboard + Auto-Aliases — COMPLETE (PR #161)
+- [x] **Coverage page enhancements** — stale source flags, health bars per region, clickable kennel links, hide/unhide toggle, "hidden" filter
+- [x] **Auto-alias generation** — pure `generateAliases(shortName, fullName)` integrated into `createKennel()`, auto-generates abbreviations, H3/Hash variants, geo abbreviations
+- [x] **KennelForm alias chips** — "Generate Aliases" button, toast accuracy, removable pre-filled chips
 
-### Sprint B: Kennel Discovery via Hash Rego (Size: M)
+### Sprint B: AI HTML Analysis — COMPLETE
+- [x] **GenericHtmlAdapter** — config-driven CSS selector extraction (`src/adapters/html-scraper/generic.ts`), eliminates custom adapter code per site
+- [x] **Registry routing** — `getAdapter(type, url, config?)` routes to GenericHtmlAdapter when config has `containerSelector`, named adapters take priority
+- [x] **AI HTML analysis** — `analyzeHtmlStructure(url)` uses Cheerio heuristics to find candidate containers + Gemini AI for column mapping (`src/app/admin/sources/analyze-html-action.ts`)
+- [x] **Few-shot learning** — static catalog of 7 existing adapter patterns (`src/adapters/html-scraper/examples.ts`) + dynamic DB configs used as Gemini few-shot examples
+- [x] **GenericHtmlConfigPanel** — interactive wizard with "Analyze Page" button, sample data preview with column reassignment dropdowns, "Refine with AI" feedback loop, advanced CSS selector editing
+- [x] **Config validation** — CSS selector injection prevention, required field validation
+- [x] **Test coverage** — GenericHtmlAdapter tests (18), container detection tests (16), registry routing tests (5 new)
+
+### Sprint C: Kennel Discovery + Research (Size: M)
 - [ ] **Hash Rego directory scraper** — parse `hashrego.com/kennels` to extract registered kennels with metadata
 - [ ] **KennelDiscovery model** — persist discovered-but-not-onboarded kennels (status: NEW → MATCHED | ADDED | DISMISSED)
 - [ ] **Discovery queue admin page** at `/admin/discovery` — table with fuzzy match scores, one-click "Add to DB" / "Dismiss" / "Already exists"
 - [ ] **Weekly discovery sync** — cron extension or API endpoint
 
-### Sprint C: Generic Config-Driven HTML Scraper (Size: L)
-- [ ] **Generic HTML adapter** — `HTML_SCRAPER` sources with `containerSelector` in config use CSS selectors instead of custom adapter code
-- [ ] **GenericHtmlConfigPanel** — config panel in onboarding wizard with selector inputs, date format, kennel tag, live preview
-- [ ] **Gemini selector suggestion** — "Suggest Selectors" button fetches page HTML, uses AI to propose CSS selectors with confidence score
-- [ ] **Registry integration** — `HTML_SCRAPER` + no URL-matched named adapter + config has `containerSelector` → GenericHtmlAdapter (named adapters remain as fallback)
+### Sprint D: Autonomous Agent (Size: L)
+- [ ] **Agent endpoint** — "Research kennels in [region]" command that orchestrates: web search → URL discovery → auto-analyze → propose sources
+- [ ] **Batch analysis** — run `analyzeHtmlStructure()` across multiple URLs, rank by confidence
+- [ ] **Auto-onboarding** — high-confidence generic HTML configs created as draft sources for admin approval
 
-**Sprint order:** A → B → C (each builds on the last: visibility → pipeline → tooling)
+### Future Enhancements (Deferred)
+- [ ] Pagination support for generic HTML adapter (multi-page URL templates)
+- [ ] JS-rendered page support (headless browser fallback for JavaScript-only sites)
+- [ ] HTML analysis result caching
+- [ ] Auto-migration of named adapters to generic config (existing named adapters continue working as-is)
+
+**Sprint order:** A (done) → B (done) → C → D
 
 ---
 
@@ -665,8 +679,8 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 |-------|---------|-------------------|--------------|
 | **Manual** (HTML scrapers) | 30 | ~1-2 hours | Adapter code + seed + resolver |
 | **Admin wizard** (COMPLETE) | 30-50 | ~5 min | None (form-based config for Calendar/Sheets/iCal/Meetup) |
-| **AI-assisted** (Long-term) | 50+ | ~5 min review | None |
-| **Community** (Long-term) | 100+ | ~1 min approval | None |
+| **AI HTML analysis** (Sprint B COMPLETE) | 50-100 | ~5 min | None (paste URL → AI suggests selectors → test → save) |
+| **Autonomous agent** (Sprint D) | 100+ | ~1 min approval | None (agent discovers + proposes sources) |
 
 ---
 

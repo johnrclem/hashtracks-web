@@ -136,9 +136,9 @@ function buildHtmlScraperSuggestion(url: string): SuggestConfigResult {
       suggestedConfig: {},
       suggestedKennelTags: [],
       explanation:
-        "No site-specific adapter matches this URL. The default scraper will attempt to parse it, but a custom adapter may be needed for reliable extraction.",
+        "No site-specific adapter matches this URL. Use the \"Analyze Page\" button to let AI detect the event structure and suggest CSS selectors for extraction.",
       confidence: "low",
-      adapterNote: null,
+      adapterNote: "Try: Analyze Page",
       suggestedNewKennel: null,
     },
   };
@@ -216,7 +216,7 @@ async function fetchSampleEvents(
   } as Source;
 
   try {
-    const adapter = getAdapter(type, url);
+    const adapter = getAdapter(type, url, effectiveConfig as Record<string, unknown> | null);
     const result = await adapter.fetch(mockSource, { days: SAMPLE_LOOKBACK_DAYS });
     if (result.events.length === 0) {
       const detail = result.errors.length > 0 ? ` (${result.errors[0]})` : "";

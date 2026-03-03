@@ -138,6 +138,50 @@ function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: stri
   }
 }
 
+/** Dangerous patterns blocked in CSS selectors (XSS prevention). */
+const DANGEROUS_SELECTOR_PATTERN = /<script|javascript:|on\w+\s*=/i;
+
+/** Validate Generic HTML Scraper config (containerSelector, rowSelector, columns). */
+function validateGenericHtmlConfig(obj: Record<string, unknown>, errors: string[]): void {
+  // Only validate if this looks like a generic HTML config
+  if (!("containerSelector" in obj) && !("rowSelector" in obj)) return;
+
+  if (typeof obj.containerSelector !== "string" || !obj.containerSelector.trim()) {
+    errors.push("Generic HTML config requires a non-empty containerSelector");
+  } else if (DANGEROUS_SELECTOR_PATTERN.test(obj.containerSelector)) {
+    errors.push("containerSelector contains blocked content (script/event handlers)");
+  }
+
+  if (typeof obj.rowSelector !== "string" || !obj.rowSelector.trim()) {
+    errors.push("Generic HTML config requires a non-empty rowSelector");
+  } else if (DANGEROUS_SELECTOR_PATTERN.test(obj.rowSelector)) {
+    errors.push("rowSelector contains blocked content (script/event handlers)");
+  }
+
+  if (!obj.columns || typeof obj.columns !== "object" || Array.isArray(obj.columns)) {
+    errors.push("Generic HTML config requires a columns object");
+  } else {
+    const cols = obj.columns as Record<string, unknown>;
+    if (typeof cols.date !== "string" || !cols.date.trim()) {
+      errors.push("Generic HTML config requires columns.date selector");
+    }
+    // Validate all column selectors for dangerous content
+    for (const [key, val] of Object.entries(cols)) {
+      if (typeof val === "string" && DANGEROUS_SELECTOR_PATTERN.test(val)) {
+        errors.push(`columns.${key} contains blocked content (script/event handlers)`);
+      }
+    }
+  }
+
+  if (typeof obj.defaultKennelTag !== "string" || !obj.defaultKennelTag.trim()) {
+    errors.push("Generic HTML config requires a non-empty defaultKennelTag");
+  }
+
+  if (obj.dateLocale !== undefined && obj.dateLocale !== "en-US" && obj.dateLocale !== "en-GB") {
+    errors.push('Generic HTML config dateLocale must be "en-US" or "en-GB"');
+  }
+}
+
 /** Run type-specific validation for a source config. */
 function runTypeValidator(type: string, obj: Record<string, unknown>, errors: string[]): void {
   if (type === "GOOGLE_SHEETS") validateGoogleSheetsConfig(obj, errors);
@@ -145,6 +189,9 @@ function runTypeValidator(type: string, obj: Record<string, unknown>, errors: st
   else if (type === "MEETUP") validateMeetupConfig(obj, errors);
   else if (type === "RSS_FEED") validateRssFeedConfig(obj, errors);
   else if (type === "STATIC_SCHEDULE") validateStaticScheduleConfig(obj, errors);
+
+  // Generic HTML validation runs for any HTML_SCRAPER with selector config
+  if (type === "HTML_SCRAPER") validateGenericHtmlConfig(obj, errors);
 }
 
 /**

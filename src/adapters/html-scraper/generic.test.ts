@@ -1,0 +1,271 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import * as cheerio from "cheerio";
+import { parseEventRow, GenericHtmlAdapter, isGenericHtmlConfig } from "./generic";
+import type { GenericHtmlConfig } from "./generic";
+import type { Source } from "@/generated/prisma/client";
+
+// Mock fetchHTMLPage
+vi.mock("../utils", async () => {
+  const actual = await vi.importActual("../utils");
+  return {
+    ...actual,
+    fetchHTMLPage: vi.fn(),
+  };
+});
+
+import { fetchHTMLPage } from "../utils";
+
+const mockFetchHTMLPage = vi.mocked(fetchHTMLPage);
+
+const TABLE_HTML = `
+<html><body>
+<table id="events">
+  <thead><tr><th>Date</th><th>Hares</th><th>Location</th><th>Run #</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>March 15, 2026</td>
+      <td>Salty Dog &amp; Beer Me</td>
+      <td><a href="https://maps.google.com/q=bar">The Rusty Bucket</a></td>
+      <td>1234</td>
+    </tr>
+    <tr>
+      <td>March 22, 2026</td>
+      <td>Hash Flash</td>
+      <td>Central Park</td>
+      <td>1235</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td>TBD</td>
+      <td>TBD</td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+</body></html>
+`;
+
+const BASE_CONFIG: GenericHtmlConfig = {
+  containerSelector: "#events",
+  rowSelector: "tbody tr",
+  columns: {
+    date: "td:nth-child(1)",
+    hares: "td:nth-child(2)",
+    location: "td:nth-child(3)",
+    runNumber: "td:nth-child(4)",
+  },
+  defaultKennelTag: "DFWH3",
+  dateLocale: "en-US",
+};
+
+describe("isGenericHtmlConfig", () => {
+  it("returns true for valid config", () => {
+    expect(isGenericHtmlConfig(BASE_CONFIG)).toBe(true);
+  });
+
+  it("returns false for null", () => {
+    expect(isGenericHtmlConfig(null)).toBe(false);
+  });
+
+  it("returns false for undefined", () => {
+    expect(isGenericHtmlConfig(undefined)).toBe(false);
+  });
+
+  it("returns false when missing rowSelector", () => {
+    expect(isGenericHtmlConfig({ containerSelector: "x" })).toBe(false);
+  });
+
+  it("returns false when columns is not an object", () => {
+    expect(isGenericHtmlConfig({ containerSelector: "x", rowSelector: "x", columns: "bad" })).toBe(false);
+  });
+});
+
+describe("parseEventRow", () => {
+  const $ = cheerio.load(TABLE_HTML);
+  const rows = $("#events tbody tr");
+
+  it("parses a valid table row with all fields", () => {
+    const event = parseEventRow($, $(rows[0]), BASE_CONFIG, "https://example.com");
+    expect(event).toEqual({
+      date: "2026-03-15",
+      kennelTag: "DFWH3",
+      title: undefined,
+      hares: "Salty Dog & Beer Me",
+      location: "The Rusty Bucket",
+      locationUrl: "https://maps.google.com/q=bar",
+      startTime: undefined,
+      runNumber: 1234,
+      sourceUrl: "https://example.com",
+    });
+  });
+
+  it("parses a row without links", () => {
+    const event = parseEventRow($, $(rows[1]), BASE_CONFIG, "https://example.com");
+    expect(event).toMatchObject({
+      date: "2026-03-22",
+      hares: "Hash Flash",
+      location: "Central Park",
+      runNumber: 1235,
+    });
+    expect(event?.locationUrl).toBeUndefined();
+  });
+
+  it("returns null for a row with empty date", () => {
+    const event = parseEventRow($, $(rows[2]), BASE_CONFIG, "https://example.com");
+    expect(event).toBeNull();
+  });
+
+  it("uses defaultKennelTag when no kennelTag column configured", () => {
+    const event = parseEventRow($, $(rows[0]), BASE_CONFIG, "https://example.com");
+    expect(event?.kennelTag).toBe("DFWH3");
+  });
+
+  it("parses en-GB dates correctly", () => {
+    const gbHtml = `<table><tr><td>15th March 2026</td></tr></table>`;
+    const $gb = cheerio.load(gbHtml);
+    const gbConfig: GenericHtmlConfig = {
+      ...BASE_CONFIG,
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(1)" },
+      dateLocale: "en-GB",
+    };
+    const event = parseEventRow($gb, $gb("tr").first(), gbConfig, "https://example.com");
+    expect(event?.date).toBe("2026-03-15");
+  });
+
+  it("extracts sourceUrl href when configured", () => {
+    const html = `<table><tr><td>March 15, 2026</td><td><a href="https://example.com/event/1">Details</a></td></tr></table>`;
+    const $src = cheerio.load(html);
+    const config: GenericHtmlConfig = {
+      ...BASE_CONFIG,
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(1)", sourceUrl: "td:nth-child(2)" },
+    };
+    const event = parseEventRow($src, $src("tr").first(), config, "https://fallback.com");
+    expect(event?.sourceUrl).toBe("https://example.com/event/1");
+  });
+
+  it("parses startTime from 12-hour format", () => {
+    const html = `<table><tr><td>March 15, 2026</td><td>6:30 PM</td></tr></table>`;
+    const $t = cheerio.load(html);
+    const config: GenericHtmlConfig = {
+      ...BASE_CONFIG,
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(1)", startTime: "td:nth-child(2)" },
+    };
+    const event = parseEventRow($t, $t("tr").first(), config, "https://example.com");
+    expect(event?.startTime).toBe("18:30");
+  });
+
+  it("parses startTime from HH:MM format", () => {
+    const html = `<table><tr><td>March 15, 2026</td><td>19:00</td></tr></table>`;
+    const $t = cheerio.load(html);
+    const config: GenericHtmlConfig = {
+      ...BASE_CONFIG,
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(1)", startTime: "td:nth-child(2)" },
+    };
+    const event = parseEventRow($t, $t("tr").first(), config, "https://example.com");
+    expect(event?.startTime).toBe("19:00");
+  });
+});
+
+describe("GenericHtmlAdapter", () => {
+  const adapter = new GenericHtmlAdapter();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("has correct type", () => {
+    expect(adapter.type).toBe("HTML_SCRAPER");
+  });
+
+  it("extracts events from a table page", async () => {
+    const $ = cheerio.load(TABLE_HTML);
+    mockFetchHTMLPage.mockResolvedValue({
+      ok: true,
+      html: TABLE_HTML,
+      $,
+      structureHash: "abc123",
+      fetchDurationMs: 100,
+    });
+
+    const source = {
+      id: "test-source",
+      url: "https://example.com/events",
+      config: BASE_CONFIG,
+    } as unknown as Source;
+
+    const result = await adapter.fetch(source);
+    expect(result.events).toHaveLength(2); // 3rd row has no date → skipped
+    expect(result.events[0].date).toBe("2026-03-15");
+    expect(result.events[0].hares).toBe("Salty Dog & Beer Me");
+    expect(result.events[1].date).toBe("2026-03-22");
+    expect(result.structureHash).toBe("abc123");
+    expect(result.diagnosticContext?.rowsFound).toBe(3);
+    expect(result.diagnosticContext?.eventsParsed).toBe(2);
+  });
+
+  it("returns error result when fetch fails", async () => {
+    mockFetchHTMLPage.mockResolvedValue({
+      ok: false,
+      result: { events: [], errors: ["HTTP 404: Not Found"] },
+    });
+
+    const source = {
+      id: "test-source",
+      url: "https://example.com/events",
+      config: BASE_CONFIG,
+    } as unknown as Source;
+
+    const result = await adapter.fetch(source);
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toContain("HTTP 404: Not Found");
+  });
+
+  it("handles missing container gracefully (falls back to rowSelector)", async () => {
+    const html = `<html><body><table><tbody><tr><td>March 15, 2026</td></tr></tbody></table></body></html>`;
+    const $ = cheerio.load(html);
+    mockFetchHTMLPage.mockResolvedValue({
+      ok: true, html, $, structureHash: "x", fetchDurationMs: 50,
+    });
+
+    const source = {
+      id: "test",
+      url: "https://example.com",
+      config: {
+        ...BASE_CONFIG,
+        containerSelector: "#nonexistent",
+        rowSelector: "tbody tr",
+        columns: { date: "td:nth-child(1)" },
+      },
+    } as unknown as Source;
+
+    const result = await adapter.fetch(source);
+    expect(result.events).toHaveLength(1);
+    expect(result.diagnosticContext?.containerFound).toBe(false);
+  });
+
+  it("returns empty events when page has no matching rows", async () => {
+    const html = `<html><body><div>No table here</div></body></html>`;
+    const $ = cheerio.load(html);
+    mockFetchHTMLPage.mockResolvedValue({
+      ok: true, html, $, structureHash: "x", fetchDurationMs: 50,
+    });
+
+    const source = {
+      id: "test",
+      url: "https://example.com",
+      config: BASE_CONFIG,
+    } as unknown as Source;
+
+    const result = await adapter.fetch(source);
+    expect(result.events).toHaveLength(0);
+    expect(result.diagnosticContext?.rowsFound).toBe(0);
+  });
+});
