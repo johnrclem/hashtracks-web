@@ -1,4 +1,4 @@
-import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress } from "./geo";
+import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, reverseGeocode, cityFromTimezone } from "./geo";
 
 describe("extractCoordsFromMapsUrl", () => {
   it("parses @lat,lng,zoom path segment", () => {
@@ -230,5 +230,124 @@ describe("geocodeAddress", () => {
 
     const result = await geocodeAddress("Slow Address");
     expect(result).toBeNull();
+  });
+});
+
+describe("reverseGeocode", () => {
+  const originalEnv = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = "test-api-key";
+  });
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = originalEnv;
+    vi.restoreAllMocks();
+  });
+
+  it("returns city and state from a successful reverse geocode", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [
+          {
+            address_components: [
+              { long_name: "Brooklyn", short_name: "Brooklyn", types: ["sublocality"] },
+              { long_name: "New York", short_name: "NY", types: ["administrative_area_level_1"] },
+            ],
+          },
+        ],
+      }),
+    } as Response);
+
+    const result = await reverseGeocode(40.6782, -73.9442);
+    expect(result).toBe("Brooklyn, NY");
+  });
+
+  it("returns city only when no state component", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [
+          {
+            address_components: [
+              { long_name: "London", short_name: "London", types: ["locality"] },
+            ],
+          },
+        ],
+      }),
+    } as Response);
+
+    const result = await reverseGeocode(51.5074, -0.1278);
+    expect(result).toBe("London");
+  });
+
+  it("returns null when API returns ZERO_RESULTS", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ status: "ZERO_RESULTS", results: [] }),
+    } as Response);
+
+    const result = await reverseGeocode(0, 0);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when no locality component found", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [
+          {
+            address_components: [
+              { long_name: "USA", short_name: "US", types: ["country"] },
+            ],
+          },
+        ],
+      }),
+    } as Response);
+
+    const result = await reverseGeocode(40.0, -74.0);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when fetch fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("Network error"));
+    const result = await reverseGeocode(40.0, -74.0);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when API key is missing", async () => {
+    delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const result = await reverseGeocode(40.0, -74.0);
+    expect(result).toBeNull();
+  });
+});
+
+describe("cityFromTimezone", () => {
+  it("extracts city from Strava timezone format", () => {
+    expect(cityFromTimezone("(GMT-05:00) America/New_York")).toBe("New York");
+  });
+
+  it("extracts city from plain IANA timezone", () => {
+    expect(cityFromTimezone("America/Los_Angeles")).toBe("Los Angeles");
+  });
+
+  it("handles multi-level timezone (e.g. America/Indiana/Indianapolis)", () => {
+    expect(cityFromTimezone("America/Indiana/Indianapolis")).toBe("Indianapolis");
+  });
+
+  it("returns null for null input", () => {
+    expect(cityFromTimezone(null)).toBeNull();
+  });
+
+  it("returns null for empty string", () => {
+    expect(cityFromTimezone("")).toBeNull();
+  });
+
+  it("returns null for non-IANA format", () => {
+    expect(cityFromTimezone("EST")).toBeNull();
   });
 });

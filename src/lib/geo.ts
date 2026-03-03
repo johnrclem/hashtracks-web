@@ -177,3 +177,60 @@ export async function geocodeAddress(
     return null;
   }
 }
+
+/**
+ * Reverse geocode coordinates to a city string using the Google Maps Geocoding API.
+ * Returns a display string like "Brooklyn, NY" or "London, England", or null on failure.
+ */
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+): Promise<string | null> {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&result_type=locality|sublocality&key=${apiKey}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    if (data.status !== "OK" || !data.results?.length) return null;
+
+    const components = data.results[0].address_components as Array<{
+      long_name: string;
+      short_name: string;
+      types: string[];
+    }>;
+
+    const locality = components.find(
+      (c) => c.types.includes("locality") || c.types.includes("sublocality"),
+    );
+    const state = components.find((c) =>
+      c.types.includes("administrative_area_level_1"),
+    );
+
+    if (!locality) return null;
+    return state
+      ? `${locality.long_name}, ${state.short_name}`
+      : locality.long_name;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extract a fallback city name from a Strava timezone string.
+ * e.g. "(GMT-05:00) America/New_York" → "New York"
+ */
+export function cityFromTimezone(timezone: string | null): string | null {
+  if (!timezone) return null;
+  const ianaMatch = timezone.match(/(?:\)\s*)?(\w+\/[\w\-/]+)$/);
+  if (!ianaMatch) return null;
+  const parts = ianaMatch[1].split("/");
+  const city = parts[parts.length - 1].replace(/_/g, " ");
+  return city || null;
+}

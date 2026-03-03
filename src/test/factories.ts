@@ -233,6 +233,7 @@ export function buildStravaActivity(
     startLat: null,
     startLng: null,
     timezone: "(GMT-05:00) America/New_York",
+    city: null,
     matchedAttendanceId: null,
     matchDismissed: false,
     createdAt: new Date("2026-01-01"),

@@ -4,6 +4,7 @@ import {
   fetchStravaActivities,
   parseStravaActivity,
 } from "./client";
+import { reverseGeocode, cityFromTimezone } from "@/lib/geo";
 
 export interface SyncResult {
   created: number;
@@ -108,6 +109,11 @@ export async function syncStravaActivities(
     });
   }
 
+  // Batch reverse-geocode new activities to populate city field
+  if (toCreate.length > 0) {
+    await backfillCities(toCreate);
+  }
+
   // Batch update existing activities in a single transaction
   if (toUpdate.length > 0) {
     await prisma.$transaction(
@@ -140,4 +146,75 @@ export async function syncStravaActivities(
   });
 
   return { created, updated, total: rawActivities.length };
+}
+
+/**
+ * Reverse-geocode new activities to populate the city field.
+ * Deduplicates by rounding coords to ~1km precision to minimize API calls.
+ * Falls back to timezone parsing for privacy zone activities.
+ */
+async function backfillCities(
+  activities: import("./types").ParsedStravaActivity[],
+): Promise<void> {
+  // Build a map of rounded coords → city for deduplication
+  const coordToCity = new Map<string, string | null>();
+
+  // Round to 3 decimal places (~111m precision) for dedup
+  function coordKey(lat: number, lng: number): string {
+    return `${lat.toFixed(3)},${lng.toFixed(3)}`;
+  }
+
+  // Collect unique coordinates to geocode
+  const uniqueCoords: Array<{ key: string; lat: number; lng: number }> = [];
+  for (const a of activities) {
+    if (a.startLat != null && a.startLng != null) {
+      const key = coordKey(a.startLat, a.startLng);
+      if (!coordToCity.has(key)) {
+        coordToCity.set(key, null); // placeholder
+        uniqueCoords.push({ key, lat: a.startLat, lng: a.startLng });
+      }
+    }
+  }
+
+  // Reverse geocode unique coordinates (parallel, max 10 concurrent)
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < uniqueCoords.length; i += BATCH_SIZE) {
+    const batch = uniqueCoords.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(({ lat, lng }) => reverseGeocode(lat, lng)),
+    );
+    for (let j = 0; j < batch.length; j++) {
+      const result = results[j];
+      if (result.status === "fulfilled" && result.value) {
+        coordToCity.set(batch[j].key, result.value);
+      }
+    }
+  }
+
+  // Build updates: coord-based city or timezone fallback
+  const updates: Array<{ stravaActivityId: string; city: string }> = [];
+  for (const a of activities) {
+    let city: string | null = null;
+    if (a.startLat != null && a.startLng != null) {
+      city = coordToCity.get(coordKey(a.startLat, a.startLng)) ?? null;
+    }
+    if (!city) {
+      city = cityFromTimezone(a.timezone);
+    }
+    if (city) {
+      updates.push({ stravaActivityId: a.stravaActivityId, city });
+    }
+  }
+
+  // Batch update city values
+  if (updates.length > 0) {
+    await prisma.$transaction(
+      updates.map(({ stravaActivityId, city }) =>
+        prisma.stravaActivity.update({
+          where: { stravaActivityId },
+          data: { city },
+        }),
+      ),
+    );
+  }
 }

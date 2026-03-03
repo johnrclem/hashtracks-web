@@ -10,7 +10,7 @@ import {
   buildStravaUrl,
 } from "@/lib/strava/client";
 import { syncStravaActivities } from "@/lib/strava/sync";
-import type { StravaActivityOption } from "@/lib/strava/types";
+import type { StravaActivityOption, LinkedStravaActivity } from "@/lib/strava/types";
 
 // ── Connection Status ──
 
@@ -188,6 +188,7 @@ export async function getStravaActivitiesForDate(
       timeLocal: true,
       distanceMeters: true,
       movingTimeSecs: true,
+      city: true,
     },
   });
 
@@ -278,6 +279,7 @@ export interface UnmatchedStravaMatch {
   stravaTimeLocal: string | null;
   stravaMovingTimeSecs: number;
   stravaActivityId: string;
+  stravaCity: string | null;
 }
 
 /**
@@ -355,6 +357,7 @@ export async function getUnmatchedStravaActivities(): Promise<
         timeLocal: true,
         movingTimeSecs: true,
         stravaActivityId: true,
+        city: true,
       },
     });
 
@@ -409,6 +412,7 @@ export async function getUnmatchedStravaActivities(): Promise<
             stravaTimeLocal: activity.timeLocal,
             stravaMovingTimeSecs: activity.movingTimeSecs,
             stravaActivityId: activity.stravaActivityId,
+            stravaCity: activity.city ?? null,
           });
         }
       }
@@ -514,4 +518,29 @@ export async function detachStravaActivity(
 
   revalidatePath("/logbook");
   return { success: true };
+}
+
+// ── Linked Activity Details ──
+
+/** Fetch the StravaActivity linked to a given attendance, if any. */
+export async function getLinkedStravaActivity(
+  attendanceId: string,
+): Promise<ActionResult<{ activity: LinkedStravaActivity | null }>> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const activity = await prisma.stravaActivity.findFirst({
+    where: { matchedAttendanceId: attendanceId },
+    select: {
+      name: true,
+      sportType: true,
+      distanceMeters: true,
+      movingTimeSecs: true,
+      timeLocal: true,
+      city: true,
+      stravaActivityId: true,
+    },
+  });
+
+  return { success: true, activity: activity ?? null };
 }
