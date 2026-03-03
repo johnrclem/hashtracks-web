@@ -84,20 +84,31 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
     };
   }
 
-  // Step 2: Fetch API profiles + load DB data in parallel
-  const slugs = discovered.map((k) => k.slug);
-  const [profiles, existingKennels, existingAliases, existingDiscoveries] = await Promise.all([
-    fetchKennelProfiles(slugs),
+  // Step 2: Load existing discoveries to identify terminal slugs
+  const existingDiscoveries = await prisma.kennelDiscovery.findMany({
+    where: { externalSource: EXTERNAL_SOURCE },
+    select: { externalSlug: true, status: true },
+  });
+
+  const discoveryStatusMap = new Map(
+    existingDiscoveries.map((d) => [d.externalSlug, d.status]),
+  );
+
+  // Step 3: Split slugs — only fetch API profiles for non-terminal discoveries
+  const terminalStatuses = new Set(["ADDED", "LINKED", "DISMISSED"]);
+  const activeSlugs = discovered
+    .filter((k) => !terminalStatuses.has(discoveryStatusMap.get(k.slug) ?? ""))
+    .map((k) => k.slug);
+
+  // Step 4: Fetch API profiles (active only) + load kennels/aliases in parallel
+  const [profiles, existingKennels, existingAliases] = await Promise.all([
+    fetchKennelProfiles(activeSlugs),
     prisma.kennel.findMany({
       select: { id: true, shortName: true, fullName: true },
       where: { isHidden: false },
     }),
     prisma.kennelAlias.findMany({
       select: { kennelId: true, alias: true },
-    }),
-    prisma.kennelDiscovery.findMany({
-      where: { externalSource: EXTERNAL_SOURCE },
-      select: { externalSlug: true, status: true },
     }),
   ]);
   enriched = profiles.size;
@@ -116,10 +127,6 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
     fullName: k.fullName,
     aliases: aliasMap.get(k.id),
   }));
-
-  const discoveryStatusMap = new Map(
-    existingDiscoveries.map((d) => [d.externalSlug, d.status]),
-  );
 
   // Step 5: Process each discovered kennel
   const syncTimestamp = new Date();

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { DiscoveryTable } from "@/components/admin/DiscoveryTable";
 
 export const metadata = { title: "Kennel Discovery — HashTracks Admin" };
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 export default async function DiscoveryPage() {
   const [discoveries, regions, statusCounts] = await Promise.all([

@@ -4,6 +4,8 @@
  * GET /api/kennels/{slug} returns rich profile JSON (Django REST Framework).
  * Used by the discovery sync pipeline to enrich discovered kennels with
  * profile fields: website, email, year_started, trail info, payment info, etc.
+ *
+ * Rate limiting: 10 concurrent requests per batch, 500ms delay between batches.
  */
 
 export interface HashRegoKennelProfile {
@@ -31,8 +33,8 @@ export interface HashRegoKennelProfile {
 
 const BASE_URL = "https://hashrego.com";
 const USER_AGENT = "Mozilla/5.0 (compatible; HashTracks-Scraper)";
-const BATCH_SIZE = 5;
-const BATCH_DELAY_MS = 1000;
+const BATCH_SIZE = 10;
+const BATCH_DELAY_MS = 500;
 
 /** Fetch a single kennel profile from the Hash Rego API. Returns null on 404/error. */
 export async function fetchKennelProfile(
@@ -57,7 +59,7 @@ export async function fetchKennelProfile(
   }
 }
 
-/** Fetch profiles for a batch of slugs with rate limiting (~5/sec). */
+/** Fetch profiles for a batch of slugs with rate limiting (~20/sec). */
 export async function fetchKennelProfiles(
   slugs: string[],
 ): Promise<Map<string, HashRegoKennelProfile>> {
