@@ -304,7 +304,7 @@ export async function scrapeSource(
       await prisma.rawEvent.deleteMany({ where: { sourceId } });
     }
 
-    const adapter = getAdapter(source.type, source.url);
+    const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
 
     const fetchStart = Date.now();
     const scrapeResult = await adapter.fetch(source, { days });

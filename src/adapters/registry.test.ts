@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getAdapter } from "./registry";
+import { GenericHtmlAdapter } from "./html-scraper/generic";
 import { HashNYCAdapter } from "./html-scraper/hashnyc";
 import { BFMAdapter } from "./html-scraper/bfm";
 import { HashPhillyAdapter } from "./html-scraper/hashphilly";
@@ -92,5 +93,45 @@ describe("getAdapter", () => {
 
   it("throws for unimplemented source type", () => {
     expect(() => getAdapter("JSON_API" as never)).toThrow("Adapter not implemented");
+  });
+
+  // Generic HTML config routing
+  it("returns GenericHtmlAdapter when config has containerSelector + rowSelector", () => {
+    const config = {
+      containerSelector: "table",
+      rowSelector: "tbody tr",
+      columns: { date: "td:nth-child(1)" },
+      defaultKennelTag: "TEST",
+    };
+    expect(getAdapter("HTML_SCRAPER", "https://unknown-site.com", config)).toBeInstanceOf(GenericHtmlAdapter);
+  });
+
+  it("returns named adapter even when generic config is present (named takes priority)", () => {
+    const config = {
+      containerSelector: "table",
+      rowSelector: "tbody tr",
+      columns: { date: "td:nth-child(1)" },
+      defaultKennelTag: "TEST",
+    };
+    // cityhash.org matches a named adapter
+    expect(getAdapter("HTML_SCRAPER", "https://cityhash.org.uk/", config)).toBeInstanceOf(CityHashAdapter);
+  });
+
+  it("returns HashNYCAdapter (default) when no URL match and no generic config", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://unknown-site.com")).toBeInstanceOf(HashNYCAdapter);
+  });
+
+  it("returns HashNYCAdapter when config is null", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://unknown-site.com", null)).toBeInstanceOf(HashNYCAdapter);
+  });
+
+  it("returns GenericHtmlAdapter for unknown URL with generic config and no URL", () => {
+    const config = {
+      containerSelector: "#events",
+      rowSelector: "tr",
+      columns: { date: "td" },
+      defaultKennelTag: "TEST",
+    };
+    expect(getAdapter("HTML_SCRAPER", undefined, config)).toBeInstanceOf(GenericHtmlAdapter);
   });
 });

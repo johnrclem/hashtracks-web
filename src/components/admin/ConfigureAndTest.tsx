@@ -53,6 +53,8 @@ import {
   StaticScheduleConfigPanel,
   type StaticScheduleConfig,
 } from "./config-panels/StaticScheduleConfigPanel";
+import { GenericHtmlConfigPanel } from "./config-panels/GenericHtmlConfigPanel";
+import { isGenericHtmlConfig, type GenericHtmlConfig } from "@/adapters/html-scraper/generic";
 import type { KennelOption } from "./config-panels/KennelTagInput";
 
 /** Types that use the config JSON field */
@@ -178,11 +180,15 @@ export function ConfigureAndTest({
 
   const allKennelsWithExtra = [...allKennels, ...extraKennels];
 
-  const showConfigEditor = CONFIG_TYPES.has(type);
-  const hasPanel =
-    PANEL_TYPES.has(type) || (type === "HTML_SCRAPER" && hasICalConfigShape(config));
+  // Track whether to show the generic HTML panel (triggered by AI suggestion or manual)
+  const [showGenericHtmlPanel, setShowGenericHtmlPanel] = useState(false);
 
-  function getPanelType(): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | "rss" | "static-schedule" | null {
+  const showConfigEditor = CONFIG_TYPES.has(type);
+  const hasGenericConfig = type === "HTML_SCRAPER" && (isGenericHtmlConfig(config) || showGenericHtmlPanel);
+  const hasPanel =
+    PANEL_TYPES.has(type) || (type === "HTML_SCRAPER" && hasICalConfigShape(config)) || hasGenericConfig;
+
+  function getPanelType(): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | "rss" | "static-schedule" | "generic-html" | null {
     if (type === "ICAL_FEED" || (type === "HTML_SCRAPER" && hasICalConfigShape(config)))
       return "ical";
     if (type === "GOOGLE_CALENDAR") return "calendar";
@@ -191,6 +197,7 @@ export function ConfigureAndTest({
     if (type === "MEETUP") return "meetup";
     if (type === "RSS_FEED") return "rss";
     if (type === "STATIC_SCHEDULE") return "static-schedule";
+    if (hasGenericConfig) return "generic-html";
     return null;
   }
 
@@ -209,6 +216,10 @@ export function ConfigureAndTest({
         setAiSuggestion(result.suggestion);
         setAiErrorMessage(null);
         setAiState("done");
+        // Show generic HTML panel when AI suggests it (no named adapter matched)
+        if (result.suggestion.useGenericPanel) {
+          setShowGenericHtmlPanel(true);
+        }
       })
       .catch((err) => {
         setAiErrorMessage(err instanceof Error ? err.message : "Unexpected error — try again.");
@@ -304,6 +315,11 @@ export function ConfigureAndTest({
     const newObj = hasContent ? cleaned : null;
     const newJson = hasContent ? JSON.stringify(cleaned, null, 2) : "";
     onConfigChange(newObj, newJson);
+  }
+
+  function handleGenericHtmlChange(newConfig: GenericHtmlConfig) {
+    const json = JSON.stringify(newConfig, null, 2);
+    onConfigChange(newConfig as unknown as Record<string, unknown>, json);
   }
 
   function handleRawJsonChange(json: string) {
@@ -565,12 +581,32 @@ export function ConfigureAndTest({
           />
         )}
 
+        {panelType === "generic-html" && (
+          <GenericHtmlConfigPanel
+            config={config as GenericHtmlConfig | null}
+            onChange={handleGenericHtmlChange}
+            url={url}
+            allKennels={allKennelsWithExtra}
+          />
+        )}
+
         {/* No config needed */}
         {!showConfigEditor && !hasPanel && (
           <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
             <p>No configuration needed for {type.replaceAll("_", " ").toLowerCase()} sources.</p>
             {type === "HTML_SCRAPER" && (
-              <p className="mt-1 text-xs">URL routing selects the scraper automatically.</p>
+              <>
+                <p className="mt-1 text-xs">URL routing selects the scraper automatically.</p>
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="mt-2 h-6 text-xs"
+                  onClick={() => setShowGenericHtmlPanel(true)}
+                >
+                  Or configure generic HTML selectors
+                </Button>
+              </>
             )}
           </div>
         )}

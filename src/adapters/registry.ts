@@ -1,5 +1,6 @@
 import type { SourceType } from "@/generated/prisma/client";
 import type { SourceAdapter } from "./types";
+import { GenericHtmlAdapter, isGenericHtmlConfig } from "./html-scraper/generic";
 import { HashNYCAdapter } from "./html-scraper/hashnyc";
 import { BFMAdapter } from "./html-scraper/bfm";
 import { HashPhillyAdapter } from "./html-scraper/hashphilly";
@@ -77,13 +78,22 @@ export function findHtmlAdapter(url: string): string | null {
   return null;
 }
 
-/** Factory function: returns the appropriate SourceAdapter for a given source type and URL. URL-based routing applies for HTML_SCRAPER types. */
-export function getAdapter(sourceType: SourceType, sourceUrl?: string): SourceAdapter {
-  // For HTML scrapers, check URL-based routing first
+/** Factory function: returns the appropriate SourceAdapter for a given source type, URL, and optional config. URL-based routing applies for HTML_SCRAPER types; generic config routing falls back when no named adapter matches. */
+export function getAdapter(
+  sourceType: SourceType,
+  sourceUrl?: string,
+  sourceConfig?: Record<string, unknown> | null,
+): SourceAdapter {
+  // For HTML scrapers, check URL-based routing first (named adapters take priority)
   if (sourceType === "HTML_SCRAPER" && sourceUrl) {
     for (const [pattern, factory] of htmlScrapersByUrl) {
       if (pattern.test(sourceUrl)) return factory();
     }
+  }
+
+  // For HTML scrapers with a generic config, use GenericHtmlAdapter
+  if (sourceType === "HTML_SCRAPER" && isGenericHtmlConfig(sourceConfig)) {
+    return new GenericHtmlAdapter();
   }
 
   const factory = adapters[sourceType];
