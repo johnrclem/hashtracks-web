@@ -1,5 +1,8 @@
 "use server";
 
+// Extend Vercel function timeout — API enrichment alone takes 24+ seconds (117 kennels at 5/sec)
+export const maxDuration = 120;
+
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";

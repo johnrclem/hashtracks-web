@@ -37,6 +37,9 @@ interface LocationData {
 export function parseKennelDirectory(pageSource: string): DiscoveredKennel[] {
   const locations = new Map<string, Partial<LocationData>>();
 
+  // Pre-process: collapse JS string concatenation ('...' +'...') so regex can match
+  const normalized = pageSource.replace(/'\s*\+\s*'/g, "");
+
   // Helper to get or create a location entry
   const getOrCreate = (key: string) => {
     if (!locations.has(key)) locations.set(key, {});
@@ -44,20 +47,20 @@ export function parseKennelDirectory(pageSource: string): DiscoveredKennel[] {
   };
 
   // Pass 1: Extract LatLng coordinates
-  for (const match of pageSource.matchAll(LAT_LNG_RE)) {
+  for (const match of normalized.matchAll(LAT_LNG_RE)) {
     const loc = getOrCreate(match[1]);
     loc.latitude = Number.parseFloat(match[2]);
     loc.longitude = Number.parseFloat(match[3]);
   }
 
   // Pass 2: Extract location titles from Marker constructors
-  for (const match of pageSource.matchAll(TITLE_RE)) {
+  for (const match of normalized.matchAll(TITLE_RE)) {
     const loc = getOrCreate(match[1]);
     loc.title = match[2];
   }
 
   // Pass 3: Extract info window HTML
-  for (const match of pageSource.matchAll(INFO_WINDOW_RE)) {
+  for (const match of normalized.matchAll(INFO_WINDOW_RE)) {
     const loc = getOrCreate(match[1]);
     // Unescape JS string escapes (single quotes, backslashes)
     loc.infoHtml = match[2].replaceAll("\\'", "'").replaceAll("\\\\", "\\");
@@ -72,17 +75,20 @@ export function parseKennelDirectory(pageSource: string): DiscoveredKennel[] {
     const locationTitle = data.title || "";
     const $ = cheerio.load(data.infoHtml);
 
-    $("li").each((_i, li) => {
-      const anchor = $(li).find("a[href*='/kennels/']").first();
-      const href = anchor.attr("href") || "";
+    // Handle both old format (<li> wrapping <a>) and new format (<a> wrapping <li>)
+    $("a[href*='/kennels/']").each((_i, el) => {
+      const href = $(el).attr("href") || "";
       const slugMatch = href.match(/\/kennels\/([^/]+)/);
       if (!slugMatch) return;
 
       const slug = slugMatch[1];
-      const name = $(li).find("h4").text().trim() || anchor.text().trim();
+      // Try h4 inside the anchor (or its child li), then fall back to anchor text
+      const name = $(el).find("h4").text().trim() || $(el).text().trim();
       if (!name) return;
 
-      const scheduleEl = $(li).find("p").first();
+      // Find the wrapper element (either the anchor itself if it wraps li, or the parent li)
+      const wrapper = $(el).find("li").length > 0 ? $(el) : $(el).closest("li");
+      const scheduleEl = wrapper.find("p").first();
       const schedule = scheduleEl.text().trim() || undefined;
 
       kennels.push({

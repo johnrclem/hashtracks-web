@@ -155,7 +155,13 @@ export function DiscoveryTable({ discoveries, regions, counts }: DiscoveryTableP
         const result = await runDiscoverySync();
         if ("error" in result) {
           toast.error(result.error);
+        } else if (result.totalDiscovered === 0 && result.errors?.length) {
+          toast.error(result.errors[0]);
         } else {
+          if (result.errors?.length) {
+            toast.warning(`${result.errors.length} enrichment error(s) — check console`);
+            console.warn("[DiscoverySync] errors:", result.errors);
+          }
           toast.success(
             `Discovered ${result.totalDiscovered} kennels: ${result.newKennels} new, ${result.autoMatched} auto-matched, ${result.enriched} enriched`,
           );
