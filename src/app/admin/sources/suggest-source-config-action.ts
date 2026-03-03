@@ -22,6 +22,8 @@ export interface ConfigSuggestion {
   confidence: "high" | "medium" | "low";
   /** Non-null when a known HTML adapter was matched (no config needed). */
   adapterNote: string | null;
+  /** True when the admin should be shown the generic HTML config panel (no named adapter matched). */
+  useGenericPanel?: boolean;
   /** When suggestedConfig.kennelTag doesn't match an existing kennel, AI suggests details for creating one. */
   suggestedNewKennel: { shortName: string; fullName: string; region: string } | null;
 }
@@ -139,6 +141,7 @@ function buildHtmlScraperSuggestion(url: string): SuggestConfigResult {
         "No site-specific adapter matches this URL. Use the \"Analyze Page\" button to let AI detect the event structure and suggest CSS selectors for extraction.",
       confidence: "low",
       adapterNote: "Try: Analyze Page",
+      useGenericPanel: true,
       suggestedNewKennel: null,
     },
   };
@@ -216,7 +219,7 @@ async function fetchSampleEvents(
   } as Source;
 
   try {
-    const adapter = getAdapter(type, url, effectiveConfig as Record<string, unknown> | null);
+    const adapter = getAdapter(type, url, effectiveConfig);
     const result = await adapter.fetch(mockSource, { days: SAMPLE_LOOKBACK_DAYS });
     if (result.events.length === 0) {
       const detail = result.errors.length > 0 ? ` (${result.errors[0]})` : "";

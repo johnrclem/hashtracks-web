@@ -1,7 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import * as cheerio from "cheerio";
-import { findCandidateContainers } from "./analyze-html-action";
-import type { ContainerCandidate } from "./analyze-html-action";
+import { findCandidateContainers } from "./html-analysis-utils";
 
 // We test findCandidateContainers directly (pure function, no auth/fetch needed)
 

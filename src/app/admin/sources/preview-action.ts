@@ -129,7 +129,7 @@ export async function previewSourceConfig(
 
   let adapter;
   try {
-    adapter = getAdapter(type as SourceType, url, effectiveConfig as Record<string, unknown> | null);
+    adapter = getAdapter(type as SourceType, url, effectiveConfig);
   } catch (e) {
     return {
       error: `No adapter found for ${type}${url ? ` (${url})` : ""}: ${e instanceof Error ? e.message : "unknown error"}`,

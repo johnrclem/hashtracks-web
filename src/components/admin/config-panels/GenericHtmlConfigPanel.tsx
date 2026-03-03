@@ -40,6 +40,15 @@ const FIELD_OPTIONS = [
   ...COLUMN_FIELDS.map((f) => ({ value: f.key, label: f.label })),
 ];
 
+/** Map confidence level to badge styling. */
+function confidenceBadgeClass(level: "high" | "medium" | "low"): string {
+  switch (level) {
+    case "high": return "border-green-200 text-green-700";
+    case "medium": return "border-amber-200 text-amber-700";
+    case "low": return "border-red-200 text-red-700";
+  }
+}
+
 // ─── Props ──────────────────────────────────────────────────────────────────
 
 export interface GenericHtmlConfigPanelProps {
@@ -70,6 +79,9 @@ export function GenericHtmlConfigPanel({
   const defaultKennelTag = config?.defaultKennelTag ?? "";
   const dateLocale = config?.dateLocale ?? "en-US";
 
+  // Whether the best candidate is a table layout (enables column reassignment dropdowns)
+  const isTableLayout = analysisResult?.candidates?.[0]?.layoutType === "table";
+
   function updateConfig(patch: Partial<GenericHtmlConfig>) {
     onChange({
       containerSelector: config?.containerSelector ?? "",
@@ -90,24 +102,44 @@ export function GenericHtmlConfigPanel({
 
   function handleAnalyze() {
     startAnalyze(async () => {
-      const result = await analyzeHtmlStructure(url);
-      setAnalysisResult(result);
+      try {
+        const result = await analyzeHtmlStructure(url);
+        setAnalysisResult(result);
 
-      if (result.suggestedConfig) {
-        onChange(result.suggestedConfig);
+        if (result.suggestedConfig) {
+          onChange(result.suggestedConfig);
+        }
+      } catch (err) {
+        setAnalysisResult({
+          candidates: [],
+          suggestedConfig: null,
+          explanation: "",
+          confidence: null,
+          error: `Analysis failed: ${err instanceof Error ? err.message : String(err)}`,
+        });
       }
     });
   }
 
   function handleRefine() {
     startRefine(async () => {
-      const result = await refineHtmlAnalysis(url, config ?? {}, feedbackText);
-      setAnalysisResult(result);
+      try {
+        const result = await refineHtmlAnalysis(url, config ?? {}, feedbackText);
+        setAnalysisResult(result);
 
-      if (result.suggestedConfig) {
-        onChange(result.suggestedConfig);
+        if (result.suggestedConfig) {
+          onChange(result.suggestedConfig);
+        }
+        setFeedbackText("");
+      } catch (err) {
+        setAnalysisResult((prev) => ({
+          candidates: prev?.candidates ?? [],
+          suggestedConfig: prev?.suggestedConfig ?? null,
+          explanation: "",
+          confidence: null,
+          error: `Refinement failed: ${err instanceof Error ? err.message : String(err)}`,
+        }));
       }
-      setFeedbackText("");
     });
   }
 
@@ -127,13 +159,7 @@ export function GenericHtmlConfigPanel({
         {analysisResult?.confidence && (
           <Badge
             variant="outline"
-            className={
-              analysisResult.confidence === "high"
-                ? "border-green-200 text-green-700"
-                : analysisResult.confidence === "medium"
-                  ? "border-amber-200 text-amber-700"
-                  : "border-red-200 text-red-700"
-            }
+            className={confidenceBadgeClass(analysisResult.confidence)}
           >
             {analysisResult.confidence} confidence
           </Badge>
@@ -146,7 +172,7 @@ export function GenericHtmlConfigPanel({
           {analysisResult.explanation}
           {analysisResult.candidates.length > 0 && (
             <span className="ml-1">
-              ({analysisResult.candidates.length} container{analysisResult.candidates.length !== 1 ? "s" : ""} found,{" "}
+              ({analysisResult.candidates.length} container{analysisResult.candidates.length === 1 ? "" : "s"} found,{" "}
               {analysisResult.candidates[0]?.rowCount ?? 0} rows)
             </span>
           )}
@@ -163,36 +189,45 @@ export function GenericHtmlConfigPanel({
       {analysisResult?.candidates?.[0]?.sampleRows && analysisResult.candidates[0].sampleRows.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-medium">Sample Data Preview</p>
+          {!isTableLayout && (
+            <p className="text-xs text-muted-foreground">
+              Column reassignment is only available for table layouts. Use &quot;Refine with AI&quot; or advanced selectors to adjust mappings.
+            </p>
+          )}
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full text-xs">
               <thead className="bg-muted/50">
                 <tr>
                   {analysisResult.candidates[0].sampleRows[0].map((_, colIdx) => (
-                    <th key={colIdx} className="px-2 py-1.5">
-                      <Select
-                        value={getColumnAssignment(columns, colIdx)}
-                        onValueChange={(val) => handleColumnReassign(colIdx, val, analysisResult.candidates[0].sampleRows[0].length)}
-                      >
-                        <SelectTrigger className="h-6 w-full min-w-[100px] text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {FIELD_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <th key={`col-${colIdx}`} className="px-2 py-1.5">
+                      {isTableLayout ? (
+                        <Select
+                          value={getColumnAssignment(columns, colIdx)}
+                          onValueChange={(val) => handleColumnReassign(colIdx, val)}
+                        >
+                          <SelectTrigger className="h-6 w-full min-w-[100px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FIELD_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-muted-foreground">Col {colIdx + 1}</span>
+                      )}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {analysisResult.candidates[0].sampleRows.slice(0, 5).map((row, rowIdx) => (
-                  <tr key={rowIdx} className="border-t">
+                  <tr key={`row-${rowIdx}`} className="border-t">
                     {row.map((cell, cellIdx) => (
-                      <td key={cellIdx} className="max-w-[200px] truncate px-2 py-1 text-muted-foreground">
+                      <td key={`cell-${rowIdx}-${cellIdx}`} className="max-w-[200px] truncate px-2 py-1 text-muted-foreground">
                         {cell || <span className="text-gray-300">—</span>}
                       </td>
                     ))}
@@ -332,7 +367,7 @@ export function GenericHtmlConfigPanel({
     </div>
   );
 
-  // ─── Column assignment helpers ──────────────────────────────────────
+  // ─── Column assignment helpers (table layouts only) ────────────────
 
   /**
    * Given current column config, determine which field is assigned to a
@@ -351,7 +386,7 @@ export function GenericHtmlConfigPanel({
    * When admin changes a column assignment dropdown, update the config
    * to map that column index to the selected field.
    */
-  function handleColumnReassign(colIdx: number, fieldKey: string, _totalCols: number) {
+  function handleColumnReassign(colIdx: number, fieldKey: string) {
     const selector = `td:nth-child(${colIdx + 1})`;
     const newColumns = { ...columns };
 

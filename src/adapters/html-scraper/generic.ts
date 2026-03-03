@@ -23,8 +23,7 @@ import {
   validateSourceConfig,
   type DateLocale,
 } from "../utils";
-import type { CheerioAPI } from "cheerio";
-import type { Cheerio } from "cheerio";
+import type { CheerioAPI, Cheerio } from "cheerio";
 import type { AnyNode } from "domhandler";
 
 /** Column selectors for extracting event fields from each row. */
@@ -123,7 +122,8 @@ export function parseEventRow(
 
   // Run number: extract digits
   const runNumberText = extractText($, $row, columns.runNumber);
-  const runNumber = runNumberText ? parseInt(runNumberText.replace(/\D/g, ""), 10) || undefined : undefined;
+  const runDigits = runNumberText?.replaceAll(/\D/g, "");
+  const runNumber = runDigits ? Number.parseInt(runDigits, 10) || undefined : undefined;
 
   // Start time: try to extract from dedicated field, or parse from date text
   let startTime: string | undefined;
@@ -131,7 +131,10 @@ export function parseEventRow(
   if (timeText) {
     startTime = parse12HourTime(timeText);
     if (!startTime && /^\d{2}:\d{2}$/.test(timeText)) {
-      startTime = timeText; // Already in HH:MM format
+      const [h, m] = timeText.split(":").map(Number);
+      if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+        startTime = timeText;
+      }
     }
   }
 

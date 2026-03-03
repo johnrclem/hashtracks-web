@@ -141,37 +141,40 @@ function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: stri
 /** Dangerous patterns blocked in CSS selectors (XSS prevention). */
 const DANGEROUS_SELECTOR_PATTERN = /<script|javascript:|on\w+\s*=/i;
 
+/** Validate a CSS selector string: non-empty and free of dangerous content. */
+function validateSelector(name: string, value: unknown, errors: string[]): void {
+  if (typeof value !== "string" || !value.trim()) {
+    errors.push(`Generic HTML config requires a non-empty ${name}`);
+  } else if (DANGEROUS_SELECTOR_PATTERN.test(value)) {
+    errors.push(`${name} contains blocked content (script/event handlers)`);
+  }
+}
+
+/** Validate column selectors object: require date, block dangerous content. */
+function validateColumnSelectors(columns: unknown, errors: string[]): void {
+  if (!columns || typeof columns !== "object" || Array.isArray(columns)) {
+    errors.push("Generic HTML config requires a columns object");
+    return;
+  }
+  const cols = columns as Record<string, unknown>;
+  if (typeof cols.date !== "string" || !cols.date.trim()) {
+    errors.push("Generic HTML config requires columns.date selector");
+  }
+  for (const [key, val] of Object.entries(cols)) {
+    if (typeof val === "string" && DANGEROUS_SELECTOR_PATTERN.test(val)) {
+      errors.push(`columns.${key} contains blocked content (script/event handlers)`);
+    }
+  }
+}
+
 /** Validate Generic HTML Scraper config (containerSelector, rowSelector, columns). */
 function validateGenericHtmlConfig(obj: Record<string, unknown>, errors: string[]): void {
   // Only validate if this looks like a generic HTML config
   if (!("containerSelector" in obj) && !("rowSelector" in obj)) return;
 
-  if (typeof obj.containerSelector !== "string" || !obj.containerSelector.trim()) {
-    errors.push("Generic HTML config requires a non-empty containerSelector");
-  } else if (DANGEROUS_SELECTOR_PATTERN.test(obj.containerSelector)) {
-    errors.push("containerSelector contains blocked content (script/event handlers)");
-  }
-
-  if (typeof obj.rowSelector !== "string" || !obj.rowSelector.trim()) {
-    errors.push("Generic HTML config requires a non-empty rowSelector");
-  } else if (DANGEROUS_SELECTOR_PATTERN.test(obj.rowSelector)) {
-    errors.push("rowSelector contains blocked content (script/event handlers)");
-  }
-
-  if (!obj.columns || typeof obj.columns !== "object" || Array.isArray(obj.columns)) {
-    errors.push("Generic HTML config requires a columns object");
-  } else {
-    const cols = obj.columns as Record<string, unknown>;
-    if (typeof cols.date !== "string" || !cols.date.trim()) {
-      errors.push("Generic HTML config requires columns.date selector");
-    }
-    // Validate all column selectors for dangerous content
-    for (const [key, val] of Object.entries(cols)) {
-      if (typeof val === "string" && DANGEROUS_SELECTOR_PATTERN.test(val)) {
-        errors.push(`columns.${key} contains blocked content (script/event handlers)`);
-      }
-    }
-  }
+  validateSelector("containerSelector", obj.containerSelector, errors);
+  validateSelector("rowSelector", obj.rowSelector, errors);
+  validateColumnSelectors(obj.columns, errors);
 
   if (typeof obj.defaultKennelTag !== "string" || !obj.defaultKennelTag.trim()) {
     errors.push("Generic HTML config requires a non-empty defaultKennelTag");

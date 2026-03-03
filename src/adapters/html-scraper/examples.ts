@@ -124,7 +124,7 @@ export const ADAPTER_EXAMPLES: AdapterExample[] = [
 
 /**
  * Get examples matching a specific layout type, for targeted few-shot prompting.
- * Falls back to all examples if the layout type has fewer than 2 matches.
+ * Falls back to the first 3 examples if the layout type has fewer than 2 matches.
  */
 export function getExamplesForLayout(layoutType: string): AdapterExample[] {
   const matched = ADAPTER_EXAMPLES.filter((e) => e.layoutType === layoutType);

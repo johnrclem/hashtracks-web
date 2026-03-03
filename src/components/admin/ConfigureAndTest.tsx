@@ -216,8 +216,8 @@ export function ConfigureAndTest({
         setAiSuggestion(result.suggestion);
         setAiErrorMessage(null);
         setAiState("done");
-        // Show generic HTML panel when AI suggests it
-        if (result.suggestion.adapterNote === "Try: Analyze Page") {
+        // Show generic HTML panel when AI suggests it (no named adapter matched)
+        if (result.suggestion.useGenericPanel) {
           setShowGenericHtmlPanel(true);
         }
       })
