@@ -335,15 +335,23 @@ export async function getDiscoveryPrefill(discoveryId: string) {
     }
   }
 
-  // Construct payment link from paymentInfo JSON
+  // Construct payment link from paymentInfo JSON (validate shape before string ops)
   let paymentLink: string | null = null;
-  const pi = discovery.paymentInfo as Record<string, string> | null;
-  if (pi?.venmo) {
-    paymentLink = `https://venmo.com/${pi.venmo.replace("@", "")}`;
-  } else if (pi?.paypal) {
-    paymentLink = `https://paypal.me/${pi.paypal}`;
-  } else if (pi?.squareCash) {
-    paymentLink = `https://cash.app/${pi.squareCash}`;
+  const raw = discovery.paymentInfo;
+  const pi =
+    typeof raw === "object" && raw !== null && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : null;
+  const venmo = typeof pi?.venmo === "string" ? pi.venmo : null;
+  const paypal = typeof pi?.paypal === "string" ? pi.paypal : null;
+  const squareCash = typeof pi?.squareCash === "string" ? pi.squareCash : null;
+
+  if (venmo) {
+    paymentLink = `https://venmo.com/${venmo.replace("@", "")}`;
+  } else if (paypal) {
+    paymentLink = `https://paypal.me/${paypal}`;
+  } else if (squareCash) {
+    paymentLink = `https://cash.app/${squareCash}`;
   }
 
   return {
@@ -354,7 +362,7 @@ export async function getDiscoveryPrefill(discoveryId: string) {
       website: discovery.website,
       contactEmail: discovery.contactEmail,
       foundedYear: discovery.yearStarted,
-      hashCash: discovery.trailPrice ? `$${discovery.trailPrice}` : null,
+      hashCash: discovery.trailPrice != null ? `$${discovery.trailPrice}` : null,
       scheduleFrequency,
       scheduleDayOfWeek,
       location: discovery.location,
