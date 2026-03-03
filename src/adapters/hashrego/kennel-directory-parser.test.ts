@@ -1,4 +1,3 @@
-import { describe, it, expect } from "vitest";
 import { parseKennelDirectory } from "./kennel-directory-parser";
 
 /**
@@ -21,17 +20,18 @@ function buildPageSource(
   ];
 
   for (const loc of locations) {
+    const schedulePart = (k: { schedule?: string }) =>
+      k.schedule ? `<p>${k.schedule}</p>` : "";
+
     lines.push(
       `var loc${loc.id}Pos = new google.maps.LatLng(${loc.lat},${loc.lng});`,
-    );
-    lines.push(
       `var loc${loc.id}Marker = new google.maps.Marker({position: loc${loc.id}Pos, map: kennelMap, title: '${loc.title}'});`,
     );
 
     const kennelHtml = loc.kennels
       .map(
         (k) =>
-          `<li><h4><a href="/kennels/${k.slug}/">${k.name}</a></h4>${k.schedule ? `<p>${k.schedule}</p>` : ""}</li>`,
+          `<li><h4><a href="/kennels/${k.slug}/">${k.name}</a></h4>${schedulePart(k)}</li>`,
       )
       .join("");
     const content = `<h3>${loc.title}</h3><ul>${kennelHtml}</ul>`;
@@ -51,7 +51,7 @@ describe("parseKennelDirectory", () => {
       {
         id: 1,
         lat: 38.9,
-        lng: -77.0,
+        lng: -77,
         title: "Washington, DC, USA",
         kennels: [{ slug: "EWH3", name: "Everyday Is Wednesday H3", schedule: "Weekly, Wednesdays" }],
       },
@@ -64,7 +64,7 @@ describe("parseKennelDirectory", () => {
       name: "Everyday Is Wednesday H3",
       location: "Washington, DC, USA",
       latitude: 38.9,
-      longitude: -77.0,
+      longitude: -77,
       schedule: "Weekly, Wednesdays",
       url: "https://hashrego.com/kennels/EWH3/",
     });
@@ -75,7 +75,7 @@ describe("parseKennelDirectory", () => {
       {
         id: 1,
         lat: 40.7,
-        lng: -74.0,
+        lng: -74,
         title: "New York, NY, USA",
         kennels: [
           { slug: "NYCH3", name: "New York City H3", schedule: "Weekly, Saturdays" },
@@ -93,7 +93,7 @@ describe("parseKennelDirectory", () => {
     expect(result[2].schedule).toBeUndefined();
     // All share the same location coords
     expect(result.every((k) => k.latitude === 40.7)).toBe(true);
-    expect(result.every((k) => k.longitude === -74.0)).toBe(true);
+    expect(result.every((k) => k.longitude === -74)).toBe(true);
   });
 
   it("parses multiple locations", () => {
@@ -101,7 +101,7 @@ describe("parseKennelDirectory", () => {
       {
         id: 1,
         lat: 38.9,
-        lng: -77.0,
+        lng: -77,
         title: "Washington, DC, USA",
         kennels: [{ slug: "EWH3", name: "Everyday Is Wednesday H3" }],
       },
@@ -148,7 +148,7 @@ describe("parseKennelDirectory", () => {
       "<script>",
       "var loc1Pos = new google.maps.LatLng(42.3,-71.0);",
       "var loc1Marker = new google.maps.Marker({position: loc1Pos, map: kennelMap, title: 'Boston, MA, USA'});",
-      "google.maps.event.addListener(loc1Marker, 'click', function() { infowindow.setContent('<h3>Boston, MA, USA</h3><ul><li><h4><a href=\"/kennels/BOSH3/\">Boston\\'s H3</a></h4></li></ul>'); });",
+      String.raw`google.maps.event.addListener(loc1Marker, 'click', function() { infowindow.setContent('<h3>Boston, MA, USA</h3><ul><li><h4><a href="/kennels/BOSH3/">Boston\'s H3</a></h4></li></ul>'); });`,
       "</script>",
     ].join("\n");
 

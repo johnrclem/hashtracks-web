@@ -8,20 +8,23 @@ import { toSlug, toKennelCode } from "@/lib/kennel-utils";
 import { generateAliases } from "@/lib/auto-aliases";
 import { clearResolverCache } from "@/pipeline/kennel-resolver";
 import { normalizeTrailDay } from "@/adapters/hashrego/kennel-api";
+import { safeUrl } from "@/lib/safe-url";
 
 /**
- * Create an alias for a kennel if it doesn't already exist (globally unique check).
+ * Create an alias for a kennel if it doesn't already exist.
+ * Uses create-with-catch to handle concurrent requests safely (P2002 = unique violation).
  * Clears the resolver cache so the merge pipeline recognizes new aliases immediately.
  */
 async function ensureAlias(kennelId: string, alias: string): Promise<void> {
-  const existing = await prisma.kennelAlias.findFirst({
-    where: { alias: { equals: alias, mode: "insensitive" } },
-  });
-  if (!existing) {
+  try {
     await prisma.kennelAlias.create({
       data: { kennelId, alias },
     });
     clearResolverCache();
+  } catch (e: unknown) {
+    // P2002 = unique constraint violation — alias already exists, safe to ignore
+    if (e instanceof Error && "code" in e && (e as { code: string }).code === "P2002") return;
+    throw e;
   }
 }
 
@@ -102,21 +105,6 @@ export async function addKennelFromDiscovery(
   const slug = toSlug(data.shortName);
   const kennelCode = toKennelCode(data.shortName);
 
-  // Check uniqueness
-  const existing = await prisma.kennel.findFirst({
-    where: {
-      OR: [{ kennelCode }, { slug }, { shortName: data.shortName, regionId: data.regionId }],
-    },
-  });
-  if (existing) return { error: `Kennel "${data.shortName}" already exists` };
-
-  // Resolve region name
-  const region = await prisma.region.findUnique({
-    where: { id: data.regionId },
-    select: { name: true },
-  });
-  if (!region) return { error: "Region not found" };
-
   // Generate aliases
   const autoAliases = generateAliases(data.shortName, data.fullName);
   const allAliases = new Set<string>();
@@ -136,39 +124,66 @@ export async function addKennelFromDiscovery(
     }
   }
 
-  const kennel = await prisma.kennel.create({
-    data: {
-      kennelCode,
-      shortName: data.shortName,
-      slug,
-      fullName: data.fullName,
-      region: region.name,
-      regionRef: { connect: { id: data.regionId } },
-      country: data.country || "USA",
-      website: data.website || null,
-      contactEmail: data.contactEmail || null,
-      foundedYear: data.foundedYear || null,
-      hashCash: data.hashCash || null,
-      scheduleDayOfWeek: data.scheduleDayOfWeek || null,
-      scheduleFrequency: data.scheduleFrequency || null,
-      paymentLink: data.paymentLink || null,
-      aliases: {
-        create: [...allAliases].map((alias) => ({ alias })),
+  // Infer country from region if not provided
+  const country = data.country || undefined;
+
+  let kennel;
+  try {
+    kennel = await prisma.$transaction(async (tx) => {
+    // Check uniqueness inside transaction to prevent races
+    const existing = await tx.kennel.findFirst({
+      where: {
+        OR: [{ kennelCode }, { slug }, { shortName: data.shortName, regionId: data.regionId }],
       },
-    },
-  });
+    });
+    if (existing) throw new Error(`Kennel "${data.shortName}" already exists`);
+
+    // Resolve region name
+    const region = await tx.region.findUnique({
+      where: { id: data.regionId },
+      select: { name: true, country: true },
+    });
+    if (!region) throw new Error("Region not found");
+
+    const created = await tx.kennel.create({
+      data: {
+        kennelCode,
+        shortName: data.shortName,
+        slug,
+        fullName: data.fullName,
+        region: region.name,
+        regionRef: { connect: { id: data.regionId } },
+        country: country || region.country || "USA",
+        website: safeUrl(data.website),
+        contactEmail: data.contactEmail || null,
+        foundedYear: data.foundedYear || null,
+        hashCash: data.hashCash || null,
+        scheduleDayOfWeek: data.scheduleDayOfWeek || null,
+        scheduleFrequency: data.scheduleFrequency || null,
+        paymentLink: safeUrl(data.paymentLink),
+        aliases: {
+          create: [...allAliases].map((alias) => ({ alias })),
+        },
+      },
+    });
+
+    await tx.kennelDiscovery.update({
+      where: { id: discoveryId },
+      data: {
+        status: "ADDED",
+        matchedKennelId: created.id,
+        processedBy: admin.id,
+        processedAt: new Date(),
+      },
+    });
+
+    return created;
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
 
   clearResolverCache();
-
-  await prisma.kennelDiscovery.update({
-    where: { id: discoveryId },
-    data: {
-      status: "ADDED",
-      matchedKennelId: kennel.id,
-      processedBy: admin.id,
-      processedAt: new Date(),
-    },
-  });
 
   revalidatePath("/admin/discovery");
   revalidatePath("/admin/kennels");
@@ -216,6 +231,13 @@ export async function bulkDismissDiscoveries(ids: string[]) {
 export async function undismissDiscovery(id: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
+
+  const discovery = await prisma.kennelDiscovery.findUnique({
+    where: { id },
+    select: { status: true },
+  });
+  if (!discovery) return { error: "Discovery not found" };
+  if (discovery.status !== "DISMISSED") return { error: "Can only undo dismissed discoveries" };
 
   await prisma.kennelDiscovery.update({
     where: { id },
@@ -275,6 +297,7 @@ export async function getDiscoveryPrefill(discoveryId: string) {
       select: {
         externalSlug: true, name: true, website: true, contactEmail: true,
         yearStarted: true, trailPrice: true, schedule: true, location: true,
+        paymentInfo: true,
       },
     }),
     prisma.region.findMany({
@@ -312,6 +335,17 @@ export async function getDiscoveryPrefill(discoveryId: string) {
     }
   }
 
+  // Construct payment link from paymentInfo JSON
+  let paymentLink: string | null = null;
+  const pi = discovery.paymentInfo as Record<string, string> | null;
+  if (pi?.venmo) {
+    paymentLink = `https://venmo.com/${pi.venmo.replace("@", "")}`;
+  } else if (pi?.paypal) {
+    paymentLink = `https://paypal.me/${pi.paypal}`;
+  } else if (pi?.squareCash) {
+    paymentLink = `https://cash.app/${pi.squareCash}`;
+  }
+
   return {
     success: true,
     prefill: {
@@ -325,6 +359,7 @@ export async function getDiscoveryPrefill(discoveryId: string) {
       scheduleDayOfWeek,
       location: discovery.location,
       suggestedRegionId,
+      paymentLink,
     },
   };
 }

@@ -43,10 +43,10 @@ import {
   ChevronDown,
   Search,
   Globe,
-  Mail,
   Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
+import { safeUrl } from "@/lib/safe-url";
 
 type DiscoveryRecord = {
   id: string;
@@ -151,52 +151,72 @@ export function DiscoveryTable({ discoveries, regions, counts }: DiscoveryTableP
 
   function handleSync() {
     startTransition(async () => {
-      const result = await runDiscoverySync();
-      if ("error" in result) {
-        toast.error(result.error);
-      } else {
-        toast.success(
-          `Discovered ${result.totalDiscovered} kennels: ${result.newKennels} new, ${result.autoMatched} auto-matched, ${result.enriched} enriched`,
-        );
-        router.refresh();
+      try {
+        const result = await runDiscoverySync();
+        if ("error" in result) {
+          toast.error(result.error);
+        } else {
+          toast.success(
+            `Discovered ${result.totalDiscovered} kennels: ${result.newKennels} new, ${result.autoMatched} auto-matched, ${result.enriched} enriched`,
+          );
+          router.refresh();
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err));
       }
     });
   }
 
   function handleLink(discoveryId: string, kennelId: string) {
     startTransition(async () => {
-      const result = await linkDiscoveryToKennel(discoveryId, kennelId);
-      if ("error" in result) toast.error(result.error);
-      else {
-        toast.success("Linked to kennel");
-        router.refresh();
+      try {
+        const result = await linkDiscoveryToKennel(discoveryId, kennelId);
+        if ("error" in result) toast.error(result.error);
+        else {
+          toast.success("Linked to kennel");
+          router.refresh();
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err));
       }
     });
   }
 
   function handleDismiss(id: string) {
     startTransition(async () => {
-      const result = await dismissDiscovery(id);
-      if ("error" in result) toast.error(result.error);
-      else router.refresh();
+      try {
+        const result = await dismissDiscovery(id);
+        if ("error" in result) toast.error(result.error);
+        else router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err));
+      }
     });
   }
 
   function handleUndismiss(id: string) {
     startTransition(async () => {
-      const result = await undismissDiscovery(id);
-      if ("error" in result) toast.error(result.error);
-      else router.refresh();
+      try {
+        const result = await undismissDiscovery(id);
+        if ("error" in result) toast.error(result.error);
+        else router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err));
+      }
     });
   }
 
   function handleConfirm(id: string) {
     startTransition(async () => {
-      const result = await confirmMatch(id);
-      if ("error" in result) toast.error(result.error);
-      else {
-        toast.success("Match confirmed");
-        router.refresh();
+      try {
+        const result = await confirmMatch(id);
+        if ("error" in result) toast.error(result.error);
+        else {
+          toast.success("Match confirmed");
+          router.refresh();
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err));
       }
     });
   }
@@ -204,52 +224,59 @@ export function DiscoveryTable({ discoveries, regions, counts }: DiscoveryTableP
   async function openAddDialog(discovery: DiscoveryRecord) {
     setAddingDiscovery(discovery);
 
-    // Fetch prefill data from server
-    const result = await getDiscoveryPrefill(discovery.id);
-    if ("error" in result) {
-      toast.error(result.error as string);
-      return;
+    try {
+      const result = await getDiscoveryPrefill(discovery.id);
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+
+      const p = result.prefill!;
+      setAddForm({
+        shortName: p.shortName || "",
+        fullName: p.fullName || "",
+        regionId: p.suggestedRegionId || "",
+        website: p.website || "",
+        contactEmail: p.contactEmail || "",
+        foundedYear: p.foundedYear?.toString() || "",
+        hashCash: p.hashCash || "",
+        scheduleDayOfWeek: p.scheduleDayOfWeek || "",
+        scheduleFrequency: p.scheduleFrequency || "",
+        paymentLink: p.paymentLink || "",
+      });
+
+      setAddDialogOpen(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
     }
-
-    const p = result.prefill!;
-    setAddForm({
-      shortName: p.shortName || "",
-      fullName: p.fullName || "",
-      regionId: p.suggestedRegionId || "",
-      website: p.website || "",
-      contactEmail: p.contactEmail || "",
-      foundedYear: p.foundedYear?.toString() || "",
-      hashCash: p.hashCash || "",
-      scheduleDayOfWeek: p.scheduleDayOfWeek || "",
-      scheduleFrequency: p.scheduleFrequency || "",
-      paymentLink: "",
-    });
-
-    setAddDialogOpen(true);
   }
 
   function handleAdd() {
     if (!addingDiscovery) return;
     startTransition(async () => {
-      const result = await addKennelFromDiscovery(addingDiscovery.id, {
-        shortName: addForm.shortName,
-        fullName: addForm.fullName,
-        regionId: addForm.regionId,
-        website: addForm.website || undefined,
-        contactEmail: addForm.contactEmail || undefined,
-        foundedYear: addForm.foundedYear ? parseInt(addForm.foundedYear) : undefined,
-        hashCash: addForm.hashCash || undefined,
-        scheduleDayOfWeek: addForm.scheduleDayOfWeek || undefined,
-        scheduleFrequency: addForm.scheduleFrequency || undefined,
-        paymentLink: addForm.paymentLink || undefined,
-      });
-      if ("error" in result) {
-        toast.error(result.error);
-      } else {
-        toast.success(`Kennel "${addForm.shortName}" created`);
-        setAddDialogOpen(false);
-        setAddingDiscovery(null);
-        router.refresh();
+      try {
+        const result = await addKennelFromDiscovery(addingDiscovery.id, {
+          shortName: addForm.shortName,
+          fullName: addForm.fullName,
+          regionId: addForm.regionId,
+          website: addForm.website || undefined,
+          contactEmail: addForm.contactEmail || undefined,
+          foundedYear: addForm.foundedYear ? (Number.isNaN(Number.parseInt(addForm.foundedYear, 10)) ? undefined : Number.parseInt(addForm.foundedYear, 10)) : undefined,
+          hashCash: addForm.hashCash || undefined,
+          scheduleDayOfWeek: addForm.scheduleDayOfWeek || undefined,
+          scheduleFrequency: addForm.scheduleFrequency || undefined,
+          paymentLink: addForm.paymentLink || undefined,
+        });
+        if ("error" in result) {
+          toast.error(result.error);
+        } else {
+          toast.success(`Kennel "${addForm.shortName}" created`);
+          setAddDialogOpen(false);
+          setAddingDiscovery(null);
+          router.refresh();
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err));
       }
     });
   }
@@ -468,7 +495,7 @@ export function DiscoveryTable({ discoveries, regions, counts }: DiscoveryTableP
   );
 }
 
-function StatCard({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+function StatCard({ label, value, highlight }: Readonly<{ label: string; value: number; highlight?: boolean }>) {
   return (
     <Card>
       <CardContent className="p-3">
@@ -481,17 +508,53 @@ function StatCard({ label, value, highlight }: { label: string; value: number; h
   );
 }
 
-function ScoreBar({ score }: { score: number }) {
+function getScoreColor(pct: number): string {
+  if (pct >= 95) return "bg-green-500";
+  if (pct >= 80) return "bg-yellow-500";
+  return "bg-orange-500";
+}
+
+function ScoreBar({ score }: Readonly<{ score: number }>) {
   const pct = Math.round(score * 100);
-  const color = pct >= 95 ? "bg-green-500" : pct >= 80 ? "bg-yellow-500" : "bg-orange-500";
   return (
     <div className="flex items-center gap-1.5">
       <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+        <div className={`h-full rounded-full ${getScoreColor(pct)}`} style={{ width: `${pct}%` }} />
       </div>
       <span className="text-xs text-muted-foreground">{pct}%</span>
     </div>
   );
+}
+
+function MatchDisplay({ discovery: d }: Readonly<{ discovery: DiscoveryRecord }>) {
+  if (d.matchedKennel) {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <Link
+          href={`/kennels/${d.matchedKennel.slug}`}
+          className="text-sm font-medium hover:underline"
+        >
+          {d.matchedKennel.shortName}
+        </Link>
+        {d.matchScore != null && <ScoreBar score={d.matchScore} />}
+      </div>
+    );
+  }
+
+  if (d.matchCandidates && d.matchCandidates.length > 0) {
+    return (
+      <div className="flex flex-col gap-0.5">
+        {d.matchCandidates.slice(0, 2).map((c) => (
+          <div key={c.id} className="flex items-center gap-1">
+            <span className="text-xs">{c.shortName}</span>
+            <ScoreBar score={c.score} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return <span className="text-xs text-muted-foreground">No match</span>;
 }
 
 function DiscoveryRow({
@@ -502,7 +565,7 @@ function DiscoveryRow({
   onUndismiss,
   onConfirm,
   onAdd,
-}: {
+}: Readonly<{
   discovery: DiscoveryRecord;
   isPending: boolean;
   onLink: (discoveryId: string, kennelId: string) => void;
@@ -510,7 +573,7 @@ function DiscoveryRow({
   onUndismiss: (id: string) => void;
   onConfirm: (id: string) => void;
   onAdd: () => void;
-}) {
+}>) {
   const statusBadge = STATUS_BADGES[d.status] || STATUS_BADGES.NEW;
 
   return (
@@ -529,6 +592,7 @@ function DiscoveryRow({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-foreground"
+                aria-label={`Open ${d.externalSlug} on Hash Rego`}
               >
                 <ExternalLink className="h-3 w-3" />
               </a>
@@ -550,11 +614,11 @@ function DiscoveryRow({
               <Calendar className="h-3 w-3" /> {d.schedule}
             </span>
           )}
-          {d.website && (
+          {safeUrl(d.website) && (
             <span className="flex items-center gap-1">
               <Globe className="h-3 w-3" />
-              <a href={d.website} target="_blank" rel="noopener noreferrer" className="hover:underline truncate max-w-[140px]">
-                {d.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+              <a href={safeUrl(d.website)!} target="_blank" rel="noopener noreferrer" className="hover:underline truncate max-w-[140px]">
+                {d.website!.replace(/^https?:\/\//, "").replace(/\/$/, "")}
               </a>
             </span>
           )}
@@ -564,28 +628,7 @@ function DiscoveryRow({
 
       {/* Best Match */}
       <td className="px-3 py-2">
-        {d.matchedKennel ? (
-          <div className="flex flex-col gap-0.5">
-            <Link
-              href={`/kennels/${d.matchedKennel.slug}`}
-              className="text-sm font-medium hover:underline"
-            >
-              {d.matchedKennel.shortName}
-            </Link>
-            {d.matchScore != null && <ScoreBar score={d.matchScore} />}
-          </div>
-        ) : d.matchCandidates && d.matchCandidates.length > 0 ? (
-          <div className="flex flex-col gap-0.5">
-            {d.matchCandidates.slice(0, 2).map((c) => (
-              <div key={c.id} className="flex items-center gap-1">
-                <span className="text-xs">{c.shortName}</span>
-                <ScoreBar score={c.score} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">No match</span>
-        )}
+        <MatchDisplay discovery={d} />
       </td>
 
       {/* Status */}
@@ -617,7 +660,7 @@ function DiscoveryActions({
   onUndismiss,
   onConfirm,
   onAdd,
-}: {
+}: Readonly<{
   discovery: DiscoveryRecord;
   isPending: boolean;
   onLink: (discoveryId: string, kennelId: string) => void;
@@ -625,7 +668,7 @@ function DiscoveryActions({
   onUndismiss: (id: string) => void;
   onConfirm: (id: string) => void;
   onAdd: () => void;
-}) {
+}>) {
   if (d.status === "ADDED" || d.status === "LINKED") {
     return d.matchedKennel ? (
       <Button variant="ghost" size="sm" asChild>

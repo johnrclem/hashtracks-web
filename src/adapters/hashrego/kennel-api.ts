@@ -38,17 +38,22 @@ const BATCH_DELAY_MS = 1000;
 export async function fetchKennelProfile(
   slug: string,
 ): Promise<HashRegoKennelProfile | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
   try {
-    const res = await fetch(`${BASE_URL}/api/kennels/${slug}`, {
+    const res = await fetch(`${BASE_URL}/api/kennels/${encodeURIComponent(slug)}`, {
       headers: {
         "User-Agent": USER_AGENT,
         Accept: "application/json",
       },
+      signal: controller.signal,
     });
     if (!res.ok) return null;
     return (await res.json()) as HashRegoKennelProfile;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

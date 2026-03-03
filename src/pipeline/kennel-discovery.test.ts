@@ -1,5 +1,3 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
 vi.mock("@/lib/db", () => ({
   prisma: {
     kennel: { findMany: vi.fn() },
@@ -27,8 +25,8 @@ function buildDiscovered(overrides: Partial<DiscoveredKennel> = {}): DiscoveredK
     slug: "TESTH3",
     name: "Test H3",
     location: "Test City, ST, USA",
-    latitude: 40.0,
-    longitude: -74.0,
+    latitude: 40,
+    longitude: -74,
     schedule: "Weekly, Saturdays",
     url: "https://hashrego.com/kennels/TESTH3/",
     ...overrides,
@@ -40,7 +38,7 @@ function buildApiProfile(overrides: Partial<HashRegoKennelProfile> = {}): HashRe
     name: "Test Hash House Harriers",
     slug: "TESTH3",
     email: "test@hash.com",
-    website: "http://www.testh3.com",
+    website: "https://www.testh3.com",
     year_started: 2000,
     trail_frequency: "Weekly",
     trail_day: "Saturdays",
@@ -154,7 +152,7 @@ describe("syncKennelDiscovery", () => {
     );
   });
 
-  it("populates matchCandidates for moderate scores (0.6–0.94)", async () => {
+  it("runs upsert for moderate-score discovery (0.6–0.94)", async () => {
     vi.mocked(parseKennelDirectory).mockReturnValue([
       buildDiscovered({ slug: "NYRG", name: "New York Road Gangsters" }),
     ]);
@@ -216,7 +214,7 @@ describe("syncKennelDiscovery", () => {
     const discovered = buildDiscovered({ slug: "EWH3" });
     vi.mocked(parseKennelDirectory).mockReturnValue([discovered]);
 
-    const profile = buildApiProfile({ slug: "EWH3", website: "http://ewh3.com" });
+    const profile = buildApiProfile({ slug: "EWH3", website: "https://ewh3.com" });
     vi.mocked(fetchKennelProfiles).mockResolvedValue(
       new Map([["EWH3", profile]]),
     );
@@ -227,7 +225,7 @@ describe("syncKennelDiscovery", () => {
     expect(prisma.kennelDiscovery.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
-          website: "http://ewh3.com",
+          website: "https://ewh3.com",
           contactEmail: "test@hash.com",
           yearStarted: 2000,
           trailPrice: 10,
@@ -261,7 +259,7 @@ describe("mapProfileToKennelFields", () => {
   it("maps API profile to kennel creation fields", () => {
     const profile = buildApiProfile({
       name: "Test H3",
-      website: "http://test.com",
+      website: "https://test.com",
       email: "gm@test.com",
       year_started: 2005,
       trail_price: 5,
@@ -271,7 +269,7 @@ describe("mapProfileToKennelFields", () => {
 
     const fields = mapProfileToKennelFields(profile);
     expect(fields.fullName).toBe("Test H3");
-    expect(fields.website).toBe("http://test.com");
+    expect(fields.website).toBe("https://test.com");
     expect(fields.contactEmail).toBe("gm@test.com");
     expect(fields.foundedYear).toBe(2005);
     expect(fields.hashCash).toBe("$5");

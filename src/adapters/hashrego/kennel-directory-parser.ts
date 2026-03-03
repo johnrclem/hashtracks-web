@@ -46,8 +46,8 @@ export function parseKennelDirectory(pageSource: string): DiscoveredKennel[] {
   // Pass 1: Extract LatLng coordinates
   for (const match of pageSource.matchAll(LAT_LNG_RE)) {
     const loc = getOrCreate(match[1]);
-    loc.latitude = parseFloat(match[2]);
-    loc.longitude = parseFloat(match[3]);
+    loc.latitude = Number.parseFloat(match[2]);
+    loc.longitude = Number.parseFloat(match[3]);
   }
 
   // Pass 2: Extract location titles from Marker constructors
@@ -60,7 +60,7 @@ export function parseKennelDirectory(pageSource: string): DiscoveredKennel[] {
   for (const match of pageSource.matchAll(INFO_WINDOW_RE)) {
     const loc = getOrCreate(match[1]);
     // Unescape JS string escapes (single quotes, backslashes)
-    loc.infoHtml = match[2].replace(/\\'/g, "'").replace(/\\\\/g, "\\");
+    loc.infoHtml = match[2].replaceAll("\\'", "'").replaceAll("\\\\", "\\");
   }
 
   // Parse each location's HTML to extract individual kennels

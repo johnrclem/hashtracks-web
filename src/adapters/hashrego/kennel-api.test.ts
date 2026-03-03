@@ -1,4 +1,3 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   fetchKennelProfile,
   fetchKennelProfiles,
@@ -13,7 +12,7 @@ function buildProfile(overrides: Partial<HashRegoKennelProfile> = {}): HashRegoK
     name: "Everyday Is Wednesday H3",
     slug: "EWH3",
     email: "EWH3GMs@gmail.com",
-    website: "http://www.ewh3.com/",
+    website: "https://www.ewh3.com/",
     year_started: 1999,
     trail_frequency: "Weekly",
     trail_day: "Wednesdays",

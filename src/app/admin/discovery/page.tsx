@@ -55,11 +55,14 @@ export default async function DiscoveryPage() {
     status: d.status,
     matchedKennelId: d.matchedKennelId,
     matchScore: d.matchScore,
-    matchCandidates: d.matchCandidates as Array<{
-      id: string;
-      shortName: string;
-      score: number;
-    }> | null,
+    matchCandidates: Array.isArray(d.matchCandidates) &&
+      d.matchCandidates.every(
+        (c: unknown) =>
+          typeof c === "object" && c !== null &&
+          "id" in c && "shortName" in c && "score" in c,
+      )
+      ? (d.matchCandidates as Array<{ id: string; shortName: string; score: number }>)
+      : null,
     matchedKennel: d.matchedKennel,
     lastSeenAt: d.lastSeenAt.toISOString(),
     createdAt: d.createdAt.toISOString(),

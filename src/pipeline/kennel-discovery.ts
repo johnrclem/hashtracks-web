@@ -16,10 +16,18 @@ import {
   type HashRegoKennelProfile,
 } from "@/adapters/hashrego/kennel-api";
 import { Prisma } from "@/generated/prisma/client";
+import type { DiscoveredKennel } from "@/adapters/hashrego/kennel-directory-parser";
 
 const EXTERNAL_SOURCE = "HASHREGO";
 const AUTO_MATCH_THRESHOLD = 0.95;
 const CANDIDATE_THRESHOLD = 0.6;
+
+interface MatchResult {
+  status: "NEW" | "MATCHED";
+  matchedKennelId: string | null;
+  matchScore: number | null;
+  matchCandidates: Prisma.InputJsonValue | typeof Prisma.DbNull;
+}
 
 export interface DiscoverySyncResult {
   totalDiscovered: number;
@@ -44,16 +52,23 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
   // Step 1: Fetch and parse the directory page
   let pageHtml: string;
   try {
-    const res = await fetch("https://hashrego.com/kennels/", {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
-    });
-    if (!res.ok) {
-      return {
-        totalDiscovered: 0, newKennels: 0, autoMatched: 0, updated: 0, enriched: 0,
-        errors: [`Directory fetch failed: HTTP ${res.status}`],
-      };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    try {
+      const res = await fetch("https://hashrego.com/kennels/", {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        return {
+          totalDiscovered: 0, newKennels: 0, autoMatched: 0, updated: 0, enriched: 0,
+          errors: [`Directory fetch failed: HTTP ${res.status}`],
+        };
+      }
+      pageHtml = await res.text();
+    } finally {
+      clearTimeout(timer);
     }
-    pageHtml = await res.text();
   } catch (err) {
     return {
       totalDiscovered: 0, newKennels: 0, autoMatched: 0, updated: 0, enriched: 0,
@@ -112,75 +127,21 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
     try {
       const profile = profiles.get(kennel.slug);
       const existingStatus = discoveryStatusMap.get(kennel.slug);
-      const isTerminal = existingStatus === "MATCHED" || existingStatus === "ADDED" ||
+      const isTerminal = existingStatus === "ADDED" ||
         existingStatus === "LINKED" || existingStatus === "DISMISSED";
 
-      // Build enriched data from directory + API profile
       const schedule = profile
         ? buildScheduleString(profile.trail_frequency, profile.trail_day) || kennel.schedule
         : kennel.schedule;
-
       const profileData = buildProfileData(profile);
 
       if (isTerminal) {
-        // Only update lastSeenAt + profile fields for terminal statuses
-        await prisma.kennelDiscovery.update({
-          where: {
-            externalSource_externalSlug: {
-              externalSource: EXTERNAL_SOURCE,
-              externalSlug: kennel.slug,
-            },
-          },
-          data: {
-            lastSeenAt: syncTimestamp,
-            name: profile?.name || kennel.name,
-            location: kennel.location || undefined,
-            latitude: kennel.latitude,
-            longitude: kennel.longitude,
-            schedule,
-            ...profileData,
-          },
-        });
+        await updateTerminalDiscovery(kennel, profile, schedule, profileData, syncTimestamp);
         updated++;
         continue;
       }
 
-      // Fuzzy match against slug and full name
-      const slugMatches = fuzzyMatch(kennel.slug, candidates, 3);
-      const nameMatches = fuzzyMatch(
-        profile?.name || kennel.name,
-        candidates,
-        3,
-      );
-
-      // Take the best score across both
-      const allMatches = [...slugMatches, ...nameMatches];
-      const bestByKennel = new Map<string, { id: string; shortName: string; score: number }>();
-      for (const m of allMatches) {
-        const existing = bestByKennel.get(m.id);
-        if (!existing || m.score > existing.score) {
-          bestByKennel.set(m.id, m);
-        }
-      }
-      const ranked = [...bestByKennel.values()].sort((a, b) => b.score - a.score);
-      const best = ranked[0];
-
-      let status: "NEW" | "MATCHED" = "NEW";
-      let matchedKennelId: string | null = null;
-      let matchScore: number | null = null;
-      let matchCandidates: Prisma.InputJsonValue | typeof Prisma.DbNull = Prisma.DbNull;
-
-      if (best && best.score >= AUTO_MATCH_THRESHOLD) {
-        status = "MATCHED";
-        matchedKennelId = best.id;
-        matchScore = best.score;
-      } else if (best && best.score >= CANDIDATE_THRESHOLD) {
-        matchScore = best.score;
-        matchCandidates = ranked
-          .filter((m) => m.score >= CANDIDATE_THRESHOLD)
-          .slice(0, 3)
-          .map((m) => ({ id: m.id, shortName: m.shortName, score: Math.round(m.score * 100) / 100 })) as unknown as Prisma.InputJsonValue;
-      }
+      const match = computeMatchResult(kennel, profile, candidates);
 
       await prisma.kennelDiscovery.upsert({
         where: {
@@ -199,10 +160,7 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
           schedule,
           externalUrl: kennel.url,
           ...profileData,
-          status,
-          matchedKennelId,
-          matchScore,
-          matchCandidates,
+          ...match,
         },
         update: {
           name: profile?.name || kennel.name,
@@ -212,11 +170,7 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
           schedule,
           lastSeenAt: new Date(),
           ...profileData,
-          // Re-run matching for NEW entries (aliases may have changed)
-          status,
-          matchedKennelId,
-          matchScore,
-          matchCandidates,
+          ...match,
         },
       });
 
@@ -224,7 +178,7 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
         updated++;
       } else {
         newKennels++;
-        if (status === "MATCHED") autoMatched++;
+        if (match.status === "MATCHED") autoMatched++;
       }
     } catch (err) {
       errors.push(`Error processing ${kennel.slug}: ${err}`);
@@ -238,6 +192,82 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
     updated,
     enriched,
     errors,
+  };
+}
+
+/** Update a terminal-status discovery with fresh profile data (no re-matching). */
+async function updateTerminalDiscovery(
+  kennel: DiscoveredKennel,
+  profile: HashRegoKennelProfile | undefined,
+  schedule: string | undefined,
+  profileData: Record<string, unknown>,
+  syncTimestamp: Date,
+) {
+  await prisma.kennelDiscovery.update({
+    where: {
+      externalSource_externalSlug: {
+        externalSource: EXTERNAL_SOURCE,
+        externalSlug: kennel.slug,
+      },
+    },
+    data: {
+      lastSeenAt: syncTimestamp,
+      name: profile?.name || kennel.name,
+      location: kennel.location || undefined,
+      latitude: kennel.latitude,
+      longitude: kennel.longitude,
+      schedule,
+      ...profileData,
+    },
+  });
+}
+
+/** Compute fuzzy match result for a discovered kennel against existing DB kennels. */
+function computeMatchResult(
+  kennel: DiscoveredKennel,
+  profile: HashRegoKennelProfile | undefined,
+  candidates: FuzzyCandidate[],
+): MatchResult {
+  const slugMatches = fuzzyMatch(kennel.slug, candidates, 3);
+  const nameMatches = fuzzyMatch(profile?.name || kennel.name, candidates, 3);
+
+  const allMatches = [...slugMatches, ...nameMatches];
+  const bestByKennel = new Map<string, { id: string; shortName: string; score: number }>();
+  for (const m of allMatches) {
+    const existing = bestByKennel.get(m.id);
+    if (!existing || m.score > existing.score) {
+      bestByKennel.set(m.id, m);
+    }
+  }
+  const ranked = [...bestByKennel.values()].sort((a, b) => b.score - a.score);
+  const best = ranked[0];
+
+  if (best && best.score >= AUTO_MATCH_THRESHOLD) {
+    return {
+      status: "MATCHED",
+      matchedKennelId: best.id,
+      matchScore: best.score,
+      matchCandidates: Prisma.DbNull,
+    };
+  }
+
+  if (best && best.score >= CANDIDATE_THRESHOLD) {
+    return {
+      status: "NEW",
+      matchedKennelId: null,
+      matchScore: best.score,
+      matchCandidates: ranked
+        .filter((m) => m.score >= CANDIDATE_THRESHOLD)
+        .slice(0, 3)
+        .map((m) => ({ id: m.id, shortName: m.shortName, score: Math.round(m.score * 100) / 100 })) as unknown as Prisma.InputJsonValue,
+    };
+  }
+
+  return {
+    status: "NEW",
+    matchedKennelId: null,
+    matchScore: null,
+    matchCandidates: Prisma.DbNull,
   };
 }
 
@@ -256,7 +286,7 @@ function buildProfileData(profile: HashRegoKennelProfile | undefined) {
     yearStarted: profile.year_started,
     trailPrice: profile.trail_price,
     logoUrl: profile.logo_image_url || undefined,
-    memberCount: profile.member_count || undefined,
+    memberCount: profile.member_count ?? undefined,
     paymentInfo: paymentInfo as Prisma.InputJsonValue | undefined,
     // Prefer API location over directory location if available
     ...(location ? { location } : {}),
