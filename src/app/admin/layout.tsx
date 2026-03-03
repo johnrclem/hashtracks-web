@@ -11,12 +11,15 @@ export default async function AdminLayout({
   const admin = await getAdminUser();
   if (!admin) redirect("/");
 
-  const [openAlertCount, pendingMismanCount] = await Promise.all([
+  const [openAlertCount, pendingMismanCount, newDiscoveryCount] = await Promise.all([
     prisma.alert.count({
       where: { status: { in: ["OPEN", "ACKNOWLEDGED"] } },
     }),
     prisma.mismanRequest.count({
       where: { status: "PENDING" },
+    }),
+    prisma.kennelDiscovery.count({
+      where: { status: "NEW" },
     }),
   ]);
 
@@ -29,6 +32,7 @@ export default async function AdminLayout({
       <AdminNavTabs
         openAlertCount={openAlertCount}
         pendingMismanCount={pendingMismanCount}
+        newDiscoveryCount={newDiscoveryCount}
       />
 
       {children}
