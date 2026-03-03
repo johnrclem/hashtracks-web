@@ -12,6 +12,7 @@ import {
 } from "@/app/strava/actions";
 import type { UnmatchedStravaMatch } from "@/app/strava/actions";
 import { formatTime, formatDateShort, formatDistance, formatDuration, formatSportType } from "@/lib/format";
+import { buildStravaUrl } from "@/lib/strava/url";
 import {
   ExternalLink,
   ChevronDown,
@@ -300,10 +301,10 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
                         )}
                       </p>
                       <a
-                        href={`https://www.strava.com/activities/${match.stravaActivityId}`}
+                        href={buildStravaUrl(match.stravaActivityId)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-[#FC4C02] hover:underline mt-1"
+                        className="inline-flex items-center gap-1 text-xs text-strava hover:underline mt-1"
                       >
                         <ExternalLink size={12} />
                         View in Strava

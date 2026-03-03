@@ -78,7 +78,7 @@ export function StravaConnectionCard({
           runs.
         </p>
         <a href="/api/auth/strava">
-          <Button className="mt-3 bg-[#FC4C02] hover:bg-[#E34402] text-white">
+          <Button className="mt-3 bg-strava hover:bg-strava-hover text-white">
             Connect with Strava
           </Button>
         </a>
