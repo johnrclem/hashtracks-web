@@ -138,6 +138,7 @@ model Kennel {
   mismanRequests MismanRequest[]
   mismanInvites  MismanInvite[]
   rosterGroups   RosterGroupKennel[]
+  discoveries    KennelDiscovery[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -691,4 +692,51 @@ model StravaActivity {
   @@index([stravaConnectionId, dateLocal])
   @@index([matchedAttendanceId])
   @@index([dateLocal])
+}
+
+// ── KENNEL DISCOVERY ──
+
+model KennelDiscovery {
+  id              String          @id @default(cuid())
+  externalSource  String          // "HASHREGO" (extensible for future discovery sources)
+  externalSlug    String          // Hash Rego slug: "EWH3", "BFMH3"
+  name            String          // Full name from API: "Everyday Is Wednesday H3"
+  location        String?         // "Washington, DC, USA"
+  latitude        Float?
+  longitude       Float?
+  schedule        String?         // "Weekly, Thursdays"
+  externalUrl     String?         // "https://hashrego.com/kennels/EWH3/"
+
+  // Rich profile data from /api/kennels/{slug}
+  website         String?         // "http://www.ewh3.com/"
+  contactEmail    String?         // "EWH3GMs@gmail.com"
+  yearStarted     Int?            // 1999
+  trailPrice      Int?            // 10 (in dollars)
+  logoUrl         String?         // S3 URL (may be temporary)
+  memberCount     Int?            // 283
+  paymentInfo     Json?           // {paypal: "email", venmo: "@handle", squareCash: "tag"}
+
+  status          DiscoveryStatus @default(NEW)
+  matchedKennelId String?
+  matchScore      Float?          // Best fuzzy match score (0–1)
+  matchCandidates Json?           // Top 3: [{id, shortName, score}]
+
+  lastSeenAt      DateTime        @default(now())
+  processedBy     String?
+  processedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  matchedKennel   Kennel?         @relation(fields: [matchedKennelId], references: [id])
+
+  @@unique([externalSource, externalSlug])
+  @@index([status])
+}
+
+enum DiscoveryStatus {
+  NEW
+  MATCHED    // Auto-matched (high confidence ≥0.95)
+  ADDED      // Admin created a new kennel from this
+  LINKED     // Admin linked to existing kennel manually
+  DISMISSED
 }

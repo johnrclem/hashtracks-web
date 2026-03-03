@@ -11,6 +11,7 @@ const TAB_ROUTES = [
   { value: "kennels", href: "/admin/kennels", label: "Kennels" },
   { value: "regions", href: "/admin/regions", label: "Regions" },
   { value: "sources", href: "/admin/sources", label: "Sources" },
+  { value: "discovery", href: "/admin/discovery", label: "Discovery" },
   { value: "roster-groups", href: "/admin/roster-groups", label: "Roster Groups" },
   { value: "events", href: "/admin/events", label: "Events" },
   { value: "alerts", href: "/admin/alerts", label: "Alerts" },
@@ -19,9 +20,11 @@ const TAB_ROUTES = [
 export function AdminNavTabs({
   openAlertCount,
   pendingMismanCount,
+  newDiscoveryCount,
 }: {
   openAlertCount: number;
   pendingMismanCount: number;
+  newDiscoveryCount: number;
 }) {
   const pathname = usePathname();
 
@@ -38,7 +41,7 @@ export function AdminNavTabs({
               <Link
                 href={tab.href}
                 className={
-                  tab.value === "misman" || tab.value === "alerts"
+                  tab.value === "misman" || tab.value === "alerts" || tab.value === "discovery"
                     ? "flex items-center gap-1"
                     : undefined
                 }
@@ -47,6 +50,11 @@ export function AdminNavTabs({
                 {tab.value === "misman" && pendingMismanCount > 0 && (
                   <Badge variant="destructive" className="ml-1 text-xs">
                     {pendingMismanCount}
+                  </Badge>
+                )}
+                {tab.value === "discovery" && newDiscoveryCount > 0 && (
+                  <Badge variant="destructive" className="ml-1 text-xs">
+                    {newDiscoveryCount}
                   </Badge>
                 )}
                 {tab.value === "alerts" && openAlertCount > 0 && (
