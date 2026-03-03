@@ -36,7 +36,11 @@ export async function runDiscoverySync() {
   try {
     const result = await syncKennelDiscovery();
     revalidatePath("/admin/discovery");
-    return { success: true, ...result };
+    const sanitizedErrors = (result.errors ?? []).map((e: string) => {
+      const match = e.match(/^Error processing ([^:]+)/);
+      return match ? `Failed to enrich ${match[1]}` : "Enrichment error";
+    });
+    return { success: true, ...result, errors: sanitizedErrors };
   } catch (err) {
     return { error: `Sync failed: ${err}` };
   }

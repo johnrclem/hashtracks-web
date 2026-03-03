@@ -241,4 +241,59 @@ describe("parseKennelDirectory", () => {
     expect(result[0].slug).toBe("TKH3");
     expect(result[0].location).toBe("Tokyo, Japan");
   });
+
+  it("parses setContent with JS string concatenation (real Hash Rego format)", () => {
+    // Real pages use: setContent( '<h3>City</h3>' +'<ul>' +'<a href=...' +'</ul>' );
+    const page = [
+      "<script>",
+      "var loc1Pos = new google.maps.LatLng(38.9,-77.0);",
+      "var loc1Marker = new google.maps.Marker({position: loc1Pos, map: kennelMap, title: 'Washington, DC, USA'});",
+      "google.maps.event.addListener(loc1Marker, 'click', function() { infowindow.setContent(",
+      "  '<h3>Washington, DC, USA</h3>'",
+      "  +'<ul>'",
+      "  +'<a href=\"/kennels/EWH3/\" style=\"text-decoration: none\">'",
+      "  +'<li class=\"list-group-item\">'",
+      "  +'<h4 class=\"color-blue\"><i class=\"fa fa-beer\"></i> Everyday Is Wednesday H3</h4>'",
+      "  +'<p>Weekly, Wednesdays</p>'",
+      "  +'</li></a>'",
+      "  +'</ul>'",
+      "); });",
+      "</script>",
+    ].join("\n");
+
+    const result = parseKennelDirectory(page);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      slug: "EWH3",
+      name: "Everyday Is Wednesday H3",
+      location: "Washington, DC, USA",
+      latitude: 38.9,
+      longitude: -77,
+      schedule: "Weekly, Wednesdays",
+    });
+  });
+
+  it("parses <a> wrapping <li> HTML structure (real Hash Rego format)", () => {
+    // Real pages have <a> outside <li>, not inside
+    const page = [
+      "<script>",
+      "var loc1Pos = new google.maps.LatLng(40.7,-74.0);",
+      "var loc1Marker = new google.maps.Marker({position: loc1Pos, map: kennelMap, title: 'New York, NY, USA'});",
+      `google.maps.event.addListener(loc1Marker, 'click', function() { infowindow.setContent('<h3>New York, NY, USA</h3><ul><a href="/kennels/NYCH3/" style="text-decoration: none"><li class="list-group-item"><h4 class="color-blue"><i class="fa fa-beer"></i> New York City H3</h4><p>Weekly, Saturdays</p></li></a><a href="/kennels/NYRG/" style="text-decoration: none"><li class="list-group-item"><h4 class="color-blue"><i class="fa fa-beer"></i> New York Road Gangsters</h4><p>Monthly, Sundays</p></li></a></ul>'); });`,
+      "</script>",
+    ].join("\n");
+
+    const result = parseKennelDirectory(page);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({
+      slug: "NYCH3",
+      name: "New York City H3",
+      schedule: "Weekly, Saturdays",
+    });
+    expect(result[1]).toMatchObject({
+      slug: "NYRG",
+      name: "New York Road Gangsters",
+      schedule: "Monthly, Sundays",
+    });
+  });
 });
