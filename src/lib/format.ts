@@ -175,6 +175,28 @@ export function twitterUrl(handle: string): string {
   return `https://x.com/${handle.replace(/^@/, "")}`;
 }
 
+// ── Strava / activity helpers ──
+
+/** Format distance in meters to miles. e.g. 5000 → "3.1 mi" */
+export function formatDistance(meters: number): string {
+  const miles = meters / 1609.344;
+  return `${miles.toFixed(1)} mi`;
+}
+
+/** Format duration in seconds to compact string. e.g. 3900 → "1h 5m", 300 → "5m" */
+export function formatDuration(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+/** Format Strava sport type for display. "TrailRun" → "Trail Run" */
+export function formatSportType(type: string): string {
+  return type.replace(/([a-z])([A-Z])/g, "$1 $2");
+}
+
+// ── URL / domain helpers ──
+
 /** Extract hostname from URL, stripping www. prefix. Returns raw string on parse failure. */
 export function displayDomain(url: string): string {
   try {

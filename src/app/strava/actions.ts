@@ -265,6 +265,19 @@ export interface UnmatchedStravaMatch {
   eventDate: string;
   activityName: string;
   distanceMeters: number;
+  // Event context
+  eventId: string;
+  kennelFullName: string;
+  eventTitle: string | null;
+  eventRunNumber: number | null;
+  eventStartTime: string | null;
+  eventLocationName: string | null;
+  eventHaresText: string | null;
+  // Strava activity context
+  stravaSportType: string;
+  stravaTimeLocal: string | null;
+  stravaMovingTimeSecs: number;
+  stravaActivityId: string;
 }
 
 /**
@@ -300,7 +313,12 @@ export async function getUnmatchedStravaActivities(): Promise<
           select: {
             id: true,
             date: true,
-            kennel: { select: { shortName: true } },
+            title: true,
+            runNumber: true,
+            startTime: true,
+            locationName: true,
+            haresText: true,
+            kennel: { select: { shortName: true, fullName: true } },
           },
         },
       },
@@ -333,6 +351,10 @@ export async function getUnmatchedStravaActivities(): Promise<
         name: true,
         dateLocal: true,
         distanceMeters: true,
+        sportType: true,
+        timeLocal: true,
+        movingTimeSecs: true,
+        stravaActivityId: true,
       },
     });
 
@@ -346,10 +368,12 @@ export async function getUnmatchedStravaActivities(): Promise<
       activityByDate.set(a.dateLocal, existing);
     }
 
-    // Match attendances to activities by date ±1 day
+    // Match attendances to activities by date ±1 day (capped to prevent combinatorial explosion)
+    const MATCH_CAP = 50;
     const matches: UnmatchedStravaMatch[] = [];
 
     for (const att of attendances) {
+      if (matches.length >= MATCH_CAP) break;
       const eventDate = att.event.date;
       const eventDateStr = eventDate.toISOString().substring(0, 10);
       const dBefore = new Date(eventDate);
@@ -360,9 +384,11 @@ export async function getUnmatchedStravaActivities(): Promise<
       const dayAfter = dAfter.toISOString().substring(0, 10);
 
       for (const dateKey of [dayBefore, eventDateStr, dayAfter]) {
+        if (matches.length >= MATCH_CAP) break;
         const candidates = activityByDate.get(dateKey);
         if (!candidates) continue;
         for (const activity of candidates) {
+          if (matches.length >= MATCH_CAP) break;
           matches.push({
             stravaActivityDbId: activity.id,
             attendanceId: att.id,
@@ -370,6 +396,19 @@ export async function getUnmatchedStravaActivities(): Promise<
             eventDate: eventDateStr,
             activityName: activity.name,
             distanceMeters: activity.distanceMeters,
+            // Event context
+            eventId: att.event.id,
+            kennelFullName: att.event.kennel.fullName,
+            eventTitle: att.event.title,
+            eventRunNumber: att.event.runNumber,
+            eventStartTime: att.event.startTime,
+            eventLocationName: att.event.locationName,
+            eventHaresText: att.event.haresText,
+            // Strava activity context
+            stravaSportType: activity.sportType,
+            stravaTimeLocal: activity.timeLocal,
+            stravaMovingTimeSecs: activity.movingTimeSecs,
+            stravaActivityId: activity.stravaActivityId,
           });
         }
       }
@@ -408,6 +447,31 @@ export async function dismissStravaMatch(
   } catch (err) {
     console.error("Failed to dismiss Strava match:", err);
     return { error: "Failed to dismiss match" };
+  }
+}
+
+/** Dismiss multiple Strava activity match suggestions in a single batch. */
+export async function dismissAllStravaMatches(
+  stravaActivityDbIds: string[],
+): Promise<ActionResult<{ dismissedCount: number }>> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+  if (stravaActivityDbIds.length === 0) return { success: true, dismissedCount: 0 };
+
+  try {
+    const result = await prisma.stravaActivity.updateMany({
+      where: {
+        id: { in: stravaActivityDbIds },
+        connection: { userId: user.id },
+      },
+      data: { matchDismissed: true },
+    });
+
+    revalidatePath("/logbook");
+    return { success: true, dismissedCount: result.count };
+  } catch (err) {
+    console.error("Failed to batch dismiss Strava matches:", err);
+    return { error: "Failed to dismiss matches" };
   }
 }
 
