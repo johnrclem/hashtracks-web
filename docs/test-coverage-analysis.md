@@ -1,10 +1,10 @@
 # Test Coverage Analysis
 
-> Generated: 2026-02-26
+> Generated: 2026-02-26 | Updated: 2026-03-02
 
 ## Current State
 
-- **84 test files** covering 1711 test cases
+- **90 test files** covering 1807 test cases
 - **Test framework:** Vitest with globals, co-located test files (`*.test.ts`)
 - **Mocking pattern:** `vi.mock()` + `vi.mocked()` with Prisma client mocking
 - **Test data:** Shared factories in `src/test/factories.ts`
