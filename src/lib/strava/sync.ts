@@ -109,32 +109,32 @@ export async function syncStravaActivities(
     });
   }
 
-  // Batch reverse-geocode new activities to populate city field
-  if (toCreate.length > 0) {
-    await backfillCities(toCreate);
-  }
-
-  // Batch update existing activities in a single transaction
-  if (toUpdate.length > 0) {
-    await prisma.$transaction(
-      toUpdate.map((p) =>
-        prisma.stravaActivity.update({
-          where: { stravaActivityId: p.stravaActivityId },
-          data: {
-            name: p.name,
-            sportType: p.sportType,
-            dateLocal: p.dateLocal,
-            timeLocal: p.timeLocal,
-            distanceMeters: p.distanceMeters,
-            movingTimeSecs: p.movingTimeSecs,
-            startLat: p.startLat,
-            startLng: p.startLng,
-            timezone: p.timezone,
-          },
-        }),
-      ),
-    );
-  }
+  // Run geocoding and existing activity updates in parallel (disjoint data sets)
+  await Promise.all([
+    // Batch reverse-geocode new activities to populate city field
+    toCreate.length > 0 ? backfillCities(toCreate) : Promise.resolve(),
+    // Batch update existing activities in a single transaction
+    toUpdate.length > 0
+      ? prisma.$transaction(
+          toUpdate.map((p) =>
+            prisma.stravaActivity.update({
+              where: { stravaActivityId: p.stravaActivityId },
+              data: {
+                name: p.name,
+                sportType: p.sportType,
+                dateLocal: p.dateLocal,
+                timeLocal: p.timeLocal,
+                distanceMeters: p.distanceMeters,
+                movingTimeSecs: p.movingTimeSecs,
+                startLat: p.startLat,
+                startLng: p.startLng,
+                timezone: p.timezone,
+              },
+            }),
+          ),
+        )
+      : Promise.resolve(),
+  ]);
 
   const created = toCreate.length;
   const updated = toUpdate.length;

@@ -52,12 +52,14 @@ export interface StravaActivityOption {
 }
 
 /** Shape returned when fetching a linked Strava activity for the edit dialog. */
-export interface LinkedStravaActivity {
+export type LinkedStravaActivity = Omit<StravaActivityOption, "id" | "dateLocal">;
+
+/** Common display fields shared across activity rendering contexts. */
+export interface StravaActivityDisplay {
   name: string;
   sportType: string;
   distanceMeters: number;
   movingTimeSecs: number;
   timeLocal: string | null;
   city: string | null;
-  stravaActivityId: string;
 }

@@ -31,16 +31,12 @@ import {
 import {
   participationLevelLabel,
   PARTICIPATION_LEVELS,
-  formatDistance,
-  formatDuration,
-  formatSportType,
-  formatTime,
 } from "@/lib/format";
 import { buildStravaUrl } from "@/lib/strava/url";
-import { MapPin, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
+import { StravaActivitySummary } from "./StravaActivitySummary";
 import type { AttendanceData } from "./CheckInButton";
-import type { StravaActivityOption } from "@/lib/strava/types";
-import type { LinkedStravaActivity } from "@/lib/strava/types";
+import type { StravaActivityOption, LinkedStravaActivity } from "@/lib/strava/types";
 
 interface EditAttendanceDialogProps {
   open: boolean;
@@ -70,9 +66,9 @@ export function EditAttendanceDialog({
   const [linkedActivity, setLinkedActivity] = useState<LinkedStravaActivity | null>(null);
   const [linkedLoading, setLinkedLoading] = useState(false);
 
-  // Load Strava activities when dialog opens (if user has Strava connected)
+  // Load Strava activities when dialog opens — skip if already linked
   useEffect(() => {
-    if (!open || !stravaConnected || !eventDate) return;
+    if (!open || !stravaConnected || !eventDate || attendance.stravaUrl) return;
     const dateStr = eventDate.substring(0, 10); // "YYYY-MM-DD" from ISO
     setStravaLoading(true);
     getStravaActivitiesForDate(dateStr).then((result) => {
@@ -81,7 +77,7 @@ export function EditAttendanceDialog({
         setStravaActivities(result.activities);
       }
     });
-  }, [open, stravaConnected, eventDate]);
+  }, [open, stravaConnected, eventDate, attendance.stravaUrl]);
 
   // Load linked Strava activity when dialog opens (if attendance has a stravaUrl)
   useEffect(() => {
@@ -102,9 +98,7 @@ export function EditAttendanceDialog({
         toast.error(result.error);
         return;
       }
-      // Update the URL field to show the attached activity
       setActivityUrl(buildStravaUrl(activity.stravaActivityId));
-      // Remove from available list
       setStravaActivities((prev) => prev.filter((a) => a.id !== activity.id));
       setLinkedActivity({
         name: activity.name,
@@ -209,30 +203,7 @@ export function EditAttendanceDialog({
                 <>
                   <div className="flex items-start gap-2 rounded-md border border-strava/30 bg-strava/5 px-3 py-2 text-sm">
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 truncate font-medium">
-                          {linkedActivity.name}
-                        </span>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {formatDistance(linkedActivity.distanceMeters)}
-                          {linkedActivity.movingTimeSecs > 0 && ` · ${formatDuration(linkedActivity.movingTimeSecs)}`}
-                        </span>
-                      </span>
-                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span>{formatSportType(linkedActivity.sportType)}</span>
-                        {linkedActivity.timeLocal && (
-                          <>
-                            <span aria-hidden="true">&middot;</span>
-                            <span>{formatTime(linkedActivity.timeLocal)}</span>
-                          </>
-                        )}
-                        {linkedActivity.city && (
-                          <>
-                            <span aria-hidden="true">&middot;</span>
-                            <span>{linkedActivity.city}</span>
-                          </>
-                        )}
-                      </span>
+                      <StravaActivitySummary activity={linkedActivity} />
                     </div>
                     <div className="flex shrink-0 items-start gap-1">
                       <a
@@ -276,30 +247,7 @@ export function EditAttendanceDialog({
                             disabled={isPending}
                             onClick={() => handleStravaSelect(activity)}
                           >
-                            <span className="flex items-center gap-2">
-                              <span className="min-w-0 flex-1 truncate font-medium">
-                                {activity.name}
-                              </span>
-                              <span className="shrink-0 text-xs text-muted-foreground">
-                                {formatDistance(activity.distanceMeters)}
-                                {activity.movingTimeSecs > 0 && ` · ${formatDuration(activity.movingTimeSecs)}`}
-                              </span>
-                            </span>
-                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <span>{formatSportType(activity.sportType)}</span>
-                              {activity.timeLocal && (
-                                <>
-                                  <span aria-hidden="true">&middot;</span>
-                                  <span>{formatTime(activity.timeLocal)}</span>
-                                </>
-                              )}
-                              {activity.city && (
-                                <>
-                                  <span aria-hidden="true">&middot;</span>
-                                  <span>{activity.city}</span>
-                                </>
-                              )}
-                            </span>
+                            <StravaActivitySummary activity={activity} />
                           </button>
                           <a
                             href={buildStravaUrl(activity.stravaActivityId)}

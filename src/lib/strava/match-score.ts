@@ -14,7 +14,7 @@ const RUN_TYPES = new Set(["Run", "TrailRun", "VirtualRun"]);
 
 /**
  * Score a Strava activity against an event for match quality.
- * Higher is better. Returns 0–1 range.
+ * Higher is better. Range: 0–4.2 (name×3 + time×1 + sport×0.2).
  */
 export function scoreMatch(
   activity: ScoredActivity,
@@ -39,7 +39,7 @@ export function scoreMatch(
   // 3. Sport type bonus (0.0 or 0.2): prefer runs over walks/rides
   const sportBonus = RUN_TYPES.has(activity.stravaSportType) ? 0.2 : 0;
 
-  // Weighted combination: name×3 + time×1 + sport×1 → normalize to 0–1ish
+  // Weighted combination: name×3 + time×1 + sport×0.2
   return nameScore * 3 + timeScore + sportBonus;
 }
 

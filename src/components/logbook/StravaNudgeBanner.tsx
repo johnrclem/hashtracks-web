@@ -11,9 +11,11 @@ import {
   dismissAllStravaMatches,
 } from "@/app/strava/actions";
 import type { UnmatchedStravaMatch } from "@/app/strava/actions";
-import { formatTime, formatDateShort, formatDistance, formatDuration, formatSportType } from "@/lib/format";
+import { formatTime, formatDateShort, formatDistance } from "@/lib/format";
 import { buildStravaUrl } from "@/lib/strava/url";
 import { findBestMatchIndex } from "@/lib/strava/match-score";
+import { StravaActivitySummary } from "./StravaActivitySummary";
+import type { StravaActivityDisplay } from "@/lib/strava/types";
 import {
   ExternalLink,
   ChevronDown,
@@ -28,15 +30,9 @@ const VISIBLE_CAP = 5;
 
 // ── Grouping types ──
 
-interface MatchGroupActivity {
+interface MatchGroupActivity extends StravaActivityDisplay {
   stravaActivityDbId: string;
   stravaActivityId: string;
-  activityName: string;
-  distanceMeters: number;
-  stravaSportType: string;
-  stravaTimeLocal: string | null;
-  stravaMovingTimeSecs: number;
-  stravaCity: string | null;
 }
 
 interface MatchGroup {
@@ -78,20 +74,26 @@ function groupMatchesByEvent(matches: UnmatchedStravaMatch[]): MatchGroup[] {
     group.activities.push({
       stravaActivityDbId: m.stravaActivityDbId,
       stravaActivityId: m.stravaActivityId,
-      activityName: m.activityName,
+      name: m.activityName,
       distanceMeters: m.distanceMeters,
-      stravaSportType: m.stravaSportType,
-      stravaTimeLocal: m.stravaTimeLocal,
-      stravaMovingTimeSecs: m.stravaMovingTimeSecs,
-      stravaCity: m.stravaCity,
+      sportType: m.stravaSportType,
+      timeLocal: m.stravaTimeLocal,
+      movingTimeSecs: m.stravaMovingTimeSecs,
+      city: m.stravaCity,
     });
   }
 
   // Calculate best match index for each group
   const groups = Array.from(map.values());
   for (const group of groups) {
+    // findBestMatchIndex expects { activityName, stravaSportType, stravaTimeLocal }
+    const scoreable = group.activities.map((a) => ({
+      activityName: a.name,
+      stravaSportType: a.sportType,
+      stravaTimeLocal: a.timeLocal,
+    }));
     group.bestActivityIndex = findBestMatchIndex(
-      group.activities,
+      scoreable,
       group.kennelShortName,
       group.eventStartTime,
     );
@@ -176,6 +178,11 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
         next.delete(group.attendanceId);
         return next;
       });
+      setSelectedActivity((prev) => {
+        const next = new Map(prev);
+        next.delete(group.attendanceId);
+        return next;
+      });
       router.refresh();
     });
   }
@@ -193,7 +200,6 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
       setMatches((prev) =>
         prev.filter((m) => m.stravaActivityDbId !== activity.stravaActivityDbId),
       );
-      // Reset selection if needed
       setSelectedActivity((prev) => {
         const next = new Map(prev);
         next.delete(group.attendanceId);
@@ -317,7 +323,7 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
                     {group.kennelShortName}
                   </span>
                   <span className="min-w-0 truncate font-medium">
-                    {bestActivity.activityName}
+                    {bestActivity.name}
                   </span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {formatDistance(bestActivity.distanceMeters)}
@@ -421,35 +427,18 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
                               }}
                               aria-pressed={isSelected}
                             >
-                              <span className="flex items-center gap-2">
-                                {group.activities.length > 1 && (
-                                  <span className={`mt-0.5 inline-block h-3 w-3 shrink-0 rounded-full border-2 ${
-                                    isSelected ? "border-strava bg-strava" : "border-muted-foreground/40"
-                                  }`} />
-                                )}
-                                <span className="min-w-0 flex-1 truncate font-medium">
-                                  {activity.activityName}
-                                </span>
-                                <span className="shrink-0 text-xs text-muted-foreground">
-                                  {formatDistance(activity.distanceMeters)}
-                                  {activity.stravaMovingTimeSecs > 0 && ` · ${formatDuration(activity.stravaMovingTimeSecs)}`}
-                                </span>
-                              </span>
-                              <span className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                                <span>{formatSportType(activity.stravaSportType)}</span>
-                                {activity.stravaTimeLocal && (
-                                  <>
-                                    <span aria-hidden="true">&middot;</span>
-                                    <span>{formatTime(activity.stravaTimeLocal)}</span>
-                                  </>
-                                )}
-                                {activity.stravaCity && (
-                                  <>
-                                    <span aria-hidden="true">&middot;</span>
-                                    <span>{activity.stravaCity}</span>
-                                  </>
-                                )}
-                              </span>
+                              {group.activities.length > 1 ? (
+                                <>
+                                  <span className="flex items-center gap-2">
+                                    <span className={`mt-0.5 inline-block h-3 w-3 shrink-0 rounded-full border-2 ${
+                                      isSelected ? "border-strava bg-strava" : "border-muted-foreground/40"
+                                    }`} />
+                                    <StravaActivitySummary activity={activity} />
+                                  </span>
+                                </>
+                              ) : (
+                                <StravaActivitySummary activity={activity} />
+                              )}
                             </button>
                           );
                         })}

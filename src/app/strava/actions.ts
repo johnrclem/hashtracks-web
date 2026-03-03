@@ -7,8 +7,8 @@ import type { ActionResult } from "@/lib/actions";
 import {
   deauthorizeStrava,
   getValidAccessToken,
-  buildStravaUrl,
 } from "@/lib/strava/client";
+import { buildStravaUrl } from "@/lib/strava/url";
 import { syncStravaActivities } from "@/lib/strava/sync";
 import type { StravaActivityOption, LinkedStravaActivity } from "@/lib/strava/types";
 
@@ -528,6 +528,14 @@ export async function getLinkedStravaActivity(
 ): Promise<ActionResult<{ activity: LinkedStravaActivity | null }>> {
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
+
+  // Verify user owns the attendance
+  const attendance = await prisma.attendance.findUnique({
+    where: { id: attendanceId },
+    select: { userId: true },
+  });
+  if (!attendance) return { success: true, activity: null };
+  if (attendance.userId !== user.id) return { error: "Not authorized" };
 
   const activity = await prisma.stravaActivity.findFirst({
     where: { matchedAttendanceId: attendanceId },
