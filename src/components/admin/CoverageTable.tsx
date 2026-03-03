@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
+import { toggleKennelVisibility } from "@/app/admin/kennels/actions";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 interface SourceInfo {
   id: string;
@@ -19,7 +23,9 @@ interface KennelCoverage {
   id: string;
   shortName: string;
   fullName: string;
+  slug: string;
   region: string;
+  isHidden: boolean;
   eventCount: number;
   sources: SourceInfo[];
 }
@@ -77,10 +83,11 @@ const HEALTH_BAR_COLORS: Record<string, string> = {
   DEGRADED: "bg-amber-500",
   FAILING: "bg-red-500",
   STALE: "bg-orange-400",
+  UNKNOWN: "bg-gray-400",
   DISABLED: "bg-gray-300",
 };
 
-const HEALTH_BAR_ORDER = ["HEALTHY", "DEGRADED", "FAILING", "STALE", "DISABLED"];
+const HEALTH_BAR_ORDER = ["HEALTHY", "DEGRADED", "FAILING", "STALE", "UNKNOWN", "DISABLED"];
 
 function HealthBar({ healthCounts }: { healthCounts: Record<string, number> }) {
   const total = HEALTH_BAR_ORDER.reduce((a, s) => a + (healthCounts[s] ?? 0), 0);
@@ -110,8 +117,10 @@ function HealthBar({ healthCounts }: { healthCounts: Record<string, number> }) {
 }
 
 export function CoverageTable({ kennels }: CoverageTableProps) {
-  const [filter, setFilter] = useState<"all" | "uncovered" | "covered">("all");
+  const [filter, setFilter] = useState<"all" | "uncovered" | "covered" | "hidden">("all");
   const [search, setSearch] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const { covered, uncovered, wellCovered, pct, staleCount, regions } = useMemo(() => {
     const cov    = kennels.filter((k) => k.sources.length > 0);
@@ -134,9 +143,22 @@ export function CoverageTable({ kennels }: CoverageTableProps) {
     return { covered: cov, uncovered: uncov, wellCovered: well, pct: p, staleCount: stale, regions: reg };
   }, [kennels]);
 
+  function handleToggleVisibility(kennelId: string) {
+    startTransition(async () => {
+      const result = await toggleKennelVisibility(kennelId);
+      if ("error" in result) {
+        toast.error(result.error);
+      } else {
+        toast.success(result.isHidden ? "Kennel hidden" : "Kennel visible");
+      }
+      router.refresh();
+    });
+  }
+
   const filtered = kennels.filter((k) => {
     if (filter === "uncovered" && k.sources.length > 0) return false;
     if (filter === "covered"   && k.sources.length === 0) return false;
+    if (filter === "hidden"    && !k.isHidden) return false;
     if (search) {
       const q = search.toLowerCase();
       return k.shortName.toLowerCase().includes(q) || k.fullName.toLowerCase().includes(q) || k.region.toLowerCase().includes(q);
@@ -217,7 +239,7 @@ export function CoverageTable({ kennels }: CoverageTableProps) {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold">All Kennels</h3>
           <div className="flex rounded-md border text-xs overflow-hidden">
-            {(["all", "covered", "uncovered"] as const).map((f) => (
+            {(["all", "covered", "uncovered", "hidden"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -244,13 +266,25 @@ export function CoverageTable({ kennels }: CoverageTableProps) {
                 <th className="px-3 py-2 text-left font-medium">Region</th>
                 <th className="px-3 py-2 text-right font-medium">Events</th>
                 <th className="px-3 py-2 text-left font-medium">Sources</th>
+                <th className="px-3 py-2 w-10" />
               </tr>
             </thead>
             <tbody>
               {filtered.map((k) => (
-                <tr key={k.id} className="border-t">
+                <tr key={k.id} className={`border-t ${k.isHidden ? "opacity-50" : ""}`}>
                   <td className="px-3 py-2">
-                    <div className="font-medium">{k.shortName}</div>
+                    <div className="flex items-center gap-1.5">
+                      <Link
+                        href={`/kennels/${k.slug}`}
+                        target="_blank"
+                        className="font-medium hover:underline"
+                      >
+                        {k.shortName}
+                      </Link>
+                      {k.isHidden && (
+                        <Badge variant="secondary" className="text-[10px] px-1 py-0">Hidden</Badge>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">{k.fullName}</div>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{k.region}</td>
@@ -279,11 +313,22 @@ export function CoverageTable({ kennels }: CoverageTableProps) {
                       </div>
                     )}
                   </td>
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleVisibility(k.id)}
+                      disabled={isPending}
+                      className="text-muted-foreground hover:text-foreground disabled:opacity-50"
+                      title={k.isHidden ? "Show kennel" : "Hide kennel"}
+                    >
+                      {k.isHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+                    </button>
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground text-sm">
+                  <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground text-sm">
                     No kennels match your filter.
                   </td>
                 </tr>

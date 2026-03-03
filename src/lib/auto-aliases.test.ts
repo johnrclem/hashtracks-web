@@ -23,6 +23,22 @@ describe("generateAliases", () => {
     expect(aliases.map((a) => a.toLowerCase())).not.toContain("east bay hash house harriers");
   });
 
+  // --- Single-letter base guard ---
+
+  it("does not generate single-letter aliases from short names like CH3", () => {
+    const aliases = generateAliases("CH3", "Chicago Hash House Harriers");
+    expect(aliases).not.toContain("C");
+    expect(aliases).not.toContain("C Hash");
+    expect(aliases).not.toContain("C H3");
+  });
+
+  it("does not generate single-letter aliases from short names like EH3", () => {
+    const aliases = generateAliases("EH3", "Enfield Hash House Harriers");
+    expect(aliases).not.toContain("E");
+    expect(aliases).not.toContain("E Hash");
+    expect(aliases).not.toContain("E H3");
+  });
+
   // --- Deduplication ---
 
   it("does not return duplicate aliases (case-insensitive)", () => {

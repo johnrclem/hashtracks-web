@@ -12,7 +12,9 @@ export default async function CoveragePage() {
       id: true,
       shortName: true,
       fullName: true,
+      slug: true,
       region: true,
+      isHidden: true,
       sources: {
         select: {
           source: {
@@ -36,7 +38,9 @@ export default async function CoveragePage() {
     id: k.id,
     shortName: k.shortName,
     fullName: k.fullName,
+    slug: k.slug,
     region: k.region,
+    isHidden: k.isHidden,
     eventCount: k._count.events,
     sources: k.sources.map((sk) => ({
       id: sk.source.id,

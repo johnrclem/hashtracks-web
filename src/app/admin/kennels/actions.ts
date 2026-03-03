@@ -701,6 +701,7 @@ export async function toggleKennelVisibility(kennelId: string) {
   }));
 
   revalidatePath("/admin/kennels");
+  revalidatePath("/admin/sources/coverage");
   revalidatePath("/kennels");
   revalidatePath(`/kennels/${kennel.slug}`);
   revalidatePath("/hareline");

@@ -111,15 +111,17 @@ export function generateAliases(shortName: string, fullName: string): string[] {
   const shortH3Match = short.match(/^(.+?)\s*H([34])$/i);
   if (shortH3Match) {
     const shortBase = shortH3Match[1];
-    add(shortBase);
-    add(`${shortBase} Hash`);
-    add(`${shortBase} H${shortH3Match[2]}`);
+    if (shortBase.length >= 2) {
+      add(shortBase);
+      add(`${shortBase} Hash`);
+      add(`${shortBase} H${shortH3Match[2]}`);
+    }
   }
 
   // If shortName ends with HHH, generate H3 variant
   if (/HHH$/i.test(short)) {
     const shortBase = short.replace(/HHH$/i, "").trim();
-    if (shortBase) {
+    if (shortBase.length >= 2) {
       add(`${shortBase}H3`);
       add(`${shortBase} H3`);
     }
