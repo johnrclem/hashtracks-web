@@ -26,6 +26,7 @@ import {
   getStravaActivitiesForDate,
   attachStravaActivity,
 } from "@/app/strava/actions";
+import { buildStravaUrl } from "@/lib/strava/client";
 import {
   participationLevelLabel,
   PARTICIPATION_LEVELS,
@@ -85,8 +86,7 @@ export function EditAttendanceDialog({
         return;
       }
       // Update the URL field to show the attached activity
-      const url = `https://www.strava.com/activities/${activity.stravaActivityId}`;
-      setActivityUrl(url);
+      setActivityUrl(buildStravaUrl(activity.stravaActivityId));
       // Remove from available list
       setStravaActivities((prev) => prev.filter((a) => a.id !== activity.id));
       toast.success("Strava activity linked");
@@ -166,7 +166,7 @@ export function EditAttendanceDialog({
                   {stravaActivities.map((activity) => (
                     <div
                       key={activity.id}
-                      className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted transition-colors"
+                      className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${isPending ? "opacity-60" : "hover:bg-muted"}`}
                     >
                       <button
                         type="button"
@@ -194,13 +194,12 @@ export function EditAttendanceDialog({
                         </span>
                       </button>
                       <a
-                        href={`https://www.strava.com/activities/${activity.stravaActivityId}`}
+                        href={buildStravaUrl(activity.stravaActivityId)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-0.5 shrink-0 text-[#FC4C02] hover:text-[#E34402] transition-colors"
+                        className={`mt-0.5 shrink-0 text-strava hover:text-strava-hover transition-colors ${isPending ? "pointer-events-none opacity-50" : ""}`}
                         title="View in Strava"
                         aria-label={`View ${activity.name} in Strava`}
-                        onClick={(e) => e.stopPropagation()}
                       >
                         <ExternalLink size={14} />
                       </a>

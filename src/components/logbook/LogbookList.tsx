@@ -284,7 +284,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                 href={entry.attendance.stravaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-full border border-[#FC4C02] px-2 py-0.5 text-xs font-medium text-[#FC4C02] hover:bg-[#FC4C02] hover:text-white transition-colors"
+                className="inline-flex items-center gap-1 rounded-full border border-strava px-2 py-0.5 text-xs font-medium text-strava hover:bg-strava hover:text-white transition-colors"
               >
                 <ExternalLink size={10} />
                 {entry.attendance.stravaUrl.includes("strava.com")
