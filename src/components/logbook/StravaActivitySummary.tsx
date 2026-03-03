@@ -10,7 +10,7 @@ import type { StravaActivityDisplay } from "@/lib/strava/types";
  * Renders two-line Strava activity summary: name + distance/duration on line 1,
  * sport type + time + city on line 2. Used by EditAttendanceDialog and StravaNudgeBanner.
  */
-export function StravaActivitySummary({ activity }: { activity: StravaActivityDisplay }) {
+export function StravaActivitySummary({ activity }: Readonly<{ activity: StravaActivityDisplay }>) {
   return (
     <>
       <span className="flex items-center gap-2">

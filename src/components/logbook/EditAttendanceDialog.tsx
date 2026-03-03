@@ -168,6 +168,85 @@ export function EditAttendanceDialog({
     });
   }
 
+  function renderStravaContent() {
+    if (linkedActivity) {
+      return (
+        <>
+          <div className="flex items-start gap-2 rounded-md border border-strava/30 bg-strava/5 px-3 py-2 text-sm">
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <StravaActivitySummary activity={linkedActivity} />
+            </div>
+            <div className="flex shrink-0 items-start gap-1">
+              <a
+                href={buildStravaUrl(linkedActivity.stravaActivityId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-0.5 text-strava hover:text-strava-hover transition-colors"
+                title="View in Strava"
+              >
+                <ExternalLink size={14} />
+              </a>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs text-muted-foreground"
+            onClick={handleDetach}
+            disabled={isPending}
+          >
+            Remove Link
+          </Button>
+        </>
+      );
+    }
+
+    if (linkedLoading) {
+      return <p className="text-xs text-muted-foreground">Loading activity...</p>;
+    }
+
+    return (
+      <>
+        <p className="text-xs font-medium text-muted-foreground">Pick from Strava</p>
+        {stravaLoading ? (
+          <p className="text-xs text-muted-foreground">Loading activities...</p>
+        ) : stravaActivities.length > 0 ? (
+          <div className="space-y-1">
+            {stravaActivities.map((activity) => (
+              <div
+                key={activity.id}
+                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${isPending ? "opacity-60" : "hover:bg-muted"}`}
+              >
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 flex-col gap-0.5 text-left disabled:opacity-50"
+                  disabled={isPending}
+                  onClick={() => handleStravaSelect(activity)}
+                >
+                  <StravaActivitySummary activity={activity} />
+                </button>
+                <a
+                  href={buildStravaUrl(activity.stravaActivityId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`mt-0.5 shrink-0 text-strava hover:text-strava-hover transition-colors ${isPending ? "pointer-events-none opacity-50" : ""}`}
+                  title="View in Strava"
+                  aria-label={`View ${activity.name} in Strava`}
+                >
+                  <ExternalLink size={14} />
+                </a>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            No unmatched activities found for this date
+          </p>
+        )}
+      </>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={(v) => {
       onOpenChange(v);
@@ -199,76 +278,7 @@ export function EditAttendanceDialog({
           {stravaConnected && (
             <div className="space-y-2">
               <Label>Strava Activity</Label>
-              {linkedActivity ? (
-                <>
-                  <div className="flex items-start gap-2 rounded-md border border-strava/30 bg-strava/5 px-3 py-2 text-sm">
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <StravaActivitySummary activity={linkedActivity} />
-                    </div>
-                    <div className="flex shrink-0 items-start gap-1">
-                      <a
-                        href={buildStravaUrl(linkedActivity.stravaActivityId)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-0.5 text-strava hover:text-strava-hover transition-colors"
-                        title="View in Strava"
-                      >
-                        <ExternalLink size={14} />
-                      </a>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 text-xs text-muted-foreground"
-                    onClick={handleDetach}
-                    disabled={isPending}
-                  >
-                    Remove Link
-                  </Button>
-                </>
-              ) : linkedLoading ? (
-                <p className="text-xs text-muted-foreground">Loading activity...</p>
-              ) : (
-                <>
-                  <p className="text-xs font-medium text-muted-foreground">Pick from Strava</p>
-                  {stravaLoading ? (
-                    <p className="text-xs text-muted-foreground">Loading activities...</p>
-                  ) : stravaActivities.length > 0 ? (
-                    <div className="space-y-1">
-                      {stravaActivities.map((activity) => (
-                        <div
-                          key={activity.id}
-                          className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${isPending ? "opacity-60" : "hover:bg-muted"}`}
-                        >
-                          <button
-                            type="button"
-                            className="flex min-w-0 flex-1 flex-col gap-0.5 text-left disabled:opacity-50"
-                            disabled={isPending}
-                            onClick={() => handleStravaSelect(activity)}
-                          >
-                            <StravaActivitySummary activity={activity} />
-                          </button>
-                          <a
-                            href={buildStravaUrl(activity.stravaActivityId)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`mt-0.5 shrink-0 text-strava hover:text-strava-hover transition-colors ${isPending ? "pointer-events-none opacity-50" : ""}`}
-                            title="View in Strava"
-                            aria-label={`View ${activity.name} in Strava`}
-                          >
-                            <ExternalLink size={14} />
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      No unmatched activities found for this date
-                    </p>
-                  )}
-                </>
-              )}
+              {renderStravaContent()}
             </div>
           )}
 

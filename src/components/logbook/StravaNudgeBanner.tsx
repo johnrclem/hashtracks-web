@@ -159,6 +159,17 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
 
   if (!stravaConnected || !loaded || hidden || matches.length === 0) return null;
 
+  function removeMatchesForAttendance(attendanceId: string) {
+    setMatches((prev) => prev.filter((m) => m.attendanceId !== attendanceId));
+    setExpandedCards((prev) => { const next = new Set(prev); next.delete(attendanceId); return next; });
+    setSelectedActivity((prev) => { const next = new Map(prev); next.delete(attendanceId); return next; });
+  }
+
+  function removeMatchForActivity(stravaActivityDbId: string, attendanceId: string) {
+    setMatches((prev) => prev.filter((m) => m.stravaActivityDbId !== stravaActivityDbId));
+    setSelectedActivity((prev) => { const next = new Map(prev); next.delete(attendanceId); return next; });
+  }
+
   function handleLink(group: MatchGroup) {
     const idx = getSelectedIndex(group);
     const activity = group.activities[idx];
@@ -169,20 +180,7 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
         return;
       }
       toast.success("Strava activity linked");
-      // Remove all matches for this attendance (entire group is linked)
-      setMatches((prev) =>
-        prev.filter((m) => m.attendanceId !== group.attendanceId),
-      );
-      setExpandedCards((prev) => {
-        const next = new Set(prev);
-        next.delete(group.attendanceId);
-        return next;
-      });
-      setSelectedActivity((prev) => {
-        const next = new Map(prev);
-        next.delete(group.attendanceId);
-        return next;
-      });
+      removeMatchesForAttendance(group.attendanceId);
       router.refresh();
     });
   }
@@ -196,15 +194,7 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
         toast.error(result.error);
         return;
       }
-      // Remove this specific activity from matches
-      setMatches((prev) =>
-        prev.filter((m) => m.stravaActivityDbId !== activity.stravaActivityDbId),
-      );
-      setSelectedActivity((prev) => {
-        const next = new Map(prev);
-        next.delete(group.attendanceId);
-        return next;
-      });
+      removeMatchForActivity(activity.stravaActivityDbId, group.attendanceId);
     });
   }
 
@@ -428,14 +418,12 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
                               aria-pressed={isSelected}
                             >
                               {group.activities.length > 1 ? (
-                                <>
-                                  <span className="flex items-center gap-2">
-                                    <span className={`mt-0.5 inline-block h-3 w-3 shrink-0 rounded-full border-2 ${
-                                      isSelected ? "border-strava bg-strava" : "border-muted-foreground/40"
-                                    }`} />
-                                    <StravaActivitySummary activity={activity} />
-                                  </span>
-                                </>
+                                <span className="flex items-center gap-2">
+                                  <span className={`mt-0.5 inline-block h-3 w-3 shrink-0 rounded-full border-2 ${
+                                    isSelected ? "border-strava bg-strava" : "border-muted-foreground/40"
+                                  }`} />
+                                  <StravaActivitySummary activity={activity} />
+                                </span>
                               ) : (
                                 <StravaActivitySummary activity={activity} />
                               )}

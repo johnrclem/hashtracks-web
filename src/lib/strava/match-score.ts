@@ -65,7 +65,7 @@ export function findBestMatchIndex(
 }
 
 function timeToMinutes(time: string): number | null {
-  const match = time.match(/^(\d{1,2}):(\d{2})$/);
+  const match = /^(\d{1,2}):(\d{2})$/.exec(time);
   if (!match) return null;
-  return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+  return Number.parseInt(match[1], 10) * 60 + Number.parseInt(match[2], 10);
 }

@@ -178,6 +178,9 @@ export async function geocodeAddress(
   }
 }
 
+/** Hardcoded Google Geocoding API base — not user-controlled (SSRF-safe). */
+const GOOGLE_GEOCODE_BASE = "https://maps.googleapis.com/maps/api/geocode/json";
+
 /**
  * Reverse geocode coordinates to a city string using the Google Maps Geocoding API.
  * Returns a display string like "Brooklyn, NY" or "London, England", or null on failure.
@@ -190,7 +193,7 @@ export async function reverseGeocode(
   if (!apiKey) return null;
 
   try {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&result_type=locality|sublocality&key=${apiKey}`;
+    const url = `${GOOGLE_GEOCODE_BASE}?latlng=${lat},${lng}&result_type=locality|sublocality&key=${apiKey}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(url, { signal: controller.signal });
@@ -228,9 +231,9 @@ export async function reverseGeocode(
  */
 export function cityFromTimezone(timezone: string | null): string | null {
   if (!timezone) return null;
-  const ianaMatch = timezone.match(/(?:\)\s*)?(\w+\/[\w\-/]+)$/);
+  const ianaMatch = /(\w+\/[\w\-/]+)$/.exec(timezone);
   if (!ianaMatch) return null;
   const parts = ianaMatch[1].split("/");
-  const city = parts[parts.length - 1].replace(/_/g, " ");
+  const city = parts.at(-1)?.replaceAll("_", " ") ?? null;
   return city || null;
 }
