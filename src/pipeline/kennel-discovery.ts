@@ -23,6 +23,16 @@ const EXTERNAL_SOURCE = "HASHREGO";
 const AUTO_MATCH_THRESHOLD = 0.95;
 const CANDIDATE_THRESHOLD = 0.6;
 
+const DISTANCE_BANDS = [
+  { maxKm: 100, penalty: 0 },
+  { maxKm: 500, penalty: -0.1 },
+  { maxKm: 2000, penalty: -0.3 },
+  { maxKm: 5000, penalty: -0.45 },
+  { maxKm: Infinity, penalty: -0.55 },
+] as const;
+const COUNTRY_MISMATCH_PENALTY = -0.15;
+const SAME_COUNTRY_NEARBY_BONUS = 0.05;
+
 interface MatchResult {
   status: "NEW" | "MATCHED";
   matchedKennelId: string | null;
@@ -44,12 +54,15 @@ export interface DiscoveryGeoContext {
   country: string | null;
 }
 
+const US_VARIANTS = ["US", "USA", "UNITED STATES", "UNITED STATES OF AMERICA"];
+const GB_VARIANTS = ["UK", "GB", "UNITED KINGDOM", "GREAT BRITAIN", "ENGLAND", "SCOTLAND", "WALES"];
+
 /** Normalize country names/codes to a canonical form for comparison. */
 export function normalizeCountry(country: string | null | undefined): string {
   if (!country) return "";
   const c = country.trim().toUpperCase();
-  if (c === "US" || c === "USA" || c === "UNITED STATES" || c === "UNITED STATES OF AMERICA") return "US";
-  if (c === "UK" || c === "GB" || c === "UNITED KINGDOM" || c === "GREAT BRITAIN") return "GB";
+  if (US_VARIANTS.includes(c)) return "US";
+  if (GB_VARIANTS.includes(c)) return "GB";
   return c;
 }
 
@@ -58,10 +71,11 @@ export function parseCountryFromLocation(location: string | undefined): string |
   if (!location) return null;
   const parts = location.split(",").map((s) => s.trim()).filter(Boolean);
   if (parts.length === 0) return null;
-  const last = parts[parts.length - 1];
-  // Only return if it looks like a country (not a city/state)
-  if (last.length <= 30) return last;
-  return null;
+  const last = parts.at(-1)!;
+  // Reject 2-letter codes (likely US state abbreviations like "DC", "NY")
+  if (/^[A-Z]{2}$/i.test(last)) return null;
+  if (last.length > 30) return null;
+  return last;
 }
 
 /**
@@ -99,27 +113,16 @@ export function applyGeoPenalty(
       candidate.centroidLat!, candidate.centroidLng!,
     );
 
-    let penalty = 0;
-    if (dist < 100) {
-      penalty = 0;
-    } else if (dist < 500) {
-      penalty = -0.10;
-    } else if (dist < 2000) {
-      penalty = -0.30;
-    } else if (dist < 5000) {
-      penalty = -0.45;
-    } else {
-      penalty = -0.55;
-    }
-
-    if (countryMismatch) penalty -= 0.15;
-    if (countryMatch && dist < 500) penalty += 0.05;
+    const band = DISTANCE_BANDS.find(b => dist < b.maxKm)!;
+    let penalty = band.penalty;
+    if (countryMismatch) penalty += COUNTRY_MISMATCH_PENALTY;
+    if (countryMatch && dist < 500) penalty += SAME_COUNTRY_NEARBY_BONUS;
 
     return textScore + penalty;
   }
 
   // Fall back to country-only check
-  if (countryMismatch) return textScore - 0.15;
+  if (countryMismatch) return textScore + COUNTRY_MISMATCH_PENALTY;
 
   // Both missing or only one side has coords — return text score unchanged
   return textScore;
@@ -375,7 +378,7 @@ function computeMatchResult(
     return { ...m, score: adjustedScore };
   });
 
-  const ranked = geoAdjusted.sort((a, b) => b.score - a.score);
+  const ranked = geoAdjusted.toSorted((a, b) => b.score - a.score);
   const best = ranked[0];
 
   if (best && best.score >= AUTO_MATCH_THRESHOLD) {
