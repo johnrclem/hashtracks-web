@@ -7,6 +7,7 @@
 
 import { prisma } from "@/lib/db";
 import { fuzzyMatch, type FuzzyCandidate } from "@/lib/fuzzy";
+import { haversineDistance } from "@/lib/geo";
 import { parseKennelDirectory } from "@/adapters/hashrego/kennel-directory-parser";
 import {
   fetchKennelProfiles,
@@ -22,11 +23,109 @@ const EXTERNAL_SOURCE = "HASHREGO";
 const AUTO_MATCH_THRESHOLD = 0.95;
 const CANDIDATE_THRESHOLD = 0.6;
 
+const DISTANCE_BANDS = [
+  { maxKm: 100, penalty: 0 },
+  { maxKm: 500, penalty: -0.1 },
+  { maxKm: 2000, penalty: -0.3 },
+  { maxKm: 5000, penalty: -0.45 },
+  { maxKm: Infinity, penalty: -0.55 },
+] as const;
+const COUNTRY_MISMATCH_PENALTY = -0.15;
+const SAME_COUNTRY_NEARBY_BONUS = 0.05;
+
 interface MatchResult {
   status: "NEW" | "MATCHED";
   matchedKennelId: string | null;
   matchScore: number | null;
   matchCandidates: Prisma.InputJsonValue | typeof Prisma.DbNull;
+}
+
+/** Geo context for a candidate kennel from the DB. */
+export interface KennelGeoData {
+  country: string;
+  centroidLat: number | null;
+  centroidLng: number | null;
+}
+
+/** Geo context for a discovered kennel from the external source. */
+export interface DiscoveryGeoContext {
+  lat: number | null;
+  lng: number | null;
+  country: string | null;
+}
+
+const US_VARIANTS = ["US", "USA", "UNITED STATES", "UNITED STATES OF AMERICA"];
+const GB_VARIANTS = ["UK", "GB", "UNITED KINGDOM", "GREAT BRITAIN", "ENGLAND", "SCOTLAND", "WALES"];
+
+/** Normalize country names/codes to a canonical form for comparison. */
+export function normalizeCountry(country: string | null | undefined): string {
+  if (!country) return "";
+  const c = country.trim().toUpperCase();
+  if (US_VARIANTS.includes(c)) return "US";
+  if (GB_VARIANTS.includes(c)) return "GB";
+  return c;
+}
+
+/** Extract a country guess from a location string like "Washington, DC, USA". */
+export function parseCountryFromLocation(location: string | undefined): string | null {
+  if (!location) return null;
+  const parts = location.split(",").map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 0) return null;
+  const last = parts.at(-1)!;
+  // Reject 2-letter codes (likely US state abbreviations like "DC", "NY")
+  if (/^[A-Z]{2}$/i.test(last)) return null;
+  if (last.length > 30) return null;
+  return last;
+}
+
+/**
+ * Apply a geographic penalty to a text-based fuzzy score.
+ * Returns an adjusted score (may go below 0, caller should clamp).
+ *
+ * Distance bands:
+ * - < 100 km: no penalty (same metro)
+ * - 100–500 km: -0.10 (neighboring region)
+ * - 500–2000 km: -0.30 (same continent, far)
+ * - 2000–5000 km: -0.45 (continent edge)
+ * - > 5000 km: -0.55 (different continent)
+ *
+ * Country mismatch: additional -0.15
+ * Same country + < 500 km: +0.05 bonus
+ */
+export function applyGeoPenalty(
+  textScore: number,
+  discovery: DiscoveryGeoContext,
+  candidate: KennelGeoData,
+): number {
+  const hasDiscoveryCoords = discovery.lat != null && discovery.lng != null;
+  const hasCandidateCoords = candidate.centroidLat != null && candidate.centroidLng != null;
+
+  const discoveryCountry = normalizeCountry(discovery.country);
+  const candidateCountry = normalizeCountry(candidate.country);
+  const countriesKnown = discoveryCountry !== "" && candidateCountry !== "";
+  const countryMatch = countriesKnown && discoveryCountry === candidateCountry;
+  const countryMismatch = countriesKnown && discoveryCountry !== candidateCountry;
+
+  // Both have coordinates — use distance-based penalty
+  if (hasDiscoveryCoords && hasCandidateCoords) {
+    const dist = haversineDistance(
+      discovery.lat!, discovery.lng!,
+      candidate.centroidLat!, candidate.centroidLng!,
+    );
+
+    const band = DISTANCE_BANDS.find(b => dist < b.maxKm)!;
+    let penalty = band.penalty;
+    if (countryMismatch) penalty += COUNTRY_MISMATCH_PENALTY;
+    if (countryMatch && dist < 500) penalty += SAME_COUNTRY_NEARBY_BONUS;
+
+    return textScore + penalty;
+  }
+
+  // Fall back to country-only check
+  if (countryMismatch) return textScore + COUNTRY_MISMATCH_PENALTY;
+
+  // Both missing or only one side has coords — return text score unchanged
+  return textScore;
 }
 
 export interface DiscoverySyncResult {
@@ -104,7 +203,11 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
   const [profiles, existingKennels, existingAliases] = await Promise.all([
     fetchKennelProfiles(activeSlugs),
     prisma.kennel.findMany({
-      select: { id: true, shortName: true, fullName: true },
+      select: {
+        id: true, shortName: true, fullName: true,
+        country: true,
+        regionRef: { select: { centroidLat: true, centroidLng: true } },
+      },
       where: { isHidden: false },
     }),
     prisma.kennelAlias.findMany({
@@ -128,6 +231,16 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
     aliases: aliasMap.get(k.id),
   }));
 
+  // Build geo lookup for candidate kennels (region centroid + country)
+  const geoMap = new Map<string, KennelGeoData>();
+  for (const k of existingKennels) {
+    geoMap.set(k.id, {
+      country: k.country,
+      centroidLat: k.regionRef?.centroidLat ?? null,
+      centroidLng: k.regionRef?.centroidLng ?? null,
+    });
+  }
+
   // Step 5: Process each discovered kennel
   const syncTimestamp = new Date();
   for (const kennel of discovered) {
@@ -148,7 +261,7 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
         continue;
       }
 
-      const match = computeMatchResult(kennel, profile, candidates);
+      const match = computeMatchResult(kennel, profile, candidates, geoMap);
 
       await prisma.kennelDiscovery.upsert({
         where: {
@@ -234,9 +347,11 @@ function computeMatchResult(
   kennel: DiscoveredKennel,
   profile: HashRegoKennelProfile | undefined,
   candidates: FuzzyCandidate[],
+  geoMap: Map<string, KennelGeoData>,
 ): MatchResult {
-  const slugMatches = fuzzyMatch(kennel.slug, candidates, 3);
-  const nameMatches = fuzzyMatch(profile?.name || kennel.name, candidates, 3);
+  // Increase limit from 3 → 5 so more candidates survive geo filtering
+  const slugMatches = fuzzyMatch(kennel.slug, candidates, 5);
+  const nameMatches = fuzzyMatch(profile?.name || kennel.name, candidates, 5);
 
   const allMatches = [...slugMatches, ...nameMatches];
   const bestByKennel = new Map<string, { id: string; shortName: string; score: number }>();
@@ -246,14 +361,31 @@ function computeMatchResult(
       bestByKennel.set(m.id, m);
     }
   }
-  const ranked = [...bestByKennel.values()].sort((a, b) => b.score - a.score);
+
+  // Build discovery geo context from directory coords + profile country
+  const discoveryGeo: DiscoveryGeoContext = {
+    lat: kennel.latitude ?? null,
+    lng: kennel.longitude ?? null,
+    country: profile?.country ?? parseCountryFromLocation(kennel.location),
+  };
+
+  // Apply geo penalty to each candidate's text score
+  const geoAdjusted = [...bestByKennel.values()].map((m) => {
+    const candidateGeo = geoMap.get(m.id);
+    const adjustedScore = candidateGeo
+      ? Math.max(0, applyGeoPenalty(m.score, discoveryGeo, candidateGeo))
+      : m.score;
+    return { ...m, score: adjustedScore };
+  });
+
+  const ranked = geoAdjusted.toSorted((a, b) => b.score - a.score);
   const best = ranked[0];
 
   if (best && best.score >= AUTO_MATCH_THRESHOLD) {
     return {
       status: "MATCHED",
       matchedKennelId: best.id,
-      matchScore: best.score,
+      matchScore: Math.round(best.score * 100) / 100,
       matchCandidates: Prisma.DbNull,
     };
   }
@@ -262,7 +394,7 @@ function computeMatchResult(
     return {
       status: "NEW",
       matchedKennelId: null,
-      matchScore: best.score,
+      matchScore: Math.round(best.score * 100) / 100,
       matchCandidates: ranked
         .filter((m) => m.score >= CANDIDATE_THRESHOLD)
         .slice(0, 3)

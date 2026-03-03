@@ -16,7 +16,15 @@ import {
   buildPaymentInfo,
   normalizeTrailDay,
 } from "@/adapters/hashrego/kennel-api";
-import { syncKennelDiscovery, mapProfileToKennelFields } from "./kennel-discovery";
+import {
+  syncKennelDiscovery,
+  mapProfileToKennelFields,
+  applyGeoPenalty,
+  normalizeCountry,
+  parseCountryFromLocation,
+  type DiscoveryGeoContext,
+  type KennelGeoData,
+} from "./kennel-discovery";
 import type { HashRegoKennelProfile } from "@/adapters/hashrego/kennel-api";
 import type { DiscoveredKennel } from "@/adapters/hashrego/kennel-directory-parser";
 
@@ -25,8 +33,8 @@ function buildDiscovered(overrides: Partial<DiscoveredKennel> = {}): DiscoveredK
     slug: "TESTH3",
     name: "Test H3",
     location: "Test City, ST, USA",
-    latitude: 40,
-    longitude: -74,
+    latitude: 40.71,
+    longitude: -74.01,
     schedule: "Weekly, Saturdays",
     url: "https://hashrego.com/kennels/TESTH3/",
     ...overrides,
@@ -131,12 +139,12 @@ describe("syncKennelDiscovery", () => {
 
   it("auto-matches with MATCHED status when score >= 0.95", async () => {
     vi.mocked(parseKennelDirectory).mockReturnValue([
-      buildDiscovered({ slug: "EWH3", name: "Everyday Is Wednesday H3" }),
+      buildDiscovered({ slug: "EWH3", name: "Everyday Is Wednesday H3", latitude: 38.9, longitude: -77.04 }),
     ]);
 
-    // Return existing kennel that will match perfectly by shortName
+    // Return existing kennel that will match perfectly by shortName (same region)
     vi.mocked(prisma.kennel.findMany).mockResolvedValue([
-      { id: "k1", shortName: "EWH3", fullName: "Everyday Is Wednesday H3" },
+      { id: "k1", shortName: "EWH3", fullName: "Everyday Is Wednesday H3", country: "USA", regionRef: { centroidLat: 38.9, centroidLng: -77.04 } },
     ] as never);
 
     const result = await syncKennelDiscovery();
@@ -154,12 +162,12 @@ describe("syncKennelDiscovery", () => {
 
   it("runs upsert for moderate-score discovery (0.6–0.94)", async () => {
     vi.mocked(parseKennelDirectory).mockReturnValue([
-      buildDiscovered({ slug: "NYRG", name: "New York Road Gangsters" }),
+      buildDiscovered({ slug: "NYRG", name: "New York Road Gangsters", latitude: 40.7, longitude: -74.01 }),
     ]);
 
-    // Create a kennel with moderate match via alias
+    // Create a kennel with moderate match via alias (same region)
     vi.mocked(prisma.kennel.findMany).mockResolvedValue([
-      { id: "k2", shortName: "NYCH3", fullName: "New York City H3" },
+      { id: "k2", shortName: "NYCH3", fullName: "New York City H3", country: "USA", regionRef: { centroidLat: 40.7, centroidLng: -74.01 } },
     ] as never);
     vi.mocked(prisma.kennelAlias.findMany).mockResolvedValue([
       { kennelId: "k2", alias: "New York Hash" },
@@ -300,5 +308,210 @@ describe("mapProfileToKennelFields", () => {
     expect(fields.website).toBeNull();
     expect(fields.hashCash).toBeNull();
     expect(fields.scheduleDayOfWeek).toBeNull();
+  });
+});
+
+// ── Geo penalty pure function tests ──
+
+describe("normalizeCountry", () => {
+  it("normalizes USA variants to US", () => {
+    expect(normalizeCountry("USA")).toBe("US");
+    expect(normalizeCountry("US")).toBe("US");
+    expect(normalizeCountry("United States")).toBe("US");
+    expect(normalizeCountry("United States of America")).toBe("US");
+    expect(normalizeCountry("  usa  ")).toBe("US");
+  });
+
+  it("normalizes UK variants to GB", () => {
+    expect(normalizeCountry("UK")).toBe("GB");
+    expect(normalizeCountry("GB")).toBe("GB");
+    expect(normalizeCountry("United Kingdom")).toBe("GB");
+    expect(normalizeCountry("Great Britain")).toBe("GB");
+    expect(normalizeCountry("England")).toBe("GB");
+    expect(normalizeCountry("Scotland")).toBe("GB");
+    expect(normalizeCountry("Wales")).toBe("GB");
+  });
+
+  it("returns empty string for null/undefined", () => {
+    expect(normalizeCountry(null)).toBe("");
+    expect(normalizeCountry(undefined)).toBe("");
+    expect(normalizeCountry("")).toBe("");
+  });
+
+  it("uppercases other countries", () => {
+    expect(normalizeCountry("Philippines")).toBe("PHILIPPINES");
+    expect(normalizeCountry("Thailand")).toBe("THAILAND");
+  });
+});
+
+describe("parseCountryFromLocation", () => {
+  it("extracts last segment as country", () => {
+    expect(parseCountryFromLocation("Washington, DC, USA")).toBe("USA");
+    expect(parseCountryFromLocation("Angeles City, Philippines")).toBe("Philippines");
+  });
+
+  it("rejects 2-letter state codes as country", () => {
+    expect(parseCountryFromLocation("Washington, DC")).toBeNull();
+    expect(parseCountryFromLocation("New York, NY")).toBeNull();
+    expect(parseCountryFromLocation("London, UK")).toBeNull();
+  });
+
+  it("returns null for empty/undefined", () => {
+    expect(parseCountryFromLocation(undefined)).toBeNull();
+    expect(parseCountryFromLocation("")).toBeNull();
+  });
+});
+
+describe("applyGeoPenalty", () => {
+  const dcDiscovery: DiscoveryGeoContext = { lat: 38.9, lng: -77.04, country: "USA" };
+  const dcCandidate: KennelGeoData = { country: "USA", centroidLat: 38.9, centroidLng: -77.04 };
+  const chicagoCandidate: KennelGeoData = { country: "USA", centroidLat: 41.9, centroidLng: -87.6 };
+  const philippinesDiscovery: DiscoveryGeoContext = { lat: 15.1, lng: 120.6, country: "Philippines" };
+  const londonCandidate: KennelGeoData = { country: "UK", centroidLat: 51.5, centroidLng: -0.1 };
+
+  it("applies no penalty for same city (< 100 km), same country", () => {
+    // DC to DC — ~1 km, same country → +0.05 bonus
+    const result = applyGeoPenalty(1.0, dcDiscovery, dcCandidate);
+    expect(result).toBe(1.05);
+  });
+
+  it("applies small penalty for neighboring region (100–500 km), same country", () => {
+    // DC to a point ~200 km away, same country
+    const nearbyCandidate: KennelGeoData = { country: "USA", centroidLat: 40.0, centroidLng: -75.5 };
+    const result = applyGeoPenalty(1.0, dcDiscovery, nearbyCandidate);
+    // -0.10 penalty + 0.05 bonus (same country, < 500 km)
+    expect(result).toBeCloseTo(0.95, 1);
+  });
+
+  it("applies heavy penalty for cross-continent (> 5000 km), different country", () => {
+    // Philippines → Chicago: ~13,500 km, different country
+    const result = applyGeoPenalty(1.0, philippinesDiscovery, chicagoCandidate);
+    // -0.55 distance + -0.15 country mismatch = -0.70
+    expect(result).toBeCloseTo(0.30, 1);
+  });
+
+  it("applies distance + country mismatch for far away, different country", () => {
+    // Philippines → London: ~10,700 km, different country
+    const result = applyGeoPenalty(1.0, philippinesDiscovery, londonCandidate);
+    // -0.55 distance + -0.15 country mismatch = -0.70
+    expect(result).toBeCloseTo(0.30, 1);
+  });
+
+  it("applies medium penalty for same country, far (500–2000 km)", () => {
+    // DC → Chicago: ~960 km, same country
+    const result = applyGeoPenalty(1.0, dcDiscovery, chicagoCandidate);
+    // -0.30 penalty, no country bonus (> 500 km)
+    expect(result).toBeCloseTo(0.70, 1);
+  });
+
+  it("falls back to country-only check when discovery coords missing", () => {
+    const noCoords: DiscoveryGeoContext = { lat: null, lng: null, country: "Philippines" };
+    // Different country, no coords → -0.15
+    const result = applyGeoPenalty(1.0, noCoords, chicagoCandidate);
+    expect(result).toBeCloseTo(0.85, 2);
+  });
+
+  it("falls back to country-only check when candidate coords missing", () => {
+    const noCoordCandidate: KennelGeoData = { country: "UK", centroidLat: null, centroidLng: null };
+    const result = applyGeoPenalty(1.0, dcDiscovery, noCoordCandidate);
+    // Different country, no candidate coords → -0.15
+    expect(result).toBeCloseTo(0.85, 2);
+  });
+
+  it("returns text score unchanged when both sides have no coords and same country", () => {
+    const noCoords: DiscoveryGeoContext = { lat: null, lng: null, country: "USA" };
+    const noCoordCandidate: KennelGeoData = { country: "USA", centroidLat: null, centroidLng: null };
+    expect(applyGeoPenalty(0.8, noCoords, noCoordCandidate)).toBe(0.8);
+  });
+
+  it("returns text score unchanged when both sides have no data at all", () => {
+    const noData: DiscoveryGeoContext = { lat: null, lng: null, country: null };
+    const noDataCandidate: KennelGeoData = { country: "", centroidLat: null, centroidLng: null };
+    expect(applyGeoPenalty(0.75, noData, noDataCandidate)).toBe(0.75);
+  });
+});
+
+// ── Integration tests: geo-aware matching via syncKennelDiscovery ──
+
+function setupGeoMatchTest(opts: {
+  discoveredSlug: string; discoveredName: string;
+  discoveredLocation: string; discoveredLat: number; discoveredLng: number;
+  profileCountry: string; profileCity: string; profileState: string;
+  kennelId: string; kennelShortName: string; kennelFullName: string;
+  kennelCountry: string; centroidLat: number; centroidLng: number;
+}) {
+  vi.mocked(parseKennelDirectory).mockReturnValue([
+    buildDiscovered({
+      slug: opts.discoveredSlug, name: opts.discoveredName,
+      location: opts.discoveredLocation,
+      latitude: opts.discoveredLat, longitude: opts.discoveredLng,
+    }),
+  ]);
+  vi.mocked(fetchKennelProfiles).mockResolvedValue(
+    new Map([[opts.discoveredSlug, buildApiProfile({
+      slug: opts.discoveredSlug, name: opts.discoveredName,
+      city: opts.profileCity, state: opts.profileState, country: opts.profileCountry,
+    })]]),
+  );
+  vi.mocked(prisma.kennel.findMany).mockResolvedValue([{
+    id: opts.kennelId, shortName: opts.kennelShortName, fullName: opts.kennelFullName,
+    country: opts.kennelCountry,
+    regionRef: { centroidLat: opts.centroidLat, centroidLng: opts.centroidLng },
+  }] as never);
+}
+
+describe("syncKennelDiscovery geo-aware matching", () => {
+  it("ACH3 (Philippines) does NOT auto-match CH3 (Chicago)", async () => {
+    setupGeoMatchTest({
+      discoveredSlug: "ACH3", discoveredName: "Angeles City H3",
+      discoveredLocation: "Angeles City, Philippines", discoveredLat: 15.1, discoveredLng: 120.6,
+      profileCountry: "Philippines", profileCity: "Angeles City", profileState: "",
+      kennelId: "k-ch3", kennelShortName: "CH3", kennelFullName: "Chicago Hash House Harriers",
+      kennelCountry: "USA", centroidLat: 41.9, centroidLng: -87.6,
+    });
+
+    const result = await syncKennelDiscovery();
+    expect(result.autoMatched).toBe(0);
+    expect(prisma.kennelDiscovery.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ status: "NEW", matchedKennelId: null }),
+      }),
+    );
+  });
+
+  it("EWH3 (DC) SHOULD auto-match EWH3 (DC) — same city, exact slug", async () => {
+    setupGeoMatchTest({
+      discoveredSlug: "EWH3", discoveredName: "Everyday Is Wednesday H3",
+      discoveredLocation: "Washington, DC, USA", discoveredLat: 38.9, discoveredLng: -77.04,
+      profileCountry: "USA", profileCity: "Washington", profileState: "DC",
+      kennelId: "k-ewh3", kennelShortName: "EWH3", kennelFullName: "Everyday Is Wednesday H3",
+      kennelCountry: "USA", centroidLat: 38.9, centroidLng: -77.04,
+    });
+
+    const result = await syncKennelDiscovery();
+    expect(result.autoMatched).toBe(1);
+    expect(prisma.kennelDiscovery.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ status: "MATCHED", matchedKennelId: "k-ewh3" }),
+      }),
+    );
+  });
+
+  it("DCFMH3 (DC) does NOT auto-match CFMH3 (Chicago)", async () => {
+    setupGeoMatchTest({
+      discoveredSlug: "DCFMH3", discoveredName: "DC Full Moon H3",
+      discoveredLocation: "Washington, DC, USA", discoveredLat: 38.9, discoveredLng: -77.04,
+      profileCountry: "USA", profileCity: "Washington", profileState: "DC",
+      kennelId: "k-cfmh3", kennelShortName: "CFMH3", kennelFullName: "Chicago Full Moon H3",
+      kennelCountry: "USA", centroidLat: 41.9, centroidLng: -87.6,
+    });
+
+    const result = await syncKennelDiscovery();
+    expect(result.autoMatched).toBe(0);
+    expect(prisma.kennelDiscovery.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ status: "NEW" }),
+      }),
+    );
   });
 });
