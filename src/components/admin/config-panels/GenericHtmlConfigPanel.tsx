@@ -199,7 +199,7 @@ export function GenericHtmlConfigPanel({
               <thead className="bg-muted/50">
                 <tr>
                   {analysisResult.candidates[0].sampleRows[0].map((_, colIdx) => (
-                    <th key={`col-${colIdx}`} className="px-2 py-1.5">
+                    <th key={`col-${colIdx}`} className="px-2 py-1.5"> {/* NOSONAR: static preview data, never reordered */}
                       {isTableLayout ? (
                         <Select
                           value={getColumnAssignment(columns, colIdx)}
@@ -225,7 +225,7 @@ export function GenericHtmlConfigPanel({
               </thead>
               <tbody>
                 {analysisResult.candidates[0].sampleRows.slice(0, 5).map((row, rowIdx) => (
-                  <tr key={`row-${rowIdx}`} className="border-t">
+                  <tr key={`row-${rowIdx}`} className="border-t"> {/* NOSONAR: static preview data, never reordered */}
                     {row.map((cell, cellIdx) => (
                       <td key={`cell-${rowIdx}-${cellIdx}`} className="max-w-[200px] truncate px-2 py-1 text-muted-foreground">
                         {cell || <span className="text-gray-300">—</span>}
@@ -392,9 +392,8 @@ export function GenericHtmlConfigPanel({
 
     // Remove this selector from any other field
     for (const field of COLUMN_FIELDS) {
-      const key = field.key as keyof GenericHtmlColumns;
-      if (newColumns[key] === selector) {
-        newColumns[key] = undefined as unknown as string;
+      if (newColumns[field.key] === selector) {
+        newColumns[field.key] = undefined as unknown as string;
       }
     }
 

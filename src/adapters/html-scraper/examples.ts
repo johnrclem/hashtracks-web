@@ -17,109 +17,97 @@ export interface AdapterExample {
   notes: string;
 }
 
+// ─── Factory helpers (reduce structural repetition) ─────────────────────────
+
+function tableExample(
+  name: string,
+  opts: { rowSelector?: string; dateLocale?: "en-US" | "en-GB"; columns: Record<string, string>; notes: string },
+): AdapterExample {
+  return {
+    name,
+    layoutType: "table",
+    containerSelector: "table",
+    rowSelector: opts.rowSelector ?? "tbody tr",
+    columns: opts.columns,
+    dateLocale: opts.dateLocale ?? "en-US",
+    notes: opts.notes,
+  };
+}
+
+function divExample(
+  name: string,
+  opts: { rowSelector: string; columns: Record<string, string>; notes: string },
+): AdapterExample {
+  return {
+    name,
+    layoutType: "div-cards",
+    containerSelector: "body",
+    rowSelector: opts.rowSelector,
+    columns: opts.columns,
+    dateLocale: "en-GB",
+    notes: opts.notes,
+  };
+}
+
+function articleExample(
+  name: string,
+  opts: { columns: Record<string, string>; notes: string },
+): AdapterExample {
+  return {
+    name,
+    layoutType: "article",
+    containerSelector: "body",
+    rowSelector: "article",
+    columns: opts.columns,
+    dateLocale: "en-US",
+    notes: opts.notes,
+  };
+}
+
 /**
  * Patterns from existing named adapters, organized by layout type.
  * These serve as few-shot context for the Gemini analysis prompt.
  */
 export const ADAPTER_EXAMPLES: AdapterExample[] = [
   // ─── TABLE layouts ───────────────────────────────────────────────────
-  {
-    name: "SFH3 MultiHash",
-    layoutType: "table",
-    containerSelector: "table",
-    rowSelector: "tbody tr",
-    columns: {
-      runNumber: "td:nth-child(1)",
-      date: "td:nth-child(2)",
-      hares: "td:nth-child(3)",
-      location: "td:nth-child(4)",
-      kennelTag: "td:nth-child(5)",
-    },
-    dateLocale: "en-US",
+  tableExample("SFH3 MultiHash", {
+    columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)", location: "td:nth-child(4)", kennelTag: "td:nth-child(5)" },
     notes: "5-column table with date as M/D/YYYY, location may contain Google Maps link",
-  },
-  {
-    name: "BarnesH3",
-    layoutType: "table",
-    containerSelector: "table",
+  }),
+  tableExample("BarnesH3", {
     rowSelector: "tr",
-    columns: {
-      runNumber: "td:nth-child(1)",
-      date: "td:nth-child(2)",
-      hares: "td:nth-child(3)",
-      location: "td:nth-child(4)",
-    },
     dateLocale: "en-GB",
+    columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)", location: "td:nth-child(4)" },
     notes: "UK hash run list with ordinal dates (19th February 2026), UK postcodes in location",
-  },
-  {
-    name: "OCH3",
-    layoutType: "table",
-    containerSelector: "table",
+  }),
+  tableExample("OCH3", {
     rowSelector: "tr",
-    columns: {
-      date: "td:nth-child(1)",
-      hares: "td:nth-child(2)",
-      location: "td:nth-child(3)",
-    },
     dateLocale: "en-GB",
+    columns: { date: "td:nth-child(1)", hares: "td:nth-child(2)", location: "td:nth-child(3)" },
     notes: "UK ordinal dates, hares as 'Hare: Name', location may include pub name and postcode",
-  },
+  }),
 
   // ─── DIV-card layouts ────────────────────────────────────────────────
-  {
-    name: "CityHash",
-    layoutType: "div-cards",
-    containerSelector: "body",
+  divExample("CityHash", {
     rowSelector: ".ch-run",
-    columns: {
-      date: ".ch-run-title h5",
-      hares: ".ch-run-description p",
-      location: ".ch-run-location a",
-    },
-    dateLocale: "en-GB",
+    columns: { date: ".ch-run-title h5", hares: ".ch-run-description p", location: ".ch-run-location a" },
     notes: "Repeating div cards with class-based selectors, date embedded in title text",
-  },
-  {
-    name: "WestLondonHash",
-    layoutType: "div-cards",
-    containerSelector: "body",
+  }),
+  divExample("WestLondonHash", {
     rowSelector: ".run-entry, .event-item",
-    columns: {
-      date: ".run-date",
-      hares: ".run-hares",
-      location: ".run-location",
-      runNumber: ".run-number",
-    },
-    dateLocale: "en-GB",
+    columns: { date: ".run-date", hares: ".run-hares", location: ".run-location", runNumber: ".run-number" },
     notes: "UK hash with structured div entries, dates with ordinal suffixes",
-  },
+  }),
 
   // ─── WordPress article layouts ───────────────────────────────────────
-  {
-    name: "ChicagoHash",
-    layoutType: "article",
-    containerSelector: "body",
-    rowSelector: "article",
-    columns: {
-      date: "time[datetime]",
-      title: ".entry-title",
-    },
-    dateLocale: "en-US",
+  articleExample("ChicagoHash", {
+    columns: { date: "time[datetime]", title: ".entry-title" },
     notes: "WordPress blog posts, uses <time datetime> attribute, hares/location in body text as 'Hares: ...' labels",
-  },
-  {
-    name: "EWH3",
-    layoutType: "article",
-    containerSelector: "body",
-    rowSelector: "article",
-    columns: {
-      date: "time[datetime]",
-      title: ".entry-title a",
-    },
-    dateLocale: "en-US",
+  }),
+  articleExample("EWH3", {
+    columns: { date: "time[datetime]", title: ".entry-title a" },
     notes: "WordPress trail news, label-based field extraction from post body",
-  },
+  }),
 ];
 
 /**

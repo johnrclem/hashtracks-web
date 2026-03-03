@@ -11,9 +11,8 @@ import type { GenericHtmlConfig, GenericHtmlColumns } from "@/adapters/html-scra
 import { findCandidateContainers } from "./html-analysis-utils";
 import type { ContainerCandidate } from "./html-analysis-utils";
 
-// Re-export types used by consumers
+// Re-export type (type-only re-exports are erased at compile time, safe in "use server")
 export type { ContainerCandidate } from "./html-analysis-utils";
-export { findCandidateContainers } from "./html-analysis-utils";
 
 /** Result of AI analysis + heuristic container detection. */
 export interface HtmlAnalysisResult {
@@ -125,6 +124,47 @@ function parseGeminiResponse(text: string): {
   }
 }
 
+// ─── Shared preamble ────────────────────────────────────────────────────────
+
+/** Empty error result — reused across early returns. */
+function errorResult(error: string, explanation = ""): HtmlAnalysisResult {
+  return { candidates: [], suggestedConfig: null, explanation, confidence: null, error };
+}
+
+/** Auth check → SSRF validation → fetch page → find containers. */
+async function fetchAndFindContainers(url: string): Promise<
+  | { ok: true; candidates: ContainerCandidate[] }
+  | { ok: false; result: HtmlAnalysisResult }
+> {
+  const admin = await getAdminUser();
+  if (!admin) return { ok: false, result: errorResult("Not authorized") };
+  if (!url.trim()) return { ok: false, result: errorResult("URL required") };
+
+  try { validateSourceUrl(url); } catch (e) {
+    return { ok: false, result: errorResult(e instanceof Error ? e.message : "Invalid URL") };
+  }
+
+  const page = await fetchHTMLPage(url);
+  if (!page.ok) {
+    const msg = page.result.errors[0] || "Failed to fetch page";
+    return { ok: false, result: errorResult(msg, msg) };
+  }
+
+  const candidates = findCandidateContainers(page.$);
+  if (candidates.length === 0) {
+    return {
+      ok: false,
+      result: {
+        candidates: [],
+        suggestedConfig: null,
+        explanation: "No event-like containers found on this page. The page may use JavaScript rendering (not supported) or have an unusual layout.",
+        confidence: null,
+      },
+    };
+  }
+  return { ok: true, candidates };
+}
+
 // ─── Main actions ───────────────────────────────────────────────────────────
 
 /**
@@ -134,50 +174,10 @@ function parseGeminiResponse(text: string): {
 export async function analyzeHtmlStructure(
   url: string,
 ): Promise<HtmlAnalysisResult> {
-  const admin = await getAdminUser();
-  if (!admin) {
-    return { candidates: [], suggestedConfig: null, explanation: "", confidence: null, error: "Not authorized" };
-  }
+  const preamble = await fetchAndFindContainers(url);
+  if (!preamble.ok) return preamble.result;
 
-  if (!url.trim()) {
-    return { candidates: [], suggestedConfig: null, explanation: "", confidence: null, error: "URL required" };
-  }
-
-  // SSRF prevention
-  try {
-    validateSourceUrl(url);
-  } catch (e) {
-    return {
-      candidates: [],
-      suggestedConfig: null,
-      explanation: "",
-      confidence: null,
-      error: e instanceof Error ? e.message : "Invalid URL",
-    };
-  }
-
-  // Fetch the page
-  const page = await fetchHTMLPage(url);
-  if (!page.ok) {
-    const msg = page.result.errors[0] || "Failed to fetch page";
-    return { candidates: [], suggestedConfig: null, explanation: msg, confidence: null, error: msg };
-  }
-
-  const { $ } = page;
-
-  // Find candidate containers
-  const candidates = findCandidateContainers($);
-
-  if (candidates.length === 0) {
-    return {
-      candidates: [],
-      suggestedConfig: null,
-      explanation: "No event-like containers found on this page. The page may use JavaScript rendering (not supported) or have an unusual layout.",
-      confidence: null,
-    };
-  }
-
-  // Use the best candidate for AI analysis
+  const { candidates } = preamble;
   const bestCandidate = candidates[0];
 
   // Try Gemini for column mapping
@@ -237,35 +237,10 @@ export async function refineHtmlAnalysis(
   currentConfig: Partial<GenericHtmlConfig>,
   feedbackHints: string,
 ): Promise<HtmlAnalysisResult> {
-  const admin = await getAdminUser();
-  if (!admin) {
-    return { candidates: [], suggestedConfig: null, explanation: "", confidence: null, error: "Not authorized" };
-  }
+  const preamble = await fetchAndFindContainers(url);
+  if (!preamble.ok) return preamble.result;
 
-  // SSRF prevention
-  try {
-    validateSourceUrl(url);
-  } catch (e) {
-    return {
-      candidates: [],
-      suggestedConfig: null,
-      explanation: "",
-      confidence: null,
-      error: e instanceof Error ? e.message : "Invalid URL",
-    };
-  }
-
-  const page = await fetchHTMLPage(url);
-  if (!page.ok) {
-    const msg = page.result.errors[0] || "Failed to fetch page";
-    return { candidates: [], suggestedConfig: null, explanation: msg, confidence: null, error: msg };
-  }
-
-  const candidates = findCandidateContainers(page.$);
-  if (candidates.length === 0) {
-    return { candidates: [], suggestedConfig: null, explanation: "No containers found on re-fetch", confidence: null };
-  }
-
+  const { candidates } = preamble;
   const bestCandidate = candidates[0];
   const examples = getExamplesForLayout(bestCandidate.layoutType);
   const examplesText = formatExamplesForPrompt(examples);
