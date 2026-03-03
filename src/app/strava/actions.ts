@@ -265,6 +265,19 @@ export interface UnmatchedStravaMatch {
   eventDate: string;
   activityName: string;
   distanceMeters: number;
+  // Event context
+  eventId: string;
+  kennelFullName: string;
+  eventTitle: string | null;
+  eventRunNumber: number | null;
+  eventStartTime: string | null;
+  eventLocationName: string | null;
+  eventHaresText: string | null;
+  // Strava activity context
+  stravaSportType: string;
+  stravaTimeLocal: string | null;
+  stravaMovingTimeSecs: number;
+  stravaActivityId: string;
 }
 
 /**
@@ -300,7 +313,12 @@ export async function getUnmatchedStravaActivities(): Promise<
           select: {
             id: true,
             date: true,
-            kennel: { select: { shortName: true } },
+            title: true,
+            runNumber: true,
+            startTime: true,
+            locationName: true,
+            haresText: true,
+            kennel: { select: { shortName: true, fullName: true } },
           },
         },
       },
@@ -333,6 +351,10 @@ export async function getUnmatchedStravaActivities(): Promise<
         name: true,
         dateLocal: true,
         distanceMeters: true,
+        sportType: true,
+        timeLocal: true,
+        movingTimeSecs: true,
+        stravaActivityId: true,
       },
     });
 
@@ -370,6 +392,19 @@ export async function getUnmatchedStravaActivities(): Promise<
             eventDate: eventDateStr,
             activityName: activity.name,
             distanceMeters: activity.distanceMeters,
+            // Event context
+            eventId: att.event.id,
+            kennelFullName: att.event.kennel.fullName,
+            eventTitle: att.event.title,
+            eventRunNumber: att.event.runNumber,
+            eventStartTime: att.event.startTime,
+            eventLocationName: att.event.locationName,
+            eventHaresText: att.event.haresText,
+            // Strava activity context
+            stravaSportType: activity.sportType,
+            stravaTimeLocal: activity.timeLocal,
+            stravaMovingTimeSecs: activity.movingTimeSecs,
+            stravaActivityId: activity.stravaActivityId,
           });
         }
       }

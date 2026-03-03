@@ -10,6 +10,15 @@ import {
   dismissStravaMatch,
 } from "@/app/strava/actions";
 import type { UnmatchedStravaMatch } from "@/app/strava/actions";
+import { formatTime } from "@/lib/format";
+import {
+  ExternalLink,
+  ChevronDown,
+  ChevronRight,
+  MapPin,
+  Clock,
+  Users,
+} from "lucide-react";
 
 const HIDE_KEY = "hashtracks:strava-nudge-hidden";
 const VISIBLE_CAP = 5;
@@ -30,14 +39,30 @@ function formatDate(iso: string): string {
   });
 }
 
+function formatDuration(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolean }) {
   const [matches, setMatches] = useState<UnmatchedStravaMatch[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  function toggleCard(key: string) {
+    setExpandedCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (!stravaConnected) return;
@@ -182,49 +207,137 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
         We found Strava activities that match your recent check-ins. Link them to your logbook.
       </p>
       <div className="space-y-2">
-        {visibleMatches.map((match) => (
-          <div
-            key={`${match.stravaActivityDbId}-${match.attendanceId}`}
-            className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="shrink-0 font-medium text-muted-foreground">
-                  {match.kennelShortName}
-                </span>
-                <span className="min-w-0 truncate font-medium">
-                  {match.activityName}
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {formatDistance(match.distanceMeters)}
-                </span>
+        {visibleMatches.map((match) => {
+          const cardKey = `${match.stravaActivityDbId}-${match.attendanceId}`;
+          const isCardExpanded = expandedCards.has(cardKey);
+
+          return (
+            <div
+              key={cardKey}
+              className="rounded-lg border overflow-hidden"
+            >
+              {/* Compact header row */}
+              <div className="flex items-center justify-between gap-3 px-3 py-2">
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
+                  onClick={() => toggleCard(cardKey)}
+                  aria-expanded={isCardExpanded}
+                  aria-label={`Show details for ${match.kennelShortName} match`}
+                >
+                  {isCardExpanded
+                    ? <ChevronDown size={14} className="shrink-0 text-muted-foreground" />
+                    : <ChevronRight size={14} className="shrink-0 text-muted-foreground" />
+                  }
+                  <span className="shrink-0 font-medium text-muted-foreground">
+                    {match.kennelShortName}
+                  </span>
+                  <span className="min-w-0 truncate font-medium">
+                    {match.eventTitle || match.activityName}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatDistance(match.distanceMeters)}
+                  </span>
+                </button>
+                <div className="flex gap-1 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-7 text-xs"
+                    onClick={() => handleLink(match)}
+                    disabled={isPending}
+                  >
+                    Link
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs"
+                    onClick={() => handleDismiss(match.stravaActivityDbId)}
+                    disabled={isPending}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground">
+
+              {/* Date line */}
+              <div className="px-3 pb-2 pl-9 text-xs text-muted-foreground">
                 {formatDate(match.eventDate)}
+                {match.eventRunNumber != null && <> &middot; #{match.eventRunNumber}</>}
               </div>
+
+              {/* Expandable detail section */}
+              {isCardExpanded && (
+                <div className="border-t bg-muted/30 px-3 py-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {/* Event details */}
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Event
+                      </p>
+                      <p className="text-sm font-medium">{match.kennelFullName}</p>
+                      {match.eventTitle && (
+                        <p className="text-sm">{match.eventTitle}</p>
+                      )}
+                      {match.eventStartTime && (
+                        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Clock size={12} />
+                          {formatTime(match.eventStartTime)}
+                        </p>
+                      )}
+                      {match.eventLocationName && (
+                        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <MapPin size={12} />
+                          <span className="truncate">{match.eventLocationName}</span>
+                        </p>
+                      )}
+                      {match.eventHaresText && (
+                        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Users size={12} />
+                          Hares: {match.eventHaresText}
+                        </p>
+                      )}
+                      <a
+                        href={`/hareline/${match.eventId}`}
+                        className="inline-block text-xs text-primary hover:underline mt-1"
+                      >
+                        View event details
+                      </a>
+                    </div>
+
+                    {/* Strava activity details */}
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Strava Activity
+                      </p>
+                      <p className="text-sm font-medium">{match.activityName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {match.stravaSportType}
+                        {match.stravaTimeLocal && <> &middot; {formatTime(match.stravaTimeLocal)}</>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistance(match.distanceMeters)}
+                        {match.stravaMovingTimeSecs > 0 && (
+                          <> &middot; {formatDuration(match.stravaMovingTimeSecs)}</>
+                        )}
+                      </p>
+                      <a
+                        href={`https://www.strava.com/activities/${match.stravaActivityId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-[#FC4C02] hover:underline mt-1"
+                      >
+                        <ExternalLink size={12} />
+                        View in Strava
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="flex gap-1 shrink-0">
-              <Button
-                size="sm"
-                variant="default"
-                className="h-7 text-xs"
-                onClick={() => handleLink(match)}
-                disabled={isPending}
-              >
-                Link
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={() => handleDismiss(match.stravaActivityDbId)}
-                disabled={isPending}
-              >
-                Dismiss
-              </Button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       {!showAll && matches.length > VISIBLE_CAP && (
         <Button
