@@ -31,7 +31,10 @@ import {
   PARTICIPATION_LEVELS,
   formatDistance,
   formatDuration,
+  formatSportType,
+  formatTime,
 } from "@/lib/format";
+import { ExternalLink } from "lucide-react";
 import type { AttendanceData } from "./CheckInButton";
 import type { StravaActivityOption } from "@/lib/strava/types";
 
@@ -161,21 +164,47 @@ export function EditAttendanceDialog({
               ) : stravaActivities.length > 0 ? (
                 <div className="space-y-1">
                   {stravaActivities.map((activity) => (
-                    <button
+                    <div
                       key={activity.id}
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50"
-                      disabled={isPending}
-                      onClick={() => handleStravaSelect(activity)}
+                      className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted transition-colors"
                     >
-                      <span className="min-w-0 flex-1 truncate font-medium">
-                        {activity.name}
-                      </span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {formatDistance(activity.distanceMeters)}
-                        {activity.movingTimeSecs > 0 && ` · ${formatDuration(activity.movingTimeSecs)}`}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        className="flex min-w-0 flex-1 flex-col gap-0.5 text-left disabled:opacity-50"
+                        disabled={isPending}
+                        onClick={() => handleStravaSelect(activity)}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="min-w-0 flex-1 truncate font-medium">
+                            {activity.name}
+                          </span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {formatDistance(activity.distanceMeters)}
+                            {activity.movingTimeSecs > 0 && ` · ${formatDuration(activity.movingTimeSecs)}`}
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span>{formatSportType(activity.sportType)}</span>
+                          {activity.timeLocal && (
+                            <>
+                              <span aria-hidden="true">&middot;</span>
+                              <span>{formatTime(activity.timeLocal)}</span>
+                            </>
+                          )}
+                        </span>
+                      </button>
+                      <a
+                        href={`https://www.strava.com/activities/${activity.stravaActivityId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-0.5 shrink-0 text-[#FC4C02] hover:text-[#E34402] transition-colors"
+                        title="View in Strava"
+                        aria-label={`View ${activity.name} in Strava`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink size={14} />
+                      </a>
+                    </div>
                   ))}
                 </div>
               ) : (
