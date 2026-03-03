@@ -368,10 +368,12 @@ export async function getUnmatchedStravaActivities(): Promise<
       activityByDate.set(a.dateLocal, existing);
     }
 
-    // Match attendances to activities by date ±1 day
+    // Match attendances to activities by date ±1 day (capped to prevent combinatorial explosion)
+    const MATCH_CAP = 50;
     const matches: UnmatchedStravaMatch[] = [];
 
     for (const att of attendances) {
+      if (matches.length >= MATCH_CAP) break;
       const eventDate = att.event.date;
       const eventDateStr = eventDate.toISOString().substring(0, 10);
       const dBefore = new Date(eventDate);
@@ -443,6 +445,40 @@ export async function dismissStravaMatch(
   } catch (err) {
     console.error("Failed to dismiss Strava match:", err);
     return { error: "Failed to dismiss match" };
+  }
+}
+
+/** Dismiss multiple Strava activity match suggestions in a single batch. */
+export async function dismissAllStravaMatches(
+  stravaActivityDbIds: string[],
+): Promise<ActionResult<{ dismissedCount: number }>> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+  if (stravaActivityDbIds.length === 0) return { success: true, dismissedCount: 0 };
+
+  try {
+    // Validate user owns all activities via connection in a single query
+    const activities = await prisma.stravaActivity.findMany({
+      where: { id: { in: stravaActivityDbIds } },
+      select: { id: true, connection: { select: { userId: true } } },
+    });
+
+    const ownedIds = activities
+      .filter((a) => a.connection.userId === user.id)
+      .map((a) => a.id);
+
+    if (ownedIds.length === 0) return { success: true, dismissedCount: 0 };
+
+    const result = await prisma.stravaActivity.updateMany({
+      where: { id: { in: ownedIds } },
+      data: { matchDismissed: true },
+    });
+
+    revalidatePath("/logbook");
+    return { success: true, dismissedCount: result.count };
+  } catch (err) {
+    console.error("Failed to batch dismiss Strava matches:", err);
+    return { error: "Failed to dismiss matches" };
   }
 }
 

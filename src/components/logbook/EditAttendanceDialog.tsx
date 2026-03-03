@@ -29,6 +29,8 @@ import {
 import {
   participationLevelLabel,
   PARTICIPATION_LEVELS,
+  formatDistance,
+  formatDuration,
 } from "@/lib/format";
 import type { AttendanceData } from "./CheckInButton";
 import type { StravaActivityOption } from "@/lib/strava/types";
@@ -87,17 +89,6 @@ export function EditAttendanceDialog({
       toast.success("Strava activity linked");
       router.refresh();
     });
-  }
-
-  function formatDistance(meters: number): string {
-    const miles = meters / 1609.344;
-    return `${miles.toFixed(1)} mi`;
-  }
-
-  function formatDuration(secs: number): string {
-    const h = Math.floor(secs / 3600);
-    const m = Math.floor((secs % 3600) / 60);
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
   }
 
   function handleSave() {

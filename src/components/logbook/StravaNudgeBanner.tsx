@@ -8,9 +8,10 @@ import {
   getUnmatchedStravaActivities,
   attachStravaActivity,
   dismissStravaMatch,
+  dismissAllStravaMatches,
 } from "@/app/strava/actions";
 import type { UnmatchedStravaMatch } from "@/app/strava/actions";
-import { formatTime } from "@/lib/format";
+import { formatTime, formatDateShort, formatDistance, formatDuration, formatSportType } from "@/lib/format";
 import {
   ExternalLink,
   ChevronDown,
@@ -22,28 +23,6 @@ import {
 
 const HIDE_KEY = "hashtracks:strava-nudge-hidden";
 const VISIBLE_CAP = 5;
-
-function formatDistance(meters: number): string {
-  const miles = meters / 1609.344;
-  return `${miles.toFixed(1)} mi`;
-}
-
-function formatDate(iso: string): string {
-  const [year, month, day] = iso.split("-").map(Number);
-  const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  return d.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-function formatDuration(secs: number): string {
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
 
 export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolean }) {
   const [matches, setMatches] = useState<UnmatchedStravaMatch[]>([]);
@@ -119,23 +98,14 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
 
   function handleDismissAll() {
     startTransition(async () => {
-      const results = await Promise.all(
-        matches.map(async (match) => {
-          const result = await dismissStravaMatch(match.stravaActivityDbId);
-          return { id: match.stravaActivityDbId, success: result.success };
-        }),
-      );
-      const dismissedIds = new Set(results.filter((r) => r.success).map((r) => r.id));
-      const failures = results.filter((r) => !r.success).length;
-
-      if (dismissedIds.size > 0) {
-        setMatches((prev) => prev.filter((m) => !dismissedIds.has(m.stravaActivityDbId)));
+      const ids = matches.map((m) => m.stravaActivityDbId);
+      const result = await dismissAllStravaMatches(ids);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
       }
-      if (failures > 0) {
-        toast.error(`${failures} match${failures === 1 ? "" : "es"} failed to dismiss`);
-      } else {
-        toast.success("All matches dismissed");
-      }
+      setMatches([]);
+      toast.success("All matches dismissed");
     });
   }
 
@@ -263,7 +233,7 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
 
               {/* Date line */}
               <div className="px-3 pb-2 pl-9 text-xs text-muted-foreground">
-                {formatDate(match.eventDate)}
+                {formatDateShort(match.eventDate)}
                 {match.eventRunNumber != null && <> &middot; #{match.eventRunNumber}</>}
               </div>
 
@@ -313,7 +283,7 @@ export function StravaNudgeBanner({ stravaConnected }: { stravaConnected: boolea
                       </p>
                       <p className="text-sm font-medium">{match.activityName}</p>
                       <p className="text-xs text-muted-foreground">
-                        {match.stravaSportType}
+                        {formatSportType(match.stravaSportType)}
                         {match.stravaTimeLocal && <> &middot; {formatTime(match.stravaTimeLocal)}</>}
                       </p>
                       <p className="text-xs text-muted-foreground">
