@@ -25,19 +25,18 @@ import { updateAttendance, deleteAttendance } from "@/app/logbook/actions";
 import {
   getStravaActivitiesForDate,
   attachStravaActivity,
+  getLinkedStravaActivity,
+  detachStravaActivity,
 } from "@/app/strava/actions";
 import {
   participationLevelLabel,
   PARTICIPATION_LEVELS,
-  formatDistance,
-  formatDuration,
-  formatSportType,
-  formatTime,
 } from "@/lib/format";
 import { buildStravaUrl } from "@/lib/strava/url";
 import { ExternalLink } from "lucide-react";
+import { StravaActivitySummary } from "./StravaActivitySummary";
 import type { AttendanceData } from "./CheckInButton";
-import type { StravaActivityOption } from "@/lib/strava/types";
+import type { StravaActivityOption, LinkedStravaActivity } from "@/lib/strava/types";
 
 interface EditAttendanceDialogProps {
   open: boolean;
@@ -64,10 +63,12 @@ export function EditAttendanceDialog({
   // Strava activity picker state
   const [stravaActivities, setStravaActivities] = useState<StravaActivityOption[]>([]);
   const [stravaLoading, setStravaLoading] = useState(false);
+  const [linkedActivity, setLinkedActivity] = useState<LinkedStravaActivity | null>(null);
+  const [linkedLoading, setLinkedLoading] = useState(false);
 
-  // Load Strava activities when dialog opens (if user has Strava connected)
+  // Load Strava activities when dialog opens — skip if already linked
   useEffect(() => {
-    if (!open || !stravaConnected || !eventDate) return;
+    if (!open || !stravaConnected || !eventDate || attendance.stravaUrl) return;
     const dateStr = eventDate.substring(0, 10); // "YYYY-MM-DD" from ISO
     setStravaLoading(true);
     getStravaActivitiesForDate(dateStr).then((result) => {
@@ -76,7 +77,19 @@ export function EditAttendanceDialog({
         setStravaActivities(result.activities);
       }
     });
-  }, [open, stravaConnected, eventDate]);
+  }, [open, stravaConnected, eventDate, attendance.stravaUrl]);
+
+  // Load linked Strava activity when dialog opens (if attendance has a stravaUrl)
+  useEffect(() => {
+    if (!open || !stravaConnected || !attendance.stravaUrl) return;
+    setLinkedLoading(true);
+    getLinkedStravaActivity(attendance.id).then((result) => {
+      setLinkedLoading(false);
+      if (result.success) {
+        setLinkedActivity(result.activity ?? null);
+      }
+    });
+  }, [open, stravaConnected, attendance.stravaUrl, attendance.id]);
 
   function handleStravaSelect(activity: StravaActivityOption) {
     startTransition(async () => {
@@ -85,11 +98,38 @@ export function EditAttendanceDialog({
         toast.error(result.error);
         return;
       }
-      // Update the URL field to show the attached activity
       setActivityUrl(buildStravaUrl(activity.stravaActivityId));
-      // Remove from available list
       setStravaActivities((prev) => prev.filter((a) => a.id !== activity.id));
+      setLinkedActivity({
+        name: activity.name,
+        sportType: activity.sportType,
+        distanceMeters: activity.distanceMeters,
+        movingTimeSecs: activity.movingTimeSecs,
+        timeLocal: activity.timeLocal,
+        city: activity.city,
+        stravaActivityId: activity.stravaActivityId,
+      });
       toast.success("Strava activity linked");
+      router.refresh();
+    });
+  }
+
+  function handleDetach() {
+    startTransition(async () => {
+      const result = await detachStravaActivity(attendance.id);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      setLinkedActivity(null);
+      setActivityUrl("");
+      // Re-fetch available activities since the detached one is now available
+      if (eventDate) {
+        const dateStr = eventDate.substring(0, 10);
+        const refreshed = await getStravaActivitiesForDate(dateStr);
+        if (refreshed.success) setStravaActivities(refreshed.activities);
+      }
+      toast.success("Strava activity unlinked");
       router.refresh();
     });
   }
@@ -128,6 +168,85 @@ export function EditAttendanceDialog({
     });
   }
 
+  function renderStravaContent() {
+    if (linkedActivity) {
+      return (
+        <>
+          <div className="flex items-start gap-2 rounded-md border border-strava/30 bg-strava/5 px-3 py-2 text-sm">
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <StravaActivitySummary activity={linkedActivity} />
+            </div>
+            <div className="flex shrink-0 items-start gap-1">
+              <a
+                href={buildStravaUrl(linkedActivity.stravaActivityId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-0.5 text-strava hover:text-strava-hover transition-colors"
+                title="View in Strava"
+              >
+                <ExternalLink size={14} />
+              </a>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs text-muted-foreground"
+            onClick={handleDetach}
+            disabled={isPending}
+          >
+            Remove Link
+          </Button>
+        </>
+      );
+    }
+
+    if (linkedLoading) {
+      return <p className="text-xs text-muted-foreground">Loading activity...</p>;
+    }
+
+    return (
+      <>
+        <p className="text-xs font-medium text-muted-foreground">Pick from Strava</p>
+        {stravaLoading ? (
+          <p className="text-xs text-muted-foreground">Loading activities...</p>
+        ) : stravaActivities.length > 0 ? (
+          <div className="space-y-1">
+            {stravaActivities.map((activity) => (
+              <div
+                key={activity.id}
+                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${isPending ? "opacity-60" : "hover:bg-muted"}`}
+              >
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 flex-col gap-0.5 text-left disabled:opacity-50"
+                  disabled={isPending}
+                  onClick={() => handleStravaSelect(activity)}
+                >
+                  <StravaActivitySummary activity={activity} />
+                </button>
+                <a
+                  href={buildStravaUrl(activity.stravaActivityId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`mt-0.5 shrink-0 text-strava hover:text-strava-hover transition-colors ${isPending ? "pointer-events-none opacity-50" : ""}`}
+                  title="View in Strava"
+                  aria-label={`View ${activity.name} in Strava`}
+                >
+                  <ExternalLink size={14} />
+                </a>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            No unmatched activities found for this date
+          </p>
+        )}
+      </>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={(v) => {
       onOpenChange(v);
@@ -155,80 +274,31 @@ export function EditAttendanceDialog({
             </Select>
           </div>
 
-          {/* Strava activity picker (only when connected + activities available) */}
+          {/* Strava activity section (linked card OR picker) */}
           {stravaConnected && (
             <div className="space-y-2">
-              <Label>Pick from Strava</Label>
-              {stravaLoading ? (
-                <p className="text-xs text-muted-foreground">Loading activities...</p>
-              ) : stravaActivities.length > 0 ? (
-                <div className="space-y-1">
-                  {stravaActivities.map((activity) => (
-                    <div
-                      key={activity.id}
-                      className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${isPending ? "opacity-60" : "hover:bg-muted"}`}
-                    >
-                      <button
-                        type="button"
-                        className="flex min-w-0 flex-1 flex-col gap-0.5 text-left disabled:opacity-50"
-                        disabled={isPending}
-                        onClick={() => handleStravaSelect(activity)}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span className="min-w-0 flex-1 truncate font-medium">
-                            {activity.name}
-                          </span>
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            {formatDistance(activity.distanceMeters)}
-                            {activity.movingTimeSecs > 0 && ` · ${formatDuration(activity.movingTimeSecs)}`}
-                          </span>
-                        </span>
-                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <span>{formatSportType(activity.sportType)}</span>
-                          {activity.timeLocal && (
-                            <>
-                              <span aria-hidden="true">&middot;</span>
-                              <span>{formatTime(activity.timeLocal)}</span>
-                            </>
-                          )}
-                        </span>
-                      </button>
-                      <a
-                        href={buildStravaUrl(activity.stravaActivityId)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`mt-0.5 shrink-0 text-strava hover:text-strava-hover transition-colors ${isPending ? "pointer-events-none opacity-50" : ""}`}
-                        title="View in Strava"
-                        aria-label={`View ${activity.name} in Strava`}
-                      >
-                        <ExternalLink size={14} />
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  No unmatched activities found for this date
-                </p>
-              )}
+              <Label>Strava Activity</Label>
+              {renderStravaContent()}
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="activity-url">Activity Link</Label>
-            <Input
-              id="activity-url"
-              type="url"
-              placeholder="https://www.strava.com/activities/..."
-              value={activityUrl}
-              onChange={(e) => setActivityUrl(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {stravaConnected
-                ? "Or paste any activity URL manually"
-                : "Strava, Garmin, AllTrails, or any activity URL"}
-            </p>
-          </div>
+          {!linkedActivity && (
+            <div className="space-y-2">
+              <Label htmlFor="activity-url">Activity Link</Label>
+              <Input
+                id="activity-url"
+                type="url"
+                placeholder="https://www.strava.com/activities/..."
+                value={activityUrl}
+                onChange={(e) => setActivityUrl(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                {stravaConnected
+                  ? "Or paste any activity URL manually"
+                  : "Strava, Garmin, AllTrails, or any activity URL"}
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="notes">Notes</Label>

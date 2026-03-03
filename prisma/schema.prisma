@@ -679,6 +679,7 @@ model StravaActivity {
   startLat            Float?                 // start_latlng[0] — null for privacy zones
   startLng            Float?                 // start_latlng[1] — null for privacy zones
   timezone            String?                // Strava timezone string
+  city                String?                // Reverse-geocoded city name (e.g. "Brooklyn, NY")
 
   // Match tracking (V1: set on manual pick; V2: auto-suggest will populate these)
   matchedAttendanceId String?               // Attendance record this was attached to
