@@ -423,4 +423,12 @@ describe("resolveShortMapsUrl", () => {
     expect(result).toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it("returns null when redirect goes to non-Google domain", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      url: "https://evil.example.com/phishing",
+    } as Response);
+    const result = await resolveShortMapsUrl("https://maps.app.goo.gl/abc123");
+    expect(result).toBeNull();
+  });
 });

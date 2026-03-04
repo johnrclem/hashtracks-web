@@ -262,7 +262,14 @@ export async function resolveShortMapsUrl(
         redirect: "follow",
         signal: controller.signal,
       });
-      return res.url !== url ? res.url : null;
+      if (res.url === url) return null;
+      // Verify the resolved URL is a Google domain (guard against unexpected redirects)
+      const resolved = new URL(res.url);
+      const isGoogleDomain =
+        resolved.hostname.endsWith("google.com") ||
+        resolved.hostname.endsWith("google.co.uk") ||
+        resolved.hostname.endsWith("goo.gl");
+      return isGoogleDomain ? res.url : null;
     } finally {
       clearTimeout(timeout);
     }
