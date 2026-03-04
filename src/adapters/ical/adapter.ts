@@ -74,29 +74,80 @@ export function parseICalSummary(
   return { kennelTag, runNumber, title };
 }
 
+// Module-level patterns for description field extraction
+const HARE_PATTERNS = [
+  /(?:^|\n)\s*Hares?:\s*([^\n]+)/im,
+  /(?:^|\n)\s*Hare\(s\):\s*([^\n]+)/im,
+];
+const LOCATION_PATTERNS = [
+  /(?:^|\n)\s*Where:\s*([^\n]+)/im,
+  /(?:^|\n)\s*Location:\s*([^\n]+)/im,
+  /(?:^|\n)\s*Start(?:ing)?\s*(?:Location)?:\s*([^\n]+)/im,
+];
+const MAPS_URL_PATTERN =
+  /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.com|goo\.gl\/maps)\S*/i;
+
+/** Normalize ICS escape sequences in a description string. */
+function normalizeIcsDescription(description: string): string {
+  return description.replaceAll("\\n", "\n").replaceAll("\\,", ",");
+}
+
+/**
+ * Extract a labeled field value from an ICS-encoded description.
+ * Matches patterns like "Label: value", takes the first line, and unescapes ICS sequences.
+ */
+function extractFieldFromDescription(
+  description: string,
+  patterns: RegExp[],
+  options?: { maxLength?: number; stripUrls?: boolean },
+): string | undefined {
+  const normalized = normalizeIcsDescription(description);
+  const maxLength = options?.maxLength ?? 200;
+
+  for (const pattern of patterns) {
+    const match = pattern.exec(normalized);
+    if (match) {
+      let value = match[1].trim();
+      value = value.replaceAll("\\;", ";").replaceAll("\\,", ",");
+      if (options?.stripUrls) value = value.replace(/https?:\/\/\S+/g, "").trim();
+      if (value.length > 0 && value.length < maxLength) return value;
+    }
+  }
+
+  return undefined;
+}
+
 /**
  * Extract hare names from an iCal DESCRIPTION field.
  * Patterns: "Hare: X", "Hares: X & Y", "Hare(s): X, Y"
  */
 export function extractHaresFromDescription(description: string): string | undefined {
-  // ICS uses literal \n for newlines
-  const normalized = description.replace(/\\n/g, "\n").replace(/\\,/g, ",");
+  return extractFieldFromDescription(description, HARE_PATTERNS);
+}
 
-  const patterns = [
-    /(?:^|\n)\s*Hares?:\s*(.+)/im,
-    /(?:^|\n)\s*Hare\(s\):\s*(.+)/im,
-  ];
+/**
+ * Extract a location name from an iCal DESCRIPTION field.
+ * Used as a fallback when the LOCATION field is empty.
+ */
+export function extractLocationFromDescription(description: string): string | undefined {
+  return extractFieldFromDescription(description, LOCATION_PATTERNS, {
+    maxLength: 300,
+    stripUrls: true,
+  });
+}
 
-  for (const pattern of patterns) {
-    const match = normalized.match(pattern);
-    if (match) {
-      let hares = match[1].trim();
-      // Take only the first line of hare text
-      hares = hares.split("\n")[0].trim();
-      // Clean up ICS escaping
-      hares = hares.replace(/\\;/g, ";").replace(/\\,/g, ",");
-      if (hares.length > 0 && hares.length < 200) return hares;
-    }
+/**
+ * Extract a Google Maps URL from an iCal DESCRIPTION field.
+ * Used as a fallback when no locationUrl is available from LOCATION or GEO fields.
+ */
+export function extractMapsUrlFromDescription(description: string): string | undefined {
+  const normalized = normalizeIcsDescription(description);
+
+  const match = MAPS_URL_PATTERN.exec(normalized);
+  if (match) {
+    let url = match[0].replaceAll("\\;", "").replaceAll("\\,", ""); // Strip ICS escape sequences
+    url = url.replace(/[),;]+$/, ""); // NOSONAR — bounded input from regex match, no backtracking risk
+    return url;
   }
 
   return undefined;
@@ -231,6 +282,26 @@ function parseIcsCalendar(
   }
 }
 
+/** Resolve a locationUrl from GEO field, description Maps URL, or location name search. */
+function resolveLocationUrl(
+  geo: VEvent["geo"],
+  location: string | undefined,
+  description: string | undefined,
+): string | undefined {
+  if (geo) {
+    const { lat, lon } = geo;
+    if (lat != null && lon != null) {
+      return `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+    }
+  }
+  if (description) {
+    const descUrl = extractMapsUrlFromDescription(description);
+    if (descUrl) return descUrl;
+  }
+  if (location) return mapsUrl(location);
+  return undefined;
+}
+
 /** Build a RawEventData from a VEvent. Returns null if the event should be skipped. */
 function buildRawEventFromVEvent(
   vevent: VEvent,
@@ -252,17 +323,13 @@ function buildRawEventFromVEvent(
   const startTime = formatTime(vevent.start);
   const description = paramValue(vevent.description);
   const hares = description ? extractHaresFromDescription(description) : undefined;
-  const location = paramValue(vevent.location);
+  let location = paramValue(vevent.location);
 
-  let locationUrl: string | undefined;
-  if (vevent.geo) {
-    const geo = vevent.geo;
-    if (geo.lat != null && geo.lon != null) {
-      locationUrl = `https://www.google.com/maps/search/?api=1&query=${geo.lat},${geo.lon}`;
-    }
-  } else if (location) {
-    locationUrl = mapsUrl(location);
+  if (!location && description) {
+    location = extractLocationFromDescription(description);
   }
+
+  const locationUrl = resolveLocationUrl(vevent.geo, location, description);
 
   return {
     date: dateStr,
