@@ -48,6 +48,25 @@ export function clearGeminiCache(): void {
   responseCache.clear();
 }
 
+/**
+ * Fetch with automatic retry on 429 rate-limit responses.
+ * Uses exponential backoff: 1s, 2s, 4s between attempts.
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fetch(url, options);
+    if (response.status !== 429 || attempt === maxRetries) return response;
+    const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+    await new Promise((r) => setTimeout(r, delay));
+  }
+  // Unreachable, but satisfies TypeScript
+  throw new Error("Retry loop exhausted");
+}
+
 /** Request parameters for `callGemini()`. */
 export interface GeminiRequest {
   /** The full prompt text sent to Gemini (including any structured extraction instructions). */
@@ -94,7 +113,7 @@ export async function callGemini(request: GeminiRequest, cacheTtlMs = DEFAULT_CA
   const start = Date.now();
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -178,6 +197,9 @@ export async function searchAndExtract(
     return searchResult;
   }
 
+  // Brief pause between search and extraction to avoid rate limiting
+  await new Promise((r) => setTimeout(r, 500));
+
   // Step 2: Extract structured JSON from the prose
   const extraction = await callGemini(
     { prompt: extractionPrompt(searchResult.text, searchResult.groundingUrls) },
@@ -227,7 +249,7 @@ export async function searchWithGemini(
   const start = Date.now();
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

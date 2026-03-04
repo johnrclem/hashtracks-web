@@ -67,14 +67,51 @@ describe("callGemini", () => {
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
   });
 
-  it("returns friendly error on 429 rate limit", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(
+  it("retries on 429 rate limit with exponential backoff", async () => {
+    vi.useFakeTimers();
+    const mockFetch = vi.fn().mockResolvedValue(
       new Response("Rate limited", { status: 429 }),
     );
+    globalThis.fetch = mockFetch;
 
-    const result = await callGemini({ prompt: "test-429" });
+    const promise = callGemini({ prompt: "test-429" });
+
+    // Advance through 3 retry delays: 1s, 2s, 4s
+    for (let i = 0; i < 3; i++) {
+      await vi.advanceTimersByTimeAsync(Math.pow(2, i) * 1000);
+    }
+
+    const result = await promise;
+    expect(mockFetch).toHaveBeenCalledTimes(4); // 1 initial + 3 retries
     expect(result.text).toBeNull();
     expect(result.error).toBe("Rate limit exceeded — try again in a few minutes");
+    vi.useRealTimers();
+  });
+
+  it("succeeds after transient 429", async () => {
+    vi.useFakeTimers();
+    let callCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      callCount++;
+      if (callCount <= 2) {
+        return new Response("Rate limited", { status: 429 });
+      }
+      return new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: '{"ok": true}' }] } }],
+      }));
+    });
+
+    const promise = callGemini({ prompt: "test-retry-success" });
+
+    // Advance through 2 retry delays: 1s, 2s
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(2000);
+
+    const result = await promise;
+    expect(callCount).toBe(3);
+    expect(result.text).toBe('{"ok": true}');
+    expect(result.error).toBeUndefined();
+    vi.useRealTimers();
   });
 
   it("returns error on other HTTP failures", async () => {
@@ -271,15 +308,53 @@ describe("searchWithGemini", () => {
     expect(result.groundingUrls).toEqual([]);
   });
 
-  it("returns friendly error on 429 rate limit", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(
+  it("retries on 429 rate limit with exponential backoff", async () => {
+    vi.useFakeTimers();
+    const mockFetch = vi.fn().mockResolvedValue(
       new Response("Rate limited", { status: 429 }),
     );
+    globalThis.fetch = mockFetch;
 
-    const result = await searchWithGemini("test");
+    const promise = searchWithGemini("test");
+
+    for (let i = 0; i < 3; i++) {
+      await vi.advanceTimersByTimeAsync(Math.pow(2, i) * 1000);
+    }
+
+    const result = await promise;
+    expect(mockFetch).toHaveBeenCalledTimes(4); // 1 initial + 3 retries
     expect(result.text).toBeNull();
     expect(result.groundingUrls).toEqual([]);
     expect(result.error).toBe("Rate limit exceeded — try again in a few minutes");
+    vi.useRealTimers();
+  });
+
+  it("succeeds after transient 429", async () => {
+    vi.useFakeTimers();
+    let callCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return new Response("Rate limited", { status: 429 });
+      }
+      return new Response(JSON.stringify({
+        candidates: [{
+          content: { parts: [{ text: "Found results" }] },
+          groundingMetadata: {
+            groundingChunks: [{ web: { uri: "https://example.com" } }],
+          },
+        }],
+      }));
+    });
+
+    const promise = searchWithGemini("test");
+    await vi.advanceTimersByTimeAsync(1000);
+
+    const result = await promise;
+    expect(callCount).toBe(2);
+    expect(result.text).toBe("Found results");
+    expect(result.groundingUrls).toEqual(["https://example.com"]);
+    vi.useRealTimers();
   });
 
   it("handles network errors gracefully", async () => {
@@ -354,6 +429,7 @@ describe("searchWithGemini", () => {
 
 describe("searchAndExtract", () => {
   it("performs two-step search then extraction", async () => {
+    vi.useFakeTimers();
     let callCount = 0;
     globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
       callCount++;
@@ -378,33 +454,47 @@ describe("searchAndExtract", () => {
       }));
     });
 
-    const result = await searchAndExtract(
+    const promise = searchAndExtract(
       "Find NJ kennels",
       (text) => `Extract JSON from: ${text}`,
     );
 
+    // Advance past the 500ms inter-call delay
+    await vi.advanceTimersByTimeAsync(500);
+
+    const result = await promise;
     expect(callCount).toBe(2);
     expect(result.text).toContain("GSH3");
     expect(result.groundingUrls).toEqual(["https://gsh3.com"]);
     expect(result.error).toBeUndefined();
+    vi.useRealTimers();
   });
 
-  it("returns search error when search step fails", async () => {
+  it("returns search error when search step fails after retries", async () => {
+    vi.useFakeTimers();
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response("Rate limited", { status: 429 }),
     );
 
-    const result = await searchAndExtract(
+    const promise = searchAndExtract(
       "search prompt",
       (text) => `extract: ${text}`,
     );
 
+    // Advance through retry delays for the search step
+    for (let i = 0; i < 3; i++) {
+      await vi.advanceTimersByTimeAsync(Math.pow(2, i) * 1000);
+    }
+
+    const result = await promise;
     expect(result.text).toBeNull();
     expect(result.error).toContain("Rate limit");
     expect(result.groundingUrls).toEqual([]);
+    vi.useRealTimers();
   });
 
   it("returns extraction error when extraction step fails", async () => {
+    vi.useFakeTimers();
     let callCount = 0;
     globalThis.fetch = vi.fn().mockImplementation(async () => {
       callCount++;
@@ -416,18 +506,23 @@ describe("searchAndExtract", () => {
       return new Response("Server error", { status: 500 });
     });
 
-    const result = await searchAndExtract(
+    const promise = searchAndExtract(
       "search",
       (text) => `extract: ${text}`,
     );
 
+    await vi.advanceTimersByTimeAsync(500);
+
+    const result = await promise;
     expect(result.text).toBeNull();
     expect(result.error).toContain("Gemini API 500");
     // Grounding URLs from search step still returned
     expect(result.groundingUrls).toEqual([]);
+    vi.useRealTimers();
   });
 
   it("passes search text and grounding URLs to extraction prompt builder", async () => {
+    vi.useFakeTimers();
     let extractionPrompt: string | undefined;
     let callCount = 0;
     globalThis.fetch = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
@@ -448,11 +543,15 @@ describe("searchAndExtract", () => {
       }));
     });
 
-    await searchAndExtract(
+    const promise = searchAndExtract(
       "search",
       (text, urls) => `Text: ${text}, URLs: ${urls.join(",")}`,
     );
 
+    await vi.advanceTimersByTimeAsync(500);
+    await promise;
+
     expect(extractionPrompt).toBe("Text: Found kennel X, URLs: https://x.com");
+    vi.useRealTimers();
   });
 });
