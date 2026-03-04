@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { detectSourceType } from "@/lib/source-detect";
 import { searchWithGemini } from "@/lib/ai/gemini";
 import { analyzeUrlForProposal } from "@/pipeline/html-analysis";
-import { discoverKennelsForRegion } from "@/pipeline/kennel-discovery-ai";
+import { discoverKennelsForRegion, extractJsonArray } from "@/pipeline/kennel-discovery-ai";
 import { Prisma } from "@/generated/prisma/client";
 import type { SourceType } from "@/generated/prisma/client";
 
@@ -111,17 +111,13 @@ export async function mapWithConcurrency<T, R>(
 // ─── Phase 1: URL Collection ────────────────────────────────────────────────
 
 /** Parse Gemini search response JSON into URL candidates. */
-function parseGeminiSearchResults(
+export function parseGeminiSearchResults(
   text: string,
   unsourcedKennels: { id: string; shortName: string }[],
   searchQuery: string,
 ): UrlCandidate[] {
   const candidates: UrlCandidate[] = [];
-  const cleaned = text
-    .replace(/^```json?\n?/m, "")
-    .replace(/\n?```$/m, "")
-    .trim();
-  const parsed = JSON.parse(cleaned);
+  const parsed = extractJsonArray(text);
   if (!Array.isArray(parsed)) return candidates;
 
   for (const entry of parsed) {

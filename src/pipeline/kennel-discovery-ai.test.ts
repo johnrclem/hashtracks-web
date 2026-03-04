@@ -3,6 +3,7 @@ import {
   discoverKennelsForRegion,
   buildDiscoveryPrompt,
   parseDiscoveryResponse,
+  extractJsonArray,
 } from "./kennel-discovery-ai";
 
 // Mock dependencies
@@ -85,8 +86,21 @@ describe("parseDiscoveryResponse", () => {
     expect(entries[0].website).toBeUndefined();
   });
 
-  it("throws on invalid JSON", () => {
-    expect(() => parseDiscoveryResponse("not json at all")).toThrow();
+  it("extracts JSON from natural language prose", () => {
+    const text = `Here are the Hash House Harrier kennels I found in New Jersey:\n\n\`\`\`json\n[{"fullName":"Garden State H3","shortName":"GSH3"}]\n\`\`\`\n\nBased on my search, there is one active kennel.`;
+    const entries = parseDiscoveryResponse(text);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].shortName).toBe("GSH3");
+  });
+
+  it("extracts JSON array without code fences from prose", () => {
+    const text = `I found the following kennels:\n[{"fullName":"Test H3","shortName":"TH3"},{"fullName":"Other H3","shortName":"OH3"}]\nThese are all active.`;
+    const entries = parseDiscoveryResponse(text);
+    expect(entries).toHaveLength(2);
+  });
+
+  it("throws on text with no JSON array at all", () => {
+    expect(() => parseDiscoveryResponse("No kennels found in this region.")).toThrow();
   });
 
   it("returns empty for non-array JSON", () => {

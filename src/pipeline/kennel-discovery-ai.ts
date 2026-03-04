@@ -47,14 +47,33 @@ export function buildDiscoveryPrompt(regionName: string): string {
   ].join("\n");
 }
 
-/** Parse the Gemini response text into structured entries. */
-export function parseDiscoveryResponse(text: string): GeminiKennelEntry[] {
+/** Extract a JSON array from text that may contain surrounding prose. */
+export function extractJsonArray(text: string): unknown {
   const cleaned = text
     .replace(/^```json?\n?/m, "")
     .replace(/\n?```$/m, "")
     .trim();
 
-  const parsed = JSON.parse(cleaned);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Fallback: find JSON arrays embedded in natural language text
+    // Try each [...] match (non-greedy) until one parses as valid JSON
+    const matches = [...cleaned.matchAll(/\[[\s\S]*?\]/g)];
+    for (const m of matches) {
+      try {
+        return JSON.parse(m[0]);
+      } catch {
+        continue;
+      }
+    }
+    throw new Error("No JSON array found in response");
+  }
+}
+
+/** Parse the Gemini response text into structured entries. */
+export function parseDiscoveryResponse(text: string): GeminiKennelEntry[] {
+  const parsed = extractJsonArray(text);
   if (!Array.isArray(parsed)) return [];
 
   const entries: GeminiKennelEntry[] = [];

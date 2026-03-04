@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mapWithConcurrency, researchSourcesForRegion, normalizeUrl, isBlocklistedDomain } from "./source-research";
+import { mapWithConcurrency, researchSourcesForRegion, normalizeUrl, isBlocklistedDomain, parseGeminiSearchResults } from "./source-research";
 
 // Mock dependencies
 vi.mock("@/lib/db", () => ({
@@ -15,14 +15,18 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/source-detect", () => ({ detectSourceType: vi.fn() }));
 vi.mock("@/lib/ai/gemini", () => ({ searchWithGemini: vi.fn() }));
 vi.mock("@/pipeline/html-analysis", () => ({ analyzeUrlForProposal: vi.fn() }));
-vi.mock("@/pipeline/kennel-discovery-ai", () => ({
-  discoverKennelsForRegion: vi.fn().mockResolvedValue({
-    discovered: 0,
-    matched: 0,
-    skipped: 0,
-    errors: [],
-  }),
-}));
+vi.mock("@/pipeline/kennel-discovery-ai", async () => {
+  const actual = await vi.importActual<typeof import("@/pipeline/kennel-discovery-ai")>("@/pipeline/kennel-discovery-ai");
+  return {
+    ...actual,
+    discoverKennelsForRegion: vi.fn().mockResolvedValue({
+      discovered: 0,
+      matched: 0,
+      skipped: 0,
+      errors: [],
+    }),
+  };
+});
 
 import { prisma } from "@/lib/db";
 import { detectSourceType } from "@/lib/source-detect";
@@ -121,6 +125,39 @@ describe("isBlocklistedDomain", () => {
 
   it("returns false for invalid URLs", () => {
     expect(isBlocklistedDomain("not-a-url")).toBe(false);
+  });
+});
+
+describe("parseGeminiSearchResults", () => {
+  it("parses clean JSON array", () => {
+    const text = JSON.stringify([{ kennel: "TH3", url: "https://th3.com/events" }]);
+    const results = parseGeminiSearchResults(text, [{ id: "k1", shortName: "TH3" }], "query");
+    expect(results).toHaveLength(1);
+    expect(results[0].url).toBe("https://th3.com/events");
+    expect(results[0].kennelId).toBe("k1");
+  });
+
+  it("extracts JSON from natural language prose", () => {
+    const text = `Based on my search, here are the results:\n[{"kennel":"TH3","url":"https://th3.com"}]\nThese are the most relevant.`;
+    const results = parseGeminiSearchResults(text, [{ id: "k1", shortName: "TH3" }], "query");
+    expect(results).toHaveLength(1);
+    expect(results[0].url).toBe("https://th3.com");
+  });
+
+  it("extracts JSON from code-fenced prose", () => {
+    const text = "Here are URLs:\n```json\n[{\"kennel\":\"XH3\",\"url\":\"https://xh3.com\"}]\n```\nLet me know if you need more.";
+    const results = parseGeminiSearchResults(text, [], "query");
+    expect(results).toHaveLength(1);
+  });
+
+  it("skips entries without valid URLs", () => {
+    const text = JSON.stringify([
+      { kennel: "TH3", url: "https://valid.com" },
+      { kennel: "BH3", url: "not-a-url" },
+      { kennel: "CH3" },
+    ]);
+    const results = parseGeminiSearchResults(text, [], "query");
+    expect(results).toHaveLength(1);
   });
 });
 

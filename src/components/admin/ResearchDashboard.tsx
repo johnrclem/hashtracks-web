@@ -182,6 +182,11 @@ export function ResearchDashboard({ regions, proposals, discoveries, coverageGap
         if (result.kennelsMatched) parts.push(`${result.kennelsMatched} matched`);
         if (result.urlsDiscovered) parts.push(`${result.urlsDiscovered} URLs found`);
         if (result.proposalsCreated) parts.push(`${result.proposalsCreated} proposals`);
+        if (result.errors?.length) {
+          const [first, ...rest] = result.errors;
+          const msg = rest.length ? `${first} (+${rest.length} more)` : first;
+          toast.warning(`Research warning: ${msg}`);
+        }
         toast.success(`Research complete: ${parts.join(", ") || "no new results"}`);
         router.refresh();
       }
