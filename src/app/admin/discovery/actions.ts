@@ -2,6 +2,7 @@
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { syncKennelDiscovery } from "@/pipeline/kennel-discovery";
 import { toSlug, toKennelCode } from "@/lib/kennel-utils";
@@ -23,7 +24,50 @@ async function ensureAlias(kennelId: string, alias: string): Promise<void> {
     clearResolverCache();
   } catch (e: unknown) {
     // P2002 = unique constraint violation — alias already exists, safe to ignore
-    if (e instanceof Error && "code" in e && (e as { code: string }).code === "P2002") return;
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return;
+    throw e;
+  }
+}
+
+/**
+ * Link a kennel to the Hash Rego event source so its events flow into the hareline.
+ * Adds the slug to Source.config.kennelSlugs and creates a SourceKennel join record.
+ * No-op if no HASHREGO source exists. Idempotent (safe to call multiple times).
+ */
+async function linkKennelToHashRegoSource(
+  kennelId: string,
+  externalSlug: string,
+): Promise<void> {
+  const source = await prisma.source.findFirst({
+    where: { type: "HASHREGO" },
+    select: { id: true, config: true },
+  });
+  if (!source) return;
+
+  // Add slug to config.kennelSlugs (Set dedup prevents duplicates)
+  const raw = source.config;
+  const config =
+    typeof raw === "object" && raw !== null && !Array.isArray(raw)
+      ? (raw as { kennelSlugs?: string[] })
+      : {};
+  const slugs = new Set(config.kennelSlugs ?? []);
+  if (!slugs.has(externalSlug)) {
+    slugs.add(externalSlug);
+    await prisma.source.update({
+      where: { id: source.id },
+      data: {
+        config: { ...config, kennelSlugs: [...slugs] } as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  // Create SourceKennel join record (idempotent via P2002 catch)
+  try {
+    await prisma.sourceKennel.create({
+      data: { sourceId: source.id, kennelId },
+    });
+  } catch (e: unknown) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return;
     throw e;
   }
 }
@@ -67,6 +111,8 @@ export async function linkDiscoveryToKennel(discoveryId: string, kennelId: strin
     await ensureAlias(kennelId, discovery.externalSlug);
   }
 
+  await linkKennelToHashRegoSource(kennelId, discovery.externalSlug);
+
   await prisma.kennelDiscovery.update({
     where: { id: discoveryId },
     data: {
@@ -78,6 +124,7 @@ export async function linkDiscoveryToKennel(discoveryId: string, kennelId: strin
   });
 
   revalidatePath("/admin/discovery");
+  revalidatePath("/admin/sources");
   return { success: true };
 }
 
@@ -189,8 +236,15 @@ export async function addKennelFromDiscovery(
 
   clearResolverCache();
 
+  try {
+    await linkKennelToHashRegoSource(kennel.id, discovery.externalSlug);
+  } catch (err) {
+    console.error("[discovery] Failed to link kennel to Hash Rego source:", err);
+  }
+
   revalidatePath("/admin/discovery");
   revalidatePath("/admin/kennels");
+  revalidatePath("/admin/sources");
   revalidatePath("/kennels");
   return { success: true, kennelId: kennel.id };
 }
@@ -277,6 +331,8 @@ export async function confirmMatch(id: string) {
     await ensureAlias(discovery.matchedKennelId, discovery.externalSlug);
   }
 
+  await linkKennelToHashRegoSource(discovery.matchedKennelId, discovery.externalSlug);
+
   await prisma.kennelDiscovery.update({
     where: { id },
     data: {
@@ -287,6 +343,7 @@ export async function confirmMatch(id: string) {
   });
 
   revalidatePath("/admin/discovery");
+  revalidatePath("/admin/sources");
   return { success: true };
 }
 
