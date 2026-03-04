@@ -74,28 +74,44 @@ export function parseICalSummary(
   return { kennelTag, runNumber, title };
 }
 
-/**
- * Extract hare names from an iCal DESCRIPTION field.
- * Patterns: "Hare: X", "Hares: X & Y", "Hare(s): X, Y"
- */
-export function extractHaresFromDescription(description: string): string | undefined {
-  // ICS uses literal \n for newlines
-  const normalized = description.replace(/\\n/g, "\n").replace(/\\,/g, ",");
+// Module-level patterns for description field extraction
+const HARE_PATTERNS = [
+  /(?:^|\n)\s*Hares?:\s*(.+)/im,
+  /(?:^|\n)\s*Hare\(s\):\s*(.+)/im,
+];
+const LOCATION_PATTERNS = [
+  /(?:^|\n)\s*Where:\s*(.+)/im,
+  /(?:^|\n)\s*Location:\s*(.+)/im,
+  /(?:^|\n)\s*Start(?:ing)?\s*(?:Location)?:\s*(.+)/im,
+];
+const MAPS_URL_PATTERN =
+  /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.com|goo\.gl\/maps)\S*/i;
 
-  const patterns = [
-    /(?:^|\n)\s*Hares?:\s*(.+)/im,
-    /(?:^|\n)\s*Hare\(s\):\s*(.+)/im,
-  ];
+/** Normalize ICS escape sequences in a description string. */
+function normalizeIcsDescription(description: string): string {
+  return description.replace(/\\n/g, "\n").replace(/\\,/g, ",");
+}
+
+/**
+ * Extract a labeled field value from an ICS-encoded description.
+ * Matches patterns like "Label: value", takes the first line, and unescapes ICS sequences.
+ */
+function extractFieldFromDescription(
+  description: string,
+  patterns: RegExp[],
+  options?: { maxLength?: number; stripUrls?: boolean },
+): string | undefined {
+  const normalized = normalizeIcsDescription(description);
+  const maxLength = options?.maxLength ?? 200;
 
   for (const pattern of patterns) {
     const match = normalized.match(pattern);
     if (match) {
-      let hares = match[1].trim();
-      // Take only the first line of hare text
-      hares = hares.split("\n")[0].trim();
-      // Clean up ICS escaping
-      hares = hares.replace(/\\;/g, ";").replace(/\\,/g, ",");
-      if (hares.length > 0 && hares.length < 200) return hares;
+      let value = match[1].trim();
+      value = value.split("\n")[0].trim();
+      value = value.replace(/\\;/g, ";").replace(/\\,/g, ",");
+      if (options?.stripUrls) value = value.replace(/https?:\/\/\S+/g, "").trim();
+      if (value.length > 0 && value.length < maxLength) return value;
     }
   }
 
@@ -103,32 +119,22 @@ export function extractHaresFromDescription(description: string): string | undef
 }
 
 /**
+ * Extract hare names from an iCal DESCRIPTION field.
+ * Patterns: "Hare: X", "Hares: X & Y", "Hare(s): X, Y"
+ */
+export function extractHaresFromDescription(description: string): string | undefined {
+  return extractFieldFromDescription(description, HARE_PATTERNS);
+}
+
+/**
  * Extract a location name from an iCal DESCRIPTION field.
- * Patterns: "Where: X", "Location: X", "Start: X", "Starting Location: X"
  * Used as a fallback when the LOCATION field is empty.
  */
 export function extractLocationFromDescription(description: string): string | undefined {
-  const normalized = description.replace(/\\n/g, "\n").replace(/\\,/g, ",");
-
-  const patterns = [
-    /(?:^|\n)\s*Where:\s*(.+)/im,
-    /(?:^|\n)\s*Location:\s*(.+)/im,
-    /(?:^|\n)\s*Start(?:ing)?\s*(?:Location)?:\s*(.+)/im,
-  ];
-
-  for (const pattern of patterns) {
-    const match = normalized.match(pattern);
-    if (match) {
-      let loc = match[1].trim();
-      loc = loc.split("\n")[0].trim();
-      loc = loc.replace(/\\;/g, ";").replace(/\\,/g, ",");
-      // Strip trailing Google Maps URLs from the location text
-      loc = loc.replace(/https?:\/\/\S+/g, "").trim();
-      if (loc.length > 0 && loc.length < 300) return loc;
-    }
-  }
-
-  return undefined;
+  return extractFieldFromDescription(description, LOCATION_PATTERNS, {
+    maxLength: 300,
+    stripUrls: true,
+  });
 }
 
 /**
@@ -136,16 +142,12 @@ export function extractLocationFromDescription(description: string): string | un
  * Used as a fallback when no locationUrl is available from LOCATION or GEO fields.
  */
 export function extractMapsUrlFromDescription(description: string): string | undefined {
-  const normalized = description.replace(/\\n/g, "\n");
+  const normalized = normalizeIcsDescription(description);
 
-  const match = normalized.match(
-    /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.com|goo\.gl\/maps)\S*/i,
-  );
+  const match = normalized.match(MAPS_URL_PATTERN);
   if (match) {
-    // Clean trailing ICS escaping
-    let url = match[0].replace(/\\[;,]/g, "");
-    // Remove trailing punctuation that isn't part of the URL
-    url = url.replace(/[),;]+$/, "");
+    let url = match[0].replace(/\\[;,]/g, ""); // Strip ICS escape sequences (invalid in URLs)
+    url = url.replace(/[),;]+$/, ""); // Remove trailing punctuation
     return url;
   }
 
