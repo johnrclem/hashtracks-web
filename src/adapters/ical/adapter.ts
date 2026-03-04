@@ -103,6 +103,56 @@ export function extractHaresFromDescription(description: string): string | undef
 }
 
 /**
+ * Extract a location name from an iCal DESCRIPTION field.
+ * Patterns: "Where: X", "Location: X", "Start: X", "Starting Location: X"
+ * Used as a fallback when the LOCATION field is empty.
+ */
+export function extractLocationFromDescription(description: string): string | undefined {
+  const normalized = description.replace(/\\n/g, "\n").replace(/\\,/g, ",");
+
+  const patterns = [
+    /(?:^|\n)\s*Where:\s*(.+)/im,
+    /(?:^|\n)\s*Location:\s*(.+)/im,
+    /(?:^|\n)\s*Start(?:ing)?\s*(?:Location)?:\s*(.+)/im,
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (match) {
+      let loc = match[1].trim();
+      loc = loc.split("\n")[0].trim();
+      loc = loc.replace(/\\;/g, ";").replace(/\\,/g, ",");
+      // Strip trailing Google Maps URLs from the location text
+      loc = loc.replace(/https?:\/\/\S+/g, "").trim();
+      if (loc.length > 0 && loc.length < 300) return loc;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Extract a Google Maps URL from an iCal DESCRIPTION field.
+ * Used as a fallback when no locationUrl is available from LOCATION or GEO fields.
+ */
+export function extractMapsUrlFromDescription(description: string): string | undefined {
+  const normalized = description.replace(/\\n/g, "\n");
+
+  const match = normalized.match(
+    /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.com|goo\.gl\/maps)\S*/i,
+  );
+  if (match) {
+    // Clean trailing ICS escaping
+    let url = match[0].replace(/\\[;,]/g, "");
+    // Remove trailing punctuation that isn't part of the URL
+    url = url.replace(/[),;]+$/, "");
+    return url;
+  }
+
+  return undefined;
+}
+
+/**
  * Format a DateWithTimeZone as YYYY-MM-DD date string in the event's original timezone.
  * node-ical stores dates as UTC JS Dates — we use Intl.DateTimeFormat to convert back
  * to the original TZID timezone for correct local date/time extraction.
@@ -252,7 +302,12 @@ function buildRawEventFromVEvent(
   const startTime = formatTime(vevent.start);
   const description = paramValue(vevent.description);
   const hares = description ? extractHaresFromDescription(description) : undefined;
-  const location = paramValue(vevent.location);
+  let location = paramValue(vevent.location);
+
+  // Fallback: extract location from description when LOCATION field is empty
+  if (!location && description) {
+    location = extractLocationFromDescription(description);
+  }
 
   let locationUrl: string | undefined;
   if (vevent.geo) {
@@ -260,7 +315,16 @@ function buildRawEventFromVEvent(
     if (geo.lat != null && geo.lon != null) {
       locationUrl = `https://www.google.com/maps/search/?api=1&query=${geo.lat},${geo.lon}`;
     }
-  } else if (location) {
+  }
+
+  // Prefer explicit Maps URL from description over generated search URL
+  if (!locationUrl && description) {
+    const descUrl = extractMapsUrlFromDescription(description);
+    if (descUrl) locationUrl = descUrl;
+  }
+
+  // Fallback: generate Maps search URL from location name
+  if (!locationUrl && location) {
     locationUrl = mapsUrl(location);
   }
 

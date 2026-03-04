@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ICalAdapter, parseICalSummary, extractHaresFromDescription, paramValue } from "./adapter";
+import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractLocationFromDescription, extractMapsUrlFromDescription, paramValue } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
 import type { ParameterValue } from "node-ical";
 
@@ -74,6 +74,14 @@ SUMMARY:Agnews #1510
 LOCATION:Sunnyvale
 DTSTAMP:20260201T000000Z
 STATUS:CANCELLED
+END:VEVENT
+BEGIN:VEVENT
+UID:com.test.run-8
+DTSTART;TZID=America/New_York:20260308T140000
+DTEND;TZID=America/New_York:20260308T170000
+SUMMARY:SFH3 #2301: Location In Desc
+DESCRIPTION:Where: The Brass Tap\\nhttps://www.google.com/maps/place/The+Brass+Tap\\nHare: Test Runner
+DTSTAMP:20260201T000000Z
 END:VEVENT
 END:VCALENDAR`;
 
@@ -219,6 +227,93 @@ describe("extractHaresFromDescription", () => {
   });
 });
 
+describe("extractLocationFromDescription", () => {
+  it("extracts 'Where:' pattern", () => {
+    expect(extractLocationFromDescription("Where: The Brass Tap")).toBe("The Brass Tap");
+  });
+
+  it("extracts 'Location:' pattern", () => {
+    expect(extractLocationFromDescription("Location: Central Park")).toBe("Central Park");
+  });
+
+  it("extracts 'Start:' pattern", () => {
+    expect(extractLocationFromDescription("Start: Brooklyn Bridge Park")).toBe("Brooklyn Bridge Park");
+  });
+
+  it("extracts 'Starting Location:' pattern", () => {
+    expect(extractLocationFromDescription("Starting Location: Union Square")).toBe("Union Square");
+  });
+
+  it("handles ICS escaped newlines", () => {
+    expect(
+      extractLocationFromDescription("Where: The Brass Tap\\nMore info here"),
+    ).toBe("The Brass Tap");
+  });
+
+  it("strips embedded Maps URLs from location text", () => {
+    expect(
+      extractLocationFromDescription("Where: The Brass Tap https://www.google.com/maps/place/The+Brass+Tap"),
+    ).toBe("The Brass Tap");
+  });
+
+  it("handles ICS escaped commas", () => {
+    expect(
+      extractLocationFromDescription("Where: 123 Main St\\, Suite 4"),
+    ).toBe("123 Main St, Suite 4");
+  });
+
+  it("returns undefined when no location pattern found", () => {
+    expect(extractLocationFromDescription("Hare: Trail Blazer\\nOn On On: Cozy Car")).toBeUndefined();
+  });
+
+  it("handles multiline description with location in the middle", () => {
+    const desc = "Hare: Captain Hash\\n\\nWhere: Fells Point\\n\\nBring $5";
+    expect(extractLocationFromDescription(desc)).toBe("Fells Point");
+  });
+});
+
+describe("extractMapsUrlFromDescription", () => {
+  it("extracts google.com/maps URL", () => {
+    expect(
+      extractMapsUrlFromDescription("Meet here: https://www.google.com/maps/place/The+Brass+Tap"),
+    ).toBe("https://www.google.com/maps/place/The+Brass+Tap");
+  });
+
+  it("extracts maps.google.com URL", () => {
+    expect(
+      extractMapsUrlFromDescription("Start: https://maps.google.com/maps?q=Central+Park"),
+    ).toBe("https://maps.google.com/maps?q=Central+Park");
+  });
+
+  it("extracts goo.gl/maps short URL", () => {
+    expect(
+      extractMapsUrlFromDescription("Location: https://goo.gl/maps/abc123"),
+    ).toBe("https://goo.gl/maps/abc123");
+  });
+
+  it("returns undefined when no Maps URL", () => {
+    expect(extractMapsUrlFromDescription("Where: The Brass Tap")).toBeUndefined();
+  });
+
+  it("handles iCal escaping in URLs", () => {
+    expect(
+      extractMapsUrlFromDescription("https://www.google.com/maps/place/Foo\\;Bar"),
+    ).toBe("https://www.google.com/maps/place/FooBar");
+  });
+
+  it("strips trailing punctuation", () => {
+    expect(
+      extractMapsUrlFromDescription("https://www.google.com/maps/place/Foo)"),
+    ).toBe("https://www.google.com/maps/place/Foo");
+  });
+
+  it("handles ICS escaped newlines before URL", () => {
+    expect(
+      extractMapsUrlFromDescription("Where: The Brass Tap\\nhttps://www.google.com/maps/place/The+Brass+Tap"),
+    ).toBe("https://www.google.com/maps/place/The+Brass+Tap");
+  });
+});
+
 // ---------- Integration tests for ICalAdapter ----------
 
 describe("ICalAdapter", () => {
@@ -295,6 +390,13 @@ describe("ICalAdapter", () => {
     expect(b2b!.kennelTag).toBe("SFH3");
     expect(b2b!.date).toBe("2026-06-20");
     expect(b2b!.startTime).toBeUndefined();
+
+    // Event with location in description (no LOCATION field)
+    const descLoc = result.events.find((e) => e.title === "Location In Desc");
+    expect(descLoc).toBeDefined();
+    expect(descLoc!.location).toBe("The Brass Tap");
+    expect(descLoc!.locationUrl).toBe("https://www.google.com/maps/place/The+Brass+Tap");
+    expect(descLoc!.hares).toBe("Test Runner");
   });
 
   it("returns diagnostic context", async () => {
@@ -306,7 +408,7 @@ describe("ICalAdapter", () => {
     const result = await adapter.fetch(source, { days: 9999 });
 
     expect(result.diagnosticContext).toBeDefined();
-    expect(result.diagnosticContext!.totalVEvents).toBe(7); // 7 VEVENTs in sample
+    expect(result.diagnosticContext!.totalVEvents).toBe(8); // 8 VEVENTs in sample
     expect(result.diagnosticContext!.skippedPattern).toBe(1); // Hand Pump
     expect(result.diagnosticContext!.icsBytes).toBeGreaterThan(0);
     expect(result.diagnosticContext!.fetchDurationMs).toBeGreaterThanOrEqual(0);
