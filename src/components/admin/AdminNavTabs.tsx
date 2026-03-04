@@ -12,20 +12,16 @@ const TAB_ROUTES = [
   { value: "regions", href: "/admin/regions", label: "Regions" },
   { value: "sources", href: "/admin/sources", label: "Sources" },
   { value: "discovery", href: "/admin/discovery", label: "Discovery" },
+  { value: "research", href: "/admin/research", label: "Research" },
   { value: "roster-groups", href: "/admin/roster-groups", label: "Roster Groups" },
   { value: "events", href: "/admin/events", label: "Events" },
   { value: "alerts", href: "/admin/alerts", label: "Alerts" },
 ] as const;
 
-export function AdminNavTabs({
-  openAlertCount,
-  pendingMismanCount,
-  newDiscoveryCount,
-}: {
-  openAlertCount: number;
-  pendingMismanCount: number;
-  newDiscoveryCount: number;
-}) {
+/** Map of tab value → badge count. Only tabs with count > 0 show a badge. */
+export type BadgeCounts = Partial<Record<(typeof TAB_ROUTES)[number]["value"], number>>;
+
+export function AdminNavTabs({ badgeCounts }: { badgeCounts: BadgeCounts }) {
   const pathname = usePathname();
 
   const activeTab =
@@ -36,35 +32,24 @@ export function AdminNavTabs({
     <Tabs value={activeTab}>
       <div className="overflow-x-auto -mx-1 px-1">
         <TabsList className="inline-flex w-max">
-          {TAB_ROUTES.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} asChild>
-              <Link
-                href={tab.href}
-                className={
-                  tab.value === "misman" || tab.value === "alerts" || tab.value === "discovery"
-                    ? "flex items-center gap-1"
-                    : undefined
-                }
-              >
-                {tab.label}
-                {tab.value === "misman" && pendingMismanCount > 0 && (
-                  <Badge variant="destructive" className="ml-1 text-xs">
-                    {pendingMismanCount}
-                  </Badge>
-                )}
-                {tab.value === "discovery" && newDiscoveryCount > 0 && (
-                  <Badge variant="destructive" className="ml-1 text-xs">
-                    {newDiscoveryCount}
-                  </Badge>
-                )}
-                {tab.value === "alerts" && openAlertCount > 0 && (
-                  <Badge variant="destructive" className="ml-1 text-xs">
-                    {openAlertCount}
-                  </Badge>
-                )}
-              </Link>
-            </TabsTrigger>
-          ))}
+          {TAB_ROUTES.map((tab) => {
+            const count = badgeCounts[tab.value] ?? 0;
+            return (
+              <TabsTrigger key={tab.value} value={tab.value} asChild>
+                <Link
+                  href={tab.href}
+                  className={count > 0 ? "flex items-center gap-1" : undefined}
+                >
+                  {tab.label}
+                  {count > 0 && (
+                    <Badge variant="destructive" className="ml-1 text-xs">
+                      {count}
+                    </Badge>
+                  )}
+                </Link>
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
       </div>
     </Tabs>

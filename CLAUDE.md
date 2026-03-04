@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 93 test files)
+- `npm test` — Run test suite (Vitest, 100 test files)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -81,7 +81,7 @@ calendar + personal logbook + kennel directory.
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
 
 ## Important Files
-- `prisma/schema.prisma` — Full data model, 25 models + 17 enums (THE source of truth for types)
+- `prisma/schema.prisma` — Full data model, 26 models + 18 enums (THE source of truth for types)
 - `prisma/seed.ts` — 76 kennels, 246 aliases, 30 sources, 36 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
@@ -129,13 +129,17 @@ calendar + personal logbook + kennel directory.
 - `src/pipeline/structure-hash.ts` — HTML structural fingerprinting (SHA-256)
 - `src/pipeline/auto-issue.ts` — Auto-file GitHub issues from alerts (adapter resolution, rate limiting, cooldown, dedup, AGENT_CONTEXT)
 - `src/pipeline/verify-fixes.ts` — Post-merge fix verification (removes pending-verification label, posts confirmation comment)
+- `src/pipeline/html-analysis.ts` — Reusable HTML event analysis + Gemini column mapping (no auth, used by research pipeline)
+- `src/pipeline/source-research.ts` — Autonomous source research pipeline (URL discovery, classification, analysis, proposal persistence)
 - `src/app/admin/alerts/actions.ts` — Alert repair actions (re-scrape, create alias/kennel, link kennel to source, file GitHub issue)
 - `src/app/admin/regions/actions.ts` — Region CRUD, merge, AI suggestions (rule-based + Gemini), hierarchy validation
 - `src/app/admin/regions/page.tsx` — Admin region management page (RegionTable + RegionSuggestionsPanel)
 - `src/app/admin/events/actions.ts` — Admin event management (delete, bulk delete with cascade)
 - `src/app/admin/misman-requests/page.tsx` — Admin misman request approval (reuses misman server actions)
 - `src/app/admin/sources/new/page.tsx` — Source onboarding wizard (multi-phase guided setup with preview)
-- `src/app/admin/sources/analyze-html-action.ts` — AI HTML structure analysis + Gemini column mapping + refinement
+- `src/app/admin/sources/analyze-html-action.ts` — AI HTML structure analysis + Gemini column mapping + refinement (delegates to pipeline/html-analysis)
+- `src/app/admin/research/actions.ts` — Source research server actions (research, approve/reject proposals, URL update, feedback refinement)
+- `src/app/admin/research/page.tsx` — Admin source research page (region-based research, proposal review/approval)
 - `src/app/admin/sources/config-validation.ts` — Server-side config validation with ReDoS safety (safe-regex2)
 - `src/components/kennels/QuickInfoCard.tsx` — Kennel quick info card (schedule, hash cash, website, flags)
 - `src/components/kennels/SocialLinks.tsx` — Kennel social links icon row (Facebook, Instagram, X, Discord, etc.)
@@ -144,6 +148,8 @@ calendar + personal logbook + kennel directory.
 - `src/components/kennels/KennelDirectory.tsx` — Kennel directory: search, filters, sort (A–Z / Recently Active), URL persistence
 - `src/components/kennels/KennelFilters.tsx` — Filter bar: region, run day, frequency, has upcoming, country
 - `src/components/admin/AlertCard.tsx` — Alert card with repair actions, context display, repair history
+- `src/components/admin/ResearchDashboard.tsx` — Source research dashboard (region selector, coverage gaps, proposal table, status filters)
+- `src/components/admin/ProposalApprovalDialog.tsx` — Proposal review dialog (URL edit, feedback refinement, config editor, approve/reject)
 - `src/app/misman/actions.ts` — Misman request/approve/reject + roster group request server actions
 - `src/app/misman/[slug]/roster/actions.ts` — Roster CRUD + search + user linking + merge duplicates (roster group scope)
 - `src/app/misman/[slug]/attendance/actions.ts` — Attendance recording, polling, quick-add, smart suggestions, audit log, hasher edit
@@ -262,7 +268,7 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (93 test files)
+- **Run:** `npm test` (100 test files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
@@ -270,7 +276,8 @@ See `docs/roadmap.md` for implementation roadmap.
 - **Coverage areas:**
   - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, Blogger API v3 utility, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Philly (BFM, HashPhilly), Hash Rego (index parsing, detail parsing, multi-day splitting), Meetup.com API, WordPress REST API, generic HTML adapter (config parsing, row extraction, locale handling), shared adapter utilities
   - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation, event reconciliation, auto-issue filing (adapter resolution, rate limiting, cooldown, dedup, AGENT_CONTEXT sanitization), post-merge fix verification
-  - AI: Gemini API wrapper (caching, rate-limit handling), parse recovery fallback, HTML structure analysis (container detection, few-shot examples, column mapping)
+  - AI: Gemini API wrapper (caching, rate-limit handling, search grounding), parse recovery fallback, HTML structure analysis (container detection, few-shot examples, column mapping)
+  - Research: source research pipeline (URL discovery, dedup, classification, concurrency), research server actions (approve/reject, URL update, feedback refinement), HTML analysis pipeline extraction
   - Server actions: logbook CRUD, profile, kennel subscriptions, admin CRUD, misman attendance/roster/history
   - Admin: config validation (with ReDoS detection), source type detection
   - Misman: audit log, hare sync, CSV import parsing, suggestion scoring, verification status, invite tokens

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { callGemini, clearGeminiCache } from "./gemini";
+import { callGemini, clearGeminiCache, searchWithGemini } from "./gemini";
 
 const originalFetch = globalThis.fetch;
 
@@ -166,5 +166,110 @@ describe("callGemini", () => {
     await callGemini({ prompt: "no-cache" }, 0);
 
     expect(fetchCount).toBe(2);
+  });
+});
+
+describe("searchWithGemini", () => {
+  it("returns error when GEMINI_API_KEY is not set", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "");
+    const result = await searchWithGemini("test");
+    expect(result.text).toBeNull();
+    expect(result.groundingUrls).toEqual([]);
+    expect(result.error).toBe("GEMINI_API_KEY not configured");
+  });
+
+  it("uses gemini-2.0-flash model with google_search tool", async () => {
+    let capturedUrl: string | undefined;
+    let capturedBody: string | undefined;
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string, init: RequestInit) => {
+      capturedUrl = url;
+      capturedBody = init.body as string;
+      return new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: "result" }] } }],
+      }));
+    });
+
+    await searchWithGemini("find hash kennels");
+
+    expect(capturedUrl).toContain("gemini-2.0-flash");
+    const body = JSON.parse(capturedBody!);
+    expect(body.tools).toEqual([{ google_search: {} }]);
+    expect(body.generationConfig.temperature).toBe(0.3);
+    expect(body.generationConfig.responseMimeType).toBeUndefined();
+  });
+
+  it("extracts grounding URLs from metadata", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        candidates: [{
+          content: { parts: [{ text: "Found results" }] },
+          groundingMetadata: {
+            groundingChunks: [
+              { web: { uri: "https://example.com/page1", title: "Page 1" } },
+              { web: { uri: "https://example.com/page2", title: "Page 2" } },
+            ],
+          },
+        }],
+      })),
+    );
+
+    const result = await searchWithGemini("test");
+    expect(result.text).toBe("Found results");
+    expect(result.groundingUrls).toEqual([
+      "https://example.com/page1",
+      "https://example.com/page2",
+    ]);
+  });
+
+  it("returns empty groundingUrls when no metadata", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: "no grounding" }] } }],
+      })),
+    );
+
+    const result = await searchWithGemini("test");
+    expect(result.text).toBe("no grounding");
+    expect(result.groundingUrls).toEqual([]);
+  });
+
+  it("returns friendly error on 429 rate limit", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response("Rate limited", { status: 429 }),
+    );
+
+    const result = await searchWithGemini("test");
+    expect(result.text).toBeNull();
+    expect(result.groundingUrls).toEqual([]);
+    expect(result.error).toBe("Rate limit exceeded — try again in a few minutes");
+  });
+
+  it("handles network errors gracefully", async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error("ECONNREFUSED"));
+
+    const result = await searchWithGemini("test");
+    expect(result.text).toBeNull();
+    expect(result.error).toContain("ECONNREFUSED");
+  });
+
+  it("filters out invalid grounding URIs", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        candidates: [{
+          content: { parts: [{ text: "results" }] },
+          groundingMetadata: {
+            groundingChunks: [
+              { web: { uri: "https://valid.com" } },
+              { web: { uri: "" } },
+              { web: {} },
+              { other: { data: "ignored" } },
+            ],
+          },
+        }],
+      })),
+    );
+
+    const result = await searchWithGemini("test");
+    expect(result.groundingUrls).toEqual(["https://valid.com"]);
   });
 });
