@@ -86,9 +86,13 @@ export function fuzzyMatch(
         break;
       }
 
-      // Substring containment boost
+      // Substring containment boost (only for strings >= 6 chars to avoid
+      // false positives like "CH3" inside "DCH4" or "BH3" inside "SBH3")
+      const shorterLen = Math.min(name.length, normalized.length);
       const containsBoost =
-        name.includes(normalized) || normalized.includes(name) ? 0.3 : 0;
+        shorterLen >= 6 && (name.includes(normalized) || normalized.includes(name))
+          ? 0.3
+          : 0;
 
       // Levenshtein similarity (normalized to 0–1)
       const maxLen = Math.max(name.length, normalized.length);

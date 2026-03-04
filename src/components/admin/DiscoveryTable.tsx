@@ -521,7 +521,7 @@ function getScoreColor(pct: number): string {
 }
 
 function ScoreBar({ score }: Readonly<{ score: number }>) {
-  const pct = Math.round(score * 100);
+  const pct = Math.min(100, Math.round(score * 100));
   return (
     <div className="flex items-center gap-1.5">
       <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
@@ -720,7 +720,7 @@ function DiscoveryActions({
           <DropdownMenuContent align="end">
             {candidates.map((c) => (
               <DropdownMenuItem key={c.id} onClick={() => onLink(d.id, c.id)}>
-                {c.shortName} ({Math.round(c.score * 100)}%)
+                {c.shortName} ({Math.min(100, Math.round(c.score * 100))}%)
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

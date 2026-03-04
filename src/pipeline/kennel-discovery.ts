@@ -373,7 +373,7 @@ function computeMatchResult(
   const geoAdjusted = [...bestByKennel.values()].map((m) => {
     const candidateGeo = geoMap.get(m.id);
     const adjustedScore = candidateGeo
-      ? Math.max(0, applyGeoPenalty(m.score, discoveryGeo, candidateGeo))
+      ? Math.min(1, Math.max(0, applyGeoPenalty(m.score, discoveryGeo, candidateGeo)))
       : m.score;
     return { ...m, score: adjustedScore };
   });
