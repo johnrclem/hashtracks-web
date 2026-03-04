@@ -246,7 +246,7 @@ describe("extractLocationFromDescription", () => {
 
   it("handles ICS escaped newlines", () => {
     expect(
-      extractLocationFromDescription("Where: The Brass Tap\\nMore info here"),
+      extractLocationFromDescription(String.raw`Where: The Brass Tap\nMore info here`),
     ).toBe("The Brass Tap");
   });
 
@@ -258,16 +258,16 @@ describe("extractLocationFromDescription", () => {
 
   it("handles ICS escaped commas", () => {
     expect(
-      extractLocationFromDescription("Where: 123 Main St\\, Suite 4"),
+      extractLocationFromDescription(String.raw`Where: 123 Main St\, Suite 4`),
     ).toBe("123 Main St, Suite 4");
   });
 
   it("returns undefined when no location pattern found", () => {
-    expect(extractLocationFromDescription("Hare: Trail Blazer\\nOn On On: Cozy Car")).toBeUndefined();
+    expect(extractLocationFromDescription(String.raw`Hare: Trail Blazer\nOn On On: Cozy Car`)).toBeUndefined();
   });
 
   it("handles multiline description with location in the middle", () => {
-    const desc = "Hare: Captain Hash\\n\\nWhere: Fells Point\\n\\nBring $5";
+    const desc = String.raw`Hare: Captain Hash\n\nWhere: Fells Point\n\nBring $5`;
     expect(extractLocationFromDescription(desc)).toBe("Fells Point");
   });
 });
@@ -297,7 +297,7 @@ describe("extractMapsUrlFromDescription", () => {
 
   it("handles iCal escaping in URLs", () => {
     expect(
-      extractMapsUrlFromDescription("https://www.google.com/maps/place/Foo\\;Bar"),
+      extractMapsUrlFromDescription(String.raw`https://www.google.com/maps/place/Foo\;Bar`),
     ).toBe("https://www.google.com/maps/place/FooBar");
   });
 
@@ -309,7 +309,7 @@ describe("extractMapsUrlFromDescription", () => {
 
   it("handles ICS escaped newlines before URL", () => {
     expect(
-      extractMapsUrlFromDescription("Where: The Brass Tap\\nhttps://www.google.com/maps/place/The+Brass+Tap"),
+      extractMapsUrlFromDescription(String.raw`Where: The Brass Tap\nhttps://www.google.com/maps/place/The+Brass+Tap`),
     ).toBe("https://www.google.com/maps/place/The+Brass+Tap");
   });
 });

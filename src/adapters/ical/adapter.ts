@@ -76,20 +76,20 @@ export function parseICalSummary(
 
 // Module-level patterns for description field extraction
 const HARE_PATTERNS = [
-  /(?:^|\n)\s*Hares?:\s*(.+)/im,
-  /(?:^|\n)\s*Hare\(s\):\s*(.+)/im,
+  /(?:^|\n)\s*Hares?:\s*([^\n]+)/im,
+  /(?:^|\n)\s*Hare\(s\):\s*([^\n]+)/im,
 ];
 const LOCATION_PATTERNS = [
-  /(?:^|\n)\s*Where:\s*(.+)/im,
-  /(?:^|\n)\s*Location:\s*(.+)/im,
-  /(?:^|\n)\s*Start(?:ing)?\s*(?:Location)?:\s*(.+)/im,
+  /(?:^|\n)\s*Where:\s*([^\n]+)/im,
+  /(?:^|\n)\s*Location:\s*([^\n]+)/im,
+  /(?:^|\n)\s*Start(?:ing)?\s*(?:Location)?:\s*([^\n]+)/im,
 ];
 const MAPS_URL_PATTERN =
   /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.com|goo\.gl\/maps)\S*/i;
 
 /** Normalize ICS escape sequences in a description string. */
 function normalizeIcsDescription(description: string): string {
-  return description.replace(/\\n/g, "\n").replace(/\\,/g, ",");
+  return description.replaceAll("\\n", "\n").replaceAll("\\,", ",");
 }
 
 /**
@@ -105,11 +105,10 @@ function extractFieldFromDescription(
   const maxLength = options?.maxLength ?? 200;
 
   for (const pattern of patterns) {
-    const match = normalized.match(pattern);
+    const match = pattern.exec(normalized);
     if (match) {
       let value = match[1].trim();
-      value = value.split("\n")[0].trim();
-      value = value.replace(/\\;/g, ";").replace(/\\,/g, ",");
+      value = value.replaceAll("\\;", ";").replaceAll("\\,", ",");
       if (options?.stripUrls) value = value.replace(/https?:\/\/\S+/g, "").trim();
       if (value.length > 0 && value.length < maxLength) return value;
     }
@@ -144,10 +143,10 @@ export function extractLocationFromDescription(description: string): string | un
 export function extractMapsUrlFromDescription(description: string): string | undefined {
   const normalized = normalizeIcsDescription(description);
 
-  const match = normalized.match(MAPS_URL_PATTERN);
+  const match = MAPS_URL_PATTERN.exec(normalized);
   if (match) {
-    let url = match[0].replace(/\\[;,]/g, ""); // Strip ICS escape sequences (invalid in URLs)
-    url = url.replace(/[),;]+$/, ""); // Remove trailing punctuation
+    let url = match[0].replaceAll("\\;", "").replaceAll("\\,", ""); // Strip ICS escape sequences
+    url = url.replace(/[),;]+$/, ""); // NOSONAR — bounded input from regex match, no backtracking risk
     return url;
   }
 
@@ -283,6 +282,26 @@ function parseIcsCalendar(
   }
 }
 
+/** Resolve a locationUrl from GEO field, description Maps URL, or location name search. */
+function resolveLocationUrl(
+  geo: VEvent["geo"],
+  location: string | undefined,
+  description: string | undefined,
+): string | undefined {
+  if (geo) {
+    const { lat, lon } = geo;
+    if (lat != null && lon != null) {
+      return `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+    }
+  }
+  if (description) {
+    const descUrl = extractMapsUrlFromDescription(description);
+    if (descUrl) return descUrl;
+  }
+  if (location) return mapsUrl(location);
+  return undefined;
+}
+
 /** Build a RawEventData from a VEvent. Returns null if the event should be skipped. */
 function buildRawEventFromVEvent(
   vevent: VEvent,
@@ -306,29 +325,11 @@ function buildRawEventFromVEvent(
   const hares = description ? extractHaresFromDescription(description) : undefined;
   let location = paramValue(vevent.location);
 
-  // Fallback: extract location from description when LOCATION field is empty
   if (!location && description) {
     location = extractLocationFromDescription(description);
   }
 
-  let locationUrl: string | undefined;
-  if (vevent.geo) {
-    const geo = vevent.geo;
-    if (geo.lat != null && geo.lon != null) {
-      locationUrl = `https://www.google.com/maps/search/?api=1&query=${geo.lat},${geo.lon}`;
-    }
-  }
-
-  // Prefer explicit Maps URL from description over generated search URL
-  if (!locationUrl && description) {
-    const descUrl = extractMapsUrlFromDescription(description);
-    if (descUrl) locationUrl = descUrl;
-  }
-
-  // Fallback: generate Maps search URL from location name
-  if (!locationUrl && location) {
-    locationUrl = mapsUrl(location);
-  }
+  const locationUrl = resolveLocationUrl(vevent.geo, location, description);
 
   return {
     date: dateStr,
