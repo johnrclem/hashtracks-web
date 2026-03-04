@@ -6,7 +6,7 @@ import { regionTimezone, getLabelForUrl } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
-import { extractCoordsFromMapsUrl, geocodeAddress } from "@/lib/geo";
+import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl } from "@/lib/geo";
 
 /**
  * Create EventLink records for an event from externalLinks + alternate sourceUrls.
@@ -231,6 +231,15 @@ async function resolveCoords(
 ): Promise<{ latitude?: number; longitude?: number }> {
   const rawCoords = extractRawCoords(event);
   if (rawCoords.latitude != null) return rawCoords;
+
+  // Try resolving short Maps URLs (maps.app.goo.gl) to full URLs with coordinates
+  if (event.locationUrl) {
+    const resolvedUrl = await resolveShortMapsUrl(event.locationUrl);
+    if (resolvedUrl) {
+      const coords = extractCoordsFromMapsUrl(resolvedUrl);
+      if (coords) return { latitude: coords.lat, longitude: coords.lng };
+    }
+  }
 
   // Skip geocoding when the canonical event already has coords and location hasn't changed
   if (

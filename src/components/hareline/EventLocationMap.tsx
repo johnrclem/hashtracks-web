@@ -10,6 +10,8 @@ interface EventLocationMapProps {
   locationName?: string | null;
   /** If provided, clicking the map links here; otherwise falls back to a coords-based or text-search Maps link. */
   locationAddress?: string | null;
+  /** Region hint for disambiguating text-based geocoding (e.g., "New York City, NY") */
+  regionHint?: string | null;
   /** CSS class(es) for the <img> height. Default: "h-48". Pass "h-full min-h-64" for side-by-side layouts. */
   imgClassName?: string;
 }
@@ -19,16 +21,23 @@ export function EventLocationMap({
   lng,
   locationName,
   locationAddress,
+  regionHint,
   imgClassName = "h-48",
 }: EventLocationMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
   if (!apiKey) return null;
 
   const hasCoords = lat != null && lng != null;
+  // When falling back to text, append region hint for disambiguation
+  const locationWithHint =
+    locationName && regionHint && !hasCoords
+      ? `${locationName}, ${regionHint}`
+      : locationName;
+
   const center = hasCoords
     ? `${lat},${lng}`
-    : locationName
-      ? encodeURIComponent(locationName)
+    : locationWithHint
+      ? encodeURIComponent(locationWithHint)
       : null;
 
   if (!center) return null;
@@ -43,7 +52,7 @@ export function EventLocationMap({
       ? locationAddress
       : hasCoords
         ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
-        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationName ?? "")}`;
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationWithHint ?? "")}`;
 
   return (
     <a
