@@ -514,6 +514,10 @@ function StatCard({ label, value, highlight }: Readonly<{ label: string; value: 
   );
 }
 
+function formatScorePercent(score: number): number {
+  return Math.min(100, Math.round(score * 100));
+}
+
 function getScoreColor(pct: number): string {
   if (pct >= 95) return "bg-green-500";
   if (pct >= 80) return "bg-yellow-500";
@@ -521,7 +525,7 @@ function getScoreColor(pct: number): string {
 }
 
 function ScoreBar({ score }: Readonly<{ score: number }>) {
-  const pct = Math.min(100, Math.round(score * 100));
+  const pct = formatScorePercent(score);
   return (
     <div className="flex items-center gap-1.5">
       <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
@@ -720,7 +724,7 @@ function DiscoveryActions({
           <DropdownMenuContent align="end">
             {candidates.map((c) => (
               <DropdownMenuItem key={c.id} onClick={() => onLink(d.id, c.id)}>
-                {c.shortName} ({Math.min(100, Math.round(c.score * 100))}%)
+                {c.shortName} ({formatScorePercent(c.score)}%)
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

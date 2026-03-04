@@ -58,6 +58,9 @@ export interface FuzzyMatch {
   score: number;
 }
 
+/** Minimum string length for substring containment boost (avoids false positives like "CH3" ⊂ "DCH4") */
+const MIN_CONTAINS_BOOST_LENGTH = 6;
+
 /**
  * Rank candidates by fuzzy similarity to the input tag.
  * Returns top N matches sorted by score (0–1, higher = better).
@@ -86,11 +89,11 @@ export function fuzzyMatch(
         break;
       }
 
-      // Substring containment boost (only for strings >= 6 chars to avoid
+      // Substring containment boost (only for longer strings to avoid
       // false positives like "CH3" inside "DCH4" or "BH3" inside "SBH3")
       const shorterLen = Math.min(name.length, normalized.length);
       const containsBoost =
-        shorterLen >= 6 && (name.includes(normalized) || normalized.includes(name))
+        shorterLen >= MIN_CONTAINS_BOOST_LENGTH && (name.includes(normalized) || normalized.includes(name))
           ? 0.3
           : 0;
 

@@ -209,6 +209,7 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
         regionRef: { select: { centroidLat: true, centroidLng: true } },
       },
       where: { isHidden: false },
+      orderBy: { shortName: "asc" },
     }),
     prisma.kennelAlias.findMany({
       select: { kennelId: true, alias: true },
@@ -369,23 +370,27 @@ function computeMatchResult(
     country: profile?.country ?? parseCountryFromLocation(kennel.location),
   };
 
-  // Apply geo penalty to each candidate's text score
+  // Apply geo penalty to each candidate's text score (unclamped for ranking fidelity)
   const geoAdjusted = [...bestByKennel.values()].map((m) => {
     const candidateGeo = geoMap.get(m.id);
-    const adjustedScore = candidateGeo
-      ? Math.min(1, Math.max(0, applyGeoPenalty(m.score, discoveryGeo, candidateGeo)))
+    const rawScore = candidateGeo
+      ? applyGeoPenalty(m.score, discoveryGeo, candidateGeo)
       : m.score;
-    return { ...m, score: adjustedScore };
+    return { ...m, score: rawScore };
   });
 
+  // Rank on unclamped scores for tie-breaking fidelity
   const ranked = geoAdjusted.toSorted((a, b) => b.score - a.score);
   const best = ranked[0];
+
+  // Clamp to [0, 1] only for persistence/display
+  const clamp = (s: number) => Math.min(1, Math.max(0, s));
 
   if (best && best.score >= AUTO_MATCH_THRESHOLD) {
     return {
       status: "MATCHED",
       matchedKennelId: best.id,
-      matchScore: Math.round(best.score * 100) / 100,
+      matchScore: Math.round(clamp(best.score) * 100) / 100,
       matchCandidates: Prisma.DbNull,
     };
   }
@@ -394,11 +399,11 @@ function computeMatchResult(
     return {
       status: "NEW",
       matchedKennelId: null,
-      matchScore: Math.round(best.score * 100) / 100,
+      matchScore: Math.round(clamp(best.score) * 100) / 100,
       matchCandidates: ranked
         .filter((m) => m.score >= CANDIDATE_THRESHOLD)
         .slice(0, 3)
-        .map((m) => ({ id: m.id, shortName: m.shortName, score: Math.round(m.score * 100) / 100 })) as unknown as Prisma.InputJsonValue,
+        .map((m) => ({ id: m.id, shortName: m.shortName, score: Math.round(clamp(m.score) * 100) / 100 })) as unknown as Prisma.InputJsonValue,
     };
   }
 
