@@ -253,7 +253,7 @@ describe("searchWithGemini", () => {
     expect(result.error).toBe("GEMINI_API_KEY not configured");
   });
 
-  it("uses gemini-2.0-flash model with google_search tool", async () => {
+  it("uses gemini-2.5-flash model with google_search tool", async () => {
     let capturedUrl: string | undefined;
     let capturedBody: string | undefined;
     globalThis.fetch = vi.fn().mockImplementation(async (url: string, init: RequestInit) => {
@@ -266,7 +266,7 @@ describe("searchWithGemini", () => {
 
     await searchWithGemini("find hash kennels");
 
-    expect(capturedUrl).toContain("gemini-2.0-flash");
+    expect(capturedUrl).toContain("gemini-2.5-flash");
     const body = JSON.parse(capturedBody!);
     expect(body.tools).toEqual([{ google_search: {} }]);
     expect(body.generationConfig.temperature).toBe(0.3);
@@ -434,8 +434,8 @@ describe("searchAndExtract", () => {
     globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
       callCount++;
       if (callCount === 1) {
-        // Search call (gemini-2.0-flash) — returns prose
-        expect(url).toContain("gemini-2.0-flash");
+        // Search call (gemini-2.5-flash) — returns prose
+        expect(url).toContain("gemini-2.5-flash");
         return new Response(JSON.stringify({
           candidates: [{
             content: { parts: [{ text: "I found Garden State H3 (GSH3) in New Jersey and Princeton H3 (PH3) in Princeton." }] },

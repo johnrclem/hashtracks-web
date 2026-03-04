@@ -6,11 +6,11 @@
  * Temperature: 0.1 (deterministic for reproducible results).
  *
  * Also provides `searchWithGemini()` for search-grounded research queries
- * using gemini-2.0-flash (required for google_search tool).
+ * using gemini-2.5-flash (required for google_search tool).
  */
 
 const GEMINI_MODEL = "gemini-2.5-flash-lite";
-const GEMINI_SEARCH_MODEL = "gemini-2.0-flash";
+const GEMINI_SEARCH_MODEL = "gemini-2.5-flash";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 /** Simple in-memory response cache (survives within a single server instance). */
