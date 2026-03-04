@@ -126,7 +126,13 @@ export async function callGemini(request: GeminiRequest, cacheTtlMs = DEFAULT_CA
     }
 
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+    const parts = data?.candidates?.[0]?.content?.parts ?? [];
+    const text =
+      parts
+        .filter((p: Record<string, unknown>) => typeof p?.text === "string")
+        .map((p: Record<string, unknown>) => p.text as string)
+        .join("\n")
+        .trim() || null;
 
     if (!text) {
       return {
@@ -220,7 +226,13 @@ export async function searchWithGemini(
     }
 
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+    const textParts = data?.candidates?.[0]?.content?.parts ?? [];
+    const text =
+      textParts
+        .filter((p: Record<string, unknown>) => typeof p?.text === "string")
+        .map((p: Record<string, unknown>) => p.text as string)
+        .join("\n")
+        .trim() || null;
 
     // Extract grounding URLs from metadata
     const groundingChunks =

@@ -153,6 +153,44 @@ describe("callGemini", () => {
     expect(fetchCount).toBe(2);
   });
 
+  it("concatenates multiple text parts in response", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        candidates: [{
+          content: {
+            parts: [
+              { text: "Some preamble text" },
+              { text: '{"date": "2026-03-14"}' },
+            ],
+          },
+        }],
+      })),
+    );
+
+    const result = await callGemini({ prompt: "test" });
+    expect(result.text).toBe('Some preamble text\n{"date": "2026-03-14"}');
+    expect(result.error).toBeUndefined();
+  });
+
+  it("skips non-text parts when concatenating", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        candidates: [{
+          content: {
+            parts: [
+              { text: '{"result": true}' },
+              { functionCall: { name: "search", args: {} } },
+              { text: "extra" },
+            ],
+          },
+        }],
+      })),
+    );
+
+    const result = await callGemini({ prompt: "test" });
+    expect(result.text).toBe('{"result": true}\nextra');
+  });
+
   it("skips cache when cacheTtlMs is 0", async () => {
     let fetchCount = 0;
     globalThis.fetch = vi.fn().mockImplementation(async () => {
@@ -250,6 +288,46 @@ describe("searchWithGemini", () => {
     const result = await searchWithGemini("test");
     expect(result.text).toBeNull();
     expect(result.error).toContain("ECONNREFUSED");
+  });
+
+  it("concatenates multiple text parts in response", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        candidates: [{
+          content: {
+            parts: [
+              { text: "Let me search for hash kennels..." },
+              { text: '[{"fullName": "Garden State H3", "shortName": "GSH3"}]' },
+            ],
+          },
+          groundingMetadata: { groundingChunks: [] },
+        }],
+      })),
+    );
+
+    const result = await searchWithGemini("find NJ kennels");
+    expect(result.text).toBe(
+      'Let me search for hash kennels...\n[{"fullName": "Garden State H3", "shortName": "GSH3"}]',
+    );
+    expect(result.error).toBeUndefined();
+  });
+
+  it("skips non-text parts (e.g. function calls) when concatenating", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        candidates: [{
+          content: {
+            parts: [
+              { functionCall: { name: "google_search", args: {} } },
+              { text: "search results here" },
+            ],
+          },
+        }],
+      })),
+    );
+
+    const result = await searchWithGemini("test");
+    expect(result.text).toBe("search results here");
   });
 
   it("filters out invalid grounding URIs", async () => {
