@@ -45,7 +45,11 @@ async function linkKennelToHashRegoSource(
   if (!source) return;
 
   // Add slug to config.kennelSlugs (Set dedup prevents duplicates)
-  const config = (source.config as { kennelSlugs?: string[] } | null) ?? {};
+  const raw = source.config;
+  const config =
+    typeof raw === "object" && raw !== null && !Array.isArray(raw)
+      ? (raw as { kennelSlugs?: string[] })
+      : {};
   const slugs = new Set(config.kennelSlugs ?? []);
   if (!slugs.has(externalSlug)) {
     slugs.add(externalSlug);
@@ -232,7 +236,11 @@ export async function addKennelFromDiscovery(
 
   clearResolverCache();
 
-  await linkKennelToHashRegoSource(kennel.id, discovery.externalSlug);
+  try {
+    await linkKennelToHashRegoSource(kennel.id, discovery.externalSlug);
+  } catch (err) {
+    console.error("[discovery] Failed to link kennel to Hash Rego source:", err);
+  }
 
   revalidatePath("/admin/discovery");
   revalidatePath("/admin/kennels");

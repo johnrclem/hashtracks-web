@@ -183,6 +183,42 @@ describe("linkDiscoveryToKennel", () => {
       }),
     );
   });
+
+  it("preserves extra config keys during slug merge", async () => {
+    mockSourceFind.mockResolvedValue({
+      id: "src-hr",
+      config: { kennelSlugs: ["BFM"], baseUrl: "https://hashrego.com", retries: 3 },
+    } as never);
+
+    await linkDiscoveryToKennel("disc-1", "kennel-1");
+
+    expect(mockSourceUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          config: {
+            kennelSlugs: ["BFM", "NewH3"],
+            baseUrl: "https://hashrego.com",
+            retries: 3,
+          },
+        },
+      }),
+    );
+  });
+
+  it("treats array config as empty (does not corrupt data)", async () => {
+    mockSourceFind.mockResolvedValue({
+      id: "src-hr",
+      config: ["bad", "data"],
+    } as never);
+
+    await linkDiscoveryToKennel("disc-1", "kennel-1");
+
+    expect(mockSourceUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { config: { kennelSlugs: ["NewH3"] } },
+      }),
+    );
+  });
 });
 
 // ---- addKennelFromDiscovery ----
@@ -212,6 +248,19 @@ describe("addKennelFromDiscovery", () => {
     expect(mockSourceKennelCreate).toHaveBeenCalledWith({
       data: { sourceId: "src-hr", kennelId: "new-kennel-1" },
     });
+  });
+
+  it("succeeds even if source linking throws", async () => {
+    mockSourceFind.mockRejectedValue(new Error("DB timeout"));
+
+    const result = await addKennelFromDiscovery("disc-1", {
+      shortName: "NewH3",
+      fullName: "New Hash House Harriers",
+      regionId: "region-1",
+    });
+
+    // Kennel creation succeeded despite linking failure
+    expect(result).toEqual({ success: true, kennelId: "new-kennel-1" });
   });
 
   it("is a no-op for source linking if no HASHREGO source", async () => {
