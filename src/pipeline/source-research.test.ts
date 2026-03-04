@@ -18,11 +18,9 @@ vi.mock("@/pipeline/html-analysis", () => ({ analyzeUrlForProposal: vi.fn() }));
 
 import { prisma } from "@/lib/db";
 import { detectSourceType } from "@/lib/source-detect";
-import { searchWithGemini } from "@/lib/ai/gemini";
 import { analyzeUrlForProposal } from "@/pipeline/html-analysis";
 
 const mockDetect = vi.mocked(detectSourceType);
-const mockSearch = vi.mocked(searchWithGemini);
 const mockAnalyze = vi.mocked(analyzeUrlForProposal);
 
 // Prisma mock accessors

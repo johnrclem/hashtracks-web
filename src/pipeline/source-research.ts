@@ -62,7 +62,7 @@ interface AnalysisResult {
 
 /** Normalize a URL for deduplication: lowercase + strip trailing slashes. */
 export function normalizeUrl(url: string): string {
-  let s = url.toLowerCase();
+  const s = url.toLowerCase();
   let end = s.length;
   while (end > 0 && s[end - 1] === "/") end--;
   return s.slice(0, end);
