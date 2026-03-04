@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mapWithConcurrency, researchSourcesForRegion } from "./source-research";
+import { mapWithConcurrency, researchSourcesForRegion, normalizeUrl, isBlocklistedDomain } from "./source-research";
 
 // Mock dependencies
 vi.mock("@/lib/db", () => ({
@@ -37,6 +37,32 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+/** Set up default mock returns for a research pipeline test. Override specific mocks as needed. */
+function setupResearchMocks(overrides?: {
+  kennelsWithWebsites?: { id: string; shortName: string; website: string }[];
+  existingSources?: { url: string }[];
+}) {
+  regionFindUnique.mockResolvedValue({ id: "r1", name: "Test Region" });
+  kennelFindMany.mockImplementation(async (args: unknown) => {
+    const where = (args as { where: { website?: unknown } }).where;
+    if (where.website) {
+      return overrides?.kennelsWithWebsites ?? [];
+    }
+    return [];
+  });
+  discoveryFindMany.mockResolvedValue([]);
+  sourceFindMany.mockResolvedValue(overrides?.existingSources ?? []);
+  proposalFindMany.mockResolvedValue([]);
+  proposalUpsert.mockResolvedValue({});
+  mockDetect.mockReturnValue(null);
+  mockAnalyze.mockResolvedValue({
+    candidates: [],
+    suggestedConfig: null,
+    explanation: "No containers found",
+    confidence: null,
+  });
+}
+
 describe("mapWithConcurrency", () => {
   it("processes all items", async () => {
     const items = [1, 2, 3, 4, 5];
@@ -65,6 +91,33 @@ describe("mapWithConcurrency", () => {
   });
 });
 
+describe("normalizeUrl", () => {
+  it("lowercases and strips trailing slashes", () => {
+    expect(normalizeUrl("https://Example.COM/Path/")).toBe("https://example.com/path");
+    expect(normalizeUrl("https://foo.com///")).toBe("https://foo.com");
+    expect(normalizeUrl("https://foo.com")).toBe("https://foo.com");
+  });
+});
+
+describe("isBlocklistedDomain", () => {
+  it("blocks google.com and subdomains", () => {
+    expect(isBlocklistedDomain("https://www.google.com/search?q=test")).toBe(true);
+    expect(isBlocklistedDomain("https://maps.google.com/place")).toBe(true);
+  });
+
+  it("allows non-blocklisted domains", () => {
+    expect(isBlocklistedDomain("https://hashnyc.com")).toBe(false);
+  });
+
+  it("does not match domain in path or query", () => {
+    expect(isBlocklistedDomain("https://hashnyc.com/?ref=google.com")).toBe(false);
+  });
+
+  it("returns false for invalid URLs", () => {
+    expect(isBlocklistedDomain("not-a-url")).toBe(false);
+  });
+});
+
 describe("researchSourcesForRegion", () => {
   it("returns error when region not found", async () => {
     regionFindUnique.mockResolvedValue(null);
@@ -75,25 +128,8 @@ describe("researchSourcesForRegion", () => {
   });
 
   it("collects URLs from kennels with websites", async () => {
-    regionFindUnique.mockResolvedValue({ id: "r1", name: "Test Region" });
-    kennelFindMany.mockImplementation(async (args: unknown) => {
-      const where = (args as { where: { website?: unknown } }).where;
-      if (where.website) {
-        return [{ id: "k1", shortName: "TH3", website: "https://th3.com" }];
-      }
-      return [];
-    });
-    discoveryFindMany.mockResolvedValue([]);
-    sourceFindMany.mockResolvedValue([]);
-    proposalFindMany.mockResolvedValue([]);
-    proposalUpsert.mockResolvedValue({});
-
-    mockDetect.mockReturnValue(null);
-    mockAnalyze.mockResolvedValue({
-      candidates: [],
-      suggestedConfig: null,
-      explanation: "No containers found",
-      confidence: null,
+    setupResearchMocks({
+      kennelsWithWebsites: [{ id: "k1", shortName: "TH3", website: "https://th3.com" }],
     });
 
     const result = await researchSourcesForRegion("r1");
@@ -103,27 +139,12 @@ describe("researchSourcesForRegion", () => {
   });
 
   it("deduplicates against existing sources and proposals", async () => {
-    regionFindUnique.mockResolvedValue({ id: "r1", name: "Test Region" });
-    kennelFindMany.mockImplementation(async (args: unknown) => {
-      const where = (args as { where: { website?: unknown } }).where;
-      if (where.website) {
-        return [
-          { id: "k1", shortName: "TH3", website: "https://th3.com" },
-          { id: "k2", shortName: "XH3", website: "https://existing.com" },
-        ];
-      }
-      return [];
-    });
-    discoveryFindMany.mockResolvedValue([]);
-    sourceFindMany.mockResolvedValue([{ url: "https://existing.com" }]);
-    proposalFindMany.mockResolvedValue([]);
-    proposalUpsert.mockResolvedValue({});
-    mockDetect.mockReturnValue(null);
-    mockAnalyze.mockResolvedValue({
-      candidates: [],
-      suggestedConfig: null,
-      explanation: "No containers",
-      confidence: null,
+    setupResearchMocks({
+      kennelsWithWebsites: [
+        { id: "k1", shortName: "TH3", website: "https://th3.com" },
+        { id: "k2", shortName: "XH3", website: "https://existing.com" },
+      ],
+      existingSources: [{ url: "https://existing.com" }],
     });
 
     const result = await researchSourcesForRegion("r1");
@@ -131,19 +152,9 @@ describe("researchSourcesForRegion", () => {
   });
 
   it("uses detectSourceType for known URL patterns", async () => {
-    regionFindUnique.mockResolvedValue({ id: "r1", name: "Test Region" });
-    kennelFindMany.mockImplementation(async (args: unknown) => {
-      const where = (args as { where: { website?: unknown } }).where;
-      if (where.website) {
-        return [{ id: "k1", shortName: "TH3", website: "https://calendar.google.com/cal?src=abc" }];
-      }
-      return [];
+    setupResearchMocks({
+      kennelsWithWebsites: [{ id: "k1", shortName: "TH3", website: "https://calendar.google.com/cal?src=abc" }],
     });
-    discoveryFindMany.mockResolvedValue([]);
-    sourceFindMany.mockResolvedValue([]);
-    proposalFindMany.mockResolvedValue([]);
-    proposalUpsert.mockResolvedValue({});
-
     mockDetect.mockReturnValue({ type: "GOOGLE_CALENDAR", extractedUrl: "abc" });
 
     const result = await researchSourcesForRegion("r1");
@@ -152,23 +163,13 @@ describe("researchSourcesForRegion", () => {
   });
 
   it("isolates errors per URL", async () => {
-    regionFindUnique.mockResolvedValue({ id: "r1", name: "Test Region" });
-    kennelFindMany.mockImplementation(async (args: unknown) => {
-      const where = (args as { where: { website?: unknown } }).where;
-      if (where.website) {
-        return [
-          { id: "k1", shortName: "TH3", website: "https://good.com" },
-          { id: "k2", shortName: "BH3", website: "https://bad.com" },
-        ];
-      }
-      return [];
+    setupResearchMocks({
+      kennelsWithWebsites: [
+        { id: "k1", shortName: "TH3", website: "https://good.com" },
+        { id: "k2", shortName: "BH3", website: "https://bad.com" },
+      ],
     });
-    discoveryFindMany.mockResolvedValue([]);
-    sourceFindMany.mockResolvedValue([]);
-    proposalFindMany.mockResolvedValue([]);
-    proposalUpsert.mockResolvedValue({});
 
-    mockDetect.mockReturnValue(null);
     mockAnalyze
       .mockResolvedValueOnce({
         candidates: [{ containerSelector: "table", rowSelector: "tr", rowCount: 5, sampleRows: [], layoutType: "table" }],

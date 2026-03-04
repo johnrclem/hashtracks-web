@@ -21,7 +21,7 @@ const TAB_ROUTES = [
 /** Map of tab value → badge count. Only tabs with count > 0 show a badge. */
 export type BadgeCounts = Partial<Record<(typeof TAB_ROUTES)[number]["value"], number>>;
 
-export function AdminNavTabs({ badgeCounts }: { badgeCounts: BadgeCounts }) {
+export function AdminNavTabs({ badgeCounts }: Readonly<{ badgeCounts: BadgeCounts }>) {
   const pathname = usePathname();
 
   const activeTab =

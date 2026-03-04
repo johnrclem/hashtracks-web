@@ -3,17 +3,33 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock dependencies
 vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    sourceProposal: {
-      findUnique: vi.fn(),
-      update: vi.fn(),
-      updateMany: vi.fn(),
+vi.mock("@/lib/db", () => {
+  const proposalFindUnique = vi.fn();
+  const proposalUpdate = vi.fn();
+  const proposalUpdateMany = vi.fn();
+  const sourceCreate = vi.fn();
+  const sourceKennelCreate = vi.fn();
+
+  // The $transaction mock passes the same prisma methods into the callback
+  const txClient = {
+    sourceProposal: { findUnique: proposalFindUnique, update: proposalUpdate },
+    source: { create: sourceCreate },
+    sourceKennel: { create: sourceKennelCreate },
+  };
+
+  return {
+    prisma: {
+      sourceProposal: {
+        findUnique: proposalFindUnique,
+        update: proposalUpdate,
+        updateMany: proposalUpdateMany,
+      },
+      source: { create: sourceCreate },
+      sourceKennel: { create: sourceKennelCreate },
+      $transaction: vi.fn((cb: (tx: typeof txClient) => Promise<unknown>) => cb(txClient)),
     },
-    source: { create: vi.fn() },
-    sourceKennel: { create: vi.fn() },
-  },
-}));
+  };
+});
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/pipeline/source-research", async (importOriginal) => {
@@ -151,6 +167,7 @@ describe("approveProposal", () => {
         data: expect.objectContaining({
           name: "Custom Name",
           type: "GOOGLE_CALENDAR",
+          url: "abc", // Calendar ID extracted as source URL
           config: { calendarId: "abc" },
         }),
       }),

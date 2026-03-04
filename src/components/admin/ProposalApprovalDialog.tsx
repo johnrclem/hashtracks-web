@@ -48,7 +48,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function ProposalApprovalDialog({ proposal, onClose }: Props) {
+export function ProposalApprovalDialog({ proposal, onClose }: Readonly<Props>) {
   const [isPending, startTransition] = useTransition();
 
   // Editable fields

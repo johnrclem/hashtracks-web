@@ -70,13 +70,29 @@ const CONFIDENCE_COLORS: Record<string, string> = {
   low: "text-red-600",
 };
 
-export function ResearchDashboard({ regions, proposals, coverageGaps, statusCounts }: Props) {
+/** Only allow http/https URLs in href to prevent javascript: XSS. */
+function isSafeUrl(url: string): boolean {
+  try { return /^https?:$/i.test(new URL(url).protocol); }
+  catch { return false; }
+}
+
+export function ResearchDashboard({ regions, proposals, coverageGaps, statusCounts }: Readonly<Props>) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selectedRegionId, setSelectedRegionId] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("PENDING");
   const [selectedProposal, setSelectedProposal] = useState<SerializedProposal | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  function changeRegion(id: string) {
+    setSelectedRegionId(id);
+    setSelectedIds(new Set());
+  }
+
+  function changeStatusFilter(v: string) {
+    setStatusFilter(v as StatusFilter);
+    setSelectedIds(new Set());
+  }
 
   const gaps = selectedRegionId ? (coverageGaps[selectedRegionId] ?? []) : [];
 
@@ -151,7 +167,7 @@ export function ResearchDashboard({ regions, proposals, coverageGaps, statusCoun
     <div className="space-y-6">
       {/* Region selector + research button */}
       <div className="flex items-center gap-3 flex-wrap">
-        <Select value={selectedRegionId} onValueChange={setSelectedRegionId}>
+        <Select value={selectedRegionId} onValueChange={changeRegion}>
           <SelectTrigger className="w-64">
             <SelectValue placeholder="Select region..." />
           </SelectTrigger>
@@ -210,7 +226,7 @@ export function ResearchDashboard({ regions, proposals, coverageGaps, statusCoun
       <div className="flex items-center justify-between flex-wrap gap-2">
         <Tabs
           value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+          onValueChange={changeStatusFilter}
         >
           <TabsList>
             <TabsTrigger value="PENDING">
@@ -244,13 +260,7 @@ export function ResearchDashboard({ regions, proposals, coverageGaps, statusCoun
       </div>
 
       {/* Proposals table */}
-      {filteredProposals.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">
-          {statusFilter === "PENDING"
-            ? "No pending proposals. Select a region and click Research to discover sources."
-            : "No proposals match this filter."}
-        </p>
-      ) : (
+      {filteredProposals.length > 0 ? (
         <Table>
           <TableHeader>
             <TableRow>
@@ -283,15 +293,21 @@ export function ResearchDashboard({ regions, proposals, coverageGaps, statusCoun
                   </TableCell>
                 )}
                 <TableCell className="max-w-[200px] sm:max-w-xs truncate">
-                  <a
-                    href={p.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline-offset-4 hover:underline"
-                    title={p.url}
-                  >
-                    {truncateUrl(p.url)}
-                  </a>
+                  {isSafeUrl(p.url) ? (
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline-offset-4 hover:underline"
+                      title={p.url}
+                    >
+                      {truncateUrl(p.url)}
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground" title={p.url}>
+                      {truncateUrl(p.url)}
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell>
                   {p.detectedType ? (
@@ -362,6 +378,12 @@ export function ResearchDashboard({ regions, proposals, coverageGaps, statusCoun
             ))}
           </TableBody>
         </Table>
+      ) : (
+        <p className="text-sm text-muted-foreground py-8 text-center">
+          {statusFilter === "PENDING"
+            ? "No pending proposals. Select a region and click Research to discover sources."
+            : "No proposals match this filter."}
+        </p>
       )}
 
       {/* Approval dialog */}

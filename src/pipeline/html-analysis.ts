@@ -152,33 +152,46 @@ function buildConfig(
   };
 }
 
-/**
- * Analyze an HTML page for event containers and suggest a GenericHtmlConfig.
- * No auth required — suitable for batch pipeline use.
- */
-export async function analyzeUrlForProposal(url: string): Promise<HtmlAnalysisResult> {
-  if (!url.trim()) return errorResult("URL required");
+/** Validate URL, fetch page, and find candidate containers. Shared by analyze and refine. */
+async function fetchAndFindContainers(
+  url: string,
+): Promise<{ candidates: ContainerCandidate[] } | { error: HtmlAnalysisResult }> {
+  if (!url.trim()) return { error: errorResult("URL required") };
 
   try { validateSourceUrl(url); } catch (e) {
-    return errorResult(e instanceof Error ? e.message : "Invalid URL");
+    return { error: errorResult(e instanceof Error ? e.message : "Invalid URL") };
   }
 
   const page = await fetchHTMLPage(url);
   if (!page.ok) {
     const msg = page.result.errors[0] || "Failed to fetch page";
-    return errorResult(msg, msg);
+    return { error: errorResult(msg, msg) };
   }
 
   const candidates = findCandidateContainers(page.$);
   if (candidates.length === 0) {
     return {
-      candidates: [],
-      suggestedConfig: null,
-      explanation: "No event-like containers found on this page. The page may use JavaScript rendering (not supported) or have an unusual layout.",
-      confidence: null,
+      error: {
+        candidates: [],
+        suggestedConfig: null,
+        explanation: "No event-like containers found on this page. The page may use JavaScript rendering (not supported) or have an unusual layout.",
+        confidence: null,
+      },
     };
   }
 
+  return { candidates };
+}
+
+/**
+ * Analyze an HTML page for event containers and suggest a GenericHtmlConfig.
+ * No auth required — suitable for batch pipeline use.
+ */
+export async function analyzeUrlForProposal(url: string): Promise<HtmlAnalysisResult> {
+  const fetched = await fetchAndFindContainers(url);
+  if ("error" in fetched) return fetched.error;
+
+  const { candidates } = fetched;
   const bestCandidate = candidates[0];
 
   // Try Gemini for column mapping
@@ -223,23 +236,10 @@ export async function refineAnalysis(
   currentConfig: Partial<GenericHtmlConfig>,
   feedback: string,
 ): Promise<HtmlAnalysisResult> {
-  if (!url.trim()) return errorResult("URL required");
+  const fetched = await fetchAndFindContainers(url);
+  if ("error" in fetched) return fetched.error;
 
-  try { validateSourceUrl(url); } catch (e) {
-    return errorResult(e instanceof Error ? e.message : "Invalid URL");
-  }
-
-  const page = await fetchHTMLPage(url);
-  if (!page.ok) {
-    const msg = page.result.errors[0] || "Failed to fetch page";
-    return errorResult(msg, msg);
-  }
-
-  const candidates = findCandidateContainers(page.$);
-  if (candidates.length === 0) {
-    return errorResult("No event-like containers found on this page.");
-  }
-
+  const { candidates } = fetched;
   const bestCandidate = candidates[0];
   const examples = getExamplesForLayout(bestCandidate.layoutType);
   const examplesText = formatExamplesForPrompt(examples);

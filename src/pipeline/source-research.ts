@@ -7,7 +7,8 @@ import { prisma } from "@/lib/db";
 import { detectSourceType } from "@/lib/source-detect";
 import { searchWithGemini } from "@/lib/ai/gemini";
 import { analyzeUrlForProposal } from "@/pipeline/html-analysis";
-import type { Prisma, SourceType } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
+import type { SourceType } from "@/generated/prisma/client";
 
 /** Domains to exclude from grounding URLs (not hash kennel sites). */
 const GROUNDING_URL_BLOCKLIST = [
@@ -48,6 +49,37 @@ interface UrlCandidate {
   searchQuery?: string;
 }
 
+interface AnalysisResult {
+  candidate: UrlCandidate;
+  detectedType: SourceType | null;
+  extractedConfig: Prisma.InputJsonValue | null;
+  confidence: string | null;
+  explanation: string | null;
+  error?: string;
+}
+
+// ─── Utility helpers ──────────────────────────────────────────────────────────
+
+/** Normalize a URL for deduplication: lowercase + strip trailing slashes. */
+export function normalizeUrl(url: string): string {
+  let s = url.toLowerCase();
+  let end = s.length;
+  while (end > 0 && s[end - 1] === "/") end--;
+  return s.slice(0, end);
+}
+
+/** Check if a URL belongs to a blocklisted domain. */
+export function isBlocklistedDomain(urlStr: string): boolean {
+  try {
+    const hostname = new URL(urlStr).hostname;
+    return GROUNDING_URL_BLOCKLIST.some(
+      (d) => hostname === d || hostname.endsWith("." + d),
+    );
+  } catch {
+    return false;
+  }
+}
+
 // ─── Concurrency helper ──────────────────────────────────────────────────────
 
 /** Run async tasks with bounded concurrency. */
@@ -71,34 +103,78 @@ export async function mapWithConcurrency<T, R>(
   return results;
 }
 
-// ─── Main pipeline ───────────────────────────────────────────────────────────
+// ─── Phase 1: URL Collection ────────────────────────────────────────────────
 
-export async function researchSourcesForRegion(regionId: string): Promise<ResearchResult> {
-  const start = Date.now();
-  const errors: string[] = [];
+/** Parse Gemini search response JSON into URL candidates. */
+function parseGeminiSearchResults(
+  text: string,
+  unsourcedKennels: { id: string; shortName: string }[],
+  searchQuery: string,
+): UrlCandidate[] {
+  const candidates: UrlCandidate[] = [];
+  const cleaned = text
+    .replace(/^```json?\n?/m, "")
+    .replace(/\n?```$/m, "")
+    .trim();
+  const parsed = JSON.parse(cleaned);
+  if (!Array.isArray(parsed)) return candidates;
 
-  // Load region
-  const region = await prisma.region.findUnique({
-    where: { id: regionId },
-    select: { id: true, name: true },
-  });
-  if (!region) {
-    return {
-      regionName: "Unknown",
-      urlsDiscovered: 0,
-      urlsAnalyzed: 0,
-      proposalsCreated: 0,
-      proposalsSkipped: 0,
-      errors: ["Region not found"],
-      durationMs: Date.now() - start,
-    };
+  for (const entry of parsed) {
+    if (typeof entry?.url !== "string" || !entry.url.startsWith("http")) continue;
+    const kennelStr = typeof entry.kennel === "string" && entry.kennel ? entry.kennel : "";
+    const matchingKennel = kennelStr
+      ? unsourcedKennels.find((k) => k.shortName.toLowerCase() === kennelStr.toLowerCase())
+      : undefined;
+    candidates.push({
+      url: entry.url,
+      kennelId: matchingKennel?.id,
+      kennelName: kennelStr,
+      discoveryMethod: "WEB_SEARCH",
+      searchQuery,
+    });
   }
+  return candidates;
+}
 
-  // ── Phase 1: URL Collection ────────────────────────────────────────────────
+/** Deduplicate candidates against existing sources, proposals, and each other. */
+async function deduplicateUrls(
+  candidates: UrlCandidate[],
+  regionId: string,
+): Promise<UrlCandidate[]> {
+  const [existingSourceUrls, existingProposalUrls] = await Promise.all([
+    prisma.source.findMany({ select: { url: true } }),
+    prisma.sourceProposal.findMany({
+      where: { regionId },
+      select: { url: true },
+    }),
+  ]);
 
+  const existingUrlSet = new Set([
+    ...existingSourceUrls.map((s) => normalizeUrl(s.url)),
+    ...existingProposalUrls.map((p) => normalizeUrl(p.url)),
+  ]);
+
+  const seenUrls = new Set<string>();
+  const deduped: UrlCandidate[] = [];
+  for (const c of candidates) {
+    const normalized = normalizeUrl(c.url);
+    if (!existingUrlSet.has(normalized) && !seenUrls.has(normalized)) {
+      seenUrls.add(normalized);
+      deduped.push(c);
+    }
+  }
+  return deduped;
+}
+
+/** Collect URL candidates from kennel websites, discoveries, and web search. */
+async function collectUrlCandidates(
+  regionId: string,
+  regionName: string,
+): Promise<{ candidates: UrlCandidate[]; errors: string[] }> {
+  const errors: string[] = [];
   const urlCandidates: UrlCandidate[] = [];
 
-  // 1a + 1b + 1c: Run all three DB queries in parallel
+  // Run all three DB queries in parallel
   const [kennelsWithWebsites, discoveries, unsourcedKennelsNoWeb] = await Promise.all([
     prisma.kennel.findMany({
       where: {
@@ -155,47 +231,26 @@ export async function researchSourcesForRegion(regionId: string): Promise<Resear
     }
   }
 
+  // Web search for kennels without websites
   if (unsourcedKennelsNoWeb.length > 0) {
     const kennelNames = unsourcedKennelsNoWeb
       .map((k) => `${k.shortName} (${k.fullName})`)
       .join(", ");
-    const searchQuery = `Find event listing or hareline URLs for these hash house harrier kennels in ${region.name}: ${kennelNames}. Return a JSON array of objects with format: [{"kennel": "ShortName", "url": "https://..."}]`;
+    const searchQuery = `Find event listing or hareline URLs for these hash house harrier kennels in ${regionName}: ${kennelNames}. Return a JSON array of objects with format: [{"kennel": "ShortName", "url": "https://..."}]`;
 
     const searchResult = await searchWithGemini(searchQuery);
 
-    // Parse URLs from Gemini response
     if (searchResult.text) {
       try {
-        const cleaned = searchResult.text
-          .replace(/^```json?\n?/m, "")
-          .replace(/\n?```$/m, "")
-          .trim();
-        const parsed = JSON.parse(cleaned);
-        if (Array.isArray(parsed)) {
-          for (const entry of parsed) {
-            if (typeof entry?.url === "string" && entry.url.startsWith("http")) {
-              const matchingKennel = unsourcedKennelsNoWeb.find(
-                (k) => k.shortName.toLowerCase() === String(entry.kennel).toLowerCase(),
-              );
-              urlCandidates.push({
-                url: entry.url,
-                kennelId: matchingKennel?.id,
-                kennelName: String(entry.kennel || ""),
-                discoveryMethod: "WEB_SEARCH",
-                searchQuery,
-              });
-            }
-          }
-        }
+        const parsed = parseGeminiSearchResults(searchResult.text, unsourcedKennelsNoWeb, searchQuery);
+        urlCandidates.push(...parsed);
       } catch {
         errors.push("Failed to parse Gemini search response");
       }
     }
 
-    // Also add grounding URLs
     for (const gUrl of searchResult.groundingUrls) {
-      // Only include URLs that look like hash kennel sites (not Google, Wikipedia, etc.)
-      if (!GROUNDING_URL_BLOCKLIST.some((domain) => gUrl.includes(domain))) {
+      if (!isBlocklistedDomain(gUrl)) {
         urlCandidates.push({
           url: gUrl,
           discoveryMethod: "WEB_SEARCH",
@@ -209,46 +264,15 @@ export async function researchSourcesForRegion(regionId: string): Promise<Resear
     }
   }
 
-  // 1d. Deduplicate URLs against existing sources and proposals
-  const [existingSourceUrls, existingProposalUrls] = await Promise.all([
-    prisma.source.findMany({ select: { url: true } }),
-    prisma.sourceProposal.findMany({
-      where: { regionId },
-      select: { url: true },
-    }),
-  ]);
+  return { candidates: urlCandidates, errors };
+}
 
-  const existingUrlSet = new Set([
-    ...existingSourceUrls.map((s) => s.url.toLowerCase()),
-    ...existingProposalUrls.map((p) => p.url.toLowerCase()),
-  ]);
+// ─── Phase 2: Classify + Analyze ────────────────────────────────────────────
 
-  // Deduplicate within candidates too
-  const seenUrls = new Set<string>();
-  const dedupedCandidates: UrlCandidate[] = [];
-  for (const c of urlCandidates) {
-    const normalized = c.url.toLowerCase().replace(/\/+$/, "");
-    if (!existingUrlSet.has(normalized) && !seenUrls.has(normalized)) {
-      seenUrls.add(normalized);
-      dedupedCandidates.push(c);
-    }
-  }
-
-  const urlsDiscovered = dedupedCandidates.length;
-
-  // ── Phase 2: Classify + Analyze (concurrency-limited to 3) ─────────────────
-
-  interface AnalysisResult {
-    candidate: UrlCandidate;
-    detectedType: SourceType | null;
-    extractedConfig: Prisma.InputJsonValue | null;
-    confidence: string | null;
-    explanation: string | null;
-    error?: string;
-  }
-
-  const analysisResults = await mapWithConcurrency<UrlCandidate, AnalysisResult>(
-    dedupedCandidates,
+/** Classify and analyze URL candidates (concurrency-limited to 3). */
+async function classifyAndAnalyze(candidates: UrlCandidate[]): Promise<AnalysisResult[]> {
+  return mapWithConcurrency<UrlCandidate, AnalysisResult>(
+    candidates,
     async (candidate) => {
       try {
         // Step 1: Try deterministic detection
@@ -261,7 +285,6 @@ export async function researchSourcesForRegion(regionId: string): Promise<Resear
             extractedConfig: (Object.keys(config).length > 0 ? config : null) as Prisma.InputJsonValue,
             confidence: "high",
             explanation: `Detected as ${detected.type} from URL pattern`,
-            error: undefined,
           };
         }
 
@@ -284,7 +307,6 @@ export async function researchSourcesForRegion(regionId: string): Promise<Resear
           extractedConfig: analysis.suggestedConfig as unknown as Prisma.InputJsonValue,
           confidence: analysis.confidence,
           explanation: analysis.explanation,
-          error: undefined,
         };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -300,13 +322,20 @@ export async function researchSourcesForRegion(regionId: string): Promise<Resear
     },
     3,
   );
+}
 
-  // ── Phase 3: Persist ───────────────────────────────────────────────────────
+// ─── Phase 3: Persist ───────────────────────────────────────────────────────
 
-  let proposalsCreated = 0;
-  let proposalsSkipped = 0;
+/** Persist analysis results as SourceProposals. */
+async function persistProposals(
+  results: AnalysisResult[],
+  regionId: string,
+): Promise<{ created: number; skipped: number; errors: string[] }> {
+  let created = 0;
+  let skipped = 0;
+  const errors: string[] = [];
 
-  for (const result of analysisResults) {
+  for (const result of results) {
     try {
       await prisma.sourceProposal.upsert({
         where: {
@@ -325,7 +354,7 @@ export async function researchSourcesForRegion(regionId: string): Promise<Resear
           discoveryMethod: result.candidate.discoveryMethod,
           searchQuery: result.candidate.searchQuery ?? null,
           detectedType: result.detectedType,
-          extractedConfig: result.extractedConfig ?? undefined,
+          extractedConfig: result.extractedConfig ?? Prisma.JsonNull,
           confidence: result.confidence,
           explanation: result.explanation,
           kennelName: result.candidate.kennelName ?? null,
@@ -333,26 +362,65 @@ export async function researchSourcesForRegion(regionId: string): Promise<Resear
         },
         update: {
           detectedType: result.detectedType,
-          extractedConfig: result.extractedConfig ?? undefined,
+          extractedConfig: result.extractedConfig ?? Prisma.JsonNull,
           confidence: result.confidence,
           explanation: result.explanation,
           status: result.error ? "ERROR" : "PENDING",
           kennelName: result.candidate.kennelName ?? null,
         },
       });
-      proposalsCreated++;
+      created++;
     } catch (err) {
-      proposalsSkipped++;
+      skipped++;
       errors.push(`Failed to save proposal for ${result.candidate.url}: ${err}`);
     }
   }
+
+  return { created, skipped, errors };
+}
+
+// ─── Main pipeline ───────────────────────────────────────────────────────────
+
+export async function researchSourcesForRegion(regionId: string): Promise<ResearchResult> {
+  const start = Date.now();
+
+  // Load region
+  const region = await prisma.region.findUnique({
+    where: { id: regionId },
+    select: { id: true, name: true },
+  });
+  if (!region) {
+    return {
+      regionName: "Unknown",
+      urlsDiscovered: 0,
+      urlsAnalyzed: 0,
+      proposalsCreated: 0,
+      proposalsSkipped: 0,
+      errors: ["Region not found"],
+      durationMs: Date.now() - start,
+    };
+  }
+
+  // Phase 1: Collect URL candidates
+  const { candidates: rawCandidates, errors } = await collectUrlCandidates(regionId, region.name);
+
+  // Deduplicate
+  const dedupedCandidates = await deduplicateUrls(rawCandidates, regionId);
+  const urlsDiscovered = dedupedCandidates.length;
+
+  // Phase 2: Classify + Analyze
+  const analysisResults = await classifyAndAnalyze(dedupedCandidates);
+
+  // Phase 3: Persist
+  const persistence = await persistProposals(analysisResults, regionId);
+  errors.push(...persistence.errors);
 
   return {
     regionName: region.name,
     urlsDiscovered,
     urlsAnalyzed: analysisResults.length,
-    proposalsCreated,
-    proposalsSkipped,
+    proposalsCreated: persistence.created,
+    proposalsSkipped: persistence.skipped,
     errors,
     durationMs: Date.now() - start,
   };

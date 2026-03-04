@@ -24,26 +24,13 @@ export async function startRegionResearch(regionId: string) {
   }
 }
 
-/** Approve a proposal → create Source + SourceKennel. */
-export async function approveProposal(
-  proposalId: string,
-  overrides?: {
-    name?: string;
-    type?: SourceType;
-    kennelId?: string;
-    config?: string;
-  },
-) {
-  const admin = await getAdminUser();
-  if (!admin) return { error: "Not authorized" };
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-  const proposal = await prisma.sourceProposal.findUnique({
-    where: { id: proposalId },
-  });
-  if (!proposal) return { error: "Proposal not found" };
-  if (proposal.status === "APPROVED") return { error: "Already approved" };
-
-  // Determine final values (overrides > proposal)
+/** Resolve the Source URL, type, config, name from proposal + overrides. */
+function resolveSourceFields(
+  proposal: { url: string; detectedType: SourceType | null; extractedConfig: Prisma.JsonValue | null; kennelId: string | null; sourceName: string | null; kennelName: string | null },
+  overrides?: { name?: string; type?: SourceType; kennelId?: string; config?: string },
+): { sourceType: SourceType; config: Prisma.InputJsonValue | undefined; sourceUrl: string; sourceName: string; kennelId: string | null } | { error: string } {
   const sourceType = overrides?.type ?? proposal.detectedType;
   if (!sourceType) return { error: "Source type is required" };
 
@@ -58,47 +45,85 @@ export async function approveProposal(
     config = proposal.extractedConfig as Prisma.InputJsonValue;
   }
 
+  // For structured source types, extract the meaningful identifier as the Source.url
+  // (e.g., Google Calendar adapter reads source.url as calendarId)
+  let sourceUrl = proposal.url;
+  const resolvedConfig = config as Record<string, unknown> | undefined;
+  if (sourceType === "GOOGLE_CALENDAR" && resolvedConfig?.calendarId) {
+    sourceUrl = String(resolvedConfig.calendarId);
+  } else if (sourceType === "GOOGLE_SHEETS" && resolvedConfig?.sheetId) {
+    sourceUrl = String(resolvedConfig.sheetId);
+  } else if (sourceType === "MEETUP" && resolvedConfig?.groupUrlname) {
+    sourceUrl = `https://www.meetup.com/${resolvedConfig.groupUrlname}`;
+  }
+
   const kennelId = overrides?.kennelId ?? proposal.kennelId;
   const sourceName = overrides?.name ?? proposal.sourceName ?? `Source: ${proposal.url}`;
 
+  return { sourceType, config, sourceUrl, sourceName, kennelId };
+}
+
+/** Approve a proposal → create Source + SourceKennel (transactional). */
+export async function approveProposal(
+  proposalId: string,
+  overrides?: {
+    name?: string;
+    type?: SourceType;
+    kennelId?: string;
+    config?: string;
+  },
+) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
   try {
-    const source = await prisma.source.create({
-      data: {
-        name: sourceName,
-        url: proposal.url,
-        type: sourceType,
-        config,
-        enabled: true,
-        trustLevel: 5,
-      },
-    });
+    const sourceId = await prisma.$transaction(async (tx) => {
+      const proposal = await tx.sourceProposal.findUnique({
+        where: { id: proposalId },
+      });
+      if (!proposal) throw new Error("Proposal not found");
+      if (proposal.status === "APPROVED") throw new Error("Already approved");
 
-    // Create SourceKennel link if kennelId provided
-    if (kennelId) {
-      try {
-        await prisma.sourceKennel.create({
-          data: { sourceId: source.id, kennelId },
-        });
-      } catch (e: unknown) {
-        // P2002 = unique constraint violation — link already exists
-        if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+      const resolved = resolveSourceFields(proposal, overrides);
+      if ("error" in resolved) throw new Error(resolved.error);
+
+      const source = await tx.source.create({
+        data: {
+          name: resolved.sourceName,
+          url: resolved.sourceUrl,
+          type: resolved.sourceType,
+          config: resolved.config,
+          enabled: true,
+          trustLevel: 5,
+        },
+      });
+
+      if (resolved.kennelId) {
+        try {
+          await tx.sourceKennel.create({
+            data: { sourceId: source.id, kennelId: resolved.kennelId },
+          });
+        } catch (e: unknown) {
+          if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+        }
       }
-    }
 
-    // Update proposal status
-    await prisma.sourceProposal.update({
-      where: { id: proposalId },
-      data: {
-        status: "APPROVED",
-        createdSourceId: source.id,
-        processedBy: admin.id,
-        processedAt: new Date(),
-      },
+      await tx.sourceProposal.update({
+        where: { id: proposalId },
+        data: {
+          status: "APPROVED",
+          createdSourceId: source.id,
+          processedBy: admin.id,
+          processedAt: new Date(),
+        },
+      });
+
+      return source.id;
     });
 
     revalidatePath("/admin/research");
     revalidatePath("/admin/sources");
-    return { success: true, sourceId: source.id };
+    return { success: true, sourceId };
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }
