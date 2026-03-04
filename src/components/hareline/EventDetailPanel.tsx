@@ -179,6 +179,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             lng={event.longitude ?? undefined}
             locationName={event.locationName ?? undefined}
             locationAddress={event.locationAddress ?? undefined}
+            regionHint={event.kennel.region}
           />
         )}
 

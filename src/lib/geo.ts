@@ -237,3 +237,43 @@ export function cityFromTimezone(timezone: string | null): string | null {
   const city = parts.at(-1)?.replaceAll("_", " ") ?? null;
   return city || null;
 }
+
+/**
+ * Resolve a Google Maps short URL (maps.app.goo.gl or goo.gl/maps)
+ * by following HTTP redirects to get the full URL with coordinates.
+ * Returns null if resolution fails or the URL is not a short Maps URL.
+ */
+export async function resolveShortMapsUrl(
+  url: string,
+): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const isShortMapsUrl =
+      parsed.hostname === "maps.app.goo.gl" ||
+      (parsed.hostname === "goo.gl" && parsed.pathname.startsWith("/maps"));
+    if (!isShortMapsUrl) return null;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch(url, {
+        method: "HEAD",
+        redirect: "follow",
+        signal: controller.signal,
+      });
+      if (res.url === url) return null;
+      // Verify the resolved URL is a Google domain (guard against unexpected redirects)
+      const resolved = new URL(res.url);
+      const isGoogleDomain =
+        resolved.hostname.endsWith("google.com") ||
+        resolved.hostname.endsWith("google.co.uk") ||
+        resolved.hostname.endsWith("goo.gl");
+      return isGoogleDomain ? res.url : null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {
+    return null;
+  }
+}

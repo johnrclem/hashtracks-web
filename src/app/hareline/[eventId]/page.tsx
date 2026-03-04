@@ -307,6 +307,7 @@ export default async function EventDetailPage({
                 lng={event.longitude ?? undefined}
                 locationName={event.locationName ?? undefined}
                 locationAddress={event.locationAddress ?? undefined}
+                regionHint={event.kennel.region}
                 imgClassName="h-64 md:h-full md:min-h-64"
               />
             )}

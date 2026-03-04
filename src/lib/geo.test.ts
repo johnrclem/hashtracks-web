@@ -1,4 +1,4 @@
-import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, reverseGeocode, cityFromTimezone } from "./geo";
+import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, reverseGeocode, cityFromTimezone, resolveShortMapsUrl } from "./geo";
 
 describe("extractCoordsFromMapsUrl", () => {
   it("parses @lat,lng,zoom path segment", () => {
@@ -349,5 +349,86 @@ describe("cityFromTimezone", () => {
 
   it("returns null for non-IANA format", () => {
     expect(cityFromTimezone("EST")).toBeNull();
+  });
+});
+
+describe("resolveShortMapsUrl", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("resolves maps.app.goo.gl URL to full Google Maps URL", async () => {
+    const fullUrl = "https://www.google.com/maps/place/Wide+Shut+Bar/@40.7223,-73.9912,17z";
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      url: fullUrl,
+    } as Response);
+
+    const result = await resolveShortMapsUrl("https://maps.app.goo.gl/dCAkzG1FFFH3ApJF9");
+    expect(result).toBe(fullUrl);
+    expect(fetch).toHaveBeenCalledWith(
+      "https://maps.app.goo.gl/dCAkzG1FFFH3ApJF9",
+      expect.objectContaining({ method: "HEAD", redirect: "follow" }),
+    );
+  });
+
+  it("resolves goo.gl/maps URL", async () => {
+    const fullUrl = "https://www.google.com/maps/place/Test/@40.0,-74.0,17z";
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      url: fullUrl,
+    } as Response);
+
+    const result = await resolveShortMapsUrl("https://goo.gl/maps/abc123");
+    expect(result).toBe(fullUrl);
+  });
+
+  it("returns null for non-short-URL", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const result = await resolveShortMapsUrl("https://www.google.com/maps/@40.0,-74.0,17z");
+    expect(result).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns null for empty string", async () => {
+    const result = await resolveShortMapsUrl("");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when redirect URL is same as input (no redirect)", async () => {
+    const url = "https://maps.app.goo.gl/abc123";
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      url: url,
+    } as Response);
+
+    const result = await resolveShortMapsUrl(url);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when fetch fails (network error)", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("Network error"));
+    const result = await resolveShortMapsUrl("https://maps.app.goo.gl/abc123");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when fetch is aborted (timeout)", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
+      new DOMException("Aborted", "AbortError"),
+    );
+    const result = await resolveShortMapsUrl("https://maps.app.goo.gl/abc123");
+    expect(result).toBeNull();
+  });
+
+  it("returns null for non-maps goo.gl URL", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const result = await resolveShortMapsUrl("https://goo.gl/some-other-thing");
+    expect(result).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns null when redirect goes to non-Google domain", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      url: "https://evil.example.com/phishing",
+    } as Response);
+    const result = await resolveShortMapsUrl("https://maps.app.goo.gl/abc123");
+    expect(result).toBeNull();
   });
 });

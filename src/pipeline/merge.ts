@@ -6,7 +6,7 @@ import { regionTimezone, getLabelForUrl } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
-import { extractCoordsFromMapsUrl, geocodeAddress } from "@/lib/geo";
+import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl } from "@/lib/geo";
 
 /**
  * Create EventLink records for an event from externalLinks + alternate sourceUrls.
@@ -38,6 +38,8 @@ interface MergeContext {
   linkedKennelIds: Set<string>;
   /** Per-batch cache of kennelId → region string to avoid N+1 queries. */
   regionCache: Map<string, string>;
+  /** Per-batch cache of short Maps URL → resolved full URL (avoids repeated HTTP calls). */
+  shortUrlCache: Map<string, string | null>;
   result: MergeResult;
 }
 
@@ -228,6 +230,7 @@ function extractRawCoords(event: RawEventData): { latitude?: number; longitude?:
 async function resolveCoords(
   event: RawEventData,
   existingCoords?: { latitude: number | null; longitude: number | null; locationAddress: string | null },
+  shortUrlCache?: Map<string, string | null>,
 ): Promise<{ latitude?: number; longitude?: number }> {
   const rawCoords = extractRawCoords(event);
   if (rawCoords.latitude != null) return rawCoords;
@@ -240,6 +243,19 @@ async function resolveCoords(
     (event.locationUrl ?? null) === (existingCoords.locationAddress ?? null)
   ) {
     return { latitude: existingCoords.latitude, longitude: existingCoords.longitude };
+  }
+
+  // Try resolving short Maps URLs (maps.app.goo.gl) to full URLs with coordinates
+  if (event.locationUrl) {
+    let resolvedUrl = shortUrlCache?.get(event.locationUrl);
+    if (resolvedUrl === undefined) {
+      resolvedUrl = await resolveShortMapsUrl(event.locationUrl);
+      shortUrlCache?.set(event.locationUrl, resolvedUrl);
+    }
+    if (resolvedUrl) {
+      const coords = extractCoordsFromMapsUrl(resolvedUrl);
+      if (coords) return { latitude: coords.lat, longitude: coords.lng };
+    }
   }
 
   if (event.location) {
@@ -284,7 +300,7 @@ async function upsertCanonicalEvent(
         latitude: existingEvent.latitude,
         longitude: existingEvent.longitude,
         locationAddress: existingEvent.locationAddress,
-      });
+      }, ctx.shortUrlCache);
       await prisma.event.update({
         where: { id: existingEvent.id },
         data: {
@@ -331,7 +347,7 @@ async function upsertCanonicalEvent(
     ctx.result.updated++;
   } else {
     // Create new canonical Event
-    const coords = await resolveCoords(event);
+    const coords = await resolveCoords(event, undefined, ctx.shortUrlCache);
     const newEvent = await prisma.event.create({
       data: {
         kennelId,
@@ -494,7 +510,8 @@ export async function processRawEvents(
   clearResolverCache();
 
   const regionCache = new Map<string, string>();
-  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, regionCache, result };
+  const shortUrlCache = new Map<string, string | null>();
+  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, regionCache, shortUrlCache, result };
 
   const seriesGroups = new Map<string, string[]>();
 
