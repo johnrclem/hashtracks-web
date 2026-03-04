@@ -79,8 +79,9 @@ model Region {
   children      Region[]  @relation("RegionHierarchy")
 
   // Relations
-  kennels           Kennel[]
-  sourceProposals   SourceProposal[]
+  kennels             Kennel[]
+  sourceProposals     SourceProposal[]
+  kennelDiscoveries   KennelDiscovery[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -723,6 +724,8 @@ model KennelDiscovery {
   matchedKennelId String?
   matchScore      Float?          // Best fuzzy match score (0–1)
   matchCandidates Json?           // Top 3: [{id, shortName, score}]
+  regionId        String?         // Scope AI discoveries to a region
+  regionRef       Region?         @relation(fields: [regionId], references: [id])
 
   lastSeenAt      DateTime        @default(now())
   processedBy     String?
@@ -734,6 +737,7 @@ model KennelDiscovery {
 
   @@unique([externalSource, externalSlug])
   @@index([status])
+  @@index([regionId, status])
 }
 
 enum DiscoveryStatus {

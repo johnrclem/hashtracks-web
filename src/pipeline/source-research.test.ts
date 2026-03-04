@@ -15,6 +15,14 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/source-detect", () => ({ detectSourceType: vi.fn() }));
 vi.mock("@/lib/ai/gemini", () => ({ searchWithGemini: vi.fn() }));
 vi.mock("@/pipeline/html-analysis", () => ({ analyzeUrlForProposal: vi.fn() }));
+vi.mock("@/pipeline/kennel-discovery-ai", () => ({
+  discoverKennelsForRegion: vi.fn().mockResolvedValue({
+    discovered: 0,
+    matched: 0,
+    skipped: 0,
+    errors: [],
+  }),
+}));
 
 import { prisma } from "@/lib/db";
 import { detectSourceType } from "@/lib/source-detect";
