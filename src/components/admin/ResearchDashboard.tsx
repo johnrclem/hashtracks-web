@@ -1,16 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,13 +21,29 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
   startRegionResearch,
   rejectProposal,
   bulkRejectProposals,
 } from "@/app/admin/research/actions";
 import { ProposalApprovalDialog } from "./ProposalApprovalDialog";
+import { KennelDiscoveryCard } from "./KennelDiscoveryCard";
+import { AddKennelFromResearchDialog } from "./AddKennelFromResearchDialog";
 import { TYPE_LABELS } from "./SourceTable";
-import type { SourceType, ProposalStatus } from "@/generated/prisma/client";
+import type { SourceType, ProposalStatus, DiscoveryStatus } from "@/generated/prisma/client";
+import type { ConfidenceLevel } from "@/pipeline/source-research";
 
 export interface SerializedProposal {
   id: string;
@@ -48,16 +57,34 @@ export interface SerializedProposal {
   discoveryMethod: string;
   detectedType: SourceType | null;
   extractedConfig: unknown;
-  confidence: string | null;
+  confidence: ConfidenceLevel | null;
   explanation: string | null;
   status: ProposalStatus;
   createdSourceId: string | null;
   createdAt: string;
 }
 
+export interface SerializedDiscovery {
+  id: string;
+  externalSlug: string;
+  name: string;
+  location: string | null;
+  website: string | null;
+  schedule: string | null;
+  yearStarted: number | null;
+  status: DiscoveryStatus;
+  matchedKennelId: string | null;
+  matchedKennelName: string | null;
+  matchScore: number | null;
+  matchCandidates: { id: string; shortName: string; score: number }[];
+  regionId: string | null;
+  regionName: string | null;
+}
+
 interface Props {
   regions: { id: string; name: string; abbrev: string; country: string }[];
   proposals: SerializedProposal[];
+  discoveries: SerializedDiscovery[];
   coverageGaps: Record<string, { id: string; shortName: string; website: string | null }[]>;
   statusCounts: { pending: number; approved: number; rejected: number; error: number; total: number };
 }
@@ -76,17 +103,40 @@ function isSafeUrl(url: string): boolean {
   catch { return false; }
 }
 
-export function ResearchDashboard({ regions, proposals, coverageGaps, statusCounts }: Readonly<Props>) {
+export function ResearchDashboard({ regions, proposals, discoveries, coverageGaps, statusCounts }: Readonly<Props>) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [regionInput, setRegionInput] = useState("");
   const [selectedRegionId, setSelectedRegionId] = useState<string>("");
+  const [comboboxOpen, setComboboxOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("PENDING");
   const [selectedProposal, setSelectedProposal] = useState<SerializedProposal | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [addDiscovery, setAddDiscovery] = useState<SerializedDiscovery | null>(null);
 
-  function changeRegion(id: string) {
-    setSelectedRegionId(id);
+  // Display text for the combobox trigger
+  const selectedRegion = regions.find((r) => r.id === selectedRegionId);
+  const displayText = selectedRegion
+    ? `${selectedRegion.name} (${selectedRegion.abbrev})`
+    : regionInput || "Type or select a region...";
+
+  function selectRegion(regionId: string) {
+    const region = regions.find((r) => r.id === regionId);
+    setSelectedRegionId(regionId);
+    setRegionInput(region?.name ?? "");
+    setComboboxOpen(false);
     setSelectedIds(new Set());
+  }
+
+  function handleInputChange(value: string) {
+    setRegionInput(value);
+    // If input matches an existing region name exactly, select it
+    const match = regions.find((r) => r.name.toLowerCase() === value.toLowerCase());
+    if (match) {
+      setSelectedRegionId(match.id);
+    } else {
+      setSelectedRegionId("");
+    }
   }
 
   function changeStatusFilter(v: string) {
@@ -96,25 +146,43 @@ export function ResearchDashboard({ regions, proposals, coverageGaps, statusCoun
 
   const gaps = selectedRegionId ? (coverageGaps[selectedRegionId] ?? []) : [];
 
+  // Filter discoveries by selected region
+  const filteredDiscoveries = useMemo(() => {
+    if (!selectedRegionId) return discoveries;
+    return discoveries.filter((d) => d.regionId === selectedRegionId);
+  }, [discoveries, selectedRegionId]);
+
   const filteredProposals = proposals.filter((p) => {
     if (selectedRegionId && p.regionId !== selectedRegionId) return false;
     if (statusFilter !== "ALL" && p.status !== statusFilter) return false;
     return true;
   });
 
+  // Kennels in selected region (for linking)
+  const regionKennels = useMemo(() => {
+    if (!selectedRegionId) return [];
+    const gapKennels = coverageGaps[selectedRegionId] ?? [];
+    return gapKennels.map((k) => ({ id: k.id, shortName: k.shortName }));
+  }, [selectedRegionId, coverageGaps]);
+
   function handleResearch() {
-    if (!selectedRegionId) {
-      toast.error("Select a region first");
+    // Use regionId if matched, otherwise use the free-text input
+    const researchTarget = selectedRegionId || regionInput.trim();
+    if (!researchTarget) {
+      toast.error("Enter a region name or select one");
       return;
     }
     startTransition(async () => {
-      const result = await startRegionResearch(selectedRegionId);
+      const result = await startRegionResearch(researchTarget);
       if ("error" in result && result.error) {
         toast.error(result.error);
       } else if ("success" in result) {
-        toast.success(
-          `Research complete: ${result.urlsDiscovered} URLs found, ${result.proposalsCreated} proposals created`,
-        );
+        const parts: string[] = [];
+        if (result.kennelsDiscovered) parts.push(`${result.kennelsDiscovered} kennels discovered`);
+        if (result.kennelsMatched) parts.push(`${result.kennelsMatched} matched`);
+        if (result.urlsDiscovered) parts.push(`${result.urlsDiscovered} URLs found`);
+        if (result.proposalsCreated) parts.push(`${result.proposalsCreated} proposals`);
+        toast.success(`Research complete: ${parts.join(", ") || "no new results"}`);
         router.refresh();
       }
     });
@@ -163,29 +231,83 @@ export function ResearchDashboard({ regions, proposals, coverageGaps, statusCoun
     }
   }
 
+  // Group regions by country for the command list
+  const grouped = regions.reduce<Record<string, typeof regions>>((acc, r) => {
+    if (!acc[r.country]) acc[r.country] = [];
+    acc[r.country].push(r);
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-6">
-      {/* Region selector + research button */}
+      {/* Region input + research button */}
       <div className="flex items-center gap-3 flex-wrap">
-        <Select value={selectedRegionId} onValueChange={changeRegion}>
-          <SelectTrigger className="w-64">
-            <SelectValue placeholder="Select region..." />
-          </SelectTrigger>
-          <SelectContent>
-            {regions.map((r) => (
-              <SelectItem key={r.id} value={r.id}>
-                {r.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={comboboxOpen}
+              className="w-72 justify-between font-normal"
+            >
+              <span className="truncate">{displayText}</span>
+              <svg aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 opacity-50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[300px] p-0" align="start">
+            <Command>
+              <CommandInput
+                placeholder="Search or type new region..."
+                value={regionInput}
+                onValueChange={handleInputChange}
+              />
+              <CommandList>
+                <CommandEmpty>
+                  {regionInput.trim() ? (
+                    <button
+                      className="w-full px-2 py-3 text-sm text-left hover:bg-accent cursor-pointer"
+                      onClick={() => {
+                        setSelectedRegionId("");
+                        setComboboxOpen(false);
+                      }}
+                    >
+                      Research &ldquo;{regionInput.trim()}&rdquo; (new region)
+                    </button>
+                  ) : (
+                    "No region found."
+                  )}
+                </CommandEmpty>
+                {Object.entries(grouped).map(([country, countryRegions]) => (
+                  <CommandGroup key={country} heading={country}>
+                    {countryRegions.map((r) => (
+                      <CommandItem
+                        key={r.id}
+                        value={`${r.name} ${r.abbrev}`}
+                        onSelect={() => selectRegion(r.id)}
+                      >
+                        {r.name}
+                        <span className="ml-auto text-xs text-muted-foreground">{r.abbrev}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ))}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
 
         <Button
           onClick={handleResearch}
-          disabled={!selectedRegionId || isPending}
+          disabled={(!selectedRegionId && !regionInput.trim()) || isPending}
         >
           {isPending ? "Researching..." : "Research Region"}
         </Button>
+
+        {!selectedRegionId && regionInput.trim() && (
+          <span className="text-xs text-muted-foreground">
+            New region will be created
+          </span>
+        )}
       </div>
 
       {/* Coverage gaps */}
@@ -219,6 +341,30 @@ export function ResearchDashboard({ regions, proposals, coverageGaps, statusCoun
               * = has website URL
             </p>
           )}
+        </div>
+      )}
+
+      {/* Discovered Kennels section */}
+      {filteredDiscoveries.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">
+              Discovered Kennels ({filteredDiscoveries.length})
+            </h3>
+            <span className="text-xs text-muted-foreground">
+              AI-discovered via Gemini search
+            </span>
+          </div>
+          <div className="space-y-2">
+            {filteredDiscoveries.map((d) => (
+              <KennelDiscoveryCard
+                key={d.id}
+                discovery={d}
+                kennels={regionKennels}
+                onAdd={setAddDiscovery}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -394,6 +540,15 @@ export function ResearchDashboard({ regions, proposals, coverageGaps, statusCoun
             setSelectedProposal(null);
             router.refresh();
           }}
+        />
+      )}
+
+      {/* Add kennel dialog */}
+      {addDiscovery && (
+        <AddKennelFromResearchDialog
+          discovery={addDiscovery}
+          regionId={selectedRegionId}
+          onClose={() => setAddDiscovery(null)}
         />
       )}
     </div>

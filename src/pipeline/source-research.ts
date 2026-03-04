@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { detectSourceType } from "@/lib/source-detect";
 import { searchWithGemini } from "@/lib/ai/gemini";
 import { analyzeUrlForProposal } from "@/pipeline/html-analysis";
+import { discoverKennelsForRegion } from "@/pipeline/kennel-discovery-ai";
 import { Prisma } from "@/generated/prisma/client";
 import type { SourceType } from "@/generated/prisma/client";
 
@@ -33,6 +34,8 @@ export function buildDetectedConfig(detected: {
 
 export interface ResearchResult {
   regionName: string;
+  kennelsDiscovered: number;
+  kennelsMatched: number;
   urlsDiscovered: number;
   urlsAnalyzed: number;
   proposalsCreated: number;
@@ -49,11 +52,13 @@ interface UrlCandidate {
   searchQuery?: string;
 }
 
+export type ConfidenceLevel = "high" | "medium" | "low";
+
 interface AnalysisResult {
   candidate: UrlCandidate;
   detectedType: SourceType | null;
   extractedConfig: Prisma.InputJsonValue | null;
-  confidence: string | null;
+  confidence: ConfidenceLevel | null;
   explanation: string | null;
   error?: string;
 }
@@ -174,8 +179,8 @@ async function collectUrlCandidates(
   const errors: string[] = [];
   const urlCandidates: UrlCandidate[] = [];
 
-  // Run all three DB queries in parallel
-  const [kennelsWithWebsites, discoveries, unsourcedKennelsNoWeb] = await Promise.all([
+  // Run all four DB queries in parallel
+  const [kennelsWithWebsites, discoveries, unsourcedKennelsNoWeb, geminiDiscoveries] = await Promise.all([
     prisma.kennel.findMany({
       where: {
         regionId,
@@ -207,6 +212,16 @@ async function collectUrlCandidates(
       },
       select: { id: true, shortName: true, fullName: true },
     }),
+    // Also include Gemini-discovered kennels with websites (not yet added)
+    prisma.kennelDiscovery.findMany({
+      where: {
+        externalSource: "GEMINI",
+        regionId,
+        status: "NEW",
+        website: { not: null },
+      },
+      select: { website: true, name: true },
+    }),
   ]);
 
   for (const kennel of kennelsWithWebsites) {
@@ -226,6 +241,17 @@ async function collectUrlCandidates(
         url: d.website,
         kennelId: d.matchedKennelId ?? undefined,
         kennelName: d.matchedKennel?.shortName ?? d.name,
+        discoveryMethod: "DISCOVERY_WEBSITE",
+      });
+    }
+  }
+
+  // Add Gemini-discovered kennel websites (not yet in DB as kennels)
+  for (const gd of geminiDiscoveries) {
+    if (gd.website) {
+      urlCandidates.push({
+        url: gd.website,
+        kennelName: gd.name,
         discoveryMethod: "DISCOVERY_WEBSITE",
       });
     }
@@ -392,6 +418,8 @@ export async function researchSourcesForRegion(regionId: string): Promise<Resear
   if (!region) {
     return {
       regionName: "Unknown",
+      kennelsDiscovered: 0,
+      kennelsMatched: 0,
       urlsDiscovered: 0,
       urlsAnalyzed: 0,
       proposalsCreated: 0,
@@ -401,8 +429,13 @@ export async function researchSourcesForRegion(regionId: string): Promise<Resear
     };
   }
 
+  // Phase 0: Discover kennels via AI
+  const discovery = await discoverKennelsForRegion(regionId);
+  const errors: string[] = [...discovery.errors];
+
   // Phase 1: Collect URL candidates
-  const { candidates: rawCandidates, errors } = await collectUrlCandidates(regionId, region.name);
+  const { candidates: rawCandidates, errors: urlErrors } = await collectUrlCandidates(regionId, region.name);
+  errors.push(...urlErrors);
 
   // Deduplicate
   const dedupedCandidates = await deduplicateUrls(rawCandidates, regionId);
@@ -417,6 +450,8 @@ export async function researchSourcesForRegion(regionId: string): Promise<Resear
 
   return {
     regionName: region.name,
+    kennelsDiscovered: discovery.discovered,
+    kennelsMatched: discovery.matched,
     urlsDiscovered,
     urlsAnalyzed: analysisResults.length,
     proposalsCreated: persistence.created,

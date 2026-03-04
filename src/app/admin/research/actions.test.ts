@@ -9,6 +9,8 @@ vi.mock("@/lib/db", () => {
   const proposalUpdateMany = vi.fn();
   const sourceCreate = vi.fn();
   const sourceKennelCreate = vi.fn();
+  const regionFindUnique = vi.fn();
+  const regionFindFirst = vi.fn();
 
   // The $transaction mock passes the same prisma methods into the callback
   const txClient = {
@@ -26,6 +28,7 @@ vi.mock("@/lib/db", () => {
       },
       source: { create: sourceCreate },
       sourceKennel: { create: sourceKennelCreate },
+      region: { findUnique: regionFindUnique, findFirst: regionFindFirst },
       $transaction: vi.fn((cb: (tx: typeof txClient) => Promise<unknown>) => cb(txClient)),
     },
   };
@@ -42,6 +45,17 @@ vi.mock("@/pipeline/html-analysis", () => ({
   analyzeUrlForProposal: vi.fn(),
   refineAnalysis: vi.fn(),
 }));
+vi.mock("@/lib/region", () => ({ regionSlug: vi.fn((s: string) => s.toLowerCase().replace(/\s+/g, "-")) }));
+vi.mock("@/lib/kennel-utils", () => ({
+  toSlug: vi.fn((s: string) => s.toLowerCase()),
+  toKennelCode: vi.fn((s: string) => s.toLowerCase()),
+}));
+vi.mock("@/lib/auto-aliases", () => ({
+  generateAliases: vi.fn(() => []),
+  dedupeAliases: vi.fn((aliases: string[]) => aliases),
+}));
+vi.mock("@/pipeline/kennel-resolver", () => ({ clearResolverCache: vi.fn() }));
+vi.mock("@/lib/safe-url", () => ({ safeUrl: vi.fn((v: string) => v || null) }));
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -87,8 +101,14 @@ describe("startRegionResearch", () => {
   });
 
   it("delegates to researchSourcesForRegion", async () => {
+    // Mock the region lookup for resolveOrCreateRegion
+    const regionFindUnique = prisma.region.findUnique as unknown as ReturnType<typeof vi.fn>;
+    regionFindUnique.mockResolvedValue({ id: "r1" });
+
     mockResearch.mockResolvedValue({
       regionName: "NYC",
+      kennelsDiscovered: 3,
+      kennelsMatched: 1,
       urlsDiscovered: 5,
       urlsAnalyzed: 3,
       proposalsCreated: 3,

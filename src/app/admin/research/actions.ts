@@ -9,19 +9,147 @@ import { researchSourcesForRegion, buildDetectedConfig } from "@/pipeline/source
 import { detectSourceType } from "@/lib/source-detect";
 import { validateSourceUrl } from "@/adapters/utils";
 import { analyzeUrlForProposal, refineAnalysis } from "@/pipeline/html-analysis";
+import { regionSlug, inferCountry, buildAbbrev } from "@/lib/region";
+import { clearResolverCache } from "@/pipeline/kennel-resolver";
+import { createKennelFromDiscovery } from "@/app/admin/shared/kennel-creation";
 
-/** Trigger research for a region — discovers URLs, classifies, analyzes, persists proposals. */
-export async function startRegionResearch(regionId: string) {
+/**
+ * Trigger research for a region.
+ * Accepts either a region ID (cuid) or a free-form region name.
+ * If name doesn't match an existing region, creates one on-the-fly.
+ */
+export async function startRegionResearch(regionIdOrName: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
+  const trimmed = regionIdOrName.trim();
+  if (!trimmed) return { error: "Region is required" };
+
   try {
+    const regionId = await resolveOrCreateRegion(trimmed);
     const result = await researchSourcesForRegion(regionId);
     revalidatePath("/admin/research");
     return { success: true, ...result };
   } catch (err) {
     return { error: `Research failed: ${err}` };
   }
+}
+
+/**
+ * Resolve a region ID or name to a region ID.
+ * If the input looks like a cuid and matches a region → use it.
+ * Otherwise, find by name (case-insensitive) or create a new region.
+ */
+async function resolveOrCreateRegion(input: string): Promise<string> {
+  // Try as ID first
+  const byId = await prisma.region.findUnique({
+    where: { id: input },
+    select: { id: true },
+  });
+  if (byId) return byId.id;
+
+  // Try by name (case-insensitive)
+  const byName = await prisma.region.findFirst({
+    where: { name: { equals: input, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (byName) return byName.id;
+
+  // Create new region with sensible defaults
+  const slug = regionSlug(input);
+  const existing = await prisma.region.findFirst({ where: { slug } });
+  if (existing) return existing.id;
+
+  const created = await prisma.region.create({
+    data: {
+      name: input,
+      slug,
+      country: inferCountry(input),
+      timezone: "UTC",
+      abbrev: buildAbbrev(input),
+      colorClasses: "bg-gray-200 text-gray-800",
+      pinColor: "#6b7280",
+    },
+  });
+
+  return created.id;
+}
+
+// ─── Research Discovery Actions ─────────────────────────────────────────────
+
+/** Create a new kennel from a Gemini AI discovery. */
+export async function addKennelFromResearch(
+  discoveryId: string,
+  data: {
+    shortName: string;
+    fullName: string;
+    regionId: string;
+    country?: string;
+    website?: string;
+    foundedYear?: number;
+    hashCash?: string;
+    scheduleDayOfWeek?: string;
+    scheduleFrequency?: string;
+  },
+) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  if (!data.shortName?.trim()) return { error: "Short name required" };
+  if (!data.fullName?.trim()) return { error: "Full name required" };
+
+  const result = await createKennelFromDiscovery(discoveryId, admin.id, data);
+  if ("error" in result) return result;
+
+  clearResolverCache();
+  revalidatePath("/admin/research");
+  revalidatePath("/admin/kennels");
+  revalidatePath("/kennels");
+  return { success: true, kennelId: result.kennelId };
+}
+
+/** Dismiss a research discovery. */
+export async function dismissResearchDiscovery(discoveryId: string) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  await prisma.kennelDiscovery.update({
+    where: { id: discoveryId },
+    data: {
+      status: "DISMISSED",
+      processedBy: admin.id,
+      processedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/admin/research");
+  return { success: true };
+}
+
+/** Link a research discovery to an existing kennel. */
+export async function linkResearchDiscovery(discoveryId: string, kennelId: string) {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const [discovery, kennel] = await Promise.all([
+    prisma.kennelDiscovery.findUnique({ where: { id: discoveryId } }),
+    prisma.kennel.findUnique({ where: { id: kennelId }, select: { id: true, shortName: true } }),
+  ]);
+  if (!discovery) return { error: "Discovery not found" };
+  if (!kennel) return { error: "Kennel not found" };
+
+  await prisma.kennelDiscovery.update({
+    where: { id: discoveryId },
+    data: {
+      status: "LINKED",
+      matchedKennelId: kennelId,
+      processedBy: admin.id,
+      processedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/admin/research");
+  return { success: true };
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

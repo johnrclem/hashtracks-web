@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/db";
 import { ResearchDashboard } from "@/components/admin/ResearchDashboard";
+import type { ConfidenceLevel } from "@/pipeline/source-research";
 
 export const metadata = { title: "Source Research — HashTracks Admin" };
 export const maxDuration = 300;
 
 export default async function ResearchPage() {
-  const [regions, proposals, coverageGaps] = await Promise.all([
+  const [regions, proposals, coverageGaps, geminiDiscoveries] = await Promise.all([
     prisma.region.findMany({
       select: { id: true, name: true, abbrev: true, country: true },
       orderBy: { name: "asc" },
@@ -33,6 +34,18 @@ export default async function ResearchPage() {
       },
       orderBy: { shortName: "asc" },
     }),
+    // Gemini-discovered kennels (NEW or MATCHED only)
+    prisma.kennelDiscovery.findMany({
+      where: {
+        externalSource: "GEMINI",
+        status: { in: ["NEW", "MATCHED"] },
+      },
+      include: {
+        matchedKennel: { select: { shortName: true } },
+        regionRef: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   // Count proposals by status
@@ -58,24 +71,34 @@ export default async function ResearchPage() {
     gapsByRegion.set(k.regionId, list);
   }
 
-  const serializedProposals = proposals.map((p) => ({
-    id: p.id,
-    regionId: p.regionId,
-    regionName: p.region.name,
-    regionAbbrev: p.region.abbrev,
-    kennelId: p.kennelId,
-    kennelName: p.kennel?.shortName ?? p.kennelName ?? null,
-    url: p.url,
-    sourceName: p.sourceName,
-    discoveryMethod: p.discoveryMethod,
-    detectedType: p.detectedType,
-    extractedConfig: p.extractedConfig,
-    confidence: p.confidence,
-    explanation: p.explanation,
-    status: p.status,
-    createdSourceId: p.createdSourceId,
-    createdAt: p.createdAt.toISOString(),
+  const serializedProposals = proposals.map(({ region, kennel, createdAt, ...rest }) => ({
+    ...rest,
+    regionName: region.name,
+    regionAbbrev: region.abbrev,
+    kennelName: kennel?.shortName ?? rest.kennelName ?? null,
+    confidence: rest.confidence as ConfidenceLevel | null,
+    createdAt: createdAt.toISOString(),
   }));
+
+  const serializedDiscoveries = geminiDiscoveries.map(({ matchedKennel, regionRef, matchCandidates: raw, ...rest }) => {
+    // Parse matchCandidates JSON
+    const matchCandidates: { id: string; shortName: string; score: number }[] = [];
+    if (Array.isArray(raw)) {
+      for (const c of raw) {
+        if (typeof c === "object" && c !== null && "id" in c && "shortName" in c && "score" in c) {
+          const r = c as Record<string, unknown>;
+          matchCandidates.push({ id: String(r.id), shortName: String(r.shortName), score: Number(r.score) });
+        }
+      }
+    }
+
+    return {
+      ...rest,
+      matchedKennelName: matchedKennel?.shortName ?? null,
+      matchCandidates,
+      regionName: regionRef?.name ?? null,
+    };
+  });
 
   const serializedGaps = Object.fromEntries(
     Array.from(gapsByRegion.entries()).map(([regionId, kennels]) => [
@@ -90,6 +113,7 @@ export default async function ResearchPage() {
       <ResearchDashboard
         regions={regions}
         proposals={serializedProposals}
+        discoveries={serializedDiscoveries}
         coverageGaps={serializedGaps}
         statusCounts={statusCounts}
       />
