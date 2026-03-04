@@ -1,7 +1,5 @@
 "use server";
 
-export const maxDuration = 300; // 5 minutes for research pipeline (multiple Gemini API calls)
-
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
