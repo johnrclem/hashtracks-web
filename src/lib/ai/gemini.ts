@@ -157,6 +157,41 @@ export async function callGemini(request: GeminiRequest, cacheTtlMs = DEFAULT_CA
   }
 }
 
+// ─── Two-step search + extract ───────────────────────────────────────────────
+
+/**
+ * Two-step search-and-extract: grounded web search → JSON extraction.
+ *
+ * Step 1: `searchWithGemini` gets narrative prose + grounding URLs.
+ * Step 2: `callGemini` (with JSON mode) extracts structured JSON from the prose.
+ *
+ * This works around search grounding being incompatible with JSON mode.
+ */
+export async function searchAndExtract(
+  searchPrompt: string,
+  extractionPrompt: (searchText: string, groundingUrls: string[]) => string,
+  maxSearchTokens = 4096,
+): Promise<GeminiSearchResponse> {
+  const searchResult = await searchWithGemini(searchPrompt, maxSearchTokens);
+
+  if (!searchResult.text) {
+    return searchResult;
+  }
+
+  // Step 2: Extract structured JSON from the prose
+  const extraction = await callGemini(
+    { prompt: extractionPrompt(searchResult.text, searchResult.groundingUrls) },
+    0, // no caching — search results are time-sensitive
+  );
+
+  return {
+    text: extraction.text,
+    groundingUrls: searchResult.groundingUrls,
+    error: extraction.error,
+    durationMs: searchResult.durationMs + extraction.durationMs,
+  };
+}
+
 // ─── Search-grounded Gemini ──────────────────────────────────────────────────
 
 /** Response from `searchWithGemini()`. */

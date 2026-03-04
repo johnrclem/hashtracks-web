@@ -13,7 +13,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/source-detect", () => ({ detectSourceType: vi.fn() }));
-vi.mock("@/lib/ai/gemini", () => ({ searchWithGemini: vi.fn() }));
+vi.mock("@/lib/ai/gemini", () => ({ searchAndExtract: vi.fn() }));
 vi.mock("@/pipeline/html-analysis", () => ({ analyzeUrlForProposal: vi.fn() }));
 vi.mock("@/pipeline/kennel-discovery-ai", async () => {
   const actual = await vi.importActual<typeof import("@/pipeline/kennel-discovery-ai")>("@/pipeline/kennel-discovery-ai");

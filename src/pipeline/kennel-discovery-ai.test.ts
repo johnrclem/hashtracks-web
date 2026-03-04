@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   discoverKennelsForRegion,
-  buildDiscoveryPrompt,
+  buildSearchPrompt,
+  buildExtractionPrompt,
   parseDiscoveryResponse,
   extractJsonArray,
 } from "./kennel-discovery-ai";
@@ -15,16 +16,16 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-vi.mock("@/lib/ai/gemini", () => ({ searchWithGemini: vi.fn() }));
+vi.mock("@/lib/ai/gemini", () => ({ searchAndExtract: vi.fn() }));
 
 import { prisma } from "@/lib/db";
-import { searchWithGemini } from "@/lib/ai/gemini";
+import { searchAndExtract } from "@/lib/ai/gemini";
 
 const regionFindUnique = prisma.region.findUnique as unknown as ReturnType<typeof vi.fn>;
 const kennelFindMany = prisma.kennel.findMany as unknown as ReturnType<typeof vi.fn>;
 const discoveryFindMany = prisma.kennelDiscovery.findMany as unknown as ReturnType<typeof vi.fn>;
 const discoveryUpsert = prisma.kennelDiscovery.upsert as unknown as ReturnType<typeof vi.fn>;
-const mockSearchWithGemini = vi.mocked(searchWithGemini);
+const mockSearchAndExtract = vi.mocked(searchAndExtract);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -40,11 +41,18 @@ function setupMocks(overrides?: {
   discoveryUpsert.mockResolvedValue({});
 }
 
-describe("buildDiscoveryPrompt", () => {
+describe("buildSearchPrompt", () => {
   it("includes region name", () => {
-    const prompt = buildDiscoveryPrompt("New Jersey");
+    const prompt = buildSearchPrompt("New Jersey");
     expect(prompt).toContain("New Jersey");
     expect(prompt).toContain("Hash House Harrier");
+  });
+});
+
+describe("buildExtractionPrompt", () => {
+  it("includes the search text", () => {
+    const prompt = buildExtractionPrompt("Found GSH3 in NJ");
+    expect(prompt).toContain("Found GSH3 in NJ");
     expect(prompt).toContain("JSON array");
   });
 });
@@ -129,7 +137,7 @@ describe("discoverKennelsForRegion", () => {
 
   it("discovers new kennels from Gemini response", async () => {
     setupMocks();
-    mockSearchWithGemini.mockResolvedValue({
+    mockSearchAndExtract.mockResolvedValue({
       text: JSON.stringify([
         { fullName: "Garden State H3", shortName: "GSH3", website: "https://gsh3.com" },
         { fullName: "Princeton H3", shortName: "PH3" },
@@ -150,7 +158,7 @@ describe("discoverKennelsForRegion", () => {
         { id: "k1", shortName: "GSH3", fullName: "Garden State H3", aliases: [] },
       ],
     });
-    mockSearchWithGemini.mockResolvedValue({
+    mockSearchAndExtract.mockResolvedValue({
       text: JSON.stringify([
         { fullName: "Garden State Hash House Harriers", shortName: "GSH3" },
         { fullName: "New Kennel H3", shortName: "NKH3" },
@@ -168,7 +176,7 @@ describe("discoverKennelsForRegion", () => {
     setupMocks({
       existingDiscoveries: [{ externalSlug: "gsh3" }],
     });
-    mockSearchWithGemini.mockResolvedValue({
+    mockSearchAndExtract.mockResolvedValue({
       text: JSON.stringify([
         { fullName: "Garden State H3", shortName: "GSH3" },
         { fullName: "New H3", shortName: "NH3" },
@@ -184,7 +192,7 @@ describe("discoverKennelsForRegion", () => {
 
   it("handles Gemini API errors gracefully", async () => {
     setupMocks();
-    mockSearchWithGemini.mockResolvedValue({
+    mockSearchAndExtract.mockResolvedValue({
       text: null,
       groundingUrls: [],
       error: "Rate limit exceeded",
@@ -198,7 +206,7 @@ describe("discoverKennelsForRegion", () => {
 
   it("handles malformed Gemini response", async () => {
     setupMocks();
-    mockSearchWithGemini.mockResolvedValue({
+    mockSearchAndExtract.mockResolvedValue({
       text: "This is not JSON at all, just random text about hash kennels",
       groundingUrls: [],
       durationMs: 500,
@@ -211,7 +219,7 @@ describe("discoverKennelsForRegion", () => {
 
   it("handles empty Gemini response", async () => {
     setupMocks();
-    mockSearchWithGemini.mockResolvedValue({
+    mockSearchAndExtract.mockResolvedValue({
       text: "[]",
       groundingUrls: [],
       durationMs: 500,
@@ -224,7 +232,7 @@ describe("discoverKennelsForRegion", () => {
 
   it("handles DB upsert errors per-entry", async () => {
     setupMocks();
-    mockSearchWithGemini.mockResolvedValue({
+    mockSearchAndExtract.mockResolvedValue({
       text: JSON.stringify([
         { fullName: "Good H3", shortName: "GH3" },
         { fullName: "Bad H3", shortName: "BH3" },
@@ -241,5 +249,23 @@ describe("discoverKennelsForRegion", () => {
     expect(result.discovered).toBe(1);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("Failed to save discovery");
+  });
+});
+
+describe("extractJsonArray — robustness", () => {
+  it("handles nested arrays in JSON", () => {
+    const json = '[{"name":"H3","aliases":["A","B"]},{"name":"H4","aliases":[]}]';
+    const result = extractJsonArray(json) as unknown[];
+    expect(result).toHaveLength(2);
+  });
+
+  it("extracts JSON with nested brackets from prose", () => {
+    const text = 'Here are results:\n[{"name":"H3","aliases":["A","B"]},{"name":"H4"}]\nEnd.';
+    const result = extractJsonArray(text) as unknown[];
+    expect(result).toHaveLength(2);
+  });
+
+  it("handles prose with no valid JSON array", () => {
+    expect(() => extractJsonArray("No kennels were found.")).toThrow("No JSON array found");
   });
 });

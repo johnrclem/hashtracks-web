@@ -5,7 +5,7 @@
 
 import { prisma } from "@/lib/db";
 import { detectSourceType } from "@/lib/source-detect";
-import { searchWithGemini } from "@/lib/ai/gemini";
+import { searchAndExtract } from "@/lib/ai/gemini";
 import { analyzeUrlForProposal } from "@/pipeline/html-analysis";
 import { discoverKennelsForRegion, extractJsonArray } from "@/pipeline/kennel-discovery-ai";
 import { Prisma } from "@/generated/prisma/client";
@@ -253,14 +253,18 @@ async function collectUrlCandidates(
     }
   }
 
-  // Web search for kennels without websites
+  // Web search for kennels without websites (two-step: search → extract)
   if (unsourcedKennelsNoWeb.length > 0) {
     const kennelNames = unsourcedKennelsNoWeb
       .map((k) => `${k.shortName} (${k.fullName})`)
       .join(", ");
-    const searchQuery = `Find event listing or hareline URLs for these hash house harrier kennels in ${regionName}: ${kennelNames}. Return a JSON array of objects with format: [{"kennel": "ShortName", "url": "https://..."}]`;
+    const searchQuery = `Find event listing or hareline URLs for these hash house harrier kennels in ${regionName}: ${kennelNames}`;
 
-    const searchResult = await searchWithGemini(searchQuery);
+    const searchResult = await searchAndExtract(
+      searchQuery,
+      (text) =>
+        `Extract URLs from the following text as a JSON array of objects with format: [{"kennel": "ShortName", "url": "https://..."}]. Only include URLs that appear to be event listings or harelines.\n\nText:\n${text}`,
+    );
 
     if (searchResult.text) {
       try {

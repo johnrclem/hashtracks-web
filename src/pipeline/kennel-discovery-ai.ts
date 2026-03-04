@@ -7,7 +7,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import { searchWithGemini } from "@/lib/ai/gemini";
+import { searchAndExtract } from "@/lib/ai/gemini";
 import { fuzzyMatch, type FuzzyCandidate } from "@/lib/fuzzy";
 import { toKennelCode } from "@/lib/kennel-utils";
 import { Prisma } from "@/generated/prisma/client";
@@ -29,21 +29,32 @@ interface GeminiKennelEntry {
   foundedYear?: number;
 }
 
-/** Build the search prompt for kennel discovery. */
-export function buildDiscoveryPrompt(regionName: string): string {
+/** Build the search prompt for kennel discovery (natural language — no JSON format). */
+export function buildSearchPrompt(regionName: string): string {
   return [
     `List ALL Hash House Harrier kennels operating in or near ${regionName}.`,
-    "For each kennel, provide a JSON object with these fields:",
-    "- fullName: the full official name (e.g., \"East Bay Hash House Harriers\")",
-    "- shortName: the common abbreviation (e.g., \"EBH3\")",
-    "- website: the kennel's website URL if known (null otherwise)",
-    "- location: city/area (e.g., \"Oakland, CA\")",
-    "- schedule: run schedule if known (e.g., \"Weekly, Saturdays\")",
-    "- foundedYear: year founded if known (null otherwise)",
-    "",
-    "Return a JSON array. Include all kennels — even small, inactive, or infrequently running ones.",
+    "Include full official names, common abbreviations (e.g. EBH3), websites, city/area locations, run schedules, and founding years.",
+    "Include all kennels — even small, inactive, or infrequently running ones.",
     "Only include legitimate Hash House Harrier kennels (not other running clubs).",
-    "Return ONLY the JSON array, no other text.",
+  ].join("\n");
+}
+
+/** Build the extraction prompt that converts prose into structured JSON. */
+export function buildExtractionPrompt(searchText: string): string {
+  return [
+    "Extract kennel data from the following text as a JSON array of objects.",
+    "Each object must have these fields:",
+    '  fullName (string): full official name (e.g. "East Bay Hash House Harriers")',
+    '  shortName (string): common abbreviation (e.g. "EBH3")',
+    '  website (string|null): kennel website URL or null',
+    '  location (string|null): city/area or null',
+    '  schedule (string|null): run schedule or null',
+    '  foundedYear (number|null): year founded or null',
+    "",
+    "Return ONLY the JSON array.",
+    "",
+    "Text:",
+    searchText,
   ].join("\n");
 }
 
@@ -57,15 +68,13 @@ export function extractJsonArray(text: string): unknown {
   try {
     return JSON.parse(cleaned);
   } catch {
-    // Fallback: find JSON arrays embedded in natural language text
-    // Try each [...] match (non-greedy) until one parses as valid JSON
-    const matches = [...cleaned.matchAll(/\[[\s\S]*?\]/g)];
-    for (const m of matches) {
+    // Fallback: find first [ to last ] — handles nested brackets reliably
+    const firstBracket = cleaned.indexOf("[");
+    const lastBracket = cleaned.lastIndexOf("]");
+    if (firstBracket !== -1 && lastBracket > firstBracket) {
       try {
-        return JSON.parse(m[0]);
-      } catch {
-        continue;
-      }
+        return JSON.parse(cleaned.slice(firstBracket, lastBracket + 1));
+      } catch { /* fall through */ }
     }
     throw new Error("No JSON array found in response");
   }
@@ -146,9 +155,12 @@ export async function discoverKennelsForRegion(
   });
   const existingSlugs = new Set(existingDiscoveries.map((d) => d.externalSlug));
 
-  // Call Gemini with search grounding
-  const prompt = buildDiscoveryPrompt(region.name);
-  const searchResult = await searchWithGemini(prompt, 8192);
+  // Two-step: search grounding → JSON extraction
+  const searchResult = await searchAndExtract(
+    buildSearchPrompt(region.name),
+    (text) => buildExtractionPrompt(text),
+    8192,
+  );
 
   if (searchResult.error) {
     errors.push(`AI search error: ${searchResult.error}`);

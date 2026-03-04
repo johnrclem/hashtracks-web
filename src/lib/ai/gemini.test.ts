@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { callGemini, clearGeminiCache, searchWithGemini } from "./gemini";
+import { callGemini, clearGeminiCache, searchWithGemini, searchAndExtract } from "./gemini";
 
 const originalFetch = globalThis.fetch;
 
@@ -349,5 +349,110 @@ describe("searchWithGemini", () => {
 
     const result = await searchWithGemini("test");
     expect(result.groundingUrls).toEqual(["https://valid.com"]);
+  });
+});
+
+describe("searchAndExtract", () => {
+  it("performs two-step search then extraction", async () => {
+    let callCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      callCount++;
+      if (callCount === 1) {
+        // Search call (gemini-2.0-flash) — returns prose
+        expect(url).toContain("gemini-2.0-flash");
+        return new Response(JSON.stringify({
+          candidates: [{
+            content: { parts: [{ text: "I found Garden State H3 (GSH3) in New Jersey and Princeton H3 (PH3) in Princeton." }] },
+            groundingMetadata: {
+              groundingChunks: [{ web: { uri: "https://gsh3.com" } }],
+            },
+          }],
+        }));
+      }
+      // Extraction call (gemini-2.5-flash-lite) — returns JSON
+      expect(url).toContain("gemini-2.5-flash-lite");
+      return new Response(JSON.stringify({
+        candidates: [{
+          content: { parts: [{ text: '[{"fullName":"Garden State H3","shortName":"GSH3"},{"fullName":"Princeton H3","shortName":"PH3"}]' }] },
+        }],
+      }));
+    });
+
+    const result = await searchAndExtract(
+      "Find NJ kennels",
+      (text) => `Extract JSON from: ${text}`,
+    );
+
+    expect(callCount).toBe(2);
+    expect(result.text).toContain("GSH3");
+    expect(result.groundingUrls).toEqual(["https://gsh3.com"]);
+    expect(result.error).toBeUndefined();
+  });
+
+  it("returns search error when search step fails", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response("Rate limited", { status: 429 }),
+    );
+
+    const result = await searchAndExtract(
+      "search prompt",
+      (text) => `extract: ${text}`,
+    );
+
+    expect(result.text).toBeNull();
+    expect(result.error).toContain("Rate limit");
+    expect(result.groundingUrls).toEqual([]);
+  });
+
+  it("returns extraction error when extraction step fails", async () => {
+    let callCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return new Response(JSON.stringify({
+          candidates: [{ content: { parts: [{ text: "prose text" }] } }],
+        }));
+      }
+      return new Response("Server error", { status: 500 });
+    });
+
+    const result = await searchAndExtract(
+      "search",
+      (text) => `extract: ${text}`,
+    );
+
+    expect(result.text).toBeNull();
+    expect(result.error).toContain("Gemini API 500");
+    // Grounding URLs from search step still returned
+    expect(result.groundingUrls).toEqual([]);
+  });
+
+  it("passes search text and grounding URLs to extraction prompt builder", async () => {
+    let extractionPrompt: string | undefined;
+    let callCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
+      callCount++;
+      if (callCount === 1) {
+        return new Response(JSON.stringify({
+          candidates: [{
+            content: { parts: [{ text: "Found kennel X" }] },
+            groundingMetadata: {
+              groundingChunks: [{ web: { uri: "https://x.com" } }],
+            },
+          }],
+        }));
+      }
+      extractionPrompt = JSON.parse(init.body as string).contents[0].parts[0].text;
+      return new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: "[]" }] } }],
+      }));
+    });
+
+    await searchAndExtract(
+      "search",
+      (text, urls) => `Text: ${text}, URLs: ${urls.join(",")}`,
+    );
+
+    expect(extractionPrompt).toBe("Text: Found kennel X, URLs: https://x.com");
   });
 });
