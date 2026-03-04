@@ -232,15 +232,6 @@ async function resolveCoords(
   const rawCoords = extractRawCoords(event);
   if (rawCoords.latitude != null) return rawCoords;
 
-  // Try resolving short Maps URLs (maps.app.goo.gl) to full URLs with coordinates
-  if (event.locationUrl) {
-    const resolvedUrl = await resolveShortMapsUrl(event.locationUrl);
-    if (resolvedUrl) {
-      const coords = extractCoordsFromMapsUrl(resolvedUrl);
-      if (coords) return { latitude: coords.lat, longitude: coords.lng };
-    }
-  }
-
   // Skip geocoding when the canonical event already has coords and location hasn't changed
   if (
     existingCoords &&
@@ -249,6 +240,15 @@ async function resolveCoords(
     (event.locationUrl ?? null) === (existingCoords.locationAddress ?? null)
   ) {
     return { latitude: existingCoords.latitude, longitude: existingCoords.longitude };
+  }
+
+  // Try resolving short Maps URLs (maps.app.goo.gl) to full URLs with coordinates
+  if (event.locationUrl) {
+    const resolvedUrl = await resolveShortMapsUrl(event.locationUrl);
+    if (resolvedUrl) {
+      const coords = extractCoordsFromMapsUrl(resolvedUrl);
+      if (coords) return { latitude: coords.lat, longitude: coords.lng };
+    }
   }
 
   if (event.location) {

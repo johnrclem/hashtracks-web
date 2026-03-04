@@ -256,14 +256,16 @@ export async function resolveShortMapsUrl(
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(url, {
-      method: "HEAD",
-      redirect: "follow",
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    return res.url !== url ? res.url : null;
+    try {
+      const res = await fetch(url, {
+        method: "HEAD",
+        redirect: "follow",
+        signal: controller.signal,
+      });
+      return res.url !== url ? res.url : null;
+    } finally {
+      clearTimeout(timeout);
+    }
   } catch {
     return null;
   }

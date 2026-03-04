@@ -29,8 +29,11 @@ export function EventLocationMap({
 
   const hasCoords = lat != null && lng != null;
   // When falling back to text, append region hint for disambiguation
+  const needsHint =
+    regionHint && !hasCoords &&
+    !locationName?.toLowerCase().includes(regionHint.toLowerCase());
   const locationWithHint =
-    locationName && regionHint && !hasCoords
+    locationName && needsHint
       ? `${locationName}, ${regionHint}`
       : locationName;
 
