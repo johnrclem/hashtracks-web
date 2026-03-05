@@ -262,14 +262,16 @@ export async function rejectProposal(proposalId: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  await prisma.sourceProposal.update({
-    where: { id: proposalId },
+  const updated = await prisma.sourceProposal.updateMany({
+    where: { id: proposalId, status: { in: ["PENDING", "ERROR"] } },
     data: {
       status: "REJECTED",
       processedBy: admin.id,
       processedAt: new Date(),
     },
   });
+
+  if (updated.count === 0) return { error: "Proposal already processed" };
 
   revalidatePath("/admin/research");
   return { success: true };
@@ -281,7 +283,7 @@ export async function bulkRejectProposals(ids: string[]) {
   if (!admin) return { error: "Not authorized" };
 
   await prisma.sourceProposal.updateMany({
-    where: { id: { in: ids } },
+    where: { id: { in: ids }, status: { in: ["PENDING", "ERROR"] } },
     data: {
       status: "REJECTED",
       processedBy: admin.id,
@@ -365,19 +367,23 @@ export async function refineProposal(proposalId: string, feedback: string) {
     ? proposal.extractedConfig as Record<string, unknown>
     : {};
 
-  const analysis = await refineAnalysis(proposal.url, currentConfig, feedback);
+  try {
+    const analysis = await refineAnalysis(proposal.url, currentConfig, feedback);
 
-  await prisma.sourceProposal.update({
-    where: { id: proposalId },
-    data: {
-      extractedConfig: analysis.suggestedConfig
-        ? (analysis.suggestedConfig as unknown as Prisma.InputJsonValue)
-        : undefined,
-      confidence: analysis.confidence,
-      explanation: analysis.explanation || analysis.error || null,
-    },
-  });
+    await prisma.sourceProposal.update({
+      where: { id: proposalId },
+      data: {
+        extractedConfig: analysis.suggestedConfig
+          ? (analysis.suggestedConfig as unknown as Prisma.InputJsonValue)
+          : undefined,
+        confidence: analysis.confidence,
+        explanation: analysis.explanation || analysis.error || null,
+      },
+    });
 
-  revalidatePath("/admin/research");
-  return { success: true };
+    revalidatePath("/admin/research");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
 }

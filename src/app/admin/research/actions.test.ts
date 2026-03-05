@@ -209,16 +209,23 @@ describe("approveProposal", () => {
 
 describe("rejectProposal", () => {
   it("updates proposal status to REJECTED", async () => {
-    proposalUpdate.mockResolvedValue({});
+    proposalUpdateMany.mockResolvedValue({ count: 1 });
 
     const result = await rejectProposal("p1");
     expect(result).toEqual({ success: true });
-    expect(proposalUpdate).toHaveBeenCalledWith(
+    expect(proposalUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "p1" },
+        where: { id: "p1", status: { in: ["PENDING", "ERROR"] } },
         data: expect.objectContaining({ status: "REJECTED" }),
       }),
     );
+  });
+
+  it("returns error if proposal already processed", async () => {
+    proposalUpdateMany.mockResolvedValue({ count: 0 });
+
+    const result = await rejectProposal("p1");
+    expect(result).toEqual({ error: "Proposal already processed" });
   });
 });
 
@@ -230,7 +237,7 @@ describe("bulkRejectProposals", () => {
     expect(result).toEqual({ success: true });
     expect(proposalUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: { in: ["p1", "p2", "p3"] } },
+        where: { id: { in: ["p1", "p2", "p3"] }, status: { in: ["PENDING", "ERROR"] } },
       }),
     );
   });
