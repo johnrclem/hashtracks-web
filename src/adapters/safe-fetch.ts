@@ -8,7 +8,79 @@ import { validateSourceUrl } from "./utils";
 
 const MAX_REDIRECTS = 5;
 
-export async function safeFetch(url: string, init?: RequestInit): Promise<Response> {
+export interface SafeFetchOptions extends RequestInit {
+  /** Route through NAS residential proxy. Use for WAF-blocked domains. */
+  useResidentialProxy?: boolean;
+}
+
+/**
+ * Convert various header formats to a plain Record<string, string>.
+ */
+function headersToRecord(
+  headers: HeadersInit | undefined,
+): Record<string, string> {
+  if (!headers) return {};
+  if (headers instanceof Headers) {
+    const record: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      record[key] = value;
+    });
+    return record;
+  }
+  if (Array.isArray(headers)) {
+    const record: Record<string, string> = {};
+    for (const [key, value] of headers) {
+      record[key] = value;
+    }
+    return record;
+  }
+  return { ...headers };
+}
+
+export async function safeFetch(
+  url: string,
+  init?: SafeFetchOptions,
+): Promise<Response> {
+  // Residential proxy path
+  if (init?.useResidentialProxy) {
+    validateSourceUrl(url); // Defense-in-depth: validate even when proxying
+
+    const proxyUrl = process.env.RESIDENTIAL_PROXY_URL;
+    const proxyKey = process.env.RESIDENTIAL_PROXY_KEY;
+
+    if (!proxyUrl || !proxyKey) {
+      console.warn(
+        "Residential proxy requested but RESIDENTIAL_PROXY_URL/KEY not set — falling back to direct fetch",
+      );
+    } else {
+      const headerRecord = headersToRecord(init.headers);
+      // eslint-disable-next-line -- proxy URL is a trusted internal service
+      const proxyResponse = await fetch(`${proxyUrl}/proxy`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Proxy-Key": proxyKey,
+        },
+        body: JSON.stringify({
+          url,
+          method: init.method || "GET",
+          headers: headerRecord,
+        }),
+        signal: AbortSignal.timeout(45_000), // 30s proxy timeout + 15s tunnel buffer
+      });
+
+      if (!proxyResponse.ok) {
+        const body = await proxyResponse.text();
+        throw new Error(
+          `Residential proxy error (${proxyResponse.status}): ${body}`,
+        );
+      }
+
+      return proxyResponse;
+    }
+  }
+
+  // Direct fetch path (default)
   validateSourceUrl(url);
   let currentUrl = url;
   let redirectCount = 0;
