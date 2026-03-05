@@ -243,7 +243,7 @@ describe("researchSourcesForRegion", () => {
     mockSearchAndExtract.mockResolvedValue({
       text: JSON.stringify([{ kennel: "El Paso HHH", url: "https://eph3.com/hareline" }]),
       groundingUrls: [],
-      error: null,
+      error: undefined,
       durationMs: 100,
     });
 
