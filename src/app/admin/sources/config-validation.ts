@@ -66,6 +66,23 @@ function validateSkipPatterns(obj: Record<string, unknown>, errors: string[]): v
   }
 }
 
+/** Validate harePatterns array: each entry must be a regex string. */
+function validateHarePatterns(obj: Record<string, unknown>, errors: string[]): void {
+  if (!("harePatterns" in obj) || obj.harePatterns === undefined) return;
+
+  if (!Array.isArray(obj.harePatterns)) {
+    errors.push("harePatterns must be an array of regex strings");
+    return;
+  }
+  for (const [i, pattern] of obj.harePatterns.entries()) {
+    if (typeof pattern !== "string") {
+      errors.push(`harePatterns[${i}]: must be a string`);
+      continue;
+    }
+    validateRegex(pattern, `harePatterns[${i}]`, errors);
+  }
+}
+
 /** Validate Google Sheets required fields. */
 function validateGoogleSheetsConfig(obj: Record<string, unknown>, errors: string[]): void {
   if (!obj.sheetId || typeof obj.sheetId !== "string") {
@@ -222,6 +239,7 @@ export function validateSourceConfig(
   // Common pattern validation
   validateKennelPatterns(obj, errors);
   validateSkipPatterns(obj, errors);
+  validateHarePatterns(obj, errors);
 
   // Type-specific validation
   runTypeValidator(type, obj, errors);

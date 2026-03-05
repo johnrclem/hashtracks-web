@@ -58,20 +58,35 @@ export function extractTitle(summary: string): string {
   return stripped || summary;
 }
 
+/** Default hare extraction patterns (Boston Hash Calendar format). */
+const DEFAULT_HARE_PATTERNS = [
+  /(?:^|\n)\s*Hares?:\s*(.+)/im,
+  /(?:^|\n)\s*Who:\s*(.+)/im,
+];
+
 /**
  * Extract hare names from the event description.
- * Boston Hash Calendar uses: "Hare: X", "Hares: X & Y", "Who: X and Y"
+ * Supports configurable patterns via source config; falls back to defaults.
  */
-export function extractHares(description: string): string | undefined {
-  // Try each pattern, return first match
-  const patterns = [
-    /(?:^|\n)\s*Hares?:\s*(.+)/im,
-    /(?:^|\n)\s*Who:\s*(.+)/im,
-  ];
+export function extractHares(description: string, customPatterns?: string[]): string | undefined {
+  // Build pattern list: custom config patterns replace defaults when provided
+  const patterns: RegExp[] = [];
+
+  if (customPatterns && customPatterns.length > 0) {
+    for (const p of customPatterns) {
+      try {
+        patterns.push(new RegExp(p, "im"));
+      } catch {
+        // Skip malformed patterns from source config
+      }
+    }
+  } else {
+    patterns.push(...DEFAULT_HARE_PATTERNS);
+  }
 
   for (const pattern of patterns) {
     const match = pattern.exec(description);
-    if (match) {
+    if (match?.[1]) {
       let hares = match[1].trim();
       // Clean up trailing punctuation/whitespace
       hares = hares.split("\n")[0].trim();
@@ -90,6 +105,7 @@ const mapsUrl = googleMapsSearchUrl;
 interface CalendarSourceConfig {
   kennelPatterns?: [string, string][];  // [[regex, kennelTag], ...]
   defaultKennelTag?: string;            // fallback for unrecognized events
+  harePatterns?: string[];              // regex strings to extract hares from descriptions
 }
 
 /**
@@ -190,7 +206,7 @@ function buildRawEventFromGCalItem(
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start);
   if (!dateISO) return null;
   const { rawDescription, description } = normalizeGCalDescription(item.description);
-  const hares = rawDescription ? extractHares(rawDescription) : undefined;
+  const hares = rawDescription ? extractHares(rawDescription, sourceConfig?.harePatterns) : undefined;
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(item.summary, sourceConfig);
 
   return {

@@ -144,6 +144,40 @@ describe("validateSourceConfig", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // harePatterns validation
+  // ---------------------------------------------------------------------------
+
+  describe("harePatterns validation", () => {
+    it("accepts valid harePatterns", () => {
+      const config = {
+        harePatterns: ["(?:^|\\n)\\s*WHO ARE THE HARES:\\s*(.+)", "(?:^|\\n)\\s*Laid by:\\s*(.+)"],
+        defaultKennelTag: "ELPH3",
+      };
+      expect(validateSourceConfig("GOOGLE_CALENDAR", config)).toEqual([]);
+    });
+
+    it("rejects non-array harePatterns", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        harePatterns: "not an array",
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("must be an array");
+    });
+
+    it.each([
+      [["[broken("], "invalid regex"],
+      [[123], "must be a string"],
+      [["(x+x+)+y"], "catastrophic backtracking"],
+    ])("rejects invalid hare pattern: %s", (patterns, expectedMsg) => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        harePatterns: patterns,
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain(expectedMsg);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // GOOGLE_SHEETS required fields
   // ---------------------------------------------------------------------------
 

@@ -124,4 +124,50 @@ describe("extractHares", () => {
   it("takes only first line of hare text", () => {
     expect(extractHares("Hare: Alice\nSome other info")).toBe("Alice");
   });
+
+  // Custom hare patterns (configurable via source config)
+  it("uses custom patterns when provided", () => {
+    expect(
+      extractHares("WHO ARE THE HARES:  Used Rubber & Leeroy", [
+        "(?:^|\\n)\\s*WHO ARE THE HARES:\\s*(.+)",
+      ]),
+    ).toBe("Used Rubber & Leeroy");
+  });
+
+  it("uses custom pattern: Laid by", () => {
+    expect(
+      extractHares("Laid by: Speedy Gonzalez", [
+        "(?:^|\\n)\\s*Laid by:\\s*(.+)",
+      ]),
+    ).toBe("Speedy Gonzalez");
+  });
+
+  it("falls back to defaults when customPatterns is undefined", () => {
+    expect(extractHares("Hare: DefaultMatch", undefined)).toBe("DefaultMatch");
+  });
+
+  it("falls back to defaults when customPatterns is empty array", () => {
+    expect(extractHares("Hare: DefaultMatch", [])).toBe("DefaultMatch");
+  });
+
+  it("custom patterns replace defaults", () => {
+    expect(
+      extractHares("Hare: Mudflap", ["(?:^|\\n)\\s*Laid by:\\s*(.+)"]),
+    ).toBeUndefined();
+  });
+
+  it("skips malformed custom patterns gracefully", () => {
+    expect(
+      extractHares("Laid by: Speedy", [
+        "[invalid(",
+        "(?:^|\\n)\\s*Laid by:\\s*(.+)",
+      ]),
+    ).toBe("Speedy");
+  });
+
+  it("still filters generic answers with custom patterns", () => {
+    expect(
+      extractHares("Laid by: everyone", ["(?:^|\\n)\\s*Laid by:\\s*(.+)"]),
+    ).toBeUndefined();
+  });
 });

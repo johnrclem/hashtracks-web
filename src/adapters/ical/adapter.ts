@@ -11,6 +11,7 @@ export interface ICalSourceConfig {
   kennelPatterns?: [string, string][]; // [[regex, kennelTag], ...] — same as Google Calendar
   defaultKennelTag?: string;           // fallback for unrecognized events
   skipPatterns?: string[];             // SUMMARY patterns to skip (e.g., "Hand Pump Workday")
+  harePatterns?: string[];             // regex strings to extract hares from descriptions
 }
 
 /**
@@ -119,9 +120,22 @@ function extractFieldFromDescription(
 
 /**
  * Extract hare names from an iCal DESCRIPTION field.
- * Patterns: "Hare: X", "Hares: X & Y", "Hare(s): X, Y"
+ * Supports configurable patterns via source config; falls back to defaults.
  */
-export function extractHaresFromDescription(description: string): string | undefined {
+export function extractHaresFromDescription(description: string, customPatterns?: string[]): string | undefined {
+  if (customPatterns && customPatterns.length > 0) {
+    const compiled: RegExp[] = [];
+    for (const p of customPatterns) {
+      try {
+        compiled.push(new RegExp(p, "im"));
+      } catch {
+        // Skip malformed patterns from source config
+      }
+    }
+    if (compiled.length > 0) {
+      return extractFieldFromDescription(description, compiled);
+    }
+  }
   return extractFieldFromDescription(description, HARE_PATTERNS);
 }
 
@@ -322,7 +336,7 @@ function buildRawEventFromVEvent(
   const dateStr = formatDate(vevent.start);
   const startTime = formatTime(vevent.start);
   const description = paramValue(vevent.description);
-  const hares = description ? extractHaresFromDescription(description) : undefined;
+  const hares = description ? extractHaresFromDescription(description, config?.harePatterns) : undefined;
   let location = paramValue(vevent.location);
 
   if (!location && description) {

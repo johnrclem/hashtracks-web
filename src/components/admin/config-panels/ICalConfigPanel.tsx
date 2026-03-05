@@ -10,6 +10,7 @@ export interface ICalConfig {
   kennelPatterns?: [string, string][];
   defaultKennelTag?: string;
   skipPatterns?: string[];
+  harePatterns?: string[];
 }
 
 interface ICalConfigPanelProps {
@@ -102,6 +103,25 @@ export function ICalConfigPanel({
           }
           placeholder="Regex pattern to skip"
           addLabel="Add Skip Pattern"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Hare Patterns</Label>
+        <p className="text-xs text-muted-foreground">
+          Regex patterns to extract hare names from event descriptions. Each
+          must have a capture group. Leave empty to use defaults
+          (Hare:/Hares:/Hare(s):).
+        </p>
+        <StringArrayEditor
+          items={current.harePatterns ?? []}
+          onChange={(patterns) =>
+            onChange({
+              ...current,
+              harePatterns: patterns.length > 0 ? patterns : undefined,
+            })
+          }
+          placeholder="e.g., (?:^|\n)\s*WHO ARE THE HARES:\s*(.+)"
+          addLabel="Add Hare Pattern"
         />
       </div>
     </div>

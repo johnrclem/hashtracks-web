@@ -225,6 +225,31 @@ describe("extractHaresFromDescription", () => {
     const desc = "Some intro text\\n\\nHare: Captain Hash\\n\\nMore info here";
     expect(extractHaresFromDescription(desc)).toBe("Captain Hash");
   });
+
+  // Custom hare patterns (configurable via source config)
+  it("uses custom patterns when provided", () => {
+    expect(
+      extractHaresFromDescription("WHO ARE THE HARES:  Used Rubber & Leeroy", [
+        "(?:^|\\n)\\s*WHO ARE THE HARES:\\s*(.+)",
+      ]),
+    ).toBe("Used Rubber & Leeroy");
+  });
+
+  it("falls back to defaults when customPatterns is empty", () => {
+    expect(extractHaresFromDescription("Hare: Trail Blazer", [])).toBe("Trail Blazer");
+  });
+
+  it("custom patterns replace defaults", () => {
+    expect(
+      extractHaresFromDescription("Hare: Mudflap", ["(?:^|\\n)\\s*Laid by:\\s*(.+)"]),
+    ).toBeUndefined();
+  });
+
+  it("skips malformed custom patterns gracefully", () => {
+    expect(
+      extractHaresFromDescription("Laid by: Speedy", ["[invalid(", "(?:^|\\n)\\s*Laid by:\\s*(.+)"]),
+    ).toBe("Speedy");
+  });
 });
 
 describe("extractLocationFromDescription", () => {
