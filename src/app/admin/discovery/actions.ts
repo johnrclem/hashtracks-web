@@ -5,11 +5,9 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { syncKennelDiscovery } from "@/pipeline/kennel-discovery";
-import { toSlug, toKennelCode } from "@/lib/kennel-utils";
-import { generateAliases } from "@/lib/auto-aliases";
 import { clearResolverCache } from "@/pipeline/kennel-resolver";
 import { normalizeTrailDay } from "@/adapters/hashrego/kennel-api";
-import { safeUrl } from "@/lib/safe-url";
+import { createKennelFromDiscovery } from "@/app/admin/shared/kennel-creation";
 
 /**
  * Create an alias for a kennel if it doesn't already exist.
@@ -153,91 +151,19 @@ export async function addKennelFromDiscovery(
   });
   if (!discovery) return { error: "Discovery not found" };
 
-  const slug = toSlug(data.shortName);
-  const kennelCode = toKennelCode(data.shortName);
-
-  // Generate aliases
-  const autoAliases = generateAliases(data.shortName, data.fullName);
-  const allAliases = new Set<string>();
-  const lowerSeen = new Set<string>();
-  for (const a of autoAliases) {
-    const key = a.toLowerCase();
-    if (!lowerSeen.has(key)) {
-      lowerSeen.add(key);
-      allAliases.add(a);
-    }
-  }
-  // Add the Hash Rego slug as an alias if it differs
+  // Add the Hash Rego slug as an extra alias if it differs from shortName
+  const extraAliases: string[] = [];
   if (discovery.externalSlug.toLowerCase() !== data.shortName.toLowerCase()) {
-    const slugKey = discovery.externalSlug.toLowerCase();
-    if (!lowerSeen.has(slugKey)) {
-      allAliases.add(discovery.externalSlug);
-    }
+    extraAliases.push(discovery.externalSlug);
   }
 
-  // Infer country from region if not provided
-  const country = data.country || undefined;
-
-  let kennel;
-  try {
-    kennel = await prisma.$transaction(async (tx) => {
-    // Check uniqueness inside transaction to prevent races
-    const existing = await tx.kennel.findFirst({
-      where: {
-        OR: [{ kennelCode }, { slug }, { shortName: data.shortName, regionId: data.regionId }],
-      },
-    });
-    if (existing) throw new Error(`Kennel "${data.shortName}" already exists`);
-
-    // Resolve region name
-    const region = await tx.region.findUnique({
-      where: { id: data.regionId },
-      select: { name: true, country: true },
-    });
-    if (!region) throw new Error("Region not found");
-
-    const created = await tx.kennel.create({
-      data: {
-        kennelCode,
-        shortName: data.shortName,
-        slug,
-        fullName: data.fullName,
-        region: region.name,
-        regionRef: { connect: { id: data.regionId } },
-        country: country || region.country || "USA",
-        website: safeUrl(data.website),
-        contactEmail: data.contactEmail || null,
-        foundedYear: data.foundedYear || null,
-        hashCash: data.hashCash || null,
-        scheduleDayOfWeek: data.scheduleDayOfWeek || null,
-        scheduleFrequency: data.scheduleFrequency || null,
-        paymentLink: safeUrl(data.paymentLink),
-        aliases: {
-          create: [...allAliases].map((alias) => ({ alias })),
-        },
-      },
-    });
-
-    await tx.kennelDiscovery.update({
-      where: { id: discoveryId },
-      data: {
-        status: "ADDED",
-        matchedKennelId: created.id,
-        processedBy: admin.id,
-        processedAt: new Date(),
-      },
-    });
-
-    return created;
-    });
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : String(err) };
-  }
+  const result = await createKennelFromDiscovery(discoveryId, admin.id, data, extraAliases);
+  if ("error" in result) return result;
 
   clearResolverCache();
 
   try {
-    await linkKennelToHashRegoSource(kennel.id, discovery.externalSlug);
+    await linkKennelToHashRegoSource(result.kennelId, discovery.externalSlug);
   } catch (err) {
     console.error("[discovery] Failed to link kennel to Hash Rego source:", err);
   }
@@ -246,7 +172,7 @@ export async function addKennelFromDiscovery(
   revalidatePath("/admin/kennels");
   revalidatePath("/admin/sources");
   revalidatePath("/kennels");
-  return { success: true, kennelId: kennel.id };
+  return { success: true, kennelId: result.kennelId };
 }
 
 /** Dismiss a discovery (mark as not relevant). */

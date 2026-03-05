@@ -41,6 +41,7 @@ vi.mock("@/lib/kennel-utils", () => ({
 }));
 vi.mock("@/lib/auto-aliases", () => ({
   generateAliases: vi.fn(() => []),
+  dedupeAliases: vi.fn((aliases: string[]) => aliases),
 }));
 vi.mock("@/adapters/hashrego/kennel-api", () => ({
   normalizeTrailDay: vi.fn(),

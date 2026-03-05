@@ -564,5 +564,23 @@ export function regionNameToData(name: string): RegionData {
   };
 }
 
+/** Infer country from region name heuristics. Defaults to "USA". */
+export function inferCountry(name: string): string {
+  const lower = name.toLowerCase();
+  if (/\b(uk|england|scotland|wales|london|surrey|sussex)\b/.test(lower)) return "UK";
+  if (/\b(australia|sydney|melbourne|brisbane|perth)\b/.test(lower)) return "Australia";
+  if (/\b(canada|toronto|vancouver|montreal|calgary)\b/.test(lower)) return "Canada";
+  if (/\b(germany|berlin|munich|hamburg)\b/.test(lower)) return "Germany";
+  if (/\b(japan|tokyo|osaka)\b/.test(lower)) return "Japan";
+  return "USA";
+}
+
+/** Build a short abbreviation from a region name (up to 4 chars). */
+export function buildAbbrev(name: string): string {
+  const words = name.split(/[\s,]+/).filter(Boolean);
+  if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+  return words.map((w) => w[0]).join("").toUpperCase().slice(0, 4);
+}
+
 /** Default pin color for unknown regions. */
 export const DEFAULT_PIN_COLOR = "#6b7280"; // gray-500
