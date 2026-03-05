@@ -215,12 +215,29 @@ export async function approveProposal(
       const resolved = resolveSourceFields(proposal, overrides);
       if ("error" in resolved) throw new Error(resolved.error);
 
+      // Auto-populate defaultKennelTag from linked kennel if not already set
+      let finalConfig = resolved.config;
+      if (resolved.kennelId) {
+        const configObj = (finalConfig && typeof finalConfig === "object" && !Array.isArray(finalConfig))
+          ? finalConfig as Record<string, unknown>
+          : {};
+        if (!configObj.defaultKennelTag) {
+          const kennel = await tx.kennel.findUnique({
+            where: { id: resolved.kennelId },
+            select: { shortName: true },
+          });
+          if (kennel) {
+            finalConfig = { ...configObj, defaultKennelTag: kennel.shortName } as Prisma.InputJsonValue;
+          }
+        }
+      }
+
       const source = await tx.source.create({
         data: {
           name: resolved.sourceName,
           url: resolved.sourceUrl,
           type: resolved.sourceType,
-          config: resolved.config,
+          config: finalConfig,
           enabled: true,
           trustLevel: 5,
         },

@@ -151,12 +151,27 @@ export function SourceForm({ source, allKennels, allRegions, openAlertTags, gemi
     () => {
       if (!source?.config || typeof source.config !== "object" || Array.isArray(source.config))
         return null;
-      return source.config as Record<string, unknown>;
+      const base = source.config as Record<string, unknown>;
+      // Auto-populate defaultKennelTag from the sole linked kennel
+      if (!base.defaultKennelTag && source.linkedKennelIds?.length === 1) {
+        const linked = allKennels.find(k => k.id === source.linkedKennelIds[0]);
+        if (linked) return { ...base, defaultKennelTag: linked.shortName };
+      }
+      return base;
     },
   );
   const [configJson, setConfigJson] = useState(() => {
     if (!source?.config) return "";
     try {
+      // Re-serialize from configObj would be ideal, but configObj may not be
+      // initialized yet at this point — compute the same auto-populated value
+      const base = (typeof source.config === "object" && !Array.isArray(source.config))
+        ? source.config as Record<string, unknown>
+        : null;
+      if (base && !base.defaultKennelTag && source.linkedKennelIds?.length === 1) {
+        const linked = allKennels.find(k => k.id === source.linkedKennelIds[0]);
+        if (linked) return JSON.stringify({ ...base, defaultKennelTag: linked.shortName }, null, 2);
+      }
       return JSON.stringify(source.config, null, 2);
     } catch {
       return "";
@@ -507,6 +522,7 @@ export function SourceForm({ source, allKennels, allRegions, openAlertTags, gemi
               <CalendarConfigPanel
                 config={configObj as CalendarConfig | null}
                 onChange={handleConfigChange}
+                allKennels={allKennelsWithExtra}
                 unmatchedTags={[
                   ...(previewData?.unmatchedTags ?? []),
                   ...(openAlertTags ?? []),
@@ -527,6 +543,7 @@ export function SourceForm({ source, allKennels, allRegions, openAlertTags, gemi
               <ICalConfigPanel
                 config={configObj as ICalConfig | null}
                 onChange={handleConfigChange}
+                allKennels={allKennelsWithExtra}
                 unmatchedTags={[
                   ...(previewData?.unmatchedTags ?? []),
                   ...(openAlertTags ?? []),
@@ -557,6 +574,7 @@ export function SourceForm({ source, allKennels, allRegions, openAlertTags, gemi
               <SheetsConfigPanel
                 config={configObj as SheetsConfig | null}
                 onChange={handleConfigChange}
+                allKennels={allKennelsWithExtra}
                 sampleRows={previewData?.sampleRows}
                 geminiAvailable={geminiAvailable}
               />
@@ -571,6 +589,7 @@ export function SourceForm({ source, allKennels, allRegions, openAlertTags, gemi
               <MeetupConfigPanel
                 config={configObj as MeetupConfig | null}
                 onChange={handleConfigChange}
+                allKennels={allKennelsWithExtra}
               />
             </div>
           )}
@@ -595,6 +614,7 @@ export function SourceForm({ source, allKennels, allRegions, openAlertTags, gemi
               <StaticScheduleConfigPanel
                 config={configObj as StaticScheduleConfig | null}
                 onChange={handleConfigChange}
+                allKennels={allKennelsWithExtra}
               />
             </div>
           )}

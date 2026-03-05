@@ -9,6 +9,7 @@ vi.mock("@/lib/db", () => {
   const proposalUpdateMany = vi.fn();
   const sourceCreate = vi.fn();
   const sourceKennelCreate = vi.fn();
+  const kennelFindUnique = vi.fn();
   const regionFindUnique = vi.fn();
   const regionFindFirst = vi.fn();
 
@@ -17,6 +18,7 @@ vi.mock("@/lib/db", () => {
     sourceProposal: { findUnique: proposalFindUnique, update: proposalUpdate },
     source: { create: sourceCreate },
     sourceKennel: { create: sourceKennelCreate },
+    kennel: { findUnique: kennelFindUnique },
   };
 
   return {
@@ -28,6 +30,7 @@ vi.mock("@/lib/db", () => {
       },
       source: { create: sourceCreate },
       sourceKennel: { create: sourceKennelCreate },
+      kennel: { findUnique: kennelFindUnique },
       region: { findUnique: regionFindUnique, findFirst: regionFindFirst },
       $transaction: vi.fn((cb: (tx: typeof txClient) => Promise<unknown>) => cb(txClient)),
     },
@@ -87,6 +90,7 @@ const proposalUpdate = prisma.sourceProposal.update as unknown as ReturnType<typ
 const proposalUpdateMany = prisma.sourceProposal.updateMany as unknown as ReturnType<typeof vi.fn>;
 const sourceCreate = prisma.source.create as unknown as ReturnType<typeof vi.fn>;
 const sourceKennelCreate = prisma.sourceKennel.create as unknown as ReturnType<typeof vi.fn>;
+const kennelFindUnique = prisma.kennel.findUnique as unknown as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -140,6 +144,7 @@ describe("approveProposal", () => {
       sourceName: "Example Source",
       status: "PENDING",
     });
+    kennelFindUnique.mockResolvedValue({ shortName: "EX3" });
     sourceCreate.mockResolvedValue({ id: "s1" });
     sourceKennelCreate.mockResolvedValue({});
     proposalUpdate.mockResolvedValue({});
