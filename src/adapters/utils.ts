@@ -40,12 +40,17 @@ export function stripHtmlTags(
  * Compile an array of regex pattern strings into RegExp objects.
  * Malformed patterns are silently skipped. Used by adapters to pre-compile
  * config-driven patterns once per scrape instead of per event.
+ *
+ * @see validatePatternArray in src/app/admin/sources/config-validation.ts
+ *      — patterns are validated for syntax + ReDoS safety (via safe-regex2)
+ *      before storage, so all inputs here have already passed validation.
  */
 export function compilePatterns(patterns: string[], flags = "im"): RegExp[] {
   const compiled: RegExp[] = [];
   for (const p of patterns) {
     try {
-      compiled.push(new RegExp(p, flags));
+      // nosemgrep: detect-non-literal-regexp — patterns are pre-validated via safe-regex2 (see config-validation.ts)
+      compiled.push(new RegExp(p, flags)); // NOSONAR
     } catch {
       // Skip malformed patterns from source config
     }
