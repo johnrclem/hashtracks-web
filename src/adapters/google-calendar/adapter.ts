@@ -32,21 +32,46 @@ export function extractKennelTag(summary: string): string {
   return "BoH3";
 }
 
-/** Extract run number from summary (e.g. "#2781") or description. Checks summary first, then description patterns. */
-export function extractRunNumber(summary: string, description?: string): number | undefined {
+/** Default description patterns for run number extraction (Boston Hash Calendar format). */
+const DEFAULT_RUN_NUMBER_PATTERNS = [
+  /BH3\s*#\s*(\d+)/i,
+  /(?:^|\n)\s*#(\d{3,})\s*(?:\n|$)/m,
+];
+
+/**
+ * Extract run number from summary (e.g. "#2781") or description.
+ * Always checks summary first with `#(\d+)`. Then checks description with
+ * custom patterns (if provided) or default patterns.
+ * Accepts pre-compiled RegExp[] or raw string[] (compiled on the fly for one-off use).
+ */
+export function extractRunNumber(
+  summary: string,
+  description?: string,
+  customPatterns?: string[] | RegExp[],
+): number | undefined {
   // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781")
   const summaryMatch = /#(\d+)/.exec(summary);
   if (summaryMatch) return Number.parseInt(summaryMatch[1], 10);
 
   if (!description) return undefined;
 
-  // 2. Fall back to description — BH3 run numbers like "BH3 #2784"
-  const descMatch = /BH3\s*#\s*(\d+)/i.exec(description);
-  if (descMatch) return Number.parseInt(descMatch[1], 10);
+  // 2. Fall back to description patterns
+  let patterns: RegExp[];
+  if (customPatterns && customPatterns.length > 0) {
+    patterns = typeof customPatterns[0] === "string"
+      ? compilePatterns(customPatterns as string[])
+      : customPatterns as RegExp[];
+  } else {
+    patterns = DEFAULT_RUN_NUMBER_PATTERNS;
+  }
 
-  // 3. Standalone run number in description (e.g., "#2792" on its own line)
-  const standaloneMatch = /(?:^|\n)\s*#(\d{3,})\s*(?:\n|$)/m.exec(description);
-  if (standaloneMatch) return Number.parseInt(standaloneMatch[1], 10);
+  for (const pattern of patterns) {
+    const match = pattern.exec(description);
+    if (match?.[1]) {
+      const num = Number.parseInt(match[1], 10);
+      if (!Number.isNaN(num) && num > 0) return num;
+    }
+  }
 
   return undefined;
 }
@@ -102,6 +127,7 @@ interface CalendarSourceConfig {
   kennelPatterns?: [string, string][];  // [[regex, kennelTag], ...]
   defaultKennelTag?: string;            // fallback for unrecognized events
   harePatterns?: string[];              // regex strings to extract hares from descriptions
+  runNumberPatterns?: string[];         // regex strings to extract run numbers from descriptions
 }
 
 /**
@@ -195,6 +221,7 @@ function buildRawEventFromGCalItem(
   item: GCalEvent,
   sourceConfig: CalendarSourceConfig | null,
   compiledHarePatterns?: RegExp[],
+  compiledRunNumberPatterns?: RegExp[],
 ): RawEventData | null {
   if (item.status === "cancelled") return null;
   if (!item.summary) return null;
@@ -209,7 +236,7 @@ function buildRawEventFromGCalItem(
   return {
     date: dateISO,
     kennelTag,
-    runNumber: extractRunNumber(item.summary, rawDescription),
+    runNumber: extractRunNumber(item.summary, rawDescription, compiledRunNumberPatterns),
     title: useFullTitle ? item.summary : extractTitle(item.summary),
     description,
     hares,
@@ -259,6 +286,9 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     const compiledHarePatterns = sourceConfig?.harePatterns?.length
       ? compilePatterns(sourceConfig.harePatterns)
       : undefined;
+    const compiledRunNumberPatterns = sourceConfig?.runNumberPatterns?.length
+      ? compilePatterns(sourceConfig.runNumberPatterns)
+      : undefined;
 
     do {
       const url = new URL(
@@ -300,7 +330,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
       for (const item of items) {
         try {
-          const event = buildRawEventFromGCalItem(item, sourceConfig, compiledHarePatterns);
+          const event = buildRawEventFromGCalItem(item, sourceConfig, compiledHarePatterns, compiledRunNumberPatterns);
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);

@@ -223,6 +223,7 @@ export function validateSourceConfig(
   validateKennelPatterns(obj, errors);
   validatePatternArray(obj, "skipPatterns", errors);
   validatePatternArray(obj, "harePatterns", errors);
+  validatePatternArray(obj, "runNumberPatterns", errors);
 
   // Type-specific validation
   runTypeValidator(type, obj, errors);

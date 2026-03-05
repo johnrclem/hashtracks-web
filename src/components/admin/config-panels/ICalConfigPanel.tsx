@@ -5,12 +5,14 @@ import { KennelPatternsEditor } from "./KennelPatternsEditor";
 import { StringArrayEditor } from "./StringArrayEditor";
 import { SuggestionChips } from "./SuggestionChips";
 import { KennelTagInput, type KennelOption } from "./KennelTagInput";
+import { PatternSuggestButton } from "./PatternSuggestButton";
 
 export interface ICalConfig {
   kennelPatterns?: [string, string][];
   defaultKennelTag?: string;
   skipPatterns?: string[];
   harePatterns?: string[];
+  runNumberPatterns?: string[];
 }
 
 interface ICalConfigPanelProps {
@@ -20,6 +22,8 @@ interface ICalConfigPanelProps {
   unmatchedTags?: string[];
   /** Sample event titles per unmatched tag — passed through to SuggestionChips for AI enhance */
   sampleTitlesByTag?: Record<string, string[]>;
+  /** Sample event descriptions from preview — used for AI field pattern suggestions */
+  sampleDescriptions?: string[];
   /** Whether GEMINI_API_KEY is configured */
   geminiAvailable?: boolean;
   allKennels?: KennelOption[];
@@ -30,6 +34,7 @@ export function ICalConfigPanel({
   onChange,
   unmatchedTags = [],
   sampleTitlesByTag,
+  sampleDescriptions = [],
   geminiAvailable,
   allKennels,
 }: ICalConfigPanelProps) {
@@ -122,6 +127,47 @@ export function ICalConfigPanel({
           }
           placeholder="e.g., (?:^|\n)\s*WHO ARE THE HARES:\s*(.+)"
           addLabel="Add Hare Pattern"
+        />
+        <PatternSuggestButton
+          sampleDescriptions={sampleDescriptions}
+          field="hares"
+          geminiAvailable={geminiAvailable}
+          onAccept={(pattern) =>
+            onChange({
+              ...current,
+              harePatterns: [...(current.harePatterns ?? []), pattern],
+            })
+          }
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Run Number Patterns</Label>
+        <p className="text-xs text-muted-foreground">
+          Regex patterns to extract run numbers from event descriptions. Each
+          must have a capture group matching digits. Leave empty to use defaults
+          (#N in summary).
+        </p>
+        <StringArrayEditor
+          items={current.runNumberPatterns ?? []}
+          onChange={(patterns) =>
+            onChange({
+              ...current,
+              runNumberPatterns: patterns.length > 0 ? patterns : undefined,
+            })
+          }
+          placeholder="e.g., Hash\s*#\s*(\d+)"
+          addLabel="Add Run Number Pattern"
+        />
+        <PatternSuggestButton
+          sampleDescriptions={sampleDescriptions}
+          field="runNumber"
+          geminiAvailable={geminiAvailable}
+          onAccept={(pattern) =>
+            onChange({
+              ...current,
+              runNumberPatterns: [...(current.runNumberPatterns ?? []), pattern],
+            })
+          }
         />
       </div>
     </div>

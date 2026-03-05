@@ -178,6 +178,40 @@ describe("validateSourceConfig", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // runNumberPatterns validation
+  // ---------------------------------------------------------------------------
+
+  describe("runNumberPatterns validation", () => {
+    it("accepts valid runNumberPatterns", () => {
+      const config = {
+        runNumberPatterns: ["Hash\\s*#\\s*(\\d+)", "Run\\s*#\\s*(\\d+)"],
+        defaultKennelTag: "ELPH3",
+      };
+      expect(validateSourceConfig("GOOGLE_CALENDAR", config)).toEqual([]);
+    });
+
+    it("rejects non-array runNumberPatterns", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        runNumberPatterns: "not an array",
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("must be an array");
+    });
+
+    it.each([
+      [["[broken("], "invalid regex"],
+      [[123], "must be a string"],
+      [["(x+x+)+y"], "catastrophic backtracking"],
+    ])("rejects invalid run number pattern: %s", (patterns, expectedMsg) => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        runNumberPatterns: patterns,
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain(expectedMsg);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // GOOGLE_SHEETS required fields
   // ---------------------------------------------------------------------------
 

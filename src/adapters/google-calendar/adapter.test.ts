@@ -76,6 +76,44 @@ describe("extractRunNumber", () => {
   it("returns undefined with no description", () => {
     expect(extractRunNumber("No Number Here")).toBeUndefined();
   });
+
+  // Custom run number patterns (configurable via source config)
+  it("uses custom patterns when provided", () => {
+    expect(
+      extractRunNumber("Weekly Run", "Hash # 2658", [
+        "Hash\\s*#\\s*(\\d+)",
+      ]),
+    ).toBe(2658);
+  });
+
+  it("summary #N still checked first with custom patterns", () => {
+    expect(
+      extractRunNumber("Run #100", "Hash # 2658", [
+        "Hash\\s*#\\s*(\\d+)",
+      ]),
+    ).toBe(100);
+  });
+
+  it("falls back to defaults when customPatterns is empty", () => {
+    expect(extractRunNumber("Weekly Run", "BH3 #2784", [])).toBe(2784);
+  });
+
+  it("custom patterns replace defaults", () => {
+    expect(
+      extractRunNumber("Weekly Run", "BH3 #2784", [
+        "Hash\\s*#\\s*(\\d+)",
+      ]),
+    ).toBeUndefined();
+  });
+
+  it("skips malformed custom patterns gracefully", () => {
+    expect(
+      extractRunNumber("Weekly Run", "Hash # 2658", [
+        "[invalid(",
+        "Hash\\s*#\\s*(\\d+)",
+      ]),
+    ).toBe(2658);
+  });
 });
 
 // ── extractTitle ──
