@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import * as cheerio from "cheerio";
 import { buildAnalysisPrompt, parseGeminiResponse, analyzeUrlForProposal, refineAnalysis } from "./html-analysis";
 
 // Mock dependencies
@@ -135,7 +136,7 @@ describe("analyzeUrlForProposal", () => {
     mockValidateSourceUrl.mockImplementation(() => {});
     mockFetchHTMLPage.mockResolvedValue({
       ok: true,
-      $: {} as never,
+      $: cheerio.load(""),
       result: { events: [], errors: [] },
     } as never);
     mockFindContainers.mockReturnValue([]);
@@ -149,7 +150,7 @@ describe("analyzeUrlForProposal", () => {
     mockValidateSourceUrl.mockImplementation(() => {});
     mockFetchHTMLPage.mockResolvedValue({
       ok: true,
-      $: {} as never,
+      $: cheerio.load(""),
       result: { events: [], errors: [] },
     } as never);
     mockFindContainers.mockReturnValue([{
@@ -188,7 +189,7 @@ describe("refineAnalysis", () => {
     mockValidateSourceUrl.mockImplementation(() => {});
     mockFetchHTMLPage.mockResolvedValue({
       ok: true,
-      $: {} as never,
+      $: cheerio.load(""),
       result: { events: [], errors: [] },
     } as never);
     mockFindContainers.mockReturnValue([{

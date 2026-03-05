@@ -87,6 +87,7 @@ interface Props {
   discoveries: SerializedDiscovery[];
   coverageGaps: Record<string, { id: string; shortName: string; website: string | null }[]>;
   statusCounts: { pending: number; approved: number; rejected: number; error: number; total: number };
+  kennels: { id: string; shortName: string; fullName: string | null }[];
 }
 
 type StatusFilter = "PENDING" | "APPROVED" | "REJECTED" | "ERROR" | "ALL";
@@ -103,7 +104,7 @@ function isSafeUrl(url: string): boolean {
   catch { return false; }
 }
 
-export function ResearchDashboard({ regions, proposals, discoveries, coverageGaps, statusCounts }: Readonly<Props>) {
+export function ResearchDashboard({ regions, proposals, discoveries, coverageGaps, statusCounts, kennels }: Readonly<Props>) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [regionInput, setRegionInput] = useState("");
@@ -541,6 +542,7 @@ export function ResearchDashboard({ regions, proposals, discoveries, coverageGap
       {selectedProposal && (
         <ProposalApprovalDialog
           proposal={selectedProposal}
+          kennels={kennels}
           onClose={() => {
             setSelectedProposal(null);
             router.refresh();
@@ -577,6 +579,8 @@ function formatMethod(method: string): string {
     case "WEB_SEARCH": return "Search";
     case "KENNEL_WEBSITE": return "Kennel";
     case "DISCOVERY_WEBSITE": return "Discovery";
+    case "DISCOVERY_SEARCH": return "AI Search";
+    case "EMBEDDED_DISCOVERY": return "Embedded";
     default: return method;
   }
 }

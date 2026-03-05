@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -21,7 +21,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   approveProposal,
   rejectProposal,
@@ -45,10 +60,11 @@ const SOURCE_TYPES: SourceType[] = [
 
 interface Props {
   proposal: SerializedProposal;
+  kennels: { id: string; shortName: string; fullName: string | null }[];
   onClose: () => void;
 }
 
-export function ProposalApprovalDialog({ proposal, onClose }: Readonly<Props>) {
+export function ProposalApprovalDialog({ proposal, kennels, onClose }: Readonly<Props>) {
   const [isPending, startTransition] = useTransition();
 
   // Editable fields
@@ -66,6 +82,13 @@ export function ProposalApprovalDialog({ proposal, onClose }: Readonly<Props>) {
   );
   const [feedback, setFeedback] = useState("");
   const [showConfigEditor, setShowConfigEditor] = useState(false);
+  const [selectedKennelId, setSelectedKennelId] = useState<string>(proposal.kennelId ?? "");
+  const [kennelComboOpen, setKennelComboOpen] = useState(false);
+
+  const selectedKennel = useMemo(
+    () => kennels.find((k) => k.id === selectedKennelId),
+    [kennels, selectedKennelId],
+  );
 
   function handleReAnalyze() {
     if (!url.trim()) return;
@@ -103,7 +126,7 @@ export function ProposalApprovalDialog({ proposal, onClose }: Readonly<Props>) {
       const result = await approveProposal(proposal.id, {
         name: sourceName || undefined,
         type: sourceType as SourceType,
-        kennelId: proposal.kennelId ?? undefined,
+        kennelId: selectedKennelId || proposal.kennelId || undefined,
         config: configJson || undefined,
       });
       if ("error" in result && result.error) {
@@ -202,11 +225,48 @@ export function ProposalApprovalDialog({ proposal, onClose }: Readonly<Props>) {
             </div>
             <div className="space-y-1">
               <Label>Kennel</Label>
-              <Input
-                value={proposal.kennelName ?? "—"}
-                disabled
-                className="bg-muted"
-              />
+              <Popover open={kennelComboOpen} onOpenChange={setKennelComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={kennelComboOpen}
+                    aria-label="Select kennel"
+                    className="w-full justify-between font-normal"
+                  >
+                    <span className={cn("truncate", !selectedKennel && "text-muted-foreground")}>
+                      {selectedKennel ? selectedKennel.shortName : "Select kennel..."}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[250px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search kennels..." />
+                    <CommandList>
+                      <CommandEmpty>No kennel found.</CommandEmpty>
+                      <CommandGroup>
+                        {kennels.map((k) => (
+                          <CommandItem
+                            key={k.id}
+                            value={`${k.shortName} ${k.fullName ?? ""}`}
+                            onSelect={() => {
+                              setSelectedKennelId(k.id === selectedKennelId ? "" : k.id);
+                              setKennelComboOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", selectedKennelId === k.id ? "opacity-100" : "opacity-0")} />
+                            <span className="font-medium">{k.shortName}</span>
+                            {k.fullName && (
+                              <span className="ml-2 text-xs text-muted-foreground truncate">{k.fullName}</span>
+                            )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 

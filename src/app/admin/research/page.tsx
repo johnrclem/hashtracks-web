@@ -6,7 +6,7 @@ export const metadata = { title: "Source Research — HashTracks Admin" };
 export const maxDuration = 300;
 
 export default async function ResearchPage() {
-  const [regions, proposals, coverageGaps, geminiDiscoveries] = await Promise.all([
+  const [regions, proposals, coverageGaps, geminiDiscoveries, allKennels] = await Promise.all([
     prisma.region.findMany({
       select: { id: true, name: true, abbrev: true, country: true },
       orderBy: { name: "asc" },
@@ -45,6 +45,11 @@ export default async function ResearchPage() {
         regionRef: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" },
+    }),
+    prisma.kennel.findMany({
+      where: { isHidden: false },
+      select: { id: true, shortName: true, fullName: true },
+      orderBy: { shortName: "asc" },
     }),
   ]);
 
@@ -116,6 +121,7 @@ export default async function ResearchPage() {
         discoveries={serializedDiscoveries}
         coverageGaps={serializedGaps}
         statusCounts={statusCounts}
+        kennels={allKennels}
       />
     </div>
   );

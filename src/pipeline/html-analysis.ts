@@ -10,9 +10,11 @@ import {
   getExamplesForLayout,
   formatExamplesForPrompt,
 } from "@/adapters/html-scraper/examples";
+import he from "he";
 import type { GenericHtmlConfig, GenericHtmlColumns } from "@/adapters/html-scraper/generic";
 import { findCandidateContainers } from "@/app/admin/sources/html-analysis-utils";
 import type { ContainerCandidate } from "@/app/admin/sources/html-analysis-utils";
+import type { CheerioAPI } from "cheerio";
 
 /** Result of AI analysis + heuristic container detection. */
 export interface HtmlAnalysisResult {
@@ -21,6 +23,8 @@ export interface HtmlAnalysisResult {
   explanation: string;
   confidence: "high" | "medium" | "low" | null;
   error?: string;
+  /** URLs discovered embedded in the page (Google Calendar links, iCal feeds, etc.) */
+  embeddedUrls?: string[];
 }
 
 // ─── Prompt builders (shared by both analyze and refine) ──────────────────
@@ -124,6 +128,60 @@ export function parseGeminiResponse(text: string): {
   }
 }
 
+// ─── Embedded source discovery ───────────────────────────────────────────────
+
+/**
+ * Scan fetched HTML for embedded source URLs (Google Calendar, iCal, Sheets, Meetup).
+ * Returns deduplicated list of discovered URLs.
+ */
+export function discoverEmbeddedSources($: CheerioAPI): string[] {
+  const urls = new Set<string>();
+
+  // Links: <a href="calendar.google.com/...">
+  $('a[href*="calendar.google.com"]').each((_, el) => {
+    const href = $(el).attr("href");
+    if (href) urls.add(href);
+  });
+
+  // Iframes: <iframe src="calendar.google.com/...">
+  $('iframe[src*="calendar.google.com"]').each((_, el) => {
+    const src = $(el).attr("src");
+    if (src) urls.add(src);
+  });
+
+  // iCal feeds: .ics links and webcal:// links
+  $('a[href$=".ics"], a[href*="webcal://"]').each((_, el) => {
+    const href = $(el).attr("href");
+    if (href) urls.add(href);
+  });
+
+  // Google Sheets links
+  $('a[href*="docs.google.com/spreadsheets"]').each((_, el) => {
+    const href = $(el).attr("href");
+    if (href) urls.add(href);
+  });
+
+  // Meetup links
+  $('a[href*="meetup.com"]').each((_, el) => {
+    const href = $(el).attr("href");
+    if (href) urls.add(href);
+  });
+
+  // Script tag scanning: look for calendar.google.com URLs in inline JS/JSON
+  $("script").each((_, el) => {
+    const text = $(el).html();
+    if (!text || !text.includes("calendar.google.com")) return;
+    const calRegex = /https?:\/\/calendar\.google\.com\/calendar\/embed\?[^\s"'<>]+/g;
+    const matches = text.match(calRegex);
+    if (matches) {
+      // Decode HTML entities (Cheerio .html() may return &amp; for &)
+      for (const m of matches) urls.add(he.decode(m));
+    }
+  });
+
+  return [...urls];
+}
+
 // ─── Core functions (no auth required) ───────────────────────────────────────
 
 /** Empty error result — reused across early returns. */
@@ -155,7 +213,7 @@ function buildConfig(
 /** Validate URL, fetch page, and find candidate containers. Shared by analyze and refine. */
 async function fetchAndFindContainers(
   url: string,
-): Promise<{ candidates: ContainerCandidate[] } | { error: HtmlAnalysisResult }> {
+): Promise<{ candidates: ContainerCandidate[]; $: CheerioAPI } | { error: HtmlAnalysisResult }> {
   if (!url.trim()) return { error: errorResult("URL required") };
 
   try { validateSourceUrl(url); } catch (e) {
@@ -170,17 +228,20 @@ async function fetchAndFindContainers(
 
   const candidates = findCandidateContainers(page.$);
   if (candidates.length === 0) {
+    // Even without containers, scan for embedded sources
+    const embeddedUrls = discoverEmbeddedSources(page.$);
     return {
       error: {
         candidates: [],
         suggestedConfig: null,
         explanation: "No event-like containers found on this page. The page may use JavaScript rendering (not supported) or have an unusual layout.",
         confidence: null,
+        embeddedUrls: embeddedUrls.length > 0 ? embeddedUrls : undefined,
       },
     };
   }
 
-  return { candidates };
+  return { candidates, $: page.$ };
 }
 
 /**
@@ -191,8 +252,11 @@ export async function analyzeUrlForProposal(url: string): Promise<HtmlAnalysisRe
   const fetched = await fetchAndFindContainers(url);
   if ("error" in fetched) return fetched.error;
 
-  const { candidates } = fetched;
+  const { candidates, $ } = fetched;
   const bestCandidate = candidates[0];
+
+  // Discover embedded sources (Calendar links, iCal feeds, etc.)
+  const embeddedUrls = discoverEmbeddedSources($);
 
   // Try Gemini for column mapping
   const prompt = buildAnalysisPrompt(bestCandidate, bestCandidate.layoutType);
@@ -206,6 +270,7 @@ export async function analyzeUrlForProposal(url: string): Promise<HtmlAnalysisRe
         ? `Found ${candidates.length} candidate container(s), but AI analysis unavailable: ${geminiResult.error}.`
         : `Found ${candidates.length} candidate container(s). Configure column selectors manually.`,
       confidence: null,
+      embeddedUrls: embeddedUrls.length > 0 ? embeddedUrls : undefined,
     };
   }
 
@@ -216,6 +281,7 @@ export async function analyzeUrlForProposal(url: string): Promise<HtmlAnalysisRe
       suggestedConfig: null,
       explanation: "AI returned an unparseable response.",
       confidence: null,
+      embeddedUrls: embeddedUrls.length > 0 ? embeddedUrls : undefined,
     };
   }
 
@@ -224,6 +290,7 @@ export async function analyzeUrlForProposal(url: string): Promise<HtmlAnalysisRe
     suggestedConfig: buildConfig(parsed, bestCandidate),
     explanation: parsed.explanation,
     confidence: parsed.confidence,
+    embeddedUrls: embeddedUrls.length > 0 ? embeddedUrls : undefined,
   };
 }
 

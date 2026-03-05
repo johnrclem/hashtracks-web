@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mapWithConcurrency, researchSourcesForRegion, normalizeUrl, isBlocklistedDomain, parseGeminiSearchResults } from "./source-research";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { mapWithConcurrency, researchSourcesForRegion, normalizeUrl, isBlocklistedDomain, parseGeminiSearchResults, checkUrlReachability } from "./source-research";
+import { discoverEmbeddedSources } from "./html-analysis";
+import * as cheerio from "cheerio";
 
 // Mock dependencies
 vi.mock("@/lib/db", () => ({
@@ -12,9 +14,18 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-vi.mock("@/lib/source-detect", () => ({ detectSourceType: vi.fn() }));
+vi.mock("@/lib/source-detect", () => ({
+  detectSourceType: vi.fn(),
+  extractCalendarId: vi.fn(),
+}));
 vi.mock("@/lib/ai/gemini", () => ({ searchAndExtract: vi.fn() }));
-vi.mock("@/pipeline/html-analysis", () => ({ analyzeUrlForProposal: vi.fn() }));
+vi.mock("@/pipeline/html-analysis", async () => {
+  const actual = await vi.importActual<typeof import("@/pipeline/html-analysis")>("@/pipeline/html-analysis");
+  return {
+    ...actual,
+    analyzeUrlForProposal: vi.fn(),
+  };
+});
 vi.mock("@/pipeline/kennel-discovery-ai", async () => {
   const actual = await vi.importActual<typeof import("@/pipeline/kennel-discovery-ai")>("@/pipeline/kennel-discovery-ai");
   return {
@@ -45,8 +56,16 @@ const sourceFindMany = prisma.source.findMany as unknown as ReturnType<typeof vi
 const proposalFindMany = prisma.sourceProposal.findMany as unknown as ReturnType<typeof vi.fn>;
 const proposalUpsert = prisma.sourceProposal.upsert as unknown as ReturnType<typeof vi.fn>;
 
+// Mock global fetch for URL reachability checks (HEAD requests)
+const originalFetch = global.fetch;
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: all HEAD requests succeed (reachable)
+  global.fetch = vi.fn().mockResolvedValue({ status: 200 }) as typeof fetch;
+});
+
+afterEach(() => {
+  global.fetch = originalFetch;
 });
 
 /** Set up default mock returns for a research pipeline test. Override specific mocks as needed. */
@@ -251,5 +270,140 @@ describe("researchSourcesForRegion", () => {
     expect(result.urlsDiscovered).toBe(1);
     expect(mockSearchAndExtract).toHaveBeenCalled();
     expect(proposalUpsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("filters out unreachable URLs", async () => {
+    setupResearchMocks({
+      kennelsWithWebsites: [
+        { id: "k1", shortName: "TH3", website: "https://reachable.com" },
+        { id: "k2", shortName: "BH3", website: "https://fake-domain-xyz.com" },
+      ],
+    });
+
+    // Mock fetch: reachable.com returns 200, fake returns error
+    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.includes("fake-domain-xyz")) {
+        throw new Error("DNS resolution failed");
+      }
+      return { status: 200 };
+    });
+
+    const result = await researchSourcesForRegion("r1");
+    expect(result.urlsDiscovered).toBe(1); // Only the reachable one
+  });
+});
+
+describe("checkUrlReachability", () => {
+  it("returns true for 2xx responses", async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ status: 200 });
+    expect(await checkUrlReachability("https://example.com")).toBe(true);
+  });
+
+  it("returns true for 3xx redirects", async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ status: 301 });
+    expect(await checkUrlReachability("https://example.com")).toBe(true);
+  });
+
+  it("returns false for 404", async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ status: 404 });
+    expect(await checkUrlReachability("https://example.com")).toBe(false);
+  });
+
+  it("returns false on network error", async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("ECONNREFUSED"));
+    expect(await checkUrlReachability("https://bad.com")).toBe(false);
+  });
+});
+
+describe("discoverEmbeddedSources", () => {
+  it("finds Google Calendar links", () => {
+    const $ = cheerio.load(`
+      <html><body>
+        <a href="https://calendar.google.com/calendar/embed?src=test@gmail.com&ctz=America/Denver">Calendar</a>
+      </body></html>
+    `);
+    const urls = discoverEmbeddedSources($);
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain("calendar.google.com");
+    expect(urls[0]).toContain("test@gmail.com");
+  });
+
+  it("finds Google Calendar iframes", () => {
+    const $ = cheerio.load(`
+      <html><body>
+        <iframe src="https://calendar.google.com/calendar/embed?src=abc@group.calendar.google.com"></iframe>
+      </body></html>
+    `);
+    const urls = discoverEmbeddedSources($);
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain("calendar.google.com");
+  });
+
+  it("finds iCal feed links", () => {
+    const $ = cheerio.load(`
+      <html><body>
+        <a href="https://example.com/events.ics">Download Calendar</a>
+        <a href="webcal://example.com/feed.ics">Subscribe</a>
+      </body></html>
+    `);
+    const urls = discoverEmbeddedSources($);
+    expect(urls).toHaveLength(2);
+  });
+
+  it("finds Google Sheets links", () => {
+    const $ = cheerio.load(`
+      <html><body>
+        <a href="https://docs.google.com/spreadsheets/d/abc123/edit">Hareline Spreadsheet</a>
+      </body></html>
+    `);
+    const urls = discoverEmbeddedSources($);
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain("docs.google.com/spreadsheets");
+  });
+
+  it("finds Meetup links", () => {
+    const $ = cheerio.load(`
+      <html><body>
+        <a href="https://www.meetup.com/some-hash-group/">Meetup Page</a>
+      </body></html>
+    `);
+    const urls = discoverEmbeddedSources($);
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain("meetup.com");
+  });
+
+  it("finds calendar URLs in script tags", () => {
+    const $ = cheerio.load(`
+      <html><body>
+        <script>
+          var calUrl = "https://calendar.google.com/calendar/embed?src=myhash@gmail.com&ctz=US";
+        </script>
+      </body></html>
+    `);
+    const urls = discoverEmbeddedSources($);
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain("calendar.google.com/calendar/embed");
+  });
+
+  it("deduplicates URLs", () => {
+    const $ = cheerio.load(`
+      <html><body>
+        <a href="https://calendar.google.com/calendar/embed?src=x@gmail.com">Link 1</a>
+        <a href="https://calendar.google.com/calendar/embed?src=x@gmail.com">Link 2</a>
+      </body></html>
+    `);
+    const urls = discoverEmbeddedSources($);
+    expect(urls).toHaveLength(1);
+  });
+
+  it("returns empty for pages with no embedded sources", () => {
+    const $ = cheerio.load(`
+      <html><body>
+        <h1>Welcome to our hash</h1>
+        <p>Join us for a run!</p>
+      </body></html>
+    `);
+    const urls = discoverEmbeddedSources($);
+    expect(urls).toHaveLength(0);
   });
 });

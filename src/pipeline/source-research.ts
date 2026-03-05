@@ -50,6 +50,8 @@ interface UrlCandidate {
   kennelName?: string;
   discoveryMethod: string;
   searchQuery?: string;
+  /** True if this URL's domain was validated against grounding URLs from Google Search. */
+  groundingValidated?: boolean;
 }
 
 export type ConfidenceLevel = "high" | "medium" | "low";
@@ -83,6 +85,62 @@ export function isBlocklistedDomain(urlStr: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Check if a URL is reachable via HEAD request (5s timeout).
+ * Returns true for 2xx/3xx responses.
+ */
+export async function checkUrlReachability(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, {
+      method: "HEAD",
+      signal: AbortSignal.timeout(5000),
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Research)" },
+      redirect: "follow",
+    });
+    return response.status >= 200 && response.status < 400;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mark candidates whose domains match grounding URLs as groundingValidated,
+ * then filter out unreachable URLs (skipping grounding-validated and known-type URLs).
+ */
+async function validateUrlReachability(candidates: UrlCandidate[], groundingUrls: string[]): Promise<UrlCandidate[]> {
+  // Build set of grounding domains for fast lookup
+  const groundingDomains = new Set<string>();
+  for (const gUrl of groundingUrls) {
+    try { groundingDomains.add(new URL(gUrl).hostname.toLowerCase()); } catch { /* skip invalid */ }
+  }
+
+  // Mark grounding-validated candidates
+  for (const c of candidates) {
+    try {
+      const hostname = new URL(c.url).hostname.toLowerCase();
+      if (groundingDomains.has(hostname)) {
+        c.groundingValidated = true;
+      }
+    } catch { /* skip invalid */ }
+  }
+
+  // Check reachability for non-validated candidates (concurrency limit 5)
+  const results = await mapWithConcurrency(
+    candidates,
+    async (c) => {
+      if (c.groundingValidated) return { candidate: c, reachable: true };
+      // Skip reachability for known structured URLs (Calendar, Sheets, etc.)
+      const detected = detectSourceType(c.url);
+      if (detected) return { candidate: c, reachable: true };
+      const reachable = await checkUrlReachability(c.url);
+      return { candidate: c, reachable };
+    },
+    5,
+  );
+
+  return results.filter((r) => r.reachable).map((r) => r.candidate);
 }
 
 // ─── Concurrency helper ──────────────────────────────────────────────────────
@@ -167,14 +225,14 @@ async function deduplicateUrls(
   return deduped;
 }
 
-/** Web search for a list of kennel names, returning URL candidates + errors. */
+/** Web search for a list of kennel names, returning URL candidates + errors + grounding URLs. */
 async function webSearchForKennels(
   names: string[],
   regionName: string,
   discoveryMethod: string,
   matcherList: { id: string; shortName: string }[],
-): Promise<{ candidates: UrlCandidate[]; errors: string[] }> {
-  if (names.length === 0) return { candidates: [], errors: [] };
+): Promise<{ candidates: UrlCandidate[]; errors: string[]; groundingUrls: string[] }> {
+  if (names.length === 0) return { candidates: [], errors: [], groundingUrls: [] };
 
   const candidates: UrlCandidate[] = [];
   const errors: string[] = [];
@@ -182,8 +240,12 @@ async function webSearchForKennels(
 
   const searchResult = await searchAndExtract(
     searchQuery,
-    (text) =>
-      `Extract URLs from the following text as a JSON array of objects with format: [{"kennel": "KennelName", "url": "https://..."}]. Only include URLs that appear to be event listings or harelines.\n\nText:\n${text}`,
+    (text, groundingUrls) => {
+      const groundingSection = groundingUrls.length > 0
+        ? `\n\nVerified URLs from Google Search (prefer these over any URLs mentioned in the text — do NOT invent URLs that are not listed here or in the text):\n${groundingUrls.map((u) => `- ${u}`).join("\n")}`
+        : "";
+      return `Extract URLs from the following text as a JSON array of objects with format: [{"kennel": "KennelName", "url": "https://..."}]. Only include URLs that appear to be event listings or harelines. Do NOT invent or guess URLs — only use URLs that actually appear in the text or the verified list below.${groundingSection}\n\nText:\n${text}`;
+    },
   );
 
   if (searchResult.text) {
@@ -206,16 +268,17 @@ async function webSearchForKennels(
     errors.push(`${discoveryMethod} web search error: ${searchResult.error}`);
   }
 
-  return { candidates, errors };
+  return { candidates, errors, groundingUrls: searchResult.groundingUrls };
 }
 
 /** Collect URL candidates from kennel websites, discoveries, and web search. */
 async function collectUrlCandidates(
   regionId: string,
   regionName: string,
-): Promise<{ candidates: UrlCandidate[]; errors: string[] }> {
+): Promise<{ candidates: UrlCandidate[]; errors: string[]; groundingUrls: string[] }> {
   const errors: string[] = [];
   const urlCandidates: UrlCandidate[] = [];
+  const allGroundingUrls: string[] = [];
 
   // Run all five DB queries in parallel
   const [kennelsWithWebsites, discoveries, unsourcedKennelsNoWeb, geminiDiscoveries, discoveryNoWeb] = await Promise.all([
@@ -324,16 +387,19 @@ async function collectUrlCandidates(
   for (const ws of webSearchResults) {
     urlCandidates.push(...ws.candidates);
     errors.push(...ws.errors);
+    allGroundingUrls.push(...ws.groundingUrls);
   }
 
-  return { candidates: urlCandidates, errors };
+  return { candidates: urlCandidates, errors, groundingUrls: allGroundingUrls };
 }
 
 // ─── Phase 2: Classify + Analyze ────────────────────────────────────────────
 
-/** Classify and analyze URL candidates (concurrency-limited to 3). */
+/** Classify and analyze URL candidates (concurrency-limited to 3). Also discovers embedded sources. */
 async function classifyAndAnalyze(candidates: UrlCandidate[]): Promise<AnalysisResult[]> {
-  return mapWithConcurrency<UrlCandidate, AnalysisResult>(
+  const embeddedResults: AnalysisResult[] = [];
+
+  const directResults = await mapWithConcurrency<UrlCandidate, AnalysisResult>(
     candidates,
     async (candidate) => {
       try {
@@ -350,8 +416,32 @@ async function classifyAndAnalyze(candidates: UrlCandidate[]): Promise<AnalysisR
           };
         }
 
-        // Step 2: HTML analysis via Gemini
+        // Step 2: HTML analysis via Gemini (also discovers embedded sources)
         const analysis = await analyzeUrlForProposal(candidate.url);
+
+        // Process embedded sources discovered in the page (Calendar links, iCal feeds, etc.)
+        if (analysis.embeddedUrls) {
+          for (const embUrl of analysis.embeddedUrls) {
+            const embDetected = detectSourceType(embUrl);
+            if (embDetected) {
+              const config = buildDetectedConfig(embDetected);
+              embeddedResults.push({
+                candidate: {
+                  url: embUrl,
+                  kennelId: candidate.kennelId,
+                  kennelName: candidate.kennelName,
+                  discoveryMethod: "EMBEDDED_DISCOVERY",
+                  searchQuery: candidate.url,
+                },
+                detectedType: embDetected.type,
+                extractedConfig: (Object.keys(config).length > 0 ? config : null) as Prisma.InputJsonValue,
+                confidence: "high",
+                explanation: `Discovered ${embDetected.type} embedded in ${candidate.url}`,
+              });
+            }
+          }
+        }
+
         if (analysis.error) {
           return {
             candidate,
@@ -384,6 +474,8 @@ async function classifyAndAnalyze(candidates: UrlCandidate[]): Promise<AnalysisR
     },
     3,
   );
+
+  return [...directResults, ...embeddedResults];
 }
 
 // ─── Phase 3: Persist ───────────────────────────────────────────────────────
@@ -470,15 +562,18 @@ export async function researchSourcesForRegion(regionId: string): Promise<Resear
   const errors: string[] = [...discovery.errors];
 
   // Phase 1: Collect URL candidates
-  const { candidates: rawCandidates, errors: urlErrors } = await collectUrlCandidates(regionId, region.name);
+  const { candidates: rawCandidates, errors: urlErrors, groundingUrls } = await collectUrlCandidates(regionId, region.name);
   errors.push(...urlErrors);
 
   // Deduplicate
   const dedupedCandidates = await deduplicateUrls(rawCandidates, regionId);
-  const urlsDiscovered = dedupedCandidates.length;
+
+  // Validate reachability (filters out hallucinated/dead URLs)
+  const reachableCandidates = await validateUrlReachability(dedupedCandidates, groundingUrls);
+  const urlsDiscovered = reachableCandidates.length;
 
   // Phase 2: Classify + Analyze
-  const analysisResults = await classifyAndAnalyze(dedupedCandidates);
+  const analysisResults = await classifyAndAnalyze(reachableCandidates);
 
   // Phase 3: Persist
   const persistence = await persistProposals(analysisResults, regionId);
