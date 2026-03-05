@@ -167,6 +167,48 @@ async function deduplicateUrls(
   return deduped;
 }
 
+/** Web search for a list of kennel names, returning URL candidates + errors. */
+async function webSearchForKennels(
+  names: string[],
+  regionName: string,
+  discoveryMethod: string,
+  matcherList: { id: string; shortName: string }[],
+): Promise<{ candidates: UrlCandidate[]; errors: string[] }> {
+  if (names.length === 0) return { candidates: [], errors: [] };
+
+  const candidates: UrlCandidate[] = [];
+  const errors: string[] = [];
+  const searchQuery = `Find event listing or hareline URLs for these hash house harrier kennels in ${regionName}: ${names.join(", ")}`;
+
+  const searchResult = await searchAndExtract(
+    searchQuery,
+    (text) =>
+      `Extract URLs from the following text as a JSON array of objects with format: [{"kennel": "KennelName", "url": "https://..."}]. Only include URLs that appear to be event listings or harelines.\n\nText:\n${text}`,
+  );
+
+  if (searchResult.text) {
+    try {
+      const parsed = parseGeminiSearchResults(searchResult.text, matcherList, searchQuery);
+      for (const c of parsed) c.discoveryMethod = discoveryMethod;
+      candidates.push(...parsed);
+    } catch {
+      errors.push(`Failed to parse Gemini search response for ${discoveryMethod}`);
+    }
+  }
+
+  for (const gUrl of searchResult.groundingUrls) {
+    if (!isBlocklistedDomain(gUrl)) {
+      candidates.push({ url: gUrl, discoveryMethod, searchQuery });
+    }
+  }
+
+  if (searchResult.error) {
+    errors.push(`${discoveryMethod} web search error: ${searchResult.error}`);
+  }
+
+  return { candidates, errors };
+}
+
 /** Collect URL candidates from kennel websites, discoveries, and web search. */
 async function collectUrlCandidates(
   regionId: string,
@@ -175,8 +217,8 @@ async function collectUrlCandidates(
   const errors: string[] = [];
   const urlCandidates: UrlCandidate[] = [];
 
-  // Run all four DB queries in parallel
-  const [kennelsWithWebsites, discoveries, unsourcedKennelsNoWeb, geminiDiscoveries] = await Promise.all([
+  // Run all five DB queries in parallel
+  const [kennelsWithWebsites, discoveries, unsourcedKennelsNoWeb, geminiDiscoveries, discoveryNoWeb] = await Promise.all([
     prisma.kennel.findMany({
       where: {
         regionId,
@@ -218,6 +260,16 @@ async function collectUrlCandidates(
       },
       select: { website: true, name: true },
     }),
+    // Gemini-discovered kennels WITHOUT websites (need web search)
+    prisma.kennelDiscovery.findMany({
+      where: {
+        externalSource: "GEMINI",
+        regionId,
+        status: { in: ["NEW", "MATCHED"] },
+        website: null,
+      },
+      select: { name: true },
+    }),
   ]);
 
   for (const kennel of kennelsWithWebsites) {
@@ -253,41 +305,25 @@ async function collectUrlCandidates(
     }
   }
 
-  // Web search for kennels without websites (two-step: search → extract)
-  if (unsourcedKennelsNoWeb.length > 0) {
-    const kennelNames = unsourcedKennelsNoWeb
-      .map((k) => `${k.shortName} (${k.fullName})`)
-      .join(", ");
-    const searchQuery = `Find event listing or hareline URLs for these hash house harrier kennels in ${regionName}: ${kennelNames}`;
+  // Web search for kennels/discoveries without websites (run in parallel)
+  const webSearchResults = await Promise.all([
+    webSearchForKennels(
+      unsourcedKennelsNoWeb.map((k) => `${k.shortName} (${k.fullName})`),
+      regionName,
+      "WEB_SEARCH",
+      unsourcedKennelsNoWeb,
+    ),
+    webSearchForKennels(
+      discoveryNoWeb.map((d) => d.name),
+      regionName,
+      "DISCOVERY_SEARCH",
+      [],
+    ),
+  ]);
 
-    const searchResult = await searchAndExtract(
-      searchQuery,
-      (text) =>
-        `Extract URLs from the following text as a JSON array of objects with format: [{"kennel": "ShortName", "url": "https://..."}]. Only include URLs that appear to be event listings or harelines.\n\nText:\n${text}`,
-    );
-
-    if (searchResult.text) {
-      try {
-        const parsed = parseGeminiSearchResults(searchResult.text, unsourcedKennelsNoWeb, searchQuery);
-        urlCandidates.push(...parsed);
-      } catch {
-        errors.push("Failed to parse Gemini search response");
-      }
-    }
-
-    for (const gUrl of searchResult.groundingUrls) {
-      if (!isBlocklistedDomain(gUrl)) {
-        urlCandidates.push({
-          url: gUrl,
-          discoveryMethod: "WEB_SEARCH",
-          searchQuery,
-        });
-      }
-    }
-
-    if (searchResult.error) {
-      errors.push(`Web search error: ${searchResult.error}`);
-    }
+  for (const ws of webSearchResults) {
+    urlCandidates.push(...ws.candidates);
+    errors.push(...ws.errors);
   }
 
   return { candidates: urlCandidates, errors };

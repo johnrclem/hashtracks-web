@@ -30,10 +30,12 @@ vi.mock("@/pipeline/kennel-discovery-ai", async () => {
 
 import { prisma } from "@/lib/db";
 import { detectSourceType } from "@/lib/source-detect";
+import { searchAndExtract } from "@/lib/ai/gemini";
 import { analyzeUrlForProposal } from "@/pipeline/html-analysis";
 
 const mockDetect = vi.mocked(detectSourceType);
 const mockAnalyze = vi.mocked(analyzeUrlForProposal);
+const mockSearchAndExtract = vi.mocked(searchAndExtract);
 
 // Prisma mock accessors
 const regionFindUnique = prisma.region.findUnique as unknown as ReturnType<typeof vi.fn>;
@@ -224,5 +226,30 @@ describe("researchSourcesForRegion", () => {
 
     const result = await researchSourcesForRegion("r1");
     expect(result.proposalsCreated).toBe(2);
+  });
+
+  it("web-searches for discovered kennels without websites", async () => {
+    setupResearchMocks();
+    // Override discoveryFindMany to return websiteless discoveries on the 5th query
+    discoveryFindMany.mockImplementation(async (args: unknown) => {
+      const where = (args as { where: { website?: unknown; status?: unknown } }).where;
+      // 5th query: status IN [NEW, MATCHED], website null
+      if (where.website === null && where.status) {
+        return [{ name: "El Paso HHH" }];
+      }
+      return [];
+    });
+
+    mockSearchAndExtract.mockResolvedValue({
+      text: JSON.stringify([{ kennel: "El Paso HHH", url: "https://eph3.com/hareline" }]),
+      groundingUrls: [],
+      error: null,
+      durationMs: 100,
+    });
+
+    const result = await researchSourcesForRegion("r1");
+    expect(result.urlsDiscovered).toBe(1);
+    expect(mockSearchAndExtract).toHaveBeenCalled();
+    expect(proposalUpsert).toHaveBeenCalledTimes(1);
   });
 });
