@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl } from "../utils";
+import { googleMapsSearchUrl, compilePatterns } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { sync as icalSync } from "node-ical";
 import type { VEvent, ParameterValue, DateWithTimeZone } from "node-ical";
@@ -120,18 +120,14 @@ function extractFieldFromDescription(
 
 /**
  * Extract hare names from an iCal DESCRIPTION field.
- * Supports configurable patterns via source config; falls back to defaults.
+ * Accepts pre-compiled RegExp[] or raw string[] (compiled on the fly for one-off use).
+ * The adapter fetch() pre-compiles once per scrape for efficiency.
  */
-export function extractHaresFromDescription(description: string, customPatterns?: string[]): string | undefined {
+export function extractHaresFromDescription(description: string, customPatterns?: string[] | RegExp[]): string | undefined {
   if (customPatterns && customPatterns.length > 0) {
-    const compiled: RegExp[] = [];
-    for (const p of customPatterns) {
-      try {
-        compiled.push(new RegExp(p, "im"));
-      } catch {
-        // Skip malformed patterns from source config
-      }
-    }
+    const compiled = typeof customPatterns[0] === "string"
+      ? compilePatterns(customPatterns as string[])
+      : customPatterns as RegExp[];
     if (compiled.length > 0) {
       return extractFieldFromDescription(description, compiled);
     }
@@ -320,6 +316,7 @@ function resolveLocationUrl(
 function buildRawEventFromVEvent(
   vevent: VEvent,
   config: ICalSourceConfig | null,
+  compiledHarePatterns?: RegExp[],
 ): RawEventData | null {
   if (vevent.status === "CANCELLED") return null;
 
@@ -336,7 +333,7 @@ function buildRawEventFromVEvent(
   const dateStr = formatDate(vevent.start);
   const startTime = formatTime(vevent.start);
   const description = paramValue(vevent.description);
-  const hares = description ? extractHaresFromDescription(description, config?.harePatterns) : undefined;
+  const hares = description ? extractHaresFromDescription(description, compiledHarePatterns) : undefined;
   let location = paramValue(vevent.location);
 
   if (!location && description) {
@@ -401,7 +398,12 @@ export class ICalAdapter implements SourceAdapter {
     const config = (source.config && typeof source.config === "object" && !Array.isArray(source.config))
       ? source.config as ICalSourceConfig
       : null;
-    const skipPatterns = config?.skipPatterns?.map((p) => new RegExp(p, "i"));
+    const skipPatterns = config?.skipPatterns?.length
+      ? compilePatterns(config.skipPatterns, "i")
+      : undefined;
+    const compiledHarePatterns = config?.harePatterns?.length
+      ? compilePatterns(config.harePatterns)
+      : undefined;
 
     const events: RawEventData[] = [];
     const errors: string[] = [];
@@ -437,7 +439,7 @@ export class ICalAdapter implements SourceAdapter {
           continue;
         }
 
-        const event = buildRawEventFromVEvent(vevent, config);
+        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns);
         if (event) events.push(event);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

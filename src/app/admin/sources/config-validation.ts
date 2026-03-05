@@ -49,37 +49,20 @@ function validateKennelPatterns(obj: Record<string, unknown>, errors: string[]):
   }
 }
 
-/** Validate skipPatterns array: each entry must be a regex string. */
-function validateSkipPatterns(obj: Record<string, unknown>, errors: string[]): void {
-  if (!("skipPatterns" in obj) || obj.skipPatterns === undefined) return;
+/** Validate a named string[] config field where each entry must be a valid regex. */
+function validatePatternArray(obj: Record<string, unknown>, fieldName: string, errors: string[]): void {
+  if (!(fieldName in obj) || obj[fieldName] === undefined) return;
 
-  if (!Array.isArray(obj.skipPatterns)) {
-    errors.push("skipPatterns must be an array of regex strings");
+  if (!Array.isArray(obj[fieldName])) {
+    errors.push(`${fieldName} must be an array of regex strings`);
     return;
   }
-  for (const [i, pattern] of obj.skipPatterns.entries()) {
+  for (const [i, pattern] of (obj[fieldName] as unknown[]).entries()) {
     if (typeof pattern !== "string") {
-      errors.push(`skipPatterns[${i}]: must be a string`);
+      errors.push(`${fieldName}[${i}]: must be a string`);
       continue;
     }
-    validateRegex(pattern, `skipPatterns[${i}]`, errors);
-  }
-}
-
-/** Validate harePatterns array: each entry must be a regex string. */
-function validateHarePatterns(obj: Record<string, unknown>, errors: string[]): void {
-  if (!("harePatterns" in obj) || obj.harePatterns === undefined) return;
-
-  if (!Array.isArray(obj.harePatterns)) {
-    errors.push("harePatterns must be an array of regex strings");
-    return;
-  }
-  for (const [i, pattern] of obj.harePatterns.entries()) {
-    if (typeof pattern !== "string") {
-      errors.push(`harePatterns[${i}]: must be a string`);
-      continue;
-    }
-    validateRegex(pattern, `harePatterns[${i}]`, errors);
+    validateRegex(pattern, `${fieldName}[${i}]`, errors);
   }
 }
 
@@ -238,8 +221,8 @@ export function validateSourceConfig(
 
   // Common pattern validation
   validateKennelPatterns(obj, errors);
-  validateSkipPatterns(obj, errors);
-  validateHarePatterns(obj, errors);
+  validatePatternArray(obj, "skipPatterns", errors);
+  validatePatternArray(obj, "harePatterns", errors);
 
   // Type-specific validation
   runTypeValidator(type, obj, errors);

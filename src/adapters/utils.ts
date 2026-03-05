@@ -37,6 +37,23 @@ export function stripHtmlTags(
 }
 
 /**
+ * Compile an array of regex pattern strings into RegExp objects.
+ * Malformed patterns are silently skipped. Used by adapters to pre-compile
+ * config-driven patterns once per scrape instead of per event.
+ */
+export function compilePatterns(patterns: string[], flags = "im"): RegExp[] {
+  const compiled: RegExp[] = [];
+  for (const p of patterns) {
+    try {
+      compiled.push(new RegExp(p, flags));
+    } catch {
+      // Skip malformed patterns from source config
+    }
+  }
+  return compiled;
+}
+
+/**
  * Month name → 1-indexed month number (for YYYY-MM-DD string formatting).
  * Used by: london-hash, city-hash, west-london-hash, bfm, hashphilly
  */

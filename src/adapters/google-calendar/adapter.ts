@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns } from "../utils";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -66,22 +66,18 @@ const DEFAULT_HARE_PATTERNS = [
 
 /**
  * Extract hare names from the event description.
- * Supports configurable patterns via source config; falls back to defaults.
+ * Accepts pre-compiled RegExp[] or raw string[] (compiled on the fly for one-off use).
+ * The adapter fetch() pre-compiles once per scrape for efficiency.
  */
-export function extractHares(description: string, customPatterns?: string[]): string | undefined {
-  // Build pattern list: custom config patterns replace defaults when provided
-  const patterns: RegExp[] = [];
+export function extractHares(description: string, customPatterns?: string[] | RegExp[]): string | undefined {
+  let patterns: RegExp[];
 
   if (customPatterns && customPatterns.length > 0) {
-    for (const p of customPatterns) {
-      try {
-        patterns.push(new RegExp(p, "im"));
-      } catch {
-        // Skip malformed patterns from source config
-      }
-    }
+    patterns = typeof customPatterns[0] === "string"
+      ? compilePatterns(customPatterns as string[])
+      : customPatterns as RegExp[];
   } else {
-    patterns.push(...DEFAULT_HARE_PATTERNS);
+    patterns = DEFAULT_HARE_PATTERNS;
   }
 
   for (const pattern of patterns) {
@@ -198,6 +194,7 @@ function parseCalendarSourceConfig(config: unknown): CalendarSourceConfig | null
 function buildRawEventFromGCalItem(
   item: GCalEvent,
   sourceConfig: CalendarSourceConfig | null,
+  compiledHarePatterns?: RegExp[],
 ): RawEventData | null {
   if (item.status === "cancelled") return null;
   if (!item.summary) return null;
@@ -206,7 +203,7 @@ function buildRawEventFromGCalItem(
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start);
   if (!dateISO) return null;
   const { rawDescription, description } = normalizeGCalDescription(item.description);
-  const hares = rawDescription ? extractHares(rawDescription, sourceConfig?.harePatterns) : undefined;
+  const hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(item.summary, sourceConfig);
 
   return {
@@ -259,6 +256,9 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     let totalItemsReturned = 0;
     let pagesProcessed = 0;
     const sourceConfig = parseCalendarSourceConfig(source.config);
+    const compiledHarePatterns = sourceConfig?.harePatterns?.length
+      ? compilePatterns(sourceConfig.harePatterns)
+      : undefined;
 
     do {
       const url = new URL(
@@ -300,7 +300,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
       for (const item of items) {
         try {
-          const event = buildRawEventFromGCalItem(item, sourceConfig);
+          const event = buildRawEventFromGCalItem(item, sourceConfig, compiledHarePatterns);
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
