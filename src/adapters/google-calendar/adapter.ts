@@ -45,7 +45,7 @@ export function extractRunNumber(summary: string, description?: string): number 
   if (descMatch) return Number.parseInt(descMatch[1], 10);
 
   // 3. Standalone run number in description (e.g., "#2792" on its own line)
-  const standaloneMatch = /(?:^|\n)\s*#(\d{3,})\s*(?:\n|$)/m.exec(description);
+  const standaloneMatch = /(?:^|\n)[ \t]*#(\d{3,})[ \t]*(?:\n|$)/m.exec(description);
   if (standaloneMatch) return Number.parseInt(standaloneMatch[1], 10);
 
   return undefined;
@@ -65,8 +65,8 @@ export function extractTitle(summary: string): string {
 export function extractHares(description: string): string | undefined {
   // Try each pattern, return first match
   const patterns = [
-    /(?:^|\n)\s*Hares?:\s*(.+)/im,
-    /(?:^|\n)\s*Who:\s*(.+)/im,
+    /(?:^|\n)[ \t]*Hares?:[ \t]*(.+)/im,
+    /(?:^|\n)[ \t]*Who:[ \t]*(.+)/im,
   ];
 
   for (const pattern of patterns) {

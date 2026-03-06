@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-03-02
+Last updated: 2026-03-05
 
 **Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
 
@@ -161,6 +161,12 @@ See [kennel-page-redesign-spec.md](kennel-page-redesign-spec.md) for full spec.
 - [x] Per-source `scrapeFreq` with interval-based skip logic
 - [x] Shared `scrapeSource()` for cron + admin routes
 - [x] Vercel Web Analytics + Speed Insights integration
+- [x] **Residential proxy relay** — NAS-based forward proxy for WAF-blocked scrape targets
+  - Synology DS423+ NAS, Cloudflare Tunnel (`proxy.hashtracks.xyz`), zero-dep Node.js server
+  - Opt-in via `useResidentialProxy: true` in safeFetch (currently Enfield Hash only)
+  - Security: timing-safe auth, SSRF protection, body size caps, generic error responses
+  - Domain: `hashtracks.xyz` (Cloudflare Registrar) — infra-only, not user-facing
+  - See `docs/residential-proxy-spec.md` and `infra/proxy-relay/README.md`
 
 ### Source Onboarding Wizard — COMPLETE
 - [x] Admin "Add Source" wizard at `/admin/sources/new` (multi-phase guided setup)
@@ -248,8 +254,8 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 ### Current Stats
 - 76 kennels (with rich profiles), 246 aliases, 30 sources, 36 regions (first-class model with hierarchy)
 - 8 adapter types: HTML_SCRAPER (22), GOOGLE_CALENDAR (5), GOOGLE_SHEETS (2), ICAL_FEED (3), HASHREGO (1), MEETUP (1), STATIC_SCHEDULE (1), WORDPRESS_API (1)
-- 25 models, 17 enums in Prisma schema
-- 93 test files, 1877 test cases
+- 26 models, 18 enums in Prisma schema
+- 102 test files, 2100 test cases
 
 ---
 
@@ -570,8 +576,15 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 ### AI-Assisted Source Onboarding — Phase 1 COMPLETE (Sprint B)
 - [x] **Phase 1**: AI analyzes URL/HTML → proposes CSS selectors + column mappings → admin reviews in interactive preview → corrects via dropdown reassignment or text feedback → Refine with AI → save
-- [ ] **Phase 2**: Autonomous agent discovers kennels + URLs → batch-analyzes → proposes sources for admin approval (Sprint D)
+- [x] **Phase 2**: Autonomous agent discovers kennels + URLs → batch-analyzes → proposes sources for admin approval (Sprint D — SourceProposal model, Gemini search grounding, research pipeline, admin approval UI with feedback/refinement loop)
 - [ ] **Phase 3**: Users submit source URLs → AI creates draft config → admin approves → live
+
+### Custom Domain
+- [ ] **Move HashTracks to custom domain** — currently on `hashtracks-web.vercel.app`, should be `hashtracks.com` or similar
+  - Registered `hashtracks.xyz` for infra use (Cloudflare Registrar, proxy tunnel)
+  - Evaluate: register `hashtracks.com` (or `.run`, `.app`) for the user-facing app
+  - Update `NEXT_PUBLIC_APP_URL`, Clerk redirect URLs, Strava OAuth callback, invite links
+  - Configure custom domain in Vercel dashboard (DNS: CNAME to `cname.vercel-dns.com`)
 
 ### Infrastructure Scaling
 - [ ] BullMQ + Redis (if needed at 50+ sources)
@@ -658,10 +671,11 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - [ ] **Discovery queue admin page** at `/admin/discovery` — table with fuzzy match scores, one-click "Add to DB" / "Dismiss" / "Already exists"
 - [ ] **Weekly discovery sync** — cron extension or API endpoint
 
-### Sprint D: Autonomous Agent (Size: L)
-- [ ] **Agent endpoint** — "Research kennels in [region]" command that orchestrates: web search → URL discovery → auto-analyze → propose sources
-- [ ] **Batch analysis** — run `analyzeHtmlStructure()` across multiple URLs, rank by confidence
-- [ ] **Auto-onboarding** — high-confidence generic HTML configs created as draft sources for admin approval
+### Sprint D: Autonomous Source Research — COMPLETE
+- [x] **Research pipeline** — "Research kennels in [region]" orchestrates: Gemini search grounding → kennel discovery → URL classification → HTML analysis → proposal persistence (`src/pipeline/source-research.ts`)
+- [x] **Admin research UI** — region-based research trigger, proposal review table with status filters, approve/reject workflow with URL editing and feedback refinement (`src/app/admin/research/`)
+- [x] **AI kennel discovery** — Phase 0 discovers unknown kennels via Gemini search, persists as KennelDiscovery records with auto-create to kennel directory
+- [x] **Residential proxy** — NAS-based forward proxy for WAF-blocked scrape targets, Cloudflare Tunnel (`proxy.hashtracks.xyz`), `infra/proxy-relay/`
 
 ### Future Enhancements (Deferred)
 - [ ] Pagination support for generic HTML adapter (multi-page URL templates)

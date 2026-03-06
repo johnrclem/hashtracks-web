@@ -40,7 +40,7 @@ Zero-dependency Node.js HTTP server. Accepts `POST /proxy` with JSON body
 the target URL from the NAS's residential IP, and returns the raw response.
 
 Requirements:
-- Validate `X-Proxy-Key` header matches `PROXY_API_KEY` env var (reject with 403)
+- Validate `X-Proxy-Key` header matches `PROXY_API_KEY` env var using `crypto.timingSafeEqual` (reject with 403)
 - Require `PROXY_API_KEY` to be set and ≥32 chars on startup (exit 1 if not)
 - Only accept `POST /proxy` (return 404 for anything else except `GET /health`)
 - `GET /health` returns `{ status: "ok", timestamp }` (for monitoring)
@@ -51,10 +51,12 @@ Requirements:
 - 30-second request timeout
 - Forward response status code and content-type/content-encoding/last-modified/etag headers
 - Return raw response body (Buffer)
-- On fetch error, return 502 with `{ error: message }`
+- On fetch error, return 502 with `{ error: "Proxy request failed" }` (generic message; details logged server-side only)
 - Log each proxied request with timestamp and target URL
 - Listen on `PORT` env var (default 3100), bind `0.0.0.0`
-- **Zero npm dependencies** — use only Node built-ins (http, https)
+- **Zero npm dependencies** — use only Node built-ins (crypto, http, https)
+- Cap incoming request body at 1MB (defense-in-depth against OOM)
+- Cap outgoing response body at 5MB
 
 ### 1.2 `infra/proxy-relay/Dockerfile`
 
@@ -83,7 +85,7 @@ Two services:
 - Image: `cloudflare/cloudflared:latest`
 - Container name: `cloudflared`
 - Restart: `unless-stopped`
-- Command: `tunnel run`
+- Command: `tunnel --protocol http2 run` (QUIC fails on Synology NAS kernel — limited UDP buffer)
 - Environment: `TUNNEL_TOKEN` from `.env` file
 - `mem_limit: 64m`
 - Depends on: `proxy-relay`
@@ -96,14 +98,11 @@ Short deployment instructions covering:
 1. **Cloudflare Tunnel setup** (one-time):
    - Create tunnel at https://one.dash.cloudflare.com → Networks → Tunnels
    - Name it `nas-proxy`
-   - Configure public hostname: subdomain `proxy`, your Cloudflare domain, service `http://proxy-relay:3100`
+   - Configure public hostname: subdomain `proxy`, domain `hashtracks.xyz`, service `http://proxy-relay:3100`
    - Copy tunnel token
 
 2. **NAS deployment** (from Chromebook via Tailscale SSH):
    ```bash
-   # First time: clone repo on NAS
-   ssh nas-tailscale "git clone https://github.com/johnrclem/hashtracks-web.git /volume1/repos/hashtracks-web"
-
    # Create working directory and .env
    ssh nas-tailscale "mkdir -p /volume1/docker/proxy-relay"
    ssh nas-tailscale "cat > /volume1/docker/proxy-relay/.env << 'EOF'
@@ -111,30 +110,29 @@ Short deployment instructions covering:
    TUNNEL_TOKEN=<from Cloudflare dashboard>
    EOF"
 
-   # Deploy (and on subsequent updates)
-   ssh nas-tailscale "cd /volume1/repos/hashtracks-web && git pull && \
-     cp infra/proxy-relay/* /volume1/docker/proxy-relay/ && \
-     cd /volume1/docker/proxy-relay && \
-     sudo docker compose up -d --build"
+   # Copy files (scp -O required for Synology SSH)
+   scp -O infra/proxy-relay/{server.js,Dockerfile,docker-compose.yml,README.md} \
+       nas-tailscale:/volume1/docker/proxy-relay/
+
+   # Deploy
+   ssh nas-tailscale "cd /volume1/docker/proxy-relay && \
+     /volume1/@appstore/ContainerManager/usr/bin/docker compose up -d --build"
    ```
 
 3. **Testing:**
    ```bash
-   # Via Tailscale (direct, bypassing cloudflared)
-   curl -X POST http://100.122.201.59:3100/proxy \
+   # Via Cloudflare Tunnel (production path)
+   curl -X POST https://proxy.hashtracks.xyz/proxy \
      -H "Content-Type: application/json" \
      -H "X-Proxy-Key: YOUR_KEY" \
      -d '{"url": "https://www.enfieldhash.org/"}'
 
-   # Via Cloudflare Tunnel (production path)
-   curl -X POST https://proxy.yourdomain.com/proxy \
-     -H "Content-Type: application/json" \
-     -H "X-Proxy-Key: YOUR_KEY" \
-     -d '{"url": "https://www.enfieldhash.org/"}'
+   # Health check
+   curl https://proxy.hashtracks.xyz/health
    ```
 
 4. **Vercel env vars** — add to Vercel dashboard:
-   - `RESIDENTIAL_PROXY_URL` = `https://proxy.yourdomain.com`
+   - `RESIDENTIAL_PROXY_URL` = `https://proxy.hashtracks.xyz`
    - `RESIDENTIAL_PROXY_KEY` = the PROXY_API_KEY value from the NAS .env
 
 ---
@@ -249,8 +247,11 @@ to add `useResidentialProxy: true` to that adapter's safeFetch call.
 
 ## Security Layers
 
-1. API key auth (`X-Proxy-Key` header, 256-bit random)
+1. Timing-safe API key auth (`crypto.timingSafeEqual`, 256-bit random key)
 2. No inbound ports on home router (Cloudflare Tunnel is outbound-only)
-3. SSRF protection in proxy (blocks private IP targets)
+3. SSRF protection: app-side `validateSourceUrl()` (defense-in-depth) + proxy-side `isPrivateTarget()`
 4. Cloudflare edge DDoS/abuse protection
-5. Graceful fallback if proxy env vars not configured (dev environments work unchanged)
+5. Body size caps: 1MB incoming request, 5MB outgoing response (OOM prevention)
+6. 45s client-side timeout on proxy fetch (30s proxy timeout + 15s tunnel buffer)
+7. Generic error responses — internal details logged server-side only, not leaked to caller
+8. Graceful fallback if proxy env vars not configured (dev environments work unchanged)
