@@ -15,6 +15,11 @@ interface PatternSuggestButtonProps {
   readonly geminiAvailable?: boolean;
 }
 
+const FIELD_LABELS: Record<SuggestableField, string> = {
+  hares: "hare patterns",
+  runNumber: "run # patterns",
+};
+
 function confidenceColor(c: number): string {
   if (c >= 0.8) return "border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-950";
   if (c >= 0.5) return "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950";
@@ -68,7 +73,7 @@ export function PatternSuggestButton({
           disabled={isPending}
           className="text-xs"
         >
-          {isPending ? "Analyzing..." : "Suggest with AI"}
+          {isPending ? "Analyzing..." : `Suggest ${FIELD_LABELS[field]}`}
         </Button>
       )}
 
