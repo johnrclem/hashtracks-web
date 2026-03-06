@@ -179,7 +179,7 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
                         </span>
                       )}
                       {(region.centroidLat == null || region.centroidLng == null) && (
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" title="Missing centroid coordinates" />
+                        <span title="Missing centroid coordinates"><AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" /></span>
                       )}
                     </div>
                   </TableCell>
