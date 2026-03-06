@@ -578,6 +578,15 @@ export function getRegionCentroid(
   return null;
 }
 
+// Build level lookup from seed data (name + aliases → level)
+const REGION_NAME_TO_LEVEL = new Map<string, RegionLevel>();
+for (const r of REGION_SEED_DATA) {
+  REGION_NAME_TO_LEVEL.set(r.name, r.level ?? "METRO");
+  if (r.aliases) {
+    for (const alias of r.aliases) REGION_NAME_TO_LEVEL.set(alias, r.level ?? "METRO");
+  }
+}
+
 /** Convert a region name string to a RegionData object using sync fallback maps. */
 export function regionNameToData(name: string): RegionData {
   const centroid = getRegionCentroid(name);
@@ -585,7 +594,7 @@ export function regionNameToData(name: string): RegionData {
     slug: regionNameToSlug(name) ?? regionSlug(name),
     name,
     abbrev: regionAbbrev(name),
-    level: "METRO",
+    level: REGION_NAME_TO_LEVEL.get(name) ?? "METRO",
     colorClasses: regionColorClasses(name),
     pinColor: getRegionColor(name),
     centroidLat: centroid?.lat ?? null,

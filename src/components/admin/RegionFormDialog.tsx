@@ -77,7 +77,7 @@ export function RegionFormDialog({
 
   // Filter parent options: COUNTRY and STATE_PROVINCE regions can be parents
   const parentOptions = regions.filter(
-    (r) => r.id !== region?.id && (r.level === "COUNTRY" || r.level === "STATE_PROVINCE" || !r.parentId),
+    (r) => r.id !== region?.id && (r.level === "COUNTRY" || r.level === "STATE_PROVINCE"),
   );
 
   return (

@@ -176,8 +176,8 @@ export async function createKennel(formData: FormData, force: boolean = false) {
   // Parse kennel coordinates
   const latRaw = (formData.get("latitude") as string)?.trim();
   const lngRaw = (formData.get("longitude") as string)?.trim();
-  const latitude = latRaw ? parseFloat(latRaw) : null;
-  const longitude = lngRaw ? parseFloat(lngRaw) : null;
+  const latitude = latRaw ? Number.parseFloat(latRaw) : null;
+  const longitude = lngRaw ? Number.parseFloat(lngRaw) : null;
 
   await prisma.kennel.create({
     data: {
@@ -190,8 +190,8 @@ export async function createKennel(formData: FormData, force: boolean = false) {
       country,
       description,
       website,
-      ...(latitude != null && !isNaN(latitude) ? { latitude } : {}),
-      ...(longitude != null && !isNaN(longitude) ? { longitude } : {}),
+      ...(latitude != null && !Number.isNaN(latitude) ? { latitude } : {}),
+      ...(longitude != null && !Number.isNaN(longitude) ? { longitude } : {}),
       ...profileFields,
       aliases: {
         create: aliases.map((alias) => ({ alias })),
@@ -267,11 +267,11 @@ export async function updateKennel(kennelId: string, formData: FormData) {
 
   const profileFields = extractProfileFields(formData);
 
-  // Parse kennel coordinates
+  // Parse kennel coordinates (only update if form provided values)
   const latRaw = (formData.get("latitude") as string)?.trim();
   const lngRaw = (formData.get("longitude") as string)?.trim();
-  const latitude = latRaw ? parseFloat(latRaw) : null;
-  const longitude = lngRaw ? parseFloat(lngRaw) : null;
+  const latParsed = latRaw ? Number.parseFloat(latRaw) : undefined;
+  const lngParsed = lngRaw ? Number.parseFloat(lngRaw) : undefined;
 
   // Replace all aliases: delete existing, create new
   await prisma.$transaction([
@@ -287,8 +287,8 @@ export async function updateKennel(kennelId: string, formData: FormData) {
         country,
         description,
         website,
-        latitude: latitude != null && !isNaN(latitude) ? latitude : null,
-        longitude: longitude != null && !isNaN(longitude) ? longitude : null,
+        ...(latParsed !== undefined ? { latitude: Number.isNaN(latParsed) ? null : latParsed } : {}),
+        ...(lngParsed !== undefined ? { longitude: Number.isNaN(lngParsed) ? null : lngParsed } : {}),
         ...profileFields,
         aliases: {
           create: newAliases.map((alias) => ({ alias })),

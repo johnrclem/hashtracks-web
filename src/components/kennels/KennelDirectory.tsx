@@ -50,12 +50,16 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   const [selectedCountry, setSelectedCountryState] = useState(
     searchParams.get("country") ?? "",
   );
-  const [nearMeDistance, setNearMeDistanceState] = useState<number | null>(
-    searchParams.get("distance") ? Number(searchParams.get("distance")) : null,
-  );
-  const [sort, setSortState] = useState<"alpha" | "active" | "nearest">(
-    (searchParams.get("sort") as "alpha" | "active" | "nearest") || "alpha",
-  );
+  const [nearMeDistance, setNearMeDistanceState] = useState<number | null>(() => {
+    const distParam = searchParams.get("distance");
+    if (distParam == null) return null;
+    const parsed = Number(distParam);
+    return Number.isFinite(parsed) ? parsed : null;
+  });
+  const [sort, setSortState] = useState<"alpha" | "active" | "nearest">(() => {
+    const sortParam = searchParams.get("sort");
+    return sortParam === "active" || sortParam === "nearest" ? sortParam : "alpha";
+  });
   const [displayView, setDisplayViewState] = useState<"grid" | "map">(
     searchParams.get("display") === "map" ? "map" : "grid",
   );
@@ -166,7 +170,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     const map = new Map<string, number>();
     for (const k of kennels) {
       const coords = getEventCoords(k.latitude, k.longitude, k.region);
-      if (coords) {
+      if (coords?.precise) {
         map.set(k.id, haversineDistance(geoState.lat, geoState.lng, coords.lat, coords.lng));
       }
     }

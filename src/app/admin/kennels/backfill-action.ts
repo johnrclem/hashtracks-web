@@ -23,12 +23,13 @@ export async function backfillKennelCoords(): Promise<{ error?: string; result?:
   if (!admin) return { error: "Not authorized" };
 
   const kennels = await prisma.kennel.findMany({
-    where: { latitude: null },
+    where: { OR: [{ latitude: null }, { longitude: null }] },
     select: {
       id: true,
       shortName: true,
       fullName: true,
       region: true,
+      country: true,
       discoveries: {
         where: { latitude: { not: null } },
         select: { latitude: true, longitude: true },
@@ -45,32 +46,37 @@ export async function backfillKennelCoords(): Promise<{ error?: string; result?:
   };
 
   for (const kennel of kennels) {
-    // Try discovery coords first
-    const discovery = kennel.discoveries[0];
-    if (discovery?.latitude != null && discovery?.longitude != null) {
-      await prisma.kennel.update({
-        where: { id: kennel.id },
-        data: { latitude: discovery.latitude, longitude: discovery.longitude },
-      });
-      result.fromDiscovery++;
-      continue;
-    }
+    try {
+      // Try discovery coords first
+      const discovery = kennel.discoveries[0];
+      if (discovery?.latitude != null && discovery?.longitude != null) {
+        await prisma.kennel.update({
+          where: { id: kennel.id },
+          data: { latitude: discovery.latitude, longitude: discovery.longitude },
+        });
+        result.fromDiscovery++;
+        continue;
+      }
 
-    // Geocode from region + kennel name
-    const address = `${kennel.fullName}, ${kennel.region}`;
-    const coords = await geocodeAddress(address);
-    if (coords) {
-      await prisma.kennel.update({
-        where: { id: kennel.id },
-        data: { latitude: coords.lat, longitude: coords.lng },
-      });
-      result.geocoded++;
-    } else {
+      // Geocode from kennel name + region + country
+      const address = `${kennel.fullName}, ${kennel.region}, ${kennel.country}`;
+      const coords = await geocodeAddress(address);
+      if (coords) {
+        await prisma.kennel.update({
+          where: { id: kennel.id },
+          data: { latitude: coords.lat, longitude: coords.lng },
+        });
+        result.geocoded++;
+      } else {
+        result.failed.push(kennel.shortName);
+      }
+
+      // Rate limit: avoid hammering the geocoding API
+      await new Promise((r) => setTimeout(r, 200));
+    } catch (err) {
+      console.error(`Backfill error for ${kennel.shortName}:`, err);
       result.failed.push(kennel.shortName);
     }
-
-    // Rate limit: avoid hammering the geocoding API
-    await new Promise((r) => setTimeout(r, 200));
   }
 
   revalidatePath("/admin/kennels");

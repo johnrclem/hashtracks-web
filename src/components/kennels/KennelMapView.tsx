@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { APIProvider, Map as GoogleMap, AdvancedMarker, MapControl, ControlPosition } from "@vis.gl/react-google-maps";
 import { REGION_CENTROIDS, getRegionColor, getEventCoords } from "@/lib/geo";
 import type { KennelCardData } from "./KennelCard";
@@ -31,6 +32,7 @@ interface RegionPin {
 }
 
 export default function KennelMapView({ kennels, onRegionSelect }: KennelMapViewProps) {
+  const router = useRouter();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
 
   // Build individual kennel pins (precise coords) and region aggregate pins (fallback)
@@ -144,7 +146,7 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
                 key={pin.id}
                 position={{ lat: pin.lat, lng: pin.lng }}
                 onClick={() => {
-                  window.location.href = `/kennels/${pin.slug}`;
+                  router.push(`/kennels/${pin.slug}`);
                 }}
                 title={pin.shortName}
               >

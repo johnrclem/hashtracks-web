@@ -12,10 +12,10 @@ import type { GeoState } from "@/hooks/useGeolocation";
 import { DISTANCE_OPTIONS } from "@/lib/geo";
 
 interface NearMeFilterProps {
-  nearMeDistance: number | null;
-  onNearMeDistanceChange: (distance: number | null) => void;
-  geoState: GeoState;
-  onRequestLocation: () => void;
+  readonly nearMeDistance: number | null;
+  readonly onNearMeDistanceChange: (distance: number | null) => void;
+  readonly geoState: GeoState;
+  readonly onRequestLocation: () => void;
 }
 
 export function NearMeFilter({ nearMeDistance, onNearMeDistanceChange, geoState, onRequestLocation }: NearMeFilterProps) {
@@ -38,7 +38,7 @@ export function NearMeFilter({ nearMeDistance, onNearMeDistanceChange, geoState,
             <Tooltip key={km}>
               <TooltipTrigger asChild>
                 <button
-                  onClick={() => onNearMeDistanceChange(km)}
+                  onClick={() => { onNearMeDistanceChange(km); }}
                   className={`rounded px-1.5 py-0.5 text-xs font-medium transition-colors ${
                     nearMeDistance === km
                       ? "bg-primary text-primary-foreground"
@@ -53,7 +53,7 @@ export function NearMeFilter({ nearMeDistance, onNearMeDistanceChange, geoState,
           ))}
         </div>
         <button
-          onClick={() => onNearMeDistanceChange(null)}
+          onClick={() => { onNearMeDistanceChange(null); }}
           className="ml-0.5 rounded p-0.5 text-muted-foreground hover:text-foreground"
           aria-label="Clear near me filter"
         >

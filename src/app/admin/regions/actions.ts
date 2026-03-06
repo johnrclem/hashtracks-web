@@ -60,7 +60,9 @@ async function validateLevelHierarchy(
   if (level === "COUNTRY" && parentId) {
     return "COUNTRY-level regions cannot have a parent";
   }
-  if (!parentId) return null; // top-level regions are always valid
+  if (!parentId) {
+    return level === "COUNTRY" ? null : `${level} must have a parent`;
+  }
 
   const parent = await prisma.region.findUnique({
     where: { id: parentId },
