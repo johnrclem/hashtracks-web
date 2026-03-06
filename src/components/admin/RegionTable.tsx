@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import {
   Table,
   TableBody,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { deleteRegion } from "@/app/admin/regions/actions";
 import { RegionFormDialog } from "./RegionFormDialog";
@@ -48,13 +49,22 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
   const [editRegion, setEditRegion] = useState<RegionRow | null>(null);
   const [showMerge, setShowMerge] = useState(false);
   const [countryFilter, setCountryFilter] = useState("");
+  const [showMissingOnly, setShowMissingOnly] = useState(false);
   const router = useRouter();
 
   const countries = Array.from(new Set(regions.map((r) => r.country))).sort((a, b) => a.localeCompare(b));
 
-  const filtered = countryFilter
+  const missingCount = useMemo(
+    () => regions.filter((r) => r.centroidLat == null || r.centroidLng == null).length,
+    [regions],
+  );
+
+  let filtered = countryFilter
     ? regions.filter((r) => r.country === countryFilter)
     : regions;
+  if (showMissingOnly) {
+    filtered = filtered.filter((r) => r.centroidLat == null || r.centroidLng == null);
+  }
 
   function handleDelete(regionId: string, name: string, kennelCount: number) {
     if (kennelCount > 0) {
@@ -113,6 +123,17 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
             </div>
           )}
 
+          {missingCount > 0 && (
+            <Button
+              size="sm"
+              variant={showMissingOnly ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setShowMissingOnly(!showMissingOnly)}
+            >
+              <AlertTriangle className="mr-1 h-3 w-3" />
+              {missingCount} missing coords
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setShowMerge(true)}>
             Merge Regions
           </Button>
@@ -156,6 +177,9 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
                         <span className="text-xs text-muted-foreground">
                           (in {region.parentName})
                         </span>
+                      )}
+                      {(region.centroidLat == null || region.centroidLng == null) && (
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" title="Missing centroid coordinates" />
                       )}
                     </div>
                   </TableCell>

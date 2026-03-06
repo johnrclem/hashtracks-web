@@ -27,13 +27,17 @@ type Step = "select" | "preview" | "done";
 export function RegionMergeDialog({
   regions,
   onClose,
+  initialSourceId,
+  initialTargetId,
 }: Readonly<{
   regions: RegionRow[];
   onClose: () => void;
+  initialSourceId?: string;
+  initialTargetId?: string;
 }>) {
   const [step, setStep] = useState<Step>("select");
-  const [sourceId, setSourceId] = useState("");
-  const [targetId, setTargetId] = useState("");
+  const [sourceId, setSourceId] = useState(initialSourceId ?? "");
+  const [targetId, setTargetId] = useState(initialTargetId ?? "");
   const [preview, setPreview] = useState<MergePreview | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();

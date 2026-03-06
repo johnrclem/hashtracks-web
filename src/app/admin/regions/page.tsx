@@ -1,7 +1,6 @@
 import { Metadata } from "next";
 import { getRegionsWithKennels } from "./actions";
-import { RegionTable } from "@/components/admin/RegionTable";
-import { RegionSuggestionsPanel } from "@/components/admin/RegionSuggestionsPanel";
+import { RegionManagement } from "@/components/admin/RegionManagement";
 
 export const metadata: Metadata = { title: "Regions | Admin" };
 
@@ -26,10 +25,5 @@ export default async function AdminRegionsPage() {
     childCount: r.children.length,
   }));
 
-  return (
-    <div className="space-y-6">
-      <RegionTable regions={serialized} />
-      <RegionSuggestionsPanel />
-    </div>
-  );
+  return <RegionManagement regions={serialized} />;
 }

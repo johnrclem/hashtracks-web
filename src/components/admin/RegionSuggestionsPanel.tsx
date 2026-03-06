@@ -9,6 +9,7 @@ import {
   type RegionSuggestion,
   type SuggestionType,
 } from "@/app/admin/regions/actions";
+import type { RegionRow } from "./RegionTable";
 
 const TYPE_ICONS: Record<SuggestionType, React.ReactNode> = {
   merge: <GitMerge className="h-4 w-4" />,
@@ -30,7 +31,20 @@ const CONFIDENCE_VARIANTS: Record<string, "default" | "secondary" | "outline"> =
   low: "outline",
 };
 
-export function RegionSuggestionsPanel() {
+const ACTION_LABELS: Record<SuggestionType, string> = {
+  merge: "Open Merge",
+  split: "View Region",
+  rename: "Edit Region",
+  reassign: "View Region",
+};
+
+export function RegionSuggestionsPanel({
+  regions,
+  onAction,
+}: Readonly<{
+  regions?: RegionRow[];
+  onAction?: (type: SuggestionType, regionIds: string[]) => void;
+}> = {}) {
   const [suggestions, setSuggestions] = useState<RegionSuggestion[] | null>(null);
   const [source, setSource] = useState<"ai" | "rules" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -130,6 +144,16 @@ export function RegionSuggestionsPanel() {
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {s.description}
                   </p>
+                  {onAction && s.regionIds.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 h-7 text-xs"
+                      onClick={() => onAction(s.type, s.regionIds)}
+                    >
+                      {ACTION_LABELS[s.type]}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
