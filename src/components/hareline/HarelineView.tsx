@@ -4,6 +4,16 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { SearchX } from "lucide-react";
@@ -25,6 +35,30 @@ const MapView = dynamic(() => import("./MapView"), {
   ),
 });
 
+export type TimeFilter = "2w" | "4w" | "8w" | "12w" | "upcoming" | "past";
+
+const WEEKS_DAYS: Record<string, number> = {
+  "2w": 14,
+  "4w": 28,
+  "8w": 56,
+  "12w": 84,
+};
+
+const TIME_LABELS: Record<TimeFilter, string> = {
+  "2w": "in next 2 weeks",
+  "4w": "in next 4 weeks",
+  "8w": "in next 8 weeks",
+  "12w": "in next 12 weeks",
+  upcoming: "upcoming",
+  past: "past",
+};
+
+const VALID_TIME_FILTERS = new Set<string>(["2w", "4w", "8w", "12w", "upcoming", "past"]);
+
+function isValidTimeFilter(v: string): v is TimeFilter {
+  return VALID_TIME_FILTERS.has(v);
+}
+
 interface HarelineViewProps {
   events: HarelineEvent[];
   subscribedKennelIds: string[];
@@ -33,7 +67,7 @@ interface HarelineViewProps {
 }
 
 interface FilterCriteria {
-  timeFilter: "upcoming" | "past" | "all";
+  timeFilter: TimeFilter | "all";
   scope: "my" | "all";
   subscribedKennelIds: string[];
   selectedRegions: string[];
@@ -46,12 +80,17 @@ interface FilterCriteria {
   userLng: number | null;
 }
 
-/** Check whether an event passes the time filter (upcoming/past/all). */
+/** Check whether an event passes the time filter. */
 function passesTimeFilter(eventDate: number, timeFilter: FilterCriteria["timeFilter"], todayUtc: number): boolean {
   if (timeFilter === "all") return true;
-  if (timeFilter === "upcoming" && eventDate < todayUtc) return false;
-  if (timeFilter === "past" && eventDate >= todayUtc) return false;
-  return true;
+  if (timeFilter === "upcoming") return eventDate >= todayUtc;
+  if (timeFilter === "past") return eventDate < todayUtc;
+
+  // Rolling weeks: must be >= today AND <= today + N days
+  const days = WEEKS_DAYS[timeFilter];
+  if (days == null) return true;
+  const ceiling = todayUtc + days * 24 * 60 * 60 * 1000;
+  return eventDate >= todayUtc && eventDate <= ceiling;
 }
 
 /** Check whether a single event passes all active filters. */
@@ -76,12 +115,13 @@ function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
 }
 
 /** Sort events by date (direction depends on timeFilter) then by startTime. */
-function sortEvents(events: HarelineEvent[], timeFilter: "upcoming" | "past"): HarelineEvent[] {
+function sortEvents(events: HarelineEvent[], timeFilter: TimeFilter): HarelineEvent[] {
+  const descending = timeFilter === "past";
   const sorted = [...events];
   sorted.sort((a, b) => {
     const dateA = new Date(a.date).getTime();
     const dateB = new Date(b.date).getTime();
-    const dateDiff = timeFilter === "upcoming" ? dateA - dateB : dateB - dateA;
+    const dateDiff = descending ? dateB - dateA : dateA - dateB;
     if (dateDiff !== 0) return dateDiff;
     if (!a.startTime && !b.startTime) return 0;
     if (!a.startTime) return 1;
@@ -108,6 +148,10 @@ function groupEventsByDate(events: HarelineEvent[]): { dateKey: string; dateLabe
   return groups;
 }
 
+function getDefaultTimeFilter(v: ViewMode): TimeFilter {
+  return v === "map" ? "4w" : "upcoming";
+}
+
 type ViewMode = "list" | "calendar" | "map";
 
 export function HarelineView({
@@ -124,15 +168,20 @@ export function HarelineView({
 
   // Initialize state from URL search params
   const rawView = searchParams.get("view");
-  const [view, setViewState] = useState<ViewMode>(
-    rawView === "list" || rawView === "calendar" || rawView === "map" ? rawView : "list",
-  );
+  const initialView: ViewMode =
+    rawView === "list" || rawView === "calendar" || rawView === "map" ? rawView : "list";
+  const [view, setViewState] = useState<ViewMode>(initialView);
+
   const [density, setDensityState] = useState<"medium" | "compact">(
     (searchParams.get("density") as "medium" | "compact") || "medium",
   );
-  const [timeFilter, setTimeFilterState] = useState<"upcoming" | "past">(
-    (searchParams.get("time") as "upcoming" | "past") || "upcoming",
-  );
+
+  const rawTime = searchParams.get("time");
+  const [timeFilter, setTimeFilterState] = useState<TimeFilter>(() => {
+    if (rawTime && isValidTimeFilter(rawTime)) return rawTime;
+    return getDefaultTimeFilter(initialView);
+  });
+
   const [scope, setScopeState] = useState<"my" | "all">(
     (searchParams.get("scope") as "my" | "all") || defaultScope,
   );
@@ -189,6 +238,9 @@ export function HarelineView({
   const syncUrl = useCallback(
     (overrides: Record<string, string | string[]>) => {
       const params = new URLSearchParams();
+      const currentView = (overrides.view as ViewMode) ?? view;
+      const currentTime = (overrides.time as string) ?? timeFilter;
+
       const state: Record<string, string | string[]> = {
         time: timeFilter,
         view,
@@ -206,7 +258,7 @@ export function HarelineView({
         const str = Array.isArray(val) ? val.join(",") : val;
         // Only add non-default values to keep URL clean
         const isDefault =
-          (key === "time" && str === "upcoming") ||
+          (key === "time" && str === getDefaultTimeFilter(currentView)) ||
           (key === "view" && str === "list") ||
           (key === "density" && str === "medium") ||
           (key === "scope" && str === defaultScope) ||
@@ -227,7 +279,13 @@ export function HarelineView({
   // Wrapper setters that sync to URL
   function setView(v: ViewMode) {
     setViewState(v);
-    syncUrl({ view: v });
+    // When switching to map and current filter is "upcoming", auto-narrow to "4w"
+    if (v === "map" && timeFilter === "upcoming") {
+      setTimeFilterState("4w");
+      syncUrl({ view: v, time: "4w" });
+    } else {
+      syncUrl({ view: v });
+    }
   }
   function setDensity(v: "medium" | "compact") {
     setDensityState(v);
@@ -237,7 +295,7 @@ export function HarelineView({
     setSelectedEvent(null);
     setVisibleCount(PAGE_SIZE);
   }
-  function setTimeFilter(v: "upcoming" | "past") {
+  function setTimeFilter(v: TimeFilter) {
     setTimeFilterState(v);
     resetListState();
     syncUrl({ time: v });
@@ -282,7 +340,7 @@ export function HarelineView({
     return { todayUtc, userLat, userLng };
   }, [geoState]);
 
-  // Calendar events — all filters EXCEPT time (calendar has its own month navigation)
+  // Calendar events — all filters EXCEPT time (calendar has its own month navigation / weeks mode)
   const calendarEvents = useMemo(() => {
     return events.filter((event) => {
       return passesAllFilters(event, {
@@ -310,8 +368,8 @@ export function HarelineView({
     if (announceTimerRef.current) clearTimeout(announceTimerRef.current);
     announceTimerRef.current = setTimeout(() => {
       if (liveRegionRef.current) {
-        const timeLabel = timeFilter === "upcoming" ? "upcoming " : "past ";
-        liveRegionRef.current.textContent = `${filteredEvents.length} ${timeLabel}${filteredEvents.length === 1 ? "event" : "events"}`;
+        const label = TIME_LABELS[timeFilter];
+        liveRegionRef.current.textContent = `${filteredEvents.length} ${label} ${filteredEvents.length === 1 ? "event" : "events"}`;
       }
     }, 500);
     return () => {
@@ -425,24 +483,33 @@ export function HarelineView({
     </>
   );
 
+  const timeLabel = TIME_LABELS[timeFilter];
+
   return (
     <div className="mt-3 space-y-4">
       {/* Controls bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Left: time toggle */}
+        {/* Left: time range select */}
         <div className="flex items-center gap-2">
-          <span className="sr-only">Time range</span>
-          <ToggleGroup
-            type="single"
-            value={timeFilter}
-            onValueChange={(v) => v && setTimeFilter(v as "upcoming" | "past")}
-            variant="outline"
-            size="sm"
-            aria-label="Time range"
-          >
-            <ToggleGroupItem value="upcoming">Upcoming</ToggleGroupItem>
-            <ToggleGroupItem value="past">Past</ToggleGroupItem>
-          </ToggleGroup>
+          <Select value={timeFilter} onValueChange={(v) => setTimeFilter(v as TimeFilter)}>
+            <SelectTrigger size="sm" aria-label="Time range">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Upcoming</SelectLabel>
+                <SelectItem value="2w">Next 2 weeks</SelectItem>
+                <SelectItem value="4w">Next 4 weeks</SelectItem>
+                <SelectItem value="8w">Next 8 weeks</SelectItem>
+                <SelectItem value="12w">Next 12 weeks</SelectItem>
+                <SelectItem value="upcoming">All upcoming</SelectItem>
+              </SelectGroup>
+              <SelectSeparator />
+              <SelectGroup>
+                <SelectItem value="past">Past events</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Right: view toggle + optional density */}
@@ -502,14 +569,13 @@ export function HarelineView({
         onClearAll={clearAllFilters}
       />
 
-      {/* Results count (hidden for calendar — it shows its own month count) */}
+      {/* Results count (hidden for calendar — it shows its own count) */}
       {(view === "list" || view === "map") && (
         <p className="text-sm text-muted-foreground" aria-hidden="true">
           {view === "list" && hasMore
             ? `Showing ${visibleCount} of ${sortedEvents.length} `
             : `${filteredEvents.length} `}
-          {timeFilter === "upcoming" ? "upcoming " : "past "}
-          {filteredEvents.length === 1 ? "event" : "events"}
+          {timeLabel} {filteredEvents.length === 1 ? "event" : "events"}
           {scope === "my" ? " from your kennels" : ""}
           {nearMeDistance != null && geoState.status === "granted" ? ` within ${nearMeDistance} km` : ""}
         </p>
@@ -525,7 +591,7 @@ export function HarelineView({
           {detailPanel}
         </div>
       ) : view === "calendar" ? (
-        <CalendarView events={calendarEvents} />
+        <CalendarView events={calendarEvents} timeFilter={timeFilter} />
       ) : (
         <div className={selectedEvent ? "lg:grid lg:grid-cols-[1fr_380px] lg:gap-6" : ""}>
           {/* Left: map */}

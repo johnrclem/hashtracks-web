@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,19 +13,38 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { EventCard, type HarelineEvent } from "./EventCard";
 import { regionColorClasses, regionBgClass, regionAbbrev, formatTimeCompact } from "@/lib/format";
+import type { TimeFilter } from "./HarelineView";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
 
+const MONTH_ABBREV = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
 const DAY_HEADERS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const WEEKS_DAYS: Record<string, number> = {
+  "2w": 14,
+  "4w": 28,
+  "8w": 56,
+  "12w": 84,
+};
+
+function isRollingFilter(tf: TimeFilter): boolean {
+  return tf in WEEKS_DAYS;
+}
 
 interface CalendarViewProps {
   readonly events: HarelineEvent[];
+  readonly timeFilter: TimeFilter;
 }
 
 /** Compute the initial focus day for roving tabindex. */
@@ -87,12 +106,33 @@ function getDateKey(iso: string): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
-export function CalendarView({ events }: CalendarViewProps) {
+function dateKeyFromParts(y: number, m: number, d: number): string {
+  return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+type CalendarMode = "month" | "weeks";
+
+export function CalendarView({ events, timeFilter }: CalendarViewProps) {
   const router = useRouter();
   const today = new Date();
   const [year, setYear] = useState(today.getUTCFullYear());
   const [month, setMonth] = useState(today.getUTCMonth());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  // Calendar mode: auto-switch to weeks when a rolling filter is active
+  const [calendarMode, setCalendarModeState] = useState<CalendarMode>(
+    isRollingFilter(timeFilter) ? "weeks" : "month",
+  );
+
+  // Sync calendarMode when timeFilter changes from parent
+  useEffect(() => {
+    if (isRollingFilter(timeFilter)) {
+      setCalendarModeState("weeks");
+    } else if (timeFilter === "past") {
+      setCalendarModeState("month");
+    }
+    // When timeFilter is "upcoming", keep user's choice (don't auto-switch)
+  }, [timeFilter]);
 
   // Group events by date key, sorted chronologically within each day
   const eventsByDate = useMemo(() => {
@@ -114,22 +154,6 @@ export function CalendarView({ events }: CalendarViewProps) {
     return map;
   }, [events]);
 
-  // Build calendar grid
-  const firstDay = new Date(Date.UTC(year, month, 1));
-  const startDow = firstDay.getUTCDay();
-  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-
-  const cells: (number | null)[] = [];
-  for (let i = 0; i < startDow; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  // Group cells into weeks (rows of 7) for ARIA grid semantics
-  const weeks: (number | null)[][] = [];
-  for (let i = 0; i < cells.length; i += 7) {
-    weeks.push(cells.slice(i, i + 7));
-  }
-
   const todayKey = getDateKey(today.toISOString());
   const todayDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
 
@@ -141,8 +165,65 @@ export function CalendarView({ events }: CalendarViewProps) {
 
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // Determine which day should receive tabIndex={0} (roving tabindex)
+  // ---- MONTH MODE GRID ----
+  const firstDay = new Date(Date.UTC(year, month, 1));
+  const startDow = firstDay.getUTCDay();
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+
+  const monthCells: (number | null)[] = [];
+  for (let i = 0; i < startDow; i++) monthCells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) monthCells.push(d);
+  while (monthCells.length % 7 !== 0) monthCells.push(null);
+
+  const monthWeeks: (number | null)[][] = [];
+  for (let i = 0; i < monthCells.length; i += 7) {
+    monthWeeks.push(monthCells.slice(i, i + 7));
+  }
+
   const focusDay = computeFocusDay(selectedDay, year, month, todayKey, today, daysInMonth);
+
+  // ---- WEEKS MODE GRID ----
+  // Start from Sunday of the current week
+  const weekStart = useMemo(() => {
+    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // back to Sunday
+    return d;
+  }, []);
+
+  const totalWeeksDays = WEEKS_DAYS[timeFilter] ?? 28;
+  const numWeeksRows = totalWeeksDays / 7;
+
+  // Build weeks grid: array of rows, each row is 7 Date objects
+  const weeksGrid = useMemo(() => {
+    const rows: Date[][] = [];
+    const start = new Date(weekStart);
+    for (let w = 0; w < numWeeksRows; w++) {
+      const row: Date[] = [];
+      for (let d = 0; d < 7; d++) {
+        row.push(new Date(start));
+        start.setUTCDate(start.getUTCDate() + 1);
+      }
+      rows.push(row);
+    }
+    return rows;
+  }, [weekStart, numWeeksRows]);
+
+  // Weeks mode date range for header
+  const weeksRangeLabel = useMemo(() => {
+    if (weeksGrid.length === 0) return "";
+    const first = weeksGrid[0][0];
+    const last = weeksGrid[weeksGrid.length - 1][6];
+    const fmt = (d: Date) => {
+      const m = MONTH_ABBREV[d.getUTCMonth()];
+      return `${m} ${d.getUTCDate()}`;
+    };
+    const firstYear = first.getUTCFullYear();
+    const lastYear = last.getUTCFullYear();
+    if (firstYear !== lastYear) {
+      return `${fmt(first)}, ${firstYear} – ${fmt(last)}, ${lastYear}`;
+    }
+    return `${fmt(first)} – ${fmt(last)}, ${lastYear}`;
+  }, [weeksGrid]);
 
   // Arrow key navigation between day cells
   const handleGridKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -151,22 +232,37 @@ export function CalendarView({ events }: CalendarViewProps) {
     const dayAttr = dayCell.dataset.day;
     if (!dayAttr) return;
 
-    const currentDay = Number(dayAttr);
-    let nextDay: number | null = null;
+    if (calendarMode === "month") {
+      const currentDay = Number(dayAttr);
+      let nextDay: number | null = null;
 
-    if (e.key === "ArrowRight") nextDay = currentDay + 1;
-    else if (e.key === "ArrowLeft") nextDay = currentDay - 1;
-    else if (e.key === "ArrowDown") nextDay = currentDay + 7;
-    else if (e.key === "ArrowUp") nextDay = currentDay - 7;
-    else return;
+      if (e.key === "ArrowRight") nextDay = currentDay + 1;
+      else if (e.key === "ArrowLeft") nextDay = currentDay - 1;
+      else if (e.key === "ArrowDown") nextDay = currentDay + 7;
+      else if (e.key === "ArrowUp") nextDay = currentDay - 7;
+      else return;
 
-    // Stay within current month boundaries
-    if (nextDay == null || nextDay < 1 || nextDay > daysInMonth) return;
+      if (nextDay == null || nextDay < 1 || nextDay > daysInMonth) return;
 
-    e.preventDefault();
-    const nextCell = gridRef.current?.querySelector(`[data-day="${nextDay}"]`) as HTMLElement | null;
-    nextCell?.focus();
-  }, [daysInMonth]);
+      e.preventDefault();
+      const nextCell = gridRef.current?.querySelector(`[data-day="${nextDay}"]`) as HTMLElement | null;
+      nextCell?.focus();
+    } else {
+      // Weeks mode: navigate by date key
+      // For simplicity, let arrow keys work by finding adjacent cells
+      e.preventDefault();
+      const allCells = Array.from(gridRef.current?.querySelectorAll<HTMLElement>("[data-day]") ?? []);
+      const idx = allCells.indexOf(dayCell);
+      let nextIdx = idx;
+      if (e.key === "ArrowRight") nextIdx = idx + 1;
+      else if (e.key === "ArrowLeft") nextIdx = idx - 1;
+      else if (e.key === "ArrowDown") nextIdx = idx + 7;
+      else if (e.key === "ArrowUp") nextIdx = idx - 7;
+      if (nextIdx >= 0 && nextIdx < allCells.length) {
+        allCells[nextIdx].focus();
+      }
+    }
+  }, [calendarMode, daysInMonth]);
 
   function prevMonth() {
     if (month === 0) {
@@ -196,54 +292,198 @@ export function CalendarView({ events }: CalendarViewProps) {
 
   const selectedEvents = selectedDay ? eventsByDate.get(selectedDay) || [] : [];
 
-  // Compute visible regions + event count for the displayed month (single pass)
-  const { visibleRegions, monthEventCount } = useMemo(() => {
+  // Compute visible regions + event count for the displayed range
+  const { visibleRegions, rangeEventCount } = useMemo(() => {
     const seen = new Map<string, { region: string; abbrev: string; colorClasses: string }>();
     let count = 0;
-    for (const [key, dayEvents] of eventsByDate) {
-      const [y, m] = key.split("-").map(Number);
-      if (y !== year || m !== month + 1) continue;
-      count += dayEvents.length;
-      for (const e of dayEvents) {
-        if (!seen.has(e.kennel.region)) {
-          seen.set(e.kennel.region, {
-            region: e.kennel.region,
-            abbrev: regionAbbrev(e.kennel.region),
-            colorClasses: regionColorClasses(e.kennel.region),
-          });
+
+    if (calendarMode === "month") {
+      for (const [key, dayEvents] of eventsByDate) {
+        const [y, m] = key.split("-").map(Number);
+        if (y !== year || m !== month + 1) continue;
+        count += dayEvents.length;
+        for (const e of dayEvents) {
+          if (!seen.has(e.kennel.region)) {
+            seen.set(e.kennel.region, {
+              region: e.kennel.region,
+              abbrev: regionAbbrev(e.kennel.region),
+              colorClasses: regionColorClasses(e.kennel.region),
+            });
+          }
+        }
+      }
+    } else {
+      // Weeks mode: scan all dates in the rolling range
+      const startKey = getDateKey(weeksGrid[0]?.[0]?.toISOString() ?? today.toISOString());
+      const endDate = weeksGrid[weeksGrid.length - 1]?.[6];
+      const endKey = endDate ? getDateKey(endDate.toISOString()) : startKey;
+
+      for (const [key, dayEvents] of eventsByDate) {
+        if (key >= startKey && key <= endKey) {
+          count += dayEvents.length;
+          for (const e of dayEvents) {
+            if (!seen.has(e.kennel.region)) {
+              seen.set(e.kennel.region, {
+                region: e.kennel.region,
+                abbrev: regionAbbrev(e.kennel.region),
+                colorClasses: regionColorClasses(e.kennel.region),
+              });
+            }
+          }
         }
       }
     }
+
     return {
       visibleRegions: Array.from(seen.values()).sort((a, b) => a.region.localeCompare(b.region)),
-      monthEventCount: count,
+      rangeEventCount: count,
     };
-  }, [eventsByDate, year, month]);
+  }, [eventsByDate, year, month, calendarMode, weeksGrid]);
+
+  // Shared day cell renderer
+  function renderDayCell(
+    cellDate: Date,
+    dateKey: string,
+    opts: { focusable?: boolean; showMonthLabel?: boolean },
+  ) {
+    const dayEvents = eventsByDate.get(dateKey) || [];
+    const isToday = dateKey === todayKey;
+    const isSelected = dateKey === selectedDay;
+    const isPast = cellDate < todayDate && !isToday;
+    const day = cellDate.getUTCDate();
+
+    const fullDateLabel = ariaDateFormatter.format(cellDate);
+    const cellAriaLabel = buildCellLabel(fullDateLabel, dayEvents.length);
+
+    // Show month abbreviation for day 1 or when crossing month boundary in weeks mode
+    const showMonth = opts.showMonthLabel && (day === 1 || (opts.showMonthLabel && cellDate.getUTCMonth() !== today.getUTCMonth()));
+    const dayLabel = showMonth
+      ? `${MONTH_ABBREV[cellDate.getUTCMonth()]} ${day}`
+      : String(day);
+
+    return (
+      <div
+        key={dateKey}
+        role="gridcell"
+        tabIndex={opts.focusable ? 0 : -1}
+        data-day={calendarMode === "month" ? day : dateKey}
+        onClick={() => setSelectedDay(isSelected ? null : dateKey)}
+        onKeyDown={(ev) => { if (ev.target !== ev.currentTarget) return; if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); setSelectedDay(isSelected ? null : dateKey); } }}
+        aria-label={cellAriaLabel}
+        aria-selected={isSelected}
+        className={`min-h-20 bg-background p-1 text-left text-sm transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
+          isSelected
+            ? "ring-2 ring-inset ring-primary bg-primary/5"
+            : isToday
+              ? "border border-primary/50 bg-primary/10"
+              : isPast
+                ? "opacity-50"
+                : "hover:bg-muted/50"
+        }`}
+      >
+        <span
+          className={`text-xs ${
+            isToday ? "font-bold text-primary" : showMonth ? "font-semibold text-foreground" : "text-muted-foreground"
+          }`}
+        >
+          {dayLabel}
+        </span>
+        {dayEvents.length > 0 && (
+          <div className="mt-0.5 flex flex-col gap-1">
+            {dayEvents.slice(0, 2).map((e) => (
+              <Tooltip key={e.id}>
+                <TooltipTrigger asChild>
+                  <span
+                    className={`inline-flex h-5 w-fit max-w-full items-center truncate rounded-full px-1.5 text-[10px] font-bold leading-5 ring-1 ring-inset ring-foreground/10 ${regionColorClasses(e.kennel.region)}`}
+                  >
+                    {e.startTime && (
+                      <span className="font-normal opacity-70">
+                        {formatTimeCompact(e.startTime)}
+                      </span>
+                    )}
+                    {e.startTime && <span className="mx-0.5 opacity-50">·</span>}
+                    {e.kennel.shortName}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="space-y-0.5">
+                    <p className="font-semibold">{e.kennel.fullName}</p>
+                    {e.runNumber && <p className="text-xs">Run #{e.runNumber}</p>}
+                    {e.title && <p className="text-xs">{e.title}</p>}
+                    {e.startTime && <p className="text-xs">{formatTimeCompact(e.startTime)}</p>}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+            {dayEvents.length > 2 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    onClick={(ev) => ev.stopPropagation()}
+                    className="text-left text-[9px] text-muted-foreground hover:text-foreground"
+                  >
+                    +{dayEvents.length - 2} more
+                  </button>
+                </PopoverTrigger>
+                <OverflowPopover dayEvents={dayEvents} cellDate={cellDate} onNavigate={(id) => router.push(`/hareline/${id}`)} />
+              </Popover>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Determine if mode toggle should be shown (only when user has a choice)
+  const showModeToggle = timeFilter === "upcoming";
 
   return (
     <div className="space-y-4">
-      {/* Month navigation */}
+      {/* Header: navigation (month) or date range (weeks) */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="inline-flex items-center rounded-md border">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-r-none" onClick={prevMonth} aria-label="Previous month">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <h2 className="min-w-[160px] text-center text-lg font-bold">
-              {MONTH_NAMES[month]} {year}
-            </h2>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-l-none" onClick={nextMonth} aria-label="Next month">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          {(year !== today.getUTCFullYear() || month !== today.getUTCMonth()) && (
-            <Button variant="outline" size="sm" onClick={goToday} aria-label="Go to today">
-              Today
-            </Button>
+          {calendarMode === "month" ? (
+            <>
+              <div className="inline-flex items-center rounded-md border">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-r-none" onClick={prevMonth} aria-label="Previous month">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <h2 className="min-w-[160px] text-center text-lg font-bold">
+                  {MONTH_NAMES[month]} {year}
+                </h2>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-l-none" onClick={nextMonth} aria-label="Next month">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              {(year !== today.getUTCFullYear() || month !== today.getUTCMonth()) && (
+                <Button variant="outline" size="sm" onClick={goToday} aria-label="Go to today">
+                  Today
+                </Button>
+              )}
+            </>
+          ) : (
+            <h2 className="text-lg font-bold">{weeksRangeLabel}</h2>
+          )}
+
+          {/* Month / Weeks toggle — only shown when user can choose (timeFilter = upcoming) */}
+          {showModeToggle && (
+            <ToggleGroup
+              type="single"
+              value={calendarMode}
+              onValueChange={(v) => v && setCalendarModeState(v as CalendarMode)}
+              variant="outline"
+              size="sm"
+              aria-label="Calendar mode"
+            >
+              <ToggleGroupItem value="month">Month</ToggleGroupItem>
+              <ToggleGroupItem value="weeks">Weeks</ToggleGroupItem>
+            </ToggleGroup>
           )}
         </div>
+
         <span className="text-sm text-muted-foreground">
-          {monthEventCount} {monthEventCount === 1 ? "event" : "events"} this month
+          {rangeEventCount} {rangeEventCount === 1 ? "event" : "events"}
+          {calendarMode === "month" ? " this month" : ""}
         </span>
       </div>
 
@@ -251,12 +491,14 @@ export function CalendarView({ events }: CalendarViewProps) {
       <div className="flex flex-col lg:flex-row lg:gap-6">
         {/* Calendar grid section */}
         <div className="min-w-0 flex-1">
-          {/* Calendar grid with ARIA grid semantics */}
           <div
             ref={gridRef}
             role="grid"
             tabIndex={-1}
-            aria-label={`${MONTH_NAMES[month]} ${year} calendar`}
+            aria-label={calendarMode === "month"
+              ? `${MONTH_NAMES[month]} ${year} calendar`
+              : `Next ${totalWeeksDays / 7} weeks calendar`
+            }
             onKeyDown={handleGridKeyDown}
             className="overflow-hidden rounded-md bg-border/30"
           >
@@ -269,98 +511,39 @@ export function CalendarView({ events }: CalendarViewProps) {
               ))}
             </div>
 
-            {/* Week rows */}
-            {weeks.map((week, wi) => (
-              <div key={`week-${year}-${month}-${wi}`} role="row" className="grid grid-cols-7 gap-px">
-                {week.map((day, di) => {
-                  if (day === null) {
-                    return <div key={`empty-${wi}-${di}`} role="gridcell" className="min-h-20 bg-background" />;
-                  }
-
-                  const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                  const dayEvents = eventsByDate.get(dateKey) || [];
-                  const isToday = dateKey === todayKey;
-                  const isSelected = dateKey === selectedDay;
-                  const cellDate = new Date(Date.UTC(year, month, day));
-                  const isPast = cellDate < todayDate && !isToday;
-
-                  const fullDateLabel = ariaDateFormatter.format(cellDate);
-                  const cellAriaLabel = buildCellLabel(fullDateLabel, dayEvents.length);
-
-                  return (
-                    <div
-                      key={dateKey}
-                      role="gridcell"
-                      tabIndex={day === focusDay ? 0 : -1}
-                      data-day={day}
-                      onClick={() => setSelectedDay(isSelected ? null : dateKey)}
-                      onKeyDown={(ev) => { if (ev.target !== ev.currentTarget) return; if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); setSelectedDay(isSelected ? null : dateKey); } }}
-                      aria-label={cellAriaLabel}
-                      aria-selected={isSelected}
-                      className={`min-h-20 bg-background p-1 text-left text-sm transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
-                        isSelected
-                          ? "ring-2 ring-inset ring-primary bg-primary/5"
-                          : isToday
-                            ? "border border-primary/50 bg-primary/10"
-                            : isPast
-                              ? "opacity-50"
-                              : "hover:bg-muted/50"
-                      }`}
-                    >
-                      <span
-                        className={`text-xs ${
-                          isToday ? "font-bold text-primary" : "text-muted-foreground"
-                        }`}
-                      >
-                        {day}
-                      </span>
-                      {dayEvents.length > 0 && (
-                        <div className="mt-0.5 flex flex-col gap-1">
-                          {dayEvents.slice(0, 2).map((e) => (
-                            <Tooltip key={e.id}>
-                              <TooltipTrigger asChild>
-                                <span
-                                  className={`inline-flex h-5 w-fit max-w-full items-center truncate rounded-full px-1.5 text-[10px] font-bold leading-5 ring-1 ring-inset ring-foreground/10 ${regionColorClasses(e.kennel.region)}`}
-                                >
-                                  {e.startTime && (
-                                    <span className="font-normal opacity-70">
-                                      {formatTimeCompact(e.startTime)}
-                                    </span>
-                                  )}
-                                  {e.startTime && <span className="mx-0.5 opacity-50">·</span>}
-                                  {e.kennel.shortName}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <div className="space-y-0.5">
-                                  <p className="font-semibold">{e.kennel.fullName}</p>
-                                  {e.runNumber && <p className="text-xs">Run #{e.runNumber}</p>}
-                                  {e.title && <p className="text-xs">{e.title}</p>}
-                                  {e.startTime && <p className="text-xs">{formatTimeCompact(e.startTime)}</p>}
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          ))}
-                          {dayEvents.length > 2 && (
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button
-                                  onClick={(ev) => ev.stopPropagation()}
-                                  className="text-left text-[9px] text-muted-foreground hover:text-foreground"
-                                >
-                                  +{dayEvents.length - 2} more
-                                </button>
-                              </PopoverTrigger>
-                              <OverflowPopover dayEvents={dayEvents} cellDate={cellDate} onNavigate={(id) => router.push(`/hareline/${id}`)} />
-                            </Popover>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+            {/* Grid rows */}
+            {calendarMode === "month" ? (
+              // Month mode: existing behavior
+              monthWeeks.map((week, wi) => (
+                <div key={`week-${year}-${month}-${wi}`} role="row" className="grid grid-cols-7 gap-px">
+                  {week.map((day, di) => {
+                    if (day === null) {
+                      return <div key={`empty-${wi}-${di}`} role="gridcell" className="min-h-20 bg-background" />;
+                    }
+                    const dateKey = dateKeyFromParts(year, month, day);
+                    const cellDate = new Date(Date.UTC(year, month, day));
+                    return renderDayCell(cellDate, dateKey, {
+                      focusable: day === focusDay,
+                      showMonthLabel: false,
+                    });
+                  })}
+                </div>
+              ))
+            ) : (
+              // Weeks mode: rolling weeks from today
+              weeksGrid.map((week, wi) => (
+                <div key={`rw-${wi}`} role="row" className="grid grid-cols-7 gap-px">
+                  {week.map((cellDate) => {
+                    const dateKey = getDateKey(cellDate.toISOString());
+                    const isFirstFocusable = wi === 0 && cellDate.getUTCDay() === today.getUTCDay();
+                    return renderDayCell(cellDate, dateKey, {
+                      focusable: isFirstFocusable || (wi === 0 && cellDate.getUTCDay() === 0),
+                      showMonthLabel: true,
+                    });
+                  })}
+                </div>
+              ))
+            )}
           </div>
 
           {/* Color legend */}
