@@ -230,7 +230,7 @@ describe("extractHaresFromDescription", () => {
   it("uses custom patterns when provided", () => {
     expect(
       extractHaresFromDescription("WHO ARE THE HARES:  Used Rubber & Leeroy", [
-        "(?:^|\\n)\\s*WHO ARE THE HARES:\\s*(.+)",
+        String.raw`(?:^|\n)\s*WHO ARE THE HARES:\s*(.+)`,
       ]),
     ).toBe("Used Rubber & Leeroy");
   });
@@ -241,13 +241,13 @@ describe("extractHaresFromDescription", () => {
 
   it("custom patterns replace defaults", () => {
     expect(
-      extractHaresFromDescription("Hare: Mudflap", ["(?:^|\\n)\\s*Laid by:\\s*(.+)"]),
+      extractHaresFromDescription("Hare: Mudflap", [String.raw`(?:^|\n)\s*Laid by:\s*(.+)`]),
     ).toBeUndefined();
   });
 
   it("skips malformed custom patterns gracefully", () => {
     expect(
-      extractHaresFromDescription("Laid by: Speedy", ["[invalid(", "(?:^|\\n)\\s*Laid by:\\s*(.+)"]),
+      extractHaresFromDescription("Laid by: Speedy", ["[invalid(", String.raw`(?:^|\n)\s*Laid by:\s*(.+)`]),
     ).toBe("Speedy");
   });
 });

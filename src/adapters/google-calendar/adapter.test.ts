@@ -81,7 +81,7 @@ describe("extractRunNumber", () => {
   it("uses custom patterns when provided", () => {
     expect(
       extractRunNumber("Weekly Run", "Hash # 2658", [
-        "Hash\\s*#\\s*(\\d+)",
+        String.raw`Hash\s*#\s*(\d+)`,
       ]),
     ).toBe(2658);
   });
@@ -89,7 +89,7 @@ describe("extractRunNumber", () => {
   it("summary #N still checked first with custom patterns", () => {
     expect(
       extractRunNumber("Run #100", "Hash # 2658", [
-        "Hash\\s*#\\s*(\\d+)",
+        String.raw`Hash\s*#\s*(\d+)`,
       ]),
     ).toBe(100);
   });
@@ -101,7 +101,7 @@ describe("extractRunNumber", () => {
   it("custom patterns replace defaults", () => {
     expect(
       extractRunNumber("Weekly Run", "BH3 #2784", [
-        "Hash\\s*#\\s*(\\d+)",
+        String.raw`Hash\s*#\s*(\d+)`,
       ]),
     ).toBeUndefined();
   });
@@ -110,7 +110,7 @@ describe("extractRunNumber", () => {
     expect(
       extractRunNumber("Weekly Run", "Hash # 2658", [
         "[invalid(",
-        "Hash\\s*#\\s*(\\d+)",
+        String.raw`Hash\s*#\s*(\d+)`,
       ]),
     ).toBe(2658);
   });
@@ -167,7 +167,7 @@ describe("extractHares", () => {
   it("uses custom patterns when provided", () => {
     expect(
       extractHares("WHO ARE THE HARES:  Used Rubber & Leeroy", [
-        "(?:^|\\n)\\s*WHO ARE THE HARES:\\s*(.+)",
+        String.raw`(?:^|\n)\s*WHO ARE THE HARES:\s*(.+)`,
       ]),
     ).toBe("Used Rubber & Leeroy");
   });
@@ -175,13 +175,13 @@ describe("extractHares", () => {
   it("uses custom pattern: Laid by", () => {
     expect(
       extractHares("Laid by: Speedy Gonzalez", [
-        "(?:^|\\n)\\s*Laid by:\\s*(.+)",
+        String.raw`(?:^|\n)\s*Laid by:\s*(.+)`,
       ]),
     ).toBe("Speedy Gonzalez");
   });
 
   it("falls back to defaults when customPatterns is undefined", () => {
-    expect(extractHares("Hare: DefaultMatch", undefined)).toBe("DefaultMatch");
+    expect(extractHares("Hare: DefaultMatch")).toBe("DefaultMatch");
   });
 
   it("falls back to defaults when customPatterns is empty array", () => {
@@ -190,7 +190,7 @@ describe("extractHares", () => {
 
   it("custom patterns replace defaults", () => {
     expect(
-      extractHares("Hare: Mudflap", ["(?:^|\\n)\\s*Laid by:\\s*(.+)"]),
+      extractHares("Hare: Mudflap", [String.raw`(?:^|\n)\s*Laid by:\s*(.+)`]),
     ).toBeUndefined();
   });
 
@@ -198,14 +198,14 @@ describe("extractHares", () => {
     expect(
       extractHares("Laid by: Speedy", [
         "[invalid(",
-        "(?:^|\\n)\\s*Laid by:\\s*(.+)",
+        String.raw`(?:^|\n)\s*Laid by:\s*(.+)`,
       ]),
     ).toBe("Speedy");
   });
 
   it("still filters generic answers with custom patterns", () => {
     expect(
-      extractHares("Laid by: everyone", ["(?:^|\\n)\\s*Laid by:\\s*(.+)"]),
+      extractHares("Laid by: everyone", [String.raw`(?:^|\n)\s*Laid by:\s*(.+)`]),
     ).toBeUndefined();
   });
 });

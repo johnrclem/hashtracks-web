@@ -2,7 +2,7 @@
 
 import { getAdminUser } from "@/lib/auth";
 import { getGeminiClient, GEMINI_MODEL } from "@/lib/gemini";
-import isSafeRegex from "safe-regex2";
+import { isSafeRegexString } from "./config-validation";
 
 export type SuggestableField = "hares" | "runNumber";
 
@@ -17,18 +17,6 @@ export interface FieldPatternSuggestion {
   reason: string;
   /** Example extraction from sample descriptions */
   example?: string;
-}
-
-/** Returns true if the string is a valid, ReDoS-safe regex. */
-function isSafeRegexString(p: unknown): boolean {
-  if (typeof p !== "string") return false;
-  try {
-    // nosemgrep: detect-non-literal-regexp — validating AI-suggested pattern
-    const re = new RegExp(p); // NOSONAR
-    return isSafeRegex(re);
-  } catch {
-    return false;
-  }
 }
 
 const FIELD_DESCRIPTIONS: Record<SuggestableField, string> = {
@@ -63,7 +51,7 @@ export async function suggestFieldPatterns(
     .map((f) => `- ${f}: ${FIELD_DESCRIPTIONS[f]}`)
     .join("\n");
 
-  const prompt = `You are helping configure a hash run calendar aggregator.
+  const prompt = String.raw`You are helping configure a hash run calendar aggregator.
 Given sample event descriptions from a calendar source, suggest JavaScript regex patterns to extract specific fields.
 
 Sample event descriptions:
@@ -78,7 +66,7 @@ Return JSON in exactly this format:
 Rules:
 - pattern must be a valid JavaScript regex string (no slashes, no flags — flags are added automatically)
 - Each pattern MUST have exactly one capture group (parentheses) that captures the desired value
-- For runNumber: the capture group must match digits only, e.g., (\\d+)
+- For runNumber: the capture group must match digits only, e.g., (\d+)
 - For hares: the capture group should match the name list after the label
 - confidence is 0.0-1.0 (1.0 = certain the pattern works, 0.5 = plausible)
 - Return 1-2 suggestions per field (best patterns found in the samples)

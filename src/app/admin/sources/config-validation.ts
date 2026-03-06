@@ -1,5 +1,17 @@
 import isSafeRegex from "safe-regex2";
 
+/** Returns true if the string is a valid, ReDoS-safe regex. Shared by config validation and AI suggestion filtering. */
+export function isSafeRegexString(p: unknown): boolean {
+  if (typeof p !== "string") return false;
+  try {
+    // nosemgrep: detect-non-literal-regexp — intentional: validating user/AI-supplied regex, protected by isSafeRegex()
+    const re = new RegExp(p); // NOSONAR
+    return isSafeRegex(re);
+  } catch {
+    return false;
+  }
+}
+
 /** Types that require a non-empty config object */
 const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "HASHREGO", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"]);
 

@@ -9,10 +9,10 @@ import {
 } from "@/app/admin/sources/gemini-field-suggestions-action";
 
 interface PatternSuggestButtonProps {
-  sampleDescriptions: string[];
-  field: SuggestableField;
-  onAccept: (pattern: string) => void;
-  geminiAvailable?: boolean;
+  readonly sampleDescriptions: string[];
+  readonly field: SuggestableField;
+  readonly onAccept: (pattern: string) => void;
+  readonly geminiAvailable?: boolean;
 }
 
 function confidenceColor(c: number): string {

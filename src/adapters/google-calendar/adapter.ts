@@ -35,7 +35,7 @@ export function extractKennelTag(summary: string): string {
 /** Default description patterns for run number extraction (Boston Hash Calendar format). */
 const DEFAULT_RUN_NUMBER_PATTERNS = [
   /BH3\s*#\s*(\d+)/i,
-  /(?:^|\n)\s*#(\d{3,})\s*(?:\n|$)/m,
+  /(?:^|\n)\s*#(\d{3,})\s*(?:\n|$)/m, // NOSONAR — safe: no nested quantifiers, \s* is single-class, bounded input
 ];
 
 /**

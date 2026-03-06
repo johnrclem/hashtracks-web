@@ -5,7 +5,7 @@ import { KennelPatternsEditor } from "./KennelPatternsEditor";
 import { StringArrayEditor } from "./StringArrayEditor";
 import { SuggestionChips } from "./SuggestionChips";
 import { KennelTagInput, type KennelOption } from "./KennelTagInput";
-import { PatternSuggestButton } from "./PatternSuggestButton";
+import { PatternFieldSections } from "./PatternFieldSections";
 
 export interface ICalConfig {
   kennelPatterns?: [string, string][];
@@ -110,66 +110,14 @@ export function ICalConfigPanel({
           addLabel="Add Skip Pattern"
         />
       </div>
-      <div className="space-y-2">
-        <Label>Hare Patterns</Label>
-        <p className="text-xs text-muted-foreground">
-          Regex patterns to extract hare names from event descriptions. Each
-          must have a capture group. Leave empty to use defaults
-          (Hare:/Hares:/Hare(s):).
-        </p>
-        <StringArrayEditor
-          items={current.harePatterns ?? []}
-          onChange={(patterns) =>
-            onChange({
-              ...current,
-              harePatterns: patterns.length > 0 ? patterns : undefined,
-            })
-          }
-          placeholder="e.g., (?:^|\n)\s*WHO ARE THE HARES:\s*(.+)"
-          addLabel="Add Hare Pattern"
-        />
-        <PatternSuggestButton
-          sampleDescriptions={sampleDescriptions}
-          field="hares"
-          geminiAvailable={geminiAvailable}
-          onAccept={(pattern) =>
-            onChange({
-              ...current,
-              harePatterns: [...(current.harePatterns ?? []), pattern],
-            })
-          }
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Run Number Patterns</Label>
-        <p className="text-xs text-muted-foreground">
-          Regex patterns to extract run numbers from event descriptions. Each
-          must have a capture group matching digits. Leave empty to use defaults
-          (#N in summary).
-        </p>
-        <StringArrayEditor
-          items={current.runNumberPatterns ?? []}
-          onChange={(patterns) =>
-            onChange({
-              ...current,
-              runNumberPatterns: patterns.length > 0 ? patterns : undefined,
-            })
-          }
-          placeholder="e.g., Hash\s*#\s*(\d+)"
-          addLabel="Add Run Number Pattern"
-        />
-        <PatternSuggestButton
-          sampleDescriptions={sampleDescriptions}
-          field="runNumber"
-          geminiAvailable={geminiAvailable}
-          onAccept={(pattern) =>
-            onChange({
-              ...current,
-              runNumberPatterns: [...(current.runNumberPatterns ?? []), pattern],
-            })
-          }
-        />
-      </div>
+      <PatternFieldSections
+        config={current}
+        onChange={(updates) => onChange({ ...current, ...updates })}
+        sampleDescriptions={sampleDescriptions}
+        geminiAvailable={geminiAvailable}
+        hareDefaultsHint="Hare:/Hares:/Hare(s):"
+        runNumberDefaultsHint="#N in summary"
+      />
     </div>
   );
 }

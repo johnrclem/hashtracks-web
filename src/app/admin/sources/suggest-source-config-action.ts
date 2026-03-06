@@ -1,6 +1,6 @@
 "use server";
 
-import isSafeRegex from "safe-regex2";
+import { isSafeRegexString } from "./config-validation";
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getGeminiClient, GEMINI_MODEL } from "@/lib/gemini";
@@ -505,18 +505,6 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-/** Returns true if the string is a valid, ReDoS-safe regex. */
-function isSafeRegexString(p: unknown): boolean {
-  if (typeof p !== "string") return false;
-  let regex: RegExp;
-  try {
-    // Intentional: constructing from non-literal to validate user-supplied patterns.
-    regex = new RegExp(p);
-  } catch {
-    return false;
-  }
-  return isSafeRegex(regex);
-}
 
 /** Returns true if entry is a valid [pattern, tag] pair with a safe regex. */
 function isValidPatternEntry(entry: unknown): boolean {

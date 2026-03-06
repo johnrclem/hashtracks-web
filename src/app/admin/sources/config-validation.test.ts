@@ -150,7 +150,7 @@ describe("validateSourceConfig", () => {
   describe("harePatterns validation", () => {
     it("accepts valid harePatterns", () => {
       const config = {
-        harePatterns: ["(?:^|\\n)\\s*WHO ARE THE HARES:\\s*(.+)", "(?:^|\\n)\\s*Laid by:\\s*(.+)"],
+        harePatterns: [String.raw`(?:^|\n)\s*WHO ARE THE HARES:\s*(.+)`, String.raw`(?:^|\n)\s*Laid by:\s*(.+)`],
         defaultKennelTag: "ELPH3",
       };
       expect(validateSourceConfig("GOOGLE_CALENDAR", config)).toEqual([]);
@@ -184,7 +184,7 @@ describe("validateSourceConfig", () => {
   describe("runNumberPatterns validation", () => {
     it("accepts valid runNumberPatterns", () => {
       const config = {
-        runNumberPatterns: ["Hash\\s*#\\s*(\\d+)", "Run\\s*#\\s*(\\d+)"],
+        runNumberPatterns: [String.raw`Hash\s*#\s*(\d+)`, String.raw`Run\s*#\s*(\d+)`],
         defaultKennelTag: "ELPH3",
       };
       expect(validateSourceConfig("GOOGLE_CALENDAR", config)).toEqual([]);
