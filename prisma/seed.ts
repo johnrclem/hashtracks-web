@@ -26,6 +26,7 @@ async function upsertRegionRecords(prisma: any) {
     const data = {
       slug,
       country: r.country,
+      level: r.level ?? "METRO",
       timezone: r.timezone,
       abbrev: r.abbrev,
       colorClasses: r.colorClasses,
@@ -47,6 +48,32 @@ async function upsertRegionRecords(prisma: any) {
     }
   }
   console.log(`  ✓ ${REGION_SEED_DATA.length} regions upserted`);
+
+  // Set parent relationships: all non-COUNTRY regions get their country as parent
+  const countryMap = new Map<string, string>(); // country code → region id
+  for (const r of REGION_SEED_DATA) {
+    if (r.level === "COUNTRY") {
+      countryMap.set(r.country, regionMap.get(r.name)!);
+    }
+  }
+
+  let parentLinked = 0;
+  for (const r of REGION_SEED_DATA) {
+    if (r.level === "COUNTRY") continue;
+    const parentId = countryMap.get(r.country);
+    if (!parentId) continue;
+    const regionId = regionMap.get(r.name);
+    if (!regionId) continue;
+    await prisma.region.update({
+      where: { id: regionId },
+      data: { parentId },
+    });
+    parentLinked++;
+  }
+  if (parentLinked > 0) {
+    console.log(`  ✓ ${parentLinked} regions linked to parent countries`);
+  }
+
   return regionMap;
 }
 

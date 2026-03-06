@@ -22,6 +22,7 @@ export interface RegionRow {
   name: string;
   slug: string;
   country: string;
+  level: string;
   timezone: string;
   abbrev: string;
   colorClasses: string;
@@ -33,6 +34,12 @@ export interface RegionRow {
   kennels: { id: string; shortName: string; slug: string }[];
   childCount: number;
 }
+
+const LEVEL_BADGE: Record<string, { label: string; classes: string }> = {
+  COUNTRY: { label: "Country", classes: "bg-amber-100 text-amber-800" },
+  STATE_PROVINCE: { label: "State", classes: "bg-blue-100 text-blue-800" },
+  METRO: { label: "Metro", classes: "bg-green-100 text-green-800" },
+};
 
 export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -140,6 +147,11 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{region.name}</span>
+                      {LEVEL_BADGE[region.level] && (
+                        <Badge variant="outline" className={`text-[10px] leading-none px-1.5 py-0.5 ${LEVEL_BADGE[region.level].classes}`}>
+                          {LEVEL_BADGE[region.level].label}
+                        </Badge>
+                      )}
                       {region.parentName && (
                         <span className="text-xs text-muted-foreground">
                           (in {region.parentName})

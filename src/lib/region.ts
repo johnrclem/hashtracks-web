@@ -15,9 +15,12 @@ import type { RegionData } from "@/lib/types/region";
 
 // ── Canonical region data (used for seed + migration + sync fallback) ──
 
+export type RegionLevel = "COUNTRY" | "STATE_PROVINCE" | "METRO";
+
 export interface RegionSeedRecord {
   name: string;
   country: string;
+  level?: RegionLevel; // defaults to METRO
   timezone: string;
   abbrev: string;
   colorClasses: string;
@@ -37,6 +40,31 @@ export interface RegionSeedRecord {
 // Tailwind scans this file at build time, so these classes are NOT purged.
 // Do not remove these string literals without updating tailwind.config.ts safelist.
 export const REGION_SEED_DATA: RegionSeedRecord[] = [
+  // ── COUNTRIES (top-level) ──
+  {
+    name: "United States",
+    country: "USA",
+    level: "COUNTRY",
+    timezone: "America/New_York",
+    abbrev: "USA",
+    colorClasses: "bg-slate-200 text-slate-800",
+    pinColor: "#475569",
+    centroidLat: 39.83,
+    centroidLng: -98.58,
+    aliases: ["USA", "US"],
+  },
+  {
+    name: "United Kingdom",
+    country: "UK",
+    level: "COUNTRY",
+    timezone: "Europe/London",
+    abbrev: "UK",
+    colorClasses: "bg-rose-200 text-rose-800",
+    pinColor: "#e11d48",
+    centroidLat: 54.0,
+    centroidLng: -2.0,
+    aliases: ["UK", "Great Britain", "GB"],
+  },
   // ── US East Coast ──
   {
     name: "New York City, NY",
@@ -557,6 +585,7 @@ export function regionNameToData(name: string): RegionData {
     slug: regionNameToSlug(name) ?? regionSlug(name),
     name,
     abbrev: regionAbbrev(name),
+    level: "METRO",
     colorClasses: regionColorClasses(name),
     pinColor: getRegionColor(name),
     centroidLat: centroid?.lat ?? null,

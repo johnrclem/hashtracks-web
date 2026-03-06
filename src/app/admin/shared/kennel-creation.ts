@@ -74,6 +74,9 @@ export async function createKennelFromDiscovery(
           scheduleDayOfWeek: data.scheduleDayOfWeek || null,
           scheduleFrequency: data.scheduleFrequency || null,
           paymentLink: safeUrl(data.paymentLink),
+          // Copy coordinates from discovery record (Hash Rego, research pipeline)
+          latitude: discovery.latitude,
+          longitude: discovery.longitude,
           aliases: {
             create: allAliases.map((alias) => ({ alias })),
           },

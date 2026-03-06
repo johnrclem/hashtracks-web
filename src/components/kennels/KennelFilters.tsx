@@ -16,6 +16,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { NearMeFilter } from "@/components/shared/NearMeFilter";
+import type { GeoState } from "@/hooks/useGeolocation";
 import type { KennelCardData } from "./KennelCard";
 
 const SCHEDULE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -43,6 +45,10 @@ interface KennelFiltersProps {
   onUpcomingOnlyChange: (v: boolean) => void;
   selectedCountry: string;
   onCountryChange: (country: string) => void;
+  nearMeDistance: number | null;
+  onNearMeDistanceChange: (distance: number | null) => void;
+  geoState: GeoState;
+  onRequestLocation: () => void;
 }
 
 export function KennelFilters({
@@ -57,12 +63,37 @@ export function KennelFilters({
   onUpcomingOnlyChange,
   selectedCountry,
   onCountryChange,
+  nearMeDistance,
+  onNearMeDistanceChange,
+  geoState,
+  onRequestLocation,
 }: KennelFiltersProps) {
-  // Derive available regions from kennel list
+  // Derive available regions from kennel list, grouped by country
   const regions = useMemo(() => {
     const regionSet = new Set(kennels.map((k) => k.region));
     return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
   }, [kennels]);
+
+  // Group regions by country for hierarchical display
+  const regionsByCountry = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const k of kennels) {
+      const country = k.country || "Other";
+      if (!map.has(country)) map.set(country, []);
+      const list = map.get(country)!;
+      if (!list.includes(k.region)) list.push(k.region);
+    }
+    // Sort regions within each country
+    for (const [, list] of map) {
+      list.sort((a, b) => a.localeCompare(b));
+    }
+    return map;
+  }, [kennels]);
+
+  const countryKeys = useMemo(
+    () => Array.from(regionsByCountry.keys()).sort((a, b) => a.localeCompare(b)),
+    [regionsByCountry],
+  );
 
   // Derive available frequencies
   const frequencies = useMemo(() => {
@@ -103,7 +134,8 @@ export function KennelFilters({
     selectedDays.length +
     (selectedFrequency ? 1 : 0) +
     (showUpcomingOnly ? 1 : 0) +
-    (selectedCountry ? 1 : 0);
+    (selectedCountry ? 1 : 0) +
+    (nearMeDistance != null ? 1 : 0);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -124,25 +156,51 @@ export function KennelFilters({
             <CommandInput placeholder="Search regions..." />
             <CommandList>
               <CommandEmpty>No regions found.</CommandEmpty>
-              <CommandGroup>
-                {regions.map((region) => (
-                  <CommandItem
-                    key={region}
-                    onSelect={() => toggleRegion(region)}
-                  >
-                    <span
-                      className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                        selectedRegions.includes(region)
-                          ? "bg-primary border-primary text-primary-foreground"
-                          : "opacity-50"
-                      }`}
+              {countryKeys.length > 1 ? (
+                // Group by country when multiple countries
+                countryKeys.map((country) => (
+                  <CommandGroup key={country} heading={country}>
+                    {(regionsByCountry.get(country) ?? []).map((region) => (
+                      <CommandItem
+                        key={region}
+                        onSelect={() => toggleRegion(region)}
+                      >
+                        <span
+                          className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                            selectedRegions.includes(region)
+                              ? "bg-primary border-primary text-primary-foreground"
+                              : "opacity-50"
+                          }`}
+                        >
+                          {selectedRegions.includes(region) && "✓"}
+                        </span>
+                        {region}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ))
+              ) : (
+                // Flat list when single country
+                <CommandGroup>
+                  {regions.map((region) => (
+                    <CommandItem
+                      key={region}
+                      onSelect={() => toggleRegion(region)}
                     >
-                      {selectedRegions.includes(region) && "✓"}
-                    </span>
-                    {region}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+                      <span
+                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                          selectedRegions.includes(region)
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "opacity-50"
+                        }`}
+                      >
+                        {selectedRegions.includes(region) && "✓"}
+                      </span>
+                      {region}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
             </CommandList>
           </Command>
         </PopoverContent>
@@ -154,6 +212,7 @@ export function KennelFilters({
           <button
             key={day}
             onClick={() => toggleDay(day)}
+            aria-pressed={selectedDays.includes(day)}
             className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
               selectedDays.includes(day)
                 ? "bg-primary text-primary-foreground"
@@ -216,6 +275,7 @@ export function KennelFilters({
       {/* Has upcoming events toggle */}
       <button
         onClick={() => onUpcomingOnlyChange(!showUpcomingOnly)}
+        aria-pressed={showUpcomingOnly}
         className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
           showUpcomingOnly
             ? "bg-primary text-primary-foreground"
@@ -224,6 +284,14 @@ export function KennelFilters({
       >
         Has upcoming
       </button>
+
+      {/* Near me filter */}
+      <NearMeFilter
+        nearMeDistance={nearMeDistance}
+        onNearMeDistanceChange={onNearMeDistanceChange}
+        geoState={geoState}
+        onRequestLocation={onRequestLocation}
+      />
 
       {/* Country filter — only if >1 country */}
       {countries.length > 1 && (
@@ -234,6 +302,7 @@ export function KennelFilters({
               onClick={() =>
                 onCountryChange(selectedCountry === country ? "" : country)
               }
+              aria-pressed={selectedCountry === country}
               className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
                 selectedCountry === country
                   ? "bg-primary text-primary-foreground"
@@ -258,6 +327,7 @@ export function KennelFilters({
             onFrequencyChange("");
             onUpcomingOnlyChange(false);
             onCountryChange("");
+            onNearMeDistanceChange(null);
           }}
         >
           Clear filters

@@ -75,9 +75,9 @@ export function RegionFormDialog({
     });
   }
 
-  // Filter out current region from parent options
+  // Filter parent options: COUNTRY and STATE_PROVINCE regions can be parents
   const parentOptions = regions.filter(
-    (r) => r.id !== region?.id && !r.parentId,
+    (r) => r.id !== region?.id && (r.level === "COUNTRY" || r.level === "STATE_PROVINCE" || !r.parentId),
   );
 
   return (
@@ -141,6 +141,23 @@ export function RegionFormDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="level">Level</Label>
+            <Select
+              name="level"
+              defaultValue={region?.level ?? "METRO"}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="COUNTRY">Country</SelectItem>
+                <SelectItem value="STATE_PROVINCE">State / Province</SelectItem>
+                <SelectItem value="METRO">Metro (default)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
