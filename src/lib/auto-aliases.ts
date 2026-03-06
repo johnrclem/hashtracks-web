@@ -155,3 +155,20 @@ export function generateAliases(shortName: string, fullName: string): string[] {
 
   return [...aliases];
 }
+
+/**
+ * Deduplicate aliases by lowercase key, preserving original casing.
+ * Used when building the alias set for kennel creation.
+ */
+export function dedupeAliases(aliases: string[]): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const a of aliases) {
+    const key = a.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(a);
+    }
+  }
+  return result;
+}

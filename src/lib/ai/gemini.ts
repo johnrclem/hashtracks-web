@@ -4,9 +4,13 @@
  * Uses the REST API directly (no SDK dependency) per PRD Appendix E.1.
  * Model: gemini-2.5-flash-lite (fast, cheapest — ideal for structured extraction).
  * Temperature: 0.1 (deterministic for reproducible results).
+ *
+ * Also provides `searchWithGemini()` for search-grounded research queries
+ * using gemini-2.5-flash (required for google_search tool).
  */
 
 const GEMINI_MODEL = "gemini-2.5-flash-lite";
+const GEMINI_SEARCH_MODEL = "gemini-2.5-flash";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 /** Simple in-memory response cache (survives within a single server instance). */
@@ -42,6 +46,25 @@ function pruneCache(): void {
 /** Clear the in-memory response cache. Exported for test isolation. */
 export function clearGeminiCache(): void {
   responseCache.clear();
+}
+
+/**
+ * Fetch with automatic retry on 429 rate-limit responses.
+ * Uses exponential backoff: 1s, 2s, 4s between attempts.
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fetch(url, options);
+    if (response.status !== 429 || attempt === maxRetries) return response;
+    const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+    await new Promise((r) => setTimeout(r, delay));
+  }
+  // Unreachable, but satisfies TypeScript
+  throw new Error("Retry loop exhausted");
 }
 
 /** Request parameters for `callGemini()`. */
@@ -90,7 +113,7 @@ export async function callGemini(request: GeminiRequest, cacheTtlMs = DEFAULT_CA
   const start = Date.now();
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -122,7 +145,13 @@ export async function callGemini(request: GeminiRequest, cacheTtlMs = DEFAULT_CA
     }
 
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+    const parts = data?.candidates?.[0]?.content?.parts ?? [];
+    const text =
+      parts
+        .filter((p: Record<string, unknown>) => typeof p?.text === "string")
+        .map((p: Record<string, unknown>) => p.text as string)
+        .join("\n")
+        .trim() || null;
 
     if (!text) {
       return {
@@ -142,6 +171,143 @@ export async function callGemini(request: GeminiRequest, cacheTtlMs = DEFAULT_CA
     return {
       text: null,
       error: `Gemini request failed: ${err instanceof Error ? err.message : String(err)}`,
+      durationMs: Date.now() - start,
+    };
+  }
+}
+
+// ─── Two-step search + extract ───────────────────────────────────────────────
+
+/**
+ * Two-step search-and-extract: grounded web search → JSON extraction.
+ *
+ * Step 1: `searchWithGemini` gets narrative prose + grounding URLs.
+ * Step 2: `callGemini` (with JSON mode) extracts structured JSON from the prose.
+ *
+ * This works around search grounding being incompatible with JSON mode.
+ */
+export async function searchAndExtract(
+  searchPrompt: string,
+  extractionPrompt: (searchText: string, groundingUrls: string[]) => string,
+  maxSearchTokens = 4096,
+): Promise<GeminiSearchResponse> {
+  const searchResult = await searchWithGemini(searchPrompt, maxSearchTokens);
+
+  if (!searchResult.text) {
+    return searchResult;
+  }
+
+  // Brief pause between search and extraction to avoid rate limiting
+  await new Promise((r) => setTimeout(r, 500));
+
+  // Step 2: Extract structured JSON from the prose
+  const extraction = await callGemini(
+    { prompt: extractionPrompt(searchResult.text, searchResult.groundingUrls) },
+    0, // no caching — search results are time-sensitive
+  );
+
+  return {
+    text: extraction.text,
+    groundingUrls: searchResult.groundingUrls,
+    error: extraction.error,
+    durationMs: searchResult.durationMs + extraction.durationMs,
+  };
+}
+
+// ─── Search-grounded Gemini ──────────────────────────────────────────────────
+
+/** Response from `searchWithGemini()`. */
+export interface GeminiSearchResponse {
+  /** Natural text from the model, or null on failure. */
+  text: string | null;
+  /** URLs extracted from groundingMetadata.groundingChunks[].web.uri */
+  groundingUrls: string[];
+  /** Error message if the call failed. */
+  error?: string;
+  /** Wall-clock duration in milliseconds. */
+  durationMs: number;
+}
+
+/**
+ * Call Gemini with Google Search grounding enabled.
+ *
+ * Uses `gemini-2.0-flash` (search grounding requires it, not compatible with lite).
+ * No `responseMimeType` (search grounding is incompatible with JSON mode).
+ * No caching (search results are time-sensitive).
+ * Temperature: 0.3 (slightly creative for research queries).
+ */
+export async function searchWithGemini(
+  prompt: string,
+  maxOutputTokens = 4096,
+): Promise<GeminiSearchResponse> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return { text: null, groundingUrls: [], error: "GEMINI_API_KEY not configured", durationMs: 0 };
+  }
+
+  const url = `${GEMINI_BASE_URL}/${GEMINI_SEARCH_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const start = Date.now();
+
+  try {
+    const response = await fetchWithRetry(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        tools: [{ google_search: {} }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens,
+        },
+      }),
+    });
+
+    const durationMs = Date.now() - start;
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return {
+          text: null,
+          groundingUrls: [],
+          error: "Rate limit exceeded — try again in a few minutes",
+          durationMs,
+        };
+      }
+      const body = await response.text();
+      return {
+        text: null,
+        groundingUrls: [],
+        error: `Gemini API ${response.status}: ${body.slice(0, 200)}`,
+        durationMs,
+      };
+    }
+
+    const data = await response.json();
+    const textParts = data?.candidates?.[0]?.content?.parts ?? [];
+    const text =
+      textParts
+        .filter((p: Record<string, unknown>) => typeof p?.text === "string")
+        .map((p: Record<string, unknown>) => p.text as string)
+        .join("\n")
+        .trim() || null;
+
+    // Extract grounding URLs from metadata
+    const groundingChunks =
+      data?.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
+    const groundingUrls: string[] = [];
+    for (const chunk of groundingChunks) {
+      const uri = chunk?.web?.uri;
+      if (typeof uri === "string" && uri.startsWith("http")) {
+        groundingUrls.push(uri);
+      }
+    }
+
+    return { text, groundingUrls, durationMs };
+  } catch (err) {
+    return {
+      text: null,
+      groundingUrls: [],
+      error: `Gemini search failed: ${err instanceof Error ? err.message : String(err)}`,
       durationMs: Date.now() - start,
     };
   }

@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { formatDateShort, formatTimeCompact } from "@/lib/format";
 
 export default async function HomePage() {
-  const { userId } = await auth();
+  const clerkUser = await currentUser();
+  const userId = clerkUser?.id ?? null;
 
   // Build a UTC noon date for today to compare upcoming events
   const now = new Date();

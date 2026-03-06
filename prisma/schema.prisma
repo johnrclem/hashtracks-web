@@ -79,7 +79,9 @@ model Region {
   children      Region[]  @relation("RegionHierarchy")
 
   // Relations
-  kennels       Kennel[]
+  kennels             Kennel[]
+  sourceProposals     SourceProposal[]
+  kennelDiscoveries   KennelDiscovery[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -138,7 +140,8 @@ model Kennel {
   mismanRequests MismanRequest[]
   mismanInvites  MismanInvite[]
   rosterGroups   RosterGroupKennel[]
-  discoveries    KennelDiscovery[]
+  discoveries       KennelDiscovery[]
+  sourceProposals   SourceProposal[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -721,6 +724,8 @@ model KennelDiscovery {
   matchedKennelId String?
   matchScore      Float?          // Best fuzzy match score (0–1)
   matchCandidates Json?           // Top 3: [{id, shortName, score}]
+  regionId        String?         // Scope AI discoveries to a region
+  regionRef       Region?         @relation(fields: [regionId], references: [id])
 
   lastSeenAt      DateTime        @default(now())
   processedBy     String?
@@ -732,6 +737,7 @@ model KennelDiscovery {
 
   @@unique([externalSource, externalSlug])
   @@index([status])
+  @@index([regionId, status])
 }
 
 enum DiscoveryStatus {
@@ -740,4 +746,40 @@ enum DiscoveryStatus {
   ADDED      // Admin created a new kennel from this
   LINKED     // Admin linked to existing kennel manually
   DISMISSED
+}
+
+// ── SOURCE PROPOSALS ──
+
+enum ProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ERROR
+}
+
+model SourceProposal {
+  id                String         @id @default(cuid())
+  regionId          String
+  kennelId          String?
+  url               String
+  sourceName        String?
+  discoveryMethod   String         // "WEB_SEARCH" | "KENNEL_WEBSITE" | "DISCOVERY_WEBSITE"
+  searchQuery       String?
+  detectedType      SourceType?
+  extractedConfig   Json?          // Full analysis result (GenericHtmlConfig, calendarId, etc.)
+  confidence        String?        // "high" | "medium" | "low"
+  explanation       String?
+  kennelName        String?
+  status            ProposalStatus @default(PENDING)
+  processedBy       String?
+  processedAt       DateTime?
+  createdSourceId   String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  region            Region         @relation(fields: [regionId], references: [id])
+  kennel            Kennel?        @relation(fields: [kennelId], references: [id])
+
+  @@unique([url, regionId])
+  @@index([regionId, status])
 }

@@ -12,6 +12,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "infra/**",  // Standalone NAS server — not Next.js code
   ]),
   // Downgrade React Compiler rules to warnings — pre-existing patterns
   // that work at runtime but flag under strict React Compiler analysis.

@@ -73,6 +73,10 @@ export function extractRunNumber(
     }
   }
 
+  // Standalone run number in description (e.g., "#2792" on its own line)
+  const standaloneMatch = /(?:^|\n)[ \t]*#(\d{3,})[ \t]*(?:\n|$)/m.exec(description);
+  if (standaloneMatch) return Number.parseInt(standaloneMatch[1], 10);
+
   return undefined;
 }
 
@@ -85,8 +89,8 @@ export function extractTitle(summary: string): string {
 
 /** Default hare extraction patterns (Boston Hash Calendar format). */
 const DEFAULT_HARE_PATTERNS = [
-  /(?:^|\n)\s*Hares?:\s*(.+)/im,
-  /(?:^|\n)\s*Who:\s*(.+)/im,
+  /(?:^|\n)[ \t]*Hares?:[ \t]*(.+)/im,
+  /(?:^|\n)[ \t]*Who:[ \t]*(.+)/im,
 ];
 
 /**
