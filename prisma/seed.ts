@@ -61,7 +61,8 @@ async function upsertKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
     );
     const regionId = regionMap.get(kennel.region) ?? null;
     if (!regionId) {
-      console.warn(`  ⚠ No region found for "${kennel.region}" (kennel: ${kennel.shortName})`);
+      console.warn(`  ⚠ No region found for "${kennel.region}" (kennel: ${kennel.shortName}), skipping`);
+      continue;
     }
     const record = await prisma.kennel.upsert({
       where: { kennelCode: kennel.kennelCode },
