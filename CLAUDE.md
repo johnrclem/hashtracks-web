@@ -30,6 +30,8 @@ calendar + personal logbook + kennel directory.
 - **Scraping:** HTTP fetch + Cheerio (NOT Playwright — hash sites are static HTML); Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup)
 - **Residential Proxy:** Optional NAS-based forward proxy for WAF-blocked targets (Cloudflare Tunnel, see `docs/residential-proxy-spec.md`)
 - **AI:** Gemini 2.0 Flash for complex HTML parsing (low temp, cached results), parse error recovery, column auto-detection, kennel pattern suggestions, HTML structure analysis with few-shot learning from existing adapter patterns
+- **Kennel geocoding:** lat/lng on Kennel model, backfill via Google Geocoding API, Near Me distance filter (client-side Haversine)
+- **Region hierarchy:** RegionLevel enum (COUNTRY/STATE_PROVINCE/METRO), parent-child linking
 - **Analytics:** Vercel Web Analytics + Speed Insights
 - **CI/CD:** GitHub Actions (type check + lint + tests on all PRs); Claude Code automation for issue triage + auto-fix
 - **Self-healing:** Alert pipeline auto-files GitHub issues → Claude triages → high-confidence fixes auto-PR'd → CI validates
@@ -84,13 +86,13 @@ calendar + personal logbook + kennel directory.
 - RESIDENTIAL_PROXY_KEY=  # API key for residential proxy auth
 
 ## Important Files
-- `prisma/schema.prisma` — Full data model, 26 models + 18 enums (THE source of truth for types)
+- `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
 - `prisma/seed.ts` — 76 kennels, 246 aliases, 30 sources, 36 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
 - `src/lib/format.ts` — Shared utilities: time formatting, date formatting, participation levels, schedule formatting, social URL helpers
-- `src/lib/region.ts` — Region seed data (36 regions), sync fallback lookups (timezone, colors, centroids, abbrev), region slug generation
+- `src/lib/region.ts` — Region seed data (36 regions), sync fallback lookups (timezone, colors, centroids, abbrev), region slug generation, RegionLevel hierarchy, `regionNameToData`
 - `src/lib/calendar.ts` — Google Calendar URL + .ics file generation (client-side)
 - `src/proxy.ts` — Clerk route protection (public vs authenticated routes) — Next.js 16 proxy convention
 - `src/adapters/types.ts` — SourceAdapter interface + RawEventData types
@@ -190,9 +192,13 @@ calendar + personal logbook + kennel directory.
 - `src/lib/source-detect.ts` — Auto-detection of source type from URL (Sheets, Calendar, Hash Rego, Meetup)
 - `src/lib/timezone.ts` — IANA timezone utilities (composeUtcStart, formatTimeInZone)
 - `src/lib/fuzzy.ts` — Levenshtein-based fuzzy string matching for kennel tag resolution + pairwise name matching
-- `src/lib/geo.ts` — Coordinate utilities: extractCoordsFromMapsUrl (4 URL patterns), getEventCoords, haversineDistance, REGION_CENTROIDS; region color/centroid helpers re-exported from region.ts
+- `src/lib/geo.ts` — Coordinate utilities: extractCoordsFromMapsUrl (4 URL patterns), getEventCoords, haversineDistance, geocodeAddress, REGION_CENTROIDS, DISTANCE_OPTIONS; region color/centroid helpers re-exported from region.ts
 - `src/lib/weather.ts` — Google Weather API fetch utility (getEventDayWeather, 30-min cache, region centroid fallback)
 - `src/components/hareline/EventLocationMap.tsx` — Static map image (Google Maps Static API; accepts coords or text address fallback)
+- `src/hooks/useGeolocation.ts` — Browser geolocation hook (GeoState: idle/loading/granted/denied)
+- `src/components/kennels/KennelMapView.tsx` — Interactive kennel map (individual + region aggregate pins)
+- `src/components/shared/NearMeFilter.tsx` — Distance filter UI (geolocation + distance options)
+- `src/app/admin/kennels/backfill-action.ts` — Geocode backfill for kennel lat/lng
 - `src/components/hareline/MapView.tsx` — Interactive map tab for Hareline (@vis.gl/react-google-maps, region-colored pins)
 - `src/components/hareline/EventWeatherCard.tsx` — Weather forecast display (condition emoji, °F/°C, precip ≥20%)
 - `src/components/providers/units-preference-provider.tsx` — °F/°C preference context (localStorage-based, useUnitsPreference hook)

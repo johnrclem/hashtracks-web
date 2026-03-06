@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-03-05
+Last updated: 2026-03-06
 
 **Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
 
@@ -254,8 +254,8 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 ### Current Stats
 - 76 kennels (with rich profiles), 246 aliases, 30 sources, 36 regions (first-class model with hierarchy)
 - 8 adapter types: HTML_SCRAPER (22), GOOGLE_CALENDAR (5), GOOGLE_SHEETS (2), ICAL_FEED (3), HASHREGO (1), MEETUP (1), STATIC_SCHEDULE (1), WORDPRESS_API (1)
-- 26 models, 18 enums in Prisma schema
-- 102 test files, 2100 test cases
+- 27 models, 20 enums in Prisma schema
+- 102 test files, 2131 test cases
 
 ---
 
@@ -423,12 +423,8 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - [x] **Event detail map** — Google Maps Static API image on EventDetailPanel + standalone event page; clickable → opens Google Maps; coordinate extraction from `locationAddress` Google Maps URLs in merge pipeline
 - [x] **EventLocationMap text-address fallback** — Works without lat/lng; falls back to `locationName` text address for Google Maps Static API center/markers parameter (covers all hashnyc.com events and text-only sources)
 - [x] **Coordinate extraction from Maps URLs** — merge pipeline calls `extractCoordsFromMapsUrl()` on `locationAddress` (supports @lat,lng, ?q=, ll=, query= URL patterns), stores precise lat/lng on Event records
-- [ ] **Map toggle on Kennel Directory** — interactive map with kennel pins (requires geocoding lat/lng on Kennel model)
-- [ ] **"Near me" distance filtering on Hareline**
-  - Browser geolocation API for current position
-  - Client-side Haversine distance calculation (no PostGIS)
-  - Distance slider: 10km / 25km / 50km / 100km / 250km
-  - Fallback: text-based region filter when no geo data available
+- [x] **Map toggle on Kennel Directory** — interactive map with kennel pins, region-colored, click → kennel page (PR #178)
+- [x] **"Near me" distance filtering on Kennel Directory** — browser geolocation + Haversine, 10/25/50/100/250 km options (PR #178)
 
 - [ ] **Travel Mode search** (future enhancement)
   - "Runs in [City/Region] between [Date A] and [Date B]"
@@ -677,13 +673,23 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - [x] **AI kennel discovery** — Phase 0 discovers unknown kennels via Gemini search, persists as KennelDiscovery records with auto-create to kennel directory
 - [x] **Residential proxy** — NAS-based forward proxy for WAF-blocked scrape targets, Cloudflare Tunnel (`proxy.hashtracks.xyz`), `infra/proxy-relay/`
 
+### Global Region & Kennel Discovery (PR #178) — COMPLETE
+- [x] RegionLevel enum (COUNTRY/STATE_PROVINCE/METRO) — hierarchical region tree
+- [x] Country-level seed regions (USA, UK) as parents for all metro regions
+- [x] Kennel lat/lng fields — geocoded via Google Geocoding API during backfill
+- [x] Kennel directory map tab — interactive pins, color-coded by region, click → kennel page
+- [x] Near Me distance filter — browser geolocation + Haversine distance (10/25/50/100/250 km)
+- [x] Country-grouped region filters on kennel directory
+- [x] KennelDiscovery model — tracks AI-discovered kennels with geocoded coordinates
+- [x] Geocoding backfill action for existing kennels without coordinates
+
 ### Future Enhancements (Deferred)
 - [ ] Pagination support for generic HTML adapter (multi-page URL templates)
 - [ ] JS-rendered page support (headless browser fallback for JavaScript-only sites)
 - [ ] HTML analysis result caching
 - [ ] Auto-migration of named adapters to generic config (existing named adapters continue working as-is)
 
-**Sprint order:** A (done) → B (done) → C → D
+**Sprint order:** A (done) → B (done) → D (done) → Global Region (done) → C (KennelDiscovery model built, remaining: Hash Rego directory scraper, discovery queue UI)
 
 ---
 
