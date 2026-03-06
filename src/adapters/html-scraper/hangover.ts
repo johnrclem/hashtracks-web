@@ -8,6 +8,13 @@ import { chronoParseDate, parse12HourTime } from "../utils";
 
 const DEFAULT_START_TIME = "10:15";
 
+/**
+ * Ghost Content API key — this is a public read-only key embedded in every page
+ * response of the DigitalPress site (in the ghost-portal script tag's data-key attribute).
+ * If it rotates, find the new one by inspecting the page source for `data-key="..."`.
+ */
+const GHOST_CONTENT_API_KEY = "970e3b5bd552591e25f0610a97";
+
 export function parseHangoverTitle(title: string): {
   runNumber?: number;
   trailName?: string;
@@ -32,6 +39,39 @@ export function parseHangoverDate(text: string): string | null {
 
 const parseTime = parse12HourTime;
 
+/**
+ * Extract the trail section from a Hangover H4 post's HTML body.
+ *
+ * H4 posts contain two sections separated by an `<hr>`:
+ *   1. Prelubes section (events before the main trail)
+ *   2. Trail section (the actual hash event details)
+ *
+ * We extract only the trail section to avoid prelube dates polluting
+ * the date extraction with chrono-node fallback.
+ *
+ * Exported for testing.
+ */
+export function extractTrailSection(html: string): string {
+  const $ = cheerio.load(html);
+  const hr = $("hr").first();
+
+  if (hr.length === 0) {
+    // No <hr> separator — return full text (older posts may not have prelubes)
+    return $.text().trim();
+  }
+
+  // Collect all text content after the <hr>
+  const parts: string[] = [];
+  let node = hr.get(0)?.nextSibling;
+  while (node) {
+    const text = $(node as AnyNode).text().trim();
+    if (text) parts.push(text);
+    node = node.nextSibling;
+  }
+
+  return parts.join("\n");
+}
+
 export function parseHangoverBody(text: string): {
   date?: string;
   hares?: string;
@@ -54,7 +94,13 @@ export function parseHangoverBody(text: string): {
     .trim();
 
   const dateMatch = normalized.match(/(?:^|\n)\s*(?:Date|When)\s*:\s*(.+?)(?=\n|$)/im);
-  const date = dateMatch ? parseHangoverDate(dateMatch[1].trim()) : undefined;
+  let date = dateMatch ? parseHangoverDate(dateMatch[1].trim()) : undefined;
+
+  // Fallback: use chrono-node on the full text when no Date:/When: label present.
+  // Safe when text has been pre-filtered via extractTrailSection (no prelube dates).
+  if (!date) {
+    date = chronoParseDate(text, "en-US") ?? undefined;
+  }
 
   const hareMatch = normalized.match(/(?:^|\n)\s*Hare(?:\(s\)|s)?\s*:\s*(.+?)(?=\n|$)/im);
   const locationMatch = normalized.match(/(?:^|\n)\s*(?:Trail Start|Start|Location|Where)\s*:\s*(.+?)(?=\n|$)/im);
@@ -154,6 +200,14 @@ function buildHangoverDescription(fields: ReturnType<typeof parseHangoverBody>):
   return descParts.length > 0 ? descParts.join(" | ") : undefined;
 }
 
+/** Ghost Content API post shape (subset of fields we request). */
+interface GhostPost {
+  title: string;
+  url: string;
+  html: string;
+  published_at: string;
+}
+
 export class HangoverAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -163,6 +217,104 @@ export class HangoverAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://hangoverhash.digitalpress.blog/";
 
+    // Try Ghost Content API first (structured JSON, no CSS selector fragility)
+    const apiResult = await this.fetchViaGhostApi(baseUrl);
+    if (apiResult.events.length > 0) return apiResult;
+
+    // Fallback to HTML scraping (for when API is unavailable or returns no posts)
+    return this.fetchViaHtmlScrape(baseUrl);
+  }
+
+  /** Fetch events via the Ghost Content API. */
+  private async fetchViaGhostApi(baseUrl: string): Promise<ScrapeResult> {
+    const events: RawEventData[] = [];
+    const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
+
+    // Build API URL from the site's base URL
+    const apiBase = baseUrl.replace(/\/+$/, "");
+    const apiUrl = `${apiBase}/ghost/api/content/posts/?key=${GHOST_CONTENT_API_KEY}&limit=20&fields=title,url,html,published_at`;
+
+    const fetchStart = Date.now();
+    let posts: GhostPost[];
+    try {
+      const response = await safeFetch(apiUrl, {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        return {
+          events: [],
+          errors: [`Ghost API HTTP ${response.status}`],
+          errorDetails: { fetch: [{ url: apiUrl, status: response.status, message: `HTTP ${response.status}` }] },
+          diagnosticContext: { fetchMethod: "ghost-api", apiStatus: response.status },
+        };
+      }
+      const data = await response.json() as { posts?: GhostPost[] };
+      posts = data.posts ?? [];
+    } catch (err) {
+      return {
+        events: [],
+        errors: [`Ghost API fetch failed: ${err}`],
+        errorDetails: { fetch: [{ url: apiUrl, message: `${err}` }] },
+        diagnosticContext: { fetchMethod: "ghost-api" },
+      };
+    }
+    const fetchDurationMs = Date.now() - fetchStart;
+
+    for (let i = 0; i < posts.length; i++) {
+      const post = posts[i];
+      const parsed = parseHangoverTitle(post.title);
+      if (!parsed) continue; // Non-trail post (e.g., "About", "Hash Markings Guide")
+
+      // Extract only the trail section (after <hr>) to avoid prelube dates
+      const trailText = extractTrailSection(post.html);
+      const bodyFields = parseHangoverBody(trailText);
+
+      // Use parsed date, fall back to API published_at
+      let eventDate = bodyFields.date;
+      if (!eventDate && post.published_at) {
+        const isoMatch = post.published_at.match(/^(\d{4}-\d{2}-\d{2})/);
+        eventDate = isoMatch?.[1];
+      }
+
+      if (!eventDate) {
+        errors.push(`No date for post: ${post.title}`);
+        continue;
+      }
+
+      const locationUrl = bodyFields.location
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(bodyFields.location)}`
+        : undefined;
+
+      events.push({
+        date: eventDate,
+        kennelTag: "H4",
+        runNumber: parsed.runNumber,
+        title: parsed.trailName,
+        hares: bodyFields.hares,
+        location: bodyFields.location,
+        locationUrl,
+        startTime: bodyFields.startTime || DEFAULT_START_TIME,
+        sourceUrl: post.url,
+        description: buildHangoverDescription(bodyFields),
+      });
+    }
+
+    return {
+      events,
+      errors,
+      errorDetails: errors.length > 0 ? errorDetails : undefined,
+      diagnosticContext: {
+        fetchMethod: "ghost-api",
+        postsFound: posts.length,
+        eventsParsed: events.length,
+        fetchDurationMs,
+      },
+    };
+  }
+
+  /** Fetch events via HTML scraping (fallback path). */
+  private async fetchViaHtmlScrape(baseUrl: string): Promise<ScrapeResult> {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
@@ -241,6 +393,7 @@ export class HangoverAdapter implements SourceAdapter {
       structureHash,
       errorDetails: (errorDetails.fetch?.length ?? 0) > 0 ? errorDetails : undefined,
       diagnosticContext: {
+        fetchMethod: "html-scrape",
         articlesFound: articles.length,
         eventsParsed: events.length,
       },

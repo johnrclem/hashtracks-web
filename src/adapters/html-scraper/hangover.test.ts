@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { parseHangoverTitle, parseHangoverDate, parseHangoverBody } from "./hangover";
-import { HangoverAdapter } from "./hangover";
+import {
+  parseHangoverTitle,
+  parseHangoverDate,
+  parseHangoverBody,
+  extractTrailSection,
+  HangoverAdapter,
+} from "./hangover";
 
 describe("parseHangoverTitle", () => {
   it("parses standard title", () => {
@@ -97,9 +102,267 @@ describe("parseHangoverBody", () => {
     expect(result.hares).toBeUndefined();
     expect(result.location).toBeUndefined();
   });
+
+  it("falls back to chrono-node for free-form dates without label", () => {
+    // New Ghost theme: dates appear as free-form text without Date:/When: prefix
+    const text = "Sunday, March 8th, 2026 Hare(s): Test Hare Trail Start: Some Park";
+    const result = parseHangoverBody(text);
+    expect(result.date).toBe("2026-03-08");
+    expect(result.hares).toBe("Test Hare");
+    expect(result.location).toBe("Some Park");
+  });
 });
 
-describe("HangoverAdapter integration", () => {
+describe("extractTrailSection", () => {
+  it("extracts text after <hr> separator", () => {
+    const html = `
+      <h2 id="prelubes-214">Prelubes</h2>
+      <p>Friday prelube at 6pm at Some Bar</p>
+      <hr>
+      <h2 id="h4-trail-214">H4 Trail #214</h2>
+      <p>Date: Sunday, February 15th, 2026</p>
+      <p>Hare(s): Test Hare</p>
+    `;
+    const result = extractTrailSection(html);
+    expect(result).toContain("Date: Sunday, February 15th, 2026");
+    expect(result).toContain("Test Hare");
+    expect(result).not.toContain("Friday prelube");
+  });
+
+  it("returns full text when no <hr> found", () => {
+    const html = `
+      <p>Date: Sunday, March 8th, 2026</p>
+      <p>Hare(s): Solo Hare</p>
+    `;
+    const result = extractTrailSection(html);
+    expect(result).toContain("Date: Sunday, March 8th, 2026");
+    expect(result).toContain("Solo Hare");
+  });
+
+  it("handles empty HTML", () => {
+    expect(extractTrailSection("")).toBe("");
+    expect(extractTrailSection("<p></p>")).toBe("");
+  });
+
+  it("strips prelube dates that would confuse chrono-node", () => {
+    const html = `
+      <h2>Prelubes</h2>
+      <p>Saturday, February 14th at 5pm at Bad Hare Brewing</p>
+      <hr>
+      <h2>H4 Trail</h2>
+      <p>Sunday, February 15th, 2026</p>
+      <p>Hare(s): Good Hare</p>
+    `;
+    const trailText = extractTrailSection(html);
+    // Should NOT contain the prelube date
+    expect(trailText).not.toContain("February 14th");
+    expect(trailText).toContain("February 15th");
+  });
+});
+
+describe("HangoverAdapter Ghost API integration", () => {
+  const GHOST_API_RESPONSE = {
+    posts: [
+      {
+        title: "#215 - The Spring Trail",
+        url: "https://hangoverhash.digitalpress.blog/215/",
+        html: `
+          <h2 id="prelubes-215">Prelubes</h2>
+          <p>Saturday, March 7th at 5pm at Prelube Bar</p>
+          <hr>
+          <h2 id="h4-trail-215">H4 Trail #215</h2>
+          <p>Date: Sunday, March 8th, 2026</p>
+          <p>Hare(s): Spring Runner and Trail Blazer</p>
+          <p>Trail Start: Rock Creek Park, 5200 Glover Rd NW, Washington, DC 20015</p>
+          <p>Hash Cash: $7.00 US</p>
+          <p>Trail Type: A to A</p>
+          <p>Pack Away at 10:15am</p>
+          <p>Eagle ~6.5 miles</p>
+          <p>Turkey ~4.2 miles</p>
+          <p>On-After: Pinstripes Georgetown</p>
+        `,
+        published_at: "2026-03-04T12:00:00.000Z",
+      },
+      {
+        title: "#214 - The Hungover Hearts Trail",
+        url: "https://hangoverhash.digitalpress.blog/214/",
+        html: `
+          <h2>H4 Trail #214</h2>
+          <p>Date: Sunday, February 15th, 2026</p>
+          <p>Hare(s): Just Rebekah and Grinding Nemo</p>
+          <p>Trail Start: Leesburg Town Hall Garage, 10 Loudoun St SW, Leesburg, VA 20175</p>
+          <p>Hash Cash: $7.00 US</p>
+        `,
+        published_at: "2026-02-10T12:00:00.000Z",
+      },
+      {
+        title: "About the Hangover Hash",
+        url: "https://hangoverhash.digitalpress.blog/about/",
+        html: "<p>We are a monthly hash in the DC area.</p>",
+        published_at: "2025-01-01T12:00:00.000Z",
+      },
+    ],
+  };
+
+  let adapter: HangoverAdapter;
+
+  beforeEach(() => {
+    adapter = new HangoverAdapter();
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  it("parses events from Ghost Content API", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(GHOST_API_RESPONSE), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }) as never,
+    );
+
+    const result = await adapter.fetch({
+      id: "test-h4",
+      url: "https://hangoverhash.digitalpress.blog/",
+    } as never);
+
+    expect(result.events).toHaveLength(2); // "About" skipped (no trail number)
+    expect(result.diagnosticContext).toMatchObject({
+      fetchMethod: "ghost-api",
+      postsFound: 3,
+      eventsParsed: 2,
+    });
+
+    // First event — has prelubes section (should be stripped)
+    expect(result.events[0]).toMatchObject({
+      date: "2026-03-08",
+      kennelTag: "H4",
+      runNumber: 215,
+      title: "The Spring Trail",
+      hares: "Spring Runner and Trail Blazer",
+      location: "Rock Creek Park, 5200 Glover Rd NW, Washington, DC 20015",
+      startTime: "10:15",
+      sourceUrl: "https://hangoverhash.digitalpress.blog/215/",
+    });
+    expect(result.events[0].description).toContain("Hash Cash: $7.00 US");
+
+    // Second event — no prelubes section
+    expect(result.events[1]).toMatchObject({
+      date: "2026-02-15",
+      kennelTag: "H4",
+      runNumber: 214,
+      title: "The Hungover Hearts Trail",
+      hares: "Just Rebekah and Grinding Nemo",
+    });
+  });
+
+  it("extracts correct trail date, not prelube date", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(GHOST_API_RESPONSE), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }) as never,
+    );
+
+    const result = await adapter.fetch({
+      id: "test-h4",
+      url: "https://hangoverhash.digitalpress.blog/",
+    } as never);
+
+    // Trail date should be March 8, NOT the prelube date of March 7
+    expect(result.events[0].date).toBe("2026-03-08");
+  });
+
+  it("falls back to HTML scraping when Ghost API returns empty", async () => {
+    // Ghost API returns empty
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ posts: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }) as never,
+    );
+
+    // HTML fallback
+    const fallbackHtml = `
+<html><body>
+  <article class="gh-card">
+    <h2><a href="/214/">#214 - The Hungover Hearts Trail</a></h2>
+    <time datetime="2026-02-10">Feb 10, 2026</time>
+    <div class="gh-card-excerpt">
+      <p>Date: Sunday, February 15th, 2026</p>
+      <p>Hare(s): Just Rebekah</p>
+      <p>Trail Start: Leesburg</p>
+      <p>Hash Cash: $7.00</p>
+    </div>
+  </article>
+</body></html>`;
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(fallbackHtml, { status: 200 }) as never,
+    );
+
+    const result = await adapter.fetch({
+      id: "test-h4",
+      url: "https://hangoverhash.digitalpress.blog/",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.diagnosticContext).toMatchObject({
+      fetchMethod: "html-scrape",
+    });
+    expect(result.events[0].date).toBe("2026-02-15");
+  });
+
+  it("falls back to HTML scraping when Ghost API errors", async () => {
+    // Ghost API 500 → 0 events → falls through to HTML scrape
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response("Internal Server Error", { status: 500 }) as never,
+    );
+    // HTML scrape also fails (simulating total outage)
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response("Server Error", { status: 500 }) as never,
+    );
+
+    const result = await adapter.fetch({
+      id: "test-h4",
+      url: "https://hangoverhash.digitalpress.blog/",
+    } as never);
+
+    // Both paths failed — should get HTML scrape result (the fallback path)
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.diagnosticContext).toBeUndefined(); // HTML scrape error has no diagnosticContext
+    // Verify both API and HTML fetch were attempted
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses published_at as date fallback when body has no date", async () => {
+    const response = {
+      posts: [
+        {
+          title: "#216 - Mystery Trail",
+          url: "https://hangoverhash.digitalpress.blog/216/",
+          html: "<p>Hare(s): Unknown Hare</p><p>Trail Start: Somewhere</p>",
+          published_at: "2026-04-05T12:00:00.000Z",
+        },
+      ],
+    };
+
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(response), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }) as never,
+    );
+
+    const result = await adapter.fetch({
+      id: "test-h4",
+      url: "https://hangoverhash.digitalpress.blog/",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].date).toBe("2026-04-05");
+  });
+});
+
+describe("HangoverAdapter HTML scraping (legacy)", () => {
   const SAMPLE_HTML = `
 <!DOCTYPE html>
 <html>
@@ -145,9 +408,13 @@ describe("HangoverAdapter integration", () => {
     vi.stubGlobal("fetch", vi.fn());
   });
 
-  it("parses trail posts from Ghost listing page", async () => {
+  it("parses trail posts from Ghost listing page via HTML fallback", async () => {
+    // Ghost API returns empty → falls back to HTML
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(SAMPLE_HTML, { status: 200 }) as never
+      new Response(JSON.stringify({ posts: [] }), { status: 200, headers: { "Content-Type": "application/json" } }) as never,
+    );
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(SAMPLE_HTML, { status: 200 }) as never,
     );
 
     const result = await adapter.fetch({
@@ -182,8 +449,14 @@ describe("HangoverAdapter integration", () => {
   });
 
   it("returns fetch error on HTTP failure", async () => {
+    // Ghost API fails
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response("Forbidden", { status: 403 }) as never
+      new Response("Forbidden", { status: 403 }) as never,
+    );
+    // API returns 0 events → falls through to HTML scrape
+    // HTML scrape also fails
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response("Forbidden", { status: 403 }) as never,
     );
 
     const result = await adapter.fetch({
@@ -215,11 +488,17 @@ describe("HangoverAdapter integration", () => {
   </article>
 </body></html>`;
 
+    // Ghost API returns empty
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(html, { status: 200 }) as never
+      new Response(JSON.stringify({ posts: [] }), { status: 200, headers: { "Content-Type": "application/json" } }) as never,
     );
+    // HTML listing
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(detailHtml, { status: 200 }) as never
+      new Response(html, { status: 200 }) as never,
+    );
+    // Detail page fetch
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(detailHtml, { status: 200 }) as never,
     );
 
     const result = await adapter.fetch({
@@ -256,6 +535,10 @@ describe("HangoverAdapter integration", () => {
   </article>
 </body></html>`;
 
+    // Ghost API returns empty
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ posts: [] }), { status: 200, headers: { "Content-Type": "application/json" } }) as never,
+    );
     vi.mocked(fetch).mockResolvedValueOnce(new Response(listingHtml, { status: 200 }) as never);
     vi.mocked(fetch).mockResolvedValueOnce(new Response(detailHtml, { status: 200 }) as never);
 
@@ -272,6 +555,7 @@ describe("HangoverAdapter integration", () => {
       location: "The Pub, DC",
       sourceUrl: "https://hangoverhash.digitalpress.blog/211/",
     });
-    expect(fetch).toHaveBeenCalledTimes(2);
+    // API call + HTML listing + detail page
+    expect(fetch).toHaveBeenCalledTimes(3);
   });
 });

@@ -1,6 +1,6 @@
 # Source Onboarding Playbook
 
-How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 15 sources across 5 adapter types.
+How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 30 sources across 8 adapter types.
 
 ---
 
@@ -23,14 +23,14 @@ Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent
 
 ## What Varies Per Source (the adapter-specific work)
 
-| Concern | HTML Scraper | Google Calendar | Google Sheets | iCal Feed | Blogger API | Meetup | Hash Rego |
-|---------|-------------|----------------|--------------|-----------|-------------|--------|-----------|
-| Data access | HTTP GET + Cheerio parse | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse | Blogger API v3 (blog ID discovery + posts endpoint) | Meetup public REST API | HTTP GET + Cheerio parse (index + detail pages) |
-| Auth needed | None | API key | API key (tab discovery only) | None | API key (same `GOOGLE_CALENDAR_API_KEY`) | None (public groups) | None |
-| Kennel tags | Regex patterns on event text | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` | Hardcoded per adapter (single-kennel Blogspot blogs) | `config.kennelTag` (single kennel, all events) | Per-event from Hash Rego data, filtered by `config.kennelSlugs` |
-| Date format | Site-specific (ordinals, DD/MM/YYYY, US dates) | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY | ISO 8601 / DTSTART | API returns ISO 8601 `published`; post body parsed with site-specific logic | ISO 8601 (`local_date`) | Site-specific HTML parsing |
-| Routing | URL-based (`htmlScrapersByUrl` in registry) | Shared adapter (single class) | Shared adapter (config-driven) | Shared adapter (config-driven) | URL-based (reuses `htmlScrapersByUrl` routing, Blogger API is primary fetch with HTML fallback) | Shared adapter (config-driven) | Shared adapter (config-driven) |
-| Complexity | High (structural HTML, site-specific) | Medium (clean API) | Low (column mapping) | Low-Medium (config-driven, but iCal quirks) | Medium (shared `fetchBloggerPosts()` utility + site-specific body parsing) | Low (config-driven, AI-assisted) | Medium (index + detail page scraping) |
+| Concern | HTML Scraper | Google Calendar | Google Sheets | iCal Feed | Blogger API | Ghost Content API | Meetup | Hash Rego |
+|---------|-------------|----------------|--------------|-----------|-------------|-------------------|--------|-----------|
+| Data access | HTTP GET + Cheerio parse | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse | Blogger API v3 (blog ID discovery + posts endpoint) | Ghost Content API (public key, JSON with full HTML) | Meetup public REST API | HTTP GET + Cheerio parse (index + detail pages) |
+| Auth needed | None | API key | API key (tab discovery only) | None | API key (same `GOOGLE_CALENDAR_API_KEY`) | None (public read-only key embedded in page) | None (public groups) | None |
+| Kennel tags | Regex patterns on event text | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` | Hardcoded per adapter (single-kennel Blogspot blogs) | Hardcoded per adapter (single-kennel Ghost blogs) | `config.kennelTag` (single kennel, all events) | Per-event from Hash Rego data, filtered by `config.kennelSlugs` |
+| Date format | Site-specific (ordinals, DD/MM/YYYY, US dates) | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY | ISO 8601 / DTSTART | API returns ISO 8601 `published`; post body parsed with site-specific logic | API returns ISO 8601 `published_at`; post body HTML parsed for trail date | ISO 8601 (`local_date`) | Site-specific HTML parsing |
+| Routing | URL-based (`htmlScrapersByUrl` in registry) | Shared adapter (single class) | Shared adapter (config-driven) | Shared adapter (config-driven) | URL-based (reuses `htmlScrapersByUrl` routing, Blogger API is primary fetch with HTML fallback) | URL-based (reuses `htmlScrapersByUrl` routing, Ghost API is primary fetch with HTML fallback) | Shared adapter (config-driven) | Shared adapter (config-driven) |
+| Complexity | High (structural HTML, site-specific) | Medium (clean API) | Low (column mapping) | Low-Medium (config-driven, but iCal quirks) | Medium (shared `fetchBloggerPosts()` utility + site-specific body parsing) | Medium (Ghost API + trail section isolation + body parsing) | Low (config-driven, AI-assisted) | Medium (index + detail page scraping) |
 
 ---
 
@@ -336,21 +336,43 @@ git add . && git commit && git push
 - **Key lesson**: Use embedded HTML fixture strings in tests rather than fetching live sites — faster, deterministic, and captures known edge cases
 - **Key lesson**: Use `domhandler`'s `AnyNode` type (not `cheerio.AnyNode`) — Cheerio doesn't re-export it in all versions
 
-### Sources #13-14: Enfield Hash + OFH3 (Blogger API — Blogspot sites)
+### Source #13: OFH3 (Blogger API — Blogspot site)
 
 - **Type**: `HTML_SCRAPER` (internally uses Blogger API v3 with HTML scraping fallback)
-- **Coverage**: EH3 (enfieldhash.org — London), OFH3 (ofh3.com — DC/Frederick area)
-- **Adapters**:
-  - `src/adapters/html-scraper/enfield-hash.ts` — Monthly UK hash (3rd Wednesday, 7:30 PM), parses Date/Pub/Station/Hare labels
-  - `src/adapters/html-scraper/ofh3.ts` — Monthly US hash, parses Hares/When/Cost/Where/Trail Type/Shiggy/On-After labels
+- **Coverage**: OFH3 (ofh3.com — DC/Frederick area)
+- **Adapter**: `src/adapters/html-scraper/ofh3.ts` — Monthly US hash, parses Hares/When/Cost/Where/Trail Type/Shiggy/On-After labels
 - **Shared utility**: `src/adapters/blogger-api.ts` — `fetchBloggerPosts()` discovers blog ID, fetches posts via Blogger API v3
 - **Why Blogger API**: Google/Blogger blocks server-side requests from cloud provider IPs (Vercel, AWS, etc.) with HTTP 403 Forbidden. The Blogger API v3 authenticates via API key and bypasses this IP-based blocking.
-- **Fallback**: If the Blogger API is unavailable (missing API key, API not enabled), both adapters fall back to direct HTML scraping
+- **Fallback**: If the Blogger API is unavailable (missing API key, API not enabled), adapter falls back to direct HTML scraping
 - **Prerequisites**: Enable the Blogger API in GCP Console (https://console.cloud.google.com/apis/library/blogger.googleapis.com). Uses the same `GOOGLE_CALENDAR_API_KEY` — no new env var needed.
 - **Diagnostics**: `diagnosticContext.fetchMethod` indicates `"blogger-api"` or `"html-scrape"` to show which path was used
 - **Key lesson**: Blogger/Blogspot sites should always use the Blogger API v3 — direct HTML scraping will fail from cloud-hosted servers
 - **Key lesson**: The Blogger API returns post body as HTML in the `content` field, so existing Cheerio-based body parsers work unchanged — just load `post.content` instead of scraping the full page
 - **Key lesson**: Blog ID discovery (`/blogs/byurl`) needs to happen before posts can be fetched — build this into the shared utility, not per-adapter
+
+### Source #14: Enfield Hash (EH3) — SPA with static content file
+
+- **Type**: `HTML_SCRAPER` (direct HTML scraping with residential proxy)
+- **Coverage**: EH3 (enfieldhash.org — London)
+- **Adapter**: `src/adapters/html-scraper/enfield-hash.ts` — Monthly UK hash (3rd Wednesday, 7:30 PM), parses Date/Pub/Station/Hare labels + unstructured prose
+- **SPA workaround**: `enfieldhash.org` is a client-side SPA — the HTML shell has an empty `<div id="content">` and JavaScript loads content via `fetch("home.html")`. Cheerio can't execute JS, so the adapter fetches `home.html` directly. The content file has the same `.paragraph-box` + `<h1>` structure the parser expects.
+- **Residential proxy**: Required — the site's WAF blocks cloud provider IPs. Uses `USE_RESIDENTIAL_PROXY = true` with `safeFetch()`.
+- **URL variants**: `tryFetchWithUrlVariants()` tries www/non-www and http/https variants (shared `buildUrlVariantCandidates()` utility)
+- **Date handling**: Year-less dates ("Wed 25 February") use ±6 month inference via `inferYear()`; explicit years ("18th March 2026") trust chrono-node
+- **Key lesson**: SPA sites need content URL discovery — if a site loads content dynamically via `fetch()`, inspect the network requests to find the actual content URL and fetch it directly instead of the SPA shell
+- **Key lesson**: Not all hash sites are Blogger/Blogspot — verify the actual platform before assuming which API to use. EH3 is a custom SPA hosted on enfieldhash.org, NOT a Blogspot site.
+
+### Source #15: Hangover Hash (H4) — Ghost Content API
+
+- **Type**: `HTML_SCRAPER` (internally uses Ghost Content API with HTML scraping fallback)
+- **Coverage**: H4 (hangoverhash.digitalpress.blog — DC area, monthly)
+- **Adapter**: `src/adapters/html-scraper/hangover.ts` — Parses run number from title (`#214 - Trail Name`), Date/Hare/Location/HashCash/distances from body
+- **Ghost Content API**: DigitalPress is a Ghost CMS host. The Ghost Content API is publicly accessible with a read-only key embedded in every page response (in the `ghost-portal` script tag's `data-key` attribute). One API call (`/ghost/api/content/posts/`) returns structured JSON with full HTML per post, replacing 1 listing + N detail page fetches.
+- **Trail section isolation**: H4 posts contain two sections separated by `<hr>`: prelubes (events before the main trail) and the trail itself. `extractTrailSection(html)` strips everything before `<hr>` so `chronoParseDate` doesn't pick up prelube dates instead of the trail date.
+- **Date extraction**: Labeled `Date:` / `When:` fields → chrono-node fallback on trail section text → `published_at` from API as last resort
+- **HTML scraping fallback**: If the Ghost API returns 0 events (API unavailable, key rotated), falls back to the existing HTML scraping path
+- **Key lesson**: Ghost CMS sites expose a public Content API — look for `data-key` and `data-api` attributes on the portal script tag. The Content API returns structured JSON with full HTML, eliminating CSS selector fragility.
+- **Key lesson**: When a blog post contains multiple events (prelubes + main trail), isolate the relevant section before parsing to avoid extracting wrong dates/fields. Use structural markers like `<hr>` separators.
 
 ---
 
@@ -383,6 +405,9 @@ git add . && git commit && git push
 25. **Always add HTML scraping fallback for Blogger API sources** — If the API key is missing or the Blogger API isn't enabled, the adapter should fall back to direct HTML scraping. This ensures the scraper works in development environments without API keys (though it will still 403 from cloud IPs).
 26. **Meetup sources need zero code changes** — The MEETUP adapter is fully config-driven. The admin wizard auto-detects the source type from the URL, auto-populates `groupUrlname`, and uses AI to suggest the `kennelTag`. No API key required — Meetup's public REST API is unauthenticated for public groups.
 27. **AI config suggestion bootstraps Meetup onboarding** — The Meetup adapter requires both `groupUrlname` and `kennelTag` in config, but the AI suggestion flow extracts `groupUrlname` from the URL and uses it as a placeholder to fetch sample events. Gemini then analyzes event titles against known kennels to suggest the proper `kennelTag`. This solves the chicken-and-egg problem where config is needed to fetch, but fetching is needed to suggest config.
+28. **SPA sites need content URL discovery** — If a site loads content dynamically via JavaScript `fetch()`, Cheerio sees an empty container. Inspect the network requests (or the JS source) to find the actual content URL and fetch it directly. Example: `enfieldhash.org` loads `home.html` via SPA shell.
+29. **Ghost CMS sites expose a public Content API** — Look for `data-key` and `data-api` attributes on the `ghost-portal` script tag. The Content API (`/ghost/api/content/posts/`) returns structured JSON with full HTML per post, eliminating CSS selector fragility. The API key is read-only and safe to hardcode.
+30. **Multi-section blog posts need section isolation** — When a post contains multiple events (e.g., prelubes + main trail), isolate the relevant section before parsing to avoid extracting wrong dates/fields. Structural markers like `<hr>` separators are reliable delimiters.
 
 ---
 

@@ -202,6 +202,45 @@ describe("parseEnfieldBody", () => {
   });
 });
 
+describe("EnfieldHashAdapter home.html URL construction", () => {
+  let adapter: EnfieldHashAdapter;
+
+  beforeEach(() => {
+    adapter = new EnfieldHashAdapter();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<html><body></body></html>", { status: 200 }),
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("constructs home.html from trailing-slash base URL", async () => {
+    await adapter.fetch({ id: "test", url: "https://www.enfieldhash.org/" } as never);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("enfieldhash.org/home.html"),
+      expect.anything(),
+    );
+  });
+
+  it("constructs home.html from non-trailing-slash base URL", async () => {
+    await adapter.fetch({ id: "test", url: "https://www.enfieldhash.org" } as never);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("enfieldhash.org/home.html"),
+      expect.anything(),
+    );
+  });
+
+  it("uses default URL when source.url is empty", async () => {
+    await adapter.fetch({ id: "test", url: "" } as never);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("enfieldhash.org/home.html"),
+      expect.anything(),
+    );
+  });
+});
+
 // --- New site HTML structure (current enfieldhash.org) ---
 
 const SAMPLE_NEW_SITE_HTML = `
@@ -312,7 +351,8 @@ describe("EnfieldHashAdapter.fetch (new site structure)", () => {
     expect(first.kennelTag).toBe("EH3");
     expect(first.startTime).toBe("19:30");
     expect(first.title).toBe("Run 318 - Wed 25 February");
-    expect(first.sourceUrl).toBe("https://www.enfieldhash.org");
+    // SPA fix: fetches home.html, so sourceUrl is the home.html URL
+    expect(first.sourceUrl).toBe("https://www.enfieldhash.org/home.html");
     // Date includes inferred year
     expect(first.date).toMatch(/^\d{4}-02-25$/);
 

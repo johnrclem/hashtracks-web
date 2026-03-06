@@ -215,7 +215,13 @@ export class EnfieldHashAdapter implements SourceAdapter {
     _options?: { days?: number },
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://www.enfieldhash.org/";
-    return this.fetchViaHtmlScrape(baseUrl);
+    // Site is a client-side SPA — the shell has an empty #content div.
+    // Content is loaded via fetch("home.html"), so we fetch that directly.
+    const contentUrl = new URL(
+      "home.html",
+      baseUrl.endsWith("/") ? baseUrl : baseUrl + "/",
+    ).toString();
+    return this.fetchViaHtmlScrape(contentUrl);
   }
 
   /** Try fetching HTML from URL variants with browser-like headers. */
