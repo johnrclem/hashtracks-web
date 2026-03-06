@@ -239,7 +239,7 @@ const server = http.createServer(async (req, res) => {
     // Forward select response headers
     const responseHeaders = {};
     for (const name of FORWARDED_HEADERS) {
-      if (result.headers[name]) {
+      if (Object.hasOwn(result.headers, name) && result.headers[name]) {
         responseHeaders[name] = result.headers[name];
       }
     }

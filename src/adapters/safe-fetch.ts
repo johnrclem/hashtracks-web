@@ -54,7 +54,6 @@ export async function safeFetch(
       );
     } else {
       const headerRecord = headersToRecord(init.headers);
-      // eslint-disable-next-line -- proxy URL is a trusted internal service
       const proxyResponse = await fetch(`${proxyUrl}/proxy`, {
         method: "POST",
         headers: {
@@ -86,7 +85,6 @@ export async function safeFetch(
   let redirectCount = 0;
 
   while (redirectCount < MAX_REDIRECTS) {
-    // eslint-disable-next-line -- fetch is SSRF-safe: URL validated by validateSourceUrl above
     const response = await fetch(currentUrl, { ...init, redirect: "manual" });
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
