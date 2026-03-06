@@ -92,7 +92,7 @@ calendar + personal logbook + kennel directory.
 - `src/lib/format.ts` — Shared utilities: time formatting, date formatting, participation levels, schedule formatting, social URL helpers
 - `src/lib/region.ts` — Region seed data (36 regions), sync fallback lookups (timezone, colors, centroids, abbrev), region slug generation
 - `src/lib/calendar.ts` — Google Calendar URL + .ics file generation (client-side)
-- `src/middleware.ts` — Clerk route protection (public vs authenticated routes)
+- `src/proxy.ts` — Clerk route protection (public vs authenticated routes) — Next.js 16 proxy convention
 - `src/adapters/types.ts` — SourceAdapter interface + RawEventData types
 - `src/adapters/registry.ts` — Adapter factory (SourceType → adapter instance)
 - `src/adapters/html-scraper/hashnyc.ts` — hashnyc.com HTML scraper (Cheerio)
