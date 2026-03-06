@@ -31,10 +31,15 @@ function parseSafeCoord(value: string | undefined): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+type RegionLevel = "COUNTRY" | "STATE_PROVINCE" | "METRO";
+const VALID_LEVELS: RegionLevel[] = ["COUNTRY", "STATE_PROVINCE", "METRO"];
+
 /** Parse common region form fields. */
 function parseRegionFormData(formData: FormData) {
   const name = (formData.get("name") as string)?.trim();
   const country = (formData.get("country") as string)?.trim() || "USA";
+  const levelRaw = (formData.get("level") as string)?.trim();
+  const level: RegionLevel = VALID_LEVELS.includes(levelRaw as RegionLevel) ? (levelRaw as RegionLevel) : "METRO";
   const timezone = (formData.get("timezone") as string)?.trim();
   const abbrev = (formData.get("abbrev") as string)?.trim();
   const colorClasses = (formData.get("colorClasses") as string)?.trim();
@@ -44,19 +49,52 @@ function parseRegionFormData(formData: FormData) {
   const parentRaw = (formData.get("parentId") as string)?.trim();
   const parentId = parentRaw && parentRaw !== "none" ? parentRaw : null;
 
-  return { name, country, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId };
+  return { name, country, level, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId };
+}
+
+/** Validate region level against parent level. */
+async function validateLevelHierarchy(
+  level: RegionLevel,
+  parentId: string | null,
+): Promise<string | null> {
+  if (level === "COUNTRY" && parentId) {
+    return "COUNTRY-level regions cannot have a parent";
+  }
+  if (!parentId) {
+    return level === "COUNTRY" ? null : `${level} must have a parent`;
+  }
+
+  const parent = await prisma.region.findUnique({
+    where: { id: parentId },
+    select: { level: true, name: true },
+  });
+  if (!parent) return "Parent region not found";
+
+  const parentLevel = parent.level as RegionLevel;
+
+  if (level === "STATE_PROVINCE" && parentLevel !== "COUNTRY") {
+    return `STATE_PROVINCE must have a COUNTRY parent (${parent.name} is ${parentLevel})`;
+  }
+  if (level === "METRO" && parentLevel !== "COUNTRY" && parentLevel !== "STATE_PROVINCE") {
+    return `METRO must have a COUNTRY or STATE_PROVINCE parent (${parent.name} is ${parentLevel})`;
+  }
+  return null;
 }
 
 export async function createRegion(formData: FormData) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  const { name, country, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId } =
+  const { name, country, level, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId } =
     parseRegionFormData(formData);
 
   if (!name || !timezone || !abbrev || !colorClasses || !pinColor) {
     return { error: "Name, timezone, abbreviation, color classes, and pin color are required" };
   }
+
+  // Validate level hierarchy
+  const levelError = await validateLevelHierarchy(level, parentId);
+  if (levelError) return { error: levelError };
 
   const slug = regionSlug(name);
 
@@ -73,7 +111,7 @@ export async function createRegion(formData: FormData) {
 
   try {
     await prisma.region.create({
-      data: { name, slug, country, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId },
+      data: { name, slug, country, level, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId },
     });
   } catch (err) {
     console.error("[createRegion] failed:", err);
@@ -88,7 +126,7 @@ export async function updateRegion(regionId: string, formData: FormData) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  const { name, country, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId } =
+  const { name, country, level, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId } =
     parseRegionFormData(formData);
 
   if (!name || !timezone || !abbrev || !colorClasses || !pinColor) {
@@ -99,16 +137,20 @@ export async function updateRegion(regionId: string, formData: FormData) {
     return { error: "A region cannot be its own parent" };
   }
 
+  // Validate level hierarchy
+  const levelError = await validateLevelHierarchy(level, parentId);
+  if (levelError) return { error: levelError };
+
   const existing = await prisma.region.findUnique({ where: { id: regionId } });
   if (!existing) return { error: "Region not found" };
 
   try {
     if (name !== existing.name) {
-      return await updateRegionWithRename(regionId, name, { country, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId });
+      return await updateRegionWithRename(regionId, name, { country, level, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId });
     }
     await prisma.region.update({
       where: { id: regionId },
-      data: { country, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId },
+      data: { country, level, timezone, abbrev, colorClasses, pinColor, centroidLat, centroidLng, parentId },
     });
   } catch (err) {
     console.error("[updateRegion] failed:", err);
@@ -124,7 +166,7 @@ export async function updateRegion(regionId: string, formData: FormData) {
 async function updateRegionWithRename(
   regionId: string,
   name: string,
-  fields: { country: string; timezone: string; abbrev: string; colorClasses: string; pinColor: string; centroidLat: number | null; centroidLng: number | null; parentId: string | null },
+  fields: { country: string; level: RegionLevel; timezone: string; abbrev: string; colorClasses: string; pinColor: string; centroidLat: number | null; centroidLng: number | null; parentId: string | null },
 ) {
   const duplicate = await prisma.region.findUnique({ where: { name } });
   if (duplicate) return { error: `A region named "${name}" already exists` };

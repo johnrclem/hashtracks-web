@@ -61,22 +61,29 @@ enum UserKennelRole {
 
 // ── REGIONS ──
 
-model Region {
-  id            String    @id @default(cuid())
-  name          String    @unique    // "New York City, NY", "London"
-  slug          String    @unique    // "new-york-city-ny", "london"
-  country       String    @default("USA")
-  timezone      String               // IANA: "America/New_York", "Europe/London"
-  abbrev        String               // "NYC", "LDN"
-  colorClasses  String               // Tailwind: "bg-blue-200 text-blue-800"
-  pinColor      String               // Hex: "#2563eb"
-  centroidLat   Float?               // Region center latitude
-  centroidLng   Float?               // Region center longitude
+enum RegionLevel {
+  COUNTRY          // USA, UK, Australia
+  STATE_PROVINCE   // New York, California (optional layer)
+  METRO            // New York City, San Francisco (leaf — where kennels live)
+}
 
-  // Hierarchy (optional, max 2 levels)
+model Region {
+  id            String       @id @default(cuid())
+  name          String       @unique    // "New York City, NY", "London"
+  slug          String       @unique    // "new-york-city-ny", "london"
+  country       String       @default("USA")
+  level         RegionLevel  @default(METRO)
+  timezone      String                  // IANA: "America/New_York", "Europe/London"
+  abbrev        String                  // "NYC", "LDN"
+  colorClasses  String                  // Tailwind: "bg-blue-200 text-blue-800"
+  pinColor      String                  // Hex: "#2563eb"
+  centroidLat   Float?                  // Region center latitude
+  centroidLng   Float?                  // Region center longitude
+
+  // Hierarchy (optional, max 3 levels: COUNTRY > STATE_PROVINCE > METRO)
   parentId      String?
-  parent        Region?   @relation("RegionHierarchy", fields: [parentId], references: [id])
-  children      Region[]  @relation("RegionHierarchy")
+  parent        Region?      @relation("RegionHierarchy", fields: [parentId], references: [id])
+  children      Region[]     @relation("RegionHierarchy")
 
   // Relations
   kennels             Kennel[]
@@ -88,6 +95,7 @@ model Region {
 
   @@index([parentId])
   @@index([country])
+  @@index([level])
 }
 
 // ── KENNELS ──
@@ -102,6 +110,8 @@ model Kennel {
   regionId    String         // FK to Region (required)
   regionRef   Region         @relation(fields: [regionId], references: [id])
   country     String         @default("USA")
+  latitude    Float?         // Kennel-level coordinates for "Near Me" search
+  longitude   Float?         // Kennel-level coordinates for "Near Me" search
   description String?
   website     String?
 

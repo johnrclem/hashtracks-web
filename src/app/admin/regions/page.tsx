@@ -13,6 +13,7 @@ export default async function AdminRegionsPage() {
     name: r.name,
     slug: r.slug,
     country: r.country,
+    level: r.level,
     timezone: r.timezone,
     abbrev: r.abbrev,
     colorClasses: r.colorClasses,
