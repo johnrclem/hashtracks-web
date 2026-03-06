@@ -62,7 +62,8 @@ async function ensureKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
       );
       const regionId = regionMap.get(kennel.region) ?? null;
       if (!regionId) {
-        console.warn(`  ⚠ No region found for "${kennel.region}" (kennel: ${kennel.shortName})`);
+        console.warn(`  ⚠ No region found for "${kennel.region}" (kennel: ${kennel.shortName}), skipping`);
+        continue;
       }
       record = await prisma.kennel.create({
         data: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, regionId, country: kennel.country ?? "USA", ...profileFields },
@@ -109,6 +110,7 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
           { name: sourceData.name, type: sourceData.type },
         ],
       },
+      orderBy: { createdAt: "asc" },
     });
 
     let activeSource;
