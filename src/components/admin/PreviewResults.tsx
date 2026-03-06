@@ -336,6 +336,9 @@ export function PreviewResults({ data, allKennels, onAliasCreated }: PreviewResu
                   Hares
                 </th>
                 <th className="px-2 py-1.5 font-medium">Time</th>
+                <th className="hidden px-2 py-1.5 font-medium lg:table-cell">
+                  R#
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -367,6 +370,9 @@ export function PreviewResults({ data, allKennels, onAliasCreated }: PreviewResu
                   </td>
                   <td className="whitespace-nowrap px-2 py-1">
                     {event.startTime || "—"}
+                  </td>
+                  <td className="hidden whitespace-nowrap px-2 py-1 lg:table-cell">
+                    {event.runNumber ?? "—"}
                   </td>
                 </tr>
               ))}

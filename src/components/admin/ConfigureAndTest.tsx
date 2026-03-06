@@ -467,6 +467,11 @@ export function ConfigureAndTest({
       {/* ── Left panel: Config ── */}
       <div className="space-y-4 lg:w-[40%]">
         {/* AI Config Suggestion Banner */}
+        {(aiState === "idle" || aiState === "dismissed") && geminiAvailable && TYPES_WITH_AI_SUGGESTION.has(type) && (
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={triggerAiSuggestion}>
+            ✨ Suggest with AI
+          </Button>
+        )}
         {aiState === "loading" && (
           <div className="flex animate-pulse items-center gap-2 rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
             ✨ Analyzing source…
