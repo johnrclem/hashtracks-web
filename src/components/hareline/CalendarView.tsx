@@ -17,7 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { EventCard, type HarelineEvent } from "./EventCard";
 import { regionColorClasses, regionBgClass, regionAbbrev, formatTimeCompact } from "@/lib/format";
-import type { TimeFilter } from "./HarelineView";
+import { type TimeFilter, WEEKS_DAYS } from "./HarelineView";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -30,13 +30,6 @@ const MONTH_ABBREV = [
 ];
 
 const DAY_HEADERS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-const WEEKS_DAYS: Record<string, number> = {
-  "2w": 14,
-  "4w": 28,
-  "8w": 56,
-  "12w": 84,
-};
 
 function isRollingFilter(tf: TimeFilter): boolean {
   return tf in WEEKS_DAYS;
@@ -183,12 +176,12 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
   const focusDay = computeFocusDay(selectedDay, year, month, todayKey, today, daysInMonth);
 
   // ---- WEEKS MODE GRID ----
-  // Start from Sunday of the current week
-  const weekStart = useMemo(() => {
+  // Start from Sunday of the current week (no useMemo — cheap computation, avoids stale closure)
+  const weekStart = (() => {
     const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
     d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // back to Sunday
     return d;
-  }, []);
+  })();
 
   const totalWeeksDays = WEEKS_DAYS[timeFilter] ?? 28;
   const numWeeksRows = totalWeeksDays / 7;
@@ -297,20 +290,24 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
     const seen = new Map<string, { region: string; abbrev: string; colorClasses: string }>();
     let count = 0;
 
+    function accumulate(dayEvents: HarelineEvent[]) {
+      count += dayEvents.length;
+      for (const e of dayEvents) {
+        if (!seen.has(e.kennel.region)) {
+          seen.set(e.kennel.region, {
+            region: e.kennel.region,
+            abbrev: regionAbbrev(e.kennel.region),
+            colorClasses: regionColorClasses(e.kennel.region),
+          });
+        }
+      }
+    }
+
     if (calendarMode === "month") {
       for (const [key, dayEvents] of eventsByDate) {
         const [y, m] = key.split("-").map(Number);
         if (y !== year || m !== month + 1) continue;
-        count += dayEvents.length;
-        for (const e of dayEvents) {
-          if (!seen.has(e.kennel.region)) {
-            seen.set(e.kennel.region, {
-              region: e.kennel.region,
-              abbrev: regionAbbrev(e.kennel.region),
-              colorClasses: regionColorClasses(e.kennel.region),
-            });
-          }
-        }
+        accumulate(dayEvents);
       }
     } else {
       // Weeks mode: scan all dates in the rolling range
@@ -320,16 +317,7 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
 
       for (const [key, dayEvents] of eventsByDate) {
         if (key >= startKey && key <= endKey) {
-          count += dayEvents.length;
-          for (const e of dayEvents) {
-            if (!seen.has(e.kennel.region)) {
-              seen.set(e.kennel.region, {
-                region: e.kennel.region,
-                abbrev: regionAbbrev(e.kennel.region),
-                colorClasses: regionColorClasses(e.kennel.region),
-              });
-            }
-          }
+          accumulate(dayEvents);
         }
       }
     }
@@ -356,7 +344,7 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
     const cellAriaLabel = buildCellLabel(fullDateLabel, dayEvents.length);
 
     // Show month abbreviation for day 1 or when crossing month boundary in weeks mode
-    const showMonth = opts.showMonthLabel && (day === 1 || (opts.showMonthLabel && cellDate.getUTCMonth() !== today.getUTCMonth()));
+    const showMonth = opts.showMonthLabel && (day === 1 || cellDate.getUTCMonth() !== today.getUTCMonth());
     const dayLabel = showMonth
       ? `${MONTH_ABBREV[cellDate.getUTCMonth()]} ${day}`
       : String(day);

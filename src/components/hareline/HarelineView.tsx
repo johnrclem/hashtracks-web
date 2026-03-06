@@ -37,7 +37,7 @@ const MapView = dynamic(() => import("./MapView"), {
 
 export type TimeFilter = "2w" | "4w" | "8w" | "12w" | "upcoming" | "past";
 
-const WEEKS_DAYS: Record<string, number> = {
+export const WEEKS_DAYS: Record<string, number> = {
   "2w": 14,
   "4w": 28,
   "8w": 56,
@@ -239,7 +239,6 @@ export function HarelineView({
     (overrides: Record<string, string | string[]>) => {
       const params = new URLSearchParams();
       const currentView = (overrides.view as ViewMode) ?? view;
-      const currentTime = (overrides.time as string) ?? timeFilter;
 
       const state: Record<string, string | string[]> = {
         time: timeFilter,
