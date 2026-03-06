@@ -11,31 +11,21 @@ import {
 } from "@/app/admin/regions/actions";
 import type { RegionRow } from "./RegionTable";
 
-const TYPE_ICONS: Record<SuggestionType, React.ReactNode> = {
-  merge: <GitMerge className="h-4 w-4" />,
-  split: <Scissors className="h-4 w-4" />,
-  rename: <Pencil className="h-4 w-4" />,
-  reassign: <ArrowRight className="h-4 w-4" />,
-};
-
-const TYPE_COLORS: Record<SuggestionType, string> = {
-  merge: "text-blue-600",
-  split: "text-purple-600",
-  rename: "text-amber-600",
-  reassign: "text-green-600",
+const SUGGESTION_CONFIG: Record<SuggestionType, {
+  icon: React.ReactNode;
+  color: string;
+  actionLabel: string;
+}> = {
+  merge: { icon: <GitMerge className="h-4 w-4" />, color: "text-blue-600", actionLabel: "Open Merge" },
+  split: { icon: <Scissors className="h-4 w-4" />, color: "text-purple-600", actionLabel: "View Region" },
+  rename: { icon: <Pencil className="h-4 w-4" />, color: "text-amber-600", actionLabel: "Edit Region" },
+  reassign: { icon: <ArrowRight className="h-4 w-4" />, color: "text-green-600", actionLabel: "View Region" },
 };
 
 const CONFIDENCE_VARIANTS: Record<string, "default" | "secondary" | "outline"> = {
   high: "default",
   medium: "secondary",
   low: "outline",
-};
-
-const ACTION_LABELS: Record<SuggestionType, string> = {
-  merge: "Open Merge",
-  split: "View Region",
-  rename: "Edit Region",
-  reassign: "View Region",
 };
 
 export function RegionSuggestionsPanel({
@@ -128,8 +118,8 @@ export function RegionSuggestionsPanel({
               className="rounded-lg border p-3 space-y-1.5"
             >
               <div className="flex items-start gap-2">
-                <span className={TYPE_COLORS[s.type]}>
-                  {TYPE_ICONS[s.type]}
+                <span className={SUGGESTION_CONFIG[s.type].color}>
+                  {SUGGESTION_CONFIG[s.type].icon}
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -151,7 +141,7 @@ export function RegionSuggestionsPanel({
                       className="mt-2 h-7 text-xs"
                       onClick={() => onAction(s.type, s.regionIds)}
                     >
-                      {ACTION_LABELS[s.type]}
+                      {SUGGESTION_CONFIG[s.type].actionLabel}
                     </Button>
                   )}
                 </div>

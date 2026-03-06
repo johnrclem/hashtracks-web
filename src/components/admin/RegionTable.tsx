@@ -54,8 +54,11 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
 
   const countries = Array.from(new Set(regions.map((r) => r.country))).sort((a, b) => a.localeCompare(b));
 
+  const isMissingCentroid = (r: RegionRow) =>
+    r.centroidLat == null || r.centroidLng == null;
+
   const missingCount = useMemo(
-    () => regions.filter((r) => r.centroidLat == null || r.centroidLng == null).length,
+    () => regions.filter(isMissingCentroid).length,
     [regions],
   );
 
@@ -63,7 +66,7 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
     ? regions.filter((r) => r.country === countryFilter)
     : regions;
   if (showMissingOnly) {
-    filtered = filtered.filter((r) => r.centroidLat == null || r.centroidLng == null);
+    filtered = filtered.filter(isMissingCentroid);
   }
 
   function handleDelete(regionId: string, name: string, kennelCount: number) {
@@ -178,7 +181,7 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
                           (in {region.parentName})
                         </span>
                       )}
-                      {(region.centroidLat == null || region.centroidLng == null) && (
+                      {isMissingCentroid(region) && (
                         <span title="Missing centroid coordinates"><AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" /></span>
                       )}
                     </div>
