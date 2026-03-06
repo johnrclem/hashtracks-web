@@ -18,64 +18,66 @@ const PROFILE_FIELDS = new Set([
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function upsertRegionRecords(prisma: any) {
+async function ensureRegionRecords(prisma: any) {
   console.log("Seeding regions...");
   const regionMap = new Map<string, string>(); // name → id
+  let created = 0;
   for (const r of REGION_SEED_DATA) {
     const slug = regionSlug(r.name);
-    const data = {
-      slug,
-      country: r.country,
-      timezone: r.timezone,
-      abbrev: r.abbrev,
-      colorClasses: r.colorClasses,
-      pinColor: r.pinColor,
-      centroidLat: r.centroidLat,
-      centroidLng: r.centroidLng,
-    };
-    const record = await prisma.region.upsert({
-      where: { name: r.name },
-      update: data,
-      create: { name: r.name, ...data },
-    });
+    let record = await prisma.region.findUnique({ where: { name: r.name } });
+    if (!record) {
+      record = await prisma.region.create({
+        data: {
+          name: r.name, slug,
+          country: r.country, timezone: r.timezone, abbrev: r.abbrev,
+          colorClasses: r.colorClasses, pinColor: r.pinColor,
+          centroidLat: r.centroidLat, centroidLng: r.centroidLng,
+        },
+      });
+      created++;
+      console.log(`  + Created region: ${r.name}`);
+    }
     regionMap.set(r.name, record.id);
-    // Also map aliases to the canonical region id
     if (r.aliases) {
       for (const alias of r.aliases) {
         regionMap.set(alias, record.id);
       }
     }
   }
-  console.log(`  ✓ ${REGION_SEED_DATA.length} regions upserted`);
+  console.log(`  ✓ ${REGION_SEED_DATA.length} regions checked (${created} created)`);
   return regionMap;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function upsertKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: string) => string, regionMap: Map<string, string>) {
+async function ensureKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: string) => string, regionMap: Map<string, string>) {
   console.log("Seeding kennels...");
   const kennelRecords = new Map<string, { id: string }>();
+  let created = 0;
   for (const kennel of kennels) {
-    const slug = toSlugFn(kennel.shortName);
-    const profileFields = Object.fromEntries(
-      Object.entries(kennel).filter(([k, v]) => PROFILE_FIELDS.has(k) && v !== undefined)
-    );
-    const regionId = regionMap.get(kennel.region) ?? null;
-    if (!regionId) {
-      console.warn(`  ⚠ No region found for "${kennel.region}" (kennel: ${kennel.shortName})`);
+    let record = await prisma.kennel.findUnique({ where: { kennelCode: kennel.kennelCode } });
+    if (!record) {
+      const slug = toSlugFn(kennel.shortName);
+      const profileFields = Object.fromEntries(
+        Object.entries(kennel).filter(([k, v]) => PROFILE_FIELDS.has(k) && v !== undefined)
+      );
+      const regionId = regionMap.get(kennel.region) ?? null;
+      if (!regionId) {
+        console.warn(`  ⚠ No region found for "${kennel.region}" (kennel: ${kennel.shortName})`);
+      }
+      record = await prisma.kennel.create({
+        data: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, regionId, country: kennel.country ?? "USA", ...profileFields },
+      });
+      created++;
+      console.log(`  + Created kennel: ${kennel.shortName}`);
     }
-    const record = await prisma.kennel.upsert({
-      where: { kennelCode: kennel.kennelCode },
-      update: { shortName: kennel.shortName, fullName: kennel.fullName, region: kennel.region, regionId, ...(kennel.country != null && { country: kennel.country }), slug, ...profileFields },
-      create: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, regionId, country: kennel.country ?? "USA", ...profileFields },
-    });
     kennelRecords.set(kennel.kennelCode, record);
   }
-  console.log(`  ✓ ${kennels.length} kennels upserted`);
+  console.log(`  ✓ ${kennels.length} kennels checked (${created} created)`);
   return kennelRecords;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function upsertAliases(prisma: any, kennelAliases: Record<string, string[]>, kennelRecords: Map<string, { id: string }>) {
+async function ensureAliases(prisma: any, kennelAliases: Record<string, string[]>, kennelRecords: Map<string, { id: string }>) {
   let aliasCount = 0;
   for (const [code, aliases] of Object.entries(kennelAliases)) {
     if (!kennelRecords.has(code)) { console.warn(`  ⚠ Kennel code "${code}" not found, skipping aliases`); continue; }
@@ -93,47 +95,34 @@ async function upsertAliases(prisma: any, kennelAliases: Record<string, string[]
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function upsertSources(prisma: any, sources: any[], kennelRecords: Map<string, { id: string }>) {
+async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<string, { id: string }>) {
   console.log("Seeding sources...");
+  let created = 0;
   for (const source of sources) {
     const { kennelCodes, ...sourceData } = source;
 
-    // Source.url is intentionally not unique in the schema, so seed identity uses either:
-    // 1) direct URL match, or 2) stable {name, type} match when URLs are edited in seed data.
-    const matchingSources = await prisma.source.findMany({
+    // Check if source already exists by URL or name+type
+    const existingSource = await prisma.source.findFirst({
       where: {
         OR: [
           { url: sourceData.url },
           { name: sourceData.name, type: sourceData.type },
         ],
       },
-      orderBy: { createdAt: "asc" },
     });
-
-    const sourceByUrl = matchingSources.find((candidate: { url: string }) => candidate.url === sourceData.url);
-    const existingSource = sourceByUrl ?? matchingSources[0];
 
     let activeSource;
     if (!existingSource) {
       activeSource = await prisma.source.create({ data: sourceData });
-      console.log(`  ✓ Created source: ${sourceData.name}`);
+      created++;
+      console.log(`  + Created source: ${sourceData.name}`);
     } else {
-      activeSource = await prisma.source.update({ where: { id: existingSource.id }, data: sourceData });
-      console.log(`  ✓ Source updated: ${sourceData.name}`);
-    }
-
-    const duplicateSources = matchingSources.filter((candidate: { id: string }) => candidate.id !== activeSource.id);
-    for (const duplicateSource of duplicateSources) {
-      await prisma.source.update({
-        where: { id: duplicateSource.id },
-        data: { enabled: false },
-      });
-      console.log(`  ✓ Disabled duplicate source: ${sourceData.name} (${duplicateSource.id})`);
+      activeSource = existingSource;
     }
 
     await linkKennelsToSource(prisma, activeSource.id, kennelCodes, kennelRecords);
-    console.log(`  ✓ Linked ${kennelCodes.length} kennels to ${sourceData.name}`);
   }
+  console.log(`  ✓ ${sources.length} sources checked (${created} created)`);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,10 +189,10 @@ async function ensureAllKennelsHaveGroup(prisma: any, kennelRecords: Map<string,
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function seedKennels(prisma: any, kennels: any[], kennelAliases: Record<string, string[]>, sources: any[], toSlugFn: (s: string) => string) {
-  const regionMap = await upsertRegionRecords(prisma);
-  const kennelRecords = await upsertKennelRecords(prisma, kennels, toSlugFn, regionMap);
-  await upsertAliases(prisma, kennelAliases, kennelRecords);
-  await upsertSources(prisma, sources, kennelRecords);
+  const regionMap = await ensureRegionRecords(prisma);
+  const kennelRecords = await ensureKennelRecords(prisma, kennels, toSlugFn, regionMap);
+  await ensureAliases(prisma, kennelAliases, kennelRecords);
+  await ensureSources(prisma, sources, kennelRecords);
 
   const rosterGroups = [
     { name: "NYC Metro", kennelCodes: ["nych3", "brh3", "nah3", "knick", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3"] },
