@@ -144,6 +144,74 @@ describe("validateSourceConfig", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // harePatterns validation
+  // ---------------------------------------------------------------------------
+
+  describe("harePatterns validation", () => {
+    it("accepts valid harePatterns", () => {
+      const config = {
+        harePatterns: [String.raw`(?:^|\n)\s*WHO ARE THE HARES:\s*(.+)`, String.raw`(?:^|\n)\s*Laid by:\s*(.+)`],
+        defaultKennelTag: "ELPH3",
+      };
+      expect(validateSourceConfig("GOOGLE_CALENDAR", config)).toEqual([]);
+    });
+
+    it("rejects non-array harePatterns", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        harePatterns: "not an array",
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("must be an array");
+    });
+
+    it.each([
+      [["[broken("], "invalid regex"],
+      [[123], "must be a string"],
+      [["(x+x+)+y"], "catastrophic backtracking"],
+    ])("rejects invalid hare pattern: %s", (patterns, expectedMsg) => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        harePatterns: patterns,
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain(expectedMsg);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // runNumberPatterns validation
+  // ---------------------------------------------------------------------------
+
+  describe("runNumberPatterns validation", () => {
+    it("accepts valid runNumberPatterns", () => {
+      const config = {
+        runNumberPatterns: [String.raw`Hash\s*#\s*(\d+)`, String.raw`Run\s*#\s*(\d+)`],
+        defaultKennelTag: "ELPH3",
+      };
+      expect(validateSourceConfig("GOOGLE_CALENDAR", config)).toEqual([]);
+    });
+
+    it("rejects non-array runNumberPatterns", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        runNumberPatterns: "not an array",
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("must be an array");
+    });
+
+    it.each([
+      [["[broken("], "invalid regex"],
+      [[123], "must be a string"],
+      [["(x+x+)+y"], "catastrophic backtracking"],
+    ])("rejects invalid run number pattern: %s", (patterns, expectedMsg) => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        runNumberPatterns: patterns,
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain(expectedMsg);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // GOOGLE_SHEETS required fields
   // ---------------------------------------------------------------------------
 

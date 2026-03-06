@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns } from "../utils";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -32,19 +32,48 @@ export function extractKennelTag(summary: string): string {
   return "BoH3";
 }
 
-/** Extract run number from summary (e.g. "#2781") or description. Checks summary first, then description patterns. */
-export function extractRunNumber(summary: string, description?: string): number | undefined {
+/** Default description patterns for run number extraction (Boston Hash Calendar format). */
+const DEFAULT_RUN_NUMBER_PATTERNS = [
+  /BH3\s*#\s*(\d+)/i,
+  /(?:^|\n)\s*#(\d{3,})\s*(?:\n|$)/m, // NOSONAR — safe: no nested quantifiers, \s* is single-class, bounded input
+];
+
+/**
+ * Extract run number from summary (e.g. "#2781") or description.
+ * Always checks summary first with `#(\d+)`. Then checks description with
+ * custom patterns (if provided) or default patterns.
+ * Accepts pre-compiled RegExp[] or raw string[] (compiled on the fly for one-off use).
+ */
+export function extractRunNumber(
+  summary: string,
+  description?: string,
+  customPatterns?: string[] | RegExp[],
+): number | undefined {
   // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781")
   const summaryMatch = /#(\d+)/.exec(summary);
   if (summaryMatch) return Number.parseInt(summaryMatch[1], 10);
 
   if (!description) return undefined;
 
-  // 2. Fall back to description — BH3 run numbers like "BH3 #2784"
-  const descMatch = /BH3\s*#\s*(\d+)/i.exec(description);
-  if (descMatch) return Number.parseInt(descMatch[1], 10);
+  // 2. Fall back to description patterns
+  let patterns: RegExp[];
+  if (customPatterns && customPatterns.length > 0) {
+    patterns = typeof customPatterns[0] === "string"
+      ? compilePatterns(customPatterns as string[])
+      : customPatterns as RegExp[];
+  } else {
+    patterns = DEFAULT_RUN_NUMBER_PATTERNS;
+  }
 
-  // 3. Standalone run number in description (e.g., "#2792" on its own line)
+  for (const pattern of patterns) {
+    const match = pattern.exec(description);
+    if (match?.[1]) {
+      const num = Number.parseInt(match[1], 10);
+      if (!Number.isNaN(num) && num > 0) return num;
+    }
+  }
+
+  // Standalone run number in description (e.g., "#2792" on its own line)
   const standaloneMatch = /(?:^|\n)[ \t]*#(\d{3,})[ \t]*(?:\n|$)/m.exec(description);
   if (standaloneMatch) return Number.parseInt(standaloneMatch[1], 10);
 
@@ -58,20 +87,31 @@ export function extractTitle(summary: string): string {
   return stripped || summary;
 }
 
+/** Default hare extraction patterns (Boston Hash Calendar format). */
+const DEFAULT_HARE_PATTERNS = [
+  /(?:^|\n)[ \t]*Hares?:[ \t]*(.+)/im,
+  /(?:^|\n)[ \t]*Who:[ \t]*(.+)/im,
+];
+
 /**
  * Extract hare names from the event description.
- * Boston Hash Calendar uses: "Hare: X", "Hares: X & Y", "Who: X and Y"
+ * Accepts pre-compiled RegExp[] or raw string[] (compiled on the fly for one-off use).
+ * The adapter fetch() pre-compiles once per scrape for efficiency.
  */
-export function extractHares(description: string): string | undefined {
-  // Try each pattern, return first match
-  const patterns = [
-    /(?:^|\n)[ \t]*Hares?:[ \t]*(.+)/im,
-    /(?:^|\n)[ \t]*Who:[ \t]*(.+)/im,
-  ];
+export function extractHares(description: string, customPatterns?: string[] | RegExp[]): string | undefined {
+  let patterns: RegExp[];
+
+  if (customPatterns && customPatterns.length > 0) {
+    patterns = typeof customPatterns[0] === "string"
+      ? compilePatterns(customPatterns as string[])
+      : customPatterns as RegExp[];
+  } else {
+    patterns = DEFAULT_HARE_PATTERNS;
+  }
 
   for (const pattern of patterns) {
     const match = pattern.exec(description);
-    if (match) {
+    if (match?.[1]) {
       let hares = match[1].trim();
       // Clean up trailing punctuation/whitespace
       hares = hares.split("\n")[0].trim();
@@ -90,6 +130,8 @@ const mapsUrl = googleMapsSearchUrl;
 interface CalendarSourceConfig {
   kennelPatterns?: [string, string][];  // [[regex, kennelTag], ...]
   defaultKennelTag?: string;            // fallback for unrecognized events
+  harePatterns?: string[];              // regex strings to extract hares from descriptions
+  runNumberPatterns?: string[];         // regex strings to extract run numbers from descriptions
 }
 
 /**
@@ -182,6 +224,8 @@ function parseCalendarSourceConfig(config: unknown): CalendarSourceConfig | null
 function buildRawEventFromGCalItem(
   item: GCalEvent,
   sourceConfig: CalendarSourceConfig | null,
+  compiledHarePatterns?: RegExp[],
+  compiledRunNumberPatterns?: RegExp[],
 ): RawEventData | null {
   if (item.status === "cancelled") return null;
   if (!item.summary) return null;
@@ -190,13 +234,13 @@ function buildRawEventFromGCalItem(
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start);
   if (!dateISO) return null;
   const { rawDescription, description } = normalizeGCalDescription(item.description);
-  const hares = rawDescription ? extractHares(rawDescription) : undefined;
+  const hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(item.summary, sourceConfig);
 
   return {
     date: dateISO,
     kennelTag,
-    runNumber: extractRunNumber(item.summary, rawDescription),
+    runNumber: extractRunNumber(item.summary, rawDescription, compiledRunNumberPatterns),
     title: useFullTitle ? item.summary : extractTitle(item.summary),
     description,
     hares,
@@ -243,6 +287,12 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     let totalItemsReturned = 0;
     let pagesProcessed = 0;
     const sourceConfig = parseCalendarSourceConfig(source.config);
+    const compiledHarePatterns = sourceConfig?.harePatterns?.length
+      ? compilePatterns(sourceConfig.harePatterns)
+      : undefined;
+    const compiledRunNumberPatterns = sourceConfig?.runNumberPatterns?.length
+      ? compilePatterns(sourceConfig.runNumberPatterns)
+      : undefined;
 
     do {
       const url = new URL(
@@ -284,7 +334,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
       for (const item of items) {
         try {
-          const event = buildRawEventFromGCalItem(item, sourceConfig);
+          const event = buildRawEventFromGCalItem(item, sourceConfig, compiledHarePatterns, compiledRunNumberPatterns);
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);

@@ -5,11 +5,14 @@ import { KennelPatternsEditor } from "./KennelPatternsEditor";
 import { StringArrayEditor } from "./StringArrayEditor";
 import { SuggestionChips } from "./SuggestionChips";
 import { KennelTagInput, type KennelOption } from "./KennelTagInput";
+import { PatternFieldSections } from "./PatternFieldSections";
 
 export interface ICalConfig {
   kennelPatterns?: [string, string][];
   defaultKennelTag?: string;
   skipPatterns?: string[];
+  harePatterns?: string[];
+  runNumberPatterns?: string[];
 }
 
 interface ICalConfigPanelProps {
@@ -19,6 +22,8 @@ interface ICalConfigPanelProps {
   unmatchedTags?: string[];
   /** Sample event titles per unmatched tag — passed through to SuggestionChips for AI enhance */
   sampleTitlesByTag?: Record<string, string[]>;
+  /** Sample event descriptions from preview — used for AI field pattern suggestions */
+  sampleDescriptions?: string[];
   /** Whether GEMINI_API_KEY is configured */
   geminiAvailable?: boolean;
   allKennels?: KennelOption[];
@@ -29,6 +34,7 @@ export function ICalConfigPanel({
   onChange,
   unmatchedTags = [],
   sampleTitlesByTag,
+  sampleDescriptions = [],
   geminiAvailable,
   allKennels,
 }: ICalConfigPanelProps) {
@@ -104,6 +110,14 @@ export function ICalConfigPanel({
           addLabel="Add Skip Pattern"
         />
       </div>
+      <PatternFieldSections
+        config={current}
+        onChange={(updates) => onChange({ ...current, ...updates })}
+        sampleDescriptions={sampleDescriptions}
+        geminiAvailable={geminiAvailable}
+        hareDefaultsHint="Hare:/Hares:/Hare(s):"
+        runNumberDefaultsHint="#N in summary"
+      />
     </div>
   );
 }

@@ -155,6 +155,7 @@ export function ConfigureAndTest({
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [sampleTitlesByTag, setSampleTitlesByTag] = useState<Record<string, string[]>>({});
+  const [sampleDescriptions, setSampleDescriptions] = useState<string[]>([]);
   const [lastRunTime, setLastRunTime] = useState<Date | null>(null);
   const [hasRunTest, setHasRunTest] = useState(false);
 
@@ -278,6 +279,7 @@ export function ConfigureAndTest({
           setPreviewError(result.error ?? null);
           setPreviewData(null);
           setSampleTitlesByTag({});
+          setSampleDescriptions([]);
         } else if (result.data) {
           setPreviewData(result.data);
 
@@ -300,6 +302,14 @@ export function ConfigureAndTest({
             return acc;
           }, {});
           setSampleTitlesByTag(titles);
+
+          // Build sample descriptions for AI field pattern suggestions
+          const descs = [...new Set(
+            result.data.events
+              .map((e) => e.description)
+              .filter((d): d is string => !!d),
+          )].slice(0, 5);
+          setSampleDescriptions(descs);
         }
       });
     },
@@ -457,6 +467,11 @@ export function ConfigureAndTest({
       {/* ── Left panel: Config ── */}
       <div className="space-y-4 lg:w-[40%]">
         {/* AI Config Suggestion Banner */}
+        {(aiState === "idle" || aiState === "dismissed") && geminiAvailable && TYPES_WITH_AI_SUGGESTION.has(type) && (
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={triggerAiSuggestion}>
+            ✨ Suggest with AI
+          </Button>
+        )}
         {aiState === "loading" && (
           <div className="flex animate-pulse items-center gap-2 rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
             ✨ Analyzing source…
@@ -525,6 +540,7 @@ export function ConfigureAndTest({
             onChange={handleConfigChange}
             unmatchedTags={previewData?.unmatchedTags ?? []}
             sampleTitlesByTag={sampleTitlesByTag}
+            sampleDescriptions={sampleDescriptions}
             geminiAvailable={geminiAvailable}
             allKennels={allKennelsWithExtra}
           />
@@ -536,6 +552,7 @@ export function ConfigureAndTest({
             onChange={handleConfigChange}
             unmatchedTags={previewData?.unmatchedTags ?? []}
             sampleTitlesByTag={sampleTitlesByTag}
+            sampleDescriptions={sampleDescriptions}
             geminiAvailable={geminiAvailable}
             allKennels={allKennelsWithExtra}
           />

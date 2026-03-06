@@ -4,10 +4,13 @@ import { Label } from "@/components/ui/label";
 import { KennelPatternsEditor } from "./KennelPatternsEditor";
 import { SuggestionChips } from "./SuggestionChips";
 import { KennelTagInput, type KennelOption } from "./KennelTagInput";
+import { PatternFieldSections } from "./PatternFieldSections";
 
 export interface CalendarConfig {
   kennelPatterns?: [string, string][];
   defaultKennelTag?: string;
+  harePatterns?: string[];
+  runNumberPatterns?: string[];
 }
 
 interface CalendarConfigPanelProps {
@@ -17,6 +20,8 @@ interface CalendarConfigPanelProps {
   unmatchedTags?: string[];
   /** Sample event titles per unmatched tag — passed through to SuggestionChips for AI enhance */
   sampleTitlesByTag?: Record<string, string[]>;
+  /** Sample event descriptions from preview — used for AI field pattern suggestions */
+  sampleDescriptions?: string[];
   /** Whether GEMINI_API_KEY is configured */
   geminiAvailable?: boolean;
   allKennels?: KennelOption[];
@@ -27,6 +32,7 @@ export function CalendarConfigPanel({
   onChange,
   unmatchedTags = [],
   sampleTitlesByTag,
+  sampleDescriptions = [],
   geminiAvailable,
   allKennels,
 }: CalendarConfigPanelProps) {
@@ -80,6 +86,14 @@ export function CalendarConfigPanel({
           geminiAvailable={geminiAvailable}
         />
       </div>
+      <PatternFieldSections
+        config={current}
+        onChange={(updates) => onChange({ ...current, ...updates })}
+        sampleDescriptions={sampleDescriptions}
+        geminiAvailable={geminiAvailable}
+        hareDefaultsHint="Hare:/Hares:/Who:"
+        runNumberDefaultsHint="#N in summary, BH3-specific fallback"
+      />
     </div>
   );
 }

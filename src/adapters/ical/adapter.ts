@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl } from "../utils";
+import { googleMapsSearchUrl, compilePatterns } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { sync as icalSync } from "node-ical";
 import type { VEvent, ParameterValue, DateWithTimeZone } from "node-ical";
@@ -11,6 +11,8 @@ export interface ICalSourceConfig {
   kennelPatterns?: [string, string][]; // [[regex, kennelTag], ...] — same as Google Calendar
   defaultKennelTag?: string;           // fallback for unrecognized events
   skipPatterns?: string[];             // SUMMARY patterns to skip (e.g., "Hand Pump Workday")
+  harePatterns?: string[];             // regex strings to extract hares from descriptions
+  runNumberPatterns?: string[];        // regex strings to extract run numbers from descriptions
 }
 
 /**
@@ -119,10 +121,37 @@ function extractFieldFromDescription(
 
 /**
  * Extract hare names from an iCal DESCRIPTION field.
- * Patterns: "Hare: X", "Hares: X & Y", "Hare(s): X, Y"
+ * Accepts pre-compiled RegExp[] or raw string[] (compiled on the fly for one-off use).
+ * The adapter fetch() pre-compiles once per scrape for efficiency.
  */
-export function extractHaresFromDescription(description: string): string | undefined {
+export function extractHaresFromDescription(description: string, customPatterns?: string[] | RegExp[]): string | undefined {
+  if (customPatterns && customPatterns.length > 0) {
+    const compiled = typeof customPatterns[0] === "string"
+      ? compilePatterns(customPatterns as string[])
+      : customPatterns as RegExp[];
+    if (compiled.length > 0) {
+      return extractFieldFromDescription(description, compiled);
+    }
+  }
   return extractFieldFromDescription(description, HARE_PATTERNS);
+}
+
+/**
+ * Extract run number from an iCal DESCRIPTION field using custom patterns.
+ * Each pattern must have a capture group matching digits.
+ */
+export function extractRunNumberFromDescription(
+  description: string,
+  compiledPatterns: RegExp[],
+): number | undefined {
+  for (const pattern of compiledPatterns) {
+    const match = pattern.exec(description);
+    if (match?.[1]) {
+      const num = Number.parseInt(match[1], 10);
+      if (!Number.isNaN(num) && num > 0) return num;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -306,6 +335,8 @@ function resolveLocationUrl(
 function buildRawEventFromVEvent(
   vevent: VEvent,
   config: ICalSourceConfig | null,
+  compiledHarePatterns?: RegExp[],
+  compiledRunNumberPatterns?: RegExp[],
 ): RawEventData | null {
   if (vevent.status === "CANCELLED") return null;
 
@@ -322,7 +353,7 @@ function buildRawEventFromVEvent(
   const dateStr = formatDate(vevent.start);
   const startTime = formatTime(vevent.start);
   const description = paramValue(vevent.description);
-  const hares = description ? extractHaresFromDescription(description) : undefined;
+  const hares = description ? extractHaresFromDescription(description, compiledHarePatterns) : undefined;
   let location = paramValue(vevent.location);
 
   if (!location && description) {
@@ -331,10 +362,16 @@ function buildRawEventFromVEvent(
 
   const locationUrl = resolveLocationUrl(vevent.geo, location, description);
 
+  // Run number: prefer summary extraction, fall back to description with custom patterns
+  let runNumber = parsed.runNumber;
+  if (runNumber == null && description && compiledRunNumberPatterns?.length) {
+    runNumber = extractRunNumberFromDescription(description, compiledRunNumberPatterns);
+  }
+
   return {
     date: dateStr,
     kennelTag: parsed.kennelTag,
-    runNumber: parsed.runNumber,
+    runNumber,
     title: parsed.title ?? summary,
     description: description?.substring(0, 2000) || undefined,
     hares,
@@ -387,7 +424,15 @@ export class ICalAdapter implements SourceAdapter {
     const config = (source.config && typeof source.config === "object" && !Array.isArray(source.config))
       ? source.config as ICalSourceConfig
       : null;
-    const skipPatterns = config?.skipPatterns?.map((p) => new RegExp(p, "i"));
+    const skipPatterns = config?.skipPatterns?.length
+      ? compilePatterns(config.skipPatterns, "i")
+      : undefined;
+    const compiledHarePatterns = config?.harePatterns?.length
+      ? compilePatterns(config.harePatterns)
+      : undefined;
+    const compiledRunNumberPatterns = config?.runNumberPatterns?.length
+      ? compilePatterns(config.runNumberPatterns)
+      : undefined;
 
     const events: RawEventData[] = [];
     const errors: string[] = [];
@@ -423,7 +468,7 @@ export class ICalAdapter implements SourceAdapter {
           continue;
         }
 
-        const event = buildRawEventFromVEvent(vevent, config);
+        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns);
         if (event) events.push(event);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

@@ -18,6 +18,8 @@ export interface PreviewEvent {
   date: string;
   kennelTag: string;
   title?: string;
+  description?: string;
+  runNumber?: number;
   location?: string;
   hares?: string;
   startTime?: string;
@@ -156,6 +158,8 @@ export async function previewSourceConfig(
       date: e.date,
       kennelTag: e.kennelTag === UNKNOWN_KENNEL_SENTINEL ? UNTAGGED_KENNEL_DISPLAY : e.kennelTag,
       title: e.title,
+      description: e.description?.substring(0, 500) || undefined,
+      runNumber: e.runNumber,
       location: e.location,
       hares: e.hares,
       startTime: e.startTime,

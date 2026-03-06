@@ -1,5 +1,17 @@
 import isSafeRegex from "safe-regex2";
 
+/** Returns true if the string is a valid, ReDoS-safe regex. Shared by config validation and AI suggestion filtering. */
+export function isSafeRegexString(p: unknown): boolean {
+  if (typeof p !== "string") return false;
+  try {
+    // nosemgrep: detect-non-literal-regexp — intentional: validating user/AI-supplied regex, protected by isSafeRegex()
+    const re = new RegExp(p); // NOSONAR
+    return isSafeRegex(re);
+  } catch {
+    return false;
+  }
+}
+
 /** Types that require a non-empty config object */
 const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "HASHREGO", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"]);
 
@@ -49,20 +61,20 @@ function validateKennelPatterns(obj: Record<string, unknown>, errors: string[]):
   }
 }
 
-/** Validate skipPatterns array: each entry must be a regex string. */
-function validateSkipPatterns(obj: Record<string, unknown>, errors: string[]): void {
-  if (!("skipPatterns" in obj) || obj.skipPatterns === undefined) return;
+/** Validate a named string[] config field where each entry must be a valid regex. */
+function validatePatternArray(obj: Record<string, unknown>, fieldName: string, errors: string[]): void {
+  if (!(fieldName in obj) || obj[fieldName] === undefined) return;
 
-  if (!Array.isArray(obj.skipPatterns)) {
-    errors.push("skipPatterns must be an array of regex strings");
+  if (!Array.isArray(obj[fieldName])) {
+    errors.push(`${fieldName} must be an array of regex strings`);
     return;
   }
-  for (const [i, pattern] of obj.skipPatterns.entries()) {
+  for (const [i, pattern] of (obj[fieldName] as unknown[]).entries()) {
     if (typeof pattern !== "string") {
-      errors.push(`skipPatterns[${i}]: must be a string`);
+      errors.push(`${fieldName}[${i}]: must be a string`);
       continue;
     }
-    validateRegex(pattern, `skipPatterns[${i}]`, errors);
+    validateRegex(pattern, `${fieldName}[${i}]`, errors);
   }
 }
 
@@ -221,7 +233,9 @@ export function validateSourceConfig(
 
   // Common pattern validation
   validateKennelPatterns(obj, errors);
-  validateSkipPatterns(obj, errors);
+  validatePatternArray(obj, "skipPatterns", errors);
+  validatePatternArray(obj, "harePatterns", errors);
+  validatePatternArray(obj, "runNumberPatterns", errors);
 
   // Type-specific validation
   runTypeValidator(type, obj, errors);

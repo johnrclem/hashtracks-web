@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractLocationFromDescription, extractMapsUrlFromDescription, paramValue } from "./adapter";
+import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractMapsUrlFromDescription, paramValue } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
 import type { ParameterValue } from "node-ical";
 
@@ -224,6 +224,68 @@ describe("extractHaresFromDescription", () => {
   it("handles multiline description", () => {
     const desc = "Some intro text\\n\\nHare: Captain Hash\\n\\nMore info here";
     expect(extractHaresFromDescription(desc)).toBe("Captain Hash");
+  });
+
+  // Custom hare patterns (configurable via source config)
+  it("uses custom patterns when provided", () => {
+    expect(
+      extractHaresFromDescription("WHO ARE THE HARES:  Used Rubber & Leeroy", [
+        String.raw`(?:^|\n)\s*WHO ARE THE HARES:\s*(.+)`,
+      ]),
+    ).toBe("Used Rubber & Leeroy");
+  });
+
+  it("falls back to defaults when customPatterns is empty", () => {
+    expect(extractHaresFromDescription("Hare: Trail Blazer", [])).toBe("Trail Blazer");
+  });
+
+  it("custom patterns replace defaults", () => {
+    expect(
+      extractHaresFromDescription("Hare: Mudflap", [String.raw`(?:^|\n)\s*Laid by:\s*(.+)`]),
+    ).toBeUndefined();
+  });
+
+  it("skips malformed custom patterns gracefully", () => {
+    expect(
+      extractHaresFromDescription("Laid by: Speedy", ["[invalid(", String.raw`(?:^|\n)\s*Laid by:\s*(.+)`]),
+    ).toBe("Speedy");
+  });
+});
+
+describe("extractRunNumberFromDescription", () => {
+  it("extracts run number with custom pattern", () => {
+    expect(
+      extractRunNumberFromDescription("Hash # 2658\nSome details", [
+        /Hash\s*#\s*(\d+)/i,
+      ]),
+    ).toBe(2658);
+  });
+
+  it("returns first match from multiple patterns", () => {
+    expect(
+      extractRunNumberFromDescription("Run #42\nHash # 100", [
+        /Run\s*#\s*(\d+)/i,
+        /Hash\s*#\s*(\d+)/i,
+      ]),
+    ).toBe(42);
+  });
+
+  it("returns undefined when no pattern matches", () => {
+    expect(
+      extractRunNumberFromDescription("No numbers here", [/Hash\s*#\s*(\d+)/i]),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined for empty pattern list", () => {
+    expect(
+      extractRunNumberFromDescription("Hash # 2658", []),
+    ).toBeUndefined();
+  });
+
+  it("skips non-positive numbers", () => {
+    expect(
+      extractRunNumberFromDescription("Hash # 0", [/Hash\s*#\s*(\d+)/i]),
+    ).toBeUndefined();
   });
 });
 

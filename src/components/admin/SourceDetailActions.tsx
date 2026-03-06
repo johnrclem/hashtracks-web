@@ -30,12 +30,14 @@ interface SourceDetailActionsProps {
   source: SourceDetailData;
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
   allRegions: RegionOption[];
+  geminiAvailable?: boolean;
 }
 
 export function SourceDetailActions({
   source,
   allKennels,
   allRegions,
+  geminiAvailable,
 }: SourceDetailActionsProps) {
   const [isPending, startTransition] = useTransition();
   const [isScraping, setIsScraping] = useState(false);
@@ -157,6 +159,7 @@ export function SourceDetailActions({
               source={source}
               allKennels={allKennels}
               allRegions={allRegions}
+              geminiAvailable={geminiAvailable}
               trigger={
                 <Button size="sm" variant="outline">
                   Edit
