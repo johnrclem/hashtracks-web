@@ -451,6 +451,7 @@ export default async function SourceDetailPage({
         }}
         allKennels={allKennels}
         allRegions={allRegions}
+        geminiAvailable={!!process.env.GEMINI_API_KEY}
       />
 
       {/* Stats grid */}
