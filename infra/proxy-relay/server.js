@@ -8,6 +8,7 @@
  * GET  /health — health check
  */
 
+const crypto = require("crypto");
 const http = require("http");
 const https = require("https");
 const { URL } = require("url");
@@ -25,6 +26,8 @@ if (!API_KEY || API_KEY.length < 32) {
 const MAX_REDIRECTS = 5;
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_BODY_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_REQUEST_BODY_SIZE = 1 * 1024 * 1024; // 1 MB (JSON envelope only)
+const API_KEY_BUFFER = Buffer.from(API_KEY);
 
 const DEFAULT_HEADERS = {
   "User-Agent":
@@ -159,12 +162,22 @@ function fetchUrl(targetUrl, method, headers, redirectCount) {
 }
 
 /**
- * Read the full request body as a string.
+ * Read the full request body as a string (capped at MAX_REQUEST_BODY_SIZE).
  */
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on("data", (chunk) => chunks.push(chunk));
+    let totalSize = 0;
+    req.on("data", (chunk) => {
+      totalSize += chunk.length;
+      if (totalSize > MAX_REQUEST_BODY_SIZE) {
+        req.destroy();
+        return reject(
+          new Error(`Request body exceeds ${MAX_REQUEST_BODY_SIZE} bytes`),
+        );
+      }
+      chunks.push(chunk);
+    });
     req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
     req.on("error", reject);
   });
@@ -193,9 +206,13 @@ const server = http.createServer(async (req, res) => {
     return jsonResponse(res, 404, { error: "Not found" });
   }
 
-  // Auth check
+  // Auth check (timing-safe to prevent key brute-forcing)
   const proxyKey = req.headers["x-proxy-key"];
-  if (proxyKey !== API_KEY) {
+  if (
+    typeof proxyKey !== "string" ||
+    proxyKey.length !== API_KEY.length ||
+    !crypto.timingSafeEqual(Buffer.from(proxyKey), API_KEY_BUFFER)
+  ) {
     return jsonResponse(res, 403, { error: "Invalid API key" });
   }
 
@@ -231,7 +248,7 @@ const server = http.createServer(async (req, res) => {
     res.end(result.body);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Proxy error: ${err.message}`);
-    jsonResponse(res, 502, { error: err.message });
+    jsonResponse(res, 502, { error: "Proxy request failed" });
   }
 });
 

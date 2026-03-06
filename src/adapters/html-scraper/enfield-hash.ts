@@ -11,6 +11,8 @@ import { generateStructureHash } from "@/pipeline/structure-hash";
 import { buildUrlVariantCandidates, chronoParseDate, decodeEntities } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
+const USE_RESIDENTIAL_PROXY = true;
+
 /**
  * Infer the year for a month/day when the source omits the year.
  * Picks the year that places the date closest to `now` (within ±6 months).
@@ -242,7 +244,7 @@ export class EnfieldHashAdapter implements SourceAdapter {
 
     for (const candidateUrl of candidateUrls) {
       try {
-        const response = await safeFetch(candidateUrl, { headers: requestHeaders });
+        const response = await safeFetch(candidateUrl, { headers: requestHeaders, useResidentialProxy: USE_RESIDENTIAL_PROXY });
 
         if (response.ok) {
           const html = await response.text();

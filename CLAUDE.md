@@ -8,7 +8,7 @@ calendar + personal logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 100 test files)
+- `npm test` — Run test suite (Vitest, 102 test files)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -28,6 +28,7 @@ calendar + personal logbook + kennel directory.
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS + shadcn/ui components
 - **Scraping:** HTTP fetch + Cheerio (NOT Playwright — hash sites are static HTML); Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup)
+- **Residential Proxy:** Optional NAS-based forward proxy for WAF-blocked targets (Cloudflare Tunnel, see `docs/residential-proxy-spec.md`)
 - **AI:** Gemini 2.0 Flash for complex HTML parsing (low temp, cached results), parse error recovery, column auto-detection, kennel pattern suggestions, HTML structure analysis with few-shot learning from existing adapter patterns
 - **Analytics:** Vercel Web Analytics + Speed Insights
 - **CI/CD:** GitHub Actions (type check + lint + tests on all PRs); Claude Code automation for issue triage + auto-fix
@@ -79,6 +80,8 @@ calendar + personal logbook + kennel directory.
 - STRAVA_CLIENT_ID=      # Strava OAuth app client ID
 - STRAVA_CLIENT_SECRET=  # Strava OAuth app client secret
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
+- RESIDENTIAL_PROXY_URL=  # NAS residential proxy URL (for WAF-blocked scrape targets)
+- RESIDENTIAL_PROXY_KEY=  # API key for residential proxy auth
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 26 models + 18 enums (THE source of truth for types)
@@ -109,7 +112,8 @@ calendar + personal logbook + kennel directory.
 - `src/adapters/html-scraper/och3.ts` — Old Coulsdon Hash run list scraper (OCH3)
 - `src/adapters/html-scraper/slash-hash.ts` — SLASH run list scraper (SLH3)
 - `src/adapters/blogger-api.ts` — Blogger API v3 utility (fetchBloggerPosts — shared by Blogspot adapters)
-- `src/adapters/html-scraper/enfield-hash.ts` — Enfield Hash blog scraper (EH3, uses Blogger API)
+- `src/adapters/safe-fetch.ts` — URL-validated fetch with SSRF protection, opt-in residential proxy routing (`SafeFetchOptions`)
+- `src/adapters/html-scraper/enfield-hash.ts` — Enfield Hash blog scraper (EH3, uses Blogger API + residential proxy)
 - `src/adapters/html-scraper/chicago-hash.ts` — Chicago Hash website scraper (CH3)
 - `src/adapters/html-scraper/chicago-th3.ts` — Thirstday Hash website scraper (TH3)
 - `src/adapters/html-scraper/sfh3.ts` — SFH3 MultiHash HTML hareline scraper (11 Bay Area kennels)
@@ -217,6 +221,8 @@ calendar + personal logbook + kennel directory.
 - `docs/config-driven-onboarding-plan.md` — Config-driven source onboarding design (6-phase admin wizard)
 - `docs/test-coverage-analysis.md` — Test coverage gap analysis and priorities
 - `docs/self-healing-automation-plan.md` — Self-healing automation loop architecture, confidence scoring rubric, implementation roadmap
+- `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
+- `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
 ## Active Sources (30)
 
@@ -268,7 +274,7 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (100 test files)
+- **Run:** `npm test` (102 test files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)

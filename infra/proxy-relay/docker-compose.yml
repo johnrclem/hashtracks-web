@@ -1,0 +1,30 @@
+services:
+  proxy-relay:
+    build: .
+    container_name: proxy-relay
+    restart: unless-stopped
+    environment:
+      - PROXY_API_KEY=${PROXY_API_KEY}
+      - PORT=3100
+    mem_limit: 64m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --protocol http2 run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    mem_limit: 64m
+    depends_on:
+      - proxy-relay
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
