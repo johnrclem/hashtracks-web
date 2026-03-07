@@ -1,6 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { safeFetch } from "../safe-fetch";
+import { googleMapsSearchUrl, buildDateWindow } from "../utils";
 
 const BASE_URL = "https://shith3.com";
 
@@ -114,7 +115,7 @@ export function buildEventFromDetail(detail: DetailItem, listing: ListingItem): 
   if (detail.MAPLINK && detail.MAPLINK.trim()) {
     locationUrl = detail.MAPLINK.trim();
   } else if (location) {
-    locationUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+    locationUrl = googleMapsSearchUrl(location);
   }
 
   return {
@@ -171,15 +172,10 @@ export class SHITH3Adapter implements SourceAdapter {
     const errorDetails: ErrorDetails = {};
     const fetchStart = Date.now();
 
-    const days = options?.days || 90;
-    const now = new Date();
-    const startDate = new Date(now);
-    startDate.setDate(startDate.getDate() - days);
-    const endDate = new Date(now);
-    endDate.setDate(endDate.getDate() + days);
-
-    const startStr = startDate.toISOString().slice(0, 10);
-    const endStr = endDate.toISOString().slice(0, 10);
+    const days = options?.days ?? 90;
+    const { minDate, maxDate } = buildDateWindow(days);
+    const startStr = minDate.toISOString().slice(0, 10);
+    const endStr = maxDate.toISOString().slice(0, 10);
 
     // Step 1: Fetch listing
     const listingUrl = `${BASE_URL}/php/get-events.php?start=${startStr}&end=${endStr}`;
