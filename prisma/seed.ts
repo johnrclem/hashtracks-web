@@ -85,9 +85,14 @@ async function ensureKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
     if (!record) {
       const baseSlug = toSlugFn(kennel.shortName);
       let slug = baseSlug;
-      const slugTaken = await prisma.kennel.findUnique({ where: { slug } });
-      if (slugTaken) {
+      // Try shortName slug, then kennelCode slug, then kennelCode-N
+      if (await prisma.kennel.findUnique({ where: { slug } })) {
         slug = toSlugFn(kennel.kennelCode);
+        if (await prisma.kennel.findUnique({ where: { slug } })) {
+          let n = 2;
+          while (await prisma.kennel.findUnique({ where: { slug: `${toSlugFn(kennel.kennelCode)}-${n}` } })) n++;
+          slug = `${toSlugFn(kennel.kennelCode)}-${n}`;
+        }
         console.log(`  ℹ Slug "${baseSlug}" taken, using "${slug}" for ${kennel.shortName}`);
       }
       const profileFields = Object.fromEntries(
