@@ -83,18 +83,6 @@ async function ensureKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
   for (const kennel of kennels) {
     let record = await prisma.kennel.findUnique({ where: { kennelCode: kennel.kennelCode } });
     if (!record) {
-      const baseSlug = toSlugFn(kennel.shortName);
-      let slug = baseSlug;
-      // Try shortName slug, then kennelCode slug, then kennelCode-N
-      if (await prisma.kennel.findUnique({ where: { slug } })) {
-        slug = toSlugFn(kennel.kennelCode);
-        if (await prisma.kennel.findUnique({ where: { slug } })) {
-          let n = 2;
-          while (await prisma.kennel.findUnique({ where: { slug: `${toSlugFn(kennel.kennelCode)}-${n}` } })) n++;
-          slug = `${toSlugFn(kennel.kennelCode)}-${n}`;
-        }
-        console.log(`  ℹ Slug "${baseSlug}" taken, using "${slug}" for ${kennel.shortName}`);
-      }
       const profileFields = Object.fromEntries(
         Object.entries(kennel).filter(([k, v]) => PROFILE_FIELDS.has(k) && v !== undefined)
       );
@@ -103,9 +91,22 @@ async function ensureKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
         console.warn(`  ⚠ No region found for "${kennel.region}" (kennel: ${kennel.shortName}), skipping`);
         continue;
       }
-      record = await prisma.kennel.create({
-        data: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, regionId, country: kennel.country ?? "USA", ...profileFields },
-      });
+      // Try slug candidates until one succeeds: shortName → kennelCode → kennelCode-N
+      const slugCandidates = [toSlugFn(kennel.shortName), toSlugFn(kennel.kennelCode)];
+      for (let n = 2; slugCandidates.length < 10; n++) slugCandidates.push(`${toSlugFn(kennel.kennelCode)}-${n}`);
+      for (const slug of slugCandidates) {
+        try {
+          record = await prisma.kennel.create({
+            data: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, regionId, country: kennel.country ?? "USA", ...profileFields },
+          });
+          if (slug !== slugCandidates[0]) {
+            console.log(`  ℹ Slug "${slugCandidates[0]}" taken, using "${slug}" for ${kennel.shortName}`);
+          }
+          break;
+        } catch (e: any) {
+          if (e.code !== "P2002") throw e;
+        }
+      }
       created++;
       console.log(`  + Created kennel: ${kennel.shortName}`);
     }
