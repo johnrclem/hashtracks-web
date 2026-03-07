@@ -1,6 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { safeFetch } from "../safe-fetch";
+import { stripHtmlTags, decodeEntities } from "../utils";
 
 const BASE_URL = "https://shith3.com";
 
@@ -60,6 +61,11 @@ export function extractDate(isoLike: string): string | undefined {
   return match ? match[1] : undefined;
 }
 
+/** Strip HTML tags and decode entities from a field value. */
+function cleanHtml(text: string): string {
+  return stripHtmlTags(decodeEntities(text), "\n").trim();
+}
+
 /**
  * Build a combined description from detail fields.
  * Includes TIDBIT, parsed distances from NOTES, and on-after venue.
@@ -67,14 +73,14 @@ export function extractDate(isoLike: string): string | undefined {
 export function buildDescription(detail: DetailItem): string | undefined {
   const parts: string[] = [];
 
-  if (detail.TIDBIT) parts.push(detail.TIDBIT.trim());
+  if (detail.TIDBIT) parts.push(cleanHtml(detail.TIDBIT));
 
   if (detail.NOTES) {
     const distances = parseDistances(detail.NOTES);
     if (distances) parts.push(distances);
   }
 
-  if (detail.ONONON) parts.push(`On-After: ${detail.ONONON.trim()}`);
+  if (detail.ONONON) parts.push(`On-After: ${cleanHtml(detail.ONONON)}`);
 
   return parts.length > 0 ? parts.join("\n\n") : undefined;
 }
