@@ -4,7 +4,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { safeFetch } from "../safe-fetch";
-import { chronoParseDate, parse12HourTime } from "../utils";
+import { chronoParseDate, parse12HourTime, googleMapsSearchUrl } from "../utils";
 
 const DEFAULT_START_TIME = "10:15";
 
@@ -218,7 +218,7 @@ export class HangoverAdapter implements SourceAdapter {
       if (!eventDate) continue;
 
       const locationUrl = bodyFields.location
-        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(bodyFields.location)}`
+        ? googleMapsSearchUrl(bodyFields.location)
         : undefined;
 
       events.push({
