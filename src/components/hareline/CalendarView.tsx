@@ -176,12 +176,12 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
   const focusDay = computeFocusDay(selectedDay, year, month, todayKey, today, daysInMonth);
 
   // ---- WEEKS MODE GRID ----
-  // Start from Sunday of the current week (no useMemo — cheap computation, avoids stale closure)
-  const weekStart = (() => {
+  // Start from Sunday of the current week (stable across renders for the same calendar day)
+  const weekStart = useMemo(() => {
     const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
     d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // back to Sunday
     return d;
-  })();
+  }, [today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()]);
 
   const totalWeeksDays = WEEKS_DAYS[timeFilter] ?? 28;
   const numWeeksRows = totalWeeksDays / 7;
@@ -344,7 +344,7 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
     const cellAriaLabel = buildCellLabel(fullDateLabel, dayEvents.length);
 
     // Show month abbreviation for day 1 or when crossing month boundary in weeks mode
-    const showMonth = opts.showMonthLabel && (day === 1 || cellDate.getUTCMonth() !== today.getUTCMonth());
+    const showMonth = opts.showMonthLabel && day === 1;
     const dayLabel = showMonth
       ? `${MONTH_ABBREV[cellDate.getUTCMonth()]} ${day}`
       : String(day);
@@ -519,13 +519,12 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
               ))
             ) : (
               // Weeks mode: rolling weeks from today
-              weeksGrid.map((week, wi) => (
-                <div key={`rw-${wi}`} role="row" className="grid grid-cols-7 gap-px">
+              weeksGrid.map((week) => (
+                <div key={getDateKey(week[0].toISOString())} role="row" className="grid grid-cols-7 gap-px">
                   {week.map((cellDate) => {
                     const dateKey = getDateKey(cellDate.toISOString());
-                    const isFirstFocusable = wi === 0 && cellDate.getUTCDay() === today.getUTCDay();
                     return renderDayCell(cellDate, dateKey, {
-                      focusable: isFirstFocusable || (wi === 0 && cellDate.getUTCDay() === 0),
+                      focusable: dateKey === todayKey,
                       showMonthLabel: true,
                     });
                   })}
