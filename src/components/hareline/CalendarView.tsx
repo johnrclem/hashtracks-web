@@ -14,6 +14,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { EventCard, type HarelineEvent } from "./EventCard";
 import { regionColorClasses, regionBgClass, regionAbbrev, formatTimeCompact } from "@/lib/format";
@@ -177,11 +178,15 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
 
   // ---- WEEKS MODE GRID ----
   // Start from Sunday of the current week (stable across renders for the same calendar day)
+  const todayYear = today.getUTCFullYear();
+  const todayMonth = today.getUTCMonth();
+  const todayDay = today.getUTCDate();
+
   const weekStart = useMemo(() => {
-    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    const d = new Date(Date.UTC(todayYear, todayMonth, todayDay));
     d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // back to Sunday
     return d;
-  }, [today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()]);
+  }, [todayYear, todayMonth, todayDay]);
 
   const totalWeeksDays = WEEKS_DAYS[timeFilter] ?? 28;
   const numWeeksRows = totalWeeksDays / 7;
@@ -241,16 +246,18 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
       const nextCell = gridRef.current?.querySelector(`[data-day="${nextDay}"]`) as HTMLElement | null;
       nextCell?.focus();
     } else {
-      // Weeks mode: navigate by date key
-      // For simplicity, let arrow keys work by finding adjacent cells
+      // Weeks mode: arrow keys navigate by finding adjacent cells
+      let delta = 0;
+      if (e.key === "ArrowRight") delta = 1;
+      else if (e.key === "ArrowLeft") delta = -1;
+      else if (e.key === "ArrowDown") delta = 7;
+      else if (e.key === "ArrowUp") delta = -7;
+      else return;
+
       e.preventDefault();
       const allCells = Array.from(gridRef.current?.querySelectorAll<HTMLElement>("[data-day]") ?? []);
       const idx = allCells.indexOf(dayCell);
-      let nextIdx = idx;
-      if (e.key === "ArrowRight") nextIdx = idx + 1;
-      else if (e.key === "ArrowLeft") nextIdx = idx - 1;
-      else if (e.key === "ArrowDown") nextIdx = idx + 7;
-      else if (e.key === "ArrowUp") nextIdx = idx - 7;
+      const nextIdx = idx + delta;
       if (nextIdx >= 0 && nextIdx < allCells.length) {
         allCells[nextIdx].focus();
       }
@@ -332,7 +339,7 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
   function renderDayCell(
     cellDate: Date,
     dateKey: string,
-    opts: { focusable?: boolean; showMonthLabel?: boolean },
+    opts: { focusable?: boolean; showMonthLabel?: boolean; isFirstCell?: boolean },
   ) {
     const dayEvents = eventsByDate.get(dateKey) || [];
     const isToday = dateKey === todayKey;
@@ -343,8 +350,8 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
     const fullDateLabel = ariaDateFormatter.format(cellDate);
     const cellAriaLabel = buildCellLabel(fullDateLabel, dayEvents.length);
 
-    // Show month abbreviation for day 1 or when crossing month boundary in weeks mode
-    const showMonth = opts.showMonthLabel && day === 1;
+    // Show month abbreviation on the 1st of each month, or the first cell of a weeks grid
+    const showMonth = opts.showMonthLabel && (day === 1 || opts.isFirstCell);
     const dayLabel = showMonth
       ? `${MONTH_ABBREV[cellDate.getUTCMonth()]} ${day}`
       : String(day);
@@ -363,18 +370,19 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
           isSelected
             ? "ring-2 ring-inset ring-primary bg-primary/5"
             : isToday
-              ? "border border-primary/50 bg-primary/10"
+              ? "ring-2 ring-inset ring-primary/40 bg-primary/5"
               : isPast
                 ? "opacity-50"
                 : "hover:bg-muted/50"
         }`}
       >
         <span
-          className={`text-xs ${
+          className={`inline-flex items-center gap-1 text-xs ${
             isToday ? "font-bold text-primary" : showMonth ? "font-semibold text-foreground" : "text-muted-foreground"
           }`}
         >
           {dayLabel}
+          {isToday && <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />}
         </span>
         {dayEvents.length > 0 && (
           <div className="mt-0.5 flex flex-col gap-1">
@@ -450,7 +458,10 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
               )}
             </>
           ) : (
-            <h2 className="text-lg font-bold">{weeksRangeLabel}</h2>
+            <div className="inline-flex items-center gap-2 rounded-md border px-3 py-1">
+              <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
+              <h2 className="text-lg font-bold">{weeksRangeLabel}</h2>
+            </div>
           )}
 
           {/* Month / Weeks toggle — only shown when user can choose (timeFilter = upcoming) */}
@@ -469,10 +480,10 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
           )}
         </div>
 
-        <span className="text-sm text-muted-foreground">
+        <Badge variant="secondary" className="text-xs font-normal">
           {rangeEventCount} {rangeEventCount === 1 ? "event" : "events"}
           {calendarMode === "month" ? " this month" : ""}
-        </span>
+        </Badge>
       </div>
 
       {/* Responsive layout: calendar + side panel on desktop */}
@@ -519,13 +530,14 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
               ))
             ) : (
               // Weeks mode: rolling weeks from today
-              weeksGrid.map((week) => (
+              weeksGrid.map((week, wi) => (
                 <div key={getDateKey(week[0].toISOString())} role="row" className="grid grid-cols-7 gap-px">
-                  {week.map((cellDate) => {
+                  {week.map((cellDate, di) => {
                     const dateKey = getDateKey(cellDate.toISOString());
                     return renderDayCell(cellDate, dateKey, {
                       focusable: dateKey === todayKey,
                       showMonthLabel: true,
+                      isFirstCell: wi === 0 && di === 0,
                     });
                   })}
                 </div>
