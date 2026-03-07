@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, Loader2, MapPin } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { createKennel, updateKennel } from "@/app/admin/kennels/actions";
 import {
   Dialog,
@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { generateAliases } from "@/lib/auto-aliases";
-import { geocodeAddress } from "@/lib/geo";
+import { GeocodeButton } from "./GeocodeButton";
 
 type KennelData = {
   id: string;
@@ -150,7 +150,6 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const [selectedRegionId, setSelectedRegionId] = useState<string>(kennel?.regionId ?? "");
   const [isHidden, setIsHidden] = useState(kennel?.isHidden ?? false);
-  const [isGeocoding, setIsGeocoding] = useState(false);
   const shortNameRef = useRef<HTMLInputElement>(null);
   const fullNameRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -191,32 +190,6 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
       }
       return [...prev, ...added];
     });
-  }
-
-  async function handleGeocode() {
-    const fullName = fullNameRef.current?.value?.trim();
-    const region = selectedRegion?.name ?? "";
-    const countryVal = (document.getElementById("country") as HTMLInputElement)?.value?.trim();
-    if (!fullName) {
-      toast.error("Enter a full name first");
-      return;
-    }
-    setIsGeocoding(true);
-    try {
-      const address = [fullName, region, countryVal].filter(Boolean).join(", ");
-      const result = await geocodeAddress(address);
-      if (result) {
-        const latInput = document.getElementById("latitude") as HTMLInputElement;
-        const lngInput = document.getElementById("longitude") as HTMLInputElement;
-        if (latInput) latInput.value = String(result.lat);
-        if (lngInput) lngInput.value = String(result.lng);
-        toast.success(`Found: ${result.lat.toFixed(4)}, ${result.lng.toFixed(4)}`);
-      } else {
-        toast.error("Could not geocode this location");
-      }
-    } finally {
-      setIsGeocoding(false);
-    }
   }
 
   function handleSubmitResult(
@@ -653,20 +626,20 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Coordinates</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={handleGeocode}
-                  disabled={isGeocoding}
-                >
-                  {isGeocoding ? (
-                    <><Loader2 className="mr-1 h-3 w-3 animate-spin" />Geocoding...</>
-                  ) : (
-                    <><MapPin className="mr-1 h-3 w-3" />Auto-fill from name</>
-                  )}
-                </Button>
+                <GeocodeButton
+                  getAddress={() => {
+                    const fullName = fullNameRef.current?.value?.trim();
+                    if (!fullName) {
+                      toast.error("Enter a full name first");
+                      return null;
+                    }
+                    const region = selectedRegion?.name ?? "";
+                    const country = (document.getElementById("country") as HTMLInputElement)?.value?.trim();
+                    return [fullName, region, country].filter(Boolean).join(", ");
+                  }}
+                  latInputId="latitude"
+                  lngInputId="longitude"
+                />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">

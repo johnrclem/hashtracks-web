@@ -14,8 +14,6 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { deleteRegion } from "@/app/admin/regions/actions";
-import { RegionFormDialog } from "./RegionFormDialog";
-import { RegionMergeDialog } from "./RegionMergeDialog";
 import { useRouter } from "next/navigation";
 
 export interface RegionRow {
@@ -42,12 +40,16 @@ const LEVEL_BADGE: Record<string, { label: string; classes: string }> = {
   METRO: { label: "Metro", classes: "bg-green-100 text-green-800" },
 };
 
-export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
+interface RegionTableProps {
+  regions: RegionRow[];
+  onCreateRegion: () => void;
+  onEditRegion: (region: RegionRow) => void;
+  onMergeRegions: () => void;
+}
+
+export function RegionTable({ regions, onCreateRegion, onEditRegion, onMergeRegions }: Readonly<RegionTableProps>) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [showCreate, setShowCreate] = useState(false);
-  const [editRegion, setEditRegion] = useState<RegionRow | null>(null);
-  const [showMerge, setShowMerge] = useState(false);
   const [countryFilter, setCountryFilter] = useState("");
   const [showMissingOnly, setShowMissingOnly] = useState(false);
   const router = useRouter();
@@ -137,10 +139,10 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
               {missingCount} missing coords
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setShowMerge(true)}>
+          <Button variant="outline" size="sm" onClick={onMergeRegions}>
             Merge Regions
           </Button>
-          <Button size="sm" onClick={() => setShowCreate(true)}>
+          <Button size="sm" onClick={onCreateRegion}>
             Add Region
           </Button>
         </div>
@@ -213,7 +215,7 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
                         className="h-7 text-xs"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setEditRegion(region);
+                          onEditRegion(region);
                         }}
                       >
                         Edit
@@ -272,30 +274,6 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
         </Table>
       </div>
 
-      {/* Create dialog */}
-      {showCreate && (
-        <RegionFormDialog
-          regions={regions}
-          onClose={() => setShowCreate(false)}
-        />
-      )}
-
-      {/* Edit dialog */}
-      {editRegion && (
-        <RegionFormDialog
-          region={editRegion}
-          regions={regions}
-          onClose={() => setEditRegion(null)}
-        />
-      )}
-
-      {/* Merge dialog */}
-      {showMerge && (
-        <RegionMergeDialog
-          regions={regions}
-          onClose={() => setShowMerge(false)}
-        />
-      )}
     </div>
   );
 }

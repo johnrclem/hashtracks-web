@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,12 +17,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { createRegion, updateRegion } from "@/app/admin/regions/actions";
-import { geocodeAddress } from "@/lib/geo";
 import { useRouter } from "next/navigation";
 import type { RegionRow } from "./RegionTable";
+import { GeocodeButton } from "./GeocodeButton";
 
 const COMMON_TIMEZONES = [
   "America/New_York",
@@ -55,7 +54,6 @@ export function RegionFormDialog({
   onClose: () => void;
 }>) {
   const [isPending, startTransition] = useTransition();
-  const [isGeocoding, setIsGeocoding] = useState(false);
   const router = useRouter();
   const isEdit = !!region;
 
@@ -76,30 +74,6 @@ export function RegionFormDialog({
         onClose();
       }
     });
-  }
-
-  async function handleGeocode() {
-    const nameVal = (document.getElementById("name") as HTMLInputElement)?.value?.trim();
-    const countryVal = (document.getElementById("country") as HTMLInputElement)?.value?.trim();
-    if (!nameVal || !countryVal) {
-      toast.error("Enter a name and country first");
-      return;
-    }
-    setIsGeocoding(true);
-    try {
-      const result = await geocodeAddress(`${nameVal}, ${countryVal}`);
-      if (result) {
-        const latInput = document.getElementById("centroidLat") as HTMLInputElement;
-        const lngInput = document.getElementById("centroidLng") as HTMLInputElement;
-        if (latInput) latInput.value = String(result.lat);
-        if (lngInput) lngInput.value = String(result.lng);
-        toast.success(`Found: ${result.lat.toFixed(4)}, ${result.lng.toFixed(4)}`);
-      } else {
-        toast.error("Could not geocode this location");
-      }
-    } finally {
-      setIsGeocoding(false);
-    }
   }
 
   // Filter parent options: COUNTRY and STATE_PROVINCE regions can be parents
@@ -220,20 +194,19 @@ export function RegionFormDialog({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Centroid</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={handleGeocode}
-                disabled={isGeocoding}
-              >
-                {isGeocoding ? (
-                  <><Loader2 className="mr-1 h-3 w-3 animate-spin" />Geocoding...</>
-                ) : (
-                  <><MapPin className="mr-1 h-3 w-3" />Auto-fill from name</>
-                )}
-              </Button>
+              <GeocodeButton
+                getAddress={() => {
+                  const name = (document.getElementById("name") as HTMLInputElement)?.value?.trim();
+                  const country = (document.getElementById("country") as HTMLInputElement)?.value?.trim();
+                  if (!name || !country) {
+                    toast.error("Enter a name and country first");
+                    return null;
+                  }
+                  return `${name}, ${country}`;
+                }}
+                latInputId="centroidLat"
+                lngInputId="centroidLng"
+              />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1">

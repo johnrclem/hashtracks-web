@@ -17,9 +17,9 @@ const SUGGESTION_CONFIG: Record<SuggestionType, {
   actionLabel: string;
 }> = {
   merge: { icon: <GitMerge className="h-4 w-4" />, color: "text-blue-600", actionLabel: "Open Merge" },
-  split: { icon: <Scissors className="h-4 w-4" />, color: "text-purple-600", actionLabel: "View Region" },
+  split: { icon: <Scissors className="h-4 w-4" />, color: "text-purple-600", actionLabel: "Edit Region" },
   rename: { icon: <Pencil className="h-4 w-4" />, color: "text-amber-600", actionLabel: "Edit Region" },
-  reassign: { icon: <ArrowRight className="h-4 w-4" />, color: "text-green-600", actionLabel: "View Region" },
+  reassign: { icon: <ArrowRight className="h-4 w-4" />, color: "text-green-600", actionLabel: "Edit Region" },
 };
 
 const CONFIDENCE_VARIANTS: Record<string, "default" | "secondary" | "outline"> = {
