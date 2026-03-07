@@ -7,6 +7,7 @@ import {
   buildEventFromDetail,
   buildEventFromListing,
   SHITH3Adapter,
+  type ListingItem,
 } from "./shith3";
 
 // ---------- Pure function unit tests ----------
@@ -254,14 +255,6 @@ const sampleDetail = {
   NOTES: "R = 4.5 mi\nW = 2.7 mi",
   ADDRESS: "11213k Lee Hwy, Fairfax, VA",
   MAPLINK: "",
-};
-
-// Need to import the type for the test
-type ListingItem = {
-  title: string;
-  start: string;
-  type: string;
-  lookup_id: string;
 };
 
 describe("SHITH3Adapter", () => {

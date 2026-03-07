@@ -5,7 +5,7 @@ import { safeFetch } from "../safe-fetch";
 const BASE_URL = "https://shith3.com";
 
 /** Listing endpoint response item */
-interface ListingItem {
+export interface ListingItem {
   title: string;
   start: string; // "2026-03-03T19:00:00"
   end?: string;
@@ -14,7 +14,7 @@ interface ListingItem {
 }
 
 /** Detail endpoint response */
-interface DetailItem {
+export interface DetailItem {
   TRAIL?: string;
   TITLE?: string;
   LOCATION?: string;
@@ -207,6 +207,12 @@ export class SHITH3Adapter implements SourceAdapter {
     let detailSuccesses = 0;
     let detailFailures = 0;
 
+    /** Push a listing-only fallback event when detail fetch fails. */
+    const pushFallback = (item: ListingItem) => {
+      const fallback = buildEventFromListing(item);
+      if (fallback) events.push(fallback);
+    };
+
     for (const listing of trails) {
       const detailUrl = `${BASE_URL}/php/get-event.php?id=${listing.lookup_id}&type=t`;
       try {
@@ -221,10 +227,7 @@ export class SHITH3Adapter implements SourceAdapter {
             ...(errorDetails.fetch ?? []),
             { url: detailUrl, status: detailRes.status, message: `HTTP ${detailRes.status}` },
           ];
-
-          // Fallback to listing data
-          const fallback = buildEventFromListing(listing);
-          if (fallback) events.push(fallback);
+          pushFallback(listing);
           continue;
         }
 
@@ -240,10 +243,7 @@ export class SHITH3Adapter implements SourceAdapter {
           ...(errorDetails.parse ?? []),
           { row: 0, section: listing.lookup_id, error: String(err) },
         ];
-
-        // Fallback to listing data
-        const fallback = buildEventFromListing(listing);
-        if (fallback) events.push(fallback);
+        pushFallback(listing);
       }
     }
 
