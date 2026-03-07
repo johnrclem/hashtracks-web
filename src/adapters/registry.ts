@@ -19,6 +19,7 @@ import { BarnesHashAdapter } from "./html-scraper/barnes-hash";
 import { OCH3Adapter } from "./html-scraper/och3";
 import { SlashHashAdapter } from "./html-scraper/slash-hash";
 import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
+import { WCFHCalendarAdapter } from "./html-scraper/wcfh-calendar";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -63,6 +64,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /ofh3\.com/i,             name: "OFH3Adapter",           factory: () => new OFH3Adapter() },
   { pattern: /hangoverhash\.digitalpress/i, name: "HangoverAdapter",  factory: () => new HangoverAdapter() },
   { pattern: /shith3\.com/i,                 name: "SHITH3Adapter",    factory: () => new SHITH3Adapter() },
+  { pattern: /jollyrogerh3\.com/i,           name: "WCFHCalendarAdapter", factory: () => new WCFHCalendarAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */
