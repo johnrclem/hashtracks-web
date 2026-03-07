@@ -216,13 +216,23 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
         console.log(`  + Created source: ${sourceData.name}`);
       } else {
         activeSource = existingSource;
-        // Update trustLevel if seed specifies a higher value
+        // Sync mutable fields (config, name, trustLevel) so seed changes get applied
+        const updates: Record<string, unknown> = {};
         if (sourceData.trustLevel && sourceData.trustLevel > (existingSource.trustLevel ?? 0)) {
+          updates.trustLevel = sourceData.trustLevel;
+        }
+        if (sourceData.name !== existingSource.name) {
+          updates.name = sourceData.name;
+        }
+        if (JSON.stringify(sourceData.config) !== JSON.stringify(existingSource.config)) {
+          updates.config = sourceData.config;
+        }
+        if (Object.keys(updates).length > 0) {
           await prisma.source.update({
             where: { id: existingSource.id },
-            data: { trustLevel: sourceData.trustLevel },
+            data: updates,
           });
-          console.log(`  ~ Updated trustLevel for ${sourceData.name}: ${existingSource.trustLevel} → ${sourceData.trustLevel}`);
+          console.log(`  ~ Updated ${Object.keys(updates).join(", ")} for ${sourceData.name}`);
         }
       }
 
@@ -2133,7 +2143,7 @@ async function main() {
     },
     {
       name: "Columbian H3 Static Schedule (1st Sunday)",
-      url: "https://www.facebook.com/groups/columbianh3/",
+      url: "https://www.facebook.com/groups/columbianh3/#1st-sunday",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
@@ -2151,7 +2161,7 @@ async function main() {
     },
     {
       name: "Columbian H3 Static Schedule (3rd Sunday)",
-      url: "https://www.facebook.com/groups/columbianh3/",
+      url: "https://www.facebook.com/groups/columbianh3/#3rd-sunday",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
