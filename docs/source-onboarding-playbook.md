@@ -1,6 +1,6 @@
 # Source Onboarding Playbook
 
-How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 31 sources across 8 adapter types.
+How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 64 sources across 8 adapter types.
 
 ---
 
@@ -393,6 +393,19 @@ git add . && git commit && git push
 - **Key lesson**: PHP REST APIs behind FullCalendar widgets are a rich data source — inspect the network requests on calendar pages to discover structured JSON endpoints that provide far more data than the calendar feed itself
 - **Key lesson**: When a source has both a Google Calendar feed and a website API, the website API typically has richer data (hares, locations, descriptions). Add both as sources with the website at a higher trust level to let the merge pipeline enrich events automatically.
 
+### Sources #17-25: South Carolina (MEETUP + STATIC_SCHEDULE — zero-code onboarding)
+
+- **Types**: `MEETUP` (x1) + `STATIC_SCHEDULE` (x8)
+- **Coverage**: 10 kennels across 4 metros (Charleston, Columbia, Greenville, Myrtle Beach) — zero prior coverage
+- **Adapters**: No new adapter code — reuses existing MEETUP and STATIC_SCHEDULE adapters entirely
+- **Regions**: 5 new regions added (1 STATE_PROVINCE + 4 METRO), demonstrating the state→metro hierarchy pattern
+- **KennelCode conflicts**: Charleston's CH3 collided with Chicago's `ch3` — resolved with region suffix `ch3-sc`. Palmetto H3 avoided `ph3` (taken by Pinelake H3) with `palh3`. Secession H3 used `sech3` instead of `sh3` for clarity.
+- **Moon-phase gap**: Luna Ticks H3 (LTH3) runs on full/new moons — RRULE can't express lunar recurrence. Added as kennel-only (no source). Future roadmap item: `FREQ=LUNAR;PHASE=FULL` support.
+- **Key lesson**: Small-market regions are predominantly Facebook-only kennels — STATIC_SCHEDULE is the right source type for these. It provides placeholder events on the hareline so users know when runs happen, even without automated real-data scraping.
+- **Key lesson**: Meetup remains the highest-ROI automated source where available. One Meetup source (Charleston Heretics, 344 past events) provides more historical data than all 8 static schedule sources combined.
+- **Key lesson**: KennelCode conflicts become more common as coverage expands. Always check existing kennelCodes before assigning — use region suffixes (`-sc`, `-atl`, `-fl`) to disambiguate when shortNames collide across regions.
+- **Key lesson**: STATE_PROVINCE regions provide organizational hierarchy — metros like "Charleston, SC" parent to "South Carolina" which parents to "USA". This enables future state-level filtering and grouping.
+
 ---
 
 ## Lessons Learned
@@ -429,6 +442,10 @@ git add . && git commit && git push
 30. **Multi-section blog posts need section isolation** — When a post contains multiple events (e.g., prelubes + main trail), isolate the relevant section before parsing to avoid extracting wrong dates/fields. Structural markers like `<hr>` separators are reliable delimiters.
 31. **PHP REST APIs behind FullCalendar widgets** — Many hash websites use FullCalendar.js with PHP endpoints that return structured JSON. Inspect network requests on calendar pages to discover these APIs — they typically provide far richer data than Google Calendar feeds (hares, full addresses, descriptions, distances, on-after venues).
 32. **Listing + detail fetch pattern** — When an API provides a listing endpoint with IDs and a detail endpoint per event, fetch detail sequentially (not in parallel) to be a good API citizen. Always implement a listing-only fallback when detail fetches fail — partial data is better than no data.
+33. **STATIC_SCHEDULE is the default for Facebook-only kennels** — Most small-market kennels have no website, calendar, or API — just a Facebook group. STATIC_SCHEDULE sources generate placeholder events from RRULE patterns, giving users visibility into the schedule even without automated scraping.
+34. **KennelCode conflicts need region suffixes** — As coverage expands, shortName collisions across regions become common (e.g., CH3 in both Chicago and Charleston). Use region suffixes on the `kennelCode` (e.g., `ch3-sc`, `ph3-atl`) to disambiguate. The `shortName` stays clean for display.
+35. **Moon-phase scheduling can't be expressed as RRULE** — Kennels that run on full/new moons (Luna Ticks, Dark Side) need a custom recurrence model. For now, add them as kennel-only records (no source) and note the lunar schedule in `scheduleNotes`.
+36. **Zero-code onboarding at scale** — South Carolina onboarded 10 kennels with 9 sources and zero new adapter code. Config-driven adapters (MEETUP, STATIC_SCHEDULE) + seed data changes are sufficient for regions without structured web sources. This pattern scales to any region with known schedules.
 
 ---
 
