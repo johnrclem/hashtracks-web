@@ -82,11 +82,11 @@ export function extractEventDate(
   hashDay: string,
 ): string | null {
   const refDate = new Date(postDate);
-  if (isNaN(refDate.getTime())) return null;
+  if (Number.isNaN(refDate.getTime())) return null;
 
   // 1. Check body for explicit date patterns
   const dateLinePatterns = [
-    /(?:When|Date|Day)\s*:\s*(.+?)(?:\n|<br|$)/i,
+    /(?:When|Date|Day)\s*:\s*([^\n<]*)(?:\n|<br|$)/i,
     /(\d{1,2}\/\d{1,2}\/\d{2,4})/,
   ];
   for (const pattern of dateLinePatterns) {
@@ -99,7 +99,8 @@ export function extractEventDate(
 
   // 2. Try parsing date from title
   // Strip kennel prefix like "Atlanta Hash (Saturdays) • " or "Moonlite #1638 "
-  let titleClean = title.includes("•") ? title.split("•").pop()!.trim() : title;
+  const normalized = title.replace(/·/g, "•");
+  let titleClean = normalized.includes("•") ? normalized.split("•").pop()!.trim() : title;
   // Strip run numbers (e.g., "#1638") that confuse chrono-node
   titleClean = titleClean.replace(/#\d+/g, "").trim();
   const titleParsed = chronoParseDate(titleClean, "en-US", refDate, { forwardDate: true });
@@ -120,7 +121,7 @@ function inferDateFromHashDay(refDate: Date, hashDay: string): string | null {
 
   const d = new Date(refDate);
   const current = d.getUTCDay();
-  const daysAhead = (target - current + 7) % 7 || 7; // at least 1 day ahead
+  const daysAhead = (target - current + 7) % 7;
   d.setUTCDate(d.getUTCDate() + daysAhead);
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
@@ -142,13 +143,13 @@ export function extractEventFields(
   const text = precomputedText ?? stripHtmlTags(htmlContent, "\n");
 
   // Hares
-  const hareMatch = /Hares?\s*:\s*(.+?)(?:\n|$)/i.exec(text);
+  const hareMatch = /Hares?\s*:\s*([^\n]*)(?:\n|$)/i.exec(text);
   if (hareMatch) {
     fields.hares = hareMatch[1].trim();
   }
 
   // Location — look for labeled fields first
-  const locMatch = /(?:Start|Where|Location|Meeting|Meet)\s*:\s*(.+?)(?:\n|$)/i.exec(text);
+  const locMatch = /(?:Start|Where|Location|Meeting|Meet)\s*:\s*([^\n]*)(?:\n|$)/i.exec(text);
   if (locMatch) {
     fields.location = locMatch[1].trim();
   }
@@ -162,7 +163,7 @@ export function extractEventFields(
   }
 
   // Time
-  const timeMatch = /(?:Time|Meet|Gather|Show)\s*[:\-]?\s*.*?(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm))/i.exec(text);
+  const timeMatch = /(?:Time|Meet|Gather|Show)\s*:?\s*[^\n]*?(\d{1,2}:\d{2}\s*[APap][Mm])/i.exec(text);
   if (timeMatch) {
     const parsed = parse12HourTime(timeMatch[1]);
     if (parsed) fields.startTime = parsed;
@@ -171,7 +172,7 @@ export function extractEventFields(
   // Run number from text (e.g., "#1638" or "Run #123")
   const runMatch = /#(\d{2,})/.exec(text) ?? /Run\s*#?\s*(\d{2,})/i.exec(text);
   if (runMatch) {
-    fields.runNumber = parseInt(runMatch[1], 10);
+    fields.runNumber = Number.parseInt(runMatch[1], 10);
   }
 
   // Cost
@@ -187,18 +188,94 @@ export function extractEventFields(
 /** Extract run number from Atom entry title. */
 function extractRunNumberFromTitle(title: string): number | undefined {
   const match = /#(\d{2,})/.exec(title);
-  return match ? parseInt(match[1], 10) : undefined;
+  return match ? Number.parseInt(match[1], 10) : undefined;
 }
 
 /** Extract a clean trail name from the Atom title. */
 function extractTitleName(title: string): string | undefined {
-  // Titles look like: "Atlanta Hash (Saturdays) • Trail Name Here"
-  const afterBullet = title.includes("•") ? title.split("•").pop()!.trim() : null;
+  // Titles look like: "Atlanta Hash (Saturdays) • Trail Name Here" (• or · separator)
+  const normalized = title.replace(/·/g, "•");
+  const afterBullet = normalized.includes("•") ? normalized.split("•").pop()!.trim() : null;
   if (!afterBullet) return undefined;
 
   // Strip "Re: " prefix (shouldn't get here but just in case)
   const cleaned = afterBullet.replace(/^Re:\s*/i, "").trim();
   return cleaned || undefined;
+}
+
+// ── Entry processing (extracted to reduce fetch() complexity) ──
+
+interface ProcessedEntries {
+  events: RawEventData[];
+  parseErrors: ParseError[];
+  skippedReplies: number;
+}
+
+function processForumEntries(
+  entries: AtomEntry[],
+  forumId: string,
+  forumConfig: ForumConfig,
+  minDate: Date,
+  maxDate: Date,
+): ProcessedEntries {
+  const events: RawEventData[] = [];
+  const parseErrors: ParseError[] = [];
+  let skippedReplies = 0;
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+
+    if (isReplyEntry(entry.title)) {
+      skippedReplies++;
+      continue;
+    }
+
+    try {
+      const textContent = stripHtmlTags(entry.content, "\n");
+      const $content = cheerio.load(entry.content);
+
+      const date = extractEventDate(
+        entry.title, textContent, entry.published, forumConfig.hashDay,
+      );
+
+      if (!date) {
+        parseErrors.push({
+          row: i, section: `forum-${forumId}`, field: "date",
+          error: "Could not extract event date",
+          rawText: entry.title.slice(0, 200),
+        });
+        continue;
+      }
+
+      const eventDate = new Date(date + "T12:00:00Z");
+      if (eventDate < minDate || eventDate > maxDate) continue;
+
+      const fields = extractEventFields(entry.content, textContent, $content);
+      const titleRunNumber = extractRunNumberFromTitle(entry.title);
+      const titleName = extractTitleName(entry.title);
+
+      events.push({
+        date,
+        kennelTag: forumConfig.kennelTag,
+        runNumber: fields.runNumber ?? titleRunNumber,
+        title: titleName,
+        hares: fields.hares,
+        location: fields.location,
+        locationUrl: fields.locationUrl,
+        startTime: fields.startTime,
+        sourceUrl: entry.link,
+        description: fields.description,
+      });
+    } catch (err) {
+      parseErrors.push({
+        row: i, section: `forum-${forumId}`,
+        error: `Parse error: ${err instanceof Error ? err.message : String(err)}`,
+        rawText: entry.title.slice(0, 200),
+      });
+    }
+  }
+
+  return { events, parseErrors, skippedReplies };
 }
 
 // ── Adapter class ──
@@ -230,7 +307,7 @@ export class AtlantaHashBoardAdapter implements SourceAdapter {
     const allEvents: RawEventData[] = [];
     const allErrors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    const parseErrors: ParseError[] = [];
+    const allParseErrors: ParseError[] = [];
     let totalEntries = 0;
     let skippedReplies = 0;
 
@@ -275,73 +352,16 @@ export class AtlantaHashBoardAdapter implements SourceAdapter {
       const entries = parseAtomFeed(result.xml);
       totalEntries += entries.length;
 
-      for (let i = 0; i < entries.length; i++) {
-        const entry = entries[i];
-
-        // Skip replies — only original topic posts have event data
-        if (isReplyEntry(entry.title)) {
-          skippedReplies++;
-          continue;
-        }
-
-        try {
-          // Parse content once, reuse for date extraction and field extraction
-          const textContent = stripHtmlTags(entry.content, "\n");
-          const $content = cheerio.load(entry.content);
-
-          const date = extractEventDate(
-            entry.title,
-            textContent,
-            entry.published,
-            result.forumConfig.hashDay,
-          );
-
-          if (!date) {
-            parseErrors.push({
-              row: i,
-              section: `forum-${result.forumId}`,
-              field: "date",
-              error: "Could not extract event date",
-              rawText: entry.title.slice(0, 200),
-            });
-            continue;
-          }
-
-          // Filter to date window
-          const eventDate = new Date(date + "T12:00:00Z");
-          if (eventDate < minDate || eventDate > maxDate) continue;
-
-          const fields = extractEventFields(entry.content, textContent, $content);
-          const titleRunNumber = extractRunNumberFromTitle(entry.title);
-          const titleName = extractTitleName(entry.title);
-
-          const event: RawEventData = {
-            date,
-            kennelTag: result.forumConfig.kennelTag,
-            runNumber: fields.runNumber ?? titleRunNumber,
-            title: titleName,
-            hares: fields.hares,
-            location: fields.location,
-            locationUrl: fields.locationUrl,
-            startTime: fields.startTime,
-            sourceUrl: entry.link,
-            description: fields.description,
-          };
-
-          allEvents.push(event);
-        } catch (err) {
-          parseErrors.push({
-            row: i,
-            section: `forum-${result.forumId}`,
-            error: `Parse error: ${err instanceof Error ? err.message : String(err)}`,
-            rawText: entry.title.slice(0, 200),
-          });
-        }
-      }
+      const processed = processForumEntries(
+        entries, result.forumId, result.forumConfig, minDate, maxDate,
+      );
+      allEvents.push(...processed.events);
+      allParseErrors.push(...processed.parseErrors);
+      skippedReplies += processed.skippedReplies;
     }
 
-    if (parseErrors.length > 0) {
-      errorDetails.parse = parseErrors;
+    if (allParseErrors.length > 0) {
+      errorDetails.parse = allParseErrors;
     }
 
     return {
@@ -353,7 +373,7 @@ export class AtlantaHashBoardAdapter implements SourceAdapter {
         totalEntries,
         skippedReplies,
         eventsParsed: allEvents.length,
-        parseErrors: parseErrors.length,
+        parseErrors: allParseErrors.length,
       },
     };
   }

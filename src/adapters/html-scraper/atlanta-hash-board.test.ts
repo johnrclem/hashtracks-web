@@ -1,4 +1,3 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   parseAtomFeed,
   isReplyEntry,
@@ -147,6 +146,17 @@ describe("extractEventDate", () => {
     expect(date).toBe("2026-03-07");
   });
 
+  it("infers same-day date when posted on hash day", () => {
+    const date = extractEventDate(
+      "Atlanta Hash (Saturdays) • Today's Trail",
+      "Hares: FastFeet\nStart: Midtown",
+      "2026-03-07T10:00:00+00:00", // Saturday post
+      "Saturday",
+    );
+    // Should return same-day Saturday (March 7), not next week
+    expect(date).toBe("2026-03-07");
+  });
+
   it("returns null for invalid post date", () => {
     const date = extractEventDate("Title", "Body", "not-a-date", "Saturday");
     expect(date).toBeNull();
@@ -243,10 +253,10 @@ describe("AtlantaHashBoardAdapter", () => {
       expect.any(Object),
     );
 
-    // Reply entry should be skipped
-    expect(result.diagnosticContext?.skippedReplies).toBeGreaterThan(0);
-    // Should have parsed some events (exact count depends on date window)
-    expect(result.events.length).toBeGreaterThanOrEqual(0);
+    // Reply entry should be skipped (1 reply per forum × 2 forums = 2)
+    expect(result.diagnosticContext?.skippedReplies).toBe(2);
+    // Each forum has 2 non-reply entries; events within date window should be parsed
+    expect(result.events.length).toBeGreaterThan(0);
   });
 
   it("handles fetch errors gracefully", async () => {
