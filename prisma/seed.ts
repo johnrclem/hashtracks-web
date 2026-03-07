@@ -978,6 +978,15 @@ async function main() {
       kennelCodes: ["shith3"],
     },
     {
+      name: "SHITH3 Website",
+      url: "https://shith3.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["shith3"],
+    },
+    {
       name: "W3H3 Hareline Spreadsheet",
       url: "https://docs.google.com/spreadsheets/d/19mNka1u64ZNOHS7z_EoqRIrAOdqg5HkY9Uk8u6LwAsI",
       type: "GOOGLE_SHEETS" as const,
