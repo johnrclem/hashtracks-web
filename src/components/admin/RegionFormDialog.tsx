@@ -22,6 +22,7 @@ import { createRegion, updateRegion } from "@/app/admin/regions/actions";
 import { useRouter } from "next/navigation";
 import type { RegionRow } from "./RegionTable";
 import { GeocodeButton } from "./GeocodeButton";
+import { geocodeAction } from "@/app/admin/geocode-action";
 
 const COMMON_TIMEZONES = [
   "America/New_York",
@@ -206,6 +207,7 @@ export function RegionFormDialog({
                 }}
                 latInputId="centroidLat"
                 lngInputId="centroidLng"
+                geocode={geocodeAction}
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">

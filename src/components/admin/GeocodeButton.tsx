@@ -4,15 +4,15 @@ import { useState } from "react";
 import { Loader2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { geocodeAddress } from "@/lib/geo";
 
 interface GeocodeButtonProps {
   getAddress: () => string | null;
   latInputId: string;
   lngInputId: string;
+  geocode: (address: string) => Promise<{ lat: number; lng: number } | null>;
 }
 
-export function GeocodeButton({ getAddress, latInputId, lngInputId }: Readonly<GeocodeButtonProps>) {
+export function GeocodeButton({ getAddress, latInputId, lngInputId, geocode }: Readonly<GeocodeButtonProps>) {
   const [isGeocoding, setIsGeocoding] = useState(false);
 
   async function handleGeocode() {
@@ -20,7 +20,7 @@ export function GeocodeButton({ getAddress, latInputId, lngInputId }: Readonly<G
     if (!address) return;
     setIsGeocoding(true);
     try {
-      const result = await geocodeAddress(address);
+      const result = await geocode(address);
       if (result) {
         const latInput = document.getElementById(latInputId) as HTMLInputElement;
         const lngInput = document.getElementById(lngInputId) as HTMLInputElement;
@@ -47,7 +47,7 @@ export function GeocodeButton({ getAddress, latInputId, lngInputId }: Readonly<G
       {isGeocoding ? (
         <><Loader2 className="mr-1 h-3 w-3 animate-spin" />Geocoding...</>
       ) : (
-        <><MapPin className="mr-1 h-3 w-3" />Auto-fill from name</>
+        <><MapPin className="mr-1 h-3 w-3" />Geocode</>
       )}
     </Button>
   );

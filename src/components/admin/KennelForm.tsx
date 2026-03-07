@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { generateAliases } from "@/lib/auto-aliases";
 import { GeocodeButton } from "./GeocodeButton";
+import { geocodeAction } from "@/app/admin/geocode-action";
 
 type KennelData = {
   id: string;
@@ -639,6 +640,7 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
                   }}
                   latInputId="latitude"
                   lngInputId="longitude"
+                  geocode={geocodeAction}
                 />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
