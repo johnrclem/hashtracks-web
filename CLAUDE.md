@@ -87,12 +87,12 @@ calendar + personal logbook + kennel directory.
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
-- `prisma/seed.ts` — 76 kennels, 246 aliases, 30 sources, 36 regions (first-class model with hierarchy)
+- `prisma/seed.ts` — 86 kennels, 296 aliases, 40 sources, 41 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
 - `src/lib/format.ts` — Shared utilities: time formatting, date formatting, participation levels, schedule formatting, social URL helpers
-- `src/lib/region.ts` — Region seed data (36 regions), sync fallback lookups (timezone, colors, centroids, abbrev), region slug generation, RegionLevel hierarchy, `regionNameToData`
+- `src/lib/region.ts` — Region seed data (41 regions), sync fallback lookups (timezone, colors, centroids, abbrev), region slug generation, RegionLevel hierarchy, `regionNameToData`
 - `src/lib/calendar.ts` — Google Calendar URL + .ics file generation (client-side)
 - `src/proxy.ts` — Clerk route protection (public vs authenticated routes) — Next.js 16 proxy convention
 - `src/adapters/types.ts` — SourceAdapter interface + RawEventData types
@@ -230,7 +230,7 @@ calendar + personal logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (30)
+## Active Sources (40)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -273,6 +273,18 @@ calendar + personal logbook + kennel directory.
 - **Old Coulsdon Hash Run List** → HTML_SCRAPER → OCH3
 - **SLASH Run List** → HTML_SCRAPER → SLH3
 - **Enfield Hash Blog** → HTML_SCRAPER → EH3
+
+### South Carolina (10 sources)
+- **Charleston Heretics Meetup** → MEETUP → CHH3
+- **Charleston H3 Static Schedule** → STATIC_SCHEDULE → CH3
+- **BUDH3 Static Schedule** → STATIC_SCHEDULE → BUDH3
+- **Columbian H3 Static Schedule (1st Sunday)** → STATIC_SCHEDULE → ColH3
+- **Columbian H3 Static Schedule (3rd Sunday)** → STATIC_SCHEDULE → ColH3
+- **Secession H3 Static Schedule** → STATIC_SCHEDULE → SecH3
+- **Palmetto H3 Static Schedule** → STATIC_SCHEDULE → PalH3
+- **Upstate H3 Static Schedule** → STATIC_SCHEDULE → UH3
+- **GOTH3 Static Schedule** → STATIC_SCHEDULE → GOTH3
+- **Grand Strand H3 Static Schedule** → STATIC_SCHEDULE → GSH3
 
 See `docs/source-onboarding-playbook.md` for how to add new sources.
 See `docs/roadmap.md` for implementation roadmap.
