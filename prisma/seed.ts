@@ -80,6 +80,7 @@ async function ensureKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
   console.log("Seeding kennels...");
   const kennelRecords = new Map<string, { id: string }>();
   let created = 0;
+  let skipped = 0;
   for (const kennel of kennels) {
     try {
       let record = await prisma.kennel.findUnique({ where: { kennelCode: kennel.kennelCode } });
@@ -90,30 +91,41 @@ async function ensureKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
         const regionId = regionMap.get(kennel.region) ?? null;
         if (!regionId) {
           console.warn(`  ⚠ No region found for "${kennel.region}" (kennel: ${kennel.shortName}), skipping`);
+          skipped++;
           continue;
         }
-        // Try slug candidates until one succeeds: shortName → kennelCode → kennelCode-N
+        // Pre-check slug candidates to find an available one (avoids P2002 errors)
         const slugCandidates = [toSlugFn(kennel.shortName), toSlugFn(kennel.kennelCode)];
         for (let n = 2; slugCandidates.length < 10; n++) slugCandidates.push(`${toSlugFn(kennel.kennelCode)}-${n}`);
+        let chosenSlug: string | null = null;
         for (const slug of slugCandidates) {
-          try {
-            record = await prisma.kennel.create({
-              data: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug, fullName: kennel.fullName, region: kennel.region, regionId, country: kennel.country ?? "USA", ...profileFields },
-            });
-            if (slug !== slugCandidates[0]) {
-              console.log(`  ℹ Slug "${slugCandidates[0]}" taken, using "${slug}" for ${kennel.shortName}`);
-            }
+          const taken = await prisma.kennel.findUnique({ where: { slug }, select: { kennelCode: true, shortName: true } });
+          if (!taken) {
+            chosenSlug = slug;
             break;
-          } catch (e: any) {
-            if (e.code !== "P2002") throw e;
-            // Log which slug collided and which constraint
-            const field = e.meta?.target ?? e.meta?.modelName ?? "unknown field";
-            console.warn(`  ⚠ Slug "${slug}" collided (${field}), trying next candidate...`);
           }
+          console.warn(`  ⚠ Slug "${slug}" already taken by ${taken.shortName} (${taken.kennelCode}), trying next...`);
         }
-        if (!record) {
-          console.error(`  ✗ FAILED to create kennel ${kennel.shortName} (${kennel.kennelCode}) — all slug candidates exhausted`);
+        if (!chosenSlug) {
+          console.error(`  ✗ FAILED: all slug candidates exhausted for ${kennel.shortName} (${kennel.kennelCode})`);
+          console.error(`    Tried: ${slugCandidates.join(", ")}`);
+          skipped++;
           continue;
+        }
+        try {
+          record = await prisma.kennel.create({
+            data: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug: chosenSlug, fullName: kennel.fullName, region: kennel.region, regionId, country: kennel.country ?? "USA", ...profileFields },
+          });
+        } catch (e: any) {
+          if (e.code === "P2002") {
+            console.error(`  ✗ FAILED: unique constraint on ${kennel.shortName} (${kennel.kennelCode}) — shortName "${kennel.shortName}" may already exist in region "${kennel.region}"`);
+            skipped++;
+            continue;
+          }
+          throw e;
+        }
+        if (chosenSlug !== slugCandidates[0]) {
+          console.log(`  ℹ Slug "${slugCandidates[0]}" taken, using "${chosenSlug}" for ${kennel.shortName}`);
         }
         created++;
         console.log(`  + Created kennel: ${kennel.shortName} (slug: ${record.slug})`);
@@ -125,7 +137,7 @@ async function ensureKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
       throw e;
     }
   }
-  console.log(`  ✓ ${kennels.length} kennels checked (${created} created)`);
+  console.log(`  ✓ ${kennels.length} kennels checked (${created} created, ${skipped} skipped)`);
   return kennelRecords;
 }
 
@@ -300,6 +312,20 @@ async function seedKennels(prisma: any, kennels: any[], kennelAliases: Record<st
     console.warn("\n⚠ Duplicate fullNames found:");
     for (const d of dupes) console.warn(`  - "${d.fullName}" (${d.cnt} records)`);
   }
+
+  // Final summary
+  const totalKennelsInDb = await prisma.kennel.count();
+  const totalSourcesInDb = await prisma.source.count();
+  const totalAliasesInDb = await prisma.kennelAlias.count();
+  const totalRegionsInDb = await prisma.region.count();
+  console.log("\n══════════════════════════════════");
+  console.log("  Seed Summary");
+  console.log("══════════════════════════════════");
+  console.log(`  Regions in DB:  ${totalRegionsInDb}`);
+  console.log(`  Kennels in DB:  ${totalKennelsInDb}`);
+  console.log(`  Aliases in DB:  ${totalAliasesInDb}`);
+  console.log(`  Sources in DB:  ${totalSourcesInDb}`);
+  console.log("══════════════════════════════════");
 }
 
 // Dynamic import of the generated client to handle ESM
