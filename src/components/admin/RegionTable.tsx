@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import {
   Table,
   TableBody,
@@ -11,10 +11,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { deleteRegion } from "@/app/admin/regions/actions";
-import { RegionFormDialog } from "./RegionFormDialog";
-import { RegionMergeDialog } from "./RegionMergeDialog";
 import { useRouter } from "next/navigation";
 
 export interface RegionRow {
@@ -41,20 +40,36 @@ const LEVEL_BADGE: Record<string, { label: string; classes: string }> = {
   METRO: { label: "Metro", classes: "bg-green-100 text-green-800" },
 };
 
-export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
+interface RegionTableProps {
+  regions: RegionRow[];
+  onCreateRegion: () => void;
+  onEditRegion: (region: RegionRow) => void;
+  onMergeRegions: () => void;
+}
+
+export function RegionTable({ regions, onCreateRegion, onEditRegion, onMergeRegions }: Readonly<RegionTableProps>) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [showCreate, setShowCreate] = useState(false);
-  const [editRegion, setEditRegion] = useState<RegionRow | null>(null);
-  const [showMerge, setShowMerge] = useState(false);
   const [countryFilter, setCountryFilter] = useState("");
+  const [showMissingOnly, setShowMissingOnly] = useState(false);
   const router = useRouter();
 
   const countries = Array.from(new Set(regions.map((r) => r.country))).sort((a, b) => a.localeCompare(b));
 
-  const filtered = countryFilter
+  const isMissingCentroid = (r: RegionRow) =>
+    r.centroidLat == null || r.centroidLng == null;
+
+  const missingCount = useMemo(
+    () => regions.filter(isMissingCentroid).length,
+    [regions],
+  );
+
+  let filtered = countryFilter
     ? regions.filter((r) => r.country === countryFilter)
     : regions;
+  if (showMissingOnly) {
+    filtered = filtered.filter(isMissingCentroid);
+  }
 
   function handleDelete(regionId: string, name: string, kennelCount: number) {
     if (kennelCount > 0) {
@@ -113,10 +128,21 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
             </div>
           )}
 
-          <Button variant="outline" size="sm" onClick={() => setShowMerge(true)}>
+          {missingCount > 0 && (
+            <Button
+              size="sm"
+              variant={showMissingOnly ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setShowMissingOnly(!showMissingOnly)}
+            >
+              <AlertTriangle className="mr-1 h-3 w-3" />
+              {missingCount} missing coords
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={onMergeRegions}>
             Merge Regions
           </Button>
-          <Button size="sm" onClick={() => setShowCreate(true)}>
+          <Button size="sm" onClick={onCreateRegion}>
             Add Region
           </Button>
         </div>
@@ -157,6 +183,9 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
                           (in {region.parentName})
                         </span>
                       )}
+                      {isMissingCentroid(region) && (
+                        <span title="Missing centroid coordinates"><AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" /></span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -186,7 +215,7 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
                         className="h-7 text-xs"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setEditRegion(region);
+                          onEditRegion(region);
                         }}
                       >
                         Edit
@@ -245,30 +274,6 @@ export function RegionTable({ regions }: Readonly<{ regions: RegionRow[] }>) {
         </Table>
       </div>
 
-      {/* Create dialog */}
-      {showCreate && (
-        <RegionFormDialog
-          regions={regions}
-          onClose={() => setShowCreate(false)}
-        />
-      )}
-
-      {/* Edit dialog */}
-      {editRegion && (
-        <RegionFormDialog
-          region={editRegion}
-          regions={regions}
-          onClose={() => setEditRegion(null)}
-        />
-      )}
-
-      {/* Merge dialog */}
-      {showMerge && (
-        <RegionMergeDialog
-          regions={regions}
-          onClose={() => setShowMerge(false)}
-        />
-      )}
     </div>
   );
 }

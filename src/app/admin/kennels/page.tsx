@@ -56,6 +56,8 @@ export default async function AdminKennelsPage() {
     dogFriendly: k.dogFriendly,
     walkersWelcome: k.walkersWelcome,
     isHidden: k.isHidden,
+    latitude: k.latitude,
+    longitude: k.longitude,
   }));
 
   // Simplified kennel list for merge dialog

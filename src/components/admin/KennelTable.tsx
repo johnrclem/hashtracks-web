@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteKennel, toggleKennelVisibility } from "@/app/admin/kennels/actions";
-import { MoreHorizontal, Eye, EyeOff } from "lucide-react";
+import { MoreHorizontal, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -72,7 +72,11 @@ type Kennel = {
   dogFriendly: boolean | null;
   walkersWelcome: boolean | null;
   isHidden: boolean;
+  latitude: number | null;
+  longitude: number | null;
 };
+
+const isMissingCoords = (k: Kennel) => k.latitude == null || k.longitude == null;
 
 interface KennelTableProps {
   kennels: Kennel[];
@@ -82,6 +86,12 @@ interface KennelTableProps {
 export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
   const [search, setSearch] = useState("");
   const [regionFilter, setRegionFilter] = useState("all");
+  const [showMissingOnly, setShowMissingOnly] = useState(false);
+
+  const missingCount = useMemo(
+    () => kennels.filter(isMissingCoords).length,
+    [kennels],
+  );
 
   const regionNames = useMemo(() => {
     const set = new Set(kennels.map((k) => k.region));
@@ -93,6 +103,9 @@ export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
     if (regionFilter !== "all") {
       result = result.filter((k) => k.region === regionFilter);
     }
+    if (showMissingOnly) {
+      result = result.filter(isMissingCoords);
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -103,7 +116,7 @@ export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
       );
     }
     return result;
-  }, [kennels, regionFilter, search]);
+  }, [kennels, regionFilter, showMissingOnly, search]);
 
   if (kennels.length === 0) {
     return <p className="text-sm text-muted-foreground">No kennels yet.</p>;
@@ -129,7 +142,18 @@ export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
             ))}
           </SelectContent>
         </Select>
-        {(search || regionFilter !== "all") && (
+        {missingCount > 0 && (
+          <Button
+            size="sm"
+            variant={showMissingOnly ? "default" : "outline"}
+            className="h-8 text-xs"
+            onClick={() => setShowMissingOnly(!showMissingOnly)}
+          >
+            <AlertTriangle className="mr-1 h-3 w-3" />
+            {missingCount} missing coords
+          </Button>
+        )}
+        {(search || regionFilter !== "all" || showMissingOnly) && (
           <span className="text-xs text-muted-foreground">
             {filtered.length} of {kennels.length}
           </span>
@@ -203,6 +227,9 @@ function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[
           {kennel.shortName}
           {kennel.isHidden && (
             <Badge variant="secondary" className="text-[10px] px-1 py-0">Hidden</Badge>
+          )}
+          {isMissingCoords(kennel) && (
+            <span title="Missing coordinates"><AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" /></span>
           )}
         </span>
       </TableCell>

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { generateAliases } from "@/lib/auto-aliases";
+import { GeocodeButton } from "./GeocodeButton";
 
 type KennelData = {
   id: string;
@@ -49,6 +50,8 @@ type KennelData = {
   dogFriendly: boolean | null;
   walkersWelcome: boolean | null;
   isHidden: boolean;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 interface KennelFormProps {
@@ -615,6 +618,53 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
                 label="Walkers Welcome"
                 defaultValue={triStateDefault(kennel?.walkersWelcome ?? null)}
               />
+            </div>
+          </FormSection>
+
+          {/* ── Location Section ── */}
+          <FormSection label="Location" defaultOpen={kennel?.latitude != null}>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Coordinates</Label>
+                <GeocodeButton
+                  getAddress={() => {
+                    const fullName = fullNameRef.current?.value?.trim();
+                    if (!fullName) {
+                      toast.error("Enter a full name first");
+                      return null;
+                    }
+                    const region = selectedRegion?.name ?? "";
+                    const country = (document.getElementById("country") as HTMLInputElement)?.value?.trim();
+                    return [fullName, region, country].filter(Boolean).join(", ");
+                  }}
+                  latInputId="latitude"
+                  lngInputId="longitude"
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="latitude" className="text-xs text-muted-foreground">Lat</Label>
+                  <Input
+                    id="latitude"
+                    name="latitude"
+                    type="number"
+                    step="any"
+                    defaultValue={kennel?.latitude ?? ""}
+                    placeholder="40.71"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="longitude" className="text-xs text-muted-foreground">Lng</Label>
+                  <Input
+                    id="longitude"
+                    name="longitude"
+                    type="number"
+                    step="any"
+                    defaultValue={kennel?.longitude ?? ""}
+                    placeholder="-74.01"
+                  />
+                </div>
+              </div>
             </div>
           </FormSection>
 

@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { createRegion, updateRegion } from "@/app/admin/regions/actions";
 import { useRouter } from "next/navigation";
 import type { RegionRow } from "./RegionTable";
+import { GeocodeButton } from "./GeocodeButton";
 
 const COMMON_TIMEZONES = [
   "America/New_York",
@@ -190,28 +191,46 @@ export function RegionFormDialog({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="centroidLat">Centroid Lat</Label>
-              <Input
-                id="centroidLat"
-                name="centroidLat"
-                type="number"
-                step="any"
-                defaultValue={region?.centroidLat ?? ""}
-                placeholder="40.71"
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Centroid</Label>
+              <GeocodeButton
+                getAddress={() => {
+                  const name = (document.getElementById("name") as HTMLInputElement)?.value?.trim();
+                  const country = (document.getElementById("country") as HTMLInputElement)?.value?.trim();
+                  if (!name || !country) {
+                    toast.error("Enter a name and country first");
+                    return null;
+                  }
+                  return `${name}, ${country}`;
+                }}
+                latInputId="centroidLat"
+                lngInputId="centroidLng"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="centroidLng">Centroid Lng</Label>
-              <Input
-                id="centroidLng"
-                name="centroidLng"
-                type="number"
-                step="any"
-                defaultValue={region?.centroidLng ?? ""}
-                placeholder="-74.01"
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="centroidLat" className="text-xs text-muted-foreground">Lat</Label>
+                <Input
+                  id="centroidLat"
+                  name="centroidLat"
+                  type="number"
+                  step="any"
+                  defaultValue={region?.centroidLat ?? ""}
+                  placeholder="40.71"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="centroidLng" className="text-xs text-muted-foreground">Lng</Label>
+                <Input
+                  id="centroidLng"
+                  name="centroidLng"
+                  type="number"
+                  step="any"
+                  defaultValue={region?.centroidLng ?? ""}
+                  placeholder="-74.01"
+                />
+              </div>
             </div>
           </div>
 
