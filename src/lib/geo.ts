@@ -148,19 +148,22 @@ export function getEventCoordsFromRegionData(
   return null;
 }
 
+/** Hardcoded Google Geocoding API base — not user-controlled (SSRF-safe). */
+const GOOGLE_GEOCODE_BASE = "https://maps.googleapis.com/maps/api/geocode/json";
+
 /**
  * Geocode a text address using the Google Maps Geocoding API.
  * Returns the first result's coordinates, or null on failure.
- * Uses NEXT_PUBLIC_GOOGLE_MAPS_API_KEY (same key used by Static Maps).
+ * Uses GOOGLE_CALENDAR_API_KEY (server-only, no HTTP referrer restrictions).
  */
 export async function geocodeAddress(
   address: string,
 ): Promise<{ lat: number; lng: number } | null> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   if (!apiKey || !address.trim()) return null;
 
   try {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+    const url = `${GOOGLE_GEOCODE_BASE}?address=${encodeURIComponent(address)}&key=${apiKey}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(url, { signal: controller.signal });
@@ -168,7 +171,10 @@ export async function geocodeAddress(
     if (!res.ok) return null;
 
     const data = await res.json();
-    if (data.status !== "OK" || !data.results?.length) return null;
+    if (data.status !== "OK" || !data.results?.length) {
+      console.error(`Geocode failed for "${address}": ${data.status} ${data.error_message ?? ""}`);
+      return null;
+    }
 
     const { lat, lng } = data.results[0].geometry.location;
     if (typeof lat !== "number" || typeof lng !== "number") return null;
@@ -178,9 +184,6 @@ export async function geocodeAddress(
   }
 }
 
-/** Hardcoded Google Geocoding API base — not user-controlled (SSRF-safe). */
-const GOOGLE_GEOCODE_BASE = "https://maps.googleapis.com/maps/api/geocode/json";
-
 /**
  * Reverse geocode coordinates to a city string using the Google Maps Geocoding API.
  * Returns a display string like "Brooklyn, NY" or "London, England", or null on failure.
@@ -189,7 +192,7 @@ export async function reverseGeocode(
   lat: number,
   lng: number,
 ): Promise<string | null> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   if (!apiKey) return null;
 
   try {
