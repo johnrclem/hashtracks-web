@@ -61,15 +61,15 @@ export function extractDate(isoLike: string): string | undefined {
   return match ? match[1] : undefined;
 }
 
-/**
- * Build a combined description from detail fields.
- * Includes TIDBIT, parsed distances from NOTES, and on-after venue.
- */
 /** Strip HTML tags and decode entities from a field value. */
 function cleanHtml(text: string): string {
   return stripHtmlTags(decodeEntities(text), "\n").trim();
 }
 
+/**
+ * Build a combined description from detail fields.
+ * Includes TIDBIT, parsed distances from NOTES, and on-after venue.
+ */
 export function buildDescription(detail: DetailItem): string | undefined {
   const parts: string[] = [];
 
