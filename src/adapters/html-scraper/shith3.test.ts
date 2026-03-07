@@ -101,6 +101,23 @@ describe("buildDescription", () => {
   it("handles ONONON only", () => {
     expect(buildDescription({ ONONON: "Some Bar" })).toBe("On-After: Some Bar");
   });
+
+  it("strips HTML tags and decodes entities from TIDBIT", () => {
+    const desc = buildDescription({
+      TIDBIT:
+        '<div>mystery hare!<br>Start behind "LEE GIMBAP"</div><div>Pre-lube walkable, same stripmall. CHUY&apos;S<br>11219 Lee Hwy, Fairfax, VA 22030</div><div>Shiggy level HIGH. Wet. Long. Lost. No strollers or weak sauce.</div>',
+    });
+    expect(desc).not.toContain("<div>");
+    expect(desc).not.toContain("<br>");
+    expect(desc).not.toContain("&apos;");
+    expect(desc).toContain("mystery hare!");
+    expect(desc).toContain("CHUY'S");
+  });
+
+  it("strips HTML tags from ONONON", () => {
+    const desc = buildDescription({ ONONON: "<b>Some Bar &amp; Grill</b>" });
+    expect(desc).toBe("On-After: Some Bar & Grill");
+  });
 });
 
 describe("buildEventFromDetail", () => {
