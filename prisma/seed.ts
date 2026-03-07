@@ -116,8 +116,8 @@ async function ensureKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
           record = await prisma.kennel.create({
             data: { kennelCode: kennel.kennelCode, shortName: kennel.shortName, slug: chosenSlug, fullName: kennel.fullName, region: kennel.region, regionId, country: kennel.country ?? "USA", ...profileFields },
           });
-        } catch (e: any) {
-          if (e.code === "P2002") {
+        } catch (e: unknown) {
+          if (e instanceof Error && "code" in e && (e as { code: string }).code === "P2002") {
             console.error(`  ✗ FAILED: unique constraint on ${kennel.shortName} (${kennel.kennelCode}) — shortName "${kennel.shortName}" may already exist in region "${kennel.region}"`);
             skipped++;
             continue;
@@ -160,9 +160,11 @@ async function ensureKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
         }
       }
       kennelRecords.set(kennel.kennelCode, record);
-    } catch (e: any) {
-      console.error(`  ✗ FAILED to seed kennel ${kennel.shortName} (${kennel.kennelCode}): ${e.message}`);
-      if (e.meta) console.error(`    Prisma meta:`, JSON.stringify(e.meta));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const meta = e != null && typeof e === "object" && "meta" in e ? (e as { meta: unknown }).meta : undefined;
+      console.error(`  ✗ FAILED to seed kennel ${kennel.shortName} (${kennel.kennelCode}): ${msg}`);
+      if (meta) console.error(`    Prisma meta:`, JSON.stringify(meta));
       throw e;
     }
   }
@@ -225,9 +227,11 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
       }
 
       await linkKennelsToSource(prisma, activeSource.id, kennelCodes, kennelRecords);
-    } catch (e: any) {
-      console.error(`  ✗ FAILED to seed source "${sourceData.name}" (${sourceData.type}): ${e.message}`);
-      if (e.meta) console.error(`    Prisma meta:`, JSON.stringify(e.meta));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const meta = e != null && typeof e === "object" && "meta" in e ? (e as { meta: unknown }).meta : undefined;
+      console.error(`  ✗ FAILED to seed source "${sourceData.name}" (${sourceData.type}): ${msg}`);
+      if (meta) console.error(`    Prisma meta:`, JSON.stringify(meta));
       throw e;
     }
   }

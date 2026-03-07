@@ -163,7 +163,7 @@ export function extractEventFields(
   }
 
   // Time
-  const timeMatch = /(?:Time|Meet|Gather|Show)\s*:?\s*[^\n]*?(\d{1,2}:\d{2}\s*[APap][Mm])/i.exec(text);
+  const timeMatch = /(?:Time|Meet|Gather|Show)\s*:?\s*[^\n]*?(\d{1,2}:\d{2}\s*[AP][Mm])/i.exec(text);
   if (timeMatch) {
     const parsed = parse12HourTime(timeMatch[1]);
     if (parsed) fields.startTime = parsed;
