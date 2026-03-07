@@ -129,6 +129,35 @@ async function ensureKennelRecords(prisma: any, kennels: any[], toSlugFn: (s: st
         }
         created++;
         console.log(`  + Created kennel: ${kennel.shortName} (slug: ${record.slug})`);
+      } else {
+        // Update profile fields + region for existing kennels (idempotent enrichment)
+        const profileFields = Object.fromEntries(
+          Object.entries(kennel).filter(([k, v]) => PROFILE_FIELDS.has(k) && v !== undefined)
+        );
+        const regionId = regionMap.get(kennel.region) ?? null;
+        const updates: Record<string, unknown> = {};
+        // Update region if it changed or regionId is missing
+        if (regionId && record.region !== kennel.region) {
+          updates.region = kennel.region;
+          updates.regionId = regionId;
+        } else if (regionId && !record.regionId) {
+          updates.regionId = regionId;
+        } else if (!regionId && kennel.region && record.region !== kennel.region) {
+          console.warn(`  ⚠ Cannot update region for "${kennel.shortName}": no region found for "${kennel.region}"`);
+        }
+        // Fill in missing profile fields (don't overwrite existing values)
+        for (const [k, v] of Object.entries(profileFields)) {
+          if (record[k] === null || record[k] === undefined) {
+            updates[k] = v;
+          }
+        }
+        if (Object.keys(updates).length > 0) {
+          record = await prisma.kennel.update({
+            where: { id: record.id },
+            data: updates,
+          });
+          console.log(`  ~ Updated kennel: ${kennel.shortName} (${Object.keys(updates).join(", ")})`);
+        }
       }
       kennelRecords.set(kennel.kennelCode, record);
     } catch (e: any) {
@@ -185,6 +214,14 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
         console.log(`  + Created source: ${sourceData.name}`);
       } else {
         activeSource = existingSource;
+        // Update trustLevel if seed specifies a higher value
+        if (sourceData.trustLevel && sourceData.trustLevel > (existingSource.trustLevel ?? 0)) {
+          await prisma.source.update({
+            where: { id: existingSource.id },
+            data: { trustLevel: sourceData.trustLevel },
+          });
+          console.log(`  ~ Updated trustLevel for ${sourceData.name}: ${existingSource.trustLevel} → ${sourceData.trustLevel}`);
+        }
       }
 
       await linkKennelsToSource(prisma, activeSource.id, kennelCodes, kennelRecords);
@@ -990,6 +1027,119 @@ async function main() {
       facebookUrl: "https://www.facebook.com/FWBAreaHHH",
       description: "Hashing in the Fort Walton Beach / Destin area.",
     },
+    // ===== GEORGIA =====
+    // --- Atlanta Metro ---
+    {
+      kennelCode: "ah4", shortName: "AH4", fullName: "Atlanta Hash House Harriers & Harriettes", region: "Atlanta, GA",
+      website: "https://board.atlantahash.com",
+      facebookUrl: "https://www.facebook.com/groups/atlantahash",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Weekly",
+      hashCash: "$10", foundedYear: 1978,
+      description: "Atlanta's original hash. Weekly Saturday runs since 1978.",
+    },
+    {
+      kennelCode: "ph3-atl", shortName: "PH3", fullName: "Pinelake Hash House Harriers", region: "Atlanta, GA",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      description: "Alternate Saturday runs in the Atlanta metro area.",
+    },
+    {
+      kennelCode: "bsh3", shortName: "BSH3", fullName: "Black Sheep Hash House Harriers", region: "Atlanta, GA",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "1:30 PM", scheduleFrequency: "Biweekly",
+      description: "Alternate Sunday runs in Atlanta.",
+    },
+    {
+      kennelCode: "sobh3", shortName: "SOBH3", fullName: "Slow Old Bastards Hash House Harriers", region: "Atlanta, GA",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "1:30 PM", scheduleFrequency: "Biweekly",
+      description: "Alternate Sunday runs in Atlanta. Easy-going pace.",
+    },
+    {
+      kennelCode: "mlh4", shortName: "MLH4", fullName: "Atlanta Moonlite Hash House Harriers", region: "Atlanta, GA",
+      scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      description: "Weekly Monday evening trail runs in Atlanta.",
+    },
+    {
+      kennelCode: "whh3", shortName: "WHH3", fullName: "Wheelhopper Mountain Bike H3", region: "Atlanta, GA",
+      scheduleFrequency: "Monthly", scheduleNotes: "3rd Sunday, 1:00 PM. Mountain bike hash.",
+      description: "Monthly mountain bike hashing in the Atlanta area.",
+    },
+    {
+      kennelCode: "sluth3", shortName: "SLUT H3", fullName: "Short Lazy Urban Thursday H3", region: "Atlanta, GA",
+      scheduleFrequency: "Monthly", scheduleNotes: "1st Thursday, 7:00 PM.",
+      description: "Monthly Thursday evening urban trail in Atlanta.",
+    },
+    {
+      kennelCode: "duffh3", shortName: "DUFF H3", fullName: "DUFF Hash House Harriers", region: "Atlanta, GA",
+      scheduleFrequency: "Monthly", scheduleNotes: "Monthly Wednesday.",
+      description: "Monthly Wednesday hashing in Atlanta.",
+    },
+    {
+      kennelCode: "soco-h3", shortName: "SoCo", fullName: "Southern Coven Hash House Harriers", region: "Atlanta, GA",
+      scheduleFrequency: "Monthly", scheduleNotes: "3rd Friday.",
+      description: "Monthly Friday hashing in Atlanta.",
+    },
+    {
+      kennelCode: "sch3-atl", shortName: "SCH3", fullName: "Southern Comfort Hash House Harriers", region: "Atlanta, GA",
+      scheduleDayOfWeek: "Friday", scheduleTime: "7:00 PM", scheduleFrequency: "Biweekly",
+      description: "Alternate Friday evening runs in Atlanta.",
+    },
+    {
+      kennelCode: "hmh3", shortName: "HMH3", fullName: "Hog Mountain Hash House Harriers", region: "Atlanta, GA",
+      scheduleFrequency: "Monthly", scheduleNotes: "1st Sunday, 1:30 PM.",
+      description: "Monthly Sunday runs in the north Georgia foothills.",
+    },
+    {
+      kennelCode: "cunth3-atl", shortName: "CUNT H3", fullName: "C U Next Tuesday H3", region: "Atlanta, GA",
+      scheduleFrequency: "Monthly", scheduleNotes: "1st Tuesday, 7:00 PM.",
+      description: "Monthly Tuesday evening trail in Atlanta.",
+    },
+    {
+      kennelCode: "dsh3-atl", shortName: "DSH3", fullName: "Dark Side Hash House Harriers", region: "Atlanta, GA",
+      scheduleNotes: "New moon schedule — check Facebook for dates.",
+      description: "New moon trail runs in Atlanta. Schedule follows lunar calendar.",
+    },
+    // --- Savannah (update existing SavH3 — region fix + profile enrichment) ---
+    {
+      kennelCode: "savh3", shortName: "SavH3", fullName: "Savannah Hash House Harriers", region: "Savannah, GA",
+      website: "https://www.meetup.com/savannah-hash-house-harriers/",
+      facebookUrl: "https://www.facebook.com/groups/savh3",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+      hashCash: "$5", foundedYear: 1990,
+      description: "Weekly Saturday runs in the Savannah area.",
+    },
+    // --- Augusta ---
+    {
+      kennelCode: "pfh3", shortName: "PFH3", fullName: "Peach Fuzz Hash House Harriers", region: "Augusta, GA",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      description: "Alternate Wednesday evening runs in Augusta.",
+    },
+    {
+      kennelCode: "augh3", shortName: "AUGH3", fullName: "Augusta Underground Hash House Harriers", region: "Augusta, GA",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      description: "Alternate Saturday runs in the Augusta area.",
+    },
+    // --- Macon ---
+    {
+      kennelCode: "mgh4", shortName: "MGH4", fullName: "Middle Georgia Hash House Harriers", region: "Macon, GA",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      description: "Alternate Saturday runs in the Macon area.",
+    },
+    {
+      kennelCode: "w3h3-ga", shortName: "W3H3", fullName: "Wednesday Wednesday Wednesday H3", region: "Macon, GA",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Weekly Wednesday evening runs in Macon.",
+    },
+    // --- Columbus ---
+    {
+      kennelCode: "cvh3", shortName: "CVH3", fullName: "Chattahoochee Valley Hash House Harriers", region: "Columbus, GA",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "11:00 AM", scheduleFrequency: "Biweekly",
+      description: "Alternate Saturday morning runs in the Columbus/Chattahoochee Valley area.",
+    },
+    // --- Rome ---
+    {
+      kennelCode: "r2h3", shortName: "R2H3", fullName: "Rumblin' Roman Hash House Harriers", region: "Rome, GA",
+      scheduleFrequency: "Monthly", scheduleNotes: "2nd Saturday, 2:30 PM.",
+      description: "Monthly Saturday runs in Rome, GA.",
+    },
   ];
 
   // ── ALIAS DATA (PRD Appendix D.3) ──
@@ -1106,6 +1256,27 @@ async function main() {
     "pch3": ["Panama City Hash", "PC H3", "PCH3"],
     "survivor-h3": ["Survivor Hash", "Pensacola Hash"],
     "ech3-fl": ["Emerald Coast Hash", "Fort Walton Hash", "FWB Hash"],
+    // Georgia
+    "ah4": ["Atlanta Hash", "Atlanta H4", "Atlanta HHH", "AH4 Hash", "Atlanta Hash (Saturdays)"],
+    "ph3-atl": ["Pinelake Hash", "Pinelake H3", "PH3 ATL"],
+    "bsh3": ["Black Sheep Hash", "Black Sheep H3", "BSH3 Hash"],
+    "sobh3": ["Slow Old Bastards", "SOB Hash", "SOB H3", "SOBH3 Hash"],
+    "mlh4": ["Moonlite Hash", "Atlanta Moonlite", "Moonlite H3", "Moonlite H4"],
+    "whh3": ["Wheelhopper Hash", "Wheelhopper H3", "Mountain Bike Hash"],
+    "sluth3": ["SLUT Hash", "Short Lazy Urban Thursday"],
+    "duffh3": ["DUFF Hash", "DUFF H3"],
+    "soco-h3": ["Southern Coven", "SoCo Hash", "SoCo H3"],
+    "sch3-atl": ["Southern Comfort Hash", "Southern Comfort H3", "SCH3 ATL"],
+    "hmh3": ["Hog Mountain Hash", "Hog Mountain H3"],
+    "cunth3-atl": ["C U Next Tuesday", "CUNT Hash ATL"],
+    "dsh3-atl": ["Dark Side Hash", "Dark Side H3", "DSH3 ATL"],
+    "savh3": ["Savannah Hash", "SavH3", "Savannah H3", "SAV H3"],
+    "pfh3": ["Peach Fuzz Hash", "Peach Fuzz H3"],
+    "augh3": ["Augusta Underground", "Augusta Hash", "AUG H3"],
+    "mgh4": ["Middle Georgia Hash", "Middle GA H3", "MGH4 Hash"],
+    "w3h3-ga": ["Wednesday Wednesday Wednesday", "W3H3 Macon", "WWW H3 GA"],
+    "cvh3": ["Chattahoochee Valley Hash", "Columbus Hash", "CV H3"],
+    "r2h3": ["Rumblin Roman Hash", "Rome Hash", "R2H3 Hash"],
   };
 
   // ── SHARED SFH3 CONFIG (used by both iCal and HTML sources) ──
@@ -1621,6 +1792,206 @@ async function main() {
         defaultDescription: "Monthly Saturday trail run. Check WordPress blog for start location and details.",
       },
       kennelCodes: ["gatr-h3"],
+    },
+    // ===== GEORGIA =====
+    // --- SavH3 Meetup (already in DB — ensure kennel link + bump trustLevel) ---
+    {
+      name: "Savannah H3 Meetup",
+      url: "https://www.meetup.com/savannah-hash-house-harriers/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        groupUrlname: "savannah-hash-house-harriers",
+      },
+      kennelCodes: ["savh3"],
+    },
+    // --- Atlanta Hash Board (phpBB Atom feed — 9 kennels) ---
+    {
+      name: "Atlanta Hash Board",
+      url: "https://board.atlantahash.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        forums: {
+          "2": { kennelTag: "AH4", hashDay: "Saturday" },
+          "4": { kennelTag: "PH3", hashDay: "Saturday" },
+          "5": { kennelTag: "BSH3", hashDay: "Sunday" },
+          "6": { kennelTag: "SOBH3", hashDay: "Sunday" },
+          "7": { kennelTag: "WHH3", hashDay: "Sunday" },
+          "8": { kennelTag: "MLH4", hashDay: "Monday" },
+          "9": { kennelTag: "DUFF H3", hashDay: "Wednesday" },
+          "10": { kennelTag: "SLUT H3", hashDay: "Thursday" },
+          "11": { kennelTag: "SoCo", hashDay: "Friday" },
+        },
+      },
+      kennelCodes: ["ah4", "ph3-atl", "bsh3", "sobh3", "whh3", "mlh4", "duffh3", "sluth3", "soco-h3"],
+    },
+    // --- Georgia Static Schedule sources ---
+    {
+      name: "SCH3 Static Schedule",
+      url: "https://board.atlantahash.com/viewforum.php?f=3",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "SCH3",
+        rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=FR",
+        anchorDate: "2026-03-06",
+        startTime: "19:00",
+        defaultTitle: "SCH3 Biweekly Run",
+        defaultLocation: "Atlanta, GA",
+        defaultDescription: "Alternate Friday evening trail. Check Atlanta Hash Board for details.",
+      },
+      kennelCodes: ["sch3-atl"],
+    },
+    {
+      name: "HMH3 Static Schedule",
+      url: "https://board.atlantahash.com",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "HMH3",
+        rrule: "FREQ=MONTHLY;BYDAY=1SU",
+        anchorDate: "2026-03-01",
+        startTime: "13:30",
+        defaultTitle: "HMH3 Monthly Run",
+        defaultLocation: "North Georgia",
+        defaultDescription: "First Sunday monthly trail in the north Georgia foothills.",
+      },
+      kennelCodes: ["hmh3"],
+    },
+    {
+      name: "CUNT H3 ATL Static Schedule",
+      url: "https://board.atlantahash.com",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "CUNT H3",
+        rrule: "FREQ=MONTHLY;BYDAY=1TU",
+        anchorDate: "2026-03-03",
+        startTime: "19:00",
+        defaultTitle: "CUNT H3 Monthly Run",
+        defaultLocation: "Atlanta, GA",
+        defaultDescription: "First Tuesday monthly evening trail in Atlanta.",
+      },
+      kennelCodes: ["cunth3-atl"],
+    },
+    {
+      name: "PFH3 Static Schedule",
+      url: "https://www.facebook.com/groups/peachfuzzh3",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "PFH3",
+        rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=WE",
+        anchorDate: "2026-03-04",
+        startTime: "18:30",
+        defaultTitle: "PFH3 Biweekly Run",
+        defaultLocation: "Augusta, GA",
+        defaultDescription: "Alternate Wednesday evening trail. Check Facebook for start location.",
+      },
+      kennelCodes: ["pfh3"],
+    },
+    {
+      name: "AUGH3 Static Schedule",
+      url: "https://www.facebook.com/groups/augustaundergroundhash",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "AUGH3",
+        rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+        anchorDate: "2026-03-07",
+        startTime: "14:00",
+        defaultTitle: "AUGH3 Biweekly Run",
+        defaultLocation: "Augusta, GA",
+        defaultDescription: "Alternate Saturday trail. Check Facebook for start location.",
+      },
+      kennelCodes: ["augh3"],
+    },
+    {
+      name: "MGH4 Static Schedule",
+      url: "https://www.facebook.com/groups/middlegeorgiahash",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "MGH4",
+        rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+        anchorDate: "2026-03-07",
+        startTime: "14:00",
+        defaultTitle: "MGH4 Biweekly Run",
+        defaultLocation: "Macon, GA",
+        defaultDescription: "Alternate Saturday trail. Check Facebook for start location.",
+      },
+      kennelCodes: ["mgh4"],
+    },
+    {
+      name: "W3H3 GA Static Schedule",
+      url: "https://www.facebook.com/groups/w3h3macon",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "W3H3",
+        rrule: "FREQ=WEEKLY;BYDAY=WE",
+        anchorDate: "2026-03-04",
+        startTime: "18:30",
+        defaultTitle: "W3H3 Weekly Run",
+        defaultLocation: "Macon, GA",
+        defaultDescription: "Weekly Wednesday evening trail. Check Facebook for start location.",
+      },
+      kennelCodes: ["w3h3-ga"],
+    },
+    {
+      name: "CVH3 Static Schedule",
+      url: "https://www.facebook.com/groups/cvh3columbus",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "CVH3",
+        rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+        anchorDate: "2026-03-07",
+        startTime: "11:00",
+        defaultTitle: "CVH3 Biweekly Run",
+        defaultLocation: "Columbus, GA",
+        defaultDescription: "Alternate Saturday morning trail. Check Facebook for start location.",
+      },
+      kennelCodes: ["cvh3"],
+    },
+    {
+      name: "R2H3 Static Schedule",
+      url: "https://www.facebook.com/groups/r2h3rome",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "R2H3",
+        rrule: "FREQ=MONTHLY;BYDAY=2SA",
+        anchorDate: "2026-03-14",
+        startTime: "14:30",
+        defaultTitle: "R2H3 Monthly Run",
+        defaultLocation: "Rome, GA",
+        defaultDescription: "Second Saturday monthly trail. Check Facebook for start location.",
+      },
+      kennelCodes: ["r2h3"],
     },
   ];
 
