@@ -87,7 +87,7 @@ calendar + personal logbook + kennel directory.
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
-- `prisma/seed.ts` — 86 kennels, 296 aliases, 39 sources, 41 regions (first-class model with hierarchy)
+- `prisma/seed.ts` — 86 kennels, 296 aliases, 40 sources, 41 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
@@ -230,7 +230,7 @@ calendar + personal logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (39)
+## Active Sources (40)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -274,11 +274,12 @@ calendar + personal logbook + kennel directory.
 - **SLASH Run List** → HTML_SCRAPER → SLH3
 - **Enfield Hash Blog** → HTML_SCRAPER → EH3
 
-### South Carolina (9 sources)
+### South Carolina (10 sources)
 - **Charleston Heretics Meetup** → MEETUP → CHH3
 - **Charleston H3 Static Schedule** → STATIC_SCHEDULE → CH3
 - **BUDH3 Static Schedule** → STATIC_SCHEDULE → BUDH3
-- **Columbian H3 Static Schedule** → STATIC_SCHEDULE → ColH3
+- **Columbian H3 Static Schedule (1st Sunday)** → STATIC_SCHEDULE → ColH3
+- **Columbian H3 Static Schedule (3rd Sunday)** → STATIC_SCHEDULE → ColH3
 - **Secession H3 Static Schedule** → STATIC_SCHEDULE → SecH3
 - **Palmetto H3 Static Schedule** → STATIC_SCHEDULE → PalH3
 - **Upstate H3 Static Schedule** → STATIC_SCHEDULE → UH3

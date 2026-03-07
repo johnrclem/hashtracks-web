@@ -1,6 +1,6 @@
 # Source Onboarding Playbook
 
-How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 64 sources across 8 adapter types.
+How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 40 sources across 8 adapter types.
 
 ---
 
