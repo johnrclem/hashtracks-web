@@ -1,6 +1,6 @@
 # Source Onboarding Playbook
 
-How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 30 sources across 8 adapter types.
+How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 31 sources across 8 adapter types.
 
 ---
 
@@ -374,6 +374,25 @@ git add . && git commit && git push
 - **Key lesson**: Ghost CMS sites expose a public Content API — look for `data-key` and `data-api` attributes on the portal script tag. The Content API returns structured JSON with full HTML, eliminating CSS selector fragility.
 - **Key lesson**: When a blog post contains multiple events (prelubes + main trail), isolate the relevant section before parsing to avoid extracting wrong dates/fields. Use structural markers like `<hr>` separators.
 
+### Source #16: SHITH3 Website (PHP REST API)
+
+- **Type**: `HTML_SCRAPER` (internally uses PHP REST API — JSON, not HTML scraping)
+- **Coverage**: SHITH3 (shith3.com — Northern Virginia, weekly Tuesday)
+- **Adapter**: `src/adapters/html-scraper/shith3.ts` — PHP API listing + per-event detail fetch
+- **Multi-source strategy**: SHITH3 already has a Google Calendar source (trustLevel 7). The website source (trustLevel 8) provides much richer data — hares, full address, trail description, distances, on-after venue — that the calendar lacks. The merge pipeline deduplicates via `kennel + date` fingerprint, with the website source winning on field precedence.
+- **API discovery**: The FullCalendar widget on `shith3.com/events.php` calls two PHP endpoints:
+  - **Listing**: `GET /php/get-events.php?start=YYYY-MM-DD&end=YYYY-MM-DD` → JSON array with title, start/end times, type, lookup_id
+  - **Detail**: `GET /php/get-event.php?id={lookup_id}&type=t` → Full event JSON with TRAIL, TITLE, LOCATION, hares, TIDBIT, ONONON, NOTES, MAPLINK
+- **Type filtering**: Listing includes non-trail events (type `"m"` for meetings, etc.) — filter to `type === "t"` only
+- **Sequential detail fetches**: ~26 events for a 90-day window; detail requests are sequential (not parallel) to avoid hammering the server, matching the Hash Rego pattern
+- **Run number accuracy**: Listing titles sometimes contain typos ("Trail 11921" instead of "1196") — the adapter uses `TRAIL` from the detail response as the authoritative run number
+- **Distance parsing**: `NOTES` field contains distances in `R = 4.5 mi\nW = 2.7 mi` format — parsed into structured `Runners: X mi, Walkers: Y mi`
+- **Location URL**: Uses `MAPLINK` if non-empty, otherwise generates a Google Maps search URL from the address
+- **Fallback**: When a detail fetch fails (HTTP error or network error), falls back to listing-only data (date, title, start time, run number from title)
+- **No structureHash**: JSON API responses don't need HTML structural fingerprinting
+- **Key lesson**: PHP REST APIs behind FullCalendar widgets are a rich data source — inspect the network requests on calendar pages to discover structured JSON endpoints that provide far more data than the calendar feed itself
+- **Key lesson**: When a source has both a Google Calendar feed and a website API, the website API typically has richer data (hares, locations, descriptions). Add both as sources with the website at a higher trust level to let the merge pipeline enrich events automatically.
+
 ---
 
 ## Lessons Learned
@@ -408,6 +427,8 @@ git add . && git commit && git push
 28. **SPA sites need content URL discovery** — If a site loads content dynamically via JavaScript `fetch()`, Cheerio sees an empty container. Inspect the network requests (or the JS source) to find the actual content URL and fetch it directly. Example: `enfieldhash.org` loads `home.html` via SPA shell.
 29. **Ghost CMS sites expose a public Content API** — Look for `data-key` and `data-api` attributes on the `ghost-portal` script tag. The Content API (`/ghost/api/content/posts/`) returns structured JSON with full HTML per post, eliminating CSS selector fragility. The API key is read-only and safe to hardcode.
 30. **Multi-section blog posts need section isolation** — When a post contains multiple events (e.g., prelubes + main trail), isolate the relevant section before parsing to avoid extracting wrong dates/fields. Structural markers like `<hr>` separators are reliable delimiters.
+31. **PHP REST APIs behind FullCalendar widgets** — Many hash websites use FullCalendar.js with PHP endpoints that return structured JSON. Inspect network requests on calendar pages to discover these APIs — they typically provide far richer data than Google Calendar feeds (hares, full addresses, descriptions, distances, on-after venues).
+32. **Listing + detail fetch pattern** — When an API provides a listing endpoint with IDs and a detail endpoint per event, fetch detail sequentially (not in parallel) to be a good API citizen. Always implement a listing-only fallback when detail fetches fail — partial data is better than no data.
 
 ---
 

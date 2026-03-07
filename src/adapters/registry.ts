@@ -14,6 +14,7 @@ import { EWH3Adapter } from "./html-scraper/ewh3";
 import { DCH4Adapter } from "./html-scraper/dch4";
 import { OFH3Adapter } from "./html-scraper/ofh3";
 import { HangoverAdapter } from "./html-scraper/hangover";
+import { SHITH3Adapter } from "./html-scraper/shith3";
 import { BarnesHashAdapter } from "./html-scraper/barnes-hash";
 import { OCH3Adapter } from "./html-scraper/och3";
 import { SlashHashAdapter } from "./html-scraper/slash-hash";
@@ -61,6 +62,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /dch4\.org/i,             name: "DCH4Adapter",           factory: () => new DCH4Adapter() },
   { pattern: /ofh3\.com/i,             name: "OFH3Adapter",           factory: () => new OFH3Adapter() },
   { pattern: /hangoverhash\.digitalpress/i, name: "HangoverAdapter",  factory: () => new HangoverAdapter() },
+  { pattern: /shith3\.com/i,                 name: "SHITH3Adapter",    factory: () => new SHITH3Adapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */
