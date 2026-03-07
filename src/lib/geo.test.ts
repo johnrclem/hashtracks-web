@@ -147,14 +147,14 @@ describe("haversineDistance", () => {
 });
 
 describe("geocodeAddress", () => {
-  const originalEnv = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const originalEnv = process.env.GOOGLE_CALENDAR_API_KEY;
 
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = "test-api-key";
+    process.env.GOOGLE_CALENDAR_API_KEY = "test-api-key";
   });
 
   afterEach(() => {
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = originalEnv;
+    process.env.GOOGLE_CALENDAR_API_KEY = originalEnv;
     vi.restoreAllMocks();
   });
 
@@ -189,7 +189,7 @@ describe("geocodeAddress", () => {
   });
 
   it("returns null when API key is missing", async () => {
-    delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    delete process.env.GOOGLE_CALENDAR_API_KEY;
     const result = await geocodeAddress("Some Address");
     expect(result).toBeNull();
   });
@@ -234,14 +234,14 @@ describe("geocodeAddress", () => {
 });
 
 describe("reverseGeocode", () => {
-  const originalEnv = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const originalEnv = process.env.GOOGLE_CALENDAR_API_KEY;
 
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = "test-api-key";
+    process.env.GOOGLE_CALENDAR_API_KEY = "test-api-key";
   });
 
   afterEach(() => {
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = originalEnv;
+    process.env.GOOGLE_CALENDAR_API_KEY = originalEnv;
     vi.restoreAllMocks();
   });
 
@@ -320,7 +320,7 @@ describe("reverseGeocode", () => {
   });
 
   it("returns null when API key is missing", async () => {
-    delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    delete process.env.GOOGLE_CALENDAR_API_KEY;
     const result = await reverseGeocode(40, -74);
     expect(result).toBeNull();
   });
