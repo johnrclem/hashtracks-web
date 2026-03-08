@@ -470,12 +470,19 @@ export async function createKennelForSource(
  * Resolves each slug via the kennel resolver (handles alias resolution) rather than
  * comparing slugs to shortNames directly (which would produce false positives).
  */
+export type SlugDrift = {
+  slugsWithoutLink: string[];
+  linksWithoutSlug: string[];
+  /** Slug → resolved kennelId (null if unresolvable). Avoids redundant re-resolution. */
+  slugToKennelId: Map<string, string | null>;
+};
+
 export async function getHashRegoSlugDrift(source: {
   type: string;
   config: unknown;
   kennels: Array<{ kennelId: string; kennel: { shortName: string } }>;
-}): Promise<{ slugsWithoutLink: string[]; linksWithoutSlug: string[] }> {
-  const empty = { slugsWithoutLink: [], linksWithoutSlug: [] };
+}): Promise<SlugDrift> {
+  const empty: SlugDrift = { slugsWithoutLink: [], linksWithoutSlug: [], slugToKennelId: new Map() };
   if (!isHashRegoConfig(source.config, source.type)) return empty;
 
   const slugs = source.config.kennelSlugs ?? [];
@@ -505,7 +512,7 @@ export async function getHashRegoSlugDrift(source: {
     .filter((sk) => !resolvedKennelIds.has(sk.kennelId))
     .map((sk) => sk.kennel.shortName);
 
-  return { slugsWithoutLink, linksWithoutSlug };
+  return { slugsWithoutLink, linksWithoutSlug, slugToKennelId };
 }
 
 /**
@@ -521,7 +528,7 @@ export type DriftPreviewRow = {
 
 export type DriftPreview = {
   /** Slugs in config that don't resolve to a linked kennel */
-  slugsWithoutLink: Array<{ slug: string; resolved: boolean }>;
+  slugsWithoutLink: Array<{ slug: string; kennelId: string | null }>;
   /** Linked kennels missing from config.kennelSlugs */
   linksWithoutSlug: DriftPreviewRow[];
 };
@@ -542,14 +549,11 @@ export async function getHashRegoDriftPreview(sourceId: string): Promise<DriftPr
 
   const drift = await getHashRegoSlugDrift(source);
 
-  // For slugsWithoutLink, check if each slug resolves to any kennel at all
-  clearResolverCache();
-  const slugsPreview = await Promise.all(
-    drift.slugsWithoutLink.map(async (slug) => {
-      const result = await resolveKennelTag(slug);
-      return { slug, resolved: result.matched };
-    }),
-  );
+  // Use resolution results from drift — no need to re-resolve
+  const slugsPreview = drift.slugsWithoutLink.map((slug) => ({
+    slug,
+    kennelId: drift.slugToKennelId.get(slug) ?? null,
+  }));
 
   // For linksWithoutSlug, look up KennelDiscovery records to find Hash Rego slugs
   const kennelMap = new Map<string, { kennelId: string; fullName: string }>(
@@ -570,17 +574,20 @@ export async function getHashRegoDriftPreview(sourceId: string): Promise<DriftPr
       })
     : [];
 
-  const discoveryMap = new Map<string | null, string>(discoveries.map((d) => [d.matchedKennelId, d.externalSlug]));
+  const discoveryMap = new Map<string, string>(discoveries.map((d) => [d.matchedKennelId!, d.externalSlug]));
 
-  const linksPreview: DriftPreviewRow[] = drift.linksWithoutSlug.map((shortName) => {
-    const info = kennelMap.get(shortName);
-    return {
-      kennelId: info?.kennelId ?? "",
-      shortName,
-      fullName: info?.fullName ?? shortName,
-      hashRegoSlug: info ? (discoveryMap.get(info.kennelId) ?? null) : null,
-    };
-  });
+  const linksPreview: DriftPreviewRow[] = drift.linksWithoutSlug
+    .map((shortName) => {
+      const info = kennelMap.get(shortName);
+      if (!info) return null; // shortName not in kennel map — skip
+      return {
+        kennelId: info.kennelId,
+        shortName,
+        fullName: info.fullName,
+        hashRegoSlug: discoveryMap.get(info.kennelId) ?? null,
+      };
+    })
+    .filter((row): row is DriftPreviewRow => row != null);
 
   return { slugsWithoutLink: slugsPreview, linksWithoutSlug: linksPreview };
 }
@@ -593,56 +600,77 @@ export async function getHashRegoDriftPreview(sourceId: string): Promise<DriftPr
  */
 export async function syncHashRegoDrift(
   sourceId: string,
-  options?: { unlinkOrphans?: boolean },
 ): Promise<{ linksCreated: number; slugsAdded: number; unlinked: number; unresolved: string[] }> {
-  const admin = await getAdminUser();
-  if (!admin) throw new Error("Unauthorized");
-
   const preview = await getHashRegoDriftPreview(sourceId);
 
   let linksCreated = 0;
-  let slugsAdded = 0;
   let unlinked = 0;
   const unresolved: string[] = [];
 
-  // Fix slugsWithoutLink: create SourceKennel links for resolvable slugs
-  clearResolverCache();
-  for (const { slug, resolved } of preview.slugsWithoutLink) {
-    if (!resolved) {
+  // Fix slugsWithoutLink: create SourceKennel links using pre-resolved kennelIds
+  for (const { slug, kennelId } of preview.slugsWithoutLink) {
+    if (!kennelId) {
       unresolved.push(slug);
       continue;
     }
-    const result = await resolveKennelTag(slug);
-    if (result.matched && result.kennelId) {
-      try {
-        await prisma.sourceKennel.create({
-          data: { sourceId, kennelId: result.kennelId },
-        });
-        linksCreated++;
-      } catch (e) {
-        // Unique constraint violation = already linked (race condition)
-        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-          continue;
-        }
-        throw e;
+    try {
+      await prisma.sourceKennel.create({
+        data: { sourceId, kennelId },
+      });
+      linksCreated++;
+    } catch (e) {
+      // Unique constraint violation = already linked (race condition)
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        continue;
       }
+      throw e;
     }
   }
 
-  // Fix linksWithoutSlug: add Hash Rego slug to config, or unlink if no slug found
-  for (const row of preview.linksWithoutSlug) {
-    if (row.hashRegoSlug) {
-      await syncHashRegoSlug(sourceId, row.hashRegoSlug);
-      slugsAdded++;
-    } else if (options?.unlinkOrphans !== false) {
-      // No Hash Rego slug found — unlink from source
-      await prisma.sourceKennel.deleteMany({
-        where: { sourceId, kennelId: row.kennelId },
+  // Fix linksWithoutSlug: batch-add Hash Rego slugs to config in one transaction, or unlink orphans
+  const slugsToAdd = preview.linksWithoutSlug
+    .filter((row) => row.hashRegoSlug)
+    .map((row) => row.hashRegoSlug!);
+
+  if (slugsToAdd.length > 0) {
+    await prisma.$transaction(async (tx) => {
+      const source = await tx.source.findUnique({
+        where: { id: sourceId },
+        select: { type: true, config: true },
       });
-      unlinked++;
-    }
+      if (!source || !isHashRegoConfig(source.config, source.type)) return;
+
+      const existing = new Set((source.config.kennelSlugs ?? []).map((s) => s.toUpperCase()));
+      const newSlugs = slugsToAdd
+        .map((s) => s.toUpperCase())
+        .filter((s) => !existing.has(s));
+
+      if (newSlugs.length > 0) {
+        await tx.source.update({
+          where: { id: sourceId },
+          data: {
+            config: {
+              ...source.config,
+              kennelSlugs: [...(source.config.kennelSlugs ?? []), ...newSlugs],
+            } as Prisma.InputJsonValue,
+          },
+        });
+      }
+    });
+  }
+
+  // Unlink orphans (linked kennels with no Hash Rego slug)
+  const orphanKennelIds = preview.linksWithoutSlug
+    .filter((row) => !row.hashRegoSlug)
+    .map((row) => row.kennelId);
+
+  if (orphanKennelIds.length > 0) {
+    const { count } = await prisma.sourceKennel.deleteMany({
+      where: { sourceId, kennelId: { in: orphanKennelIds } },
+    });
+    unlinked = count;
   }
 
   revalidatePath(`/admin/sources/${sourceId}`);
-  return { linksCreated, slugsAdded, unlinked, unresolved };
+  return { linksCreated, slugsAdded: slugsToAdd.length, unlinked, unresolved };
 }

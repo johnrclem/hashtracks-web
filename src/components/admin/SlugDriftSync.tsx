@@ -70,7 +70,7 @@ export function SlugDriftSync({ sourceId }: { sourceId: string }) {
   }
 
   const hasFixable =
-    preview.slugsWithoutLink.some((s) => s.resolved) ||
+    preview.slugsWithoutLink.some((s) => s.kennelId) ||
     preview.linksWithoutSlug.length > 0;
 
   return (
@@ -93,7 +93,7 @@ export function SlugDriftSync({ sourceId }: { sourceId: string }) {
                 <TableRow key={s.slug}>
                   <TableCell className="py-1 font-mono text-xs">{s.slug}</TableCell>
                   <TableCell className="py-1 text-xs">
-                    {s.resolved ? (
+                    {s.kennelId ? (
                       <span className="text-green-700 dark:text-green-400">Will link</span>
                     ) : (
                       <span className="text-red-600 dark:text-red-400">No matching kennel</span>
