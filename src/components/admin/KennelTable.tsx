@@ -38,7 +38,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { isMissingCoords } from "@/lib/kennel-utils";
+import { isMissingCoords } from "@/lib/kennel-helpers";
 import { KennelForm } from "./KennelForm";
 import type { RegionOption } from "./RegionCombobox";
 import { toast } from "sonner";
