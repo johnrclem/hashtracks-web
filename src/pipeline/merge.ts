@@ -284,20 +284,24 @@ async function upsertCanonicalEvent(
 
   // Match strategy:
   // 1. Zero existing → create new (common case)
-  // 2. Exactly one → always match it (backward-compatible)
-  // 3. Multiple → disambiguate by sourceUrl, then startTime, then title
-  // 4. No disambiguation match among multiples → create new event
+  // 2. Exactly one → match unless sourceUrls differ (double-header detection)
+  // 3. Multiple → disambiguate by sourceUrl, else startTime, else title (strict cascade)
+  // 4. No disambiguation match → create new event
   let existingEvent: (typeof sameDayEvents)[number] | null = null;
   if (sameDayEvents.length === 1) {
-    existingEvent = sameDayEvents[0];
+    const sole = sameDayEvents[0];
+    // If both have sourceUrls and they differ, this is a different event (double-header)
+    if (event.sourceUrl && sole.sourceUrl && event.sourceUrl !== sole.sourceUrl) {
+      existingEvent = null;
+    } else {
+      existingEvent = sole;
+    }
   } else if (sameDayEvents.length > 1) {
     if (event.sourceUrl) {
       existingEvent = sameDayEvents.find(e => e.sourceUrl === event.sourceUrl) ?? null;
-    }
-    if (!existingEvent && event.startTime) {
+    } else if (event.startTime) {
       existingEvent = sameDayEvents.find(e => e.startTime === event.startTime) ?? null;
-    }
-    if (!existingEvent && event.title) {
+    } else if (event.title) {
       existingEvent = sameDayEvents.find(e => e.title === event.title) ?? null;
     }
   }
