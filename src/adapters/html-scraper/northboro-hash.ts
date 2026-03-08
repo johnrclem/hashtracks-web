@@ -7,8 +7,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { chronoParseDate, parse12HourTime } from "../utils";
-import { fetchBrowserRenderedPage } from "../utils";
+import { chronoParseDate, parse12HourTime, fetchBrowserRenderedPage } from "../utils";
 
 /**
  * Parse a time mention from text like "12pm", "12:30pm", "11-12ish", "start time 11-12ish".
@@ -180,7 +179,7 @@ export class NorthboroHashAdapter implements SourceAdapter {
     const textBlocks: string[] = [];
 
     // Get all text from the page body, split by structural breaks
-    $("p, h1, h2, h3, h4, h5, h6, li, div[data-testid], span").each(
+    $("p, h1, h2, h3, h4, h5, h6, li, div[data-testid]").each(
       (_i, el) => {
         const text = $(el).text().trim();
         if (text && text.length > 3) {
@@ -197,64 +196,8 @@ export class NorthboroHashAdapter implements SourceAdapter {
     let currentBlock: string[] = [];
     let rowIndex = 0;
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const isTrailLine =
-        /^\w+\s+Trail\s*#\s*\d+[,:]?\s*\d{1,2}\/\d{1,2}/i.test(line);
-
-      if (isTrailLine) {
-        // Process previous block if any
-        if (currentBlock.length > 0) {
-          try {
-            const event = parseTrailBlock(currentBlock, calendarUrl);
-            if (event) {
-              events.push(event);
-            }
-          } catch (err) {
-            errors.push(`Error parsing trail block at row ${rowIndex}: ${err}`);
-            errorDetails.parse = [
-              ...(errorDetails.parse ?? []),
-              {
-                row: rowIndex,
-                error: String(err),
-                rawText: currentBlock.join("\n").slice(0, 2000),
-              },
-            ];
-          }
-          rowIndex++;
-        }
-        currentBlock = [line];
-      } else if (currentBlock.length > 0) {
-        // Add continuation lines to current block (hares, location, etc.)
-        // Stop if we hit a section header or year heading
-        if (/^(ANCIENT HASHTORY|Upcumming|20\d{2}\s*$)/i.test(line)) {
-          // Process current block before section break
-          try {
-            const event = parseTrailBlock(currentBlock, calendarUrl);
-            if (event) {
-              events.push(event);
-            }
-          } catch (err) {
-            errors.push(`Error parsing trail block at row ${rowIndex}: ${err}`);
-            errorDetails.parse = [
-              ...(errorDetails.parse ?? []),
-              {
-                row: rowIndex,
-                error: String(err),
-                rawText: currentBlock.join("\n").slice(0, 2000),
-              },
-            ];
-          }
-          rowIndex++;
-          currentBlock = [];
-        } else {
-          currentBlock.push(line);
-        }
-      }
-    }
-
-    // Process last block
-    if (currentBlock.length > 0) {
+    function processBlock() {
+      if (currentBlock.length === 0) return;
       try {
         const event = parseTrailBlock(currentBlock, calendarUrl);
         if (event) {
@@ -271,7 +214,31 @@ export class NorthboroHashAdapter implements SourceAdapter {
           },
         ];
       }
+      rowIndex++;
     }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const isTrailLine =
+        /^\w+\s+Trail\s*#\s*\d+[,:]?\s*\d{1,2}\/\d{1,2}/i.test(line);
+
+      if (isTrailLine) {
+        processBlock();
+        currentBlock = [line];
+      } else if (currentBlock.length > 0) {
+        // Add continuation lines to current block (hares, location, etc.)
+        // Stop if we hit a section header or year heading
+        if (/^(ANCIENT HASHTORY|Upcumming|20\d{2}\s*$)/i.test(line)) {
+          processBlock();
+          currentBlock = [];
+        } else {
+          currentBlock.push(line);
+        }
+      }
+    }
+
+    // Process last block
+    processBlock();
 
     // Deduplicate by run number (Wix nested elements can produce duplicate text)
     const seen = new Set<number>();

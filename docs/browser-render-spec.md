@@ -6,7 +6,7 @@ Self-hosted headless browser rendering service on the NAS that renders JS-heavy 
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────┐     Cloudflare Tunnel      ┌──────────────────────────┐
 │  hashtracks-web     │  (outbound-only from NAS)   │  Synology DS423+ NAS     │
 │  (Vercel)           │                             │                          │

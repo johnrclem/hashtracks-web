@@ -27,7 +27,7 @@ calendar + personal logbook + kennel directory.
 - **Database:** PostgreSQL via Prisma ORM (Railway hosted)
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS + shadcn/ui components
-- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright) for JS-rendered sites (Wix, Google Sites) via `browserRender()`; Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup)
+- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()`; Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup)
 - **Residential Proxy:** Optional NAS-based forward proxy for WAF-blocked targets (Cloudflare Tunnel, see `docs/residential-proxy-spec.md`)
 - **AI:** Gemini 2.0 Flash for complex HTML parsing (low temp, cached results), parse error recovery, column auto-detection, kennel pattern suggestions, HTML structure analysis with few-shot learning from existing adapter patterns
 - **Kennel geocoding:** lat/lng on Kennel model, backfill via Google Geocoding API, Near Me distance filter (client-side Haversine)
@@ -319,7 +319,7 @@ See `docs/roadmap.md` for implementation roadmap.
 - **CI enforcement:** All PRs must pass `npx tsc --noEmit`, `npm run lint`, and `npm test` via `.github/workflows/ci.yml`
 
 ## What NOT To Do
-- Don't use Playwright for scraping (Cheerio is sufficient, 100x lighter)
+- Don't use Playwright **in the app** for scraping — use the NAS browser render service for JS-rendered sites, Cheerio for everything else
 - Don't parse dates through `new Date()` without UTC normalization
 - Don't store secrets in code — use environment variables
 - Don't modify RawEvent records after creation (they're immutable audit trail)

@@ -33,27 +33,37 @@ export async function browserRender(options: RenderOptions): Promise<string> {
     );
   }
 
-  const response = await fetch(`${renderUrl}/render`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Render-Key": renderKey,
-    },
-    body: JSON.stringify({
-      url: options.url,
-      waitFor: options.waitFor,
-      selector: options.selector,
-      timeout: options.timeout,
-    }),
-    signal: AbortSignal.timeout(45_000), // 30s render timeout + 15s tunnel buffer
-  });
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const response = await fetch(`${renderUrl}/render`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Render-Key": renderKey,
+      },
+      body: JSON.stringify({
+        url: options.url,
+        waitFor: options.waitFor,
+        selector: options.selector,
+        timeout: options.timeout,
+      }),
+      signal: AbortSignal.timeout(45_000), // 30s render timeout + 15s tunnel buffer
+    });
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(
-      `Browser render error (${response.status}): ${body}`,
-    );
+    if (response.status === 429 && attempt < maxAttempts) {
+      await new Promise((r) => setTimeout(r, 2000));
+      continue;
+    }
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `Browser render error (${response.status}): ${body}`,
+      );
+    }
+
+    return response.text();
   }
 
-  return response.text();
+  throw new Error("Browser render: max retries exceeded (429)");
 }
