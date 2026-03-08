@@ -23,14 +23,14 @@ Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent
 
 ## What Varies Per Source (the adapter-specific work)
 
-| Concern | HTML Scraper | Google Calendar | Google Sheets | iCal Feed | Blogger API | Ghost Content API | Meetup | Hash Rego |
-|---------|-------------|----------------|--------------|-----------|-------------|-------------------|--------|-----------|
-| Data access | HTTP GET + Cheerio parse | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse | Blogger API v3 (blog ID discovery + posts endpoint) | Ghost Content API (public key, JSON with full HTML) | Meetup public REST API | HTTP GET + Cheerio parse (index + detail pages) |
-| Auth needed | None | API key | API key (tab discovery only) | None | API key (same `GOOGLE_CALENDAR_API_KEY`) | None (public read-only key embedded in page) | None (public groups) | None |
-| Kennel tags | Regex patterns on event text | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` | Hardcoded per adapter (single-kennel Blogspot blogs) | Hardcoded per adapter (single-kennel Ghost blogs) | `config.kennelTag` (single kennel, all events) | Per-event from Hash Rego data, filtered by `config.kennelSlugs` |
-| Date format | Site-specific (ordinals, DD/MM/YYYY, US dates) | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY | ISO 8601 / DTSTART | API returns ISO 8601 `published`; post body parsed with site-specific logic | API returns ISO 8601 `published_at`; post body HTML parsed for trail date | ISO 8601 (`local_date`) | Site-specific HTML parsing |
-| Routing | URL-based (`htmlScrapersByUrl` in registry) | Shared adapter (single class) | Shared adapter (config-driven) | Shared adapter (config-driven) | URL-based (reuses `htmlScrapersByUrl` routing, Blogger API is primary fetch with HTML fallback) | URL-based (reuses `htmlScrapersByUrl` routing, Ghost API is primary fetch with HTML fallback) | Shared adapter (config-driven) | Shared adapter (config-driven) |
-| Complexity | High (structural HTML, site-specific) | Medium (clean API) | Low (column mapping) | Low-Medium (config-driven, but iCal quirks) | Medium (shared `fetchBloggerPosts()` utility + site-specific body parsing) | Medium (Ghost API + trail section isolation + body parsing) | Low (config-driven, AI-assisted) | Medium (index + detail page scraping) |
+| Concern | HTML Scraper | Browser-Rendered HTML | Google Calendar | Google Sheets | iCal Feed | Blogger API | Ghost Content API | Meetup | Hash Rego |
+|---------|-------------|----------------------|----------------|--------------|-----------|-------------|-------------------|--------|-----------|
+| Data access | HTTP GET + Cheerio parse | `browserRender()` → Cheerio parse (NAS Playwright service) | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse | Blogger API v3 (blog ID discovery + posts endpoint) | Ghost Content API (public key, JSON with full HTML) | Meetup public REST API | HTTP GET + Cheerio parse (index + detail pages) |
+| Auth needed | None | None (internal `BROWSER_RENDER_KEY`) | API key | API key (tab discovery only) | None | API key (same `GOOGLE_CALENDAR_API_KEY`) | None (public read-only key embedded in page) | None (public groups) | None |
+| Kennel tags | Regex patterns on event text | Hardcoded per adapter (single-kennel) | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` | Hardcoded per adapter (single-kennel Blogspot blogs) | Hardcoded per adapter (single-kennel Ghost blogs) | `config.kennelTag` (single kennel, all events) | Per-event from Hash Rego data, filtered by `config.kennelSlugs` |
+| Date format | Site-specific (ordinals, DD/MM/YYYY, US dates) | Site-specific (JS-rendered content, parsed after render) | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY | ISO 8601 / DTSTART | API returns ISO 8601 `published`; post body parsed with site-specific logic | API returns ISO 8601 `published_at`; post body HTML parsed for trail date | ISO 8601 (`local_date`) | Site-specific HTML parsing |
+| Routing | URL-based (`htmlScrapersByUrl` in registry) | URL-based (`htmlScrapersByUrl` — same as HTML Scraper) | Shared adapter (single class) | Shared adapter (config-driven) | Shared adapter (config-driven) | URL-based (reuses `htmlScrapersByUrl` routing, Blogger API is primary fetch with HTML fallback) | URL-based (reuses `htmlScrapersByUrl` routing, Ghost API is primary fetch with HTML fallback) | Shared adapter (config-driven) | Shared adapter (config-driven) |
+| Complexity | High (structural HTML, site-specific) | Medium (browser render + Cheerio parse) | Medium (clean API) | Low (column mapping) | Low-Medium (config-driven, but iCal quirks) | Medium (shared `fetchBloggerPosts()` utility + site-specific body parsing) | Medium (Ghost API + trail section isolation + body parsing) | Low (config-driven, AI-assisted) | Medium (index + detail page scraping) |
 
 ---
 
@@ -67,6 +67,14 @@ curl "https://docs.google.com/spreadsheets/d/{sheetId}/gviz/tq?tqx=out:csv&sheet
 curl -s "https://api.meetup.com/savannah-hash-house-harriers/events" | jq '.[0]'
 # Look for: name, local_date, local_time, venue.name, venue.address_1, description
 # No API key needed — public groups are accessible without auth
+```
+
+**For browser-rendered (Wix/SPA) sources:**
+```bash
+curl -s -X POST https://proxy.hashtracks.xyz/render \
+  -H "X-Render-Key: $BROWSER_RENDER_KEY" \
+  -d '{"url":"https://example.com","waitFor":"body"}' | head -200
+# Look for: rendered text content, event patterns, CSS classes
 ```
 
 **For iCal feeds:**
@@ -446,6 +454,7 @@ git add . && git commit && git push
 34. **KennelCode conflicts need region suffixes** — As coverage expands, shortName collisions across regions become common (e.g., CH3 in both Chicago and Charleston). Use region suffixes on the `kennelCode` (e.g., `ch3-sc`, `ph3-atl`) to disambiguate. The `shortName` stays clean for display.
 35. **Moon-phase scheduling can't be expressed as RRULE** — Kennels that run on full/new moons (Luna Ticks, Dark Side) need a custom recurrence model. For now, add them as kennel-only records (no source) and note the lunar schedule in `scheduleNotes`.
 36. **Zero-code onboarding at scale** — South Carolina onboarded 10 kennels with 9 sources and zero new adapter code. Config-driven adapters (MEETUP, STATIC_SCHEDULE) + seed data changes are sufficient for regions without structured web sources. This pattern scales to any region with known schedules.
+37. **Wix/Google Sites/SPAs need headless browser rendering** — JS-rendered sites return empty containers to Cheerio. Use `fetchBrowserRenderedPage()` (wraps `browserRender()` from `src/lib/browser-render.ts`) to render via NAS-hosted Playwright, then parse normally. The adapter still uses `HTML_SCRAPER` type and URL-based routing in the registry. See `northboro-hash.ts` for the reference implementation. Config: Cloudflare Tunnel path routing `proxy.hashtracks.xyz/render` → `browser-render:3200`.
 
 ---
 

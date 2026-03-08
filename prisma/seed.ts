@@ -454,6 +454,41 @@ async function main() {
       scheduleFrequency: "Full Moon",
     },
     { kennelCode: "pink-taco", shortName: "Pink Taco", fullName: "Pink Taco Hash House Harriers", region: "Boston, MA" },
+    // Massachusetts (non-Boston)
+    {
+      kennelCode: "hvh3", shortName: "HVH3", fullName: "Happy Valley Hash House Harriers", region: "Pioneer Valley, MA",
+      website: "https://happyvalleyh3.org/",
+      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Biweekly", scheduleTime: "6:30 PM",
+      foundedYear: 1999,
+      description: "Biweekly Thursday hashes in Western Massachusetts.",
+    },
+    {
+      kennelCode: "413h3", shortName: "413H3", fullName: "413 Hash House Harriers", region: "Pioneer Valley, MA",
+      foundedYear: 2008,
+      description: "Annual summer hash in Western Massachusetts.",
+    },
+    {
+      kennelCode: "zigzag", shortName: "ZigZag", fullName: "Zig Zag Hash House Harriers", region: "Boston, MA",
+      website: "https://www.meetup.com/zig-zag-hash-house-harriers/",
+      hashCash: "$5", foundedYear: 2019,
+      description: "Boston-area hash kennel.",
+    },
+    {
+      kennelCode: "e4b", shortName: "E4B", fullName: "Eager 4 Beaver Hash House Harriers", region: "Boston, MA",
+      description: "Boston-area hash kennel.",
+    },
+    {
+      kennelCode: "nbh3", shortName: "NbH3", fullName: "Northboro Hash House Harriers", region: "Boston, MA",
+      website: "https://www.northboroh3.com/",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly", scheduleTime: "12:00 PM",
+      foundedYear: 2010, hashCash: "$30",
+      description: "Monthly Saturday hashes in Northborough.",
+    },
+    {
+      kennelCode: "poofh3", shortName: "PooFH3", fullName: "PooFlingers Hash House Harriers", region: "Boston, MA",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly", scheduleTime: "2:00 PM",
+      description: "Monthly Saturday hashes throughout New England.",
+    },
     // New Jersey
     {
       kennelCode: "summit", shortName: "Summit", fullName: "Summit Hash House Harriers", region: "North NJ",
@@ -1253,6 +1288,13 @@ async function main() {
     "harriettes-nyc": ["Harriettes", "Harriettes Hash", "Harriettes (NYC)", "Harriettes NYC"],
     "si": ["Staten Island", "SI", "SI Hash", "Staten Island Hash"],
     "drinking-practice-nyc": ["Drinking Practice", "NYC Drinking Practice", "NYC DP", "DP"],
+    // Massachusetts
+    "hvh3": ["HVH3", "Happy Valley", "Happy Valley H3", "HV H3"],
+    "413h3": ["413H3", "413 H3"],
+    "zigzag": ["ZigZag", "Zig Zag", "Zig-Zag", "ZZH3", "Zig Zag H3"],
+    "e4b": ["E4B", "E4BH3", "Eager4Beaver", "Eager 4 Beaver", "Eager 4 Beaver H3"],
+    "nbh3": ["NbH3", "Northboro H3", "BS Hash", "Boston Suburbs Hash", "BSH3", "Northboro"],
+    "poofh3": ["PooFH3", "PooFlingers", "Poo Flingers", "PooF", "PooF H3"],
     "summit": ["Summit", "Summit H3", "Summit Hash", "SH3"],
     "sfm": ["SFM", "SFM H3", "Summit Full Moon", "Summit Full Moon H3"],
     "asssh3": ["ASSSH3", "ASSS H3", "All Seasons Summit Shiggy"],
@@ -2266,6 +2308,52 @@ async function main() {
         defaultDescription: "Alternate Saturday trail. Check Facebook for start location.",
       },
       kennelCodes: ["gsh3"],
+    },
+    // Massachusetts
+    {
+      name: "Happy Valley H3 Static Schedule",
+      url: "https://happyvalleyh3.org/",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "HVH3",
+        rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=TH",
+        startTime: "18:30",
+        timezone: "America/New_York",
+        defaultTitle: "HVH3 Biweekly Run",
+        defaultLocation: "Western Massachusetts",
+        defaultDescription: "Biweekly Thursday hash in the Pioneer Valley.",
+      },
+      kennelCodes: ["hvh3"],
+    },
+    {
+      name: "PooFlingers H3 Static Schedule",
+      url: "https://www.facebook.com/groups/pooflingers/",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "PooFH3",
+        rrule: "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3",
+        startTime: "14:00",
+        timezone: "America/New_York",
+        defaultTitle: "PooFH3 Monthly Run",
+        defaultLocation: "New England",
+        defaultDescription: "Monthly 3rd Saturday hash throughout New England.",
+      },
+      kennelCodes: ["poofh3"],
+    },
+    {
+      name: "Northboro H3 Website",
+      url: "https://www.northboroh3.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 5,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      kennelCodes: ["nbh3"],
     },
   ];
 

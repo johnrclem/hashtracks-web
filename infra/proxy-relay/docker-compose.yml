@@ -13,6 +13,21 @@ services:
         max-size: "5m"
         max-file: "3"
 
+  browser-render:
+    build:
+      context: ../browser-render
+    container_name: browser-render
+    restart: unless-stopped
+    environment:
+      - RENDER_API_KEY=${RENDER_API_KEY}
+      - PORT=3200
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
@@ -23,6 +38,7 @@ services:
     mem_limit: 64m
     depends_on:
       - proxy-relay
+      - browser-render
     logging:
       driver: json-file
       options:
