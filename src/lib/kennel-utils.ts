@@ -11,6 +11,10 @@ export function toSlug(shortName: string): string {
     .replaceAll(/^-|-$/g, "");
 }
 
+/** Check whether a kennel is missing geocoordinates. */
+export const isMissingCoords = (k: { latitude: number | null; longitude: number | null }) =>
+  k.latitude == null || k.longitude == null;
+
 /** Generate a permanent kennelCode from a shortName. Lowercase alphanumeric + hyphens only. */
 export function toKennelCode(shortName: string): string {
   return shortName
