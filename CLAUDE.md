@@ -27,7 +27,7 @@ calendar + personal logbook + kennel directory.
 - **Database:** PostgreSQL via Prisma ORM (Railway hosted)
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS + shadcn/ui components
-- **Scraping:** HTTP fetch + Cheerio (NOT Playwright — hash sites are static HTML); Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup)
+- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()`; Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup)
 - **Residential Proxy:** Optional NAS-based forward proxy for WAF-blocked targets (Cloudflare Tunnel, see `docs/residential-proxy-spec.md`)
 - **AI:** Gemini 2.0 Flash for complex HTML parsing (low temp, cached results), parse error recovery, column auto-detection, kennel pattern suggestions, HTML structure analysis with few-shot learning from existing adapter patterns
 - **Kennel geocoding:** lat/lng on Kennel model, backfill via Google Geocoding API, Near Me distance filter (client-side Haversine)
@@ -84,6 +84,8 @@ calendar + personal logbook + kennel directory.
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
 - RESIDENTIAL_PROXY_URL=  # NAS residential proxy URL (for WAF-blocked scrape targets)
 - RESIDENTIAL_PROXY_KEY=  # API key for residential proxy auth
+- BROWSER_RENDER_URL=    # NAS browser render service URL (for JS-rendered sites)
+- BROWSER_RENDER_KEY=    # API key for browser render service auth
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
@@ -115,6 +117,9 @@ calendar + personal logbook + kennel directory.
 - `src/adapters/html-scraper/slash-hash.ts` — SLASH run list scraper (SLH3)
 - `src/adapters/blogger-api.ts` — Blogger API v3 utility (fetchBloggerPosts — shared by Blogspot adapters)
 - `src/adapters/safe-fetch.ts` — URL-validated fetch with SSRF protection, opt-in residential proxy routing (`SafeFetchOptions`)
+- `src/lib/browser-render.ts` — Headless browser rendering client (Wix, Google Sites, SPAs)
+- `src/adapters/html-scraper/northboro-hash.ts` — Northboro H3 Wix site scraper (browser-rendered)
+- `infra/browser-render/server.js` — NAS-hosted Playwright rendering service
 - `src/adapters/html-scraper/enfield-hash.ts` — Enfield Hash blog scraper (EH3, uses Blogger API + residential proxy)
 - `src/adapters/html-scraper/chicago-hash.ts` — Chicago Hash website scraper (CH3)
 - `src/adapters/html-scraper/chicago-th3.ts` — Thirstday Hash website scraper (TH3)
@@ -230,7 +235,7 @@ calendar + personal logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (40)
+## Active Sources (41)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -242,8 +247,11 @@ calendar + personal logbook + kennel directory.
 - **Philly H3 Website** → HTML_SCRAPER → Philly H3
 - **Hash Rego** → HASHREGO → 8 kennels (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3, FCH3)
 
-### Boston (1 source)
+### Massachusetts (4 sources)
 - **Boston Hash Calendar** → GOOGLE_CALENDAR → 5 Boston kennels
+- **Happy Valley H3 Static Schedule** → STATIC_SCHEDULE → HVH3
+- **PooFlingers H3 Static Schedule** → STATIC_SCHEDULE → PooFH3
+- **Northboro H3 Website** → HTML_SCRAPER (browser-rendered) → NbH3
 
 ### Chicago (3 sources)
 - **Chicagoland Hash Calendar** → GOOGLE_CALENDAR → 11 Chicago-area kennels
@@ -298,7 +306,7 @@ See `docs/roadmap.md` for implementation roadmap.
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
 - **Convention:** Test files live next to source files as `*.test.ts`
 - **Coverage areas:**
-  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, Blogger API v3 utility, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Philly (BFM, HashPhilly), Hash Rego (index parsing, detail parsing, multi-day splitting), Meetup.com API, WordPress REST API, generic HTML adapter (config parsing, row extraction, locale handling), shared adapter utilities
+  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, Blogger API v3 utility, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Philly (BFM, HashPhilly), Northboro HTML scraper (browser-rendered, Wix parsing), Hash Rego (index parsing, detail parsing, multi-day splitting), Meetup.com API, WordPress REST API, generic HTML adapter (config parsing, row extraction, locale handling), shared adapter utilities
   - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation, event reconciliation, auto-issue filing (adapter resolution, rate limiting, cooldown, dedup, AGENT_CONTEXT sanitization), post-merge fix verification
   - AI: Gemini API wrapper (caching, rate-limit handling, search grounding), parse recovery fallback, HTML structure analysis (container detection, few-shot examples, column mapping)
   - Research: source research pipeline (URL discovery, dedup, classification, concurrency), research server actions (approve/reject, URL update, feedback refinement), HTML analysis pipeline extraction
@@ -311,7 +319,7 @@ See `docs/roadmap.md` for implementation roadmap.
 - **CI enforcement:** All PRs must pass `npx tsc --noEmit`, `npm run lint`, and `npm test` via `.github/workflows/ci.yml`
 
 ## What NOT To Do
-- Don't use Playwright for scraping (Cheerio is sufficient, 100x lighter)
+- Don't use Playwright **in the app** for scraping — use the NAS browser render service for JS-rendered sites, Cheerio for everything else
 - Don't parse dates through `new Date()` without UTC normalization
 - Don't store secrets in code — use environment variables
 - Don't modify RawEvent records after creation (they're immutable audit trail)

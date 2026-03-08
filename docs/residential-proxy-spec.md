@@ -244,6 +244,7 @@ to add `useResidentialProxy: true` to that adapter's safeFetch call.
 | Port | Service | Exposed? |
 |------|---------|----------|
 | 3100 | proxy-relay | Internal only (Docker network, accessed by cloudflared) |
+| 3200 | browser-render | Internal only (Docker network, accessed by cloudflared) |
 
 ## Security Layers
 

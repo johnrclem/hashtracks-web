@@ -1,0 +1,69 @@
+/**
+ * Client for the NAS headless browser rendering service.
+ * Used to render JS-heavy pages (Wix, Google Sites, SPAs) that
+ * can't be scraped with Cheerio alone.
+ *
+ * Follows the same pattern as safeFetch() residential proxy integration.
+ */
+
+export interface RenderOptions {
+  /** URL of the page to render */
+  url: string;
+  /** CSS selector to wait for before capturing (default: "body") */
+  waitFor?: string;
+  /** CSS selector to extract — returns only that element's HTML (default: full page) */
+  selector?: string;
+  /** Max wait in ms (default: 15000, capped at 30000 server-side) */
+  timeout?: number;
+}
+
+/**
+ * Render a JS-heavy page via the NAS headless browser service.
+ * Returns the rendered HTML as a string.
+ *
+ * Requires BROWSER_RENDER_URL and BROWSER_RENDER_KEY env vars.
+ */
+export async function browserRender(options: RenderOptions): Promise<string> {
+  const renderUrl = process.env.BROWSER_RENDER_URL;
+  const renderKey = process.env.BROWSER_RENDER_KEY;
+
+  if (!renderUrl || !renderKey) {
+    throw new Error(
+      "Browser render service not configured: set BROWSER_RENDER_URL and BROWSER_RENDER_KEY",
+    );
+  }
+
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const response = await fetch(`${renderUrl}/render`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Render-Key": renderKey,
+      },
+      body: JSON.stringify({
+        url: options.url,
+        waitFor: options.waitFor,
+        selector: options.selector,
+        timeout: options.timeout,
+      }),
+      signal: AbortSignal.timeout(45_000), // 30s render timeout + 15s tunnel buffer
+    });
+
+    if (response.status === 429 && attempt < maxAttempts) {
+      await new Promise((r) => setTimeout(r, 2000));
+      continue;
+    }
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `Browser render error (${response.status}): ${body}`,
+      );
+    }
+
+    return response.text();
+  }
+
+  throw new Error("Browser render: max retries exceeded (429)");
+}
