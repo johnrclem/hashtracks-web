@@ -507,3 +507,142 @@ export async function getHashRegoSlugDrift(source: {
 
   return { slugsWithoutLink, linksWithoutSlug };
 }
+
+/**
+ * Preview data for the Hash Rego slug drift sync button.
+ * For each linked kennel without a slug, looks up KennelDiscovery to find the Hash Rego slug.
+ */
+export type DriftPreviewRow = {
+  kennelId: string;
+  shortName: string;
+  fullName: string;
+  hashRegoSlug: string | null; // null = no discovery match, can't auto-fix
+};
+
+export type DriftPreview = {
+  /** Slugs in config that don't resolve to a linked kennel */
+  slugsWithoutLink: Array<{ slug: string; resolved: boolean }>;
+  /** Linked kennels missing from config.kennelSlugs */
+  linksWithoutSlug: DriftPreviewRow[];
+};
+
+export async function getHashRegoDriftPreview(sourceId: string): Promise<DriftPreview> {
+  const admin = await getAdminUser();
+  if (!admin) throw new Error("Unauthorized");
+
+  const source = await prisma.source.findUnique({
+    where: { id: sourceId },
+    select: {
+      type: true,
+      config: true,
+      kennels: { select: { kennelId: true, kennel: { select: { shortName: true, fullName: true } } } },
+    },
+  });
+  if (!source) throw new Error("Source not found");
+
+  const drift = await getHashRegoSlugDrift(source);
+
+  // For slugsWithoutLink, check if each slug resolves to any kennel at all
+  clearResolverCache();
+  const slugsPreview = await Promise.all(
+    drift.slugsWithoutLink.map(async (slug) => {
+      const result = await resolveKennelTag(slug);
+      return { slug, resolved: result.matched };
+    }),
+  );
+
+  // For linksWithoutSlug, look up KennelDiscovery records to find Hash Rego slugs
+  const kennelMap = new Map<string, { kennelId: string; fullName: string }>(
+    source.kennels.map((sk) => [sk.kennel.shortName, { kennelId: sk.kennelId, fullName: sk.kennel.fullName }]),
+  );
+
+  const missingKennelIds = drift.linksWithoutSlug
+    .map((sn) => kennelMap.get(sn)?.kennelId)
+    .filter((id): id is string => !!id);
+
+  const discoveries = missingKennelIds.length > 0
+    ? await prisma.kennelDiscovery.findMany({
+        where: {
+          externalSource: "HASHREGO",
+          matchedKennelId: { in: missingKennelIds },
+        },
+        select: { matchedKennelId: true, externalSlug: true },
+      })
+    : [];
+
+  const discoveryMap = new Map<string | null, string>(discoveries.map((d) => [d.matchedKennelId, d.externalSlug]));
+
+  const linksPreview: DriftPreviewRow[] = drift.linksWithoutSlug.map((shortName) => {
+    const info = kennelMap.get(shortName);
+    return {
+      kennelId: info?.kennelId ?? "",
+      shortName,
+      fullName: info?.fullName ?? shortName,
+      hashRegoSlug: info ? (discoveryMap.get(info.kennelId) ?? null) : null,
+    };
+  });
+
+  return { slugsWithoutLink: slugsPreview, linksWithoutSlug: linksPreview };
+}
+
+/**
+ * Fix Hash Rego slug/link drift:
+ * - slugsWithoutLink: create SourceKennel links for resolvable slugs
+ * - linksWithoutSlug with hashRegoSlug: add the Hash Rego slug to config.kennelSlugs
+ * - linksWithoutSlug without hashRegoSlug: unlink the SourceKennel (not on Hash Rego)
+ */
+export async function syncHashRegoDrift(
+  sourceId: string,
+  options?: { unlinkOrphans?: boolean },
+): Promise<{ linksCreated: number; slugsAdded: number; unlinked: number; unresolved: string[] }> {
+  const admin = await getAdminUser();
+  if (!admin) throw new Error("Unauthorized");
+
+  const preview = await getHashRegoDriftPreview(sourceId);
+
+  let linksCreated = 0;
+  let slugsAdded = 0;
+  let unlinked = 0;
+  const unresolved: string[] = [];
+
+  // Fix slugsWithoutLink: create SourceKennel links for resolvable slugs
+  clearResolverCache();
+  for (const { slug, resolved } of preview.slugsWithoutLink) {
+    if (!resolved) {
+      unresolved.push(slug);
+      continue;
+    }
+    const result = await resolveKennelTag(slug);
+    if (result.matched && result.kennelId) {
+      try {
+        await prisma.sourceKennel.create({
+          data: { sourceId, kennelId: result.kennelId },
+        });
+        linksCreated++;
+      } catch (e) {
+        // Unique constraint violation = already linked (race condition)
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+          continue;
+        }
+        throw e;
+      }
+    }
+  }
+
+  // Fix linksWithoutSlug: add Hash Rego slug to config, or unlink if no slug found
+  for (const row of preview.linksWithoutSlug) {
+    if (row.hashRegoSlug) {
+      await syncHashRegoSlug(sourceId, row.hashRegoSlug);
+      slugsAdded++;
+    } else if (options?.unlinkOrphans !== false) {
+      // No Hash Rego slug found — unlink from source
+      await prisma.sourceKennel.deleteMany({
+        where: { sourceId, kennelId: row.kennelId },
+      });
+      unlinked++;
+    }
+  }
+
+  revalidatePath(`/admin/sources/${sourceId}`);
+  return { linksCreated, slugsAdded, unlinked, unresolved };
+}
