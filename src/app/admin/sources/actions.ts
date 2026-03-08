@@ -10,6 +10,88 @@ import { scrapeSource } from "@/pipeline/scrape";
 import { validateSourceConfig } from "./config-validation";
 import { buildKennelIdentifiers, createKennelRecord } from "@/lib/kennel-utils";
 
+/** Type guard: is this a HASHREGO source config with an optional kennelSlugs array?
+ *  When kennelSlugs is present, validates it is actually an array to guard against malformed JSON. */
+function isHashRegoConfig(
+  config: unknown,
+  type: string,
+): config is { kennelSlugs?: string[] } {
+  if (type !== "HASHREGO" || !config || typeof config !== "object" || Array.isArray(config)) {
+    return false;
+  }
+  const obj = config as Record<string, unknown>;
+  // If kennelSlugs is present, it must be an array
+  if ("kennelSlugs" in obj && !Array.isArray(obj.kennelSlugs)) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * For HASHREGO sources, resolve each configured kennelSlug to a Kennel record
+ * and return their IDs so they can be auto-linked as SourceKennel records.
+ */
+async function resolveHashRegoSlugsToKennelIds(
+  config: unknown,
+  type: string,
+): Promise<string[]> {
+  if (!isHashRegoConfig(config, type)) return [];
+  if (!config.kennelSlugs?.length) return [];
+
+  clearResolverCache();
+  const results = await Promise.all(
+    config.kennelSlugs.map((slug) => resolveKennelTag(slug)),
+  );
+  return results
+    .filter((r) => r.matched && r.kennelId)
+    .map((r) => r.kennelId!);
+}
+
+/**
+ * Combine form-selected kennel IDs with slug-resolved kennel IDs (HASHREGO auto-sync).
+ * Returns a deduplicated array of kennel IDs.
+ */
+async function getCombinedKennelIds(
+  kennelIdsStr: string,
+  config: unknown,
+  type: string,
+): Promise<string[]> {
+  const ids = kennelIdsStr
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  const slugKennelIds = await resolveHashRegoSlugsToKennelIds(config, type);
+  const idSet = new Set(ids);
+  for (const kid of slugKennelIds) {
+    idSet.add(kid);
+  }
+  return Array.from(idSet);
+}
+
+/**
+ * For a HASHREGO source, fetch its config and add `slug` to kennelSlugs if missing.
+ * No-op for non-HASHREGO sources or if slug already exists.
+ * Uses a transaction to prevent TOCTOU races on the config read-modify-write.
+ */
+async function syncHashRegoSlug(sourceId: string, slug: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const source = await tx.source.findUnique({
+      where: { id: sourceId },
+      select: { type: true, config: true },
+    });
+    if (!source || !isHashRegoConfig(source.config, source.type)) return;
+
+    const slugs = source.config.kennelSlugs ?? [];
+    const upperSlug = slug.toUpperCase();
+    if (slugs.some((s) => s.toUpperCase() === upperSlug)) return;
+
+    await tx.source.update({
+      where: { id: sourceId },
+      data: { config: { ...source.config, kennelSlugs: [...slugs, upperSlug] } as Prisma.InputJsonValue },
+    });
+  });
+}
+
 /** Parse and validate config JSON from form input. Returns the parsed value or an error. */
 function parseConfigJson(
   configRaw: string,
@@ -109,11 +191,8 @@ export async function createSource(formData: FormData) {
     },
   });
 
-  // Create SourceKennel links
-  const ids = kennelIds
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
+  // Create SourceKennel links (auto-include slug-resolved kennels for HASHREGO)
+  const ids = await getCombinedKennelIds(kennelIds, config, type);
   for (const kennelId of ids) {
     await prisma.sourceKennel.create({
       data: { sourceId: source.id, kennelId },
@@ -143,10 +222,8 @@ export async function updateSource(sourceId: string, formData: FormData) {
     }
   }
 
-  const ids = kennelIds
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
+  // Auto-include slug-resolved kennels for HASHREGO sources
+  const ids = await getCombinedKennelIds(kennelIds, config, type);
 
   await prisma.$transaction([
     prisma.sourceKennel.deleteMany({ where: { sourceId } }),
@@ -223,6 +300,9 @@ export async function linkKennelToSourceDirect(
   await prisma.sourceKennel.create({
     data: { sourceId, kennelId },
   });
+
+  // Auto-add slug to HASHREGO config if not already present
+  await syncHashRegoSlug(sourceId, kennelTag);
 
   // Auto-resolve any matching SOURCE_KENNEL_MISMATCH alert for this source
   const matchingAlerts = await prisma.alert.findMany({
@@ -370,6 +450,9 @@ export async function createKennelForSource(
     data: { sourceId, kennelId: result.kennelId },
   });
 
+  // Auto-add slug to HASHREGO config if not already present
+  await syncHashRegoSlug(sourceId, kennelData.shortName);
+
   await autoResolveUnmatchedAlerts(sourceId, admin.id);
 
   clearResolverCache();
@@ -380,4 +463,47 @@ export async function createKennelForSource(
   revalidatePath("/admin/alerts");
   revalidatePath("/admin/kennels");
   return { success: true };
+}
+
+/**
+ * For HASHREGO sources, detect drift between config.kennelSlugs and SourceKennel links.
+ * Resolves each slug via the kennel resolver (handles alias resolution) rather than
+ * comparing slugs to shortNames directly (which would produce false positives).
+ */
+export async function getHashRegoSlugDrift(source: {
+  type: string;
+  config: unknown;
+  kennels: Array<{ kennelId: string; kennel: { shortName: string } }>;
+}): Promise<{ slugsWithoutLink: string[]; linksWithoutSlug: string[] }> {
+  const empty = { slugsWithoutLink: [], linksWithoutSlug: [] };
+  if (!isHashRegoConfig(source.config, source.type)) return empty;
+
+  const slugs = source.config.kennelSlugs ?? [];
+  if (slugs.length === 0 && source.kennels.length === 0) return empty;
+
+  const linkedKennelIds = new Set(source.kennels.map((sk) => sk.kennelId));
+
+  // Resolve each slug to a kennel ID (handles alias resolution, e.g. "BFMH3" → kennel "BFM")
+  clearResolverCache();
+  const slugToKennelId = new Map<string, string | null>();
+  for (const slug of slugs) {
+    const result = await resolveKennelTag(slug);
+    slugToKennelId.set(slug, result.matched ? result.kennelId : null);
+  }
+
+  // Slugs whose resolved kennel is not linked
+  const slugsWithoutLink = slugs.filter((slug) => {
+    const kennelId = slugToKennelId.get(slug);
+    return !kennelId || !linkedKennelIds.has(kennelId);
+  });
+
+  // Linked kennels whose ID doesn't appear in any slug resolution
+  const resolvedKennelIds = new Set(
+    Array.from(slugToKennelId.values()).filter((id): id is string => id != null),
+  );
+  const linksWithoutSlug = source.kennels
+    .filter((sk) => !resolvedKennelIds.has(sk.kennelId))
+    .map((sk) => sk.kennel.shortName);
+
+  return { slugsWithoutLink, linksWithoutSlug };
 }
