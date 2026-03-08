@@ -277,10 +277,30 @@ async function upsertCanonicalEvent(
 ): Promise<string> {
   const eventDate = parseUtcNoonDate(event.date);
 
-  // Check for existing canonical Event with same (kennelId, date)
-  const existingEvent = await prisma.event.findUnique({
-    where: { kennelId_date: { kennelId, date: eventDate } },
+  // Find existing canonical Events for this kennel+date
+  const sameDayEvents = await prisma.event.findMany({
+    where: { kennelId, date: eventDate },
   });
+
+  // Match strategy:
+  // 1. Zero existing → create new (common case)
+  // 2. Exactly one → always match it (backward-compatible)
+  // 3. Multiple → disambiguate by sourceUrl, then startTime, then title
+  // 4. No disambiguation match among multiples → create new event
+  let existingEvent: (typeof sameDayEvents)[number] | null = null;
+  if (sameDayEvents.length === 1) {
+    existingEvent = sameDayEvents[0];
+  } else if (sameDayEvents.length > 1) {
+    if (event.sourceUrl) {
+      existingEvent = sameDayEvents.find(e => e.sourceUrl === event.sourceUrl) ?? null;
+    }
+    if (!existingEvent && event.startTime) {
+      existingEvent = sameDayEvents.find(e => e.startTime === event.startTime) ?? null;
+    }
+    if (!existingEvent && event.title) {
+      existingEvent = sameDayEvents.find(e => e.title === event.title) ?? null;
+    }
+  }
 
   const region = await resolveRegion(kennelId, ctx);
 

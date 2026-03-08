@@ -34,7 +34,7 @@ export async function reconcileStaleEvents(
   for (const [i, event] of scrapedEvents.entries()) {
     const { kennelId, matched } = resolutions[i];
     if (matched && kennelId) {
-      scrapedKeys.add(`${kennelId}:${event.date}`);
+      scrapedKeys.add(`${kennelId}:${event.date}:${event.sourceUrl ?? ""}`);
     }
   }
 
@@ -65,13 +65,14 @@ export async function reconcileStaleEvents(
       id: true,
       kennelId: true,
       date: true,
+      sourceUrl: true,
     },
   });
 
   // Filter to events NOT in the scraped set
   const orphaned = candidates.filter((event) => {
     const dateStr = event.date.toISOString().split("T")[0];
-    const key = `${event.kennelId}:${dateStr}`;
+    const key = `${event.kennelId}:${dateStr}:${event.sourceUrl ?? ""}`;
     return !scrapedKeys.has(key);
   });
 

@@ -6,7 +6,8 @@ vi.mock("@/lib/db", () => ({
     source: { findUnique: vi.fn(), update: vi.fn() },
     sourceKennel: { findMany: vi.fn() },
     rawEvent: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
-    event: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+    eventLink: { upsert: vi.fn() },
     kennel: { findUnique: vi.fn() },
   },
 }));
@@ -31,7 +32,7 @@ const mockSourceKennelFind = vi.mocked(prisma.sourceKennel.findMany);
 const mockRawEventFind = vi.mocked(prisma.rawEvent.findFirst);
 const mockRawEventCreate = vi.mocked(prisma.rawEvent.create);
 const mockRawEventUpdate = vi.mocked(prisma.rawEvent.update);
-const mockEventFind = vi.mocked(prisma.event.findUnique);
+const mockEventFindMany = vi.mocked(prisma.event.findMany);
 const mockEventCreate = vi.mocked(prisma.event.create);
 const mockEventUpdate = vi.mocked(prisma.event.update);
 const mockResolve = vi.mocked(resolveKennelTag);
@@ -43,6 +44,7 @@ beforeEach(() => {
   mockSourceKennelFind.mockResolvedValue([{ kennelId: "kennel_1" }] as never);
   mockRawEventCreate.mockResolvedValue({ id: "raw_1" } as never);
   mockRawEventUpdate.mockResolvedValue({} as never);
+  vi.mocked(prisma.eventLink.upsert).mockResolvedValue({} as never);
   mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
 });
 
@@ -56,7 +58,7 @@ describe("processRawEvents", () => {
 
   it("creates new canonical event", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
 
     const result = await processRawEvents("src_1", [buildRawEvent()]);
@@ -71,7 +73,7 @@ describe("processRawEvents", () => {
 
   it("updates existing event when trust level is >=", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFind.mockResolvedValueOnce({ id: "evt_1", trustLevel: 5 } as never);
+    mockEventFindMany.mockResolvedValueOnce([{ id: "evt_1", trustLevel: 5 }] as never);
     mockEventUpdate.mockResolvedValueOnce({} as never);
 
     const result = await processRawEvents("src_1", [buildRawEvent()]);
@@ -81,7 +83,7 @@ describe("processRawEvents", () => {
 
   it("does not update when trust level is lower", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFind.mockResolvedValueOnce({ id: "evt_1", trustLevel: 8 } as never);
+    mockEventFindMany.mockResolvedValueOnce([{ id: "evt_1", trustLevel: 8 }] as never);
 
     const result = await processRawEvents("src_1", [buildRawEvent()]);
     expect(result.updated).toBe(1);
@@ -112,7 +114,7 @@ describe("processRawEvents", () => {
     mockRawEventFind.mockRejectedValueOnce(new Error("DB error"));
     // Second event: succeeds
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
     // Need unique fingerprints
     mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
@@ -135,7 +137,7 @@ describe("processRawEvents", () => {
 
   it("parses date correctly as UTC noon", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
 
     await processRawEvents("src_1", [buildRawEvent({ date: "2026-02-14" })]);
@@ -149,7 +151,7 @@ describe("processRawEvents", () => {
 
   it("links RawEvent to existing Event after update", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFind.mockResolvedValueOnce({ id: "evt_existing", trustLevel: 3 } as never);
+    mockEventFindMany.mockResolvedValueOnce([{ id: "evt_existing", trustLevel: 3 }] as never);
     mockEventUpdate.mockResolvedValueOnce({} as never);
 
     await processRawEvents("src_1", [buildRawEvent()]);
@@ -176,7 +178,7 @@ describe("source-kennel guard", () => {
 
   it("allows event when resolved kennel IS linked to source", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
     // kennel_1 is in the linked set (default mock)
 
@@ -200,7 +202,7 @@ describe("source-kennel guard", () => {
 
   it("fetches SourceKennel links only once per batch", async () => {
     mockRawEventFind.mockResolvedValue(null);
-    mockEventFind.mockResolvedValue(null);
+    mockEventFindMany.mockResolvedValue([] as never);
     mockEventCreate.mockResolvedValue({ id: "evt_1" } as never);
     mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
 
@@ -313,6 +315,82 @@ describe("mergeErrorDetails", () => {
     expect(result.sampleBlocked!.length).toBe(0);
     // resolveKennelTag should NOT be called for processed deduped events
     expect(mockResolve).not.toHaveBeenCalled();
+  });
+});
+
+describe("double-header support", () => {
+  it("creates second event when same kennel+date but different sourceUrl", async () => {
+    mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
+    // First event: no fingerprint match, no existing events → create
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    // Second event: no fingerprint match, one existing event → single always matches (backward-compat)
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: "Trail A" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-08", sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: "Trail A" }),
+      buildRawEvent({ date: "2026-03-08", sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: "Trail B" }),
+    ]);
+
+    // First creates, second updates the single existing (backward-compat: single always matches)
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(1);
+  });
+
+  it("creates new event when multiple exist and no disambiguation match", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    // Two existing events, none matching the new event's sourceUrl/startTime/title
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: "Trail A" },
+      { id: "evt_2", trustLevel: 5, sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: "Trail B" },
+    ] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_3" } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-08", sourceUrl: "https://example.com/trail-c", startTime: "18:00", title: "Trail C" }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(mockEventCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("matches by sourceUrl when multiple same-day events exist", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: "Trail A" },
+      { id: "evt_2", trustLevel: 5, sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: "Trail B" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-08", sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: "Trail B Updated" }),
+    ]);
+
+    expect(result.updated).toBe(1);
+    expect(mockEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "evt_2" } }),
+    );
+  });
+
+  it("matches single existing event regardless of field differences", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, sourceUrl: "https://example.com/old-url", startTime: "10:00", title: "Old Title" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-08", sourceUrl: "https://example.com/new-url", startTime: "11:00", title: "New Title" }),
+    ]);
+
+    // Single existing event always matches (backward-compatible)
+    expect(result.updated).toBe(1);
+    expect(result.created).toBe(0);
   });
 });
 
