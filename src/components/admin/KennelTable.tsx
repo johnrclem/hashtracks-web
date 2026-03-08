@@ -76,7 +76,8 @@ type Kennel = {
   longitude: number | null;
 };
 
-const isMissingCoords = (k: Kennel) => k.latitude == null || k.longitude == null;
+export const isMissingCoords = (k: Pick<Kennel, "latitude" | "longitude">) =>
+  k.latitude == null || k.longitude == null;
 
 interface KennelTableProps {
   kennels: Kennel[];
