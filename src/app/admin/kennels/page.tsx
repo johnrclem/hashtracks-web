@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { KennelTable } from "@/components/admin/KennelTable";
+import { KennelTable, isMissingCoords } from "@/components/admin/KennelTable";
 import { KennelForm } from "@/components/admin/KennelForm";
 import { KennelMergeDialog } from "@/components/admin/KennelMergeDialog";
 import { BackfillCoordsButton } from "@/components/admin/BackfillCoordsButton";
@@ -61,9 +61,7 @@ export default async function AdminKennelsPage() {
     longitude: k.longitude,
   }));
 
-  const missingCoordsCount = serialized.filter(
-    (k) => k.latitude == null || k.longitude == null,
-  ).length;
+  const missingCoordsCount = serialized.filter(isMissingCoords).length;
 
   // Simplified kennel list for merge dialog
   const kennelsForMerge = kennels.map((k) => ({
