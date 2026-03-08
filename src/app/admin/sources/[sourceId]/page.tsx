@@ -24,6 +24,7 @@ import { TroubleshootSection } from "@/components/admin/TroubleshootSection";
 import { TYPE_LABELS } from "@/components/admin/SourceTable";
 import { fuzzyMatch } from "@/lib/fuzzy";
 import { cn } from "@/lib/utils";
+import { getHashRegoSlugDrift } from "@/app/admin/sources/actions";
 
 /** Detect which scrape log IDs had structure hash changes. */
 function detectHashChanges(
@@ -392,6 +393,9 @@ export default async function SourceDetailPage({
 
   const hashChanges = detectHashChanges(structureHashHistory);
 
+  // Detect slug/link drift for HASHREGO sources (uses kennel resolver for alias resolution)
+  const slugDrift = await getHashRegoSlugDrift(source);
+
   const fuzzyCandidates = allKennels.map((k) => ({
     id: k.id,
     shortName: k.shortName,
@@ -490,38 +494,25 @@ export default async function SourceDetailPage({
       </div>
 
       {/* Slug/Link Drift Warning for HASHREGO sources */}
-      {source.type === "HASHREGO" && (() => {
-        const hrConfig = source.config as { kennelSlugs?: string[] } | null;
-        const slugs = (hrConfig?.kennelSlugs ?? []).map(s => s.toUpperCase());
-        const linkedShortNames = source.kennels.map(sk => sk.kennel.shortName.toUpperCase());
-        const slugsWithoutLink = slugs.filter(s => !linkedShortNames.includes(s));
-        const linksWithoutSlug = source.kennels
-          .filter(sk => !slugs.includes(sk.kennel.shortName.toUpperCase()))
-          .map(sk => sk.kennel.shortName);
-
-        if (slugsWithoutLink.length > 0 || linksWithoutSlug.length > 0) {
-          return (
-            <div className="rounded-md border border-yellow-500/50 bg-yellow-50 p-3 text-sm dark:bg-yellow-900/20">
-              <p className="font-medium text-yellow-800 dark:text-yellow-200">
-                Slug / Link Mismatch Detected
-              </p>
-              {slugsWithoutLink.length > 0 && (
-                <p className="mt-1 text-yellow-700 dark:text-yellow-300">
-                  Slugs without linked kennel (events will be blocked by guard):{" "}
-                  <span className="font-mono">{slugsWithoutLink.join(", ")}</span>
-                </p>
-              )}
-              {linksWithoutSlug.length > 0 && (
-                <p className="mt-1 text-yellow-700 dark:text-yellow-300">
-                  Linked kennels without slug (adapter won&apos;t fetch their events):{" "}
-                  <span className="font-mono">{linksWithoutSlug.join(", ")}</span>
-                </p>
-              )}
-            </div>
-          );
-        }
-        return null;
-      })()}
+      {(slugDrift.slugsWithoutLink.length > 0 || slugDrift.linksWithoutSlug.length > 0) && (
+        <div className="rounded-md border border-yellow-500/50 bg-yellow-50 p-3 text-sm dark:bg-yellow-900/20">
+          <p className="font-medium text-yellow-800 dark:text-yellow-200">
+            Slug / Link Mismatch Detected
+          </p>
+          {slugDrift.slugsWithoutLink.length > 0 && (
+            <p className="mt-1 text-yellow-700 dark:text-yellow-300">
+              Slugs without linked kennel (events will be blocked by guard):{" "}
+              <span className="font-mono">{slugDrift.slugsWithoutLink.join(", ")}</span>
+            </p>
+          )}
+          {slugDrift.linksWithoutSlug.length > 0 && (
+            <p className="mt-1 text-yellow-700 dark:text-yellow-300">
+              Linked kennels without slug (adapter won&apos;t fetch their events):{" "}
+              <span className="font-mono">{slugDrift.linksWithoutSlug.join(", ")}</span>
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Troubleshoot Config */}
       <TroubleshootSection

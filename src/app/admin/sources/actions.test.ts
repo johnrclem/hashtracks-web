@@ -11,7 +11,9 @@ vi.mock("@/lib/db", () => ({
     alert: { findMany: vi.fn(), update: vi.fn() },
     kennel: { findFirst: vi.fn() },
     kennelAlias: { findFirst: vi.fn() },
-    $transaction: vi.fn((arr: unknown[]) => Promise.all(arr)),
+    $transaction: vi.fn((arg: unknown) =>
+      typeof arg === "function" ? (arg as (tx: unknown) => Promise<unknown>)(prisma) : Promise.all(arg as unknown[]),
+    ),
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -26,7 +28,7 @@ vi.mock("@/pipeline/scrape", () => ({
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { resolveKennelTag } from "@/pipeline/kennel-resolver";
-import { createSource, updateSource, deleteSource, linkKennelToSourceDirect } from "./actions";
+import { createSource, updateSource, deleteSource, linkKennelToSourceDirect, getHashRegoSlugDrift } from "./actions";
 
 const mockAdminAuth = vi.mocked(getAdminUser);
 const mockSourceCreate = vi.mocked(prisma.source.create);
@@ -225,5 +227,68 @@ describe("HASHREGO link-to-slug auto-sync", () => {
       (c) => (c[0] as { data: { config?: unknown } }).data.config !== undefined,
     );
     expect(configUpdateCalls).toHaveLength(0);
+  });
+});
+
+describe("getHashRegoSlugDrift", () => {
+  it("returns empty for non-HASHREGO sources", async () => {
+    const result = await getHashRegoSlugDrift({
+      type: "HTML_SCRAPER",
+      config: null,
+      kennels: [],
+    });
+    expect(result).toEqual({ slugsWithoutLink: [], linksWithoutSlug: [] });
+  });
+
+  it("detects slugs without linked kennel (using alias resolution)", async () => {
+    // "BFMH3" resolves to kennel k_bfm via alias, but k_bfm is not linked
+    mockResolveKennelTag.mockImplementation(async (tag: string) => {
+      if (tag === "BFMH3") return { kennelId: "k_bfm", matched: true };
+      return { kennelId: null, matched: false };
+    });
+
+    const result = await getHashRegoSlugDrift({
+      type: "HASHREGO",
+      config: { kennelSlugs: ["BFMH3"] },
+      kennels: [{ kennelId: "k_other", kennel: { shortName: "OTH3" } }],
+    });
+    expect(result.slugsWithoutLink).toEqual(["BFMH3"]);
+    expect(result.linksWithoutSlug).toEqual(["OTH3"]);
+  });
+
+  it("returns no drift when slugs resolve to linked kennels", async () => {
+    mockResolveKennelTag.mockImplementation(async (tag: string) => {
+      if (tag === "BFMH3") return { kennelId: "k_bfm", matched: true };
+      return { kennelId: null, matched: false };
+    });
+
+    const result = await getHashRegoSlugDrift({
+      type: "HASHREGO",
+      config: { kennelSlugs: ["BFMH3"] },
+      kennels: [{ kennelId: "k_bfm", kennel: { shortName: "BFM" } }],
+    });
+    expect(result.slugsWithoutLink).toEqual([]);
+    expect(result.linksWithoutSlug).toEqual([]);
+  });
+
+  it("detects unresolvable slugs as drift", async () => {
+    mockResolveKennelTag.mockResolvedValue({ kennelId: null, matched: false });
+
+    const result = await getHashRegoSlugDrift({
+      type: "HASHREGO",
+      config: { kennelSlugs: ["UNKNOWN"] },
+      kennels: [],
+    });
+    expect(result.slugsWithoutLink).toEqual(["UNKNOWN"]);
+  });
+
+  it("rejects malformed kennelSlugs (not an array)", async () => {
+    const result = await getHashRegoSlugDrift({
+      type: "HASHREGO",
+      config: { kennelSlugs: "not-an-array" },
+      kennels: [],
+    });
+    // isHashRegoConfig should reject this, returning empty
+    expect(result).toEqual({ slugsWithoutLink: [], linksWithoutSlug: [] });
   });
 });
