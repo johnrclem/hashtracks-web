@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { KennelTable, isMissingCoords } from "@/components/admin/KennelTable";
+import { KennelTable } from "@/components/admin/KennelTable";
+import { isMissingCoords } from "@/lib/kennel-helpers";
 import { KennelForm } from "@/components/admin/KennelForm";
 import { KennelMergeDialog } from "@/components/admin/KennelMergeDialog";
 import { BackfillCoordsButton } from "@/components/admin/BackfillCoordsButton";

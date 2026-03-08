@@ -38,6 +38,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { isMissingCoords } from "@/lib/kennel-helpers";
 import { KennelForm } from "./KennelForm";
 import type { RegionOption } from "./RegionCombobox";
 import { toast } from "sonner";
@@ -75,9 +76,6 @@ type Kennel = {
   latitude: number | null;
   longitude: number | null;
 };
-
-export const isMissingCoords = (k: Pick<Kennel, "latitude" | "longitude">) =>
-  k.latitude == null || k.longitude == null;
 
 interface KennelTableProps {
   kennels: Kennel[];
