@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 
-export function SlugDriftSync({ sourceId }: { sourceId: string }) {
+export function SlugDriftSync({ sourceId }: Readonly<{ sourceId: string }>) {
   const [preview, setPreview] = useState<DriftPreview | null>(null);
   const [isLoading, startLoading] = useTransition();
   const [isSyncing, startSync] = useTransition();

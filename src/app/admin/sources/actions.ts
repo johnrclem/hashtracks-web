@@ -472,7 +472,7 @@ export async function createKennelForSource(
  */
 export type SlugDrift = {
   slugsWithoutLink: string[];
-  linksWithoutSlug: string[];
+  linksWithoutSlug: Array<{ kennelId: string; shortName: string }>;
   /** Slug → resolved kennelId (null if unresolvable). Avoids redundant re-resolution. */
   slugToKennelId: Map<string, string | null>;
 };
@@ -510,7 +510,7 @@ export async function getHashRegoSlugDrift(source: {
   );
   const linksWithoutSlug = source.kennels
     .filter((sk) => !resolvedKennelIds.has(sk.kennelId))
-    .map((sk) => sk.kennel.shortName);
+    .map((sk) => ({ kennelId: sk.kennelId, shortName: sk.kennel.shortName }));
 
   return { slugsWithoutLink, linksWithoutSlug, slugToKennelId };
 }
@@ -556,13 +556,11 @@ export async function getHashRegoDriftPreview(sourceId: string): Promise<DriftPr
   }));
 
   // For linksWithoutSlug, look up KennelDiscovery records to find Hash Rego slugs
-  const kennelMap = new Map<string, { kennelId: string; fullName: string }>(
-    source.kennels.map((sk) => [sk.kennel.shortName, { kennelId: sk.kennelId, fullName: sk.kennel.fullName }]),
-  );
+  const missingKennelIds = drift.linksWithoutSlug.map((k) => k.kennelId);
 
-  const missingKennelIds = drift.linksWithoutSlug
-    .map((sn) => kennelMap.get(sn)?.kennelId)
-    .filter((id): id is string => !!id);
+  const fullNameMap = new Map<string, string>(
+    source.kennels.map((sk) => [sk.kennelId, sk.kennel.fullName]),
+  );
 
   const discoveries = missingKennelIds.length > 0
     ? await prisma.kennelDiscovery.findMany({
@@ -576,18 +574,12 @@ export async function getHashRegoDriftPreview(sourceId: string): Promise<DriftPr
 
   const discoveryMap = new Map<string, string>(discoveries.map((d) => [d.matchedKennelId!, d.externalSlug]));
 
-  const linksPreview: DriftPreviewRow[] = drift.linksWithoutSlug
-    .map((shortName) => {
-      const info = kennelMap.get(shortName);
-      if (!info) return null; // shortName not in kennel map — skip
-      return {
-        kennelId: info.kennelId,
-        shortName,
-        fullName: info.fullName,
-        hashRegoSlug: discoveryMap.get(info.kennelId) ?? null,
-      };
-    })
-    .filter((row): row is DriftPreviewRow => row != null);
+  const linksPreview: DriftPreviewRow[] = drift.linksWithoutSlug.map((k) => ({
+    kennelId: k.kennelId,
+    shortName: k.shortName,
+    fullName: fullNameMap.get(k.kennelId) ?? k.shortName,
+    hashRegoSlug: discoveryMap.get(k.kennelId) ?? null,
+  }));
 
   return { slugsWithoutLink: slugsPreview, linksWithoutSlug: linksPreview };
 }

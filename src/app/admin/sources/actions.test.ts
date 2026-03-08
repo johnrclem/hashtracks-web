@@ -237,7 +237,7 @@ describe("getHashRegoSlugDrift", () => {
       config: null,
       kennels: [],
     });
-    expect(result).toEqual({ slugsWithoutLink: [], linksWithoutSlug: [] });
+    expect(result).toMatchObject({ slugsWithoutLink: [], linksWithoutSlug: [] });
   });
 
   it("detects slugs without linked kennel (using alias resolution)", async () => {
@@ -253,7 +253,7 @@ describe("getHashRegoSlugDrift", () => {
       kennels: [{ kennelId: "k_other", kennel: { shortName: "OTH3" } }],
     });
     expect(result.slugsWithoutLink).toEqual(["BFMH3"]);
-    expect(result.linksWithoutSlug).toEqual(["OTH3"]);
+    expect(result.linksWithoutSlug).toEqual([{ kennelId: "k_other", shortName: "OTH3" }]);
   });
 
   it("returns no drift when slugs resolve to linked kennels", async () => {
@@ -289,6 +289,6 @@ describe("getHashRegoSlugDrift", () => {
       kennels: [],
     });
     // isHashRegoConfig should reject this, returning empty
-    expect(result).toEqual({ slugsWithoutLink: [], linksWithoutSlug: [] });
+    expect(result).toMatchObject({ slugsWithoutLink: [], linksWithoutSlug: [] });
   });
 });
