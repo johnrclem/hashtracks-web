@@ -315,7 +315,6 @@ model Event {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  @@unique([kennelId, date]) // De-duplication key
   @@index([date])
   @@index([kennelId, date])
 }
