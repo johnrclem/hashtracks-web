@@ -25,6 +25,7 @@ import { TYPE_LABELS } from "@/components/admin/SourceTable";
 import { fuzzyMatch } from "@/lib/fuzzy";
 import { cn } from "@/lib/utils";
 import { getHashRegoSlugDrift } from "@/app/admin/sources/actions";
+import { SlugDriftSync } from "@/components/admin/SlugDriftSync";
 
 /** Detect which scrape log IDs had structure hash changes. */
 function detectHashChanges(
@@ -508,9 +509,10 @@ export default async function SourceDetailPage({
           {slugDrift.linksWithoutSlug.length > 0 && (
             <p className="mt-1 text-yellow-700 dark:text-yellow-300">
               Linked kennels without slug (adapter won&apos;t fetch their events):{" "}
-              <span className="font-mono">{slugDrift.linksWithoutSlug.join(", ")}</span>
+              <span className="font-mono">{slugDrift.linksWithoutSlug.map((k) => k.shortName).join(", ")}</span>
             </p>
           )}
+          <SlugDriftSync sourceId={source.id} />
         </div>
       )}
 

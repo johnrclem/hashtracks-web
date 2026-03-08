@@ -1387,7 +1387,7 @@ async function main() {
     "survivor-h3": ["Survivor Hash", "Pensacola Hash"],
     "ech3-fl": ["Emerald Coast Hash", "Fort Walton Hash", "FWB Hash"],
     // Georgia
-    "ah4": ["Atlanta Hash", "Atlanta H4", "Atlanta HHH", "AH4 Hash", "Atlanta Hash (Saturdays)"],
+    "ah4": ["Atlanta Hash", "Atlanta H4", "Atlanta HHH", "AH4 Hash", "Atlanta Hash (Saturdays)", "AHHH"],
     "ph3-atl": ["Pinelake Hash", "Pinelake H3", "PH3 ATL"],
     "bsh3": ["Black Sheep Hash", "Black Sheep H3", "BSH3 Hash"],
     "sobh3": ["Slow Old Bastards", "SOB Hash", "SOB H3", "SOBH3 Hash"],
