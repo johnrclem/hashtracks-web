@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { KennelTable } from "@/components/admin/KennelTable";
 import { KennelForm } from "@/components/admin/KennelForm";
 import { KennelMergeDialog } from "@/components/admin/KennelMergeDialog";
+import { BackfillCoordsButton } from "@/components/admin/BackfillCoordsButton";
 import { Button } from "@/components/ui/button";
 
 export default async function AdminKennelsPage() {
@@ -60,6 +61,10 @@ export default async function AdminKennelsPage() {
     longitude: k.longitude,
   }));
 
+  const missingCoordsCount = serialized.filter(
+    (k) => k.latitude == null || k.longitude == null,
+  ).length;
+
   // Simplified kennel list for merge dialog
   const kennelsForMerge = kennels.map((k) => ({
     id: k.id,
@@ -74,6 +79,7 @@ export default async function AdminKennelsPage() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Kennels</h2>
         <div className="flex items-center gap-2">
+          <BackfillCoordsButton missingCount={missingCoordsCount} />
           <KennelMergeDialog
             kennels={kennelsForMerge}
             trigger={<Button size="sm" variant="outline">Merge Kennels</Button>}
