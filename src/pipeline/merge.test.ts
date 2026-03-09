@@ -393,20 +393,44 @@ describe("double-header support", () => {
     expect(result.created).toBe(0);
   });
 
-  it("creates new event when single existing has different sourceUrl", async () => {
+  it("cross-source: matches single existing event with different sourceUrl and creates EventLink", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", trustLevel: 5, sourceUrl: "https://example.com/old-url", startTime: "10:00", title: "Old Title" },
+      { id: "evt_1", trustLevel: 5, sourceUrl: "https://source-a.com/event", startTime: "10:00", title: "Trail" },
     ] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_2" } as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
 
     const result = await processRawEvents("src_1", [
-      buildRawEvent({ date: "2026-03-08", sourceUrl: "https://example.com/new-url", startTime: "11:00", title: "New Title" }),
+      buildRawEvent({ date: "2026-03-08", sourceUrl: "https://source-b.com/event", startTime: "10:00", title: "Trail" }),
     ]);
 
-    // Different sourceUrls → double-header detection creates new event
-    expect(result.created).toBe(1);
-    expect(result.updated).toBe(0);
+    // Cross-source: first time seeing this kennel+date in batch → match existing + create EventLink
+    expect(result.updated).toBe(1);
+    expect(result.created).toBe(0);
+    expect(vi.mocked(prisma.eventLink.upsert)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { eventId_url: { eventId: "evt_1", url: "https://source-b.com/event" } },
+      }),
+    );
+  });
+
+  it("multi-event fallback: matches by startTime when sourceUrl doesn't match", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, sourceUrl: "https://source-a.com/trail-a", startTime: "10:30", title: "Trail A" },
+      { id: "evt_2", trustLevel: 5, sourceUrl: "https://source-a.com/trail-b", startTime: "14:30", title: "Trail B" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-08", sourceUrl: "https://source-b.com/event", startTime: "14:30", title: "Different Title" }),
+    ]);
+
+    // sourceUrl didn't match, but startTime fallback found evt_2
+    expect(result.updated).toBe(1);
+    expect(mockEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "evt_2" } }),
+    );
   });
 });
 
