@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, validateSourceConfig } from "../utils";
+import { googleMapsSearchUrl, validateSourceConfig, stripPlaceholder } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
 /** Config stored in Source.config JSON for Google Sheets sources */
@@ -27,6 +27,8 @@ interface GoogleSheetsConfig {
     byDayOfWeek?: Record<string, string>;
     default?: string;
   };
+  /** Fallback title when title cell is empty/placeholder. Use with runNumber: "${defaultTitle} #${runNumber}" */
+  defaultTitle?: string;
 }
 
 /**
@@ -213,7 +215,7 @@ function resolveKennelTagFromSheetRow(
 }
 
 /** Build a RawEventData from a sheet row. Returns null if the row should be skipped. */
-function buildEventFromSheetRow(
+export function buildEventFromSheetRow(
   row: string[],
   config: GoogleSheetsConfig,
   sourceUrl: string,
@@ -222,9 +224,18 @@ function buildEventFromSheetRow(
   const resolved = resolveKennelTagFromSheetRow(row, config);
   if (!resolved) return null;
 
-  const hares = row[config.columns.hares]?.trim() || undefined;
-  const location = row[config.columns.location]?.trim() || undefined;
-  const title = row[config.columns.title]?.trim() || undefined;
+  // Strip placeholder values (TBD, TBA, N/A, etc.)
+  const hares = stripPlaceholder(row[config.columns.hares]);
+  const location = stripPlaceholder(row[config.columns.location]);
+  let title = stripPlaceholder(row[config.columns.title]);
+
+  // Apply defaultTitle fallback when title is empty
+  if (!title && config.defaultTitle) {
+    title = resolved.runNumber
+      ? `${config.defaultTitle} #${resolved.runNumber}`
+      : config.defaultTitle;
+  }
+
   const writeUp = config.columns.description != null
     ? row[config.columns.description]?.trim()
     : undefined;

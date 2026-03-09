@@ -10,6 +10,8 @@ import {
   buildUrlVariantCandidates,
   validateSourceUrl,
   chronoParseDate,
+  isPlaceholder,
+  stripPlaceholder,
 } from "./utils";
 
 describe("MONTHS", () => {
@@ -293,6 +295,50 @@ describe("buildUrlVariantCandidates", () => {
 
   it("returns normalized input when URL is malformed", () => {
     expect(buildUrlVariantCandidates("not a valid url/")).toEqual(["not a valid url"]);
+  });
+});
+
+describe("isPlaceholder", () => {
+  it.each(["tbd", "TBD", "tba", "TBA", "tbc", "TBC", "n/a", "N/A", "?", "??", "needed", "Needed", "NEEDED", "required", "Required", "REQUIRED"])(
+    "returns true for '%s'",
+    (val) => {
+      expect(isPlaceholder(val)).toBe(true);
+    },
+  );
+
+  it("trims whitespace before matching", () => {
+    expect(isPlaceholder("  TBD  ")).toBe(true);
+    expect(isPlaceholder(" tba ")).toBe(true);
+  });
+
+  it.each(["Real Title", "TBD - check back", "Location TBD", "hash run", "123", "Hare required please"])(
+    "returns false for '%s'",
+    (val) => {
+      expect(isPlaceholder(val)).toBe(false);
+    },
+  );
+});
+
+describe("stripPlaceholder", () => {
+  it.each(["tbd", "TBA", "tbc", "N/A", "?", "??", "needed", "required"])(
+    "returns undefined for placeholder '%s'",
+    (val) => {
+      expect(stripPlaceholder(val)).toBeUndefined();
+    },
+  );
+
+  it("returns undefined for null/undefined/empty", () => {
+    expect(stripPlaceholder(null)).toBeUndefined();
+    expect(stripPlaceholder(undefined)).toBeUndefined();
+    expect(stripPlaceholder("")).toBeUndefined();
+    expect(stripPlaceholder("   ")).toBeUndefined();
+  });
+
+  it("returns trimmed value for non-placeholders", () => {
+    expect(stripPlaceholder("Real Title")).toBe("Real Title");
+    expect(stripPlaceholder("  Central Park  ")).toBe("Central Park");
+    expect(stripPlaceholder("TBD - check back")).toBe("TBD - check back");
+    expect(stripPlaceholder("Location TBD")).toBe("Location TBD");
   });
 });
 

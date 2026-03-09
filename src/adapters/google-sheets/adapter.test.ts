@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseDate, inferStartTime, parseCSV } from "./adapter";
+import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow } from "./adapter";
 
 // ── parseDate ──
 
@@ -122,5 +122,62 @@ describe("parseCSV", () => {
 
   it("handles unquoted empty fields", () => {
     expect(parseCSV("a,,c")).toEqual([["a", "", "c"]]);
+  });
+});
+
+// ── buildEventFromSheetRow (placeholder stripping + defaultTitle) ──
+// Note: PLACEHOLDER_PATTERN tests moved to src/adapters/utils.test.ts (isPlaceholder/stripPlaceholder)
+
+describe("buildEventFromSheetRow", () => {
+  const baseConfig = {
+    sheetId: "test",
+    columns: { runNumber: 0, date: 1, hares: 2, location: 3, title: 4 },
+    kennelTagRules: { default: "W3H3" },
+  };
+
+  it("strips TBD title to undefined", () => {
+    const row = ["100", "3/11/26", "Alice", "Some Park", "TBD"];
+    const event = buildEventFromSheetRow(row, baseConfig, "https://example.com", "2026-03-11");
+    expect(event).not.toBeNull();
+    expect(event!.title).toBeUndefined();
+  });
+
+  it("strips TBD hares and location", () => {
+    const row = ["100", "3/11/26", "tbd", "TBA", "Real Title"];
+    const event = buildEventFromSheetRow(row, baseConfig, "https://example.com", "2026-03-11");
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBeUndefined();
+    expect(event!.location).toBeUndefined();
+    expect(event!.title).toBe("Real Title");
+  });
+
+  it("applies defaultTitle with run number when title is placeholder", () => {
+    const config = { ...baseConfig, defaultTitle: "Wild & Wonderful Wednesday Trail" };
+    const row = ["42", "3/11/26", "Alice", "Park", "TBD"];
+    const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-03-11");
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Wild & Wonderful Wednesday Trail #42");
+  });
+
+  it("applies bare defaultTitle when no run number", () => {
+    // This config uses a specialRunMap that produces no runNumber
+    const config = {
+      ...baseConfig,
+      columns: { ...baseConfig.columns, specialRun: 5 },
+      kennelTagRules: { default: "W3H3", specialRunMap: { "special": "W3H3" } },
+      defaultTitle: "Wednesday Trail",
+    };
+    const row = ["", "3/11/26", "", "", "tbd", "special"];
+    const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-03-11");
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Wednesday Trail");
+  });
+
+  it("explicit title overrides defaultTitle", () => {
+    const config = { ...baseConfig, defaultTitle: "Fallback Title" };
+    const row = ["100", "3/11/26", "Alice", "Park", "Halloween Hash"];
+    const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-03-11");
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Halloween Hash");
   });
 });

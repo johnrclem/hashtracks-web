@@ -5,7 +5,7 @@ import type {
   RawEventData,
   ScrapeResult,
 } from "../types";
-import { chronoParseDate, fetchHTMLPage } from "../utils";
+import { chronoParseDate, fetchHTMLPage, isPlaceholder } from "../utils";
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -104,7 +104,7 @@ export function parseDetailPage($: cheerio.CheerioAPI, detailUrl: string): Detai
   const venueMatch = /Venue\s*[:\-–—]\s*(.+?)(?:\n|$)/i.exec(fullText);
   if (venueMatch) {
     location = venueMatch[1].trim();
-    if (/^tba|^tbd|^tbc/i.test(location)) location = undefined;
+    if (isPlaceholder(location)) location = undefined;
   }
 
   // Hares: text after "Hare:" or "Hare -" (handles split-tag "Hare:")
@@ -112,7 +112,7 @@ export function parseDetailPage($: cheerio.CheerioAPI, detailUrl: string): Detai
   const hareMatch = /[Hh]ares?\s*[:\-–—]\s*(.+?)(?:\n|$)/i.exec(fullText);
   if (hareMatch) {
     const haresText = hareMatch[1].trim();
-    if (!/^tba|^tbd|^tbc/i.test(haresText)) {
+    if (!isPlaceholder(haresText)) {
       hares = haresText;
     }
   }
@@ -122,7 +122,7 @@ export function parseDetailPage($: cheerio.CheerioAPI, detailUrl: string): Detai
   const onInnMatch = /On\s+Inn\s*[:\-–—]\s*(.+?)(?:\n|$)/i.exec(fullText);
   if (onInnMatch) {
     const onInnText = onInnMatch[1].trim();
-    if (!/^tba|^tbd|^tbc/i.test(onInnText)) {
+    if (!isPlaceholder(onInnText)) {
       onInn = onInnText;
     }
   }

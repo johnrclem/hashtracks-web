@@ -361,6 +361,31 @@ export async function fetchHTMLPage(url: string): Promise<FetchHTMLResult> {
  * Use this for JS-rendered sites (Wix, Google Sites, SPAs) where standard
  * HTTP fetch returns empty containers.
  */
+// ---------------------------------------------------------------------------
+// Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
+// ---------------------------------------------------------------------------
+
+const PLACEHOLDER_RE = /^(?:tbd|tba|tbc|n\/a|needed|required|\?\??)$/i;
+
+/**
+ * Check if a value is a common placeholder (TBD, TBA, TBC, N/A, ?, ??, needed, required).
+ * Fully anchored + case-insensitive. Trims input before matching.
+ */
+export function isPlaceholder(value: string): boolean {
+  return PLACEHOLDER_RE.test(value.trim());
+}
+
+/**
+ * Return the value if it's non-empty and not a placeholder, otherwise undefined.
+ * Convenience wrapper: `stripPlaceholder(cell) ?? fallback`
+ */
+export function stripPlaceholder(value: string | undefined | null): string | undefined {
+  if (value == null) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || PLACEHOLDER_RE.test(trimmed)) return undefined;
+  return trimmed;
+}
+
 export async function fetchBrowserRenderedPage(
   url: string,
   options?: { waitFor?: string; selector?: string; timeout?: number },

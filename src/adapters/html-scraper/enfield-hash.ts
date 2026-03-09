@@ -8,7 +8,7 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { buildUrlVariantCandidates, chronoParseDate, decodeEntities } from "../utils";
+import { buildUrlVariantCandidates, chronoParseDate, decodeEntities, isPlaceholder } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
 const USE_RESIDENTIAL_PROXY = true;
@@ -127,8 +127,8 @@ export function parseEnfieldBody(text: string, now?: Date): {
   return {
     date: date ?? undefined,
     hares,
-    location: location && !/^tba|^tbd|^tbc/i.test(location) ? location : undefined,
-    station: station && !/^tba|^tbd|^tbc/i.test(station) ? station : undefined,
+    location: location && !isPlaceholder(location) ? location : undefined,
+    station: station && !isPlaceholder(station) ? station : undefined,
   };
 }
 

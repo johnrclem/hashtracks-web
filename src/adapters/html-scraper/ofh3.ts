@@ -4,7 +4,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchBloggerPosts } from "../blogger-api";
-import { chronoParseDate, decodeEntities } from "../utils";
+import { chronoParseDate, decodeEntities, isPlaceholder } from "../utils";
 
 /**
  * Parse a date string from OFH3 content.
@@ -136,7 +136,7 @@ function processPost(
   }
 
   let locationUrl: string | undefined;
-  if (bodyFields.location && bodyFields.location.toLowerCase() !== "tba") {
+  if (bodyFields.location && !isPlaceholder(bodyFields.location)) {
     locationUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(bodyFields.location)}`;
   }
 
@@ -147,7 +147,7 @@ function processPost(
     kennelTag: "OFH3",
     title: titleText || undefined,
     hares: bodyFields.hares,
-    location: bodyFields.location && bodyFields.location.toLowerCase() !== "tba" ? bodyFields.location : undefined,
+    location: bodyFields.location && !isPlaceholder(bodyFields.location) ? bodyFields.location : undefined,
     locationUrl,
     startTime: "11:00",
     sourceUrl,

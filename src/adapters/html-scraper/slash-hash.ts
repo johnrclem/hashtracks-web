@@ -8,7 +8,7 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { chronoParseDate, parse12HourTime } from "../utils";
+import { chronoParseDate, parse12HourTime, stripPlaceholder } from "../utils";
 
 /**
  * Parse a date from SLASH run list text using chrono-node.
@@ -91,9 +91,7 @@ function extractFieldsByColumnCount(cells: string[]): { location: string | undef
 
 /** Clean TBA/TBC placeholder values from hares and location. */
 function cleanupTBAValues(hares: string | undefined, location: string | undefined): { hares: string | undefined; location: string | undefined } {
-  const cleanedHares = hares && /^(tba|tbd|tbc|needed|required|\?\??)$/i.test(hares.trim()) ? undefined : hares;
-  const cleanedLocation = location && /^(tba|tbd|tbc|\?\??)$/i.test(location.trim()) ? undefined : location;
-  return { hares: cleanedHares, location: cleanedLocation };
+  return { hares: stripPlaceholder(hares), location: stripPlaceholder(location) };
 }
 
 export function parseSlashRow(cells: string[]): RawEventData | null {
