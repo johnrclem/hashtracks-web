@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { APIProvider, Map, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
 import { Button } from "@/components/ui/button";
 import { LocateFixed, X } from "lucide-react";
@@ -10,12 +11,11 @@ import type { HarelineEvent } from "./EventCard";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
 
-/** Shared base styles for legend teardrop icons. */
+/** Shared base styles for legend circle icons. */
 const LEGEND_ICON_BASE: React.CSSProperties = {
   width: 10,
   height: 10,
-  borderRadius: "50% 50% 50% 0",
-  transform: "rotate(-45deg)",
+  borderRadius: "50%",
   opacity: 0.5,
 };
 
@@ -68,6 +68,22 @@ function PrecisionBanner() {
   );
 }
 
+/** Auto-zoom when the events list changes (e.g. filter applied). */
+function AutoZoom({ bounds }: { bounds: { south: number; north: number; west: number; east: number } | undefined }) {
+  const map = useMap();
+  const prevBoundsKeyRef = useRef("");
+  const boundsKey = bounds ? `${bounds.south},${bounds.north},${bounds.west},${bounds.east}` : "";
+
+  useEffect(() => {
+    if (bounds && boundsKey !== prevBoundsKeyRef.current) {
+      prevBoundsKeyRef.current = boundsKey;
+      map?.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
+    }
+  }, [map, bounds, boundsKey]);
+
+  return null;
+}
+
 /** Props for the interactive MapView — renders hareline events as region-colored map pins. */
 interface MapViewProps {
   readonly events: HarelineEvent[];
@@ -78,6 +94,8 @@ interface MapViewProps {
 }
 
 export default function MapView({ events, selectedEventId, onSelectEvent }: MapViewProps) {
+  const router = useRouter();
+  const handleNavigate = useCallback((id: string) => router.push(`/hareline/${id}`), [router]);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
 
   const eventsWithCoords = useMemo<EventWithCoords[]>(() => {
@@ -99,7 +117,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
   // Compute bounding box for all events to auto-fit the map (iterative to avoid spread stack limit)
   const defaultBounds = useMemo(() => {
     if (eventsWithCoords.length === 0) return undefined;
-    const pad = 0.5;
+    const pad = 1.0;
     const first = eventsWithCoords[0];
     let south = first.lat, north = first.lat, west = first.lng, east = first.lng;
     for (const e of eventsWithCoords) {
@@ -146,10 +164,14 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
             events={eventsWithCoords}
             selectedEventId={selectedEventId}
             onSelectEvent={onSelectEvent}
+            onNavigate={handleNavigate}
           />
 
           {/* Reset view button */}
           {defaultBounds && <ResetViewControl bounds={defaultBounds} />}
+
+          {/* Auto-zoom on filter change */}
+          <AutoZoom bounds={defaultBounds} />
 
           {/* First-time precision info banner */}
           <PrecisionBanner />

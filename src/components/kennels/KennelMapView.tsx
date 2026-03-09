@@ -1,9 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { APIProvider, Map as GoogleMap, AdvancedMarker, MapControl, ControlPosition } from "@vis.gl/react-google-maps";
+import { useMemo, useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { APIProvider, Map as GoogleMap, AdvancedMarker, InfoWindow, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { LocateFixed } from "lucide-react";
 import { REGION_CENTROIDS, getRegionColor, getEventCoords } from "@/lib/geo";
+import { formatSchedule } from "@/lib/format";
 import type { KennelCardData } from "./KennelCard";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
@@ -16,7 +20,11 @@ interface KennelMapViewProps {
 interface KennelPin {
   id: string;
   shortName: string;
+  fullName: string;
   slug: string;
+  region: string;
+  schedule: string | null;
+  nextEvent: { date: string; title: string | null } | null;
   lat: number;
   lng: number;
   color: string;
@@ -31,8 +39,45 @@ interface RegionPin {
   color: string;
 }
 
+/** Reset view button — fits map back to the initial bounds. */
+function ResetViewControl({ bounds }: { bounds: { south: number; north: number; west: number; east: number } }) {
+  const map = useMap();
+  return (
+    <MapControl position={ControlPosition.TOP_RIGHT}>
+      <div className="m-2.5">
+        <Button
+          variant="outline"
+          size="sm"
+          className="bg-background shadow-sm"
+          onClick={() => map?.fitBounds(bounds)}
+          aria-label="Reset map to show all kennels"
+        >
+          <LocateFixed className="mr-1.5 h-3.5 w-3.5" />
+          Reset view
+        </Button>
+      </div>
+    </MapControl>
+  );
+}
+
+/** Auto-zoom when pins change (e.g. filter applied). */
+function AutoZoom({ bounds }: { bounds: { south: number; north: number; west: number; east: number } | undefined }) {
+  const map = useMap();
+  const prevBoundsKeyRef = useRef("");
+  const boundsKey = bounds ? `${bounds.south},${bounds.north},${bounds.west},${bounds.east}` : "";
+
+  useEffect(() => {
+    if (bounds && boundsKey !== prevBoundsKeyRef.current) {
+      prevBoundsKeyRef.current = boundsKey;
+      map?.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
+    }
+  }, [map, bounds, boundsKey]);
+
+  return null;
+}
+
 export default function KennelMapView({ kennels, onRegionSelect }: KennelMapViewProps) {
-  const router = useRouter();
+  const [selectedKennelId, setSelectedKennelId] = useState<string | null>(null);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
 
   // Build individual kennel pins (precise coords) and region aggregate pins (fallback)
@@ -52,7 +97,11 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
         kPins.push({
           id: kennel.id,
           shortName: kennel.shortName,
+          fullName: kennel.fullName,
           slug: kennel.slug,
+          region: kennel.region,
+          schedule: formatSchedule(kennel),
+          nextEvent: kennel.nextEvent,
           lat: coords.lat,
           lng: coords.lng,
           color: getRegionColor(kennel.region),
@@ -139,40 +188,85 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
             disableDefaultUI={false}
             mapTypeControl={false}
             streetViewControl={false}
+          onClick={() => setSelectedKennelId(null)}
           >
             {/* Individual kennel pins */}
-            {kennelPins.map((pin) => (
-              <AdvancedMarker
-                key={pin.id}
-                position={{ lat: pin.lat, lng: pin.lng }}
-                onClick={() => {
-                  router.push(`/kennels/${pin.slug}`);
-                }}
-                title={pin.shortName}
-              >
-                <div
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    backgroundColor: pin.color,
-                    border: "2px solid white",
-                    boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "9px",
-                    fontWeight: "bold",
-                    color: "white",
-                    transition: "transform 0.15s ease",
-                    userSelect: "none",
-                  }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1.2)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"; }}
-                />
-              </AdvancedMarker>
-            ))}
+            {kennelPins.map((pin) => {
+              const isSelected = selectedKennelId === pin.id;
+              return (
+                <AdvancedMarker
+                  key={pin.id}
+                  position={{ lat: pin.lat, lng: pin.lng }}
+                  onClick={() => setSelectedKennelId(pin.id)}
+                  title={pin.shortName}
+                >
+                  <div
+                    style={{
+                      width: isSelected ? 32 : 28,
+                      height: isSelected ? 32 : 28,
+                      borderRadius: "50%",
+                      backgroundColor: pin.color,
+                      border: isSelected ? "3px solid white" : "2px solid white",
+                      boxShadow: isSelected
+                        ? `0 0 0 2px ${pin.color}, 0 2px 6px rgba(0,0,0,0.4)`
+                        : "0 1px 4px rgba(0,0,0,0.4)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "9px",
+                      fontWeight: "bold",
+                      color: "white",
+                      transition: "all 0.15s ease",
+                      userSelect: "none",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1.2)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"; }}
+                  />
+                </AdvancedMarker>
+              );
+            })}
+
+            {/* InfoWindow for selected kennel */}
+            {selectedKennelId && (() => {
+              const pin = kennelPins.find((p) => p.id === selectedKennelId);
+              if (!pin) return null;
+              return (
+                <InfoWindow
+                  position={{ lat: pin.lat, lng: pin.lng }}
+                  onCloseClick={() => setSelectedKennelId(null)}
+                  pixelOffset={[0, -18]}
+                >
+                  <div className="min-w-[180px] max-w-[260px]" style={{ borderTop: `3px solid ${pin.color}`, paddingTop: 8 }}>
+                    <p className="m-0 text-[14px] font-bold">{pin.shortName}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{pin.fullName}</p>
+                    <Badge variant="outline" className="mt-1 text-[10px]">{pin.region}</Badge>
+                    {pin.schedule && (
+                      <p className="mt-1.5 text-xs text-muted-foreground">{pin.schedule}</p>
+                    )}
+                    {pin.nextEvent && (
+                      <p className="mt-1 text-xs">
+                        <span className="font-medium">Next run:</span>{" "}
+                        {new Date(pin.nextEvent.date).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })}
+                        {pin.nextEvent.title && <span className="text-muted-foreground"> — {pin.nextEvent.title}</span>}
+                      </p>
+                    )}
+                    <Link
+                      href={`/kennels/${pin.slug}`}
+                      className="mt-2 inline-block text-xs font-medium text-primary no-underline hover:underline"
+                    >
+                      View Kennel →
+                    </Link>
+                  </div>
+                </InfoWindow>
+              );
+            })()}
+
+            {/* Reset view button */}
+            {defaultBounds && <ResetViewControl bounds={defaultBounds} />}
+
+            {/* Auto-zoom on filter change */}
+            <AutoZoom bounds={defaultBounds} />
 
             {/* Legend */}
             <MapControl position={ControlPosition.BOTTOM_LEFT}>
