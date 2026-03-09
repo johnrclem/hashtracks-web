@@ -17,7 +17,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { EventCard, type HarelineEvent } from "./EventCard";
-import { regionColorClasses, regionBgClass, regionAbbrev, formatTimeCompact } from "@/lib/format";
+import { regionColorClasses, regionBgClass, regionAbbrev, formatTimeCompact, formatTime } from "@/lib/format";
+import { getRegionColor } from "@/lib/region";
+import { getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
+import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { type TimeFilter, WEEKS_DAYS } from "./HarelineView";
 
 const MONTH_NAMES = [
@@ -83,11 +86,11 @@ function OverflowPopover({ dayEvents, cellDate, onNavigate }: Readonly<{
           <button
             key={ev.id}
             onClick={() => onNavigate(ev.id)}
-            className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-xs hover:bg-muted"
+            className="flex w-full items-center gap-1.5 rounded border-l-2 px-2 py-1 text-left text-xs hover:bg-muted"
+            style={{ borderLeftColor: getRegionColor(ev.kennel.region) }}
           >
-            <span className={`h-2 w-2 shrink-0 rounded-full ${regionBgClass(ev.kennel.region)}`} />
             <span className="truncate font-medium">{ev.kennel.shortName}</span>
-            {ev.startTime && <span className="shrink-0 text-muted-foreground">{formatTimeCompact(ev.startTime)}</span>}
+            {ev.startTime && <span className="ml-auto shrink-0 text-muted-foreground">{formatTimeCompact(ev.startTime)}</span>}
           </button>
         ))}
       </div>
@@ -108,6 +111,7 @@ type CalendarMode = "month" | "weeks";
 
 export function CalendarView({ events, timeFilter }: CalendarViewProps) {
   const router = useRouter();
+  const { preference: timePref } = useTimePreference();
   const today = new Date();
   const [year, setYear] = useState(today.getUTCFullYear());
   const [month, setMonth] = useState(today.getUTCMonth());
@@ -404,9 +408,19 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
                 <TooltipContent>
                   <div className="space-y-0.5">
                     <p className="font-semibold">{e.kennel.fullName}</p>
+                    <p className="text-xs text-muted-foreground">{e.kennel.region}</p>
                     {e.runNumber && <p className="text-xs">Run #{e.runNumber}</p>}
                     {e.title && <p className="text-xs">{e.title}</p>}
-                    {e.startTime && <p className="text-xs">{formatTimeCompact(e.startTime)}</p>}
+                    {e.startTime && (
+                      <p className="text-xs">
+                        {formatTime(e.startTime)}
+                        {e.dateUtc && e.timezone && (
+                          <span className="ml-1 text-muted-foreground">
+                            {getTimezoneAbbreviation(e.dateUtc, timePref === "USER_LOCAL" ? getBrowserTimezone() : e.timezone)}
+                          </span>
+                        )}
+                      </p>
+                    )}
                   </div>
                 </TooltipContent>
               </Tooltip>
@@ -561,7 +575,10 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
         {/* Detail panel: sidebar on desktop, below on mobile */}
         {selectedDay && (
           <div className="mt-4 lg:mt-0 lg:w-80 lg:shrink-0">
-            <div className="space-y-2 rounded-md border p-4 lg:sticky lg:top-8 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
+            <div
+              className="space-y-2 rounded-md border border-t-[3px] p-4 lg:sticky lg:top-8 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto"
+              style={{ borderTopColor: selectedEvents[0] ? getRegionColor(selectedEvents[0].kennel.region) : undefined }}
+            >
               <h3 className="text-sm font-medium">
                 {new Date(selectedDay + "T12:00:00Z").toLocaleDateString("en-US", {
                   weekday: "long",
@@ -576,7 +593,7 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
               ) : (
                 <div className="space-y-2">
                   {selectedEvents.map((event) => (
-                    <EventCard key={event.id} event={event} density="medium" />
+                    <EventCard key={event.id} event={event} density="medium" hideDate />
                   ))}
                 </div>
               )}

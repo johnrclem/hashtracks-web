@@ -18,6 +18,7 @@ import { CheckInButton } from "@/components/logbook/CheckInButton";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { CalendarExportButton } from "./CalendarExportButton";
 import { EventLocationMap } from "./EventLocationMap";
+import { getRegionColor } from "@/lib/region";
 
 interface EventDetailPanelProps {
   event: HarelineEvent | null;
@@ -63,8 +64,10 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
     ? getTimezoneAbbreviation(event.dateUtc, displayTz)
     : "";
 
+  const regionColor = getRegionColor(event.kennel.region);
+
   return (
-    <Card className="flex max-h-[calc(100vh-4rem)] flex-col overflow-hidden">
+    <Card className="flex max-h-[calc(100vh-4rem)] flex-col overflow-hidden border-t-[3px]" style={{ borderTopColor: regionColor }}>
       {/* Scrollable content */}
       <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
         {/* Header */}

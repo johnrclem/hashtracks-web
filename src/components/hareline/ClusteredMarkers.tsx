@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useMemo } from "react";
-import Link from "next/link";
-import { useMap, AdvancedMarker, InfoWindow } from "@vis.gl/react-google-maps";
+import { useEffect, useRef, useCallback } from "react";
+import { useMap, AdvancedMarker } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import type { Marker } from "@googlemaps/markerclusterer";
 import type { HarelineEvent } from "./EventCard";
-import { formatTimeCompact } from "@/lib/format";
 
 /** Event enriched with resolved coordinates and pin color for map rendering. */
 export interface EventWithCoords {
@@ -31,7 +29,7 @@ export function getMarkerSize(isSelected: boolean, precise: boolean): number {
   return 14;
 }
 
-/** Build inline style for a teardrop map pin marker. */
+/** Build inline style for a circle map pin marker. */
 export function getMarkerStyle(
   size: number,
   color: string,
@@ -43,8 +41,7 @@ export function getMarkerStyle(
     height: size,
     backgroundColor: precise ? color : "transparent",
     border: `${isSelected ? 3 : 2}px solid ${color}`,
-    borderRadius: "50% 50% 50% 0",
-    transform: "rotate(-45deg)",
+    borderRadius: "50%",
     boxShadow: isSelected
       ? `0 0 0 2px white, 0 0 0 4px ${color}`
       : "0 1px 4px rgba(0,0,0,0.4)",
@@ -95,12 +92,6 @@ export function ClusteredMarkers({ events, selectedEventId, onSelectEvent }: Clu
     return cb;
   }, []);
 
-  // Resolve selected event coordinates for InfoWindow positioning
-  const selectedInfo = useMemo(() => {
-    if (!selectedEventId) return null;
-    return events.find((e) => e.event.id === selectedEventId) ?? null;
-  }, [events, selectedEventId]);
-
   return (
     <>
       {events.map(({ event, lat, lng, precise, color }) => {
@@ -111,40 +102,13 @@ export function ClusteredMarkers({ events, selectedEventId, onSelectEvent }: Clu
             key={event.id}
             position={{ lat, lng }}
             onClick={() => onSelectEvent(event)}
-            title={event.locationName ?? event.kennel.shortName ?? undefined}
+            title={`${event.kennel.shortName}${event.startTime ? ` · ${event.startTime}` : ""}`}
             ref={getRefCallback(event.id) as React.Ref<never>}
           >
             <div style={getMarkerStyle(size, color, precise, isSelected)} />
           </AdvancedMarker>
         );
       })}
-
-      {selectedInfo && (
-        <InfoWindow
-          position={{ lat: selectedInfo.lat, lng: selectedInfo.lng }}
-          onCloseClick={() => onSelectEvent(null)}
-          pixelOffset={[0, -20]}
-        >
-          <div className="min-w-[160px] max-w-[240px]">
-            <p className="m-0 text-[13px] font-semibold">{selectedInfo.event.kennel.shortName}</p>
-            {selectedInfo.event.title && (
-              <p className="mt-0.5 text-xs text-muted-foreground">{selectedInfo.event.title}</p>
-            )}
-            {selectedInfo.event.startTime && (
-              <p className="mt-0.5 text-xs text-muted-foreground">{formatTimeCompact(selectedInfo.event.startTime)}</p>
-            )}
-            {selectedInfo.event.locationName && (
-              <p className="mt-0.5 text-[11px] text-muted-foreground/70">{selectedInfo.event.locationName}</p>
-            )}
-            <Link
-              href={`/hareline/${selectedInfo.event.id}`}
-              className="mt-1.5 inline-block text-xs text-primary no-underline hover:underline"
-            >
-              View details →
-            </Link>
-          </div>
-        </InfoWindow>
-      )}
     </>
   );
 }

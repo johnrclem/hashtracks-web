@@ -13,6 +13,7 @@ import { AttendanceBadge } from "@/components/logbook/AttendanceBadge";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { RegionBadge } from "./RegionBadge";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
+import { getRegionColor } from "@/lib/region";
 import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
 
 export type HarelineEvent = {
@@ -130,8 +131,10 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
     }
   }
 
+  const regionColor = getRegionColor(event.kennel.region);
+
   const goingBadge = (
-    <Badge variant="outline" className="border-blue-300 text-blue-700 text-[10px] px-1.5 py-0">
+    <Badge className="bg-blue-100 text-blue-700 border-0 text-xs px-2 py-0.5 font-semibold">
       Going
     </Badge>
   );
@@ -147,9 +150,14 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
         aria-label={buildAriaLabel(event, attendance)}
       >
         <div
-          className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-all hover:bg-muted/50 hover:shadow-sm active:bg-muted/70 ${isSelected ? "border-primary bg-primary/5" : ""
+          className={`flex items-center gap-3 rounded-md border border-l-2 px-3 py-2 text-sm transition-all hover:bg-muted/50 hover:shadow-sm active:bg-muted/70 ${isSelected ? "ring-1 ring-primary/20" : ""
             }`}
+          style={{
+            borderLeftColor: regionColor,
+            backgroundColor: isSelected ? `${regionColor}08` : undefined,
+          }}
         >
+          {/* Fixed-width columns: date, kennel, run# */}
           {!hideDate && (
             <span className="w-24 shrink-0 font-medium" suppressHydrationWarning>
               {displayDateStr}
@@ -169,18 +177,20 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               <TooltipContent>{event.kennel.fullName}</TooltipContent>
             </Tooltip>
           </span>
+          <span className="w-12 shrink-0 text-muted-foreground">
+            {event.runNumber ? `#${event.runNumber}` : "\u2014"}
+          </span>
+          {/* Flexible text — absorbs remaining space */}
+          <span className="truncate text-muted-foreground">
+            {event.haresText || getDisplayTitle(event)}
+          </span>
+          {/* Right-aligned variable-width items */}
           <RegionBadge region={event.kennel.region} size="sm" />
           {attendance?.status === "INTENDING" && (
             <span className="shrink-0">
               {goingBadge}
             </span>
           )}
-          <span className="w-12 shrink-0 text-muted-foreground">
-            {event.runNumber ? `#${event.runNumber}` : "\u2014"}
-          </span>
-          <span className="truncate text-muted-foreground">
-            {event.haresText || getDisplayTitle(event)}
-          </span>
           {displayTimeStr && (
             <span className="ml-auto flex items-center gap-1 shrink-0 text-xs text-muted-foreground" suppressHydrationWarning>
               {displayTimeStr}
@@ -198,6 +208,8 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   }
 
   // Medium density — plain div instead of Card (which has py-6 baked in)
+  const displayTitle = getDisplayTitle(event);
+
   return (
     <div
       role="button"
@@ -208,11 +220,15 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
       aria-label={buildAriaLabel(event, attendance)}
     >
       <div
-        className={`rounded-lg border px-3 py-2 shadow-sm transition-all hover:bg-muted/30 hover:shadow-md hover:-translate-y-px active:shadow-sm active:translate-y-0 ${isSelected ? "border-primary bg-primary/5" : ""
+        className={`rounded-lg border border-l-[3px] px-3 py-2 shadow-sm transition-all hover:bg-muted/30 hover:shadow-md hover:-translate-y-px active:shadow-sm active:translate-y-0 ${isSelected ? "ring-1 ring-primary/20" : ""
           }`}
+        style={{
+          borderLeftColor: regionColor,
+          backgroundColor: isSelected ? `${regionColor}08` : undefined,
+        }}
       >
         <div className="min-w-0 space-y-0.5">
-          {/* Line 1: date · kennel · run# · time — metadata row */}
+          {/* Line 1: date · kennel · run# · badges | time — metadata row */}
           <div className="flex flex-nowrap items-center gap-1.5 overflow-hidden text-[13px] text-muted-foreground">
             {!hideDate && (
               <>
@@ -224,7 +240,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               <TooltipTrigger asChild>
                 <Link
                   href={`/kennels/${event.kennel.slug}`}
-                  className="text-primary hover:underline"
+                  className="font-bold text-foreground hover:underline"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {event.kennel.shortName}
@@ -235,17 +251,8 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
             <RegionBadge region={event.kennel.region} size="sm" />
             {event.runNumber && (
               <>
-                <span>·</span>
-                <span>Run #{event.runNumber}</span>
-              </>
-            )}
-            {displayTimeStr && (
-              <>
-                <span>·</span>
-                <span className="flex items-center gap-1" suppressHydrationWarning>
-                  {displayTimeStr}
-                  {tzAbbrev && <span className="text-[10px] font-medium opacity-70" suppressHydrationWarning>{tzAbbrev}</span>}
-                </span>
+                <span className="shrink-0">·</span>
+                <span className="truncate">#{event.runNumber}</span>
               </>
             )}
             {event.status === "CANCELLED" && (
@@ -267,10 +274,16 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
                 )}
               </span>
             )}
+            {displayTimeStr && (
+              <span className="ml-auto shrink-0 font-medium text-sm text-foreground/70 flex items-center gap-1" suppressHydrationWarning>
+                {displayTimeStr}
+                {tzAbbrev && <span className="text-[10px] opacity-70" suppressHydrationWarning>{tzAbbrev}</span>}
+              </span>
+            )}
           </div>
 
           {/* Line 2: title (always shown, with fallback) */}
-          <p className="truncate text-base font-semibold text-foreground">{getDisplayTitle(event)}</p>
+          <p className="truncate text-base font-semibold text-foreground" title={displayTitle}>{displayTitle}</p>
 
           {/* Line 3 (optional): hares */}
           {event.haresText && (

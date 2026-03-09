@@ -48,10 +48,10 @@ describe("getMarkerStyle", () => {
     expect(style.boxShadow).toBe("0 1px 4px rgba(0,0,0,0.4)");
   });
 
-  it("always applies teardrop shape", () => {
+  it("always applies circle shape", () => {
     const style = getMarkerStyle(14, "#000", false, false);
-    expect(style.borderRadius).toBe("50% 50% 50% 0");
-    expect(style.transform).toBe("rotate(-45deg)");
+    expect(style.borderRadius).toBe("50%");
+    expect(style.transform).toBeUndefined();
   });
 
   it("sets width and height to the given size", () => {
