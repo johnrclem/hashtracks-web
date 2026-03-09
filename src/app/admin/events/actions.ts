@@ -170,6 +170,44 @@ export async function deleteSelectedEvents(eventIds: string[]): Promise<ActionRe
 }
 
 /**
+ * Restore a cancelled event by setting status back to CONFIRMED.
+ */
+export async function uncancelEvent(eventId: string): Promise<ActionResult<{ kennelName: string; date: string }>> {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: { kennel: { select: { shortName: true } } },
+  });
+  if (!event) return { error: "Event not found" };
+  if (event.status !== "CANCELLED") return { error: "Event is not cancelled" };
+
+  await prisma.event.update({
+    where: { id: eventId },
+    data: { status: "CONFIRMED" },
+  });
+
+  console.log("[admin-audit] uncancelEvent", JSON.stringify({
+    adminId: admin.id,
+    action: "uncancel_event",
+    eventId,
+    kennelName: event.kennel.shortName,
+    eventDate: event.date.toISOString(),
+    timestamp: new Date().toISOString(),
+  }));
+
+  revalidatePath("/admin/events");
+  revalidatePath("/hareline");
+  revalidatePath(`/hareline/${eventId}`);
+  return {
+    success: true,
+    kennelName: event.kennel.shortName,
+    date: event.date.toISOString(),
+  };
+}
+
+/**
  * Build Prisma where clause from filters.
  * Returns null if no filters are provided (safety guard against accidental mass delete).
  */

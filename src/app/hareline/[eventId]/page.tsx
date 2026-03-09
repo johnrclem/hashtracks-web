@@ -25,7 +25,7 @@ export async function generateMetadata({
   });
   return { title: `${dateStr} · ${event.kennel.shortName} · HashTracks` };
 }
-import { getOrCreateUser, getMismanUser } from "@/lib/auth";
+import { getOrCreateUser, getAdminUser, getMismanUser } from "@/lib/auth";
 import { getStravaConnection } from "@/app/strava/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ import { SourcesDropdown } from "@/components/hareline/SourcesDropdown";
 import { getEventDayWeather } from "@/lib/weather";
 import { REGION_CENTROIDS } from "@/lib/geo";
 import { InfoPopover } from "@/components/ui/info-popover";
+import { RestoreEventButton } from "@/components/admin/RestoreEventButton";
 
 export default async function EventDetailPage({
   params,
@@ -91,15 +92,17 @@ export default async function EventDetailPage({
     }
   }
 
-  const [confirmedCount, goingCount, stravaResult, mismanUser] = await Promise.all([
+  const [confirmedCount, goingCount, stravaResult, mismanUser, adminUser] = await Promise.all([
     prisma.attendance.count({ where: { eventId, status: "CONFIRMED" } }),
     prisma.attendance.count({ where: { eventId, status: "INTENDING" } }),
     user ? getStravaConnection() : Promise.resolve(null),
     user ? getMismanUser(event.kennelId) : Promise.resolve(null),
+    event.status === "CANCELLED" ? getAdminUser() : Promise.resolve(null),
   ]);
 
   const stravaConnected = stravaResult?.success ? stravaResult.connected : false;
   const isMisman = !!mismanUser;
+  const isAdmin = !!adminUser;
 
   // Fetch weather forecast for upcoming events (0–10 days out).
   // Compare at the calendar-day level (midnight UTC) to avoid off-by-one from UTC noon storage.
@@ -334,6 +337,9 @@ export default async function EventDetailPage({
           </TooltipTrigger>
           <TooltipContent>{event.kennel.fullName}</TooltipContent>
         </Tooltip>
+        {isAdmin && event.status === "CANCELLED" && (
+          <RestoreEventButton eventId={event.id} />
+        )}
       </div>
     </div>
   );
