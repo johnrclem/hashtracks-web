@@ -92,7 +92,7 @@ export function extractEventDate(
   for (const pattern of dateLinePatterns) {
     const match = pattern.exec(body);
     if (match) {
-      const parsed = chronoParseDate(match[1], "en-US", refDate, { forwardDate: true });
+      const parsed = chronoParseDate(match[1], "en-US", refDate, { smartForwardDate: true });
       if (parsed) return parsed;
     }
   }
@@ -103,7 +103,7 @@ export function extractEventDate(
   let titleClean = normalized.includes("•") ? normalized.split("•").pop()!.trim() : title;
   // Strip run numbers (e.g., "#1638") that confuse chrono-node
   titleClean = titleClean.replace(/#\d+/g, "").trim();
-  const titleParsed = chronoParseDate(titleClean, "en-US", refDate, { forwardDate: true });
+  const titleParsed = chronoParseDate(titleClean, "en-US", refDate, { smartForwardDate: true });
   if (titleParsed) return titleParsed;
 
   // 3. Infer: find the next occurrence of hashDay after the post date

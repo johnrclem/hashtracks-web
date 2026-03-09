@@ -272,31 +272,48 @@ export type DateLocale = "en-US" | "en-GB";
  * @param text - Date text (e.g., "18th March 2026", "March 14, 2026", "21/02/2026")
  * @param locale - "en-US" for MM/DD interpretation, "en-GB" for DD/MM interpretation
  * @param referenceDate - Optional reference date for year inference when year is omitted
- * @param options - Optional parsing options (forwardDate: prefer next future occurrence)
+ * @param options - Optional parsing options:
+ *   - forwardDate: prefer next future occurrence (chrono-node built-in)
+ *   - smartForwardDate: only roll forward if the inferred date is >6 months in the past
+ *     (prevents recent past events from being assigned to next year)
  * @returns "YYYY-MM-DD" string, or null if parsing fails
  */
 export function chronoParseDate(
   text: string,
   locale: DateLocale = "en-US",
   referenceDate?: Date,
-  options?: { forwardDate?: boolean },
+  options?: { forwardDate?: boolean; smartForwardDate?: boolean },
 ): string | null {
   const parser = locale === "en-GB" ? chrono.en.GB : chrono.en;
   const ref: chrono.ParsingReference | undefined = referenceDate
     ? { instant: referenceDate }
     : undefined;
+  // For smartForwardDate, parse WITHOUT forwardDate, then apply threshold
+  const useForwardDate = options?.smartForwardDate
+    ? false
+    : (options?.forwardDate ?? false);
   const results = parser.parse(text, ref, {
-    forwardDate: options?.forwardDate ?? false,
+    forwardDate: useForwardDate,
   });
 
   if (results.length === 0) return null;
 
   const parsed = results[0].start;
-  const year = parsed.get("year");
+  let year = parsed.get("year");
   const month = parsed.get("month");
   const day = parsed.get("day");
 
   if (year == null || month == null || day == null) return null;
+
+  // Smart forward: only roll forward if year was inferred AND date is >6 months past
+  if (options?.smartForwardDate && !parsed.isCertain("year") && referenceDate) {
+    const parsedDate = new Date(Date.UTC(year, month - 1, day));
+    const refTime = referenceDate.getTime();
+    const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+    if (refTime - parsedDate.getTime() > SIX_MONTHS_MS) {
+      year += 1;
+    }
+  }
 
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
