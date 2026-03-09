@@ -1,15 +1,11 @@
-import * as cheerio from "cheerio";
+import type * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
   RawEventData,
   ScrapeResult,
-  ErrorDetails,
 } from "../types";
-import { hasAnyErrors } from "../types";
-import { generateStructureHash } from "@/pipeline/structure-hash";
-import { safeFetch } from "../safe-fetch";
-import { chronoParseDate } from "../utils";
+import { chronoParseDate, extractUkPostcode, fetchHTMLPage } from "../utils";
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -56,45 +52,130 @@ export function getStartTimeForDay(dayOfWeek: string | null): string {
 }
 
 /**
- * Parse a single OCH3 run entry from text content.
- * Weebly-style sites often have runs as paragraphs or list items with:
- * date, day, location, hares.
+ * Parse dot-notation time "19.30" → "19:30".
+ * Returns undefined for invalid or absent times.
  */
-export function parseOCH3Entry(text: string): RawEventData | null {
-  const date = parseOCH3Date(text);
-  if (!date) return null;
+export function parseDotTime(text: string): string | undefined {
+  const match = /(\d{1,2})\.(\d{2})/.exec(text);
+  if (!match) return undefined;
+  const hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return undefined;
+  return `${hours.toString().padStart(2, "0")}:${match[2]}`;
+}
 
-  const dayOfWeek = extractDayOfWeek(text);
-  const startTime = getStartTimeForDay(dayOfWeek);
+/** Data extracted from the next-run-details page. */
+export interface DetailPageData {
+  date: string | null;
+  runNumber?: number;
+  startTime?: string;
+  location?: string;
+  hares?: string;
+  latitude?: number;
+  longitude?: number;
+  onInn?: string;
+  sourceUrl: string;
+}
 
-  // Extract hares: "Hare(s): Name" or "Hare: Name" or "Hares - Name"
-  // Stop at newline, end-of-string, or the start of another labeled field (word + colon)
+/**
+ * Parse the OCH3 next-run-details page into structured data.
+ * Extracts run number, time, venue, hares, On Inn, and map coordinates.
+ */
+export function parseDetailPage($: cheerio.CheerioAPI, detailUrl: string): DetailPageData | null {
+  // Combine all .paragraph text (handles tags split across elements)
+  const paragraphs = $("div.paragraph");
+  const fullText = paragraphs.map((_, el) => $(el).text()).get().join("\n");
+
+  if (!fullText.trim()) return null;
+
+  // Run number: "Run 1989"
+  const runMatch = /Run\s+(\d+)/i.exec(fullText);
+  const runNumber = runMatch ? parseInt(runMatch[1], 10) : undefined;
+
+  // Date: use parseOCH3Date with current year as fallback
+  const currentYear = new Date().getFullYear();
+  const date = parseOCH3Date(fullText, currentYear);
+
+  // Time: dot notation "19.30" or "11.00"
+  const startTime = parseDotTime(fullText);
+
+  // Venue: text after "Venue:" label
+  let location: string | undefined;
+  const venueMatch = /Venue\s*[:\-–—]\s*(.+?)(?:\n|$)/i.exec(fullText);
+  if (venueMatch) {
+    location = venueMatch[1].trim();
+    if (/^tba|^tbd|^tbc/i.test(location)) location = undefined;
+  }
+
+  // Hares: text after "Hare:" or "Hare -" (handles split-tag "Hare:")
   let hares: string | undefined;
-  const hareMatch = text.match(/Hares?\s*[:\-–—]\s*(.+?)(?:\n|$|(?=(?:Location|Where|Start|Venue)\s*[:\-–—]))/i);
+  const hareMatch = /[Hh]ares?\s*[:\-–—]\s*(.+?)(?:\n|$)/i.exec(fullText);
   if (hareMatch) {
     const haresText = hareMatch[1].trim();
-    if (!/tba|tbd|tbc|needed|required|volunteer/i.test(haresText)) {
+    if (!/^tba|^tbd|^tbc/i.test(haresText)) {
       hares = haresText;
     }
   }
 
-  // Extract location: "Location: Place" or "Start: Place" or "Where: Place"
-  // Stop at newline, end-of-string, or the start of another labeled field (word + colon)
-  let location: string | undefined;
-  const locationMatch = text.match(/(?:Location|Start|Where|Venue)\s*[:\-–—]\s*(.+?)(?:\n|$|(?=Hares?\s*[:\-–—]))/i);
-  if (locationMatch) {
-    location = locationMatch[1].trim();
-    if (/^tba|^tbd|^tbc/i.test(location)) location = undefined;
+  // On Inn: text after "On Inn"
+  let onInn: string | undefined;
+  const onInnMatch = /On\s+Inn\s*[:\-–—]\s*(.+?)(?:\n|$)/i.exec(fullText);
+  if (onInnMatch) {
+    const onInnText = onInnMatch[1].trim();
+    if (!/^tba|^tbd|^tbc/i.test(onInnText)) {
+      onInn = onInnText;
+    }
+  }
+
+  // Coordinates from .wsite-map iframe src: "long=-0.3321353&lat=51.2336578"
+  let latitude: number | undefined;
+  let longitude: number | undefined;
+  const iframeSrc = $(".wsite-map iframe").attr("src") || "";
+  const latMatch = /lat=(-?[\d.]+)/.exec(iframeSrc);
+  const longMatch = /long=(-?[\d.]+)/.exec(iframeSrc);
+  if (latMatch && longMatch) {
+    latitude = parseFloat(latMatch[1]);
+    longitude = parseFloat(longMatch[1]);
+    if (isNaN(latitude) || isNaN(longitude)) {
+      latitude = undefined;
+      longitude = undefined;
+    }
   }
 
   return {
     date,
-    kennelTag: "OCH3",
-    hares,
-    location,
+    runNumber,
     startTime,
-    sourceUrl: "http://www.och3.org.uk/upcoming-run-list.html",
+    location,
+    hares,
+    latitude,
+    longitude,
+    onInn,
+    sourceUrl: detailUrl,
   };
+}
+
+/**
+ * Merge detail-page data into a run-list event.
+ * Detail fields override run-list fields where present.
+ */
+export function mergeDetailIntoEvent(event: RawEventData, detail: DetailPageData): RawEventData {
+  const merged: RawEventData = { ...event };
+
+  if (detail.runNumber != null) merged.runNumber = detail.runNumber;
+  if (detail.startTime) merged.startTime = detail.startTime;
+  if (detail.location) merged.location = detail.location;
+  if (detail.latitude != null && detail.longitude != null) {
+    merged.latitude = detail.latitude;
+    merged.longitude = detail.longitude;
+  }
+  if (detail.hares) merged.hares = detail.hares;
+  if (detail.onInn) {
+    merged.description = `On Inn: ${detail.onInn}`;
+  }
+  merged.sourceUrl = detail.sourceUrl;
+
+  return merged;
 }
 
 
@@ -182,154 +263,67 @@ function parseOCH3EntriesFromText(text: string, baseUrl: string): RawEventData[]
 /**
  * Old Coulsdon Hash House Harriers (OCH3) HTML Scraper
  *
- * Scrapes och3.org.uk/upcoming-run-list.html for upcoming runs.
- * The site is a simple static page (Weebly-style) with run entries
- * containing date, day of week, location, and hares.
+ * Scrapes och3.org.uk in two parallel fetches:
+ * 1. /upcoming-run-list.html — multiple events (date, hare, venue)
+ * 2. /next-run-details.html — rich data for the next run (run number, time, full address, coords)
+ *
+ * The next upcoming event gets enriched with detail-page data when available.
  * OCH3 alternates: Sunday 11 AM / Monday 7:30 PM weekly.
  */
 export class OCH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
-  /** Strategy 1: Parse from table rows. */
-  private parseFromTableRows($: cheerio.CheerioAPI, errorDetails: ErrorDetails): RawEventData[] {
-    const events: RawEventData[] = [];
-    const tableRows = $("table tr");
-    if (tableRows.length <= 1) return events;
-
-    tableRows.each((i, el) => {
-      const rowText = $(el).text().trim();
-      if (!rowText) return;
-      if (/^(date|day|location|hare|#)\s*$/i.test(rowText)) return;
-
-      try {
-        const event = parseOCH3Entry(rowText);
-        if (event) events.push(event);
-      } catch (err) {
-        errorDetails.parse = [
-          ...(errorDetails.parse ?? []),
-          { row: i, section: "table", error: String(err), rawText: rowText?.slice(0, 2000) },
-        ];
-      }
-    });
-    return events;
-  }
-
-  /** Strategy 2: Parse from paragraphs/divs containing dates. */
-  private parseFromContentBlocks($: cheerio.CheerioAPI, errorDetails: ErrorDetails): RawEventData[] {
-    const events: RawEventData[] = [];
-    const blocks = $("p, li, div.paragraph, .wsite-multicol-col, div[class*='run'], div[class*='event']");
-
-    blocks.each((i, el) => {
-      const text = $(el).text().trim();
-      if (!text || text.length < 10) return;
-      if (!parseOCH3Date(text)) return;
-
-      try {
-        const event = parseOCH3Entry(text);
-        if (event) events.push(event);
-      } catch (err) {
-        errorDetails.parse = [
-          ...(errorDetails.parse ?? []),
-          { row: i, section: "content", error: String(err), rawText: text?.slice(0, 2000) },
-        ];
-      }
-    });
-    return events;
-  }
-
-  /** Strategy 4: Split content by date patterns and parse each section. */
-  private parseFromDateSections(mainContent: string, errors: string[]): RawEventData[] {
-    const events: RawEventData[] = [];
-    const datePattern = /(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4}/gi;
-    const matchesIter = [...mainContent.matchAll(datePattern)];
-    if (matchesIter.length === 0) return events;
-
-    for (let i = 0; i < matchesIter.length; i++) {
-      const matchStart = matchesIter[i].index;
-      const matchEnd = i + 1 < matchesIter.length
-        ? matchesIter[i + 1].index
-        : matchStart + 300;
-      const section = mainContent.substring(matchStart, matchEnd);
-
-      try {
-        const event = parseOCH3Entry(section);
-        if (event) events.push(event);
-      } catch (err) {
-        errors.push(`Error parsing section ${i}: ${err}`);
-      }
-    }
-    return events;
-  }
-
   async fetch(
     source: Source,
     _options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const baseUrl = source.url || "http://www.och3.org.uk/upcoming-run-list.html";
+    const runListUrl = source.url || "http://www.och3.org.uk/upcoming-run-list.html";
 
-    const events: RawEventData[] = [];
-    const errors: string[] = [];
-    const errorDetails: ErrorDetails = {};
+    // Derive detail URL from the same domain
+    const urlObj = new URL(runListUrl);
+    const detailUrl = `${urlObj.protocol}//${urlObj.host}/next-run-details.html`;
 
-    let html: string;
-    const fetchStart = Date.now();
-    try {
-      const response = await safeFetch(baseUrl, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        },
-      });
-      if (!response.ok) {
-        const message = `HTTP ${response.status}: ${response.statusText}`;
-        errorDetails.fetch = [{ url: baseUrl, status: response.status, message }];
-        return { events: [], errors: [message], errorDetails };
+    // Fetch both pages in parallel
+    const [runListResult, detailResult] = await Promise.all([
+      fetchHTMLPage(runListUrl),
+      fetchHTMLPage(detailUrl),
+    ]);
+
+    // Run list failure → immediate error return
+    if (!runListResult.ok) {
+      return runListResult.result;
+    }
+
+    // Parse run list using line-based strategy
+    const mainContent = runListResult.$("main, .main-content, #content, .wsite-section-wrap, body").first().text();
+    const events = parseOCH3EntriesFromText(mainContent, runListUrl);
+
+    // Attempt detail page enrichment
+    let detailPageMerged = false;
+    const warnings: string[] = [];
+
+    if (!detailResult.ok) {
+      warnings.push("Detail page fetch failed; using run-list data only");
+    } else {
+      const detail = parseDetailPage(detailResult.$, detailUrl);
+      if (detail?.date) {
+        const matchIdx = events.findIndex((e) => e.date === detail.date);
+        if (matchIdx >= 0) {
+          events[matchIdx] = mergeDetailIntoEvent(events[matchIdx], detail);
+          detailPageMerged = true;
+        }
       }
-      html = await response.text();
-    } catch (err) {
-      const message = `Fetch failed: ${err}`;
-      errorDetails.fetch = [{ url: baseUrl, message }];
-      return { events: [], errors: [message], errorDetails };
     }
-    const fetchDurationMs = Date.now() - fetchStart;
-
-    const structureHash = generateStructureHash(html);
-    const $ = cheerio.load(html);
-
-    // Strategy 1: Table rows
-    events.push(...this.parseFromTableRows($, errorDetails));
-
-    // Strategy 2: Content blocks
-    if (events.length === 0) {
-      events.push(...this.parseFromContentBlocks($, errorDetails));
-    }
-
-    // Strategy 3: Line-based parsing
-    const mainContent = $("main, .main-content, #content, .wsite-section-wrap, body").first().text();
-    const parsedFromLines = parseOCH3EntriesFromText(mainContent, baseUrl);
-    if (parsedFromLines.length > events.length) {
-      events.length = 0;
-      events.push(...parsedFromLines);
-    }
-
-    // Strategy 4: Date section splitting
-    if (events.length === 0) {
-      events.push(...this.parseFromDateSections(mainContent, errors));
-    }
-
-    const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
       events,
-      errors,
-      structureHash,
-      errorDetails: hasErrorDetails ? errorDetails : undefined,
+      errors: warnings,
+      structureHash: runListResult.structureHash,
       diagnosticContext: {
         entriesFound: events.length,
         eventsParsed: events.length,
-        fetchDurationMs,
+        fetchDurationMs: runListResult.fetchDurationMs,
+        detailPageMerged,
       },
     };
   }

@@ -63,6 +63,7 @@ export function extractCoordsFromMapsUrl(url: string): { lat: number; lng: numbe
 }
 
 function isValidCoords(lat: number, lng: number): boolean {
+  if (lat === 0 && lng === 0) return false;
   return !Number.isNaN(lat) && !Number.isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
 

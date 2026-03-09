@@ -1,7 +1,20 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as cheerio from "cheerio";
-import { parseDateFromTitle, extractPostcode, parseRunCard } from "./city-hash";
+import { parseDateFromTitle, parseMakesweatEvent } from "./city-hash";
 import { CityHashAdapter } from "./city-hash";
+
+// Mock browserRender
+vi.mock("@/lib/browser-render", () => ({
+  browserRender: vi.fn(),
+}));
+
+// Mock structure-hash
+vi.mock("@/pipeline/structure-hash", () => ({
+  generateStructureHash: vi.fn(() => "mock-hash-abc123"),
+}));
+
+const { browserRender } = await import("@/lib/browser-render");
+const mockedBrowserRender = vi.mocked(browserRender);
 
 describe("parseDateFromTitle", () => {
   it("parses ordinal date with short month", () => {
@@ -33,162 +46,145 @@ describe("parseDateFromTitle", () => {
   });
 });
 
-describe("extractPostcode", () => {
-  it("extracts standard UK postcode", () => {
-    expect(extractPostcode("The Beehive SE11 5JA")).toBe("SE11 5JA");
-  });
-
-  it("extracts postcode from full address", () => {
-    expect(extractPostcode("The Roundhouse, 2 North Side, London SW18 2SS")).toBe("SW18 2SS");
-  });
-
-  it("extracts postcode with single-letter area", () => {
-    expect(extractPostcode("The Eagle N1 9AA")).toBe("N1 9AA");
-  });
-
-  it("extracts postcode with letter in district", () => {
-    expect(extractPostcode("Ye Olde Cheshire Cheese EC4A 2BU")).toBe("EC4A 2BU");
-  });
-
-  it("returns null when no postcode present", () => {
-    expect(extractPostcode("The Pub, London")).toBeNull();
-  });
-});
-
 const SAMPLE_HTML = `
-<div class="ch-runlist-container">
-  <div class="ch-run">
-    <div class="ch-run-title"><h5>City Hash R*n #1910 - 24th Feb 2026</h5></div>
-    <div class="ch-run-location">
-      <a href="https://maps.google.com/?q=51.48513,-0.11880">The Beehive SE11 5JA</a>
-    </div>
-    <div class="ch-run-ptransport">
-      <a href="https://tfl.gov.uk">Vauxhall</a>
-    </div>
-    <div class="ch-run-description">
-      <p>Hare - Tuna Melt</p>
-      <p>Pub - The Beehive</p>
-      <p>Station - Vauxhall</p>
-    </div>
+<div>
+  <div class="ms_event makesweatevent-12345">
+    <div class="ms_eventtitle">City Hash R*n #1912 International Women's Day @ The Old Star</div>
+    <div class="ms_event_startdate">Tue 10th Mar 26</div>
+    <div class="ms_eventstart">7:00pm</div>
+    <div class="ms_eventdescription">Hare - Sort Yourself Out
+Pub - The Old Star
+Station - St James' Park</div>
+    <div class="ms_venue_name">The Old Star</div>
+    <div class="ms_venue_address">66 Broadway</div>
+    <div class="ms_venue_postcode">SW1H 0DB</div>
+    <div class="ms_venue_ptransport">St James's Park</div>
+    <div class="ms_venue_notes"></div>
   </div>
-  <div class="ch-run">
-    <div class="ch-run-title"><h5>City Hash R*n #1911 - 3rd March 2026</h5></div>
-    <div class="ch-run-location">
-      <a href="https://maps.google.com/?q=51.5074,-0.1278">The Eagle N1 9AA</a>
-    </div>
-    <div class="ch-run-ptransport">
-      <a href="https://tfl.gov.uk">Angel</a>
-    </div>
-    <div class="ch-run-description">
-      <p>Hare - Zippy and Bungle</p>
-      <p>Some special theme info</p>
-    </div>
+  <div class="ms_event makesweatevent-12346">
+    <div class="ms_eventtitle">City Hash R*n #1914 @ The Eagle</div>
+    <div class="ms_event_startdate">Tue 24th Mar 26</div>
+    <div class="ms_eventstart">7:00pm</div>
+    <div class="ms_eventdescription">Hares - Zippy and Bungle
+Pub - The Eagle</div>
+    <div class="ms_venue_name">The Eagle</div>
+    <div class="ms_venue_address">2 Shepherdess Walk</div>
+    <div class="ms_venue_postcode">N1 7LB</div>
+    <div class="ms_venue_ptransport">Old Street</div>
+    <div class="ms_venue_notes">Nearest Tube is Old Street, Northern Line</div>
   </div>
-  <div class="ch-run">
-    <div class="ch-run-title"><h5>City Hash R*n #1912 - 10th March 2026</h5></div>
-    <div class="ch-run-location">
-      <a href="">TBC</a>
-    </div>
-    <div class="ch-run-description">
-      <p>Hare - TBC</p>
-    </div>
+  <div class="ms_event makesweatevent-12347">
+    <div class="ms_eventtitle">City Hash R*n #1915 @ TBA</div>
+    <div class="ms_event_startdate">Tue 31st Mar 26</div>
+    <div class="ms_eventstart">7:00pm</div>
+    <div class="ms_eventdescription">Hare - TBC</div>
+    <div class="ms_venue_name">TBA</div>
+    <div class="ms_venue_address"></div>
+    <div class="ms_venue_postcode"></div>
+    <div class="ms_venue_ptransport"></div>
+    <div class="ms_venue_notes"></div>
+  </div>
+  <!-- Duplicate of first event (Makesweat renders events twice) -->
+  <div class="ms_event makesweatevent-12345">
+    <div class="ms_eventtitle">City Hash R*n #1912 International Women's Day @ The Old Star</div>
+    <div class="ms_event_startdate">Tue 10th Mar 26</div>
+    <div class="ms_eventstart">7:00pm</div>
+    <div class="ms_eventdescription">Hare - Sort Yourself Out</div>
+    <div class="ms_venue_name">The Old Star</div>
+    <div class="ms_venue_address">66 Broadway</div>
+    <div class="ms_venue_postcode">SW1H 0DB</div>
+    <div class="ms_venue_ptransport">St James's Park</div>
+    <div class="ms_venue_notes"></div>
   </div>
 </div>
 `;
 
-describe("parseRunCard", () => {
+describe("parseMakesweatEvent", () => {
   const $ = cheerio.load(SAMPLE_HTML);
-  const cards = $(".ch-run");
+  const cards = $(".ms_event");
 
-  it("parses first run card with all fields", () => {
-    const event = parseRunCard($, cards.eq(0), "https://cityhash.org.uk/");
-    expect(event).not.toBeNull();
-    expect(event!.date).toBe("2026-02-24");
-    expect(event!.kennelTag).toBe("CityH3");
-    expect(event!.runNumber).toBe(1910);
-    expect(event!.hares).toBe("Tuna Melt");
-    expect(event!.location).toBe("The Beehive");
-    expect(event!.locationUrl).toBe("https://maps.google.com/?q=51.48513,-0.11880");
-    expect(event!.startTime).toBe("19:00");
-    expect(event!.description).toContain("Nearest station: Vauxhall");
-    expect(event!.description).toContain("Postcode: SE11 5JA");
-  });
-
-  it("parses second card with multiple hares and theme", () => {
-    const event = parseRunCard($, cards.eq(1), "https://cityhash.org.uk/");
-    expect(event).not.toBeNull();
-    expect(event!.date).toBe("2026-03-03");
-    expect(event!.runNumber).toBe(1911);
-    expect(event!.hares).toBe("Zippy and Bungle");
-    expect(event!.location).toBe("The Eagle");
-    expect(event!.description).toContain("Nearest station: Angel");
-    expect(event!.description).toContain("Some special theme info");
-  });
-
-  it("parses TBC card (minimal data)", () => {
-    const event = parseRunCard($, cards.eq(2), "https://cityhash.org.uk/");
+  it("parses themed event with full venue data", () => {
+    const event = parseMakesweatEvent($, cards.eq(0), "https://makesweat.com/cityhash#hashes");
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-03-10");
+    expect(event!.kennelTag).toBe("CityH3");
     expect(event!.runNumber).toBe(1912);
+    expect(event!.title).toBe("City Hash Run #1912 - International Women's Day");
+    expect(event!.hares).toBe("Sort Yourself Out");
+    expect(event!.location).toBe("The Old Star, 66 Broadway, SW1H 0DB");
+    expect(event!.startTime).toBe("19:00");
+    expect(event!.description).toContain("Nearest station: St James's Park");
+  });
+
+  it("parses plain event without theme", () => {
+    const event = parseMakesweatEvent($, cards.eq(1), "https://makesweat.com/cityhash#hashes");
+    expect(event).not.toBeNull();
+    expect(event!.date).toBe("2026-03-24");
+    expect(event!.runNumber).toBe(1914);
+    expect(event!.title).toBe("City Hash Run #1914");
+    expect(event!.hares).toBe("Zippy and Bungle");
+    expect(event!.location).toBe("The Eagle, 2 Shepherdess Walk, N1 7LB");
+    expect(event!.description).toContain("Nearest station: Old Street");
+    expect(event!.description).toContain("Nearest Tube is Old Street, Northern Line");
+  });
+
+  it("skips TBA venue — location is undefined", () => {
+    const event = parseMakesweatEvent($, cards.eq(2), "https://makesweat.com/cityhash#hashes");
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBe(1915);
+    expect(event!.location).toBeUndefined();
     expect(event!.hares).toBe("TBC");
+  });
+
+  it("includes Makesweat external link", () => {
+    const event = parseMakesweatEvent($, cards.eq(0), "https://makesweat.com/cityhash#hashes");
+    expect(event!.externalLinks).toEqual([
+      { url: "https://makesweat.com/event.html?id=12345", label: "Makesweat" },
+    ]);
+  });
+
+  it("parses start time from .ms_eventstart", () => {
+    const event = parseMakesweatEvent($, cards.eq(0), "https://makesweat.com/cityhash#hashes");
+    expect(event!.startTime).toBe("19:00");
   });
 });
 
 describe("CityHashAdapter.fetch", () => {
-  it("parses sample HTML and returns events", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(SAMPLE_HTML, { status: 200 }),
-    );
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("parses sample HTML, deduplicates events, and returns results", async () => {
+    mockedBrowserRender.mockResolvedValue(SAMPLE_HTML);
 
     const adapter = new CityHashAdapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "https://cityhash.org.uk/",
+      url: "https://makesweat.com/cityhash#hashes",
     } as never);
 
+    // 4 .ms_event elements, but one is a duplicate → 3 unique events
     expect(result.events).toHaveLength(3);
     expect(result.errors).toHaveLength(0);
     expect(result.structureHash).toBeDefined();
     expect(result.diagnosticContext).toMatchObject({
-      cardsFound: 3,
+      cardsFound: 4,
+      eventsDeduped: 3,
       eventsParsed: 3,
     });
-
-    vi.restoreAllMocks();
   });
 
-  it("returns fetch error on network failure", async () => {
-    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
-      new Error("Network error"),
-    );
+  it("returns fetch error on browser render failure", async () => {
+    mockedBrowserRender.mockRejectedValue(new Error("Browser render timeout"));
 
     const adapter = new CityHashAdapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "https://cityhash.org.uk/",
+      url: "https://makesweat.com/cityhash#hashes",
     } as never);
 
     expect(result.events).toHaveLength(0);
     expect(result.errors).toHaveLength(1);
     expect(result.errorDetails?.fetch).toHaveLength(1);
-
-    vi.restoreAllMocks();
-  });
-
-  it("returns fetch error on HTTP error", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response("Not found", { status: 404, statusText: "Not Found" }),
-    );
-
-    const adapter = new CityHashAdapter();
-    const result = await adapter.fetch({
-      id: "test",
-      url: "https://cityhash.org.uk/",
-    } as never);
-
-    expect(result.events).toHaveLength(0);
-    expect(result.errorDetails?.fetch?.[0].status).toBe(404);
-
-    vi.restoreAllMocks();
   });
 });
