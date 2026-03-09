@@ -82,6 +82,12 @@ describe("extractCoordsFromMapsUrl", () => {
   it("returns null for malformed URL", () => {
     expect(extractCoordsFromMapsUrl("not-a-url")).toBeNull();
   });
+
+  it("rejects zeroed coordinates (0,0) as invalid sentinel", () => {
+    expect(
+      extractCoordsFromMapsUrl("https://maps.google.com/?q=0.00000000,0.00000000"),
+    ).toBeNull();
+  });
 });
 
 describe("getEventCoords", () => {

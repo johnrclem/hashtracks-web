@@ -99,7 +99,7 @@ In `prisma/seed.ts`:
 ### 4. Choose or build adapter type
 
 Existing adapter types:
-- `HTML_SCRAPER` — For websites with event tables/lists (Cheerio parsing). Each site gets its own adapter class, routed by URL pattern in `htmlScrapersByUrl`. Currently: hashnyc, bfm, hashphilly, cityhash, westlondonhash, londonhash.
+- `HTML_SCRAPER` — For websites with event tables/lists (Cheerio parsing). Each site gets its own adapter class, routed by URL pattern in `htmlScrapersByUrl`. Currently: hashnyc, bfm, hashphilly, cityhash (Makesweat), westlondonhash, londonhash.
 - `HTML_SCRAPER` (Blogger API) — For Blogger/Blogspot-hosted sites. Uses Blogger API v3 as primary fetch method with HTML scraping fallback. The adapter is still registered as `HTML_SCRAPER` and routed via `htmlScrapersByUrl`, but internally calls `fetchBloggerPosts()` from `src/adapters/blogger-api.ts`. Currently: enfieldhash.org (EH3), ofh3.com (OFH3). **Prerequisite**: Enable the Blogger API in GCP Console and use the same `GOOGLE_CALENDAR_API_KEY`.
 - `GOOGLE_CALENDAR` — For Google Calendar API v3 feeds. Single shared adapter, configured via `Source.config` JSON (kennelPatterns, defaultKennelTag). Currently: Boston, BFM, Philly, Chicagoland, EWH3, SHITH3.
 - `GOOGLE_SHEETS` — For published Google Sheets (config-driven, reusable without code changes). Column mappings, kennel tag rules, start time rules in `Source.config`. Currently: Summit H3, W3H3.
@@ -324,9 +324,9 @@ git add . && git commit && git push
 ### Sources #10-12: London HTML Scrapers (UK expansion)
 
 - **Type**: `HTML_SCRAPER` (x3)
-- **Coverage**: CityH3 (cityhash.org.uk), WLH3 (westlondonhash.com), LH3 (londonhash.org)
+- **Coverage**: CityH3 (makesweat.com/cityhash), WLH3 (westlondonhash.com), LH3 (londonhash.org)
 - **Adapters**:
-  - `src/adapters/html-scraper/city-hash.ts` — CSS-class-based cards (`.ch-run`, `.ch-run-title`, etc.)
+  - `src/adapters/html-scraper/city-hash.ts` — Makesweat SPA via `browserRender()` (`.ms_event`, `.ms_venue_name/address/postcode/ptransport`). Switched from cityhash.org.uk to Makesweat for richer structured venue data (full addresses, postcodes, transport info). Events appear twice in DOM — deduped by Makesweat event ID from `makesweatevent-{id}` CSS class.
   - `src/adapters/html-scraper/west-london-hash.ts` — WordPress block templates with pagination
   - `src/adapters/html-scraper/london-hash.ts` — Minimal HTML, text-block parsing around anchor links
 - **UK-specific patterns**:
@@ -343,6 +343,9 @@ git add . && git commit && git push
 - **Key lesson**: When building HTML scrapers, always export pure parsing functions (e.g., `parseDateFromTitle`, `parseRunCard`) for direct unit testing — catch regex bugs before integration
 - **Key lesson**: Use embedded HTML fixture strings in tests rather than fetching live sites — faster, deterministic, and captures known edge cases
 - **Key lesson**: Use `domhandler`'s `AnyNode` type (not `cheerio.AnyNode`) — Cheerio doesn't re-export it in all versions
+- **Key lesson**: Makesweat-powered clubs have structured venue data (name, address, postcode, transport) that's richer than the WordPress embed on the club's own site
+- **Key lesson**: Makesweat event IDs in class names (`makesweatevent-{id}`) are stable identifiers for dedup and external links
+- **Audit**: Only CityH3 confirmed using Makesweat among current London kennels (Barnes, OCH3, SLASH sites are down; WLH3, LH3, EH3 don't use Makesweat)
 
 ### Source #13: OFH3 (Blogger API — Blogspot site)
 

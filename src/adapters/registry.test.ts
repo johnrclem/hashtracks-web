@@ -35,8 +35,8 @@ describe("getAdapter", () => {
     expect(getAdapter("HTML_SCRAPER", "https://hashphilly.com/nexthash/")).toBeInstanceOf(HashPhillyAdapter);
   });
 
-  it("returns CityHashAdapter for cityhash.org.uk URL", () => {
-    expect(getAdapter("HTML_SCRAPER", "https://cityhash.org.uk/")).toBeInstanceOf(CityHashAdapter);
+  it("returns CityHashAdapter for makesweat.com/cityhash URL", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://makesweat.com/cityhash#hashes")).toBeInstanceOf(CityHashAdapter);
   });
 
   it("returns WestLondonHashAdapter for westlondonhash.com URL", () => {
@@ -113,8 +113,8 @@ describe("getAdapter", () => {
       columns: { date: "td:nth-child(1)" },
       defaultKennelTag: "TEST",
     };
-    // cityhash.org matches a named adapter
-    expect(getAdapter("HTML_SCRAPER", "https://cityhash.org.uk/", config)).toBeInstanceOf(CityHashAdapter);
+    // makesweat.com/cityhash matches a named adapter
+    expect(getAdapter("HTML_SCRAPER", "https://makesweat.com/cityhash#hashes", config)).toBeInstanceOf(CityHashAdapter);
   });
 
   it("returns HashNYCAdapter (default) when no URL match and no generic config", () => {

@@ -51,7 +51,7 @@ interface HtmlScraperEntry {
 const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /benfranklinmob/i,          name: "BFMAdapter",          factory: () => new BFMAdapter() },
   { pattern: /hashphilly/i,              name: "HashPhillyAdapter",   factory: () => new HashPhillyAdapter() },
-  { pattern: /cityhash\.org/i,           name: "CityHashAdapter",     factory: () => new CityHashAdapter() },
+  { pattern: /makesweat\.com\/cityhash/i, name: "CityHashAdapter",     factory: () => new CityHashAdapter() },
   { pattern: /westlondonhash/i,          name: "WestLondonHashAdapter", factory: () => new WestLondonHashAdapter() },
   { pattern: /barnesh3\.com/i,           name: "BarnesHashAdapter",   factory: () => new BarnesHashAdapter() },
   { pattern: /och3\.org/i,              name: "OCH3Adapter",          factory: () => new OCH3Adapter() },

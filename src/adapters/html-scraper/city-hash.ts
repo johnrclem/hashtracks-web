@@ -1,6 +1,3 @@
-import * as cheerio from "cheerio";
-import type { Cheerio } from "cheerio";
-import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
@@ -9,89 +6,98 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { chronoParseDate, extractUkPostcode, fetchHTMLPage } from "../utils";
+import {
+  chronoParseDate,
+  parse12HourTime,
+  fetchBrowserRenderedPage,
+} from "../utils";
 
 /**
- * Parse ordinal date from City Hash title using chrono-node.
- * Handles: "24th Feb 2026", "1st March 2026", "2nd Jan 2026", "3rd April 2026"
+ * Parse a single Makesweat `.ms_event` element into RawEventData.
  */
-export function parseDateFromTitle(title: string): string | null {
-  return chronoParseDate(title, "en-GB");
+/** Extract Makesweat event ID from element class attribute. */
+export function extractMakesweatId(
+  $event: import("cheerio").Cheerio<import("domhandler").AnyNode>,
+): string | undefined {
+  const classAttr = $event.attr("class") || "";
+  const match = classAttr.match(/makesweatevent-(\d+)/);
+  return match ? match[1] : undefined;
 }
 
-/** @deprecated Use extractUkPostcode from ../utils instead */
-export const extractPostcode = extractUkPostcode;
-
-/**
- * Parse a single .ch-run card element into RawEventData.
- */
-export function parseRunCard(
-  $: cheerio.CheerioAPI,
-  $card: Cheerio<AnyNode>,
-  baseUrl: string,
+export function parseMakesweatEvent(
+  $: import("cheerio").CheerioAPI,
+  $event: import("cheerio").Cheerio<import("domhandler").AnyNode>,
+  sourceUrl: string,
+  makesweatId?: string,
 ): RawEventData | null {
-  // Title: "City Hash R*n #1910 - 24th Feb 2026"
-  const titleText = $card.find(".ch-run-title h5").text().trim();
-  if (!titleText) return null;
+  // Title: "City Hash R*n #1912 International Women's Day @ The Old Star"
+  const rawTitle = $event.find(".ms_eventtitle").first().text().trim();
+  if (!rawTitle) return null;
 
   // Run number from #NNNN
-  const runNumMatch = titleText.match(/#(\d+)/);
+  const runNumMatch = rawTitle.match(/#(\d+)/);
   const runNumber = runNumMatch ? parseInt(runNumMatch[1], 10) : undefined;
 
-  // Date from title
-  const date = parseDateFromTitle(titleText);
+  // Date from .ms_event_startdate — "Tue 10th Mar 26"
+  const dateText = $event.find(".ms_event_startdate").first().text().trim();
+  const date = dateText ? chronoParseDate(dateText, "en-GB") : null;
   if (!date) return null;
 
-  // Location: pub + postcode from .ch-run-location link
-  const locationLink = $card.find(".ch-run-location a");
-  const locationText = locationLink.text().trim();
-  const locationUrl = locationLink.attr("href") || undefined;
+  // Start time from .ms_eventstart — "7:00pm"
+  const timeText = $event.find(".ms_eventstart").first().text().trim();
+  const startTime = timeText ? parse12HourTime(timeText) : "19:00";
 
-  // Extract pub name (everything before the postcode)
-  const postcode = extractPostcode(locationText);
-  const pubName = postcode
-    ? locationText.replace(postcode, "").trim()
-    : locationText;
-  const location = pubName || locationText || undefined;
-
-  // Station from .ch-run-ptransport
-  const stationLink = $card.find(".ch-run-ptransport a");
-  const station = stationLink.text().trim() || undefined;
-
-  // Hares + extra info from .ch-run-description paragraphs
+  // Hares from .ms_eventdescription — match "Hare(s) - Name"
   let hares: string | undefined;
-  const descParts: string[] = [];
-  $card.find(".ch-run-description p").each((_i, el) => {
-    const text = $(el).text().trim();
-    if (!text) return;
-
-    const hareMatch = text.match(/^Hares?\s*[-–—]\s*(.+)/i);
+  const descText = $event.find(".ms_eventdescription").first().text().trim();
+  if (descText) {
+    const hareMatch = descText.match(/Hares?\s*[-–—]\s*(.+?)(?:\n|$)/i);
     if (hareMatch) {
       hares = hareMatch[1].trim();
-    } else if (!/^Pub\s*[-–—]/i.test(text) && !/^Station\s*[-–—]/i.test(text)) {
-      // Skip "Pub -" and "Station -" (already captured above)
-      descParts.push(text);
     }
-  });
-
-  // Build description with station info
-  if (station) {
-    descParts.unshift(`Nearest station: ${station}`);
   }
-  if (postcode) {
-    descParts.push(`Postcode: ${postcode}`);
+
+  // Venue fields
+  const venueName = $event.find(".ms_venue_name").first().text().trim();
+  const venueAddress = $event.find(".ms_venue_address").first().text().trim();
+  const venuePostcode = $event.find(".ms_venue_postcode").first().text().trim();
+  const venueStation = $event.find(".ms_venue_ptransport").first().text().trim();
+  const venueNotes = $event.find(".ms_venue_notes").first().text().trim();
+
+  // Build composite location: "Pub Name, Street Address, Postcode"
+  let location: string | undefined;
+  if (venueName && venueName.toUpperCase() !== "TBA") {
+    const parts = [venueName, venueAddress, venuePostcode].filter(Boolean);
+    location = parts.join(", ");
+  }
+
+  // Build description with station + venue notes
+  const descParts: string[] = [];
+  if (venueStation) {
+    descParts.push(`Nearest station: ${venueStation}`);
+  }
+  if (venueNotes) {
+    descParts.push(venueNotes);
   }
   const description = descParts.length > 0 ? descParts.join(". ") : undefined;
 
-  // Build title: "City Hash Run #NNNN" or original theme from title
-  const themePart = titleText.replace(/City Hash R\*?n\s*#\d+\s*[-–—]\s*/i, "").trim();
-  const dateInTitle = themePart.match(/\d{1,2}(?:st|nd|rd|th)\s+\w+\s+\d{4}/i);
-  const theme = dateInTitle
-    ? themePart.replace(dateInTitle[0], "").replace(/^\s*[-–—]\s*/, "").trim()
-    : themePart;
-  const title = theme && theme !== titleText
+  // Build clean title: strip prefix, strip "@ Venue" suffix, strip date
+  const theme = rawTitle
+    .replace(/City Hash R\*?n\s*#\d+\s*/i, "") // strip "City Hash R*n #NNNN"
+    .replace(/@\s*.+$/, "")                     // strip "@ Venue Name"
+    .replace(/[-–—]\s*\d{1,2}(?:st|nd|rd|th)\s+\w+\s+\d{2,4}/i, "") // strip date
+    .trim()
+    .replace(/^[-–—]\s*/, "")  // strip leading dash
+    .trim();
+
+  const title = theme
     ? `City Hash Run #${runNumber} - ${theme}`
     : `City Hash Run #${runNumber}`;
+
+  // External links
+  const externalLinks = makesweatId
+    ? [{ url: `https://makesweat.com/event.html?id=${makesweatId}`, label: "Makesweat" }]
+    : undefined;
 
   return {
     date,
@@ -100,18 +106,19 @@ export function parseRunCard(
     title,
     hares,
     location,
-    locationUrl,
-    startTime: "19:00",
-    sourceUrl: baseUrl,
+    startTime,
+    sourceUrl,
     description,
+    externalLinks,
   };
 }
 
 /**
- * City Hash (London) HTML Scraper
+ * City Hash (London) Makesweat Scraper
  *
- * Scrapes cityhash.org.uk for upcoming runs. The site uses Makesweat-powered
- * WordPress with .ch-run CSS classes for structured run cards.
+ * Scrapes makesweat.com/cityhash for upcoming runs via the NAS headless browser
+ * rendering service. Makesweat is a JS-rendered SPA with structured venue data
+ * (name, address, postcode, transport) in clean CSS-class-based elements.
  */
 export class CityHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
@@ -120,9 +127,12 @@ export class CityHashAdapter implements SourceAdapter {
     source: Source,
     _options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const baseUrl = source.url || "https://cityhash.org.uk/";
+    const baseUrl = source.url || "https://makesweat.com/cityhash#hashes";
 
-    const page = await fetchHTMLPage(baseUrl);
+    const page = await fetchBrowserRenderedPage(baseUrl, {
+      waitFor: ".ms_event",
+      timeout: 20000,
+    });
     if (!page.ok) return page.result;
     const { $, structureHash, fetchDurationMs } = page;
 
@@ -130,27 +140,34 @@ export class CityHashAdapter implements SourceAdapter {
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
-    // Parse all .ch-run cards
-    const cards = $(".ch-run");
+    // Track seen Makesweat IDs to dedup (each event appears twice in DOM)
+    const seenIds = new Set<string>();
+
+    const cards = $(".ms_event");
     cards.each((i, el) => {
       try {
-        const event = parseRunCard($, $(el), baseUrl);
+        // Dedup by Makesweat event ID
+        const makesweatId = extractMakesweatId($(el));
+        if (makesweatId) {
+          if (seenIds.has(makesweatId)) return;
+          seenIds.add(makesweatId);
+        }
+
+        const event = parseMakesweatEvent($, $(el), baseUrl, makesweatId);
         if (event) {
           events.push(event);
         } else {
-          const titleText = $(el).find(".ch-run-title h5").text().trim();
-          errors.push(`Could not parse run card ${i}: ${titleText}`);
-          errorDetails.parse = [
-            ...(errorDetails.parse ?? []),
-            { row: i, section: "ch-run", field: "date", error: `Could not parse: ${titleText}`, rawText: $(el).text().trim().slice(0, 2000) },
-          ];
+          const titleText = $(el).find(".ms_eventtitle").text().trim();
+          errors.push(`Could not parse event ${i}: ${titleText}`);
+          (errorDetails.parse ??= []).push(
+            { row: i, section: "ms_event", field: "date", error: `Could not parse: ${titleText}`, rawText: $(el).text().trim().slice(0, 2000) },
+          );
         }
       } catch (err) {
-        errors.push(`Error parsing card ${i}: ${err}`);
-        errorDetails.parse = [
-          ...(errorDetails.parse ?? []),
-          { row: i, section: "ch-run", error: String(err), rawText: $(el).text().trim().slice(0, 2000) },
-        ];
+        errors.push(`Error parsing event ${i}: ${err}`);
+        (errorDetails.parse ??= []).push(
+          { row: i, section: "ms_event", error: String(err), rawText: $(el).text().trim().slice(0, 2000) },
+        );
       }
     });
 
@@ -163,6 +180,7 @@ export class CityHashAdapter implements SourceAdapter {
       errorDetails: hasErrorDetails ? errorDetails : undefined,
       diagnosticContext: {
         cardsFound: cards.length,
+        eventsDeduped: seenIds.size,
         eventsParsed: events.length,
         fetchDurationMs,
       },

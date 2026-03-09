@@ -1650,8 +1650,8 @@ async function main() {
     },
     // London, UK
     {
-      name: "City Hash Website",
-      url: "https://cityhash.org.uk/",
+      name: "City Hash Makesweat",
+      url: "https://makesweat.com/cityhash#hashes",
       type: "HTML_SCRAPER" as const,
       trustLevel: 8,
       scrapeFreq: "daily",
