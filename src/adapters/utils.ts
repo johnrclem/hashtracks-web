@@ -266,6 +266,9 @@ export function extractUkPostcode(text: string): string | null {
 
 export type DateLocale = "en-US" | "en-GB";
 
+/** ~6 months in milliseconds, used as threshold for smart year-forward inference. */
+const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+
 /**
  * Parse a natural-language date string into "YYYY-MM-DD" format using chrono-node.
  *
@@ -308,9 +311,7 @@ export function chronoParseDate(
   // Smart forward: only roll forward if year was inferred AND date is >6 months past
   if (options?.smartForwardDate && !parsed.isCertain("year") && referenceDate) {
     const parsedDate = new Date(Date.UTC(year, month - 1, day));
-    const refTime = referenceDate.getTime();
-    const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
-    if (refTime - parsedDate.getTime() > SIX_MONTHS_MS) {
+    if (referenceDate.getTime() - parsedDate.getTime() > SIX_MONTHS_MS) {
       year += 1;
     }
   }
