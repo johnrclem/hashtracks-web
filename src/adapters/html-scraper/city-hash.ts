@@ -13,20 +13,22 @@ import {
 } from "../utils";
 
 /**
- * Parse ordinal date from City Hash title using chrono-node.
- * Handles: "24th Feb 2026", "1st March 2026", "2nd Jan 2026", "3rd April 2026"
- */
-export function parseDateFromTitle(title: string): string | null {
-  return chronoParseDate(title, "en-GB");
-}
-
-/**
  * Parse a single Makesweat `.ms_event` element into RawEventData.
  */
+/** Extract Makesweat event ID from element class attribute. */
+export function extractMakesweatId(
+  $event: import("cheerio").Cheerio<import("domhandler").AnyNode>,
+): string | undefined {
+  const classAttr = $event.attr("class") || "";
+  const match = classAttr.match(/makesweatevent-(\d+)/);
+  return match ? match[1] : undefined;
+}
+
 export function parseMakesweatEvent(
   $: import("cheerio").CheerioAPI,
   $event: import("cheerio").Cheerio<import("domhandler").AnyNode>,
   sourceUrl: string,
+  makesweatId?: string,
 ): RawEventData | null {
   // Title: "City Hash R*n #1912 International Women's Day @ The Old Star"
   const rawTitle = $event.find(".ms_eventtitle").first().text().trim();
@@ -80,7 +82,7 @@ export function parseMakesweatEvent(
   const description = descParts.length > 0 ? descParts.join(". ") : undefined;
 
   // Build clean title: strip prefix, strip "@ Venue" suffix, strip date
-  let theme = rawTitle
+  const theme = rawTitle
     .replace(/City Hash R\*?n\s*#\d+\s*/i, "") // strip "City Hash R*n #NNNN"
     .replace(/@\s*.+$/, "")                     // strip "@ Venue Name"
     .replace(/[-–—]\s*\d{1,2}(?:st|nd|rd|th)\s+\w+\s+\d{2,4}/i, "") // strip date
@@ -91,11 +93,6 @@ export function parseMakesweatEvent(
   const title = theme
     ? `City Hash Run #${runNumber} - ${theme}`
     : `City Hash Run #${runNumber}`;
-
-  // Makesweat event ID from class name
-  const classAttr = $event.attr("class") || "";
-  const idMatch = classAttr.match(/makesweatevent-(\d+)/);
-  const makesweatId = idMatch ? idMatch[1] : undefined;
 
   // External links
   const externalLinks = makesweatId
@@ -109,7 +106,7 @@ export function parseMakesweatEvent(
     title,
     hares,
     location,
-    startTime: startTime || "19:00",
+    startTime,
     sourceUrl,
     description,
     externalLinks,
@@ -150,30 +147,27 @@ export class CityHashAdapter implements SourceAdapter {
     cards.each((i, el) => {
       try {
         // Dedup by Makesweat event ID
-        const classAttr = $(el).attr("class") || "";
-        const idMatch = classAttr.match(/makesweatevent-(\d+)/);
-        if (idMatch) {
-          if (seenIds.has(idMatch[1])) return;
-          seenIds.add(idMatch[1]);
+        const makesweatId = extractMakesweatId($(el));
+        if (makesweatId) {
+          if (seenIds.has(makesweatId)) return;
+          seenIds.add(makesweatId);
         }
 
-        const event = parseMakesweatEvent($, $(el), baseUrl);
+        const event = parseMakesweatEvent($, $(el), baseUrl, makesweatId);
         if (event) {
           events.push(event);
         } else {
           const titleText = $(el).find(".ms_eventtitle").text().trim();
           errors.push(`Could not parse event ${i}: ${titleText}`);
-          errorDetails.parse = [
-            ...(errorDetails.parse ?? []),
+          (errorDetails.parse ??= []).push(
             { row: i, section: "ms_event", field: "date", error: `Could not parse: ${titleText}`, rawText: $(el).text().trim().slice(0, 2000) },
-          ];
+          );
         }
       } catch (err) {
         errors.push(`Error parsing event ${i}: ${err}`);
-        errorDetails.parse = [
-          ...(errorDetails.parse ?? []),
+        (errorDetails.parse ??= []).push(
           { row: i, section: "ms_event", error: String(err), rawText: $(el).text().trim().slice(0, 2000) },
-        ];
+        );
       }
     });
 

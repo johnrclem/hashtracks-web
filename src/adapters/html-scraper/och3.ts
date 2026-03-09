@@ -5,7 +5,7 @@ import type {
   RawEventData,
   ScrapeResult,
 } from "../types";
-import { chronoParseDate, extractUkPostcode, fetchHTMLPage } from "../utils";
+import { chronoParseDate, fetchHTMLPage } from "../utils";
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 

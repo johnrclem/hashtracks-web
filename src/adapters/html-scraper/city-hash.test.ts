@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as cheerio from "cheerio";
-import { parseDateFromTitle, parseMakesweatEvent } from "./city-hash";
+import { parseMakesweatEvent, extractMakesweatId } from "./city-hash";
 import { CityHashAdapter } from "./city-hash";
+import { chronoParseDate } from "../utils";
 
 // Mock browserRender
 vi.mock("@/lib/browser-render", () => ({
@@ -16,33 +17,33 @@ vi.mock("@/pipeline/structure-hash", () => ({
 const { browserRender } = await import("@/lib/browser-render");
 const mockedBrowserRender = vi.mocked(browserRender);
 
-describe("parseDateFromTitle", () => {
+describe("chronoParseDate (en-GB, used by CityHash)", () => {
   it("parses ordinal date with short month", () => {
-    expect(parseDateFromTitle("City Hash R*n #1910 - 24th Feb 2026")).toBe("2026-02-24");
+    expect(chronoParseDate("City Hash R*n #1910 - 24th Feb 2026", "en-GB")).toBe("2026-02-24");
   });
 
   it("parses 1st with full month", () => {
-    expect(parseDateFromTitle("City Hash R*n #1915 - 1st March 2026")).toBe("2026-03-01");
+    expect(chronoParseDate("City Hash R*n #1915 - 1st March 2026", "en-GB")).toBe("2026-03-01");
   });
 
   it("parses 2nd", () => {
-    expect(parseDateFromTitle("R*n #100 - 2nd Jan 2026")).toBe("2026-01-02");
+    expect(chronoParseDate("R*n #100 - 2nd Jan 2026", "en-GB")).toBe("2026-01-02");
   });
 
   it("parses 3rd", () => {
-    expect(parseDateFromTitle("R*n #100 - 3rd April 2026")).toBe("2026-04-03");
+    expect(chronoParseDate("R*n #100 - 3rd April 2026", "en-GB")).toBe("2026-04-03");
   });
 
   it("parses 11th (not 1st)", () => {
-    expect(parseDateFromTitle("R*n #100 - 11th December 2025")).toBe("2025-12-11");
+    expect(chronoParseDate("R*n #100 - 11th December 2025", "en-GB")).toBe("2025-12-11");
   });
 
   it("returns null for missing date", () => {
-    expect(parseDateFromTitle("City Hash R*n #1910")).toBeNull();
+    expect(chronoParseDate("City Hash R*n #1910", "en-GB")).toBeNull();
   });
 
   it("returns null for invalid month", () => {
-    expect(parseDateFromTitle("R*n #1 - 5th Flob 2026")).toBeNull();
+    expect(chronoParseDate("R*n #1 - 5th Flob 2026", "en-GB")).toBeNull();
   });
 });
 
@@ -136,8 +137,12 @@ describe("parseMakesweatEvent", () => {
     expect(event!.hares).toBe("TBC");
   });
 
-  it("includes Makesweat external link", () => {
-    const event = parseMakesweatEvent($, cards.eq(0), "https://makesweat.com/cityhash#hashes");
+  it("extracts Makesweat ID from class attribute", () => {
+    expect(extractMakesweatId(cards.eq(0))).toBe("12345");
+  });
+
+  it("includes Makesweat external link when ID is passed", () => {
+    const event = parseMakesweatEvent($, cards.eq(0), "https://makesweat.com/cityhash#hashes", "12345");
     expect(event!.externalLinks).toEqual([
       { url: "https://makesweat.com/event.html?id=12345", label: "Makesweat" },
     ]);
