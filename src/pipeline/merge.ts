@@ -40,6 +40,10 @@ interface MergeContext {
   regionCache: Map<string, string>;
   /** Per-batch cache of short Maps URL → resolved full URL (avoids repeated HTTP calls). */
   shortUrlCache: Map<string, string | null>;
+  /** Per-batch tracking: which canonical Event IDs have been matched for each kennel+date.
+   *  Key = `${kennelId}:${dateIso}`, value = set of canonical Event IDs matched in this batch.
+   *  Used to distinguish double-headers (same source, second event) from cross-source merges. */
+  batchMatchedEvents: Map<string, Set<string>>;
   result: MergeResult;
 }
 
@@ -284,12 +288,24 @@ async function upsertCanonicalEvent(
 
   // Match strategy:
   // 1. Zero existing → create new (common case)
-  // 2. Exactly one → always match it (backward-compatible)
-  // 3. Multiple → disambiguate by sourceUrl, then startTime, then title
-  // 4. No disambiguation match among multiples → create new event
+  // 2. Exactly one → match unless already matched in this batch (double-header detection)
+  // 3. Multiple → disambiguate by sourceUrl, then startTime, then title (sequential fallback)
+  // 4. No disambiguation match → create new event
+  //
+  // Per-batch tracking distinguishes double-headers from cross-source merges:
+  // - Same source, second event for kennel+date → already matched in batch → create new
+  // - Different source, same event → first match in batch → update + EventLink
+  const batchKey = `${kennelId}:${eventDate.toISOString()}`;
   let existingEvent: (typeof sameDayEvents)[number] | null = null;
   if (sameDayEvents.length === 1) {
-    existingEvent = sameDayEvents[0];
+    const sole = sameDayEvents[0];
+    const alreadyMatchedInBatch = ctx.batchMatchedEvents.get(batchKey)?.has(sole.id) ?? false;
+    // If we already matched this event in the current batch, this is a double-header
+    if (alreadyMatchedInBatch) {
+      existingEvent = null;
+    } else {
+      existingEvent = sole; // Cross-source or first match — backward-compatible
+    }
   } else if (sameDayEvents.length > 1) {
     if (event.sourceUrl) {
       existingEvent = sameDayEvents.find(e => e.sourceUrl === event.sourceUrl) ?? null;
@@ -398,6 +414,11 @@ async function upsertCanonicalEvent(
 
     ctx.result.created++;
   }
+
+  // Record this match in the per-batch tracker
+  const matched = ctx.batchMatchedEvents.get(batchKey) ?? new Set<string>();
+  matched.add(targetEventId);
+  ctx.batchMatchedEvents.set(batchKey, matched);
 
   return targetEventId;
 }
@@ -531,7 +552,8 @@ export async function processRawEvents(
 
   const regionCache = new Map<string, string>();
   const shortUrlCache = new Map<string, string | null>();
-  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, regionCache, shortUrlCache, result };
+  const batchMatchedEvents = new Map<string, Set<string>>();
+  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, regionCache, shortUrlCache, batchMatchedEvents, result };
 
   const seriesGroups = new Map<string, string[]>();
 
