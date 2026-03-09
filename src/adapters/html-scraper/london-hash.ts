@@ -9,6 +9,14 @@ import type {
 import { hasAnyErrors } from "../types";
 import { chronoParseDate, parse12HourTime, fetchHTMLPage } from "../utils";
 
+/** Max detail pages to fetch per scrape (only first N events). */
+const MAX_DETAIL_FETCHES = 3;
+
+/** London center coords used as placeholder on TBA pages. */
+const LONDON_CENTER_LAT = 51.508;
+const LONDON_CENTER_LNG = -0.128;
+const COORD_THRESHOLD = 0.01; // ~1km
+
 /** Represents a parsed run block from the London Hash run list page. */
 export interface RunBlock {
   runNumber: number;
@@ -187,12 +195,151 @@ export function parseTimeFromBlock(text: string): string | null {
   return null;
 }
 
+/** Data extracted from a London Hash detail page (nextrun.php?run=XXXX). */
+export interface LH3DetailPageData {
+  runNumber?: number;
+  latitude?: number;
+  longitude?: number;
+  location?: string;
+  station?: string;
+  hares?: string;
+  distance?: string;
+  onOn?: string;
+  locationUrl?: string;
+  sourceUrl: string;
+}
+
+/**
+ * Check if coordinates are the default London center placeholder.
+ * Placeholder pages use ~(51.508, -0.128) which is the London center.
+ */
+function isDefaultLondonCoords(lat: number, lng: number): boolean {
+  return (
+    Math.abs(lat - LONDON_CENTER_LAT) < COORD_THRESHOLD &&
+    Math.abs(lng - LONDON_CENTER_LNG) < COORD_THRESHOLD
+  );
+}
+
+/**
+ * Parse a London Hash detail page (nextrun.php) into structured data.
+ * Accepts a cheerio instance (from fetchHTMLPage) plus raw HTML for JS regex extraction.
+ * Returns null for placeholder/TBA pages.
+ */
+export function parseLH3DetailPage($: cheerio.CheerioAPI, html: string, detailUrl: string): LH3DetailPageData | null {
+  const fullText = $("body").text();
+
+  // Detect placeholder pages: "to be Announced" in headings or "details to be announced" in body
+  if (/next run to be announced/i.test(fullText) && !/follow the p trail/i.test(fullText)) {
+    return null;
+  }
+
+  const result: LH3DetailPageData = { sourceUrl: detailUrl };
+
+  // Extract Google Maps link: href="http://maps.google.com/?q=LAT,LNG"
+  const mapsLink = $('a[href*="maps.google.com/?q="]').attr("href");
+  if (mapsLink) {
+    const qMatch = mapsLink.match(/\?q=(-?[\d.]+),(-?[\d.]+)/);
+    if (qMatch) {
+      const lat = parseFloat(qMatch[1]);
+      const lng = parseFloat(qMatch[2]);
+      if (!isNaN(lat) && !isNaN(lng) && !isDefaultLondonCoords(lat, lng)) {
+        result.locationUrl = mapsLink;
+        result.latitude = lat;
+        result.longitude = lng;
+      }
+    }
+  }
+
+  // Also try JS coords: { lat: X, lng: Y } (center or marker positions)
+  if (result.latitude == null) {
+    for (const m of html.matchAll(/\{\s*lat:\s*(-?[\d.]+),\s*lng:\s*(-?[\d.]+)\s*\}/g)) {
+      const lat = parseFloat(m[1]);
+      const lng = parseFloat(m[2]);
+      if (!isNaN(lat) && !isNaN(lng) && !isDefaultLondonCoords(lat, lng)) {
+        result.latitude = lat;
+        result.longitude = lng;
+        break;
+      }
+    }
+  }
+
+  // "What" → run number: "London hash number XXXX"
+  const runNumMatch = fullText.match(/(?:London\s+hash\s+number|hash\s+number)\s+(\d+)/i);
+  if (runNumMatch) {
+    result.runNumber = parseInt(runNumMatch[1], 10);
+  }
+
+  // "Where" → reuse existing location parser
+  const { location, station } = parseLocationFromBlock(fullText);
+  if (location) result.location = location;
+  if (station) result.station = station;
+
+  // "Who" → reuse existing hare parser
+  const hares = parseHaresFromBlock(fullText);
+  if (hares) result.hares = hares;
+
+  // "How Far" → distance text
+  const distMatch = fullText.match(/(\d+\s*(?:meters?|metres?)\s+from\s+.+?)(?:\n|$)/i);
+  if (distMatch) {
+    result.distance = distMatch[1].trim();
+  }
+
+  // On-On / On Inn: body text or JS marker title
+  const onOnMatch = fullText.match(/On\s+Inn\s+to\s+(.+?)(?:\n|$)/i);
+  if (onOnMatch) {
+    result.onOn = onOnMatch[1].trim();
+  } else {
+    const markerOnOn = html.match(/title:\s*"On\s+Inn\s+to\s+(.+?)"/i);
+    if (markerOnOn) {
+      result.onOn = markerOnOn[1].trim();
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Merge detail-page data into a run-list event.
+ * Detail fields override run-list fields where present.
+ */
+export function mergeLH3DetailIntoEvent(event: RawEventData, detail: LH3DetailPageData): RawEventData {
+  const merged: RawEventData = { ...event };
+
+  if (detail.latitude != null && detail.longitude != null) {
+    merged.latitude = detail.latitude;
+    merged.longitude = detail.longitude;
+  }
+  if (detail.locationUrl) {
+    merged.locationUrl = detail.locationUrl;
+  }
+  if (detail.location) {
+    merged.location = detail.location;
+  }
+  if (detail.hares) {
+    merged.hares = detail.hares;
+  }
+
+  // Enrich description with detail page info, preserving base station if detail lacks one
+  const descParts: string[] = [];
+  const station = detail.station ?? event.description?.match(/Nearest station: (.+?)(?:\.|$)/)?.[1];
+  if (station) descParts.push(`Nearest station: ${station}`);
+  if (detail.onOn) descParts.push(`On-On: ${detail.onOn}`);
+  if (detail.distance) descParts.push(`Distance: ${detail.distance}`);
+  if (descParts.length > 0) {
+    merged.description = descParts.join(". ");
+  }
+
+  merged.sourceUrl = detail.sourceUrl;
+
+  return merged;
+}
+
 /**
  * London Hash House Harriers (LH3) HTML Scraper
  *
- * Scrapes londonhash.org/runlist.php for upcoming runs. The page uses minimal
- * HTML markup — runs are text blocks anchored by nextrun.php links with
- * run data in surrounding text (date, hares, location, time).
+ * Scrapes londonhash.org/runlist.php for upcoming runs, then enriches
+ * the first few events with detail page data (coordinates, On-On, distance).
+ * Follows the OCH3 two-phase pattern: run list + detail page enrichment.
  */
 export class LondonHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
@@ -212,16 +359,17 @@ export class LondonHashAdapter implements SourceAdapter {
     const errorDetails: ErrorDetails = {};
     const currentYear = new Date().getFullYear();
     const blocks = parseRunBlocks(html);
+    const baseUrlObj = new URL(baseUrl);
+    const detailBase = `${baseUrlObj.protocol}//${baseUrlObj.host}`;
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
       try {
         const date = parseDateFromBlock(block.text, currentYear);
         if (!date) {
-          errorDetails.parse = [
-            ...(errorDetails.parse ?? []),
+          (errorDetails.parse ??= []).push(
             { row: i, section: "runlist", field: "date", error: `No date in block for run #${block.runNumber}`, rawText: block.text.slice(0, 2000) },
-          ];
+          );
           continue;
         }
 
@@ -234,7 +382,7 @@ export class LondonHashAdapter implements SourceAdapter {
         if (station) descParts.push(`Nearest station: ${station}`);
         const description = descParts.length > 0 ? descParts.join(". ") : undefined;
 
-        const sourceUrl = `https://www.londonhash.org/nextrun.php?run=${block.runId}`;
+        const sourceUrl = `${detailBase}/nextrun.php?run=${block.runId}`;
 
         events.push({
           date,
@@ -249,10 +397,50 @@ export class LondonHashAdapter implements SourceAdapter {
         });
       } catch (err) {
         errors.push(`Error parsing run #${block.runNumber}: ${err}`);
-        errorDetails.parse = [
-          ...(errorDetails.parse ?? []),
+        (errorDetails.parse ??= []).push(
           { row: i, section: "runlist", error: String(err), rawText: block.text.slice(0, 2000) },
-        ];
+        );
+      }
+    }
+
+    // Phase 2: Fetch detail pages for first N events
+    let detailPagesFetched = 0;
+    let detailPagesEnriched = 0;
+    const detailBlocks = blocks.slice(0, MAX_DETAIL_FETCHES);
+
+    if (detailBlocks.length > 0) {
+      const detailResults = await Promise.allSettled(
+        detailBlocks.map(async (block) => {
+          const detailUrl = `${detailBase}/nextrun.php?run=${block.runId}`;
+          const resp = await fetchHTMLPage(detailUrl);
+          return { block, resp, detailUrl };
+        }),
+      );
+
+      for (const settled of detailResults) {
+        if (settled.status !== "fulfilled") continue;
+        const { block, resp, detailUrl } = settled.value;
+        detailPagesFetched++;
+
+        if (!resp.ok) {
+          errors.push(`Detail page fetch failed for run #${block.runNumber}`);
+          continue;
+        }
+
+        const detail = parseLH3DetailPage(resp.$, resp.html, detailUrl);
+        if (!detail) continue;
+
+        // Verify run number matches before merging
+        if (detail.runNumber != null && detail.runNumber !== block.runNumber) {
+          errors.push(`Detail page run number mismatch for run #${block.runNumber}: got ${detail.runNumber}`);
+          continue;
+        }
+
+        const matchIdx = events.findIndex((e) => e.runNumber === block.runNumber);
+        if (matchIdx >= 0) {
+          events[matchIdx] = mergeLH3DetailIntoEvent(events[matchIdx], detail);
+          detailPagesEnriched++;
+        }
       }
     }
 
@@ -267,6 +455,8 @@ export class LondonHashAdapter implements SourceAdapter {
         blocksFound: blocks.length,
         eventsParsed: events.length,
         fetchDurationMs,
+        detailPagesFetched,
+        detailPagesEnriched,
       },
     };
   }
