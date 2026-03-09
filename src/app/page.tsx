@@ -9,7 +9,7 @@ import {
   PulseDot,
   RegionTicker,
 } from "@/components/home/HeroAnimations";
-import { Calendar, BookOpen, Users, MapPin, ArrowRight, Beer } from "lucide-react";
+import { Calendar, BookOpen, Users, MapPin, ArrowRight, Beer, Zap, Globe } from "lucide-react";
 
 export default async function HomePage() {
   const clerkUser = await currentUser();
@@ -41,7 +41,7 @@ export default async function HomePage() {
           locationName: true,
           kennel: { select: { shortName: true, fullName: true, region: true } },
         },
-        orderBy: { date: "asc" },
+        orderBy: [{ date: "asc" }, { startTime: "asc" }, { id: "asc" }],
         take: 6,
       }),
       prisma.region
@@ -367,8 +367,8 @@ export default async function HomePage() {
           <div className="mt-12 grid gap-4 sm:grid-cols-2">
             <FadeInSection delay={0}>
               <div className="flex gap-4 rounded-xl border border-foreground/[0.07] p-5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-foreground/[0.05] text-lg">
-                  &#x26A1;
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-foreground/[0.05]">
+                  <Zap className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="font-semibold">Auto-updated harelines</h3>
@@ -395,8 +395,8 @@ export default async function HomePage() {
 
             <FadeInSection delay={160}>
               <div className="flex gap-4 rounded-xl border border-foreground/[0.07] p-5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-foreground/[0.05] text-lg">
-                  &#x1F30D;
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-foreground/[0.05]">
+                  <Globe className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="font-semibold">Works everywhere</h3>
@@ -409,8 +409,8 @@ export default async function HomePage() {
 
             <FadeInSection delay={240}>
               <div className="flex gap-4 rounded-xl border border-foreground/[0.07] p-5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-foreground/[0.05] text-lg">
-                  &#x1F4C5;
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-foreground/[0.05]">
+                  <Calendar className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="font-semibold">Calendar export</h3>

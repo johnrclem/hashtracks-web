@@ -16,10 +16,14 @@ export interface EventWithCoords {
   color: string;
 }
 
+const LG_BREAKPOINT = 1024;
+
 interface ClusteredMarkersProps {
   events: EventWithCoords[];
   selectedEventId?: string | null;
   onSelectEvent: (event: HarelineEvent | null) => void;
+  /** Called on mobile (<lg) to navigate to the event detail page. */
+  onNavigate?: (eventId: string) => void;
 }
 
 /** Compute marker size based on selection and precision state. */
@@ -50,7 +54,7 @@ export function getMarkerStyle(
   };
 }
 
-export function ClusteredMarkers({ events, selectedEventId, onSelectEvent }: ClusteredMarkersProps) {
+export function ClusteredMarkers({ events, selectedEventId, onSelectEvent, onNavigate }: ClusteredMarkersProps) {
   const map = useMap();
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const markersRef = useRef<Map<string, Marker>>(new Map());
@@ -101,7 +105,13 @@ export function ClusteredMarkers({ events, selectedEventId, onSelectEvent }: Clu
           <AdvancedMarker
             key={event.id}
             position={{ lat, lng }}
-            onClick={() => onSelectEvent(event)}
+            onClick={() => {
+              if (onNavigate && typeof window !== "undefined" && window.innerWidth < LG_BREAKPOINT) {
+                onNavigate(event.id);
+              } else {
+                onSelectEvent(event);
+              }
+            }}
             title={`${event.kennel.shortName}${event.startTime ? ` · ${event.startTime}` : ""}`}
             ref={getRefCallback(event.id) as React.Ref<never>}
           >

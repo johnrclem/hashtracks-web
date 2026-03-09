@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { APIProvider, Map, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
 import { Button } from "@/components/ui/button";
 import { LocateFixed, X } from "lucide-react";
@@ -93,6 +94,8 @@ interface MapViewProps {
 }
 
 export default function MapView({ events, selectedEventId, onSelectEvent }: MapViewProps) {
+  const router = useRouter();
+  const handleNavigate = useCallback((id: string) => router.push(`/hareline/${id}`), [router]);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
 
   const eventsWithCoords = useMemo<EventWithCoords[]>(() => {
@@ -161,6 +164,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
             events={eventsWithCoords}
             selectedEventId={selectedEventId}
             onSelectEvent={onSelectEvent}
+            onNavigate={handleNavigate}
           />
 
           {/* Reset view button */}

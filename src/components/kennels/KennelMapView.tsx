@@ -247,7 +247,7 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
                     {pin.nextEvent && (
                       <p className="mt-1 text-xs">
                         <span className="font-medium">Next run:</span>{" "}
-                        {new Date(pin.nextEvent.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        {new Date(pin.nextEvent.date).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })}
                         {pin.nextEvent.title && <span className="text-muted-foreground"> — {pin.nextEvent.title}</span>}
                       </p>
                     )}
