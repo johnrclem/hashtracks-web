@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import * as cheerio from "cheerio";
 import {
   parseRunBlocks,
   parseDateFromBlock,
@@ -11,6 +12,11 @@ import {
 import type { LH3DetailPageData } from "./london-hash";
 import type { RawEventData } from "../types";
 import { LondonHashAdapter } from "./london-hash";
+
+/** Helper to call parseLH3DetailPage with cheerio loaded from HTML string. */
+function parseDetail(html: string, url: string) {
+  return parseLH3DetailPage(cheerio.load(html), html, url);
+}
 
 describe("parseDateFromBlock", () => {
   it("parses DD/MM/YYYY format", () => {
@@ -264,7 +270,7 @@ describe("parseRunBlocks", () => {
 
 describe("parseLH3DetailPage", () => {
   it("extracts all fields from a full detail page", () => {
-    const detail = parseLH3DetailPage(SAMPLE_LH3_DETAIL_HTML, "https://www.londonhash.org/nextrun.php?run=4092");
+    const detail = parseDetail(SAMPLE_LH3_DETAIL_HTML, "https://www.londonhash.org/nextrun.php?run=4092");
     expect(detail).not.toBeNull();
     expect(detail!.runNumber).toBe(2823);
     expect(detail!.latitude).toBeCloseTo(51.546173, 4);
@@ -279,7 +285,7 @@ describe("parseLH3DetailPage", () => {
   });
 
   it("returns null for placeholder/TBA pages", () => {
-    const detail = parseLH3DetailPage(SAMPLE_LH3_PLACEHOLDER_HTML, "https://www.londonhash.org/nextrun.php?run=4090");
+    const detail = parseDetail(SAMPLE_LH3_PLACEHOLDER_HTML, "https://www.londonhash.org/nextrun.php?run=4090");
     expect(detail).toBeNull();
   });
 
@@ -293,7 +299,7 @@ describe("parseLH3DetailPage", () => {
     <p>Follow the P trail from Ealing Broadway station to The Red Lion</p>
     <p>Hared by Pope</p>
     </body></html>`;
-    const detail = parseLH3DetailPage(html, "https://www.londonhash.org/nextrun.php?run=4097");
+    const detail = parseDetail(html, "https://www.londonhash.org/nextrun.php?run=4097");
     expect(detail).not.toBeNull();
     expect(detail!.latitude).toBeUndefined();
     expect(detail!.longitude).toBeUndefined();
@@ -309,7 +315,7 @@ describe("parseLH3DetailPage", () => {
     <h1>Partial Run</h1>
     <p>London hash number 2830</p>
     </body></html>`;
-    const detail = parseLH3DetailPage(html, "https://www.londonhash.org/nextrun.php?run=9999");
+    const detail = parseDetail(html, "https://www.londonhash.org/nextrun.php?run=9999");
     expect(detail).not.toBeNull();
     expect(detail!.runNumber).toBe(2830);
     expect(detail!.location).toBeUndefined();
@@ -328,7 +334,7 @@ describe("parseLH3DetailPage", () => {
     <h1>Test Run</h1>
     <p>London hash number 2840</p>
     </body></html>`;
-    const detail = parseLH3DetailPage(html, "https://www.londonhash.org/nextrun.php?run=5000");
+    const detail = parseDetail(html, "https://www.londonhash.org/nextrun.php?run=5000");
     expect(detail).not.toBeNull();
     expect(detail!.latitude).toBeCloseTo(51.6, 4);
     expect(detail!.longitude).toBeCloseTo(-0.2, 4);
@@ -397,6 +403,16 @@ describe("mergeLH3DetailIntoEvent", () => {
     const merged = mergeLH3DetailIntoEvent(baseEvent, detail);
     expect(merged.latitude).toBeUndefined();
     expect(merged.longitude).toBeUndefined();
+  });
+
+  it("preserves base station in description when detail lacks station", () => {
+    const detail: LH3DetailPageData = {
+      onOn: "The Crown",
+      sourceUrl: "https://www.londonhash.org/nextrun.php?run=4092",
+    };
+    const merged = mergeLH3DetailIntoEvent(baseEvent, detail);
+    expect(merged.description).toContain("Nearest station: Some Station");
+    expect(merged.description).toContain("On-On: The Crown");
   });
 });
 

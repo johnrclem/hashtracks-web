@@ -222,10 +222,10 @@ function isDefaultLondonCoords(lat: number, lng: number): boolean {
 
 /**
  * Parse a London Hash detail page (nextrun.php) into structured data.
+ * Accepts a cheerio instance (from fetchHTMLPage) plus raw HTML for JS regex extraction.
  * Returns null for placeholder/TBA pages.
  */
-export function parseLH3DetailPage(html: string, detailUrl: string): LH3DetailPageData | null {
-  const $ = cheerio.load(html);
+export function parseLH3DetailPage($: cheerio.CheerioAPI, html: string, detailUrl: string): LH3DetailPageData | null {
   const fullText = $("body").text();
 
   // Detect placeholder pages: "to be Announced" in headings or "details to be announced" in body
@@ -252,45 +252,31 @@ export function parseLH3DetailPage(html: string, detailUrl: string): LH3DetailPa
 
   // Also try JS coords: { lat: X, lng: Y } (center or marker positions)
   if (result.latitude == null) {
-    // Look for the beer bottle marker (On Inn location) or center coords
-    const jsCoords = html.match(/\{\s*lat:\s*(-?[\d.]+),\s*lng:\s*(-?[\d.]+)\s*\}/g);
-    if (jsCoords) {
-      for (const coordStr of jsCoords) {
-        const m = coordStr.match(/lat:\s*(-?[\d.]+),\s*lng:\s*(-?[\d.]+)/);
-        if (!m) continue;
-        const lat = parseFloat(m[1]);
-        const lng = parseFloat(m[2]);
-        if (!isNaN(lat) && !isNaN(lng) && !isDefaultLondonCoords(lat, lng)) {
-          result.latitude = lat;
-          result.longitude = lng;
-          break;
-        }
+    for (const m of html.matchAll(/\{\s*lat:\s*(-?[\d.]+),\s*lng:\s*(-?[\d.]+)\s*\}/g)) {
+      const lat = parseFloat(m[1]);
+      const lng = parseFloat(m[2]);
+      if (!isNaN(lat) && !isNaN(lng) && !isDefaultLondonCoords(lat, lng)) {
+        result.latitude = lat;
+        result.longitude = lng;
+        break;
       }
     }
   }
 
-  // Extract sections by label patterns in body text
   // "What" → run number: "London hash number XXXX"
   const runNumMatch = fullText.match(/(?:London\s+hash\s+number|hash\s+number)\s+(\d+)/i);
   if (runNumMatch) {
     result.runNumber = parseInt(runNumMatch[1], 10);
   }
 
-  // "Where" → location: "Follow the P trail from STATION to PUB"
-  const whereMatch = fullText.match(/Follow the P trail from\s+(.+?)\s+(?:station\s+)?to\s+(.+?)(?:\n|$)/i);
-  if (whereMatch) {
-    result.station = whereMatch[1].trim();
-    result.location = whereMatch[2].trim();
-  }
+  // "Where" → reuse existing location parser
+  const { location, station } = parseLocationFromBlock(fullText);
+  if (location) result.location = location;
+  if (station) result.station = station;
 
-  // "Who" → hares: "Hared by NAME" or just after "Who" section
-  const haresMatch = fullText.match(/Hared?\s+by\s+(.+?)(?:\n|$)/i);
-  if (haresMatch) {
-    const hares = haresMatch[1].trim();
-    if (!/required|volunteer|tba|tbd|tbc/i.test(hares)) {
-      result.hares = hares;
-    }
-  }
+  // "Who" → reuse existing hare parser
+  const hares = parseHaresFromBlock(fullText);
+  if (hares) result.hares = hares;
 
   // "How Far" → distance text
   const distMatch = fullText.match(/(\d+)\s*(?:meters?|metres?)\s+from\s+/i);
@@ -298,12 +284,11 @@ export function parseLH3DetailPage(html: string, detailUrl: string): LH3DetailPa
     result.distance = distMatch[0].trim();
   }
 
-  // On-On / On Inn: marker title or text
+  // On-On / On Inn: body text or JS marker title
   const onOnMatch = fullText.match(/On\s+Inn\s+to\s+(.+?)(?:\n|$)/i);
   if (onOnMatch) {
     result.onOn = onOnMatch[1].trim();
   } else {
-    // Try marker title: title: "On Inn to The North Star"
     const markerOnOn = html.match(/title:\s*"On\s+Inn\s+to\s+(.+?)"/i);
     if (markerOnOn) {
       result.onOn = markerOnOn[1].trim();
@@ -334,9 +319,10 @@ export function mergeLH3DetailIntoEvent(event: RawEventData, detail: LH3DetailPa
     merged.hares = detail.hares;
   }
 
-  // Enrich description with detail page info
+  // Enrich description with detail page info, preserving base station if detail lacks one
   const descParts: string[] = [];
-  if (detail.station) descParts.push(`Nearest station: ${detail.station}`);
+  const station = detail.station ?? event.description?.match(/Nearest station: (.+?)(?:\.|$)/)?.[1];
+  if (station) descParts.push(`Nearest station: ${station}`);
   if (detail.onOn) descParts.push(`On-On: ${detail.onOn}`);
   if (detail.distance) descParts.push(`Distance: ${detail.distance}`);
   if (descParts.length > 0) {
@@ -373,6 +359,8 @@ export class LondonHashAdapter implements SourceAdapter {
     const errorDetails: ErrorDetails = {};
     const currentYear = new Date().getFullYear();
     const blocks = parseRunBlocks(html);
+    const baseUrlObj = new URL(baseUrl);
+    const detailBase = `${baseUrlObj.protocol}//${baseUrlObj.host}`;
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
@@ -394,7 +382,7 @@ export class LondonHashAdapter implements SourceAdapter {
         if (station) descParts.push(`Nearest station: ${station}`);
         const description = descParts.length > 0 ? descParts.join(". ") : undefined;
 
-        const sourceUrl = `https://www.londonhash.org/nextrun.php?run=${block.runId}`;
+        const sourceUrl = `${detailBase}/nextrun.php?run=${block.runId}`;
 
         events.push({
           date,
@@ -423,7 +411,7 @@ export class LondonHashAdapter implements SourceAdapter {
     if (detailBlocks.length > 0) {
       const detailResults = await Promise.allSettled(
         detailBlocks.map(async (block) => {
-          const detailUrl = `https://www.londonhash.org/nextrun.php?run=${block.runId}`;
+          const detailUrl = `${detailBase}/nextrun.php?run=${block.runId}`;
           const resp = await fetchHTMLPage(detailUrl);
           return { block, resp, detailUrl };
         }),
@@ -439,10 +427,15 @@ export class LondonHashAdapter implements SourceAdapter {
           continue;
         }
 
-        const detail = parseLH3DetailPage(resp.html, detailUrl);
+        const detail = parseLH3DetailPage(resp.$, resp.html, detailUrl);
         if (!detail) continue;
 
-        // Match by run number
+        // Verify run number matches before merging
+        if (detail.runNumber != null && detail.runNumber !== block.runNumber) {
+          errors.push(`Detail page run number mismatch for run #${block.runNumber}: got ${detail.runNumber}`);
+          continue;
+        }
+
         const matchIdx = events.findIndex((e) => e.runNumber === block.runNumber);
         if (matchIdx >= 0) {
           events[matchIdx] = mergeLH3DetailIntoEvent(events[matchIdx], detail);
