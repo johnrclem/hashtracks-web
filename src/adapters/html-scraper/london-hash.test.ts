@@ -230,6 +230,49 @@ async function initMap() {
 </body></html>
 `;
 
+// Detail page with run number 2820 (matches first run list block)
+const SAMPLE_LH3_DETAIL_HTML_2820 = `
+<html><head>
+<script>
+async function initMap() {
+  const { Map } = await google.maps.importLibrary("maps");
+  map = new Map(document.getElementById("mapId"), {
+    center: { lat: 51.427391, lng: -0.054509 },
+    zoom: 16,
+    mapTypeId: google.maps.MapTypeId.ROADMAP,
+  });
+  const marker1 = new google.maps.Marker({
+    position: { lat: 51.427121, lng: -0.055213 },
+    icon: "./images/train.png",
+    title: "P trail from Sydenham",
+  });
+  const marker2 = new google.maps.Marker({
+    position: { lat: 51.427391, lng: -0.054509 },
+    icon: "./images/beerbottle.png",
+    title: "On Inn to The Dolphin",
+  });
+}
+</script>
+</head><body>
+<h1>Sydenham</h1>
+<hr />
+<p>London hash number 2820</p>
+<hr />
+<p>Follow the P trail from Sydenham station to The Dolphin</p>
+<hr />
+<p>Saturday 21st of February at 12 Noon for 12:30 (5 days time)</p>
+<hr />
+<p>The Dolphin is 85 metres from Sydenham station as the Skylark flies</p>
+<hr />
+<p>Hared by Tuna Melt and Opee</p>
+<hr />
+<p>** 50th Anniversary Special **</p>
+<hr />
+<p><a href="http://maps.google.com/?q=51.427391,-0.054509">open in Google Maps</a></p>
+<div id="mapId"></div>
+</body></html>
+`;
+
 // Placeholder detail page (TBA, default London center coords)
 const SAMPLE_LH3_PLACEHOLDER_HTML = `
 <html><head>
@@ -279,7 +322,7 @@ describe("parseLH3DetailPage", () => {
     expect(detail!.location).toBe("The North Star");
     expect(detail!.station).toBe("Finchley Road");
     expect(detail!.hares).toBe("Not Out and Big In Japan");
-    expect(detail!.distance).toContain("113 meters from");
+    expect(detail!.distance).toBe("113 meters from Finchley Road station as the Skylark flies");
     expect(detail!.onOn).toBe("The North Star");
     expect(detail!.sourceUrl).toBe("https://www.londonhash.org/nextrun.php?run=4092");
   });
@@ -363,7 +406,7 @@ describe("mergeLH3DetailIntoEvent", () => {
       location: "The North Star",
       station: "Finchley Road",
       hares: "Not Out and Big In Japan",
-      distance: "113 meters from",
+      distance: "113 meters from Finchley Road station as the Skylark flies",
       onOn: "The North Star",
       locationUrl: "http://maps.google.com/?q=51.546173,-0.178557",
       sourceUrl: "https://www.londonhash.org/nextrun.php?run=4092",
@@ -376,7 +419,7 @@ describe("mergeLH3DetailIntoEvent", () => {
     expect(merged.hares).toBe("Not Out and Big In Japan");
     expect(merged.description).toContain("Nearest station: Finchley Road");
     expect(merged.description).toContain("On-On: The North Star");
-    expect(merged.description).toContain("Distance: 113 meters from");
+    expect(merged.description).toContain("Distance: 113 meters from Finchley Road station as the Skylark flies");
     // Preserved base fields
     expect(merged.date).toBe("2026-03-14");
     expect(merged.kennelTag).toBe("LH3");
@@ -451,8 +494,8 @@ describe("LondonHashAdapter.fetch", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     // Run list page
     fetchSpy.mockResolvedValueOnce(new Response(SAMPLE_HTML, { status: 200 }));
-    // First detail page (run 3840 → run number 2820) — enriched
-    fetchSpy.mockResolvedValueOnce(new Response(SAMPLE_LH3_DETAIL_HTML, { status: 200 }));
+    // First detail page (run 3840 → run number 2820) — enriched with matching fixture
+    fetchSpy.mockResolvedValueOnce(new Response(SAMPLE_LH3_DETAIL_HTML_2820, { status: 200 }));
     // Remaining detail pages — placeholder
     fetchSpy.mockResolvedValue(new Response(SAMPLE_LH3_PLACEHOLDER_HTML, { status: 200 }));
 
@@ -462,11 +505,15 @@ describe("LondonHashAdapter.fetch", () => {
       url: "https://www.londonhash.org/runlist.php",
     } as never);
 
-    // The first event (2820) should get detail from SAMPLE_LH3_DETAIL_HTML
-    // Detail HTML has runNumber 2823 which won't match 2820, so it won't merge
-    // But diagnostic context should show fetches attempted
-    expect(result.diagnosticContext).toHaveProperty("detailPagesFetched");
-    expect(result.diagnosticContext).toHaveProperty("detailPagesEnriched");
+    // The first event (2820) should be enriched from the detail page
+    const enriched = result.events.find((e) => e.runNumber === 2820);
+    expect(enriched).toBeDefined();
+    expect(enriched!.latitude).toBeCloseTo(51.427391, 4);
+    expect(enriched!.longitude).toBeCloseTo(-0.054509, 4);
+    expect(enriched!.locationUrl).toBe("http://maps.google.com/?q=51.427391,-0.054509");
+    expect(enriched!.description).toContain("On-On: The Dolphin");
+
+    expect(result.diagnosticContext?.detailPagesEnriched).toBeGreaterThanOrEqual(1);
 
     vi.restoreAllMocks();
   });

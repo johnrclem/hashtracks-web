@@ -279,9 +279,9 @@ export function parseLH3DetailPage($: cheerio.CheerioAPI, html: string, detailUr
   if (hares) result.hares = hares;
 
   // "How Far" → distance text
-  const distMatch = fullText.match(/(\d+)\s*(?:meters?|metres?)\s+from\s+/i);
+  const distMatch = fullText.match(/(\d+\s*(?:meters?|metres?)\s+from\s+.+?)(?:\n|$)/i);
   if (distMatch) {
-    result.distance = distMatch[0].trim();
+    result.distance = distMatch[1].trim();
   }
 
   // On-On / On Inn: body text or JS marker title
