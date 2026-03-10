@@ -779,6 +779,16 @@ export function getRegionColor(region: string): string {
   return resolveRegion(region)?.pinColor ?? "#6b7280";
 }
 
+/** Parse a hex color string (e.g. "#ff8800") into [r, g, b] components. */
+export function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
+
 /** Region centroid {lat, lng} for map fallback. Accepts name, alias, or slug. */
 export function getRegionCentroid(
   region: string,

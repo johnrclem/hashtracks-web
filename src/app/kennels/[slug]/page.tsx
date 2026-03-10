@@ -16,15 +16,17 @@ export async function generateMetadata({
   return { title: `${kennel.shortName} · Kennels · HashTracks` };
 }
 import { getOrCreateUser } from "@/lib/auth";
-import { Badge } from "@/components/ui/badge";
+import { Users } from "lucide-react";
 import { SubscribeButton } from "@/components/kennels/SubscribeButton";
 import { MismanAccessButton } from "@/components/kennels/MismanAccessButton";
 import type { HarelineEvent } from "@/components/hareline/EventCard";
-import { CollapsibleEventList } from "@/components/kennels/CollapsibleEventList";
 import { MismanManagementSection } from "@/components/kennels/MismanManagementSection";
 import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
-import { SocialLinks } from "@/components/kennels/SocialLinks";
 import { KennelStats } from "@/components/kennels/KennelStats";
+import { TrailLocationMap } from "@/components/kennels/TrailLocationMap";
+import { EventTabs } from "@/components/kennels/EventTabs";
+import { RegionBadge } from "@/components/hareline/RegionBadge";
+import { getRegionColor } from "@/lib/region";
 
 export default async function KennelDetailPage({
   params,
@@ -65,7 +67,6 @@ export default async function KennelDetailPage({
     isSubscribed = !!subscription;
     userRole = subscription?.role ?? null;
 
-    // Check for pending misman request
     const pendingRequest = await prisma.mismanRequest.findFirst({
       where: { userId: user.id, kennelId: kennel.id, status: "PENDING" },
     });
@@ -99,101 +100,129 @@ export default async function KennelDetailPage({
   );
   const past = serialized
     .filter((e) => new Date(e.date).getTime() < todayUtc)
-    .reverse(); // most recent first
+    .reverse();
 
-  // Compute stats from events (already sorted asc by date)
+  // Stats — prefer highest run number (kennel's actual count) over events.length
   const totalEvents = events.length;
+  const maxRunNumber = events.reduce((max, e) => {
+    if (e.runNumber != null && e.runNumber > max) return e.runNumber;
+    return max;
+  }, 0);
   const oldestEventDate = events.length > 0 ? events[0].date.toISOString() : null;
   const nextRunDate = upcoming.length > 0 ? upcoming[0].date : null;
 
+  // Trail locations for map (only events with precise coordinates)
+  const trailLocations = events
+    .filter((e) => e.latitude != null && e.longitude != null)
+    .map((e) => ({
+      lat: e.latitude!,
+      lng: e.longitude!,
+    }));
+
+  // Region color for theming
+  const regionColor = kennel.region ? getRegionColor(kennel.region) : "#6b7280";
+
+  // Initials for logo fallback
+  const initials = kennel.shortName
+    .replace(/[^A-Z0-9]/gi, "")
+    .slice(0, 3)
+    .toUpperCase();
+
   return (
-    <div className="space-y-6">
-      {/* Hero */}
-      <div className="flex items-start gap-4">
-        {kennel.logoUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={kennel.logoUrl}
-            alt={`${kennel.shortName} logo`}
-            className="h-16 w-16 rounded-lg object-contain"
-          />
-        )}
-        <div>
-          <h1 className="text-3xl font-bold">{kennel.fullName}</h1>
-          <p className="mt-1 text-lg text-muted-foreground">
-            {kennel.shortName}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Badge>{kennel.region}</Badge>
-            <Badge variant="outline">{kennel.country}</Badge>
-            <span className="text-sm text-muted-foreground">
-              {kennel._count.members}{" "}
-              {kennel._count.members === 1 ? "subscriber" : "subscribers"}
-            </span>
+    <div className="space-y-8">
+      {/* ── Hero ── */}
+      <div
+        className="-mx-4 -mt-4 px-4 pb-6 pt-8 sm:-mx-6 sm:px-6 sm:pt-10 rounded-b-2xl"
+        style={{
+          background: `linear-gradient(to bottom, ${regionColor}12, transparent)`,
+        }}
+      >
+        <div className="flex items-start gap-4 sm:gap-5">
+          {/* Logo or initials */}
+          {kennel.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={kennel.logoUrl}
+              alt={`${kennel.shortName} logo`}
+              className="h-20 w-20 rounded-xl object-contain bg-white ring-2 ring-white shadow-md sm:h-24 sm:w-24"
+            />
+          ) : (
+            <div
+              className="flex h-20 w-20 items-center justify-center rounded-xl text-xl font-bold text-white shadow-md ring-2 ring-white/80 sm:h-24 sm:w-24 sm:text-2xl"
+              style={{ backgroundColor: regionColor }}
+            >
+              {initials}
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              {kennel.fullName}
+            </h1>
+            <p className="mt-0.5 text-base text-muted-foreground">
+              {kennel.shortName}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {kennel.region && <RegionBadge region={kennel.region} />}
+              {kennel.country && (
+                <span className="inline-flex items-center rounded-full border border-border/60 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  {kennel.country}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1 rounded-full bg-foreground/[0.06] px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                <Users className="h-3 w-3" />
+                {kennel._count.members}
+              </span>
+            </div>
+
+            {/* Action buttons */}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <SubscribeButton
+                kennelId={kennel.id}
+                isSubscribed={isSubscribed}
+                isAuthenticated={!!user}
+              />
+              <MismanAccessButton
+                kennelId={kennel.id}
+                kennelShortName={kennel.shortName}
+                kennelSlug={kennel.slug}
+                userRole={userRole}
+                hasPendingRequest={hasPendingMismanRequest}
+                isAuthenticated={!!user}
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Action buttons */}
-      <div className="flex flex-wrap items-center gap-2">
-        <SubscribeButton
-          kennelId={kennel.id}
-          isSubscribed={isSubscribed}
-          isAuthenticated={!!user}
-        />
-        <MismanAccessButton
-          kennelId={kennel.id}
-          kennelShortName={kennel.shortName}
-          kennelSlug={kennel.slug}
-          userRole={userRole}
-          hasPendingRequest={hasPendingMismanRequest}
-          isAuthenticated={!!user}
-        />
-      </div>
+      {/* ── About Card (schedule, info, social, description) ── */}
+      <QuickInfoCard kennel={kennel} regionColor={regionColor} />
 
-      {/* Quick Info Card */}
-      <QuickInfoCard kennel={kennel} />
+      {/* ── Stats Achievement Cards ── */}
+      <KennelStats
+        highestRunNumber={maxRunNumber > 0 ? maxRunNumber : null}
+        totalEvents={totalEvents}
+        oldestEventDate={oldestEventDate}
+        nextRunDate={nextRunDate}
+        foundedYear={kennel.foundedYear}
+        region={kennel.region ?? undefined}
+      />
 
-      {/* Social Links */}
-      <SocialLinks kennel={kennel} />
+      {/* ── Event Tabs (Upcoming / Past) ── */}
+      <EventTabs upcoming={upcoming} past={past} />
 
-      {/* Description */}
-      {kennel.description && (
-        <p className="text-muted-foreground">{kennel.description}</p>
+      {/* ── Trail Location Map ── */}
+      {kennel.region && (
+        <TrailLocationMap locations={trailLocations} region={kennel.region} />
       )}
 
-      {/* Misman Management — visible only to mismans/admins */}
+      {/* ── Misman Management (role-gated) ── */}
       {(userRole === "MISMAN" || userRole === "ADMIN") && (
         <MismanManagementSection
           kennelId={kennel.id}
           kennelShortName={kennel.shortName}
         />
       )}
-
-      {/* Upcoming Events */}
-      <div>
-        <h2 className="mb-3 text-lg font-semibold">Upcoming Events</h2>
-        {upcoming.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No upcoming events.</p>
-        ) : (
-          <CollapsibleEventList events={upcoming} defaultLimit={4} label="upcoming" />
-        )}
-      </div>
-
-      {/* Past Events */}
-      {past.length > 0 && (
-        <div>
-          <h2 className="mb-3 text-lg font-semibold">Past Events</h2>
-          <CollapsibleEventList events={past} defaultLimit={10} label="past" />
-        </div>
-      )}
-
-      {/* Kennel Stats */}
-      <KennelStats
-        totalEvents={totalEvents}
-        oldestEventDate={oldestEventDate}
-        nextRunDate={nextRunDate}
-      />
     </div>
   );
 }
