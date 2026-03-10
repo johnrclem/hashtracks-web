@@ -20,15 +20,18 @@ export function decodeEntities(text: string): string {
 }
 
 /**
- * Strip HTML tags from a string, converting `<br>` to the specified separator.
- * Removes `<script>` and `<style>` blocks entirely, then strips remaining tags.
+ * Strip HTML tags from a string, converting `<br>` and closing block-level
+ * tags to the specified separator. Removes `<script>` and `<style>` blocks
+ * entirely, then strips remaining tags.
  */
 export function stripHtmlTags(
   text: string,
-  brReplacement = " ",
+  separator = " ",
 ): string {
-  const withBr = text.replace(/<br\s*\/?>/gi, brReplacement);
-  const $ = cheerio.load(withBr);
+  const withBr = text.replace(/<br\s*\/?>/gi, separator);
+  // Insert replacement before closing block-level tags so paragraph boundaries survive .text()
+  const withBlocks = withBr.replace(/<\/(?:p|div|li|tr|blockquote|h[1-6])>/gi, separator);
+  const $ = cheerio.load(withBlocks);
   $("script, style").remove();
   return $.text()
     .replace(/[^\S\r\n]+/g, " ")
