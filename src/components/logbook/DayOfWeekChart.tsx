@@ -10,7 +10,6 @@ interface DayData {
 
 export function DayOfWeekChart({ data }: { data: DayData[] }) {
   const max = Math.max(...data.map((d) => d.count), 1);
-  const peakIdx = data.findIndex((d) => d.count === max);
   const { ref, visible } = useInView();
 
   return (
@@ -24,7 +23,7 @@ export function DayOfWeekChart({ data }: { data: DayData[] }) {
       <div className="flex items-end justify-between gap-2" style={{ height: 180 }}>
         {data.map((d, i) => {
           const pct = (d.count / max) * 100;
-          const isPeak = i === peakIdx && d.count > 0;
+          const isPeak = d.count === max && d.count > 0;
           return (
             <div key={d.label} className="flex flex-1 flex-col items-center gap-1">
               <span

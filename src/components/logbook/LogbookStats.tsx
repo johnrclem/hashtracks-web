@@ -40,9 +40,9 @@ interface LogbookStatsProps {
 }
 
 const STAT_CARDS = [
-  { key: "runs", label: "Total Runs", icon: <Calendar className="h-5 w-5" />, color: "#3b82f6", bg: "rgba(59, 130, 246, 0.08)" },
-  { key: "hares", label: "Times Hared", icon: <Flame className="h-5 w-5" />, color: "#f59e0b", bg: "rgba(245, 158, 11, 0.08)" },
-  { key: "kennels", label: "Kennels", icon: <Users className="h-5 w-5" />, color: "#10b981", bg: "rgba(16, 185, 129, 0.08)" },
+  { key: "runs", singular: "Total Run", plural: "Total Runs", icon: <Calendar className="h-5 w-5" />, color: "#3b82f6", bg: "rgba(59, 130, 246, 0.08)" },
+  { key: "hares", singular: "Time Hared", plural: "Times Hared", icon: <Flame className="h-5 w-5" />, color: "#f59e0b", bg: "rgba(245, 158, 11, 0.08)" },
+  { key: "kennels", singular: "Kennel", plural: "Kennels", icon: <Users className="h-5 w-5" />, color: "#10b981", bg: "rgba(16, 185, 129, 0.08)" },
 ] as const;
 
 export function LogbookStats({
@@ -64,10 +64,10 @@ export function LogbookStats({
   const kennelMax = Math.max(...byKennel.map((k) => k.count), 1);
   const regionMax = Math.max(...byRegion.map((r) => r.count), 1);
 
-  const kennelView = useInView();
-  const regionView = useInView();
-  const levelView = useInView();
-  const milestoneView = useInView();
+  const kennelView = useInView<HTMLElement>();
+  const regionView = useInView<HTMLElement>();
+  const levelView = useInView<HTMLElement>();
+  const milestoneView = useInView<HTMLElement>();
 
   return (
     <div className="space-y-6">
@@ -88,7 +88,7 @@ export function LogbookStats({
               <AnimatedCounter target={statValues[stat.key]} />
             </div>
             <div className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              {stat.label}
+              {statValues[stat.key] === 1 ? stat.singular : stat.plural}
             </div>
           </div>
         ))}
