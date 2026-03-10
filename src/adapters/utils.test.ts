@@ -189,6 +189,34 @@ describe("stripHtmlTags", () => {
   it("trims leading and trailing whitespace", () => {
     expect(stripHtmlTags("  <p>hello</p>  ")).toBe("hello");
   });
+
+  it("preserves block-level boundaries as newlines when separator is \\n", () => {
+    expect(stripHtmlTags("<p>line1</p><p>line2</p>", "\n")).toBe("line1\nline2");
+    expect(stripHtmlTags("<div>a</div><div>b</div>", "\n")).toBe("a\nb");
+    expect(stripHtmlTags("<ul><li>a</li><li>b</li></ul>", "\n")).toBe("a\nb");
+  });
+
+  it("handles mixed <br> and block-level tags", () => {
+    expect(stripHtmlTags("a<br>b</p>c", "\n")).toBe("a\nb\nc");
+  });
+
+  it("preserves block boundaries for headings and blockquote", () => {
+    expect(stripHtmlTags("<h1>Title</h1><p>body</p>", "\n")).toBe("Title\nbody");
+    expect(stripHtmlTags("<blockquote>quote</blockquote>text", "\n")).toBe("quote\ntext");
+  });
+
+  it("flattens block-level tags to spaces with default replacement", () => {
+    expect(stripHtmlTags("<div>a</div><div>b</div>")).toBe("a b");
+  });
+
+  it("handles SHITH3 </div> separated content with \\n replacement", () => {
+    const input =
+      'mystery hare!\nStart behind "LEE GIMBAP"</div>\n\nPre-lube walkable...CHUY\'S\n11219 Lee Hwy</div>\n\nShiggy level HIGH...</div>';
+    const result = stripHtmlTags(input, "\n");
+    expect(result).toBe(
+      "mystery hare!\nStart behind \"LEE GIMBAP\"\n\n\nPre-lube walkable...CHUY'S\n11219 Lee Hwy\n\n\nShiggy level HIGH...",
+    );
+  });
 });
 
 
