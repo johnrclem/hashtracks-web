@@ -408,8 +408,8 @@ async function main() {
     contactEmail?: string;
     foundedYear?: number;
     description?: string;
-    lat?: number;
-    lng?: number;
+    latitude?: number;
+    longitude?: number;
   }> = [
     // NYC area (hashnyc.com source)
     {
