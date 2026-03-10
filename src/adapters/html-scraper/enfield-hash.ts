@@ -154,30 +154,33 @@ function processPost(
   errorDetails: ErrorDetails,
   now?: Date,
 ): RawEventData | null {
+  // Prefer title date — titles are structured ("Run 318 - Wed 25 February")
+  // while body prose can contain ambiguous day names ("THE FOURTH WEDNESDAY")
+  // that chrono-node misinterprets as relative dates.
+  // Only use title date when it includes a specific day (not just "March 2026").
+  const titleDate = parseEnfieldDate(titleText, now);
   const bodyFields = parseEnfieldBody(bodyText, now);
+  const titleHasDay = titleDate && /\b\d{1,2}\s+\w+|\w+\s+\d{1,2}\b/.test(titleText);
+  const date = (titleHasDay ? titleDate : null) ?? bodyFields.date ?? titleDate;
 
-  if (!bodyFields.date) {
-    const titleDate = parseEnfieldDate(titleText, now);
-    if (!titleDate) {
-      if (bodyText.trim().length > 0) {
-        errors.push(
-          `Could not parse date from post: ${titleText || "(untitled)"}`,
-        );
-        errorDetails.parse = [
-          ...(errorDetails.parse ?? []),
-          {
-            row: index,
-            section: "post",
-            field: "date",
-            error: `No date found in post: ${titleText || "(untitled)"}`,
-            rawText: `Title: ${titleText}\n\n${bodyText}`.slice(0, 2000),
-            partialData: { kennelTag: "EH3", title: titleText || undefined },
-          },
-        ];
-      }
-      return null;
+  if (!date) {
+    if (bodyText.trim().length > 0) {
+      errors.push(
+        `Could not parse date from post: ${titleText || "(untitled)"}`,
+      );
+      errorDetails.parse = [
+        ...(errorDetails.parse ?? []),
+        {
+          row: index,
+          section: "post",
+          field: "date",
+          error: `No date found in post: ${titleText || "(untitled)"}`,
+          rawText: `Title: ${titleText}\n\n${bodyText}`.slice(0, 2000),
+          partialData: { kennelTag: "EH3", title: titleText || undefined },
+        },
+      ];
     }
-    bodyFields.date = titleDate;
+    return null;
   }
 
   const runNumber = extractRunNumber(titleText);
@@ -187,7 +190,7 @@ function processPost(
   const description = descParts.length > 0 ? descParts.join(". ") : undefined;
 
   return {
-    date: bodyFields.date,
+    date,
     kennelTag: "EH3",
     title: titleText || undefined,
     hares: bodyFields.hares,

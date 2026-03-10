@@ -22,6 +22,9 @@ import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
 import { WCFHCalendarAdapter } from "./html-scraper/wcfh-calendar";
 import { AtlantaHashBoardAdapter } from "./html-scraper/atlanta-hash-board";
 import { NorthboroHashAdapter } from "./html-scraper/northboro-hash";
+import { DublinHashAdapter } from "./html-scraper/dublin-hash";
+import { BurlingtonHashAdapter } from "./html-scraper/burlington-hash";
+import { RIH3Adapter } from "./html-scraper/rih3";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -69,6 +72,9 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /jollyrogerh3\.com/i,           name: "WCFHCalendarAdapter", factory: () => new WCFHCalendarAdapter() },
   { pattern: /board\.atlantahash\.com/i,     name: "AtlantaHashBoardAdapter", factory: () => new AtlantaHashBoardAdapter() },
   { pattern: /northboroh3\.com/i,             name: "NorthboroHashAdapter",    factory: () => new NorthboroHashAdapter() },
+  { pattern: /dublinhhh\.com/i,              name: "DublinHashAdapter",       factory: () => new DublinHashAdapter() },
+  { pattern: /burlingtonh3\.com/i,          name: "BurlingtonHashAdapter",   factory: () => new BurlingtonHashAdapter() },
+  { pattern: /rih3\.com/i,                 name: "RIH3Adapter",             factory: () => new RIH3Adapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

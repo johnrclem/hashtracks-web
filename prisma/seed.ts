@@ -15,6 +15,7 @@ const PROFILE_FIELDS = new Set([
   "website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency",
   "scheduleNotes", "hashCash", "facebookUrl", "instagramHandle",
   "twitterHandle", "discordUrl", "contactEmail", "foundedYear", "description",
+  "lat", "lng",
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -407,13 +408,15 @@ async function main() {
     contactEmail?: string;
     foundedYear?: number;
     description?: string;
+    lat?: number;
+    lng?: number;
   }> = [
     // NYC area (hashnyc.com source)
     {
       kennelCode: "nych3", shortName: "NYCH3", fullName: "New York City Hash House Harriers", region: "New York City, NY",
       website: "https://hashnyc.com",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
-      hashCash: "$8",
+      hashCash: "$3",
       facebookUrl: "https://www.facebook.com/groups/nychash",
     },
     {
@@ -488,6 +491,62 @@ async function main() {
       kennelCode: "poofh3", shortName: "PooFH3", fullName: "PooFlingers Hash House Harriers", region: "Boston, MA",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly", scheduleTime: "2:00 PM",
       description: "Monthly Saturday hashes throughout New England.",
+    },
+    // Vermont
+    {
+      kennelCode: "vth3", shortName: "VTH3", fullName: "Von Tramp Hash House Harriers", region: "Vermont",
+      website: "https://www.vontramph3.com/",
+      facebookUrl: "https://www.facebook.com/vontramph3",
+      instagramHandle: "vontramph3",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly (1st & 3rd Saturdays)",
+      foundedYear: 2021, hashCash: "$6.90",
+      description: "Year-round biweekly Saturday trails in the Burlington, VT area.",
+      lat: 44.4759, lng: -73.2121,
+    },
+    {
+      kennelCode: "burlyh3", shortName: "BurlyH3", fullName: "Burlington Hash House Harriers", region: "Vermont",
+      website: "https://www.burlingtonh3.com/",
+      facebookUrl: "https://www.facebook.com/BurlingtonH3/",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly (April–October)",
+      foundedYear: 2000, hashCash: "$6",
+      description: "Weekly Wednesday evening trails in Burlington, VT. Seasonal: April through October.",
+      lat: 44.4759, lng: -73.2121,
+    },
+    // Connecticut
+    {
+      kennelCode: "narwhal-h3", shortName: "Narwhal H3", fullName: "Narwhal Hash House Harriers", region: "Connecticut",
+      facebookUrl: "https://www.facebook.com/HashNarwhal/",
+      contactEmail: "narwhalh3@gmail.com",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Monthly",
+      description: "Monthly Sunday hash in the New London, CT area.",
+      lat: 41.356, lng: -72.101,
+    },
+    {
+      kennelCode: "sbh3-ct", shortName: "SBH3", fullName: "Skull & Boners Hash House Harriers", region: "Connecticut",
+      contactEmail: "SkullAndBonersH3@gmail.com",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Monthly",
+      scheduleNotes: "21+ only.",
+      foundedYear: 2013,
+      description: "Monthly Sunday hash in the New Haven, CT area. 21+ only.",
+      lat: 41.308, lng: -72.928,
+    },
+    {
+      kennelCode: "rgh3", shortName: "RGH3", fullName: "Rotten Groton Hash House Harriers", region: "Connecticut",
+      facebookUrl: "https://www.facebook.com/rottengrotonh3/",
+      contactEmail: "rottengrotonh3@gmail.com",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      description: "Biweekly Saturday hash in southeastern Connecticut.",
+      lat: 41.350, lng: -72.079,
+    },
+    // Rhode Island
+    {
+      kennelCode: "rih3", shortName: "RIH3", fullName: "Rhode Island Hash House Harriers", region: "Rhode Island",
+      website: "https://rih3.com/",
+      facebookUrl: "https://www.facebook.com/groups/120140164667510/",
+      contactEmail: "basket@rih3.com",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Weekly Monday evening trails across Rhode Island. Year-round, all weather.",
+      lat: 41.824, lng: -71.413,
     },
     // New Jersey
     {
@@ -856,6 +915,17 @@ async function main() {
       kennelCode: "cunth3", shortName: "CUNTH3", fullName: "Currently Unnamed North Thames Hash House Harriers", region: "London", country: "UK",
       facebookUrl: "https://www.facebook.com/groups/1822849584637512",
       scheduleFrequency: "Monthly", scheduleNotes: "Fridays, 7:00 PM. Pub trail format.",
+    },
+    // ===== IRELAND =====
+    {
+      kennelCode: "dh3", shortName: "DH3", fullName: "Dublin Hash House Harriers", region: "Dublin", country: "IE",
+      website: "https://dublinhhh.com/",
+      facebookUrl: "https://www.facebook.com/groups/dublinhashhouseharriers/",
+      instagramHandle: "dublinhashhouseharriers",
+      scheduleDayOfWeek: "Sunday / Monday", scheduleTime: "19:30", scheduleFrequency: "Weekly (alternating Sun/Mon)",
+      foundedYear: 1986, hashCash: "€2",
+      description: "Ireland's only regularly running hash. Alternates between Sunday afternoon and Monday evening runs in the Dublin area.",
+      lat: 53.3498, lng: -6.2603,
     },
     // ===== FLORIDA =====
     // --- Miami / South Florida ---
@@ -1288,6 +1358,15 @@ async function main() {
     "harriettes-nyc": ["Harriettes", "Harriettes Hash", "Harriettes (NYC)", "Harriettes NYC"],
     "si": ["Staten Island", "SI", "SI Hash", "Staten Island Hash"],
     "drinking-practice-nyc": ["Drinking Practice", "NYC Drinking Practice", "NYC DP", "DP"],
+    // Vermont
+    "vth3": ["Von Tramp", "Von Tramp H3", "VTH3", "VT Hash"],
+    "burlyh3": ["Burlington Hash", "Burlington H3", "BH3 Vermont", "BTVHHH", "BTV H3", "BTVH3"],
+    // Connecticut
+    "narwhal-h3": ["Narwhal", "Narwhal H3", "Narwhal Hash", "NarH3"],
+    "sbh3-ct": ["Skull & Boners", "Skull and Boners", "SBH3", "S&B H3", "Skull Boners"],
+    "rgh3": ["Rotten Groton", "Rotten Groton H3", "Groton H3", "Groton Hash", "RGH3"],
+    // Rhode Island
+    "rih3": ["RIH3", "Rhode Island Hash", "RI H3", "RI Hash", "Rhode Island HHH"],
     // Massachusetts
     "hvh3": ["HVH3", "Happy Valley", "Happy Valley H3", "HV H3"],
     "413h3": ["413H3", "413 H3"],
@@ -1356,6 +1435,8 @@ async function main() {
     "eh3": ["Enfield Hash", "Enfield H3"],
     "ch4": ["Catch the Hare", "CTH"],
     "cunth3": ["CUNT H3", "Currently Unnamed North Thames"],
+    // Ireland
+    "dh3": ["Dublin H3", "Dublin HHH", "Dublin Hash", "DH3", "I Love Monday"],
     // Florida
     "mia-h3": ["Miami Hash", "Miami H3", "Dade H3", "MH3"],
     "wildcard-h3": ["Wildcard Hash", "FTL Wildcard", "Fort Lauderdale Wildcard"],
@@ -1713,6 +1794,16 @@ async function main() {
       scrapeDays: 365,
       kennelCodes: ["eh3"],
     },
+    // Ireland
+    {
+      name: "Dublin H3 Website Hareline",
+      url: "https://dublinhhh.com/hareline",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["dh3"],
+    },
     // Bay Area iCal feed (sfh3.com aggregator — ~11 kennels)
     {
       name: "SFH3 MultiHash iCal Feed",
@@ -1825,6 +1916,7 @@ async function main() {
       scrapeDays: 90,
       config: {
         groupUrlname: "miami-hash-house-harriers",
+        kennelTag: "MIA H3",
       },
       kennelCodes: ["mia-h3"],
     },
@@ -1946,6 +2038,7 @@ async function main() {
       scrapeDays: 90,
       config: {
         groupUrlname: "savannah-hash-house-harriers",
+        kennelTag: "SavH3",
       },
       kennelCodes: ["savh3"],
     },
@@ -2145,6 +2238,7 @@ async function main() {
       scrapeDays: 90,
       config: {
         groupUrlname: "charlestonheretics",
+        kennelTag: "CHH3",
       },
       kennelCodes: ["chh3"],
     },
@@ -2355,6 +2449,72 @@ async function main() {
       scrapeFreq: "weekly",
       scrapeDays: 90,
       kennelCodes: ["nbh3"],
+    },
+    // ===== VERMONT =====
+    {
+      name: "Von Tramp H3 Meetup",
+      url: "https://www.meetup.com/vontramph3/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        groupUrlname: "vontramph3",
+        kennelTag: "VTH3",
+      },
+      kennelCodes: ["vth3"],
+    },
+    {
+      name: "Burlington H3 Website Hareline",
+      url: "https://www.burlingtonh3.com/hareline",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "weekly",
+      scrapeDays: 365,
+      kennelCodes: ["burlyh3"],
+    },
+    // ===== RHODE ISLAND =====
+    {
+      name: "RIH3 Static Schedule",
+      url: "https://rih3.com/",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 5,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "RIH3",
+        rrule: "FREQ=WEEKLY;BYDAY=MO",
+        anchorDate: "2026-03-09",
+        startTime: "18:30",
+        timezone: "America/New_York",
+        defaultTitle: "RIH3 Monday Trail",
+        defaultLocation: "Rhode Island",
+        defaultDescription: "Weekly Monday evening hash. 6:30 PM sharp.",
+      },
+      kennelCodes: ["rih3"],
+    },
+    {
+      name: "RIH3 Website Hareline",
+      url: "https://rih3.com/hareline.html",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      kennelCodes: ["rih3"],
+    },
+    // ===== CONNECTICUT =====
+    {
+      name: "Narwhal H3 Meetup (CTH3)",
+      url: "https://www.meetup.com/meetup-group-cwrnpwpc/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        groupUrlname: "meetup-group-cwrnpwpc",
+        kennelTag: "Narwhal H3",
+      },
+      kennelCodes: ["narwhal-h3"],
     },
   ];
 

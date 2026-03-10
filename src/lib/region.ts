@@ -151,6 +151,42 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["Pioneer Valley", "Western Massachusetts", "Western MA"],
   },
   {
+    name: "Vermont",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/New_York",
+    abbrev: "VT",
+    colorClasses: "bg-green-200 text-green-800",
+    pinColor: "#16a34a",
+    centroidLat: 44.26,
+    centroidLng: -72.58,
+    aliases: ["VT"],
+  },
+  {
+    name: "Connecticut",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/New_York",
+    abbrev: "CT",
+    colorClasses: "bg-sky-200 text-sky-800",
+    pinColor: "#0284c7",
+    centroidLat: 41.60,
+    centroidLng: -72.70,
+    aliases: ["CT"],
+  },
+  {
+    name: "Rhode Island",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/New_York",
+    abbrev: "RI",
+    colorClasses: "bg-indigo-200 text-indigo-800",
+    pinColor: "#4f46e5",
+    centroidLat: 41.58,
+    centroidLng: -71.48,
+    aliases: ["RI"],
+  },
+  {
     name: "Portland, ME",
     country: "USA",
     timezone: "America/New_York",
@@ -586,6 +622,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -84.28,
     aliases: ["Big Bend, FL"],
   },
+  // ── Ireland ──
+  {
+    name: "Ireland",
+    country: "IE",
+    level: "COUNTRY",
+    timezone: "Europe/Dublin",
+    abbrev: "IE",
+    colorClasses: "bg-emerald-200 text-emerald-800",
+    pinColor: "#10b981",
+    centroidLat: 53.41,
+    centroidLng: -8.24,
+    aliases: ["Republic of Ireland"],
+  },
+  {
+    name: "Dublin",
+    country: "IE",
+    timezone: "Europe/Dublin",
+    abbrev: "DUB",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#059669",
+    centroidLat: 53.35,
+    centroidLng: -6.26,
+    aliases: ["Dublin, Ireland"],
+  },
   // ── UK ──
   {
     name: "London",
@@ -827,6 +887,7 @@ export function regionNameToData(name: string): RegionData {
 /** Infer country from region name heuristics. Defaults to "USA". */
 export function inferCountry(name: string): string {
   const lower = name.toLowerCase();
+  if (/\b(ireland|dublin|cork|galway|limerick)\b/.test(lower)) return "IE";
   if (/\b(uk|england|scotland|wales|london|surrey|sussex)\b/.test(lower)) return "UK";
   if (/\b(australia|sydney|melbourne|brisbane|perth)\b/.test(lower)) return "Australia";
   if (/\b(canada|toronto|vancouver|montreal|calgary)\b/.test(lower)) return "Canada";
