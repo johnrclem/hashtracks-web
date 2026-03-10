@@ -12,6 +12,14 @@ import {
 
 type Step = "upload" | "configure" | "preview" | "execute" | "summary";
 
+const STEPS: { key: Step; label: string }[] = [
+  { key: "upload", label: "Upload" },
+  { key: "configure", label: "Configure" },
+  { key: "preview", label: "Preview" },
+  { key: "execute", label: "Import" },
+  { key: "summary", label: "Summary" },
+];
+
 interface ImportWizardProps {
   kennelId: string;
   kennelShortName: string;
@@ -47,6 +55,50 @@ interface ImportResult {
   createdHashers: number;
   unmatchedHashers: number;
   unmatchedColumns: number;
+}
+
+function StepIndicator({ currentStep }: { currentStep: Step }) {
+  const currentIdx = STEPS.findIndex((s) => s.key === currentStep);
+  return (
+    <div className="flex items-center gap-2">
+      {STEPS.map((s, i) => {
+        const isCompleted = i < currentIdx;
+        const isCurrent = s.key === currentStep;
+        return (
+          <div key={s.key} className="flex items-center gap-2">
+            {i > 0 && (
+              <div
+                className={`h-px w-6 ${
+                  isCompleted ? "bg-green-500" : "bg-border"
+                }`}
+                style={{ borderTop: isCompleted ? undefined : "1px dashed" }}
+              />
+            )}
+            <div className="flex items-center gap-1.5">
+              <div
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                  isCompleted
+                    ? "bg-green-500 text-white"
+                    : isCurrent
+                      ? "bg-orange-500 text-white"
+                      : "border border-border text-muted-foreground"
+                }`}
+              >
+                {isCompleted ? <Check className="h-3.5 w-3.5" /> : i + 1}
+              </div>
+              <span
+                className={`text-xs hidden sm:inline ${
+                  isCurrent ? "font-medium text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {s.label}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export function ImportWizard({ kennelId, kennelShortName }: ImportWizardProps) {
@@ -163,23 +215,14 @@ export function ImportWizard({ kennelId, kennelShortName }: ImportWizardProps) {
   return (
     <div className="space-y-6">
       {/* Step indicator */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        {(["upload", "configure", "preview", "execute", "summary"] as Step[]).map((s, i) => (
-          <span key={s} className="flex items-center gap-1">
-            {i > 0 && <ChevronRight className="h-3 w-3" />}
-            <span className={step === s ? "text-foreground font-medium" : ""}>
-              {s === "upload" ? "Upload" : s === "configure" ? "Configure" : s === "preview" ? "Preview" : s === "execute" ? "Import" : "Summary"}
-            </span>
-          </span>
-        ))}
-      </div>
+      <StepIndicator currentStep={step} />
 
       {/* Step: Upload */}
       {step === "upload" && (
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
-          className="flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-12 text-center"
+          className="flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-border/50 bg-card p-12 text-center"
         >
           <Upload className="h-10 w-10 text-muted-foreground" />
           <div>
@@ -216,7 +259,7 @@ export function ImportWizard({ kennelId, kennelShortName }: ImportWizardProps) {
 
           {/* CSV Preview Table */}
           {csvPreviewRows.length > 0 && (
-            <div className="overflow-x-auto rounded border">
+            <div className="overflow-x-auto rounded-xl border border-border/50 bg-card">
               <table className="w-full text-xs">
                 <tbody>
                   {csvPreviewRows.map((row, rowIdx) => (
@@ -261,58 +304,60 @@ export function ImportWizard({ kennelId, kennelShortName }: ImportWizardProps) {
           </div>
 
           {/* Configuration */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">Name column</label>
-              <input
-                type="number"
-                min={0}
-                value={nameColumn}
-                onChange={(e) => setNameColumn(parseInt(e.target.value, 10))}
-                className="mt-1 w-full rounded border px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Data start column</label>
-              <input
-                type="number"
-                min={0}
-                value={dataStartColumn}
-                onChange={(e) => setDataStartColumn(parseInt(e.target.value, 10))}
-                className="mt-1 w-full rounded border px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Header row</label>
-              <input
-                type="number"
-                min={0}
-                value={headerRow}
-                onChange={(e) => setHeaderRow(parseInt(e.target.value, 10))}
-                className="mt-1 w-full rounded border px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Data start row</label>
-              <input
-                type="number"
-                min={0}
-                value={dataStartRow}
-                onChange={(e) => setDataStartRow(parseInt(e.target.value, 10))}
-                className="mt-1 w-full rounded border px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Fuzzy match threshold</label>
-              <input
-                type="number"
-                min={0}
-                max={1}
-                step={0.05}
-                value={fuzzyThreshold}
-                onChange={(e) => setFuzzyThreshold(parseFloat(e.target.value))}
-                className="mt-1 w-full rounded border px-3 py-2 text-sm"
-              />
+          <div className="rounded-xl border border-border/50 bg-card p-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Name column</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={nameColumn}
+                  onChange={(e) => setNameColumn(parseInt(e.target.value, 10))}
+                  className="mt-1 w-full rounded border px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Data start column</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={dataStartColumn}
+                  onChange={(e) => setDataStartColumn(parseInt(e.target.value, 10))}
+                  className="mt-1 w-full rounded border px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Header row</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={headerRow}
+                  onChange={(e) => setHeaderRow(parseInt(e.target.value, 10))}
+                  className="mt-1 w-full rounded border px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Data start row</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={dataStartRow}
+                  onChange={(e) => setDataStartRow(parseInt(e.target.value, 10))}
+                  className="mt-1 w-full rounded border px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Fuzzy match threshold</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={fuzzyThreshold}
+                  onChange={(e) => setFuzzyThreshold(parseFloat(e.target.value))}
+                  className="mt-1 w-full rounded border px-3 py-2 text-sm"
+                />
+              </div>
             </div>
           </div>
 
@@ -334,19 +379,19 @@ export function ImportWizard({ kennelId, kennelShortName }: ImportWizardProps) {
         <div className="space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div className="rounded border p-3 text-center">
+            <div className="rounded-xl border border-border/50 bg-card p-3 text-center">
               <div className="text-2xl font-bold">{preview.recordCount}</div>
               <div className="text-xs text-muted-foreground">Records to import</div>
             </div>
-            <div className="rounded border p-3 text-center">
+            <div className="rounded-xl border border-border/50 bg-card p-3 text-center">
               <div className="text-2xl font-bold">{preview.matchedHashers.length}</div>
               <div className="text-xs text-muted-foreground">Matched hashers</div>
             </div>
-            <div className="rounded border p-3 text-center">
+            <div className="rounded-xl border border-border/50 bg-card p-3 text-center">
               <div className="text-2xl font-bold">{preview.matchedEvents.length}</div>
               <div className="text-xs text-muted-foreground">Matched events</div>
             </div>
-            <div className="rounded border p-3 text-center">
+            <div className="rounded-xl border border-border/50 bg-card p-3 text-center">
               <div className="text-2xl font-bold">{preview.duplicateCount}</div>
               <div className="text-xs text-muted-foreground">Duplicates skipped</div>
             </div>
@@ -354,7 +399,7 @@ export function ImportWizard({ kennelId, kennelShortName }: ImportWizardProps) {
 
           {/* Unmatched warnings */}
           {(preview.unmatchedHashers.length > 0 || preview.unmatchedColumns.length > 0) && (
-            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900 dark:bg-yellow-950">
+            <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900 dark:bg-yellow-950">
               <div className="flex items-center gap-2 text-sm font-medium text-yellow-800 dark:text-yellow-200">
                 <AlertTriangle className="h-4 w-4" />
                 Unmatched items
@@ -394,7 +439,7 @@ export function ImportWizard({ kennelId, kennelShortName }: ImportWizardProps) {
 
           {/* Fuzzy matches */}
           {preview.matchedHashers.filter((m) => m.matchType === "fuzzy").length > 0 && (
-            <div className="rounded border p-4">
+            <div className="rounded-xl border border-border/50 bg-card p-4">
               <div className="text-sm font-medium mb-2">Fuzzy matches (review these):</div>
               <div className="space-y-1 text-xs">
                 {preview.matchedHashers
@@ -415,7 +460,7 @@ export function ImportWizard({ kennelId, kennelShortName }: ImportWizardProps) {
 
           {/* Matched events */}
           {preview.matchedEvents.length > 0 && (
-            <div className="rounded border p-4">
+            <div className="rounded-xl border border-border/50 bg-card p-4">
               <div className="text-sm font-medium mb-2">Matched events ({preview.matchedEvents.length}):</div>
               <div className="flex flex-wrap gap-1">
                 {preview.matchedEvents.map((e) => (
@@ -465,16 +510,16 @@ export function ImportWizard({ kennelId, kennelShortName }: ImportWizardProps) {
           </div>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <div className="rounded border p-3 text-center">
+            <div className="rounded-xl border border-border/50 bg-card p-3 text-center">
               <div className="text-2xl font-bold text-green-600">{result.created}</div>
               <div className="text-xs text-muted-foreground">Records created</div>
             </div>
-            <div className="rounded border p-3 text-center">
+            <div className="rounded-xl border border-border/50 bg-card p-3 text-center">
               <div className="text-2xl font-bold">{result.duplicateCount}</div>
               <div className="text-xs text-muted-foreground">Duplicates skipped</div>
             </div>
             {result.createdHashers > 0 && (
-              <div className="rounded border p-3 text-center">
+              <div className="rounded-xl border border-border/50 bg-card p-3 text-center">
                 <div className="text-2xl font-bold">{result.createdHashers}</div>
                 <div className="text-xs text-muted-foreground">Hashers created</div>
               </div>

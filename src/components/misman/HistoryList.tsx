@@ -95,7 +95,7 @@ export function HistoryList({
 
   if (events.length === 0 && !startDate && !endDate) {
     return (
-      <div className="rounded-lg border p-8 text-center text-muted-foreground">
+      <div className="rounded-xl border border-border/50 bg-card p-8 text-center text-muted-foreground">
         No attendance has been recorded yet.
       </div>
     );
@@ -104,46 +104,51 @@ export function HistoryList({
   return (
     <div className="space-y-4">
       {/* Date filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          className="w-40"
-          placeholder="Start date"
-        />
-        <span className="text-sm text-muted-foreground">to</span>
-        <Input
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          className="w-40"
-          placeholder="End date"
-        />
-        <Button size="sm" onClick={handleFilter} disabled={isPending}>
-          Filter
-        </Button>
-        {(startDate || endDate) && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleClearFilter}
-            disabled={isPending}
-          >
-            Clear
+      <div className="rounded-xl border border-border/50 bg-card p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-40"
+            placeholder="Start date"
+          />
+          <span className="text-sm text-muted-foreground">to</span>
+          <Input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-40"
+            placeholder="End date"
+          />
+          <Button size="sm" onClick={handleFilter} disabled={isPending}>
+            Filter
           </Button>
-        )}
-        <span className="ml-auto text-sm text-muted-foreground">
-          {total} event{total !== 1 ? "s" : ""} with attendance
-        </span>
+          {(startDate || endDate) && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleClearFilter}
+              disabled={isPending}
+            >
+              Clear
+            </Button>
+          )}
+          <span className="ml-auto text-sm text-muted-foreground">
+            {total} event{total !== 1 ? "s" : ""} with attendance
+          </span>
+        </div>
       </div>
 
       {/* Event list */}
       <div className="space-y-2">
         {events.map((event) => (
-          <div key={event.id} className="rounded-lg border">
+          <div
+            key={event.id}
+            className="rounded-xl border border-border/50 bg-card overflow-hidden"
+          >
             <button
-              className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/50"
+              className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
               onClick={() =>
                 setExpandedId(expandedId === event.id ? null : event.id)
               }
@@ -172,14 +177,14 @@ export function HistoryList({
                     {event.paidCount} paid
                   </span>
                 )}
-                <span className="text-muted-foreground">
+                <span className="text-muted-foreground text-xs">
                   {expandedId === event.id ? "▲" : "▼"}
                 </span>
               </div>
             </button>
 
             {expandedId === event.id && (
-              <div className="border-t px-4 py-3">
+              <div className="border-t border-border/50 px-4 py-3">
                 {/* Event stats */}
                 <div className="mb-3 flex flex-wrap gap-2 text-xs">
                   {event.hareCount > 0 && (

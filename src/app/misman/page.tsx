@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { formatRelativeTime } from "@/lib/format";
 import { MismanDashboard } from "@/components/misman/MismanDashboard";
 
 export default async function MismanPage() {
@@ -69,6 +70,41 @@ export default async function MismanPage() {
     orderBy: { shortName: "asc" },
   });
 
+  // Single-kennel smart redirect: skip dashboard if user manages exactly 1 kennel
+  // and has no pending requests to review or track
+  if (
+    mismanKennels.length === 1 &&
+    pendingRequests.length === 0 &&
+    myPendingRequests.length === 0
+  ) {
+    redirect(`/misman/${mismanKennels[0].kennel.slug}/attendance`);
+  }
+
+  // Dashboard stats
+  let dashboardStats = { totalAttendance: 0, rosterSize: 0, lastRecordedLabel: null as string | null };
+  if (managedKennelIds.length > 0) {
+    const [totalAttendance, rosterSize, lastRecorded] = await Promise.all([
+      prisma.kennelAttendance.count({
+        where: { kennelHasher: { kennelId: { in: managedKennelIds } } },
+      }),
+      prisma.kennelHasher.count({
+        where: { kennelId: { in: managedKennelIds } },
+      }),
+      prisma.kennelAttendance.findFirst({
+        where: { kennelHasher: { kennelId: { in: managedKennelIds } } },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      }),
+    ]);
+    dashboardStats = {
+      totalAttendance,
+      rosterSize,
+      lastRecordedLabel: lastRecorded
+        ? formatRelativeTime(lastRecorded.createdAt)
+        : null,
+    };
+  }
+
   const serializedKennels = mismanKennels.map((mk) => ({
     ...mk.kennel,
     role: mk.role,
@@ -120,6 +156,7 @@ export default async function MismanPage() {
       myPendingRosterGroupRequests={serializedRosterGroupRequests}
       isSiteAdmin={isSiteAdmin}
       allKennels={allKennels}
+      stats={dashboardStats}
     />
   );
 }

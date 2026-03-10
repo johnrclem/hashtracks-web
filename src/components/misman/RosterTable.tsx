@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -119,143 +120,200 @@ export function RosterTable({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <Input
-          placeholder="Search roster..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
-        />
-        <Button onClick={() => setShowAdd(true)}>Add Hasher</Button>
-        <span className="text-sm text-muted-foreground ml-auto">
-          {filtered.length} hasher{filtered.length !== 1 ? "s" : ""}
-        </span>
+      {/* Search header */}
+      <div className="rounded-xl border border-border/50 bg-card p-3">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search roster..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button onClick={() => setShowAdd(true)}>Add Hasher</Button>
+          <span className="text-sm text-muted-foreground ml-auto tabular-nums">
+            {filtered.length} hasher{filtered.length !== 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/50">
-              <th className="px-3 py-2 text-left font-medium">
-                <button
-                  className="flex items-center gap-1 hover:text-foreground"
-                  onClick={() => toggleSort("hashName")}
-                >
-                  Hash Name
-                  <span className="text-xs">{sortIndicator("hashName")}</span>
-                </button>
-              </th>
-              <th className="px-3 py-2 text-left font-medium">Nerd Name</th>
-              {isSharedRoster && (
+      {/* Table - desktop */}
+      <div className="hidden sm:block">
+        <div className="overflow-x-auto rounded-xl border border-border/50 bg-card">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border/50 bg-muted/50">
                 <th className="px-3 py-2 text-left font-medium">
                   <button
                     className="flex items-center gap-1 hover:text-foreground"
-                    onClick={() => toggleSort("kennelShortName")}
+                    onClick={() => toggleSort("hashName")}
                   >
-                    Kennel
+                    Hash Name
+                    <span className="text-xs">{sortIndicator("hashName")}</span>
+                  </button>
+                </th>
+                <th className="px-3 py-2 text-left font-medium">Nerd Name</th>
+                {isSharedRoster && (
+                  <th className="px-3 py-2 text-left font-medium">
+                    <button
+                      className="flex items-center gap-1 hover:text-foreground"
+                      onClick={() => toggleSort("kennelShortName")}
+                    >
+                      Kennel
+                      <span className="text-xs">
+                        {sortIndicator("kennelShortName")}
+                      </span>
+                    </button>
+                  </th>
+                )}
+                <th className="px-3 py-2 text-right font-medium">
+                  <button
+                    className="flex items-center gap-1 ml-auto hover:text-foreground"
+                    onClick={() => toggleSort("attendanceCount")}
+                  >
+                    Runs
                     <span className="text-xs">
-                      {sortIndicator("kennelShortName")}
+                      {sortIndicator("attendanceCount")}
                     </span>
                   </button>
                 </th>
-              )}
-              <th className="px-3 py-2 text-right font-medium">
-                <button
-                  className="flex items-center gap-1 ml-auto hover:text-foreground"
-                  onClick={() => toggleSort("attendanceCount")}
-                >
-                  Runs
-                  <span className="text-xs">
-                    {sortIndicator("attendanceCount")}
-                  </span>
-                </button>
-              </th>
-              <th className="px-3 py-2 text-right font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={isSharedRoster ? 5 : 4}
-                  className="px-3 py-8 text-center text-muted-foreground"
-                >
-                  {search
-                    ? "No hashers match your search"
-                    : "No hashers in the roster yet"}
-                </td>
+                <th className="px-3 py-2 text-right font-medium">Actions</th>
               </tr>
-            ) : (
-              sorted.map((h) => (
-                <tr key={h.id} className="border-b last:border-0">
-                  <td className="px-3 py-2 font-medium">
-                    <div className="flex items-center gap-1.5">
-                      <Link
-                        href={`/misman/${kennelSlug}/roster/${h.id}`}
-                        className="hover:underline"
-                      >
-                        {h.hashName || (
-                          <span className="text-muted-foreground italic">—</span>
-                        )}
-                      </Link>
-                      {h.linkStatus === "CONFIRMED" && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="text-xs text-green-600 cursor-default" tabIndex={0}>L</span>
-                          </TooltipTrigger>
-                          <TooltipContent>Linked — this hasher is connected to a site account</TooltipContent>
-                        </Tooltip>
-                      )}
-                      {h.linkStatus === "SUGGESTED" && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="text-xs text-yellow-600 cursor-default" tabIndex={0}>P</span>
-                          </TooltipTrigger>
-                          <TooltipContent>Pending — a link to a site account has been suggested</TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">
-                    {h.nerdName || "—"}
-                  </td>
-                  {isSharedRoster && (
-                    <td className="px-3 py-2">
-                      <Badge variant="outline" className="text-xs">
-                        {h.kennelShortName ?? "—"}
-                      </Badge>
-                    </td>
-                  )}
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {h.attendanceCount}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditHasher(h)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive"
-                        onClick={() => setDeleteTarget(h)}
-                        disabled={isPending && deletingId === h.id}
-                      >
-                        {isPending && deletingId === h.id
-                          ? "..."
-                          : "Delete"}
-                      </Button>
-                    </div>
+            </thead>
+            <tbody>
+              {sorted.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={isSharedRoster ? 5 : 4}
+                    className="px-3 py-8 text-center text-muted-foreground"
+                  >
+                    {search
+                      ? "No hashers match your search"
+                      : "No hashers in the roster yet"}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                sorted.map((h) => (
+                  <tr key={h.id} className="border-b border-border/50 last:border-0">
+                    <td className="px-3 py-2 font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={`/misman/${kennelSlug}/roster/${h.id}`}
+                          className="hover:underline"
+                        >
+                          {h.hashName || (
+                            <span className="text-muted-foreground italic">—</span>
+                          )}
+                        </Link>
+                        {h.linkStatus === "CONFIRMED" && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-xs text-green-600 cursor-default" tabIndex={0}>L</span>
+                            </TooltipTrigger>
+                            <TooltipContent>Linked — this hasher is connected to a site account</TooltipContent>
+                          </Tooltip>
+                        )}
+                        {h.linkStatus === "SUGGESTED" && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-xs text-yellow-600 cursor-default" tabIndex={0}>P</span>
+                            </TooltipTrigger>
+                            <TooltipContent>Pending — a link to a site account has been suggested</TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {h.nerdName || "—"}
+                    </td>
+                    {isSharedRoster && (
+                      <td className="px-3 py-2">
+                        <Badge variant="outline" className="text-xs">
+                          {h.kennelShortName ?? "—"}
+                        </Badge>
+                      </td>
+                    )}
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {h.attendanceCount}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditHasher(h)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => setDeleteTarget(h)}
+                          disabled={isPending && deletingId === h.id}
+                        >
+                          {isPending && deletingId === h.id
+                            ? "..."
+                            : "Delete"}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Mobile card layout */}
+      <div className="sm:hidden space-y-2">
+        {sorted.length === 0 ? (
+          <div className="rounded-xl border border-border/50 bg-card p-8 text-center text-muted-foreground">
+            {search
+              ? "No hashers match your search"
+              : "No hashers in the roster yet"}
+          </div>
+        ) : (
+          sorted.map((h) => (
+            <div
+              key={h.id}
+              className="rounded-xl border border-border/50 bg-card px-4 py-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <Link
+                      href={`/misman/${kennelSlug}/roster/${h.id}`}
+                      className="font-medium hover:underline truncate"
+                    >
+                      {h.hashName || <span className="text-muted-foreground italic">—</span>}
+                    </Link>
+                    {h.linkStatus === "CONFIRMED" && (
+                      <span className="text-xs text-green-600">L</span>
+                    )}
+                    {h.linkStatus === "SUGGESTED" && (
+                      <span className="text-xs text-yellow-600">P</span>
+                    )}
+                  </div>
+                  {h.nerdName && (
+                    <div className="text-sm text-muted-foreground truncate">{h.nerdName}</div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {h.attendanceCount} runs
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => setEditHasher(h)}>
+                    Edit
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Add Hasher Dialog */}

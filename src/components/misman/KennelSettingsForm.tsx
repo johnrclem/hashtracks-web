@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -80,10 +79,10 @@ export function KennelSettingsForm({ kennel, currentYear }: KennelSettingsFormPr
   }
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
       {/* Basic Info */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+      <div className="rounded-xl border border-border/50 bg-card p-5 space-y-4">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           Basic Info
         </h3>
         <div className="space-y-2">
@@ -108,11 +107,9 @@ export function KennelSettingsForm({ kennel, currentYear }: KennelSettingsFormPr
         </div>
       </div>
 
-      <Separator />
-
       {/* Schedule */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+      <div className="rounded-xl border border-border/50 bg-card p-5 space-y-4">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           Schedule
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -155,11 +152,9 @@ export function KennelSettingsForm({ kennel, currentYear }: KennelSettingsFormPr
         </div>
       </div>
 
-      <Separator />
-
       {/* Social & Contact */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+      <div className="rounded-xl border border-border/50 bg-card p-5 space-y-4">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           Social & Contact
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -233,11 +228,9 @@ export function KennelSettingsForm({ kennel, currentYear }: KennelSettingsFormPr
         </div>
       </div>
 
-      <Separator />
-
       {/* Details */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+      <div className="rounded-xl border border-border/50 bg-card p-5 space-y-4">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           Details
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -311,8 +304,9 @@ export function KennelSettingsForm({ kennel, currentYear }: KennelSettingsFormPr
         </div>
       </div>
 
-      <div className="pt-2">
-        <Button type="submit" disabled={isPending}>
+      {/* Sticky save button on mobile */}
+      <div className="sticky bottom-4 z-10 sm:static">
+        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Save changes
         </Button>

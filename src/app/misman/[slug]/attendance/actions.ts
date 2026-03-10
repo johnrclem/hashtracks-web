@@ -274,6 +274,7 @@ export async function getEventAttendance(kennelId: string, eventId: string) {
             hashName: true,
             nerdName: true,
             kennelId: true,
+            _count: { select: { attendances: true } },
           },
         },
         recordedByUser: {
@@ -335,6 +336,7 @@ export async function getEventAttendance(kennelId: string, eventId: string) {
       recordedBy: r.recordedByUser.hashName || r.recordedByUser.email,
       createdAt: r.createdAt.toISOString(),
       hasEdits: Array.isArray(r.editLog) && r.editLog.length > 1,
+      attendanceCount: r.kennelHasher._count.attendances,
     })),
     userActivity,
   };

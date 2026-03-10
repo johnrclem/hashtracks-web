@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { searchRoster } from "@/app/misman/[slug]/roster/actions";
@@ -93,19 +94,23 @@ export function HasherSearch({
   return (
     <div ref={containerRef} className="relative">
       <div className="flex gap-2">
-        <Input
-          placeholder="Search roster or type new name..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => query.trim() && setShowResults(true)}
-          disabled={disabled}
-          className="flex-1"
-        />
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search roster or type new name..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => query.trim() && setShowResults(true)}
+            disabled={disabled}
+            className="h-12 pl-10 text-base sm:h-10 sm:text-sm"
+          />
+        </div>
         <Button
           size="sm"
           variant="outline"
           onClick={handleQuickAdd}
           disabled={disabled || !query.trim()}
+          className={`h-12 sm:h-10 ${query.trim() ? "border-orange-500/50 text-orange-500 hover:bg-orange-500/10" : ""}`}
         >
           + New
         </Button>
@@ -113,7 +118,7 @@ export function HasherSearch({
 
       {/* Dropdown results */}
       {showResults && (
-        <div className="absolute z-10 mt-1 w-full rounded-lg border bg-background shadow-lg max-h-64 overflow-y-auto">
+        <div className="absolute z-10 mt-1 w-full rounded-xl border border-border/50 bg-card shadow-lg max-h-64 overflow-y-auto">
           {loading ? (
             <div className="px-3 py-2 text-sm text-muted-foreground">
               Searching...
