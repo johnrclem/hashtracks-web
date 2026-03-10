@@ -30,7 +30,7 @@ export function stripHtmlTags(
 ): string {
   const withBr = text.replace(/<br\s*\/?>/gi, separator);
   // Insert replacement before closing block-level tags so paragraph boundaries survive .text()
-  const withBlocks = withBr.replace(/<\/(?:p|div|li|tr|blockquote|h[1-6])>/gi, separator);
+  const withBlocks = withBr.replace(/<\/(?:p|div|li|tr|blockquote|h[1-6])\s*>/gi, separator);
   const $ = cheerio.load(withBlocks);
   $("script, style").remove();
   return $.text()

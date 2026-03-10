@@ -190,7 +190,7 @@ describe("stripHtmlTags", () => {
     expect(stripHtmlTags("  <p>hello</p>  ")).toBe("hello");
   });
 
-  it("preserves block-level boundaries as newlines when brReplacement is \\n", () => {
+  it("preserves block-level boundaries as newlines when separator is \\n", () => {
     expect(stripHtmlTags("<p>line1</p><p>line2</p>", "\n")).toBe("line1\nline2");
     expect(stripHtmlTags("<div>a</div><div>b</div>", "\n")).toBe("a\nb");
     expect(stripHtmlTags("<ul><li>a</li><li>b</li></ul>", "\n")).toBe("a\nb");
