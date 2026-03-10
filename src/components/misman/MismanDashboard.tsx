@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronsUpDownIcon } from "lucide-react";
+import { ClipboardCheck, ChevronsUpDownIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,8 @@ import {
   KennelOptionLabel,
   type KennelOptionData,
 } from "@/components/kennels/KennelOptionLabel";
+import { FadeInSection } from "@/components/home/HeroAnimations";
+import { MismanStatsRow } from "./MismanStatsRow";
 import {
   approveMismanRequest,
   rejectMismanRequest,
@@ -75,6 +77,12 @@ interface MyPendingRosterGroupRequest {
   createdAt: string;
 }
 
+interface DashboardStats {
+  totalAttendance: number;
+  rosterSize: number;
+  lastRecordedLabel: string | null;
+}
+
 interface MismanDashboardProps {
   kennels: MismanKennel[];
   pendingRequests: PendingRequest[];
@@ -82,6 +90,7 @@ interface MismanDashboardProps {
   myPendingRosterGroupRequests: MyPendingRosterGroupRequest[];
   isSiteAdmin: boolean;
   allKennels: KennelOptionData[];
+  stats: DashboardStats;
 }
 
 export function MismanDashboard({
@@ -91,28 +100,54 @@ export function MismanDashboard({
   myPendingRosterGroupRequests,
   isSiteAdmin,
   allKennels,
+  stats,
 }: MismanDashboardProps) {
   const [showRosterGroupDialog, setShowRosterGroupDialog] = useState(false);
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Misman Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Record attendance, manage your roster, and track run history.
-        </p>
+      {/* Header with subtle gradient orb */}
+      <div className="relative overflow-hidden">
+        <div className="pointer-events-none absolute -top-40 right-1/4 h-96 w-96 rounded-full bg-orange-500/10 blur-3xl" />
+        <div className="relative">
+          <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/[0.06] px-4 py-1.5">
+            <ClipboardCheck className="h-3.5 w-3.5 text-orange-400" />
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-400/90">
+              Mismanagement
+            </span>
+          </div>
+          <h1 className="mt-3 text-3xl font-extrabold tracking-tight">
+            Misman Dashboard
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Record attendance, manage your roster, and track run history.
+          </p>
+        </div>
       </div>
+
+      {/* Stats row */}
+      {kennels.length > 0 && (
+        <FadeInSection delay={100}>
+          <MismanStatsRow
+            totalAttendance={stats.totalAttendance}
+            rosterSize={stats.rosterSize}
+            lastRecordedLabel={stats.lastRecordedLabel}
+          />
+        </FadeInSection>
+      )}
 
       {/* Pending requests to approve */}
       {pendingRequests.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Pending Requests</h2>
-          <div className="space-y-2">
-            {pendingRequests.map((req) => (
-              <RequestCard key={req.id} request={req} />
-            ))}
+        <FadeInSection delay={200}>
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold">Pending Requests</h2>
+            <div className="space-y-2">
+              {pendingRequests.map((req) => (
+                <RequestCard key={req.id} request={req} />
+              ))}
+            </div>
           </div>
-        </div>
+        </FadeInSection>
       )}
 
       {/* User's own pending requests */}
@@ -123,7 +158,7 @@ export function MismanDashboard({
             {myPendingRequests.map((req) => (
               <div
                 key={req.id}
-                className="flex items-center justify-between rounded-lg border p-3"
+                className="flex items-center justify-between rounded-xl border border-border/50 bg-card border-l-[3px] border-l-amber-400 p-4"
               >
                 <div>
                   <span className="font-medium">{req.kennel.shortName}</span>
@@ -148,7 +183,7 @@ export function MismanDashboard({
             {myPendingRosterGroupRequests.map((req) => (
               <div
                 key={req.id}
-                className="flex items-center justify-between rounded-lg border p-3"
+                className="flex items-center justify-between rounded-xl border border-border/50 bg-card border-l-[3px] border-l-amber-400 p-4"
               >
                 <div>
                   <span className="font-medium">{req.proposedName}</span>
@@ -177,13 +212,15 @@ export function MismanDashboard({
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Your Kennels</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {kennels.map((kennel) => (
-              <KennelCard key={kennel.id} kennel={kennel} />
+            {kennels.map((kennel, i) => (
+              <FadeInSection key={kennel.id} delay={i * 100}>
+                <KennelCard kennel={kennel} />
+              </FadeInSection>
             ))}
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border p-8 text-center">
+        <div className="rounded-xl border border-border/50 bg-card p-8 text-center">
           <p className="text-muted-foreground">
             You don&apos;t have misman access to any kennels yet.
           </p>
@@ -268,7 +305,7 @@ function RequestAnotherKennelSection({
   }
 
   return (
-    <div className="rounded-lg border border-dashed p-6 space-y-4">
+    <div className="rounded-xl border border-dashed border-border/50 p-6 space-y-4">
       <div>
         <h3 className="font-semibold">Missing a kennel?</h3>
         <p className="text-sm text-muted-foreground">
@@ -348,7 +385,7 @@ function RequestSharedRosterCTA({
   onRequestClick: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-dashed p-6 space-y-4">
+    <div className="rounded-xl border border-dashed border-border/50 p-6 space-y-4">
       <div>
         <h3 className="font-semibold">Same pack, different kennels?</h3>
         <p className="text-sm text-muted-foreground">
@@ -370,7 +407,7 @@ function RequestSharedRosterCTA({
 
 function KennelCard({ kennel }: { kennel: MismanKennel }) {
   return (
-    <div className="rounded-lg border p-4 space-y-3">
+    <div className="rounded-xl border border-border/50 bg-card p-4 space-y-3 transition-colors hover:border-border">
       <div>
         <div className="flex items-center gap-2">
           <h3 className="font-semibold">{kennel.shortName}</h3>
@@ -540,7 +577,7 @@ function RequestCard({ request }: { request: PendingRequest }) {
     request.user.hashName || request.user.nerdName || request.user.email;
 
   return (
-    <div className="flex items-center justify-between rounded-lg border p-3">
+    <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card border-l-[3px] border-l-amber-400 p-4">
       <div>
         <p className="font-medium">
           {displayName}

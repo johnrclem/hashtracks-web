@@ -27,6 +27,7 @@ import {
 } from "@/app/misman/[slug]/attendance/actions";
 import { searchRoster } from "@/app/misman/[slug]/roster/actions";
 import { EventSelector } from "./EventSelector";
+import { AttendanceStatsBar } from "./AttendanceStatsBar";
 import { AttendanceRow } from "./AttendanceRow";
 import { HasherSearch } from "./HasherSearch";
 import { HasherForm } from "./HasherForm";
@@ -56,6 +57,7 @@ export interface AttendanceRecord {
   recordedBy: string;
   createdAt: string;
   hasEdits?: boolean;
+  attendanceCount?: number;
 }
 
 interface AttendanceFormProps {
@@ -113,7 +115,13 @@ export function AttendanceForm({
     if (!selectedEventId) return;
     const result = await getEventAttendance(kennelId, selectedEventId);
     if (result.data) {
-      setRecords(result.data);
+      setRecords((prev) => {
+        const next = result.data!;
+        if (prev.length === next.length && prev.every((r, i) => r.id === next[i].id && r.paid === next[i].paid && r.haredThisTrail === next[i].haredThisTrail && r.isVirgin === next[i].isVirgin && r.isVisitor === next[i].isVisitor)) {
+          return prev;
+        }
+        return next;
+      });
       if (result.userActivity) setUserActivity(result.userActivity);
       setLastSynced(new Date().toLocaleTimeString());
     }
@@ -244,37 +252,31 @@ export function AttendanceForm({
 
   return (
     <div className="space-y-4">
-      {/* Event selector */}
-      <EventSelector
-        events={events}
-        selectedEventId={selectedEventId}
-        onSelect={(id) => setSelectedEventId(id)}
-        kennelSlug={kennelSlug}
-      />
+      {/* Sticky header: Event selector + Stats bar */}
+      <div className="sticky top-0 z-20 -mx-4 bg-background px-4 pb-3 pt-1 sm:static sm:mx-0 sm:px-0 sm:pb-0 sm:pt-0">
+        <EventSelector
+          events={events}
+          selectedEventId={selectedEventId}
+          onSelect={(id) => setSelectedEventId(id)}
+          kennelSlug={kennelSlug}
+        />
+
+        {selectedEvent && (
+          <div className="mt-3">
+            <AttendanceStatsBar
+              attendeeCount={records.length}
+              paidCount={paidCount}
+              hareCount={hareCount}
+              virginCount={virginCount}
+              visitorCount={visitorCount}
+              lastSynced={lastSynced}
+            />
+          </div>
+        )}
+      </div>
 
       {selectedEvent && (
         <>
-          {/* Stats bar */}
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <Badge variant="secondary">{records.length} attendees</Badge>
-            {paidCount > 0 && (
-              <Badge variant="outline">{paidCount} paid</Badge>
-            )}
-            {hareCount > 0 && (
-              <Badge variant="outline">{hareCount} hare{hareCount !== 1 ? "s" : ""}</Badge>
-            )}
-            {virginCount > 0 && (
-              <Badge variant="outline">{virginCount} virgin{virginCount !== 1 ? "s" : ""}</Badge>
-            )}
-            {visitorCount > 0 && (
-              <Badge variant="outline">{visitorCount} visitor{visitorCount !== 1 ? "s" : ""}</Badge>
-            )}
-            {lastSynced && (
-              <span className="ml-auto text-xs text-muted-foreground">
-                Synced {lastSynced}
-              </span>
-            )}
-          </div>
 
           {/* User Activity (RSVPs + check-ins from site users) */}
           {userActivity.length > 0 && (
@@ -308,7 +310,7 @@ export function AttendanceForm({
           />
 
           {/* Attendance list */}
-          <div className="space-y-1">
+          <div className="space-y-2">
             {records.map((record) => (
               <AttendanceRow
                 key={record.id}

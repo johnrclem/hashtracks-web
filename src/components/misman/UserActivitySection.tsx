@@ -169,7 +169,7 @@ export function UserActivitySection({
       : "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300";
 
   return (
-    <div className="rounded-lg border p-3 space-y-2">
+    <div className="rounded-xl border border-border/50 bg-card p-3 space-y-2">
       <div className="flex items-center gap-2">
         <h4 className="text-sm font-semibold">RSVPs</h4>
         <Badge variant="secondary" className="text-xs">

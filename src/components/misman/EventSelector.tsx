@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Calendar } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -36,10 +37,9 @@ function formatEventDate(isoDate: string): string {
 }
 
 function formatEventLabel(event: EventOption): string {
-  const datePart = formatEventDate(event.date);
   const runPart = event.runNumber ? `#${event.runNumber}` : "";
   const titlePart = event.title || "";
-  const parts = [datePart, runPart, titlePart].filter(Boolean);
+  const parts = [runPart, titlePart].filter(Boolean);
   return parts.join(" — ");
 }
 
@@ -50,18 +50,33 @@ export function EventSelector({
   kennelSlug,
 }: EventSelectorProps) {
   const router = useRouter();
+  const selectedEvent = events.find((e) => e.id === selectedEventId);
 
   function handleChange(eventId: string) {
     onSelect(eventId);
-    // Update URL to reflect selected event
     router.replace(`/misman/${kennelSlug}/attendance/${eventId}`, {
       scroll: false,
     });
   }
 
   return (
-    <div className="space-y-1">
-      <label className="text-sm font-medium">Event</label>
+    <div className="rounded-xl border border-border/50 bg-card p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Calendar className="h-4 w-4 text-muted-foreground" />
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Event
+        </span>
+      </div>
+      {selectedEvent && (
+        <div className="mb-3">
+          <div className="text-xl font-bold">{formatEventDate(selectedEvent.date)}</div>
+          {(selectedEvent.runNumber || selectedEvent.title) && (
+            <div className="text-sm text-muted-foreground">
+              {formatEventLabel(selectedEvent)}
+            </div>
+          )}
+        </div>
+      )}
       <Select value={selectedEventId ?? undefined} onValueChange={handleChange}>
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Select an event..." />
@@ -72,7 +87,9 @@ export function EventSelector({
               <span className="font-medium">{event.kennelShortName}</span>
               {" "}
               <span className="text-muted-foreground">
-                {formatEventLabel(event)}
+                {formatEventDate(event.date)}
+                {event.runNumber ? ` — #${event.runNumber}` : ""}
+                {event.title ? ` — ${event.title}` : ""}
               </span>
             </SelectItem>
           ))}

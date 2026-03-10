@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { deleteSource, toggleSourceEnabled } from "@/app/admin/sources/actions";
+import { formatRelativeTime } from "@/lib/format";
 import {
   Table,
   TableBody,
@@ -83,20 +84,6 @@ export const TYPE_LABELS: Record<string, string> = {
 };
 
 const HEALTH_OPTIONS = ["HEALTHY", "DEGRADED", "FAILING", "STALE", "UNKNOWN"];
-
-/** Format a date string as a relative time label (e.g. "5m ago", "2d ago"). */
-function relativeTime(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  return `${diffDay}d ago`;
-}
 
 /** Admin source table with kennel/type/health filtering and per-row actions. */
 export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }: SourceTableProps) {
@@ -474,7 +461,7 @@ function SourceRow({
       <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
         {source.lastScrapeAt ? (
           <span title={fullDate ?? undefined}>
-            {relativeTime(source.lastScrapeAt)}
+            {formatRelativeTime(source.lastScrapeAt)}
           </span>
         ) : (
           "Never"

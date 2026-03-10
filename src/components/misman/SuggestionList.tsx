@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { InfoPopover } from "@/components/ui/info-popover";
 
 const MAX_VISIBLE = 10;
@@ -67,16 +67,15 @@ export function SuggestionList({
       </div>
       <div className="flex flex-wrap gap-1.5">
         {visible.map((s) => (
-          <Button
+          <button
             key={s.kennelHasherId}
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs"
+            className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
             onClick={() => onSelect(s.kennelHasherId)}
             disabled={disabled}
           >
+            <Plus className="h-3.5 w-3.5 text-muted-foreground" />
             {s.hashName || s.nerdName}
-          </Button>
+          </button>
         ))}
       </div>
     </div>

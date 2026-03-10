@@ -50,15 +50,23 @@ export function AttendanceRow({
   const displayName = record.hashName || record.nerdName || "Unknown";
   const isExpanded = record.isVirgin || record.isVisitor;
 
+  const accentBorder = record.isVisitor
+    ? "border-l-blue-400"
+    : record.isVirgin
+      ? "border-l-pink-400"
+      : "border-l-muted";
+
   return (
-    <div className={`rounded-lg border p-3 space-y-2${isExpanded ? (record.isVisitor ? " border-l-2 border-l-blue-400" : " border-l-2 border-l-pink-400") : ""}`}>
+    <div
+      className={`rounded-xl border border-border/50 bg-card px-4 py-3 space-y-2 border-l-[3px] ${accentBorder} animate-in slide-in-from-left-2 duration-300`}
+    >
       {/* Main row */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1 w-full sm:w-auto sm:flex-1 sm:min-w-0">
-          <span className="text-left text-sm font-medium truncate">
+          <span className="text-left text-base font-medium truncate">
             {displayName}
             {record.hashName && record.nerdName && (
-              <span className="ml-1 text-muted-foreground font-normal">
+              <span className="ml-1 text-muted-foreground font-normal text-sm">
                 ({record.nerdName})
               </span>
             )}
@@ -104,22 +112,24 @@ export function AttendanceRow({
               aria-label={`Mark ${displayName} as hare`}
             />
             <span className={record.haredThisTrail ? "text-orange-600 font-medium" : "text-muted-foreground"}>
-              H
+              🐇
             </span>
           </label>
 
-          <label className="flex items-center gap-1 cursor-pointer" title="Virgin">
-            <Switch
-              checked={record.isVirgin}
-              onCheckedChange={(v) => onUpdate({ isVirgin: v })}
-              disabled={disabled}
-              className="scale-75 data-[state=checked]:bg-pink-500"
-              aria-label={`Mark ${displayName} as virgin`}
-            />
-            <span className={record.isVirgin ? "text-pink-600 font-medium" : "text-muted-foreground"}>
-              V
-            </span>
-          </label>
+          {(record.attendanceCount == null || record.attendanceCount <= 1 || record.isVirgin) && (
+            <label className="flex items-center gap-1 cursor-pointer" title="Virgin">
+              <Switch
+                checked={record.isVirgin}
+                onCheckedChange={(v) => onUpdate({ isVirgin: v })}
+                disabled={disabled}
+                className="scale-75 data-[state=checked]:bg-pink-500"
+                aria-label={`Mark ${displayName} as virgin`}
+              />
+              <span className={record.isVirgin ? "text-pink-600 font-medium" : "text-muted-foreground"}>
+                Virgin
+              </span>
+            </label>
+          )}
 
           <label className="flex items-center gap-1 cursor-pointer" title="Visitor">
             <Switch
@@ -130,7 +140,7 @@ export function AttendanceRow({
               aria-label={`Mark ${displayName} as visitor`}
             />
             <span className={record.isVisitor ? "text-blue-600 font-medium" : "text-muted-foreground"}>
-              Vis
+              ✈️
             </span>
           </label>
         </div>

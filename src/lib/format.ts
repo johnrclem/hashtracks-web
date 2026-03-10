@@ -211,6 +211,25 @@ export function formatSportType(type: string): string {
   return type.replace(/([a-z])([A-Z])/g, "$1 $2");
 }
 
+// ── Relative time formatting ──
+
+/**
+ * Format a Date or ISO string as a relative time label.
+ * e.g. "just now", "5m ago", "2h ago", "3d ago", "Feb 18"
+ */
+export function formatRelativeTime(input: Date | string): string {
+  const then = typeof input === "string" ? new Date(input).getTime() : input.getTime();
+  const diffMs = Date.now() - then;
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Date(then).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 // ── URL / domain helpers ──
 
 /** Extract hostname from URL, stripping www. prefix. Returns raw string on parse failure. */

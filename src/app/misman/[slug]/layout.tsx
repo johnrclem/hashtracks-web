@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { ExternalLink } from "lucide-react";
+import { ChevronRight, ExternalLink } from "lucide-react";
 import { getMismanUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { MismanKennelNav } from "@/components/misman/MismanKennelNav";
 import { KennelSwitcher } from "@/components/misman/KennelSwitcher";
+import { MismanInfoCards } from "@/components/misman/MismanInfoCards";
 
 interface Props {
   children: React.ReactNode;
@@ -53,14 +54,16 @@ export default async function MismanKennelLayout({ children, params }: Props) {
     slug: mk.kennel.slug,
   }));
 
+  const isSingleKennel = mismanKennels.length === 1;
+
   return (
     <div className="space-y-4">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+      <nav className="flex items-center gap-1 text-xs text-muted-foreground">
         <Link href="/misman" className="hover:text-foreground transition-colors">
           Misman
         </Link>
-        <span>/</span>
+        <ChevronRight className="h-3 w-3" />
         <span className="text-foreground font-medium">{kennel.shortName}</span>
       </nav>
       <div>
@@ -81,6 +84,12 @@ export default async function MismanKennelLayout({ children, params }: Props) {
       </div>
       <MismanKennelNav slug={kennel.slug} />
       {children}
+      {/* Info cards for single-kennel users who skip the dashboard */}
+      {isSingleKennel && (
+        <div className="pt-4">
+          <MismanInfoCards />
+        </div>
+      )}
     </div>
   );
 }
