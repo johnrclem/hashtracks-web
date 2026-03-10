@@ -9,7 +9,7 @@ import {
   PulseDot,
   RegionTicker,
 } from "@/components/home/HeroAnimations";
-import { Calendar, BookOpen, Users, MapPin, ArrowRight, Beer, Zap, Globe } from "lucide-react";
+import { Calendar, BookOpen, Users, MapPin, ArrowRight, Beer, Zap, Globe, ClipboardList } from "lucide-react";
 
 export default async function HomePage() {
   const clerkUser = await currentUser();
@@ -421,6 +421,36 @@ export default async function HomePage() {
               </div>
             </FadeInSection>
           </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════
+          MISMAN TEASER
+       ═══════════════════════════════════════════════ */}
+      <section className="border-t border-foreground/5 bg-foreground/[0.015] px-4 py-16 sm:py-20">
+        <div className="mx-auto max-w-5xl">
+          <FadeInSection>
+            <div className="mx-auto max-w-2xl text-center">
+              <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
+                <ClipboardList className="h-5 w-5" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                Run a kennel?
+              </h2>
+              <p className="mt-3 text-muted-foreground">
+                HashTracks Misman is a mobile-first attendance tool for kennel
+                organizers. Tap-to-add hashers, smart suggestions, shared rosters,
+                and full audit trails.
+              </p>
+              <Link
+                href="/for-misman"
+                className="group mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-700 transition-colors hover:text-orange-800"
+              >
+                Learn more about extra features for Misman
+                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+          </FadeInSection>
         </div>
       </section>
 
