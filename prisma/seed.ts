@@ -1645,6 +1645,7 @@ async function main() {
         columns: { runNumber: 0, date: 1, hares: 2, location: 3, title: 4 },
         kennelTagRules: { default: "W3H3" },
         startTimeRules: { byDayOfWeek: { "Wed": "18:09" }, default: "18:09" },
+        defaultTitle: "Wild & Wonderful Wednesday Trail",
       },
       kennelCodes: ["w3h3"],
     },

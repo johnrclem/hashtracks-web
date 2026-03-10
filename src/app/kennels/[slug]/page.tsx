@@ -10,9 +10,9 @@ export async function generateMetadata({
   const { slug } = await params;
   const kennel = await prisma.kennel.findUnique({
     where: { slug },
-    select: { shortName: true },
+    select: { shortName: true, isHidden: true },
   });
-  if (!kennel) return { title: "Kennel · HashTracks" };
+  if (!kennel || kennel.isHidden) return { title: "Kennel · HashTracks" };
   return { title: `${kennel.shortName} · Kennels · HashTracks` };
 }
 import { getOrCreateUser } from "@/lib/auth";
@@ -40,7 +40,7 @@ export default async function KennelDetailPage({
     },
   });
 
-  if (!kennel) notFound();
+  if (!kennel || kennel.isHidden) notFound();
 
   const [user, events] = await Promise.all([
     getOrCreateUser(),
