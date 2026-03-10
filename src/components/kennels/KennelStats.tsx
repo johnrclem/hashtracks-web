@@ -15,7 +15,7 @@ interface KennelStatsProps {
 
 function formatNextRun(nextRunDate: string): string {
   const now = new Date();
-  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
   const runUtc = new Date(nextRunDate).getTime();
   const diffDays = Math.round((runUtc - todayUtc) / 86400000);
 

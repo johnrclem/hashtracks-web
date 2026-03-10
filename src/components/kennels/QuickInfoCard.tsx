@@ -102,7 +102,7 @@ export function QuickInfoCard({ kennel, regionColor }: QuickInfoCardProps) {
                 <span>{kennel.hashCash} hash cash</span>
                 {kennel.paymentLink && (
                   <a
-                    href={kennel.paymentLink}
+                    href={kennel.paymentLink.startsWith("http") ? kennel.paymentLink : "#"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline"
@@ -117,7 +117,7 @@ export function QuickInfoCard({ kennel, regionColor }: QuickInfoCardProps) {
               <div className="flex items-center gap-2.5 text-sm">
                 <Globe className="h-4 w-4 shrink-0 text-muted-foreground/70" />
                 <a
-                  href={kennel.website}
+                  href={kennel.website.startsWith("http") ? kennel.website : "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"
