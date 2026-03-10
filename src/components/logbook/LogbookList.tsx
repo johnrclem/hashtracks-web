@@ -33,6 +33,7 @@ import { participationLevelAbbrev, participationLevelLabel, PARTICIPATION_LEVELS
 import { getTodayUtcNoon } from "@/lib/date";
 import { confirmAttendance, deleteAttendance } from "@/app/logbook/actions";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
+import { getRegionColor } from "@/lib/region";
 
 export interface LogbookEntry {
   attendance: AttendanceData;
@@ -104,7 +105,7 @@ function getStatusLabel(entry: LogbookEntry, todayUtcNoon: number): string {
 function ColumnHeaders() {
   return (
     <div
-      className="flex items-center gap-2 sm:gap-3 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b bg-muted/50 sticky top-14 z-10"
+      className="flex items-center gap-2 sm:gap-3 px-4 pl-7 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b bg-muted/50 sticky top-14 z-10 rounded-t-lg"
       role="presentation"
     >
       <span className="shrink-0 sm:w-36">Date</span>
@@ -218,17 +219,20 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
     );
   }
 
-  function renderRow(entry: LogbookEntry, index: number) {
+  function renderRow(entry: LogbookEntry) {
     const isUpcoming = isUpcomingEntry(entry, todayUtcNoon);
     const statusLabel = getStatusLabel(entry, todayUtcNoon);
     const rowLabel = `${formatLogbookDate(entry.event.date)} at ${entry.event.kennel.shortName}, ${entry.event.title || "no trail name"}, ${statusLabel}`;
+    const regionColor = getRegionColor(entry.event.kennel.region);
 
     return (
       <li
         key={entry.attendance.id}
-        className={`rounded-md border px-4 py-3 text-sm min-h-12 ${
-          isUpcoming ? "border-l-2 border-l-primary" : ""
-        } ${index % 2 === 1 ? "bg-muted/30" : ""}`}
+        className="rounded-xl border border-border/50 bg-card px-4 py-3 text-sm min-h-12"
+        style={{
+          borderLeftWidth: 3,
+          borderLeftColor: isUpcoming ? "var(--primary)" : regionColor,
+        }}
         aria-label={rowLabel}
       >
         <div className="flex items-center gap-2 sm:gap-3">
@@ -533,15 +537,17 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
       </div>
 
       {/* Role legend (UI-04) */}
-      <p className="text-xs text-muted-foreground">
-        {PARTICIPATION_LEVELS.map((level, i) => (
-          <span key={level}>
-            {i > 0 && " · "}
-            <span className="font-medium">{participationLevelAbbrev(level)}</span>{" "}
+      <div className="flex flex-wrap gap-1.5">
+        {PARTICIPATION_LEVELS.map((level) => (
+          <span
+            key={level}
+            className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-xs text-muted-foreground"
+          >
+            <span className="font-semibold">{participationLevelAbbrev(level)}</span>
             {participationLevelLabel(level)}
           </span>
         ))}
-      </p>
+      </div>
 
       {/* Live region for filter announcements (a11y-04) */}
       <div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -561,30 +567,40 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
           {/* Upcoming section (UX-01) */}
           {upcoming.length > 0 && (
             <div>
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 px-1">
-                Upcoming
-              </h2>
+              <div className="flex items-center gap-2 mb-3 px-1">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Upcoming
+                </h2>
+                <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  {upcoming.length}
+                </span>
+              </div>
               <ColumnHeaders />
-              <ul role="list" aria-label="Upcoming runs" className="space-y-1 mt-1">
-                {upcoming.map((entry, i) => renderRow(entry, i))}
+              <ul role="list" aria-label="Upcoming runs" className="space-y-2 mt-2">
+                {upcoming.map((entry) => renderRow(entry))}
               </ul>
             </div>
           )}
 
           {/* Divider between sections */}
           {upcoming.length > 0 && past.length > 0 && (
-            <div className="my-4 border-t" />
+            <div className="my-6 border-t border-border/40" />
           )}
 
           {/* Past runs section (UX-01) */}
           {past.length > 0 && (
             <div>
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 px-1">
-                Past Runs
-              </h2>
+              <div className="flex items-center gap-2 mb-3 px-1">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Past Runs
+                </h2>
+                <span className="inline-flex items-center rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  {past.length}
+                </span>
+              </div>
               <ColumnHeaders />
-              <ul role="list" aria-label="Past runs" className="space-y-1 mt-1">
-                {past.map((entry, i) => renderRow(entry, i))}
+              <ul role="list" aria-label="Past runs" className="space-y-2 mt-2">
+                {past.map((entry) => renderRow(entry))}
               </ul>
             </div>
           )}

@@ -81,6 +81,26 @@ export default async function StatsPage() {
     .map(([level, count]) => ({ level, count }))
     .sort((a, b) => b.count - a.count);
 
+  // By day of week (UTC — Mon=0 through Sun=6)
+  const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const dayCountMap = new Array(7).fill(0) as number[];
+  for (const a of attendances) {
+    const utcDay = a.event.date.getUTCDay(); // 0=Sun
+    const mondayIdx = utcDay === 0 ? 6 : utcDay - 1;
+    dayCountMap[mondayIdx]++;
+  }
+  const byDayOfWeek = DAY_LABELS.map((label, i) => ({ day: i, label, count: dayCountMap[i] }));
+
+  // By year
+  const yearMap = new Map<number, number>();
+  for (const a of attendances) {
+    const y = a.event.date.getUTCFullYear();
+    yearMap.set(y, (yearMap.get(y) ?? 0) + 1);
+  }
+  const byYear = Array.from(yearMap.entries())
+    .map(([year, count]) => ({ year, count }))
+    .sort((a, b) => a.year - b.year);
+
   // Milestones — attendances are ordered by date ascending
   const allMilestones = MILESTONES.map((m) => {
     if (totalRuns >= m.target) {
@@ -130,6 +150,8 @@ export default async function StatsPage() {
           byKennel={byKennel}
           byRegion={byRegion}
           byLevel={byLevel}
+          byDayOfWeek={byDayOfWeek}
+          byYear={byYear}
           milestones={milestones}
         />
       </div>
