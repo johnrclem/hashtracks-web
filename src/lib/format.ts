@@ -57,7 +57,23 @@ export const PARTICIPATION_LEVELS = Object.keys(LEVEL_LABELS);
 
 const VALID_LEVELS = new Set(PARTICIPATION_LEVELS);
 
-type ParticipationLevel = "RUN" | "HARE" | "BAG_HERO" | "DRINK_CHECK" | "BEER_MILE" | "WALK" | "CIRCLE_ONLY";
+export type ParticipationLevel = "RUN" | "HARE" | "BAG_HERO" | "DRINK_CHECK" | "BEER_MILE" | "WALK" | "CIRCLE_ONLY";
+
+/** Chart colors for each participation level. */
+export const LEVEL_COLORS: Record<ParticipationLevel, string> = {
+  RUN: "#3b82f6",
+  HARE: "#f59e0b",
+  BAG_HERO: "#8b5cf6",
+  DRINK_CHECK: "#10b981",
+  BEER_MILE: "#ef4444",
+  WALK: "#6366f1",
+  CIRCLE_ONLY: "#6b7280",
+};
+
+/** Chart color for a participation level string. Returns gray for unknown levels. */
+export function levelColor(level: string): string {
+  return LEVEL_COLORS[level as ParticipationLevel] ?? "#6b7280";
+}
 
 /** Validate and return a ParticipationLevel, or default to "RUN" if invalid/missing. */
 export function parseParticipationLevel(value: string | undefined): ParticipationLevel {

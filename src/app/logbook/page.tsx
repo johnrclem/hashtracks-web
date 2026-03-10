@@ -5,6 +5,7 @@ import { ChartNoAxesColumn } from "lucide-react";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { LogbookList } from "@/components/logbook/LogbookList";
+import { LogbookStatsCards } from "@/components/logbook/LogbookStatsCards";
 import { PendingConfirmations } from "@/components/logbook/PendingConfirmations";
 import { PendingLinkRequests } from "@/components/logbook/PendingLinkRequests";
 import { StravaNudgeBanner } from "@/components/logbook/StravaNudgeBanner";
@@ -56,7 +57,14 @@ export default async function LogbookPage() {
       },
     }));
 
-  const confirmedCount = entries.filter((e) => e.attendance.status === "CONFIRMED").length;
+  const confirmedEntries = entries.filter((e) => e.attendance.status === "CONFIRMED");
+  const confirmedCount = confirmedEntries.length;
+  const totalHares = confirmedEntries.filter(
+    (e) => e.attendance.participationLevel === "HARE",
+  ).length;
+  const uniqueKennels = new Set(
+    confirmedEntries.map((e) => e.event.kennel.id),
+  ).size;
   const now = new Date();
   const todayUtcNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
   const goingCount = entries.filter(
@@ -81,6 +89,15 @@ export default async function LogbookPage() {
           View Stats
         </Link>
       </div>
+
+      {/* Inline stats cards */}
+      {confirmedCount > 0 && (
+        <LogbookStatsCards
+          totalRuns={confirmedCount}
+          totalHares={totalHares}
+          uniqueKennels={uniqueKennels}
+        />
+      )}
 
       <div className="mt-6 space-y-6">
         <PendingLinkRequests />
