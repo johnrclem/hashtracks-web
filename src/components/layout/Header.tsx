@@ -34,6 +34,9 @@ export function Header() {
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
+  const mismanHref = user ? "/misman" : "/for-misman";
+  const mismanActive = isActive("/misman") || isActive("/for-misman");
+
   return (
     <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur-sm">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
@@ -52,14 +55,14 @@ export function Header() {
               {link.label}
             </Link>
           ))}
-          {user && (
-            <Link
-              href="/misman"
-              className={`text-sm font-medium transition-colors hover:text-foreground ${isActive("/misman") ? "text-foreground" : "text-muted-foreground"}`}
-            >
-              Misman
-            </Link>
-          )}
+          <Link
+            href={mismanHref}
+            className={`text-sm font-medium transition-colors hover:text-foreground ${
+              mismanActive ? "text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            Misman
+          </Link>
           {isAdmin && (
             <Link
               href="/admin"
@@ -176,15 +179,15 @@ export function Header() {
               {link.label}
             </Link>
           ))}
-          {user && (
-            <Link
-              href="/misman"
-              className={`block py-2 text-sm font-medium ${isActive("/misman") ? "text-foreground" : "text-muted-foreground"}`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Misman
-            </Link>
-          )}
+          <Link
+            href={mismanHref}
+            className={`block py-2 text-sm font-medium ${
+              mismanActive ? "text-foreground" : "text-muted-foreground"
+            }`}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Misman
+          </Link>
           {isAdmin && (
             <Link
               href="/admin"
