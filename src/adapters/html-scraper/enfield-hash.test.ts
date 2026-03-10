@@ -200,6 +200,16 @@ describe("parseEnfieldBody", () => {
     const result = parseEnfieldBody(text, now);
     expect(result.date).toBe("2026-02-25");
   });
+
+  it("mis-parses bare day name as relative date (regression context for processPost fix)", () => {
+    // When now is March 10 and body contains "THE FOURTH WEDNESDAY",
+    // chrono picks up "WEDNESDAY" → next Wednesday (March 11), not Feb 25.
+    const marchNow = new Date("2026-03-10T12:00:00Z");
+    const text = "CHANGE OF DATE TO THE FOURTH WEDNESDAY - RUN WILL BE ON 25 FEBRUARY\nMeet at The Old Wheatsheaf for a 7:30pm start.";
+    const result = parseEnfieldBody(text, marchNow);
+    // Body parser returns March 11 (wrong) — processPost should prefer title date instead
+    expect(result.date).toBe("2026-03-11");
+  });
 });
 
 describe("EnfieldHashAdapter home.html URL construction", () => {
@@ -398,6 +408,24 @@ describe("EnfieldHashAdapter.fetch (new site structure)", () => {
     } as never);
 
     expect(result.events[0].description).toContain("Run #318");
+  });
+
+  it("prefers title date over body date when body contains ambiguous day name (Run 318 regression)", async () => {
+    vi.setSystemTime(new Date("2026-03-10T12:00:00Z"));
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_NEW_SITE_HTML, { status: 200 }),
+    );
+
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://www.enfieldhash.org/",
+    } as never);
+
+    // Run 318 body has "THE FOURTH WEDNESDAY" which chrono misreads as March 11.
+    // Title "Run 318 - Wed 25 February" has the correct date — adapter should use it.
+    const run318 = result.events.find((e) => e.title?.includes("Run 318"));
+    expect(run318).toBeDefined();
+    expect(run318!.date).toBe("2026-02-25");
   });
 
   it("skips posts without dates", async () => {
