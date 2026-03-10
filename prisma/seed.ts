@@ -15,7 +15,7 @@ const PROFILE_FIELDS = new Set([
   "website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency",
   "scheduleNotes", "hashCash", "facebookUrl", "instagramHandle",
   "twitterHandle", "discordUrl", "contactEmail", "foundedYear", "description",
-  "lat", "lng",
+  "latitude", "longitude",
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -202,7 +202,7 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
     const existingSource = await prisma.source.findFirst({
       where: {
         OR: [
-          { url: sourceData.url },
+          { url: sourceData.url, type: sourceData.type },
           { name: sourceData.name, type: sourceData.type },
         ],
       },
@@ -408,8 +408,8 @@ async function main() {
     contactEmail?: string;
     foundedYear?: number;
     description?: string;
-    lat?: number;
-    lng?: number;
+    latitude?: number;
+    longitude?: number;
   }> = [
     // NYC area (hashnyc.com source)
     {
@@ -501,7 +501,7 @@ async function main() {
       scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly (1st & 3rd Saturdays)",
       foundedYear: 2021, hashCash: "$6.90",
       description: "Year-round biweekly Saturday trails in the Burlington, VT area.",
-      lat: 44.4759, lng: -73.2121,
+      latitude: 44.4759, longitude: -73.2121,
     },
     {
       kennelCode: "burlyh3", shortName: "BurlyH3", fullName: "Burlington Hash House Harriers", region: "Vermont",
@@ -510,7 +510,7 @@ async function main() {
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly (April–October)",
       foundedYear: 2000, hashCash: "$6",
       description: "Weekly Wednesday evening trails in Burlington, VT. Seasonal: April through October.",
-      lat: 44.4759, lng: -73.2121,
+      latitude: 44.4759, longitude: -73.2121,
     },
     // Connecticut
     {
@@ -519,7 +519,7 @@ async function main() {
       contactEmail: "narwhalh3@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Monthly",
       description: "Monthly Sunday hash in the New London, CT area.",
-      lat: 41.356, lng: -72.101,
+      latitude: 41.356, longitude: -72.101,
     },
     {
       kennelCode: "sbh3-ct", shortName: "SBH3", fullName: "Skull & Boners Hash House Harriers", region: "Connecticut",
@@ -528,7 +528,7 @@ async function main() {
       scheduleNotes: "21+ only.",
       foundedYear: 2013,
       description: "Monthly Sunday hash in the New Haven, CT area. 21+ only.",
-      lat: 41.308, lng: -72.928,
+      latitude: 41.308, longitude: -72.928,
     },
     {
       kennelCode: "rgh3", shortName: "RGH3", fullName: "Rotten Groton Hash House Harriers", region: "Connecticut",
@@ -536,7 +536,7 @@ async function main() {
       contactEmail: "rottengrotonh3@gmail.com",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
       description: "Biweekly Saturday hash in southeastern Connecticut.",
-      lat: 41.350, lng: -72.079,
+      latitude: 41.350, longitude: -72.079,
     },
     // Rhode Island
     {
@@ -546,7 +546,7 @@ async function main() {
       contactEmail: "basket@rih3.com",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       description: "Weekly Monday evening trails across Rhode Island. Year-round, all weather.",
-      lat: 41.824, lng: -71.413,
+      latitude: 41.824, longitude: -71.413,
     },
     // New Jersey
     {
@@ -925,7 +925,7 @@ async function main() {
       scheduleDayOfWeek: "Sunday / Monday", scheduleTime: "19:30", scheduleFrequency: "Weekly (alternating Sun/Mon)",
       foundedYear: 1986, hashCash: "€2",
       description: "Ireland's only regularly running hash. Alternates between Sunday afternoon and Monday evening runs in the Dublin area.",
-      lat: 53.3498, lng: -6.2603,
+      latitude: 53.3498, longitude: -6.2603,
     },
     // ===== FLORIDA =====
     // --- Miami / South Florida ---
@@ -2086,7 +2086,7 @@ async function main() {
     },
     {
       name: "HMH3 Static Schedule",
-      url: "https://board.atlantahash.com",
+      url: "https://board.atlantahash.com#hmh3",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
@@ -2104,7 +2104,7 @@ async function main() {
     },
     {
       name: "CUNT H3 ATL Static Schedule",
-      url: "https://board.atlantahash.com",
+      url: "https://board.atlantahash.com#cunth3",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
