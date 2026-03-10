@@ -5,6 +5,9 @@
  * Weights: 35% kennel frequency, 15% roster frequency, 30% recency, 20% streak.
  * For single-kennel rosters, kennel + roster frequency collapse to 50% (unchanged).
  * Returns hashers sorted by score descending, filtered above threshold.
+ *
+ * Frequency and streak use only "recorded events" (events with at least one
+ * attendance record) to avoid dilution from scraped events without attendance.
  */
 
 export const KENNEL_FREQUENCY_WEIGHT = 0.35;
@@ -43,8 +46,6 @@ export interface SuggestionInput {
   attendanceRecords: AttendanceRecord[];
   /** All KennelHasher IDs in roster scope */
   rosterHasherIds: string[];
-  /** Map of eventId → kennelId for scoping */
-  eventKennelMap: Map<string, string>;
 }
 
 export interface SuggestionScore {
@@ -67,24 +68,42 @@ export function computeSuggestionScores(
   input: SuggestionInput,
   referenceDate: Date = new Date(),
 ): SuggestionScore[] {
-  const { kennelId, kennelEvents, attendanceRecords, rosterHasherIds, eventKennelMap } = input;
+  const { kennelEvents, attendanceRecords, rosterHasherIds } = input;
   const isMultiKennel = input.rosterKennelIds.length > 1;
 
-  // Not enough data to produce meaningful suggestions
-  // For multi-kennel rosters, roster-wide events count toward the minimum
-  const eventsForMinCheck = isMultiKennel ? input.rosterEvents : kennelEvents;
-  if (eventsForMinCheck.length < MIN_EVENTS_FOR_SUGGESTIONS) {
-    return [];
-  }
-
-  // Sort kennel events by date descending for streak calculation
-  const sortedKennelEvents = [...kennelEvents].sort(
-    (a, b) => b.date.getTime() - a.date.getTime(),
-  );
   const kennelEventIds = new Set(kennelEvents.map((e) => e.id));
   const rosterEventIds = isMultiKennel
     ? new Set(input.rosterEvents.map((e) => e.id))
     : kennelEventIds;
+
+  // Derive "recorded events" — events with at least one attendance record.
+  // Unrecorded scraped events are excluded from frequency denominators and
+  // streak sequences so they don't count as phantom absences.
+  const recordedKennelEventIds = new Set(
+    attendanceRecords
+      .filter((r) => kennelEventIds.has(r.eventId))
+      .map((r) => r.eventId),
+  );
+  const recordedRosterEventIds = isMultiKennel
+    ? new Set(
+        attendanceRecords
+          .filter((r) => rosterEventIds.has(r.eventId))
+          .map((r) => r.eventId),
+      )
+    : recordedKennelEventIds;
+
+  // Not enough recorded data to produce meaningful suggestions
+  const recordedForMinCheck = isMultiKennel
+    ? recordedRosterEventIds.size
+    : recordedKennelEventIds.size;
+  if (recordedForMinCheck < MIN_EVENTS_FOR_SUGGESTIONS) {
+    return [];
+  }
+
+  // Sort recorded kennel events by date descending for streak calculation
+  const sortedRecordedKennelEvents = [...kennelEvents]
+    .filter((e) => recordedKennelEventIds.has(e.id))
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
 
   // Index attendance by hasher
   const attendanceByHasher = new Map<string, AttendanceRecord[]>();
@@ -95,26 +114,25 @@ export function computeSuggestionScores(
   }
 
   const refTime = referenceDate.getTime();
-  const lookbackMs = LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
 
   return rosterHasherIds
     .map((hasherId) => {
       const records = attendanceByHasher.get(hasherId) ?? [];
 
-      // --- Kennel frequency: attendance at THIS kennel's events ---
+      // --- Kennel frequency: attendance at THIS kennel's recorded events ---
       const thisKennelCount = records.filter((r) =>
         kennelEventIds.has(r.eventId),
       ).length;
       const frequency =
-        kennelEvents.length > 0 ? thisKennelCount / kennelEvents.length : 0;
+        recordedKennelEventIds.size > 0 ? thisKennelCount / recordedKennelEventIds.size : 0;
 
-      // --- Roster frequency: attendance across ALL roster-group events ---
+      // --- Roster frequency: attendance across ALL roster-group recorded events ---
       let rosterFrequency: number;
-      if (isMultiKennel && input.rosterEvents.length > 0) {
+      if (isMultiKennel && recordedRosterEventIds.size > 0) {
         const rosterCount = records.filter((r) =>
           rosterEventIds.has(r.eventId),
         ).length;
-        rosterFrequency = rosterCount / input.rosterEvents.length;
+        rosterFrequency = rosterCount / recordedRosterEventIds.size;
       } else {
         rosterFrequency = frequency;
       }
@@ -127,14 +145,14 @@ export function computeSuggestionScores(
         recency = Math.max(0, 1 - daysSince / LOOKBACK_DAYS);
       }
 
-      // --- Streak: consecutive THIS-kennel events attended (most recent first) ---
+      // --- Streak: consecutive recorded THIS-kennel events attended (most recent first) ---
       let streak = 0;
       const hasherKennelEventIds = new Set(
         records
           .filter((r) => kennelEventIds.has(r.eventId))
           .map((r) => r.eventId),
       );
-      for (const event of sortedKennelEvents) {
+      for (const event of sortedRecordedKennelEvents) {
         if (hasherKennelEventIds.has(event.id)) {
           streak++;
           if (streak >= MAX_STREAK) break;

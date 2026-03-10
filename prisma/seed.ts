@@ -202,7 +202,7 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
     const existingSource = await prisma.source.findFirst({
       where: {
         OR: [
-          { url: sourceData.url },
+          { url: sourceData.url, type: sourceData.type },
           { name: sourceData.name, type: sourceData.type },
         ],
       },
@@ -2086,7 +2086,7 @@ async function main() {
     },
     {
       name: "HMH3 Static Schedule",
-      url: "https://board.atlantahash.com",
+      url: "https://board.atlantahash.com#hmh3",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
@@ -2104,7 +2104,7 @@ async function main() {
     },
     {
       name: "CUNT H3 ATL Static Schedule",
-      url: "https://board.atlantahash.com",
+      url: "https://board.atlantahash.com#cunth3",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",

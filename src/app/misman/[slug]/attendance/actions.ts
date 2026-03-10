@@ -458,12 +458,6 @@ export async function getSuggestions(kennelId: string) {
     select: { id: true, hashName: true, nerdName: true },
   });
 
-  const eventKennelMap = new Map<string, string>();
-  for (const e of kennelEvents) eventKennelMap.set(e.id, kennelId);
-  for (const r of attendanceRecords) {
-    eventKennelMap.set(r.eventId, r.event.kennelId);
-  }
-
   const scores = computeSuggestionScores({
     kennelId,
     rosterKennelIds,
@@ -475,7 +469,6 @@ export async function getSuggestions(kennelId: string) {
       eventDate: r.event.date,
     })),
     rosterHasherIds: hashers.map((h) => h.id),
-    eventKennelMap,
   });
 
   // Enrich with hasher names
