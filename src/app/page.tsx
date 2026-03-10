@@ -23,14 +23,14 @@ export default async function HomePage() {
   const [upcomingCount, kennelCount, regionCount, nextEvents, regionNames] =
     await Promise.all([
       prisma.event.count({
-        where: { date: { gte: todayUtcNoon }, status: { not: "CANCELLED" } },
+        where: { date: { gte: todayUtcNoon }, status: { not: "CANCELLED" }, kennel: { isHidden: false } },
       }),
-      prisma.kennel.count(),
+      prisma.kennel.count({ where: { isHidden: false } }),
       prisma.kennel
-        .findMany({ select: { regionId: true }, distinct: ["regionId"] })
+        .findMany({ where: { isHidden: false }, select: { regionId: true }, distinct: ["regionId"] })
         .then((rows) => rows.length),
       prisma.event.findMany({
-        where: { date: { gte: todayUtcNoon }, status: { not: "CANCELLED" } },
+        where: { date: { gte: todayUtcNoon }, status: { not: "CANCELLED" }, kennel: { isHidden: false } },
         select: {
           id: true,
           date: true,

@@ -9,18 +9,18 @@ import { getOrCreateUser } from "@/lib/auth";
 import { HarelineView } from "@/components/hareline/HarelineView";
 
 export default async function HarelinePage() {
-  const events = await prisma.event.findMany({
-    where: { status: { not: "CANCELLED" } },
-    include: {
-      kennel: {
-        select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
+  const [events, user] = await Promise.all([
+    prisma.event.findMany({
+      where: { status: { not: "CANCELLED" }, kennel: { isHidden: false } },
+      include: {
+        kennel: {
+          select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
+        },
       },
-    },
-    orderBy: { date: "asc" },
-  });
-
-  // Get user's subscribed kennels + attendance (if authenticated)
-  const user = await getOrCreateUser();
+      orderBy: { date: "asc" },
+    }),
+    getOrCreateUser(),
+  ]);
   let subscribedKennelIds: string[] = [];
   const attendanceMap: Record<string, { id: string; participationLevel: string; status: string; stravaUrl: string | null; notes: string | null }> = {};
   if (user) {
