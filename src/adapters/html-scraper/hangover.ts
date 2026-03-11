@@ -57,6 +57,8 @@ export function extractTrailSection(html: string): string {
 
   if (hr.length === 0) {
     // No <hr> separator — return full text (older posts may not have prelubes)
+    // Preserve <br> as newlines so multi-line addresses don't concatenate
+    $("br").replaceWith("\n");
     return $.text().trim();
   }
 
@@ -64,7 +66,10 @@ export function extractTrailSection(html: string): string {
   const parts: string[] = [];
   let node = hr.get(0)?.nextSibling;
   while (node) {
-    const text = $(node as AnyNode).text().trim();
+    const $node = $(node as AnyNode);
+    // Preserve <br> as newlines within each block so address lines don't concatenate
+    $node.find?.("br").replaceWith("\n");
+    const text = $node.text().trim();
     if (text) parts.push(text);
     node = node.nextSibling;
   }
@@ -86,7 +91,7 @@ export function parseHangoverBody(text: string): {
     .replace(/\r/g, "") // Normalize Windows newlines.
     .replace(/\s+/g, " ") // Collapse inconsistent spacing from extracted HTML text.
     // Put labeled fields on their own logical lines so downstream field regexes are reliable.
-    .replace(/\s+(Date|When|Hare(?:\(s\)|s)?|Trail Start|Start|Location|Where|Hash Cash|Trail Type|On[- ]?After|On On(?: Brunch)?)\s*:/gi, "\n$1: ")
+    .replace(/\s+(Date|When|Hare(?:\(s\)|s)?|Trail Start|Start|Location|Where|Hash Cash|Cost|Directions|Trail Type|On[- ]?After|On On(?: Brunch)?)\s*:/gi, "\n$1: ")
     // Normalize compact "Pack Away at" / "Hare Away at" variants into a line boundary.
     .replace(/\s+(Pack Away|Hares? Away)\s+at\s+/gi, "\n$1 at ")
     // Normalize distance labels so Eagle/Turkey/Penguin can be extracted independently.

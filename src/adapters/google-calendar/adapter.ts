@@ -233,19 +233,21 @@ function buildRawEventFromGCalItem(
 
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start);
   if (!dateISO) return null;
+  const summary = decodeEntities(item.summary);
   const { rawDescription, description } = normalizeGCalDescription(item.description);
   const hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;
-  const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(item.summary, sourceConfig);
+  const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(summary, sourceConfig);
+  const location = item.location ? decodeEntities(item.location) : undefined;
 
   return {
     date: dateISO,
     kennelTag,
-    runNumber: extractRunNumber(item.summary, rawDescription, compiledRunNumberPatterns),
-    title: useFullTitle ? item.summary : extractTitle(item.summary),
+    runNumber: extractRunNumber(summary, rawDescription, compiledRunNumberPatterns),
+    title: useFullTitle ? summary : extractTitle(summary),
     description,
     hares,
-    location: item.location,
-    locationUrl: item.location ? mapsUrl(item.location) : undefined,
+    location,
+    locationUrl: location ? mapsUrl(location) : undefined,
     startTime,
     sourceUrl: item.htmlLink,
   };
@@ -355,8 +357,18 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
+    // Dedup events with identical date+kennelTag+startTime+title from the same calendar
+    // (upstream calendars sometimes contain duplicate entries)
+    const seen = new Set<string>();
+    const dedupedEvents = events.filter(e => {
+      const key = `${e.date}|${e.kennelTag}|${e.startTime ?? ""}|${e.title ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     return {
-      events,
+      events: dedupedEvents,
       errors,
       errorDetails: hasErrorDetails ? errorDetails : undefined,
       diagnosticContext: {

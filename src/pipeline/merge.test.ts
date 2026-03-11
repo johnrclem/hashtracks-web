@@ -434,3 +434,41 @@ describe("double-header support", () => {
   });
 });
 
+// ── sanitizeTitle ──
+
+import { sanitizeTitle } from "./merge";
+
+describe("sanitizeTitle", () => {
+  it("passes through normal titles", () => {
+    expect(sanitizeTitle("The Pre-Saint Patrick's Day Trail")).toBe("The Pre-Saint Patrick's Day Trail");
+  });
+
+  it("returns null for 'hares needed' admin text", () => {
+    expect(sanitizeTitle("Hares needed! Email the Hare Razor")).toBeNull();
+  });
+
+  it("returns null for 'Hare needed' singular", () => {
+    expect(sanitizeTitle("Hare needed for this week")).toBeNull();
+  });
+
+  it("returns null for 'Need a hare'", () => {
+    expect(sanitizeTitle("Need a hare")).toBeNull();
+  });
+
+  it("returns null for 'volunteer to hare'", () => {
+    expect(sanitizeTitle("Volunteer to hare this trail!")).toBeNull();
+  });
+
+  it("strips embedded email addresses", () => {
+    expect(sanitizeTitle("Trail Name <foo@bar.com> details")).toBe("Trail Name details");
+  });
+
+  it("returns null for undefined", () => {
+    expect(sanitizeTitle(undefined)).toBeNull();
+  });
+
+  it("returns null for empty/whitespace", () => {
+    expect(sanitizeTitle("  ")).toBeNull();
+  });
+});
+

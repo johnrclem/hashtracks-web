@@ -227,6 +227,21 @@ function extractRawCoords(event: RawEventData): { latitude?: number; longitude?:
 }
 
 /**
+ * Sanitize event titles: strip admin placeholders, "hares needed" messages, and email addresses.
+ * Returns null for titles that are pure admin content, so the display layer falls back to kennel name.
+ */
+export function sanitizeTitle(title: string | undefined): string | null {
+  if (!title) return null;
+  const t = title.trim();
+  if (!t) return null;
+  // Filter out admin/meta content in titles
+  if (/hares?\s+needed|need\s+(?:a\s+)?hares?|looking\s+for\s+hares?|email\s+the\s+hare|volunteer\s+to\s+hare/i.test(t)) return null;
+  // Strip embedded email addresses
+  const cleaned = t.replace(/\s*<?[\w.+-]+@[\w.-]+>?\s*/g, " ").trim();
+  return cleaned || null;
+}
+
+/**
  * Resolve coordinates for a raw event: explicit coords → URL extraction → geocode fallback.
  * Optionally skips geocoding if the canonical event already has stored coords and
  * the location text hasn't changed.
@@ -357,7 +372,7 @@ async function upsertCanonicalEvent(
           runNumber: event.runNumber ?? existingEvent.runNumber,
           // Use ?? null for text fields: scraper always attempts these,
           // so undefined means "clear it" (not "I didn't try")
-          title: event.title ?? null,
+          title: sanitizeTitle(event.title),
           description: event.description ?? null,
           haresText: event.hares ?? null,
           locationName: event.location ?? null,
@@ -411,7 +426,7 @@ async function upsertCanonicalEvent(
         dateUtc,
         timezone,
         runNumber: event.runNumber,
-        title: event.title,
+        title: sanitizeTitle(event.title),
         description: event.description,
         haresText: event.hares,
         locationName: event.location,
