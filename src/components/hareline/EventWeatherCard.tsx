@@ -2,32 +2,7 @@
 
 import type { DailyWeather } from "@/lib/weather";
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
-
-const CONDITION_EMOJIS: Record<string, string> = {
-  CLEAR: "☀️",
-  MOSTLY_CLEAR: "🌤️",
-  PARTLY_CLOUDY: "⛅",
-  MOSTLY_CLOUDY: "☁️",
-  CLOUDY: "☁️",
-  WINDY: "💨",
-};
-
-function getConditionEmoji(conditionType: string): string {
-  if (CONDITION_EMOJIS[conditionType]) return CONDITION_EMOJIS[conditionType];
-  if (conditionType.includes("THUNDERSTORM") || conditionType === "THUNDERSHOWER") return "⛈️";
-  if (conditionType.includes("SNOW") || conditionType === "BLOWING_SNOW") return "🌨️";
-  if (
-    conditionType.includes("RAIN") ||
-    conditionType.startsWith("SHOWERS") ||
-    conditionType === "WIND_AND_RAIN"
-  )
-    return "🌧️";
-  return "🌡️";
-}
-
-function cToF(c: number): number {
-  return Math.round(c * 9 / 5 + 32);
-}
+import { getConditionEmoji, cToF } from "@/lib/weather-display";
 
 interface EventWeatherCardProps {
   weather: DailyWeather;

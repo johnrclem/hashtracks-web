@@ -89,6 +89,7 @@ export default async function KennelDetailPage({
     haresText: e.haresText,
     startTime: e.startTime,
     locationName: e.locationName,
+    locationCity: e.locationCity,
     locationAddress: e.locationAddress,
     description: e.description,
     sourceUrl: e.sourceUrl,

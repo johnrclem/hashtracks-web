@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { MapPin, Clock, Footprints } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -15,6 +16,9 @@ import { RegionBadge } from "./RegionBadge";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { getRegionColor } from "@/lib/region";
 import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
+import { useUnitsPreference } from "@/components/providers/units-preference-provider";
+import type { DailyWeather } from "@/lib/weather";
+import { getConditionEmoji, cToF } from "@/lib/weather-display";
 
 export type HarelineEvent = {
   id: string;
@@ -35,6 +39,7 @@ export type HarelineEvent = {
   haresText: string | null;
   startTime: string | null;
   locationName: string | null;
+  locationCity: string | null;
   locationAddress: string | null;
   description: string | null;
   sourceUrl: string | null;
@@ -55,6 +60,8 @@ function formatDate(iso: string): string {
 }
 
 export { formatDate };
+
+// ── Display helpers ──
 
 /** Display title for events with missing or parenthetical titles. */
 function getDisplayTitle(event: HarelineEvent): string {
@@ -80,6 +87,14 @@ function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null
   return parts.join(", ");
 }
 
+/** Build location display string with city context. Strip URLs defensively. */
+function getLocationDisplay(event: HarelineEvent): string | null {
+  const name = event.locationName?.replace(/https?:\/\/\S+/g, "").trim() || null;
+  const city = event.locationCity;
+  if (name && city) return `${name}, ${city}`;
+  return city || name || null;
+}
+
 // lg breakpoint (1024px) — matches Tailwind's lg:
 const LG_BREAKPOINT = 1024;
 
@@ -90,11 +105,13 @@ interface EventCardProps {
   readonly isSelected?: boolean;
   readonly attendance?: AttendanceData | null;
   readonly hideDate?: boolean;
+  readonly weather?: DailyWeather | null;
 }
 
-export function EventCard({ event, density, onSelect, isSelected, attendance, hideDate }: EventCardProps) {
+export function EventCard({ event, density, onSelect, isSelected, attendance, hideDate, weather }: EventCardProps) {
   const router = useRouter();
   const { preference } = useTimePreference();
+  const { tempUnit } = useUnitsPreference();
 
   // Compute display timezone and time
   const isUserLocal = preference === "USER_LOCAL";
@@ -133,42 +150,59 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
   const regionColor = getRegionColor(event.kennel.region);
 
-  const goingBadge = (
-    <Badge className="bg-blue-100 text-blue-700 border-0 text-xs px-2 py-0.5 font-semibold">
-      Going
-    </Badge>
-  );
+  // Weather display
+  const weatherEmoji = weather ? getConditionEmoji(weather.conditionType) : null;
+  const weatherTemp = weather
+    ? (tempUnit === "IMPERIAL" ? `${cToF(weather.highTempC)}\u00B0` : `${Math.round(weather.highTempC)}\u00B0`)
+    : null;
 
+  const isCancelled = event.status === "CANCELLED";
+  const hasRsvp = attendance?.status === "INTENDING" || attendance?.status === "CONFIRMED";
+
+  // ── Compact density ──
   if (density === "compact") {
     return (
       <div
         role="button"
         tabIndex={0}
-        className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md"
+        className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         aria-label={buildAriaLabel(event, attendance)}
       >
         <div
-          className={`flex items-center gap-3 rounded-md border border-l-2 px-3 py-2 text-sm transition-all hover:bg-muted/50 hover:shadow-sm active:bg-muted/70 ${isSelected ? "ring-1 ring-primary/20" : ""
-            }`}
+          className={`group relative flex items-center gap-3 rounded-lg border px-3 py-2 text-sm transition-all duration-200 hover:shadow-md active:scale-[0.995] ${
+            isSelected
+              ? "ring-2 shadow-sm"
+              : "hover:border-transparent"
+          } ${isCancelled ? "opacity-50" : ""}`}
           style={{
+            borderLeftWidth: "4px",
             borderLeftColor: regionColor,
             backgroundColor: isSelected ? `${regionColor}08` : undefined,
+            ...(isSelected ? { "--tw-ring-color": `${regionColor}40` } as React.CSSProperties : {}),
           }}
         >
+          {/* Hover wash — region color tint */}
+          <div
+            className="absolute inset-0 rounded-lg opacity-0 transition-opacity duration-200 group-hover:opacity-100 pointer-events-none"
+            style={{ backgroundColor: `${regionColor}06` }}
+          />
+
           {/* Fixed-width columns: date, kennel, run# */}
           {!hideDate && (
-            <span className="w-24 shrink-0 font-medium" suppressHydrationWarning>
+            <span className="relative w-24 shrink-0 font-medium text-muted-foreground" suppressHydrationWarning>
               {displayDateStr}
             </span>
           )}
-          <span className="w-20 shrink-0">
+
+          <span className="relative w-20 shrink-0 truncate">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link
                   href={`/kennels/${event.kennel.slug}`}
-                  className="text-primary hover:underline"
+                  className="font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-2 truncate block"
+                  style={{ textDecorationColor: regionColor }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {event.kennel.shortName}
@@ -177,127 +211,246 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               <TooltipContent>{event.kennel.fullName}</TooltipContent>
             </Tooltip>
           </span>
-          <span className="w-12 shrink-0 text-muted-foreground">
+
+          <span className="relative w-14 shrink-0 font-mono text-xs text-muted-foreground/60">
             {event.runNumber ? `#${event.runNumber}` : "\u2014"}
           </span>
+
           {/* Flexible text — absorbs remaining space */}
-          <span className="truncate text-muted-foreground">
+          <span className={`relative truncate text-muted-foreground ${isCancelled ? "line-through" : ""}`}>
             {event.haresText || getDisplayTitle(event)}
           </span>
-          {/* Right-aligned variable-width items */}
-          <RegionBadge region={event.kennel.region} size="sm" />
-          {attendance?.status === "INTENDING" && (
-            <span className="shrink-0">
-              {goingBadge}
-            </span>
-          )}
-          {displayTimeStr && (
-            <span className="ml-auto flex items-center gap-1 shrink-0 text-xs text-muted-foreground" suppressHydrationWarning>
-              {displayTimeStr}
-              {tzAbbrev && <span className="text-[10px] font-medium opacity-70" suppressHydrationWarning>{tzAbbrev}</span>}
-            </span>
-          )}
-          {attendance?.status === "CONFIRMED" && (
-            <span className="shrink-0">
+
+          {/* Right cluster */}
+          <div className="relative ml-auto flex items-center gap-2 shrink-0">
+            {weather && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-xs" suppressHydrationWarning>
+                    {weatherEmoji}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{weather.condition} {weatherTemp}</TooltipContent>
+              </Tooltip>
+            )}
+
+            {attendance?.status === "INTENDING" && (
+              <span className="flex items-center gap-1">
+                <span
+                  className="h-2 w-2 rounded-full animate-pulse"
+                  style={{ backgroundColor: "#3b82f6" }}
+                />
+                <Badge className="border-0 bg-blue-500/15 text-blue-700 text-[10px] px-1.5 py-0 font-bold dark:bg-blue-500/20 dark:text-blue-300">
+                  Going
+                </Badge>
+              </span>
+            )}
+
+            {attendance?.status === "CONFIRMED" && (
               <AttendanceBadge level={attendance.participationLevel} size="sm" />
-            </span>
-          )}
+            )}
+
+            {displayTimeStr && (
+              <span className="flex items-center gap-1 text-xs font-semibold tabular-nums text-foreground/70" suppressHydrationWarning>
+                {displayTimeStr}
+                {tzAbbrev && <span className="text-[10px] font-medium opacity-60" suppressHydrationWarning>{tzAbbrev}</span>}
+              </span>
+            )}
+
+            <RegionBadge region={event.kennel.region} size="sm" />
+          </div>
         </div>
       </div>
     );
   }
 
-  // Medium density — plain div instead of Card (which has py-6 baked in)
+  // ── Medium density ──
+  const locationDisplay = getLocationDisplay(event);
   const displayTitle = getDisplayTitle(event);
 
   return (
     <div
       role="button"
       tabIndex={0}
-      className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+      className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       aria-label={buildAriaLabel(event, attendance)}
     >
       <div
-        className={`rounded-lg border border-l-[3px] px-3 py-2 shadow-sm transition-all hover:bg-muted/30 hover:shadow-md hover:-translate-y-px active:shadow-sm active:translate-y-0 ${isSelected ? "ring-1 ring-primary/20" : ""
-          }`}
+        className={`group relative overflow-hidden rounded-xl border transition-all duration-250 ease-out ${
+          isSelected
+            ? "ring-2 shadow-lg"
+            : "shadow-sm hover:shadow-xl hover:-translate-y-1"
+        } active:shadow-sm active:translate-y-0 ${
+          isCancelled ? "opacity-50 grayscale-[30%]" : ""
+        }`}
         style={{
-          borderLeftColor: regionColor,
-          backgroundColor: isSelected ? `${regionColor}08` : undefined,
+          backgroundColor: isSelected ? `${regionColor}0a` : undefined,
+          ...(isSelected ? { "--tw-ring-color": `${regionColor}40` } as React.CSSProperties : {}),
         }}
       >
-        <div className="min-w-0 space-y-0.5">
-          {/* Line 1: date · kennel · run# · badges | time — metadata row */}
-          <div className="flex flex-nowrap items-center gap-1.5 overflow-hidden text-[13px] text-muted-foreground">
-            {!hideDate && (
-              <>
-                <span className="shrink-0 whitespace-nowrap" suppressHydrationWarning>{displayDateStr}</span>
-                <span>·</span>
-              </>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  href={`/kennels/${event.kennel.slug}`}
-                  className="font-bold text-foreground hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {event.kennel.shortName}
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent>{event.kennel.fullName}</TooltipContent>
-            </Tooltip>
-            <RegionBadge region={event.kennel.region} size="sm" />
-            {event.runNumber && (
-              <>
-                <span className="shrink-0">·</span>
-                <span className="truncate">#{event.runNumber}</span>
-              </>
-            )}
-            {event.status === "CANCELLED" && (
-              <Badge variant="destructive" className="ml-1 text-xs">
-                Cancelled
-              </Badge>
-            )}
-            {event.status === "TENTATIVE" && (
-              <Badge variant="outline" className="ml-1 text-xs">
-                Tentative
-              </Badge>
-            )}
-            {attendance && (
-              <span className="ml-1">
-                {attendance.status === "INTENDING" ? (
-                  goingBadge
-                ) : (
-                  <AttendanceBadge level={attendance.participationLevel} size="sm" />
-                )}
-              </span>
-            )}
+        {/* Region accent — top bar that thickens on hover */}
+        <div
+          className="h-[3px] transition-all duration-300 group-hover:h-[5px]"
+          style={{ backgroundColor: regionColor }}
+        />
+
+        {/* Region color gradient wash — diagonal for depth */}
+        <div
+          className="absolute inset-0 opacity-[0.06] transition-opacity duration-300 group-hover:opacity-[0.12] pointer-events-none"
+          style={{
+            background: `linear-gradient(145deg, ${regionColor} 0%, transparent 50%)`,
+          }}
+        />
+
+        {/* RSVP indicator — vivid left edge glow for "Going" or "Checked in" */}
+        {hasRsvp && (
+          <div
+            className="absolute inset-y-0 left-0 w-1 pointer-events-none"
+            style={{
+              backgroundColor: attendance?.status === "INTENDING" ? "#3b82f6" : "#16a34a",
+              boxShadow: `0 0 8px ${attendance?.status === "INTENDING" ? "#3b82f680" : "#16a34a80"}`,
+            }}
+          />
+        )}
+
+        <div className="relative px-3.5 py-2.5 sm:px-4">
+          {/* Row 1: Kennel name (anchor) + metadata cluster | Time pill */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+              {/* Kennel name — the bold visual anchor */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={`/kennels/${event.kennel.slug}`}
+                    className="text-base font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-3"
+                    style={{ textDecorationColor: regionColor }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {event.kennel.shortName}
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>{event.kennel.fullName}</TooltipContent>
+              </Tooltip>
+
+              <RegionBadge region={event.kennel.region} size="sm" />
+
+              {event.runNumber && (
+                <span className="text-xs font-mono text-muted-foreground/50 tabular-nums">
+                  #{event.runNumber}
+                </span>
+              )}
+
+              {!hideDate && (
+                <span className="text-xs text-muted-foreground/50 hidden sm:inline" suppressHydrationWarning>
+                  {displayDateStr}
+                </span>
+              )}
+
+              {/* Status badges */}
+              {isCancelled && (
+                <Badge variant="destructive" className="text-[10px] px-1.5 py-0 font-bold uppercase tracking-wider">
+                  Cancelled
+                </Badge>
+              )}
+              {event.status === "TENTATIVE" && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground border-dashed">
+                  Tentative
+                </Badge>
+              )}
+
+              {/* RSVP badges — elevated prominence */}
+              {attendance?.status === "INTENDING" && (
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="h-2 w-2 rounded-full animate-pulse shadow-sm"
+                    style={{ backgroundColor: "#3b82f6", boxShadow: "0 0 6px #3b82f660" }}
+                  />
+                  <Badge className="border-0 bg-blue-500 text-white text-[10px] px-2 py-0.5 font-bold uppercase tracking-wider shadow-sm dark:bg-blue-600">
+                    Going
+                  </Badge>
+                </span>
+              )}
+              {attendance?.status === "CONFIRMED" && (
+                <AttendanceBadge level={attendance.participationLevel} size="sm" />
+              )}
+            </div>
+
+            {/* Time — right-aligned in its own container for prominence */}
             {displayTimeStr && (
-              <span className="ml-auto shrink-0 font-medium text-sm text-foreground/70 flex items-center gap-1" suppressHydrationWarning>
-                {displayTimeStr}
-                {tzAbbrev && <span className="text-[10px] opacity-70" suppressHydrationWarning>{tzAbbrev}</span>}
+              <span
+                className="shrink-0 flex items-center gap-1.5 rounded-md px-2 py-0.5 -mt-0.5 transition-colors duration-200"
+                style={{ backgroundColor: `${regionColor}0c` }}
+                suppressHydrationWarning
+              >
+                <Clock className="h-3 w-3 text-muted-foreground/40" />
+                <span className="text-sm font-bold tabular-nums text-foreground/85">{displayTimeStr}</span>
+                {tzAbbrev && (
+                  <span className="text-[10px] text-muted-foreground/40 font-semibold" suppressHydrationWarning>
+                    {tzAbbrev}
+                  </span>
+                )}
               </span>
             )}
           </div>
 
-          {/* Line 2: title (always shown, with fallback) */}
-          <p className="truncate text-base font-semibold text-foreground" title={displayTitle}>{displayTitle}</p>
+          {/* Row 2: Title — with subtle region color influence */}
+          <p
+            className={`mt-1 truncate text-[13.5px] leading-snug ${
+              isCancelled
+                ? "line-through text-muted-foreground/60"
+                : "text-foreground/80 font-medium"
+            }`}
+            title={displayTitle}
+          >
+            {displayTitle}
+          </p>
 
-          {/* Line 3 (optional): hares */}
-          {event.haresText && (
-            <p className="truncate text-[13px] text-muted-foreground/80">
-              Hares: {event.haresText}
-            </p>
-          )}
+          {/* Row 3: Metadata strip — location, hares, weather */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground/60">
+            {locationDisplay && (
+              <span className="flex items-center gap-1 truncate max-w-[55%]">
+                <MapPin className="h-3 w-3 shrink-0" style={{ color: `${regionColor}90` }} />
+                <span className="truncate">{locationDisplay}</span>
+              </span>
+            )}
 
-          {/* Line 4 (optional): location */}
-          {event.locationName && (
-            <p className="truncate text-[13px] text-muted-foreground/80">
-              {event.locationName}
-            </p>
-          )}
+            {event.haresText && locationDisplay && (
+              <span className="text-muted-foreground/30" aria-hidden="true">&middot;</span>
+            )}
+
+            {event.haresText && (
+              <span className="flex items-center gap-1 truncate max-w-[40%]">
+                <Footprints className="h-3 w-3 shrink-0 opacity-50" />
+                <span className="truncate">{event.haresText}</span>
+              </span>
+            )}
+
+            {weather && (locationDisplay || event.haresText) && (
+              <span className="text-muted-foreground/30" aria-hidden="true">&middot;</span>
+            )}
+
+            {weather && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1 shrink-0 rounded-full bg-muted/50 px-1.5 py-0.5 -my-0.5" suppressHydrationWarning>
+                    <span className="text-[11px]">{weatherEmoji}</span>
+                    <span className="font-semibold text-foreground/60">{weatherTemp}</span>
+                    {weather.precipProbability >= 20 && (
+                      <span className="text-blue-500/80 dark:text-blue-400/80 font-medium">
+                        {weather.precipProbability}%
+                      </span>
+                    )}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {weather.condition}
+                  {weather.precipProbability >= 20 ? ` \u00B7 ${weather.precipProbability}% chance of rain` : ""}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </div>
       </div>
     </div>
