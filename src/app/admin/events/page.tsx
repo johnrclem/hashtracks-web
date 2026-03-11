@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { EventTable } from "@/components/admin/EventTable";
+import { BackfillCitiesButton } from "@/components/admin/BackfillCitiesButton";
 
 interface PageProps {
   searchParams: Promise<{
@@ -65,7 +66,7 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
   const where = conditions.length > 0 ? { AND: conditions } : {};
   const orderBy = buildOrderBy(sortBy, sortDir);
 
-  const [events, kennels, sources, totalCount] = await Promise.all([
+  const [events, kennels, sources, totalCount, missingCityCount] = await Promise.all([
     prisma.event.findMany({
       where,
       include: {
@@ -92,6 +93,9 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
       select: { id: true, name: true },
     }),
     prisma.event.count({ where }),
+    prisma.event.count({
+      where: { latitude: { not: null }, longitude: { not: null }, locationCity: null },
+    }),
   ]);
 
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -118,7 +122,7 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Events</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -129,6 +133,7 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
                 : "0 total"}
           </p>
         </div>
+        <BackfillCitiesButton missingCount={missingCityCount} />
       </div>
 
       <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
