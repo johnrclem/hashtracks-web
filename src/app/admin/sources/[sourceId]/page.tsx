@@ -23,6 +23,7 @@ import { SampleEventActions } from "@/components/admin/SampleEventActions";
 import { TroubleshootSection } from "@/components/admin/TroubleshootSection";
 import { TYPE_LABELS } from "@/components/admin/SourceTable";
 import { fuzzyMatch } from "@/lib/fuzzy";
+import { PauseCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getHashRegoSlugDrift } from "@/app/admin/sources/actions";
 import { SlugDriftSync } from "@/components/admin/SlugDriftSync";
@@ -431,8 +432,14 @@ export default async function SourceDetailPage({
 
       {/* Disabled banner */}
       {!source.enabled && (
-        <div className="rounded-md border border-muted bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-          This source is <strong>disabled</strong>. It will not be scraped by the cron job and will not generate new alerts. Use the actions menu to re-enable it.
+        <div className="flex items-center gap-3 rounded-lg border border-slate-300/60 bg-slate-100/80 px-4 py-3 dark:border-slate-600/40 dark:bg-slate-800/50">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-300/60 dark:bg-slate-600/40">
+            <PauseCircle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Source Disabled</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Cron scraping and alert filing are paused. Re-enable from the actions menu.</p>
+          </div>
         </div>
       )}
 
@@ -445,7 +452,9 @@ export default async function SourceDetailPage({
             {source.healthStatus}
           </Badge>
           {!source.enabled && (
-            <Badge variant="secondary">disabled</Badge>
+            <Badge className="border-slate-400/50 bg-slate-200/80 text-slate-600 dark:border-slate-500/50 dark:bg-slate-700/60 dark:text-slate-300">
+              disabled
+            </Badge>
           )}
         </div>
         <p className="text-sm text-muted-foreground break-all">{source.url}</p>
