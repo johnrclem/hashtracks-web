@@ -52,6 +52,8 @@ export function MobileBottomNav() {
           {/* More tab */}
           <button
             onClick={() => setMoreOpen(true)}
+            aria-label="More options"
+            aria-expanded={moreOpen}
             className={`flex flex-1 flex-col items-center justify-center gap-0.5 transition-colors ${
               isMoreActive || moreOpen ? "text-foreground" : "text-muted-foreground"
             }`}

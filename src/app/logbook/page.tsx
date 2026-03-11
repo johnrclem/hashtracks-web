@@ -72,11 +72,15 @@ export default async function LogbookPage() {
     (e) => e.attendance.status === "INTENDING" && new Date(e.event.date).getTime() > todayUtcNoon
   ).length;
 
+  const description = `${confirmedCount} ${confirmedCount === 1 ? "run" : "runs"} logged${
+    goingCount > 0 ? ` · ${goingCount} upcoming` : ""
+  }`;
+
   return (
     <div className="min-w-0">
       <PageHeader
         title="My Logbook"
-        description={`${confirmedCount} ${confirmedCount === 1 ? "run" : "runs"} logged${goingCount > 0 ? ` · ${goingCount} upcoming` : ""}`}
+        description={description}
         actions={
           <Link
             href="/logbook/stats"

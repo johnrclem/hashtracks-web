@@ -137,18 +137,16 @@ export default async function StatsPage() {
         description="Your hashing career at a glance."
       />
 
-      <div>
-        <LogbookStats
-          totalRuns={totalRuns}
-          totalHares={totalHares}
-          byKennel={byKennel}
-          byRegion={byRegion}
-          byLevel={byLevel}
-          byDayOfWeek={byDayOfWeek}
-          byYear={byYear}
-          milestones={milestones}
-        />
-      </div>
+      <LogbookStats
+        totalRuns={totalRuns}
+        totalHares={totalHares}
+        byKennel={byKennel}
+        byRegion={byRegion}
+        byLevel={byLevel}
+        byDayOfWeek={byDayOfWeek}
+        byYear={byYear}
+        milestones={milestones}
+      />
     </div>
   );
 }
