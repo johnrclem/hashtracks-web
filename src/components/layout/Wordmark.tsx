@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export function Wordmark({ className }: { className?: string }) {
   return (
-    <Link href="/" className={`group inline-flex items-baseline ${className ?? ""}`}>
+    <Link href="/" className={cn("group inline-flex items-baseline", className)}>
       <span className="text-xl font-extrabold tracking-tight">
         Hash
         <span className="relative">

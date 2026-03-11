@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { Globe, Clock, Thermometer, Info, Shield, Users, LogOut } from "lucide-react";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
@@ -17,12 +18,24 @@ interface MobileMoreSheetProps {
   onClose: () => void;
 }
 
+const navLinkClass = "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted";
+
+const prefBtnClass = (active: boolean) =>
+  `flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${active ? "bg-muted font-medium" : "hover:bg-muted"}`;
+
 export function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps) {
   const { user } = useUser();
   const { signOut } = useClerk();
   const isAdmin = (user?.publicMetadata as { role?: string } | undefined)?.role === "admin";
   const { preference, setPreference } = useTimePreference();
   const { tempUnit, setTempUnit } = useUnitsPreference();
+
+  const prefOptions: { icon: LucideIcon; label: string; active: boolean; onSelect: () => void }[] = [
+    { icon: Globe, label: "Event Local Time", active: preference === "EVENT_LOCAL", onSelect: () => setPreference("EVENT_LOCAL") },
+    { icon: Clock, label: "My Local Time", active: preference === "USER_LOCAL", onSelect: () => setPreference("USER_LOCAL") },
+    { icon: Thermometer, label: "°F — Fahrenheit", active: tempUnit === "IMPERIAL", onSelect: () => setTempUnit("IMPERIAL") },
+    { icon: Thermometer, label: "°C — Celsius", active: tempUnit === "METRIC", onSelect: () => setTempUnit("METRIC") },
+  ];
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -39,29 +52,17 @@ export function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps) {
 
         {/* Navigation links */}
         <nav className="space-y-1">
-          <Link
-            href={user ? "/misman" : "/for-misman"}
-            onClick={onClose}
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-          >
+          <Link href={user ? "/misman" : "/for-misman"} onClick={onClose} className={navLinkClass}>
             <Users className="h-4 w-4 text-muted-foreground" />
             Misman
           </Link>
           {isAdmin && (
-            <Link
-              href="/admin"
-              onClick={onClose}
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-            >
+            <Link href="/admin" onClick={onClose} className={navLinkClass}>
               <Shield className="h-4 w-4 text-muted-foreground" />
               Admin
             </Link>
           )}
-          <Link
-            href="/about"
-            onClick={onClose}
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-          >
+          <Link href="/about" onClick={onClose} className={navLinkClass}>
             <Info className="h-4 w-4 text-muted-foreground" />
             About
           </Link>
@@ -72,49 +73,16 @@ export function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps) {
           <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Preferences
           </p>
-
-          {/* Time display */}
           <div className="space-y-1">
-            <button
-              onClick={() => setPreference("EVENT_LOCAL")}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                preference === "EVENT_LOCAL" ? "bg-muted font-medium" : "hover:bg-muted"
-              }`}
-            >
-              <Globe className="h-4 w-4 text-muted-foreground" />
-              Event Local Time
-            </button>
-            <button
-              onClick={() => setPreference("USER_LOCAL")}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                preference === "USER_LOCAL" ? "bg-muted font-medium" : "hover:bg-muted"
-              }`}
-            >
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              My Local Time
-            </button>
-          </div>
-
-          {/* Temperature */}
-          <div className="mt-2 space-y-1">
-            <button
-              onClick={() => setTempUnit("IMPERIAL")}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                tempUnit === "IMPERIAL" ? "bg-muted font-medium" : "hover:bg-muted"
-              }`}
-            >
-              <Thermometer className="h-4 w-4 text-muted-foreground" />
-              °F — Fahrenheit
-            </button>
-            <button
-              onClick={() => setTempUnit("METRIC")}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                tempUnit === "METRIC" ? "bg-muted font-medium" : "hover:bg-muted"
-              }`}
-            >
-              <Thermometer className="h-4 w-4 text-muted-foreground" />
-              °C — Celsius
-            </button>
+            {prefOptions.map((opt) => {
+              const Icon = opt.icon;
+              return (
+                <button key={opt.label} onClick={opt.onSelect} className={prefBtnClass(opt.active)}>
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 

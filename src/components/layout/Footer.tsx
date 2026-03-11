@@ -2,6 +2,19 @@ import Link from "next/link";
 import { Wordmark } from "@/components/layout/Wordmark";
 import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 
+const exploreLinks = [
+  { href: "/hareline", label: "The Hareline" },
+  { href: "/kennels", label: "Kennel Directory" },
+  { href: "/logbook", label: "My Logbook" },
+  { href: "/for-misman", label: "For Kennel Organizers" },
+];
+
+const communityLinks = [
+  { href: "/about", label: "About HashTracks" },
+];
+
+const linkClass = "text-foreground/80 hover:text-foreground transition-colors";
+
 export function Footer() {
   return (
     <footer className="border-t bg-muted/30">
@@ -21,26 +34,11 @@ export function Footer() {
               Explore
             </h3>
             <ul className="mt-3 space-y-2 text-sm">
-              <li>
-                <Link href="/hareline" className="text-foreground/80 hover:text-foreground transition-colors">
-                  The Hareline
-                </Link>
-              </li>
-              <li>
-                <Link href="/kennels" className="text-foreground/80 hover:text-foreground transition-colors">
-                  Kennel Directory
-                </Link>
-              </li>
-              <li>
-                <Link href="/logbook" className="text-foreground/80 hover:text-foreground transition-colors">
-                  My Logbook
-                </Link>
-              </li>
-              <li>
-                <Link href="/for-misman" className="text-foreground/80 hover:text-foreground transition-colors">
-                  For Kennel Organizers
-                </Link>
-              </li>
+              {exploreLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className={linkClass}>{link.label}</Link>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -50,11 +48,11 @@ export function Footer() {
               Community
             </h3>
             <ul className="mt-3 space-y-2 text-sm">
-              <li>
-                <Link href="/about" className="text-foreground/80 hover:text-foreground transition-colors">
-                  About HashTracks
-                </Link>
-              </li>
+              {communityLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className={linkClass}>{link.label}</Link>
+                </li>
+              ))}
               <li>
                 <FeedbackDialog />
               </li>

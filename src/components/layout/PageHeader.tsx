@@ -16,7 +16,7 @@ export function PageHeader({ title, description, actions, breadcrumb }: PageHead
       {breadcrumb && breadcrumb.length > 0 && (
         <nav className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
           {breadcrumb.map((crumb, i) => (
-            <span key={i} className="flex items-center gap-1">
+            <span key={crumb.href ?? crumb.label} className="flex items-center gap-1">
               {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}
               {crumb.href ? (
                 <Link href={crumb.href} className="hover:text-foreground transition-colors">
@@ -30,7 +30,7 @@ export function PageHeader({ title, description, actions, breadcrumb }: PageHead
         </nav>
       )}
 
-      <div className={actions ? "flex items-start justify-between gap-4" : ""}>
+      <div className={actions ? "flex items-start justify-between gap-4" : undefined}>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
           {description && (

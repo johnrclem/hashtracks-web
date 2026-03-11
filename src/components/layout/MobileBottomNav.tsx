@@ -67,7 +67,7 @@ export function MobileBottomNav() {
         </div>
       </nav>
 
-      <MobileMoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />
+      {moreOpen && <MobileMoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />}
     </>
   );
 }
