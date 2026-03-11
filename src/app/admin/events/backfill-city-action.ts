@@ -79,20 +79,19 @@ export async function backfillEventCities(): Promise<{
     }
   }
 
-  // Batch update events in a transaction
-  const updates: ReturnType<typeof prisma.event.updateMany>[] = [];
-  for (const [key, city] of coordToCity) {
-    const eventIds = coordToEventIds.get(key)!;
-    updates.push(
-      prisma.event.updateMany({
-        where: { id: { in: eventIds } },
-        data: { locationCity: city },
+  // Update events in batches (no transaction needed — each updateMany
+  // targets a disjoint set of events with an idempotent value)
+  const updateEntries = Array.from(coordToCity.entries());
+  for (let i = 0; i < updateEntries.length; i += BATCH_SIZE) {
+    await Promise.all(
+      updateEntries.slice(i, i + BATCH_SIZE).map(([key, city]) => {
+        const eventIds = coordToEventIds.get(key)!;
+        return prisma.event.updateMany({
+          where: { id: { in: eventIds } },
+          data: { locationCity: city },
+        });
       }),
     );
-  }
-
-  if (updates.length > 0) {
-    await prisma.$transaction(updates);
   }
 
   revalidatePath("/hareline");
