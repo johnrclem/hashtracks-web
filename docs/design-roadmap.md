@@ -1,7 +1,7 @@
 # Design Roadmap: HashTracks Visual Identity & Experience
 
 **Date:** March 8, 2026 (updated March 11, 2026)
-**Status:** 3 of 6 items shipped, 3 in progress
+**Status:** 4 of 6 items shipped, 2 in progress
 
 ---
 
@@ -81,21 +81,19 @@ Animated bar charts (day-of-week + year-by-year), milestone icons with progress 
 
 ---
 
-### 5. Navigation & Global Chrome 🔄
+### 5. Navigation & Global Chrome ✅
 **Impact:** Medium — affects every page, sets overall tone
-**Status:** In progress (PRs #214, #216, #218)
+**Status:** Shipped (PRs #214, #216, #218, #226)
 
-Admin pill nav with icons, misman pill nav with icons + mobile active dot, header updated with Misman link visible to all and /about link.
+Admin pill nav with icons, misman pill nav with icons + mobile active dot, header updated with Misman link visible to all and /about link. Outfit + JetBrains Mono fonts, Wordmark component, PageHeader standardization, mobile bottom nav (replaces hamburger), 3-column footer. All original goals met.
 
 **Shipped:**
 - [x] More considered header design (spacing, hierarchy)
 - [x] User avatar / profile quick-access refinement
-
-**Remaining:**
-- [ ] Logo / wordmark design (even text-based with personality)
-- [ ] Mobile bottom navigation for thumb-friendly access
-- [ ] Consistent page header treatment across all public pages
-- [ ] Footer with personality (not just copyright text)
+- [x] Logo / wordmark design (even text-based with personality)
+- [x] Mobile bottom navigation for thumb-friendly access
+- [x] Consistent page header treatment across all public pages
+- [x] Footer with personality (not just copyright text)
 
 ---
 
