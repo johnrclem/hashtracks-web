@@ -37,7 +37,7 @@ function setupPassingGuards() {
   mockAlertFindMany.mockResolvedValueOnce([] as never); // isOnCooldown → pass
 }
 
-/** Mock fetch: no duplicate issues found, then successful issue creation. */
+/** Mock fetch: no duplicate issues found, then successful issue creation, then label addition. */
 function mockFetchForIssueCreation(opts?: { issueUrl?: string; issueNumber?: number }) {
   const fetchSpy = vi.spyOn(globalThis, "fetch");
   fetchSpy
@@ -51,6 +51,10 @@ function mockFetchForIssueCreation(opts?: { issueUrl?: string; issueNumber?: num
         html_url: opts?.issueUrl ?? "https://github.com/test/1",
         number: opts?.issueNumber ?? 1,
       }),
+    } as Response)
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
     } as Response);
   return fetchSpy;
 }
@@ -175,9 +179,9 @@ describe("buildIssueBody", () => {
     expect(title).toBe("[Alert] HTML structure changed — hashnyc.com");
   });
 
-  it("includes claude-fix label", () => {
+  it("includes base labels but not claude-fix (added separately)", () => {
     const { labels } = buildIssueBody(buildAlert());
-    expect(labels).toContain("claude-fix");
+    expect(labels).not.toContain("claude-fix");
     expect(labels).toContain("alert");
     expect(labels).toContain("alert:structure-change");
     expect(labels).toContain("severity:critical");
@@ -314,8 +318,8 @@ describe("autoFileIssuesForAlerts", () => {
     expect(result.filed).toBe(1);
     expect(result.skipped).toBe(0);
 
-    // Verify the issue creation fetch call
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    // Verify fetch calls: dedup check, issue creation, claude-fix label
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
     const createCall = fetchSpy.mock.calls[1];
     expect(createCall[0]).toContain("/issues");
     expect((createCall[1] as RequestInit).method).toBe("POST");
@@ -456,9 +460,10 @@ describe("autoFileIssuesForAlerts", () => {
 
     await autoFileIssuesForAlerts("src_1", ["alert_1"]);
 
-    // Verify both API calls used the custom repo
+    // Verify all API calls used the custom repo
     expect((fetchSpy.mock.calls[0][0] as string)).toContain("other-org/other-repo");
     expect((fetchSpy.mock.calls[1][0] as string)).toContain("other-org/other-repo");
+    expect((fetchSpy.mock.calls[2][0] as string)).toContain("other-org/other-repo");
   });
 
   it("files issues for UNMATCHED_TAGS alerts (eligible type)", async () => {
@@ -475,7 +480,7 @@ describe("autoFileIssuesForAlerts", () => {
     const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
     expect(result.filed).toBe(1);
     expect(result.skipped).toBe(0);
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
   it("ignores cooldown entries older than the 48h window", async () => {
@@ -498,7 +503,92 @@ describe("autoFileIssuesForAlerts", () => {
     const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
     expect(result.filed).toBe(1);
     expect(result.skipped).toBe(0);
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+});
+
+// ── split-label behavior ──
+
+describe("autoFileIssuesForAlerts split-label", () => {
+  it("creates issue without claude-fix in initial labels", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+
+    mockAlertFindMany.mockResolvedValueOnce([
+      buildAlert({ id: "alert_1", sourceId: "src_1" }),
+    ] as never);
+    setupPassingGuards();
+    const fetchSpy = mockFetchForIssueCreation();
+    mockAlertFindUnique.mockResolvedValueOnce({ repairLog: null } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+
+    // Issue creation call should NOT include claude-fix in labels
+    const createBody = JSON.parse((fetchSpy.mock.calls[1][1] as RequestInit).body as string);
+    expect(createBody.labels).not.toContain("claude-fix");
+    expect(createBody.labels).toContain("alert");
+  });
+
+  it("adds claude-fix label in separate API call after issue creation", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+
+    mockAlertFindMany.mockResolvedValueOnce([
+      buildAlert({ id: "alert_1", sourceId: "src_1" }),
+    ] as never);
+    setupPassingGuards();
+    const fetchSpy = mockFetchForIssueCreation({ issueNumber: 42 });
+    mockAlertFindUnique.mockResolvedValueOnce({ repairLog: null } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+
+    // Third fetch call should POST claude-fix label to the issue
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    const labelCall = fetchSpy.mock.calls[2];
+    expect((labelCall[0] as string)).toContain("/issues/42/labels");
+    expect((labelCall[1] as RequestInit).method).toBe("POST");
+    const labelBody = JSON.parse((labelCall[1] as RequestInit).body as string);
+    expect(labelBody.labels).toEqual(["claude-fix"]);
+  });
+
+  it("still returns issue URL if claude-fix label addition fails", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+
+    mockAlertFindMany.mockResolvedValueOnce([
+      buildAlert({ id: "alert_1", sourceId: "src_1" }),
+    ] as never);
+    setupPassingGuards();
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy
+      .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response) // dedup
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ html_url: "https://github.com/test/99", number: 99 }),
+      } as Response) // create
+      .mockRejectedValueOnce(new Error("Network error")); // label add fails
+
+    mockAlertFindUnique.mockResolvedValueOnce({ repairLog: null } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+    expect(result.filed).toBe(1); // still counts as filed
+    expect(result.skipped).toBe(0);
+
+    // Repair log should still be written
+    expect(mockAlertUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          repairLog: expect.arrayContaining([
+            expect.objectContaining({ action: "auto_file_issue", result: "success" }),
+          ]),
+        }),
+      }),
+    );
+
+    consoleSpy.mockRestore();
   });
 });
 

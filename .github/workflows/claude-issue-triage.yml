@@ -7,7 +7,7 @@ on:
 # Prevent multiple triage runs for the same issue
 concurrency:
   group: triage-${{ github.event.issue.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   triage:
