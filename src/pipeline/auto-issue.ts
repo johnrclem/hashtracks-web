@@ -258,7 +258,9 @@ ${agentContext}
 
   const typeLabel = `alert:${alert.type.toLowerCase().replaceAll("_", "-")}`;
   const severityLabel = `severity:${alert.severity.toLowerCase()}`;
-  const labels = ["alert", typeLabel, severityLabel, "claude-fix"];
+  // claude-fix is added separately after issue creation to avoid a race condition
+  // where concurrent label events cancel the triage workflow run (cancel-in-progress).
+  const labels = ["alert", typeLabel, severityLabel];
 
   return { title: sanitizeMentions(title), body: sanitizeMentions(body), labels };
 }
@@ -363,17 +365,19 @@ async function fileGitHubIssue(
 
   const { title, body, labels } = buildIssueBody(alert);
 
+  const postHeaders = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "Content-Type": "application/json",
+  };
+
   try {
     // SSRF-safe: URL is always api.github.com with repo from GITHUB_REPOSITORY env (set by GitHub Actions)
     const res = await fetch(
       `https://api.github.com/repos/${repo}/issues`,
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github+json",
-          "Content-Type": "application/json",
-        },
+        headers: postHeaders,
         body: JSON.stringify({ title, body, labels }),
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       },
@@ -385,6 +389,23 @@ async function fileGitHubIssue(
     }
 
     const issue = (await res.json()) as { html_url: string; number: number };
+
+    // Add claude-fix label in a separate API call so the triage workflow
+    // receives exactly one matching labeled event (no concurrent cancellation).
+    try {
+      await fetch(
+        `https://api.github.com/repos/${repo}/issues/${issue.number}/labels`,
+        {
+          method: "POST",
+          headers: postHeaders,
+          body: JSON.stringify({ labels: ["claude-fix"] }),
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        },
+      );
+    } catch (err) {
+      // Non-fatal: issue was created, triage can be triggered manually
+      console.error(`[auto-issue] Failed to add claude-fix label to #${issue.number}:`, err);
+    }
 
     // Read-modify-write in a transaction to avoid race conditions
     await prisma.$transaction(async (tx) => {
