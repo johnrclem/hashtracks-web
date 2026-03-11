@@ -8,7 +8,7 @@ export default function SignUpPage() {
           Join HashTracks
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          The Strava of Hashing — discover runs, track attendance, view stats.
+          Discover runs, track attendance, view stats — the hareline you never knew you needed.
         </p>
       </div>
       <SignUp />

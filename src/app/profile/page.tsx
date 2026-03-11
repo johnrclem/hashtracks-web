@@ -15,6 +15,7 @@ import { StravaStatusToast } from "@/components/profile/StravaStatusToast";
 import { Separator } from "@/components/ui/separator";
 import { getMyKennelLinks } from "./actions";
 import { getStravaConnection } from "@/app/strava/actions";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 /**
  * Profile page — displays the user's hash identity, Strava connection,
@@ -49,12 +50,7 @@ export default async function ProfilePage() {
       <Suspense>
         <StravaStatusToast />
       </Suspense>
-      <div>
-        <h1 className="text-2xl font-bold">Profile</h1>
-        <p className="mt-1 text-muted-foreground">
-          Manage your hash identity
-        </p>
-      </div>
+      <PageHeader title="Profile" description="Manage your hash identity" />
 
       <ProfileForm
         user={{

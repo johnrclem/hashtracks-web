@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 import { Globe, Clock, Thermometer } from "lucide-react";
+import { Wordmark } from "@/components/layout/Wordmark";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
 import {
@@ -25,7 +25,6 @@ const navLinks = [
 ];
 
 export function Header() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user } = useUser();
   const isAdmin = (user?.publicMetadata as { role?: string } | undefined)?.role === "admin";
   const { preference, setPreference, isLoading } = useTimePreference();
@@ -40,9 +39,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur-sm">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-        <Link href="/" className="text-lg font-bold tracking-tight">
-          HashTracks
-        </Link>
+        <Wordmark />
 
         {/* Desktop nav */}
         <nav className="hidden items-center gap-6 md:flex">
@@ -74,10 +71,10 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          {/* Timezone Toggle */}
+          {/* Timezone Toggle — desktop only, mobile uses More sheet */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Time display preference" title="Time display" disabled={isLoading}>
+              <Button variant="ghost" size="icon" className="hidden h-9 w-9 md:inline-flex" aria-label="Time display preference" title="Time display" disabled={isLoading}>
                 {preference === "USER_LOCAL" ? <Clock className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
                 <span className="sr-only">Toggle time display preference</span>
               </Button>
@@ -106,10 +103,10 @@ export function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Temperature Units Toggle */}
+          {/* Temperature Units Toggle — desktop only */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Temperature units" title="Temperature units">
+              <Button variant="ghost" size="icon" className="hidden h-9 w-9 md:inline-flex" aria-label="Temperature units" title="Temperature units">
                 <Thermometer className="h-4 w-4" />
                 <span className="sr-only">Toggle temperature units</span>
               </Button>
@@ -142,63 +139,8 @@ export function Header() {
               </Button>
             </SignInButton>
           </SignedOut>
-
-          {/* Mobile hamburger */}
-          <button
-            className="ml-2 md:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="1.5"
-              stroke="currentColor"
-            >
-              {mobileMenuOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-              )}
-            </svg>
-          </button>
         </div>
       </div>
-
-      {/* Mobile menu */}
-      {mobileMenuOpen && (
-        <nav className="border-t px-4 py-2 md:hidden">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`block py-2 text-sm font-medium ${isActive(link.href) ? "text-foreground" : "text-muted-foreground"}`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              {link.label}
-            </Link>
-          ))}
-          <Link
-            href={mismanHref}
-            className={`block py-2 text-sm font-medium ${
-              mismanActive ? "text-foreground" : "text-muted-foreground"
-            }`}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            Misman
-          </Link>
-          {isAdmin && (
-            <Link
-              href="/admin"
-              className={`block py-2 text-sm font-medium ${isActive("/admin") ? "text-foreground" : "text-muted-foreground"}`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Admin
-            </Link>
-          )}
-        </nav>
-      )}
     </header>
   );
 }
