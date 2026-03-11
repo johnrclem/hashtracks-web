@@ -319,7 +319,7 @@ function KennelFilterBar({
 function PendingRequestsTab({ requests }: { requests: MismanRequestRow[] }) {
   if (requests.length === 0) {
     return (
-      <div className="py-12 text-center">
+      <div className="rounded-xl border border-border/50 bg-card p-8 text-center">
         <p className="text-sm font-medium">No pending requests</p>
         <p className="text-xs text-muted-foreground mt-1">
           Users requesting misman access will appear here.
@@ -445,7 +445,7 @@ function MismanRequestRowComponent({
 function InviteHistoryTab({ invites }: { invites: InviteRow[] }) {
   if (invites.length === 0) {
     return (
-      <div className="py-12 text-center">
+      <div className="rounded-xl border border-border/50 bg-card p-8 text-center">
         <p className="text-sm font-medium">No invites sent</p>
         <p className="text-xs text-muted-foreground mt-1">
           Use the &ldquo;Invite Misman&rdquo; button to generate invite links.
@@ -579,7 +579,7 @@ function InviteRowComponent({ invite }: { invite: InviteRow }) {
 function ActiveMismansTab({ mismans }: { mismans: ActiveMismanRow[] }) {
   if (mismans.length === 0) {
     return (
-      <div className="py-12 text-center">
+      <div className="rounded-xl border border-border/50 bg-card p-8 text-center">
         <p className="text-sm font-medium">No active mismans</p>
         <p className="text-xs text-muted-foreground mt-1">
           Approved mismans will appear here once requests are granted or invites accepted.

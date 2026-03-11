@@ -107,8 +107,10 @@ export function MismanDashboard({
   return (
     <div className="space-y-8">
       {/* Header with subtle gradient orb */}
-      <div className="relative overflow-hidden">
-        <div className="pointer-events-none absolute -top-40 right-1/4 h-96 w-96 rounded-full bg-orange-500/10 blur-3xl" />
+      <div className="relative">
+        <div className="pointer-events-none absolute inset-0 -mx-4 overflow-hidden">
+          <div className="absolute -top-40 right-0 h-[30rem] w-[40rem] rounded-full bg-orange-500/10 blur-3xl" />
+        </div>
         <div className="relative">
           <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/[0.06] px-4 py-1.5">
             <ClipboardCheck className="h-3.5 w-3.5 text-orange-400" />

@@ -66,7 +66,7 @@ export default async function AdminSourcesPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Sources</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sources</h2>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
             <Link href="/admin/sources/coverage">Coverage</Link>
@@ -78,7 +78,9 @@ export default async function AdminSourcesPage() {
         </div>
       </div>
 
-      <SourceTable sources={serialized} allKennels={allKennels} allRegions={allRegions} geminiAvailable={geminiAvailable} />
+      <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+        <SourceTable sources={serialized} allKennels={allKennels} allRegions={allRegions} geminiAvailable={geminiAvailable} />
+      </div>
     </div>
   );
 }
