@@ -258,6 +258,7 @@ export function buildAlert(overrides?: Record<string, unknown>) {
       name: "hashnyc.com",
       url: "https://hashnyc.com/hareline",
       type: "HTML_SCRAPER",
+      enabled: true,
     },
     ...overrides,
   };

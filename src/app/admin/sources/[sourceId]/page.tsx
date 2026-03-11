@@ -429,6 +429,13 @@ export default async function SourceDetailPage({
         <span className="text-foreground">{source.name}</span>
       </nav>
 
+      {/* Disabled banner */}
+      {!source.enabled && (
+        <div className="rounded-md border border-muted bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+          This source is <strong>disabled</strong>. It will not be scraped by the cron job and will not generate new alerts. Use the actions menu to re-enable it.
+        </div>
+      )}
+
       {/* Header */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -437,6 +444,9 @@ export default async function SourceDetailPage({
           <Badge variant={healthColors[source.healthStatus]}>
             {source.healthStatus}
           </Badge>
+          {!source.enabled && (
+            <Badge variant="secondary">disabled</Badge>
+          )}
         </div>
         <p className="text-sm text-muted-foreground break-all">{source.url}</p>
       </div>

@@ -277,6 +277,17 @@ describe("autoFileIssuesForAlerts", () => {
     expect(result).toEqual({ filed: 0, skipped: 1 });
   });
 
+  it("skips alerts for disabled sources", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    mockAlertFindMany.mockResolvedValueOnce([
+      buildAlert({ id: "alert_1", sourceId: "src_1", source: { name: "City Hash Website", url: "https://cityhash.org.uk/", type: "HTML_SCRAPER", enabled: false } }),
+    ] as never);
+
+    const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+    expect(result.skipped).toBe(1);
+    expect(result.filed).toBe(0);
+  });
+
   it("skips alerts with ineligible types", async () => {
     process.env.GITHUB_TOKEN = "test-token";
     mockAlertFindMany.mockResolvedValueOnce([
