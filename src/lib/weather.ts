@@ -114,14 +114,18 @@ export async function getWeatherForEvents(
   const apiKey = process.env.GOOGLE_WEATHER_API_KEY;
   if (!apiKey) return {};
 
-  const now = new Date();
+  // Normalize to start of today (UTC midnight) so same-day events are always included
+  // (event dates are stored at UTC noon, so a full-timestamp comparison would exclude
+  // today's events after noon UTC)
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
   const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
-  const cutoff = new Date(now.getTime() + tenDaysMs);
+  const cutoff = new Date(today.getTime() + tenDaysMs);
 
   // Filter to events within the 10-day forecast window
   const eligible = events.filter((e) => {
     const d = e.date instanceof Date ? e.date : new Date(e.date);
-    return d >= now && d <= cutoff;
+    return d >= today && d <= cutoff;
   });
 
   if (eligible.length === 0) return {};
@@ -169,9 +173,10 @@ export async function getWeatherForEvents(
     }
   }
 
-  // Fetch weather for each unique location (cap at 15 API calls)
+  // Fetch weather for each unique location (cap API calls to avoid quota exhaustion)
+  const MAX_WEATHER_API_CALLS = 15;
   const result: Record<string, DailyWeather> = {};
-  const entries = Array.from(locationGroups.values()).slice(0, 15);
+  const entries = Array.from(locationGroups.values()).slice(0, MAX_WEATHER_API_CALLS);
 
   const fetches = entries.map(async (group) => {
     const url =
@@ -214,8 +219,8 @@ export async function getWeatherForEvents(
           precipProbability: daytime?.precipitation?.probability?.percent ?? 0,
         };
       }
-    } catch {
-      // Skip this location group on failure
+    } catch (error) {
+      console.error(`Weather fetch failed for location ${group.lat},${group.lng}:`, error);
     }
   });
 

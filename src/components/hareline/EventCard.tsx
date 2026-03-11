@@ -98,6 +98,10 @@ function getLocationDisplay(event: HarelineEvent): string | null {
 // lg breakpoint (1024px) — matches Tailwind's lg:
 const LG_BREAKPOINT = 1024;
 
+// RSVP indicator colors
+const RSVP_INTENDING_COLOR = "#3b82f6"; // blue-500
+const RSVP_CONFIRMED_COLOR = "#16a34a"; // green-600
+
 interface EventCardProps {
   readonly event: HarelineEvent;
   readonly density: "medium" | "compact";
@@ -238,7 +242,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               <span className="flex items-center gap-1">
                 <span
                   className="h-2 w-2 rounded-full animate-pulse"
-                  style={{ backgroundColor: "#3b82f6" }}
+                  style={{ backgroundColor: RSVP_INTENDING_COLOR }}
                 />
                 <Badge className="border-0 bg-blue-500/15 text-blue-700 text-[10px] px-1.5 py-0 font-bold dark:bg-blue-500/20 dark:text-blue-300">
                   Going
@@ -309,8 +313,8 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
           <div
             className="absolute inset-y-0 left-0 w-1 pointer-events-none"
             style={{
-              backgroundColor: attendance?.status === "INTENDING" ? "#3b82f6" : "#16a34a",
-              boxShadow: `0 0 8px ${attendance?.status === "INTENDING" ? "#3b82f680" : "#16a34a80"}`,
+              backgroundColor: attendance?.status === "INTENDING" ? RSVP_INTENDING_COLOR : RSVP_CONFIRMED_COLOR,
+              boxShadow: `0 0 8px ${attendance?.status === "INTENDING" ? `${RSVP_INTENDING_COLOR}80` : `${RSVP_CONFIRMED_COLOR}80`}`,
             }}
           />
         )}
@@ -365,7 +369,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
                 <span className="flex items-center gap-1.5">
                   <span
                     className="h-2 w-2 rounded-full animate-pulse shadow-sm"
-                    style={{ backgroundColor: "#3b82f6", boxShadow: "0 0 6px #3b82f660" }}
+                    style={{ backgroundColor: RSVP_INTENDING_COLOR, boxShadow: `0 0 6px ${RSVP_INTENDING_COLOR}60` }}
                   />
                   <Badge className="border-0 bg-blue-500 text-white text-[10px] px-2 py-0.5 font-bold uppercase tracking-wider shadow-sm dark:bg-blue-600">
                     Going
