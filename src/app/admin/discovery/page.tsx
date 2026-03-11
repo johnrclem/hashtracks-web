@@ -71,12 +71,14 @@ export default async function DiscoveryPage() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">Kennel Discovery</h2>
-      <DiscoveryTable
-        discoveries={serialized}
-        regions={regions}
-        counts={counts}
-      />
+      <h2 className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Kennel Discovery</h2>
+      <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+        <DiscoveryTable
+          discoveries={serialized}
+          regions={regions}
+          counts={counts}
+        />
+      </div>
     </div>
   );
 }

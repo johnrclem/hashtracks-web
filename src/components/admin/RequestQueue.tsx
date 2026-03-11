@@ -34,7 +34,7 @@ interface RequestQueueProps {
 export function RequestQueue({ requests }: RequestQueueProps) {
   if (requests.length === 0) {
     return (
-      <div className="py-12 text-center">
+      <div className="rounded-xl border border-border/50 bg-card p-8 text-center">
         <p className="text-sm font-medium">No kennel requests</p>
         <p className="text-xs text-muted-foreground mt-1">
           Requests from users to add new kennels will appear here.

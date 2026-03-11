@@ -21,6 +21,7 @@ import {
   rescrapeFromAlert,
   createIssueFromAlert,
 } from "@/app/admin/alerts/actions";
+import { formatRelativeTime } from "@/lib/format";
 import { AlertContextDisplay } from "./AlertContextDisplay";
 import { UnmatchedTagResolver } from "./UnmatchedTagResolver";
 import type { KennelOption } from "./UnmatchedTagResolver";
@@ -74,20 +75,10 @@ const SEVERITY_STYLES: Record<
   string,
   { border: string; badge: "default" | "secondary" | "destructive" | "outline" }
 > = {
-  CRITICAL: { border: "border-l-4 border-l-red-500", badge: "destructive" },
-  WARNING: { border: "border-l-4 border-l-amber-500", badge: "secondary" },
-  INFO: { border: "border-l-4 border-l-blue-500", badge: "outline" },
+  CRITICAL: { border: "border-l-[3px] border-l-red-500", badge: "destructive" },
+  WARNING: { border: "border-l-[3px] border-l-amber-500", badge: "secondary" },
+  INFO: { border: "border-l-[3px] border-l-blue-500", badge: "outline" },
 };
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 const REPAIR_LABELS: Record<string, string> = {
   rescrape: "Re-scraped",
@@ -187,7 +178,7 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
   }
 
   return (
-    <div className={`rounded-md border bg-card p-3 sm:p-4 ${style.border}`}>
+    <div className={`rounded-xl border border-border/50 bg-card p-4 ${style.border}`}>
       {/* Header */}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -202,7 +193,7 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
             {alert.sourceName}
           </Link>
           <span className="text-xs text-muted-foreground">
-            {timeAgo(alert.createdAt)}
+            {formatRelativeTime(alert.createdAt)}
           </span>
           {alert.status === "ACKNOWLEDGED" && (
             <Badge variant="outline" className="text-xs">
@@ -276,7 +267,7 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
 
       {/* Repair history */}
       {repairLog && repairLog.length > 0 && (
-        <div className="mt-2 border-t pt-2 space-y-1">
+        <div className="mt-2 border-t border-border/50 pt-2 space-y-1">
           {repairLog.slice(-3).map((entry, i) => (
             <div
               key={i}
@@ -288,7 +279,7 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
               <span>
                 {formatRepairEntry(entry)}
               </span>
-              <span className="opacity-60">{timeAgo(entry.timestamp)}</span>
+              <span className="opacity-60">{formatRelativeTime(entry.timestamp)}</span>
             </div>
           ))}
         </div>

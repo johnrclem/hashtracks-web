@@ -119,18 +119,19 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">
-          Events
-          <span className="ml-2 text-sm font-normal text-muted-foreground">
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Events</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             {totalCount > 0
               ? `Showing ${rangeStart}–${rangeEnd} of ${totalCount}${hasFilters ? " matching" : ""}`
               : hasFilters
                 ? "0 matching"
                 : "0 total"}
-          </span>
-        </h2>
+          </p>
+        </div>
       </div>
 
+      <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
       <EventTable
         events={serializedEvents}
         kennels={kennels}
@@ -142,6 +143,7 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
         pageSize={pageSize}
         totalPages={totalPages}
       />
+      </div>
     </div>
   );
 }

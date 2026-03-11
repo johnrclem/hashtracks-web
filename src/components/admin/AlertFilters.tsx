@@ -1,8 +1,6 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 interface AlertFiltersProps {
   current: string;
@@ -48,28 +46,27 @@ export function AlertFilters({ current, counts }: AlertFiltersProps) {
   }
 
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-0.5 rounded-lg bg-muted/50 p-1">
       {FILTERS.map((f) => {
         const count = countForFilter(f.key, counts);
         const isActive = current === f.key;
         return (
-          <Button
+          <button
             key={f.key}
-            variant={isActive ? "default" : "outline"}
-            size="sm"
-            className="h-7 text-xs"
+            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              isActive
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
             onClick={() => handleClick(f.key)}
           >
             {f.label}
             {count != null && count > 0 && (
-              <Badge
-                variant={isActive ? "outline" : "secondary"}
-                className="ml-1 text-xs"
-              >
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
                 {count}
-              </Badge>
+              </span>
             )}
-          </Button>
+          </button>
         );
       })}
     </div>

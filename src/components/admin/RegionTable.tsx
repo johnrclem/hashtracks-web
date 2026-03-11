@@ -35,9 +35,9 @@ export interface RegionRow {
 }
 
 const LEVEL_BADGE: Record<string, { label: string; classes: string }> = {
-  COUNTRY: { label: "Country", classes: "bg-amber-100 text-amber-800" },
-  STATE_PROVINCE: { label: "State", classes: "bg-blue-100 text-blue-800" },
-  METRO: { label: "Metro", classes: "bg-green-100 text-green-800" },
+  COUNTRY: { label: "Country", classes: "bg-amber-500/10 text-amber-500" },
+  STATE_PROVINCE: { label: "State", classes: "bg-blue-500/10 text-blue-500" },
+  METRO: { label: "Metro", classes: "bg-green-500/10 text-green-500" },
 };
 
 interface RegionTableProps {

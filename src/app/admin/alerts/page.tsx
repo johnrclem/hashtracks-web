@@ -130,8 +130,8 @@ export default async function AlertsPage({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold">Alerts</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Alerts</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           {openCount} open{acknowledgedCount > 0 ? `, ${acknowledgedCount} acknowledged` : ""}
           {snoozedCount > 0 ? `, ${snoozedCount} snoozed` : ""}
         </p>
@@ -143,7 +143,7 @@ export default async function AlertsPage({
       />
 
       {serialized.length === 0 ? (
-        <div className="py-12 text-center">
+        <div className="rounded-xl border border-border/50 bg-card p-8 text-center">
           <p className="text-muted-foreground">
             {statusFilter === "active"
               ? "No active alerts. All sources are healthy."

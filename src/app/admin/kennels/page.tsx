@@ -76,7 +76,7 @@ export default async function AdminKennelsPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Kennels</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Kennels</h2>
         <div className="flex items-center gap-2">
           <BackfillCoordsButton missingCount={missingCoordsCount} />
           <KennelMergeDialog
@@ -90,7 +90,9 @@ export default async function AdminKennelsPage() {
         </div>
       </div>
 
-      <KennelTable kennels={serialized} regions={regionOptions} />
+      <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+        <KennelTable kennels={serialized} regions={regionOptions} />
+      </div>
     </div>
   );
 }
