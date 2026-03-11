@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Outfit, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getOrCreateUser } from "@/lib/auth";
@@ -13,19 +14,19 @@ import { TimePreferenceProvider } from "@/components/providers/time-preference-p
 import { UnitsPreferenceProvider } from "@/components/providers/units-preference-provider";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: "HashTracks",
-  description: "The Strava of Hashing — discover runs, track attendance, view stats.",
+  description: "Discover runs, track attendance, view stats — the hareline you never knew you needed.",
 };
 
 export default async function RootLayout({
@@ -40,7 +41,7 @@ export default async function RootLayout({
     <ClerkProvider appearance={clerkAppearance}>
       <html lang="en">
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          className={`${outfit.variable} ${jetbrainsMono.variable} antialiased`}
         >
           <a
             href="#main-content"
@@ -52,10 +53,11 @@ export default async function RootLayout({
             <TimePreferenceProvider initialPreference={timeDisplayPref}>
               <UnitsPreferenceProvider>
                 <Header />
-                <main id="main-content" tabIndex={-1} className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8 focus:outline-none">
+                <main id="main-content" tabIndex={-1} className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8 pb-24 md:pb-8 focus:outline-none">
                   {children}
                 </main>
                 <Footer />
+                <MobileBottomNav />
                 <Toaster />
               </UnitsPreferenceProvider>
             </TimePreferenceProvider>

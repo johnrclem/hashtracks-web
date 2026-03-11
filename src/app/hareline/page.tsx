@@ -8,6 +8,7 @@ export const metadata: Metadata = {
 };
 import { getOrCreateUser } from "@/lib/auth";
 import { HarelineView } from "@/components/hareline/HarelineView";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 export default async function HarelinePage() {
   const [events, user] = await Promise.all([
@@ -81,12 +82,10 @@ export default async function HarelinePage() {
 
   return (
     <div>
-      <div>
-        <h1 className="text-2xl font-bold">The Hareline</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Discover upcoming and past hashing events.
-        </p>
-      </div>
+      <PageHeader
+        title="The Hareline"
+        description="Discover upcoming and past hashing events."
+      />
 
       <Suspense>
         <HarelineView

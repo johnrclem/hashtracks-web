@@ -1,7 +1,7 @@
 # Design Roadmap: HashTracks Visual Identity & Experience
 
-**Date:** March 8, 2026
-**Status:** Planning
+**Date:** March 8, 2026 (updated March 11, 2026)
+**Status:** 4 of 6 items shipped, 2 in progress
 
 ---
 
@@ -15,97 +15,102 @@ The goal is to evolve HashTracks from "it works" to "it feels like home" — giv
 
 ## Design Priorities (Ranked by Impact)
 
-### 1. Homepage / Landing Page
+### 1. Homepage / Landing Page ✅
 **Impact:** Highest — first impression, conversion driver
-**Status:** Not started
+**Status:** Shipped (PR #205)
 
-The current homepage is minimal: centered text, a few event preview cards, and two buttons. For a platform with 1,100+ events across 145 kennels in 43 regions, this should be a compelling pitch that immediately communicates value.
+Animated counters, feature sections, region ticker, live event feed. Added /about page and /for-misman landing page with misman teaser on homepage. All original goals met.
 
-**Goals:**
-- Bold visual hook that captures the energy of hashing
-- Clear value proposition for new visitors (what is this? why do I need it?)
-- Social proof (stats, activity, geographic reach)
-- Distinct sections for the three core experiences: Discover (Hareline), Track (Logbook), Connect (Kennels)
-- Strong CTAs that drive sign-up and exploration
-- Mobile-first responsive design
+**Shipped:**
+- [x] Bold visual hook that captures the energy of hashing
+- [x] Clear value proposition for new visitors (what is this? why do I need it?)
+- [x] Social proof (stats, activity, geographic reach)
+- [x] Distinct sections for the three core experiences: Discover (Hareline), Track (Logbook), Connect (Kennels)
+- [x] Strong CTAs that drive sign-up and exploration
+- [x] Mobile-first responsive design
 
 ---
 
-### 2. Hareline Event Cards
+### 2. Hareline Event Cards ✅
 **Impact:** Highest frequency — the #1 daily touchpoint
-**Status:** Not started
+**Status:** Shipped (PR #219)
 
-Event cards are functional but flat — white rounded rectangles with text. More visual hierarchy, better color use, and subtle interaction design would make the daily experience feel alive.
+Region-colored accents, gradient washes, RSVP glow indicators, hover animations, weather forecasts. RSVP color constants polished, weather API hardened. All original goals met.
 
-**Goals:**
-- Stronger visual hierarchy (kennel name, time, and title should scan instantly)
-- Better use of region colors beyond the small badge
-- "Going" / RSVP status more prominent
-- Hover/tap states with personality
-- Weather integration visual treatment
-- Location preview without requiring click-through
+**Shipped:**
+- [x] Stronger visual hierarchy (kennel name, time, and title should scan instantly)
+- [x] Better use of region colors beyond the small badge
+- [x] "Going" / RSVP status more prominent
+- [x] Hover/tap states with personality
+- [x] Weather integration visual treatment
+- [x] Location preview without requiring click-through
 
 ---
 
-### 3. Kennel Profile Pages
+### 3. Kennel Profile Pages ✅
 **Impact:** High — the "club homepage" for each kennel
-**Status:** Not started
+**Status:** Shipped (PR #210)
 
-Currently a plain text layout with info card, description, and event list. For kennels with decades of history, these should feel like living club pages.
+Hero section with region-colored theming + logo/initials fallback, trail location heatmap (Strava-style), achievement-style animated stats, unified QuickInfoCard with social links, EventTabs for upcoming/past. All original goals met.
 
-**Goals:**
-- Hero section with visual identity (logo if available, region color theming)
-- Stats presented as achievements, not plain text
-- Activity timeline / heatmap showing run frequency
-- Social links with better visual treatment
-- Upcoming vs. past events with clearer visual separation
-- Subscriber count as social proof
+**Shipped:**
+- [x] Hero section with visual identity (logo if available, region color theming)
+- [x] Stats presented as achievements, not plain text
+- [x] Activity timeline / heatmap showing run frequency
+- [x] Social links with better visual treatment
+- [x] Upcoming vs. past events with clearer visual separation
+- [x] Subscriber count as social proof
 
 ---
 
-### 4. Logbook & Personal Stats
+### 4. Logbook & Personal Stats 🔄
 **Impact:** High — the "Strava" emotional payoff
-**Status:** Not started
+**Status:** In progress (PR #211)
 
-The logbook is currently a data table. For the "Strava of Hashing" positioning, this should be the personal reward — visualizations of your hashing journey that make you feel accomplished and want to share.
+Animated bar charts (day-of-week + year-by-year), milestone icons with progress bars, stacked participation bar, region-colored borders.
 
-**Goals:**
-- Activity heatmap (GitHub-style contribution graph or calendar heat map)
-- Streak tracking with visual indicators
-- Milestone celebrations (animated badges at 25, 50, 100, etc.)
-- Per-kennel breakdown visualization (pie/bar chart)
-- Year-in-review summary stats
-- Shareable stats card (social media export)
+**Shipped:**
+- [x] Milestone celebrations (animated badges at 25, 50, 100, etc.)
+- [x] Per-kennel breakdown visualization (pie/bar chart)
+
+**Remaining:**
+- [ ] Activity heatmap (GitHub-style contribution graph or calendar heat map)
+- [ ] Streak tracking with visual indicators
+- [ ] Year-in-review summary stats
+- [ ] Shareable stats card (social media export)
 
 ---
 
-### 5. Navigation & Global Chrome
+### 5. Navigation & Global Chrome ✅
 **Impact:** Medium — affects every page, sets overall tone
-**Status:** Not started
+**Status:** Shipped (PRs #214, #216, #218, #226)
 
-The nav is text-only links with no logo/wordmark. A stronger header sets the tone for the entire product.
+Admin pill nav with icons, misman pill nav with icons + mobile active dot, header updated with Misman link visible to all and /about link. Outfit + JetBrains Mono fonts, Wordmark component, PageHeader standardization, mobile bottom nav (replaces hamburger), 3-column footer. All original goals met.
 
-**Goals:**
-- Logo / wordmark design (even text-based with personality)
-- More considered header design (spacing, hierarchy)
-- Mobile bottom navigation for thumb-friendly access
-- User avatar / profile quick-access refinement
-- Consistent page header treatment across all pages
-- Footer with personality (not just copyright text)
+**Shipped:**
+- [x] More considered header design (spacing, hierarchy)
+- [x] User avatar / profile quick-access refinement
+- [x] Logo / wordmark design (even text-based with personality)
+- [x] Mobile bottom navigation for thumb-friendly access
+- [x] Consistent page header treatment across all public pages
+- [x] Footer with personality (not just copyright text)
 
 ---
 
-### 6. Empty States & Onboarding
+### 6. Empty States & Onboarding 🔄
 **Impact:** Medium — critical for new user retention
-**Status:** Not started
+**Status:** In progress (PR #218)
 
-"No upcoming events" and similar empty states need designed treatments that guide users toward action.
+Admin empty states standardized across RequestQueue, MismanRequestQueue, RosterGroupsAdmin.
 
-**Goals:**
-- Illustrated or stylized empty states for each context
-- New user onboarding flow (subscribe to kennels, set home region)
-- First-run guidance on Hareline (explain filters, views)
-- Logbook zero-state that motivates first check-in
+**Shipped:**
+- [x] Standardized empty states for admin pages
+
+**Remaining:**
+- [ ] Illustrated or stylized empty states for public pages
+- [ ] New user onboarding flow (subscribe to kennels, set home region)
+- [ ] First-run guidance on Hareline (explain filters, views)
+- [ ] Logbook zero-state that motivates first check-in
 
 ---
 

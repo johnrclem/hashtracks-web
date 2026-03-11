@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChartNoAxesColumn } from "lucide-react";
 import { getOrCreateUser } from "@/lib/auth";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { prisma } from "@/lib/db";
 import { LogbookList } from "@/components/logbook/LogbookList";
 import { LogbookStatsCards } from "@/components/logbook/LogbookStatsCards";
@@ -71,24 +72,25 @@ export default async function LogbookPage() {
     (e) => e.attendance.status === "INTENDING" && new Date(e.event.date).getTime() > todayUtcNoon
   ).length;
 
+  const description = `${confirmedCount} ${confirmedCount === 1 ? "run" : "runs"} logged${
+    goingCount > 0 ? ` · ${goingCount} upcoming` : ""
+  }`;
+
   return (
     <div className="min-w-0">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Logbook</h1>
-          <p className="mt-1 text-muted-foreground">
-            {confirmedCount} {confirmedCount === 1 ? "run" : "runs"} logged
-            {goingCount > 0 && ` · ${goingCount} upcoming`}
-          </p>
-        </div>
-        <Link
-          href="/logbook/stats"
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-        >
-          <ChartNoAxesColumn size={14} />
-          View Stats
-        </Link>
-      </div>
+      <PageHeader
+        title="My Logbook"
+        description={description}
+        actions={
+          <Link
+            href="/logbook/stats"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            <ChartNoAxesColumn size={14} />
+            View Stats
+          </Link>
+        }
+      />
 
       {/* Inline stats cards */}
       {confirmedCount > 0 && (

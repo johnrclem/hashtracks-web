@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { LogbookStats } from "@/components/logbook/LogbookStats";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 export const metadata: Metadata = {
   title: "Stats · HashTracks",
@@ -128,33 +128,25 @@ export default async function StatsPage() {
 
   return (
     <div>
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/logbook" className="hover:text-foreground">
-          Logbook
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">Stats</span>
-      </nav>
+      <PageHeader
+        breadcrumb={[
+          { label: "Logbook", href: "/logbook" },
+          { label: "Stats" },
+        ]}
+        title="My Stats"
+        description="Your hashing career at a glance."
+      />
 
-      <div className="mt-4">
-        <h1 className="text-2xl font-bold">My Stats</h1>
-        <p className="mt-1 text-muted-foreground">
-          Your hashing career at a glance.
-        </p>
-      </div>
-
-      <div className="mt-6">
-        <LogbookStats
-          totalRuns={totalRuns}
-          totalHares={totalHares}
-          byKennel={byKennel}
-          byRegion={byRegion}
-          byLevel={byLevel}
-          byDayOfWeek={byDayOfWeek}
-          byYear={byYear}
-          milestones={milestones}
-        />
-      </div>
+      <LogbookStats
+        totalRuns={totalRuns}
+        totalHares={totalHares}
+        byKennel={byKennel}
+        byRegion={byRegion}
+        byLevel={byLevel}
+        byDayOfWeek={byDayOfWeek}
+        byYear={byYear}
+        milestones={milestones}
+      />
     </div>
   );
 }
