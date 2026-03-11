@@ -64,6 +64,7 @@ interface HarelineViewProps {
   subscribedKennelIds: string[];
   isAuthenticated: boolean;
   attendanceMap?: Record<string, AttendanceData>;
+  weatherMap?: Record<string, import("@/lib/weather").DailyWeather>;
 }
 
 interface FilterCriteria {
@@ -159,6 +160,7 @@ export function HarelineView({
   subscribedKennelIds,
   isAuthenticated,
   attendanceMap = {},
+  weatherMap = {},
 }: HarelineViewProps) {
   const searchParams = useSearchParams();
   const hasSubscriptions = subscribedKennelIds.length > 0;
@@ -461,6 +463,7 @@ export function HarelineView({
                     isSelected={selectedEvent?.id === event.id}
                     attendance={attendanceMap[event.id] ?? null}
                     hideDate
+                    weather={weatherMap[event.id] ?? null}
                   />
                 ))}
               </div>

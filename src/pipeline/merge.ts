@@ -6,7 +6,7 @@ import { regionTimezone, getLabelForUrl } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
-import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl } from "@/lib/geo";
+import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode } from "@/lib/geo";
 
 /**
  * Create EventLink records for an event from externalLinks + alternate sourceUrls.
@@ -337,6 +337,20 @@ async function upsertCanonicalEvent(
         longitude: existingEvent.longitude,
         locationAddress: existingEvent.locationAddress,
       }, ctx.shortUrlCache);
+
+      // Reverse-geocode city when we have new coords and locationCity isn't already set
+      let locationCity: string | null | undefined;
+      if (coords.latitude != null && coords.longitude != null) {
+        const coordsChanged =
+          coords.latitude !== existingEvent.latitude || coords.longitude !== existingEvent.longitude;
+        if (coordsChanged || !existingEvent.locationCity) {
+          locationCity = await reverseGeocode(coords.latitude, coords.longitude);
+        }
+      } else if ((event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) {
+        // Coords cleared — also clear city
+        locationCity = null;
+      }
+
       await prisma.event.update({
         where: { id: existingEvent.id },
         data: {
@@ -361,6 +375,8 @@ async function upsertCanonicalEvent(
             : (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)
               ? { latitude: null, longitude: null }
               : {}),
+          // Reverse-geocoded city (only set when computed above)
+          ...(locationCity !== undefined ? { locationCity } : {}),
         },
       });
     }
@@ -384,6 +400,10 @@ async function upsertCanonicalEvent(
   } else {
     // Create new canonical Event
     const coords = await resolveCoords(event, undefined, ctx.shortUrlCache);
+    // Reverse-geocode city when coords are available
+    const locationCity = (coords.latitude != null && coords.longitude != null)
+      ? await reverseGeocode(coords.latitude, coords.longitude)
+      : null;
     const newEvent = await prisma.event.create({
       data: {
         kennelId,
@@ -401,6 +421,7 @@ async function upsertCanonicalEvent(
         trustLevel: ctx.trustLevel,
         latitude: coords.latitude,
         longitude: coords.longitude,
+        locationCity,
       },
     });
 

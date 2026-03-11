@@ -293,6 +293,7 @@ model Event {
   description     String?
   haresText       String?     // Display text: "Mudflap, Just Simon"
   locationName    String?     // Start location name
+  locationCity    String?     // Reverse-geocoded city, e.g. "Williamsport, MD"
   locationAddress String?
   latitude        Float?
   longitude       Float?

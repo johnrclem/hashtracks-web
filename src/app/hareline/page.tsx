@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
+import { getWeatherForEvents } from "@/lib/weather";
 
 export const metadata: Metadata = {
   title: "Hareline · HashTracks",
@@ -45,6 +46,17 @@ export default async function HarelinePage() {
     }
   }
 
+  // Fetch weather for upcoming events within 10-day window
+  const weatherMap = await getWeatherForEvents(
+    events.map((e) => ({
+      id: e.id,
+      date: e.date,
+      latitude: e.latitude,
+      longitude: e.longitude,
+      kennel: { region: e.kennel.region },
+    })),
+  );
+
   // Serialize dates for client component
   const serializedEvents = events.map((e) => ({
     id: e.id,
@@ -58,6 +70,7 @@ export default async function HarelinePage() {
     haresText: e.haresText,
     startTime: e.startTime,
     locationName: e.locationName,
+    locationCity: e.locationCity,
     locationAddress: e.locationAddress,
     description: e.description,
     sourceUrl: e.sourceUrl,
@@ -81,6 +94,7 @@ export default async function HarelinePage() {
           subscribedKennelIds={subscribedKennelIds}
           isAuthenticated={!!user}
           attendanceMap={attendanceMap}
+          weatherMap={weatherMap}
         />
       </Suspense>
     </div>
