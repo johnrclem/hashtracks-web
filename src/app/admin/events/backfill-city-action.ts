@@ -54,9 +54,10 @@ export async function backfillEventCities(): Promise<{
   let filled = 0;
   let failed = 0;
 
-  // Batch reverse-geocode: 10 concurrent requests at a time
-  for (let i = 0; i < coordEntries.length; i += 10) {
-    const batch = coordEntries.slice(i, i + 10);
+  // Batch reverse-geocode with bounded concurrency
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < coordEntries.length; i += BATCH_SIZE) {
+    const batch = coordEntries.slice(i, i + BATCH_SIZE);
     const results = await Promise.allSettled(
       batch.map(async ([key]) => {
         const [lat, lng] = key.split(",").map(Number);
@@ -65,12 +66,15 @@ export async function backfillEventCities(): Promise<{
       }),
     );
 
-    for (const r of results) {
+    for (let j = 0; j < results.length; j++) {
+      const r = results[j];
+      const key = batch[j][0];
+      const eventCount = coordToEventIds.get(key)?.length ?? 0;
       if (r.status === "fulfilled" && r.value.city) {
-        coordToCity.set(r.value.key, r.value.city);
-        filled += coordToEventIds.get(r.value.key)?.length ?? 0;
+        coordToCity.set(key, r.value.city);
+        filled += eventCount;
       } else {
-        failed++;
+        failed += eventCount;
       }
     }
   }
