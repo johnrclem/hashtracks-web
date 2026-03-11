@@ -266,6 +266,7 @@ describe("getEventAttendance", () => {
           hashName: "Mudflap",
           nerdName: "John",
           kennelId: "kennel_1",
+          _count: { attendances: 5 },
         },
         recordedByUser: { hashName: "Trail Boss", email: "boss@test.com" },
       },
