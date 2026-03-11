@@ -201,6 +201,7 @@ interface AlertWithSource {
     name: string;
     url: string;
     type: string;
+    enabled: boolean;
   };
 }
 
@@ -435,13 +436,19 @@ export async function autoFileIssuesForAlerts(
   // Fetch alerts with source info
   const alerts = await prisma.alert.findMany({
     where: { id: { in: alertIds }, sourceId },
-    include: { source: { select: { name: true, url: true, type: true } } },
+    include: { source: { select: { name: true, url: true, type: true, enabled: true } } },
   });
 
   let filed = 0;
   let skipped = 0;
 
   for (const alert of alerts) {
+    // Skip disabled sources — no issues should be filed for sources that are intentionally turned off
+    if (!alert.source.enabled) {
+      skipped++;
+      continue;
+    }
+
     // Only auto-file for eligible types and severities
     if (!AUTO_FILE_ALERT_TYPES.has(alert.type) || !AUTO_FILE_SEVERITIES.has(alert.severity)) {
       skipped++;

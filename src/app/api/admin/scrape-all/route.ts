@@ -10,6 +10,7 @@ export async function POST() {
   }
 
   const sources = await prisma.source.findMany({
+    where: { enabled: true },
     select: { id: true, name: true, scrapeDays: true },
   });
 
