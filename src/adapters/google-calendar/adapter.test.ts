@@ -209,3 +209,13 @@ describe("extractHares", () => {
     ).toBeUndefined();
   });
 });
+
+// ── HTML entity decoding in titles ──
+
+describe("extractTitle — HTML entities", () => {
+  it("handles pre-decoded title (entities decoded before extractTitle)", () => {
+    // decodeEntities is applied to summary before extractTitle in buildRawEventFromGCalItem
+    // so extractTitle receives already-decoded text
+    expect(extractTitle("SHITH3: St. Patricshit's Day")).toBe("St. Patricshit's Day");
+  });
+});

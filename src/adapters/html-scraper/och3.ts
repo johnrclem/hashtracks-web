@@ -295,7 +295,11 @@ export class OCH3Adapter implements SourceAdapter {
     }
 
     // Parse run list using line-based strategy
-    const mainContent = runListResult.$("main, .main-content, #content, .wsite-section-wrap, body").first().text();
+    // Remove script/style/noscript elements first — Cheerio .text() includes their
+    // text content, which caused raw JS (Google Analytics, etc.) to bleed into event data
+    const $main = runListResult.$("main, .main-content, #content, .wsite-section-wrap, body").first();
+    $main.find("script, style, noscript").remove();
+    const mainContent = $main.text();
     const events = parseOCH3EntriesFromText(mainContent, runListUrl);
 
     // Attempt detail page enrichment

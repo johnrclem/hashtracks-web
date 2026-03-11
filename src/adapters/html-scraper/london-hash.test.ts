@@ -612,3 +612,28 @@ describe("LondonHashAdapter.fetch", () => {
     vi.restoreAllMocks();
   });
 });
+
+// ── Inline element concatenation fix ──
+
+describe("parseRunBlocks — inline element spacing", () => {
+  it("inserts space between adjacent span elements to prevent concatenation", () => {
+    const html = `
+      <html><body>
+      <div id="runListHolder">
+        <div class="runListDetails">
+          <div class="runlistRow">
+            <div class="runlistCat runlistNo"><a href="nextrun.php?run=2285">2285</a></div>
+            <div class="runlistDate">Saturday 22nd of February 2026<br />12 Noon</div>
+            <div class="runlistHare">Hared by <span>Not Out and Big In Japan</span><span>What Else</span></div>
+          </div>
+        </div>
+      </div>
+      </body></html>
+    `;
+    const blocks = parseRunBlocks(html);
+    expect(blocks).toHaveLength(1);
+    // Hare names should be separated by space, not concatenated
+    expect(blocks[0].text).toContain("Not Out and Big In Japan");
+    expect(blocks[0].text).not.toContain("JapanWhat");
+  });
+});

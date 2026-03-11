@@ -50,6 +50,8 @@ export function parseRunBlocks(html: string): RunBlock[] {
 
       // Replace <br> with newlines so date/time don't concatenate
       $block.find("br").replaceWith("\n");
+      // Insert space after inline elements to prevent "Name1Name2" concatenation
+      $block.find("span, a, strong, em, b, i").after(" ");
       const text = $block.text().trim();
 
       blocks.push({ runNumber, runId, text });

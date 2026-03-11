@@ -392,4 +392,37 @@ describe("OCH3Adapter.fetch", () => {
 
     vi.restoreAllMocks();
   });
+
+  it("strips script and style elements from page content", async () => {
+    const htmlWithScripts = `
+      <html><body>
+      <script>var _gaq = _gaq || []; _gaq.push(['_setAccount', 'UA-7870337-1']);</script>
+      <style>.header { color: red; }</style>
+      <div class="wsite-section-wrap">
+        <script>document.write('injected');</script>
+        <p>Upcoming Runs:</p>
+        <p>1st March 2026 - Linda 'One in the Eye' Cooper - Outwood</p>
+      </div>
+      </body></html>
+    `;
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(htmlWithScripts, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new OCH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "http://www.och3.org.uk/upcoming-run-list.html",
+    } as never);
+
+    // Should parse the event without script content bleeding in
+    expect(result.events.length).toBeGreaterThanOrEqual(1);
+    const allText = result.events.map(e => `${e.title ?? ""} ${e.hares ?? ""} ${e.location ?? ""}`).join(" ");
+    expect(allText).not.toContain("_gaq");
+    expect(allText).not.toContain("document.write");
+    expect(allText).not.toContain("color: red");
+
+    vi.restoreAllMocks();
+  });
 });

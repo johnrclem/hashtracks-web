@@ -353,3 +353,21 @@ describe("OFH3Adapter.fetch (HTML fallback path)", () => {
     expect(result.errors).toHaveLength(1);
   });
 });
+
+// ── Location address concatenation fix ──
+
+describe("parseOfh3Body — newline-delimited fields", () => {
+  it("stops location capture at next line (description doesn't bleed in)", () => {
+    const text = "Where: 6079 Spring Ridge Pkwy, Frederick, MD 21701\nSouth Side of Parking lot closest to the Subway.";
+    const result = parseOfh3Body(text);
+    expect(result.location).toBe("6079 Spring Ridge Pkwy, Frederick, MD 21701");
+    expect(result.location).not.toContain("South Side");
+  });
+
+  it("captures location when followed by another label", () => {
+    const text = "Where: Blue Heron Elementary\nTrail Type: A-A";
+    const result = parseOfh3Body(text);
+    expect(result.location).toBe("Blue Heron Elementary");
+    expect(result.trailType).toBe("A-A");
+  });
+});

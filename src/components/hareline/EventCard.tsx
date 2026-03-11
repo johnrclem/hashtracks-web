@@ -63,14 +63,18 @@ export { formatDate };
 
 // ── Display helpers ──
 
-/** Display title for events with missing or parenthetical titles. */
+/** Display title for events with missing, parenthetical, or kennel-name-only titles. */
 function getDisplayTitle(event: HarelineEvent): string {
   const title = event.title?.trim() ?? "";
-  if (!title || /^\(.*\)$/.test(title)) {
-    return event.runNumber
-      ? `${event.kennel.shortName} \u2014 Run #${event.runNumber}`
-      : event.kennel.shortName;
-  }
+  const fallback = event.runNumber
+    ? `${event.kennel.shortName} \u2014 Run #${event.runNumber}`
+    : event.kennel.shortName;
+  if (!title || /^\(.*\)$/.test(title)) return fallback;
+  // Suppress titles that just repeat the kennel name (e.g., "SPH3", "O2H3 Hash")
+  const norm = title.toLowerCase().replace(/\s+hash$/i, "").replace(/\s+h3$/i, "").trim();
+  const kennelNorm = event.kennel.shortName.toLowerCase().trim();
+  const fullNorm = (event.kennel.fullName ?? "").toLowerCase().trim();
+  if (norm === kennelNorm || (fullNorm && norm === fullNorm)) return fallback;
   return title;
 }
 
@@ -91,7 +95,11 @@ function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null
 function getLocationDisplay(event: HarelineEvent): string | null {
   const name = event.locationName?.replace(/https?:\/\/\S+/g, "").trim() || null;
   const city = event.locationCity;
-  if (name && city) return `${name}, ${city}`;
+  if (name && city) {
+    // Don't append city if it's already embedded in the location name
+    if (name.toLowerCase().includes(city.toLowerCase())) return name;
+    return `${name}, ${city}`;
+  }
   return city || name || null;
 }
 

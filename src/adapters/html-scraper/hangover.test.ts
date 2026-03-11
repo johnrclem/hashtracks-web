@@ -559,3 +559,29 @@ describe("HangoverAdapter HTML scraping (legacy)", () => {
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 });
+
+// ── Location address concatenation fix ──
+
+describe("parseHangoverBody — Cost/Directions boundary", () => {
+  it("stops location capture at Cost: label", () => {
+    const text = "Location: Hyattstown Fire Dept, 25801 Frederick Rd, Clarksburg, MD 20871\nCost: $20.00 for beer";
+    const result = parseHangoverBody(text);
+    expect(result.location).toBe("Hyattstown Fire Dept, 25801 Frederick Rd, Clarksburg, MD 20871");
+    expect(result.location).not.toContain("$20");
+  });
+
+  it("stops location capture at Directions: label", () => {
+    const text = "Location: The Pub, 123 Main St\nDirections: Take I-270 North";
+    const result = parseHangoverBody(text);
+    expect(result.location).toBe("The Pub, 123 Main St");
+    expect(result.location).not.toContain("270");
+  });
+});
+
+describe("extractTrailSection — br preservation", () => {
+  it("preserves <br> as newlines in trail section", () => {
+    const html = `<hr><p>Location: Venue Name<br>123 Street<br>City, MD 21701</p>`;
+    const result = extractTrailSection(html);
+    expect(result).toContain("Venue Name\n123 Street\nCity, MD 21701");
+  });
+});

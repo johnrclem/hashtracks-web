@@ -4,7 +4,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchBloggerPosts } from "../blogger-api";
-import { chronoParseDate, decodeEntities, isPlaceholder } from "../utils";
+import { chronoParseDate, decodeEntities, isPlaceholder, stripHtmlTags } from "../utils";
 
 /**
  * Parse a date string from OFH3 content.
@@ -199,9 +199,9 @@ export class OFH3Adapter implements SourceAdapter {
     for (let i = 0; i < bloggerResult.posts.length; i++) {
       const post = bloggerResult.posts[i];
 
-      // Extract text from HTML content
-      const $ = cheerio.load(post.content);
-      const bodyText = $.text();
+      // Extract text from HTML content, preserving <br>/block boundaries as newlines
+      // so label-based field parsing can correctly delimit fields like "Where: address"
+      const bodyText = stripHtmlTags(post.content, "\n");
       const titleText = decodeEntities(post.title);
       const postUrl = post.url;
 
