@@ -78,19 +78,20 @@ export function resolveVenue(
     if (!nameMatch) parts.push(resolved.address);
   }
 
-  const joined = () => parts.join(", ");
-
   if (resolved.city) {
     // Skip city if it's a substring of already-joined prior parts
-    if (!joined().toLowerCase().includes(resolved.city.toLowerCase())) {
+    const priorText = parts.join(", ").toLowerCase();
+    if (!priorText.includes(resolved.city.toLowerCase())) {
       parts.push(resolved.city);
     }
   }
 
   if (resolved.state) {
     // Skip state if it appears as a word-boundary match in prior parts
+    // (word boundary prevents "NY" matching inside "DANNY")
+    const priorText = parts.join(", ");
     const stateRe = new RegExp(`\\b${resolved.state.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-    if (!stateRe.test(joined())) {
+    if (!stateRe.test(priorText)) {
       parts.push(resolved.state);
     }
   }
