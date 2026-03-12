@@ -682,8 +682,8 @@ describe("sanitizeLocation", () => {
     expect(sanitizeLocation("The Pub")).toBe("The Pub");
   });
 
-  it("preserves location with embedded URL text", () => {
-    expect(sanitizeLocation("The Pub https://example.com")).toBe("The Pub https://example.com");
+  it("strips embedded URLs from location text", () => {
+    expect(sanitizeLocation("The Pub https://example.com")).toBe("The Pub");
   });
 
   it("returns null for Registration: URL values", () => {
@@ -692,6 +692,14 @@ describe("sanitizeLocation", () => {
 
   it("returns null for bare 'Registration' placeholder", () => {
     expect(sanitizeLocation("Registration")).toBeNull();
+  });
+
+  it("returns null for placeholder revealed after URL stripping", () => {
+    expect(sanitizeLocation("TBD https://example.com")).toBeNull();
+  });
+
+  it("uppercases state abbreviation without space after comma", () => {
+    expect(sanitizeLocation("The Pub, Charleston,sc")).toBe("The Pub, Charleston, SC");
   });
 });
 
