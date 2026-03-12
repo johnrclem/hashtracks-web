@@ -61,7 +61,7 @@ function collectSiblingText(
   const parts: string[] = [];
   let node = start;
   while (node) {
-    const $n = $(node as AnyNode);
+    const $n = $(node as unknown as AnyNode);
     $n.find?.("br").replaceWith("\n");
     const t = $n.text().trim();
     if (t) parts.push(t);
