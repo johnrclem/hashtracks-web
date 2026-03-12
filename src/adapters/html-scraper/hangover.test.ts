@@ -585,3 +585,123 @@ describe("extractTrailSection — br preservation", () => {
     expect(result).toContain("Venue Name\n123 Street\nCity, MD 21701");
   });
 });
+
+describe("extractTrailSection — trail before <hr> (post #212 structure)", () => {
+  it("returns before-hr text when trail header is before <hr>", () => {
+    const html = `
+      <h2>H4 Trail #212</h2>
+      <p>Thursday January 1st, 2026</p>
+      <p>Hare(s): Straight in the Navy</p>
+      <p>Where: Black Hill Regional Park, 20926 Lake Ridge Dr, Boyds, MD 20841</p>
+      <hr>
+      <h2>Hangover Helper</h2>
+      <p>Where: Hyattstown Volunteer Fire Department</p>
+      <p>Cost: $20.00</p>
+    `;
+    const result = extractTrailSection(html);
+    expect(result).toContain("H4 Trail #212");
+    expect(result).toContain("Black Hill Regional Park");
+    expect(result).toContain("Straight in the Navy");
+    expect(result).not.toContain("Hyattstown");
+    expect(result).not.toContain("Hangover Helper");
+  });
+
+  it("still returns after-hr text for standard prelubes → trail structure", () => {
+    const html = `
+      <h2>Prelubes</h2>
+      <p>Friday prelube at 6pm at Some Bar</p>
+      <hr>
+      <h2>H4 Trail #215</h2>
+      <p>Date: Sunday, March 8th, 2026</p>
+    `;
+    const result = extractTrailSection(html);
+    expect(result).toContain("H4 Trail #215");
+    expect(result).toContain("March 8th");
+    expect(result).not.toContain("Friday prelube");
+  });
+});
+
+describe("parseHangoverDate — no-comma day-of-week", () => {
+  it("parses 'Thursday January 1st, 2026' (no comma after day)", () => {
+    // This goes through parseHangoverBody's chrono fallback (no Date: label)
+    const result = parseHangoverBody("Thursday January 1st, 2026 Hare(s): Test");
+    expect(result.date).toBe("2026-01-01");
+  });
+
+  it("parses 'Sunday January 11th, 2026' (no comma after day)", () => {
+    const result = parseHangoverBody("Sunday January 11th, 2026 Hare(s): Test");
+    expect(result.date).toBe("2026-01-11");
+  });
+});
+
+describe("parseHangoverBody — compact no-label format (post #212)", () => {
+  it("extracts date, hares, and location from compact format", () => {
+    const text = [
+      "H4 Trail #212",
+      "Thursday January 1st, 2026",
+      "Hare(s): Straight in the Navy",
+      "Where: Black Hill Regional Park, 20926 Lake Ridge Dr, Boyds, MD 20841",
+    ].join("\n");
+    const result = parseHangoverBody(text);
+    expect(result.date).toBe("2026-01-01");
+    expect(result.hares).toBe("Straight in the Navy");
+    expect(result.location).toContain("Black Hill Regional Park");
+  });
+});
+
+describe("HangoverAdapter Ghost API — post #212 trail-before-hr", () => {
+  let adapter: HangoverAdapter;
+
+  beforeEach(() => {
+    adapter = new HangoverAdapter();
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  it("extracts correct date and location from trail-before-hr post", async () => {
+    const response = {
+      posts: [
+        {
+          title: "#212 – The Hangover H3 New Years 2026 Trail",
+          url: "https://hangoverhash.digitalpress.blog/212/",
+          html: `
+            <h2>H4 Trail #212</h2>
+            <p>Thursday January 1st, 2026</p>
+            <p>Hare(s): Straight in the Navy</p>
+            <p>Where: Black Hill Regional Park, 20926 Lake Ridge Dr, Boyds, MD 20841</p>
+            <p>Hash Cash: $7.00 US</p>
+            <p>Pack Away at 10:15am</p>
+            <hr>
+            <h2>Hangover Helper</h2>
+            <p>Where: Hyattstown Volunteer Fire Department, 26161 Frederick Rd, Clarksburg, MD 20871</p>
+            <p>Cost: $20.00</p>
+          `,
+          published_at: "2025-12-24T12:00:00.000Z",
+        },
+      ],
+    };
+
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(response), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }) as never,
+    );
+
+    const result = await adapter.fetch({
+      id: "test-h4",
+      url: "https://hangoverhash.digitalpress.blog/",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({
+      date: "2026-01-01",
+      kennelTag: "H4",
+      runNumber: 212,
+      title: "The Hangover H3 New Years 2026 Trail",
+      hares: "Straight in the Navy",
+      startTime: "10:15",
+    });
+    expect(result.events[0].location).toContain("Black Hill Regional Park");
+    expect(result.events[0].location).not.toContain("Hyattstown");
+  });
+});

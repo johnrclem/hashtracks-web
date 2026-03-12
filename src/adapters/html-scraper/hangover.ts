@@ -7,6 +7,7 @@ import { safeFetch } from "../safe-fetch";
 import { chronoParseDate, parse12HourTime, googleMapsSearchUrl } from "../utils";
 
 const DEFAULT_START_TIME = "10:15";
+const TRAIL_MARKER = /H4 Trail\s*#\d+/i;
 
 /**
  * Ghost Content API key — this is a public read-only key embedded in every page
@@ -51,30 +52,46 @@ const parseTime = parse12HourTime;
  *
  * Exported for testing.
  */
+/** Collect text from consecutive siblings, preserving <br> as newlines. */
+function collectSiblingText(
+  $: cheerio.CheerioAPI,
+  start: ChildNode | undefined | null,
+  direction: "forward" | "backward",
+): string {
+  const parts: string[] = [];
+  let node = start;
+  while (node) {
+    const $n = $(node as AnyNode);
+    $n.find?.("br").replaceWith("\n");
+    const t = $n.text().trim();
+    if (t) parts.push(t);
+    node = direction === "forward" ? node.nextSibling : node.previousSibling;
+  }
+  if (direction === "backward") parts.reverse();
+  return parts.join("\n");
+}
+
 export function extractTrailSection(html: string): string {
   const $ = cheerio.load(html);
   const hr = $("hr").first();
 
   if (hr.length === 0) {
     // No <hr> separator — return full text (older posts may not have prelubes)
-    // Preserve <br> as newlines so multi-line addresses don't concatenate
     $("br").replaceWith("\n");
     return $.text().trim();
   }
 
-  // Collect all text content after the <hr>
-  const parts: string[] = [];
-  let node = hr.get(0)?.nextSibling;
-  while (node) {
-    const $node = $(node as AnyNode);
-    // Preserve <br> as newlines within each block so address lines don't concatenate
-    $node.find?.("br").replaceWith("\n");
-    const text = $node.text().trim();
-    if (text) parts.push(text);
-    node = node.nextSibling;
+  const beforeText = collectSiblingText($, hr.get(0)?.previousSibling, "backward");
+  const afterText = collectSiblingText($, hr.get(0)?.nextSibling, "forward");
+
+  // Return whichever section contains the trail header; if the trail marker
+  // appears before <hr> (and NOT after), trail data is in the first section.
+  if (TRAIL_MARKER.test(beforeText) && !TRAIL_MARKER.test(afterText)) {
+    return beforeText;
   }
 
-  return parts.join("\n");
+  // Default: after <hr> (prelubes → trail case)
+  return afterText;
 }
 
 export function parseHangoverBody(text: string): {
@@ -104,7 +121,13 @@ export function parseHangoverBody(text: string): {
   // Fallback: use chrono-node on the full text when no Date:/When: label present.
   // Safe when text has been pre-filtered via extractTrailSection (no prelube dates).
   if (!date) {
-    date = chronoParseDate(text, "en-US") ?? undefined;
+    // Normalize "Thursday January 1st, 2026" → "Thursday, January 1st, 2026"
+    // Without the comma, chrono may treat the day-of-week as a separate reference.
+    const dayMonthNormalized = text.replace(
+      /\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(January|February|March|April|May|June|July|August|September|October|November|December)/gi,
+      "$1, $2",
+    );
+    date = chronoParseDate(dayMonthNormalized, "en-US") ?? undefined;
   }
 
   const hareMatch = normalized.match(/(?:^|\n)\s*Hare(?:\(s\)|s)?\s*:\s*(.+?)(?=\n|$)/im);
