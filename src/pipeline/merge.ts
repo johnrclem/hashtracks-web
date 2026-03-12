@@ -7,6 +7,7 @@ import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
 import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode } from "@/lib/geo";
+import { isPlaceholder } from "@/adapters/utils";
 
 /**
  * Create EventLink records for an event from externalLinks + alternate sourceUrls.
@@ -242,6 +243,20 @@ export function sanitizeTitle(title: string | undefined): string | null {
 }
 
 /**
+ * Sanitize location names: filter placeholders (TBA/TBD) and bare URLs.
+ * Returns null for locations that are not meaningful display text.
+ */
+export function sanitizeLocation(location: string | undefined): string | null {
+  if (!location) return null;
+  const t = location.trim();
+  if (!t) return null;
+  if (isPlaceholder(t)) return null;
+  // Strip bare URLs (not useful as location names)
+  if (/^https?:\/\/\S+$/.test(t)) return null;
+  return t;
+}
+
+/**
  * Resolve coordinates for a raw event: explicit coords → URL extraction → geocode fallback.
  * Optionally skips geocoding if the canonical event already has stored coords and
  * the location text hasn't changed.
@@ -375,7 +390,7 @@ async function upsertCanonicalEvent(
           title: sanitizeTitle(event.title),
           description: event.description ?? null,
           haresText: event.hares ?? null,
-          locationName: event.location ?? null,
+          locationName: sanitizeLocation(event.location),
           locationAddress: event.locationUrl ?? null,
           startTime: event.startTime ?? existingEvent.startTime,
           dateUtc,
@@ -429,7 +444,7 @@ async function upsertCanonicalEvent(
         title: sanitizeTitle(event.title),
         description: event.description,
         haresText: event.hares,
-        locationName: event.location,
+        locationName: sanitizeLocation(event.location),
         locationAddress: event.locationUrl,
         startTime: event.startTime,
         sourceUrl: event.sourceUrl,

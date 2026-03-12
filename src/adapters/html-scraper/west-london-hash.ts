@@ -10,7 +10,7 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { chronoParseDate, extractUkPostcode, googleMapsSearchUrl, validateSourceUrl } from "../utils";
+import { chronoParseDate, extractUkPostcode, googleMapsSearchUrl, isPlaceholder, validateSourceUrl } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
 /**
@@ -39,7 +39,12 @@ export function parseLocationFromHeading(heading: string): string | null {
   // Match year (20xx) immediately followed by a dash then location text (starts with letter)
   // Key: no whitespace between year and dash — "2026-Clapham" not "2081 – 19 Feb"
   const match = heading.match(/20\d{2}[-–—]([A-Za-z].+)$/);
-  return match ? match[1].trim() : null;
+  if (!match) return null;
+  const loc = match[1].trim();
+  // Filter placeholder values like "TBA" or "Location TBA"
+  const prefixStripped = loc.replace(/^Location\s+/i, "");
+  if (isPlaceholder(prefixStripped)) return null;
+  return loc;
 }
 
 /** @deprecated Use extractUkPostcode from ../utils instead */
@@ -96,8 +101,9 @@ export function parseRunItem(
     }
   });
 
-  // Build location: prefer venue address, fall back to heading location
-  const location = venueAddress || locationFromHeading || undefined;
+  // Build location: prefer venue address, fall back to heading location (filter placeholders)
+  const filteredVenue = venueAddress && !isPlaceholder(venueAddress) ? venueAddress : null;
+  const location = filteredVenue || locationFromHeading || undefined;
   const locationUrl = postcode ? mapsUrl(postcode) : (locationFromHeading ? mapsUrl(locationFromHeading) : undefined);
 
   // Build title

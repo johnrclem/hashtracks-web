@@ -7,7 +7,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { chronoParseDate, parse12HourTime, fetchHTMLPage } from "../utils";
+import { chronoParseDate, isPlaceholder, parse12HourTime, fetchHTMLPage } from "../utils";
 
 /** Max detail pages to fetch per scrape (only first N events). */
 const MAX_DETAIL_FETCHES = 3;
@@ -152,16 +152,21 @@ export function parseLocationFromBlock(text: string): { location?: string; stati
     /(?:Follow|P\s*trail)\s+(?:the\s+P\s+trail\s+)?from\s+(.+?)\s+(?:station\s+)?to\s+(.+?)(?:\n|$|\*)/i,
   );
   if (pTrailMatch) {
-    return {
-      station: pTrailMatch[1].trim(),
-      location: pTrailMatch[2].trim(),
-    };
+    const station = pTrailMatch[1].trim();
+    const loc = pTrailMatch[2].trim();
+    // Filter placeholder or announcement text (e.g., "to be announced")
+    if (isPlaceholder(loc) || /\bannounce/i.test(loc)) {
+      return { station };
+    }
+    return { station, location: loc };
   }
 
   // "Start: LOCATION" pattern
   const startMatch = text.match(/Start:\s*(.+?)(?:\n|$|\*)/i);
   if (startMatch) {
-    return { location: startMatch[1].trim() };
+    const loc = startMatch[1].trim();
+    if (isPlaceholder(loc)) return {};
+    return { location: loc };
   }
 
   return {};

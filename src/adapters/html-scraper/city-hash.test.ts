@@ -137,6 +137,20 @@ describe("parseMakesweatEvent", () => {
     expect(event!.hares).toBe("TBC");
   });
 
+  it("skips TBC/TBD venue via isPlaceholder — location is undefined", () => {
+    const tbcHtml = `<div class="ms_event">
+      <div class="ms_eventtitle">City Hash R*n #1920 @ TBC</div>
+      <div class="ms_event_startdate">Tue 5th May 26</div>
+      <div class="ms_eventstart">7:00pm</div>
+      <div class="ms_eventdescription"></div>
+      <div class="ms_venue_name">TBC</div>
+    </div>`;
+    const $tbc = cheerio.load(tbcHtml);
+    const event = parseMakesweatEvent($tbc, $tbc(".ms_event").eq(0), "https://makesweat.com/cityhash#hashes");
+    expect(event).not.toBeNull();
+    expect(event!.location).toBeUndefined();
+  });
+
   it("extracts Makesweat ID from class attribute", () => {
     expect(extractMakesweatId(cards.eq(0))).toBe("12345");
   });
