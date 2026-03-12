@@ -662,6 +662,26 @@ describe("sanitizeLocation", () => {
     expect(sanitizeLocation("  ")).toBeNull();
   });
 
+  it("removes exact duplicate segments", () => {
+    expect(sanitizeLocation("Brooklyn, NY, Brooklyn, NY")).toBe("Brooklyn, NY");
+  });
+
+  it("deduplicates segments case-insensitively", () => {
+    expect(sanitizeLocation("The Pub, the pub, Boston, MA")).toBe("The Pub, Boston, MA");
+  });
+
+  it("deduplicates full garbled Meetup venue string", () => {
+    expect(sanitizeLocation("Miami Miami, FL, Miami Miami, FL, Florida, FL")).toBe("Miami Miami, FL, Florida");
+  });
+
+  it("preserves normal multi-segment locations", () => {
+    expect(sanitizeLocation("Central Park Tavern, 100 W 67th St, New York, NY")).toBe("Central Park Tavern, 100 W 67th St, New York, NY");
+  });
+
+  it("preserves single-segment locations (no commas)", () => {
+    expect(sanitizeLocation("The Pub")).toBe("The Pub");
+  });
+
   it("strips embedded URLs from location text", () => {
     expect(sanitizeLocation("The Pub https://example.com")).toBe("The Pub");
   });

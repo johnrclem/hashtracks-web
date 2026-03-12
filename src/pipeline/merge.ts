@@ -268,12 +268,26 @@ export function sanitizeLocation(location: string | undefined): string | null {
   // Strip bare URLs (not useful as location names)
   if (/^https?:\/\/\S+$/.test(t)) return null;
   // Clean up embedded URLs, double commas, extra whitespace, normalize state abbrev
-  const cleaned = stripUrlsFromText(t)
+  let cleaned = stripUrlsFromText(t)
     .replace(/,\s*,/g, ",")
     .replace(/^,+|,+$/g, "")
     .trim()
     .replace(/,\s*([a-z]{2})$/i, (_, st: string) => `, ${st.toUpperCase()}`);
   if (!cleaned || isPlaceholder(cleaned)) return null;
+  // Deduplicate comma-separated segments (case-insensitive, keep first occurrence)
+  const segments = cleaned.split(", ");
+  if (segments.length > 1) {
+    const seen = new Set<string>();
+    const unique: string[] = [];
+    for (const seg of segments) {
+      const key = seg.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(seg);
+      }
+    }
+    cleaned = unique.join(", ");
+  }
   return cleaned;
 }
 
