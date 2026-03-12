@@ -565,6 +565,19 @@ describe("sanitizeLocationUrl", () => {
     expect(updateCall.data.locationAddress).toBeNull();
   });
 
+  it("filters Google My Maps URLs with multi-part TLDs (google.co.uk)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ locationUrl: "https://www.google.co.uk/maps/d/viewer?mid=abc123" }),
+    ]);
+
+    const createCall = mockEventCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(createCall.data.locationAddress).toBeNull();
+  });
+
   it("passes through valid Google Maps URLs", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);

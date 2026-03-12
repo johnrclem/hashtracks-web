@@ -262,7 +262,7 @@ export function sanitizeLocation(location: string | undefined): string | null {
 function sanitizeLocationUrl(url: string | undefined): string | null {
   if (!url) return null;
   // Google My Maps viewer/editor URLs are not place links
-  if (/google\.\w+\/maps\/d\//i.test(url)) return null;
+  if (/google\.[\w.]+\/maps\/d\//i.test(url)) return null;
   return url;
 }
 

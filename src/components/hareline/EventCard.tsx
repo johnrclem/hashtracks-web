@@ -64,14 +64,14 @@ export { formatDate };
 // ── Display helpers ──
 
 /** Display title for events with missing, parenthetical, or kennel-name-only titles. */
-function getDisplayTitle(event: HarelineEvent): string {
+function getDisplayTitle(event: HarelineEvent): { title: string; isFallback: boolean } {
   const title = event.title?.trim() ?? "";
   const fallback = event.runNumber
     ? `${event.kennel.shortName} \u2014 Run #${event.runNumber}`
     : event.kennel.shortName;
-  if (!title || /^\(.*\)$/.test(title)) return fallback;
+  if (!title || /^\(.*\)$/.test(title)) return { title: fallback, isFallback: true };
   // Suppress titles that are just a run number (e.g., "Run #42", "Run 123")
-  if (/^run\s*#?\d+$/i.test(title)) return fallback;
+  if (/^run\s*#?\d+$/i.test(title)) return { title: fallback, isFallback: true };
   // Suppress titles that just repeat the kennel name (e.g., "SPH3", "O2H3 Hash", "St Pete H3")
   const norm = title.toLowerCase()
     .replace(/\s+hash\s+house\s+harriers$/i, "")
@@ -82,15 +82,15 @@ function getDisplayTitle(event: HarelineEvent): string {
   const fullNorm = (event.kennel.fullName ?? "").toLowerCase()
     .replace(/\s+hash\s+house\s+harriers$/i, "")
     .trim();
-  if (norm === kennelNorm || (fullNorm && norm === fullNorm)) return fallback;
-  return title;
+  if (norm === kennelNorm || (fullNorm && norm === fullNorm)) return { title: fallback, isFallback: true };
+  return { title, isFallback: false };
 }
 
 /** Compose an accessible label from event fields. */
 function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null): string {
   const parts: string[] = [event.kennel.shortName];
-  const title = getDisplayTitle(event);
-  if (title && title !== event.kennel.shortName) parts.push(title);
+  const { title, isFallback } = getDisplayTitle(event);
+  if (!isFallback) parts.push(title);
   parts.push(formatDate(event.date));
   if (event.runNumber) parts.push(`Run #${event.runNumber}`);
   if (event.startTime) parts.push(formatTime(event.startTime));
@@ -243,10 +243,8 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
           {/* Flexible text — absorbs remaining space */}
           <span className={`relative truncate text-muted-foreground ${isCancelled ? "line-through" : ""}`}>
             {(() => {
-              const title = getDisplayTitle(event);
-              const isGenericFallback = title === event.kennel.shortName
-                || title === `${event.kennel.shortName} \u2014 Run #${event.runNumber}`;
-              return isGenericFallback ? (event.haresText || title) : title;
+              const { title, isFallback } = getDisplayTitle(event);
+              return isFallback ? (event.haresText || title) : title;
             })()}
           </span>
 
@@ -295,7 +293,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
   // ── Medium density ──
   const locationDisplay = getLocationDisplay(event);
-  const displayTitle = getDisplayTitle(event);
+  const { title: displayTitle } = getDisplayTitle(event);
 
   return (
     <div
