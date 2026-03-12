@@ -662,8 +662,8 @@ describe("sanitizeLocation", () => {
     expect(sanitizeLocation("  ")).toBeNull();
   });
 
-  it("preserves location with embedded URL text", () => {
-    expect(sanitizeLocation("The Pub https://example.com")).toBe("The Pub https://example.com");
+  it("strips embedded URLs from location text", () => {
+    expect(sanitizeLocation("The Pub https://example.com")).toBe("The Pub");
   });
 
   it("returns null for Registration: URL values", () => {

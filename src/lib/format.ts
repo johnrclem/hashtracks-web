@@ -267,3 +267,8 @@ export function getLabelForUrl(url: string, existingLabel?: string | null): stri
     return "Source";
   }
 }
+
+/** Strip http(s) URLs from text and collapse leftover whitespace. */
+export function stripUrlsFromText(text: string): string {
+  return text.replace(/https?:\/\/\S+/g, "").replace(/\s{2,}/g, " ").trim();
+}
