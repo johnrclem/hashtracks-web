@@ -55,8 +55,10 @@ export function extractApolloEvents(html: string): { events: ApolloEvent[]; stat
 
 /**
  * Resolve a venue from Apollo state — handles both inline objects and __ref lookups.
+ * Deduplicates venue parts to avoid garbled output from corrupt Meetup data
+ * (e.g. "Miami Miami, FL, Miami Miami, FL, Florida, FL" → "Miami Miami, FL, Florida").
  */
-function resolveVenue(
+export function resolveVenue(
   state: Record<string, Record<string, unknown>>,
   venue: ApolloEvent["venue"],
 ): { location?: string; latitude?: number; longitude?: number } {
@@ -66,7 +68,33 @@ function resolveVenue(
   const resolved = venue.__ref ? (state[venue.__ref] as ApolloEvent["venue"]) : venue;
   if (!resolved) return {};
 
-  const parts = [resolved.name, resolved.address, resolved.city, resolved.state].filter(Boolean);
+  // Incrementally build location, skipping redundant parts
+  const parts: string[] = [];
+  if (resolved.name) parts.push(resolved.name);
+
+  if (resolved.address) {
+    // Skip address if identical to name (case-insensitive)
+    const nameMatch = resolved.name && resolved.address.toLowerCase() === resolved.name.toLowerCase();
+    if (!nameMatch) parts.push(resolved.address);
+  }
+
+  const joined = () => parts.join(", ");
+
+  if (resolved.city) {
+    // Skip city if it's a substring of already-joined prior parts
+    if (!joined().toLowerCase().includes(resolved.city.toLowerCase())) {
+      parts.push(resolved.city);
+    }
+  }
+
+  if (resolved.state) {
+    // Skip state if it appears as a word-boundary match in prior parts
+    const stateRe = new RegExp(`\\b${resolved.state.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+    if (!stateRe.test(joined())) {
+      parts.push(resolved.state);
+    }
+  }
+
   return {
     location: parts.length > 0 ? parts.join(", ") : undefined,
     latitude: typeof resolved.lat === "number" ? resolved.lat : undefined,

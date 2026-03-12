@@ -255,6 +255,20 @@ export function sanitizeLocation(location: string | undefined): string | null {
   if (/^registration\s*:/i.test(t)) return null;
   // Strip bare URLs (not useful as location names)
   if (/^https?:\/\/\S+$/.test(t)) return null;
+  // Deduplicate comma-separated segments (case-insensitive, keep first occurrence)
+  const segments = t.split(", ");
+  if (segments.length > 1) {
+    const seen = new Set<string>();
+    const unique: string[] = [];
+    for (const seg of segments) {
+      const key = seg.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(seg);
+      }
+    }
+    return unique.join(", ");
+  }
   return t;
 }
 

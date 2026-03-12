@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MeetupAdapter, extractApolloEvents } from "./adapter";
+import { MeetupAdapter, extractApolloEvents, resolveVenue } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
 
 vi.mock("../safe-fetch", () => ({
@@ -90,6 +90,59 @@ describe("extractApolloEvents", () => {
     const html = '<script id="__NEXT_DATA__" type="application/json">{broken json}</script>';
     const { events } = extractApolloEvents(html);
     expect(events).toHaveLength(0);
+  });
+});
+
+describe("resolveVenue", () => {
+  it("returns all parts for normal venue with distinct fields", () => {
+    const state = { "Venue:1": { __typename: "Venue", name: "Central Park Tavern", address: "100 W 67th St", city: "New York", state: "NY", lat: 40.77, lng: -73.97 } };
+    const result = resolveVenue(state, { __ref: "Venue:1" });
+    expect(result.location).toBe("Central Park Tavern, 100 W 67th St, New York, NY");
+  });
+
+  it("deduplicates identical name and address (Miami case)", () => {
+    const state = {};
+    const result = resolveVenue(state, { name: "Miami Miami, FL", address: "Miami Miami, FL", city: "Florida", state: "FL" });
+    expect(result.location).toBe("Miami Miami, FL, Florida");
+  });
+
+  it("skips state when already present in name", () => {
+    const state = {};
+    const result = resolveVenue(state, { name: "Downtown Bar, NY", address: "123 Main St", city: "New York", state: "NY" });
+    expect(result.location).toBe("Downtown Bar, NY, 123 Main St, New York");
+  });
+
+  it("skips city when it's a substring of prior parts", () => {
+    const state = {};
+    const result = resolveVenue(state, { name: "New York Pizza", address: "456 Broadway", city: "New York", state: "NY" });
+    expect(result.location).toBe("New York Pizza, 456 Broadway, NY");
+  });
+
+  it("resolves __ref from Apollo state", () => {
+    const state = { "Venue:42": { __typename: "Venue", name: "The Pub", city: "Boston", state: "MA" } };
+    const result = resolveVenue(state, { __ref: "Venue:42" });
+    expect(result.location).toBe("The Pub, Boston, MA");
+  });
+
+  it("returns empty object for null venue", () => {
+    expect(resolveVenue({}, null)).toEqual({});
+  });
+
+  it("returns empty object for unresolvable __ref", () => {
+    expect(resolveVenue({}, { __ref: "Venue:999" })).toEqual({});
+  });
+
+  it("deduplicates address case-insensitively", () => {
+    const state = {};
+    const result = resolveVenue(state, { name: "The Pub", address: "the pub", city: "Boston", state: "MA" });
+    expect(result.location).toBe("The Pub, Boston, MA");
+  });
+
+  it("extracts lat/lng from resolved venue", () => {
+    const state = { "Venue:1": { __typename: "Venue", name: "Pub", lat: 25.76, lng: -80.19 } };
+    const result = resolveVenue(state, { __ref: "Venue:1" });
+    expect(result.latitude).toBe(25.76);
+    expect(result.longitude).toBe(-80.19);
   });
 });
 
