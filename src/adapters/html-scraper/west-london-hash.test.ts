@@ -148,6 +148,24 @@ describe("parseRunItem", () => {
     expect(event!.runNumber).toBe(2083);
     expect(event!.hares).toBe("TBD");
   });
+
+  it("uses just the postcode when paragraph text exceeds 120 chars", () => {
+    const longParagraphHtml = `
+      <div class="wp-block-post-template is-flex-container columns-2">
+        <li>
+          <h4><a href="/runs/run-number-2090/">Run Number 2090 – 1 April 2026-Wimbledon</a></h4>
+          <p>Hares - Eve and Frank</p>
+          <p>This is a really long description of the venue that goes on and on about how to get there and what to expect when you arrive at the location near Wimbledon Common which has postcode SW19 4RD in it somewhere.</p>
+        </li>
+      </div>
+    `;
+    const $long = cheerio.load(longParagraphHtml);
+    const longItems = $long(".wp-block-post-template > li");
+    const event = parseRunItem($long, longItems.eq(0), "https://westlondonhash.com/runs/");
+    expect(event).not.toBeNull();
+    // Should extract just the postcode, not the entire paragraph
+    expect(event!.location).toBe("SW19 4RD");
+  });
 });
 
 describe("WestLondonHashAdapter.fetch", () => {

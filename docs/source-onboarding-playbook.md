@@ -99,11 +99,11 @@ In `prisma/seed.ts`:
 ### 4. Choose or build adapter type
 
 Existing adapter types:
-- `HTML_SCRAPER` — For websites with event tables/lists (Cheerio parsing). Each site gets its own adapter class, routed by URL pattern in `htmlScrapersByUrl`. Currently: hashnyc, bfm, hashphilly, cityhash (Makesweat), westlondonhash, londonhash.
+- `HTML_SCRAPER` — For websites with event tables/lists (Cheerio parsing). Each site gets its own adapter class, routed by URL pattern in `htmlScrapersByUrl`. Currently: hashnyc, bfm, hashphilly, cityhash (Makesweat), westlondonhash, londonhash, barneshash, och3, slash-hash, chicago, thirstday, sfh3, ewh3, dch4, ofh3, hangover, shith3, enfieldhash, northboro (browser-rendered). Also includes `GenericHtmlAdapter` for config-driven CSS selector scraping.
 - `HTML_SCRAPER` (Blogger API) — For Blogger/Blogspot-hosted sites. Uses Blogger API v3 as primary fetch method with HTML scraping fallback. The adapter is still registered as `HTML_SCRAPER` and routed via `htmlScrapersByUrl`, but internally calls `fetchBloggerPosts()` from `src/adapters/blogger-api.ts`. Currently: enfieldhash.org (EH3), ofh3.com (OFH3). **Prerequisite**: Enable the Blogger API in GCP Console and use the same `GOOGLE_CALENDAR_API_KEY`.
 - `GOOGLE_CALENDAR` — For Google Calendar API v3 feeds. Single shared adapter, configured via `Source.config` JSON (kennelPatterns, defaultKennelTag). Currently: Boston, BFM, Philly, Chicagoland, EWH3, SHITH3.
 - `GOOGLE_SHEETS` — For published Google Sheets (config-driven, reusable without code changes). Column mappings, kennel tag rules, start time rules in `Source.config`. Currently: Summit H3, W3H3.
-- `ICAL_FEED` — For standard iCal (.ics) feeds via `node-ical`. Config-driven kennelPatterns + skipPatterns. Currently: SFH3 MultiHash aggregator.
+- `ICAL_FEED` — For standard iCal (.ics) feeds via `node-ical`. Config-driven kennelPatterns + skipPatterns. Currently: SFH3 MultiHash aggregator, CCH3, BAH3.
 - `MEETUP` — For public Meetup.com groups. Single shared adapter, config-driven (no code changes needed). Config requires `groupUrlname` (extracted from URL) and `kennelTag` (single kennel shortName). Currently: Hash Rego lists some Meetup-hosted kennels. **No API key required** — uses Meetup's public REST API.
 - `HASHREGO` — For kennels listed on hashrego.com. Config-driven with `kennelSlugs` array (multi-kennel). Currently: 8 kennels (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3, FCH3).
 
@@ -419,6 +419,54 @@ git add . && git commit && git push
 
 ---
 
+## Data Quality Pipeline (applies to ALL adapters)
+
+The merge pipeline includes built-in data quality sanitization. Adapter authors should understand these tools to avoid duplicating work or producing data that gets silently stripped.
+
+### Automatic Sanitization (merge pipeline)
+
+These run on every event during `mergeRawEvents()` in `src/pipeline/merge.ts`:
+
+- **`sanitizeTitle(title)`**: Strips titles that are just "Hares Needed", "Need a hare", email addresses, or similar admin content. Returns null for empty/placeholder titles.
+- **`sanitizeLocation(location)`**: Strips TBD/TBA/TBC/Registration placeholders, bare URLs (`https://...`), and `Registration: URL` values. Returns null for non-meaningful locations.
+- **`isPlaceholder(value)`**: Matches `tbd`, `tba`, `tbc`, `n/a`, `needed`, `required`, `registration`, `?`, `??` (case-insensitive, trimmed). Used by both adapters and the merge pipeline.
+
+Adapters should **not** reimplement these checks — the pipeline handles them. But adapters CAN use `isPlaceholder()` to avoid storing obviously-placeholder venue names (e.g., CityH3 skips venue construction when venueName is a placeholder).
+
+### Shared Adapter Utilities (`src/adapters/utils.ts`)
+
+- **`stripPlaceholder(value)`**: Returns undefined if value is empty or a placeholder. Convenience for `stripPlaceholder(cell) ?? fallback`.
+- **`extractUkPostcode(text)`**: Regex for UK postcodes (`SE11 5JA`, `EC1A 1BB`, etc.). Used by UK adapters to extract postcode from venue text.
+- **`chronoParseDate(text, locale, ref, options)`**: Natural-language date parsing via chrono-node. Supports UK (`en-GB`) and US (`en-US`) locales. Use `forwardDate: true` for year-less dates that should resolve forward.
+- **`parse12HourTime(text)`**: Converts `"4:00 pm"` → `"16:00"`. Returns undefined if no match.
+- **`extractAddressWithAi(text)`**: Gemini-powered fallback for extracting a street address from a long text blob. Use when deterministic parsing fails (e.g., venue address embedded in a paragraph). Returns null if no address found or AI unavailable. Currently used by WLH3 for 120+ char paragraphs containing postcodes.
+- **`fetchHTMLPage(url)`** / **`fetchBrowserRenderedPage(url)`**: Discriminated union results (`ok: true` with `$`, `html`, `structureHash` | `ok: false` with error result). Every HTML adapter should use these instead of raw `safeFetch()`.
+- **`decodeEntities(text)`**: Decodes HTML entities (named, hex, decimal) + normalizes `&nbsp;` to space. Use on all text extracted from HTML.
+- **`googleMapsSearchUrl(query)`**: Generates Google Maps search URL from a location string.
+
+### Common Data Quality Patterns
+
+When building a new adapter, watch for these issues (all have been encountered in production):
+
+| Issue | Pattern | Fix |
+|-------|---------|-----|
+| Postcode duplication | Venue name contains postcode AND postcode field appended | Check `parts.some(p => p.includes(postcode))` before appending |
+| Description bleed into location | Regex captures trailing text after pub name | Add `.replace(/\s+(?:followed by|then on to|and then|details|more info)\b.*/i, "")` |
+| Nav/script text in event fields | Cheerio `.text()` includes nav, scripts, GA | Remove `script, style, noscript, nav, header, footer, aside, [role='navigation']` before `.text()` |
+| Hare names run together | Adjacent `<span>` elements produce "AliceBob" | Use `$block.find("span, a, strong, em, b, i").after(" ")` then `.replace(/\s{2,}/g, " ")` |
+| "HARES NEEDED" as title | Source puts volunteer requests in title field | Handled by `sanitizeTitle()` — no adapter work needed |
+| Registration URL as location | Spreadsheet puts signup link in location column | Handled by `sanitizeLocation()` — no adapter work needed |
+| Long paragraph as location | Paragraph containing a postcode stored as venue address | Use length guard (120 chars) + `extractAddressWithAi()` fallback |
+| Generic title repeats kennel name | Title is just "SPH3" or "SPH3 Hash" | Handled by `getDisplayTitle()` in EventCard.tsx — suppresses and shows fallback |
+
+### Reverse Geocoding
+
+The merge pipeline automatically reverse-geocodes events with coordinates to populate `locationCity` (e.g., "Brooklyn, NY"). This happens in `resolveCoords()` → `reverseGeocode()`. Adapters don't need to set `locationCity` — just provide coordinates (`latitude`/`longitude`) or a `locationUrl` (Google Maps link), and the pipeline handles the rest.
+
+The display layer (`getLocationDisplay()` in `EventCard.tsx`) deduplicates city from location name — if the adapter puts city in the location string AND reverseGeocode adds it as `locationCity`, the display won't show it twice.
+
+---
+
 ## Lessons Learned
 
 1. **Analyze data BEFORE writing code** — prevents wrong assumptions about structure
@@ -459,6 +507,11 @@ git add . && git commit && git push
 36. **Zero-code onboarding at scale** — South Carolina onboarded 10 kennels with 9 sources and zero new adapter code. Config-driven adapters (MEETUP, STATIC_SCHEDULE) + seed data changes are sufficient for regions without structured web sources. This pattern scales to any region with known schedules.
 37. **Wix/Google Sites/SPAs need headless browser rendering** — JS-rendered sites return empty containers to Cheerio. Use `fetchBrowserRenderedPage()` (wraps `browserRender()` from `src/lib/browser-render.ts`) to render via NAS-hosted Playwright, then parse normally. The adapter still uses `HTML_SCRAPER` type and URL-based routing in the registry. See `northboro-hash.ts` for the reference implementation. Config: Cloudflare Tunnel path routing `proxy.hashtracks.xyz/render` → `browser-render:3200`.
 38. **Facebook Events are the biggest untapped source** — Many small-market kennels exist only on Facebook (no website, calendar, or API). Public Facebook pages show events without login, but the page is JS-rendered and returns empty HTML to standard fetch. A future `FACEBOOK_EVENTS` adapter could use the NAS headless browser with an authenticated session (persistent cookies) to scrape public page events. This would unlock dozens of currently un-scrapeable kennels. Key challenges: Facebook anti-scraping measures (behavioral analysis, CAPTCHAs), session cookie expiration requiring periodic re-auth, and fragile DOM selectors that change frequently. Until this adapter exists, use `STATIC_SCHEDULE` for Facebook-only kennels with known schedules.
+39. **Data quality sanitization is centralized in the merge pipeline** — `sanitizeTitle()` and `sanitizeLocation()` run on every event during merge. Adapters should NOT reimplement placeholder filtering, URL stripping, or hare-needed detection — the pipeline handles it. But adapters SHOULD use `isPlaceholder()` defensively when constructing composite fields (e.g., skip building a location from a TBA venue name).
+40. **AI-powered extraction is available as a fallback** — `extractAddressWithAi(text)` in `src/adapters/utils.ts` uses Gemini to extract an address from a long text blob. Use it when deterministic parsing fails on paragraphs containing embedded addresses. It's cached, rate-limit-aware, and returns null on failure. Follow the pattern: try deterministic parsing first, fall back to AI only when text exceeds a length threshold.
+41. **Postcode dedup is a recurring pattern in UK adapters** — Makesweat, WLH3, and similar UK sites often include postcodes in both the venue name AND a dedicated postcode field. Always check `parts.some(p => p.includes(postcode))` before appending postcode to a composite location string.
+42. **Inline elements need explicit space insertion before `.text()`** — Cheerio's `.text()` concatenates adjacent `<span>` elements without spaces ("AliceBob"). Use `$block.find("span, a, strong, em, b, i").after(" ")` before extracting text, then normalize with `.replace(/\s{2,}/g, " ")`.
+43. **Strip nav/boilerplate elements BEFORE text extraction** — Always `$main.find("script, style, noscript, nav, header, footer, aside, [role='navigation']").remove()` before calling `.text()`. Otherwise navigation links, Google Analytics code, and footer text bleed into event data.
 
 ---
 

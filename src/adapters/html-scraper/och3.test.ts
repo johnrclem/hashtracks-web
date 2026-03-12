@@ -393,6 +393,34 @@ describe("OCH3Adapter.fetch", () => {
     vi.restoreAllMocks();
   });
 
+  it("strips nav/boilerplate phrases from event titles", async () => {
+    const htmlWithNavBleed = `
+      <html><body>
+      <div class="wsite-section-wrap">
+        <p>Upcoming Runs:</p>
+        <p>1st March 2026 - Linda 'One in the Eye' Cooper home about us contact</p>
+      </div>
+      </body></html>
+    `;
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(htmlWithNavBleed, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new OCH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "http://www.och3.org.uk/upcoming-run-list.html",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toBe("Linda 'One in the Eye' Cooper");
+    expect(result.events[0].title).not.toContain("home");
+    expect(result.events[0].title).not.toContain("about us");
+
+    vi.restoreAllMocks();
+  });
+
   it("strips script and style elements from page content", async () => {
     const htmlWithScripts = `
       <html><body>

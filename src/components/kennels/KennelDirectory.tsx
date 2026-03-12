@@ -275,6 +275,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       <div className="flex flex-wrap items-center gap-3">
         <Input
           placeholder="Search kennels..."
+          aria-label="Search kennels"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"

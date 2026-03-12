@@ -20,7 +20,7 @@ import { NearMeFilter } from "@/components/shared/NearMeFilter";
 import type { GeoState } from "@/hooks/useGeolocation";
 import type { KennelCardData } from "./KennelCard";
 
-const SCHEDULE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const SCHEDULE_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // Map abbreviated day to full scheduleDayOfWeek values
 const DAY_FULL: Record<string, string> = {

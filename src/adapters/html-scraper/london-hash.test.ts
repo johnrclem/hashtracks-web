@@ -84,6 +84,11 @@ describe("parseHaresFromBlock", () => {
   it("trims text after asterisks", () => {
     expect(parseHaresFromBlock("Hared by Alice**extra notes")).toBe("Alice");
   });
+
+  it("normalizes multiple consecutive spaces from inline element spacing", () => {
+    // When inline elements produce extra spaces via .after(" ")
+    expect(parseHaresFromBlock("Hared by Alice  Bob")).toBe("Alice Bob");
+  });
 });
 
 describe("parseLocationFromBlock", () => {
@@ -134,6 +139,14 @@ describe("parseLocationFromBlock", () => {
   it("filters TBA from Start: pattern", () => {
     const result = parseLocationFromBlock("Start: TBA");
     expect(result.location).toBeUndefined();
+  });
+
+  it("strips trailing description text from location", () => {
+    const result = parseLocationFromBlock(
+      "Follow the P trail from Clapham station to The Red Lion followed by dinner at the curry house",
+    );
+    expect(result.location).toBe("The Red Lion");
+    expect(result.station).toBe("Clapham");
   });
 });
 

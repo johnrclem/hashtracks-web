@@ -181,6 +181,9 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
         pa.push(e);
       }
     }
+    // Sort upcoming entries nearest-first (ascending) — the main query sorts desc
+    // which is correct for past entries, but upcoming should show soonest at top
+    up.sort((a, b) => new Date(a.event.date).getTime() - new Date(b.event.date).getTime());
     return { upcoming: up, past: pa };
   }, [filtered, todayUtcNoon]);
 

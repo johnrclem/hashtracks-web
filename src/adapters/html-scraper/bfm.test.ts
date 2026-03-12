@@ -92,6 +92,34 @@ describe("BFMAdapter.fetch", () => {
     expect(result.errorDetails?.fetch).toHaveLength(1);
   });
 
+  it("excludes Google My Maps viewer URLs from locationUrl", async () => {
+    const htmlWithMyMaps = `
+      <html><body>
+      <h2>Trail #1501: Test Trail</h2>
+      <p>When: Thursday, 3/14 at 7:00 PM gather</p>
+      <p>Where: Some Bar, 456 Oak Ave</p>
+      <p>Hares: TestHare</p>
+      <a href="https://www.google.com/maps/d/u/0/viewer?mid=abc123">My Maps</a>
+      <a href="https://www.google.com/maps/search/?api=1&query=Some+Bar">Directions</a>
+      </body></html>
+    `;
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(htmlWithMyMaps, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new BFMAdapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://benfranklinmob.com",
+    } as never);
+
+    const current = result.events.find((e) => e.runNumber === 1501);
+    expect(current).toBeDefined();
+    expect(current!.locationUrl).not.toContain("/maps/d/");
+    expect(current!.locationUrl).toContain("maps/search");
+  });
+
   it("returns error on HTTP error status", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response("Forbidden", { status: 403, statusText: "Forbidden" }),

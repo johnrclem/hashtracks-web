@@ -70,6 +70,8 @@ function getDisplayTitle(event: HarelineEvent): string {
     ? `${event.kennel.shortName} \u2014 Run #${event.runNumber}`
     : event.kennel.shortName;
   if (!title || /^\(.*\)$/.test(title)) return fallback;
+  // Suppress titles that are just a run number (e.g., "Run #42", "Run 123")
+  if (/^run\s*#?\d+$/i.test(title)) return fallback;
   // Suppress titles that just repeat the kennel name (e.g., "SPH3", "O2H3 Hash", "St Pete H3")
   const norm = title.toLowerCase()
     .replace(/\s+hash\s+house\s+harriers$/i, "")
@@ -240,7 +242,12 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
           {/* Flexible text — absorbs remaining space */}
           <span className={`relative truncate text-muted-foreground ${isCancelled ? "line-through" : ""}`}>
-            {event.haresText || getDisplayTitle(event)}
+            {(() => {
+              const title = getDisplayTitle(event);
+              const isGenericFallback = title === event.kennel.shortName
+                || title === `${event.kennel.shortName} \u2014 Run #${event.runNumber}`;
+              return isGenericFallback ? (event.haresText || title) : title;
+            })()}
           </span>
 
           {/* Right cluster */}

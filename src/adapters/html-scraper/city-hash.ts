@@ -66,9 +66,13 @@ export function parseMakesweatEvent(
   const venueNotes = $event.find(".ms_venue_notes").first().text().trim();
 
   // Build composite location: "Pub Name, Street Address, Postcode"
+  // Avoid duplicating postcode if it already appears in venue name
   let location: string | undefined;
   if (venueName && !isPlaceholder(venueName)) {
-    const parts = [venueName, venueAddress, venuePostcode].filter(Boolean);
+    const parts = [venueName, venueAddress].filter(Boolean);
+    if (venuePostcode && !parts.some((p) => p.includes(venuePostcode))) {
+      parts.push(venuePostcode);
+    }
     location = parts.join(", ");
   }
 

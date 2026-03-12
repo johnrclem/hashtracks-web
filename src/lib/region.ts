@@ -522,6 +522,28 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -97.74,
     aliases: ["Austin, Texas"],
   },
+  {
+    name: "Texas",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Chicago",
+    abbrev: "TX",
+    colorClasses: "bg-gray-200 text-gray-800",
+    pinColor: "#6b7280",
+    centroidLat: 31.97,
+    centroidLng: -99.90,
+  },
+  {
+    name: "El Paso",
+    country: "USA",
+    timezone: "America/Denver",
+    abbrev: "EPTX",
+    colorClasses: "bg-gray-200 text-gray-800",
+    pinColor: "#6b7280",
+    centroidLat: 31.76,
+    centroidLng: -106.49,
+    aliases: ["El Paso, TX", "El Paso, Texas"],
+  },
   // ── US Upper Midwest ──
   {
     name: "Minneapolis, MN",
