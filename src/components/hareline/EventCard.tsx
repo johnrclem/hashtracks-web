@@ -70,10 +70,16 @@ function getDisplayTitle(event: HarelineEvent): string {
     ? `${event.kennel.shortName} \u2014 Run #${event.runNumber}`
     : event.kennel.shortName;
   if (!title || /^\(.*\)$/.test(title)) return fallback;
-  // Suppress titles that just repeat the kennel name (e.g., "SPH3", "O2H3 Hash")
-  const norm = title.toLowerCase().replace(/\s+hash$/i, "").replace(/\s+h3$/i, "").trim();
+  // Suppress titles that just repeat the kennel name (e.g., "SPH3", "O2H3 Hash", "St Pete H3")
+  const norm = title.toLowerCase()
+    .replace(/\s+hash\s+house\s+harriers$/i, "")
+    .replace(/\s+hash$/i, "")
+    .replace(/\s+h3$/i, "")
+    .trim();
   const kennelNorm = event.kennel.shortName.toLowerCase().trim();
-  const fullNorm = (event.kennel.fullName ?? "").toLowerCase().trim();
+  const fullNorm = (event.kennel.fullName ?? "").toLowerCase()
+    .replace(/\s+hash\s+house\s+harriers$/i, "")
+    .trim();
   if (norm === kennelNorm || (fullNorm && norm === fullNorm)) return fallback;
   return title;
 }
@@ -97,7 +103,11 @@ function getLocationDisplay(event: HarelineEvent): string | null {
   const city = event.locationCity;
   if (name && city) {
     // Don't append city if it's already embedded in the location name
-    if (name.toLowerCase().includes(city.toLowerCase())) return name;
+    const nameLower = name.toLowerCase();
+    if (nameLower.includes(city.toLowerCase())) return name;
+    // Also check just the city name (before comma) — "Boston" in name vs "Boston, MA" as city
+    const cityName = city.split(",")[0].trim();
+    if (cityName && nameLower.includes(cityName.toLowerCase())) return name;
     return `${name}, ${city}`;
   }
   return city || name || null;

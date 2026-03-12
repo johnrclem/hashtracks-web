@@ -114,6 +114,27 @@ describe("parseLocationFromBlock", () => {
     expect(result.location).toBeUndefined();
     expect(result.station).toBeUndefined();
   });
+
+  it("filters 'to be announced' from P-trail pattern", () => {
+    const result = parseLocationFromBlock(
+      "Follow the P trail from Sydenham station to be announced",
+    );
+    expect(result.location).toBeUndefined();
+    expect(result.station).toBe("Sydenham");
+  });
+
+  it("filters TBA location from P-trail pattern", () => {
+    const result = parseLocationFromBlock(
+      "Follow the P trail from Vauxhall to TBA",
+    );
+    expect(result.location).toBeUndefined();
+    expect(result.station).toBe("Vauxhall");
+  });
+
+  it("filters TBA from Start: pattern", () => {
+    const result = parseLocationFromBlock("Start: TBA");
+    expect(result.location).toBeUndefined();
+  });
 });
 
 describe("parseTimeFromBlock", () => {

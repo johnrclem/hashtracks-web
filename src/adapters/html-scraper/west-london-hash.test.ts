@@ -69,6 +69,18 @@ describe("parseLocationFromHeading", () => {
   it("returns null when no location", () => {
     expect(parseLocationFromHeading("Run Number 2081 – 19 February 2026")).toBeNull();
   });
+
+  it("returns null for TBA placeholder", () => {
+    expect(parseLocationFromHeading("Run Number 2085 – 26 March 2026-TBA")).toBeNull();
+  });
+
+  it("returns null for 'Location TBA' placeholder", () => {
+    expect(parseLocationFromHeading("Run Number 2085 – 26 March 2026-Location TBA")).toBeNull();
+  });
+
+  it("returns null for TBD placeholder", () => {
+    expect(parseLocationFromHeading("Run Number 2085 – 26 March 2026-TBD")).toBeNull();
+  });
 });
 
 describe("extractPostcode", () => {

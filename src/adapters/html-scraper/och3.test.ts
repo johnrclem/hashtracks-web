@@ -425,4 +425,36 @@ describe("OCH3Adapter.fetch", () => {
 
     vi.restoreAllMocks();
   });
+
+  it("strips nav, header, and footer elements from page content", async () => {
+    const htmlWithNav = `
+      <html><body>
+      <nav><ul><li>Home</li><li>Run List</li><li>About Us</li></ul></nav>
+      <header><h1>OCH3 Website</h1></header>
+      <div class="wsite-section-wrap">
+        <p>Upcoming Runs:</p>
+        <p>1st March 2026 - Linda 'One in the Eye' Cooper - Outwood</p>
+      </div>
+      <footer><p>Copyright 2026 OCH3</p></footer>
+      </body></html>
+    `;
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(htmlWithNav, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new OCH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "http://www.och3.org.uk/upcoming-run-list.html",
+    } as never);
+
+    expect(result.events.length).toBeGreaterThanOrEqual(1);
+    const allText = result.events.map(e => `${e.title ?? ""} ${e.hares ?? ""} ${e.location ?? ""}`).join(" ");
+    expect(allText).not.toContain("Run List");
+    expect(allText).not.toContain("About Us");
+    expect(allText).not.toContain("Copyright");
+
+    vi.restoreAllMocks();
+  });
 });

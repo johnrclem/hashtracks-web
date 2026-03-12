@@ -436,7 +436,7 @@ describe("double-header support", () => {
 
 // ── sanitizeTitle ──
 
-import { sanitizeTitle } from "./merge";
+import { sanitizeTitle, sanitizeLocation } from "./merge";
 
 describe("sanitizeTitle", () => {
   it("passes through normal titles", () => {
@@ -469,6 +469,42 @@ describe("sanitizeTitle", () => {
 
   it("returns null for empty/whitespace", () => {
     expect(sanitizeTitle("  ")).toBeNull();
+  });
+});
+
+// ── sanitizeLocation ──
+
+describe("sanitizeLocation", () => {
+  it("passes through normal locations", () => {
+    expect(sanitizeLocation("The Pub")).toBe("The Pub");
+  });
+
+  it("returns null for TBA", () => {
+    expect(sanitizeLocation("TBA")).toBeNull();
+  });
+
+  it("returns null for TBD", () => {
+    expect(sanitizeLocation("TBD")).toBeNull();
+  });
+
+  it("returns null for TBC", () => {
+    expect(sanitizeLocation("TBC")).toBeNull();
+  });
+
+  it("returns null for bare URLs", () => {
+    expect(sanitizeLocation("https://maps.google.com/some-place")).toBeNull();
+  });
+
+  it("returns null for undefined", () => {
+    expect(sanitizeLocation(undefined)).toBeNull();
+  });
+
+  it("returns null for empty/whitespace", () => {
+    expect(sanitizeLocation("  ")).toBeNull();
+  });
+
+  it("preserves location with embedded URL text", () => {
+    expect(sanitizeLocation("The Pub https://example.com")).toBe("The Pub https://example.com");
   });
 });
 

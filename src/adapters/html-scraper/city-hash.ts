@@ -10,6 +10,7 @@ import {
   chronoParseDate,
   parse12HourTime,
   fetchBrowserRenderedPage,
+  isPlaceholder,
 } from "../utils";
 
 /**
@@ -66,7 +67,7 @@ export function parseMakesweatEvent(
 
   // Build composite location: "Pub Name, Street Address, Postcode"
   let location: string | undefined;
-  if (venueName && venueName.toUpperCase() !== "TBA") {
+  if (venueName && !isPlaceholder(venueName)) {
     const parts = [venueName, venueAddress, venuePostcode].filter(Boolean);
     location = parts.join(", ");
   }

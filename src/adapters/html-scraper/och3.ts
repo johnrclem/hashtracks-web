@@ -298,7 +298,7 @@ export class OCH3Adapter implements SourceAdapter {
     // Remove script/style/noscript elements first — Cheerio .text() includes their
     // text content, which caused raw JS (Google Analytics, etc.) to bleed into event data
     const $main = runListResult.$("main, .main-content, #content, .wsite-section-wrap, body").first();
-    $main.find("script, style, noscript").remove();
+    $main.find("script, style, noscript, nav, header, footer, .nav, .navbar, .header, .footer, .menu, .navigation").remove();
     const mainContent = $main.text();
     const events = parseOCH3EntriesFromText(mainContent, runListUrl);
 
