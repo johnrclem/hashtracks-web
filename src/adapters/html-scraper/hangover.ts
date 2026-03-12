@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import type { AnyNode } from "domhandler";
+import type { AnyNode, ChildNode as DomHandlerChildNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
@@ -55,13 +55,13 @@ const parseTime = parse12HourTime;
 /** Collect text from consecutive siblings, preserving <br> as newlines. */
 function collectSiblingText(
   $: cheerio.CheerioAPI,
-  start: ChildNode | undefined | null,
+  start: DomHandlerChildNode | undefined | null,
   direction: "forward" | "backward",
 ): string {
   const parts: string[] = [];
   let node = start;
   while (node) {
-    const $n = $(node as unknown as AnyNode);
+    const $n = $(node as AnyNode);
     $n.find?.("br").replaceWith("\n");
     const t = $n.text().trim();
     if (t) parts.push(t);
