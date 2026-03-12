@@ -673,5 +673,13 @@ describe("sanitizeLocation", () => {
   it("returns null for bare 'Registration' placeholder", () => {
     expect(sanitizeLocation("Registration")).toBeNull();
   });
+
+  it("returns null for placeholder revealed after URL stripping", () => {
+    expect(sanitizeLocation("TBD https://example.com")).toBeNull();
+  });
+
+  it("uppercases state abbreviation without space after comma", () => {
+    expect(sanitizeLocation("The Pub, Charleston,sc")).toBe("The Pub, Charleston, SC");
+  });
 });
 

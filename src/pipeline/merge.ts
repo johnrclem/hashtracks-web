@@ -2,16 +2,22 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
-import { regionTimezone, getLabelForUrl } from "@/lib/format";
+import { regionTimezone, getLabelForUrl, stripUrlsFromText } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
 import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode } from "@/lib/geo";
-import { stripUrlsFromText } from "@/lib/format";
 import { isPlaceholder } from "@/adapters/utils";
 
-/** Compiled once — matches admin/meta content in event titles. */
-const ADMIN_TITLE_RE = /hares?\s+needed|need\s+(?:a\s+)?hares?|looking\s+for\s+hares?|email\s+the\s+hare|volunteer\s+to\s+hare/i;
+/** Compiled once — matches admin/meta content in event titles (split to keep regex complexity low). */
+const ADMIN_TITLE_PATTERNS = [
+  /hares?\s+needed/i,
+  /need\s+(?:a\s+)?hares?/i,
+  /looking\s+for\s+hares?/i,
+  /email\s+the\s+hare/i,
+  /volunteer\s+to\s+hare/i,
+];
+const isAdminTitle = (s: string) => ADMIN_TITLE_PATTERNS.some(re => re.test(s));
 
 /**
  * Create EventLink records for an event from externalLinks + alternate sourceUrls.
@@ -242,7 +248,7 @@ export function sanitizeTitle(title: string | undefined): string | null {
   // Strip leading kennel-tag prefix (e.g. "BH3: " or "NYCH3 - ") before testing
   const stripped = t.replace(/^[A-Z0-9]{2,10}\s*[:–—-]\s*/i, "").trim();
   // Filter out admin/meta content in titles (test both original and stripped)
-  if (ADMIN_TITLE_RE.test(t) || ADMIN_TITLE_RE.test(stripped)) return null;
+  if (isAdminTitle(t) || isAdminTitle(stripped)) return null;
   // Strip embedded email addresses
   const cleaned = t.replace(/\s*<?[\w.+-]+@[\w.-]+>?\s*/g, " ").trim();
   return cleaned || null;
@@ -261,14 +267,14 @@ export function sanitizeLocation(location: string | undefined): string | null {
   if (/^registration\s*:/i.test(t)) return null;
   // Strip bare URLs (not useful as location names)
   if (/^https?:\/\/\S+$/.test(t)) return null;
-  // Clean up embedded URLs, double commas, extra whitespace
-  let cleaned = t;
-  cleaned = stripUrlsFromText(cleaned);                        // strip embedded URLs + collapse spaces
-  cleaned = cleaned.replace(/,\s*,/g, ",");                   // collapse double commas
-  cleaned = cleaned.replace(/^,+|,+$/g, "").trim();           // trim leading/trailing commas
-  // Uppercase trailing 2-letter US state abbreviation: ", sc" → ", SC"
-  cleaned = cleaned.replace(/,\s+([a-z]{2})$/i, (_, st: string) => `, ${st.toUpperCase()}`);
-  return cleaned || null;
+  // Clean up embedded URLs, double commas, extra whitespace, normalize state abbrev
+  const cleaned = stripUrlsFromText(t)
+    .replace(/,\s*,/g, ",")
+    .replace(/^,+|,+$/g, "")
+    .trim()
+    .replace(/,\s*([a-z]{2})$/i, (_, st: string) => `, ${st.toUpperCase()}`);
+  if (!cleaned || isPlaceholder(cleaned)) return null;
+  return cleaned;
 }
 
 /** Filter non-place location URLs (My Maps viewers, etc). Returns null for unusable URLs. */
