@@ -318,6 +318,7 @@ model Event {
 
   @@index([date])
   @@index([kennelId, date])
+  @@index([parentEventId])
 }
 
 model EventLink {
