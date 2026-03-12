@@ -10,7 +10,7 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { chronoParseDate, extractUkPostcode, googleMapsSearchUrl, isPlaceholder, validateSourceUrl } from "../utils";
+import { chronoParseDate, extractAddressWithAi, extractUkPostcode, googleMapsSearchUrl, isPlaceholder, validateSourceUrl } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
 /**
@@ -81,6 +81,7 @@ export function parseRunItem(
   let hares: string | undefined;
   let venueAddress: string | undefined;
   let postcode: string | undefined;
+  let longParagraphText: string | undefined; // For AI extraction fallback
 
   $item.find("p").each((_i, el) => {
     const text = $(el).text().trim();
@@ -96,7 +97,14 @@ export function parseRunItem(
     // Check for postcode (likely the venue/address line)
     const pc = extractPostcode(text);
     if (pc && !venueAddress) {
-      venueAddress = text;
+      if (text.length > 120) {
+        // Long paragraph with embedded postcode — use postcode as fallback,
+        // store full text for AI extraction in post-processing
+        venueAddress = pc;
+        longParagraphText = text;
+      } else {
+        venueAddress = text;
+      }
       postcode = pc;
     }
   });
@@ -111,7 +119,7 @@ export function parseRunItem(
     ? `WLH3 Run #${runNumber} - ${locationFromHeading || "TBD"}`
     : headingText;
 
-  return {
+  const event: RawEventData & { _longParagraph?: string } = {
     date,
     kennelTag: "WLH3",
     runNumber: runNumber ?? undefined,
@@ -122,6 +130,9 @@ export function parseRunItem(
     startTime: "19:15",
     sourceUrl,
   };
+  // Attach long paragraph text for AI extraction (stripped before return to caller)
+  if (longParagraphText) event._longParagraph = longParagraphText;
+  return event;
 }
 
 /**
@@ -248,6 +259,21 @@ export class WestLondonHashAdapter implements SourceAdapter {
         currentUrl = nextUrl;
       } catch {
         currentUrl = null; // Pagination URL failed SSRF validation
+      }
+    }
+
+    // Post-processing: for events with long paragraph text that fell back to bare postcode,
+    // attempt AI extraction to get a better address
+    for (const event of events) {
+      const extended = event as RawEventData & { _longParagraph?: string };
+      if (extended._longParagraph) {
+        try {
+          const aiAddr = await extractAddressWithAi(extended._longParagraph);
+          if (aiAddr) event.location = aiAddr;
+        } catch {
+          // Keep postcode as fallback
+        }
+        delete extended._longParagraph;
       }
     }
 

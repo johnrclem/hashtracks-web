@@ -563,16 +563,23 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
           </div>
 
           {/* Color legend */}
-          {visibleRegions.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground">
-              {visibleRegions.map((r) => (
-                <span key={r.region} className="inline-flex items-center gap-1">
-                  <span className={`inline-block h-3 w-3 rounded-full ${regionBgClass(r.region)}`} />
-                  <span>{r.abbrev}</span>
-                </span>
-              ))}
-            </div>
-          )}
+          {visibleRegions.length > 0 && (() => {
+            // Detect abbreviation collisions — show full name when ambiguous
+            const abbrevCounts = new Map<string, number>();
+            for (const r of visibleRegions) {
+              abbrevCounts.set(r.abbrev, (abbrevCounts.get(r.abbrev) ?? 0) + 1);
+            }
+            return (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground">
+                {visibleRegions.map((r) => (
+                  <span key={r.region} className="inline-flex items-center gap-1">
+                    <span className={`inline-block h-3 w-3 rounded-full ${regionBgClass(r.region)}`} />
+                    <span>{(abbrevCounts.get(r.abbrev) ?? 0) > 1 ? r.region : r.abbrev}</span>
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Detail panel: sidebar on desktop, below on mobile */}

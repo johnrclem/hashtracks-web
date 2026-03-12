@@ -12,7 +12,12 @@ import {
   chronoParseDate,
   isPlaceholder,
   stripPlaceholder,
+  extractAddressWithAi,
 } from "./utils";
+
+vi.mock("@/lib/ai/gemini", () => ({
+  callGemini: vi.fn(),
+}));
 
 describe("MONTHS", () => {
   it("maps abbreviated month names to 1-indexed numbers", () => {
@@ -327,7 +332,7 @@ describe("buildUrlVariantCandidates", () => {
 });
 
 describe("isPlaceholder", () => {
-  it.each(["tbd", "TBD", "tba", "TBA", "tbc", "TBC", "n/a", "N/A", "?", "??", "needed", "Needed", "NEEDED", "required", "Required", "REQUIRED"])(
+  it.each(["tbd", "TBD", "tba", "TBA", "tbc", "TBC", "n/a", "N/A", "?", "??", "needed", "Needed", "NEEDED", "required", "Required", "REQUIRED", "registration", "Registration", "REGISTRATION"])(
     "returns true for '%s'",
     (val) => {
       expect(isPlaceholder(val)).toBe(true);
@@ -449,5 +454,46 @@ describe("chronoParseDate", () => {
   it("parses abbreviated month with ordinal: 'Feb 19th'", () => {
     const ref = new Date(Date.UTC(2026, 0, 1)); // Jan 1, 2026
     expect(chronoParseDate("Feb 19th", "en-US", ref)).toBe("2026-02-19");
+  });
+});
+
+describe("extractAddressWithAi", () => {
+  it("extracts address from paragraph text", async () => {
+    const { callGemini } = await import("@/lib/ai/gemini");
+    vi.mocked(callGemini).mockResolvedValueOnce({
+      text: '{"address": "The Pub, 42 High Street, SW1A 1AA"}',
+    } as never);
+
+    const result = await extractAddressWithAi(
+      "Long paragraph text with The Pub at 42 High Street SW1A 1AA and more details about the event...",
+    );
+    expect(result).toBe("The Pub, 42 High Street, SW1A 1AA");
+  });
+
+  it("returns null on API error", async () => {
+    const { callGemini } = await import("@/lib/ai/gemini");
+    vi.mocked(callGemini).mockRejectedValueOnce(new Error("API error"));
+
+    const result = await extractAddressWithAi(
+      "Some text that is long enough for processing by AI extraction logic",
+    );
+    expect(result).toBeNull();
+  });
+
+  it("returns null for short text (< 20 chars)", async () => {
+    const result = await extractAddressWithAi("Short");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when Gemini returns no address", async () => {
+    const { callGemini } = await import("@/lib/ai/gemini");
+    vi.mocked(callGemini).mockResolvedValueOnce({
+      text: '{"address": null}',
+    } as never);
+
+    const result = await extractAddressWithAi(
+      "A long paragraph with no actual address information in it at all whatsoever",
+    );
+    expect(result).toBeNull();
   });
 });

@@ -123,17 +123,20 @@ export function parseHaresFromBlock(text: string): string | null {
   // "Hared by Name and Name" or "Hared by Name"
   const haredByMatch = text.match(/Hared?\s+by\s+(.+?)(?:\n|$|\*)/i);
   if (haredByMatch) {
-    const hares = haredByMatch[1].trim();
+    let hares = haredByMatch[1].trim();
     // Skip placeholder text
     if (/required|volunteer|tba|tbd|tbc/i.test(hares)) return null;
+    // Normalize multiple consecutive spaces (from inline element spacing) to single space
+    hares = hares.replace(/\s{2,}/g, " ");
     return hares;
   }
 
   // "Hare: Name"
   const hareColonMatch = text.match(/Hare:\s*(.+?)(?:\n|$|\*)/i);
   if (hareColonMatch) {
-    const hares = hareColonMatch[1].trim();
+    let hares = hareColonMatch[1].trim();
     if (/required|volunteer|tba|tbd|tbc/i.test(hares)) return null;
+    hares = hares.replace(/\s{2,}/g, " ");
     return hares;
   }
 
@@ -153,11 +156,13 @@ export function parseLocationFromBlock(text: string): { location?: string; stati
   );
   if (pTrailMatch) {
     const station = pTrailMatch[1].trim();
-    const loc = pTrailMatch[2].trim();
+    let loc = pTrailMatch[2].trim();
     // Filter placeholder or announcement text (e.g., "to be announced")
     if (isPlaceholder(loc) || /\bannounce/i.test(loc)) {
       return { station };
     }
+    // Strip trailing description text that bleeds into location
+    loc = loc.replace(/\s+(?:followed by|then on to|and then|details|more info|see)\b.*/i, "").trim();
     return { station, location: loc };
   }
 

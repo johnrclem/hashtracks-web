@@ -251,9 +251,19 @@ export function sanitizeLocation(location: string | undefined): string | null {
   const t = location.trim();
   if (!t) return null;
   if (isPlaceholder(t)) return null;
+  // Strip "Registration: url" values used as location
+  if (/^registration\s*:/i.test(t)) return null;
   // Strip bare URLs (not useful as location names)
   if (/^https?:\/\/\S+$/.test(t)) return null;
   return t;
+}
+
+/** Filter non-place location URLs (My Maps viewers, etc). Returns null for unusable URLs. */
+function sanitizeLocationUrl(url: string | undefined): string | null {
+  if (!url) return null;
+  // Google My Maps viewer/editor URLs are not place links
+  if (/google\.[\w.]+\/maps\/d\//i.test(url)) return null;
+  return url;
 }
 
 /**
@@ -376,7 +386,7 @@ async function upsertCanonicalEvent(
         if (coordsChanged || !existingEvent.locationCity) {
           locationCity = await reverseGeocode(coords.latitude, coords.longitude);
         }
-      } else if ((event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) {
+      } else if (event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) {
         // Coords cleared — also clear city
         locationCity = null;
       }
@@ -385,13 +395,20 @@ async function upsertCanonicalEvent(
         where: { id: existingEvent.id },
         data: {
           runNumber: event.runNumber ?? existingEvent.runNumber,
-          // Use ?? null for text fields: scraper always attempts these,
-          // so undefined means "clear it" (not "I didn't try")
-          title: sanitizeTitle(event.title),
-          description: event.description ?? null,
-          haresText: event.hares ?? null,
-          locationName: sanitizeLocation(event.location),
-          locationAddress: event.locationUrl ?? null,
+          title: sanitizeTitle(event.title) ?? existingEvent.title,
+          // Preserve existing fields when source doesn't provide them (undefined)
+          ...(event.description !== undefined
+            ? { description: event.description ?? null }
+            : {}),
+          ...(event.hares !== undefined
+            ? { haresText: event.hares ?? null }
+            : {}),
+          ...(event.location !== undefined
+            ? { locationName: sanitizeLocation(event.location) }
+            : {}),
+          ...(event.locationUrl !== undefined
+            ? { locationAddress: sanitizeLocationUrl(event.locationUrl) }
+            : {}),
           startTime: event.startTime ?? existingEvent.startTime,
           dateUtc,
           timezone,
@@ -402,7 +419,7 @@ async function upsertCanonicalEvent(
           // (prevents stale pins when an event moves to an unparseable location URL)
           ...(coords.latitude != null && coords.longitude != null
             ? { latitude: coords.latitude, longitude: coords.longitude }
-            : (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)
+            : event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)
               ? { latitude: null, longitude: null }
               : {}),
           // Reverse-geocoded city (only set when computed above)
@@ -445,7 +462,7 @@ async function upsertCanonicalEvent(
         description: event.description,
         haresText: event.hares,
         locationName: sanitizeLocation(event.location),
-        locationAddress: event.locationUrl,
+        locationAddress: sanitizeLocationUrl(event.locationUrl),
         startTime: event.startTime,
         sourceUrl: event.sourceUrl,
         trustLevel: ctx.trustLevel,
@@ -517,6 +534,18 @@ async function processNewRawEvent(
   sourceId: string,
   ctx: MergeContext,
 ): Promise<string | null> {
+  // Validate the event has at least one meaningful display field before processing
+  const hasDisplayData = event.title || event.location || event.hares || event.runNumber;
+  if (!hasDisplayData) {
+    ctx.result.eventErrors++;
+    if (ctx.result.eventErrorMessages.length < 50) {
+      ctx.result.eventErrorMessages.push(
+        `${event.date}/${event.kennelTag}: Skipping empty event (no title, location, hares, or run number)`,
+      );
+    }
+    return null;
+  }
+
   const rawEvent = await prisma.rawEvent.create({
     data: {
       sourceId,

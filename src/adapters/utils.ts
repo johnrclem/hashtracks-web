@@ -368,7 +368,7 @@ export async function fetchHTMLPage(url: string): Promise<FetchHTMLResult> {
 // Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
 // ---------------------------------------------------------------------------
 
-const PLACEHOLDER_RE = /^(?:tbd|tba|tbc|n\/a|needed|required|\?\??)$/i;
+const PLACEHOLDER_RE = /^(?:tbd|tba|tbc|n\/a|needed|required|registration|\?\??)$/i;
 
 /**
  * Check if a value is a common placeholder (TBD, TBA, TBC, N/A, ?, ??, needed, required).
@@ -387,6 +387,33 @@ export function stripPlaceholder(value: string | undefined | null): string | und
   const trimmed = value.trim();
   if (!trimmed || PLACEHOLDER_RE.test(trimmed)) return undefined;
   return trimmed;
+}
+
+/**
+ * Extract a street address from a text blob using Gemini.
+ * Returns the extracted address string, or null if none found.
+ * Intended as a fallback when deterministic parsing fails on long text.
+ */
+export async function extractAddressWithAi(text: string): Promise<string | null> {
+  if (!text || text.length < 20) return null;
+
+  try {
+    const { callGemini } = await import("@/lib/ai/gemini");
+    const prompt = `Extract the street address or venue location from this text. Return ONLY a JSON object with a single "address" field containing the address. If no clear address is found, return {"address": null}.
+
+Text: "${text.slice(0, 500)}"`;
+
+    const response = await callGemini({ prompt, temperature: 0.1, maxOutputTokens: 256 });
+    if (!response.text) return null;
+    const parsed = JSON.parse(response.text);
+    const addr = parsed?.address;
+    if (typeof addr === "string" && addr.trim().length > 0 && addr.length < 200) {
+      return addr.trim();
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchBrowserRenderedPage(

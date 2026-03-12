@@ -104,7 +104,10 @@ function scrapeCurrentTrail(
   let locationUrl: string | undefined;
   $("a[href]").each((_i, el) => {
     const href = $(el).attr("href") ?? "";
-    if (/maps\./i.test(href) || /google\.\w+\/maps/i.test(href)) {
+    if (
+      (/maps\./i.test(href) || /google\.\w+\/maps/i.test(href)) &&
+      !/\/maps\/d\//i.test(href) // Exclude Google My Maps viewer/editor URLs
+    ) {
       locationUrl = href;
       return false;
     }

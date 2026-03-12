@@ -434,6 +434,165 @@ describe("double-header support", () => {
   });
 });
 
+describe("empty event guard", () => {
+  it("skips events with no display data (no title, location, hares, or runNumber)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({
+        title: undefined,
+        location: undefined,
+        hares: undefined,
+        runNumber: undefined,
+      }),
+    ]);
+
+    expect(result.created).toBe(0);
+    expect(result.eventErrors).toBe(1);
+    expect(result.eventErrorMessages[0]).toContain("Skipping empty event");
+    // Should not create a RawEvent record for empty events
+    expect(mockRawEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("processes events that have at least a runNumber", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({
+        title: undefined,
+        location: undefined,
+        hares: undefined,
+        runNumber: 42,
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+  });
+});
+
+describe("location preservation on update", () => {
+  it("preserves existing locationName when new source has undefined location", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, locationName: "The Pub", locationAddress: "https://maps.google.com/pub" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ location: undefined, locationUrl: undefined }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).not.toHaveProperty("locationName");
+    expect(updateCall.data).not.toHaveProperty("locationAddress");
+  });
+
+  it("preserves existing haresText when new source has undefined hares", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, haresText: "Mudflap" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ hares: undefined }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).not.toHaveProperty("haresText");
+  });
+
+  it("preserves existing description when new source has undefined description", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, description: "A lovely trail" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ description: undefined }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).not.toHaveProperty("description");
+  });
+
+  it("clears locationName when source explicitly provides empty location", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, locationName: "The Pub" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ location: "TBD" }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).toHaveProperty("locationName");
+    expect(updateCall.data.locationName).toBeNull();
+  });
+});
+
+describe("sanitizeLocationUrl", () => {
+  it("filters Google My Maps viewer URLs from locationAddress on create", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ locationUrl: "https://www.google.com/maps/d/u/0/viewer?mid=abc123" }),
+    ]);
+
+    const createCall = mockEventCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(createCall.data.locationAddress).toBeNull();
+  });
+
+  it("filters Google My Maps viewer URLs from locationAddress on update", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5 },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ locationUrl: "https://www.google.com/maps/d/u/0/viewer?mid=abc123" }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data.locationAddress).toBeNull();
+  });
+
+  it("filters Google My Maps URLs with multi-part TLDs (google.co.uk)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ locationUrl: "https://www.google.co.uk/maps/d/viewer?mid=abc123" }),
+    ]);
+
+    const createCall = mockEventCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(createCall.data.locationAddress).toBeNull();
+  });
+
+  it("passes through valid Google Maps URLs", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+
+    const mapsUrl = "https://www.google.com/maps/search/?api=1&query=The+Pub";
+    await processRawEvents("src_1", [
+      buildRawEvent({ locationUrl: mapsUrl }),
+    ]);
+
+    const createCall = mockEventCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(createCall.data.locationAddress).toBe(mapsUrl);
+  });
+});
+
 // ── sanitizeTitle ──
 
 import { sanitizeTitle, sanitizeLocation } from "./merge";
@@ -505,6 +664,14 @@ describe("sanitizeLocation", () => {
 
   it("preserves location with embedded URL text", () => {
     expect(sanitizeLocation("The Pub https://example.com")).toBe("The Pub https://example.com");
+  });
+
+  it("returns null for Registration: URL values", () => {
+    expect(sanitizeLocation("Registration: https://example.com/signup")).toBeNull();
+  });
+
+  it("returns null for bare 'Registration' placeholder", () => {
+    expect(sanitizeLocation("Registration")).toBeNull();
   });
 });
 

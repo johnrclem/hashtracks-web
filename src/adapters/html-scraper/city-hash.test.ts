@@ -166,6 +166,24 @@ describe("parseMakesweatEvent", () => {
     const event = parseMakesweatEvent($, cards.eq(0), "https://makesweat.com/cityhash#hashes");
     expect(event!.startTime).toBe("19:00");
   });
+
+  it("does not duplicate postcode when already in venue name", () => {
+    const dupeHtml = `<div class="ms_event">
+      <div class="ms_eventtitle">City Hash R*n #1930</div>
+      <div class="ms_event_startdate">Tue 20th May 26</div>
+      <div class="ms_eventstart">7:00pm</div>
+      <div class="ms_eventdescription"></div>
+      <div class="ms_venue_name">Old Star, London E8 2HG</div>
+      <div class="ms_venue_address">66 Broadway</div>
+      <div class="ms_venue_postcode">E8 2HG</div>
+    </div>`;
+    const $dupe = cheerio.load(dupeHtml);
+    const event = parseMakesweatEvent($dupe, $dupe(".ms_event").eq(0), "https://makesweat.com/cityhash#hashes");
+    expect(event).not.toBeNull();
+    // Postcode should NOT appear twice
+    expect(event!.location).toBe("Old Star, London E8 2HG, 66 Broadway");
+    expect(event!.location).not.toContain("E8 2HG, E8 2HG");
+  });
 });
 
 describe("CityHashAdapter.fetch", () => {

@@ -213,7 +213,13 @@ function parseRunEntry(
     .trim();
 
   const segments = withoutDatePrefix.split(/\s+-\s+/).map((s) => s.trim()).filter(Boolean);
-  const title = segments.length > 0 ? segments[0] : undefined;
+  let title = segments.length > 0 ? segments[0] : undefined;
+  // Strip nav/boilerplate phrases that bleed through from page text
+  if (title) {
+    title = title
+      .replace(/\b(?:home|about us|contact|next run|committee|links|members|gallery)\b.*$/i, "")
+      .trim() || undefined;
+  }
 
   let location: string | undefined;
   if (segments.length > 1) {
@@ -298,7 +304,7 @@ export class OCH3Adapter implements SourceAdapter {
     // Remove script/style/noscript elements first — Cheerio .text() includes their
     // text content, which caused raw JS (Google Analytics, etc.) to bleed into event data
     const $main = runListResult.$("main, .main-content, #content, .wsite-section-wrap, body").first();
-    $main.find("script, style, noscript, nav, header, footer, .nav, .navbar, .header, .footer, .menu, .navigation").remove();
+    $main.find("script, style, noscript, nav, header, footer, aside, .nav, .navbar, .header, .footer, .menu, .navigation, .sidebar, [role='navigation']").remove();
     const mainContent = $main.text();
     const events = parseOCH3EntriesFromText(mainContent, runListUrl);
 
