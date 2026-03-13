@@ -328,7 +328,7 @@ logbook + kennel directory.
 - **GOTH3 Static Schedule** → STATIC_SCHEDULE → GOTH3
 - **Grand Strand H3 Static Schedule** → STATIC_SCHEDULE → GSH3
 
-### New England + Dublin (6 sources)
+### New England (5 sources)
 - **Von Tramp H3 Meetup** → MEETUP → VTH3 (Vermont)
 - **Burlington H3 Website Hareline** → HTML_SCRAPER → BurH3 (Vermont)
 - **RIH3 Static Schedule** → STATIC_SCHEDULE → RIH3 (Rhode Island)

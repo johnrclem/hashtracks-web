@@ -27,7 +27,7 @@ Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent
 |---------|-------------|----------------------|----------------|--------------|-----------|-------------|-------------------|--------|-----------|
 | Data access | HTTP GET + Cheerio parse | `browserRender()` → Cheerio parse (NAS Playwright service) | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse | Blogger API v3 (blog ID discovery + posts endpoint) | Ghost Content API (public key, JSON with full HTML) | Meetup public REST API | HTTP GET + Cheerio parse (index + detail pages) | None (generates from RRULE) |
 | Auth needed | None | None (internal `BROWSER_RENDER_KEY`) | API key | API key (tab discovery only) | None | API key (same `GOOGLE_CALENDAR_API_KEY`) | None (public read-only key embedded in page) | None (public groups) | None | None |
-| Kennel tags | Regex patterns on event text | Hardcoded per adapter (single-kennel) | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` | Hardcoded per adapter (single-kennel Blogspot blogs) | Hardcoded per adapter (single-kennel Ghost blogs) | `config.kennelTag` (single kennel, all events) | Per-event from Hash Rego data, filtered by `config.kennelSlugs` | `config.defaultKennelTag` (single kennel) |
+| Kennel tags | Regex patterns on event text | Hardcoded per adapter (single-kennel) | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` | Hardcoded per adapter (single-kennel Blogspot blogs) | Hardcoded per adapter (single-kennel Ghost blogs) | `config.kennelTag` (single kennel, all events) | Per-event from Hash Rego data, filtered by `config.kennelSlugs` | `config.kennelTag` (single kennel) |
 | Date format | Site-specific (ordinals, DD/MM/YYYY, US dates) | Site-specific (JS-rendered content, parsed after render) | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY | ISO 8601 / DTSTART | API returns ISO 8601 `published`; post body parsed with site-specific logic | API returns ISO 8601 `published_at`; post body HTML parsed for trail date | ISO 8601 (`local_date`) | Site-specific HTML parsing | Generated from RRULE |
 | Routing | URL-based (`htmlScrapersByUrl` in registry) | URL-based (`htmlScrapersByUrl` — same as HTML Scraper) | Shared adapter (single class) | Shared adapter (config-driven) | Shared adapter (config-driven) | URL-based (reuses `htmlScrapersByUrl` routing, Blogger API is primary fetch with HTML fallback) | URL-based (reuses `htmlScrapersByUrl` routing, Ghost API is primary fetch with HTML fallback) | Shared adapter (config-driven) | Shared adapter (config-driven) | Shared adapter (config-driven) |
 | Complexity | High (structural HTML, site-specific) | Medium (browser render + Cheerio parse) | Medium (clean API) | Low (column mapping) | Low-Medium (config-driven, but iCal quirks) | Medium (shared `fetchBloggerPosts()` utility + site-specific body parsing) | Medium (Ghost API + trail section isolation + body parsing) | Low (config-driven, AI-assisted) | Medium (index + detail page scraping) | Lowest (no external fetch, pure config) |
@@ -106,7 +106,7 @@ Existing adapter types:
 - `ICAL_FEED` — For standard iCal (.ics) feeds via `node-ical`. Config-driven kennelPatterns + skipPatterns. Currently: SFH3 MultiHash aggregator, CCH3, BAH3.
 - `MEETUP` — For public Meetup.com groups. Single shared adapter, config-driven (no code changes needed). Config requires `groupUrlname` (extracted from URL) and `kennelTag` (single kennel shortName). Currently: 5 live sources (Miami, Savannah, VT, CT, Charleston). **No API key required** — uses Meetup's public REST API.
 - `HASHREGO` — For kennels listed on hashrego.com. Config-driven with `kennelSlugs` array (multi-kennel). Currently: 8 kennels (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3, FCH3).
-- `STATIC_SCHEDULE` — For kennels without scrapeable web sources (Facebook-only). Generates placeholder events from RRULE recurrence rules — no external fetch. Config-driven with `rrule`, `defaultTitle`, `defaultLocation`, `defaultStartTime`, `defaultKennelTag`. Currently: 26 sources across FL, GA, SC, MA, NJ, RI. **Cannot express lunar recurrence** (full/new moon schedules).
+- `STATIC_SCHEDULE` — For kennels without scrapeable web sources (Facebook-only). Generates placeholder events from RRULE recurrence rules — no external fetch. Config-driven with `rrule`, `kennelTag`, `startTime` (optional: `anchorDate`, `defaultTitle`, `defaultLocation`, `defaultDescription`). Currently: 26 sources across FL, GA, SC, MA, NJ, RI. **Cannot express lunar recurrence** (full/new moon schedules).
 
 If none fit, create a new adapter implementing `SourceAdapter` from `src/adapters/types.ts`.
 
@@ -165,9 +165,9 @@ For Facebook-only kennels with known recurrence patterns. Events are generated l
 ```typescript
 config: {
   rrule: "FREQ=WEEKLY;BYDAY=SA",  // every Saturday
-  defaultKennelTag: "WildH3",
+  kennelTag: "WildH3",
   defaultTitle: "Wildcard H3 Weekly Hash",
-  defaultStartTime: "14:00",
+  startTime: "14:00",
   defaultLocation: "TBA — check Facebook group",
 }
 ```
