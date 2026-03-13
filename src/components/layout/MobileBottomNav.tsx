@@ -17,7 +17,10 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const isActive = (href: string) =>
+    pathname === href ||
+    pathname.startsWith(`${href}/`) ||
+    (pathname === "/" && href === "/hareline");
   const isMoreActive = pathname.startsWith("/misman") || pathname.startsWith("/admin") || pathname.startsWith("/about") || pathname.startsWith("/for-misman");
 
   return (

@@ -373,9 +373,14 @@ async function upsertCanonicalEvent(
   if (sameDayEvents.length === 1) {
     const sole = sameDayEvents[0];
     const alreadyMatchedInBatch = ctx.batchMatchedEvents.get(batchKey)?.has(sole.id) ?? false;
-    // If we already matched this event in the current batch, this is a double-header
     if (alreadyMatchedInBatch) {
-      existingEvent = null;
+      // Same-batch duplicate: treat as update (not double-header) when the incoming
+      // event shares a startTime or runNumber with the existing one — this catches
+      // overlapping past/future table entries from adapters like hashnyc.com.
+      const looksLikeSameEvent =
+        (event.startTime != null && sole.startTime === event.startTime) ||
+        (event.runNumber != null && sole.runNumber === event.runNumber);
+      existingEvent = looksLikeSameEvent ? sole : null;
     } else {
       existingEvent = sole; // Cross-source or first match — backward-compatible
     }

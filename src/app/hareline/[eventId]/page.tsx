@@ -44,13 +44,17 @@ import { getEventDayWeather } from "@/lib/weather";
 import { REGION_CENTROIDS } from "@/lib/geo";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { RestoreEventButton } from "@/components/admin/RestoreEventButton";
+import { stripMarkdown, stripUrlsFromText } from "@/lib/format";
 
 export default async function EventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ from?: string; slug?: string }>;
 }) {
   const { eventId } = await params;
+  const { from, slug: fromSlug } = await searchParams;
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
@@ -154,9 +158,13 @@ export default async function EventDetailPage({
     <div className="space-y-6">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/hareline" className="hover:text-foreground">
-          Hareline
-        </Link>
+        {from === "logbook" ? (
+          <Link href="/logbook" className="hover:text-foreground">My Logbook</Link>
+        ) : from === "kennel" && fromSlug ? (
+          <Link href={`/kennels/${fromSlug}`} className="hover:text-foreground">{event.kennel.shortName}</Link>
+        ) : (
+          <Link href="/hareline" className="hover:text-foreground">Hareline</Link>
+        )}
         <span>/</span>
         <span className="text-foreground">{event.kennel.shortName} — {breadcrumbDate}</span>
       </nav>
@@ -282,7 +290,7 @@ export default async function EventDetailPage({
                         rel="noopener noreferrer"
                         className="text-primary hover:underline"
                       >
-                        {event.locationName}
+                        {stripUrlsFromText(event.locationName)}
                       </a>
                     </dd>
                   </div>
@@ -298,7 +306,7 @@ export default async function EventDetailPage({
                   <h2 className="mb-1 text-sm font-medium text-muted-foreground">
                     Description
                   </h2>
-                  <p className="whitespace-pre-wrap">{event.description}</p>
+                  <p className="whitespace-pre-wrap">{stripMarkdown(event.description)}</p>
                 </div>
               )}
             </div>

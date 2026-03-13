@@ -240,7 +240,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
       >
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
-            href={`/hareline/${entry.event.id}`}
+            href={`/hareline/${entry.event.id}?from=logbook`}
             className="shrink-0 font-medium hover:underline sm:w-36"
           >
             {formatLogbookDate(entry.event.date)}
@@ -270,7 +270,7 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link
-                  href={`/hareline/${entry.event.id}`}
+                  href={`/hareline/${entry.event.id}?from=logbook`}
                   className="hidden sm:block min-w-0 flex-1 truncate text-muted-foreground hover:underline"
                 >
                   {entry.event.title}
@@ -281,9 +281,12 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
               </TooltipContent>
             </Tooltip>
           ) : (
-            <span className="hidden sm:block min-w-0 flex-1 italic text-muted-foreground/60">
-              No trail name
-            </span>
+            <Link
+              href={`/hareline/${entry.event.id}?from=logbook`}
+              className="hidden sm:block min-w-0 flex-1 truncate italic text-muted-foreground/60 hover:text-muted-foreground hover:underline"
+            >
+              {entry.event.runNumber ? `Run #${entry.event.runNumber}` : "—"}
+            </Link>
           )}
           <span className="ml-auto flex shrink-0 items-center gap-2">
             {entry.attendance.stravaUrl && (

@@ -10,7 +10,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { formatTime, formatDateLong, getLabelForUrl } from "@/lib/format";
+import { formatTime, formatDateLong, getLabelForUrl, stripMarkdown, stripUrlsFromText } from "@/lib/format";
 import type { HarelineEvent } from "./EventCard";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
@@ -166,10 +166,10 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
                     rel="noopener noreferrer"
                     className="text-primary hover:underline"
                   >
-                    {event.locationName}
+                    {stripUrlsFromText(event.locationName)}
                   </a>
                 ) : (
-                  event.locationName
+                  stripUrlsFromText(event.locationName)
                 )}
               </dd>
             </div>
@@ -192,7 +192,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             <h4 className="mb-1 text-sm font-medium text-muted-foreground">
               Description
             </h4>
-            <p className="whitespace-pre-wrap text-sm">{event.description}</p>
+            <p className="whitespace-pre-wrap text-sm">{stripMarkdown(event.description)}</p>
           </div>
         )}
       </CardContent>

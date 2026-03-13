@@ -393,6 +393,73 @@ describe("double-header support", () => {
     expect(result.created).toBe(0);
   });
 
+  it("treats same-batch duplicate with matching runNumber as update, not double-header", async () => {
+    mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
+    // First event: no fingerprint match, no existing events → create
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1", runNumber: 2100, startTime: "14:00" } as never);
+    // Second event: no fingerprint match, one existing (the one we just created) with same runNumber
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, sourceUrl: "https://hashnyc.com/#past", startTime: "14:00", runNumber: 2100, title: "Trail" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-08", runNumber: 2100, startTime: "14:00", sourceUrl: "https://hashnyc.com/#past" }),
+      buildRawEvent({ date: "2026-03-08", runNumber: 2100, startTime: "14:00", sourceUrl: "https://hashnyc.com/#future" }),
+    ]);
+
+    // Second event should update the first, not create a duplicate
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(1);
+  });
+
+  it("treats same-batch duplicate with matching startTime as update, not double-header", async () => {
+    mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
+    // First event: create
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1", startTime: "19:30" } as never);
+    // Second event: same day, same startTime, already matched in batch
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, sourceUrl: "https://example.com/a", startTime: "19:30", title: "Trail" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-08", startTime: "19:30", sourceUrl: "https://example.com/a" }),
+      buildRawEvent({ date: "2026-03-08", startTime: "19:30", sourceUrl: "https://example.com/b" }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(1);
+  });
+
+  it("still creates double-header when same-batch events have different startTime and runNumber", async () => {
+    mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
+    // First event: create
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1", startTime: "10:30", runNumber: 100 } as never);
+    // Second event: different startTime and runNumber → genuine double-header
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, sourceUrl: "https://example.com/a", startTime: "10:30", runNumber: 100, title: "Morning Trail" },
+    ] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_2" } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-08", startTime: "10:30", runNumber: 100, sourceUrl: "https://example.com/a", title: "Morning Trail" }),
+      buildRawEvent({ date: "2026-03-08", startTime: "19:00", runNumber: 200, sourceUrl: "https://example.com/b", title: "Evening Trail" }),
+    ]);
+
+    expect(result.created).toBe(2);
+    expect(result.updated).toBe(0);
+  });
+
   it("cross-source: matches single existing event with different sourceUrl and creates EventLink", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([
@@ -629,6 +696,18 @@ describe("sanitizeTitle", () => {
   it("returns null for empty/whitespace", () => {
     expect(sanitizeTitle("  ")).toBeNull();
   });
+
+  it("returns null for kennel-prefixed 'HARES NEEDED'", () => {
+    expect(sanitizeTitle("BH3: HARES NEEDED!")).toBeNull();
+  });
+
+  it("returns null for kennel-prefixed 'Need a hare'", () => {
+    expect(sanitizeTitle("NYCH3 - Need a hare")).toBeNull();
+  });
+
+  it("preserves valid title with kennel prefix", () => {
+    expect(sanitizeTitle("BH3: The St Patrick's Trail")).toBe("BH3: The St Patrick's Trail");
+  });
 });
 
 // ── sanitizeLocation ──
@@ -662,6 +741,22 @@ describe("sanitizeLocation", () => {
     expect(sanitizeLocation("  ")).toBeNull();
   });
 
+  it("strips embedded URLs from location text", () => {
+    expect(sanitizeLocation("The Pub https://example.com")).toBe("The Pub");
+  });
+
+  it("strips embedded URLs from location text (maps URL)", () => {
+    expect(sanitizeLocation("Location https://maps.app.goo.gl/xyz Rest")).toBe("Location Rest");
+  });
+
+  it("collapses double commas", () => {
+    expect(sanitizeLocation("Pub,, Boston, MA")).toBe("Pub, Boston, MA");
+  });
+
+  it("uppercases trailing 2-letter US state abbreviation", () => {
+    expect(sanitizeLocation("65 Fairchild St, Charleston, sc")).toBe("65 Fairchild St, Charleston, SC");
+  });
+
   it("removes exact duplicate segments", () => {
     expect(sanitizeLocation("Brooklyn, NY, Brooklyn, NY")).toBe("Brooklyn, NY");
   });
@@ -680,10 +775,6 @@ describe("sanitizeLocation", () => {
 
   it("preserves single-segment locations (no commas)", () => {
     expect(sanitizeLocation("The Pub")).toBe("The Pub");
-  });
-
-  it("strips embedded URLs from location text", () => {
-    expect(sanitizeLocation("The Pub https://example.com")).toBe("The Pub");
   });
 
   it("returns null for Registration: URL values", () => {
