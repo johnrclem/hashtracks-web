@@ -81,7 +81,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - Logbook sync: pending confirmations link misman records to user logbook entries
 
 ### Source Engine
-- 9 adapter types: HTML Scraper, Google Calendar API, Google Sheets CSV, iCal Feed, Hash Rego, Meetup, WordPress REST API, Static Schedule (RRULE-based), Blogger API
+- 7 source types: HTML Scraper, Google Calendar, Google Sheets, iCal Feed, Hash Rego, Meetup, Static Schedule (RRULE-based); HTML Scraper includes implementation variants: browser-rendered (Wix/SPA), WordPress REST API, Blogger API, and generic config-driven CSS selector scraping
 - 69 live sources feeding 152 kennels across 12 regions (NYC, Boston, Chicago, DC, SF Bay, London, Florida, Georgia, South Carolina, Massachusetts, New England, Dublin)
 - Automated daily scrapes via Vercel Cron
 - Merge pipeline with fingerprint dedup, trust levels, and kennel alias resolution
@@ -133,7 +133,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | Ireland | Dublin H3 website | 1 kennel |
 | Florida | Miami Meetup, Key West + O2H3 Calendars, WCFH3 scraper, 4 static schedules | 29 kennels |
 | Georgia | Savannah Meetup, Atlanta Hash Board, 9 static schedules | 20 kennels |
-| South Carolina | Charleston Heretics Meetup, 8 static schedules | 10 kennels |
+| South Carolina | Charleston Heretics Meetup, 9 static schedules | 10 kennels |
 | New England | VT Meetup, Burlington + RIH3 websites, RIH3 static schedule, CT Meetup | 5 kennels |
 
 ## Documentation
