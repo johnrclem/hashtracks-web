@@ -224,17 +224,11 @@ export class MeetupAdapter implements SourceAdapter {
     const mergedState = { ...pastState, ...upcomingState };
 
     // Deduplicate events by id (upcoming takes priority)
-    const seenIds = new Set<string>();
-    const allApolloEvents: ApolloEvent[] = [];
-    for (const ev of upcomingEvents) {
-      seenIds.add(ev.id);
-      allApolloEvents.push(ev);
-    }
-    for (const ev of pastEvents) {
-      if (!seenIds.has(ev.id)) {
-        allApolloEvents.push(ev);
-      }
-    }
+    const upcomingIds = new Set(upcomingEvents.map((ev) => ev.id));
+    const allApolloEvents = [
+      ...upcomingEvents,
+      ...pastEvents.filter((ev) => !upcomingIds.has(ev.id)),
+    ];
 
     if (allApolloEvents.length === 0) {
       const message = "No events found in __NEXT_DATA__ Apollo state";
