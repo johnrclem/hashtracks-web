@@ -5,6 +5,55 @@ import { hasAnyErrors } from "../types";
 import { validateSourceConfig, stripHtmlTags, buildDateWindow } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
+/** US state abbreviation → full name mapping (50 states + DC). */
+const US_STATE_ABBREV_TO_NAME: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+  MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+  OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+  VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+  DC: "District of Columbia",
+};
+
+const US_STATE_NAME_SET = new Set(Object.values(US_STATE_ABBREV_TO_NAME).map(s => s.toLowerCase()));
+
+/** States whose full names are also common city names — don't skip these as cities. */
+const STATE_CITY_AMBIGUOUS = new Set([
+  "new york", "washington", "georgia", "virginia", "indiana", "colorado",
+  "delaware", "hawaii", "alaska", "montana", "wyoming", "oregon", "idaho",
+  "iowa", "ohio", "utah", "maine", "nevada",
+]);
+
+/** Strip trailing `, XX` or `, StateName` from text when a separate state field exists. */
+export function stripTrailingState(name: string, stateAbbrev: string | undefined): string {
+  if (!stateAbbrev) return name;
+  const abbrevRe = new RegExp(`,\\s*${stateAbbrev.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "i");
+  let cleaned = name.replace(abbrevRe, "").trim();
+  const fullName = US_STATE_ABBREV_TO_NAME[stateAbbrev.toUpperCase()];
+  if (fullName) {
+    const fullRe = new RegExp(`,\\s*${fullName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "i");
+    cleaned = cleaned.replace(fullRe, "").trim();
+  }
+  return cleaned || name;
+}
+
+/** Collapse doubled consecutive words: "Miami Miami" → "Miami". */
+export function deduplicateWords(text: string): string {
+  return text.replace(/\b(\w+(?:\s+\w+){0,2})\s+\1\b/gi, "$1");
+}
+
+/** Returns true if `city` is a US state full name but NOT an ambiguous city name. */
+export function isStateFullName(city: string): boolean {
+  const lower = city.toLowerCase().trim();
+  if (STATE_CITY_AMBIGUOUS.has(lower)) return false;
+  return US_STATE_NAME_SET.has(lower);
+}
+
 /** Source.config shape for Meetup sources. */
 export interface MeetupConfig {
   /** Meetup group URL name, e.g. "brooklyn-hash-house-harriers". */
@@ -68,30 +117,39 @@ export function resolveVenue(
   const resolved = venue.__ref ? (state[venue.__ref] as ApolloEvent["venue"]) : venue;
   if (!resolved) return {};
 
-  // Incrementally build location, skipping redundant parts
+  // Incrementally build location, cleaning corrupt data from each field
   const parts: string[] = [];
-  if (resolved.name) parts.push(resolved.name);
 
-  if (resolved.address) {
-    // Skip address if identical to name (case-insensitive)
-    const nameMatch = resolved.name && resolved.address.toLowerCase() === resolved.name.toLowerCase();
-    if (!nameMatch) parts.push(resolved.address);
+  if (resolved.name) {
+    let name = resolved.name;
+    if (resolved.state) name = stripTrailingState(name, resolved.state);
+    name = deduplicateWords(name);
+    if (name) parts.push(name);
   }
 
+  if (resolved.address) {
+    let addr = resolved.address;
+    if (resolved.state) addr = stripTrailingState(addr, resolved.state);
+    addr = deduplicateWords(addr);
+    const nameMatch = parts[0] && addr.toLowerCase() === parts[0].toLowerCase();
+    if (!nameMatch && addr) parts.push(addr);
+  }
+
+  const joined = () => parts.join(", ");
+
   if (resolved.city) {
-    // Skip city if it's a substring of already-joined prior parts
-    const priorText = parts.join(", ").toLowerCase();
-    if (!priorText.includes(resolved.city.toLowerCase())) {
-      parts.push(resolved.city);
+    if (!isStateFullName(resolved.city)) {
+      const priorText = joined().toLowerCase();
+      if (!priorText.includes(resolved.city.toLowerCase())) {
+        parts.push(resolved.city);
+      }
     }
   }
 
   if (resolved.state) {
     // Skip state if it appears as a word-boundary match in prior parts
-    // (word boundary prevents "NY" matching inside "DANNY")
-    const priorText = parts.join(", ");
     const stateRe = new RegExp(`\\b${resolved.state.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-    if (!stateRe.test(priorText)) {
+    if (!stateRe.test(joined())) {
       parts.push(resolved.state);
     }
   }

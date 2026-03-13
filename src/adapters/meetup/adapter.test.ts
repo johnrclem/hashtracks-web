@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MeetupAdapter, extractApolloEvents, resolveVenue } from "./adapter";
+import { MeetupAdapter, extractApolloEvents, resolveVenue, stripTrailingState, deduplicateWords, isStateFullName } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
 
 vi.mock("../safe-fetch", () => ({
@@ -103,13 +103,13 @@ describe("resolveVenue", () => {
   it("deduplicates identical name and address (Miami case)", () => {
     const state = {};
     const result = resolveVenue(state, { name: "Miami Miami, FL", address: "Miami Miami, FL", city: "Florida", state: "FL" });
-    expect(result.location).toBe("Miami Miami, FL, Florida");
+    expect(result.location).toBe("Miami, FL");
   });
 
   it("skips state when already present in name", () => {
     const state = {};
     const result = resolveVenue(state, { name: "Downtown Bar, NY", address: "123 Main St", city: "New York", state: "NY" });
-    expect(result.location).toBe("Downtown Bar, NY, 123 Main St, New York");
+    expect(result.location).toBe("Downtown Bar, 123 Main St, New York, NY");
   });
 
   it("skips city when it's a substring of prior parts", () => {
@@ -143,6 +143,79 @@ describe("resolveVenue", () => {
     const result = resolveVenue(state, { __ref: "Venue:1" });
     expect(result.latitude).toBe(25.76);
     expect(result.longitude).toBe(-80.19);
+  });
+});
+
+describe("stripTrailingState", () => {
+  it("strips trailing state abbreviation", () => {
+    expect(stripTrailingState("Miami Miami, FL", "FL")).toBe("Miami Miami");
+  });
+
+  it("strips trailing full state name", () => {
+    expect(stripTrailingState("Miami Miami, Florida", "FL")).toBe("Miami Miami");
+  });
+
+  it("no-op when no state match", () => {
+    expect(stripTrailingState("Central Park Tavern", "NY")).toBe("Central Park Tavern");
+  });
+
+  it("returns original if stripping would empty the string", () => {
+    expect(stripTrailingState(", FL", "FL")).toBe(", FL");
+  });
+
+  it("returns original when stateAbbrev is undefined", () => {
+    expect(stripTrailingState("Some Place, FL", undefined)).toBe("Some Place, FL");
+  });
+});
+
+describe("deduplicateWords", () => {
+  it("collapses doubled single word", () => {
+    expect(deduplicateWords("Miami Miami")).toBe("Miami");
+  });
+
+  it("collapses doubled multi-word phrase", () => {
+    expect(deduplicateWords("New York New York")).toBe("New York");
+  });
+
+  it("preserves normal text", () => {
+    expect(deduplicateWords("Central Park Tavern")).toBe("Central Park Tavern");
+  });
+});
+
+describe("isStateFullName", () => {
+  it("returns true for non-ambiguous state name", () => {
+    expect(isStateFullName("Florida")).toBe(true);
+    expect(isStateFullName("California")).toBe(true);
+    expect(isStateFullName("  florida  ")).toBe(true);
+  });
+
+  it("returns false for ambiguous city/state names", () => {
+    expect(isStateFullName("New York")).toBe(false);
+    expect(isStateFullName("Washington")).toBe(false);
+    expect(isStateFullName("Georgia")).toBe(false);
+  });
+
+  it("returns false for non-state names", () => {
+    expect(isStateFullName("Miami")).toBe(false);
+    expect(isStateFullName("Chicago")).toBe(false);
+  });
+});
+
+describe("resolveVenue — name cleanup integration", () => {
+  it("cleans full Miami corrupt venue to 'Miami, FL'", () => {
+    const result = resolveVenue({}, { name: "Miami Miami, FL", address: "Miami Miami, FL", city: "Florida", state: "FL" });
+    expect(result.location).toBe("Miami, FL");
+  });
+
+  it("strips full state name from venue name", () => {
+    const result = resolveVenue({}, { name: "Bar Name, California", address: "123 Main St", city: "Los Angeles", state: "CA" });
+    expect(result.location).toBe("Bar Name, 123 Main St, Los Angeles, CA");
+  });
+
+  it("preserves normal venue (no regression)", () => {
+    const state = { "Venue:1": { __typename: "Venue", name: "Central Park Tavern", address: "100 W 67th St", city: "New York", state: "NY", lat: 40.77, lng: -73.97 } };
+    const result = resolveVenue(state, { __ref: "Venue:1" });
+    expect(result.location).toBe("Central Park Tavern, 100 W 67th St, New York, NY");
   });
 });
 
