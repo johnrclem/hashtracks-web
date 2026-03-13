@@ -106,15 +106,10 @@ export default async function KennelDetailPage({
   // Stats — use unique date count for resilience against duplicate canonical events
   const uniqueDates = new Set(events.map(e => e.date.toISOString().split("T")[0]));
   const totalEvents = uniqueDates.size;
-  const currentRunNumber = (() => {
-    // First upcoming event with a run number
-    const upcomingWithRun = upcoming.find((e) => e.runNumber != null);
-    if (upcomingWithRun) return upcomingWithRun.runNumber;
-    // Most recent past event with a run number
-    const pastWithRun = past.find((e) => e.runNumber != null);
-    if (pastWithRun) return pastWithRun.runNumber;
-    return null;
-  })();
+  const currentRunNumber =
+    upcoming.find((e) => e.runNumber != null)?.runNumber ??
+    past.find((e) => e.runNumber != null)?.runNumber ??
+    null;
   const oldestEventDate = events.length > 0 ? events[0].date.toISOString() : null;
   const nextRunDate = upcoming.length > 0 ? upcoming[0].date : null;
 
