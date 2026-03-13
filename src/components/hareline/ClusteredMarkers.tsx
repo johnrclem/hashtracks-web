@@ -112,7 +112,7 @@ export function ClusteredMarkers({ events, selectedEventId, onSelectEvent, onNav
                 onSelectEvent(event);
               }
             }}
-            title={`${event.kennel.shortName}${event.startTime ? ` · ${event.startTime}` : ""}`}
+            title={`${event.kennel.shortName}${event.title ? ` — ${event.title}` : ""}${event.startTime ? ` · ${event.startTime}` : ""}`}
             ref={getRefCallback(event.id) as React.Ref<never>}
           >
             <div style={getMarkerStyle(size, color, precise, isSelected)} />

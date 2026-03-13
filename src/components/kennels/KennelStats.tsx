@@ -2,10 +2,10 @@
 
 import { AnimatedCounter } from "@/components/home/HeroAnimations";
 import { getRegionColor, hexToRgb } from "@/lib/region";
-import { Calendar, Clock, ArrowRight } from "lucide-react";
+import { Calendar, Clock, ArrowRight, Hash } from "lucide-react";
 
 interface KennelStatsProps {
-  highestRunNumber: number | null;
+  currentRunNumber: number | null;
   totalEvents: number;
   oldestEventDate: string | null;
   nextRunDate: string | null;
@@ -43,7 +43,7 @@ function computeYearsActive(
 }
 
 export function KennelStats({
-  highestRunNumber,
+  currentRunNumber,
   totalEvents,
   oldestEventDate,
   nextRunDate,
@@ -59,21 +59,29 @@ export function KennelStats({
 
   const yearsActive = computeYearsActive(foundedYear, oldestEventDate);
 
-  // Prefer highest run number (kennel's actual count); fall back to events tracked
-  const runsValue = highestRunNumber ?? totalEvents;
-  const runsLabel = highestRunNumber ? "Total Runs" : "Events Tracked";
-
   const stats: {
     icon: React.ReactNode;
     value: React.ReactNode;
     label: string;
-  }[] = [
-    {
+  }[] = [];
+
+  if (currentRunNumber) {
+    stats.push({
+      icon: <Hash className="h-5 w-5" />,
+      value: <AnimatedCounter target={currentRunNumber} />,
+      label: "Latest Run",
+    });
+  }
+  // Only show "Events Tracked" when it adds context beyond "Latest Run"
+  // (i.e. when no run number is available, or when the counts are reasonably close)
+  const showEventsTracked = !currentRunNumber || totalEvents <= currentRunNumber * 1.1;
+  if (showEventsTracked) {
+    stats.push({
       icon: <Calendar className="h-5 w-5" />,
-      value: <AnimatedCounter target={runsValue} />,
-      label: runsLabel,
-    },
-  ];
+      value: <AnimatedCounter target={totalEvents} />,
+      label: "Events Tracked",
+    });
+  }
 
   if (yearsActive !== null && yearsActive > 0) {
     stats.push({

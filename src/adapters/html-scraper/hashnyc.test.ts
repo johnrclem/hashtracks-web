@@ -12,6 +12,7 @@ import {
   parseDetailsCell,
   extractSourceUrl,
   parseRows,
+  HashNYCAdapter,
 } from "./hashnyc";
 
 // ── decodeHtmlEntities ──
@@ -154,6 +155,28 @@ describe("extractRunNumber", () => {
   it("returns undefined for no match", () => {
     expect(extractRunNumber("No number here")).toBeUndefined();
   });
+
+  it("prefers kennel-scoped run number over cross-kennel reference", () => {
+    // "Summit H3 #2169" appears first, but BrH3 #2 should be preferred when kennelTag is BrH3
+    expect(
+      extractRunNumber(
+        "38th Annual Downtown Fiasco (also Summit H3 #2169) BrH3 #2",
+        "BrH3",
+      ),
+    ).toBe(2);
+  });
+
+  it("falls back to first run number when kennel tag has no adjacent number", () => {
+    expect(
+      extractRunNumber("Brooklyn special event #456", "BrH3"),
+    ).toBe(456);
+  });
+
+  it("scopes to kennel pattern for NYC kennel", () => {
+    expect(
+      extractRunNumber("NYCH3 Run #100 also Brooklyn #200", "NYCH3"),
+    ).toBe(100);
+  });
 });
 
 // ── extractTitle ──
@@ -266,6 +289,14 @@ describe("parseDetailsCell", () => {
     const result = parseDetailsCell($, $("td").first());
     expect(result.locationUrl).toContain("maps.google.com");
   });
+
+  it("prefers kennel-scoped run number over cross-kennel reference in title", () => {
+    const html = `<table><tr><td><b>38th Annual Downtown Fiasco (also Summit H3 #2169)</b> BrH3 #2 Start: TBD</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.kennelTag).toBe("BrH3");
+    expect(result.runNumber).toBe(2);
+  });
 });
 
 // ── extractSourceUrl (Cheerio) ──
@@ -361,5 +392,47 @@ describe("parseRows", () => {
     const result = parseRows($, rows, "https://hashnyc.com", false);
     expect(result.events).toEqual([]);
     expect(result.parseErrors).toEqual([]);
+  });
+});
+
+// ── Adapter-level deduplication ──
+
+describe("HashNYCAdapter deduplication", () => {
+  it("deduplicates overlapping events from past and future tables by kennelTag+date+runNumber", async () => {
+    // Simulate events that appear in both past and future tables
+    const pastHtml = `<html><body><table class="past_hashes">
+      <tr id="2026mar10">
+        <td>March 10 2:00 pm</td>
+        <td>NYCH3 Run #2100 Trail Name Start: Central Park</td>
+        <td>Mudflap</td>
+      </tr>
+    </table></body></html>`;
+
+    const futureHtml = `<html><body><table class="future_hashes">
+      <tr>
+        <td>March 10 2:00 pm</td>
+        <td>NYCH3 Run #2100 Trail Name Start: Central Park</td>
+        <td>Updated Hare</td>
+      </tr>
+    </table></body></html>`;
+
+    // Mock safeFetch to return both tables
+    const { safeFetch } = await import("../safe-fetch");
+    vi.mock("../safe-fetch", () => ({
+      safeFetch: vi.fn(),
+    }));
+    const mockFetch = vi.mocked(safeFetch);
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(pastHtml) } as Response)
+      .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(futureHtml) } as Response);
+
+    const adapter = new HashNYCAdapter();
+    const result = await adapter.fetch({ url: "https://hashnyc.com" } as never);
+
+    // Should be deduplicated: only 1 event, not 2
+    const nychEvents = result.events.filter(e => e.kennelTag === "NYCH3" && e.date === "2026-03-10");
+    expect(nychEvents.length).toBe(1);
+    // Future table entry should win (later overwrites)
+    expect(nychEvents[0].hares).toBe("Updated Hare");
   });
 });
