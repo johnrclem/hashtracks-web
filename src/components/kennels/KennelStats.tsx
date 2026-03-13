@@ -96,9 +96,6 @@ export function KennelStats({
     });
   }
 
-  // Defensive cap: never show more than 3 stat boxes
-  if (stats.length > 3) stats.length = 3;
-
   return (
     <div
       className={`grid gap-3 ${
