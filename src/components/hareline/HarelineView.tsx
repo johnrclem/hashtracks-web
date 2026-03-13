@@ -580,6 +580,9 @@ export function HarelineView({
           {timeLabel} {filteredEvents.length === 1 ? "event" : "events"}
           {scope === "my" ? " from your kennels" : ""}
           {nearMeDistance != null && geoState.status === "granted" ? ` within ${nearMeDistance} km` : ""}
+          {view === "map" && timeFilter === "4w" && (
+            <span className="ml-2 text-xs text-muted-foreground/70">Map shows next 4 weeks</span>
+          )}
         </p>
       )}
       {/* Screen-reader live region for filter count (debounced) */}

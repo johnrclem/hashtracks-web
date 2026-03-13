@@ -50,7 +50,7 @@ export function FeedbackDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="text-muted-foreground/60 transition-colors hover:text-foreground">
+        <button className="text-foreground/80 transition-colors hover:text-foreground">
           Send Feedback
         </button>
       </DialogTrigger>

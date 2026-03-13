@@ -24,7 +24,7 @@ export default async function AdminPage() {
       FROM "Attendance"
       WHERE "createdAt" >= ${thirtyDaysAgo}
     `,
-    prisma.event.count({ where: { date: { gte: today } } }),
+    prisma.event.count({ where: { date: { gte: today }, status: { not: "CANCELLED" }, parentEventId: null, kennel: { isHidden: false } } }),
     prisma.kennel.count({ where: { isHidden: false } }),
     prisma.source.count({ where: { enabled: true } }),
     prisma.source.count({ where: { healthStatus: "HEALTHY", enabled: true } }),

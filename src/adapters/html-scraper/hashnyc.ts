@@ -32,6 +32,17 @@ const KENNEL_PATTERNS: [RegExp, string][] = [
   [/Special/i, "Special (NYC)"],
 ];
 
+// Pre-compiled patterns derived from KENNEL_PATTERNS (avoid per-call RegExp construction)
+const ANCHORED_PATTERNS = KENNEL_PATTERNS.map(([p, tag]) => [
+  new RegExp(`^\\s*${p.source}`, "i"), tag,
+] as const);
+const CONTEXTUAL_PATTERNS = KENNEL_PATTERNS.map(([p, tag]) => [
+  new RegExp(`${p.source}\\s*(?:(?:Run|Trail|#)\\s*\\d+)`, "i"), tag,
+] as const);
+const SCOPED_RUN_PATTERNS = KENNEL_PATTERNS.map(([p, tag]) => [
+  new RegExp(`${p.source}\\s*(?:Run|Trail|#)\\s*(\\d+)`, "i"), tag,
+] as const);
+
 /**
  * Decode HTML entities and strip HTML tags from a string.
  * Uses the `he` library (via shared `decodeEntities`) for robust entity decoding,
@@ -88,18 +99,13 @@ export function extractMonthDay(
  */
 export function extractKennelTag(text: string): string {
   // Stage 1: Anchored to start of text
-  for (const [pattern, tag] of KENNEL_PATTERNS) {
-    const anchored = new RegExp(`^\\s*${pattern.source}`, "i");
-    if (anchored.test(text)) return tag;
+  for (const [pattern, tag] of ANCHORED_PATTERNS) {
+    if (pattern.test(text)) return tag;
   }
 
   // Stage 2: Anywhere in text (with run number context)
-  for (const [pattern, tag] of KENNEL_PATTERNS) {
-    const contextual = new RegExp(
-      `${pattern.source}\\s*(?:(?:Run|Trail|#)\\s*\\d+)`,
-      "i",
-    );
-    if (contextual.test(text)) return tag;
+  for (const [pattern, tag] of CONTEXTUAL_PATTERNS) {
+    if (pattern.test(text)) return tag;
   }
 
   // Fallback: check if there's a run number (likely NYCH3 as default)
@@ -109,9 +115,21 @@ export function extractKennelTag(text: string): string {
 }
 
 /**
- * Extract run number from text.
+ * Extract run number from text, optionally scoped to a specific kennel tag.
+ * When kennelTag is provided, prefers a run number adjacent to that tag
+ * (e.g., "BrH3 #1178") over a number next to another kennel reference
+ * (e.g., "Summit H3 #2169").
  */
-export function extractRunNumber(text: string): number | undefined {
+export function extractRunNumber(text: string, kennelTag?: string): number | undefined {
+  if (kennelTag) {
+    // Find the kennel pattern that matched this tag
+    for (const [pattern, tag] of SCOPED_RUN_PATTERNS) {
+      if (tag !== kennelTag) continue;
+      const scopedMatch = pattern.exec(text);
+      if (scopedMatch) return Number.parseInt(scopedMatch[1], 10);
+    }
+  }
+  // Fallback: first run number in text
   const match = /(?:Run|Trail|#)\s*(\d+)/i.exec(text);
   return match ? Number.parseInt(match[1], 10) : undefined;
 }
@@ -349,7 +367,7 @@ export function parseDetailsCell(
   const cellText = decodeHtmlEntities(cellHtml);
 
   const kennelTag = extractKennelTag(cellText);
-  const runNumber = extractRunNumber(cellText);
+  const runNumber = extractRunNumber(cellText, kennelTag);
 
   let eventName: string | undefined;
   const boldTag = cell.find("b").first();
@@ -565,10 +583,19 @@ export class HashNYCAdapter implements SourceAdapter {
       errorDetails.fetch = [...(errorDetails.fetch ?? []), { url: futureUrl, message }];
     }
 
+    // Deduplicate events that appear in both past and future tables near the date boundary.
+    // Later entry (future table) overwrites earlier (past table) since it's more current.
+    const deduped = new Map<string, RawEventData>();
+    for (const event of allEvents) {
+      const key = `${event.kennelTag}:${event.date}:${event.runNumber ?? ""}:${event.startTime ?? ""}`;
+      deduped.set(key, event);
+    }
+    const dedupedEvents = Array.from(deduped.values());
+
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
-      events: allEvents,
+      events: dedupedEvents,
       errors: allErrors,
       structureHash,
       errorDetails: hasErrorDetails ? errorDetails : undefined,

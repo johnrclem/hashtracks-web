@@ -189,7 +189,7 @@ export function CheckInButton({
   const now = new Date();
   const todayUtcNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
   const eventTime = new Date(eventDate).getTime();
-  const isPast = eventTime <= todayUtcNoon;
+  const isPast = eventTime < todayUtcNoon;
 
   if (!isAuthenticated) {
     const label = isPast ? "Sign in to check in" : "Sign in to RSVP";

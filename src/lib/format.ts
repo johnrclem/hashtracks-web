@@ -230,6 +230,27 @@ export function formatRelativeTime(input: Date | string): string {
   return new Date(then).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+// ── Text cleanup helpers ──
+
+/** Strip Markdown formatting for plain-text display. */
+export function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*{3,}/g, "\n\n")                    // *** separators → visual break
+    .replace(/\*\*(.+?)\*\*/g, "$1")              // **bold** → bold
+    .replace(/\*(.+?)\*/g, "$1")                  // *italic* → italic
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")      // [text](url) → text
+    .replace(/^#{1,6}\s+/gm, "")                  // # heading → heading
+    .replace(/^>\s+/gm, "")                       // > quote → quote
+    .replace(/^[-*+]\s+/gm, "")                   // - list → list
+    .replace(/\n{3,}/g, "\n\n")                    // collapse excess blank lines
+    .trim();
+}
+
+/** Strip URLs from display text (preserves surrounding words). */
+export function stripUrlsFromText(text: string): string {
+  return text.replace(/https?:\/\/\S+/g, "").replace(/\s{2,}/g, " ").trim();
+}
+
 // ── URL / domain helpers ──
 
 /** Extract hostname from URL, stripping www. prefix. Returns raw string on parse failure. */
@@ -266,9 +287,4 @@ export function getLabelForUrl(url: string, existingLabel?: string | null): stri
   } catch {
     return "Source";
   }
-}
-
-/** Strip http(s) URLs from text and collapse leftover whitespace. */
-export function stripUrlsFromText(text: string): string {
-  return text.replace(/https?:\/\/\S+/g, "").replace(/\s{2,}/g, " ").trim();
 }

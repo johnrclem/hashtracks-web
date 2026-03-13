@@ -47,7 +47,7 @@ export default async function KennelDetailPage({
   const [user, events] = await Promise.all([
     getOrCreateUser(),
     prisma.event.findMany({
-      where: { kennelId: kennel.id, status: { not: "CANCELLED" } },
+      where: { kennelId: kennel.id, status: { not: "CANCELLED" }, parentEventId: null },
       include: {
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
@@ -103,12 +103,13 @@ export default async function KennelDetailPage({
     .filter((e) => new Date(e.date).getTime() < todayUtc)
     .reverse();
 
-  // Stats — prefer highest run number (kennel's actual count) over events.length
-  const totalEvents = events.length;
-  const maxRunNumber = events.reduce((max, e) => {
-    if (e.runNumber != null && e.runNumber > max) return e.runNumber;
-    return max;
-  }, 0);
+  // Stats — use unique date count for resilience against duplicate canonical events
+  const uniqueDates = new Set(events.map(e => e.date.toISOString().split("T")[0]));
+  const totalEvents = uniqueDates.size;
+  const currentRunNumber =
+    upcoming.find((e) => e.runNumber != null)?.runNumber ??
+    past.find((e) => e.runNumber != null)?.runNumber ??
+    null;
   const oldestEventDate = events.length > 0 ? events[0].date.toISOString() : null;
   const nextRunDate = upcoming.length > 0 ? upcoming[0].date : null;
 
@@ -201,7 +202,7 @@ export default async function KennelDetailPage({
 
       {/* ── Stats Achievement Cards ── */}
       <KennelStats
-        highestRunNumber={maxRunNumber > 0 ? maxRunNumber : null}
+        currentRunNumber={currentRunNumber}
         totalEvents={totalEvents}
         oldestEventDate={oldestEventDate}
         nextRunDate={nextRunDate}

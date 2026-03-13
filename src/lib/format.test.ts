@@ -14,6 +14,8 @@ import {
   twitterUrl,
   displayDomain,
   getLabelForUrl,
+  stripMarkdown,
+  stripUrlsFromText,
 } from "./format";
 
 describe("formatTime", () => {
@@ -218,5 +220,50 @@ describe("getLabelForUrl", () => {
   it("derives label when existing label is null or undefined", () => {
     expect(getLabelForUrl("https://meetup.com/hash/events/1", null)).toBe("Meetup");
     expect(getLabelForUrl("https://meetup.com/hash/events/1", undefined)).toBe("Meetup");
+  });
+});
+
+describe("stripMarkdown", () => {
+  it("strips **bold** markers", () => {
+    expect(stripMarkdown("This is **bold** text")).toBe("This is bold text");
+  });
+  it("strips *italic* markers", () => {
+    expect(stripMarkdown("This is *italic* text")).toBe("This is italic text");
+  });
+  it("converts *** separators to visual breaks", () => {
+    expect(stripMarkdown("Section one\n***\nSection two")).toBe("Section one\n\nSection two");
+  });
+  it("strips markdown links preserving text", () => {
+    expect(stripMarkdown("[Click here](https://example.com)")).toBe("Click here");
+  });
+  it("strips heading markers", () => {
+    expect(stripMarkdown("## Heading\nContent")).toBe("Heading\nContent");
+  });
+  it("strips blockquote markers", () => {
+    expect(stripMarkdown("> Quoted text")).toBe("Quoted text");
+  });
+  it("strips list markers", () => {
+    expect(stripMarkdown("- Item one\n- Item two")).toBe("Item one\nItem two");
+  });
+  it("collapses excess blank lines", () => {
+    expect(stripMarkdown("A\n\n\n\nB")).toBe("A\n\nB");
+  });
+  it("trims whitespace", () => {
+    expect(stripMarkdown("  hello  ")).toBe("hello");
+  });
+});
+
+describe("stripUrlsFromText", () => {
+  it("removes URLs from text", () => {
+    expect(stripUrlsFromText("Meet at https://maps.app.goo.gl/xyz the pub")).toBe("Meet at the pub");
+  });
+  it("returns empty string trimmed when only URL", () => {
+    expect(stripUrlsFromText("https://maps.google.com/foo")).toBe("");
+  });
+  it("collapses multiple spaces after removal", () => {
+    expect(stripUrlsFromText("Start https://example.com end")).toBe("Start end");
+  });
+  it("returns plain text unchanged", () => {
+    expect(stripUrlsFromText("The Pub, Boston, MA")).toBe("The Pub, Boston, MA");
   });
 });

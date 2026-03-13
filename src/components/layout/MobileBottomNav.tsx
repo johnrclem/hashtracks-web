@@ -17,7 +17,10 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  // Root path is effectively the hareline, so highlight that tab
+  const effectivePath = pathname === "/" ? "/hareline" : pathname;
+  const isActive = (href: string) =>
+    effectivePath === href || effectivePath.startsWith(`${href}/`);
   const isMoreActive = pathname.startsWith("/misman") || pathname.startsWith("/admin") || pathname.startsWith("/about") || pathname.startsWith("/for-misman");
 
   return (
