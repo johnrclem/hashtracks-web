@@ -99,6 +99,36 @@ describe("getOrCreateUser", () => {
     expect(mockUserCreate).not.toHaveBeenCalled();
   });
 
+  it("preserves custom nerdName during email migration", async () => {
+    const newClerk = { ...clerkUser, id: "clerk_prod_2", firstName: "John", lastName: "Doe" };
+    mockCurrentUser.mockResolvedValueOnce(newClerk as never);
+    mockUserFind.mockResolvedValueOnce(null); // clerkId miss
+    mockUserFind.mockResolvedValueOnce({ id: "user_2", email: "john@test.com", nerdName: "Hashy McHashface" } as never); // email hit with custom name
+    mockUserUpdate.mockResolvedValueOnce({ id: "user_2", clerkId: "clerk_prod_2", nerdName: "Hashy McHashface" } as never);
+
+    const result = await getOrCreateUser();
+    expect(result).toEqual({ id: "user_2", clerkId: "clerk_prod_2", nerdName: "Hashy McHashface" });
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user_2" },
+      data: { clerkId: "clerk_prod_2", nerdName: "Hashy McHashface" },
+    });
+  });
+
+  it("backfills nerdName from Clerk when existing user has null nerdName", async () => {
+    const newClerk = { ...clerkUser, id: "clerk_prod_3" };
+    mockCurrentUser.mockResolvedValueOnce(newClerk as never);
+    mockUserFind.mockResolvedValueOnce(null); // clerkId miss
+    mockUserFind.mockResolvedValueOnce({ id: "user_3", email: "john@test.com", nerdName: null } as never); // email hit, no nerdName
+    mockUserUpdate.mockResolvedValueOnce({ id: "user_3", clerkId: "clerk_prod_3", nerdName: "John Doe" } as never);
+
+    const result = await getOrCreateUser();
+    expect(result).toEqual({ id: "user_3", clerkId: "clerk_prod_3", nerdName: "John Doe" });
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user_3" },
+      data: { clerkId: "clerk_prod_3", nerdName: "John Doe" },
+    });
+  });
+
   it("handles race condition on create (P2002 fallback by clerkId)", async () => {
     mockCurrentUser.mockResolvedValueOnce(clerkUser as never);
     mockUserFind.mockResolvedValueOnce(null); // clerkId miss

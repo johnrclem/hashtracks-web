@@ -28,7 +28,7 @@ export async function getOrCreateUser(): Promise<User | null> {
     if (emailMatch) {
       return prisma.user.update({
         where: { id: emailMatch.id },
-        data: { clerkId: clerkUser.id, nerdName: nerdName ?? emailMatch.nerdName },
+        data: { clerkId: clerkUser.id, nerdName: emailMatch.nerdName ?? nerdName },
       });
     }
   }
@@ -48,10 +48,9 @@ export async function getOrCreateUser(): Promise<User | null> {
     // record between our lookups and this create. P2002 could be on clerkId
     // or email unique constraint, so try both.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return (
-        (await prisma.user.findUnique({ where: { clerkId: clerkUser.id } })) ??
-        (email ? prisma.user.findUnique({ where: { email } }) : null)
-      );
+      const user = await prisma.user.findUnique({ where: { clerkId: clerkUser.id } });
+      if (user) return user;
+      return email ? prisma.user.findUnique({ where: { email } }) : null;
     }
     throw err;
   }
