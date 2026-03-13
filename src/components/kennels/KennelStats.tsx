@@ -72,9 +72,9 @@ export function KennelStats({
       label: "Latest Run",
     });
   }
-  // Only show "Events Tracked" when it adds context beyond "Latest Run"
-  // (i.e. when no run number is available, or when the counts are reasonably close)
-  const showEventsTracked = !currentRunNumber || totalEvents <= currentRunNumber * 1.1;
+  // Only show "Events Tracked" when there's no run number — otherwise
+  // Latest Run already provides a count metric and showing both risks 4 boxes.
+  const showEventsTracked = !currentRunNumber;
   if (showEventsTracked) {
     stats.push({
       icon: <Calendar className="h-5 w-5" />,
@@ -98,6 +98,9 @@ export function KennelStats({
       label: "Next Run",
     });
   }
+
+  // Defensive cap: never show more than 3 stat boxes
+  if (stats.length > 3) stats.splice(3);
 
   return (
     <div
