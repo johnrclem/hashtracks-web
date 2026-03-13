@@ -79,6 +79,49 @@ interface ApolloEvent {
   description?: string;
   eventUrl?: string;
   venue?: { __ref?: string; name?: string; address?: string; city?: string; state?: string; lat?: number; lng?: number } | null;
+  series?: { __ref?: string } | null;
+}
+
+const NUMERIC_ID_RE = /^\d+$/;
+
+/**
+ * Returns true if the ID is purely numeric (customized occurrence).
+ * Meetup uses numeric IDs for customized occurrences and alphanumeric tokens for templates.
+ */
+export function isNumericId(id: string): boolean {
+  return NUMERIC_ID_RE.test(id);
+}
+
+/**
+ * Deduplicates events that share the same date, preferring customized occurrences
+ * (numeric ID) over templates (alphanumeric token ID).
+ * When multiple customized occurrences share a date, all are kept.
+ */
+export function dedupByDate(events: ApolloEvent[]): ApolloEvent[] {
+  const byDate = new Map<string, ApolloEvent[]>();
+  const noDates: ApolloEvent[] = [];
+  for (const ev of events) {
+    if (!ev.dateTime) {
+      noDates.push(ev);
+      continue;
+    }
+    const date = ev.dateTime.slice(0, 10);
+    const group = byDate.get(date);
+    if (group) {
+      group.push(ev);
+    } else {
+      byDate.set(date, [ev]);
+    }
+  }
+
+  // For each date group, prefer customized (numeric ID) over templates
+  const result: ApolloEvent[] = [];
+  for (const group of byDate.values()) {
+    const numeric = group.filter((ev) => isNumericId(ev.id));
+    result.push(...(numeric.length > 0 ? numeric : group));
+  }
+
+  return [...result, ...noDates];
 }
 
 /**
@@ -227,6 +270,58 @@ function buildRawEventFromApollo(
 }
 
 /**
+ * For recurring events (those with a `series` field), fetch the individual
+ * detail page to get customized title/description. Template events on the
+ * list page often show generic data ("Saturday Trail!") instead of the
+ * per-occurrence customization ("SAVH3 Trail #1324!").
+ *
+ * Non-fatal: individual fetch failures fall back to the list page data.
+ * Concurrency limited to 3 concurrent fetches with 300ms batch delay.
+ */
+async function enrichRecurringEvents(
+  events: ApolloEvent[],
+  headers: Record<string, string>,
+): Promise<{ detailPagesFetched: number; detailPagesEnriched: number }> {
+  const recurring = events.filter((ev) => ev.series && ev.eventUrl);
+  if (recurring.length === 0) return { detailPagesFetched: 0, detailPagesEnriched: 0 };
+
+  let detailPagesEnriched = 0;
+  const CONCURRENCY = 3;
+  const BATCH_DELAY_MS = 300;
+
+  // Process in batches of CONCURRENCY
+  for (let i = 0; i < recurring.length; i += CONCURRENCY) {
+    if (i > 0) await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+
+    const batch = recurring.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map(async (ev) => {
+        const res = await safeFetch(ev.eventUrl!, { headers });
+        if (!res.ok) return null;
+        const html = await res.text();
+        const { events: detailEvents } = extractApolloEvents(html);
+        // Find the matching event on the detail page
+        const match = detailEvents.find((d) => d.id === ev.id);
+        return match ?? null;
+      }),
+    );
+
+    for (let j = 0; j < batch.length; j++) {
+      const result = results[j];
+      if (result.status === "fulfilled" && result.value) {
+        const detail = result.value;
+        const ev = batch[j];
+        if (detail.title) ev.title = detail.title;
+        if (detail.description) ev.description = detail.description;
+        detailPagesEnriched++;
+      }
+    }
+  }
+
+  return { detailPagesFetched: recurring.length, detailPagesEnriched };
+}
+
+/**
  * Meetup.com HTML scraper adapter.
  *
  * Scrapes the public events page and extracts event data from the
@@ -305,10 +400,22 @@ export class MeetupAdapter implements SourceAdapter {
 
     // Deduplicate events by id (upcoming takes priority)
     const upcomingIds = new Set(upcomingEvents.map((ev) => ev.id));
-    const allApolloEvents = [
+    const idDedupedEvents = [
       ...upcomingEvents,
       ...pastEvents.filter((ev) => !upcomingIds.has(ev.id)),
     ];
+
+    // Deduplicate template vs customized occurrences sharing the same date
+    // then filter to date window before enriching (avoids unnecessary detail page fetches)
+    const allApolloEvents = dedupByDate(idDedupedEvents).filter((ev) => {
+      if (!ev.dateTime) return true; // keep for downstream skip
+      const d = new Date(ev.dateTime);
+      return d >= minDate && d <= maxDate;
+    });
+
+    // Enrich recurring events with detail page data (mutates in-place)
+    const { detailPagesFetched, detailPagesEnriched } =
+      await enrichRecurringEvents(allApolloEvents, headers);
 
     if (allApolloEvents.length === 0) {
       const message = "No events found in __NEXT_DATA__ Apollo state";
@@ -319,10 +426,6 @@ export class MeetupAdapter implements SourceAdapter {
     for (const [i, ev] of allApolloEvents.entries()) {
       try {
         if (!ev.dateTime) continue;
-
-        const eventDate = new Date(ev.dateTime);
-        if (eventDate < minDate || eventDate > maxDate) continue;
-
         events.push(buildRawEventFromApollo(ev, mergedState, config.kennelTag));
       } catch (err) {
         const msg = `Failed to parse event "${ev.id}": ${err instanceof Error ? err.message : String(err)}`;
@@ -339,9 +442,12 @@ export class MeetupAdapter implements SourceAdapter {
       errorDetails: hasErrorDetails ? errorDetails : undefined,
       diagnosticContext: {
         groupUrlname: config.groupUrlname,
-        eventsFound: allApolloEvents.length,
+        eventsFound: idDedupedEvents.length,
         upcomingEventsFound: upcomingEvents.length,
         pastEventsFound: pastEvents.length,
+        eventsAfterDedup: allApolloEvents.length,
+        detailPagesFetched,
+        detailPagesEnriched,
       },
     };
   }
