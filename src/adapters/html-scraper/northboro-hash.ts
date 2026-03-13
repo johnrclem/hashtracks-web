@@ -87,16 +87,24 @@ export function parseTrailBlock(
 
   // Split remaining first line by commas — first part is title, rest might be hares
   const parts = afterDate ? afterDate.split(",").map((s) => s.trim()) : [];
-  const title = parts[0] || undefined;
+  let title = parts[0] || undefined;
 
-  // Look for hares in remaining parts of first line or subsequent lines
+  // Detect field swap: if the "title" part is actually a time string (e.g. "12:30pm"),
+  // the fields are shifted — promote the next part to title and parse the time
   let hares: string | undefined;
-  if (parts.length > 1) {
-    // Last comma-separated value on first line might be hares
+  let startTime: string | undefined;
+  const titleTime = title ? parseTimeMention(title) : undefined;
+  if (titleTime) {
+    startTime = titleTime;
+    title = parts.length > 1 ? parts[1] : undefined;
+    const hareParts = parts.slice(2);
+    if (hareParts.length > 0) {
+      hares = hareParts.join(", ");
+    }
+  } else if (parts.length > 1) {
+    // Normal case: remaining first-line parts are hares
     hares = parts.slice(1).join(", ");
   }
-
-  let startTime: string | undefined;
   let location: string | undefined;
 
   for (let i = 1; i < lines.length; i++) {

@@ -6,8 +6,49 @@ import { regionTimezone, getLabelForUrl, stripUrlsFromText } from "@/lib/format"
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
-import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode } from "@/lib/geo";
-import { isPlaceholder } from "@/adapters/utils";
+import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance } from "@/lib/geo";
+import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE } from "@/adapters/utils";
+
+/**
+ * Sanitize raw event fields: decode HTML entities in text fields.
+ * Applied at the top of processNewRawEvent() so all downstream sanitizers receive clean text.
+ */
+function sanitizeRawFields(event: RawEventData): void {
+  if (event.title) event.title = decodeEntities(event.title);
+  if (event.hares) event.hares = decodeEntities(event.hares);
+  if (event.location) event.location = decodeEntities(event.location);
+  if (event.description) event.description = decodeEntities(event.description);
+}
+
+/**
+ * Sanitize hares text: strip placeholders, truncate at boilerplate markers,
+ * and cap length at 200 chars with smart truncation at last delimiter.
+ */
+export function sanitizeHares(hares: string | undefined | null): string | null {
+  if (!hares) return null;
+  let h = hares.trim();
+  if (!h) return null;
+  if (isPlaceholder(h)) return null;
+
+  // Truncate at boilerplate markers (description text leaked into hares)
+  const boilerplateIdx = h.search(HARE_BOILERPLATE_RE);
+  if (boilerplateIdx > 0) {
+    h = h.slice(0, boilerplateIdx).trim();
+  }
+
+  // Cap at 200 chars with smart truncation at last delimiter
+  if (h.length > 200) {
+    const truncated = h.slice(0, 200);
+    const lastDelim = Math.max(
+      truncated.lastIndexOf(","),
+      truncated.lastIndexOf(";"),
+      truncated.lastIndexOf("&"),
+    );
+    h = lastDelim > 0 ? truncated.slice(0, lastDelim).trim() : truncated.trim();
+  }
+
+  return h || null;
+}
 
 /** Compiled once — matches admin/meta content in event titles (split to keep regex complexity low). */
 const ADMIN_TITLE_PATTERNS = [
@@ -47,8 +88,8 @@ interface MergeContext {
   trustLevel: number;
   /** Kennel IDs linked to this source via SourceKennel (for the guard check). */
   linkedKennelIds: Set<string>;
-  /** Per-batch cache of kennelId → region string to avoid N+1 queries. */
-  regionCache: Map<string, string>;
+  /** Per-batch cache of kennelId → region + coords to avoid N+1 queries. */
+  kennelCache: Map<string, { region: string; latitude: number | null; longitude: number | null }>;
   /** Per-batch cache of short Maps URL → resolved full URL (avoids repeated HTTP calls). */
   shortUrlCache: Map<string, string | null>;
   /** Per-batch tracking: which canonical Event IDs have been matched for each kennel+date.
@@ -58,15 +99,21 @@ interface MergeContext {
   result: MergeResult;
 }
 
+/** Resolve kennel data (region + coords), using the per-batch cache to avoid N+1 queries. */
+async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<{ region: string; latitude: number | null; longitude: number | null }> {
+  let cached = ctx.kennelCache.get(kennelId);
+  if (cached === undefined) {
+    const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { region: true, latitude: true, longitude: true } });
+    cached = { region: kennel?.region ?? "", latitude: kennel?.latitude ?? null, longitude: kennel?.longitude ?? null };
+    ctx.kennelCache.set(kennelId, cached);
+  }
+  return cached;
+}
+
 /** Resolve region for a kennel, using the per-batch cache to avoid N+1 queries. */
 async function resolveRegion(kennelId: string, ctx: MergeContext): Promise<string> {
-  let region = ctx.regionCache.get(kennelId);
-  if (region === undefined) {
-    const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { region: true } });
-    region = kennel?.region ?? "";
-    ctx.regionCache.set(kennelId, region);
-  }
-  return region;
+  const data = await resolveKennelData(kennelId, ctx);
+  return data.region;
 }
 
 /**
@@ -245,6 +292,8 @@ export function sanitizeTitle(title: string | undefined): string | null {
   if (!title) return null;
   const t = title.trim();
   if (!t) return null;
+  // Detect titles that are purely a time string (e.g. "12:30pm", "1pm") — fall back to kennel name
+  if (/^(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)|\d{1,2}:\d{2})$/i.test(t)) return null;
   // Strip leading kennel-tag prefix (e.g. "BH3: " or "NYCH3 - ") before testing
   const stripped = t.replace(/^[A-Z0-9]{2,10}\s*[:–—-]\s*/i, "").trim();
   // Filter out admin/meta content in titles (test both original and stripped)
@@ -308,6 +357,7 @@ async function resolveCoords(
   event: RawEventData,
   existingCoords?: { latitude: number | null; longitude: number | null; locationAddress: string | null },
   shortUrlCache?: Map<string, string | null>,
+  kennelCoords?: { latitude: number | null; longitude: number | null },
 ): Promise<{ latitude?: number; longitude?: number }> {
   const rawCoords = extractRawCoords(event);
   if (rawCoords.latitude != null) return rawCoords;
@@ -337,7 +387,18 @@ async function resolveCoords(
 
   if (event.location) {
     const geocoded = await geocodeAddress(event.location);
-    if (geocoded) return { latitude: geocoded.lat, longitude: geocoded.lng };
+    if (geocoded) {
+      // Validate geocoded result against kennel's known coords (if available)
+      // Skip geocode if result is >200km from kennel — likely wrong city/state
+      if (kennelCoords?.latitude != null && kennelCoords?.longitude != null) {
+        const dist = haversineDistance(geocoded.lat, geocoded.lng, kennelCoords.latitude, kennelCoords.longitude);
+        if (dist > 200) {
+          console.warn(`Geocode validation: "${event.location}" resolved ${dist.toFixed(0)}km from kennel — skipping`);
+          return {};
+        }
+      }
+      return { latitude: geocoded.lat, longitude: geocoded.lng };
+    }
   }
   return {};
 }
@@ -396,7 +457,8 @@ async function upsertCanonicalEvent(
     }
   }
 
-  const region = await resolveRegion(kennelId, ctx);
+  const kennelData = await resolveKennelData(kennelId, ctx);
+  const region = kennelData.region;
 
   const timezone = regionTimezone(region);
   const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
@@ -414,7 +476,7 @@ async function upsertCanonicalEvent(
         latitude: existingEvent.latitude,
         longitude: existingEvent.longitude,
         locationAddress: existingEvent.locationAddress,
-      }, ctx.shortUrlCache);
+      }, ctx.shortUrlCache, kennelData);
 
       // Reverse-geocode city when we have new coords and locationCity isn't already set
       let locationCity: string | null | undefined;
@@ -439,7 +501,7 @@ async function upsertCanonicalEvent(
             ? { description: event.description ?? null }
             : {}),
           ...(event.hares !== undefined
-            ? { haresText: event.hares ?? null }
+            ? { haresText: sanitizeHares(event.hares) }
             : {}),
           ...(event.location !== undefined
             ? { locationName: sanitizeLocation(event.location) }
@@ -484,7 +546,7 @@ async function upsertCanonicalEvent(
     ctx.result.updated++;
   } else {
     // Create new canonical Event
-    const coords = await resolveCoords(event, undefined, ctx.shortUrlCache);
+    const coords = await resolveCoords(event, undefined, ctx.shortUrlCache, kennelData);
     // Reverse-geocode city when coords are available
     const locationCity = (coords.latitude != null && coords.longitude != null)
       ? await reverseGeocode(coords.latitude, coords.longitude)
@@ -498,7 +560,7 @@ async function upsertCanonicalEvent(
         runNumber: event.runNumber,
         title: sanitizeTitle(event.title),
         description: event.description,
-        haresText: event.hares,
+        haresText: sanitizeHares(event.hares),
         locationName: sanitizeLocation(event.location),
         locationAddress: sanitizeLocationUrl(event.locationUrl),
         startTime: event.startTime,
@@ -572,6 +634,9 @@ async function processNewRawEvent(
   sourceId: string,
   ctx: MergeContext,
 ): Promise<string | null> {
+  // Decode HTML entities in text fields before any downstream processing
+  sanitizeRawFields(event);
+
   // Validate the event has at least one meaningful display field before processing
   const hasDisplayData = event.title || event.location || event.hares || event.runNumber;
   if (!hasDisplayData) {
@@ -668,10 +733,10 @@ export async function processRawEvents(
 
   clearResolverCache();
 
-  const regionCache = new Map<string, string>();
+  const kennelCache = new Map<string, { region: string; latitude: number | null; longitude: number | null }>();
   const shortUrlCache = new Map<string, string | null>();
   const batchMatchedEvents = new Map<string, Set<string>>();
-  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, regionCache, shortUrlCache, batchMatchedEvents, result };
+  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, kennelCache, shortUrlCache, batchMatchedEvents, result };
 
   const seriesGroups = new Map<string, string[]>();
 

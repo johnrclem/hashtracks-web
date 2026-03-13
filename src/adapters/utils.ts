@@ -365,6 +365,20 @@ export async function fetchHTMLPage(url: string): Promise<FetchHTMLResult> {
  * HTTP fetch returns empty containers.
  */
 // ---------------------------------------------------------------------------
+// Hare boilerplate detection — shared across adapters + pipeline
+// ---------------------------------------------------------------------------
+
+/**
+ * Regex matching boilerplate markers that indicate description text leaked into
+ * the hares field. Used by both adapter-level extractHares() and pipeline-level
+ * sanitizeHares() to truncate at the first marker.
+ *
+ * The pipeline's sanitizeHares() is the authoritative safety net; adapter-level
+ * usage is best-effort early cleanup.
+ */
+export const HARE_BOILERPLATE_RE = /\s*(?:WHAT TIME|WHAT TO WEAR|WHERE|Location|HASH CASH|Cost|Price|Length|Distance|Directions|Trail Type|Trail is|Start|Meet at|Registration|WHAT IS THE COST)[:\s].*/i;
+
+// ---------------------------------------------------------------------------
 // Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
 // ---------------------------------------------------------------------------
 

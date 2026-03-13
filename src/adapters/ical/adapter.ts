@@ -13,6 +13,7 @@ export interface ICalSourceConfig {
   skipPatterns?: string[];             // SUMMARY patterns to skip (e.g., "Hand Pump Workday")
   harePatterns?: string[];             // regex strings to extract hares from descriptions
   runNumberPatterns?: string[];        // regex strings to extract run numbers from descriptions
+  titleHarePattern?: string;           // regex to extract hare names from SUMMARY when description has none
 }
 
 /**
@@ -337,6 +338,7 @@ function buildRawEventFromVEvent(
   config: ICalSourceConfig | null,
   compiledHarePatterns?: RegExp[],
   compiledRunNumberPatterns?: RegExp[],
+  compiledTitleHarePattern?: RegExp,
 ): RawEventData | null {
   if (vevent.status === "CANCELLED") return null;
 
@@ -353,7 +355,16 @@ function buildRawEventFromVEvent(
   const dateStr = formatDate(vevent.start);
   const startTime = formatTime(vevent.start);
   const description = paramValue(vevent.description);
-  const hares = description ? extractHaresFromDescription(description, compiledHarePatterns) : undefined;
+  let hares = description ? extractHaresFromDescription(description, compiledHarePatterns) : undefined;
+
+  // Fall back to extracting hares from title when description has none
+  if (!hares && compiledTitleHarePattern) {
+    const titleMatch = compiledTitleHarePattern.exec(summary);
+    if (titleMatch?.[1]) {
+      hares = titleMatch[1].trim() || undefined;
+    }
+  }
+
   let location = paramValue(vevent.location);
 
   if (!location && description) {
@@ -433,6 +444,14 @@ export class ICalAdapter implements SourceAdapter {
     const compiledRunNumberPatterns = config?.runNumberPatterns?.length
       ? compilePatterns(config.runNumberPatterns)
       : undefined;
+    let compiledTitleHarePattern: RegExp | undefined;
+    if (config?.titleHarePattern) {
+      try {
+        compiledTitleHarePattern = new RegExp(config.titleHarePattern, "i");
+      } catch {
+        console.warn(`Invalid titleHarePattern for source ${source.id}: ${config.titleHarePattern}`);
+      }
+    }
 
     const events: RawEventData[] = [];
     const errors: string[] = [];
@@ -468,7 +487,7 @@ export class ICalAdapter implements SourceAdapter {
           continue;
         }
 
-        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns);
+        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns, compiledTitleHarePattern);
         if (event) events.push(event);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

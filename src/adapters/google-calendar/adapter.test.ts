@@ -208,6 +208,48 @@ describe("extractHares", () => {
       extractHares("Laid by: everyone", [String.raw`(?:^|\n)\s*Laid by:\s*(.+)`]),
     ).toBeUndefined();
   });
+
+  // Boilerplate truncation (fixes EPTX, O2H3 hare corruption)
+  it("truncates at 'WHAT TIME' boilerplate marker", () => {
+    expect(extractHares("Hare: Captain Hash WHAT TIME: 6:30 PM")).toBe("Captain Hash");
+  });
+
+  it("truncates at 'WHERE' boilerplate marker", () => {
+    expect(extractHares("Hare: Trail Blazer WHERE: The Pub, 123 Main St")).toBe("Trail Blazer");
+  });
+
+  it("truncates at 'Location' boilerplate marker", () => {
+    expect(extractHares("Hare: Mudflap Location: Central Park")).toBe("Mudflap");
+  });
+
+  it("truncates at 'Cost' boilerplate marker", () => {
+    expect(extractHares("Hare: Captain Cost: $5")).toBe("Captain");
+  });
+
+  it("truncates at 'HASH CASH' boilerplate marker", () => {
+    expect(extractHares("Hare: Alice HASH CASH: $7")).toBe("Alice");
+  });
+
+  it("truncates at 'Directions' boilerplate marker", () => {
+    expect(extractHares("Hare: Trail Blazer Directions: Take I-95 North")).toBe("Trail Blazer");
+  });
+
+  it("truncates at 'Meet at' boilerplate marker", () => {
+    expect(extractHares("Hare: Mudflap Meet at the park at 6pm")).toBe("Mudflap");
+  });
+
+  // Preposition/verb filter (description text, not names)
+  it("filters hare string starting with 'at'", () => {
+    expect(extractHares("Hare: at the corner of 5th and Main")).toBeUndefined();
+  });
+
+  it("filters hare string starting with 'from'", () => {
+    expect(extractHares("Hare: from the old pub to the new one")).toBeUndefined();
+  });
+
+  it("preserves hare names starting with 'the' (e.g. 'The Pope')", () => {
+    expect(extractHares("Hare: The Pope")).toBe("The Pope");
+  });
 });
 
 // ── HTML entity decoding in titles ──

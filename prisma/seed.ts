@@ -1840,6 +1840,7 @@ async function main() {
           ["^Trail\\s*#", "CCH3"],
         ],
         defaultKennelTag: "CCH3",
+        titleHarePattern: "~\\s*(.+)$",
       },
       kennelCodes: ["cch3"],
     },
