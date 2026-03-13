@@ -72,10 +72,7 @@ export function KennelStats({
       label: "Latest Run",
     });
   }
-  // Only show "Events Tracked" when it adds context beyond "Latest Run"
-  // (i.e. when no run number is available, or when the counts are reasonably close)
-  const showEventsTracked = !currentRunNumber || totalEvents <= currentRunNumber * 1.1;
-  if (showEventsTracked) {
+  if (!currentRunNumber) {
     stats.push({
       icon: <Calendar className="h-5 w-5" />,
       value: <AnimatedCounter target={totalEvents} />,
