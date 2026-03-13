@@ -42,9 +42,15 @@ export function stripTrailingState(name: string, stateAbbrev: string | undefined
   return cleaned || name;
 }
 
-/** Collapse doubled consecutive words: "Miami Miami" → "Miami". */
+/** Collapse doubled consecutive words: "Miami Miami" → "Miami". Loops until stable to handle 3+ repeats. */
 export function deduplicateWords(text: string): string {
-  return text.replace(/\b(\w+(?:\s+\w+){0,2})\s+\1\b/gi, "$1");
+  let result = text;
+  let previous;
+  do {
+    previous = result;
+    result = result.replace(/\b(\w+(?:\s+\w+){0,2})\s+\1\b/gi, "$1");
+  } while (result !== previous);
+  return result;
 }
 
 /** Returns true if `city` is a US state full name but NOT an ambiguous city name. */
@@ -122,15 +128,21 @@ export function resolveVenue(
 
   if (resolved.name) {
     let name = resolved.name;
-    if (resolved.state) name = stripTrailingState(name, resolved.state);
-    name = deduplicateWords(name);
+    if (resolved.state) {
+      const stripped = stripTrailingState(name, resolved.state);
+      // Only deduplicate words when state-stripping detected corruption (state was embedded in name)
+      name = stripped !== name ? deduplicateWords(stripped) : stripped;
+    }
     if (name) parts.push(name);
   }
 
   if (resolved.address) {
     let addr = resolved.address;
-    if (resolved.state) addr = stripTrailingState(addr, resolved.state);
-    addr = deduplicateWords(addr);
+    if (resolved.state) {
+      const stripped = stripTrailingState(addr, resolved.state);
+      // Only deduplicate words when state-stripping detected corruption (state was embedded in address)
+      addr = stripped !== addr ? deduplicateWords(stripped) : stripped;
+    }
     const nameMatch = parts[0] && addr.toLowerCase() === parts[0].toLowerCase();
     if (!nameMatch && addr) parts.push(addr);
   }
@@ -138,7 +150,17 @@ export function resolveVenue(
   const joined = () => parts.join(", ");
 
   if (resolved.city) {
-    if (!isStateFullName(resolved.city)) {
+    // Only suppress city when it equals the full name of THIS specific state (not any state).
+    // e.g. city="Florida" + state="FL" → suppress; city="California" + state="MO" → keep.
+    const stateFullName = resolved.state
+      ? US_STATE_ABBREV_TO_NAME[resolved.state.toUpperCase()]
+      : undefined;
+    const cityIsCurrentState =
+      stateFullName !== undefined &&
+      resolved.city.toLowerCase().trim() === stateFullName.toLowerCase() &&
+      !STATE_CITY_AMBIGUOUS.has(resolved.city.toLowerCase().trim());
+
+    if (!cityIsCurrentState) {
       const priorText = joined().toLowerCase();
       if (!priorText.includes(resolved.city.toLowerCase())) {
         parts.push(resolved.city);

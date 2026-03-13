@@ -177,6 +177,10 @@ describe("deduplicateWords", () => {
     expect(deduplicateWords("New York New York")).toBe("New York");
   });
 
+  it("collapses triple consecutive word (loop fix)", () => {
+    expect(deduplicateWords("Miami Miami Miami")).toBe("Miami");
+  });
+
   it("preserves normal text", () => {
     expect(deduplicateWords("Central Park Tavern")).toBe("Central Park Tavern");
   });
@@ -216,6 +220,18 @@ describe("resolveVenue — name cleanup integration", () => {
     const state = { "Venue:1": { __typename: "Venue", name: "Central Park Tavern", address: "100 W 67th St", city: "New York", state: "NY", lat: 40.77, lng: -73.97 } };
     const result = resolveVenue(state, { __ref: "Venue:1" });
     expect(result.location).toBe("Central Park Tavern, 100 W 67th St, New York, NY");
+  });
+
+  it("does not mangle legitimate repeated-word venue names like 'Walla Walla Brewing Co'", () => {
+    // deduplicateWords should not be applied when no corruption signal (state not embedded in name)
+    const result = resolveVenue({}, { name: "Walla Walla Brewing Co", city: "Walla Walla", state: "WA" });
+    expect(result.location).toBe("Walla Walla Brewing Co, WA");
+  });
+
+  it("preserves city when it is a state name but for a different state (e.g. California, MO)", () => {
+    // "California" is a city in Missouri — should not be suppressed just because it's also a state name
+    const result = resolveVenue({}, { name: "Some Bar", city: "California", state: "MO" });
+    expect(result.location).toBe("Some Bar, California, MO");
   });
 });
 
