@@ -587,7 +587,7 @@ export class HashNYCAdapter implements SourceAdapter {
     // Later entry (future table) overwrites earlier (past table) since it's more current.
     const deduped = new Map<string, RawEventData>();
     for (const event of allEvents) {
-      const key = `${event.kennelTag}:${event.date}:${event.runNumber ?? ""}`;
+      const key = `${event.kennelTag}:${event.date}:${event.runNumber ?? ""}:${event.startTime ?? ""}`;
       deduped.set(key, event);
     }
     const dedupedEvents = Array.from(deduped.values());
