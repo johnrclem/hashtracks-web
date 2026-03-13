@@ -120,7 +120,7 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       // Skip generic/non-hare "Who:" answers
       if (/^(?:that be you|your|all|everyone)/i.test(hares)) continue;
       // Filter hare strings starting with common prepositions/verbs (description text, not names)
-      if (/^(?:away|at|from|the)\b/i.test(hares)) continue;
+      if (/^(?:away|at|from)\b/i.test(hares)) continue;
       if (hares.length > 0 && hares.length < 200) return hares;
     }
   }

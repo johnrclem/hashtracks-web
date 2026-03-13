@@ -292,8 +292,8 @@ export function sanitizeTitle(title: string | undefined): string | null {
   if (!title) return null;
   const t = title.trim();
   if (!t) return null;
-  // Detect titles that are purely a time string (e.g. "12:30pm") — fall back to kennel name
-  if (/^\d{1,2}:\d{2}\s*(?:am|pm)?$/i.test(t)) return null;
+  // Detect titles that are purely a time string (e.g. "12:30pm", "1pm") — fall back to kennel name
+  if (/^(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)|\d{1,2}:\d{2})$/i.test(t)) return null;
   // Strip leading kennel-tag prefix (e.g. "BH3: " or "NYCH3 - ") before testing
   const stripped = t.replace(/^[A-Z0-9]{2,10}\s*[:–—-]\s*/i, "").trim();
   // Filter out admin/meta content in titles (test both original and stripped)

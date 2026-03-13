@@ -642,6 +642,14 @@ describe("sanitizeTitle", () => {
     expect(sanitizeTitle("11:00")).toBeNull();
   });
 
+  it("returns null for bare hour with am/pm like '1pm'", () => {
+    expect(sanitizeTitle("1pm")).toBeNull();
+  });
+
+  it("returns null for bare hour with am/pm like '12 AM'", () => {
+    expect(sanitizeTitle("12 AM")).toBeNull();
+  });
+
   it("passes through title that contains a time but is not time-only", () => {
     expect(sanitizeTitle("Meet at 12:30pm for the trail")).toBe("Meet at 12:30pm for the trail");
   });
@@ -689,6 +697,18 @@ describe("sanitizeHares", () => {
 
   it("truncates at 'Directions:' marker", () => {
     expect(sanitizeHares("Trail Blazer Directions: Take I-95 North")).toBe("Trail Blazer");
+  });
+
+  it("truncates at 'Length:' marker", () => {
+    expect(sanitizeHares("Mudflap Length: 3 miles")).toBe("Mudflap");
+  });
+
+  it("truncates at 'Distance:' marker", () => {
+    expect(sanitizeHares("Captain Hash Distance: 5k")).toBe("Captain Hash");
+  });
+
+  it("truncates at 'Price:' marker", () => {
+    expect(sanitizeHares("Alice Price: $10")).toBe("Alice");
   });
 
   it("caps at 200 chars with smart truncation", () => {

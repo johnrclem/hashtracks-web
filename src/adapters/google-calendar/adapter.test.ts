@@ -247,8 +247,8 @@ describe("extractHares", () => {
     expect(extractHares("Hare: from the old pub to the new one")).toBeUndefined();
   });
 
-  it("filters hare string starting with 'the'", () => {
-    expect(extractHares("Hare: the trail starts at noon")).toBeUndefined();
+  it("preserves hare names starting with 'the' (e.g. 'The Pope')", () => {
+    expect(extractHares("Hare: The Pope")).toBe("The Pope");
   });
 });
 

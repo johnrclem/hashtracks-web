@@ -449,7 +449,7 @@ export class ICalAdapter implements SourceAdapter {
       try {
         compiledTitleHarePattern = new RegExp(config.titleHarePattern, "i");
       } catch {
-        // Skip malformed pattern
+        console.warn(`Invalid titleHarePattern for source ${source.id}: ${config.titleHarePattern}`);
       }
     }
 
