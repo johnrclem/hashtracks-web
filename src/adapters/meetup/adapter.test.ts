@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MeetupAdapter, extractApolloEvents, resolveVenue } from "./adapter";
+import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
 
 vi.mock("../safe-fetch", () => ({
@@ -67,11 +67,42 @@ function mockHtmlResponse(html: string) {
   } as unknown as Response);
 }
 
-/** Set up dual-response mock: different HTML for upcoming vs past Meetup pages. */
-function mockDualPageFetch(upcomingHtml: string, pastHtml: string) {
+/** Set up dual-response mock: different HTML for upcoming vs past Meetup pages, with optional detail pages. */
+function mockDualPageFetch(upcomingHtml: string, pastHtml: string, detailPages?: Record<string, string>) {
   mockSafeFetch.mockImplementation(async (url: string) => {
+    // Check detail pages first (most specific match)
+    if (detailPages) {
+      for (const [pattern, html] of Object.entries(detailPages)) {
+        if (url.includes(pattern)) {
+          return { ok: true, status: 200, text: async () => html } as unknown as Response;
+        }
+      }
+    }
     const html = url.includes("?type=past") ? pastHtml : upcomingHtml;
     return { ok: true, status: 200, text: async () => html } as unknown as Response;
+  });
+}
+
+/** Build a recurring template event (alphanumeric token ID + series field). */
+function buildRecurringTemplate(overrides: Record<string, unknown> = {}) {
+  return buildApolloEvent({
+    id: "fpchvtyjcfbsb",
+    title: "Saturday Trail!",
+    description: "<p>Generic recurring event description</p>",
+    eventUrl: "https://www.meetup.com/test-hash/events/fpchvtyjcfbsb/",
+    series: { __ref: "EventSeries:123" },
+    ...overrides,
+  });
+}
+
+/** Build a customized occurrence event (numeric ID, no series field). */
+function buildCustomizedOccurrence(overrides: Record<string, unknown> = {}) {
+  return buildApolloEvent({
+    id: "313480174",
+    title: "SAVH3 Trail #1324!",
+    description: "<p>Meet at Forsyth Park. Shiggy level: 3. Hares: Fast &amp; Loose</p>",
+    eventUrl: "https://www.meetup.com/test-hash/events/313480174/",
+    ...overrides,
   });
 }
 
@@ -515,5 +546,182 @@ describe("MeetupAdapter", () => {
     expect(result.diagnosticContext?.upcomingEventsFound).toBe(1);
     expect(result.diagnosticContext?.pastEventsFound).toBe(1);
     expect(result.diagnosticContext?.eventsFound).toBe(2);
+  });
+
+  it("deduplicates template and customized occurrence on same date", async () => {
+    const template = buildRecurringTemplate({ dateTime: "2026-03-14T11:00:00-04:00" });
+    const customized = buildCustomizedOccurrence({ dateTime: "2026-03-14T11:00:00-04:00" });
+
+    const upcomingHtml = buildMeetupHtml({
+      "Event:fpchvtyjcfbsb": template,
+      "Event:313480174": customized,
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockDualPageFetch(upcomingHtml, buildMeetupHtml({}));
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "SavH3" }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toBe("SAVH3 Trail #1324!");
+  });
+
+  it("enriches recurring event from detail page", async () => {
+    const template = buildRecurringTemplate({ dateTime: "2026-03-14T11:00:00-04:00" });
+    const detailEvent = buildApolloEvent({
+      id: "fpchvtyjcfbsb",
+      title: "SAVH3 Trail #1324 — Forsyth Park!",
+      description: "<p>Detailed hare info and shiggy level</p>",
+      dateTime: "2026-03-14T11:00:00-04:00",
+    });
+
+    const upcomingHtml = buildMeetupHtml({
+      "Event:fpchvtyjcfbsb": template,
+      "Venue:123": VENUE_ENTRY,
+    });
+    const detailHtml = buildMeetupHtml({
+      "Event:fpchvtyjcfbsb": detailEvent,
+    });
+
+    mockDualPageFetch(upcomingHtml, buildMeetupHtml({}), {
+      "events/fpchvtyjcfbsb": detailHtml,
+    });
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "SavH3" }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toBe("SAVH3 Trail #1324 — Forsyth Park!");
+    expect(result.events[0].description).toBe("Detailed hare info and shiggy level");
+  });
+
+  it("falls back to list data when detail page fetch fails", async () => {
+    const template = buildRecurringTemplate({ dateTime: "2026-03-14T11:00:00-04:00" });
+
+    const upcomingHtml = buildMeetupHtml({
+      "Event:fpchvtyjcfbsb": template,
+      "Venue:123": VENUE_ENTRY,
+    });
+
+    mockSafeFetch.mockImplementation(async (url: string) => {
+      if (url.includes("events/fpchvtyjcfbsb")) {
+        throw new Error("Network timeout");
+      }
+      if (url.includes("?type=past")) {
+        return { ok: true, status: 200, text: async () => buildMeetupHtml({}) } as unknown as Response;
+      }
+      return { ok: true, status: 200, text: async () => upcomingHtml } as unknown as Response;
+    });
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "SavH3" }),
+      { days: 365 },
+    );
+    // Should still emit the event with template data (non-fatal)
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toBe("Saturday Trail!");
+  });
+
+  it("skips detail page fetch for non-recurring events", async () => {
+    const normalEvent = buildApolloEvent({ dateTime: "2026-03-14T11:00:00-04:00" });
+
+    const upcomingHtml = buildMeetupHtml({
+      "Event:1": normalEvent,
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockDualPageFetch(upcomingHtml, buildMeetupHtml({}));
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "SavH3" }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(1);
+    // Only 2 fetches: upcoming + past (no detail page)
+    expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+    expect(result.diagnosticContext?.detailPagesFetched).toBe(0);
+  });
+
+  it("includes dedup and enrichment stats in diagnosticContext", async () => {
+    const template = buildRecurringTemplate({ dateTime: "2026-03-14T11:00:00-04:00" });
+    const customized = buildCustomizedOccurrence({ dateTime: "2026-03-14T11:00:00-04:00" });
+
+    const upcomingHtml = buildMeetupHtml({
+      "Event:fpchvtyjcfbsb": template,
+      "Event:313480174": customized,
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockDualPageFetch(upcomingHtml, buildMeetupHtml({}));
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "SavH3" }),
+      { days: 365 },
+    );
+    expect(result.diagnosticContext?.eventsAfterDedup).toBe(1);
+    expect(result.diagnosticContext?.detailPagesFetched).toBe(0); // customized has no series field
+    expect(result.diagnosticContext?.detailPagesEnriched).toBe(0);
+  });
+});
+
+describe("isNumericId", () => {
+  it("returns true for numeric IDs", () => {
+    expect(isNumericId("313480174")).toBe(true);
+    expect(isNumericId("12345")).toBe(true);
+  });
+
+  it("returns false for alphanumeric token IDs", () => {
+    expect(isNumericId("fpchvtyjcfbsb")).toBe(false);
+    expect(isNumericId("abc123")).toBe(false);
+    expect(isNumericId("")).toBe(false);
+  });
+});
+
+describe("dedupByDate", () => {
+  it("keeps customized occurrence when template and customized share a date", () => {
+    const template = { __typename: "Event", id: "fpchvtyjcfbsb", dateTime: "2026-03-14T11:00:00-04:00", series: { __ref: "EventSeries:1" } };
+    const customized = { __typename: "Event", id: "313480174", dateTime: "2026-03-14T18:00:00-04:00" };
+
+    const result = dedupByDate([template, customized] as never[]);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("313480174");
+  });
+
+  it("keeps customized even if it comes first", () => {
+    const template = { __typename: "Event", id: "fpchvtyjcfbsb", dateTime: "2026-03-14T11:00:00-04:00" };
+    const customized = { __typename: "Event", id: "313480174", dateTime: "2026-03-14T18:00:00-04:00" };
+
+    const result = dedupByDate([customized, template] as never[]);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("313480174");
+  });
+
+  it("keeps both customized occurrences when they share a date", () => {
+    const morning = { __typename: "Event", id: "111111", dateTime: "2026-03-14T09:00:00-04:00" };
+    const evening = { __typename: "Event", id: "222222", dateTime: "2026-03-14T18:00:00-04:00" };
+
+    const result = dedupByDate([morning, evening] as never[]);
+    expect(result).toHaveLength(2);
+  });
+
+  it("keeps both events when they have different dates", () => {
+    const event1 = { __typename: "Event", id: "fpchvtyjcfbsb", dateTime: "2026-03-14T11:00:00-04:00" };
+    const event2 = { __typename: "Event", id: "313480174", dateTime: "2026-03-21T11:00:00-04:00" };
+
+    const result = dedupByDate([event1, event2] as never[]);
+    expect(result).toHaveLength(2);
+  });
+
+  it("preserves events without dateTime", () => {
+    const withDate = { __typename: "Event", id: "1", dateTime: "2026-03-14T11:00:00-04:00" };
+    const noDate = { __typename: "Event", id: "2" };
+
+    const result = dedupByDate([withDate, noDate] as never[]);
+    expect(result).toHaveLength(2);
   });
 });
