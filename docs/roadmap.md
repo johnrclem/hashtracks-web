@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-03-06
+Last updated: 2026-03-13
 
 **Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
 
@@ -18,7 +18,7 @@ Last updated: 2026-03-06
 - [x] Master-detail layout: event list + detail panel on desktop, full-page on mobile
 - [x] Admin UI: source management, manual scrape trigger, scrape logs, source health
 
-### Data Sources (30 live)
+### Data Sources (69 live)
 
 **NYC / NJ / Philly (8 sources)**
 - [x] **hashnyc.com** (HTML Scraper) — 11 NYC-area kennels
@@ -30,17 +30,21 @@ Last updated: 2026-03-06
 - [x] **Philly H3 Website** (HTML Scraper) — hashphilly.com/nexthash/
 - [x] **Hash Rego** (Hash Rego) — BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3, FCH3 (multi-region aggregator)
 
-**Boston (1 source)**
+**Massachusetts (4 sources)**
 - [x] **Boston Hash Calendar** (Google Calendar API) — 5 Boston kennels
+- [x] **Happy Valley H3 Static Schedule** (Static Schedule) — HVH3 (Pioneer Valley)
+- [x] **PooFlingers H3 Static Schedule** (Static Schedule) — PooFH3
+- [x] **Northboro H3 Website** (HTML Scraper, browser-rendered) — NbH3 (Wix site)
 
 **Chicago (3 sources)**
 - [x] **Chicagoland Hash Calendar** (Google Calendar API) — 11 Chicago-area kennels
 - [x] **Chicago Hash Website** (HTML Scraper) — CH3 (secondary enrichment)
 - [x] **Thirstday Hash Website** (HTML Scraper) — TH3 (secondary enrichment)
 
-**DC / DMV (8 sources)**
+**DC / DMV (10 sources)**
 - [x] **EWH3 Google Calendar** (Google Calendar API) — EWH3
 - [x] **SHITH3 Google Calendar** (Google Calendar API) — SHITH3
+- [x] **SHITH3 Website** (HTML Scraper) — SHITH3 (PHP REST API, secondary enrichment with hares, locations, distances)
 - [x] **W3H3 Hareline Spreadsheet** (Google Sheets) — W3H3 (West Virginia)
 - [x] **Charm City H3 iCal Feed** (iCal Feed) — CCH3 (Baltimore)
 - [x] **BAH3 iCal Feed** (iCal Feed) — BAH3 (Baltimore/Annapolis)
@@ -61,6 +65,51 @@ Last updated: 2026-03-06
 - [x] **Old Coulsdon Hash Run List** (HTML Scraper) — OCH3
 - [x] **SLASH Run List** (HTML Scraper) — SLH3 (South London)
 - [x] **Enfield Hash Blog** (HTML Scraper) — EH3
+
+**Ireland (1 source)**
+- [x] **Dublin H3 Website Hareline** (HTML Scraper) — DH3
+
+**Florida (8 sources)**
+- [x] **Miami H3 Meetup** (Meetup) — MH3
+- [x] **Key West H3 Google Calendar** (Google Calendar API) — KWH3
+- [x] **O2H3 Google Calendar** (Google Calendar API) — O2H3
+- [x] **West Central FL Hash Calendar** (HTML Scraper) — WCFH3 + FL kennels
+- [x] **Wildcard H3 Static Schedule** (Static Schedule) — WildH3
+- [x] **H6 Static Schedule** (Static Schedule) — H6
+- [x] **PBH3 Static Schedule** (Static Schedule) — PBH3
+- [x] **GATR H3 Static Schedule** (Static Schedule) — GATR
+
+**Georgia (11 sources)**
+- [x] **Savannah H3 Meetup** (Meetup) — SavH3
+- [x] **Atlanta Hash Board** (HTML Scraper) — ATL-area kennels
+- [x] **SCH3 Static Schedule** (Static Schedule) — SCH3
+- [x] **HMH3 Static Schedule** (Static Schedule) — HMH3
+- [x] **CUNT H3 ATL Static Schedule** (Static Schedule) — CUNTH3
+- [x] **PFH3 Static Schedule** (Static Schedule) — PFH3
+- [x] **AUGH3 Static Schedule** (Static Schedule) — AUGH3
+- [x] **MGH4 Static Schedule** (Static Schedule) — MGH4
+- [x] **W3H3 GA Static Schedule** (Static Schedule) — W3H3-GA
+- [x] **CVH3 Static Schedule** (Static Schedule) — CVH3
+- [x] **R2H3 Static Schedule** (Static Schedule) — R2H3
+
+**South Carolina (10 sources)**
+- [x] **Charleston Heretics Meetup** (Meetup) — CHH3
+- [x] **Charleston H3 Static Schedule** (Static Schedule) — CH3-SC
+- [x] **BUDH3 Static Schedule** (Static Schedule) — BUDH3
+- [x] **Columbian H3 Static Schedule (1st Sunday)** (Static Schedule) — ColH3
+- [x] **Columbian H3 Static Schedule (3rd Sunday)** (Static Schedule) — ColH3
+- [x] **Secession H3 Static Schedule** (Static Schedule) — SecH3
+- [x] **Palmetto H3 Static Schedule** (Static Schedule) — PalH3
+- [x] **Upstate H3 Static Schedule** (Static Schedule) — UH3
+- [x] **GOTH3 Static Schedule** (Static Schedule) — GOTH3
+- [x] **Grand Strand H3 Static Schedule** (Static Schedule) — GSH3
+
+**New England (5 sources)**
+- [x] **Von Tramp H3 Meetup** (Meetup) — VTH3 (Vermont)
+- [x] **Burlington H3 Website Hareline** (HTML Scraper) — BurH3 (Vermont)
+- [x] **RIH3 Static Schedule** (Static Schedule) — RIH3 (Rhode Island)
+- [x] **RIH3 Website Hareline** (HTML Scraper) — RIH3 (Rhode Island)
+- [x] **Narwhal H3 Meetup (CTH3)** (Meetup) — CTH3 (Connecticut)
 
 ### The Logbook — Sprint 5 COMPLETE
 - [x] "I Was There" one-click check-in (past events only, defaults to RUN)
@@ -194,7 +243,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 
 ### Region as First-Class Model — COMPLETE
 - [x] Region Prisma model: name, slug, country, timezone, colors, pin color, centroids, optional parentId (max 2-level hierarchy)
-- [x] 36 region seed records (`src/lib/region.ts`) spanning USA + UK
+- [x] 64 region seed records (`src/lib/region.ts`) spanning USA, UK, and Ireland (3-level hierarchy: COUNTRY/STATE_PROVINCE/METRO)
 - [x] Dual-write migration: `Kennel.regionId` FK + denormalized `Kennel.region` string (backward compat)
 - [x] Region admin CRUD at `/admin/regions` with table, form dialog, merge dialog
 - [x] Region combobox in KennelForm (searchable, grouped by country)
@@ -218,7 +267,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] Meetup.com public API adapter — no auth required (`src/adapters/meetup/adapter.ts`)
 - [x] GroupUrlname auto-detection from URLs
 - [x] Config validation for Meetup-specific fields
-- Note: No live Meetup sources yet — adapter ready for onboarding via wizard
+- 5 live sources: Miami H3, Savannah H3, Von Tramp H3, Narwhal H3, Charleston Heretics
 
 ### User Feedback — COMPLETE
 - [x] In-app "Send Feedback" dialog (bug report, feature request, question, other)
@@ -251,11 +300,70 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] Geocoding in merge pipeline: text-address → lat/lng via Google Geocoding API (5s timeout, skip-if-cached)
 - [x] resolveCoords() DRY helper, regionBgClass hardening, same-day isPast fix
 
+### Static Schedule Adapter — COMPLETE
+- [x] RRULE-based event generation for kennels without scrapeable web sources (Facebook-only)
+- [x] 26 live sources — largest adapter type by count
+- [x] Zero external fetch — generates events from recurrence rules + defaults stored in `Source.config`
+- [x] Config: `rrule`, `defaultTitle`, `defaultLocation`, `defaultStartTime`, `defaultKennelTag`
+- [x] Supports complex RRULE patterns (1st/3rd Sunday, every other Saturday, etc.)
+- [x] Moon-phase gap: lunar recurrence (full/new moon kennels) cannot be expressed as RRULE — added as kennel-only records
+
+### Meetup Adapter Live — COMPLETE
+- [x] 5 live Meetup sources: Miami H3, Savannah H3, Von Tramp H3 (VT), Narwhal H3 (CT), Charleston Heretics
+- [x] Highest-ROI automated source where available — rich historical data (100s of past events)
+- [x] Zero-code onboarding via admin wizard (auto-detect from URL, AI-assisted kennelTag suggestion)
+
+### Kennel Scaling — COMPLETE
+- [x] **Florida**: 29 kennels, 8 sources (Meetup, Google Calendar, HTML scraper, static schedules)
+- [x] **Georgia**: 20 kennels, 11 sources (Meetup, Atlanta Hash Board scraper, static schedules)
+- [x] **South Carolina**: 10 kennels, 10 sources (Meetup + static schedules, zero new adapter code)
+- [x] **New England**: Vermont (VTH3, BurH3), Rhode Island (RIH3), Connecticut (CTH3) — Meetup + HTML + static
+- [x] **Dublin, Ireland**: First non-US/UK kennel (DH3, HTML scraper)
+- [x] KennelCode conflict resolution with region suffixes (`ch3-sc`, `ph3-atl`, etc.)
+
+### Design Refresh — COMPLETE
+- [x] **Homepage redesign** (PR #205): animated counters, feature sections, region ticker, live event feed, /about page, /for-misman landing
+- [x] **EventCard redesign** (PR #219): region-colored accents, gradient washes, RSVP glow indicators, hover animations, weather forecasts
+- [x] **Kennel profile pages** (PR #210): hero section with region-colored theming, trail location heatmap, achievement-style animated stats
+- [x] **Logbook visualizations** (PR #211): animated bar charts, milestone icons with progress bars, stacked participation bar, region-colored borders
+- [x] **Nav & Chrome** (PRs #214-226): Outfit + JetBrains Mono fonts, Wordmark, mobile bottom nav, 3-column footer, admin/misman pill nav
+- [x] **Empty states** (PR #218): standardized admin empty states
+
+### Double-Header Support — COMPLETE
+- [x] `allowDoubleHeaders` flag on merge pipeline — permits multiple events per kennel per day
+- [x] Prevents single-event-per-kennel-per-day constraint from blocking valid events (e.g., morning + evening runs)
+
+### Hidden Kennels — COMPLETE
+- [x] Admin hide/unhide action on kennel records
+- [x] Hidden kennels excluded from public directory but remain in database for data integrity
+
+### Rolling Weeks Calendar — COMPLETE
+- [x] Week-based calendar navigation (vs. month-only)
+- [x] Time filter on hareline views
+
+### Data Quality Hardening — COMPLETE
+- [x] Three rounds of cleanup: location sanitization, venue dedup, placeholder filtering
+- [x] Event city backfill from reverse geocoding coordinates
+- [x] `getLocationDisplay()` deduplicates city from location name
+- [x] Geocoding improvements: server-only API key, bulk coordinate resolution
+
+### DB Seed Automation — COMPLETE
+- [x] Slug collision handling with `ensurePattern()` refactor (pre-check instead of P2002 retry)
+- [x] Clerk migration P2002 handling for user upserts
+
+### SHITH3 Website Adapter — COMPLETE
+- [x] PHP REST API behind FullCalendar widget — structured JSON with hares, full address, distances, on-after venue
+- [x] Multi-source strategy: Calendar (trustLevel 7) + website (trustLevel 8) with merge pipeline enrichment
+- [x] Sequential detail fetches to avoid server hammering
+
+### Uncancel Events — COMPLETE
+- [x] Admin action to restore previously cancelled events
+
 ### Current Stats
-- 76 kennels (with rich profiles), 246 aliases, 30 sources, 36 regions (first-class model with hierarchy)
-- 8 adapter types: HTML_SCRAPER (22), GOOGLE_CALENDAR (5), GOOGLE_SHEETS (2), ICAL_FEED (3), HASHREGO (1), MEETUP (1), STATIC_SCHEDULE (1), WORDPRESS_API (1)
+- 152 kennels (with rich profiles), 481 aliases, 69 sources, 64 regions (3 countries: US, UK, Ireland)
+- 7 live adapter types: STATIC_SCHEDULE (26), HTML_SCRAPER (24), GOOGLE_CALENDAR (8), MEETUP (5), ICAL_FEED (3), GOOGLE_SHEETS (2), HASHREGO (1)
 - 27 models, 20 enums in Prisma schema
-- 102 test files, 2131 test cases
+- 109 test files, 2516 test cases
 
 ---
 
@@ -270,20 +378,26 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 Regional research complete — see [kennel-research/](kennel-research/) for detailed per-kennel data.
 
 **Completed regions:**
-- [x] **DC/DMV area** (19 kennels, 8 sources) — EWH3, SHITH3, CCH3, W3H3, DCH4, WH4, BAH3, MVH3, OFH3, DCFMH3, GFH3, DCH3, OTH4, and more
-  - Sources: Google Calendars, iCal feeds, WordPress/Blogspot scrapers, Hash Rego — see [dc-kennels.md](kennel-research/dc-kennels.md)
+- [x] **DC/DMV area** (19 kennels, 10 sources) — EWH3, SHITH3, CCH3, W3H3, DCH4, WH4, BAH3, MVH3, OFH3, DCFMH3, GFH3, DCH3, OTH4, and more
+  - Sources: Google Calendars, SHITH3 PHP REST API, iCal feeds, WordPress/Blogspot scrapers, Hash Rego — see [dc-kennels.md](kennel-research/dc-kennels.md)
 - [x] **Chicago area** (11 kennels, 3 sources) — CH3, TH3 + 9 via Chicagoland Calendar
   - Sources: Chicagoland Google Calendar + CH3/TH3 website scrapers — see [chicago-expanded.md](kennel-research/chicago-expanded.md)
 - [x] **SF Bay Area** (13 kennels, 2 sources) — SFH3, GPH3, EBH3, SVH3, FHAC-U, FCH3, MarinH3, and more
   - Sources: SFH3 iCal feed + HTML hareline scraper, Hash Rego for FCH3 — see [sf-bay-area.md](kennel-research/sf-bay-area.md)
 - [x] **London/UK** (10 kennels, 7 sources) — LH3, CityH3, WLH3, BarnesH3, OCH3, SLH3, EH3 + 3 directory-only
   - Sources: 7 HTML scrapers — see [london-kennels.md](kennel-research/london-kennels.md)
+- [x] **Massachusetts** (11 kennels, 4 sources) — Boston (5 kennels via Calendar), HVH3, PooFH3 (static schedules), NbH3 (browser-rendered Wix site)
+- [x] **South Carolina** (10 kennels, 10 sources) — Charleston, Columbia, Greenville, Myrtle Beach areas; Meetup + static schedules
+- [x] **Florida** (29 kennels, 8 sources) — Miami, Key West, Orlando, Tampa/St Pete, Palm Beach, Fort Lauderdale, Jacksonville, Gainesville areas
+- [x] **Georgia** (20 kennels, 11 sources) — Atlanta metro, Savannah; Atlanta Hash Board scraper + Meetup + static schedules
+- [x] **New England** (5 kennels, 5 sources) — Vermont, Rhode Island, Connecticut; Meetup + HTML scrapers + static schedules
+- [x] **Dublin, Ireland** (1 kennel, 1 source) — DH3 (HTML scraper) — first non-US/UK country
 
 **Remaining opportunities:**
 - [ ] **Hash Rego kennel directory** — scrape `/kennels/` page for new kennel discovery + auto-onboarding
 - [ ] **gotothehash.net** — evaluate as a potential aggregator source (similar to hashnyc.com pattern)
 - [ ] **half-mind.com event listings** — evaluate as supplementary discovery data
-- [ ] **Meetup.com sources** — adapter built (`src/adapters/meetup/adapter.ts`), needs source onboarding for specific kennel Meetup groups
+- [x] **Meetup.com sources** — 5 live sources (Miami, Savannah, VT, CT, Charleston); adapter supports zero-code onboarding via admin wizard
 - [ ] Continue refining kennel resolver patterns as new sources reveal new name variants
 
 **Implementation notes:**
@@ -313,7 +427,7 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 **Status: MVP COMPLETE** (PRs #126, #128)
 
-**Strategic rationale:** Zero hashing platforms integrate with fitness tracking apps. Harrier Central, gotothehash.net, half-mind.com — none of them connect runs to GPS data. This is the feature that makes "The Strava of Hashing" literal, not just a tagline.
+**Strategic rationale:** Zero hashing platforms integrate with fitness tracking apps. Harrier Central, gotothehash.net, half-mind.com — none of them connect runs to GPS data. This feature bridges the gap between hashing and fitness tracking.
 
 **See:** [competitive-analysis.md](competitive-analysis.md) — "What HashTracks Has That HC Doesn't"
 

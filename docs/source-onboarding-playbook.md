@@ -1,6 +1,6 @@
 # Source Onboarding Playbook
 
-How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 40 sources across 8 adapter types.
+How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 69 sources across 9 adapter types.
 
 ---
 
@@ -23,14 +23,14 @@ Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent
 
 ## What Varies Per Source (the adapter-specific work)
 
-| Concern | HTML Scraper | Browser-Rendered HTML | Google Calendar | Google Sheets | iCal Feed | Blogger API | Ghost Content API | Meetup | Hash Rego |
+| Concern | HTML Scraper | Browser-Rendered HTML | Google Calendar | Google Sheets | iCal Feed | Blogger API | Ghost Content API | Meetup | Hash Rego | Static Schedule |
 |---------|-------------|----------------------|----------------|--------------|-----------|-------------|-------------------|--------|-----------|
-| Data access | HTTP GET + Cheerio parse | `browserRender()` → Cheerio parse (NAS Playwright service) | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse | Blogger API v3 (blog ID discovery + posts endpoint) | Ghost Content API (public key, JSON with full HTML) | Meetup public REST API | HTTP GET + Cheerio parse (index + detail pages) |
-| Auth needed | None | None (internal `BROWSER_RENDER_KEY`) | API key | API key (tab discovery only) | None | API key (same `GOOGLE_CALENDAR_API_KEY`) | None (public read-only key embedded in page) | None (public groups) | None |
-| Kennel tags | Regex patterns on event text | Hardcoded per adapter (single-kennel) | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` | Hardcoded per adapter (single-kennel Blogspot blogs) | Hardcoded per adapter (single-kennel Ghost blogs) | `config.kennelTag` (single kennel, all events) | Per-event from Hash Rego data, filtered by `config.kennelSlugs` |
-| Date format | Site-specific (ordinals, DD/MM/YYYY, US dates) | Site-specific (JS-rendered content, parsed after render) | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY | ISO 8601 / DTSTART | API returns ISO 8601 `published`; post body parsed with site-specific logic | API returns ISO 8601 `published_at`; post body HTML parsed for trail date | ISO 8601 (`local_date`) | Site-specific HTML parsing |
-| Routing | URL-based (`htmlScrapersByUrl` in registry) | URL-based (`htmlScrapersByUrl` — same as HTML Scraper) | Shared adapter (single class) | Shared adapter (config-driven) | Shared adapter (config-driven) | URL-based (reuses `htmlScrapersByUrl` routing, Blogger API is primary fetch with HTML fallback) | URL-based (reuses `htmlScrapersByUrl` routing, Ghost API is primary fetch with HTML fallback) | Shared adapter (config-driven) | Shared adapter (config-driven) |
-| Complexity | High (structural HTML, site-specific) | Medium (browser render + Cheerio parse) | Medium (clean API) | Low (column mapping) | Low-Medium (config-driven, but iCal quirks) | Medium (shared `fetchBloggerPosts()` utility + site-specific body parsing) | Medium (Ghost API + trail section isolation + body parsing) | Low (config-driven, AI-assisted) | Medium (index + detail page scraping) |
+| Data access | HTTP GET + Cheerio parse | `browserRender()` → Cheerio parse (NAS Playwright service) | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse | Blogger API v3 (blog ID discovery + posts endpoint) | Ghost Content API (public key, JSON with full HTML) | Meetup public REST API | HTTP GET + Cheerio parse (index + detail pages) | None (generates from RRULE) |
+| Auth needed | None | None (internal `BROWSER_RENDER_KEY`) | API key | API key (tab discovery only) | None | API key (same `GOOGLE_CALENDAR_API_KEY`) | None (public read-only key embedded in page) | None (public groups) | None | None |
+| Kennel tags | Regex patterns on event text | Hardcoded per adapter (single-kennel) | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` | Hardcoded per adapter (single-kennel Blogspot blogs) | Hardcoded per adapter (single-kennel Ghost blogs) | `config.kennelTag` (single kennel, all events) | Per-event from Hash Rego data, filtered by `config.kennelSlugs` | `config.defaultKennelTag` (single kennel) |
+| Date format | Site-specific (ordinals, DD/MM/YYYY, US dates) | Site-specific (JS-rendered content, parsed after render) | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY | ISO 8601 / DTSTART | API returns ISO 8601 `published`; post body parsed with site-specific logic | API returns ISO 8601 `published_at`; post body HTML parsed for trail date | ISO 8601 (`local_date`) | Site-specific HTML parsing | Generated from RRULE |
+| Routing | URL-based (`htmlScrapersByUrl` in registry) | URL-based (`htmlScrapersByUrl` — same as HTML Scraper) | Shared adapter (single class) | Shared adapter (config-driven) | Shared adapter (config-driven) | URL-based (reuses `htmlScrapersByUrl` routing, Blogger API is primary fetch with HTML fallback) | URL-based (reuses `htmlScrapersByUrl` routing, Ghost API is primary fetch with HTML fallback) | Shared adapter (config-driven) | Shared adapter (config-driven) | Shared adapter (config-driven) |
+| Complexity | High (structural HTML, site-specific) | Medium (browser render + Cheerio parse) | Medium (clean API) | Low (column mapping) | Low-Medium (config-driven, but iCal quirks) | Medium (shared `fetchBloggerPosts()` utility + site-specific body parsing) | Medium (Ghost API + trail section isolation + body parsing) | Low (config-driven, AI-assisted) | Medium (index + detail page scraping) | Lowest (no external fetch, pure config) |
 
 ---
 
@@ -104,8 +104,9 @@ Existing adapter types:
 - `GOOGLE_CALENDAR` — For Google Calendar API v3 feeds. Single shared adapter, configured via `Source.config` JSON (kennelPatterns, defaultKennelTag). Currently: Boston, BFM, Philly, Chicagoland, EWH3, SHITH3.
 - `GOOGLE_SHEETS` — For published Google Sheets (config-driven, reusable without code changes). Column mappings, kennel tag rules, start time rules in `Source.config`. Currently: Summit H3, W3H3.
 - `ICAL_FEED` — For standard iCal (.ics) feeds via `node-ical`. Config-driven kennelPatterns + skipPatterns. Currently: SFH3 MultiHash aggregator, CCH3, BAH3.
-- `MEETUP` — For public Meetup.com groups. Single shared adapter, config-driven (no code changes needed). Config requires `groupUrlname` (extracted from URL) and `kennelTag` (single kennel shortName). Currently: Hash Rego lists some Meetup-hosted kennels. **No API key required** — uses Meetup's public REST API.
+- `MEETUP` — For public Meetup.com groups. Single shared adapter, config-driven (no code changes needed). Config requires `groupUrlname` (extracted from URL) and `kennelTag` (single kennel shortName). Currently: 5 live sources (Miami, Savannah, VT, CT, Charleston). **No API key required** — uses Meetup's public REST API.
 - `HASHREGO` — For kennels listed on hashrego.com. Config-driven with `kennelSlugs` array (multi-kennel). Currently: 8 kennels (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3, FCH3).
+- `STATIC_SCHEDULE` — For kennels without scrapeable web sources (Facebook-only). Generates placeholder events from RRULE recurrence rules — no external fetch. Config-driven with `rrule`, `defaultTitle`, `defaultLocation`, `defaultStartTime`, `defaultKennelTag`. Currently: 26 sources across FL, GA, SC, MA, NJ, RI. **Cannot express lunar recurrence** (full/new moon schedules).
 
 If none fit, create a new adapter implementing `SourceAdapter` from `src/adapters/types.ts`.
 
@@ -157,6 +158,25 @@ config: {
 config: {
   kennelSlugs: ["BFMH3", "EWH3", "WH4", "GFH3"],  // Hash Rego kennel identifiers
 }
+```
+
+**For Static Schedule (no code needed, no external fetch):**
+For Facebook-only kennels with known recurrence patterns. Events are generated locally from RRULE rules:
+```typescript
+config: {
+  rrule: "FREQ=WEEKLY;BYDAY=SA",  // every Saturday
+  defaultKennelTag: "WildH3",
+  defaultTitle: "Wildcard H3 Weekly Hash",
+  defaultStartTime: "14:00",
+  defaultLocation: "TBA — check Facebook group",
+}
+```
+Complex patterns are supported:
+```typescript
+// 1st and 3rd Sunday of every month
+config: { rrule: "FREQ=MONTHLY;BYDAY=1SU,3SU", ... }
+// Every other Saturday
+config: { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", ... }
 ```
 
 **For new HTML scrapers:**
@@ -417,6 +437,28 @@ git add . && git commit && git push
 - **Key lesson**: KennelCode conflicts become more common as coverage expands. Always check existing kennelCodes before assigning — use region suffixes (`-sc`, `-atl`, `-fl`) to disambiguate when shortNames collide across regions.
 - **Key lesson**: STATE_PROVINCE regions provide organizational hierarchy — metros like "Charleston, SC" parent to "South Carolina" which parents to "USA". This enables future state-level filtering and grouping.
 
+### Sources #26-33: Florida (MEETUP + GOOGLE_CALENDAR + HTML_SCRAPER + STATIC_SCHEDULE)
+
+- **Types**: `MEETUP` (x1) + `GOOGLE_CALENDAR` (x2) + `HTML_SCRAPER` (x1) + `STATIC_SCHEDULE` (x4)
+- **Coverage**: 29 kennels across Miami, Key West, Orlando, Tampa/St Pete, Palm Beach, Fort Lauderdale, Jacksonville, Gainesville
+- **Adapters**: Miami H3 Meetup (zero-code), Key West + O2H3 Google Calendars (config-only), West Central FL Hash Calendar (new HTML scraper at `src/adapters/html-scraper/wcfh-calendar.ts`), 4 static schedules for Facebook-only kennels
+- **Key lesson**: Large states benefit from a mix of adapter types — Meetup and Calendar for kennels with structured data, STATIC_SCHEDULE for the rest. This hybrid approach maximized coverage with minimal new code.
+- **Key lesson**: Meetup venue names often contain garbled data (doubled city name, embedded state abbreviation). The `cleanVenueName()` utility in the Meetup adapter normalizes these.
+
+### Sources #34-44: Georgia (MEETUP + HTML_SCRAPER + STATIC_SCHEDULE)
+
+- **Types**: `MEETUP` (x1) + `HTML_SCRAPER` (x1) + `STATIC_SCHEDULE` (x9)
+- **Coverage**: 20 kennels across Atlanta metro and Savannah
+- **Adapters**: Savannah H3 Meetup (zero-code), Atlanta Hash Board (new HTML scraper at `src/adapters/html-scraper/atlanta-hash-board.ts`), 9 static schedules for Atlanta-area kennels
+- **Key lesson**: When a region has a central hash board website, scraping it provides coverage for multiple kennels at once (similar to hashnyc.com aggregator pattern).
+
+### Sources #45-49: New England + Dublin (MEETUP + HTML_SCRAPER + STATIC_SCHEDULE)
+
+- **Types**: `MEETUP` (x2) + `HTML_SCRAPER` (x3) + `STATIC_SCHEDULE` (x1)
+- **Coverage**: Vermont (VTH3, BurH3), Rhode Island (RIH3), Connecticut (CTH3), Dublin Ireland (DH3)
+- **Adapters**: Von Tramp + Narwhal Meetups (zero-code), Burlington (`src/adapters/html-scraper/burlington-hash.ts`) + RIH3 (`src/adapters/html-scraper/rih3.ts`) + Dublin (`src/adapters/html-scraper/dublin-hash.ts`) HTML scrapers, RIH3 static schedule
+- **Key lesson**: Dublin H3 was the first non-US/UK kennel, demonstrating the platform's ability to expand internationally with standard HTML scraping patterns.
+
 ---
 
 ## Data Quality Pipeline (applies to ALL adapters)
@@ -512,17 +554,23 @@ The display layer (`getLocationDisplay()` in `EventCard.tsx`) deduplicates city 
 41. **Postcode dedup is a recurring pattern in UK adapters** — Makesweat, WLH3, and similar UK sites often include postcodes in both the venue name AND a dedicated postcode field. Always check `parts.some(p => p.includes(postcode))` before appending postcode to a composite location string.
 42. **Inline elements need explicit space insertion before `.text()`** — Cheerio's `.text()` concatenates adjacent `<span>` elements without spaces ("AliceBob"). Use `$block.find("span, a, strong, em, b, i").after(" ")` before extracting text, then normalize with `.replace(/\s{2,}/g, " ")`.
 43. **Strip nav/boilerplate elements BEFORE text extraction** — Always `$main.find("script, style, noscript, nav, header, footer, aside, [role='navigation']").remove()` before calling `.text()`. Otherwise navigation links, Google Analytics code, and footer text bleed into event data.
+44. **Double-header merge support** — Some kennels legitimately hold two events on the same day (morning + evening). The `allowDoubleHeaders` flag on the merge pipeline prevents the single-event-per-kennel-per-day constraint from blocking these valid events. Set it in the source's merge config when needed.
+45. **Event city backfill from reverse geocoding** — The merge pipeline automatically reverse-geocodes events with coordinates to populate `locationCity`. Adapters don't need to set city — just provide coordinates or a Maps URL.
+46. **DB seed slug collision handling** — The `ensurePattern()` refactor uses a pre-check instead of P2002 retry for slug collisions during seed upserts. This is more reliable than catching unique constraint violations.
+47. **Meetup venue name garbling** — Meetup venue names often contain doubled city names ("Atlanta Atlanta") or embedded state abbreviations. The adapter includes `cleanVenueName()` to normalize these. Watch for similar patterns when adding new Meetup sources.
+48. **Location placeholder filtering is centralized** — `sanitizeLocation()` in the merge pipeline strips TBD/TBA/TBC, bare URLs, and registration links from all events. Adapters should NOT reimplement this check — the pipeline handles it automatically.
+49. **Title suppression for generic kennel-name titles** — `getDisplayTitle()` in EventCard.tsx suppresses titles that just repeat the kennel shortName (e.g., "SPH3" or "SPH3 Hash"). Adapters don't need to filter these — the display layer handles it.
 
 ---
 
 ## Automation Opportunities
 
-Future areas where onboarding could be more automated:
+Status of automation features — many originally "future" items are now partially or fully implemented:
 
-1. **Source discovery**: Given a kennel URL, auto-detect source type (HTML, calendar link, .ics feed, spreadsheet) and suggest adapter
-2. **HTML structure analysis**: AI-assisted parsing of unknown HTML structures to generate adapter code
-3. **Config generation**: Auto-generate Google Sheets/Calendar config by sampling the data and detecting column patterns
-4. **Kennel tag extraction**: Use NLP/fuzzy matching to auto-map event text to kennel tags
-5. **Test generation**: Auto-generate test fixtures from real scrape samples
-6. **Health monitoring**: Auto-tune alert thresholds based on historical scrape patterns
-7. **Self-healing**: Auto-fix common issues (alias mismatches, date format changes) without manual intervention
+1. **Source discovery** ✅: Source type auto-detection from URL in admin wizard (`src/lib/source-detect.ts`); autonomous source research pipeline with Gemini search grounding discovers URLs per region (`src/pipeline/source-research.ts`)
+2. **HTML structure analysis** ✅: AI-assisted HTML parsing via Gemini column mapping + container detection (`src/pipeline/html-analysis.ts`); few-shot learning from 7 existing adapter patterns (`src/adapters/html-scraper/examples.ts`)
+3. **Config generation** ✅: AI-suggested config for Meetup (kennelTag from sample events), Calendar/iCal (kennelPatterns from SUMMARY analysis), Google Sheets (column auto-detection via Gemini)
+4. **Kennel tag extraction** ✅: AI-powered kennel pattern suggestions in source onboarding wizard; fuzzy matching in kennel resolver with alias + pattern fallback
+5. **Test generation**: Auto-generate test fixtures from real scrape samples — not yet implemented
+6. **Health monitoring** ✅: Rolling-window health analysis with 6 alert types; structure hash fingerprinting detects HTML changes; auto-resolve for stable structural changes
+7. **Self-healing** ✅: Alert pipeline → auto-file GitHub issues → Claude AI triage → high-confidence auto-fix PRs → CI validates → human reviews. Safe zone: adapters, seed.ts, test files only; rate-limited to 5 PRs/day.

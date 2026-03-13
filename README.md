@@ -1,6 +1,6 @@
 # HashTracks
 
-The Strava of Hashing — a community platform where hashers discover upcoming runs, track attendance, and view personal stats.
+A community platform where hashers discover upcoming runs, track attendance, and view personal stats. Think: aggregated event calendar + personal logbook + kennel directory.
 
 **Live:** [hashtracks-web.vercel.app](https://hashtracks-web.vercel.app)
 
@@ -10,7 +10,7 @@ The Strava of Hashing — a community platform where hashers discover upcoming r
 - **Database:** PostgreSQL (Railway) via Prisma 7
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS v4 + shadcn/ui
-- **Testing:** Vitest (84 test files)
+- **Testing:** Vitest (109 test files, 2516 tests)
 - **Deployment:** Vercel (auto-deploy from `main`, daily cron scrapes)
 
 ## Local Development
@@ -42,7 +42,7 @@ Open [http://localhost:3000](http://localhost:3000).
 |---------|-------------|
 | `npm run dev` | Start dev server |
 | `npm run build` | Production build |
-| `npm test` | Run test suite (84 test files) |
+| `npm test` | Run test suite (109 test files) |
 | `npx prisma studio` | Visual database browser |
 | `npx prisma db push` | Push schema changes to DB |
 | `npx prisma db seed` | Seed kennels, aliases, and sources |
@@ -50,7 +50,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Features
 
 ### Hareline (Event Calendar)
-- Aggregated event list, calendar, and **map** views from 29 data sources
+- Aggregated event list, calendar, and **map** views from 69 data sources
 - Filters: time scope (upcoming/past), region, kennel, day of week (apply across all views)
 - Master-detail layout with side panel on desktop
 - Region-colored badges, calendar export (Google Calendar + .ics)
@@ -63,7 +63,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - Stats dashboard: per-kennel, per-region breakdowns with milestone markers
 
 ### Kennel Directory
-- Browse and search 79 kennels across 21 regions (US + UK)
+- Browse and search 152 kennels across 64 regions (US, UK, Ireland)
 - Rich kennel profiles: schedule, social links, hash cash, dog-friendly/walkers-welcome flags
 - Filters: region, run day, frequency, has upcoming, country
 - Sort: A–Z (grouped by region) or Recently Active
@@ -81,8 +81,8 @@ Open [http://localhost:3000](http://localhost:3000).
 - Logbook sync: pending confirmations link misman records to user logbook entries
 
 ### Source Engine
-- 7 adapter types: HTML Scraper, Google Calendar API, Google Sheets CSV, iCal Feed, Hash Rego, Meetup, WordPress REST API
-- 29 live sources feeding 79 kennels across 6 metro areas (NYC, Boston, Chicago, DC, SF Bay, London)
+- 9 adapter types: HTML Scraper, Google Calendar API, Google Sheets CSV, iCal Feed, Hash Rego, Meetup, WordPress REST API, Static Schedule (RRULE-based), Blogger API
+- 69 live sources feeding 152 kennels across 12 regions (NYC, Boston, Chicago, DC, SF Bay, London, Florida, Georgia, South Carolina, Massachusetts, New England, Dublin)
 - Automated daily scrapes via Vercel Cron
 - Merge pipeline with fingerprint dedup, trust levels, and kennel alias resolution
 - Event reconciliation: detects and cancels stale events when sources change
@@ -120,16 +120,21 @@ Open [http://localhost:3000](http://localhost:3000).
 - Temperature units toggle: °F / °C (localStorage-persisted, defaults to °F)
 - Header dropdowns for quick switching; event cards and detail pages respect both preferences
 
-## Data Sources (29)
+## Data Sources (69)
 
 | Region | Sources | Kennels |
 |--------|---------|---------|
 | NYC / NJ / Philly | hashnyc.com, Summit Sheets, BFM + Philly Calendars, BFM + Philly websites, Hash Rego | 17 kennels |
-| Boston | Boston Hash Calendar | 5 kennels |
+| Massachusetts | Boston Calendar, HVH3 + PooFH3 static, Northboro browser-rendered | 11 kennels |
 | Chicago | Chicagoland Calendar, CH3 + TH3 websites | 11 kennels |
-| DC / DMV | EWH3 + SHITH3 Calendars, W3H3 Sheets, CCH3 + BAH3 iCal, EWH3 + DCH4 + OFH3 + Hangover blogs | 19 kennels |
+| DC / DMV | EWH3 + SHITH3 Calendars, SHITH3 website, W3H3 Sheets, CCH3 + BAH3 iCal, EWH3 + DCH4 + OFH3 + Hangover blogs | 19 kennels |
 | SF Bay Area | SFH3 iCal Feed, SFH3 HTML Hareline | 13 kennels |
 | London / UK | LH3, CityH3, WLH3, BarnesH3, OCH3, SLH3, EH3 websites | 10 kennels |
+| Ireland | Dublin H3 website | 1 kennel |
+| Florida | Miami Meetup, Key West + O2H3 Calendars, WCFH3 scraper, 4 static schedules | 29 kennels |
+| Georgia | Savannah Meetup, Atlanta Hash Board, 9 static schedules | 20 kennels |
+| South Carolina | Charleston Heretics Meetup, 8 static schedules | 10 kennels |
+| New England | VT Meetup, Burlington + RIH3 websites, RIH3 static schedule, CT Meetup | 5 kennels |
 
 ## Documentation
 
@@ -167,12 +172,22 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Source onboarding wizard:** Multi-phase admin UI for config-driven source creation with live preview
 - **AI recovery layer:** Gemini-powered parse error fallback, column auto-detection, kennel pattern suggestions
 - **Event reconciliation:** Stale event detection and cancellation when sources change
-- **Meetup adapter:** Meetup.com public API adapter (ready for source onboarding)
+- **Meetup adapter:** Meetup.com public API adapter — 5 live sources (Miami, Savannah, VT, CT, Charleston)
+- **Static Schedule adapter:** RRULE-based event generation for Facebook-only kennels — 26 live sources
 - **BFM + Philly H3 scrapers:** benfranklinmob.com and hashphilly.com HTML adapters
 - **User feedback:** In-app dialog auto-filing GitHub issues with category labels
 - **Timezone preferences:** User-selectable timezone display with header dropdown
 - **Vercel Analytics:** Web Analytics + Speed Insights integration
 - **Config validation:** Server-side validation with ReDoS protection for all source types
-- **Map-based discovery (PR #95):** Interactive Map tab on Hareline with Google Maps JS, region-colored pins (precise = filled, centroid = hollow), EventLocationMap static image on event detail pages, coordinate extraction from Maps URLs in merge pipeline
-- **Weather forecast + units toggle (PR #97):** Google Weather API forecast on upcoming event pages (0–10 days), °F/°C header toggle persisted in localStorage, EventLocationMap text-address fallback (works without lat/lng)
-- **Self-healing automation:** CI gate (type check + lint + tests on all PRs), auto-issue filing from alerts, Claude AI triage + auto-fix workflows with confidence scoring and safe-zone constraints
+- **Map-based discovery (PR #95):** Interactive Map tab on Hareline with Google Maps JS, region-colored pins, EventLocationMap static image, coordinate extraction from Maps URLs
+- **Weather forecast + units toggle (PR #97):** Google Weather API forecast on upcoming events, °F/°C toggle, text-address fallback
+- **Self-healing automation:** CI gate, auto-issue filing from alerts, Claude AI triage + auto-fix workflows
+- **Design refresh:** Homepage redesign (PR #205), EventCard redesign (PR #219), Kennel profile pages (PR #210), Logbook visualizations (PR #211), Nav & Chrome overhaul (PRs #214-226)
+- **SHITH3 website adapter:** PHP REST API scraper for richer event data (hares, locations, distances)
+- **Kennel scaling:** Florida (29 kennels, 8 sources), Georgia (20 kennels, 11 sources), South Carolina (10 kennels, 10 sources), New England + Dublin expansion
+- **Double-header support:** Multiple events per kennel per day with `allowDoubleHeaders` flag
+- **Hidden kennels:** Admin hide/unhide kennels from public directory
+- **Rolling weeks calendar:** Week-based calendar navigation with time filter
+- **Data quality hardening:** Location cleanup, venue dedup, placeholder filtering, event city backfill from coordinates
+- **DB seed automation:** Slug collision handling, `ensurePattern()` refactor
+- **Dublin H3 adapter:** First Ireland-based kennel (HTML scraper)

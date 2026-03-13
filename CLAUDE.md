@@ -1,14 +1,14 @@
 # CLAUDE.md — HashTracks
 
 ## What Is This?
-HashTracks is the "Strava of Hashing" — a community platform where hashers discover
-upcoming runs, track attendance, and view personal stats. Think: aggregated event
-calendar + personal logbook + kennel directory.
+HashTracks is a community platform where hashers discover upcoming runs, track
+attendance, and view personal stats. Think: aggregated event calendar + personal
+logbook + kennel directory.
 
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 102 test files)
+- `npm test` — Run test suite (Vitest, 109 test files)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -27,7 +27,7 @@ calendar + personal logbook + kennel directory.
 - **Database:** PostgreSQL via Prisma ORM (Railway hosted)
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS + shadcn/ui components
-- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()`; Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup)
+- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()`; Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup); STATIC_SCHEDULE adapter for RRULE-based event generation (no external fetch); Meetup public REST API adapter (5 live sources)
 - **Residential Proxy:** Optional NAS-based forward proxy for WAF-blocked targets (Cloudflare Tunnel, see `docs/residential-proxy-spec.md`)
 - **AI:** Gemini 2.0 Flash for complex HTML parsing (low temp, cached results), parse error recovery, column auto-detection, kennel pattern suggestions, HTML structure analysis with few-shot learning from existing adapter patterns
 - **Kennel geocoding:** lat/lng on Kennel model, backfill via Google Geocoding API, Near Me distance filter (client-side Haversine)
@@ -89,12 +89,12 @@ calendar + personal logbook + kennel directory.
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
-- `prisma/seed.ts` — 86 kennels, 296 aliases, 40 sources, 41 regions (first-class model with hierarchy)
+- `prisma/seed.ts` — 152 kennels, 481 aliases, 69 sources, 64 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
 - `src/lib/format.ts` — Shared utilities: time formatting, date formatting, participation levels, schedule formatting, social URL helpers
-- `src/lib/region.ts` — Region seed data (41 regions), sync fallback lookups (timezone, colors, centroids, abbrev), region slug generation, RegionLevel hierarchy, `regionNameToData`
+- `src/lib/region.ts` — Region seed data (64 regions), sync fallback lookups (timezone, colors, centroids, abbrev), region slug generation, RegionLevel hierarchy, `regionNameToData`
 - `src/lib/calendar.ts` — Google Calendar URL + .ics file generation (client-side)
 - `src/proxy.ts` — Clerk route protection (public vs authenticated routes) — Next.js 16 proxy convention
 - `src/adapters/types.ts` — SourceAdapter interface + RawEventData types
@@ -128,8 +128,15 @@ calendar + personal logbook + kennel directory.
 - `src/adapters/html-scraper/dch4.ts` — DCH4 WordPress trail posts scraper
 - `src/adapters/html-scraper/ofh3.ts` — OFH3 Blogspot trail posts scraper
 - `src/adapters/html-scraper/hangover.ts` — Hangover H3 DigitalPress blog scraper
+- `src/adapters/html-scraper/shith3.ts` — SHITH3 website scraper (PHP REST API behind FullCalendar widget)
+- `src/adapters/html-scraper/dublin-hash.ts` — Dublin H3 website hareline scraper
+- `src/adapters/html-scraper/atlanta-hash-board.ts` — Atlanta Hash Board website scraper
+- `src/adapters/html-scraper/wcfh-calendar.ts` — West Central Florida Hash calendar scraper
+- `src/adapters/html-scraper/burlington-hash.ts` — Burlington H3 website hareline scraper (Vermont)
+- `src/adapters/html-scraper/rih3.ts` — Rhode Island H3 website hareline scraper
 - `src/adapters/html-scraper/generic.ts` — Generic config-driven HTML scraper (CSS selector-based, AI-assisted setup)
 - `src/adapters/html-scraper/examples.ts` — Static adapter pattern catalog for AI few-shot learning (7 layout examples)
+- `src/adapters/static-schedule/adapter.ts` — STATIC_SCHEDULE adapter (RRULE-based event generation, no external fetch)
 - `src/adapters/utils.ts` — Shared adapter utilities (date parsing, field extraction)
 - `src/pipeline/merge.ts` — Raw→Canonical merge pipeline (fingerprint dedup + source-kennel guard)
 - `src/pipeline/kennel-resolver.ts` — Alias-based kennel name resolution (with pattern fallback)
@@ -235,7 +242,7 @@ calendar + personal logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (41)
+## Active Sources (69)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -258,9 +265,10 @@ calendar + personal logbook + kennel directory.
 - **Chicago Hash Website** → HTML_SCRAPER → CH3 (secondary)
 - **Thirstday Hash Website** → HTML_SCRAPER → TH3 (secondary)
 
-### DC / DMV (8 sources)
+### DC / DMV (10 sources)
 - **EWH3 Google Calendar** → GOOGLE_CALENDAR → EWH3
 - **SHITH3 Google Calendar** → GOOGLE_CALENDAR → SHITH3
+- **SHITH3 Website** → HTML_SCRAPER → SHITH3 (PHP REST API, secondary enrichment)
 - **W3H3 Hareline Spreadsheet** → GOOGLE_SHEETS → W3H3 (West Virginia)
 - **Charm City H3 iCal Feed** → ICAL_FEED → CCH3 (Baltimore)
 - **BAH3 iCal Feed** → ICAL_FEED → BAH3 (Baltimore/Annapolis)
@@ -282,9 +290,35 @@ calendar + personal logbook + kennel directory.
 - **SLASH Run List** → HTML_SCRAPER → SLH3
 - **Enfield Hash Blog** → HTML_SCRAPER → EH3
 
+### Ireland (1 source)
+- **Dublin H3 Website Hareline** → HTML_SCRAPER → DH3
+
+### Florida (8 sources)
+- **Miami H3 Meetup** → MEETUP → MH3
+- **Key West H3 Google Calendar** → GOOGLE_CALENDAR → KWH3
+- **O2H3 Google Calendar** → GOOGLE_CALENDAR → O2H3
+- **West Central FL Hash Calendar** → HTML_SCRAPER → WCFH3 + FL kennels
+- **Wildcard H3 Static Schedule** → STATIC_SCHEDULE → WildH3
+- **H6 Static Schedule** → STATIC_SCHEDULE → H6
+- **PBH3 Static Schedule** → STATIC_SCHEDULE → PBH3
+- **GATR H3 Static Schedule** → STATIC_SCHEDULE → GATR
+
+### Georgia (11 sources)
+- **Savannah H3 Meetup** → MEETUP → SavH3
+- **Atlanta Hash Board** → HTML_SCRAPER → ATL kennels
+- **SCH3 Static Schedule** → STATIC_SCHEDULE → SCH3
+- **HMH3 Static Schedule** → STATIC_SCHEDULE → HMH3
+- **CUNT H3 ATL Static Schedule** → STATIC_SCHEDULE → CUNTH3
+- **PFH3 Static Schedule** → STATIC_SCHEDULE → PFH3
+- **AUGH3 Static Schedule** → STATIC_SCHEDULE → AUGH3
+- **MGH4 Static Schedule** → STATIC_SCHEDULE → MGH4
+- **W3H3 GA Static Schedule** → STATIC_SCHEDULE → W3H3-GA
+- **CVH3 Static Schedule** → STATIC_SCHEDULE → CVH3
+- **R2H3 Static Schedule** → STATIC_SCHEDULE → R2H3
+
 ### South Carolina (10 sources)
 - **Charleston Heretics Meetup** → MEETUP → CHH3
-- **Charleston H3 Static Schedule** → STATIC_SCHEDULE → CH3
+- **Charleston H3 Static Schedule** → STATIC_SCHEDULE → CH3-SC
 - **BUDH3 Static Schedule** → STATIC_SCHEDULE → BUDH3
 - **Columbian H3 Static Schedule (1st Sunday)** → STATIC_SCHEDULE → ColH3
 - **Columbian H3 Static Schedule (3rd Sunday)** → STATIC_SCHEDULE → ColH3
@@ -294,13 +328,20 @@ calendar + personal logbook + kennel directory.
 - **GOTH3 Static Schedule** → STATIC_SCHEDULE → GOTH3
 - **Grand Strand H3 Static Schedule** → STATIC_SCHEDULE → GSH3
 
+### New England + Dublin (6 sources)
+- **Von Tramp H3 Meetup** → MEETUP → VTH3 (Vermont)
+- **Burlington H3 Website Hareline** → HTML_SCRAPER → BurH3 (Vermont)
+- **RIH3 Static Schedule** → STATIC_SCHEDULE → RIH3 (Rhode Island)
+- **RIH3 Website Hareline** → HTML_SCRAPER → RIH3 (Rhode Island)
+- **Narwhal H3 Meetup (CTH3)** → MEETUP → CTH3 (Connecticut)
+
 See `docs/source-onboarding-playbook.md` for how to add new sources.
 See `docs/roadmap.md` for implementation roadmap.
 
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (102 test files)
+- **Run:** `npm test` (109 test files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)

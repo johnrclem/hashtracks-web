@@ -1,7 +1,7 @@
 # Design Roadmap: HashTracks Visual Identity & Experience
 
-**Date:** March 8, 2026 (updated March 11, 2026)
-**Status:** 4 of 6 items shipped, 2 in progress
+**Date:** March 8, 2026 (updated March 13, 2026)
+**Status:** 5 of 6 items shipped, 1 in progress
 
 ---
 
@@ -63,17 +63,21 @@ Hero section with region-colored theming + logo/initials fallback, trail locatio
 
 ---
 
-### 4. Logbook & Personal Stats 🔄
+### 4. Logbook & Personal Stats ✅
 **Impact:** High — the "Strava" emotional payoff
-**Status:** In progress (PR #211)
+**Status:** Shipped (PR #211)
 
-Animated bar charts (day-of-week + year-by-year), milestone icons with progress bars, stacked participation bar, region-colored borders.
+Animated bar charts (day-of-week + year-by-year), milestone icons with progress bars, stacked participation bar, region-colored borders. All core visualization goals met.
 
 **Shipped:**
 - [x] Milestone celebrations (animated badges at 25, 50, 100, etc.)
 - [x] Per-kennel breakdown visualization (pie/bar chart)
+- [x] Animated bar charts (day-of-week distribution, year-by-year history)
+- [x] Milestone icons with progress bars toward next milestone
+- [x] Stacked participation bar (Run/Hare/Both/etc. breakdown)
+- [x] Region-colored borders on logbook cards
 
-**Remaining:**
+**Future enhancements (not blocking ship):**
 - [ ] Activity heatmap (GitHub-style contribution graph or calendar heat map)
 - [ ] Streak tracking with visual indicators
 - [ ] Year-in-review summary stats
@@ -128,5 +132,5 @@ Admin empty states standardized across RequestQueue, MismanRequestQueue, RosterG
 
 - Framework: Next.js 16 App Router + Tailwind CSS + shadcn/ui
 - Animation: CSS transitions for simple states; consider Framer Motion for milestone celebrations
-- Fonts: Current system/default fonts should be replaced with a distinctive pairing
+- Fonts: Outfit (headings) + JetBrains Mono (data/stats) — shipped in PR #214
 - Icons: Currently using Lucide via shadcn — may want to supplement with custom iconography for hash-specific concepts
