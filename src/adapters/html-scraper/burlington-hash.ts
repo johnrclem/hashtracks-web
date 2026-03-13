@@ -7,7 +7,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchBrowserRenderedPage } from "../utils";
+import { fetchBrowserRenderedPage, HARE_BOILERPLATE_RE } from "../utils";
 
 /**
  * Parse a Google Calendar "render" link into RawEventData.
@@ -86,7 +86,7 @@ export function parseCalendarLink(
   if (haresMatch) {
     hares = haresMatch[1].trim();
     // Clean up trailing punctuation or "Cost:" etc.
-    hares = hares.replace(/\s*(?:Cost|Length|Distance|Price|Hash Cash)[:\s].*/i, "").trim();
+    hares = hares.replace(HARE_BOILERPLATE_RE, "").trim();
   }
 
   return {

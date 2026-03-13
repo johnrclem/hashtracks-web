@@ -593,9 +593,9 @@ describe("sanitizeLocationUrl", () => {
   });
 });
 
-// ── sanitizeTitle ──
+// ── sanitizeTitle + sanitizeHares ──
 
-import { sanitizeTitle, sanitizeLocation } from "./merge";
+import { sanitizeTitle, sanitizeLocation, sanitizeHares } from "./merge";
 
 describe("sanitizeTitle", () => {
   it("passes through normal titles", () => {
@@ -628,6 +628,75 @@ describe("sanitizeTitle", () => {
 
   it("returns null for empty/whitespace", () => {
     expect(sanitizeTitle("  ")).toBeNull();
+  });
+
+  it("returns null for time-only title '12:30pm'", () => {
+    expect(sanitizeTitle("12:30pm")).toBeNull();
+  });
+
+  it("returns null for time-only title '1:00 PM'", () => {
+    expect(sanitizeTitle("1:00 PM")).toBeNull();
+  });
+
+  it("returns null for time-only title '11:00'", () => {
+    expect(sanitizeTitle("11:00")).toBeNull();
+  });
+
+  it("passes through title that contains a time but is not time-only", () => {
+    expect(sanitizeTitle("Meet at 12:30pm for the trail")).toBe("Meet at 12:30pm for the trail");
+  });
+});
+
+// ── sanitizeHares ──
+
+describe("sanitizeHares", () => {
+  it("passes through normal hare names", () => {
+    expect(sanitizeHares("Mudflap & Trail Blazer")).toBe("Mudflap & Trail Blazer");
+  });
+
+  it("returns null for undefined/null/empty", () => {
+    expect(sanitizeHares(undefined)).toBeNull();
+    expect(sanitizeHares(null)).toBeNull();
+    expect(sanitizeHares("")).toBeNull();
+    expect(sanitizeHares("  ")).toBeNull();
+  });
+
+  it("returns null for TBD/TBA placeholders", () => {
+    expect(sanitizeHares("TBD")).toBeNull();
+    expect(sanitizeHares("TBA")).toBeNull();
+    expect(sanitizeHares("Needed")).toBeNull();
+  });
+
+  it("truncates at boilerplate marker 'WHAT TIME'", () => {
+    expect(sanitizeHares("Captain Hash WHAT TIME: 6:30 PM")).toBe("Captain Hash");
+  });
+
+  it("truncates at boilerplate marker 'WHERE:'", () => {
+    expect(sanitizeHares("Captain Hash WHERE: The Pub")).toBe("Captain Hash");
+  });
+
+  it("truncates at boilerplate marker 'Location:'", () => {
+    expect(sanitizeHares("Penis ColadaLocation: Probably Bolton")).toBe("Penis Colada");
+  });
+
+  it("truncates at 'Hash Cash' marker", () => {
+    expect(sanitizeHares("Alice & Bob Hash Cash: $5")).toBe("Alice & Bob");
+  });
+
+  it("truncates at 'Registration' marker", () => {
+    expect(sanitizeHares("Captain Hash Registration: http://example.com")).toBe("Captain Hash");
+  });
+
+  it("truncates at 'Directions:' marker", () => {
+    expect(sanitizeHares("Trail Blazer Directions: Take I-95 North")).toBe("Trail Blazer");
+  });
+
+  it("caps at 200 chars with smart truncation", () => {
+    const longHares = "A".repeat(100) + ", " + "B".repeat(100) + ", " + "C".repeat(50);
+    const result = sanitizeHares(longHares);
+    expect(result!.length).toBeLessThanOrEqual(200);
+    // Should truncate at last comma
+    expect(result).not.toContain("C");
   });
 });
 

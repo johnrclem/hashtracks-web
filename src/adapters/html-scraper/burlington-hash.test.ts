@@ -132,6 +132,18 @@ describe("parseCalendarLink", () => {
   it("returns null for invalid URL", () => {
     expect(parseCalendarLink("not a url", SOURCE_URL)).toBeNull();
   });
+
+  it("strips 'Location:' from hares field", () => {
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23849%3A+Spring+Hash" +
+      "&dates=20260501T223000Z/20260501T233000Z" +
+      "&details=Hares%3A+Penis+ColadaLocation%3A+Probably+Bolton";
+
+    const result = parseCalendarLink(href, SOURCE_URL);
+
+    expect(result?.hares).toBe("Penis Colada");
+  });
 });
 
 describe("BurlingtonHashAdapter", () => {

@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE } from "../utils";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -115,8 +115,12 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       let hares = match[1].trim();
       // Clean up trailing punctuation/whitespace
       hares = hares.split("\n")[0].trim();
+      // Truncate at boilerplate markers (description text leaking into hares)
+      hares = hares.replace(HARE_BOILERPLATE_RE, "").trim();
       // Skip generic/non-hare "Who:" answers
       if (/^(?:that be you|your|all|everyone)/i.test(hares)) continue;
+      // Filter hare strings starting with common prepositions/verbs (description text, not names)
+      if (/^(?:away|at|from|the)\b/i.test(hares)) continue;
       if (hares.length > 0 && hares.length < 200) return hares;
     }
   }

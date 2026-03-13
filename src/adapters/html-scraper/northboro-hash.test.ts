@@ -161,6 +161,45 @@ describe("parseTrailBlock", () => {
     );
     expect(result?.location).toBe("Framingham");
   });
+
+  // Field swap detection: when "title" position contains a time string
+  it("detects field swap when title is a time string", () => {
+    const result = parseTrailBlock(
+      ["July Trail #242, 7/18/26, 12:30pm, The Summer Hash, Captain Hash"],
+      SOURCE_URL,
+    );
+    expect(result).toMatchObject({
+      date: "2026-07-18",
+      runNumber: 242,
+      title: "The Summer Hash",
+      hares: "Captain Hash",
+      startTime: "12:30",
+    });
+  });
+
+  it("detects field swap with bare time like '12pm'", () => {
+    const result = parseTrailBlock(
+      ["August Trail #243, 8/15/26, 12pm, August Hash"],
+      SOURCE_URL,
+    );
+    expect(result).toMatchObject({
+      runNumber: 243,
+      title: "August Hash",
+      startTime: "12:00",
+    });
+  });
+
+  it("handles field swap with time but no hares after title", () => {
+    const result = parseTrailBlock(
+      ["September Trail #244, 9/20/26, 1pm, Fall Hash"],
+      SOURCE_URL,
+    );
+    expect(result).toMatchObject({
+      runNumber: 244,
+      title: "Fall Hash",
+      startTime: "13:00",
+    });
+  });
 });
 
 describe("NorthboroHashAdapter", () => {

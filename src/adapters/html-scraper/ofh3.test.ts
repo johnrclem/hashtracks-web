@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseOfh3Date, parseOfh3Body } from "./ofh3";
+import { parseOfh3Date, parseOfh3Body, cleanOfh3Title } from "./ofh3";
 import { OFH3Adapter } from "./ofh3";
 import * as bloggerApi from "../blogger-api";
 
@@ -46,6 +46,28 @@ describe("parseOfh3Date", () => {
   it("returns null for invalid input", () => {
     expect(parseOfh3Date("TBA")).toBeNull();
     expect(parseOfh3Date("no date here")).toBeNull();
+  });
+});
+
+describe("cleanOfh3Title", () => {
+  it("strips date from 'OFH3 Trail #387 - June 1, 2025 - Tour Duh Hash Trail'", () => {
+    expect(cleanOfh3Title("OFH3 Trail #387 - June 1, 2025 - Tour Duh Hash Trail")).toBe("Tour Duh Hash Trail");
+  });
+
+  it("strips trailing dot-date from 'OFH3 Trail #396 - March Trail 3.14.26'", () => {
+    expect(cleanOfh3Title("OFH3 Trail #396 - March Trail 3.14.26")).toBe("March Trail");
+  });
+
+  it("strips date from 'OFH3 Trail #386 - May 4, 2025 - May the 4th be with you'", () => {
+    expect(cleanOfh3Title("OFH3 Trail #386 - May 4, 2025 - May the 4th be with you")).toBe("May the 4th be with you");
+  });
+
+  it("passes through titles without OFH3 Trail # pattern", () => {
+    expect(cleanOfh3Title("Are you feelin' lucky?")).toBe("Are you feelin' lucky?");
+  });
+
+  it("passes through titles without dates", () => {
+    expect(cleanOfh3Title("OFH3 Special Event")).toBe("OFH3 Special Event");
   });
 });
 

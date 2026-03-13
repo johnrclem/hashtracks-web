@@ -103,6 +103,23 @@ function buildOfh3Description(bodyFields: ReturnType<typeof parseOfh3Body>): str
   return descParts.length > 0 ? descParts.join(" | ") : undefined;
 }
 
+/**
+ * Strip date portion from OFH3 titles that include trail number + date + actual title.
+ * Pattern: "OFH3 Trail #386 - June 1, 2025 - Tour Duh Hash Trail" → "Tour Duh Hash Trail"
+ * Also handles: "OFH3 Trail #396 - March Trail 3.14.26" → "March Trail"
+ */
+export function cleanOfh3Title(title: string): string {
+  // Strip "OFH3 Trail #NNN - <date> - <title>" → "<title>"
+  const match = /^OFH3\s+Trail\s+#\d+\s*-\s*(?:\w+\s+\d{1,2},?\s+\d{4}|\d{1,2}\.\d{1,2}\.\d{2,4})\s*-\s*(.+)$/i.exec(title);
+  if (match) return match[1].trim();
+
+  // Strip trailing date: "OFH3 Trail #396 - March Trail 3.14.26" → "March Trail"
+  const trailingDate = /^OFH3\s+Trail\s+#\d+\s*-\s*(.+?)\s+\d{1,2}\.\d{1,2}\.\d{2,4}$/i.exec(title);
+  if (trailingDate) return trailingDate[1].trim();
+
+  return title;
+}
+
 function processPost(
   titleText: string,
   bodyText: string,
@@ -142,10 +159,12 @@ function processPost(
 
   const sourceUrl = postUrl.startsWith("http") ? postUrl : `${baseUrl.replace(/\/$/, "")}${postUrl}`;
 
+  const cleanedTitle = titleText ? cleanOfh3Title(titleText) : undefined;
+
   return {
     date: eventDate,
     kennelTag: "OFH3",
-    title: titleText || undefined,
+    title: cleanedTitle || undefined,
     hares: bodyFields.hares,
     location: bodyFields.location && !isPlaceholder(bodyFields.location) ? bodyFields.location : undefined,
     locationUrl,

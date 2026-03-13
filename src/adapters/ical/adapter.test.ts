@@ -630,6 +630,38 @@ describe("ICalAdapter", () => {
     expect(result.diagnosticContext!.contentType).toBe("text/calendar; charset=utf-8");
   });
 
+  it("extracts hares from title via titleHarePattern when description has none", async () => {
+    const icsWithTitleHares = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:com.test.cch3-1
+DTSTART;TZID=America/New_York:20260314T140000
+DTEND;TZID=America/New_York:20260314T170000
+SUMMARY:CCH3 #TBD ~ Captain Hash
+LOCATION:Federal Hill
+DTSTAMP:20260201T000000Z
+END:VEVENT
+END:VCALENDAR`;
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(icsWithTitleHares, { status: 200 }),
+    );
+
+    const source = buildMockSource({
+      config: {
+        kennelPatterns: [["^CCH3", "CCH3"]],
+        defaultKennelTag: "CCH3",
+        titleHarePattern: "~\\s*(.+)$",
+      },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].hares).toBe("Captain Hash");
+    expect(result.events[0].kennelTag).toBe("CCH3");
+  });
+
   it("works without config (defaultKennelTag fallback)", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(SAMPLE_ICS, { status: 200 }),
