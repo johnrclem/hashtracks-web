@@ -259,49 +259,71 @@ export class MeetupAdapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
 
-    const pageUrl = `https://www.meetup.com/${encodeURIComponent(config.groupUrlname)}/events/`;
+    const baseUrl = `https://www.meetup.com/${encodeURIComponent(config.groupUrlname)}/events/`;
+    const pastUrl = `${baseUrl}?type=past`;
+    const headers = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+    };
 
-    let html: string;
-    try {
-      const res = await safeFetch(pageUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
-      });
+    // Fetch upcoming + past pages in parallel
+    const [upcomingResult, pastResult] = await Promise.allSettled([
+      safeFetch(baseUrl, { headers }),
+      safeFetch(pastUrl, { headers }),
+    ]);
 
-      if (!res.ok) {
-        const message = `Meetup page error ${res.status} for group "${config.groupUrlname}"`;
-        return {
-          events: [],
-          errors: [message],
-          errorDetails: { fetch: [{ url: pageUrl, status: res.status, message }] },
-        };
-      }
+    // Upcoming page must succeed (fatal)
+    if (upcomingResult.status === "rejected") {
+      const message = `Failed to fetch Meetup events: ${upcomingResult.reason instanceof Error ? upcomingResult.reason.message : String(upcomingResult.reason)}`;
+      return { events: [], errors: [message], errorDetails: { fetch: [{ url: baseUrl, message }] } };
+    }
+    const upcomingRes = upcomingResult.value;
+    if (!upcomingRes.ok) {
+      const message = `Meetup page error ${upcomingRes.status} for group "${config.groupUrlname}"`;
+      return {
+        events: [],
+        errors: [message],
+        errorDetails: { fetch: [{ url: baseUrl, status: upcomingRes.status, message }] },
+      };
+    }
+    const upcomingHtml = await upcomingRes.text();
+    const { events: upcomingEvents, state: upcomingState } = extractApolloEvents(upcomingHtml);
 
-      html = await res.text();
-    } catch (err) {
-      const message = `Failed to fetch Meetup events: ${err instanceof Error ? err.message : String(err)}`;
-      return { events: [], errors: [message], errorDetails: { fetch: [{ url: pageUrl, message }] } };
+    // Past page is non-fatal
+    let pastEvents: ApolloEvent[] = [];
+    let pastState: Record<string, Record<string, unknown>> = {};
+    if (pastResult.status === "fulfilled" && pastResult.value.ok) {
+      const pastHtml = await pastResult.value.text();
+      const extracted = extractApolloEvents(pastHtml);
+      pastEvents = extracted.events;
+      pastState = extracted.state;
     }
 
-    const { events: apolloEvents, state } = extractApolloEvents(html);
+    // Merge Apollo states (upcoming takes priority for shared keys)
+    const mergedState = { ...pastState, ...upcomingState };
 
-    if (apolloEvents.length === 0) {
+    // Deduplicate events by id (upcoming takes priority)
+    const upcomingIds = new Set(upcomingEvents.map((ev) => ev.id));
+    const allApolloEvents = [
+      ...upcomingEvents,
+      ...pastEvents.filter((ev) => !upcomingIds.has(ev.id)),
+    ];
+
+    if (allApolloEvents.length === 0) {
       const message = "No events found in __NEXT_DATA__ Apollo state";
       errors.push(message);
       errorDetails.parse = [{ row: 0, error: message }];
     }
 
-    for (const [i, ev] of apolloEvents.entries()) {
+    for (const [i, ev] of allApolloEvents.entries()) {
       try {
         if (!ev.dateTime) continue;
 
         const eventDate = new Date(ev.dateTime);
         if (eventDate < minDate || eventDate > maxDate) continue;
 
-        events.push(buildRawEventFromApollo(ev, state, config.kennelTag));
+        events.push(buildRawEventFromApollo(ev, mergedState, config.kennelTag));
       } catch (err) {
         const msg = `Failed to parse event "${ev.id}": ${err instanceof Error ? err.message : String(err)}`;
         errors.push(msg);
@@ -315,7 +337,12 @@ export class MeetupAdapter implements SourceAdapter {
       events,
       errors,
       errorDetails: hasErrorDetails ? errorDetails : undefined,
-      diagnosticContext: { groupUrlname: config.groupUrlname, eventsFound: apolloEvents.length },
+      diagnosticContext: {
+        groupUrlname: config.groupUrlname,
+        eventsFound: allApolloEvents.length,
+        upcomingEventsFound: upcomingEvents.length,
+        pastEventsFound: pastEvents.length,
+      },
     };
   }
 }

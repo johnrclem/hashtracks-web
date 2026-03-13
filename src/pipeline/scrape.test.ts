@@ -194,6 +194,34 @@ describe("scrapeSource", () => {
     expect(result.success).toBe(true);
   });
 
+  it("uses source.scrapeDays when no explicit days option passed", async () => {
+    const sourceWithScrapeDays = { ...fakeSource, scrapeDays: 180 };
+    mockSourceFind.mockResolvedValueOnce(sourceWithScrapeDays as never);
+    const mockFetch = vi.fn().mockResolvedValue({ events: [], errors: [] });
+    mockGetAdapter.mockReturnValue({ type: "HTML_SCRAPER", fetch: mockFetch } as never);
+
+    await scrapeSource("src_1");
+    expect(mockFetch).toHaveBeenCalledWith(sourceWithScrapeDays, { days: 180 });
+  });
+
+  it("prefers explicit days option over source.scrapeDays", async () => {
+    const sourceWithScrapeDays = { ...fakeSource, scrapeDays: 180 };
+    mockSourceFind.mockResolvedValueOnce(sourceWithScrapeDays as never);
+    const mockFetch = vi.fn().mockResolvedValue({ events: [], errors: [] });
+    mockGetAdapter.mockReturnValue({ type: "HTML_SCRAPER", fetch: mockFetch } as never);
+
+    await scrapeSource("src_1", { days: 30 });
+    expect(mockFetch).toHaveBeenCalledWith(sourceWithScrapeDays, { days: 30 });
+  });
+
+  it("defaults to 90 days when neither option nor source.scrapeDays set", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ events: [], errors: [] });
+    mockGetAdapter.mockReturnValue({ type: "HTML_SCRAPER", fetch: mockFetch } as never);
+
+    await scrapeSource("src_1");
+    expect(mockFetch).toHaveBeenCalledWith(fakeSource, { days: 90 });
+  });
+
   it("stores non-empty sample arrays in ScrapeLog", async () => {
     const sampleBlocked = [{ reason: "SOURCE_KENNEL_MISMATCH", kennelTag: "OtherH3", event: {}, suggestedAction: "Link" }];
     const sampleSkipped = [{ reason: "UNMATCHED_TAG", kennelTag: "UnknownH3", event: {}, suggestedAction: "Create" }];

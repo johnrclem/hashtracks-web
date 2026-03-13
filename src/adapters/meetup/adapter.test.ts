@@ -67,6 +67,14 @@ function mockHtmlResponse(html: string) {
   } as unknown as Response);
 }
 
+/** Set up dual-response mock: different HTML for upcoming vs past Meetup pages. */
+function mockDualPageFetch(upcomingHtml: string, pastHtml: string) {
+  mockSafeFetch.mockImplementation(async (url: string) => {
+    const html = url.includes("?type=past") ? pastHtml : upcomingHtml;
+    return { ok: true, status: 200, text: async () => html } as unknown as Response;
+  });
+}
+
 describe("extractApolloEvents", () => {
   it("extracts events from Apollo state HTML", () => {
     const html = buildMeetupHtml({
@@ -466,5 +474,135 @@ describe("MeetupAdapter", () => {
       "https://www.meetup.com/savannah-hash-house-harriers/events/",
       expect.objectContaining({ headers: expect.any(Object) }),
     );
+  });
+
+  it("fetches both upcoming and past pages", async () => {
+    const html = buildMeetupHtml({ "Event:1": buildApolloEvent() });
+    mockSafeFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => html,
+    } as unknown as Response);
+
+    const adapter = new MeetupAdapter();
+    await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+    expect(mockSafeFetch).toHaveBeenCalledWith(
+      "https://www.meetup.com/test-hash/events/",
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
+    expect(mockSafeFetch).toHaveBeenCalledWith(
+      "https://www.meetup.com/test-hash/events/?type=past",
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
+  });
+
+  it("combines events from both upcoming and past pages", async () => {
+    const futureEvent = buildApolloEvent({ id: "future-1", title: "Upcoming Run", dateTime: "2026-03-20T18:00:00-05:00" });
+    const pastEvent = buildApolloEvent({ id: "past-1", title: "Past Run", dateTime: "2026-02-15T18:00:00-05:00" });
+
+    const upcomingHtml = buildMeetupHtml({ "Event:future-1": futureEvent, "Venue:123": VENUE_ENTRY });
+    const pastHtml = buildMeetupHtml({ "Event:past-1": pastEvent, "Venue:123": VENUE_ENTRY });
+
+    mockDualPageFetch(upcomingHtml, pastHtml);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(2);
+    const titles = result.events.map((e) => e.title);
+    expect(titles).toContain("Upcoming Run");
+    expect(titles).toContain("Past Run");
+  });
+
+  it("continues with upcoming-only when past page fetch fails", async () => {
+    const upcomingHtml = buildMeetupHtml({
+      "Event:1": buildApolloEvent(),
+      "Venue:123": VENUE_ENTRY,
+    });
+
+    mockSafeFetch.mockImplementation(async (url: string) => {
+      if (url.includes("?type=past")) {
+        throw new Error("Network timeout");
+      }
+      return { ok: true, status: 200, text: async () => upcomingHtml } as unknown as Response;
+    });
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(1);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("deduplicates events by id (upcoming takes priority)", async () => {
+    const event = buildApolloEvent({ id: "shared-1", title: "Upcoming Version" });
+    const pastEvent = buildApolloEvent({ id: "shared-1", title: "Past Version" });
+
+    const upcomingHtml = buildMeetupHtml({ "Event:shared-1": event, "Venue:123": VENUE_ENTRY });
+    const pastHtml = buildMeetupHtml({ "Event:shared-1": pastEvent, "Venue:123": VENUE_ENTRY });
+
+    mockDualPageFetch(upcomingHtml, pastHtml);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toBe("Upcoming Version");
+  });
+
+  it("filters combined events by date window", async () => {
+    const oldPastDate = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000);
+    const oldPastIso = oldPastDate.toISOString().slice(0, 19) + "-05:00";
+    const recentPastDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const recentPastIso = recentPastDate.toISOString().slice(0, 19) + "-05:00";
+
+    const oldEvent = buildApolloEvent({ id: "old-1", title: "Old Event", dateTime: oldPastIso });
+    const recentEvent = buildApolloEvent({ id: "recent-1", title: "Recent Event", dateTime: recentPastIso });
+
+    const upcomingHtml = buildMeetupHtml({});
+    const pastHtml = buildMeetupHtml({
+      "Event:old-1": oldEvent,
+      "Event:recent-1": recentEvent,
+      "Venue:123": VENUE_ENTRY,
+    });
+
+    mockDualPageFetch(upcomingHtml, pastHtml);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 90 },
+    );
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toBe("Recent Event");
+  });
+
+  it("includes per-page counts in diagnosticContext", async () => {
+    const futureEvent = buildApolloEvent({ id: "future-1", dateTime: "2026-03-20T18:00:00-05:00" });
+    const pastEvent = buildApolloEvent({ id: "past-1", dateTime: "2026-02-15T18:00:00-05:00" });
+
+    const upcomingHtml = buildMeetupHtml({ "Event:future-1": futureEvent, "Venue:123": VENUE_ENTRY });
+    const pastHtml = buildMeetupHtml({ "Event:past-1": pastEvent, "Venue:123": VENUE_ENTRY });
+
+    mockDualPageFetch(upcomingHtml, pastHtml);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.diagnosticContext?.upcomingEventsFound).toBe(1);
+    expect(result.diagnosticContext?.pastEventsFound).toBe(1);
+    expect(result.diagnosticContext?.eventsFound).toBe(2);
   });
 });

@@ -271,7 +271,6 @@ export async function scrapeSource(
   sourceId: string,
   options?: { days?: number; force?: boolean },
 ): Promise<ScrapeSourceResult> {
-  const days = options?.days ?? 90;
   const force = options?.force ?? false;
 
   const source = await prisma.source.findUnique({
@@ -281,6 +280,8 @@ export async function scrapeSource(
   if (!source) {
     throw new Error(`Source not found: ${sourceId}`);
   }
+
+  const days = options?.days ?? source.scrapeDays ?? 90;
 
   // Create ScrapeLog record
   const startedAt = new Date();
