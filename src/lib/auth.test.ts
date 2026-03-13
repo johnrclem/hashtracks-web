@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@clerk/nextjs/server", () => ({ currentUser: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
-    user: { findUnique: vi.fn(), create: vi.fn() },
+    user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     userKennel: { findUnique: vi.fn() },
     kennel: { findUnique: vi.fn() },
     rosterGroup: { create: vi.fn() },
@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { currentUser } from "@clerk/nextjs/server";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import {
   getOrCreateUser,
@@ -24,6 +25,7 @@ import {
 const mockCurrentUser = vi.mocked(currentUser);
 const mockUserFind = vi.mocked(prisma.user.findUnique);
 const mockUserCreate = vi.mocked(prisma.user.create);
+const mockUserUpdate = vi.mocked(prisma.user.update);
 const mockUserKennelFind = vi.mocked(prisma.userKennel.findUnique);
 const mockRosterGroupKennelFind = vi.mocked(prisma.rosterGroupKennel.findUnique);
 
@@ -55,7 +57,8 @@ describe("getOrCreateUser", () => {
 
   it("creates user on first sign-in", async () => {
     mockCurrentUser.mockResolvedValueOnce(clerkUser as never);
-    mockUserFind.mockResolvedValueOnce(null);
+    mockUserFind.mockResolvedValueOnce(null); // clerkId miss
+    mockUserFind.mockResolvedValueOnce(null); // email miss
     mockUserCreate.mockResolvedValueOnce({ id: "user_new" } as never);
     const result = await getOrCreateUser();
     expect(result).toEqual({ id: "user_new" });
@@ -71,12 +74,90 @@ describe("getOrCreateUser", () => {
   it("handles missing firstName", async () => {
     const noName = { ...clerkUser, firstName: null, lastName: null };
     mockCurrentUser.mockResolvedValueOnce(noName as never);
-    mockUserFind.mockResolvedValueOnce(null);
+    mockUserFind.mockResolvedValueOnce(null); // clerkId miss
+    mockUserFind.mockResolvedValueOnce(null); // email miss
     mockUserCreate.mockResolvedValueOnce({ id: "user_new" } as never);
     await getOrCreateUser();
     expect(mockUserCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ nerdName: null }),
     });
+  });
+
+  it("updates clerkId when email matches existing user (Clerk migration)", async () => {
+    const newClerk = { ...clerkUser, id: "clerk_prod_1" };
+    mockCurrentUser.mockResolvedValueOnce(newClerk as never);
+    mockUserFind.mockResolvedValueOnce(null); // clerkId miss (new prod clerkId)
+    mockUserFind.mockResolvedValueOnce({ id: "user_1", email: "john@test.com", nerdName: "John Doe" } as never); // email hit
+    mockUserUpdate.mockResolvedValueOnce({ id: "user_1", clerkId: "clerk_prod_1" } as never);
+
+    const result = await getOrCreateUser();
+    expect(result).toEqual({ id: "user_1", clerkId: "clerk_prod_1" });
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user_1" },
+      data: { clerkId: "clerk_prod_1", nerdName: "John Doe" },
+    });
+    expect(mockUserCreate).not.toHaveBeenCalled();
+  });
+
+  it("preserves custom nerdName during email migration", async () => {
+    const newClerk = { ...clerkUser, id: "clerk_prod_2", firstName: "John", lastName: "Doe" };
+    mockCurrentUser.mockResolvedValueOnce(newClerk as never);
+    mockUserFind.mockResolvedValueOnce(null); // clerkId miss
+    mockUserFind.mockResolvedValueOnce({ id: "user_2", email: "john@test.com", nerdName: "Hashy McHashface" } as never); // email hit with custom name
+    mockUserUpdate.mockResolvedValueOnce({ id: "user_2", clerkId: "clerk_prod_2", nerdName: "Hashy McHashface" } as never);
+
+    const result = await getOrCreateUser();
+    expect(result).toEqual({ id: "user_2", clerkId: "clerk_prod_2", nerdName: "Hashy McHashface" });
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user_2" },
+      data: { clerkId: "clerk_prod_2", nerdName: "Hashy McHashface" },
+    });
+  });
+
+  it("backfills nerdName from Clerk when existing user has null nerdName", async () => {
+    const newClerk = { ...clerkUser, id: "clerk_prod_3" };
+    mockCurrentUser.mockResolvedValueOnce(newClerk as never);
+    mockUserFind.mockResolvedValueOnce(null); // clerkId miss
+    mockUserFind.mockResolvedValueOnce({ id: "user_3", email: "john@test.com", nerdName: null } as never); // email hit, no nerdName
+    mockUserUpdate.mockResolvedValueOnce({ id: "user_3", clerkId: "clerk_prod_3", nerdName: "John Doe" } as never);
+
+    const result = await getOrCreateUser();
+    expect(result).toEqual({ id: "user_3", clerkId: "clerk_prod_3", nerdName: "John Doe" });
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user_3" },
+      data: { clerkId: "clerk_prod_3", nerdName: "John Doe" },
+    });
+  });
+
+  it("handles race condition on create (P2002 fallback by clerkId)", async () => {
+    mockCurrentUser.mockResolvedValueOnce(clerkUser as never);
+    mockUserFind.mockResolvedValueOnce(null); // clerkId miss
+    mockUserFind.mockResolvedValueOnce(null); // email miss
+    const p2002 = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed",
+      { code: "P2002", clientVersion: "0.0.0" },
+    );
+    mockUserCreate.mockRejectedValueOnce(p2002);
+    mockUserFind.mockResolvedValueOnce({ id: "user_raced" } as never); // retry by clerkId finds it
+
+    const result = await getOrCreateUser();
+    expect(result).toEqual({ id: "user_raced" });
+  });
+
+  it("handles race condition on create (P2002 fallback by email)", async () => {
+    mockCurrentUser.mockResolvedValueOnce(clerkUser as never);
+    mockUserFind.mockResolvedValueOnce(null); // clerkId miss
+    mockUserFind.mockResolvedValueOnce(null); // email miss
+    const p2002 = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed",
+      { code: "P2002", clientVersion: "0.0.0" },
+    );
+    mockUserCreate.mockRejectedValueOnce(p2002);
+    mockUserFind.mockResolvedValueOnce(null); // retry by clerkId misses
+    mockUserFind.mockResolvedValueOnce({ id: "user_email_raced" } as never); // retry by email finds it
+
+    const result = await getOrCreateUser();
+    expect(result).toEqual({ id: "user_email_raced" });
   });
 });
 

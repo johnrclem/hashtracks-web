@@ -1,29 +1,59 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-import type { User } from "@/generated/prisma/client";
+import { Prisma, type User } from "@/generated/prisma/client";
 
 /** Get the current user from DB, creating a record on first sign-in (Clerk → DB sync). */
 export async function getOrCreateUser(): Promise<User | null> {
   const clerkUser = await currentUser();
   if (!clerkUser) return null;
 
+  // Step 1: look up by clerkId (fast path)
   const existingUser = await prisma.user.findUnique({
     where: { clerkId: clerkUser.id },
   });
 
   if (existingUser) return existingUser;
 
-  // First sign-in: create User record
-  return prisma.user.create({
-    data: {
-      clerkId: clerkUser.id,
-      email: clerkUser.emailAddresses[0]?.emailAddress ?? "",
-      hashName: null,
-      nerdName: clerkUser.firstName
-        ? `${clerkUser.firstName} ${clerkUser.lastName ?? ""}`.trim()
-        : null,
-    },
-  });
+  // Step 2: email-based lookup (handles Clerk instance migration — same
+  // person, same email, new clerkId from production instance)
+  const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
+  const nerdName = clerkUser.firstName
+    ? `${clerkUser.firstName} ${clerkUser.lastName ?? ""}`.trim()
+    : null;
+
+  if (email) {
+    const emailMatch = await prisma.user.findUnique({
+      where: { email },
+    });
+    if (emailMatch) {
+      return prisma.user.update({
+        where: { id: emailMatch.id },
+        data: { clerkId: clerkUser.id, nerdName: emailMatch.nerdName ?? nerdName },
+      });
+    }
+  }
+
+  // Step 3: create new user
+  try {
+    return await prisma.user.create({
+      data: {
+        clerkId: clerkUser.id,
+        email,
+        hashName: null,
+        nerdName,
+      },
+    });
+  } catch (err: unknown) {
+    // Step 4: race-condition guard — another request may have created the
+    // record between our lookups and this create. P2002 could be on clerkId
+    // or email unique constraint, so try both.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      const user = await prisma.user.findUnique({ where: { clerkId: clerkUser.id } });
+      if (user) return user;
+      return email ? prisma.user.findUnique({ where: { email } }) : null;
+    }
+    throw err;
+  }
 }
 
 /** Get the current user if they have the "admin" role in Clerk metadata. Returns null otherwise. */
