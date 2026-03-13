@@ -54,7 +54,7 @@ export default async function HomePage() {
     ]);
 
   return (
-    <div className="-mx-4 -mt-8">
+    <div className="-mx-4 -mt-8 overflow-x-hidden">
       {/* ═══════════════════════════════════════════════
           HERO
        ═══════════════════════════════════════════════ */}
