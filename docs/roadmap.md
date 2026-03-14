@@ -307,6 +307,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] Config: `rrule`, `defaultTitle`, `defaultLocation`, `defaultStartTime`, `defaultKennelTag`
 - [x] Supports complex RRULE patterns (1st/3rd Sunday, every other Saturday, etc.)
 - [x] Moon-phase gap: lunar recurrence (full/new moon kennels) cannot be expressed as RRULE — added as kennel-only records
+- [ ] Seasonal schedule switching: many kennels change day/time seasonally (e.g., SAH3: Friday 6:30 PM summer / Sunday 3:30 PM winter) — needs RRULE enhancement or `seasonalSchedule` config with date ranges
 
 ### Meetup Adapter Live — COMPLETE
 - [x] 5 live Meetup sources: Miami H3, Savannah H3, Von Tramp H3 (VT), Narwhal H3 (CT), Charleston Heretics

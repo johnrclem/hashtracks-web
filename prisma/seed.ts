@@ -927,6 +927,95 @@ async function main() {
       description: "Ireland's only regularly running hash. Alternates between Sunday afternoon and Monday evening runs in the Dublin area.",
       latitude: 53.3498, longitude: -6.2603,
     },
+    // ===== TEXAS =====
+    // --- Austin ---
+    {
+      kennelCode: "ah3", shortName: "AH3", fullName: "Austin Hash House Harriers", region: "Austin, TX",
+      website: "https://austinh3.org",
+      facebookUrl: "https://www.facebook.com/groups/austinh3/",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
+      description: "Weekly Sunday runs in Austin.",
+      latitude: 30.27, longitude: -97.74,
+    },
+    {
+      kennelCode: "kawh3", shortName: "KAW!H3", fullName: "Keep Austin Weird Hash House Harriers", region: "Austin, TX",
+      facebookUrl: "https://www.facebook.com/groups/KAWH3/",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Weekly Thursday evening runs in Austin.",
+      latitude: 30.27, longitude: -97.74,
+    },
+    // --- Houston ---
+    {
+      kennelCode: "h4-tx", shortName: "H4", fullName: "Houston Hash House Harriers", region: "Houston, TX",
+      website: "https://h-townhash.com",
+      facebookUrl: "https://www.facebook.com/groups/HoustonHash/",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
+      description: "Weekly Sunday afternoon runs in Houston.",
+      latitude: 29.76, longitude: -95.37,
+    },
+    {
+      kennelCode: "bmh3-tx", shortName: "BMH3", fullName: "Brass Monkey Hash House Harriers", region: "Houston, TX",
+      website: "https://teambrassmonkey.blogspot.com",
+      facebookUrl: "https://www.facebook.com/groups/teambrassmonkey/",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      description: "Biweekly Saturday runs in the Houston area.",
+      latitude: 30.04, longitude: -95.46,
+    },
+    {
+      kennelCode: "mosquito-h3", shortName: "Mosquito H3", fullName: "Mosquito Hash House Harriers", region: "Houston, TX",
+      facebookUrl: "https://www.facebook.com/groups/MosquitoH3/",
+      scheduleFrequency: "Bimonthly", scheduleNotes: "1st & 3rd Wednesdays, 6:30 PM",
+      description: "Runs on the 1st and 3rd Wednesday of each month in Houston.",
+      latitude: 29.79, longitude: -95.76,
+    },
+    // --- Dallas-Fort Worth ---
+    {
+      kennelCode: "dh3-tx", shortName: "DH3", fullName: "Dallas Hash House Harriers", region: "Dallas-Fort Worth, TX",
+      website: "http://www.dfwhhh.org",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      description: "Biweekly Saturday runs in the Dallas area.",
+      latitude: 32.78, longitude: -96.80,
+    },
+    {
+      kennelCode: "duhhh", shortName: "DUHHH", fullName: "Dallas Urban Hash House Harriers", region: "Dallas-Fort Worth, TX",
+      website: "http://www.dfwhhh.org",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      description: "Weekly Wednesday evening runs in Dallas.",
+      latitude: 32.78, longitude: -96.80,
+    },
+    {
+      kennelCode: "noduhhh", shortName: "NODUHHH", fullName: "North of Dallas Urban Hash House Harriers", region: "Dallas-Fort Worth, TX",
+      website: "http://www.dfwhhh.org",
+      scheduleDayOfWeek: "Monday", scheduleFrequency: "Biweekly",
+      description: "Biweekly Monday runs north of Dallas.",
+      latitude: 33.02, longitude: -96.70,
+    },
+    {
+      kennelCode: "fwh3", shortName: "FWH3", fullName: "Fort Worth Hash House Harriers", region: "Dallas-Fort Worth, TX",
+      website: "http://www.dfwhhh.org",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      description: "Biweekly Saturday runs in Fort Worth.",
+      latitude: 32.75, longitude: -97.33,
+    },
+    // --- San Antonio ---
+    {
+      kennelCode: "sah3", shortName: "SAH3", fullName: "San Antonio Hash House Harriers", region: "San Antonio, TX",
+      website: "https://www.sah3.com/",
+      facebookUrl: "https://www.facebook.com/groups/355324508352374",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Seasonal: Fridays 6:30 PM (summer) / Sundays 3:30 PM (winter). $5 trail fee.",
+      hashCash: "$5",
+      description: "Weekly runs in San Antonio. Schedule switches seasonally between Friday evenings and Sunday afternoons.",
+      latitude: 29.42, longitude: -98.49,
+    },
+    // --- Corpus Christi ---
+    {
+      kennelCode: "c2h3", shortName: "C2H3", fullName: "Corpus Christi Hash House Harriers", region: "Corpus Christi, TX",
+      facebookUrl: "https://www.facebook.com/groups/corpuschristih3/",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Weekly Thursday evening runs in Corpus Christi.",
+      latitude: 27.80, longitude: -97.40,
+    },
     // ===== FLORIDA =====
     // --- Miami / South Florida ---
     {
@@ -1437,6 +1526,18 @@ async function main() {
     "cunth3": ["CUNT H3", "Currently Unnamed North Thames"],
     // Ireland
     "dh3": ["Dublin H3", "Dublin HHH", "Dublin Hash", "DH3", "I Love Monday"],
+    // Texas
+    "ah3": ["Austin Hash", "Austin H3", "AH3", "Austin HHH"],
+    "kawh3": ["Keep Austin Weird", "KAW!H3", "KAW H3", "KAWH3", "Keep Austin Weird Hash"],
+    "h4-tx": ["Houston Hash", "Houston H3", "H4 Houston", "Houston HHH", "H-Town Hash"],
+    "bmh3-tx": ["Brass Monkey", "Brass Monkey H3", "Brass Monkey Hash", "Team Brass Monkey"],
+    "mosquito-h3": ["Mosquito Hash", "Mosquito H3", "Mosquito HHH"],
+    "dh3-tx": ["Dallas Hash", "Dallas H3", "DH3 Dallas", "Dallas HHH"],
+    "duhhh": ["Dallas Urban Hash", "DUHHH", "DUH H3", "Dallas Urban"],
+    "noduhhh": ["NODUHHH", "North Dallas Hash", "North of Dallas Urban", "NoDUHHH"],
+    "fwh3": ["Fort Worth Hash", "Fort Worth H3", "FWH3", "Ft Worth Hash"],
+    "sah3": ["San Antonio Hash", "San Antonio H3", "SAH3", "SA Hash"],
+    "c2h3": ["Corpus Christi Hash", "Corpus Christi H3", "C2H3", "CC Hash"],
     // Florida
     "mia-h3": ["Miami Hash", "Miami H3", "Dade H3", "MH3"],
     "wildcard-h3": ["Wildcard Hash", "FTL Wildcard", "Fort Lauderdale Wildcard"],
@@ -1905,6 +2006,111 @@ async function main() {
         kennelSlugs: ["BFMH3", "EWH3", "WH4", "GFH3", "CH3", "DCH4", "DCFMH3", "FCH3"],
       },
       kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3"],
+    },
+    // ===== TEXAS =====
+    // --- Austin (2 Google Calendars) ---
+    {
+      name: "Austin H3 Calendar",
+      url: "austin.ah3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "AH3",
+      },
+      kennelCodes: ["ah3"],
+    },
+    {
+      name: "Keep Austin Weird H3 Calendar",
+      url: "o2v8lpb3bs3kpohpi6hd0g426k@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "KAW!H3",
+      },
+      kennelCodes: ["kawh3"],
+    },
+    // --- Houston (1 Google Calendar + 1 Blogger + 2 Static Schedules) ---
+    {
+      name: "Houston Hash Calendar",
+      url: "houstonhash@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "H4",
+      },
+      kennelCodes: ["h4-tx"],
+    },
+    {
+      name: "Brass Monkey H3 Blog",
+      url: "https://teambrassmonkey.blogspot.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      kennelCodes: ["bmh3-tx"],
+    },
+    {
+      name: "Mosquito H3 Static Schedule (1st Wed)",
+      url: "https://www.facebook.com/groups/MosquitoH3/",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "Mosquito H3",
+        rrule: "FREQ=MONTHLY;BYDAY=1WE",
+        startTime: "18:30",
+        defaultTitle: "Mosquito H3 Bimonthly Run",
+        defaultLocation: "Houston, TX",
+        defaultDescription: "Check the Facebook page at https://www.facebook.com/groups/MosquitoH3/ for updates on locations.",
+      },
+      kennelCodes: ["mosquito-h3"],
+    },
+    {
+      name: "Mosquito H3 Static Schedule (3rd Wed)",
+      url: "https://www.facebook.com/groups/MosquitoH3/#3rd-wed",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "Mosquito H3",
+        rrule: "FREQ=MONTHLY;BYDAY=3WE",
+        startTime: "18:30",
+        defaultTitle: "Mosquito H3 Bimonthly Run",
+        defaultLocation: "Houston, TX",
+        defaultDescription: "Check the Facebook page at https://www.facebook.com/groups/MosquitoH3/ for updates on locations.",
+      },
+      kennelCodes: ["mosquito-h3"],
+    },
+    // --- DFW (1 HTML scraper — PHP calendar covering 4 kennels) ---
+    {
+      name: "DFW Hash Calendar",
+      url: "http://www.dfwhhh.org/calendar/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["dh3-tx", "duhhh", "noduhhh", "fwh3"],
+    },
+    // --- Corpus Christi (1 Google Calendar) ---
+    {
+      name: "Corpus Christi H3 Calendar",
+      url: "c2h3hash@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "C2H3",
+      },
+      kennelCodes: ["c2h3"],
     },
     // ===== FLORIDA =====
     // --- API-based sources ---
