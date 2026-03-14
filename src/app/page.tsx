@@ -3,7 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { formatDateShort, formatTimeCompact } from "@/lib/format";
-import { getDisplayTitle } from "@/lib/event-display";
+import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
 import { getRegionColor } from "@/lib/region";
 import {
   AnimatedCounter,
@@ -41,6 +41,7 @@ export default async function HomePage() {
           haresText: true,
           startTime: true,
           locationName: true,
+          locationCity: true,
           kennel: { select: { shortName: true, fullName: true, region: true } },
         },
         orderBy: [{ date: "asc" }, { startTime: "asc" }, { id: "asc" }],
@@ -210,6 +211,7 @@ export default async function HomePage() {
             {nextEvents.map((event, i) => {
               const regionColor = getRegionColor(event.kennel.region);
               const { title: displayTitle } = getDisplayTitle(event);
+              const locationDisplay = getLocationDisplay(event);
               return (
                 <FadeInSection key={event.id} delay={i * 80}>
                   <Link
@@ -270,13 +272,13 @@ export default async function HomePage() {
 
                       {/* Row 3: Meta strip — location + hares */}
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground/60">
-                        {event.locationName && (
+                        {locationDisplay && (
                           <span className="flex items-center gap-1 truncate max-w-[55%]">
                             <MapPin className="h-3 w-3 shrink-0" style={{ color: `${regionColor}90` }} />
-                            <span className="truncate">{event.locationName}</span>
+                            <span className="truncate">{locationDisplay}</span>
                           </span>
                         )}
-                        {event.haresText && event.locationName && (
+                        {event.haresText && locationDisplay && (
                           <span className="text-muted-foreground/30" aria-hidden="true">&middot;</span>
                         )}
                         {event.haresText && (
@@ -408,7 +410,7 @@ export default async function HomePage() {
                 <div>
                   <h3 className="font-semibold">Auto-updated harelines</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Events are scraped daily from 41 sources. No manual data entry.
+                    Events are scraped daily from 69 sources. No manual data entry.
                   </p>
                 </div>
               </div>
