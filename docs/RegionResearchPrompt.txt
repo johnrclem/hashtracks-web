@@ -1,0 +1,420 @@
+You are researching Hash House Harrier kennels in the [REGION] area to help me onboard them as data sources for HashTracks, a web platform that aggregates hash run calendars.
+
+## Phase 0: Region Check
+
+Before researching kennels, check whether the target region already exists.
+
+1. **Search `src/lib/region.ts`** for `REGION_SEED_DATA`. Does the [REGION] metro or state already exist?
+2. If the region exists, note its exact `name` value — kennel `region` fields must match **exactly** (e.g., `"Charleston, SC"` not `"Charleston"`).
+3. If the region does NOT exist, provide a `RegionSeedRecord` to add:
+
+```typescript
+{
+  name: "Charleston, SC",          // Canonical display name
+  country: "USA",                  // "USA", "UK", "IE", etc.
+  level: "METRO",                  // "COUNTRY" | "STATE_PROVINCE" | "METRO"
+  timezone: "America/New_York",    // IANA timezone
+  abbrev: "CHS",                   // 2-4 char abbreviation
+  colorClasses: "bg-teal-100 text-teal-700",  // Tailwind badge classes
+  pinColor: "#14b8a6",             // Hex color for map pins
+  centroidLat: 32.78,              // Latitude for map center
+  centroidLng: -79.93,             // Longitude for map center
+  aliases: ["Charleston, South Carolina"],  // Optional name variants
+}
+```
+
+**Region hierarchy (3 levels):**
+- `COUNTRY` (top level) — "United States", "United Kingdom", "Ireland"
+- `STATE_PROVINCE` — "South Carolina", "Massachusetts", "Vermont"
+- `METRO` (default) — "Charleston, SC", "Boston, MA", "London"
+
+This is logical hierarchy guidance — there is no `parent` field on `RegionSeedRecord`. Represent the hierarchy by including the required COUNTRY, STATE_PROVINCE, and METRO records. Include both if neither exists yet (e.g., add a new STATE_PROVINCE record AND its METRO record).
+
+## Phase 1: Preparation & Deduplication
+
+Before diving into web research, review your provided context:
+
+1. **Existing Database Check:** Review `prisma/seed.ts`. Identify and list any kennels in the [REGION] that are *already* in the database. You will exclude these from your new research to avoid duplicating work.
+2. **Review the Playbook:** Read `docs/source-onboarding-playbook.md` to understand the current best practices, known patterns, and adapter capabilities. Keep this in mind as you evaluate new sources.
+
+### kennelCode Collision Check (CRITICAL)
+
+`kennelCode` is **globally unique, lowercase, URL-safe, and permanent**. Collisions are fatal errors in seed.
+
+- **Always search existing kennelCodes in `prisma/seed.ts` before assigning new ones.**
+- Common collisions: "ch3" (Chicago vs Charleston), "ph3" (Philly vs Pinelake), "wh3" (multiple)
+- Convention: use region suffix for disambiguation — `ch3-sc` (Charleston), `ph3-atl` (Atlanta), `ech3-fl` (Florida)
+- `shortName` CAN duplicate across regions (display only) — `kennelCode` CANNOT
+
+### Active Kennel Gate (HARD REQUIREMENT)
+
+**Only include kennels with evidence of activity within the last 6 months.** This is NOT optional — the project already has too many inactive/defunct kennels and cleaning up dead data wastes time.
+
+**Acceptable evidence of activity:**
+- Recent Facebook posts about runs (within 6 months)
+- Active Meetup group with upcoming or recent events
+- Updated website hareline with future events
+- Google Calendar with future events
+- Recent Instagram posts about trail activity
+
+**Red flags — SKIP the kennel:**
+- Dead website (DNS error, parked domain, 404)
+- No Facebook posts in 6+ months
+- "On hiatus", "inactive", "dissolved"
+- No upcoming events anywhere online
+- Last Meetup event > 6 months ago
+- Only evidence is historical mentions on other sites
+
+**When in doubt, leave it out.** It's easy to add a kennel later, but cleaning up dead data wastes time.
+
+## Phase 2: What I Need (New Kennels)
+
+For each *new, verified active* kennel you find in the [REGION] area, provide:
+
+### 1. Kennel Profile
+
+* **fullName** (e.g., "Washington DC Hash House Harriers")
+* **kennelCode** (e.g., "dch3") — lowercase, URL-safe, permanent database ID. CHECK FOR COLLISIONS.
+* **shortName** (e.g., "DCH3") — display abbreviation
+* **Known aliases** — alternate names the community uses (nicknames, older abbreviations)
+* **region** — must EXACTLY match a `Region.name` from `src/lib/region.ts` (e.g., "Washington, DC")
+* **country** — defaults to "USA". Must be explicit for non-US: "UK", "IE", etc.
+* **Links**:
+  - `website` — full URL
+  - `facebookUrl` — full URL
+  - `instagramHandle` — handle only, no `@` prefix, no URL (e.g., "nych3")
+  - `twitterHandle` — handle only, no `@` prefix
+  - `discordUrl` — full invite URL
+  - `contactEmail` — email address
+* **Hashing schedule**:
+  - `scheduleDayOfWeek` — "Monday", "Saturday", etc.
+  - `scheduleFrequency` — "Weekly", "Biweekly", "Monthly"
+  - `scheduleTime` — "7:00 PM", "12:00 Noon"
+  - `scheduleNotes` — for irregular schedules: "Seasonal: April through October", "21+ only"
+* **Kennel details**:
+  - `foundedYear` — number (e.g., 1972)
+  - `hashCash` — string (e.g., "$8", "Free")
+  - `description` — brief description
+* **Coordinates**:
+  - `latitude` / `longitude` — for map pins and Near Me search (approximate city center if no specific HQ)
+
+### 2. Source Assessment
+
+Evaluate ALL potential data sources for each kennel. Classify them by adapter type with correct technical details:
+
+**GOOGLE_CALENDAR** (trustLevel 7, scrapeDays 365, scrapeFreq "daily")
+- URL is the calendar **email address** (e.g., `bostonhash@gmail.com`, `...@group.calendar.google.com`), NOT the iframe embed URL
+- Extract from iframe `src` → find the `src=` param → URL-decode it → that's the calendar ID/email
+- Multi-kennel calendars need `kennelPatterns` config (regex→tag tuples on SUMMARY field)
+- Single-kennel calendars use `defaultKennelTag`
+- Regional aggregator calendars are the highest-value onboarding target (one source = many kennels)
+
+**MEETUP** (trustLevel 7, scrapeDays 90, scrapeFreq "daily")
+- Extract `groupUrlname` from URL path: `meetup.com/<groupUrlname>/`
+- No API key needed — uses Meetup's public REST API
+- Config needs `groupUrlname` and `kennelTag`
+
+**ICAL_FEED** (trustLevel 7-8, scrapeDays 180, scrapeFreq "daily")
+- URL of .ics feed
+- Supports `kennelPatterns` (regex→tag tuples on SUMMARY), `skipPatterns`, `defaultKennelTag`
+
+**HASHREGO** (trustLevel 8, scrapeDays 90, scrapeFreq "daily")
+- `kennelSlugs` are Hash Rego's **internal IDs** (e.g., "BFMH3", "EWH3"), NOT HashTracks kennelCodes
+- Multi-kennel source — one source entry covers all linked kennels
+
+**GOOGLE_SHEETS** (trustLevel 7, scrapeDays 9999, scrapeFreq "daily")
+- Needs `sheetId`, `columns` mapping, `kennelTagRules`
+- Config-driven, no code changes needed
+
+**HTML_SCRAPER** (trustLevel 5-8, scrapeDays 90-365, scrapeFreq "daily")
+- Static HTML → Cheerio parsing (most sites)
+- JS-rendered (Wix, Google Sites, SPAs) → NAS headless browser rendering service
+- Special patterns: Blogger API v3 (Blogspot sites), WordPress REST API, Ghost Content API, PHP REST API (FullCalendar)
+- `GenericHtmlAdapter` handles config-driven CSS selector scraping (no code)
+- Custom adapter code needed for complex layouts
+
+**STATIC_SCHEDULE** (trustLevel 3, scrapeDays 90, scrapeFreq "weekly")
+- For Facebook-only kennels with predictable schedules — generates placeholder events, NO external fetch
+- Config uses `kennelTag` and `startTime` (NOT `defaultKennelTag` / `defaultStartTime`)
+- `anchorDate` (YYYY-MM-DD) required when INTERVAL > 1 (biweekly) — a known past occurrence date
+- Supported RRULE patterns:
+  - `FREQ=WEEKLY;BYDAY=SA` — every Saturday
+  - `FREQ=WEEKLY;INTERVAL=2;BYDAY=SA` — biweekly Saturday (needs `anchorDate`)
+  - `FREQ=MONTHLY;BYDAY=1SU` — 1st Sunday of month
+  - `FREQ=MONTHLY;BYDAY=-1FR` — last Friday of month
+  - `FREQ=MONTHLY;BYMONTHDAY=15` — 15th of month
+- Limitation: cannot express lunar recurrence (full/new moon schedules)
+
+### 3. Source Recommendation
+
+Recommend the **best primary source** and any secondary sources. Preference order (based on actual success rates):
+
+1. `GOOGLE_CALENDAR` — cleanest API, best for aggregators (one source covers 10+ kennels)
+2. `MEETUP` / `ICAL_FEED` / `HASHREGO` — config-driven, no code, rich data
+3. `GOOGLE_SHEETS` — config-driven, no code
+4. `HTML_SCRAPER` — requires adapter code or GenericHtmlAdapter config
+5. `STATIC_SCHEDULE` — fallback for Facebook-only (placeholder data, not real events)
+6. No source — kennel-only record, no events on hareline
+
+*Crucial:* If multiple kennels share a source (regional aggregator pattern), note this explicitly!
+
+### STATIC_SCHEDULE Conventions
+
+Standard field conventions for Facebook-only / schedule-only kennels:
+
+- `defaultTitle`: `"<Kennel Full Name> <Frequency> Run"` — e.g., "Wildcard H3 Weekly Run", "Lowcountry H3 Biweekly Run", "Full Moon H3 Monthly Run"
+- `defaultDescription`: `"Check the Facebook page at <facebookUrl> for updates on locations."` — must include the actual Facebook URL so users can find details
+- `defaultLocation`: City or metro area — e.g., "Fort Lauderdale, FL", "Greenville, SC"
+
+These are trustLevel 3 placeholder events — the description directing users to Facebook is critical since we don't have real event details.
+
+### Multi-Source Strategy
+
+- When a kennel has Calendar AND website → add BOTH (Calendar trustLevel 7, website trustLevel 8 for primary site)
+- Merge pipeline deduplicates via fingerprint, uses trust levels for field precedence
+- Common: `STATIC_SCHEDULE` (trustLevel 3) as fallback + `MEETUP` (trustLevel 7) when available
+- Regional aggregator Calendars are highest-value targets — one source = many kennels with zero code
+
+## Phase 3: Output Format
+
+Structure your output exactly as follows:
+
+### 1. Region Check
+
+- Does the region exist in `src/lib/region.ts`? If not, provide `RegionSeedRecord`(s) to add.
+- State hierarchy: list parent regions if new ones are needed (STATE_PROVINCE → COUNTRY).
+
+### 2. Existing Data Check
+
+* List of kennels already found in `prisma/seed.ts` for this region (will be skipped for onboarding).
+
+### 3. Regional Summary
+
+* Total *new active* kennels found.
+* Recommended onboarding order (Aggregators > High-quality APIs > HTML sites > Static schedules).
+* Any regional aggregator sources discovered.
+* Kennels SKIPPED due to inactivity (list with reason — dead site, no recent posts, on hiatus).
+
+### 4. Per-Kennel Detail
+
+---
+
+**[shortName]** — [Full Name]
+
+* **kennelCode**: [code] *(collision-checked)*
+* **Region**: [exact Region.name match]
+* **Country**: [if non-USA]
+* **Schedule**: [day(s), frequency, time]
+* **Details**: [Founded year, Hash cash, Dog/Walker status]
+* **Links**: [Web, FB, IG handle, etc.]
+* **Coordinates**: [lat, lng]
+* **Aliases**: [list]
+
+**Best Source:** [Source Type + URL + brief technical notes]
+**Secondary Source:** [if applicable]
+**Notes:** [Onboarding gotchas, shared calendar notes, etc.]
+
+### 5. Playbook Updates
+
+Based on this research session, suggest any additions or modifications for `docs/source-onboarding-playbook.md`. Did we discover a new WordPress plugin pattern, a new type of scheduling quirk, or an edge case we should document? If nothing new was learned, simply state "No new playbook updates required."
+
+### 6. Seed Data Block
+
+Provide a consolidated block ready to copy-paste into `prisma/seed.ts`.
+
+**Regions** (if new regions needed):
+```typescript
+// New region(s) to add to src/lib/region.ts REGION_SEED_DATA
+{
+  name: "Charleston, SC",
+  country: "USA",
+  level: "METRO",
+  timezone: "America/New_York",
+  abbrev: "CHS",
+  colorClasses: "bg-teal-100 text-teal-700",
+  pinColor: "#14b8a6",
+  centroidLat: 32.78,
+  centroidLng: -79.93,
+  aliases: ["Charleston, South Carolina"],
+},
+```
+
+**Kennels:**
+```typescript
+// Kennels to add to prisma/seed.ts kennels array
+{
+  kennelCode: "dch3",
+  shortName: "DCH3",
+  fullName: "Washington DC Hash House Harriers",
+  region: "Washington, DC",
+  // country: "USA",  // default — only include if non-USA
+  website: "https://...",
+  facebookUrl: "https://...",
+  instagramHandle: "dch3hash",       // handle only, no @ or URL
+  // twitterHandle: "dch3",          // handle only
+  // discordUrl: "https://discord.gg/...",
+  // contactEmail: "dch3@example.com",
+  scheduleDayOfWeek: "Saturday",
+  scheduleTime: "3:00 PM",
+  scheduleFrequency: "Weekly",
+  // scheduleNotes: "Seasonal: April through October",
+  hashCash: "$5",
+  foundedYear: 1972,
+  description: "Weekly Saturday runs in the DC area.",
+  latitude: 38.91,
+  longitude: -77.04,
+},
+// ... more kennels
+```
+
+**Aliases** (keyed by kennelCode):
+```typescript
+// Aliases to add to prisma/seed.ts aliases record
+const kennelAliases: Record<string, string[]> = {
+  "dch3": ["DC Hash", "Washington Hash", "DCH3", "DC H3"],
+  // ... more aliases
+};
+```
+
+**Sources:**
+
+GOOGLE_CALENDAR (single-kennel):
+```typescript
+{
+  name: "EWH3 Google Calendar",
+  url: "ewh3hash@gmail.com",        // Calendar email, NOT iframe URL
+  type: "GOOGLE_CALENDAR" as const,
+  trustLevel: 7,
+  scrapeFreq: "daily",
+  scrapeDays: 365,
+  config: {
+    defaultKennelTag: "EWH3",        // Single-kennel: just defaultKennelTag
+  },
+  kennelCodes: ["ewh3"],            // Array of kennelCode strings
+},
+```
+
+GOOGLE_CALENDAR (multi-kennel aggregator):
+```typescript
+{
+  name: "Boston Hash Calendar",
+  url: "bostonhash@gmail.com",
+  type: "GOOGLE_CALENDAR" as const,
+  trustLevel: 7,
+  scrapeFreq: "daily",
+  scrapeDays: 365,
+  config: {
+    kennelPatterns: [
+      ["BoH3|Boston H3", "BoH3"],         // regex → kennelTag
+      ["BOBBH3|Beantown", "BOBBH3"],
+    ],
+    defaultKennelTag: "BoH3",              // Fallback for unmatched events
+  },
+  kennelCodes: ["boh3", "bobbh3", "beantown", "bos-moon", "pink-taco"],
+},
+```
+
+MEETUP:
+```typescript
+{
+  name: "Miami H3 Meetup",
+  url: "https://www.meetup.com/miami-hash-house-harriers/",
+  type: "MEETUP" as const,
+  trustLevel: 7,
+  scrapeFreq: "daily",
+  scrapeDays: 90,
+  config: {
+    groupUrlname: "miami-hash-house-harriers",  // From URL path
+    kennelTag: "MIA H3",
+  },
+  kennelCodes: ["mia-h3"],
+},
+```
+
+ICAL_FEED:
+```typescript
+{
+  name: "Charm City H3 iCal Feed",
+  url: "https://charmcityh3.com/path/to/export_events",
+  type: "ICAL_FEED" as const,
+  trustLevel: 7,
+  scrapeFreq: "daily",
+  scrapeDays: 180,
+  config: {
+    kennelPatterns: [
+      ["^CCH3", "CCH3"],
+      ["^Trail\\s*#", "CCH3"],
+    ],
+    defaultKennelTag: "CCH3",
+  },
+  kennelCodes: ["cch3"],
+},
+```
+
+HASHREGO:
+```typescript
+{
+  name: "Hash Rego",
+  url: "https://hashrego.com/events",
+  type: "HASHREGO" as const,
+  trustLevel: 8,
+  scrapeFreq: "daily",
+  scrapeDays: 90,
+  config: {
+    kennelSlugs: ["BFMH3", "EWH3"],  // Hash Rego's internal IDs, NOT kennelCodes
+  },
+  kennelCodes: ["bfm", "ewh3"],      // HashTracks kennelCodes
+},
+```
+
+STATIC_SCHEDULE:
+```typescript
+{
+  name: "Wildcard H3 Static Schedule",
+  url: "https://www.facebook.com/groups/373426549449867/",  // Facebook page/group URL
+  type: "STATIC_SCHEDULE" as const,
+  trustLevel: 3,
+  scrapeFreq: "weekly",
+  scrapeDays: 90,
+  config: {
+    kennelTag: "Wildcard H3",              // NOT defaultKennelTag
+    rrule: "FREQ=WEEKLY;BYDAY=MO",
+    anchorDate: "2024-03-04",              // Required for INTERVAL > 1 — must be a known PAST occurrence
+    startTime: "18:30",                    // NOT defaultStartTime — 24hr HH:MM
+    defaultTitle: "Wildcard H3 Weekly Run",
+    defaultLocation: "Fort Lauderdale, FL",
+    defaultDescription: "Check the Facebook page at https://www.facebook.com/groups/373426549449867/ for updates on locations.",
+  },
+  kennelCodes: ["wildcard-h3"],
+},
+```
+
+## Reference Tables
+
+### Trust Level & Scrape Config
+
+| Source Type              | trustLevel | scrapeDays | scrapeFreq |
+|--------------------------|------------|------------|------------|
+| STATIC_SCHEDULE          | 3          | 90         | weekly     |
+| HTML_SCRAPER (secondary) | 5-6        | 90         | daily      |
+| GOOGLE_CALENDAR          | 7          | 365        | daily      |
+| GOOGLE_SHEETS            | 7          | 9999       | daily      |
+| MEETUP                   | 7          | 90         | daily      |
+| ICAL_FEED                | 7-8        | 180        | daily      |
+| HTML_SCRAPER (primary)   | 8          | 90-365     | daily      |
+| HASHREGO                 | 8          | 90         | daily      |
+
+### Existing Automation
+
+These exist in HashTracks and may be useful during onboarding:
+- **Admin wizard** at `/admin/sources/new` auto-detects source type from URL
+- **AI-assisted kennel pattern suggestions** for Calendar/iCal sources
+- **Source research pipeline** can discover URLs via Gemini search grounding
+- **GenericHtmlAdapter** handles config-driven CSS selector scraping (no custom adapter code needed)
+
+## Important Context
+
+* Existing adapter types: `HTML_SCRAPER`, `GOOGLE_CALENDAR`, `GOOGLE_SHEETS`, `ICAL_FEED`, `HASHREGO`, `MEETUP`, `STATIC_SCHEDULE`
+* `GenericHtmlAdapter` can scrape websites purely using a JSON config of CSS selectors
+* Multi-kennel Google Calendars require `kennelPatterns` mapping in config
+* Source `kennelCodes` array controls the source-kennel guard — events for unlisted kennels are BLOCKED
