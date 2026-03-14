@@ -3,13 +3,15 @@ import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { formatDateShort, formatTimeCompact } from "@/lib/format";
+import { getDisplayTitle } from "@/lib/event-display";
+import { getRegionColor } from "@/lib/region";
 import {
   AnimatedCounter,
   FadeInSection,
   PulseDot,
   RegionTicker,
 } from "@/components/home/HeroAnimations";
-import { Calendar, BookOpen, Users, MapPin, ArrowRight, Beer, Zap, Globe, ClipboardList } from "lucide-react";
+import { Calendar, BookOpen, Users, MapPin, ArrowRight, Beer, Zap, Globe, ClipboardList, Clock, Footprints } from "lucide-react";
 
 export default async function HomePage() {
   const clerkUser = await currentUser();
@@ -205,57 +207,90 @@ export default async function HomePage() {
           </FadeInSection>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {nextEvents.map((event, i) => (
-              <FadeInSection key={event.id} delay={i * 80}>
-                <Link
-                  href={`/hareline/${event.id}`}
-                  className="group block rounded-xl border border-foreground/[0.07] bg-background p-4 shadow-sm transition-all hover:border-foreground/15 hover:shadow-md"
-                >
-                  {/* Date strip */}
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {formatDateShort(event.date.toISOString())}
-                    </span>
-                    <RegionBadge region={event.kennel.region} size="sm" />
-                  </div>
+            {nextEvents.map((event, i) => {
+              const regionColor = getRegionColor(event.kennel.region);
+              const { title: displayTitle } = getDisplayTitle(event);
+              return (
+                <FadeInSection key={event.id} delay={i * 80}>
+                  <Link
+                    href={`/hareline/${event.id}`}
+                    className="group relative block overflow-hidden rounded-xl border shadow-sm transition-all duration-250 ease-out hover:shadow-xl hover:-translate-y-1 active:shadow-sm active:translate-y-0"
+                  >
+                    {/* Region accent bar */}
+                    <div
+                      className="h-[3px] transition-all duration-300 group-hover:h-[5px]"
+                      style={{ backgroundColor: regionColor }}
+                    />
 
-                  {/* Kennel + run number */}
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-base font-bold group-hover:text-orange-700 transition-colors">
-                      {event.kennel.shortName}
-                    </span>
-                    {event.runNumber != null && (
-                      <span className="text-sm text-muted-foreground">
-                        #{event.runNumber}
-                      </span>
-                    )}
-                  </div>
+                    {/* Region color gradient wash */}
+                    <div
+                      className="absolute inset-0 opacity-[0.06] transition-opacity duration-300 group-hover:opacity-[0.12] pointer-events-none"
+                      style={{
+                        background: `linear-gradient(145deg, ${regionColor} 0%, transparent 50%)`,
+                      }}
+                    />
 
-                  {/* Title */}
-                  {event.title && (
-                    <p className="mt-1 truncate text-sm text-foreground/80">
-                      {event.title}
-                    </p>
-                  )}
+                    <div className="relative px-3.5 py-2.5 sm:px-4">
+                      {/* Row 1: Kennel + metadata | Time pill */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                          <span className="text-base font-extrabold tracking-tight text-foreground">
+                            {event.kennel.shortName}
+                          </span>
+                          <RegionBadge region={event.kennel.region} size="sm" />
+                          {event.runNumber != null && (
+                            <span className="text-xs font-mono text-muted-foreground/50 tabular-nums">
+                              #{event.runNumber}
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground/50">
+                            {formatDateShort(event.date.toISOString())}
+                          </span>
+                        </div>
+                        {event.startTime && (
+                          <span
+                            className="shrink-0 flex items-center gap-1.5 rounded-md px-2 py-0.5 -mt-0.5"
+                            style={{ backgroundColor: `${regionColor}0c` }}
+                          >
+                            <Clock className="h-3 w-3 text-muted-foreground/40" />
+                            <span className="text-sm font-bold tabular-nums text-foreground/85">
+                              {formatTimeCompact(event.startTime)}
+                            </span>
+                          </span>
+                        )}
+                      </div>
 
-                  {/* Meta row */}
-                  <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-                    {event.startTime && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {formatTimeCompact(event.startTime)}
-                      </span>
-                    )}
-                    {event.locationName && (
-                      <span className="flex items-center gap-1 truncate">
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{event.locationName}</span>
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              </FadeInSection>
-            ))}
+                      {/* Row 2: Title */}
+                      <p
+                        className="mt-1 truncate text-[13.5px] leading-snug text-foreground/80 font-medium"
+                        title={displayTitle}
+                      >
+                        {displayTitle}
+                      </p>
+
+                      {/* Row 3: Meta strip — location + hares */}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground/60">
+                        {event.locationName && (
+                          <span className="flex items-center gap-1 truncate max-w-[55%]">
+                            <MapPin className="h-3 w-3 shrink-0" style={{ color: `${regionColor}90` }} />
+                            <span className="truncate">{event.locationName}</span>
+                          </span>
+                        )}
+                        {event.haresText && event.locationName && (
+                          <span className="text-muted-foreground/30" aria-hidden="true">&middot;</span>
+                        )}
+                        {event.haresText && (
+                          <span className="flex items-center gap-1 truncate max-w-[40%]">
+                            <Footprints className="h-3 w-3 shrink-0 opacity-50" />
+                            <span className="truncate">{event.haresText}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                </FadeInSection>
+              );
+            })}
           </div>
 
           <div className="mt-6 text-center sm:hidden">
