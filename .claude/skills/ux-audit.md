@@ -1,8 +1,8 @@
 ---
 description: Comprehensive UX audit methodology for HashTracks pre-launch review
 globs:
-  - src/components/**
   - src/app/**/page.tsx
+  - src/app/**/layout.tsx
 ---
 
 # UX Audit — HashTracks Pre-Launch

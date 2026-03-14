@@ -1,7 +1,11 @@
 ---
 description: File reference for HashTracks codebase — key files by domain area
 globs:
-  - src/**
+  - src/adapters/**
+  - src/pipeline/**
+  - src/lib/**
+  - src/app/admin/**
+  - src/app/misman/**
   - prisma/**
 ---
 

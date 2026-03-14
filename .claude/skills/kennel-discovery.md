@@ -23,26 +23,26 @@ Before diving into web research, review your provided context:
 For each *new* kennel you find in the [REGION] area, provide:
 
 ### 1. Kennel Profile
-* **Full name** (e.g., "Washington DC Hash House Harriers")
-* **kennelCode** (e.g., "dch3") — a lowercase, URL-safe string that acts as the permanent database ID.
-* **shortName** (e.g., "DCH3") — the display abbreviation.
-* **Known aliases** — alternate names the community uses (nicknames, social media handles, older abbreviations).
-* **Region** (city + state, e.g., "Washington, DC")
-* **Country** (default "USA")
-* **Links**: Website URL, Facebook URL, Instagram handle, Twitter/X handle, Discord URL.
-* **Hashing schedule**: Day(s) of the week, frequency (weekly, biweekly, monthly, full moon), and typical start time.
-* **Kennel Details**: Founded year, Hash Cash amount (e.g., "$8"), and whether they are explicitly dog-friendly or walker-friendly (if discoverable).
-* **Lat/Long**: Recommended Lat/Long coordinates
+- **Full name** (e.g., "Washington DC Hash House Harriers")
+- **kennelCode** (e.g., "dch3") — a lowercase, URL-safe string that acts as the permanent database ID.
+- **shortName** (e.g., "DCH3") — the display abbreviation.
+- **Known aliases** — alternate names the community uses (nicknames, social media handles, older abbreviations).
+- **Region** (city + state, e.g., "Washington, DC")
+- **Country** (default "USA")
+- **Links**: Website URL, Facebook URL, Instagram handle, Twitter/X handle, Discord URL.
+- **Hashing schedule**: Day(s) of the week, frequency (weekly, biweekly, monthly, full moon), and typical start time.
+- **Kennel Details**: Founded year, Hash Cash amount (e.g., "$8"), and whether they are explicitly dog-friendly or walker-friendly (if discoverable).
+- **Lat/Long**: Recommended Lat/Long coordinates
 
 ### 2. Source Assessment
 Evaluate ALL potential data sources for each kennel and classify them into supported HashTracks adapter types:
 
-* **Type A: GOOGLE_CALENDAR:** Calendar ID (check embedded iframe `src` URLs). Note if it is multi-kennel (needs `kennelPatterns`).
-* **Type B: GOOGLE_SHEETS:** Public Google Sheet URL and column layout.
-* **Type C: MEETUP, HASHREGO, or RSS_FEED:** Group URL, slug, or feed URL.
-* **Type D: ICAL_FEED (.ics):** URL of .ics file.
-* **Type E: HTML_SCRAPER:** URL of the runs page. Can we extract events using simple CSS selectors?
-* **Type F: STATIC_SCHEDULE:** For highly predictable schedules (e.g., Facebook-only kennels). Provide the recurrence rule pattern (e.g., `FREQ=WEEKLY;BYDAY=SA`).
+- **Type A: GOOGLE_CALENDAR:** Calendar ID (check embedded iframe `src` URLs). Note if it is multi-kennel (needs `kennelPatterns`).
+- **Type B: GOOGLE_SHEETS:** Public Google Sheet URL and column layout.
+- **Type C: MEETUP, HASHREGO, or RSS_FEED:** Group URL, slug, or feed URL.
+- **Type D: ICAL_FEED (.ics):** URL of .ics file.
+- **Type E: HTML_SCRAPER:** URL of the runs page. Can we extract events using simple CSS selectors?
+- **Type F: STATIC_SCHEDULE:** For highly predictable schedules (e.g., Facebook-only kennels). Provide the recurrence rule pattern (e.g., `FREQ=WEEKLY;BYDAY=SA`).
 
 ### 3. Source Recommendation
 Recommend the **best primary source** and any secondary sources. Prefer in this order:
@@ -61,23 +61,23 @@ Recommend the **best primary source** and any secondary sources. Prefer in this 
 Structure your output exactly as follows:
 
 ### 1. Existing Data Check
-* List of kennels already found in `prisma/seed.ts` for this region (will be skipped for onboarding).
+- List of kennels already found in `prisma/seed.ts` for this region (will be skipped for onboarding).
 
 ### 2. Regional Summary
-* Total *new* kennels found.
-* Recommended onboarding order (Aggregators > High-quality APIs > HTML sites > Static schedules).
-* Any regional aggregator sources discovered.
+- Total *new* kennels found.
+- Recommended onboarding order (Aggregators > High-quality APIs > HTML sites > Static schedules).
+- Any regional aggregator sources discovered.
 
 ### 3. Per-Kennel Detail
 
 ---
 **[shortName]** — [Full Name]
-* **kennelCode**: [code]
-* **Region**: [city, state]
-* **Schedule**: [day(s), frequency, time]
-* **Details**: [Founded year, Hash cash, Dog/Walker status]
-* **Links**: [Web, FB, IG, etc.]
-* **Aliases**: [list]
+- **kennelCode**: [code]
+- **Region**: [city, state]
+- **Schedule**: [day(s), frequency, time]
+- **Details**: [Founded year, Hash cash, Dog/Walker status]
+- **Links**: [Web, FB, IG, etc.]
+- **Aliases**: [list]
 
 ## **Best Source:** [Source Type + URL + brief technical notes]
 **Secondary Source:** [if applicable]
@@ -136,9 +136,9 @@ const newSources = [
 ```
 
 ## Important Context
-* Existing adapters: `HTML_SCRAPER`, `GOOGLE_CALENDAR`, `GOOGLE_SHEETS`, `ICAL_FEED`, `HASHREGO`, `MEETUP`, `RSS_FEED`, and `STATIC_SCHEDULE`.
-* `GenericHtmlAdapter` can scrape websites purely using a JSON config of CSS selectors.
-* Multi-kennel Google Calendars require `kennelPatterns` mapping in the config.
+- Existing adapters: `HTML_SCRAPER`, `GOOGLE_CALENDAR`, `GOOGLE_SHEETS`, `ICAL_FEED`, `HASHREGO`, `MEETUP`, `RSS_FEED`, and `STATIC_SCHEDULE`.
+- `GenericHtmlAdapter` can scrape websites purely using a JSON config of CSS selectors.
+- Multi-kennel Google Calendars require `kennelPatterns` mapping in the config.
 
 ## Key Files
 - `src/pipeline/kennel-discovery-ai.ts` — AI discovery prompts and parsing
