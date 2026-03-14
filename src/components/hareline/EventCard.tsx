@@ -62,8 +62,6 @@ function formatDate(iso: string): string {
 
 export { formatDate };
 
-// ── Display helpers ──
-
 /** Compose an accessible label from event fields. */
 function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null): string {
   const parts: string[] = [event.kennel.shortName];
