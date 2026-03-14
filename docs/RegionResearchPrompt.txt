@@ -28,7 +28,7 @@ Before researching kennels, check whether the target region already exists.
 - `STATE_PROVINCE` — "South Carolina", "Massachusetts", "Vermont"
 - `METRO` (default) — "Charleston, SC", "Boston, MA", "London"
 
-New metros should parent to their state, new states to their country. Include both if neither exists yet (e.g., a new state AND its metro).
+This is logical hierarchy guidance — there is no `parent` field on `RegionSeedRecord`. Represent the hierarchy by including the required COUNTRY, STATE_PROVINCE, and METRO records. Include both if neither exists yet (e.g., add a new STATE_PROVINCE record AND its METRO record).
 
 ## Phase 1: Preparation & Deduplication
 
@@ -270,7 +270,7 @@ Provide a consolidated block ready to copy-paste into `prisma/seed.ts`.
 **Aliases** (keyed by kennelCode):
 ```typescript
 // Aliases to add to prisma/seed.ts aliases record
-const newAliases: Record<string, string[]> = {
+const kennelAliases: Record<string, string[]> = {
   "dch3": ["DC Hash", "Washington Hash", "DCH3", "DC H3"],
   // ... more aliases
 };
@@ -379,7 +379,7 @@ STATIC_SCHEDULE:
   config: {
     kennelTag: "Wildcard H3",              // NOT defaultKennelTag
     rrule: "FREQ=WEEKLY;BYDAY=MO",
-    anchorDate: "2026-03-02",              // Required for INTERVAL > 1
+    anchorDate: "2024-03-04",              // Required for INTERVAL > 1 — must be a known PAST occurrence
     startTime: "18:30",                    // NOT defaultStartTime — 24hr HH:MM
     defaultTitle: "Wildcard H3 Weekly Run",
     defaultLocation: "Fort Lauderdale, FL",

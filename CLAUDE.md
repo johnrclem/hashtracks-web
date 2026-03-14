@@ -339,7 +339,7 @@ logbook + kennel directory.
 - **Corpus Christi H3 Calendar** → GOOGLE_CALENDAR → C2H3
 - *SAH3 (San Antonio) — kennel record only, no source (seasonal schedule TBD)*
 
-### New England + Dublin (6 sources)
+### New England (5 sources)
 - **Von Tramp H3 Meetup** → MEETUP → VTH3 (Vermont)
 - **Burlington H3 Website Hareline** → HTML_SCRAPER → BurH3 (Vermont)
 - **RIH3 Static Schedule** → STATIC_SCHEDULE → RIH3 (Rhode Island)
