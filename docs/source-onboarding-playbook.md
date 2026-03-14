@@ -106,7 +106,7 @@ Existing adapter types:
 - `ICAL_FEED` — For standard iCal (.ics) feeds via `node-ical`. Config-driven kennelPatterns + skipPatterns. Currently: SFH3 MultiHash aggregator, CCH3, BAH3.
 - `MEETUP` — For public Meetup.com groups. Single shared adapter, config-driven (no code changes needed). Config requires `groupUrlname` (extracted from URL) and `kennelTag` (single kennel shortName). Currently: 5 live sources (Miami, Savannah, VT, CT, Charleston). **No API key required** — uses Meetup's public REST API.
 - `HASHREGO` — For kennels listed on hashrego.com. Config-driven with `kennelSlugs` array (multi-kennel). Currently: 8 kennels (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3, FCH3).
-- `STATIC_SCHEDULE` — For kennels without scrapeable web sources (Facebook-only). Generates placeholder events from RRULE recurrence rules — no external fetch. Config-driven with `rrule`, `defaultTitle`, `defaultLocation`, `startTime`, `kennelTag`. Currently: 26 sources across FL, GA, SC, MA, NJ, RI. **Cannot express lunar recurrence** (full/new moon schedules).
+- `STATIC_SCHEDULE` — For kennels without scrapeable web sources (Facebook-only). Generates placeholder events from RRULE recurrence rules — no external fetch. Config-driven with `rrule`, `defaultTitle`, `defaultLocation`, `startTime`, `kennelTag`. Currently: 28 sources across FL, GA, SC, MA, NJ, RI, TX. **Cannot express lunar recurrence** (full/new moon schedules). **Cannot express seasonal schedule switching** (e.g., summer Friday / winter Sunday) — add kennel record with `scheduleNotes` but no source until seasonal RRULE support is implemented.
 
 If none fit, create a new adapter implementing `SourceAdapter` from `src/adapters/types.ts`.
 
