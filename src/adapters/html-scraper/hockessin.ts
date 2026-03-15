@@ -1,4 +1,3 @@
-import * as cheerio from "cheerio";
 import { isText, type Element } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type {
@@ -31,7 +30,7 @@ export function parseHockessinEvent(
   const headerMatch = /Hash\s*#(\d+)\s*:\s*(.+)/i.exec(headerText);
   if (!headerMatch) return null;
 
-  const runNumber = parseInt(headerMatch[1], 10);
+  const runNumber = Number.parseInt(headerMatch[1], 10);
   const title = headerMatch[2].trim();
 
   // Clean up detail text — remove leading/trailing whitespace and BRs
@@ -56,8 +55,11 @@ export function parseHockessinEvent(
   const parts = withoutParens.split(",").map(p => p.trim()).filter(Boolean);
 
   // Find the index after all date/time parts — location starts after
-  // Date/time parts match: day names, month names, year, time patterns
+  // Date/time parts match: day names, month names, year, time patterns, or
+  // "Month Day" compound tokens like "March 14" that land in a single comma-split part.
   const dateTimeRe = /^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|\d{1,2}(?:st|nd|rd|th)?|\d{4}|\d{1,2}:\d{2}\s*(?:am|pm)?)$/i;
+  // Also matches "Month Day" compound (e.g. "March 14" or "June 17")
+  const monthDayRe = /^(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?$/i;
   const timeLooseRe = /\d{1,2}:\d{2}\s*(?:am|pm)/i;
 
   let locationStartIndex = -1;
@@ -65,6 +67,7 @@ export function parseHockessinEvent(
     const part = parts[i];
     // Skip parts that look like date/time components
     if (dateTimeRe.test(part)) continue;
+    if (monthDayRe.test(part)) continue;
     if (timeLooseRe.test(part)) continue;
     // First part that doesn't look like date/time is the start of location
     locationStartIndex = i;
@@ -81,7 +84,7 @@ export function parseHockessinEvent(
   return {
     date,
     kennelTag: "H4",
-    runNumber: !isNaN(runNumber) ? runNumber : undefined,
+    runNumber: !Number.isNaN(runNumber) ? runNumber : undefined,
     title: title || `Hockessin #${runNumber}`,
     location,
     startTime,
