@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, compilePatterns } from "../utils";
+import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { sync as icalSync } from "node-ical";
 import type { VEvent, ParameterValue, DateWithTimeZone } from "node-ical";
@@ -14,6 +14,7 @@ export interface ICalSourceConfig {
   harePatterns?: string[];             // regex strings to extract hares from descriptions
   runNumberPatterns?: string[];        // regex strings to extract run numbers from descriptions
   titleHarePattern?: string;           // regex to extract hare names from SUMMARY when description has none
+  descriptionSuffix?: string;          // static text appended to every event description
 }
 
 /**
@@ -384,7 +385,7 @@ function buildRawEventFromVEvent(
     kennelTag: parsed.kennelTag,
     runNumber,
     title: parsed.title ?? summary,
-    description: description?.substring(0, 2000) || undefined,
+    description: appendDescriptionSuffix(description?.substring(0, 2000) || undefined, config?.descriptionSuffix),
     hares,
     location,
     locationUrl,

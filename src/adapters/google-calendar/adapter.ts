@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, appendDescriptionSuffix } from "../utils";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -136,6 +136,7 @@ interface CalendarSourceConfig {
   defaultKennelTag?: string;            // fallback for unrecognized events
   harePatterns?: string[];              // regex strings to extract hares from descriptions
   runNumberPatterns?: string[];         // regex strings to extract run numbers from descriptions
+  descriptionSuffix?: string;           // appended to every event description
 }
 
 /**
@@ -225,7 +226,7 @@ function parseCalendarSourceConfig(config: unknown): CalendarSourceConfig | null
 }
 
 /** Build a RawEventData from a single Google Calendar event item. Returns null if the item should be skipped. */
-function buildRawEventFromGCalItem(
+export function buildRawEventFromGCalItem(
   item: GCalEvent,
   sourceConfig: CalendarSourceConfig | null,
   compiledHarePatterns?: RegExp[],
@@ -248,7 +249,7 @@ function buildRawEventFromGCalItem(
     kennelTag,
     runNumber: extractRunNumber(summary, rawDescription, compiledRunNumberPatterns),
     title: useFullTitle ? summary : extractTitle(summary),
-    description,
+    description: appendDescriptionSuffix(description, sourceConfig?.descriptionSuffix),
     hares,
     location,
     locationUrl: location ? mapsUrl(location) : undefined,

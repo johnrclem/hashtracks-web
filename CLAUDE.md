@@ -8,7 +8,7 @@ logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 114 test files)
+- `npm test` — Run test suite (Vitest, 115 test files)
 - `npx prisma studio` — Visual database browser
 - `npx prisma db push` — Push schema changes to dev DB
 - `npx prisma migrate dev` — Create migration
@@ -89,7 +89,7 @@ logbook + kennel directory.
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
-- `prisma/seed.ts` — 169 kennels, 523 aliases, 85 sources, 74 regions (first-class model with hierarchy)
+- `prisma/seed.ts` — 176 kennels, 530 aliases, 92 sources, 82 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
@@ -137,6 +137,7 @@ logbook + kennel directory.
 - `src/adapters/html-scraper/soh4.ts` — SOH4 RSS+iCal adapter (Syracuse, NY)
 - `src/adapters/html-scraper/halvemein.ts` — Halve Mein PHP table adapter (Capital District, NY)
 - `src/adapters/html-scraper/ithaca-h3.ts` — IH3 hare-line adapter (Ithaca, NY)
+- `src/adapters/html-scraper/hockessin.ts` — Hockessin H3 90s-era HTML scraper (H4, Delaware)
 - `src/adapters/html-scraper/generic.ts` — Generic config-driven HTML scraper (CSS selector-based, AI-assisted setup)
 - `src/adapters/html-scraper/examples.ts` — Static adapter pattern catalog for AI few-shot learning (7 layout examples)
 - `src/adapters/static-schedule/adapter.ts` — STATIC_SCHEDULE adapter (RRULE-based event generation, no external fetch)
@@ -245,7 +246,7 @@ logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (85)
+## Active Sources (92)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -350,6 +351,17 @@ logbook + kennel directory.
 - **Buffalo H3 Google Calendar** → GOOGLE_CALENDAR → BH3 (Buffalo)
 - **Hudson Valley H3 Meetup** → MEETUP → HVH3-NY (Hudson Valley)
 
+### Pennsylvania (outside Philly) (6 sources)
+- **Pittsburgh Hash Calendar** → GOOGLE_CALENDAR → PGH H3 (Pittsburgh)
+- **Iron City H3 iCal Feed** → ICAL_FEED → ICH3 (Pittsburgh)
+- **Nittany Valley H3 Calendar** → GOOGLE_CALENDAR → NVHHH (State College)
+- **LVH3 Hareline Calendar** → GOOGLE_CALENDAR → LVH3 (Lehigh Valley)
+- **Reading H3 Localendar** → ICAL_FEED → RH3 (Reading)
+- **H5 Google Calendar** → GOOGLE_CALENDAR → H5 (Harrisburg)
+
+### Delaware (1 source)
+- **Hockessin H3 Website** → HTML_SCRAPER → H4 (Wilmington)
+
 ### New England (5 sources)
 - **Von Tramp H3 Meetup** → MEETUP → VTH3 (Vermont)
 - **Burlington H3 Website Hareline** → HTML_SCRAPER → BurH3 (Vermont)
@@ -363,13 +375,13 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (114 test files)
+- **Run:** `npm test` (115 test files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
 - **Convention:** Test files live next to source files as `*.test.ts`
 - **Coverage areas:**
-  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, Blogger API v3 utility, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Philly (BFM, HashPhilly), Texas scrapers (Brass Monkey Blogger, DFW PHP calendar), Upstate NY scrapers (SOH4 RSS+iCal, Halve Mein PHP table, IH3 WordPress hare-line), Northboro HTML scraper (browser-rendered, Wix parsing), Hash Rego (index parsing, detail parsing, multi-day splitting), Meetup.com API, WordPress REST API, generic HTML adapter (config parsing, row extraction, locale handling), shared adapter utilities
+  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, Blogger API v3 utility, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Philly (BFM, HashPhilly), Texas scrapers (Brass Monkey Blogger, DFW PHP calendar), Upstate NY scrapers (SOH4 RSS+iCal, Halve Mein PHP table, IH3 WordPress hare-line), Hockessin H3 (90s HTML parsing), Northboro HTML scraper (browser-rendered, Wix parsing), Hash Rego (index parsing, detail parsing, multi-day splitting), Meetup.com API, WordPress REST API, generic HTML adapter (config parsing, row extraction, locale handling), shared adapter utilities
   - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation, event reconciliation, auto-issue filing (adapter resolution, rate limiting, cooldown, dedup, AGENT_CONTEXT sanitization), post-merge fix verification
   - AI: Gemini API wrapper (caching, rate-limit handling, search grounding), parse recovery fallback, HTML structure analysis (container detection, few-shot examples, column mapping)
   - Research: source research pipeline (URL discovery, dedup, classification, concurrency), research server actions (approve/reject, URL update, feedback refinement), HTML analysis pipeline extraction

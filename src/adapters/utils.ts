@@ -404,6 +404,19 @@ export function stripPlaceholder(value: string | undefined | null): string | und
 }
 
 /**
+ * Append a static suffix to an event description.
+ * Used by adapters that support `descriptionSuffix` config (e.g., Facebook page note).
+ * Returns the original description if no suffix is provided.
+ */
+export function appendDescriptionSuffix(
+  description: string | undefined,
+  suffix: string | undefined,
+): string | undefined {
+  if (!suffix) return description;
+  return description ? `${description}\n\n${suffix}` : suffix;
+}
+
+/**
  * Extract a street address from a text blob using Gemini.
  * Returns the extracted address string, or null if none found.
  * Intended as a fallback when deterministic parsing fails on long text.

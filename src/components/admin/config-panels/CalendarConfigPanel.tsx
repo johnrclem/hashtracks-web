@@ -1,6 +1,7 @@
 "use client";
 
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { KennelPatternsEditor } from "./KennelPatternsEditor";
 import { SuggestionChips } from "./SuggestionChips";
 import { KennelTagInput, type KennelOption } from "./KennelTagInput";
@@ -11,6 +12,7 @@ export interface CalendarConfig {
   defaultKennelTag?: string;
   harePatterns?: string[];
   runNumberPatterns?: string[];
+  descriptionSuffix?: string;
 }
 
 interface CalendarConfigPanelProps {
@@ -94,6 +96,23 @@ export function CalendarConfigPanel({
         hareDefaultsHint="Hare:/Hares:/Who:"
         runNumberDefaultsHint="#N in summary, BH3-specific fallback"
       />
+      <div className="space-y-2">
+        <Label htmlFor="descriptionSuffix">Description Suffix</Label>
+        <Textarea
+          id="descriptionSuffix"
+          value={current.descriptionSuffix ?? ""}
+          onChange={(e) =>
+            onChange({ ...current, descriptionSuffix: e.target.value || undefined })
+          }
+          placeholder="e.g., Check the Facebook page for details: https://..."
+          rows={2}
+          className="text-sm"
+        />
+        <p className="text-xs text-muted-foreground">
+          Text appended to every event description. Useful for sources where the
+          calendar is sparse and a Facebook page or website has more details.
+        </p>
+      </div>
     </div>
   );
 }
