@@ -477,16 +477,17 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - Server action in attendance actions to batch-compute for current event's attendees + suggestions
 - UI: small badge component, similar to VerificationBadge pattern
 
-### Misman Self-Service Kennel Profile Editing
-- [ ] Allow mismans to edit their kennel's profile fields (schedule, social links, hash cash, etc.)
-- [ ] Currently admin-only — extend to MISMAN role users for their own kennels
-- [ ] Reuse admin KennelForm component with role-based field restrictions
+### Misman Self-Service Kennel Profile Editing — COMPLETE
+- [x] Misman settings page at `/misman/[slug]/settings` with 19 editable profile fields
+- [x] Schedule, social links, contact, hash cash, payment link, founded year, flags (dog friendly, walkers welcome)
+- [x] Role-gated via `getMismanUser()` — identity fields (shortName, slug, region, aliases) remain admin-only
+- [x] URL validation with XSS protection (`safeUrl()`), foundedYear range validation
 
-### Misman Landing/Onboarding Page
-- [ ] Dedicated page explaining misman features (separate from hasher-facing marketing)
-- [ ] Speak to the mismanagement pain point: "Stop manually typing hash names in a spreadsheet"
-- [ ] Highlight: mobile attendance form, smart suggestions, roster groups, audit trail
-- [ ] Clear CTA: "Request misman access for your kennel" or "Invite your mismanagement team"
+### Misman Landing/Onboarding Page — COMPLETE
+- [x] `/for-misman` marketing page: hero ("Stop counting heads in a spreadsheet"), live stats, 6-feature showcase, how-it-works, state-aware CTAs
+- [x] Homepage "Run a kennel?" teaser section linking to `/for-misman`
+- [x] Invite system: token-based co-missman invites with auth-aware redemption flow
+- [x] Multi-state CTA routing (unauthenticated → sign-up, authenticated → request access, misman → dashboard)
 
 ---
 
@@ -826,7 +827,7 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 |---|---------|-----------------|--------|------------------|
 | 1 | **Expand Source Coverage** (admin wizard COMPLETE) | Widen primary moat | Ongoing (new sources via wizard) | Manual data entry |
 | 2 | **Strava Integration** (OAuth + auto-match) | Unique differentiator, no competitor has this | 2-3 sprints | Zero fitness integration |
-| 3 | **Misman Growth Lever** (milestone watch, landing page, real-world testing) | B2B adoption, replace Google Sheets | 1 sprint | Paid kennel admin with less capability |
+| 3 | **Misman Growth Lever** (milestone watch, real-world testing) | B2B adoption, replace Google Sheets | 1 sprint | Paid kennel admin with less capability |
 | 4 | **User Onboarding** (personal CSV import, log unlisted run, manual submission) | Reduce friction, serve traveling hashers | 1-2 sprints | Walled garden onboarding |
 | 5 | **Map-Based Discovery** (map tab, near-me, travel mode) | Traveling hasher killer feature | 1 sprint | App-only proximity search |
 | 6 | **PWA & Notifications** (web push, add-to-home-screen) | Retention, engagement loops | 1 sprint | Native app friction |
