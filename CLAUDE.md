@@ -348,7 +348,7 @@ logbook + kennel directory.
 - **Halve Mein Website** → HTML_SCRAPER (PHP table) → HMHHH (Capital District)
 - **IH3 Website Hareline** → HTML_SCRAPER (WordPress hare-line) → IH3 (Ithaca)
 - **Buffalo H3 Google Calendar** → GOOGLE_CALENDAR → BH3 (Buffalo)
-- **Hudson Valley H3 Meetup** → MEETUP → HVH3 (NYC metro)
+- **Hudson Valley H3 Meetup** → MEETUP → HVH3-NY (Hudson Valley)
 
 ### New England (5 sources)
 - **Von Tramp H3 Meetup** → MEETUP → VTH3 (Vermont)
