@@ -44,40 +44,19 @@ export function parseHockessinEvent(
   // Extract time — find the first HH:MM am/pm pattern
   const startTime = parse12HourTime(cleaned);
 
-  // Extract location — everything after time + parenthetical notes
-  // Pattern: strip day name, date, time, and parenthetical notes to get location
+  // Extract location — everything after the time in the detail string
   let location: string | undefined;
 
   // Remove parenthetical notes like "(Prelube at 2:30PM, pack off 3:15)"
-  const withoutParens = cleaned.replace(/\([^)]*\)/g, ",");
+  const withoutParens = cleaned.replace(/\([^)]*\)/g, "");
 
-  // Split on commas, skip the day name, date parts, and time parts
-  const parts = withoutParens.split(",").map(p => p.trim()).filter(Boolean);
+  // Find the time to locate where the location details start
+  const timeRegex = /(\d{1,2}:\d{2}\s*(?:am|pm))/i;
+  const timeMatch = timeRegex.exec(withoutParens);
 
-  // Find the index after all date/time parts — location starts after
-  // Date/time parts match: day names, month names, year, time patterns, or
-  // "Month Day" compound tokens like "March 14" that land in a single comma-split part.
-  const dateTimeRe = /^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|\d{1,2}(?:st|nd|rd|th)?|\d{4}|\d{1,2}:\d{2}\s*(?:am|pm)?)$/i;
-  // Also matches "Month Day" compound (e.g. "March 14" or "June 17")
-  const monthDayRe = /^(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?$/i;
-  const timeLooseRe = /\d{1,2}:\d{2}\s*(?:am|pm)/i;
-
-  let locationStartIndex = -1;
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    // Skip parts that look like date/time components
-    if (dateTimeRe.test(part)) continue;
-    if (monthDayRe.test(part)) continue;
-    if (timeLooseRe.test(part)) continue;
-    // First part that doesn't look like date/time is the start of location
-    locationStartIndex = i;
-    break;
-  }
-
-  if (locationStartIndex >= 0) {
-    location = parts.slice(locationStartIndex).join(", ").trim();
-    // Clean up artifacts from paren removal
-    location = location.replace(/^,\s*/, "").replace(/,\s*,/g, ",").replace(/,\s*$/, "").trim();
+  if (timeMatch) {
+    const locationPart = withoutParens.substring(timeMatch.index + timeMatch[0].length);
+    location = locationPart.replace(/^,?\s*/, "").trim();
     if (!location) location = undefined;
   }
 

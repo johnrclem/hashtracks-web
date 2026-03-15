@@ -84,6 +84,14 @@ async function ensureRegionRecords(prisma: any) {
       "Lehigh Valley, PA", "Reading, PA", "Harrisburg, PA",
     ],
     "Delaware": ["Wilmington, DE"],
+    "Virginia": [
+      "Northern Virginia", "Fredericksburg, VA", "Richmond, VA",
+      "Hampton Roads, VA", "Charlottesville, VA",
+    ],
+    "North Carolina": [
+      "Raleigh, NC", "Charlotte, NC", "Asheville, NC",
+      "Wilmington, NC", "Fayetteville, NC",
+    ],
   };
 
   let stateLinked = 0;
@@ -1096,6 +1104,104 @@ async function main() {
       description: "Delaware's most active hash with 1,656+ trails across the tri-state area.",
       latitude: 39.78, longitude: -75.68,
     },
+    // ===== VIRGINIA (outside DC metro) =====
+    // --- Richmond ---
+    {
+      kennelCode: "rvah3", shortName: "RH3", fullName: "Richmond Hash House Harriers", region: "Richmond, VA",
+      website: "https://rh3.run/",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "1:00 PM",
+      foundedYear: 1992,
+      description: "Weekly Sunday runs in Richmond since 1992 with 1,685+ trails.",
+      latitude: 37.54, longitude: -77.44,
+    },
+    // --- Hampton Roads ---
+    {
+      kennelCode: "feh3", shortName: "FEH3", fullName: "Fort Eustis Hash House Harriers", region: "Hampton Roads, VA",
+      website: "https://sites.google.com/view/ft-eustis-h3/",
+      facebookUrl: "https://www.facebook.com/groups/forteustish3/",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
+      hashCash: "$5", foundedYear: 1971,
+      description: "Oldest continuously running hash in the US, est. 1971. Biweekly Saturdays in the Hampton Roads area.",
+      latitude: 37.09, longitude: -76.43,
+    },
+    {
+      kennelCode: "bdsmh3", shortName: "BDSMH3", fullName: "Bad Decisions Start Monday Hash House Harriers", region: "Hampton Roads, VA",
+      facebookUrl: "https://www.facebook.com/groups/291959117911692/",
+      scheduleDayOfWeek: "Monday", scheduleFrequency: "Weekly", scheduleTime: "6:00 PM",
+      foundedYear: 2018,
+      description: "Weekly Monday evening hash in the Norfolk/Virginia Beach area.",
+      latitude: 36.85, longitude: -76.29,
+    },
+    // --- Charlottesville ---
+    {
+      kennelCode: "cvilleh3", shortName: "CvilleH3", fullName: "cHARLOTtesville Hash House Harriers", region: "Charlottesville, VA",
+      website: "https://cvillehash.com/",
+      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Biweekly", scheduleTime: "6:30 PM",
+      scheduleNotes: "Odd Thursdays 6:30 PM; also 3rd Sunday 1:00 PM.",
+      hashCash: "$7", foundedYear: 1994,
+      description: "Biweekly hash in Charlottesville, known as 'the Harlots'.",
+      latitude: 38.03, longitude: -78.48,
+    },
+    // ===== NORTH CAROLINA =====
+    // --- Raleigh / Triangle ---
+    {
+      kennelCode: "swh3", shortName: "SWH3", fullName: "Sir Walter's Hash House Harriers", region: "Raleigh, NC",
+      website: "https://swh3.wordpress.com/",
+      facebookUrl: "https://www.facebook.com/sirwaltersh3/",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly", scheduleTime: "2:00 PM",
+      hashCash: "$5",
+      description: "The Triangle's main hash kennel. Weekly Saturday runs in the Raleigh-Durham-Chapel Hill area.",
+      latitude: 35.78, longitude: -78.64,
+    },
+    {
+      kennelCode: "larrikins", shortName: "Larrikins", fullName: "Carolina Larrikins Hash House Harriers", region: "Raleigh, NC",
+      website: "https://www.carolinalarrikins.com/",
+      scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Biweekly", scheduleTime: "6:30 PM",
+      scheduleNotes: "1st and 3rd Wednesday, 6:30 PM.",
+      hashCash: "$1",
+      description: "Biweekly Wednesday evening hash in the Triangle area.",
+      latitude: 35.78, longitude: -78.64,
+    },
+    // --- Charlotte ---
+    {
+      kennelCode: "ch3-nc", shortName: "CH3", fullName: "Charlotte Hash House Harriers", region: "Charlotte, NC",
+      facebookUrl: "https://www.facebook.com/groups/CharlotteH3/",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "2:00 PM",
+      hashCash: "$10", foundedYear: 1992,
+      description: "Biweekly Saturday runs in Charlotte.",
+      latitude: 35.23, longitude: -80.84,
+    },
+    // --- Asheville ---
+    {
+      kennelCode: "avlh3", shortName: "AVLH3", fullName: "Asheville Hash House Harriers", region: "Asheville, NC",
+      website: "https://avlh3.wordpress.com/",
+      facebookUrl: "https://www.facebook.com/groups/avlh3/",
+      contactEmail: "avlh3.mm@gmail.com",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly", scheduleTime: "2:00 PM",
+      hashCash: "$8", foundedYear: 2008,
+      description: "Weekly Saturday runs in the Asheville area with 855+ trails.",
+      latitude: 35.60, longitude: -82.55,
+    },
+    // --- Wilmington ---
+    {
+      kennelCode: "cfh3", shortName: "CFH3", fullName: "Cape Fear Hash House Harriers", region: "Wilmington, NC",
+      website: "https://capefearh3.com/",
+      facebookUrl: "https://www.facebook.com/CapeFearH3/",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "2:00 PM",
+      scheduleNotes: "1st, 3rd, and 5th Saturdays, 2:00 PM.",
+      hashCash: "$5", foundedYear: 2006,
+      description: "Biweekly Saturday runs in the Wilmington/Cape Fear area.",
+      latitude: 34.24, longitude: -77.95,
+    },
+    // --- Fayetteville ---
+    {
+      kennelCode: "ctrh3", shortName: "CTrH3", fullName: "Carolina Trash Hash House Harriers", region: "Fayetteville, NC",
+      facebookUrl: "https://www.facebook.com/groups/carolinatrashH3/",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "1:00 PM",
+      hashCash: "$7", foundedYear: 1984,
+      description: "Weekly Sunday runs in the Fayetteville area since 1984.",
+      latitude: 35.05, longitude: -78.88,
+    },
     // ===== TEXAS =====
     // --- Austin ---
     {
@@ -1632,6 +1738,18 @@ async function main() {
     "h5-hash": ["H5", "Harrisburg Hash", "Harrisburg-Hershey Hash", "H5 Hash", "Hershey Hash"],
     // Delaware
     "hockessin": ["Hockessin", "H4", "Hockessin Hash", "Hockessin HHH"],
+    // Virginia (outside DC metro)
+    "rvah3": ["RH3", "RVAH3", "Richmond Hash", "Richmond HHH", "RVA Hash"],
+    "feh3": ["FEH3", "Fort Eustis Hash", "Fort Eustis", "Ft Eustis Hash", "Fort Eustis HHH"],
+    "bdsmh3": ["BDSMH3", "BDSM Hash", "Bad Decisions Hash", "Bad Decisions Start Monday"],
+    "cvilleh3": ["CvilleH3", "Charlottesville Hash", "Harlots", "cHARLOTtesville Hash", "Cville Hash"],
+    // North Carolina
+    "swh3": ["SWH3", "Sir Walter's", "Sir Walters", "Sir Walter's Hash", "Sir Walters Hash"],
+    "larrikins": ["Larrikins", "Carolina Larrikins", "CLH3", "Larrikins H3"],
+    "ch3-nc": ["CH3 NC", "Charlotte Hash", "Charlotte HHH", "Charlotte H3"],
+    "avlh3": ["AVLH3", "Asheville Hash", "AVL Hash", "Asheville HHH"],
+    "cfh3": ["CFH3", "Cape Fear Hash", "Cape Fear", "Cape Fear HHH"],
+    "ctrh3": ["CTrH3", "Carolina Trash", "Carolina Trash Hash", "Fayetteville Hash"],
     // Vermont
     "vth3": ["Von Tramp", "Von Tramp H3", "VTH3", "VT Hash"],
     "burlyh3": ["Burlington Hash", "Burlington H3", "BH3 Vermont", "BTVHHH", "BTV H3", "BTVH3"],
@@ -2462,6 +2580,142 @@ async function main() {
       scrapeDays: 90,
       config: { defaultKennelTag: "H4" },
       kennelCodes: ["hockessin"],
+    },
+    // ===== VIRGINIA (outside DC metro) =====
+    // --- Richmond (Calendar + Meetup) ---
+    {
+      name: "Richmond H3 Google Calendar",
+      url: "979d12b454f944e14bd00e8d0d0c30b1109d6e5f37ec4817542ae35f86f90ae8@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { defaultKennelTag: "RVAH3" },
+      kennelCodes: ["rvah3"],
+    },
+    {
+      name: "Richmond H3 Meetup",
+      url: "https://www.meetup.com/richmond-hash-house-harriers/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { groupUrlname: "richmond-hash-house-harriers", kennelTag: "RVAH3" },
+      kennelCodes: ["rvah3"],
+    },
+    // --- Fort Eustis (Calendar + Meetup) ---
+    {
+      name: "Fort Eustis H3 Google Calendar",
+      url: "ft.eustish3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { defaultKennelTag: "FEH3" },
+      kennelCodes: ["feh3"],
+    },
+    {
+      name: "Fort Eustis H3 Meetup",
+      url: "https://www.meetup.com/FEH3-Hash/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { groupUrlname: "FEH3-Hash", kennelTag: "FEH3" },
+      kennelCodes: ["feh3"],
+    },
+    // --- BDSM H3 (Meetup) ---
+    {
+      name: "BDSM H3 Meetup",
+      url: "https://www.meetup.com/BDSM-Hash-House-Harriers/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { groupUrlname: "BDSM-Hash-House-Harriers", kennelTag: "BDSMH3" },
+      kennelCodes: ["bdsmh3"],
+    },
+    // --- cHARLOTtesville (Meetup) ---
+    {
+      name: "cHARLOTtesville H3 Meetup",
+      url: "https://www.meetup.com/meetup-group-xxcniptw/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: { groupUrlname: "meetup-group-xxcniptw", kennelTag: "CvilleH3" },
+      kennelCodes: ["cvilleh3"],
+    },
+    // ===== NORTH CAROLINA =====
+    // --- Raleigh / Triangle ---
+    {
+      name: "SWH3 Google Calendar",
+      url: "sirwaltersh3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { defaultKennelTag: "SWH3" },
+      kennelCodes: ["swh3"],
+    },
+    {
+      name: "Carolina Larrikins Google Calendar",
+      url: "3p2vupffo2qukm6ee8gg9clo3o@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { defaultKennelTag: "Larrikins" },
+      kennelCodes: ["larrikins"],
+    },
+    // --- Charlotte (Meetup) ---
+    {
+      name: "Charlotte H3 Meetup",
+      url: "https://www.meetup.com/charlotte-hash-house-harriers/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { groupUrlname: "charlotte-hash-house-harriers", kennelTag: "CH3" },
+      kennelCodes: ["ch3-nc"],
+    },
+    // --- Asheville (Meetup) ---
+    {
+      name: "Asheville H3 Meetup",
+      url: "https://www.meetup.com/AVLH3-On-On/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { groupUrlname: "AVLH3-On-On", kennelTag: "AVLH3" },
+      kennelCodes: ["avlh3"],
+    },
+    // --- Wilmington / Cape Fear (WordPress hareline page) ---
+    {
+      name: "Cape Fear H3 Website",
+      url: "https://capefearh3.com/hare-line/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        defaultKennelTag: "CFH3",
+        containerSelector: "table",
+        rowSelector: "tr",
+        columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
+      },
+      kennelCodes: ["cfh3"],
+    },
+    // --- Fayetteville (Meetup) ---
+    {
+      name: "Carolina Trash H3 Meetup",
+      url: "https://www.meetup.com/fayetteville-running-training-meetup-group/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: { groupUrlname: "fayetteville-running-training-meetup-group", kennelTag: "CTrH3" },
+      kennelCodes: ["ctrh3"],
     },
     // ===== FLORIDA =====
     // --- API-based sources ---

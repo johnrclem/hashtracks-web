@@ -89,7 +89,7 @@ logbook + kennel directory.
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
-- `prisma/seed.ts` — 176 kennels, 530 aliases, 92 sources, 82 regions (first-class model with hierarchy)
+- `prisma/seed.ts` — 186 kennels, 575 aliases, 105 sources, 92 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
@@ -246,7 +246,7 @@ logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (92)
+## Active Sources (105)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -361,6 +361,22 @@ logbook + kennel directory.
 
 ### Delaware (1 source)
 - **Hockessin H3 Website** → HTML_SCRAPER → H4 (Wilmington)
+
+### Virginia (outside DC metro) (6 sources)
+- **Richmond H3 Google Calendar** → GOOGLE_CALENDAR → RH3 (Richmond)
+- **Richmond H3 Meetup** → MEETUP → RH3 (Richmond)
+- **Fort Eustis H3 Google Calendar** → GOOGLE_CALENDAR → FEH3 (Hampton Roads)
+- **Fort Eustis H3 Meetup** → MEETUP → FEH3 (Hampton Roads)
+- **BDSM H3 Meetup** → MEETUP → BDSMH3 (Hampton Roads)
+- **cHARLOTtesville H3 Meetup** → MEETUP → CvilleH3 (Charlottesville)
+
+### North Carolina (6 sources)
+- **SWH3 Google Calendar** → GOOGLE_CALENDAR → SWH3 (Raleigh)
+- **Carolina Larrikins Google Calendar** → GOOGLE_CALENDAR → Larrikins (Raleigh)
+- **Charlotte H3 Meetup** → MEETUP → CH3 (Charlotte)
+- **Asheville H3 Meetup** → MEETUP → AVLH3 (Asheville)
+- **Cape Fear H3 Website** → HTML_SCRAPER → CFH3 (Wilmington, NC)
+- **Carolina Trash H3 Meetup** → MEETUP → CTrH3 (Fayetteville)
 
 ### New England (5 sources)
 - **Von Tramp H3 Meetup** → MEETUP → VTH3 (Vermont)
