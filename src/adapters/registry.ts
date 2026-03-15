@@ -27,6 +27,9 @@ import { BurlingtonHashAdapter } from "./html-scraper/burlington-hash";
 import { RIH3Adapter } from "./html-scraper/rih3";
 import { BrassMonkeyAdapter } from "./html-scraper/brass-monkey";
 import { DFWHashAdapter } from "./html-scraper/dfw-hash";
+import { SOH4Adapter } from "./html-scraper/soh4";
+import { HalveMeinAdapter } from "./html-scraper/halvemein";
+import { IthacaH3Adapter } from "./html-scraper/ithaca-h3";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -79,6 +82,9 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /rih3\.com/i,                 name: "RIH3Adapter",             factory: () => new RIH3Adapter() },
   { pattern: /teambrassmonkey\.blogspot/i, name: "BrassMonkeyAdapter",      factory: () => new BrassMonkeyAdapter() },
   { pattern: /dfwhhh\.org/i,              name: "DFWHashAdapter",           factory: () => new DFWHashAdapter() },
+  { pattern: /soh4\.com/i,               name: "SOH4Adapter",              factory: () => new SOH4Adapter() },
+  { pattern: /hmhhh\.com/i,              name: "HalveMeinAdapter",         factory: () => new HalveMeinAdapter() },
+  { pattern: /ithacah3\.org/i,           name: "IthacaH3Adapter",          factory: () => new IthacaH3Adapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

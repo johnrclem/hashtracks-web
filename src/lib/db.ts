@@ -9,6 +9,8 @@ const globalForPrisma = globalThis as unknown as {
 function createPrismaClient() {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
+    // Vercel serverless: keep pool small to avoid exhausting Railway's connection limit across many concurrent function instances
+    max: process.env.NODE_ENV === "production" ? 2 : 10,
     ssl: process.env.NODE_ENV === "production"
       ? { rejectUnauthorized: false }
       : undefined,
