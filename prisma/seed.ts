@@ -73,6 +73,32 @@ async function ensureRegionRecords(prisma: any) {
     console.log(`  ✓ ${parentLinked} regions linked to parent countries`);
   }
 
+  // Set state-level parent relationships: metros under their state-province
+  const stateMetroLinks: Record<string, string[]> = {
+    "New York": [
+      "New York City, NY", "Long Island, NY", "Syracuse, NY",
+      "Capital District, NY", "Ithaca, NY", "Rochester, NY", "Buffalo, NY",
+    ],
+  };
+
+  let stateLinked = 0;
+  for (const [stateName, metroNames] of Object.entries(stateMetroLinks)) {
+    const stateId = regionMap.get(stateName);
+    if (!stateId) continue;
+    for (const metroName of metroNames) {
+      const metroId = regionMap.get(metroName);
+      if (!metroId) continue;
+      await prisma.region.update({
+        where: { id: metroId },
+        data: { parentId: stateId },
+      });
+      stateLinked++;
+    }
+  }
+  if (stateLinked > 0) {
+    console.log(`  ✓ ${stateLinked} metros linked to parent states`);
+  }
+
   return regionMap;
 }
 
@@ -442,6 +468,75 @@ async function main() {
     },
     { kennelCode: "nawwh3", shortName: "NAWWH3", fullName: "North American Woman Woman Hash", region: "New York City, NY" },
     { kennelCode: "drinking-practice-nyc", shortName: "Drinking Practice (NYC)", fullName: "NYC Drinking Practice", region: "New York City, NY" },
+    // ===== UPSTATE NEW YORK =====
+    // --- Syracuse ---
+    {
+      kennelCode: "soh4", shortName: "SOH4", fullName: "Syracuse On-On-Dog-A Hash House Harriers & Harriettes", region: "Syracuse, NY",
+      website: "https://www.soh4.com/",
+      facebookUrl: "https://www.facebook.com/soh4onon/",
+      instagramHandle: "syrononh4",
+      contactEmail: "syracusehashruns@gmail.com",
+      scheduleDayOfWeek: "Monday", scheduleFrequency: "Weekly", scheduleTime: "6:09 PM",
+      scheduleNotes: "Mondays 6:09 PM (Apr-Sep); Saturdays 1:00 PM (Oct-Mar).",
+      hashCash: "$5", foundedYear: 2012,
+      description: "Weekly hash in Central New York with seasonal schedule: Monday evenings in summer, Saturday afternoons in winter.",
+      latitude: 43.05, longitude: -76.15,
+    },
+    // --- Capital District ---
+    {
+      kennelCode: "halvemein", shortName: "HMHHH", fullName: "Halve Mein Hash House Harriers", region: "Capital District, NY",
+      website: "https://www.hmhhh.com/",
+      facebookUrl: "https://www.facebook.com/AHHHinc/",
+      contactEmail: "halvemeinhash@gmail.com",
+      scheduleFrequency: "Biweekly",
+      scheduleNotes: "Every other Wednesday 6 PM (summer), 1 PM (winter), with special events on weekends.",
+      hashCash: "$5", foundedYear: 2000,
+      description: "Albany/Saratoga area hash running every other week in the Capital District.",
+      latitude: 42.81, longitude: -73.77,
+    },
+    // --- Ithaca ---
+    {
+      kennelCode: "ih3", shortName: "IH3", fullName: "Ithaca Hash House Harriers", region: "Ithaca, NY",
+      website: "http://ithacah3.org/hare-line/",
+      contactEmail: "ih3goddess@gmail.com",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
+      scheduleNotes: "Every other Sunday. 3:00 PM during DST, 2:00 PM during Standard Time.",
+      hashCash: "$5", foundedYear: 1988,
+      description: "Biweekly Sunday runs in the Finger Lakes region since 1988.",
+      latitude: 42.44, longitude: -76.50,
+    },
+    // --- Rochester ---
+    {
+      kennelCode: "flour-city", shortName: "FCH3", fullName: "Flour City Hash House Harriers", region: "Rochester, NY",
+      website: "http://flourcityhhh.com/",
+      contactEmail: "flourcitymismanagement@gmail.com",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "1:09 PM",
+      scheduleNotes: "Thursdays 6:09 PM (Apr-Sep); Sundays 1:09 PM (Oct-Mar).",
+      hashCash: "$5", foundedYear: 1988,
+      description: "Weekly hash in Rochester with seasonal schedule: Thursday evenings in summer, Sunday afternoons in winter.",
+      latitude: 43.16, longitude: -77.61,
+    },
+    // --- Buffalo ---
+    {
+      kennelCode: "bh3", shortName: "BH3", fullName: "Buffalo Hash House Harriers", region: "Buffalo, NY",
+      website: "http://hashinthebuff.com/",
+      facebookUrl: "https://www.facebook.com/groups/1692560221019401/",
+      contactEmail: "hashinthebuff@gmail.com",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly", scheduleTime: "1:00 PM",
+      scheduleNotes: "3rd Saturday monthly. Occasional 1st Tuesday at 6:00 PM.",
+      hashCash: "$10", foundedYear: 1990,
+      description: "Monthly Saturday hash in the Buffalo area, running since 1990.",
+      latitude: 42.89, longitude: -78.88,
+    },
+    // --- Hudson Valley ---
+    {
+      kennelCode: "hvh3-ny", shortName: "HVH3", fullName: "Hudson Valley Hash House Harriers", region: "New York City, NY",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly", scheduleTime: "1:00 PM",
+      scheduleNotes: "Monthly when active. Very sporadic -- runs may have months-long gaps.",
+      hashCash: "$5", foundedYear: 2015,
+      description: "Sporadic monthly runs in the Hudson Valley (Poughkeepsie/Kingston area).",
+      latitude: 41.70, longitude: -73.93,
+    },
     // Boston area (Google Calendar source)
     {
       kennelCode: "boh3", shortName: "BoH3", fullName: "Boston Hash House Harriers", region: "Boston, MA",
@@ -1447,6 +1542,13 @@ async function main() {
     "harriettes-nyc": ["Harriettes", "Harriettes Hash", "Harriettes (NYC)", "Harriettes NYC"],
     "si": ["Staten Island", "SI", "SI Hash", "Staten Island Hash"],
     "drinking-practice-nyc": ["Drinking Practice", "NYC Drinking Practice", "NYC DP", "DP"],
+    // Upstate New York
+    "soh4": ["SOH4", "Syracuse Hash", "Syracuse On On Dog A", "Syracuse On-On-Dog-A", "SOOD"],
+    "halvemein": ["Halve Mein", "HMHHH", "Albany Hash", "Albany HHH", "Capital District Hash", "Halve Mein Hash"],
+    "ih3": ["IH3", "Ithaca Hash", "Ithaca HHH", "Ithaca H3"],
+    "flour-city": ["Flour City", "FCH3", "FCHHH", "Flour City Hash", "Rochester Hash", "Flour City HHH"],
+    "bh3": ["BH3", "Buffalo Hash", "Hash in the Buff", "Buffalo HHH"],
+    "hvh3-ny": ["HVH3 NY", "Hudson Valley Hash", "HV H3", "Hudson Valley HHH"],
     // Vermont
     "vth3": ["Von Tramp", "Von Tramp H3", "VTH3", "VT Hash"],
     "burlyh3": ["Burlington Hash", "Burlington H3", "BH3 Vermont", "BTVHHH", "BTV H3", "BTVH3"],
@@ -2111,6 +2213,80 @@ async function main() {
         defaultKennelTag: "C2H3",
       },
       kennelCodes: ["c2h3"],
+    },
+    // ===== UPSTATE NEW YORK =====
+    // --- Rochester (Google Calendar) ---
+    {
+      name: "Flour City H3 Google Calendar",
+      url: "flourcitymismanagement@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "FCH3",
+      },
+      kennelCodes: ["flour-city"],
+    },
+    // --- Syracuse (HTML scraper) ---
+    {
+      name: "SOH4 Website",
+      url: "https://www.soh4.com/trails/feed/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: { defaultKennelTag: "SOH4" },
+      kennelCodes: ["soh4"],
+    },
+    // --- Capital District (HTML scraper) ---
+    {
+      name: "Halve Mein Website",
+      url: "https://www.hmhhh.com/index.php?log=upcoming.con",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: { defaultKennelTag: "HMHHH" },
+      kennelCodes: ["halvemein"],
+    },
+    // --- Ithaca (HTML scraper) ---
+    {
+      name: "IH3 Website Hareline",
+      url: "http://ithacah3.org/hare-line/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: { defaultKennelTag: "IH3" },
+      kennelCodes: ["ih3"],
+    },
+    // --- Buffalo (Google Calendar) ---
+    {
+      name: "Buffalo H3 Google Calendar",
+      url: "hashinthebuff@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "BH3",
+      },
+      kennelCodes: ["bh3"],
+    },
+    // --- Hudson Valley (Meetup) ---
+    {
+      name: "Hudson Valley H3 Meetup",
+      url: "https://www.meetup.com/Hudson-Valley-Hash-House-Harriers/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        groupUrlname: "Hudson-Valley-Hash-House-Harriers",
+        kennelTag: "HVH3",
+      },
+      kennelCodes: ["hvh3-ny"],
     },
     // ===== FLORIDA =====
     // --- API-based sources ---
