@@ -1739,7 +1739,7 @@ async function main() {
     // Delaware
     "hockessin": ["Hockessin", "H4", "Hockessin Hash", "Hockessin HHH"],
     // Virginia (outside DC metro)
-    "rvah3": ["RH3", "Richmond Hash", "Richmond HHH", "RVA Hash"],
+    "rvah3": ["RH3", "RVAH3", "Richmond Hash", "Richmond HHH", "RVA Hash"],
     "feh3": ["FEH3", "Fort Eustis Hash", "Fort Eustis", "Ft Eustis Hash", "Fort Eustis HHH"],
     "bdsmh3": ["BDSMH3", "BDSM Hash", "Bad Decisions Hash", "Bad Decisions Start Monday"],
     "cvilleh3": ["CvilleH3", "Charlottesville Hash", "Harlots", "cHARLOTtesville Hash", "Cville Hash"],
@@ -2590,7 +2590,7 @@ async function main() {
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { defaultKennelTag: "RH3" },
+      config: { defaultKennelTag: "RVAH3" },
       kennelCodes: ["rvah3"],
     },
     {
@@ -2600,7 +2600,7 @@ async function main() {
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { groupUrlname: "richmond-hash-house-harriers", kennelTag: "RH3" },
+      config: { groupUrlname: "richmond-hash-house-harriers", kennelTag: "RVAH3" },
       kennelCodes: ["rvah3"],
     },
     // --- Fort Eustis (Calendar + Meetup) ---

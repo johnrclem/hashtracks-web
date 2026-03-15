@@ -89,7 +89,7 @@ logbook + kennel directory.
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
-- `prisma/seed.ts` — 186 kennels, 540 aliases, 105 sources, 92 regions (first-class model with hierarchy)
+- `prisma/seed.ts` — 186 kennels, 575 aliases, 105 sources, 92 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
@@ -370,7 +370,7 @@ logbook + kennel directory.
 - **BDSM H3 Meetup** → MEETUP → BDSMH3 (Hampton Roads)
 - **cHARLOTtesville H3 Meetup** → MEETUP → CvilleH3 (Charlottesville)
 
-### North Carolina (7 sources)
+### North Carolina (6 sources)
 - **SWH3 Google Calendar** → GOOGLE_CALENDAR → SWH3 (Raleigh)
 - **Carolina Larrikins Google Calendar** → GOOGLE_CALENDAR → Larrikins (Raleigh)
 - **Charlotte H3 Meetup** → MEETUP → CH3 (Charlotte)
