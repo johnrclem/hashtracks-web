@@ -99,7 +99,7 @@ export function parseIH3Block(
   if (whereMatch) {
     // Find the text after "Where:" up to the next label or end
     const afterWhere = blockText.slice(whereMatch.index + whereMatch[0].length);
-    const locationText = afterWhere.split(/\n|When|Cost|Details|Hares?/i)[0]?.trim();
+    const locationText = afterWhere.split(/\n|\bWhen\b|\bCost\b|\bDetails\b|\bHares?\b/i)[0]?.trim();
     if (locationText) {
       location = locationText;
     }

@@ -530,7 +530,7 @@ async function main() {
     },
     // --- Hudson Valley ---
     {
-      kennelCode: "hvh3-ny", shortName: "HVH3", fullName: "Hudson Valley Hash House Harriers", region: "New York City, NY",
+      kennelCode: "hvh3-ny", shortName: "HVH3", fullName: "Hudson Valley Hash House Harriers", region: "New York",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly", scheduleTime: "1:00 PM",
       scheduleNotes: "Monthly when active. Very sporadic -- runs may have months-long gaps.",
       hashCash: "$5", foundedYear: 2015,

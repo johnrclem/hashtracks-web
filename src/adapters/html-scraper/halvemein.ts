@@ -29,8 +29,8 @@ export function parseHalveMeinRow(
   const runText = cells[0]?.trim();
   const runNumber = runText ? parseInt(runText, 10) : undefined;
 
-  // Column 2: Date & Time (or column 1 if columns shifted)
-  const dateTimeText = cells[2]?.trim() || cells[1]?.trim();
+  // Column 2: Date & Time
+  const dateTimeText = cells[2]?.trim();
   if (!dateTimeText) return null;
 
   const date = chronoParseDate(dateTimeText, "en-US");
