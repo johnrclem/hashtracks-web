@@ -412,8 +412,9 @@ export function appendDescriptionSuffix(
   description: string | undefined,
   suffix: string | undefined,
 ): string | undefined {
-  if (!suffix) return description;
-  return description ? `${description}\n\n${suffix}` : suffix;
+  const trimmedSuffix = suffix?.trim();
+  if (!trimmedSuffix) return description;
+  return description ? `${description}\n\n${trimmedSuffix}` : trimmedSuffix;
 }
 
 /**

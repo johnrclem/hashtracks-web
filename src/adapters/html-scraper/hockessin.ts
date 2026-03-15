@@ -1,4 +1,3 @@
-import * as cheerio from "cheerio";
 import { isText, type Element } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type {
@@ -31,7 +30,7 @@ export function parseHockessinEvent(
   const headerMatch = /Hash\s*#(\d+)\s*:\s*(.+)/i.exec(headerText);
   if (!headerMatch) return null;
 
-  const runNumber = parseInt(headerMatch[1], 10);
+  const runNumber = Number.parseInt(headerMatch[1], 10);
   const title = headerMatch[2].trim();
 
   // Clean up detail text — remove leading/trailing whitespace and BRs
@@ -64,7 +63,7 @@ export function parseHockessinEvent(
   return {
     date,
     kennelTag: "H4",
-    runNumber: !isNaN(runNumber) ? runNumber : undefined,
+    runNumber: !Number.isNaN(runNumber) ? runNumber : undefined,
     title: title || `Hockessin #${runNumber}`,
     location,
     startTime,
