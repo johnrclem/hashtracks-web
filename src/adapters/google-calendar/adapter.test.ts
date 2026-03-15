@@ -4,6 +4,7 @@ import {
   extractRunNumber,
   extractTitle,
   extractHares,
+  buildRawEventFromGCalItem,
 } from "./adapter";
 
 // ── extractKennelTag ──
@@ -259,5 +260,38 @@ describe("extractTitle — HTML entities", () => {
     // decodeEntities is applied to summary before extractTitle in buildRawEventFromGCalItem
     // so extractTitle receives already-decoded text
     expect(extractTitle("SHITH3: St. Patricshit's Day")).toBe("St. Patricshit's Day");
+  });
+});
+
+// ── descriptionSuffix ──
+
+describe("buildRawEventFromGCalItem — descriptionSuffix", () => {
+  const baseItem = {
+    summary: "Hash Run",
+    start: { dateTime: "2026-03-15T14:00:00-04:00" },
+    status: "confirmed",
+  };
+
+  it("appends suffix to existing description", () => {
+    const item = { ...baseItem, description: "Meet at the park." };
+    const config = { defaultKennelTag: "TEST", descriptionSuffix: "Check Facebook for details." };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.description).toBe("Meet at the park.\n\nCheck Facebook for details.");
+  });
+
+  it("uses suffix as description when event has no description", () => {
+    const config = { defaultKennelTag: "TEST", descriptionSuffix: "Check Facebook for details." };
+    const event = buildRawEventFromGCalItem(baseItem, config);
+    expect(event).not.toBeNull();
+    expect(event!.description).toBe("Check Facebook for details.");
+  });
+
+  it("does not modify description when no suffix configured", () => {
+    const item = { ...baseItem, description: "Meet at the park." };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.description).toBe("Meet at the park.");
   });
 });

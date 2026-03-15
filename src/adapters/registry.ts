@@ -30,6 +30,7 @@ import { DFWHashAdapter } from "./html-scraper/dfw-hash";
 import { SOH4Adapter } from "./html-scraper/soh4";
 import { HalveMeinAdapter } from "./html-scraper/halvemein";
 import { IthacaH3Adapter } from "./html-scraper/ithaca-h3";
+import { HockessinAdapter } from "./html-scraper/hockessin";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -85,6 +86,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /soh4\.com/i,               name: "SOH4Adapter",              factory: () => new SOH4Adapter() },
   { pattern: /hmhhh\.com/i,              name: "HalveMeinAdapter",         factory: () => new HalveMeinAdapter() },
   { pattern: /ithacah3\.org/i,           name: "IthacaH3Adapter",          factory: () => new IthacaH3Adapter() },
+  { pattern: /hockessinhash\.org/i,     name: "HockessinAdapter",         factory: () => new HockessinAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

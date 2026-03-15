@@ -1,6 +1,7 @@
 "use client";
 
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { KennelPatternsEditor } from "./KennelPatternsEditor";
 import { StringArrayEditor } from "./StringArrayEditor";
 import { SuggestionChips } from "./SuggestionChips";
@@ -13,6 +14,7 @@ export interface ICalConfig {
   skipPatterns?: string[];
   harePatterns?: string[];
   runNumberPatterns?: string[];
+  descriptionSuffix?: string;
 }
 
 interface ICalConfigPanelProps {
@@ -118,6 +120,23 @@ export function ICalConfigPanel({
         hareDefaultsHint="Hare:/Hares:/Hare(s):"
         runNumberDefaultsHint="#N in summary"
       />
+      <div className="space-y-2">
+        <Label htmlFor="ical-descriptionSuffix">Description Suffix</Label>
+        <Textarea
+          id="ical-descriptionSuffix"
+          value={current.descriptionSuffix ?? ""}
+          onChange={(e) =>
+            onChange({ ...current, descriptionSuffix: e.target.value || undefined })
+          }
+          placeholder="e.g., Check the Facebook page for details: https://..."
+          rows={2}
+          className="text-sm"
+        />
+        <p className="text-xs text-muted-foreground">
+          Text appended to every event description. Useful for sources where the
+          feed is sparse and a Facebook page or website has more details.
+        </p>
+      </div>
     </div>
   );
 }

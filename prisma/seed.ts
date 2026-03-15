@@ -79,6 +79,11 @@ async function ensureRegionRecords(prisma: any) {
       "New York City, NY", "Long Island, NY", "Syracuse, NY",
       "Capital District, NY", "Ithaca, NY", "Rochester, NY", "Buffalo, NY",
     ],
+    "Pennsylvania": [
+      "Philadelphia, PA", "Pittsburgh, PA", "State College, PA",
+      "Lehigh Valley, PA", "Reading, PA", "Harrisburg, PA",
+    ],
+    "Delaware": ["Wilmington, DE"],
   };
 
   let stateLinked = 0;
@@ -1022,6 +1027,75 @@ async function main() {
       description: "Ireland's only regularly running hash. Alternates between Sunday afternoon and Monday evening runs in the Dublin area.",
       latitude: 53.3498, longitude: -6.2603,
     },
+    // ===== PENNSYLVANIA (outside Philly) =====
+    // --- Pittsburgh ---
+    {
+      kennelCode: "pgh-h3", shortName: "PGH H3", fullName: "Pittsburgh Hash House Harriers", region: "Pittsburgh, PA",
+      website: "https://pghh3.com/",
+      contactEmail: "pghhashcalendar@gmail.com",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "2:00 PM",
+      scheduleNotes: "Sundays 2 PM (winter); varies in summer. Sub-kennels run other days.",
+      hashCash: "$5", foundedYear: 1983,
+      description: "Pittsburgh's main hash kennel with 2,200+ trails.",
+      latitude: 40.44, longitude: -79.99,
+    },
+    {
+      kennelCode: "ich3", shortName: "ICH3", fullName: "Iron City Hash House Harriers", region: "Pittsburgh, PA",
+      website: "https://ironcityh3.com/",
+      scheduleDayOfWeek: "Friday", scheduleFrequency: "Monthly", scheduleTime: "6:30 PM",
+      description: "Monthly Friday evening hash in Pittsburgh.",
+      latitude: 40.44, longitude: -79.99,
+    },
+    // --- State College ---
+    {
+      kennelCode: "nvhhh", shortName: "NVHHH", fullName: "Nittany Valley Hash House Harriers", region: "State College, PA",
+      website: "https://www.nvhhh.com/",
+      scheduleDayOfWeek: "Monday", scheduleFrequency: "Weekly", scheduleTime: "6:30 PM",
+      scheduleNotes: "Mondays 6:30 PM (summer); Sundays 3 PM (winter).",
+      hashCash: "$5", foundedYear: 1990,
+      description: "Weekly hash in Centre County around Penn State.",
+      latitude: 40.79, longitude: -77.86,
+    },
+    // --- Lehigh Valley ---
+    {
+      kennelCode: "lvh3", shortName: "LVH3", fullName: "Lehigh Valley Hash House Harriers", region: "Lehigh Valley, PA",
+      website: "https://www.lvh3.com/",
+      facebookUrl: "https://www.facebook.com/groups/lvh3/",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly", scheduleTime: "12:00 PM",
+      scheduleNotes: "3rd Saturday monthly. Sub-kennels on other days.",
+      hashCash: "$5",
+      description: "Monthly hash in the Allentown/Bethlehem/Easton area. Check the LVH3 Facebook page for the latest details.",
+      latitude: 40.60, longitude: -75.49,
+    },
+    // --- Reading ---
+    {
+      kennelCode: "rh3", shortName: "RH3", fullName: "Reading Hash House Harriers", region: "Reading, PA",
+      website: "https://readinghhh.blogspot.com/",
+      scheduleDayOfWeek: "Monday", scheduleFrequency: "Weekly",
+      scheduleNotes: "Mondays (summer); Sundays (winter).",
+      hashCash: "$6", foundedYear: 1990,
+      description: "Weekly hash in Reading/Berks County with 1,194+ trails.",
+      latitude: 40.34, longitude: -75.93,
+    },
+    // --- Harrisburg ---
+    {
+      kennelCode: "h5-hash", shortName: "H5", fullName: "Harrisburg-Hershey Hash House Harriers", region: "Harrisburg, PA",
+      website: "https://h5hash.com/",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "2:30 PM",
+      scheduleNotes: "Biweekly Saturdays. Also runs TMI full moon hashes.",
+      description: "Biweekly hash in the Harrisburg/Hershey area.",
+      latitude: 40.27, longitude: -76.88,
+    },
+    // ===== DELAWARE =====
+    {
+      kennelCode: "hockessin", shortName: "H4", fullName: "Hockessin Hash House Harriers", region: "Wilmington, DE",
+      website: "https://www.hockessinhash.org/",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly", scheduleTime: "3:00 PM",
+      scheduleNotes: "Saturdays 3 PM (winter); Wednesdays 6:30 PM (summer). Runs in DE/MD/PA/NJ.",
+      hashCash: "$5",
+      description: "Delaware's most active hash with 1,656+ trails across the tri-state area.",
+      latitude: 39.78, longitude: -75.68,
+    },
     // ===== TEXAS =====
     // --- Austin ---
     {
@@ -1549,6 +1623,15 @@ async function main() {
     "flour-city": ["Flour City", "FCH3", "FCHHH", "Flour City Hash", "Rochester Hash", "Flour City HHH"],
     "bh3": ["BH3", "Buffalo Hash", "Hash in the Buff", "Buffalo HHH"],
     "hvh3-ny": ["HVH3 NY", "Hudson Valley Hash", "HV H3", "Hudson Valley HHH"],
+    // Pennsylvania (outside Philly)
+    "pgh-h3": ["PGH H3", "Pittsburgh Hash", "PGH", "Pittsburgh HHH"],
+    "ich3": ["ICH3", "Iron City Hash", "Iron City", "Iron City HHH"],
+    "nvhhh": ["NVHHH", "Nittany Valley Hash", "Nittany Valley", "NV Hash", "State College Hash"],
+    "lvh3": ["LVH3", "Lehigh Valley Hash", "Lehigh Valley HHH"],
+    "rh3": ["RH3", "Reading Hash", "Reading HHH"],
+    "h5-hash": ["H5", "Harrisburg Hash", "Harrisburg-Hershey Hash", "H5 Hash", "Hershey Hash"],
+    // Delaware
+    "hockessin": ["Hockessin", "H4", "Hockessin Hash", "Hockessin HHH"],
     // Vermont
     "vth3": ["Von Tramp", "Von Tramp H3", "VTH3", "VT Hash"],
     "burlyh3": ["Burlington Hash", "Burlington H3", "BH3 Vermont", "BTVHHH", "BTV H3", "BTVH3"],
@@ -2287,6 +2370,98 @@ async function main() {
         kennelTag: "HVH3",
       },
       kennelCodes: ["hvh3-ny"],
+    },
+    // ===== PENNSYLVANIA (outside Philly) =====
+    // --- Pittsburgh (Google Calendar aggregator) ---
+    {
+      name: "Pittsburgh Hash Calendar",
+      url: "pghhashcalendar@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "PGH H3",
+      },
+      kennelCodes: ["pgh-h3"],
+    },
+    // --- Pittsburgh (Iron City iCal feed) ---
+    {
+      name: "Iron City H3 iCal Feed",
+      url: "https://ironcityh3.com/?post_type=tribe_events&ical=1&eventDisplay=list",
+      type: "ICAL_FEED" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        defaultKennelTag: "ICH3",
+      },
+      kennelCodes: ["ich3"],
+    },
+    // --- State College (Nittany Valley Google Calendar) ---
+    {
+      name: "Nittany Valley H3 Calendar",
+      url: "55k6rnam11akkav5vljqlsc6lo@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "NVHHH",
+      },
+      kennelCodes: ["nvhhh"],
+    },
+    // --- Lehigh Valley (Google Calendar — FB is primary, calendar may be sparse) ---
+    {
+      name: "LVH3 Hareline Calendar",
+      url: "lvh3hashflash@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 5,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "LVH3",
+        descriptionSuffix: "Check the LVH3 Facebook page for the latest event details and updates: https://www.facebook.com/groups/lvh3/",
+      },
+      kennelCodes: ["lvh3"],
+    },
+    // --- Reading (Localendar iCal feed) ---
+    {
+      name: "Reading H3 Localendar",
+      url: "https://localendar.com/public/readinghhh?style=X2",
+      type: "ICAL_FEED" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        defaultKennelTag: "RH3",
+      },
+      kennelCodes: ["rh3"],
+    },
+    // --- Harrisburg-Hershey (Google Calendar) ---
+    {
+      name: "H5 Google Calendar",
+      url: "harrisburghersheyh3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "H5",
+      },
+      kennelCodes: ["h5-hash"],
+    },
+    // ===== DELAWARE =====
+    // --- Hockessin (HTML scraper) ---
+    {
+      name: "Hockessin H3 Website",
+      url: "https://www.hockessinhash.org/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { defaultKennelTag: "H4" },
+      kennelCodes: ["hockessin"],
     },
     // ===== FLORIDA =====
     // --- API-based sources ---
