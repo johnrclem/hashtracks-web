@@ -3,7 +3,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useMap, AdvancedMarker } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
-import type { Marker } from "@googlemaps/markerclusterer";
 
 export interface KennelPin {
   id: string;
@@ -28,8 +27,8 @@ interface ClusteredKennelMarkersProps {
 export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin }: ClusteredKennelMarkersProps) {
   const map = useMap();
   const clustererRef = useRef<MarkerClusterer | null>(null);
-  const markersRef = useRef<Map<string, Marker>>(new Map());
-  const refCallbacksRef = useRef<Map<string, (marker: Marker | null) => void>>(new Map());
+  const markersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement>>(new Map());
+  const refCallbacksRef = useRef<Map<string, (marker: google.maps.marker.AdvancedMarkerElement | null) => void>>(new Map());
 
   // Initialize clusterer when map is ready
   useEffect(() => {
@@ -49,7 +48,7 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin }: Clu
   const getRefCallback = useCallback((pinId: string) => {
     let cb = refCallbacksRef.current.get(pinId);
     if (!cb) {
-      cb = (marker: Marker | null) => {
+      cb = (marker: google.maps.marker.AdvancedMarkerElement | null) => {
         const prev = markersRef.current.get(pinId);
         if (marker) {
           if (prev !== marker) {
@@ -77,7 +76,7 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin }: Clu
             position={{ lat: pin.lat, lng: pin.lng }}
             onClick={() => onSelectPin(pin.id)}
             title={pin.shortName}
-            ref={getRefCallback(pin.id) as React.Ref<never>}
+            ref={getRefCallback(pin.id)}
           >
             <div
               style={{

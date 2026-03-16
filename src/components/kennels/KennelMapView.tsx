@@ -212,6 +212,7 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
     // Show "Search this area" button after user interaction
     if (userInteractedRef.current) {
       setShowSearchButton(true);
+      userInteractedRef.current = false; // Reset so button only reappears after next pan/zoom
     }
   }, []);
 
