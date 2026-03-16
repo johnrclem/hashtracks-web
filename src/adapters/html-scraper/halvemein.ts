@@ -9,34 +9,118 @@ import { hasAnyErrors } from "../types";
 import { fetchHTMLPage, chronoParseDate, parse12HourTime } from "../utils";
 
 /**
+ * Halve Mein uses playful month names in their hareline.
+ * Map them to standard month names so chrono-node can parse them.
+ */
+export const HMHHH_MONTH_MAP: Record<string, string> = {
+  sextembeer: "September",
+  hashtobeer: "October",
+  novembeer: "November",
+  decembeer: "December",
+};
+
+// Regex generated from map keys to stay in sync automatically
+const HMHHH_MONTH_RE = new RegExp(
+  `\\b(${Object.keys(HMHHH_MONTH_MAP).join("|")})\\b`, "gi",
+);
+
+/**
+ * Replace custom Halve Mein month names with standard ones.
+ * Case-insensitive replacement, preserves surrounding text.
+ */
+export function normalizeHalveMeinMonths(text: string): string {
+  return text.replace(
+    HMHHH_MONTH_RE,
+    (match) => HMHHH_MONTH_MAP[match.toLowerCase()] ?? match,
+  );
+}
+
+/**
+ * Parse Halve Mein compact time format: "6PM", "1PM", "11AM", "12PM".
+ * No colon, no minutes, no space before AM/PM.
+ * Falls back to parse12HourTime() for standard "6:00 PM" format.
+ */
+export function parseHalveMeinTime(text: string): string | undefined {
+  // Try standard format first (e.g., "6:00 PM")
+  const standard = parse12HourTime(text);
+  if (standard) return standard;
+
+  // Try compact format: "6PM", "11AM", "12PM"
+  const match = /(\d{1,2})\s*(am|pm)/i.exec(text);
+  if (!match) return undefined;
+
+  let hours = parseInt(match[1], 10);
+  const ampm = match[2].toLowerCase();
+
+  if (ampm === "pm" && hours !== 12) hours += 12;
+  if (ampm === "am" && hours === 12) hours = 0;
+
+  return `${hours.toString().padStart(2, "0")}:00`;
+}
+
+/**
  * Parse a single row from the Halve Mein upcoming events table.
  *
  * Expected columns in `.cellbox` table:
- *   0: Run # (number)
+ *   0: Run # + optional event name (e.g., "821<br>St Paddy's Dayish Hash")
  *   1: Day (day of week)
- *   2: Date & Time (e.g., "March 19, 2026 6:00 PM")
+ *   2: Date & Time (e.g., "March 18, 6PM" or "Sextembeer 5, 1PM")
  *   3: Place / Location
  *   4: Hare name(s)
  *   5: Directions (link)
+ *
+ * @param cell0Html - Raw HTML of cell[0] to preserve <br>-separated run number + event name
  */
 export function parseHalveMeinRow(
   cells: string[],
   sourceUrl: string,
+  cell0Html?: string,
 ): RawEventData | null {
   if (cells.length < 4) return null;
 
-  // Column 0: Run number
-  const runText = cells[0]?.trim();
-  const runNumber = runText ? parseInt(runText, 10) : undefined;
+  // Column 0: Run number and optional event name
+  let runNumber: number | undefined;
+  let eventName: string | undefined;
 
-  // Column 2: Date & Time
+  if (cell0Html) {
+    // Split on <br> to separate run number from event name
+    const parts = cell0Html
+      .replace(/<\/?font[^>]*>/gi, "") // strip <font> wrappers
+      .split(/<br\s*\/?>/i)
+      .map((p) => p.replace(/<[^>]+>/g, "").trim())
+      .filter(Boolean);
+
+    if (parts.length > 0) {
+      const num = parseInt(parts[0], 10);
+      if (!isNaN(num)) {
+        runNumber = num;
+        eventName = parts.slice(1).join(" ").trim() || undefined;
+      } else {
+        eventName = parts.join(" ").trim() || undefined;
+      }
+    }
+  } else {
+    // Fallback: text-only parsing (for backward compat with tests)
+    const runText = cells[0]?.trim() ?? "";
+    const runMatch = /^(\d+)\s*(.*)$/.exec(runText);
+    if (runMatch) {
+      runNumber = parseInt(runMatch[1], 10);
+      const remainder = runMatch[2].trim();
+      if (remainder) eventName = remainder;
+    } else if (runText) {
+      eventName = runText;
+    }
+  }
+
+  // Column 2: Date & Time — normalize custom months before parsing
   const dateTimeText = cells[2]?.trim();
   if (!dateTimeText) return null;
 
-  const date = chronoParseDate(dateTimeText, "en-US");
+  const normalizedDateText = normalizeHalveMeinMonths(dateTimeText);
+  const date = chronoParseDate(normalizedDateText, "en-US", undefined, { forwardDate: true });
   if (!date) return null;
 
-  const startTime = parse12HourTime(dateTimeText);
+  const startTime = parseHalveMeinTime(normalizedDateText);
 
   // Column 3: Location
   const location = cells[3]?.trim() || undefined;
@@ -50,20 +134,23 @@ export function parseHalveMeinRow(
     }
   }
 
-  // Column 5: Directions URL (optional)
-  // We extract this at the adapter level from HTML, not from text cells
-
-  const title = runNumber && !isNaN(runNumber)
-    ? `HMHHH #${runNumber}`
-    : "HMHHH Trail";
+  // Build title: include event name unless it's just "Hash" (generic/uninformative)
+  let title: string;
+  if (runNumber) {
+    title = eventName && eventName !== "Hash"
+      ? `HMHHH #${runNumber}: ${eventName}`
+      : `HMHHH #${runNumber}`;
+  } else {
+    title = eventName ? `HMHHH: ${eventName}` : "HMHHH Trail";
+  }
 
   return {
     date,
     kennelTag: "HMHHH",
-    runNumber: runNumber && !isNaN(runNumber) ? runNumber : undefined,
+    runNumber,
     title,
     hares,
-    location: location && location.length > 0 ? location : undefined,
+    location: location || undefined,
     startTime,
     sourceUrl,
   };
@@ -103,7 +190,8 @@ export class HalveMeinAdapter implements SourceAdapter {
 
     for (const row of rows) {
       const $row = $(row);
-      const cells = $row.find("td").toArray().map((td) => $(td).text().trim());
+      const tds = $row.find("td").toArray();
+      const cells = tds.map((td) => $(td).text().trim());
 
       // Skip empty rows
       if (cells.length === 0) continue;
@@ -128,8 +216,11 @@ export class HalveMeinAdapter implements SourceAdapter {
         }
       });
 
+      // Extract raw HTML of cell[0] to preserve <br>-separated run number + event name
+      const cell0Html = tds[0] ? $(tds[0]).html() ?? undefined : undefined;
+
       try {
-        const event = parseHalveMeinRow(cells, url);
+        const event = parseHalveMeinRow(cells, url, cell0Html);
         if (event) {
           if (locationUrl) {
             event.locationUrl = locationUrl;
