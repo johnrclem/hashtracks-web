@@ -117,7 +117,7 @@ describe("parseEnfieldBody", () => {
     const text = "Date: Wednesday 18th March 2026\nPub: The King's Head\nStation: Enfield Chase\nHare: Speedy";
     const result = parseEnfieldBody(text);
     expect(result.date).toBe("2026-03-18");
-    expect(result.location).toBe("The King's Head");
+    expect(result.location).toBe("The King's Head, Enfield");
     expect(result.station).toBe("Enfield Chase");
     expect(result.hares).toBe("Speedy");
   });
@@ -126,7 +126,7 @@ describe("parseEnfieldBody", () => {
     const text = "When: 15th April 2026\nWhere: The Rose and Crown\nHare: Muddy Boots";
     const result = parseEnfieldBody(text);
     expect(result.date).toBe("2026-04-15");
-    expect(result.location).toBe("The Rose and Crown");
+    expect(result.location).toBe("The Rose and Crown, Enfield");
     expect(result.hares).toBe("Muddy Boots");
   });
 
@@ -158,21 +158,21 @@ describe("parseEnfieldBody", () => {
   it("does not truncate pub name containing 'Station' (e.g. The Station Hotel)", () => {
     const text = "Date: 18th March 2026\nPub: The Station Hotel\nStation: Enfield Chase\nHare: Speedy";
     const result = parseEnfieldBody(text);
-    expect(result.location).toBe("The Station Hotel");
+    expect(result.location).toBe("The Station Hotel, Enfield");
     expect(result.station).toBe("Enfield Chase");
   });
 
   it("does not truncate pub name containing 'Start' or 'Time'", () => {
     const text = "Date: 18th March 2026\nPub: The Time and Tide\nHare: Flash";
     const result = parseEnfieldBody(text);
-    expect(result.location).toBe("The Time and Tide");
+    expect(result.location).toBe("The Time and Tide, Enfield");
   });
 
   it("does not truncate station containing 'Meet' (e.g. Meeting House Lane)", () => {
     const text = "Date: 18th March 2026\nStation: Meeting House Lane\nPub: The Crown\nHare: Muddy";
     const result = parseEnfieldBody(text);
     expect(result.station).toBe("Meeting House Lane");
-    expect(result.location).toBe("The Crown");
+    expect(result.location).toBe("The Crown, Enfield");
   });
 
   it("does not truncate hare name containing label words", () => {
@@ -192,7 +192,32 @@ describe("parseEnfieldBody", () => {
   it("extracts location from prose: 'running from The Wonder'", () => {
     const text = "As is tradition, we will be running from The Wonder, with a mulled wine and mince pie stop";
     const result = parseEnfieldBody(text, now);
-    expect(result.location).toBe("The Wonder");
+    expect(result.location).toBe("The Wonder, Enfield");
+  });
+
+  it("extracts full address from 'running from' prose (Chase Side, Enfield)", () => {
+    const text = "We are running from The Cricketers, Chase Side, Enfield. P trail from Enfield Chase station.";
+    const result = parseEnfieldBody(text, now);
+    expect(result.location).toBe("The Cricketers, Chase Side, Enfield");
+    expect(result.station).toBe("Enfield Chase");
+  });
+
+  it("extracts location from 'Meet at' prose pattern", () => {
+    const text = "Meet at The Old Wheatsheaf, opposite Enfield Chase station. Bring a torch!";
+    const result = parseEnfieldBody(text, now);
+    expect(result.location).toBe("The Old Wheatsheaf, opposite Enfield Chase station");
+  });
+
+  it("extracts location from 'pub' keyword prose pattern", () => {
+    const text = "Rose and Crown pub, Clay Hill, Enfield. P trail from Gordon Hill station.";
+    const result = parseEnfieldBody(text, now);
+    expect(result.location).toBe("Rose and Crown pub, Clay Hill, Enfield");
+  });
+
+  it("appends Enfield to locations that lack it for geocoding", () => {
+    const text = "Pub: The King's Head";
+    const result = parseEnfieldBody(text, now);
+    expect(result.location).toBe("The King's Head, Enfield");
   });
 
   it("handles year-less date in prose", () => {
@@ -476,7 +501,7 @@ describe("EnfieldHashAdapter.fetch (legacy Blogger HTML fallback)", () => {
     expect(first.date).toBe("2026-03-18");
     expect(first.kennelTag).toBe("EH3");
     expect(first.startTime).toBe("19:30");
-    expect(first.location).toBe("The King's Head, Winchmore Hill");
+    expect(first.location).toBe("The King's Head, Winchmore Hill, Enfield");
     expect(first.hares).toBe("Speedy");
     expect(first.description).toContain("Winchmore Hill");
     expect(first.sourceUrl).toBe("http://www.enfieldhash.org/2026/03/run-266.html");
