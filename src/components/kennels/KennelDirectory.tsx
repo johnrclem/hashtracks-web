@@ -63,6 +63,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   const [displayView, setDisplayViewState] = useState<"grid" | "map">(
     searchParams.get("display") === "map" ? "map" : "grid",
   );
+  const [mapBounds, setMapBounds] = useState<{ south: number; north: number; west: number; east: number } | null>(null);
 
   // Sync state to URL via replaceState
   const syncUrl = useCallback(
@@ -156,11 +157,13 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   }
   function setDisplayView(v: "grid" | "map") {
     setDisplayViewState(v);
+    if (v === "grid") setMapBounds(null); // Clear area filter when switching to grid
     syncUrl({ display: v });
   }
   function handleRegionSelect(region: string) {
     setSelectedRegionsState([region]);
     setDisplayViewState("grid");
+    setMapBounds(null);
     syncUrl({ regions: [region], display: "grid" });
   }
 
@@ -186,7 +189,10 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         query &&
         !k.shortName.toLowerCase().includes(query) &&
         !k.fullName.toLowerCase().includes(query) &&
-        !k.region.toLowerCase().includes(query)
+        !k.region.toLowerCase().includes(query) &&
+        !k.stateGroup.toLowerCase().includes(query) &&
+        !k.country.toLowerCase().includes(query) &&
+        !(k.description && k.description.toLowerCase().includes(query))
       ) {
         return false;
       }
@@ -218,9 +224,16 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         const dist = kennelDistances.get(k.id);
         if (dist == null || dist > nearMeDistance) return false;
       }
+      // Map bounds filter ("Search this area")
+      if (mapBounds) {
+        const coords = getEventCoords(k.latitude, k.longitude, k.region);
+        if (!coords || coords.lat < mapBounds.south || coords.lat > mapBounds.north || coords.lng < mapBounds.west || coords.lng > mapBounds.east) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [kennels, search, selectedRegions, selectedDays, selectedFrequency, showUpcomingOnly, selectedCountry, nearMeDistance, geoState, kennelDistances]);
+  }, [kennels, search, selectedRegions, selectedDays, selectedFrequency, showUpcomingOnly, selectedCountry, nearMeDistance, geoState, kennelDistances, mapBounds]);
 
   // Sort
   const sorted = useMemo(() => {
@@ -243,8 +256,10 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         return a.shortName.localeCompare(b.shortName);
       });
     } else {
-      // Alphabetical by shortName (already region-grouped from server ordering)
+      // Alphabetical by shortName, grouped by state
       items.sort((a, b) => {
+        const stateCmp = a.stateGroup.localeCompare(b.stateGroup);
+        if (stateCmp !== 0) return stateCmp;
         const regionCmp = a.region.localeCompare(b.region);
         if (regionCmp !== 0) return regionCmp;
         return a.shortName.localeCompare(b.shortName);
@@ -253,18 +268,18 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     return items;
   }, [filtered, sort, geoState, kennelDistances]);
 
-  // Group by region (only for alpha sort)
+  // Group by state (only for alpha sort)
   const grouped = useMemo(() => {
     if (sort !== "alpha") return null;
     const groups: Record<string, KennelCardData[]> = {};
     for (const k of sorted) {
-      if (!groups[k.region]) groups[k.region] = [];
-      groups[k.region].push(k);
+      if (!groups[k.stateGroup]) groups[k.stateGroup] = [];
+      groups[k.stateGroup].push(k);
     }
     return groups;
   }, [sorted, sort]);
 
-  const regionKeys = grouped ? Object.keys(grouped).sort((a, b) => a.localeCompare(b)) : [];
+  const groupKeys = grouped ? Object.keys(grouped).sort((a, b) => a.localeCompare(b)) : [];
 
   // Show "Nearest" sort option only when geolocation is granted
   const showNearestSort = geoState.status === "granted";
@@ -333,11 +348,23 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       {/* Results count */}
       <p className="text-sm text-muted-foreground">
         {filtered.length} {filtered.length === 1 ? "kennel" : "kennels"}
+        {mapBounds && (
+          <>
+            {" in this area · "}
+            <button
+              type="button"
+              className="text-primary underline underline-offset-2"
+              onClick={() => setMapBounds(null)}
+            >
+              Clear area filter
+            </button>
+          </>
+        )}
       </p>
 
       {/* Map or Grid */}
       {displayView === "map" ? (
-        <KennelMapView kennels={filtered} onRegionSelect={handleRegionSelect} />
+        <KennelMapView kennels={filtered} onRegionSelect={handleRegionSelect} onBoundsFilter={setMapBounds} />
       ) : filtered.length === 0 ? (
         <div className="py-12 text-center">
           <p className="text-muted-foreground">No kennels match your filters.</p>
@@ -345,16 +372,16 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       ) : sort === "alpha" && grouped ? (
         // Grouped by region
         <div className="space-y-8">
-          {regionKeys.map((region) => (
-            <div key={region}>
+          {groupKeys.map((group) => (
+            <div key={group}>
               <h2 className="mb-3 text-lg font-semibold">
-                {region}{" "}
+                {group}{" "}
                 <span className="text-sm font-normal text-muted-foreground">
-                  ({grouped[region].length})
+                  ({grouped[group].length})
                 </span>
               </h2>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {grouped[region].map((kennel) => (
+                {grouped[group].map((kennel) => (
                   <KennelCard key={kennel.id} kennel={kennel} />
                 ))}
               </div>

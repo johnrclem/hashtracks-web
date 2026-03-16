@@ -138,7 +138,7 @@ export function KennelFilters({
     (nearMeDistance != null ? 1 : 0);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide md:flex-wrap">
       {/* Region filter */}
       <Popover>
         <PopoverTrigger asChild>

@@ -88,6 +88,24 @@ export function EventFilters({
     return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
   }, [events]);
 
+  // Group regions by country for hierarchical display
+  const regionsByCountry = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const e of events) {
+      const country = e.kennel.country || "Other";
+      if (!map.has(country)) map.set(country, []);
+      const list = map.get(country)!;
+      if (!list.includes(e.kennel.region)) list.push(e.kennel.region);
+    }
+    for (const [, list] of map) list.sort((a, b) => a.localeCompare(b));
+    return map;
+  }, [events]);
+
+  const countryKeys = useMemo(
+    () => Array.from(regionsByCountry.keys()).sort((a, b) => a.localeCompare(b)),
+    [regionsByCountry],
+  );
+
   const kennels = useMemo(() => {
     const kennelMap = new Map<string, { id: string; shortName: string; fullName: string; region: string }>();
     for (const e of events) {
@@ -183,27 +201,53 @@ export function EventFilters({
               <CommandInput placeholder="Search regions..." />
               <CommandList role="listbox">
                 <CommandEmpty>No regions found.</CommandEmpty>
-                <CommandGroup>
-                  {regions.map((region) => (
-                    <CommandItem
-                      key={region}
-                      onSelect={() => toggleRegion(region)}
-                      role="option"
-                      aria-selected={selectedRegions.includes(region)}
-                    >
-                      <span
-                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                          selectedRegions.includes(region)
-                            ? "bg-primary border-primary text-primary-foreground"
-                            : "opacity-50"
-                        }`}
+                {countryKeys.length > 1 ? (
+                  countryKeys.map((country) => (
+                    <CommandGroup key={country} heading={country}>
+                      {(regionsByCountry.get(country) ?? []).map((region) => (
+                        <CommandItem
+                          key={region}
+                          onSelect={() => toggleRegion(region)}
+                          role="option"
+                          aria-selected={selectedRegions.includes(region)}
+                        >
+                          <span
+                            className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                              selectedRegions.includes(region)
+                                ? "bg-primary border-primary text-primary-foreground"
+                                : "opacity-50"
+                            }`}
+                          >
+                            {selectedRegions.includes(region) && "✓"}
+                          </span>
+                          {region}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  ))
+                ) : (
+                  <CommandGroup>
+                    {regions.map((region) => (
+                      <CommandItem
+                        key={region}
+                        onSelect={() => toggleRegion(region)}
+                        role="option"
+                        aria-selected={selectedRegions.includes(region)}
                       >
-                        {selectedRegions.includes(region) && "✓"}
-                      </span>
-                      {region}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
+                        <span
+                          className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                            selectedRegions.includes(region)
+                              ? "bg-primary border-primary text-primary-foreground"
+                              : "opacity-50"
+                          }`}
+                        >
+                          {selectedRegions.includes(region) && "✓"}
+                        </span>
+                        {region}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
               </CommandList>
             </Command>
           </PopoverContent>

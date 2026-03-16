@@ -197,7 +197,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
           </span>
 
           <span className="relative w-14 shrink-0 font-mono text-xs text-muted-foreground/60">
-            {event.runNumber ? `#${event.runNumber}` : "\u2014"}
+            {event.runNumber ? `#${event.runNumber}` : ""}
           </span>
 
           {/* Flexible text — absorbs remaining space */}

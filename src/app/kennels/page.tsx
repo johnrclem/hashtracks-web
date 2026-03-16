@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
+import { getStateGroup } from "@/lib/region";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
 
@@ -54,6 +55,7 @@ export default async function KennelsPage() {
     const next = nextEventMap.get(k.id);
     return {
       ...k,
+      stateGroup: getStateGroup(k.region),
       nextEvent: next ? { date: next.date.toISOString(), title: next.title } : null,
     };
   });

@@ -1244,3 +1244,112 @@ export function buildAbbrev(name: string): string {
 
 /** Default pin color for unknown regions. */
 export const DEFAULT_PIN_COLOR = "#6b7280"; // gray-500
+
+// ── State group mapping (region name → display group for /kennels directory) ──
+
+const STATE_GROUP_MAP: Record<string, string> = {
+  // D.C. Metro (cross-state corridor)
+  "Washington, DC": "D.C. Metro",
+  "Northern Virginia": "D.C. Metro",
+  "Baltimore, MD": "D.C. Metro",
+  "Frederick, MD": "D.C. Metro",
+  "Fredericksburg, VA": "D.C. Metro",
+  "Southern Maryland": "D.C. Metro",
+  "Jefferson County, WV": "D.C. Metro",
+  // New York
+  "New York City, NY": "New York",
+  "Long Island, NY": "New York",
+  "Syracuse, NY": "New York",
+  "Capital District, NY": "New York",
+  "Ithaca, NY": "New York",
+  "Rochester, NY": "New York",
+  "Buffalo, NY": "New York",
+  // New Jersey
+  "North NJ": "New Jersey",
+  "New Jersey": "New Jersey",
+  // Pennsylvania
+  "Philadelphia, PA": "Pennsylvania",
+  "Pittsburgh, PA": "Pennsylvania",
+  "State College, PA": "Pennsylvania",
+  "Lehigh Valley, PA": "Pennsylvania",
+  "Reading, PA": "Pennsylvania",
+  "Harrisburg, PA": "Pennsylvania",
+  // Delaware
+  "Wilmington, DE": "Delaware",
+  // Massachusetts
+  "Boston, MA": "Massachusetts",
+  "Pioneer Valley, MA": "Massachusetts",
+  // New England (state = metro)
+  "Vermont": "Vermont",
+  "Connecticut": "Connecticut",
+  "Rhode Island": "Rhode Island",
+  "Portland, ME": "Maine",
+  // Virginia (non-DMV)
+  "Richmond, VA": "Virginia",
+  "Hampton Roads, VA": "Virginia",
+  "Charlottesville, VA": "Virginia",
+  "Lynchburg, VA": "Virginia",
+  // Georgia
+  "Atlanta, GA": "Georgia",
+  "Savannah, GA": "Georgia",
+  "Augusta, GA": "Georgia",
+  "Macon, GA": "Georgia",
+  "Columbus, GA": "Georgia",
+  "Rome, GA": "Georgia",
+  // North Carolina
+  "Raleigh, NC": "North Carolina",
+  "Charlotte, NC": "North Carolina",
+  "Asheville, NC": "North Carolina",
+  "Wilmington, NC": "North Carolina",
+  "Fayetteville, NC": "North Carolina",
+  // South Carolina
+  "Charleston, SC": "South Carolina",
+  "Columbia, SC": "South Carolina",
+  "Greenville, SC": "South Carolina",
+  "Myrtle Beach, SC": "South Carolina",
+  // Florida
+  "Miami, FL": "Florida",
+  "Tampa Bay, FL": "Florida",
+  "Orlando, FL": "Florida",
+  "Jacksonville, FL": "Florida",
+  "Florida Keys": "Florida",
+  "Florida Panhandle": "Florida",
+  "Daytona Beach, FL": "Florida",
+  "Tallahassee, FL": "Florida",
+  // Texas
+  "Austin, TX": "Texas",
+  "Houston, TX": "Texas",
+  "Dallas-Fort Worth, TX": "Texas",
+  "San Antonio, TX": "Texas",
+  "Corpus Christi, TX": "Texas",
+  "El Paso": "Texas",
+  // Illinois / Chicagoland
+  "Chicago, IL": "Illinois",
+  "South Shore, IN": "Illinois",
+  // California
+  "San Francisco, CA": "California",
+  "Oakland, CA": "California",
+  "San Jose, CA": "California",
+  "Marin County, CA": "California",
+  "San Diego, CA": "California",
+  // Single-metro states
+  "Seattle, WA": "Washington",
+  "Portland, OR": "Oregon",
+  "Denver, CO": "Colorado",
+  "Minneapolis, MN": "Minnesota",
+  // United Kingdom
+  "London": "United Kingdom",
+  "South West London": "United Kingdom",
+  "Surrey": "United Kingdom",
+  "Old Coulsdon": "United Kingdom",
+  "Enfield": "United Kingdom",
+  "Barnes": "United Kingdom",
+  "West London": "United Kingdom",
+  // Ireland
+  "Dublin": "Ireland",
+};
+
+/** Get the state/country group for a region name (for kennel directory grouping). */
+export function getStateGroup(regionName: string): string {
+  return STATE_GROUP_MAP[regionName] ?? regionName;
+}
