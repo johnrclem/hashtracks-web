@@ -89,7 +89,7 @@ logbook + kennel directory.
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
-- `prisma/seed.ts` — 186 kennels, 575 aliases, 105 sources, 92 regions (first-class model with hierarchy)
+- `prisma/seed.ts` — 188 kennels, 585 aliases, 108 sources, 93 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
@@ -246,7 +246,7 @@ logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (105)
+## Active Sources (108)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -362,13 +362,16 @@ logbook + kennel directory.
 ### Delaware (1 source)
 - **Hockessin H3 Website** → HTML_SCRAPER → H4 (Wilmington)
 
-### Virginia (outside DC metro) (6 sources)
+### Virginia (outside DC metro) (9 sources)
 - **Richmond H3 Google Calendar** → GOOGLE_CALENDAR → RH3 (Richmond)
 - **Richmond H3 Meetup** → MEETUP → RH3 (Richmond)
 - **Fort Eustis H3 Google Calendar** → GOOGLE_CALENDAR → FEH3 (Hampton Roads)
 - **Fort Eustis H3 Meetup** → MEETUP → FEH3 (Hampton Roads)
 - **BDSM H3 Meetup** → MEETUP → BDSMH3 (Hampton Roads)
 - **cHARLOTtesville H3 Meetup** → MEETUP → CvilleH3 (Charlottesville)
+- **FUH3 Static Schedule** → STATIC_SCHEDULE → FUH3 (Fredericksburg)
+- **Tidewater H3 Static Schedule** → STATIC_SCHEDULE → TH3 (Hampton Roads)
+- **Seven Hills H3 Static Schedule** → STATIC_SCHEDULE → 7H4 (Lynchburg)
 
 ### North Carolina (6 sources)
 - **SWH3 Google Calendar** → GOOGLE_CALENDAR → SWH3 (Raleigh)

@@ -86,7 +86,7 @@ async function ensureRegionRecords(prisma: any) {
     "Delaware": ["Wilmington, DE"],
     "Virginia": [
       "Northern Virginia", "Fredericksburg, VA", "Richmond, VA",
-      "Hampton Roads, VA", "Charlottesville, VA",
+      "Hampton Roads, VA", "Charlottesville, VA", "Lynchburg, VA",
     ],
     "North Carolina": [
       "Raleigh, NC", "Charlotte, NC", "Asheville, NC",
@@ -1142,6 +1142,28 @@ async function main() {
       description: "Biweekly hash in Charlottesville, known as 'the Harlots'.",
       latitude: 38.03, longitude: -78.48,
     },
+    // --- Hampton Roads (Tidewater) ---
+    {
+      kennelCode: "twh3", shortName: "TH3", fullName: "Tidewater Hash House Harriers", region: "Hampton Roads, VA",
+      facebookUrl: "https://www.facebook.com/groups/SEVAHHH",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "2:00 PM",
+      scheduleNotes: "Sundays year-round. Gather 1:30 PM, start 2:00 PM (spring/fall). Summer 3:30 PM, winter 1:00 PM. 11 sub-kennels run other days.",
+      hashCash: "$5", foundedYear: 1991,
+      description: "Hampton Roads' main hash kennel with 1,836+ trails and 11 sub-kennels across the Virginia Beach/Norfolk/Chesapeake area.",
+      latitude: 36.85, longitude: -76.13,
+    },
+    // --- Lynchburg ---
+    {
+      kennelCode: "7h4", shortName: "7H4", fullName: "Seven Hills Hash House Harriers", region: "Lynchburg, VA",
+      website: "https://sites.google.com/view/7h4/home",
+      facebookUrl: "https://www.facebook.com/groups/41511405734/",
+      contactEmail: "7h4hash@googlegroups.com",
+      scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly", scheduleTime: "6:30 PM",
+      scheduleNotes: "Wednesdays year-round. Also Sundays 3 PM in winter.",
+      hashCash: "$5", foundedYear: 1992,
+      description: "Weekly Wednesday evening hash in Lynchburg with 2,000+ trails since 1992.",
+      latitude: 37.41, longitude: -79.14,
+    },
     // ===== NORTH CAROLINA =====
     // --- Raleigh / Triangle ---
     {
@@ -1743,6 +1765,8 @@ async function main() {
     "feh3": ["FEH3", "Fort Eustis Hash", "Fort Eustis", "Ft Eustis Hash", "Fort Eustis HHH"],
     "bdsmh3": ["BDSMH3", "BDSM Hash", "Bad Decisions Hash", "Bad Decisions Start Monday"],
     "cvilleh3": ["CvilleH3", "Charlottesville Hash", "Harlots", "cHARLOTtesville Hash", "Cville Hash"],
+    "twh3": ["TH3", "Tidewater Hash", "Tidewater", "Tidewater HHH", "TH3 VA"],
+    "7h4": ["7H4", "Seven Hills Hash", "Seven Hills", "7 Hills Hash"],
     // North Carolina
     "swh3": ["SWH3", "Sir Walter's", "Sir Walters", "Sir Walter's Hash", "Sir Walters Hash"],
     "larrikins": ["Larrikins", "Carolina Larrikins", "CLH3", "Larrikins H3"],
@@ -2645,6 +2669,61 @@ async function main() {
       scrapeDays: 180,
       config: { groupUrlname: "meetup-group-xxcniptw", kennelTag: "CvilleH3" },
       kennelCodes: ["cvilleh3"],
+    },
+    // --- Fredericksburg (Static Schedule — kennel already exists, adding source) ---
+    {
+      name: "FUH3 Static Schedule",
+      url: "https://www.facebook.com/groups/fuh3va/",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "FUH3",
+        rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+        anchorDate: "2026-03-08",
+        startTime: "15:00",
+        defaultTitle: "FUH3 Biweekly Run",
+        defaultLocation: "Fredericksburg, VA",
+        defaultDescription: "Check the Facebook page at https://www.facebook.com/groups/fuh3va/ for updates on locations.",
+      },
+      kennelCodes: ["fuh3"],
+    },
+    // --- Tidewater (Static Schedule — main Sunday trail only) ---
+    {
+      name: "Tidewater H3 Static Schedule",
+      url: "https://www.facebook.com/groups/SEVAHHH",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "TH3",
+        rrule: "FREQ=WEEKLY;BYDAY=SU",
+        startTime: "14:00",
+        defaultTitle: "Tidewater H3 Weekly Run",
+        defaultLocation: "Virginia Beach, VA",
+        defaultDescription: "Check the Facebook page at https://www.facebook.com/groups/SEVAHHH for updates on locations and times. Times vary seasonally.",
+      },
+      kennelCodes: ["twh3"],
+    },
+    // --- Lynchburg (Static Schedule — Wednesday only) ---
+    {
+      name: "Seven Hills H3 Static Schedule",
+      url: "https://www.facebook.com/groups/41511405734/",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "7H4",
+        rrule: "FREQ=WEEKLY;BYDAY=WE",
+        startTime: "18:30",
+        defaultTitle: "Seven Hills H3 Weekly Run",
+        defaultLocation: "Lynchburg, VA",
+        defaultDescription: "Check the Facebook page at https://www.facebook.com/groups/41511405734/ for updates on locations.",
+      },
+      kennelCodes: ["7h4"],
     },
     // ===== NORTH CAROLINA =====
     // --- Raleigh / Triangle ---

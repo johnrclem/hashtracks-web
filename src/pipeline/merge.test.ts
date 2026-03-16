@@ -502,11 +502,12 @@ describe("double-header support", () => {
 });
 
 describe("empty event guard", () => {
-  it("skips events with no display data (no title, location, hares, or runNumber)", async () => {
+  it("skips events with no display data and no kennelTag", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({
+        kennelTag: "",
         title: undefined,
         location: undefined,
         hares: undefined,
@@ -517,8 +518,76 @@ describe("empty event guard", () => {
     expect(result.created).toBe(0);
     expect(result.eventErrors).toBe(1);
     expect(result.eventErrorMessages[0]).toContain("Skipping empty event");
-    // Should not create a RawEvent record for empty events
     expect(mockRawEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("generates default title from kennelTag when title is missing", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({
+        kennelTag: "DUHHH",
+        title: undefined,
+        location: undefined,
+        hares: undefined,
+        runNumber: undefined,
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(mockEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ title: "DUHHH Trail" }),
+      }),
+    );
+  });
+
+  it("includes run number in default title when available", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({
+        kennelTag: "DH3",
+        title: undefined,
+        location: undefined,
+        hares: undefined,
+        runNumber: 42,
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(mockEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ title: "DH3 Trail #42" }),
+      }),
+    );
+  });
+
+  it("preserves adapter-provided title over default", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({
+        kennelTag: "NYCH3",
+        title: "Valentine's Day Trail",
+        location: undefined,
+        hares: undefined,
+        runNumber: undefined,
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(mockEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ title: "Valentine's Day Trail" }),
+      }),
+    );
   });
 
   it("processes events that have at least a runNumber", async () => {
