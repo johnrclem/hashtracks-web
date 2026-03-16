@@ -66,14 +66,28 @@ export function parseMakesweatEvent(
   const venueNotes = $event.find(".ms_venue_notes").first().text().trim();
 
   // Build composite location: "Pub Name, Street Address, Postcode"
-  // Avoid duplicating postcode if it already appears in venue name
+  // Normalize UK postcodes jammed against venue name without separator
+  // (e.g., "Pub NameSW98AG" → "Pub Name, SW9 8AG") but leave properly
+  // separated names like "Old Star, London E8 2HG" unchanged.
   let location: string | undefined;
   if (venueName && !isPlaceholder(venueName)) {
-    const parts = [venueName, venueAddress].filter(Boolean);
-    if (venuePostcode && !parts.some((p) => p.includes(venuePostcode))) {
-      parts.push(venuePostcode);
+    let normalizedName = venueName;
+    // Only match postcode directly abutting a letter (no comma/space separator).
+    // Use [a-z] not \w to avoid false-positives on venue names ending in digits.
+    const jammedPostcode = normalizedName.match(/([a-z])([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})$/i);
+    if (jammedPostcode) {
+      const pc = jammedPostcode[2].replace(/^([A-Z]{1,2}\d[A-Z\d]?)\s?(\d[A-Z]{2})$/i, "$1 $2");
+      normalizedName = normalizedName.slice(0, (jammedPostcode.index ?? 0) + 1).trim();
+      const parts = [normalizedName, venueAddress].filter(Boolean);
+      parts.push(pc);
+      location = parts.join(", ");
+    } else {
+      const parts = [normalizedName, venueAddress].filter(Boolean);
+      if (venuePostcode && !parts.some((p) => p.includes(venuePostcode))) {
+        parts.push(venuePostcode);
+      }
+      location = parts.join(", ");
     }
-    location = parts.join(", ");
   }
 
   // Build description with station + venue notes

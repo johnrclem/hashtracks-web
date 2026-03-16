@@ -102,4 +102,13 @@ describe("parseHalveMeinRow", () => {
     expect(result!.location).toBeUndefined();
     expect(result!.hares).toBe("Running Joke");
   });
+
+  it("filters 'Sign Up!' as hare placeholder", () => {
+    const result = parseHalveMeinRow(
+      ["821", "Wednesday", "March 18, 2026 6:00 PM", "TBD", "Sign Up!"],
+      "https://www.hmhhh.com/index.php?log=upcoming.con",
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBeUndefined();
+  });
 });

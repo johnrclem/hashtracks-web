@@ -312,6 +312,8 @@ export function sanitizeLocation(location: string | undefined): string | null {
   const t = location.trim();
   if (!t) return null;
   if (isPlaceholder(t)) return null;
+  // Filter "Online event" (Meetup/Calendar default for virtual events — not valid for hash runs)
+  if (/^online\s*(?:event)?$/i.test(t)) return null;
   // Strip "Registration: url" values used as location
   if (/^registration\s*:/i.test(t)) return null;
   // Strip bare URLs (not useful as location names)

@@ -2738,6 +2738,14 @@ async function main() {
       kennelCodes: ["swh3"],
     },
     {
+      name: "SWH3 Trail Announcements",
+      url: "https://swh3.wordpress.com/category/trail-announcements/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      kennelCodes: ["swh3"],
+    },
+    {
       name: "Carolina Larrikins Google Calendar",
       url: "3p2vupffo2qukm6ee8gg9clo3o@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,

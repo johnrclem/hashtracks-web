@@ -950,5 +950,11 @@ describe("sanitizeLocation", () => {
   it("uppercases state abbreviation without space after comma", () => {
     expect(sanitizeLocation("The Pub, Charleston,sc")).toBe("The Pub, Charleston, SC");
   });
+
+  it("filters 'Online event' as invalid location", () => {
+    expect(sanitizeLocation("Online event")).toBeNull();
+    expect(sanitizeLocation("online")).toBeNull();
+    expect(sanitizeLocation("Online Event")).toBeNull();
+  });
 });
 

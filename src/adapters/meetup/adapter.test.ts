@@ -183,6 +183,15 @@ describe("resolveVenue", () => {
     expect(result.latitude).toBe(25.76);
     expect(result.longitude).toBe(-80.19);
   });
+
+  it("filters 'Maps' venue name artifact", () => {
+    const state = {
+      "Venue:123": { __typename: "Venue", name: "Maps", address: "64A Market St", city: "Portland", state: "ME", lat: 43.66, lng: -70.26 },
+    };
+    const result = resolveVenue(state, { __ref: "Venue:123" } as never);
+    expect(result.location).not.toContain("Maps,");
+    expect(result.location).toBe("64A Market St, Portland, ME");
+  });
 });
 
 describe("stripTrailingState", () => {

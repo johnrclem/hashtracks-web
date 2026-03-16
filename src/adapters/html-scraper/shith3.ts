@@ -127,7 +127,7 @@ export function buildEventFromDetail(detail: DetailItem, listing: ListingItem): 
     date,
     kennelTag: "SHITH3",
     runNumber: runNumber && !isNaN(runNumber) ? runNumber : undefined,
-    title: detail.TITLE || parseListingTitle(listing.title).trailName,
+    title: decodeEntities(detail.TITLE || "") || parseListingTitle(listing.title).trailName,
     hares,
     location,
     locationUrl,

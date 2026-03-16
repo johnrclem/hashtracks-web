@@ -184,6 +184,24 @@ describe("parseMakesweatEvent", () => {
     expect(event!.location).toBe("Old Star, London E8 2HG, 66 Broadway");
     expect(event!.location).not.toContain("E8 2HG, E8 2HG");
   });
+
+  it("normalizes postcode jammed against venue name", () => {
+    // When the postcode is directly abutting the venue name (no space),
+    // the jammed postcode regex detects and splits it correctly
+    const html = `<div class="ms_event">
+      <div class="ms_eventtitle">City Hash R*n #1914</div>
+      <div class="ms_event_startdate">Mon 17th Mar 26</div>
+      <div class="ms_eventstart">7:00pm</div>
+      <div class="ms_eventdescription"></div>
+      <div class="ms_venue_name">The Duke of EdinburghSW9 8AG</div>
+      <div class="ms_venue_address">204 Ferndale Rd, Brixton, London</div>
+      <div class="ms_venue_postcode">SW9 8AG</div>
+    </div>`;
+    const $jammed = cheerio.load(html);
+    const event = parseMakesweatEvent($jammed, $jammed(".ms_event").eq(0), "https://makesweat.com/cityhash#hashes");
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("The Duke of Edinburgh, 204 Ferndale Rd, Brixton, London, SW9 8AG");
+  });
 });
 
 describe("CityHashAdapter.fetch", () => {

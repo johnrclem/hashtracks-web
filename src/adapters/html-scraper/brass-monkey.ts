@@ -11,16 +11,28 @@ import { chronoParseDate, decodeEntities, fetchHTMLPage, googleMapsSearchUrl, is
 export function parseBrassMonkeyTitle(title: string): {
   runNumber?: number;
   title?: string;
+  date?: string;
 } {
-  const match = title.match(/Brass\s+Monkey\s+#(\d+)\s*(.*)/i);
-  if (match) {
-    const cleaned = match[2].trim();
-    return {
-      runNumber: parseInt(match[1], 10),
-      title: cleaned || undefined,
-    };
+  // Extract run number from "Brass Monkey #NNN" or "BMH3 #NNN"
+  const match = title.match(/(?:Brass\s+Monkey|BMH3)\s*#(\d+)\s*(.*)/i);
+  const runNumber = match ? parseInt(match[1], 10) : undefined;
+  const remainder = match ? match[2].trim() : title.trim();
+
+  // Extract numeric date from title: MM/DD/YYYY, MM/DD/YY, or M/D/YYYY
+  const dateMatch = remainder.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/);
+  const date = dateMatch ? chronoParseDate(dateMatch[1], "en-US") : undefined;
+
+  // Clean title: only remove date text when it was successfully parsed
+  let cleaned = remainder;
+  if (dateMatch && date) {
+    cleaned = cleaned.replace(dateMatch[0], "").replace(/^[\s:–—-]+|[\s:–—-]+$/g, "").trim();
   }
-  return { title: title.trim() || undefined };
+
+  return {
+    runNumber,
+    title: cleaned || undefined,
+    date: date ?? undefined,
+  };
 }
 
 /**
@@ -37,20 +49,19 @@ export function parseBrassMonkeyBody(text: string): {
   location?: string;
   hares?: string;
 } {
-  // Extract date — look for a date line (often the first meaningful line)
+  // Extract date — only from explicit "Day, Month DD, YYYY" patterns.
+  // Do NOT fall back to chronoParseDate(text) as it grabs wrong dates from narrative text.
   const dateMatch = text.match(
     /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(\w+\s+\d{1,2},?\s+\d{4})/i,
   );
-  const date = dateMatch
-    ? chronoParseDate(dateMatch[0], "en-US")
-    : chronoParseDate(text, "en-US");
+  const date = dateMatch ? chronoParseDate(dateMatch[0], "en-US") : undefined;
 
   // Extract start time from "(3:30 PM start)" or "3:30 PM"
   const startTime = parse12HourTime(text);
 
   // Label-based extraction
   const locationMatch = text.match(/Location:\s*(.+?)(?=\n|Hare|$)/i);
-  const haresMatch = text.match(/Hares?(?:\(s\))?\s*:\s*(.+?)(?=\n|Location|$)/i);
+  const haresMatch = text.match(/Hares?(?:\(s\))?\s*:\s*(.+)$/im);
 
   return {
     date: date ?? undefined,
@@ -73,7 +84,7 @@ function processPost(
   const titleFields = parseBrassMonkeyTitle(titleText);
   const bodyFields = parseBrassMonkeyBody(bodyText);
 
-  const eventDate = bodyFields.date ?? chronoParseDate(titleText, "en-US");
+  const eventDate = titleFields.date ?? bodyFields.date ?? chronoParseDate(titleText, "en-US");
   if (!eventDate) {
     if (bodyText.trim().length > 0) {
       const dateError = `No date found in post: ${titleText || "(untitled)"}`;

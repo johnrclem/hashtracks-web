@@ -116,18 +116,39 @@ export function parseEnfieldBody(text: string, now?: Date): {
     }
   }
 
-  // Fallback: extract location from prose like "running from The Wonder"
+  // Fallback: extract location from prose — capture address after "running from",
+  // stopping at period, or non-address phrases like ", with" / ", for"
   if (!location) {
-    const proseLocation = text.match(/running from\s+(.+?)(?:[,.]|$)/i);
+    const proseLocation = text.match(/running from\s+(.+?)(?:\.\s|,\s*(?:with|for|and\s+(?:a|the))\b|$)/i);
     if (proseLocation) {
-      location = proseLocation[1].trim();
+      location = proseLocation[1].replace(/,\s*$/, "").trim();
     }
+  }
+
+  // Fallback: "Meet at The Old Wheatsheaf, opposite Enfield Chase station"
+  if (!location) {
+    const meetAt = text.match(/[Mm]eet\s+at\s+(.+?)(?:\.|$)/i);
+    if (meetAt) location = meetAt[1].trim();
+  }
+
+  // Fallback: "Rose and Crown pub, Clay Hill, Enfield"
+  if (!location) {
+    const pubWord = text.match(/([A-Z][^.]+?\bpub\b[^.]*)/i);
+    if (pubWord) location = pubWord[1].trim();
+  }
+
+  // Filter placeholders before appending Enfield suffix
+  if (location && isPlaceholder(location)) location = undefined;
+
+  // Append ", Enfield" for geocoding disambiguation — EH3 always runs in/around Enfield
+  if (location && !/enfield/i.test(location)) {
+    location = `${location}, Enfield`;
   }
 
   return {
     date: date ?? undefined,
     hares,
-    location: location && !isPlaceholder(location) ? location : undefined,
+    location: location || undefined,
     station: station && !isPlaceholder(station) ? station : undefined,
   };
 }

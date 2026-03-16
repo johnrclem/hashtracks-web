@@ -1,4 +1,6 @@
 import * as cheerio from "cheerio";
+import type { Cheerio } from "cheerio";
+import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
@@ -7,7 +9,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage } from "../utils";
+import { fetchHTMLPage, chronoParseDate, parse12HourTime } from "../utils";
 import { parseICalSummary } from "../ical/adapter";
 
 /** Config shape — reuses same kennelPatterns/skipPatterns as iCal adapter */
@@ -19,6 +21,7 @@ export interface SFH3ScraperConfig {
 
 /** Parsed row from the SFH3 hareline table */
 export interface HarelineRow {
+  kennelTag?: string;
   runNumber?: number;
   dateText: string;
   hare?: string;
@@ -32,22 +35,25 @@ export interface HarelineRow {
  * Parse a date from the SFH3 hareline "When" column.
  *
  * Expected formats from the MultiHash platform:
- *   "Monday 3/3/2026" or "Mon 3/3/2026"  → "2026-03-03"
- *   "3/3/2026"                            → "2026-03-03"
- *   "03/03/2026"                          → "2026-03-03"
+ *   Old: "Monday 3/3/2026" or "3/3/2026" or "03/03/2026"
+ *   New: "Mon, Mar 16, 6:15 pm"
  */
 export function parseSFH3Date(dateText: string): string | null {
-  // Match M/D/YYYY or MM/DD/YYYY, optionally preceded by day name
-  const match = dateText.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (!match) return null;
+  // Try old numeric format first: M/D/YYYY or MM/DD/YYYY
+  const numericMatch = dateText.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (numericMatch) {
+    const month = parseInt(numericMatch[1], 10);
+    const day = parseInt(numericMatch[2], 10);
+    const year = parseInt(numericMatch[3], 10);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+    // Numeric pattern found but invalid — don't fall through to chrono
+    return null;
+  }
 
-  const month = parseInt(match[1], 10);
-  const day = parseInt(match[2], 10);
-  const year = parseInt(match[3], 10);
-
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  // New format: "Mon, Mar 16, 6:15 pm" — use chrono-node
+  return chronoParseDate(dateText, "en-US") ?? null;
 }
 
 /**
@@ -67,18 +73,24 @@ export function extractLocationUrl(locationHtml: string): string | undefined {
  * Parse all hareline rows from the SFH3 runs page HTML.
  *
  * The MultiHash platform serves a table with columns:
- *   Run# | When | Hare | Where | What
+ *   Old (5-col): Run# | When | Hare | Where | What
+ *   New (7-col): Kennel | R*n | When | Hare | Where | What | Misinformation
  *
- * The Run# column may contain a link to /runs/{id}.
+ * The Run# column may contain a link to /runs/{id} with "#NNN" text.
  * The Where column may contain a Google Maps link.
  */
 export function parseHarelineRows(html: string): HarelineRow[] {
   const $ = cheerio.load(html);
   const rows: HarelineRow[] = [];
 
-  // Find the main runs table — try common patterns
+  // Find the main runs table
   const table = $("table").first();
   if (!table.length) return rows;
+
+  // Detect column layout from header row
+  const headerCells = table.find("th");
+  const is7Col = headerCells.length >= 7 ||
+    headerCells.toArray().some((th) => $(th).text().trim().toLowerCase() === "kennel");
 
   const bodyRows = table.find("tbody tr");
   const targetRows = bodyRows.length > 0 ? bodyRows : table.find("tr").slice(1);
@@ -88,29 +100,47 @@ export function parseHarelineRows(html: string): HarelineRow[] {
     const cells = $row.find("td");
     if (cells.length < 5) return;
 
-    // Column 0: Run#
-    const runCell = cells.eq(0);
-    const runNumText = runCell.text().trim();
-    const runNumber = runNumText ? parseInt(runNumText, 10) : undefined;
-    const detailLink = runCell.find("a").attr("href") || undefined;
+    let kennelTag: string | undefined;
+    let runNumber: number | undefined;
+    let detailLink: string | undefined;
+    let dateText: string;
+    let hare: string | undefined;
+    let locationCell: Cheerio<AnyNode>;
+    let title: string;
 
-    // Column 1: When
-    const dateText = cells.eq(1).text().trim();
+    if (is7Col && cells.length >= 7) {
+      // New layout: Kennel | R*n | When | Hare | Where | What | Misinformation
+      kennelTag = cells.eq(0).text().trim() || undefined;
 
-    // Column 2: Hare
-    const hare = cells.eq(2).text().trim() || undefined;
+      const runCell = cells.eq(1);
+      const runText = runCell.text().trim().replace(/^#/, "");
+      runNumber = runText ? parseInt(runText, 10) : undefined;
+      detailLink = runCell.find("a").attr("href") || undefined;
 
-    // Column 3: Where (may contain a Google Maps link)
-    const locationCell = cells.eq(3);
+      dateText = cells.eq(2).text().trim();
+      hare = cells.eq(3).text().trim() || undefined;
+      locationCell = cells.eq(4);
+      title = cells.eq(5).text().trim();
+    } else {
+      // Old layout: Run# | When | Hare | Where | What
+      const runCell = cells.eq(0);
+      const runNumText = runCell.text().trim();
+      runNumber = runNumText ? parseInt(runNumText, 10) : undefined;
+      detailLink = runCell.find("a").attr("href") || undefined;
+
+      dateText = cells.eq(1).text().trim();
+      hare = cells.eq(2).text().trim() || undefined;
+      locationCell = cells.eq(3);
+      title = cells.eq(4).text().trim();
+    }
+
     const locationText = locationCell.text().trim() || undefined;
     const locationUrl = extractLocationUrl(locationCell.html() || "");
 
-    // Column 4: What (event title, usually "KENNEL #RUN: Title")
-    const title = cells.eq(4).text().trim();
-
-    if (!dateText || !title) return;
+    if (!dateText) return;
 
     rows.push({
+      kennelTag,
       runNumber: runNumber && !isNaN(runNumber) ? runNumber : undefined,
       dateText,
       hare,
@@ -163,7 +193,10 @@ export class SFH3Adapter implements SourceAdapter {
       const row = rows[i];
       try {
         // Skip rows matching skipPatterns (e.g., "Hand Pump", "Workday")
-        if (skipPatterns?.some((p) => p.test(row.title))) {
+        const fullTitle = row.kennelTag && row.title
+          ? `${row.kennelTag}: ${row.title}`
+          : row.title;
+        if (skipPatterns?.some((p) => p.test(fullTitle))) {
           skippedPattern++;
           continue;
         }
@@ -177,12 +210,15 @@ export class SFH3Adapter implements SourceAdapter {
           continue;
         }
 
-        // Extract kennel tag, run number, and title from the "What" column
-        // using the same parser as the iCal adapter (same backend data)
+        // Extract kennel tag from dedicated column (new layout) or title (old layout)
         const parsed = parseICalSummary(row.title, kennelPatterns, defaultKennelTag);
+        const kennelTag = row.kennelTag ?? parsed.kennelTag;
 
         // Prefer run number from dedicated column, fall back to title
         const runNumber = row.runNumber ?? parsed.runNumber;
+
+        // Extract start time from the date column (new format: "Mon, Mar 16, 6:15 pm")
+        const startTime = parse12HourTime(row.dateText);
 
         // Build the detail page URL
         const detailUrl = row.detailUrl
@@ -191,13 +227,13 @@ export class SFH3Adapter implements SourceAdapter {
 
         events.push({
           date,
-          kennelTag: parsed.kennelTag,
+          kennelTag,
           runNumber,
           title: parsed.title ?? row.title,
           hares: row.hare,
           location: row.locationText,
           locationUrl: row.locationUrl,
-          startTime: undefined, // HTML table does not include start time
+          startTime,
           sourceUrl: detailUrl ?? baseUrl,
         });
       } catch (err) {
