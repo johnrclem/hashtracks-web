@@ -494,6 +494,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -78.48,
     aliases: ["Charlottesville"],
   },
+  {
+    name: "Lynchburg, VA",
+    country: "USA",
+    timezone: "America/New_York",
+    abbrev: "LYH",
+    colorClasses: "bg-pink-100 text-pink-700",
+    pinColor: "#ec4899",
+    centroidLat: 37.41,
+    centroidLng: -79.14,
+    aliases: ["Lynchburg"],
+  },
   // ── US Southeast ──
   {
     name: "Atlanta, GA",
