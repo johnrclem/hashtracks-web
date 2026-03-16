@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { buildCanonicalUrl, buildKennelJsonLd } from "@/lib/seo";
+import { ShareButtons } from "@/components/shared/ShareButtons";
 
 export async function generateMetadata({
   params,
@@ -10,10 +12,45 @@ export async function generateMetadata({
   const { slug } = await params;
   const kennel = await prisma.kennel.findUnique({
     where: { slug },
-    select: { shortName: true, isHidden: true },
+    select: {
+      shortName: true,
+      fullName: true,
+      description: true,
+      region: true,
+      logoUrl: true,
+      isHidden: true,
+      scheduleDayOfWeek: true,
+      scheduleFrequency: true,
+    },
   });
-  if (!kennel || kennel.isHidden) return { title: "Kennel · HashTracks" };
-  return { title: `${kennel.shortName} · Kennels · HashTracks` };
+  if (!kennel || kennel.isHidden) return { title: "Kennel" };
+
+  const title = `${kennel.fullName} (${kennel.shortName})`;
+  const schedulePart = kennel.scheduleDayOfWeek
+    ? `${kennel.scheduleFrequency ?? "Regular"} runs on ${kennel.scheduleDayOfWeek}s`
+    : null;
+  const description = kennel.description
+    || (schedulePart ? `${schedulePart} in ${kennel.region}.` : `Hash House Harriers kennel in ${kennel.region}.`);
+  const url = buildCanonicalUrl(`/kennels/${slug}`);
+
+  return {
+    title: `${kennel.shortName} · Kennels`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `${title} · HashTracks`,
+      description,
+      url,
+      type: "profile",
+      images: [{ url: `/api/og/kennel?slug=${slug}`, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} · HashTracks`,
+      description,
+      images: [`/api/og/kennel?slug=${slug}`],
+    },
+  };
 }
 import { getOrCreateUser } from "@/lib/auth";
 import { Users } from "lucide-react";
@@ -130,8 +167,25 @@ export default async function KennelDetailPage({
     .slice(0, 3)
     .toUpperCase();
 
+  const kennelUrl = buildCanonicalUrl(`/kennels/${slug}`);
+  const kennelJsonLd = buildKennelJsonLd({
+    name: kennel.fullName,
+    shortName: kennel.shortName,
+    description: kennel.description,
+    url: kennelUrl,
+    website: kennel.website,
+    logoUrl: kennel.logoUrl,
+    latitude: kennel.latitude,
+    longitude: kennel.longitude,
+    region: kennel.region,
+  });
+
   return (
     <div className="space-y-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(kennelJsonLd) }}
+      />
       {/* ── Hero ── */}
       <div
         className="-mx-4 -mt-4 px-4 pb-6 pt-8 sm:-mx-6 sm:px-6 sm:pt-10 rounded-b-2xl"
@@ -192,6 +246,7 @@ export default async function KennelDetailPage({
                 hasPendingRequest={hasPendingMismanRequest}
                 isAuthenticated={!!user}
               />
+              <ShareButtons url={kennelUrl} title={kennel.fullName} />
             </div>
           </div>
         </div>

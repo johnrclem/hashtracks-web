@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { buildCanonicalUrl, buildEventJsonLd } from "@/lib/seo";
+import { formatTime } from "@/lib/format";
 
 export async function generateMetadata({
   params,
@@ -13,18 +15,57 @@ export async function generateMetadata({
     where: { id: eventId },
     select: {
       date: true,
-      kennel: { select: { shortName: true } },
+      title: true,
+      locationName: true,
+      haresText: true,
+      startTime: true,
+      runNumber: true,
+      description: true,
+      kennel: { select: { shortName: true, fullName: true } },
     },
   });
-  if (!event) return { title: "Event · HashTracks" };
+  if (!event) return { title: "Event" };
+
   const dateStr = event.date.toLocaleDateString("en-US", {
-    month: "short",
+    weekday: "long",
+    month: "long",
     day: "numeric",
     year: "numeric",
     timeZone: "UTC",
   });
-  return { title: `${dateStr} · ${event.kennel.shortName} · HashTracks` };
+
+  const title = event.title
+    ? `${event.title} — ${event.kennel.shortName}`
+    : `${event.kennel.shortName}${event.runNumber ? ` Run #${event.runNumber}` : ""} — ${dateStr}`;
+
+  const descParts = [dateStr];
+  if (event.startTime) descParts.push(`at ${formatTime(event.startTime)}`);
+  if (event.locationName) descParts.push(`— ${event.locationName}`);
+  if (event.haresText) descParts.push(`| Hares: ${event.haresText}`);
+  const description = descParts.join(" ");
+
+  const url = buildCanonicalUrl(`/hareline/${eventId}`);
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `${title} · HashTracks`,
+      description,
+      url,
+      type: "article",
+      images: [{ url: `/api/og/event?id=${eventId}`, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} · HashTracks`,
+      description,
+      images: [`/api/og/event?id=${eventId}`],
+    },
+  };
 }
+import { ShareButtons } from "@/components/shared/ShareButtons";
 import { getOrCreateUser, getAdminUser, getMismanUser } from "@/lib/auth";
 import { getStravaConnection } from "@/app/strava/actions";
 import { Badge } from "@/components/ui/badge";
@@ -154,8 +195,29 @@ export default async function EventDetailPage({
     return "Let others know you plan to attend.";
   }
 
+  const eventUrl = buildCanonicalUrl(`/hareline/${eventId}`);
+  const eventJsonLd = buildEventJsonLd({
+    name: event.title
+      ? `${event.title} — ${event.kennel.shortName}`
+      : `${event.kennel.shortName}${event.runNumber ? ` Run #${event.runNumber}` : ""}`,
+    startDate: event.date.toISOString().split("T")[0],
+    startTime: event.startTime,
+    locationName: event.locationName,
+    locationAddress: event.locationAddress,
+    latitude: event.latitude,
+    longitude: event.longitude,
+    description: event.description,
+    url: eventUrl,
+    organizerName: event.kennel.fullName,
+    organizerUrl: buildCanonicalUrl(`/kennels/${event.kennel.slug}`),
+  });
+
   return (
     <div className="space-y-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd) }}
+      />
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-muted-foreground">
         {from === "logbook" ? (
@@ -335,6 +397,12 @@ export default async function EventDetailPage({
         )}
         <CalendarExportButton event={{ ...event, date: event.date.toISOString(), kennel: event.kennel }} />
         <SourcesDropdown sourceUrl={event.sourceUrl} eventLinks={event.eventLinks} />
+        <ShareButtons
+          url={eventUrl}
+          title={event.title
+            ? `${event.title} — ${event.kennel.shortName}`
+            : `${event.kennel.shortName}${event.runNumber ? ` Run #${event.runNumber}` : ""}`}
+        />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="outline" size="sm" asChild>

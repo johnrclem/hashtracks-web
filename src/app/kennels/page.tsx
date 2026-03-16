@@ -5,9 +5,17 @@ import { prisma } from "@/lib/db";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { buildCanonicalUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Kennels · HashTracks",
+  title: "Kennels",
+  description: "Explore 176+ Hash House Harriers kennels across the US, UK, and Ireland. Find kennels near you, view schedules, and discover new runs.",
+  alternates: { canonical: buildCanonicalUrl("/kennels") },
+  openGraph: {
+    title: "Kennel Directory · HashTracks",
+    description: "Explore 176+ Hash House Harriers kennels across the US, UK, and Ireland. Find kennels near you, view schedules, and discover new runs.",
+    url: buildCanonicalUrl("/kennels"),
+  },
 };
 
 export default async function KennelsPage() {

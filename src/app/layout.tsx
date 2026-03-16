@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next";
+import type { Viewport } from "next";
 import { Outfit, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
@@ -12,6 +12,7 @@ import { getOrCreateUser } from "@/lib/auth";
 import { clerkAppearance } from "@/lib/clerk-appearance";
 import { TimePreferenceProvider } from "@/components/providers/time-preference-provider";
 import { UnitsPreferenceProvider } from "@/components/providers/units-preference-provider";
+import { getRootMetadata } from "@/lib/seo";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -28,10 +29,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export const metadata: Metadata = {
-  title: "HashTracks",
-  description: "Discover runs, track attendance, view stats — the hareline you never knew you needed.",
-};
+export const metadata = getRootMetadata();
 
 export default async function RootLayout({
   children,

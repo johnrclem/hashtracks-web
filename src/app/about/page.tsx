@@ -4,9 +4,10 @@ import { ArrowRight } from "lucide-react";
 import { FadeInSection } from "@/components/home/HeroAnimations";
 
 export const metadata: Metadata = {
-  title: "About · HashTracks",
+  title: "About",
   description:
     "HashTracks is the Strava of hashing — aggregated harelines, personal logbooks, and kennel directories for the global hashing community.",
+  alternates: { canonical: "https://hashtracks.xyz/about" },
 };
 
 export default function AboutPage() {

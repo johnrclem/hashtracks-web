@@ -660,10 +660,24 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - [ ] Image processing: resize + optimize for 64x64 display
 - [ ] Update QuickInfoCard and hero section to use uploaded images
 
-### SEO & Social Sharing
-- [ ] Open Graph tags on event detail pages (title, description, kennel, date)
-- [ ] OG tags on kennel pages (with logo image if available)
-- [ ] Meta descriptions for search engines
+### SEO & Social Sharing — COMPLETE
+- [x] **robots.ts** — allows crawling of public pages, blocks admin/auth/api routes, references sitemap
+- [x] **Dynamic sitemap.ts** — static pages + all visible kennels + events (future + 90-day past), `changeFrequency` + `priority` per type
+- [x] **Rich root metadata** — `metadataBase`, title template (`%s · HashTracks`), default OG image, Twitter card defaults, canonical URL
+- [x] **Open Graph + Twitter Card metadata** on all public pages:
+  - Event detail: dynamic title, description (date/time/location/hares), canonical URL, dynamic OG image
+  - Kennel detail: dynamic title, description (schedule/region), canonical URL, dynamic OG image
+  - Hareline list, Kennel directory, About, For Misman: static metadata with descriptions + canonical URLs
+- [x] **Dynamic OG images** via `next/og` `ImageResponse`:
+  - `/api/og/event?id=` — branded card with kennel name, event title/run#, date, time, location
+  - `/api/og/kennel?slug=` — branded card with shortName, fullName, description, schedule, stats
+  - `/api/og` — default branded card with platform stats
+- [x] **JSON-LD structured data**:
+  - Event pages: Schema.org `SportsEvent` (name, startDate, location, organizer, geo coordinates)
+  - Kennel pages: Schema.org `SportsOrganization` (name, alternateName, sport, location, logo)
+- [x] **ShareButtons component** — dropdown with Copy Link, Share on X, Facebook, WhatsApp — on event + kennel detail pages
+- [x] **Canonical URLs** on all public pages via `alternates.canonical`
+- [x] **Shared SEO utilities** — `src/lib/seo.ts` (getBaseUrl, buildCanonicalUrl, getRootMetadata, buildEventJsonLd, buildKennelJsonLd)
 
 ### Calendar Feed Subscriptions (Per-Kennel)
 - [ ] Subscribable calendar feed per kennel (auto-updating .ics URL)

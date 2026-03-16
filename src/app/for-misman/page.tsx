@@ -13,9 +13,10 @@ import { ArrowRight, Lightbulb } from "lucide-react";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Misman — Attendance Tools for Kennel Organizers · HashTracks",
+  title: "Misman — Attendance Tools for Kennel Organizers",
   description:
     "Mobile-first attendance recording, smart suggestions, roster management, and audit trails for hash kennel mismanagement.",
+  alternates: { canonical: "https://hashtracks.xyz/for-misman" },
 };
 
 export default async function MismanAboutPage() {

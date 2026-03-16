@@ -2,9 +2,17 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { getWeatherForEvents } from "@/lib/weather";
+import { buildCanonicalUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Hareline · HashTracks",
+  title: "Hareline",
+  description: "Browse upcoming hash runs from 176+ kennels worldwide. Filter by region, kennel, or date.",
+  alternates: { canonical: buildCanonicalUrl("/hareline") },
+  openGraph: {
+    title: "Hareline — Upcoming Hash Runs · HashTracks",
+    description: "Browse upcoming hash runs from 176+ kennels worldwide. Filter by region, kennel, or date.",
+    url: buildCanonicalUrl("/hareline"),
+  },
 };
 import { getOrCreateUser } from "@/lib/auth";
 import { HarelineView } from "@/components/hareline/HarelineView";
