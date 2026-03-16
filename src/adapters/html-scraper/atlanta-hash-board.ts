@@ -151,7 +151,11 @@ export function extractEventFields(
   // Location — look for labeled fields first
   const locMatch = /(?:Start|Where|Location|Meeting|Meet)\s*:\s*([^\n]*)(?:\n|$)/i.exec(text);
   if (locMatch) {
-    fields.location = locMatch[1].trim();
+    let loc = locMatch[1].trim();
+    // Insert comma between venue name and street number when concatenated:
+    // "Constitution Lakes 1305 S River Industrial Blvd" → "Constitution Lakes, 1305 S River Industrial Blvd"
+    loc = loc.replace(/^([A-Z][A-Za-z\s']+?)\s+(\d{2,5}\s+\w)/, "$1, $2");
+    fields.location = loc;
   }
 
   // Google Maps URL from HTML

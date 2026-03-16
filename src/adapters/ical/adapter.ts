@@ -390,7 +390,7 @@ function buildRawEventFromVEvent(
     location,
     locationUrl,
     startTime,
-    sourceUrl: vevent.url ?? undefined,
+    sourceUrl: paramValue(vevent.url) ?? undefined,
   };
 }
 

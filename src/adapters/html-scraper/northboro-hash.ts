@@ -130,9 +130,15 @@ export function parseTrailBlock(
       continue;
     }
 
-    // If line doesn't match other patterns, treat as location
+    // If line doesn't match other patterns, treat as location —
+    // but skip lines that duplicate the title or hare text (Wix rendering artifact)
     if (!location && !/trail|hash|#\d/i.test(line)) {
-      location = line;
+      const lineNorm = line.toLowerCase();
+      const isDupeTitle = title && lineNorm.includes(title.toLowerCase().slice(0, 20));
+      const isDupeHares = hares && lineNorm.includes(hares.toLowerCase().slice(0, 20));
+      if (!isDupeTitle && !isDupeHares) {
+        location = line;
+      }
     }
   }
 

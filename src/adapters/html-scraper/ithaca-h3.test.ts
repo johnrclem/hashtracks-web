@@ -110,4 +110,27 @@ describe("parseIH3Block", () => {
     expect(result).not.toBeNull();
     expect(result!.sourceUrl).toBe("http://ithacah3.org/trails/1121/");
   });
+
+  it("splits location from concatenated labels (TBDWhen:)", () => {
+    // When <br> tags are missing, labels run together in blockText:
+    // "Where: TBDWhen: 2:00 pmCost: $5"
+    const html = `<p>
+      <strong>#1122: April 26</strong>
+      <span style="font-weight: 600;">Where</span>: TBD<span style="font-weight: 600;">When:</span> 2:00 pm<span style="font-weight: 600;">Cost:</span> $5
+    </p>`;
+
+    const $ = cheerio.load(html);
+    const result = parseIH3Block($("p").first(), $, sourceUrl);
+
+    expect(result).not.toBeNull();
+    expect(result!.runNumber).toBe(1122);
+    expect(result!.date).toBe("2026-04-26");
+    // The location should NOT contain "When:" or time data bleeding through
+    // "TBDWhen: 2:00 pmCost: $5" should not be used as location
+    if (result!.location) {
+      expect(result!.location).not.toContain("When:");
+      expect(result!.location).not.toContain("2:00");
+      expect(result!.location).not.toContain("Cost:");
+    }
+  });
 });

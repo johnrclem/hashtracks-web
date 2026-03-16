@@ -311,6 +311,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
       url.searchParams.set("singleEvents", "true");
       url.searchParams.set("orderBy", "startTime");
       url.searchParams.set("maxResults", "250");
+      url.searchParams.set("hl", "en");
       if (pageToken) url.searchParams.set("pageToken", pageToken);
 
       const resp = await fetch(url.toString(), {

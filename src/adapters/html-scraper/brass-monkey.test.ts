@@ -28,6 +28,27 @@ describe("parseBrassMonkeyTitle", () => {
     expect(result.runNumber).toBeUndefined();
     expect(result.title).toBeUndefined();
   });
+
+  it("extracts date from title with MM/DD/YYYY format", () => {
+    const result = parseBrassMonkeyTitle("BMH3 #420 02/28/2026 Brass Monkey 420 Runs!");
+    expect(result.runNumber).toBe(420);
+    expect(result.date).toBe("2026-02-28");
+    expect(result.title).toBe("Brass Monkey 420 Runs!");
+  });
+
+  it("extracts date from title with MM/DD/YY format", () => {
+    const result = parseBrassMonkeyTitle("Brass Monkey #418 01/31/26 Penis Fly Crap's Fuck Off Trail");
+    expect(result.runNumber).toBe(418);
+    expect(result.date).toBe("2026-01-31");
+    expect(result.title).toBe("Penis Fly Crap's Fuck Off Trail");
+  });
+
+  it("handles title without date", () => {
+    const result = parseBrassMonkeyTitle("Brass Monkey #421 Just Short of A Brass Monkey Mile?");
+    expect(result.runNumber).toBe(421);
+    expect(result.date).toBeUndefined();
+    expect(result.title).toBe("Just Short of A Brass Monkey Mile?");
+  });
 });
 
 describe("parseBrassMonkeyBody", () => {
@@ -70,6 +91,18 @@ describe("parseBrassMonkeyBody", () => {
     const text = "Hare: Trail Blazer\nLocation: Hermann Park";
     const result = parseBrassMonkeyBody(text);
     expect(result.hares).toBe("Trail Blazer");
+  });
+
+  it("does not extract dates from narrative text (no chrono fallback)", () => {
+    const body = "This trail from 5/10/2025 was amazing\nLocation: Some Park\nHare(s): Hash Name";
+    const result = parseBrassMonkeyBody(body);
+    expect(result.date).toBeUndefined(); // No "Saturday, Month DD, YYYY" pattern
+  });
+
+  it("extracts full hare names with greedy match", () => {
+    const body = "Saturday, March 14, 2026\nLocation: Park\nHare(s): Horsefli & DriveBi";
+    const result = parseBrassMonkeyBody(body);
+    expect(result.hares).toBe("Horsefli & DriveBi");
   });
 });
 

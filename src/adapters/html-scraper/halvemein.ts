@@ -45,7 +45,7 @@ export function parseHalveMeinRow(
   let hares: string | undefined;
   if (cells[4]) {
     const cleaned = cells[4].trim();
-    if (cleaned && !/^tbd|tba|tbc$/i.test(cleaned)) {
+    if (cleaned && !/^(?:tbd|tba|tbc|sign\s*up!?)$/i.test(cleaned)) {
       hares = cleaned;
     }
   }

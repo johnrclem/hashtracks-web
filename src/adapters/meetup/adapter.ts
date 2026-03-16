@@ -171,7 +171,11 @@ export function resolveVenue(
 
   if (resolved.name) {
     let name = resolved.name;
-    if (resolved.state) {
+    // Filter Google Maps UI artifacts that bleed into venue names
+    if (/^(?:maps|google\s*maps)$/i.test(name.trim())) {
+      name = "";
+    }
+    if (resolved.state && name) {
       const stripped = stripTrailingState(name, resolved.state);
       // Only deduplicate words when state-stripping detected corruption (state was embedded in name)
       name = stripped !== name ? deduplicateWords(stripped) : stripped;
