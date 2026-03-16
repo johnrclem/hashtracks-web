@@ -2,7 +2,46 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { fetchBloggerPosts } from "../blogger-api";
-import { chronoParseDate, decodeEntities, fetchHTMLPage, googleMapsSearchUrl, isPlaceholder, parse12HourTime, stripHtmlTags } from "../utils";
+import { chronoParseDate, decodeEntities, fetchHTMLPage, googleMapsSearchUrl, isPlaceholder, MONTHS, parse12HourTime, stripHtmlTags } from "../utils";
+
+const ORDINALS: Record<string, number> = {
+  first: 1, second: 2, third: 3, fourth: 4, fifth: 5,
+  sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10,
+  eleventh: 11, twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15,
+  sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19, twentieth: 20,
+  "twenty-first": 21, "twenty-second": 22, "twenty-third": 23, "twenty-fourth": 24,
+  "twenty-fifth": 25, "twenty-sixth": 26, "twenty-seventh": 27, "twenty-eighth": 28,
+  "twenty-ninth": 29, thirtieth: 30, "thirty-first": 31,
+  twentyfirst: 21, twentysecond: 22, twentythird: 23, twentyfourth: 24,
+  twentyfifth: 25, twentysixth: 26, twentyseventh: 27, twentyeighth: 28,
+  twentyninth: 29, thirtyfirst: 31,
+};
+
+const YEAR_UNITS: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4,
+  five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+};
+
+// "Saturday, March 14, 2026"
+const NUMERIC_DATE_RE = /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})/i;
+
+// "Saturday, March Fourteenth, TwentyTwentySix" — month constrained to real month names
+const WORD_DATE_RE = /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\w[\w-]*),?\s+([\w-]+)/i;
+
+/** Convert ordinal word to number: "fourteenth" → 14, "third" → 3 */
+function parseOrdinalWord(word: string): number | undefined {
+  const normalized = word.toLowerCase().replace(/[-\s]/g, "");
+  return ORDINALS[normalized] ?? ORDINALS[word.toLowerCase()];
+}
+
+/** Convert spelled-out year to number: "TwentyTwentySix" / "Twenty-Twenty-Six" → 2026 (2020s only) */
+function parseWordYear(text: string): number | undefined {
+  const normalized = text.toLowerCase().replace(/[-\s]/g, "");
+  const match = normalized.match(/^twentytwenty(\w+)$/);
+  if (!match) return undefined;
+  const unit = YEAR_UNITS[match[1]];
+  return unit != null ? 2020 + unit : undefined;
+}
 
 /**
  * Parse run number and title from a Brass Monkey post title.
@@ -51,10 +90,24 @@ export function parseBrassMonkeyBody(text: string): {
 } {
   // Extract date — only from explicit "Day, Month DD, YYYY" patterns.
   // Do NOT fall back to chronoParseDate(text) as it grabs wrong dates from narrative text.
-  const dateMatch = text.match(
-    /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(\w+\s+\d{1,2},?\s+\d{4})/i,
-  );
-  const date = dateMatch ? chronoParseDate(dateMatch[0], "en-US") : undefined;
+
+  // Try numeric pattern first: "Saturday, March 14, 2026"
+  const numericDateMatch = text.match(NUMERIC_DATE_RE);
+  let date = numericDateMatch ? chronoParseDate(numericDateMatch[0], "en-US") : undefined;
+
+  // Fallback: spelled-out ordinal + word/numeric year — "Saturday, March Fourteenth, TwentyTwentySix"
+  if (!date) {
+    const wordDateMatch = text.match(WORD_DATE_RE);
+    if (wordDateMatch) {
+      const [, monthWord, dayWord, yearWord] = wordDateMatch;
+      const monthNum = MONTHS[monthWord.toLowerCase().slice(0, 3)];
+      const dayNum = parseOrdinalWord(dayWord);
+      const yearNum = parseWordYear(yearWord) ?? (/^\d{4}$/.test(yearWord) ? parseInt(yearWord, 10) : undefined);
+      if (monthNum && dayNum && yearNum) {
+        date = `${yearNum}-${String(monthNum).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+      }
+    }
+  }
 
   // Extract start time from "(3:30 PM start)" or "3:30 PM"
   const startTime = parse12HourTime(text);
@@ -84,7 +137,7 @@ function processPost(
   const titleFields = parseBrassMonkeyTitle(titleText);
   const bodyFields = parseBrassMonkeyBody(bodyText);
 
-  const eventDate = titleFields.date ?? bodyFields.date ?? chronoParseDate(titleText, "en-US");
+  const eventDate = bodyFields.date ?? titleFields.date;
   if (!eventDate) {
     if (bodyText.trim().length > 0) {
       const dateError = `No date found in post: ${titleText || "(untitled)"}`;

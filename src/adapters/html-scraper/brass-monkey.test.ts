@@ -104,6 +104,35 @@ describe("parseBrassMonkeyBody", () => {
     const result = parseBrassMonkeyBody(body);
     expect(result.hares).toBe("Horsefli & DriveBi");
   });
+
+  it("extracts spelled-out ordinal date with camelCase word year", () => {
+    const text = "Saturday, March Fourteenth, TwentyTwentySix (3:30 PM start)\nLocation: Test Park";
+    const result = parseBrassMonkeyBody(text);
+    expect(result.date).toBe("2026-03-14");
+    expect(result.startTime).toBe("15:30");
+    expect(result.location).toBe("Test Park");
+  });
+
+  it("extracts spelled-out ordinal date with hyphenated word year", () => {
+    const text = "Saturday, January third, Twenty-Twenty-Six\nLocation: Memorial Park";
+    const result = parseBrassMonkeyBody(text);
+    expect(result.date).toBe("2026-01-03");
+    expect(result.location).toBe("Memorial Park");
+  });
+
+  it("extracts spelled-out ordinal date with numeric year", () => {
+    const text = "Saturday, March Fourteenth, 2026\nHare(s): Lucky Stiff";
+    const result = parseBrassMonkeyBody(text);
+    expect(result.date).toBe("2026-03-14");
+    expect(result.hares).toBe("Lucky Stiff");
+  });
+
+  it("extracts hyphenated ordinal day", () => {
+    const text = "Saturday, March Twenty-First, TwentyTwentySix\nLocation: Test Park";
+    const result = parseBrassMonkeyBody(text);
+    expect(result.date).toBe("2026-03-21");
+    expect(result.location).toBe("Test Park");
+  });
 });
 
 describe("BrassMonkeyAdapter.fetch (Blogger API path)", () => {
@@ -205,6 +234,57 @@ describe("BrassMonkeyAdapter.fetch (Blogger API path)", () => {
     expect(result.events[0].kennelTag).toBe("BMH3");
     expect(result.diagnosticContext).toMatchObject({
       fetchMethod: "html-scrape",
+    });
+  });
+
+  it("uses body date over title date when both present", async () => {
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "BMH3 #405 08/02/2025 Old Trail Name",
+          content: "<p>Saturday, March 14, 2026 (3:30 PM start)</p><p>Location: Test Park</p>",
+          url: "https://teambrassmonkey.blogspot.com/2026/03/test.html",
+          published: "2026-03-01T12:00:00Z",
+        },
+      ],
+      blogId: "12345",
+      fetchDurationMs: 100,
+    });
+
+    const result = await adapter.fetch({
+      id: "test-bmh3",
+      url: "https://teambrassmonkey.blogspot.com",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].date).toBe("2026-03-14"); // body date wins over title date 08/02/2025
+  });
+
+  it("parses spelled-out body dates via Blogger API", async () => {
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "Brass Monkey #421 Just Short of A Brass Monkey Mile?",
+          content: "<p>Saturday, March Fourteenth, TwentyTwentySix (3:30 PM start)</p><p>Location: Spring Park</p><p>Hare(s): Lucky Stiff</p>",
+          url: "https://teambrassmonkey.blogspot.com/2026/03/brass-monkey-421.html",
+          published: "2026-03-01T12:00:00Z",
+        },
+      ],
+      blogId: "12345",
+      fetchDurationMs: 100,
+    });
+
+    const result = await adapter.fetch({
+      id: "test-bmh3",
+      url: "https://teambrassmonkey.blogspot.com",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({
+      date: "2026-03-14",
+      runNumber: 421,
+      startTime: "15:30",
+      location: "Spring Park",
     });
   });
 
