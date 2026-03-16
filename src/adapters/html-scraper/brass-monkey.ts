@@ -22,9 +22,9 @@ export function parseBrassMonkeyTitle(title: string): {
   const dateMatch = remainder.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/);
   const date = dateMatch ? chronoParseDate(dateMatch[1], "en-US") : undefined;
 
-  // Clean title: remove date and surrounding punctuation
+  // Clean title: only remove date text when it was successfully parsed
   let cleaned = remainder;
-  if (dateMatch) {
+  if (dateMatch && date) {
     cleaned = cleaned.replace(dateMatch[0], "").replace(/^[\s:–—-]+|[\s:–—-]+$/g, "").trim();
   }
 

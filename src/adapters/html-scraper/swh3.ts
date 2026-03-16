@@ -39,7 +39,7 @@ interface WPComPost {
  */
 export function parseSWH3Title(
   title: string,
-  publishYear: number,
+  publishDate: string,
 ): { runNumber?: number; date?: string; trailName?: string } {
   // Extract run number
   const runMatch = title.match(/#(\d+)/);
@@ -52,8 +52,9 @@ export function parseSWH3Title(
   // Strip leading punctuation/whitespace: "- Saturday, March 14" → "Saturday, March 14"
   const dateText = afterRun.replace(/^[\s,\-–—]+/, "").trim();
 
-  // Use chrono-node with reference year from publish date for year inference
-  const refDate = new Date(publishYear, 0, 1);
+  // Use publish date as reference for year inference — trail date is typically
+  // within a week of publish date (could be before or after)
+  const refDate = new Date(publishDate);
   const date = chronoParseDate(dateText, "en-US", refDate);
 
   return { runNumber, date: date ?? undefined, trailName: undefined };
@@ -72,11 +73,8 @@ export function parseSWH3Title(
  * then looks for "X:XX start/pack" patterns (afternoon assumed if hour ≤ 6).
  */
 export function parseSWH3Time(timeText: string): string | undefined {
-  // First try standard 12-hour parsing (catches "1 PM", "2:30 pm", "@2pm")
-  const standard = parse12HourTime(timeText);
-  if (standard) return standard;
-
-  // Look for pack-off/start time: "2:30 start", "2:30 pack off"
+  // Check for pack-off/start time FIRST — "2:30 start", "2:30 pack off", "2:30 go"
+  // Must come before parse12HourTime so "Meet at 2:00 pm for a 2:30 start" → "14:30" not "14:00"
   const packOff = timeText.match(/(\d{1,2}):(\d{2})\s*(?:start|pack|go)\b/i);
   if (packOff) {
     let hour = parseInt(packOff[1], 10);
@@ -84,6 +82,10 @@ export function parseSWH3Time(timeText: string): string | undefined {
     if (hour <= 6) hour += 12; // Afternoon assumption for hash trails
     return `${String(hour).padStart(2, "0")}:${min}`;
   }
+
+  // Standard 12-hour parsing (catches "1 PM", "2:30 pm", "@2pm")
+  const standard = parse12HourTime(timeText);
+  if (standard) return standard;
 
   // Look for any H:MM pattern (e.g., "2:00", "2:30")
   const anyTime = timeText.match(/(\d{1,2}):(\d{2})/);
@@ -179,9 +181,8 @@ function processPost(
   errorDetails: ErrorDetails,
 ): RawEventData | null {
   const titleText = decodeEntities(post.title.rendered);
-  const publishYear = new Date(post.date).getFullYear();
 
-  const titleFields = parseSWH3Title(titleText, publishYear);
+  const titleFields = parseSWH3Title(titleText, post.date);
   const bodyFields = parseSWH3Body(post.content.rendered);
 
   // Event date comes from the title, NOT the publish date
@@ -252,12 +253,20 @@ export class SWH3Adapter implements SourceAdapter {
 
     const url = `${WPCOM_API}/posts?categories=${SWH3Adapter.CATEGORY_ID}&per_page=20&orderby=date&order=desc&_fields=id,date,link,title,content`;
 
-    const resp = await safeFetch(url, {
-      headers: {
-        "User-Agent": "HashTracks-Scraper",
-        Accept: "application/json",
-      },
-    });
+    let resp: Response;
+    try {
+      resp = await safeFetch(url, {
+        headers: {
+          "User-Agent": "HashTracks-Scraper",
+          Accept: "application/json",
+        },
+      });
+    } catch (err) {
+      const msg = `Fetch failed: ${err}`;
+      errors.push(msg);
+      (errorDetails.fetch ??= []).push({ url, message: msg });
+      return { events, errors, errorDetails, diagnosticContext: { fetchMethod: "wpcom-api" } };
+    }
 
     if (!resp.ok) {
       const msg = `WordPress.com API returned ${resp.status}`;

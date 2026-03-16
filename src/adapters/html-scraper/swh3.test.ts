@@ -3,43 +3,43 @@ import { parseSWH3Title, parseSWH3Body } from "./swh3";
 
 describe("parseSWH3Title", () => {
   it("extracts run number and date from standard format", () => {
-    const result = parseSWH3Title("SWH3 #1782- Saturday, March 14", 2026);
+    const result = parseSWH3Title("SWH3 #1782- Saturday, March 14", "2026-03-09T17:00:00");
     expect(result.runNumber).toBe(1782);
     expect(result.date).toBe("2026-03-14");
   });
 
   it("handles comma separator", () => {
-    const result = parseSWH3Title("SWH3 #1781, Saturday, March 7", 2026);
+    const result = parseSWH3Title("SWH3 #1781, Saturday, March 7", "2026-03-09T17:00:00");
     expect(result.runNumber).toBe(1781);
     expect(result.date).toBe("2026-03-07");
   });
 
   it("handles abbreviated month with period", () => {
-    const result = parseSWH3Title("SWH3 #1780, Saturday, Feb. 28", 2026);
+    const result = parseSWH3Title("SWH3 #1780, Saturday, Feb. 28", "2026-03-09T17:00:00");
     expect(result.runNumber).toBe(1780);
     expect(result.date).toBe("2026-02-28");
   });
 
   it("handles 'Trail' in title", () => {
-    const result = parseSWH3Title("SWH3 Trail #1779, Sunday, Feb. 22", 2026);
+    const result = parseSWH3Title("SWH3 Trail #1779, Sunday, Feb. 22", "2026-03-09T17:00:00");
     expect(result.runNumber).toBe(1779);
     expect(result.date).toBe("2026-02-22");
   });
 
   it("handles uppercase day name", () => {
-    const result = parseSWH3Title("SWH3 #1774, SUNDAY Jan. 18", 2026);
+    const result = parseSWH3Title("SWH3 #1774, SUNDAY Jan. 18", "2026-03-09T17:00:00");
     expect(result.runNumber).toBe(1774);
     expect(result.date).toBe("2026-01-18");
   });
 
   it("returns undefined date when no date in title", () => {
-    const result = parseSWH3Title("SWH3 #1782 Special Event", 2026);
+    const result = parseSWH3Title("SWH3 #1782 Special Event", "2026-03-09T17:00:00");
     expect(result.runNumber).toBe(1782);
     expect(result.date).toBeUndefined();
   });
 
   it("returns undefined runNumber when no # in title", () => {
-    const result = parseSWH3Title("SWH3 Saturday, March 14", 2026);
+    const result = parseSWH3Title("SWH3 Saturday, March 14", "2026-03-09T17:00:00");
     expect(result.runNumber).toBeUndefined();
   });
 });
