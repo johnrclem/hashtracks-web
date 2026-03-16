@@ -637,6 +637,14 @@ async function processNewRawEvent(
   // Decode HTML entities in text fields before any downstream processing
   sanitizeRawFields(event);
 
+  // Generate a default title when the adapter didn't provide one — ensures future
+  // placeholder events (e.g. DFW calendar) still pass the empty-event guard.
+  if (!sanitizeTitle(event.title) && event.kennelTag) {
+    event.title = event.runNumber
+      ? `${event.kennelTag} Trail #${event.runNumber}`
+      : `${event.kennelTag} Trail`;
+  }
+
   // Validate the event has at least one meaningful display field before processing
   const hasDisplayData = event.title || event.location || event.hares || event.runNumber;
   if (!hasDisplayData) {
