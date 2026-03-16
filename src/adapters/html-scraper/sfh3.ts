@@ -1,4 +1,6 @@
 import * as cheerio from "cheerio";
+import type { Cheerio } from "cheerio";
+import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
@@ -103,7 +105,7 @@ export function parseHarelineRows(html: string): HarelineRow[] {
     let detailLink: string | undefined;
     let dateText: string;
     let hare: string | undefined;
-    let locationCell: cheerio.Cheerio<cheerio.AnyNode>;
+    let locationCell: Cheerio<AnyNode>;
     let title: string;
 
     if (is7Col && cells.length >= 7) {

@@ -77,7 +77,7 @@ export function parseMakesweatEvent(
     const jammedPostcode = normalizedName.match(/([a-z])([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})$/i);
     if (jammedPostcode) {
       const pc = jammedPostcode[2].replace(/^([A-Z]{1,2}\d[A-Z\d]?)\s?(\d[A-Z]{2})$/i, "$1 $2");
-      normalizedName = normalizedName.slice(0, jammedPostcode.index + 1).trim();
+      normalizedName = normalizedName.slice(0, (jammedPostcode.index ?? 0) + 1).trim();
       const parts = [normalizedName, venueAddress].filter(Boolean);
       parts.push(pc);
       location = parts.join(", ");

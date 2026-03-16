@@ -137,11 +137,11 @@ export function parseSWH3Body(html: string): {
     "(?=\\n|(?:Time|When|Where|Hares?|The Hares?|On[ -]After|Notes|Hash Notes|Rego|Website|Next Week)\\s*:|$)";
 
   // Time / When — extract pack-off/start time from field like "Meet at 2:00 for a 2:30 start"
-  const timeMatch = text.match(new RegExp(`(?:Time|When)\\s*:\\s*(.+?)${stop}`, "is"));
+  const timeMatch = text.match(new RegExp(`(?:Time|When)\\s*:\\s*(.+?)${stop}`, "i"));
   const startTime = timeMatch ? parseSWH3Time(timeMatch[1]) : undefined;
 
   // Where / Start location
-  const whereMatch = text.match(new RegExp(`(?:Where|Start location[^:]*)\\s*:\\s*(.+?)${stop}`, "is"));
+  const whereMatch = text.match(new RegExp(`(?:Where|Start location[^:]*)\\s*:\\s*(.+?)${stop}`, "i"));
   let location = whereMatch ? whereMatch[1].trim() : undefined;
   if (location) {
     // Clean multiline locations: remove "for the hash" suffixes, normalize whitespace
@@ -154,13 +154,13 @@ export function parseSWH3Body(html: string): {
   }
 
   // Hares / Hare(s) / The Hares
-  const haresMatch = text.match(new RegExp(`(?:The\\s+)?Hares?(?:\\(s\\))?\\s*:\\s*(.+?)${stop}`, "is"));
+  const haresMatch = text.match(new RegExp(`(?:The\\s+)?Hares?(?:\\(s\\))?\\s*:\\s*(.+?)${stop}`, "i"));
   let hares = haresMatch ? haresMatch[1].trim() : undefined;
   if (hares && isPlaceholder(hares)) hares = undefined;
 
   // Trail name from "What's da Word" label
   const wordMatch = text.match(
-    /What's da Word[?:]?\s*(.+?)(?=\n|(?:Time|When|Where|Hares?))/is,
+    /What's da Word[?:]?\s*(.+?)(?=\n|(?:Time|When|Where|Hares?))/i,
   );
   const trailName = wordMatch ? wordMatch[1].trim() : undefined;
 
