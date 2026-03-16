@@ -1,34 +1,23 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { APIProvider, Map as GoogleMap, AdvancedMarker, InfoWindow, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LocateFixed } from "lucide-react";
+import { LocateFixed, Search } from "lucide-react";
 import { REGION_CENTROIDS, getRegionColor, getEventCoords } from "@/lib/geo";
 import { formatSchedule } from "@/lib/format";
+import { ClusteredKennelMarkers, type KennelPin } from "./ClusteredKennelMarkers";
 import type { KennelCardData } from "./KennelCard";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
+const VIEWPORT_STORAGE_KEY = "kennels-map-viewport";
 
 interface KennelMapViewProps {
   kennels: KennelCardData[];
   onRegionSelect: (region: string) => void;
-}
-
-interface KennelPin {
-  id: string;
-  shortName: string;
-  fullName: string;
-  slug: string;
-  region: string;
-  schedule: string | null;
-  nextEvent: { date: string; title: string | null } | null;
-  lat: number;
-  lng: number;
-  color: string;
-  precise: boolean;
+  onBoundsFilter?: (bounds: { south: number; north: number; west: number; east: number } | null) => void;
 }
 
 interface RegionPin {
@@ -39,8 +28,10 @@ interface RegionPin {
   color: string;
 }
 
-/** Reset view button — fits map back to the initial bounds. */
-function ResetViewControl({ bounds }: { bounds: { south: number; north: number; west: number; east: number } }) {
+type MapBounds = { south: number; north: number; west: number; east: number };
+
+/** Reset view button — fits map back to the initial bounds and clears saved viewport. */
+function ResetViewControl({ bounds }: { bounds: MapBounds }) {
   const map = useMap();
   return (
     <MapControl position={ControlPosition.TOP_RIGHT}>
@@ -49,7 +40,10 @@ function ResetViewControl({ bounds }: { bounds: { south: number; north: number; 
           variant="outline"
           size="sm"
           className="bg-background shadow-sm"
-          onClick={() => map?.fitBounds(bounds)}
+          onClick={() => {
+            map?.fitBounds(bounds);
+            try { sessionStorage.removeItem(VIEWPORT_STORAGE_KEY); } catch { /* noop */ }
+          }}
           aria-label="Reset map to show all kennels"
         >
           <LocateFixed className="mr-1.5 h-3.5 w-3.5" />
@@ -60,25 +54,64 @@ function ResetViewControl({ bounds }: { bounds: { south: number; north: number; 
   );
 }
 
-/** Auto-zoom when pins change (e.g. filter applied). */
-function AutoZoom({ bounds }: { bounds: { south: number; north: number; west: number; east: number } | undefined }) {
+/** Auto-zoom when pins change (e.g. filter applied). Skips if viewport was restored from session. */
+function AutoZoom({ bounds, skipRef, autoZoomingRef }: { bounds: MapBounds | undefined; skipRef: React.RefObject<boolean>; autoZoomingRef: React.RefObject<boolean> }) {
   const map = useMap();
   const prevBoundsKeyRef = useRef("");
   const boundsKey = bounds ? `${bounds.south},${bounds.north},${bounds.west},${bounds.east}` : "";
 
   useEffect(() => {
+    if (skipRef.current) {
+      // Viewport was restored from sessionStorage — skip this auto-zoom cycle
+      skipRef.current = false;
+      prevBoundsKeyRef.current = boundsKey;
+      return;
+    }
     if (bounds && boundsKey !== prevBoundsKeyRef.current) {
       prevBoundsKeyRef.current = boundsKey;
+      autoZoomingRef.current = true;
       map?.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
     }
-  }, [map, bounds, boundsKey]);
+  }, [map, bounds, boundsKey, skipRef, autoZoomingRef]);
 
   return null;
 }
 
-export default function KennelMapView({ kennels, onRegionSelect }: KennelMapViewProps) {
+/** Restore saved map viewport from sessionStorage on initial mount. */
+function RestoreViewport({ onRestored }: { onRestored: () => void }) {
+  const map = useMap();
+  const restoredRef = useRef(false);
+
+  useEffect(() => {
+    if (!map || restoredRef.current) return;
+    restoredRef.current = true;
+    try {
+      const saved = sessionStorage.getItem(VIEWPORT_STORAGE_KEY);
+      if (saved) {
+        const { center, zoom } = JSON.parse(saved);
+        if (center?.lat != null && center?.lng != null && zoom != null) {
+          map.setCenter(center);
+          map.setZoom(zoom);
+          onRestored();
+        }
+      }
+    } catch { /* noop — corrupted or unavailable */ }
+  }, [map, onRestored]);
+
+  return null;
+}
+
+export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter }: KennelMapViewProps) {
   const [selectedKennelId, setSelectedKennelId] = useState<string | null>(null);
+  const [showSearchButton, setShowSearchButton] = useState(false);
+  const userInteractedRef = useRef(false);
+  const skipAutoZoomRef = useRef(false);
+  const autoZoomingRef = useRef(false);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
+
+  const handleRestored = useCallback(() => {
+    skipAutoZoomRef.current = true;
+  }, []);
 
   // Build individual kennel pins (precise coords) and region aggregate pins (fallback)
   const { kennelPins, regionPins } = useMemo(() => {
@@ -161,6 +194,27 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
   const totalMapped = kennelPins.length + regionPins.reduce((sum, p) => sum + p.count, 0);
   const unmappedCount = kennels.length - totalMapped;
 
+  // Map event handlers for "Search this area" + viewport persistence
+  const handleDragEnd = useCallback(() => {
+    userInteractedRef.current = true;
+  }, []);
+
+  const handleZoomChanged = useCallback(() => {
+    // Skip zoom events triggered by programmatic auto-zoom (fitBounds)
+    if (!autoZoomingRef.current) {
+      userInteractedRef.current = true;
+    }
+  }, []);
+
+  const handleIdle = useCallback(() => {
+    // Clear auto-zooming flag once the map settles after fitBounds
+    autoZoomingRef.current = false;
+    // Show "Search this area" button after user interaction
+    if (userInteractedRef.current) {
+      setShowSearchButton(true);
+    }
+  }, []);
+
   if (!apiKey) {
     return (
       <div className="flex h-[500px] items-center justify-center rounded-md border text-sm text-muted-foreground">
@@ -188,44 +242,18 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
             disableDefaultUI={false}
             mapTypeControl={false}
             streetViewControl={false}
-          onClick={() => setSelectedKennelId(null)}
+            zoomControl={true}
+            onClick={() => setSelectedKennelId(null)}
+            onDragend={handleDragEnd}
+            onZoomChanged={handleZoomChanged}
+            onIdle={handleIdle}
           >
-            {/* Individual kennel pins */}
-            {kennelPins.map((pin) => {
-              const isSelected = selectedKennelId === pin.id;
-              return (
-                <AdvancedMarker
-                  key={pin.id}
-                  position={{ lat: pin.lat, lng: pin.lng }}
-                  onClick={() => setSelectedKennelId(pin.id)}
-                  title={pin.shortName}
-                >
-                  <div
-                    style={{
-                      width: isSelected ? 32 : 28,
-                      height: isSelected ? 32 : 28,
-                      borderRadius: "50%",
-                      backgroundColor: pin.color,
-                      border: isSelected ? "3px solid white" : "2px solid white",
-                      boxShadow: isSelected
-                        ? `0 0 0 2px ${pin.color}, 0 2px 6px rgba(0,0,0,0.4)`
-                        : "0 1px 4px rgba(0,0,0,0.4)",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "9px",
-                      fontWeight: "bold",
-                      color: "white",
-                      transition: "all 0.15s ease",
-                      userSelect: "none",
-                    }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1.2)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"; }}
-                  />
-                </AdvancedMarker>
-              );
-            })}
+            {/* Clustered individual kennel pins */}
+            <ClusteredKennelMarkers
+              pins={kennelPins}
+              selectedPinId={selectedKennelId}
+              onSelectPin={setSelectedKennelId}
+            />
 
             {/* InfoWindow for selected kennel */}
             {selectedKennelId && (() => {
@@ -244,13 +272,17 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
                     {pin.schedule && (
                       <p className="mt-1.5 text-xs text-muted-foreground">{pin.schedule}</p>
                     )}
-                    {pin.nextEvent && (
-                      <p className="mt-1 text-xs">
-                        <span className="font-medium">Next run:</span>{" "}
-                        {new Date(pin.nextEvent.date).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })}
-                        {pin.nextEvent.title && <span className="text-muted-foreground"> — {pin.nextEvent.title}</span>}
-                      </p>
-                    )}
+                    <p className="mt-1 text-xs">
+                      {pin.nextEvent ? (
+                        <>
+                          <span className="font-medium">Next run:</span>{" "}
+                          {new Date(pin.nextEvent.date).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })}
+                          {pin.nextEvent.title && <span className="text-muted-foreground"> — {pin.nextEvent.title}</span>}
+                        </>
+                      ) : (
+                        <span className="italic text-muted-foreground">No upcoming runs</span>
+                      )}
+                    </p>
                     <Link
                       href={`/kennels/${pin.slug}`}
                       className="mt-2 inline-block text-xs font-medium text-primary no-underline hover:underline"
@@ -265,8 +297,19 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
             {/* Reset view button */}
             {defaultBounds && <ResetViewControl bounds={defaultBounds} />}
 
+            {/* "Search this area" button */}
+            {showSearchButton && onBoundsFilter && (
+              <SearchThisAreaButton onBoundsFilter={onBoundsFilter} onDone={() => setShowSearchButton(false)} />
+            )}
+
             {/* Auto-zoom on filter change */}
-            <AutoZoom bounds={defaultBounds} />
+            <AutoZoom bounds={defaultBounds} skipRef={skipAutoZoomRef} autoZoomingRef={autoZoomingRef} />
+
+            {/* Restore viewport from sessionStorage on back-nav */}
+            <RestoreViewport onRestored={handleRestored} />
+
+            {/* Save viewport to sessionStorage on idle */}
+            <SaveViewport />
 
             {/* Legend */}
             <MapControl position={ControlPosition.BOTTOM_LEFT}>
@@ -330,4 +373,64 @@ export default function KennelMapView({ kennels, onRegionSelect }: KennelMapView
       </p>
     </div>
   );
+}
+
+/** Floating "Search this area" button — reads current map bounds and passes to parent. */
+function SearchThisAreaButton({ onBoundsFilter, onDone }: { onBoundsFilter: (bounds: MapBounds) => void; onDone: () => void }) {
+  const map = useMap();
+
+  const handleClick = useCallback(() => {
+    if (!map) return;
+    const bounds = map.getBounds();
+    if (!bounds) return;
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    onBoundsFilter({
+      south: sw.lat(),
+      north: ne.lat(),
+      west: sw.lng(),
+      east: ne.lng(),
+    });
+    onDone();
+  }, [map, onBoundsFilter, onDone]);
+
+  return (
+    <MapControl position={ControlPosition.TOP_CENTER}>
+      <div className="mt-2.5">
+        <Button
+          variant="outline"
+          size="sm"
+          className="bg-background shadow-md"
+          onClick={handleClick}
+        >
+          <Search className="mr-1.5 h-3.5 w-3.5" />
+          Search this area
+        </Button>
+      </div>
+    </MapControl>
+  );
+}
+
+/** Saves the current map viewport to sessionStorage on every idle event. */
+function SaveViewport() {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const listener = map.addListener("idle", () => {
+      try {
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        if (center && zoom != null) {
+          sessionStorage.setItem(VIEWPORT_STORAGE_KEY, JSON.stringify({
+            center: { lat: center.lat(), lng: center.lng() },
+            zoom,
+          }));
+        }
+      } catch { /* noop */ }
+    });
+    return () => { listener.remove(); };
+  }, [map]);
+
+  return null;
 }

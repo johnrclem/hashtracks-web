@@ -8,6 +8,7 @@ export interface KennelCardData {
   shortName: string;
   fullName: string;
   region: string;
+  stateGroup: string;
   country: string;
   latitude?: number | null;
   longitude?: number | null;
@@ -56,24 +57,26 @@ export function KennelCard({ kennel }: KennelCardProps) {
         )}
 
         {/* Description */}
-        {kennel.description && (
-          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
-            {kennel.description}
-          </p>
-        )}
+        <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
+          {kennel.description || <span className="italic">No description yet</span>}
+        </p>
 
         {/* Spacer to push next run to bottom */}
         <div className="flex-1" />
 
         {/* Next run */}
-        {kennel.nextEvent && (
-          <div className="mt-3 pt-2 border-t text-xs">
-            <span className="text-muted-foreground">Next run: </span>
-            <span className={isNextSoon ? "font-semibold text-blue-600" : ""}>
-              {formatDateShort(kennel.nextEvent.date)}
-            </span>
-          </div>
-        )}
+        <div className="mt-3 pt-2 border-t text-xs">
+          {kennel.nextEvent ? (
+            <>
+              <span className="text-muted-foreground">Next run: </span>
+              <span className={isNextSoon ? "font-semibold text-blue-600" : ""}>
+                {formatDateShort(kennel.nextEvent.date)}
+              </span>
+            </>
+          ) : (
+            <span className="text-muted-foreground italic">No upcoming runs</span>
+          )}
+        </div>
       </div>
     </Link>
   );

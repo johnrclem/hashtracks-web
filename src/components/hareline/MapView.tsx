@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { APIProvider, Map, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { ClusteredMarkers, type EventWithCoords } from "./ClusteredMarkers";
 import type { HarelineEvent } from "./EventCard";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
+const VIEWPORT_STORAGE_KEY = "hareline-map-viewport";
 
 /** Shared base styles for legend circle icons. */
 const LEGEND_ICON_BASE: React.CSSProperties = {
@@ -19,7 +20,7 @@ const LEGEND_ICON_BASE: React.CSSProperties = {
   opacity: 0.5,
 };
 
-/** Reset view button — fits map back to the initial bounds. */
+/** Reset view button — fits map back to the initial bounds and clears saved viewport. */
 function ResetViewControl({ bounds }: { bounds: { south: number; north: number; west: number; east: number } }) {
   const map = useMap();
   return (
@@ -29,7 +30,10 @@ function ResetViewControl({ bounds }: { bounds: { south: number; north: number; 
           variant="outline"
           size="sm"
           className="bg-background shadow-sm"
-          onClick={() => map?.fitBounds(bounds)}
+          onClick={() => {
+            map?.fitBounds(bounds);
+            try { sessionStorage.removeItem(VIEWPORT_STORAGE_KEY); } catch { /* noop */ }
+          }}
           aria-label="Reset map to show all events"
         >
           <LocateFixed className="mr-1.5 h-3.5 w-3.5" />
@@ -68,18 +72,71 @@ function PrecisionBanner() {
   );
 }
 
-/** Auto-zoom when the events list changes (e.g. filter applied). */
-function AutoZoom({ bounds }: { bounds: { south: number; north: number; west: number; east: number } | undefined }) {
+/** Auto-zoom when the events list changes (e.g. filter applied). Skips if viewport was restored from session. */
+function AutoZoom({ bounds, skipRef }: { bounds: { south: number; north: number; west: number; east: number } | undefined; skipRef?: RefObject<boolean> }) {
   const map = useMap();
   const prevBoundsKeyRef = useRef("");
   const boundsKey = bounds ? `${bounds.south},${bounds.north},${bounds.west},${bounds.east}` : "";
 
   useEffect(() => {
+    if (skipRef?.current) {
+      skipRef.current = false;
+      prevBoundsKeyRef.current = boundsKey;
+      return;
+    }
     if (bounds && boundsKey !== prevBoundsKeyRef.current) {
       prevBoundsKeyRef.current = boundsKey;
       map?.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
     }
-  }, [map, bounds, boundsKey]);
+  }, [map, bounds, boundsKey, skipRef]);
+
+  return null;
+}
+
+/** Restore saved map viewport from sessionStorage on initial mount. */
+function RestoreViewport({ onRestored }: { onRestored: () => void }) {
+  const map = useMap();
+  const restoredRef = useRef(false);
+
+  useEffect(() => {
+    if (!map || restoredRef.current) return;
+    restoredRef.current = true;
+    try {
+      const saved = sessionStorage.getItem(VIEWPORT_STORAGE_KEY);
+      if (saved) {
+        const { center, zoom } = JSON.parse(saved);
+        if (center?.lat != null && center?.lng != null && zoom != null) {
+          map.setCenter(center);
+          map.setZoom(zoom);
+          onRestored();
+        }
+      }
+    } catch { /* noop — corrupted or unavailable */ }
+  }, [map, onRestored]);
+
+  return null;
+}
+
+/** Saves the current map viewport to sessionStorage on every idle event. */
+function SaveViewport() {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const listener = map.addListener("idle", () => {
+      try {
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        if (center && zoom != null) {
+          sessionStorage.setItem(VIEWPORT_STORAGE_KEY, JSON.stringify({
+            center: { lat: center.lat(), lng: center.lng() },
+            zoom,
+          }));
+        }
+      } catch { /* noop */ }
+    });
+    return () => { listener.remove(); };
+  }, [map]);
 
   return null;
 }
@@ -96,6 +153,8 @@ interface MapViewProps {
 export default function MapView({ events, selectedEventId, onSelectEvent }: MapViewProps) {
   const router = useRouter();
   const handleNavigate = useCallback((id: string) => router.push(`/hareline/${id}`), [router]);
+  const skipAutoZoomRef = useRef(false);
+  const handleRestored = useCallback(() => { skipAutoZoomRef.current = true; }, []);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
 
   const eventsWithCoords = useMemo<EventWithCoords[]>(() => {
@@ -158,6 +217,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
           disableDefaultUI={false}
           mapTypeControl={false}
           streetViewControl={false}
+          zoomControl={true}
           onClick={() => { onSelectEvent(null); }}
         >
           <ClusteredMarkers
@@ -171,7 +231,13 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
           {defaultBounds && <ResetViewControl bounds={defaultBounds} />}
 
           {/* Auto-zoom on filter change */}
-          <AutoZoom bounds={defaultBounds} />
+          <AutoZoom bounds={defaultBounds} skipRef={skipAutoZoomRef} />
+
+          {/* Restore viewport from sessionStorage on back-nav */}
+          <RestoreViewport onRestored={handleRestored} />
+
+          {/* Save viewport to sessionStorage on idle */}
+          <SaveViewport />
 
           {/* First-time precision info banner */}
           <PrecisionBanner />
