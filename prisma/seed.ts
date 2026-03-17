@@ -2464,9 +2464,12 @@ async function main() {
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        kennelPatterns: [
+          ["Mosquito", "Mosquito H3"],
+        ],
         defaultKennelTag: "H4",
       },
-      kennelCodes: ["h4-tx"],
+      kennelCodes: ["h4-tx", "mosquito-h3"],
     },
     {
       name: "Brass Monkey H3 Blog",
