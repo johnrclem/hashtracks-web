@@ -31,6 +31,7 @@ import { SOH4Adapter } from "./html-scraper/soh4";
 import { HalveMeinAdapter } from "./html-scraper/halvemein";
 import { IthacaH3Adapter } from "./html-scraper/ithaca-h3";
 import { HockessinAdapter } from "./html-scraper/hockessin";
+import { RenegadeH3Adapter } from "./html-scraper/renegade-h3";
 import { SWH3Adapter } from "./html-scraper/swh3";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
@@ -88,6 +89,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /hmhhh\.com/i,              name: "HalveMeinAdapter",         factory: () => new HalveMeinAdapter() },
   { pattern: /ithacah3\.org/i,           name: "IthacaH3Adapter",          factory: () => new IthacaH3Adapter() },
   { pattern: /hockessinhash\.org/i,     name: "HockessinAdapter",         factory: () => new HockessinAdapter() },
+  { pattern: /renegadeh3\.com/i,       name: "RenegadeH3Adapter",        factory: () => new RenegadeH3Adapter() },
   { pattern: /swh3\.wordpress\.com/i, name: "SWH3Adapter",              factory: () => new SWH3Adapter() },
 ];
 

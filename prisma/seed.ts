@@ -92,6 +92,10 @@ async function ensureRegionRecords(prisma: any) {
       "Raleigh, NC", "Charlotte, NC", "Asheville, NC",
       "Wilmington, NC", "Fayetteville, NC",
     ],
+    "Ohio": [
+      "Columbus, OH", "Cincinnati, OH", "Dayton, OH",
+      "Cleveland, OH", "Akron, OH",
+    ],
   };
 
   let stateLinked = 0;
@@ -1719,6 +1723,87 @@ async function main() {
       foundedYear: 2018,
       description: "Alternate Saturday runs in the Myrtle Beach area. Also hosts pub crawls.",
     },
+    // ===== OHIO =====
+    // --- Dayton ---
+    {
+      kennelCode: "dh4", shortName: "DH4", fullName: "Dayton Hash House Harriers and Harriettes", region: "Dayton, OH",
+      website: "https://daytonhhh.org/",
+      facebookUrl: "https://www.facebook.com/DaytonHash",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
+      scheduleNotes: "Every other Saturday 3-4 PM + Full Moon evenings 7 PM.",
+      description: "Ohio's oldest and longest running hash kennel. Biweekly Saturday runs plus full moon trails.",
+      latitude: 39.76, longitude: -84.19,
+    },
+    {
+      kennelCode: "mvh3-day", shortName: "MVH3", fullName: "Miami Valley Hash House Harriers", region: "Dayton, OH",
+      facebookUrl: "https://www.facebook.com/groups/1703366143261426",
+      description: "Dayton-area kennel spawned from DH3.",
+      latitude: 39.76, longitude: -84.19,
+    },
+    {
+      kennelCode: "swot-h3", shortName: "SWOT", fullName: "South West Ohio Traditional Hash House Harriers", region: "Dayton, OH",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Monthly", scheduleTime: "2:00 PM",
+      scheduleNotes: "Last Sunday of each month.",
+      description: "Traditional hash kennel covering south west Ohio. Monthly last-Sunday runs.",
+      latitude: 39.50, longitude: -84.35,
+    },
+    // --- Cincinnati ---
+    {
+      kennelCode: "sch4", shortName: "SCH4", fullName: "Sin City Hash House Harriers and Harriettes", region: "Cincinnati, OH",
+      website: "https://sincityhash.wordpress.com/",
+      facebookUrl: "https://www.facebook.com/groups/114560698574609/",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
+      scheduleNotes: "Every other Saturday 3-4 PM + 3rd Thursday 7 PM.",
+      description: "Cincinnati's primary hash kennel with 1,450+ trails.",
+      latitude: 39.10, longitude: -84.51,
+    },
+    {
+      kennelCode: "qch4", shortName: "QCH4", fullName: "Queen City Hash House Harriers and Harriettes", region: "Cincinnati, OH",
+      facebookUrl: "https://www.facebook.com/groups/795791177265728/",
+      scheduleDayOfWeek: "Tuesday", scheduleFrequency: "Biweekly", scheduleTime: "7:00 PM",
+      description: "Cincinnati secondary kennel. Biweekly Tuesday evening runs.",
+      latitude: 39.10, longitude: -84.51,
+    },
+    {
+      kennelCode: "lvh3-cin", shortName: "LVH3", fullName: "Licking Valley Hash House Harriers", region: "Cincinnati, OH",
+      facebookUrl: "https://www.facebook.com/Licking-Valley-Hash-House-Harriers-841860922532429/",
+      scheduleFrequency: "Monthly",
+      hashCash: "$8",
+      description: "Monthly hash in Cincinnati and Northern Kentucky. Never cancels for weather.",
+      latitude: 39.10, longitude: -84.51,
+    },
+    // --- Cleveland ---
+    {
+      kennelCode: "cleh4", shortName: "CleH4", fullName: "Cleveland Hash House Harriers and Harriettes", region: "Cleveland, OH",
+      facebookUrl: "https://www.facebook.com/clevelandhash",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
+      scheduleNotes: "1st and 3rd Saturday 3 PM + Full Moon 6:30 PM.",
+      foundedYear: 2015,
+      description: "Cleveland's hash kennel. 1st and 3rd Saturday runs plus full moon trails.",
+      latitude: 41.50, longitude: -81.69,
+    },
+    // --- Akron ---
+    {
+      kennelCode: "rch3", shortName: "RCH3", fullName: "Rubber City Hash House Harriers", region: "Akron, OH",
+      website: "https://akronhash.weebly.com/",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
+      scheduleNotes: "2nd & 4th Saturday 3 PM + 1st & 3rd Thursday 6:30 PM (summer).",
+      hashCash: "$15", foundedYear: 2004,
+      description: "Akron's hash kennel with 1,000+ Meetup members. Also runs summer Thursday evening trails.",
+      latitude: 41.08, longitude: -81.52,
+    },
+    // --- Columbus ---
+    {
+      kennelCode: "renh3", shortName: "RH3C", fullName: "Renegade Hash House Harriers Columbus", region: "Columbus, OH",
+      website: "https://www.renegadeh3.com/",
+      facebookUrl: "https://www.facebook.com/rh3columbus/",
+      twitterHandle: "RenegadeH3",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "2:00 PM",
+      scheduleNotes: "Every other Saturday + monthly Friday night.",
+      hashCash: "$8", foundedYear: 2014,
+      description: "Columbus's hash kennel, established 2014. Biweekly Saturday trail runs.",
+      latitude: 39.96, longitude: -82.99,
+    },
   ];
 
   // ── ALIAS DATA (PRD Appendix D.3) ──
@@ -1783,6 +1868,16 @@ async function main() {
     "rgh3": ["Rotten Groton", "Rotten Groton H3", "Groton H3", "Groton Hash", "RGH3"],
     // Rhode Island
     "rih3": ["RIH3", "Rhode Island Hash", "RI H3", "RI Hash", "Rhode Island HHH"],
+    // Ohio
+    "dh4": ["DH4", "DH3", "Dayton H4", "Dayton H3", "Dayton Hash", "Dayton HHH"],
+    "mvh3-day": ["MVH3", "Miami Valley H3", "Miami Valley Hash"],
+    "swot-h3": ["SWOT", "SWOT H3", "South West Ohio Traditional"],
+    "sch4": ["SCH4", "Sin City H4", "Sin City Hash", "Cincinnati Hash"],
+    "qch4": ["QCH4", "QCH3", "Queen City H4", "Queen City Hash"],
+    "lvh3-cin": ["LVH3", "Licking Valley H3", "Licking Valley Hash"],
+    "cleh4": ["CleH4", "CH4", "Cleveland H4", "Cleveland Hash", "Cleveland H3"],
+    "rch3": ["RCH3", "Rubber City H3", "Rubber City Hash", "Akron Hash", "RCH3-OH"],
+    "renh3": ["RH3", "Renegade H3", "Renegade Hash", "RH3 Columbus", "RH3C"],
     // Massachusetts
     "hvh3": ["HVH3", "Happy Valley", "Happy Valley H3", "HV H3"],
     "413h3": ["413H3", "413 H3"],
@@ -3414,6 +3509,119 @@ async function main() {
         kennelTag: "Narwhal H3",
       },
       kennelCodes: ["narwhal-h3"],
+    },
+    // ===== OHIO =====
+    // --- Cleveland (Meetup) ---
+    {
+      name: "Cleveland H4 Meetup",
+      url: "https://www.meetup.com/cleveland-hash-house-harriers-and-harriettes/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        groupUrlname: "cleveland-hash-house-harriers-and-harriettes",
+        kennelTag: "CleH4",
+      },
+      kennelCodes: ["cleh4"],
+    },
+    // --- Akron (Meetup) ---
+    {
+      name: "Rubber City H3 Meetup",
+      url: "https://www.meetup.com/rubber-city-hash-house-harriers-and-harriettes/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        groupUrlname: "rubber-city-hash-house-harriers-and-harriettes",
+        kennelTag: "RCH3",
+      },
+      kennelCodes: ["rch3"],
+    },
+    // --- Dayton (Google Calendar) ---
+    {
+      name: "DH4 Google Calendar",
+      url: "daytonhash@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "DH4",
+      },
+      kennelCodes: ["dh4"],
+    },
+    {
+      name: "MVH3 Google Calendar",
+      url: "mvh3calendar@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "MVH3",
+      },
+      kennelCodes: ["mvh3-day"],
+    },
+    {
+      name: "SWOT Google Calendar",
+      url: "swoth3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "SWOT",
+      },
+      kennelCodes: ["swot-h3"],
+    },
+    // --- Cincinnati (Google Calendar) ---
+    {
+      name: "SCH4 Google Calendar",
+      url: "sch4calendar@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "SCH4",
+      },
+      kennelCodes: ["sch4"],
+    },
+    {
+      name: "QCH4 Google Calendar",
+      url: "jjfn26n873ro3qi1ckobikroso@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "QCH4",
+      },
+      kennelCodes: ["qch4"],
+    },
+    {
+      name: "LVH3 Google Calendar",
+      url: "lickingvalleyh3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "LVH3",
+      },
+      kennelCodes: ["lvh3-cin"],
+    },
+    // --- Columbus (Renegade H3 website) ---
+    {
+      name: "Renegade H3 Website",
+      url: "https://www.renegadeh3.com/events",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["renh3"],
     },
   ];
 
