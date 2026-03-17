@@ -157,10 +157,10 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
   const availableRegions = Array.from(
     new Set(
       sources.flatMap((s) =>
-        s.linkedKennels.map((k) => kennelRegionMap.get(k.id)).filter(Boolean),
+        s.linkedKennels.map((k) => kennelRegionMap.get(k.id)).filter((v): v is string => Boolean(v)),
       ),
     ),
-  ).sort((a, b) => (a as string).localeCompare(b as string)) as string[];
+  ).sort((a, b) => a.localeCompare(b));
 
   // Only show types that exist in sources
   const availableTypes = Array.from(new Set(sources.map((s) => s.type))).sort((a, b) => a.localeCompare(b));
