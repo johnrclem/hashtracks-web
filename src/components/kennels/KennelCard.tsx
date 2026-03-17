@@ -50,16 +50,19 @@ export function KennelCard({ kennel }: KennelCardProps) {
 
         {/* Schedule + founded */}
         {(schedule || kennel.foundedYear) && (
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+          <div className="mt-2 text-xs text-muted-foreground">
             {schedule && <span>{schedule}</span>}
+            {schedule && kennel.foundedYear && <span> · </span>}
             {kennel.foundedYear && <span>Est. {kennel.foundedYear}</span>}
           </div>
         )}
 
         {/* Description */}
-        <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
-          {kennel.description || <span className="italic">No description yet</span>}
-        </p>
+        {kennel.description && (
+          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
+            {kennel.description}
+          </p>
+        )}
 
         {/* Spacer to push next run to bottom */}
         <div className="flex-1" />

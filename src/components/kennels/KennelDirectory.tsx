@@ -375,7 +375,10 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
           {groupKeys.map((group) => (
             <div key={group}>
               <h2 className="mb-3 text-lg font-semibold">
-                {group}{" "}
+                {group}
+                {group === "D.C. Metro" && (
+                  <span className="text-xs font-normal text-muted-foreground"> (MD · DC · VA · WV)</span>
+                )}{" "}
                 <span className="text-sm font-normal text-muted-foreground">
                   ({grouped[group].length})
                 </span>
