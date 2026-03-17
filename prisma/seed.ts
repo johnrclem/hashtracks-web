@@ -1794,7 +1794,7 @@ async function main() {
     },
     // --- Columbus ---
     {
-      kennelCode: "renh3", shortName: "RH3", fullName: "Renegade Hash House Harriers Columbus", region: "Columbus, OH",
+      kennelCode: "renh3", shortName: "RH3C", fullName: "Renegade Hash House Harriers Columbus", region: "Columbus, OH",
       website: "https://www.renegadeh3.com/",
       facebookUrl: "https://www.facebook.com/rh3columbus/",
       twitterHandle: "RenegadeH3",
@@ -3552,6 +3552,30 @@ async function main() {
       },
       kennelCodes: ["dh4"],
     },
+    {
+      name: "MVH3 Google Calendar",
+      url: "mvh3calendar@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "MVH3",
+      },
+      kennelCodes: ["mvh3-day"],
+    },
+    {
+      name: "SWOT Google Calendar",
+      url: "swoth3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "SWOT",
+      },
+      kennelCodes: ["swot-h3"],
+    },
     // --- Cincinnati (Google Calendar) ---
     {
       name: "SCH4 Google Calendar",
@@ -3588,31 +3612,6 @@ async function main() {
         defaultKennelTag: "LVH3",
       },
       kennelCodes: ["lvh3-cin"],
-    },
-    // --- Dayton continued (Google Calendar) ---
-    {
-      name: "MVH3 Google Calendar",
-      url: "mvh3calendar@gmail.com",
-      type: "GOOGLE_CALENDAR" as const,
-      trustLevel: 7,
-      scrapeFreq: "daily",
-      scrapeDays: 365,
-      config: {
-        defaultKennelTag: "MVH3",
-      },
-      kennelCodes: ["mvh3-day"],
-    },
-    {
-      name: "SWOT Google Calendar",
-      url: "swoth3@gmail.com",
-      type: "GOOGLE_CALENDAR" as const,
-      trustLevel: 7,
-      scrapeFreq: "daily",
-      scrapeDays: 365,
-      config: {
-        defaultKennelTag: "SWOT",
-      },
-      kennelCodes: ["swot-h3"],
     },
     // --- Columbus (Renegade H3 website) ---
     {

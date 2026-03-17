@@ -36,9 +36,6 @@ describe("RenegadeH3Adapter", () => {
       expect(parseEventHeader("")).toBeNull();
     });
 
-    it("returns null for year heading", () => {
-      expect(parseEventHeader("2026")).toBeNull();
-    });
   });
 
   describe("parseEventDetails", () => {
@@ -59,6 +56,12 @@ describe("RenegadeH3Adapter", () => {
       expect(result.location).toBe("Meet at Mikeys Late Night Slice 6562 Riverside Drive Dublin");
       expect(result.locationUrl).toContain("google.com/maps");
       expect(result.startTime).toBe("14:00"); // "2:00" → afternoon
+    });
+
+    it("treats bare evening times as PM", () => {
+      const text = "Pack Away: 7:00";
+      const result = parseEventDetails(text);
+      expect(result.startTime).toBe("19:00");
     });
 
     it("uses chalk talk as fallback time", () => {

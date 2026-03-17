@@ -119,8 +119,8 @@ function parseTimeToHHMM(text: string): string | undefined {
   if (ampm === "pm" && hour < 12) hour += 12;
   if (ampm === "am" && hour === 12) hour = 0;
 
-  // If no AM/PM and hour < 7, assume PM (hash times are afternoons/evenings)
-  if (!ampm && hour >= 1 && hour < 7) hour += 12;
+  // If no AM/PM, treat bare times as PM (hash events are afternoons/evenings)
+  if (!ampm && hour >= 1 && hour <= 11) hour += 12;
 
   return `${hour.toString().padStart(2, "0")}:${min}`;
 }
@@ -159,6 +159,8 @@ export class RenegadeH3Adapter implements SourceAdapter {
       try {
         // Look at the next <p> for details
         const $next = $p.next("p");
+        // Replace <br> with newlines before extracting text (Webador uses <br> separators)
+        if ($next.length > 0) $next.find("br").replaceWith("\n");
         const detailText = $next.length > 0 ? $next.text().trim() : "";
 
         // Only parse details if it looks like event info (not another header)
