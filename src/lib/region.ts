@@ -1324,8 +1324,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Corpus Christi, TX": "Texas",
   "El Paso": "Texas",
   // Illinois / Chicagoland
-  "Chicago, IL": "Illinois",
-  "South Shore, IN": "Illinois",
+  "Chicago, IL": "Illinois + NW Indiana",
+  "South Shore, IN": "Illinois + NW Indiana",
   // California
   "San Francisco, CA": "California",
   "Oakland, CA": "California",

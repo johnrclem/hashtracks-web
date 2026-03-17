@@ -34,7 +34,7 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin }: Clu
   useEffect(() => {
     if (!map) return;
     if (!clustererRef.current) {
-      clustererRef.current = new MarkerClusterer({ map });
+      clustererRef.current = new MarkerClusterer({ map, algorithmOptions: { maxZoom: 16 } });
     }
     return () => {
       clustererRef.current?.clearMarkers();
