@@ -59,7 +59,6 @@ describe("verifyCronAuth", () => {
     expect(mockReceiver.verify).toHaveBeenCalledWith({
       signature: "valid-sig",
       body: "{}",
-      url: "https://example.com/api/cron/dispatch",
     });
   });
 
