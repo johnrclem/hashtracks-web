@@ -15,6 +15,12 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export const proxy = clerkMiddleware(async (auth, request) => {
+  // Cron routes use their own auth (QStash signature / CRON_SECRET) — skip Clerk
+  const pathname = new URL(request.url).pathname;
+  if (pathname.startsWith("/api/cron")) {
+    return;
+  }
+
   if (!isPublicRoute(request)) {
     await auth.protect();
   }
