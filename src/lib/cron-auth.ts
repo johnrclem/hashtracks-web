@@ -25,10 +25,13 @@ export async function verifyCronAuth(request: Request): Promise<CronAuthResult> 
     if (receiver) {
       try {
         const body = await request.clone().text();
-        await receiver.verify({ signature, body, url: request.url });
+        // Omit `url` — Vercel may rewrite request.url for custom domains,
+        // causing a mismatch with the URL QStash signed. Body + signature is sufficient.
+        await receiver.verify({ signature, body });
         return { authenticated: true, method: "qstash" };
-      } catch {
-        // QStash signature invalid — fall through to Bearer check
+      } catch (err) {
+        console.warn("[cron-auth] QStash signature verification failed:", err instanceof Error ? err.message : err);
+        // Fall through to Bearer check
       }
     }
   }
