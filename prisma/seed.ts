@@ -1875,7 +1875,7 @@ async function main() {
     "sch4": ["SCH4", "Sin City H4", "Sin City Hash", "Cincinnati Hash"],
     "qch4": ["QCH4", "QCH3", "Queen City H4", "Queen City Hash"],
     "lvh3-cin": ["LVH3", "Licking Valley H3", "Licking Valley Hash"],
-    "cleh4": ["CleH4", "CH4", "Cleveland H4", "Cleveland Hash", "Cleveland H3"],
+    "cleh4": ["CleH4", "Cleveland H4", "Cleveland Hash", "Cleveland H3"],
     "rch3": ["RCH3", "Rubber City H3", "Rubber City Hash", "Akron Hash", "RCH3-OH"],
     "renh3": ["RH3", "Renegade H3", "Renegade Hash", "RH3 Columbus", "RH3C"],
     // Massachusetts
@@ -2464,9 +2464,12 @@ async function main() {
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        kennelPatterns: [
+          ["Mosquito", "Mosquito H3"],
+        ],
         defaultKennelTag: "H4",
       },
-      kennelCodes: ["h4-tx"],
+      kennelCodes: ["h4-tx", "mosquito-h3"],
     },
     {
       name: "Brass Monkey H3 Blog",

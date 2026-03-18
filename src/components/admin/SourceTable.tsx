@@ -88,6 +88,7 @@ const HEALTH_OPTIONS = ["HEALTHY", "DEGRADED", "FAILING", "STALE", "UNKNOWN"];
 /** Admin source table with kennel/type/health filtering and per-row actions. */
 export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }: SourceTableProps) {
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
+  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedHealth, setSelectedHealth] = useState<string[]>([]);
 
@@ -95,10 +96,19 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
     return <p className="text-sm text-muted-foreground">No sources yet.</p>;
   }
 
+  // Build kennel→region lookup for region filtering
+  const kennelRegionMap = new Map(allKennels.map((k) => [k.id, k.region]));
+
   const filteredSources = sources.filter((source) => {
     if (selectedKennels.length > 0) {
       const hasMatch = source.linkedKennels.some((k) =>
         selectedKennels.includes(k.id),
+      );
+      if (!hasMatch) return false;
+    }
+    if (selectedRegions.length > 0) {
+      const hasMatch = source.linkedKennels.some((k) =>
+        selectedRegions.includes(kennelRegionMap.get(k.id) ?? ""),
       );
       if (!hasMatch) return false;
     }
@@ -115,11 +125,17 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
   });
 
   const activeFilterCount =
-    selectedKennels.length + selectedTypes.length + selectedHealth.length;
+    selectedKennels.length + selectedRegions.length + selectedTypes.length + selectedHealth.length;
 
   function toggleKennel(id: string) {
     setSelectedKennels((prev) =>
       prev.includes(id) ? prev.filter((k) => k !== id) : [...prev, id],
+    );
+  }
+
+  function toggleRegion(region: string) {
+    setSelectedRegions((prev) =>
+      prev.includes(region) ? prev.filter((r) => r !== region) : [...prev, region],
     );
   }
 
@@ -136,6 +152,15 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
         : [...prev, status],
     );
   }
+
+  // Only show regions that have sources linked
+  const availableRegions = Array.from(
+    new Set(
+      sources.flatMap((s) =>
+        s.linkedKennels.map((k) => kennelRegionMap.get(k.id)).filter((v): v is string => Boolean(v)),
+      ),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
 
   // Only show types that exist in sources
   const availableTypes = Array.from(new Set(sources.map((s) => s.type))).sort((a, b) => a.localeCompare(b));
@@ -178,6 +203,48 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
                         {selectedKennels.includes(kennel.id) && "✓"}
                       </span>
                       <KennelOptionLabel kennel={kennel} />
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+
+        {/* Region filter */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 text-xs">
+              Region
+              {selectedRegions.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {selectedRegions.length}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 max-w-[calc(100vw-2rem)] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search regions..." />
+              <CommandList>
+                <CommandEmpty>No regions found.</CommandEmpty>
+                <CommandGroup>
+                  {availableRegions.map((region) => (
+                    <CommandItem
+                      key={region}
+                      value={region}
+                      onSelect={() => toggleRegion(region)}
+                    >
+                      <span
+                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                          selectedRegions.includes(region)
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "opacity-50"
+                        }`}
+                      >
+                        {selectedRegions.includes(region) && "✓"}
+                      </span>
+                      {region}
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -272,6 +339,7 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
             className="h-8 text-xs"
             onClick={() => {
               setSelectedKennels([]);
+              setSelectedRegions([]);
               setSelectedTypes([]);
               setSelectedHealth([]);
             }}

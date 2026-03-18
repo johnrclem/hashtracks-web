@@ -169,7 +169,7 @@ export class RenegadeH3Adapter implements SourceAdapter {
 
         const event: RawEventData = {
           date: header.date,
-          kennelTag: "RH3",
+          kennelTag: "RH3C",
           runNumber: header.runNumber,
           title: header.title,
           hares: details.hares,
