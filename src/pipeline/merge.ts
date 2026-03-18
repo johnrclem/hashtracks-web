@@ -18,6 +18,15 @@ function sanitizeRawFields(event: RawEventData): void {
   if (event.hares) event.hares = decodeEntities(event.hares);
   if (event.location) event.location = decodeEntities(event.location);
   if (event.description) event.description = decodeEntities(event.description);
+
+  // Extract "Hared by X" from title to hares field (e.g., H5 Harrisburg calendar)
+  if (event.title && !event.hares) {
+    const haredByMatch = event.title.match(/\s+Hared?\s+by\s+(.+)$/i);
+    if (haredByMatch) {
+      event.hares = haredByMatch[1].trim();
+      event.title = event.title.slice(0, haredByMatch.index).trim();
+    }
+  }
 }
 
 /**
@@ -318,8 +327,10 @@ export function sanitizeLocation(location: string | undefined): string | null {
   if (/^registration\s*:/i.test(t)) return null;
   // Strip bare URLs (not useful as location names)
   if (/^https?:\/\/\S+$/.test(t)) return null;
+  // Strip "Maps, " prefix (Google Calendar link text bleed)
+  const stripped = t.replace(/^Maps,\s*/i, "");
   // Clean up embedded URLs, double commas, extra whitespace, normalize state abbrev
-  let cleaned = stripUrlsFromText(t)
+  let cleaned = stripUrlsFromText(stripped)
     .replace(/,\s*,/g, ",")
     .replace(/^,+|,+$/g, "")
     .trim()
