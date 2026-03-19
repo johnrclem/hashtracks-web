@@ -801,6 +801,38 @@ describe("sanitizeTitle", () => {
   it("preserves valid title with kennel prefix", () => {
     expect(sanitizeTitle("BH3: The St Patrick's Trail")).toBe("BH3: The St Patrick's Trail");
   });
+
+  it("strips embedded M/DD/YY date from title", () => {
+    expect(sanitizeTitle("SOCO #13 3/20/26 Spring Equinox Hash")).toBe("SOCO #13 Spring Equinox Hash");
+  });
+
+  it("strips embedded MM/DD/YYYY date from title", () => {
+    expect(sanitizeTitle("Trail Name 03/20/2026 Special Run")).toBe("Trail Name Special Run");
+  });
+
+  it("strips trailing day-of-week + month date", () => {
+    expect(sanitizeTitle("SWH3 #1783, Saturday, March 21")).toBe("SWH3 #1783");
+  });
+
+  it("strips trailing abbreviated day + month date", () => {
+    expect(sanitizeTitle("Run Name, Thu, Mar 19")).toBe("Run Name");
+  });
+
+  it("strips trailing day + month + year", () => {
+    expect(sanitizeTitle("Event Name, Friday, April 4, 2026")).toBe("Event Name");
+  });
+
+  it("does not strip run numbers that look like dates", () => {
+    expect(sanitizeTitle("NYCH3 #3/20 Anniversary")).toBe("NYCH3 #3/20 Anniversary");
+  });
+
+  it("does not strip full date after # prefix", () => {
+    expect(sanitizeTitle("Trail #12/25/26")).toBe("Trail #12/25/26");
+  });
+
+  it("collapses extra whitespace after date removal", () => {
+    expect(sanitizeTitle("SOCO #13  3/20/26  Spring Equinox")).toBe("SOCO #13 Spring Equinox");
+  });
 });
 
 // ── sanitizeHares ──
