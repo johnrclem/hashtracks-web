@@ -37,13 +37,13 @@ interface CoverageTableProps {
 const STALE_THRESHOLD_DAYS = 7;
 
 function healthColor(status: string, enabled: boolean): string {
-  if (!enabled) return "bg-gray-100 text-gray-500 border-gray-200";
+  if (!enabled) return "bg-muted text-muted-foreground border-border";
   switch (status) {
-    case "HEALTHY":   return "bg-green-50 text-green-700 border-green-200";
-    case "DEGRADED":  return "bg-amber-50 text-amber-700 border-amber-200";
-    case "FAILING":   return "bg-red-50 text-red-700 border-red-200";
-    case "STALE":     return "bg-orange-50 text-orange-700 border-orange-200";
-    default:          return "bg-gray-100 text-gray-500 border-gray-200";
+    case "HEALTHY":   return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800";
+    case "DEGRADED":  return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800";
+    case "FAILING":   return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800";
+    case "STALE":     return "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-400 dark:border-orange-800";
+    default:          return "bg-muted text-muted-foreground border-border";
   }
 }
 
@@ -99,7 +99,7 @@ function HealthBar({ healthCounts }: { healthCounts: Record<string, number> }) {
     .join(", ");
 
   return (
-    <div className="flex h-2 w-24 overflow-hidden rounded-full bg-gray-100" title={tooltip}>
+    <div className="flex h-2 w-24 overflow-hidden rounded-full bg-muted" title={tooltip}>
       {HEALTH_BAR_ORDER.map((status) => {
         const count = healthCounts[status] ?? 0;
         if (count === 0) return null;

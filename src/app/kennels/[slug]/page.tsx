@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 
 export async function generateMetadata({
@@ -27,6 +28,7 @@ import { TrailLocationMap } from "@/components/kennels/TrailLocationMap";
 import { EventTabs } from "@/components/kennels/EventTabs";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { getRegionColor } from "@/lib/region";
+import { FadeInSection } from "@/components/home/HeroAnimations";
 
 export default async function KennelDetailPage({
   params,
@@ -132,6 +134,15 @@ export default async function KennelDetailPage({
 
   return (
     <div className="space-y-8">
+      {/* ── Breadcrumb ── */}
+      <FadeInSection>
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Link href="/kennels" className="hover:text-foreground transition-colors">Kennels</Link>
+          <span>/</span>
+          <span className="text-foreground">{kennel.shortName}</span>
+        </nav>
+      </FadeInSection>
+
       {/* ── Hero ── */}
       <div
         className="-mx-4 -mt-4 px-4 pb-6 pt-8 sm:-mx-6 sm:px-6 sm:pt-10 rounded-b-2xl"
@@ -198,9 +209,12 @@ export default async function KennelDetailPage({
       </div>
 
       {/* ── About Card (schedule, info, social, description) ── */}
-      <QuickInfoCard kennel={kennel} regionColor={regionColor} />
+      <FadeInSection delay={100}>
+        <QuickInfoCard kennel={kennel} regionColor={regionColor} />
+      </FadeInSection>
 
       {/* ── Stats Achievement Cards ── */}
+      <FadeInSection delay={200}>
       <KennelStats
         currentRunNumber={currentRunNumber}
         totalEvents={totalEvents}
@@ -209,9 +223,12 @@ export default async function KennelDetailPage({
         foundedYear={kennel.foundedYear}
         region={kennel.region ?? undefined}
       />
+      </FadeInSection>
 
       {/* ── Event Tabs (Upcoming / Past) ── */}
-      <EventTabs upcoming={upcoming} past={past} />
+      <FadeInSection delay={300}>
+        <EventTabs upcoming={upcoming} past={past} />
+      </FadeInSection>
 
       {/* ── Trail Location Map ── */}
       {kennel.region && (

@@ -34,7 +34,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
 
   return (
     <Link href={`/kennels/${kennel.slug}`}>
-      <div className="rounded-lg border bg-card p-4 transition-colors hover:border-primary/50 hover:shadow-sm h-full flex flex-col">
+      <div className={`rounded-lg border bg-card p-4 transition-colors hover:border-primary/50 hover:shadow-sm h-full flex flex-col${!kennel.nextEvent ? " opacity-60" : ""}`}>
         {/* Header: shortName + region badge */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">

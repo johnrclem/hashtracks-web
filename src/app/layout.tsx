@@ -12,7 +12,11 @@ import { getOrCreateUser } from "@/lib/auth";
 import { clerkAppearance } from "@/lib/clerk-appearance";
 import { TimePreferenceProvider } from "@/components/providers/time-preference-provider";
 import { UnitsPreferenceProvider } from "@/components/providers/units-preference-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import "./globals.css";
+
+/** Inline script to prevent flash of unstyled content — applies dark class before React hydration. */
+const themeScript = `(function(){try{var t=localStorage.getItem('hashtracks:theme');var d=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark')}catch(e){}})();`;
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -43,7 +47,10 @@ export default async function RootLayout({
 
   return (
     <ClerkProvider appearance={clerkAppearance}>
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        </head>
         <body
           className={`${outfit.variable} ${jetbrainsMono.variable} antialiased`}
         >
@@ -56,6 +63,7 @@ export default async function RootLayout({
           <TooltipProvider>
             <TimePreferenceProvider initialPreference={timeDisplayPref}>
               <UnitsPreferenceProvider>
+                <ThemeProvider>
                 <Header />
                 <main id="main-content" tabIndex={-1} className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8 pb-24 md:pb-8 focus:outline-none">
                   {children}
@@ -63,6 +71,7 @@ export default async function RootLayout({
                 <Footer />
                 <MobileBottomNav />
                 <Toaster />
+                </ThemeProvider>
               </UnitsPreferenceProvider>
             </TimePreferenceProvider>
           </TooltipProvider>

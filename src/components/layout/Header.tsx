@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Globe, Clock, Thermometer } from "lucide-react";
+import { Globe, Clock, Thermometer, Sun, Moon, Monitor } from "lucide-react";
 import { Wordmark } from "@/components/layout/Wordmark";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
+import { useTheme } from "@/components/providers/theme-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +30,7 @@ export function Header() {
   const isAdmin = (user?.publicMetadata as { role?: string } | undefined)?.role === "admin";
   const { preference, setPreference, isLoading } = useTimePreference();
   const { tempUnit, setTempUnit } = useUnitsPreference();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const pathname = usePathname();
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
@@ -125,6 +127,29 @@ export function Header() {
                 className={tempUnit === "METRIC" ? "bg-accent" : ""}
               >
                 °C — Celsius
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Theme Toggle — desktop only */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="hidden h-9 w-9 md:inline-flex" aria-label="Theme" title="Theme">
+                {resolvedTheme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                <span className="sr-only">Toggle theme</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Theme</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setTheme("light")} className={theme === "light" ? "bg-accent" : ""}>
+                <Sun className="mr-2 h-4 w-4" /> Light
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("dark")} className={theme === "dark" ? "bg-accent" : ""}>
+                <Moon className="mr-2 h-4 w-4" /> Dark
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("system")} className={theme === "system" ? "bg-accent" : ""}>
+                <Monitor className="mr-2 h-4 w-4" /> System
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

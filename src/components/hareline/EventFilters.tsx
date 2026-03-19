@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +16,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { X } from "lucide-react";
+import { X, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import { NearMeFilter } from "@/components/shared/NearMeFilter";
 import { toggleArrayItem } from "@/lib/format";
@@ -57,6 +58,8 @@ interface EventFiltersProps {
   readonly onNearMeDistanceChange: (distance: number | null) => void;
   readonly geoState: GeoState;
   readonly onRequestLocation: () => void;
+  readonly searchText: string;
+  readonly onSearchChange: (text: string) => void;
   readonly activeFilterCount: number;
   readonly onClearAll: () => void;
 }
@@ -79,6 +82,8 @@ export function EventFilters({
   onNearMeDistanceChange,
   geoState,
   onRequestLocation,
+  searchText,
+  onSearchChange,
   activeFilterCount,
   onClearAll,
 }: EventFiltersProps) {
@@ -146,9 +151,39 @@ export function EventFilters({
     onDaysChange(toggleArrayItem(selectedDays, day));
   }
 
+  // Debounced search
+  const [localSearch, setLocalSearch] = useState(searchText);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => { setLocalSearch(searchText); }, [searchText]);
+  function handleSearchChange(value: string) {
+    setLocalSearch(value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => onSearchChange(value), 300);
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+        {/* Search input */}
+        <div className="relative shrink-0">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={localSearch}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search events..."
+            className="h-8 w-40 pl-8 pr-7 text-xs lg:w-56"
+          />
+          {localSearch && (
+            <button
+              onClick={() => { setLocalSearch(""); onSearchChange(""); }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
         {/* My Kennels / All Kennels scope */}
         {isAuthenticated && hasSubscriptions && (
           <fieldset className="flex shrink-0 rounded-md border" aria-label="Kennel scope">
@@ -315,7 +350,7 @@ export function EventFilters({
                 className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
                   selectedDays.includes(day)
                     ? "bg-primary text-primary-foreground border-primary"
-                    : "border text-muted-foreground hover:text-foreground"
+                    : "border text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
                 }`}
               >
                 {day}
@@ -338,7 +373,7 @@ export function EventFilters({
                   className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
                     selectedCountry === country
                       ? "bg-primary text-primary-foreground border-primary"
-                      : "border text-muted-foreground hover:text-foreground"
+                      : "border text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
                   }`}
                 >
                   {country}

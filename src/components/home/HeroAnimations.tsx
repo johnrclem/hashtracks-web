@@ -96,13 +96,19 @@ export function RegionTicker({ regions }: { regions: string[] }) {
   const doubled = [...regions, ...regions];
 
   return (
-    <div className="relative w-full overflow-hidden py-4">
-      <div className="flex w-max animate-[ticker_40s_linear_infinite] gap-4">
+    <div
+      className="group relative w-full overflow-hidden py-4"
+      style={{
+        maskImage: "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+        WebkitMaskImage: "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+      }}
+    >
+      <div className="flex w-max animate-[ticker_40s_linear_infinite] gap-4 group-hover:[animation-play-state:paused]">
         {doubled.map((r, i) => (
           <Link
             key={`${r}-${i}`}
             href={`/kennels?regions=${encodeURIComponent(r)}`}
-            className="whitespace-nowrap rounded-full border border-foreground/10 bg-foreground/[0.03] px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-foreground/[0.06] hover:text-foreground"
+            className="whitespace-nowrap rounded-full border border-foreground/10 bg-foreground/[0.03] px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-foreground/[0.06] hover:text-foreground hover:underline"
           >
             {r}
           </Link>
