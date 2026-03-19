@@ -307,8 +307,17 @@ export function sanitizeTitle(title: string | undefined): string | null {
   const stripped = t.replace(/^[A-Z0-9]{2,10}\s*[:–—-]\s*/i, "").trim();
   // Filter out admin/meta content in titles (test both original and stripped)
   if (isAdminTitle(t) || isAdminTitle(stripped)) return null;
+  // Strip embedded numeric dates (M/DD/YY, MM/DD/YYYY) — but not "#N/NN" run numbers
+  let cleaned = t.replace(/(?<!#)\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, "");
+  // Strip trailing "day-of-week, month DD[, YYYY]" patterns
+  cleaned = cleaned.replace(
+    /,?\s*(?:Sun(?:day)?|Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?),?\s*(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:,?\s*\d{4})?\s*$/i,
+    "",
+  );
+  // Collapse multiple spaces from stripping and trim
+  cleaned = cleaned.replace(/\s{2,}/g, " ").trim();
   // Strip embedded email addresses
-  const cleaned = t.replace(/\s*<?[\w.+-]+@[\w.-]+>?\s*/g, " ").trim();
+  cleaned = cleaned.replace(/\s*<?[\w.+-]+@[\w.-]+>?\s*/g, " ").trim();
   return cleaned || null;
 }
 
@@ -328,7 +337,11 @@ export function sanitizeLocation(location: string | undefined): string | null {
   // Strip bare URLs (not useful as location names)
   if (/^https?:\/\/\S+$/.test(t)) return null;
   // Strip "Maps, " prefix (Google Calendar link text bleed)
-  const stripped = t.replace(/^Maps,\s*/i, "");
+  const stripped = t.replace(/^Maps,\s*/i, "")
+    // Strip trailing decimal coordinate pairs (e.g., ". 35.898606, -78.579631")
+    .replace(/[.,]\s*-?\d+\.\d{3,},\s*-?\d+\.\d{3,}\s*$/, "")
+    .replace(/\.\s*$/, "")  // clean up trailing period left behind
+    .trim();
   // Clean up embedded URLs, double commas, extra whitespace, normalize state abbrev
   let cleaned = stripUrlsFromText(stripped)
     .replace(/,\s*,/g, ",")

@@ -64,6 +64,68 @@ describe("parseICalText", () => {
     expect(result.description).toBeUndefined();
     expect(result.location).toBeUndefined();
   });
+
+  it("extracts Location from DESCRIPTION field", () => {
+    const ical = [
+      "BEGIN:VEVENT",
+      "SUMMARY:Trail #822",
+      "DTSTART;TZID=America/New_York:20260321T140900",
+      "DESCRIPTION:Hares: Strawberry\\, Zero and Hose\\nLocation: Behind Marshalls in Fairmount\\nStart Time: 1:69PM (AKA 2:09 pm)\\nhttps://maps.app.goo.gl/ZLrp543fnTDXZ4WS7\\nHash Cash: $5",
+      "END:VEVENT",
+    ].join("\n");
+    const result = parseICalText(ical);
+    expect(result.location).toBe("Behind Marshalls in Fairmount");
+  });
+
+  it("extracts Hares from DESCRIPTION field", () => {
+    const ical = [
+      "BEGIN:VEVENT",
+      "SUMMARY:Trail #822",
+      "DTSTART;TZID=America/New_York:20260321T140900",
+      "DESCRIPTION:Hares: Strawberry\\, Zero and Hose\\nLocation: Behind Marshalls in Fairmount",
+      "END:VEVENT",
+    ].join("\n");
+    const result = parseICalText(ical);
+    expect(result.hares).toBe("Strawberry, Zero and Hose");
+  });
+
+  it("prefers LOCATION property over description-extracted location", () => {
+    const ical = [
+      "BEGIN:VEVENT",
+      "SUMMARY:Trail #821",
+      "DTSTART;TZID=America/New_York:20260316T180900",
+      "LOCATION:Dinosaur Bar-B-Que\\, 246 W Willow St\\, Syracuse\\, NY 13204",
+      "DESCRIPTION:Location: Some other place\\nHares: Test Hare",
+      "END:VEVENT",
+    ].join("\n");
+    const result = parseICalText(ical);
+    expect(result.location).toBe("Dinosaur Bar-B-Que, 246 W Willow St, Syracuse, NY 13204");
+  });
+
+  it("strips Google Maps URLs from description", () => {
+    const ical = [
+      "BEGIN:VEVENT",
+      "SUMMARY:Trail #822",
+      "DTSTART;TZID=America/New_York:20260321T140900",
+      "DESCRIPTION:Come run with us!\\nhttps://maps.app.goo.gl/ZLrp543fnTDXZ4WS7\\nHash Cash: $5",
+      "END:VEVENT",
+    ].join("\n");
+    const result = parseICalText(ical);
+    expect(result.description).not.toContain("maps.app.goo.gl");
+  });
+
+  it("preserves non-map URLs in description (rego/ticket links)", () => {
+    const ical = [
+      "BEGIN:VEVENT",
+      "SUMMARY:Trail #823",
+      "DTSTART;TZID=America/New_York:20260328T140900",
+      "DESCRIPTION:Sign up: https://hashrego.com/events/soh4-823\\nhttps://maps.app.goo.gl/abc123\\nHash Cash: $5",
+      "END:VEVENT",
+    ].join("\n");
+    const result = parseICalText(ical);
+    expect(result.description).toContain("https://hashrego.com/events/soh4-823");
+    expect(result.description).not.toContain("maps.app.goo.gl");
+  });
 });
 
 describe("parseRssItems", () => {

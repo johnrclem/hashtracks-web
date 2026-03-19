@@ -801,6 +801,38 @@ describe("sanitizeTitle", () => {
   it("preserves valid title with kennel prefix", () => {
     expect(sanitizeTitle("BH3: The St Patrick's Trail")).toBe("BH3: The St Patrick's Trail");
   });
+
+  it("strips embedded M/DD/YY date from title", () => {
+    expect(sanitizeTitle("SOCO #13 3/20/26 Spring Equinox Hash")).toBe("SOCO #13 Spring Equinox Hash");
+  });
+
+  it("strips embedded MM/DD/YYYY date from title", () => {
+    expect(sanitizeTitle("Trail Name 03/20/2026 Special Run")).toBe("Trail Name Special Run");
+  });
+
+  it("strips trailing day-of-week + month date", () => {
+    expect(sanitizeTitle("SWH3 #1783, Saturday, March 21")).toBe("SWH3 #1783");
+  });
+
+  it("strips trailing abbreviated day + month date", () => {
+    expect(sanitizeTitle("Run Name, Thu, Mar 19")).toBe("Run Name");
+  });
+
+  it("strips trailing day + month + year", () => {
+    expect(sanitizeTitle("Event Name, Friday, April 4, 2026")).toBe("Event Name");
+  });
+
+  it("does not strip run numbers that look like dates", () => {
+    expect(sanitizeTitle("NYCH3 #3/20 Anniversary")).toBe("NYCH3 #3/20 Anniversary");
+  });
+
+  it("does not strip full date after # prefix", () => {
+    expect(sanitizeTitle("Trail #12/25/26")).toBe("Trail #12/25/26");
+  });
+
+  it("collapses extra whitespace after date removal", () => {
+    expect(sanitizeTitle("SOCO #13  3/20/26  Spring Equinox")).toBe("SOCO #13 Spring Equinox");
+  });
 });
 
 // ── sanitizeHares ──
@@ -955,6 +987,43 @@ describe("sanitizeLocation", () => {
     expect(sanitizeLocation("Online event")).toBeNull();
     expect(sanitizeLocation("online")).toBeNull();
     expect(sanitizeLocation("Online Event")).toBeNull();
+  });
+
+  it("strips trailing decimal coordinate pair after period", () => {
+    expect(sanitizeLocation("Park at 9801 Durant Rd, Raleigh. 35.898606316275696, -78.57963120196699"))
+      .toBe("Park at 9801 Durant Rd, Raleigh");
+  });
+
+  it("strips trailing decimal coordinate pair after comma", () => {
+    expect(sanitizeLocation("123 Main St, Springfield, 39.7817, -89.6501"))
+      .toBe("123 Main St, Springfield");
+  });
+
+  it("does not strip non-coordinate trailing numbers", () => {
+    expect(sanitizeLocation("Suite 200, 123 Main St")).toBe("Suite 200, 123 Main St");
+  });
+
+  it("strips coordinate pair with negative lat", () => {
+    expect(sanitizeLocation("Some Park, City. -33.8688, 151.2093"))
+      .toBe("Some Park, City");
+  });
+
+  it("removes trailing period left after coordinate stripping", () => {
+    expect(sanitizeLocation("Park at 9801 Durant Rd, Raleigh. 35.898606, -78.579631"))
+      .toBe("Park at 9801 Durant Rd, Raleigh");
+  });
+
+  it("strips 3-decimal coordinate pairs (common Google Calendar export)", () => {
+    expect(sanitizeLocation("Some Park, Raleigh. 35.898, -78.579")).toBe("Some Park, Raleigh");
+  });
+
+  it("does not strip coordinates with too few decimal places (avoids false positives)", () => {
+    expect(sanitizeLocation("Place, City. 35.9, -78.6")).toBe("Place, City. 35.9, -78.6");
+  });
+
+  it("strips leading 'Maps,' prefix from Google Calendar location", () => {
+    expect(sanitizeLocation("Maps, 64A Market St, Portland, ME 04101, USA"))
+      .toBe("64A Market St, Portland, ME 04101, USA");
   });
 });
 

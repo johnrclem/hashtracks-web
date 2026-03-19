@@ -237,6 +237,20 @@ describe("geocodeAddress", () => {
     const result = await geocodeAddress("Slow Address");
     expect(result).toBeNull();
   });
+
+  it("passes language=en to Google Maps Geocoding API", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [{ geometry: { location: { lat: 43.16, lng: -77.61 } } }],
+      }),
+    } as Response);
+    await geocodeAddress("Rochester, NY");
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const calledUrl = fetchSpy.mock.calls[0][0] as string;
+    expect(calledUrl).toContain("language=en");
+  });
 });
 
 describe("reverseGeocode", () => {
@@ -329,6 +343,27 @@ describe("reverseGeocode", () => {
     delete process.env.GOOGLE_CALENDAR_API_KEY;
     const result = await reverseGeocode(40, -74);
     expect(result).toBeNull();
+  });
+
+  it("passes language=en to Google Maps Geocoding API", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [
+          {
+            address_components: [
+              { long_name: "Rochester", short_name: "Rochester", types: ["locality"] },
+              { long_name: "New York", short_name: "NY", types: ["administrative_area_level_1"] },
+            ],
+          },
+        ],
+      }),
+    } as Response);
+    await reverseGeocode(43.16, -77.61);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const calledUrl = fetchSpy.mock.calls[0][0] as string;
+    expect(calledUrl).toContain("language=en");
   });
 });
 
