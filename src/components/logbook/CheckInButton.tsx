@@ -194,9 +194,9 @@ export function CheckInButton({
   if (!isAuthenticated) {
     const label = isPast ? "Sign in to check in" : "Sign in to RSVP";
     return (
-      <Link href="/sign-in" className="text-sm text-primary hover:underline">
-        {label}
-      </Link>
+      <Button variant="outline" size="sm" asChild>
+        <Link href="/sign-in">{label}</Link>
+      </Button>
     );
   }
 

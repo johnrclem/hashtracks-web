@@ -229,9 +229,9 @@ export default async function EventDetailPage({
       </div>
 
       {/* Side-by-side: detail fields + description (left) | map (right) */}
-      <div className={`grid grid-cols-1 gap-6 ${hasLocation ? "md:grid-cols-[3fr_2fr]" : ""}`}>
+      <div className={`grid grid-cols-1 gap-0 ${hasLocation ? "md:grid-cols-[3fr_2fr] rounded-xl border overflow-hidden" : ""}`}>
             {/* Left column: detail fields + description */}
-            <div className="space-y-4">
+            <div className={`space-y-4 ${hasLocation ? "p-5 md:p-6" : ""}`}>
               <dl className="grid gap-4 sm:grid-cols-2">
                 {event.runNumber && (
                   <DetailItem label="Run Number" value={`#${event.runNumber}`} />
@@ -319,7 +319,7 @@ export default async function EventDetailPage({
                 locationName={event.locationName ?? undefined}
                 locationAddress={event.locationAddress ?? undefined}
                 regionHint={event.kennel.region}
-                imgClassName="h-64 md:h-full md:min-h-64"
+                imgClassName="h-64 md:h-full md:min-h-64 md:rounded-none"
               />
             )}
       </div>

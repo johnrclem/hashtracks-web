@@ -61,7 +61,7 @@ export default async function HomePage() {
       {/* ═══════════════════════════════════════════════
           HERO
        ═══════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden px-4 pb-16 pt-12 sm:pt-20 sm:pb-24">
+      <section className="relative overflow-hidden px-4 pb-16 pt-8 sm:pt-14 sm:pb-24">
         {/* Background texture */}
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.035]"
@@ -107,7 +107,7 @@ export default async function HomePage() {
                 <>
                   <Link
                     href="/hareline"
-                    className="group inline-flex h-12 items-center gap-2 rounded-full bg-foreground px-8 text-sm font-semibold text-background transition-all hover:gap-3 hover:bg-foreground/90"
+                    className="group inline-flex h-12 items-center gap-2 rounded-full bg-orange-600 px-8 text-sm font-semibold text-white transition-all hover:gap-3 hover:bg-orange-700"
                   >
                     View Hareline
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -123,7 +123,7 @@ export default async function HomePage() {
                 <>
                   <Link
                     href="/sign-up"
-                    className="group inline-flex h-12 items-center gap-2 rounded-full bg-foreground px-8 text-sm font-semibold text-background transition-all hover:gap-3 hover:bg-foreground/90"
+                    className="group inline-flex h-12 items-center gap-2 rounded-full bg-orange-600 px-8 text-sm font-semibold text-white transition-all hover:gap-3 hover:bg-orange-700"
                   >
                     Get Started — It&apos;s Free
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -141,7 +141,7 @@ export default async function HomePage() {
 
           {/* Live stats bar */}
           <FadeInSection delay={300}>
-            <div className="mx-auto mt-14 flex max-w-lg flex-wrap items-center justify-center gap-8 sm:gap-12">
+            <div className="mx-auto mt-10 flex max-w-lg flex-wrap items-center justify-center gap-8 sm:gap-12">
               <div className="text-center">
                 <div className="text-3xl font-bold tracking-tight sm:text-4xl">
                   <AnimatedCounter target={upcomingCount} />
@@ -185,7 +185,7 @@ export default async function HomePage() {
       {/* ═══════════════════════════════════════════════
           COMING UP — LIVE EVENT FEED
        ═══════════════════════════════════════════════ */}
-      <section className="px-4 py-16 sm:py-20">
+      <section className="px-4 py-10 sm:py-14">
         <div className="mx-auto max-w-5xl">
           <FadeInSection>
             <div className="mb-8 flex items-end justify-between">
@@ -309,7 +309,7 @@ export default async function HomePage() {
       {/* ═══════════════════════════════════════════════
           VALUE PROPS — THREE PILLARS
        ═══════════════════════════════════════════════ */}
-      <section className="border-t border-foreground/5 bg-foreground/[0.015] px-4 py-16 sm:py-20">
+      <section className="border-t border-foreground/5 bg-foreground/[0.015] px-4 py-12 sm:py-16">
         <div className="mx-auto max-w-5xl">
           <FadeInSection>
             <h2 className="text-center text-2xl font-bold tracking-tight sm:text-3xl">
@@ -324,11 +324,11 @@ export default async function HomePage() {
           <div className="mt-12 grid gap-6 sm:grid-cols-3">
             {/* Discover */}
             <FadeInSection delay={0}>
-              <div className="group relative rounded-2xl border border-foreground/[0.07] bg-background p-6 transition-all hover:border-foreground/15 hover:shadow-md">
-                <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
-                  <Calendar className="h-5 w-5" />
+              <div className="group relative rounded-2xl border border-foreground/[0.07] bg-gradient-to-br from-orange-50/50 to-transparent p-8 transition-all hover:border-foreground/15 hover:shadow-md">
+                <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-orange-700">
+                  <Calendar className="h-6 w-6" />
                 </div>
-                <h3 className="text-lg font-bold">Discover</h3>
+                <h3 className="text-xl font-bold">Discover</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   Every hareline, every kennel, one calendar. Filter by day,
                   region, or distance. List, calendar, or map view.
@@ -344,11 +344,11 @@ export default async function HomePage() {
 
             {/* Track */}
             <FadeInSection delay={100}>
-              <div className="group relative rounded-2xl border border-foreground/[0.07] bg-background p-6 transition-all hover:border-foreground/15 hover:shadow-md">
-                <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                  <BookOpen className="h-5 w-5" />
+              <div className="group relative rounded-2xl border border-foreground/[0.07] bg-gradient-to-br from-emerald-50/50 to-transparent p-8 transition-all hover:border-foreground/15 hover:shadow-md">
+                <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                  <BookOpen className="h-6 w-6" />
                 </div>
-                <h3 className="text-lg font-bold">Track</h3>
+                <h3 className="text-xl font-bold">Track</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   Log attendance, link Strava activities, and build your personal
                   hashing history. See stats, milestones, and streaks.
@@ -365,11 +365,11 @@ export default async function HomePage() {
 
             {/* Connect */}
             <FadeInSection delay={200}>
-              <div className="group relative rounded-2xl border border-foreground/[0.07] bg-background p-6 transition-all hover:border-foreground/15 hover:shadow-md">
-                <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
-                  <Users className="h-5 w-5" />
+              <div className="group relative rounded-2xl border border-foreground/[0.07] bg-gradient-to-br from-blue-50/50 to-transparent p-8 transition-all hover:border-foreground/15 hover:shadow-md">
+                <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
+                  <Users className="h-6 w-6" />
                 </div>
-                <h3 className="text-lg font-bold">Connect</h3>
+                <h3 className="text-xl font-bold">Connect</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   Subscribe to your home kennels. Find new ones when you travel.{" "}
                   {kennelCount} kennels across {regionCount} regions and counting.
@@ -389,7 +389,7 @@ export default async function HomePage() {
       {/* ═══════════════════════════════════════════════
           SOCIAL PROOF / WHY HASHTRACKS
        ═══════════════════════════════════════════════ */}
-      <section className="px-4 py-16 sm:py-20">
+      <section className="px-4 py-10 sm:py-14">
         <div className="mx-auto max-w-5xl">
           <FadeInSection>
             <h2 className="text-center text-2xl font-bold tracking-tight sm:text-3xl">
@@ -464,7 +464,7 @@ export default async function HomePage() {
       {/* ═══════════════════════════════════════════════
           MISMAN TEASER
        ═══════════════════════════════════════════════ */}
-      <section className="border-t border-foreground/5 bg-foreground/[0.015] px-4 py-16 sm:py-20">
+      <section className="border-t border-foreground/5 bg-foreground/[0.015] px-4 py-10 sm:py-14">
         <div className="mx-auto max-w-5xl">
           <FadeInSection>
             <div className="mx-auto max-w-2xl text-center">
@@ -494,7 +494,7 @@ export default async function HomePage() {
       {/* ═══════════════════════════════════════════════
           FINAL CTA
        ═══════════════════════════════════════════════ */}
-      <section className="border-t border-foreground/5 bg-foreground/[0.015] px-4 py-16 sm:py-20">
+      <section className="border-t border-foreground/5 bg-foreground/[0.015] px-4 py-10 sm:py-14">
         <div className="mx-auto max-w-2xl text-center">
           <FadeInSection>
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
@@ -509,7 +509,7 @@ export default async function HomePage() {
               {userId ? (
                 <Link
                   href="/hareline"
-                  className="group inline-flex h-12 items-center gap-2 rounded-full bg-foreground px-8 text-sm font-semibold text-background transition-all hover:gap-3 hover:bg-foreground/90"
+                  className="group inline-flex h-12 items-center gap-2 rounded-full bg-orange-600 px-8 text-sm font-semibold text-white transition-all hover:gap-3 hover:bg-orange-700"
                 >
                   View Hareline
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -518,7 +518,7 @@ export default async function HomePage() {
                 <>
                   <Link
                     href="/sign-up"
-                    className="group inline-flex h-12 items-center gap-2 rounded-full bg-foreground px-8 text-sm font-semibold text-background transition-all hover:gap-3 hover:bg-foreground/90"
+                    className="group inline-flex h-12 items-center gap-2 rounded-full bg-orange-600 px-8 text-sm font-semibold text-white transition-all hover:gap-3 hover:bg-orange-700"
                   >
                     Get Started — It&apos;s Free
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

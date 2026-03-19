@@ -29,8 +29,15 @@ import { haversineDistance, getEventCoords } from "@/lib/geo";
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[calc(100vh-16rem)] min-h-[400px] items-center justify-center rounded-md border text-sm text-muted-foreground">
-      Loading map…
+    <div className="relative h-[calc(100vh-16rem)] min-h-[400px] overflow-hidden rounded-md border bg-muted/30">
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground/60" />
+        <span className="text-sm text-muted-foreground">Loading map…</span>
+      </div>
+      <div className="absolute top-3 right-3 flex flex-col gap-1">
+        <div className="h-8 w-8 rounded bg-muted animate-pulse" />
+        <div className="h-8 w-8 rounded bg-muted animate-pulse" />
+      </div>
     </div>
   ),
 });
@@ -75,10 +82,26 @@ interface FilterCriteria {
   selectedKennels: string[];
   selectedDays: string[];
   selectedCountry: string;
+  searchText: string;
   todayUtc: number;
   nearMeDistance: number | null;
   userLat: number | null;
   userLng: number | null;
+}
+
+/** Check whether an event matches a free-text search query. */
+function matchesSearchText(event: HarelineEvent, query: string): boolean {
+  if (!query.trim()) return true;
+  const lower = query.toLowerCase();
+  return !!(
+    event.title?.toLowerCase().includes(lower) ||
+    event.kennel.shortName.toLowerCase().includes(lower) ||
+    event.kennel.fullName.toLowerCase().includes(lower) ||
+    event.haresText?.toLowerCase().includes(lower) ||
+    event.locationName?.toLowerCase().includes(lower) ||
+    event.locationCity?.toLowerCase().includes(lower) ||
+    event.description?.toLowerCase().includes(lower)
+  );
 }
 
 /** Check whether an event passes the time filter. */
@@ -104,6 +127,7 @@ function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
   if (f.selectedKennels.length > 0 && !f.selectedKennels.includes(event.kennel.id)) return false;
   if (f.selectedDays.length > 0 && !f.selectedDays.includes(getDayOfWeek(event.date))) return false;
   if (f.selectedCountry && event.kennel.country !== f.selectedCountry) return false;
+  if (f.searchText && !matchesSearchText(event, f.searchText)) return false;
 
   // Near-me distance filter — only applies when geolocation is granted
   if (f.nearMeDistance != null && f.userLat != null && f.userLng != null) {
@@ -199,6 +223,9 @@ export function HarelineView({
   const [selectedCountry, setSelectedCountryState] = useState<string>(
     searchParams.get("country") ?? "",
   );
+  const [searchText, setSearchTextState] = useState<string>(
+    searchParams.get("q") ?? "",
+  );
   const [nearMeDistance, setNearMeDistanceState] = useState<number | null>(() => {
     const d = searchParams.get("dist");
     const n = d ? Number(d) : null;
@@ -251,6 +278,7 @@ export function HarelineView({
         kennels: selectedKennels,
         days: selectedDays,
         country: selectedCountry,
+        q: searchText,
         dist: nearMeDistance != null ? String(nearMeDistance) : "",
         ...overrides,
       };
@@ -274,7 +302,7 @@ export function HarelineView({
       const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
       window.history.replaceState(window.history.state, "", newUrl);
     },
-    [timeFilter, view, density, scope, selectedRegions, selectedKennels, selectedDays, selectedCountry, nearMeDistance, defaultScope],
+    [timeFilter, view, density, scope, selectedRegions, selectedKennels, selectedDays, selectedCountry, searchText, nearMeDistance, defaultScope],
   );
 
   // Wrapper setters that sync to URL
@@ -331,6 +359,11 @@ export function HarelineView({
     resetListState();
     syncUrl({ dist: v != null ? String(v) : "" });
   }
+  function setSearchText(v: string) {
+    setSearchTextState(v);
+    resetListState();
+    syncUrl({ q: v });
+  }
 
   // Shared filter context (recomputed once per render)
   const filterContext = useMemo(() => {
@@ -346,12 +379,12 @@ export function HarelineView({
     return events.filter((event) => {
       return passesAllFilters(event, {
         timeFilter: "all", scope, subscribedKennelIds,
-        selectedRegions, selectedKennels, selectedDays, selectedCountry,
+        selectedRegions, selectedKennels, selectedDays, selectedCountry, searchText,
         todayUtc: filterContext.todayUtc, nearMeDistance,
         userLat: filterContext.userLat, userLng: filterContext.userLng,
       });
     });
-  }, [events, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays, selectedCountry, nearMeDistance, filterContext]);
+  }, [events, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays, selectedCountry, searchText, nearMeDistance, filterContext]);
 
   // List/map events — derived from calendarEvents by applying time filter on the smaller set
   const filteredEvents = useMemo(() => {
@@ -391,7 +424,7 @@ export function HarelineView({
   const remaining = sortedEvents.length - visibleCount;
 
   const activeFilterCount =
-    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance != null ? 1 : 0);
+    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance != null ? 1 : 0) + (searchText ? 1 : 0);
 
   function clearAllFilters() {
     setSelectedRegionsState([]);
@@ -399,8 +432,9 @@ export function HarelineView({
     setSelectedDaysState([]);
     setSelectedCountryState("");
     setNearMeDistanceState(null);
+    setSearchTextState("");
     resetListState();
-    syncUrl({ regions: [], kennels: [], days: [], country: "", dist: "" });
+    syncUrl({ regions: [], kennels: [], days: [], country: "", dist: "", q: "" });
   }
 
   const detailPanel = selectedEvent ? (
@@ -531,6 +565,8 @@ export function HarelineView({
           </ToggleGroup>
 
           {view === "list" && (
+            <>
+            <Separator orientation="vertical" className="mx-1 h-6" />
             <ToggleGroup
               type="single"
               value={density}
@@ -542,6 +578,7 @@ export function HarelineView({
               <ToggleGroupItem value="medium">Medium</ToggleGroupItem>
               <ToggleGroupItem value="compact">Compact</ToggleGroupItem>
             </ToggleGroup>
+            </>
           )}
         </div>
       </div>
@@ -567,6 +604,8 @@ export function HarelineView({
         onNearMeDistanceChange={setNearMeDistance}
         geoState={geoState}
         onRequestLocation={requestLocation}
+        searchText={searchText}
+        onSearchChange={setSearchText}
         activeFilterCount={activeFilterCount}
         onClearAll={clearAllFilters}
       />

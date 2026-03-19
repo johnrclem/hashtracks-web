@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Outfit, JetBrains_Mono } from "next/font/google";
+import { Outfit, Sora, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -12,11 +12,18 @@ import { getOrCreateUser } from "@/lib/auth";
 import { clerkAppearance } from "@/lib/clerk-appearance";
 import { TimePreferenceProvider } from "@/components/providers/time-preference-provider";
 import { UnitsPreferenceProvider } from "@/components/providers/units-preference-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import "./globals.css";
 
 const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
+});
+
+const sora = Sora({
+  variable: "--font-sora",
+  subsets: ["latin"],
+  weight: ["700", "800"],
 });
 
 const jetbrainsMono = JetBrains_Mono({
@@ -43,9 +50,9 @@ export default async function RootLayout({
 
   return (
     <ClerkProvider appearance={clerkAppearance}>
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <body
-          className={`${outfit.variable} ${jetbrainsMono.variable} antialiased`}
+          className={`${outfit.variable} ${sora.variable} ${jetbrainsMono.variable} antialiased`}
         >
           <a
             href="#main-content"
@@ -56,6 +63,7 @@ export default async function RootLayout({
           <TooltipProvider>
             <TimePreferenceProvider initialPreference={timeDisplayPref}>
               <UnitsPreferenceProvider>
+                <ThemeProvider>
                 <Header />
                 <main id="main-content" tabIndex={-1} className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8 pb-24 md:pb-8 focus:outline-none">
                   {children}
@@ -63,6 +71,7 @@ export default async function RootLayout({
                 <Footer />
                 <MobileBottomNav />
                 <Toaster />
+                </ThemeProvider>
               </UnitsPreferenceProvider>
             </TimePreferenceProvider>
           </TooltipProvider>

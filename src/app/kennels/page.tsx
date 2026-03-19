@@ -6,6 +6,7 @@ import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { getStateGroup } from "@/lib/region";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { FadeInSection } from "@/components/home/HeroAnimations";
 
 export const metadata: Metadata = {
   title: "Kennels · HashTracks",
@@ -62,19 +63,23 @@ export default async function KennelsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Kennel Directory"
-        description="Browse hashing kennels and subscribe to your home kennels."
-        actions={
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/kennels/request">Request a Kennel</Link>
-          </Button>
-        }
-      />
+      <FadeInSection>
+        <PageHeader
+          title="Kennel Directory"
+          description="Browse hashing kennels and subscribe to your home kennels."
+          actions={
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/kennels/request">Request a Kennel</Link>
+            </Button>
+          }
+        />
+      </FadeInSection>
 
-      <Suspense>
-        <KennelDirectory kennels={kennelsWithNext} />
-      </Suspense>
+      <FadeInSection delay={100}>
+        <Suspense>
+          <KennelDirectory kennels={kennelsWithNext} />
+        </Suspense>
+      </FadeInSection>
     </div>
   );
 }
