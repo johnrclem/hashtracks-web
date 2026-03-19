@@ -79,9 +79,10 @@ export function parseICalText(ical: string): {
     if (locMatch) descLocation = locMatch[1].trim();
   }
 
-  // Strip URLs from description for clean display
+  // Strip Google Maps URLs from description (they leak into display text)
+  // Preserve non-map URLs (rego/ticket/venue links are useful)
   const cleanDesc = descText
-    ?.replace(/https?:\/\/\S+/g, "")
+    ?.replace(/https?:\/\/(?:maps\.app\.goo\.gl|maps\.google\.com|www\.google\.com\/maps)\S*/g, "")
     .replace(/\n{2,}/g, "\n")
     .trim() || undefined;
 

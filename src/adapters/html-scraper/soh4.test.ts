@@ -113,6 +113,19 @@ describe("parseICalText", () => {
     const result = parseICalText(ical);
     expect(result.description).not.toContain("maps.app.goo.gl");
   });
+
+  it("preserves non-map URLs in description (rego/ticket links)", () => {
+    const ical = [
+      "BEGIN:VEVENT",
+      "SUMMARY:Trail #823",
+      "DTSTART;TZID=America/New_York:20260328T140900",
+      "DESCRIPTION:Sign up: https://hashrego.com/events/soh4-823\\nhttps://maps.app.goo.gl/abc123\\nHash Cash: $5",
+      "END:VEVENT",
+    ].join("\n");
+    const result = parseICalText(ical);
+    expect(result.description).toContain("https://hashrego.com/events/soh4-823");
+    expect(result.description).not.toContain("maps.app.goo.gl");
+  });
 });
 
 describe("parseRssItems", () => {

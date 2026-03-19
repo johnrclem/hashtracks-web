@@ -1013,6 +1013,10 @@ describe("sanitizeLocation", () => {
       .toBe("Park at 9801 Durant Rd, Raleigh");
   });
 
+  it("strips 3-decimal coordinate pairs (common Google Calendar export)", () => {
+    expect(sanitizeLocation("Some Park, Raleigh. 35.898, -78.579")).toBe("Some Park, Raleigh");
+  });
+
   it("does not strip coordinates with too few decimal places (avoids false positives)", () => {
     expect(sanitizeLocation("Place, City. 35.9, -78.6")).toBe("Place, City. 35.9, -78.6");
   });
