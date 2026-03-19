@@ -164,7 +164,7 @@ export async function geocodeAddress(
   if (!apiKey || !address.trim()) return null;
 
   try {
-    const url = `${GOOGLE_GEOCODE_BASE}?address=${encodeURIComponent(address)}&key=${apiKey}`;
+    const url = `${GOOGLE_GEOCODE_BASE}?address=${encodeURIComponent(address)}&language=en&key=${apiKey}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(url, { signal: controller.signal });
@@ -197,7 +197,7 @@ export async function reverseGeocode(
   if (!apiKey) return null;
 
   try {
-    const url = `${GOOGLE_GEOCODE_BASE}?latlng=${lat},${lng}&result_type=locality|sublocality&key=${apiKey}`;
+    const url = `${GOOGLE_GEOCODE_BASE}?latlng=${lat},${lng}&result_type=locality|sublocality&language=en&key=${apiKey}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(url, { signal: controller.signal });
