@@ -328,7 +328,11 @@ export function sanitizeLocation(location: string | undefined): string | null {
   // Strip bare URLs (not useful as location names)
   if (/^https?:\/\/\S+$/.test(t)) return null;
   // Strip "Maps, " prefix (Google Calendar link text bleed)
-  const stripped = t.replace(/^Maps,\s*/i, "");
+  const stripped = t.replace(/^Maps,\s*/i, "")
+    // Strip trailing decimal coordinate pairs (e.g., ". 35.898, -78.579" or ", 39.78, -89.65")
+    .replace(/[.,]\s*-?\d+\.\d{4,},\s*-?\d+\.\d{4,}\s*$/, "")
+    .replace(/\.\s*$/, "")  // clean up trailing period left behind
+    .trim();
   // Clean up embedded URLs, double commas, extra whitespace, normalize state abbrev
   let cleaned = stripUrlsFromText(stripped)
     .replace(/,\s*,/g, ",")

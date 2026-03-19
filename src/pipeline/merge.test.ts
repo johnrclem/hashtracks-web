@@ -956,5 +956,38 @@ describe("sanitizeLocation", () => {
     expect(sanitizeLocation("online")).toBeNull();
     expect(sanitizeLocation("Online Event")).toBeNull();
   });
+
+  it("strips trailing decimal coordinate pair after period", () => {
+    expect(sanitizeLocation("Park at 9801 Durant Rd, Raleigh. 35.898606316275696, -78.57963120196699"))
+      .toBe("Park at 9801 Durant Rd, Raleigh");
+  });
+
+  it("strips trailing decimal coordinate pair after comma", () => {
+    expect(sanitizeLocation("123 Main St, Springfield, 39.7817, -89.6501"))
+      .toBe("123 Main St, Springfield");
+  });
+
+  it("does not strip non-coordinate trailing numbers", () => {
+    expect(sanitizeLocation("Suite 200, 123 Main St")).toBe("Suite 200, 123 Main St");
+  });
+
+  it("strips coordinate pair with negative lat", () => {
+    expect(sanitizeLocation("Some Park, City. -33.8688, 151.2093"))
+      .toBe("Some Park, City");
+  });
+
+  it("removes trailing period left after coordinate stripping", () => {
+    expect(sanitizeLocation("Park at 9801 Durant Rd, Raleigh. 35.898606, -78.579631"))
+      .toBe("Park at 9801 Durant Rd, Raleigh");
+  });
+
+  it("does not strip coordinates with too few decimal places (avoids false positives)", () => {
+    expect(sanitizeLocation("Place, City. 35.9, -78.6")).toBe("Place, City. 35.9, -78.6");
+  });
+
+  it("strips leading 'Maps,' prefix from Google Calendar location", () => {
+    expect(sanitizeLocation("Maps, 64A Market St, Portland, ME 04101, USA"))
+      .toBe("64A Market St, Portland, ME 04101, USA");
+  });
 });
 
