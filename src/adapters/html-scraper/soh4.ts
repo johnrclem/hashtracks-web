@@ -32,6 +32,7 @@ export function parseICalText(ical: string): {
   startTime?: string;
   description?: string;
   location?: string;
+  hares?: string;
 } {
   // Unfold iCal lines (continuation lines start with space or tab)
   const unfolded = ical.replace(/\r?\n[ \t]/g, "");
@@ -65,12 +66,32 @@ export function parseICalText(ical: string): {
     }
   }
 
+  // Parse structured fields from DESCRIPTION (SOH4 uses "Label: Value" patterns)
+  const descText = unescapeICalValue(description, true);
+  let hares: string | undefined;
+  let descLocation: string | undefined;
+
+  if (descText) {
+    const haresMatch = /Hares?:\s*(.+?)(?:\n|$)/i.exec(descText);
+    if (haresMatch) hares = haresMatch[1].trim();
+
+    const locMatch = /Location:\s*(.+?)(?:\n|$)/i.exec(descText);
+    if (locMatch) descLocation = locMatch[1].trim();
+  }
+
+  // Strip URLs from description for clean display
+  const cleanDesc = descText
+    ?.replace(/https?:\/\/\S+/g, "")
+    .replace(/\n{2,}/g, "\n")
+    .trim() || undefined;
+
   return {
     title: summary || undefined,
     date,
     startTime,
-    description: unescapeICalValue(description, true),
-    location: unescapeICalValue(location, false),
+    description: cleanDesc,
+    location: unescapeICalValue(location, false) || descLocation,  // prefer LOCATION property
+    hares,
   };
 }
 
@@ -212,6 +233,7 @@ export class SOH4Adapter implements SourceAdapter {
           title: title || (trailNumber ? `SOH4 Trail #${trailNumber}` : "SOH4 Trail"),
           description: fields.description,
           location: fields.location,
+          hares: fields.hares,
           startTime: fields.startTime,
           sourceUrl: trailUrl,
         };
