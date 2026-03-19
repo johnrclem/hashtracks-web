@@ -155,6 +155,7 @@ export function EventFilters({
   const [localSearch, setLocalSearch] = useState(searchText);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => { setLocalSearch(searchText); }, [searchText]);
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
   function handleSearchChange(value: string) {
     setLocalSearch(value);
     clearTimeout(debounceRef.current);

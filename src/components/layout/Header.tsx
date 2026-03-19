@@ -8,7 +8,7 @@ import { Globe, Clock, Thermometer, Sun, Moon, Monitor } from "lucide-react";
 import { Wordmark } from "@/components/layout/Wordmark";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
-import { useTheme } from "@/components/providers/theme-provider";
+import { useTheme } from "next-themes";
 import {
   DropdownMenu,
   DropdownMenuContent,

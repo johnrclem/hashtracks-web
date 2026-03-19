@@ -15,9 +15,6 @@ import { UnitsPreferenceProvider } from "@/components/providers/units-preference
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import "./globals.css";
 
-/** Inline script to prevent flash of unstyled content — applies dark class before React hydration. */
-const themeScript = `(function(){try{var t=localStorage.getItem('hashtracks:theme');var d=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark')}catch(e){}})();`;
-
 const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
@@ -54,9 +51,6 @@ export default async function RootLayout({
   return (
     <ClerkProvider appearance={clerkAppearance}>
       <html lang="en" suppressHydrationWarning>
-        <head>
-          <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        </head>
         <body
           className={`${outfit.variable} ${sora.variable} ${jetbrainsMono.variable} antialiased`}
         >
