@@ -81,18 +81,29 @@ export function parseTrailPageHtml(html: string): {
     if (text) fields[key] = { text, href };
   });
 
-  // Extract date from the event's date <p> element.
+  // SOH4 date format in <p> tags: "DayOfWeek - Month DD, YYYY - H:MM pm"
+  const DATE_LINE_RE = /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*-\s*(\w+ \d{1,2},\s*\d{4})/i;
+
+  // Single pass over <p> elements to extract date and description.
   // The container includes a calendar widget and "Upcumming Trails" list with
-  // other dates, so we match the specific SOH4 format: "DayOfWeek - Month DD, YYYY"
+  // other dates, so we target the specific SOH4 date format and stop before
+  // labels, the trail list, or the calendar section.
   let date: string | undefined;
+  const descParagraphs: string[] = [];
   container.find("p").each((_i, el) => {
-    if (date) return false;
-    const pText = $(el).text().trim();
-    const dateMatch = /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*-\s*(\w+ \d{1,2},\s*\d{4})/i.exec(pText);
+    const pText = decodeEntities($(el).text().replace(/\s+/g, " ").trim());
+    // Extract date from the first matching <p>
+    const dateMatch = !date ? DATE_LINE_RE.exec(pText) : null;
     if (dateMatch) {
       date = chronoParseDate(dateMatch[1], "en-US") ?? undefined;
+      return; // skip date <p> from description
     }
+    // Stop at structured labels, upcumming trails list, or calendar widget
+    if (/\bHares?\s*:|Location\s*:|Start Time\s*:|Hash Cash\s*:|Theme\s*:|On[ -]?After\s*:/i.test(pText)) return false;
+    if (/upcumming|today\s+sun\s+mon/i.test(pText)) return false;
+    if (pText) descParagraphs.push(pText);
   });
+  let description = descParagraphs.length > 0 ? descParagraphs.join("\n") : undefined;
 
   // Extract title from first heading or page <title>
   const rawTitle = container.find("h1, h2").first().text().trim()
@@ -113,20 +124,6 @@ export function parseTrailPageHtml(html: string): {
       startTime = parse12HourTime(timeText);
     }
   }
-
-  // Extract narrative description from <p> elements between the date line and structured fields.
-  // Skip date-containing <p> and stop before labels, "Upcumming Trails", or calendar widget.
-  const descParagraphs: string[] = [];
-  container.find("p").each((_i, el) => {
-    const pText = decodeEntities($(el).text().replace(/\s+/g, " ").trim());
-    // Skip paragraphs that contain the event date (day-of-week + date pattern)
-    if (/(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*-\s*\w+ \d{1,2},\s*\d{4}/i.test(pText)) return;
-    // Stop at structured labels, upcumming trails list, or calendar widget
-    if (/\bHares?\s*:|Location\s*:|Start Time\s*:|Hash Cash\s*:|Theme\s*:|On[ -]?After\s*:/i.test(pText)) return false;
-    if (/upcumming|today\s+sun\s+mon/i.test(pText)) return false;
-    if (pText) descParagraphs.push(pText);
-  });
-  let description = descParagraphs.length > 0 ? descParagraphs.join("\n") : undefined;
   // Clean description
   if (description) {
     description = description
