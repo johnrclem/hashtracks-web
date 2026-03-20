@@ -124,6 +124,7 @@ logbook + kennel directory.
 - `src/adapters/html-scraper/chicago-hash.ts` — Chicago Hash website scraper (CH3)
 - `src/adapters/html-scraper/chicago-th3.ts` — Thirstday Hash website scraper (TH3)
 - `src/adapters/html-scraper/sfh3.ts` — SFH3 MultiHash HTML hareline scraper (11 Bay Area kennels)
+- `src/adapters/html-scraper/sdh3.ts` — SDH3 hareline + history scraper (10 SD kennels, 7,649 historical events)
 - `src/adapters/html-scraper/ewh3.ts` — EWH3 WordPress trail news scraper
 - `src/adapters/html-scraper/dch4.ts` — DCH4 WordPress trail posts scraper
 - `src/adapters/html-scraper/ofh3.ts` — OFH3 Blogspot trail posts scraper
@@ -246,7 +247,7 @@ logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (108)
+## Active Sources (121)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -281,9 +282,24 @@ logbook + kennel directory.
 - **OFH3 Blogspot Trail Posts** → HTML_SCRAPER → OFH3
 - **Hangover H3 DigitalPress Blog** → HTML_SCRAPER → H4
 
-### SF Bay Area (2 sources)
+### SF Bay Area (3 sources)
 - **SFH3 MultiHash iCal Feed** → ICAL_FEED → 13 SF Bay Area kennels
 - **SFH3 MultiHash HTML Hareline** → HTML_SCRAPER → 13 SF Bay Area kennels (secondary)
+- **Surf City H3 Static Schedule** → STATIC_SCHEDULE → SCH3 (Santa Cruz)
+
+### Southern California (12 sources)
+- **LAH3 Google Calendar** → GOOGLE_CALENDAR → LAH3
+- **LBH3 Google Calendar** → GOOGLE_CALENDAR → LBH3
+- **TDH3 Google Calendar** → GOOGLE_CALENDAR → TDH3
+- **GAL Google Calendar** → GOOGLE_CALENDAR → GAL
+- **SUPH3 Google Calendar** → GOOGLE_CALENDAR → SUPH3
+- **Foothill H3 Google Calendar** → GOOGLE_CALENDAR → FtH3
+- **East LA H3 Google Calendar** → GOOGLE_CALENDAR → ELAH3
+- **Signal Hill H3 Google Calendar** → GOOGLE_CALENDAR → SGH3
+- **OCHHH Google Calendar** → GOOGLE_CALENDAR → OCHHH
+- **OC Hump Google Calendar** → GOOGLE_CALENDAR → OC Hump
+- **SLOH3 Google Calendar** → GOOGLE_CALENDAR → SLOH3
+- **SDH3 Hareline** → HTML_SCRAPER → 10 San Diego kennels (SDH3, CLH3, LJH3, NCH3, IRH3, Humpin', FMH3, HAH3, MH4, DRH3) + 7,649 historical events
 
 ### London / UK (7 sources)
 - **London Hash Run List** → HTML_SCRAPER → LH3
