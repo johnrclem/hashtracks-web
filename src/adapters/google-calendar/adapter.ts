@@ -87,6 +87,35 @@ export function extractTitle(summary: string): string {
   return stripped || summary;
 }
 
+/**
+ * Extract a meaningful event title from the description when the calendar event
+ * title is just the kennel abbreviation (e.g., "C2H3").
+ *
+ * Takes the first non-empty line that isn't a known label (Hare:, Where:, etc.)
+ * and cleans it up for display.
+ */
+export function extractTitleFromDescription(description: string): string | undefined {
+  const lines = description.split("\n").map((l) => l.trim()).filter(Boolean);
+  // Known label patterns that indicate structured data, not a title
+  const labelRe = /^(?:Hares?|Who|Where|Location|When|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions|Trail Type|Distance|Length)\s*:/i;
+  for (const line of lines) {
+    if (labelRe.test(line)) continue;
+    // Truncate at the first embedded label pattern (e.g., "Green Dresses!! 👗 Hare: Ant Farmer!")
+    let text = line.replace(/\s+(?:Hares?|Who|Where|Location|When|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions)\s*:.*/i, "");
+    // Clean up: strip trailing emoji clusters and excessive punctuation
+    text = text
+      .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/gu, "")
+      .replace(/[!]{2,}/g, "!")
+      .replace(/[?]{2,}/g, "?")
+      .trim();
+    // Skip if too short or still looks like a label/URL
+    if (text.length < 3) continue;
+    if (/^https?:\/\//.test(text)) continue;
+    return text;
+  }
+  return undefined;
+}
+
 /** Default hare extraction patterns (Boston Hash Calendar format). */
 const DEFAULT_HARE_PATTERNS = [
   /(?:^|\n)[ \t]*Hares?:[ \t]*(.+)/im,
@@ -244,11 +273,17 @@ export function buildRawEventFromGCalItem(
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(summary, sourceConfig);
   const location = item.location ? decodeEntities(item.location) : undefined;
 
+  // Determine title: if title matches kennel tag, try description fallback
+  let title = useFullTitle ? summary : extractTitle(summary);
+  if (title.toLowerCase() === kennelTag.toLowerCase() && rawDescription) {
+    title = extractTitleFromDescription(rawDescription) ?? title;
+  }
+
   return {
     date: dateISO,
     kennelTag,
     runNumber: extractRunNumber(summary, rawDescription, compiledRunNumberPatterns),
-    title: useFullTitle ? summary : extractTitle(summary),
+    title,
     description: appendDescriptionSuffix(description, sourceConfig?.descriptionSuffix),
     hares,
     location,

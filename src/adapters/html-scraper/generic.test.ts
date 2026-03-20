@@ -251,6 +251,43 @@ describe("GenericHtmlAdapter", () => {
     expect(result.diagnosticContext?.containerFound).toBe(false);
   });
 
+  it("selects only first table when containerSelector is table:first-of-type (CFH3 pattern)", async () => {
+    const twoTableHtml = `<html><body>
+      <h2>Upcumming trails</h2>
+      <table>
+        <tr><td>#515</td><td>March 21, 2026</td><td>Mis-Man</td></tr>
+        <tr><td>#516</td><td>April 4, 2026</td><td>TBD</td></tr>
+      </table>
+      <h2>Receding hareline</h2>
+      <table>
+        <tr><td>#122</td><td>March 21</td><td>Prostate Rights</td></tr>
+        <tr><td>#129</td><td>March 22</td><td>Cums Late</td></tr>
+      </table>
+    </body></html>`;
+    const $ = cheerio.load(twoTableHtml);
+    mockFetchHTMLPage.mockResolvedValue({
+      ok: true, html: twoTableHtml, $, structureHash: "x", fetchDurationMs: 50,
+    });
+
+    const source = {
+      id: "cfh3-test",
+      url: "https://capefearh3.com/hare-line/",
+      config: {
+        defaultKennelTag: "CFH3",
+        containerSelector: "table:first-of-type",
+        rowSelector: "tr",
+        columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
+      },
+    } as unknown as Source;
+
+    const result = await adapter.fetch(source);
+    // Should only get events from first table (upcoming), not past trails
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0].runNumber).toBe(515);
+    expect(result.events[0].date).toBe("2026-03-21");
+    expect(result.events[1].runNumber).toBe(516);
+  });
+
   it("returns empty events when page has no matching rows", async () => {
     const html = `<html><body><div>No table here</div></body></html>`;
     const $ = cheerio.load(html);

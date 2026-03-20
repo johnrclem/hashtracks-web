@@ -114,6 +114,20 @@ describe("parseICalText", () => {
     expect(result.description).not.toContain("maps.app.goo.gl");
   });
 
+  it("strips WordPress template boilerplate from description", () => {
+    const ical = [
+      "BEGIN:VEVENT",
+      "SUMMARY:Trail #822",
+      "DTSTART;TZID=America/New_York:20260321T140900",
+      "DESCRIPTION:Please include hash name and date of trail in description.\\nHares: Strawberry\\, Zero and Hose\\nLocation: Behind Marshalls in Fairmount",
+      "END:VEVENT",
+    ].join("\n");
+    const result = parseICalText(ical);
+    expect(result.description).not.toContain("Please include hash name");
+    expect(result.hares).toBe("Strawberry, Zero and Hose");
+    expect(result.location).toBe("Behind Marshalls in Fairmount");
+  });
+
   it("preserves non-map URLs in description (rego/ticket links)", () => {
     const ical = [
       "BEGIN:VEVENT",

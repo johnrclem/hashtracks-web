@@ -337,7 +337,10 @@ export function sanitizeLocation(location: string | undefined): string | null {
   // Strip bare URLs (not useful as location names)
   if (/^https?:\/\/\S+$/.test(t)) return null;
   // Strip "Maps, " prefix (Google Calendar link text bleed)
+  // Strip common instruction prefixes ("Meet at", "Park at", "Start at", etc.)
   const stripped = t.replace(/^Maps,\s*/i, "")
+    .replace(/^(?:Meet|Park|Start|Gather|Hash|Walk)\s+at\s+/i, "")
+    .replace(/^(?:Head|Leave|Walk)\s+(?:to|from)\s+/i, "")
     // Strip trailing decimal coordinate pairs (e.g., ". 35.898606, -78.579631")
     .replace(/[.,]\s*-?\d+\.\d{3,},\s*-?\d+\.\d{3,}\s*$/, "")
     .replace(/\.\s*$/, "")  // clean up trailing period left behind
