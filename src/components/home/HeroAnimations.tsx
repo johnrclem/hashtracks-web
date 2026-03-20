@@ -49,7 +49,7 @@ export function FadeInSection({
   delay?: number;
   className?: string;
 }) {
-  const { ref, visible } = useInView<HTMLDivElement>();
+  const { ref, visible } = useInView<HTMLDivElement>(0);
 
   return (
     <div
