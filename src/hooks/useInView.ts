@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 /** Fire-once IntersectionObserver hook. Returns `{ ref, visible }`. */
-export function useInView<T extends Element = HTMLDivElement>(threshold = 0.2) {
+export function useInView<T extends Element = HTMLDivElement>(threshold = 0) {
   const ref = useRef<T>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
