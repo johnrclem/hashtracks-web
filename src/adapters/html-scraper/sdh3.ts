@@ -106,9 +106,9 @@ export function extractHistoryEntry(
     title = linkText.trim() || undefined;
   }
 
-  // Build sourceUrl from relative href
+  // Build sourceUrl from relative or absolute href
   const sourceUrl = linkHref
-    ? `${baseUrl}${linkHref.startsWith("/") ? "" : "/"}${linkHref}`
+    ? new URL(linkHref, baseUrl).toString()
     : undefined;
 
   return { date, startTime, title, kennelName, sourceUrl };
