@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useTransition, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +23,6 @@ import {
   getSuggestions,
   getHasherForEdit,
 } from "@/app/misman/[slug]/attendance/actions";
-import { searchRoster } from "@/app/misman/[slug]/roster/actions";
 import { EventSelector } from "./EventSelector";
 import { AttendanceStatsBar } from "./AttendanceStatsBar";
 import { AttendanceRow } from "./AttendanceRow";
@@ -101,7 +98,6 @@ export function AttendanceForm({
     notes: string | null;
   } | null>(null);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
 
   // Fetch suggestions once on mount (stable within a session)
   useEffect(() => {
@@ -129,6 +125,7 @@ export function AttendanceForm({
 
   // Initial fetch when event changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAttendance();
   }, [fetchAttendance]);
 

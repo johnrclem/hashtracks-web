@@ -3,11 +3,9 @@
 import { getMismanUser, getRosterGroupId, getRosterKennelIds } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import { revalidatePath } from "next/cache";
 import {
   computeSuggestionScores,
   LOOKBACK_DAYS,
-  type SuggestionScore,
 } from "@/lib/misman/suggestions";
 import {
   appendAuditLog,

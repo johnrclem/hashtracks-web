@@ -404,8 +404,6 @@ describe("ICalAdapter", () => {
 
     // Should skip Hand Pump Workday (skipPatterns), cancelled Agnews, and filter by date range
     // With days=9999, all non-skipped, non-cancelled events should be included
-    const summaries = result.events.map((e) => `${e.kennelTag}: ${e.title}`);
-
     // SFH3 #2300
     const sfh3 = result.events.find((e) => e.kennelTag === "SFH3" && e.runNumber === 2300);
     expect(sfh3).toBeDefined();

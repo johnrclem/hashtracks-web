@@ -40,6 +40,7 @@ export default async function AttendancePage({ params }: Props) {
   });
 
   // Default to the event closest to today
+  // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
   let closestEvent = events[0] ?? null;
   let closestDiff = closestEvent ? Math.abs(closestEvent.date.getTime() - now) : Infinity;

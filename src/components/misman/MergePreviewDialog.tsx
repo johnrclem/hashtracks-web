@@ -50,7 +50,7 @@ export function MergePreviewDialog({
   open,
   onClose,
   kennelId,
-  kennelSlug,
+  kennelSlug: _kennelSlug,
   hasherId1,
   name1,
   hasherId2,
@@ -69,6 +69,7 @@ export function MergePreviewDialog({
 
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRecommendationApplied(false);
       return;
     }

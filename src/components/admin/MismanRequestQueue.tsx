@@ -169,16 +169,19 @@ export function MismanAdminTabs({
   // Reset stale filters when selected kennel disappears from options
   useEffect(() => {
     if (requestKennelFilter !== "all" && !requestKennels.some((k) => k.value === requestKennelFilter)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRequestKennelFilter("all");
     }
   }, [requestKennels, requestKennelFilter]);
   useEffect(() => {
     if (inviteKennelFilter !== "all" && !inviteKennels.some((k) => k.value === inviteKennelFilter)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInviteKennelFilter("all");
     }
   }, [inviteKennels, inviteKennelFilter]);
   useEffect(() => {
     if (mismanKennelFilter !== "all" && !mismanKennels.some((k) => k.value === mismanKennelFilter)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMismanKennelFilter("all");
     }
   }, [mismanKennels, mismanKennelFilter]);

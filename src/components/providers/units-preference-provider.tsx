@@ -20,6 +20,7 @@ export function UnitsPreferenceProvider({ children }: { children: ReactNode }) {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored === "IMPERIAL" || stored === "METRIC") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setTempUnitState(stored);
       }
     } catch {

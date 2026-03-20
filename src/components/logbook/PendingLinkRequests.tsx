@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import {
   getMyKennelLinks,
   acceptLinkRequest,
-  declineLinkRequest,
 } from "@/app/profile/actions";
 
 interface PendingLink {
@@ -42,6 +41,7 @@ export function PendingLinkRequests() {
 
     try {
       const stored = localStorage.getItem("dismissed-link-requests");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (stored) setDismissed(new Set(JSON.parse(stored)));
     } catch {
       // Ignore localStorage errors

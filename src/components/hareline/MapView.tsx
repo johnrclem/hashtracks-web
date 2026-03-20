@@ -48,6 +48,7 @@ function ResetViewControl({ bounds }: { bounds: { south: number; north: number; 
 function PrecisionBanner() {
   const [dismissed, setDismissed] = useState(true); // default true to avoid flash
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDismissed(localStorage.getItem("map-precision-dismissed") === "true");
   }, []);
 

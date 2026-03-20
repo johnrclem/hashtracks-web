@@ -95,6 +95,7 @@ export function SheetsConfigPanel({
     if (sampleRows !== prevSampleRows.current) {
       prevSampleRows.current = sampleRows;
       if (sampleRows && sampleRows.length > 0) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAiSuggestions(null);
         setAiError(null);
       }

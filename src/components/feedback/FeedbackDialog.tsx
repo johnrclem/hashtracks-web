@@ -37,6 +37,7 @@ export function FeedbackDialog() {
 
     if (state.success) {
       toast.success("Feedback submitted — thank you!");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(false);
       formRef.current?.reset();
     } else if (state.error) {

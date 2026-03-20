@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/refs */
 
 import Link from "next/link";
 import { Calendar, CheckCircle2, Flame, Target, Users } from "lucide-react";

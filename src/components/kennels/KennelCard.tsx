@@ -26,10 +26,12 @@ interface KennelCardProps {
 
 export function KennelCard({ kennel }: KennelCardProps) {
   const schedule = formatSchedule(kennel);
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
 
   // Is next event within 7 days?
   const isNextSoon = kennel.nextEvent
-    ? new Date(kennel.nextEvent.date).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000
+    ? new Date(kennel.nextEvent.date).getTime() - now < 7 * 24 * 60 * 60 * 1000
     : false;
 
   return (

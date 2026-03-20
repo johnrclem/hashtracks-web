@@ -458,7 +458,7 @@ describe("HashRegoAdapter", () => {
     const adapter = new HashRegoAdapter();
     const source = buildSource({ kennelSlugs: ["EWH3"] });
 
-    const result = await adapter.fetch(source);
+    await adapter.fetch(source);
 
     // Should have fetched index + 1 detail page (only EWH3 matches)
     expect(fetchSpy).toHaveBeenCalledTimes(2);
@@ -503,7 +503,7 @@ describe("HashRegoAdapter", () => {
     const adapter = new HashRegoAdapter();
     const source = buildSource({ kennelSlugs: ["ewh3"] }); // lowercase
 
-    const result = await adapter.fetch(source);
+    await adapter.fetch(source);
     // Should have matched EWH3 despite lowercase config
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });

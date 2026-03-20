@@ -20,8 +20,9 @@ interface NearMeFilterProps {
 
 export function NearMeFilter({ nearMeDistance, onNearMeDistanceChange, geoState, onRequestLocation }: NearMeFilterProps) {
   // Defer geolocation support check to after mount to avoid SSR/hydration mismatch.
-  const [geoSupported, setGeoSupported] = useState(true);
+  const [geoSupported, setGeoSupported] = useState(() => typeof navigator === "undefined" || "geolocation" in navigator);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGeoSupported("geolocation" in navigator);
   }, []);
 

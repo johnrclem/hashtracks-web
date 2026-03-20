@@ -48,24 +48,6 @@ const SAMPLE_ATOM_FEED = `<?xml version="1.0" encoding="UTF-8"?>
   </entry>
 </feed>`;
 
-const SAMPLE_ENTRY_WITH_EXPLICIT_DATE = `<?xml version="1.0" encoding="UTF-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-  <entry>
-    <title type="html"><![CDATA[BSH3 • Black Sheep Sunday Trail]]></title>
-    <published>2026-03-01T08:00:00+00:00</published>
-    <author><name><![CDATA[BaaBaa]]></name></author>
-    <link href="https://board.atlantahash.com/viewtopic.php?p=1013#p1013"/>
-    <category term="BSH3" label="BSH3"/>
-    <content type="html"><![CDATA[
-      When: 3/8/26<br>
-      Hares: Woolly Mammoth<br>
-      Location: Decatur, GA<br>
-      Time: 1:30 PM<br>
-      $5 hash cash
-    ]]></content>
-  </entry>
-</feed>`;
-
 // ── parseAtomFeed ──
 
 describe("parseAtomFeed", () => {

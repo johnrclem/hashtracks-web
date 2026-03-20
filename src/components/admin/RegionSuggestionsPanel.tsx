@@ -29,7 +29,7 @@ const CONFIDENCE_VARIANTS: Record<string, "default" | "secondary" | "outline"> =
 };
 
 export function RegionSuggestionsPanel({
-  regions,
+  regions: _regions,
   onAction,
 }: Readonly<{
   regions?: RegionRow[];

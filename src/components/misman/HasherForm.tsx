@@ -39,7 +39,7 @@ export function HasherForm({
   open,
   onClose,
   kennelId,
-  kennelSlug,
+  kennelSlug: _kennelSlug,
   hasher,
 }: HasherFormProps) {
   const [isPending, startTransition] = useTransition();

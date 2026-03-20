@@ -43,15 +43,12 @@ export function parseICalSummary(
   defaultKennelTag?: string,
 ): { kennelTag: string; runNumber?: number; title?: string } {
   let kennelTag: string | undefined;
-  let matchedPrefix = "";
-
   // Match against config patterns
   if (kennelPatterns) {
     for (const [regex, tag] of kennelPatterns) {
       const match = new RegExp(regex, "i").exec(summary);
       if (match) {
         kennelTag = tag;
-        matchedPrefix = match[0];
         break;
       }
     }
