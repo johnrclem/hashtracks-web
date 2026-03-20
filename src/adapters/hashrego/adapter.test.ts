@@ -438,7 +438,7 @@ describe("HashRegoAdapter", () => {
   it("returns empty events when no kennelSlugs configured", async () => {
     const adapter = new HashRegoAdapter();
     const source = buildSource();
-    await adapter.fetch(source);
+    const result = await adapter.fetch(source);
     expect(result.events).toHaveLength(0);
     expect(result.errors[0]).toContain("No kennelSlugs configured");
   });
@@ -481,7 +481,7 @@ describe("HashRegoAdapter", () => {
     const adapter = new HashRegoAdapter();
     const source = buildSource({ kennelSlugs: ["EWH3"] });
 
-    await adapter.fetch(source);
+    const result = await adapter.fetch(source);
 
     // Should still produce an event from index data
     expect(result.events.length).toBeGreaterThan(0);
