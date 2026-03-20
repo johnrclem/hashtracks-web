@@ -9,92 +9,138 @@ import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import * as cheerio from "cheerio";
-import { chronoParseDate } from "../utils";
-
-/** Unescape iCal property value. Descriptions get \\n → newline; locations do not. */
-function unescapeICalValue(raw: string | undefined, expandNewlines: boolean): string | undefined {
-  if (!raw) return undefined;
-  let v = raw;
-  if (expandNewlines) v = v.replace(/\\n/g, "\n");
-  v = v.replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\").trim();
-  return v || undefined;
-}
+import type { Element, Text } from "domhandler";
+import {
+  chronoParseDate,
+  parse12HourTime,
+  isPlaceholder,
+  stripHtmlTags,
+  decodeEntities,
+} from "../utils";
 
 /**
- * Parse an iCal text block (from SOH4 per-event export) into event fields.
+ * Parse a SOH4 trail page HTML to extract structured event fields.
  *
- * Expected fields: SUMMARY, DTSTART (with TZID), DESCRIPTION, LOCATION, CATEGORIES.
- * The iCal export is fetched from: https://www.soh4.com/trails/{num}/?ical=1
+ * The Events Manager plugin renders fields as:
+ *   <strong>Label:</strong> value text </br>
+ *   <strong>Label:</strong> <a href="...">linked value</a> </br>
+ *
+ * All fields are inside a container with class `em-event-single` or the
+ * general page content area.
  */
-export function parseICalText(ical: string): {
+export function parseTrailPageHtml(html: string): {
   title?: string;
   date?: string;
   startTime?: string;
   description?: string;
   location?: string;
+  locationUrl?: string;
   hares?: string;
+  hashCash?: string;
+  theme?: string;
+  onAfter?: string;
 } {
-  // Unfold iCal lines (continuation lines start with space or tab)
-  const unfolded = ical.replace(/\r?\n[ \t]/g, "");
+  const $ = cheerio.load(html);
 
-  const getValue = (key: string): string | undefined => {
-    // Match both "KEY:value" and "KEY;PARAMS:value"
-    const re = new RegExp(`^${key}(?:;[^:]*)?:(.*)$`, "m");
-    const m = re.exec(unfolded);
-    return m ? m[1].trim() : undefined;
-  };
+  // Find the event content container
+  const container = $(".em-event-single").first();
+  if (container.length === 0) {
+    return {};
+  }
 
-  const summary = getValue("SUMMARY");
-  const dtstart = getValue("DTSTART");
-  const description = getValue("DESCRIPTION");
-  const location = getValue("LOCATION");
+  // Extract labeled fields from <strong>Label:</strong> patterns
+  const fields: Record<string, { text: string; href?: string }> = {};
+  container.find("strong").each((_i, el) => {
+    const label = $(el).text().trim();
+    if (!label.endsWith(":")) return;
+    const key = label.slice(0, -1).toLowerCase(); // "Hares:" → "hares"
 
-  let date: string | undefined;
-  let startTime: string | undefined;
-
-  if (dtstart) {
-    // DTSTART formats:
-    //   20260316T180900 (local time, TZID in param)
-    //   20260316T180900Z (UTC)
-    //   20260316 (date only)
-    const dtMatch = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?/.exec(dtstart);
-    if (dtMatch) {
-      date = `${dtMatch[1]}-${dtMatch[2]}-${dtMatch[3]}`;
-      if (dtMatch[4] && dtMatch[5]) {
-        startTime = `${dtMatch[4]}:${dtMatch[5]}`;
+    // Walk siblings after <strong> to collect value text and links
+    let text = "";
+    let href: string | undefined;
+    let node = el.nextSibling;
+    while (node) {
+      if (node.type === "tag") {
+        const tag = (node as Element).tagName?.toLowerCase();
+        if (tag === "br" || tag === "strong") break;
+        if (tag === "a") {
+          text += $(node).text().trim();
+          href = $(node).attr("href");
+        }
+      } else if (node.type === "text") {
+        text += (node as Text).data || "";
       }
+      node = node.nextSibling;
+    }
+    text = text.trim();
+    if (text) fields[key] = { text, href };
+  });
+
+  // Extract date from page header (e.g., "Saturday - March 21, 2026 - 2:09 pm")
+  const headerText = container.find(".tribe-events-start-date, .em-dates-localised, h1, h2").first().text()
+    || container.parent().find("h1, h2").first().text()
+    || "";
+  // Look for date pattern in header or the surrounding page
+  const pageTitle = $("title").text() || "";
+  const dateText = headerText || pageTitle;
+  const date = chronoParseDate(dateText, "en-US") ?? undefined;
+
+  // Extract title from page <title> or first heading
+  const rawTitle = $("h1").first().text().trim()
+    || $("title").text().replace(/\s*\|.*$/, "").trim()
+    || undefined;
+
+  // Parse start time — SOH4 uses "1:69PM (AKA 2:09 pm)" format
+  let startTime: string | undefined;
+  const timeText = fields["start time"]?.text;
+  if (timeText) {
+    // Prefer the "AKA" real time if present (hash humor: "1:69PM" is not a real time)
+    const akaMatch = /\(AKA\s+(.+?)\)/i.exec(timeText);
+    if (akaMatch) {
+      startTime = parse12HourTime(akaMatch[1]);
+    }
+    if (!startTime) {
+      startTime = parse12HourTime(timeText);
     }
   }
 
-  // Parse structured fields from DESCRIPTION (SOH4 uses "Label: Value" patterns)
-  const descText = unescapeICalValue(description, true);
-  let hares: string | undefined;
-  let descLocation: string | undefined;
-
-  if (descText) {
-    const haresMatch = /Hares?:\s*(.+?)(?:\n|$)/i.exec(descText);
-    if (haresMatch) hares = haresMatch[1].trim();
-
-    const locMatch = /Location:\s*(.+?)(?:\n|$)/i.exec(descText);
-    if (locMatch) descLocation = locMatch[1].trim();
+  // Extract narrative description (text before the structured fields)
+  // Get all text from the container, then strip the structured section
+  const fullText = stripHtmlTags(container.html() || "", "\n");
+  // Find where the structured labels start
+  const firstLabelIdx = fullText.search(/\bHares?\s*:|Location\s*:|Start Time\s*:|Hash Cash\s*:|Theme\s*:|On[ -]?After\s*:/i);
+  let description = firstLabelIdx > 0
+    ? fullText.slice(0, firstLabelIdx).trim()
+    : undefined;
+  // Clean description
+  if (description) {
+    description = description
+      .replace(/https?:\/\/(?:maps\.app\.goo\.gl|maps\.google\.com|www\.google\.com\/maps)\S*/g, "")
+      .replace(/Please include hash name and date of trail in description\.?/gi, "")
+      .replace(/&nbsp;?/g, " ")
+      .replace(/\n{2,}/g, "\n")
+      .trim() || undefined;
   }
 
-  // Strip Google Maps URLs from description (they leak into display text)
-  // Preserve non-map URLs (rego/ticket/venue links are useful)
-  const cleanDesc = descText
-    ?.replace(/https?:\/\/(?:maps\.app\.goo\.gl|maps\.google\.com|www\.google\.com\/maps)\S*/g, "")
-    // Strip WordPress template boilerplate instructions
-    .replace(/Please include hash name and date of trail in description\.?/gi, "")
-    .replace(/\n{2,}/g, "\n")
-    .trim() || undefined;
+  // Map extracted fields
+  const hares = fields["hares"]?.text || fields["hare"]?.text;
+  const location = fields["location"]?.text;
+  const locationUrl = fields["location"]?.href;
+  const hashCash = fields["hash cash"]?.text;
+  const theme = fields["theme"]?.text;
+  const onAfter = fields["on-after"]?.text;
 
   return {
-    title: summary || undefined,
+    title: rawTitle,
     date,
     startTime,
-    description: cleanDesc,
-    location: unescapeICalValue(location, false) || descLocation,  // prefer LOCATION property
-    hares,
+    description,
+    location: location && !isPlaceholder(location) ? location : undefined,
+    locationUrl: location && !isPlaceholder(location) ? locationUrl : undefined,
+    hares: hares && !isPlaceholder(hares) ? hares : undefined,
+    hashCash,
+    theme,
+    onAfter,
   };
 }
 
@@ -130,11 +176,12 @@ export function extractTrailNumber(url: string): number | undefined {
  * Syracuse On-On-Dog-A Hash House Harriers & Harriettes (SOH4) Adapter
  *
  * Uses a two-phase approach:
- * 1. Fetch RSS feed at /trails/feed/ for trail index (URLs)
- * 2. For each trail, fetch ?ical=1 endpoint for structured event data
+ * 1. Fetch RSS feed at /trails/feed/ for trail index (URLs + titles)
+ * 2. For each trail, fetch the HTML page and parse structured fields
+ *    from <strong>Label:</strong> patterns rendered by Events Manager plugin
  *
- * The WordPress site uses Divi theme (JS-rendered body), but the RSS feed
- * and per-event iCal exports are machine-readable XML/iCal.
+ * The structured fields (Hares, Location, Start Time, Hash Cash, Theme,
+ * On-After) are in the raw HTML — no browser rendering required.
  */
 export class SOH4Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
@@ -171,71 +218,78 @@ export class SOH4Adapter implements SourceAdapter {
     const items = parseRssItems(rssXml);
     const rssFetchMs = Date.now() - fetchStart;
 
-    // Phase 2: Fetch iCal for each trail (batched to avoid overwhelming target server)
+    // Phase 2: Fetch HTML for each trail (batched to avoid overwhelming target server)
     const BATCH_SIZE = 5;
-    const icalFetchStart = Date.now();
-    const icalResults: PromiseSettledResult<{ icalText: string; trailUrl: string; rssTitle: string }>[] = [];
+    const htmlFetchStart = Date.now();
+    const htmlResults: PromiseSettledResult<{ html: string; trailUrl: string; rssTitle: string }>[] = [];
     for (let b = 0; b < items.length; b += BATCH_SIZE) {
       const batch = items.slice(b, b + BATCH_SIZE);
       const batchResults = await Promise.allSettled(
         batch.map(async (item) => {
           const trailUrl = item.url.endsWith("/") ? item.url : `${item.url}/`;
-          const icalUrl = `${trailUrl}?ical=1`;
-          const response = await safeFetch(icalUrl, {
+          const response = await safeFetch(trailUrl, {
             headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
           });
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status} for ${icalUrl}`);
+            throw new Error(`HTTP ${response.status} for ${trailUrl}`);
           }
-          const text = await response.text();
-          return { icalText: text, trailUrl: item.url, rssTitle: item.title };
+          const html = await response.text();
+          return { html, trailUrl: item.url, rssTitle: item.title };
         }),
       );
-      icalResults.push(...batchResults);
+      htmlResults.push(...batchResults);
     }
-    const icalFetchMs = Date.now() - icalFetchStart;
+    const htmlFetchMs = Date.now() - htmlFetchStart;
 
-    for (let i = 0; i < icalResults.length; i++) {
-      const result = icalResults[i];
+    for (let i = 0; i < htmlResults.length; i++) {
+      const result = htmlResults[i];
       if (result.status === "rejected") {
-        const message = `iCal fetch error for ${items[i].url}: ${result.reason}`;
+        const message = `HTML fetch error for ${items[i].url}: ${result.reason}`;
         errors.push(message);
         (errorDetails.fetch ??= []).push({ url: items[i].url, message });
         continue;
       }
 
-      const { icalText, trailUrl, rssTitle } = result.value;
+      const { html, trailUrl, rssTitle } = result.value;
 
       try {
-        const fields = parseICalText(icalText);
-        if (!fields.date) {
-          // Try to parse date from RSS title as fallback
-          const fallbackDate = chronoParseDate(rssTitle, "en-US");
-          if (!fallbackDate) {
+        const fields = parseTrailPageHtml(html);
+        let date = fields.date;
+        if (!date) {
+          // Fall back to parsing date from RSS title
+          date = chronoParseDate(rssTitle, "en-US") ?? undefined;
+          if (!date) {
             errors.push(`No date found for trail: ${trailUrl}`);
-            (errorDetails.parse ??= []).push({ row: i, error: "No date in iCal or RSS title", rawText: icalText.slice(0, 2000) });
+            (errorDetails.parse ??= []).push({ row: i, error: "No date in HTML or RSS title", rawText: html.slice(0, 2000) });
             continue;
           }
-          fields.date = fallbackDate;
         }
 
         const trailNumber = extractTrailNumber(trailUrl);
 
-        // Build title from iCal SUMMARY or RSS title
+        // Build title from page or RSS title
         let title: string | undefined = fields.title || rssTitle;
-        // Clean up title — remove "Trail #NNN" prefix if present
+        // Clean up title — remove "Trail #NNN" prefix and site suffix
         if (title) {
-          const cleaned = title.replace(/^Trail\s*#?\d+\s*[-–:]\s*/i, "").trim();
-          title = cleaned || undefined;
+          title = title.replace(/^Trail\s*#?\d+\s*[-–:]\s*/i, "").trim();
+          title = decodeEntities(title) || undefined;
         }
 
+        // Build description with extra metadata
+        const descParts: string[] = [];
+        if (fields.description) descParts.push(fields.description);
+        if (fields.theme) descParts.push(`Theme: ${fields.theme}`);
+        if (fields.hashCash) descParts.push(`Hash Cash: ${fields.hashCash}`);
+        if (fields.onAfter) descParts.push(`On-After: ${fields.onAfter}`);
+
         const event: RawEventData = {
-          date: fields.date,
+          date,
           kennelTag: "SOH4",
           runNumber: trailNumber,
           title: title || (trailNumber ? `SOH4 Trail #${trailNumber}` : "SOH4 Trail"),
-          description: fields.description,
+          description: descParts.length > 0 ? descParts.join("\n") : undefined,
           location: fields.location,
+          locationUrl: fields.locationUrl,
           hares: fields.hares,
           startTime: fields.startTime,
           sourceUrl: trailUrl,
@@ -244,7 +298,7 @@ export class SOH4Adapter implements SourceAdapter {
         events.push(event);
       } catch (err) {
         errors.push(`Parse error for ${trailUrl}: ${err}`);
-        (errorDetails.parse ??= []).push({ row: i, error: String(err), rawText: icalText.slice(0, 2000) });
+        (errorDetails.parse ??= []).push({ row: i, error: String(err), rawText: html.slice(0, 2000) });
       }
     }
 
@@ -255,11 +309,11 @@ export class SOH4Adapter implements SourceAdapter {
       errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
       diagnosticContext: {
         rssItemsFound: items.length,
-        icalFetched: icalResults.filter((r) => r.status === "fulfilled").length,
+        htmlFetched: htmlResults.filter((r) => r.status === "fulfilled").length,
         eventsParsed: events.length,
         rssFetchMs,
-        icalFetchMs,
-        totalFetchMs: rssFetchMs + icalFetchMs,
+        htmlFetchMs,
+        totalFetchMs: rssFetchMs + htmlFetchMs,
       },
     };
   }
