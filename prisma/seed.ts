@@ -3005,7 +3005,7 @@ async function main() {
       scrapeDays: 180,
       config: {
         defaultKennelTag: "CFH3",
-        containerSelector: "table",
+        containerSelector: "table:first-of-type",
         rowSelector: "tr",
         columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
       },

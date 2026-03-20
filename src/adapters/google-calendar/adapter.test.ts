@@ -4,6 +4,7 @@ import {
   extractRunNumber,
   extractTitle,
   extractHares,
+  extractTitleFromDescription,
   buildRawEventFromGCalItem,
 } from "./adapter";
 
@@ -293,5 +294,81 @@ describe("buildRawEventFromGCalItem — descriptionSuffix", () => {
     const event = buildRawEventFromGCalItem(item, config);
     expect(event).not.toBeNull();
     expect(event!.description).toBe("Meet at the park.");
+  });
+});
+
+// ── extractTitleFromDescription ──
+
+describe("extractTitleFromDescription", () => {
+  it("extracts first non-label line as title", () => {
+    expect(extractTitleFromDescription("Green Dresses!! 👗\nHare: Ant Farmer!\nWhere: By the fountain"))
+      .toBe("Green Dresses!");
+  });
+
+  it("returns undefined when first line is a label", () => {
+    expect(extractTitleFromDescription("Hare: Someone\nWhere: Place")).toBeUndefined();
+  });
+
+  it("returns undefined for empty description", () => {
+    expect(extractTitleFromDescription("")).toBeUndefined();
+  });
+
+  it("returns undefined for all-label description", () => {
+    expect(extractTitleFromDescription("Hare: Bob\nWhere: Park\nTime: 2pm")).toBeUndefined();
+  });
+
+  it("skips URL-only lines", () => {
+    expect(extractTitleFromDescription("https://example.com\nFun Run")).toBe("Fun Run");
+  });
+
+  it("strips trailing emoji from title", () => {
+    expect(extractTitleFromDescription("St. Patrick's Day 🍀🍀🍀")).toBe("St. Patrick's Day");
+  });
+
+  it("collapses excessive punctuation", () => {
+    expect(extractTitleFromDescription("GREEN DRESS RUN!!!!\nHare: Bob")).toBe("GREEN DRESS RUN!");
+  });
+});
+
+// ── buildRawEventFromGCalItem — title fallback ──
+
+describe("buildRawEventFromGCalItem — title fallback from description", () => {
+  it("falls back to description title when summary equals kennel tag", () => {
+    const item = {
+      summary: "C2H3",
+      description: "Green Dresses!! 👗 Hare: Ant Farmer! We are meeting by the fountain!",
+      start: { dateTime: "2026-03-14T19:00:00-05:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "C2H3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Green Dresses!");
+  });
+
+  it("keeps original title when summary differs from kennel tag", () => {
+    const item = {
+      summary: "Special Green Dress Run",
+      description: "Description text\nHare: Someone",
+      start: { dateTime: "2026-03-14T19:00:00-05:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "C2H3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Special Green Dress Run");
+  });
+
+  it("keeps kennel tag as title when description has no usable title", () => {
+    const item = {
+      summary: "C2H3",
+      description: "Hare: Bob\nWhere: The Park",
+      start: { dateTime: "2026-03-14T19:00:00-05:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "C2H3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("C2H3");
   });
 });

@@ -991,7 +991,7 @@ describe("sanitizeLocation", () => {
 
   it("strips trailing decimal coordinate pair after period", () => {
     expect(sanitizeLocation("Park at 9801 Durant Rd, Raleigh. 35.898606316275696, -78.57963120196699"))
-      .toBe("Park at 9801 Durant Rd, Raleigh");
+      .toBe("9801 Durant Rd, Raleigh");
   });
 
   it("strips trailing decimal coordinate pair after comma", () => {
@@ -1010,7 +1010,7 @@ describe("sanitizeLocation", () => {
 
   it("removes trailing period left after coordinate stripping", () => {
     expect(sanitizeLocation("Park at 9801 Durant Rd, Raleigh. 35.898606, -78.579631"))
-      .toBe("Park at 9801 Durant Rd, Raleigh");
+      .toBe("9801 Durant Rd, Raleigh");
   });
 
   it("strips 3-decimal coordinate pairs (common Google Calendar export)", () => {
@@ -1024,6 +1024,41 @@ describe("sanitizeLocation", () => {
   it("strips leading 'Maps,' prefix from Google Calendar location", () => {
     expect(sanitizeLocation("Maps, 64A Market St, Portland, ME 04101, USA"))
       .toBe("64A Market St, Portland, ME 04101, USA");
+  });
+
+  it("strips 'Meet at' instruction prefix from location", () => {
+    expect(sanitizeLocation("Meet at Mikeys Late Night Slice 6562 Riverside Drive Dublin"))
+      .toBe("Mikeys Late Night Slice 6562 Riverside Drive Dublin");
+  });
+
+  it("strips 'Park at' instruction prefix from location", () => {
+    expect(sanitizeLocation("Park at 9801 Durant Rd, Raleigh"))
+      .toBe("9801 Durant Rd, Raleigh");
+  });
+
+  it("strips 'Start at' instruction prefix from location", () => {
+    expect(sanitizeLocation("Start at Central Park")).toBe("Central Park");
+  });
+
+  it("strips 'Head to' instruction prefix from location", () => {
+    expect(sanitizeLocation("Head to The Pub, 123 Main St")).toBe("The Pub, 123 Main St");
+  });
+
+  it("strips 'Gather at' instruction prefix from location", () => {
+    expect(sanitizeLocation("Gather at the pavilion")).toBe("the pavilion");
+  });
+
+  it("preserves location starting with 'Meeting' (not an instruction prefix)", () => {
+    expect(sanitizeLocation("Meeting Room B, 123 Main St")).toBe("Meeting Room B, 123 Main St");
+  });
+
+  it("strips instruction prefix case-insensitively", () => {
+    expect(sanitizeLocation("MEET AT The Bar")).toBe("The Bar");
+  });
+
+  it("strips 'Park at' + trailing GPS coordinates together", () => {
+    expect(sanitizeLocation("Park at 9801 Durant Rd, Raleigh. 35.898606, -78.579631"))
+      .toBe("9801 Durant Rd, Raleigh");
   });
 });
 

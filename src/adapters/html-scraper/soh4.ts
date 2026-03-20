@@ -83,6 +83,8 @@ export function parseICalText(ical: string): {
   // Preserve non-map URLs (rego/ticket/venue links are useful)
   const cleanDesc = descText
     ?.replace(/https?:\/\/(?:maps\.app\.goo\.gl|maps\.google\.com|www\.google\.com\/maps)\S*/g, "")
+    // Strip WordPress template boilerplate instructions
+    .replace(/Please include hash name and date of trail in description\.?/gi, "")
     .replace(/\n{2,}/g, "\n")
     .trim() || undefined;
 
