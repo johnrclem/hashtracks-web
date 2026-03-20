@@ -97,6 +97,7 @@ async function ensureRegionRecords(prisma: any) {
       "Cleveland, OH", "Akron, OH",
     ],
     "Oregon": ["Portland, OR", "Salem, OR", "Eugene, OR", "Bend, OR"],
+    "California": ["San Francisco, CA", "Oakland, CA", "San Jose, CA", "Marin County, CA", "San Diego, CA", "Santa Cruz, CA"],
   };
 
   let stateLinked = 0;
@@ -893,6 +894,7 @@ async function main() {
       website: "https://www.sfh3.com", foundedYear: 1982,
       facebookUrl: "https://www.facebook.com/sfhash",
       twitterHandle: "@sfh3",
+      discordUrl: "https://discord.gg/eGRZMFfHtC",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:15 PM", scheduleFrequency: "Weekly",
       description: "The flagship Bay Area kennel (est. 1982). Weekly Monday evening runs in San Francisco. Hosts the sfh3.com aggregator platform.",
     },
@@ -949,12 +951,14 @@ async function main() {
     },
     {
       kennelCode: "fch3", shortName: "FCH3", fullName: "Fog City Hash House Harriers", region: "San Francisco, CA",
-      scheduleFrequency: "Monthly", scheduleNotes: "LGBTQ-friendly kennel, special events",
+      website: "https://www.fogcityh3.com",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "LGBTQ-friendly kennel, special events",
       description: "LGBTQ-friendly hash in San Francisco with irregular/monthly events and special weekends.",
     },
     {
       kennelCode: "sffmh3", shortName: "SFFMH3", fullName: "San Francisco Full Moon Hash", region: "San Francisco, CA",
-      scheduleFrequency: "Monthly", scheduleNotes: "On the full moon",
+      scheduleFrequency: "Monthly", scheduleTime: "6:30 PM", scheduleNotes: "On the full moon",
       description: "Monthly full-moon hash in San Francisco. Previously known as SF Full Moon Zombies HHH.",
     },
     {
@@ -972,6 +976,16 @@ async function main() {
       kennelCode: "262h3", shortName: "26.2H3", fullName: "26.2 Hash House Harriers", region: "San Francisco, CA",
       scheduleFrequency: "Irregular", scheduleNotes: "Marathon-themed specialty events",
       description: "Marathon-themed specialty hash in the Bay Area. Events listed on sfh3.com.",
+    },
+    // Santa Cruz
+    {
+      kennelCode: "sch3-ca", shortName: "SCH3", fullName: "Surf City Hash House Harriers",
+      region: "Santa Cruz, CA",
+      website: "https://www.sch3.net", foundedYear: 2000,
+      facebookUrl: "https://www.facebook.com/groups/SurfCityH3/",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Santa Cruz's weekly Thursday evening hash. Founded 2000. Trails in and around the Santa Cruz coast, 70 miles south of San Francisco.",
+      latitude: 36.97, longitude: -122.03,
     },
     // London, UK
     {
@@ -2142,6 +2156,8 @@ async function main() {
     "cch3-or": ["Cherry City Hash", "Cherry City H3", "CCH3", "Cherry City"],
     "eh3-or": ["Eugene Hash", "Eugene H3", "EH3", "Eugene HHH", "EHHH"],
     "coh3": ["Central Oregon Hash", "Central Oregon H3", "COH3", "Bend Hash"],
+    // ===== CALIFORNIA =====
+    "sch3-ca": ["Surf City Hash", "Surf City H3", "SCH3", "Santa Cruz Hash"],
   };
 
   // ── SHARED SFH3 CONFIG (used by both iCal and HTML sources) ──
@@ -3783,6 +3799,26 @@ async function main() {
         defaultKennelTag: "COH3",
       },
       kennelCodes: ["coh3"],
+    },
+    // ===== CALIFORNIA =====
+    // --- Santa Cruz (Static Schedule) ---
+    {
+      name: "Surf City H3 Static Schedule",
+      url: "https://www.sch3.net",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "SCH3",
+        rrule: "FREQ=WEEKLY;BYDAY=TH",
+        startTime: "18:30",
+        timezone: "America/Los_Angeles",
+        defaultTitle: "SCH3 Weekly Thursday Hash",
+        defaultLocation: "Santa Cruz, CA — check Facebook for detrails",
+        defaultDescription: "Weekly Thursday evening hash in Santa Cruz.",
+      },
+      kennelCodes: ["sch3-ca"],
     },
     // ===== OHIO =====
     // --- Cleveland (Meetup) ---
