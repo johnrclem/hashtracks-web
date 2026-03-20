@@ -62,9 +62,15 @@ export function parseTrailPageHtml(html: string): {
       if (node.type === "tag") {
         const tag = (node as Element).tagName?.toLowerCase();
         if (tag === "br" || tag === "strong") break;
+        // Extract text from any tag (a, span, em, etc.)
+        const $node = $(node);
+        text += $node.text().trim();
+        // Capture href from <a> tags (or nested <a> inside other tags)
         if (tag === "a") {
-          text += $(node).text().trim();
-          href = $(node).attr("href");
+          href = $node.attr("href");
+        } else {
+          const nestedLink = $node.find("a").last();
+          if (nestedLink.length) href = nestedLink.attr("href");
         }
       } else if (node.type === "text") {
         text += (node as Text).data || "";
@@ -268,8 +274,7 @@ export class SOH4Adapter implements SourceAdapter {
           let title: string | undefined = fields.title || rssTitle;
           // Clean up title — remove "Trail #NNN" prefix and site suffix
           if (title) {
-            title = title.replace(/^Trail\s*#?\d+\s*[-–:]\s*/i, "").trim();
-            title = decodeEntities(title) || undefined;
+            title = title.replace(/^Trail\s*#?\d+\s*[-–:]\s*/i, "").trim() || undefined;
           }
 
           // Build description with extra metadata

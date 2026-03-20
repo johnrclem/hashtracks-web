@@ -148,6 +148,16 @@ describe("parseTrailPageHtml", () => {
     const result = parseTrailPageHtml(html);
     expect(result.hares).toBe("Solo Runner");
   });
+
+  it("extracts text from span-wrapped values", () => {
+    const html = `<div class="em-event-single">
+      <strong>Hares:</strong> <span>Wrapped Hare</span> </br>
+      <strong>Location:</strong> <em><a href="https://maps.app.goo.gl/test">Nested Link Park</a></em> </br>
+    </div>`;
+    const result = parseTrailPageHtml(html);
+    expect(result.hares).toBe("Wrapped Hare");
+    expect(result.location).toBe("Nested Link Park");
+  });
 });
 
 // ── parseRssItems ──
