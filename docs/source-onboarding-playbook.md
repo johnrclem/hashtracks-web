@@ -1,6 +1,6 @@
 # Source Onboarding Playbook
 
-How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 126 sources across 7 adapter types.
+How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 138 sources across 7 adapter types.
 
 > **See also:** [`docs/regional-research-prompt.md`](regional-research-prompt.md) — Chrome-assisted 3-stage workflow for discovering and onboarding entire regions at once.
 
@@ -593,6 +593,8 @@ The display layer (`getLocationDisplay()` in `EventCard.tsx`) deduplicates city 
 54. **Webador CMS has predictable event structure** — Webador-hosted hash sites (e.g., renegadeh3.com) use a consistent `#NNN - MM/DD/YY - Title` event header pattern with labeled detail lines. See `src/adapters/html-scraper/renegade-h3.ts` for the reference implementation.
 55. **Zero-code regional onboarding at scale** — When a region's kennels all use Google Calendar, the entire region can be onboarded with only `seed.ts` and `region.ts` changes. Oregon (12 kennels), South Carolina (10 kennels), and Georgia (11 kennels with static schedules) all demonstrate this pattern. Config-driven adapters (Calendar, Meetup, Static Schedule) eliminate the per-source code cost.
 56. **Check prod DB for kennelCode collisions, not just seed.ts** — As the kennel count grows (200+), shortName collisions across regions become common. The `@@unique([shortName, regionId])` constraint allows same shortName in different regions, but kennelCode must be globally unique. Always query the prod database before assigning codes — seed.ts may not reflect manually-created kennels.
+57. **Multi-calendar aggregator pages reveal individual calendar IDs** — Sites like lbh3.org/socal aggregate 31 per-kennel Google Calendars in a custom JS frontend. Inspect the site's JavaScript (`index.js`) for the `calendars` array with `id` and `summary` fields. Each kennel gets its own `GOOGLE_CALENDAR` source with `defaultKennelTag` — no `kennelPatterns` needed. This replaces static schedules with real event data (dates, times, locations, descriptions). Always check for aggregator pages before falling back to static schedules.
+58. **History pages provide massive backfill without per-page fetching** — sdh3.com/history.shtml has 7,649 events in a single `<ol>`. Parse the list items for date, title, and kennel name (in parenthetical) without fetching individual detail pages. This is far more efficient than iterating page-by-page and provides decades of event history for kennel stats. Use `includeHistory` config flag to control whether history scraping runs.
 
 ---
 
