@@ -14,7 +14,6 @@ import {
   chronoParseDate,
   parse12HourTime,
   isPlaceholder,
-  stripHtmlTags,
   decodeEntities,
 } from "../utils";
 
@@ -105,8 +104,8 @@ export function parseTrailPageHtml(html: string): {
   }
 
   // Extract narrative description (text before the structured fields)
-  // Get all text from the container, then strip the structured section
-  const fullText = stripHtmlTags(container.html() || "", "\n");
+  // Use container.text() directly instead of re-serializing HTML through stripHtmlTags
+  const fullText = decodeEntities(container.text().replace(/\s+/g, " "));
   // Find where the structured labels start
   const firstLabelIdx = fullText.search(/\bHares?\s*:|Location\s*:|Start Time\s*:|Hash Cash\s*:|Theme\s*:|On[ -]?After\s*:/i);
   let description = firstLabelIdx > 0
@@ -117,8 +116,6 @@ export function parseTrailPageHtml(html: string): {
     description = description
       .replace(/https?:\/\/(?:maps\.app\.goo\.gl|maps\.google\.com|www\.google\.com\/maps)\S*/g, "")
       .replace(/Please include hash name and date of trail in description\.?/gi, "")
-      .replace(/&nbsp;?/g, " ")
-      .replace(/\n{2,}/g, "\n")
       .trim() || undefined;
   }
 
@@ -218,10 +215,10 @@ export class SOH4Adapter implements SourceAdapter {
     const items = parseRssItems(rssXml);
     const rssFetchMs = Date.now() - fetchStart;
 
-    // Phase 2: Fetch HTML for each trail (batched to avoid overwhelming target server)
+    // Phase 2: Fetch + parse HTML for each trail (batched, processed inline for GC)
     const BATCH_SIZE = 5;
     const htmlFetchStart = Date.now();
-    const htmlResults: PromiseSettledResult<{ html: string; trailUrl: string; rssTitle: string }>[] = [];
+    let htmlFetched = 0;
     for (let b = 0; b < items.length; b += BATCH_SIZE) {
       const batch = items.slice(b, b + BATCH_SIZE);
       const batchResults = await Promise.allSettled(
@@ -237,70 +234,72 @@ export class SOH4Adapter implements SourceAdapter {
           return { html, trailUrl: item.url, rssTitle: item.title };
         }),
       );
-      htmlResults.push(...batchResults);
+
+      // Process each result immediately so HTML can be GC'd before next batch
+      for (let j = 0; j < batchResults.length; j++) {
+        const result = batchResults[j];
+        const itemIdx = b + j;
+        if (result.status === "rejected") {
+          const message = `HTML fetch error for ${items[itemIdx].url}: ${result.reason}`;
+          errors.push(message);
+          (errorDetails.fetch ??= []).push({ url: items[itemIdx].url, message });
+          continue;
+        }
+
+        htmlFetched++;
+        const { html, trailUrl, rssTitle } = result.value;
+
+        try {
+          const fields = parseTrailPageHtml(html);
+          let date = fields.date;
+          if (!date) {
+            // Fall back to parsing date from RSS title
+            date = chronoParseDate(rssTitle, "en-US") ?? undefined;
+            if (!date) {
+              errors.push(`No date found for trail: ${trailUrl}`);
+              (errorDetails.parse ??= []).push({ row: itemIdx, error: "No date in HTML or RSS title", rawText: html.slice(0, 2000) });
+              continue;
+            }
+          }
+
+          const trailNumber = extractTrailNumber(trailUrl);
+
+          // Build title from page or RSS title
+          let title: string | undefined = fields.title || rssTitle;
+          // Clean up title — remove "Trail #NNN" prefix and site suffix
+          if (title) {
+            title = title.replace(/^Trail\s*#?\d+\s*[-–:]\s*/i, "").trim();
+            title = decodeEntities(title) || undefined;
+          }
+
+          // Build description with extra metadata
+          const descParts: string[] = [];
+          if (fields.description) descParts.push(fields.description);
+          if (fields.theme) descParts.push(`Theme: ${fields.theme}`);
+          if (fields.hashCash) descParts.push(`Hash Cash: ${fields.hashCash}`);
+          if (fields.onAfter) descParts.push(`On-After: ${fields.onAfter}`);
+
+          const event: RawEventData = {
+            date,
+            kennelTag: "SOH4",
+            runNumber: trailNumber,
+            title: title || (trailNumber ? `SOH4 Trail #${trailNumber}` : "SOH4 Trail"),
+            description: descParts.length > 0 ? descParts.join("\n") : undefined,
+            location: fields.location,
+            locationUrl: fields.locationUrl,
+            hares: fields.hares,
+            startTime: fields.startTime,
+            sourceUrl: trailUrl,
+          };
+
+          events.push(event);
+        } catch (err) {
+          errors.push(`Parse error for ${trailUrl}: ${err}`);
+          (errorDetails.parse ??= []).push({ row: itemIdx, error: String(err), rawText: html.slice(0, 2000) });
+        }
+      }
     }
     const htmlFetchMs = Date.now() - htmlFetchStart;
-
-    for (let i = 0; i < htmlResults.length; i++) {
-      const result = htmlResults[i];
-      if (result.status === "rejected") {
-        const message = `HTML fetch error for ${items[i].url}: ${result.reason}`;
-        errors.push(message);
-        (errorDetails.fetch ??= []).push({ url: items[i].url, message });
-        continue;
-      }
-
-      const { html, trailUrl, rssTitle } = result.value;
-
-      try {
-        const fields = parseTrailPageHtml(html);
-        let date = fields.date;
-        if (!date) {
-          // Fall back to parsing date from RSS title
-          date = chronoParseDate(rssTitle, "en-US") ?? undefined;
-          if (!date) {
-            errors.push(`No date found for trail: ${trailUrl}`);
-            (errorDetails.parse ??= []).push({ row: i, error: "No date in HTML or RSS title", rawText: html.slice(0, 2000) });
-            continue;
-          }
-        }
-
-        const trailNumber = extractTrailNumber(trailUrl);
-
-        // Build title from page or RSS title
-        let title: string | undefined = fields.title || rssTitle;
-        // Clean up title — remove "Trail #NNN" prefix and site suffix
-        if (title) {
-          title = title.replace(/^Trail\s*#?\d+\s*[-–:]\s*/i, "").trim();
-          title = decodeEntities(title) || undefined;
-        }
-
-        // Build description with extra metadata
-        const descParts: string[] = [];
-        if (fields.description) descParts.push(fields.description);
-        if (fields.theme) descParts.push(`Theme: ${fields.theme}`);
-        if (fields.hashCash) descParts.push(`Hash Cash: ${fields.hashCash}`);
-        if (fields.onAfter) descParts.push(`On-After: ${fields.onAfter}`);
-
-        const event: RawEventData = {
-          date,
-          kennelTag: "SOH4",
-          runNumber: trailNumber,
-          title: title || (trailNumber ? `SOH4 Trail #${trailNumber}` : "SOH4 Trail"),
-          description: descParts.length > 0 ? descParts.join("\n") : undefined,
-          location: fields.location,
-          locationUrl: fields.locationUrl,
-          hares: fields.hares,
-          startTime: fields.startTime,
-          sourceUrl: trailUrl,
-        };
-
-        events.push(event);
-      } catch (err) {
-        errors.push(`Parse error for ${trailUrl}: ${err}`);
-        (errorDetails.parse ??= []).push({ row: i, error: String(err), rawText: html.slice(0, 2000) });
-      }
-    }
 
     return {
       events,
@@ -309,7 +308,7 @@ export class SOH4Adapter implements SourceAdapter {
       errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
       diagnosticContext: {
         rssItemsFound: items.length,
-        htmlFetched: htmlResults.filter((r) => r.status === "fulfilled").length,
+        htmlFetched,
         eventsParsed: events.length,
         rssFetchMs,
         htmlFetchMs,
