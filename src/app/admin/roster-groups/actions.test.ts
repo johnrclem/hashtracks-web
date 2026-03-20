@@ -34,7 +34,6 @@ import { prisma } from "@/lib/db";
 import {
   getRosterGroups,
   createRosterGroup,
-  addKennelToGroup,
   removeKennelFromGroup,
   renameRosterGroup,
   deleteRosterGroup,

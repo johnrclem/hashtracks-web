@@ -98,7 +98,7 @@ export function MismanDashboard({
   pendingRequests,
   myPendingRequests,
   myPendingRosterGroupRequests,
-  isSiteAdmin,
+  isSiteAdmin: _isSiteAdmin,
   allKennels,
   stats,
 }: MismanDashboardProps) {

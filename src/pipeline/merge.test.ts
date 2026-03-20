@@ -27,7 +27,7 @@ import { resolveKennelTag } from "./kennel-resolver";
 import { processRawEvents } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
-const mockSourceUpdate = vi.mocked(prisma.source.update);
+const _mockSourceUpdate = vi.mocked(prisma.source.update);
 const mockSourceKennelFind = vi.mocked(prisma.sourceKennel.findMany);
 const mockRawEventFind = vi.mocked(prisma.rawEvent.findFirst);
 const mockRawEventCreate = vi.mocked(prisma.rawEvent.create);
@@ -1061,4 +1061,3 @@ describe("sanitizeLocation", () => {
       .toBe("9801 Durant Rd, Raleigh");
   });
 });
-

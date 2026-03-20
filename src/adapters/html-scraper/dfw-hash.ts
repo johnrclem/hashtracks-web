@@ -194,7 +194,7 @@ export class DFWHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
   async fetch(
-    source: Source,
+    _source: Source,
     _options?: { days?: number },
   ): Promise<ScrapeResult> {
     const now = new Date();

@@ -40,6 +40,7 @@ export function HasherSearch({
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (!query.trim()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResults([]);
       setShowResults(false);
       return;

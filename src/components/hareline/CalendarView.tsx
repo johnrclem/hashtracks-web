@@ -115,7 +115,7 @@ type CalendarMode = "month" | "weeks";
 export function CalendarView({ events, timeFilter }: CalendarViewProps) {
   const router = useRouter();
   const { preference: timePref } = useTimePreference();
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
   const [year, setYear] = useState(today.getUTCFullYear());
   const [month, setMonth] = useState(today.getUTCMonth());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -340,7 +340,7 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
       visibleRegions: Array.from(seen.values()).sort((a, b) => a.region.localeCompare(b.region)),
       rangeEventCount: count,
     };
-  }, [eventsByDate, year, month, calendarMode, weeksGrid]);
+  }, [eventsByDate, year, month, calendarMode, weeksGrid, today]);
 
   // Shared day cell renderer
   function renderDayCell(

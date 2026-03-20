@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -60,11 +60,7 @@ export function MismanManagementSection({
   const [invites, setInvites] = useState<InviteRecord[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [kennelId]);
-
-  function loadData() {
+  const loadData = useCallback(() => {
     startTransition(async () => {
       const [mismanResult, inviteResult] = await Promise.all([
         getKennelMismans(kennelId),
@@ -74,7 +70,11 @@ export function MismanManagementSection({
       if (inviteResult.data) setInvites(inviteResult.data);
       setLoaded(true);
     });
-  }
+  }, [kennelId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   function handleGenerate() {
     startTransition(async () => {

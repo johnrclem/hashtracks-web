@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/refs */
 
 import { useEffect, useRef, useCallback } from "react";
 import { useMap, AdvancedMarker } from "@vis.gl/react-google-maps";
@@ -66,11 +67,13 @@ export function ClusteredMarkers({ events, selectedEventId, onSelectEvent, onNav
     if (!clustererRef.current) {
       clustererRef.current = new MarkerClusterer({ map, algorithmOptions: { maxZoom: 16 } });
     }
+    const markers = markersRef.current;
+    const refCallbacks = refCallbacksRef.current;
     return () => {
       clustererRef.current?.clearMarkers();
       clustererRef.current = null;
-      markersRef.current.clear();
-      refCallbacksRef.current.clear();
+      markers.clear();
+      refCallbacks.clear();
     };
   }, [map]);
 

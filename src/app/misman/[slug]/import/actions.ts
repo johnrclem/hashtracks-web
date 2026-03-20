@@ -10,7 +10,6 @@ import {
   DEFAULT_CELL_MARKERS,
   type RosterEntry,
   type EventLookup,
-  type CSVImportConfig,
   type HasherMatch,
 } from "@/lib/misman/csv-import";
 import type { Prisma } from "@/generated/prisma/client";

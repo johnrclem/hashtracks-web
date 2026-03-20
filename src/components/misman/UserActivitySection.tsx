@@ -83,6 +83,7 @@ export function UserActivitySection({
   // Clear addingHasherId once the hasher appears in attendedHasherIds
   useEffect(() => {
     if (addingHasherId && attendedHasherIds.has(addingHasherId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAddingHasherId(null);
     }
   }, [addingHasherId, attendedHasherIds]);

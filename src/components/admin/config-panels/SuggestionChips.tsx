@@ -37,10 +37,11 @@ export function SuggestionChips({
   // Reset AI state whenever the unmatched tag set changes (user re-ran "Test Config")
   const unmatchedKey = unmatchedTags.slice().sort((a, b) => a.localeCompare(b)).join(",");
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAiSuggestions(null);
     setAiDismissed(new Set());
     setAiError(null);
-  }, [unmatchedKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [unmatchedKey]);
 
   const suggestions = suggestKennelPatterns(
     unmatchedTags.filter((tag) => !existingPatterns.some(([, t]) => t === tag)),

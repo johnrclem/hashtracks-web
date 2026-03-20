@@ -430,7 +430,7 @@ export function ConfigureAndTest({
         regionId: quickKennelRegionId,
       });
       if (result.success) {
-        const { success, ...newKennel } = result;
+        const { success: _success, ...newKennel } = result;
         setExtraKennels((prev) => [...prev, newKennel]);
         onKennelsChange([...selectedKennels, newKennel.id]);
         resetQuickKennelForm();

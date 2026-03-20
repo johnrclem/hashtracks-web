@@ -98,7 +98,7 @@ Respond with a JSON object containing ONLY the fields listed above:
 /** Parse Gemini's JSON response into a typed result */
 function parseGeminiResponse(
   text: string,
-  parseError: ParseError,
+  _parseError: ParseError,
 ): { event: Partial<RawEventData>; confidence: "high" | "medium" | "low"; fieldsRecovered: string[] } | null {
   try {
     const parsed = JSON.parse(text);

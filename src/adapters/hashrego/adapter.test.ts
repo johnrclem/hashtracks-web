@@ -438,7 +438,7 @@ describe("HashRegoAdapter", () => {
   it("returns empty events when no kennelSlugs configured", async () => {
     const adapter = new HashRegoAdapter();
     const source = buildSource();
-    const result = await adapter.fetch(source);
+    await adapter.fetch(source);
     expect(result.events).toHaveLength(0);
     expect(result.errors[0]).toContain("No kennelSlugs configured");
   });
@@ -458,7 +458,7 @@ describe("HashRegoAdapter", () => {
     const adapter = new HashRegoAdapter();
     const source = buildSource({ kennelSlugs: ["EWH3"] });
 
-    const result = await adapter.fetch(source);
+    await adapter.fetch(source);
 
     // Should have fetched index + 1 detail page (only EWH3 matches)
     expect(fetchSpy).toHaveBeenCalledTimes(2);
@@ -481,7 +481,7 @@ describe("HashRegoAdapter", () => {
     const adapter = new HashRegoAdapter();
     const source = buildSource({ kennelSlugs: ["EWH3"] });
 
-    const result = await adapter.fetch(source);
+    await adapter.fetch(source);
 
     // Should still produce an event from index data
     expect(result.events.length).toBeGreaterThan(0);
@@ -503,7 +503,7 @@ describe("HashRegoAdapter", () => {
     const adapter = new HashRegoAdapter();
     const source = buildSource({ kennelSlugs: ["ewh3"] }); // lowercase
 
-    const result = await adapter.fetch(source);
+    await adapter.fetch(source);
     // Should have matched EWH3 despite lowercase config
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });

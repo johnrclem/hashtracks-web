@@ -101,7 +101,7 @@ function StepIndicator({ currentStep }: { currentStep: Step }) {
   );
 }
 
-export function ImportWizard({ kennelId, kennelShortName }: ImportWizardProps) {
+export function ImportWizard({ kennelId, kennelShortName: _kennelShortName }: ImportWizardProps) {
   const [step, setStep] = useState<Step>("upload");
   const [csvText, setCsvText] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");

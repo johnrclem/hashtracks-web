@@ -259,9 +259,9 @@ export function HarelineView({
   // Clear near-me filter when geolocation permission is denied
   useEffect(() => {
     if (geoState.status === "denied" && nearMeDistance != null) {
-      setNearMeDistance(null);
+      setNearMeDistanceState(null);
     }
-  }, [geoState.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [geoState.status, nearMeDistance]);
 
   // Sync state to URL via replaceState (no re-render, no history entry)
   const syncUrl = useCallback(

@@ -79,7 +79,6 @@ const mockSourceKennelCreate = vi.mocked(prisma.sourceKennel.create);
 const mockScrape = vi.mocked(scrapeSource);
 const mockResolve = vi.mocked(resolveKennelTag);
 const mockClearCache = vi.mocked(clearResolverCache);
-const mockTransaction = vi.mocked(prisma.$transaction);
 const mockRegionFind = vi.mocked(prisma.region.findFirst);
 
 function baseAlert(overrides = {}) {
