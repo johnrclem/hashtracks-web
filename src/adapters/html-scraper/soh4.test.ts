@@ -55,6 +55,7 @@ const PLAIN_LOCATION_HTML = `<html><body>
 const BOILERPLATE_HTML = `<html><body>
 <div class="em-item em-item-single em-event em-event-single em-event-619">
   <h1>Trail #824: Pink Full Moon</h1>
+  <p>Wednesday - April 1, 2026 - 6:09 pm</p>
   <p>Come run with us under the full moon!</p>
   <p>https://maps.app.goo.gl/abc123</p>
   <p>Please include hash name and date of trail in description.</p>
@@ -158,6 +159,21 @@ describe("parseTrailPageHtml", () => {
     const result = parseTrailPageHtml(html);
     expect(result.hares).toBe("Wrapped Hare");
     expect(result.location).toBe("Nested Link Park");
+  });
+
+  it("extracts correct date even with calendar widget and upcumming trails in container", () => {
+    const html = `<div class="em-event-single">
+      <h1>Trail #824: Pink Full Moon</h1>
+      <p>Wednesday - April 1, 2026 - 6:09 pm</p>
+      <p>Trail Details TBD</p>
+      <p><strong>Hares:</strong> TBD </br></p>
+      <p>Saturday - March 21, 2026: Trail #822: Spring Flours
+      Saturday - March 28, 2026: Trail #823: TBD</p>
+      <p>Today Sun Mon Tue Wed Thu Fri Sat 1 2 3 18 19 20 21 2:09 PM</p>
+    </div>`;
+    const result = parseTrailPageHtml(html);
+    // Should pick up April 1 from the event's own <p>, NOT March dates from calendar/list
+    expect(result.date).toBe("2026-04-01");
   });
 });
 
