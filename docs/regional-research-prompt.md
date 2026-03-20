@@ -34,7 +34,7 @@ Check these aggregator sources FIRST — they often cover multiple kennels at on
 
 4. **Regional Google Calendar**: Search the web for "[REGION] hash house harriers calendar" or "[REGION] hash calendar". If a regional aggregator calendar exists, visit the page in Chrome and extract the Google Calendar ID:
    - Use `javascript_tool` to run: `Array.from(document.querySelectorAll('iframe[src*="calendar.google.com"]')).map(f => f.src)`
-   - Extract the `src=` parameter from the iframe URL — that's the `calendarId`
+   - Extract all `src=` parameters from the iframe URL — shared calendars often embed multiple calendar IDs in one iframe. Use `new URL(f.src).searchParams.getAll('src')` to get all of them.
    - Note which kennels share this calendar
 
 #### Step 1.3: Web Search for Remaining Kennels
@@ -56,7 +56,7 @@ For each discovered kennel, visit their website (if found) in Chrome and check:
    ```javascript
    // Run via javascript_tool on the kennel's website
    const results = {
-     googleCalendar: Array.from(document.querySelectorAll('iframe[src*="calendar.google.com"], iframe[src*="calendar.google.com/calendar"]')).map(f => f.src),
+     googleCalendar: Array.from(document.querySelectorAll('iframe[src*="calendar.google.com"]')).map(f => f.src),
      icalLinks: Array.from(document.querySelectorAll('a[href*=".ics"], a[href^="webcal:"]')).map(a => a.href),
      meetupLinks: Array.from(document.querySelectorAll('a[href*="meetup.com"]')).map(a => a.href),
      sheetsLinks: Array.from(document.querySelectorAll('a[href*="docs.google.com/spreadsheets"]')).map(a => a.href),
@@ -76,7 +76,7 @@ For each discovered kennel, visit their website (if found) in Chrome and check:
 
 Present results in this exact format:
 
-```
+```text
 ## Existing Coverage
 - [List kennels already in seed.ts for this region]
 
@@ -89,7 +89,7 @@ Present results in this exact format:
 |---|--------|--------|------|-------------|---------------|------------|-------|
 | 1 | FOO H3 | ACTIVE | 1    | GOOGLE_CAL  | abc@group...  | HIGH       | Calendar embed on /hareline |
 | 2 | BAR H3 | ACTIVE | 2    | HTML_SCRAPER| barh3.com/runs| MED        | Event table, no Calendar found |
-| 3 | BAZ H3 | DORMANT| Skip | —           | —             | —          | Last event Aug 2025 |
+| 3 | BAZ H3 | DORMANT | Skip | —           | —             | —          | Last event Aug 2025 |
 
 Tier legend:
 - Tier 1: Structured source (Calendar, Meetup, iCal, Sheets) — config-only onboarding
@@ -111,15 +111,12 @@ For each kennel the user approved, perform thorough Chrome-based extraction.
 2. Run via `javascript_tool`:
    ```javascript
    Array.from(document.querySelectorAll('iframe[src*="calendar.google.com"]'))
-     .map(f => {
+     .flatMap(f => {
        const url = new URL(f.src);
-       return {
-         src: f.src,
-         calendarId: url.searchParams.get('src') || url.pathname.split('/')[4],
-       };
+       return url.searchParams.getAll('src');
      });
    ```
-3. Extract the `calendarId` value — this goes in the source config
+3. Each value is a `calendarId` — these go in the source config. If base64-encoded, decode with `atob()`.
 4. Also check for linked feeds:
    ```javascript
    ({
@@ -157,7 +154,7 @@ For each kennel, gather from their website, Facebook, and any other pages:
 
 Present per-kennel detail cards:
 
-```
+```text
 ---
 **[shortName]** — [Full Name]
 - **kennelCode**: [lowercase, URL-safe permanent ID, e.g., "fooh3"]
@@ -179,13 +176,37 @@ Present per-kennel detail cards:
 
 ### Stage 3: Seed Data Generation
 
-Produce copy-paste-ready blocks for `prisma/seed.ts`. Follow the exact patterns used in the existing seed file.
+Produce copy-paste-ready blocks for both `src/lib/region.ts` (regions) and `prisma/seed.ts` (kennels, aliases, sources). Follow the exact patterns used in those files.
 
-#### Regions (if new regions needed)
+#### Regions (`src/lib/region.ts` `REGION_SEED_DATA`, if new regions needed)
 ```typescript
-// New regions for [REGION]
-{ name: "Oregon", level: "STATE_PROVINCE", country: "USA", parentName: "USA" },
-{ name: "Portland, OR", level: "METRO", country: "USA", parentName: "Oregon" },
+// New regions for [REGION] — add to REGION_SEED_DATA in src/lib/region.ts
+{
+  name: "Oregon",
+  country: "USA",
+  level: "STATE_PROVINCE",
+  timezone: "America/Los_Angeles",
+  abbrev: "OR",
+  colorClasses: "bg-indigo-100 text-indigo-700",
+  pinColor: "#6366f1",
+  centroidLat: 44.0,
+  centroidLng: -120.5,
+},
+{
+  name: "Portland, OR",
+  country: "USA",
+  timezone: "America/Los_Angeles",
+  abbrev: "PDX",
+  colorClasses: "bg-indigo-100 text-indigo-700",
+  pinColor: "#6366f1",
+  centroidLat: 45.52,
+  centroidLng: -122.68,
+  aliases: ["Portland, Oregon"],
+},
+// Also add to stateMetroLinks in prisma/seed.ts:
+// "Oregon": ["Portland, OR", ...],
+// And to regionNameToData in src/lib/region.ts:
+// "Portland, OR": "Oregon",
 ```
 
 #### Kennels
