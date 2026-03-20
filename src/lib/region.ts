@@ -762,6 +762,18 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
   },
   // ── US West Coast ──
   {
+    name: "California",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Los_Angeles",
+    abbrev: "CA",
+    colorClasses: "bg-teal-200 text-teal-800",
+    pinColor: "#0d9488",
+    centroidLat: 36.78,
+    centroidLng: -119.42,
+    aliases: ["CA"],
+  },
+  {
     name: "San Francisco, CA",
     country: "USA",
     timezone: "America/Los_Angeles",
@@ -810,6 +822,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     pinColor: "#06b6d4",
     centroidLat: 32.72,
     centroidLng: -117.16,
+  },
+  {
+    name: "Santa Cruz, CA",
+    country: "USA",
+    timezone: "America/Los_Angeles",
+    abbrev: "SCZ",
+    colorClasses: "bg-teal-100 text-teal-700",
+    pinColor: "#14b8a6",
+    centroidLat: 36.97,
+    centroidLng: -122.03,
+    aliases: ["Santa Cruz, California"],
   },
   // ── US Pacific Northwest ──
   {
@@ -1440,6 +1463,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "San Jose, CA": "California",
   "Marin County, CA": "California",
   "San Diego, CA": "California",
+  "Santa Cruz, CA": "California",
   // Ohio
   "Columbus, OH": "Ohio",
   "Cincinnati, OH": "Ohio",
