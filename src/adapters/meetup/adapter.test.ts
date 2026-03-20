@@ -490,7 +490,8 @@ describe("MeetupAdapter", () => {
   });
 
   it("reports error when no Apollo state found in HTML", async () => {
-    mockHtmlResponse("<html><body>No events here</body></html>");
+    const noStateHtml = "<html><body>No events here</body></html>";
+    mockDualPageFetch(noStateHtml, noStateHtml);
 
     const adapter = new MeetupAdapter();
     const result = await adapter.fetch(
@@ -498,7 +499,8 @@ describe("MeetupAdapter", () => {
       { days: 365 },
     );
     expect(result.events).toHaveLength(0);
-    expect(result.errors[0]).toMatch(/NEXT_DATA/);
+    expect(result.errors[0]).toMatch(/Apollo state/);
+    expect(result.errors[0]).toMatch(/page structure/);
   });
 
   it("uses safeFetch with correct URL", async () => {
@@ -600,7 +602,7 @@ describe("MeetupAdapter", () => {
     expect(result.events[0].title).toBe("Upcoming Version");
   });
 
-  it("filters combined events by date window", async () => {
+  it("includes all past-page events regardless of age (exempt from minDate)", async () => {
     const oldPastDate = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000);
     const oldPastIso = oldPastDate.toISOString().slice(0, 19) + "-05:00";
     const recentPastDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
@@ -623,8 +625,10 @@ describe("MeetupAdapter", () => {
       makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
       { days: 90 },
     );
-    expect(result.events).toHaveLength(1);
-    expect(result.events[0].title).toBe("Recent Event");
+    // Both past events included — past-only events exempt from minDate
+    expect(result.events).toHaveLength(2);
+    expect(result.events.map((e) => e.title)).toContain("Old Event");
+    expect(result.events.map((e) => e.title)).toContain("Recent Event");
   });
 
   it("includes per-page counts in diagnosticContext", async () => {
@@ -776,6 +780,107 @@ describe("MeetupAdapter", () => {
     // Only 2 fetches: upcoming + past (no detail page)
     expect(mockSafeFetch).toHaveBeenCalledTimes(2);
     expect(result.diagnosticContext?.detailPagesFetched).toBe(0);
+  });
+
+  it("no error when events exist but are all outside date window (Cleveland H4 scenario)", async () => {
+    const oldDate = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000);
+    const oldIso = oldDate.toISOString().slice(0, 19) + "-05:00";
+
+    // Upcoming page has valid Apollo state but no Event entries
+    const upcomingHtml = buildMeetupHtml({ ROOT_QUERY: { __typename: "Query" } });
+    const pastHtml = buildMeetupHtml({
+      "Event:old-1": buildApolloEvent({ id: "old-1", title: "Old Event", dateTime: oldIso }),
+      "Venue:123": VENUE_ENTRY,
+    });
+
+    mockDualPageFetch(upcomingHtml, pastHtml);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "cleveland-h4", kennelTag: "CleH4" }),
+      { days: 90 },
+    );
+    // Past event is included (exempt from minDate), and no errors
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toBe("Old Event");
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("valid empty group (Apollo state exists but no events) is not an error", async () => {
+    const upcomingHtml = buildMeetupHtml({
+      ROOT_QUERY: { __typename: "Query" },
+      "GroupByUrlname:test": { __typename: "Group", id: "12345" },
+    });
+    const pastHtml = buildMeetupHtml({
+      ROOT_QUERY: { __typename: "Query" },
+    });
+
+    mockDualPageFetch(upcomingHtml, pastHtml);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "new-empty-group", kennelTag: "NewH3" }),
+      { days: 90 },
+    );
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toHaveLength(0);
+    expect(result.errorDetails).toBeUndefined();
+  });
+
+  it("past events exempt from minDate but upcoming still filtered by full window", async () => {
+    const veryOldDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const veryOldIso = veryOldDate.toISOString().slice(0, 19) + "-05:00";
+    const farFutureDate = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000);
+    const farFutureIso = farFutureDate.toISOString().slice(0, 19) + "-05:00";
+    const nearFutureDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+    const nearFutureIso = nearFutureDate.toISOString().slice(0, 19) + "-05:00";
+
+    const pastEvent = buildApolloEvent({ id: "past-365", title: "Year Old Event", dateTime: veryOldIso });
+    const farFutureEvent = buildApolloEvent({ id: "far-future", title: "Far Future", dateTime: farFutureIso, eventUrl: "https://www.meetup.com/test-hash/events/far-future/" });
+    const nearFutureEvent = buildApolloEvent({ id: "near-future", title: "Near Future", dateTime: nearFutureIso, eventUrl: "https://www.meetup.com/test-hash/events/near-future/" });
+
+    const upcomingHtml = buildMeetupHtml({
+      "Event:far-future": farFutureEvent,
+      "Event:near-future": nearFutureEvent,
+      "Venue:123": VENUE_ENTRY,
+    });
+    const pastHtml = buildMeetupHtml({
+      "Event:past-365": pastEvent,
+      "Venue:123": VENUE_ENTRY,
+    });
+
+    mockDualPageFetch(upcomingHtml, pastHtml);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 90 },
+    );
+    const titles = result.events.map((e) => e.title);
+    expect(titles).toContain("Year Old Event");  // past: exempt from minDate
+    expect(titles).toContain("Near Future");      // upcoming: within 90-day window
+    expect(titles).not.toContain("Far Future");   // upcoming: beyond maxDate
+    expect(result.events).toHaveLength(2);
+  });
+
+  it("maxDate still applies to past events (sanity check)", async () => {
+    const farFutureDate = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000);
+    const farFutureIso = farFutureDate.toISOString().slice(0, 19) + "-05:00";
+
+    const upcomingHtml = buildMeetupHtml({ ROOT_QUERY: { __typename: "Query" } });
+    const pastHtml = buildMeetupHtml({
+      "Event:weird-1": buildApolloEvent({ id: "weird-1", title: "Future on Past Page", dateTime: farFutureIso }),
+    });
+
+    mockDualPageFetch(upcomingHtml, pastHtml);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 90 },
+    );
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toHaveLength(0); // Not an error, just filtered
   });
 
   it("includes dedup and enrichment stats in diagnosticContext", async () => {
