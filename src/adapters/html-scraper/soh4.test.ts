@@ -80,6 +80,7 @@ describe("parseTrailPageHtml", () => {
     expect(result.hashCash).toBe("$7 (Virgins/first timers are free!)");
     expect(result.theme).toBe("Spring Flours");
     expect(result.onAfter).toBe("Asil's Pub");
+    expect(result.date).toBe("2026-03-21");
   });
 
   it("extracts title from h1", () => {

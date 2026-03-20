@@ -81,14 +81,10 @@ export function parseTrailPageHtml(html: string): {
     if (text) fields[key] = { text, href };
   });
 
-  // Extract date from page header (e.g., "Saturday - March 21, 2026 - 2:09 pm")
-  const headerText = container.find(".tribe-events-start-date, .em-dates-localised, h1, h2").first().text()
-    || container.parent().find("h1, h2").first().text()
-    || "";
-  // Look for date pattern in header or the surrounding page
-  const pageTitle = $("title").text() || "";
-  const dateText = headerText || pageTitle;
-  const date = chronoParseDate(dateText, "en-US") ?? undefined;
+  // Extract date from container text (e.g., "Saturday - March 21, 2026 - 2:09 pm")
+  // The date is typically in a <p> tag after the <h1> title, so scan the full
+  // container text — chrono-node picks up the first date-like pattern.
+  const date = chronoParseDate(container.text(), "en-US") ?? undefined;
 
   // Extract title from page <title> or first heading
   const rawTitle = $("h1").first().text().trim()
