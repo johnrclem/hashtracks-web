@@ -404,16 +404,19 @@ export class MeetupAdapter implements SourceAdapter {
 
     // Deduplicate events by id (upcoming takes priority)
     const upcomingIds = new Set(upcomingEvents.map((ev) => ev.id));
-    const idDedupedEvents = [
-      ...upcomingEvents,
-      ...pastEvents.filter((ev) => !upcomingIds.has(ev.id)),
-    ];
+    const pastOnly = pastEvents.filter((ev) => !upcomingIds.has(ev.id));
+    const idDedupedEvents = [...upcomingEvents, ...pastOnly];
+
+    // Track IDs exclusive to the past page (Meetup limits past page to ~10 most recent)
+    const pastOnlyIds = new Set(pastOnly.map((ev) => ev.id));
 
     // Deduplicate template vs customized occurrences sharing the same date
-    // then filter to date window before enriching (avoids unnecessary detail page fetches)
+    // then filter to date window before enriching (avoids unnecessary detail page fetches).
+    // Past-only events are exempt from minDate since the past page is already limited.
     const allApolloEvents = dedupByDate(idDedupedEvents).filter((ev) => {
       if (!ev.dateTime) return true; // keep for downstream skip
       const d = new Date(ev.dateTime);
+      if (pastOnlyIds.has(ev.id)) return d <= maxDate;
       return d >= minDate && d <= maxDate;
     });
 
@@ -421,8 +424,11 @@ export class MeetupAdapter implements SourceAdapter {
     const { detailPagesFetched, detailPagesEnriched } =
       await enrichRecurringEvents(allApolloEvents, headers);
 
-    if (allApolloEvents.length === 0) {
-      const message = "No events found in __NEXT_DATA__ Apollo state";
+    // Only error when the upcoming page lacks Apollo state entirely (structural breakage).
+    // An empty group with valid Apollo state or events outside the date window is valid.
+    const upcomingHasApolloState = Object.keys(upcomingState).length > 0;
+    if (!upcomingHasApolloState && upcomingEvents.length === 0) {
+      const message = "No __NEXT_DATA__ Apollo state found on upcoming events page — page structure may have changed";
       errors.push(message);
       errorDetails.parse = [{ row: 0, error: message }];
     }
@@ -449,6 +455,7 @@ export class MeetupAdapter implements SourceAdapter {
         eventsFound: idDedupedEvents.length,
         upcomingEventsFound: upcomingEvents.length,
         pastEventsFound: pastEvents.length,
+        pastEventsIngested: allApolloEvents.filter((ev) => pastOnlyIds.has(ev.id)).length,
         eventsAfterDedup: allApolloEvents.length,
         detailPagesFetched,
         detailPagesEnriched,
