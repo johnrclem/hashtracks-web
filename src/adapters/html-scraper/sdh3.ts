@@ -14,6 +14,7 @@
  */
 
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
@@ -173,6 +174,14 @@ export function parseEventFields(fieldsText: string): {
   };
 }
 
+/** Extract the first Google Maps link from a Cheerio container. */
+function extractMapLink($container: cheerio.Cheerio<AnyNode>, $: cheerio.CheerioAPI): string | undefined {
+  return $container.find("a").filter((_j, a) => {
+    const href = $(a).attr("href") ?? "";
+    return /maps|goo\.gl/i.test(href);
+  }).first().attr("href") || undefined;
+}
+
 /**
  * Parse hareline page HTML into RawEventData[].
  *
@@ -217,17 +226,8 @@ export function parseHarelineEvents(
 
     const { hares, location, description } = parseEventFields(fieldsText);
 
-    let locationUrl: string | undefined;
+    const locationUrl = extractMapLink(fieldsDiv, $);
     let title: string | undefined;
-
-    // Extract Map Link URL from the fields div
-    const mapLink = fieldsDiv.find("a").filter((_j, a) => {
-      const href = $(a).attr("href") ?? "";
-      return /maps|goo\.gl/i.test(href);
-    }).first().attr("href");
-    if (mapLink) {
-      locationUrl = mapLink;
-    }
 
     // Extract title from first <strong> (kennel-specific trail name if present)
     const firstStrong = $dt.find("> strong, > a > strong").first();
@@ -351,16 +351,14 @@ export async function enrichHistoryEvents(
       const fieldsText = stripHtmlTags(fieldsHtml, "\n");
       const fields = parseEventFields(fieldsText);
 
-      if (fields.hares) { event.hares = fields.hares; enriched++; }
-      if (fields.location) event.location = fields.location;
-      if (fields.description && !event.description) event.description = fields.description;
+      let wasEnriched = false;
+      if (fields.hares) { event.hares = fields.hares; wasEnriched = true; }
+      if (fields.location) { event.location = fields.location; wasEnriched = true; }
+      if (fields.description && !event.description) { event.description = fields.description; wasEnriched = true; }
 
-      // Extract map link URL
-      const mapLink = contentDiv.find("a").filter((_j, a) => {
-        const href = $(a).attr("href") ?? "";
-        return /maps|goo\.gl/i.test(href);
-      }).first().attr("href");
-      if (mapLink) event.locationUrl = mapLink;
+      const mapLink = extractMapLink(contentDiv, $);
+      if (mapLink) { event.locationUrl = mapLink; wasEnriched = true; }
+      if (wasEnriched) enriched++;
     }
   }
 
@@ -386,6 +384,10 @@ export class SDH3Adapter implements SourceAdapter {
       ? new URL(source.url).origin
       : "https://sdh3.com";
     const { minDate, maxDate } = buildDateWindow(options?.days);
+    const isInWindow = (e: RawEventData) => {
+      const eventDate = new Date(e.date + "T12:00:00Z");
+      return eventDate >= minDate && eventDate <= maxDate;
+    };
 
     const allErrors: string[] = [];
     const errorDetails: ErrorDetails = {};
@@ -451,10 +453,7 @@ export class SDH3Adapter implements SourceAdapter {
     let historyEnriched = 0;
     if (historyEvents.length > 0) {
       // Only enrich events within the date window to avoid unnecessary fetches
-      const windowedHistory = historyEvents.filter((e) => {
-        const eventDate = new Date(e.date + "T12:00:00Z");
-        return eventDate >= minDate && eventDate <= maxDate;
-      });
+      const windowedHistory = historyEvents.filter(isInWindow);
       const enrichResult = await enrichHistoryEvents(windowedHistory);
       historyEnriched = enrichResult.enriched;
       if (enrichResult.errors.length > 0) {
@@ -474,10 +473,7 @@ export class SDH3Adapter implements SourceAdapter {
     const allEvents = [...harelineEvents, ...dedupedHistory];
 
     // ── Step 4: Filter by date window ──
-    const filteredEvents = allEvents.filter((e) => {
-      const eventDate = new Date(e.date + "T12:00:00Z");
-      return eventDate >= minDate && eventDate <= maxDate;
-    });
+    const filteredEvents = allEvents.filter(isInWindow);
 
     if (parseErrors.length > 0) {
       errorDetails.parse = parseErrors;
