@@ -1,6 +1,8 @@
 # Source Onboarding Playbook
 
-How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 69 sources across 9 adapter types.
+How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 126 sources across 7 adapter types.
+
+> **See also:** [`docs/regional-research-prompt.md`](regional-research-prompt.md) — Chrome-assisted 3-stage workflow for discovering and onboarding entire regions at once.
 
 ---
 
@@ -459,6 +461,30 @@ git add . && git commit && git push
 - **Adapters**: Von Tramp + Narwhal Meetups (zero-code), Burlington (`src/adapters/html-scraper/burlington-hash.ts`) + RIH3 (`src/adapters/html-scraper/rih3.ts`) + Dublin (`src/adapters/html-scraper/dublin-hash.ts`) HTML scrapers, RIH3 static schedule
 - **Key lesson**: Dublin H3 was the first non-US/UK kennel, demonstrating the platform's ability to expand internationally with standard HTML scraping patterns.
 
+### Sources #50-58: Ohio (MEETUP + GOOGLE_CALENDAR + HTML_SCRAPER)
+
+- **Types**: `MEETUP` (x2) + `GOOGLE_CALENDAR` (x6) + `HTML_SCRAPER` (x1)
+- **Coverage**: 9 kennels across Dayton, Cincinnati, Columbus, Cleveland, Akron
+- **Adapters**: Cleveland + Cincinnati Meetups (zero-code), 6 Google Calendars (config-only), Renegade H3 (`src/adapters/html-scraper/renegade-h3.ts` — new Webador CMS adapter)
+- **Regions**: 6 new regions (Ohio STATE_PROVINCE + 5 metros), demonstrating state→metro hierarchy pattern
+- **Webador platform**: Renegade H3 (renegadeh3.com) uses Webador CMS with a consistent `#NNN - MM/DD/YY - Title` event header format. Detail lines parsed for Hares, Where, Hash Cash, etc. Exportable pure parsing functions for unit testing.
+- **Key lesson**: Webador is a new CMS platform (like Makesweat, Ghost, DigitalPress) with predictable HTML structure. Look for the `#number - date - title` header pattern on Webador-hosted hash sites.
+
+### Sources #59-69: Oregon (GOOGLE_CALENDAR — Chrome-assisted discovery)
+
+- **Types**: `GOOGLE_CALENDAR` (x11)
+- **Coverage**: 12 kennels across Portland, Salem, Eugene, Bend — zero prior coverage
+- **Adapters**: Zero new adapter code — all config-driven Google Calendar sources
+- **Discovery method**: Chrome-assisted 3-stage workflow (see `docs/regional-research-prompt.md`):
+  1. Found `oregonhhh.org` regional hub via web search
+  2. Extracted 14 base64-encoded Google Calendar IDs from the embedded iframe via Chrome `javascript_tool`
+  3. Identified each calendar by querying the Google Calendar API for recent events
+  4. Verified kennel activity, extracted metadata from individual websites
+- **Aggregator pattern**: Oregon Hashing Calendar (`cae3r4u2uhucmmi9rvq5eu6obg@group.calendar.google.com`) is a multi-kennel aggregator using `kennelPatterns` for OH3/TGIF/Cherry City. Individual kennel calendars added as higher-trust secondary sources.
+- **Key lesson**: Chrome-assisted discovery dramatically accelerates regional onboarding. Calendar IDs embedded in iframes can be extracted programmatically using `javascript_tool` instead of manual browser inspection. Combined with Google Calendar API event queries to identify unnamed calendars, this enables full region onboarding in a single session.
+- **Key lesson**: Half-Mind.com (`half-mind.com/regionalwebsite/p_list1.php?state=XX`) is a valuable aggregator for initial kennel discovery — provides kennel names, run days, and website URLs for most US states.
+- **Key lesson**: When regional calendars embed multiple calendar IDs and the Chrome extension blocks the raw values (cookie/base64 filtering), use `atob()` to decode base64 calendar IDs or extract just the hostname/path to confirm it's a Google Calendar, then use the Calendar API to identify calendars by their event content.
+
 ---
 
 ## Data Quality Pipeline (applies to ALL adapters)
@@ -560,6 +586,13 @@ The display layer (`getLocationDisplay()` in `EventCard.tsx`) deduplicates city 
 47. **Meetup venue name garbling** — Meetup venue names often contain doubled city names ("Atlanta Atlanta") or embedded state abbreviations. The adapter includes `cleanVenueName()` to normalize these. Watch for similar patterns when adding new Meetup sources.
 48. **Location placeholder filtering is centralized** — `sanitizeLocation()` in the merge pipeline strips TBD/TBA/TBC, bare URLs, and registration links from all events. Adapters should NOT reimplement this check — the pipeline handles it automatically.
 49. **Title suppression for generic kennel-name titles** — `getDisplayTitle()` in EventCard.tsx suppresses titles that just repeat the kennel shortName (e.g., "SPH3" or "SPH3 Hash"). Adapters don't need to filter these — the display layer handles it.
+50. **Chrome-assisted discovery scales regional onboarding** — Oregon onboarded 12 kennels with 11 Google Calendar sources and zero adapter code in a single session. Use the 3-stage Chrome workflow in `docs/regional-research-prompt.md`: (1) Aggregator-first discovery (HashRego, Half-Mind, Meetup, regional calendars), (2) Deep extraction with Calendar ID extraction and metadata scraping, (3) Seed data generation. This scales far better than ad-hoc web searches.
+51. **Calendar ID extraction from iframe embeds via Chrome** — Many kennel websites embed Google Calendar iframes. Use Chrome's `javascript_tool` to run `Array.from(document.querySelectorAll('iframe[src*="calendar.google.com"]')).map(f => new URL(f.src).searchParams.getAll('src'))` to extract all calendar IDs. When the extension blocks raw values as "base64 encoded data", use `atob()` to decode them in the page context. Faster and more reliable than manual URL parsing.
+52. **Identify unnamed calendars via the API** — When a multi-kennel calendar embeds many IDs without labels, query each one via the Google Calendar API (`/calendars/{id}/events?maxResults=3`) and identify the kennel from the `summary` field of the calendar or its events. This is how Oregon's 14 calendar IDs were mapped to specific kennels.
+53. **Half-Mind.com is a global kennel directory** — `half-mind.com/regionalwebsite/p_list1.php?state=XX` indexes kennels by US state with run days, contact info, and website URLs. Use it as a first-pass discovery step for any US region. It also flags inactive/dead kennels, saving verification time.
+54. **Webador CMS has predictable event structure** — Webador-hosted hash sites (e.g., renegadeh3.com) use a consistent `#NNN - MM/DD/YY - Title` event header pattern with labeled detail lines. See `src/adapters/html-scraper/renegade-h3.ts` for the reference implementation.
+55. **Zero-code regional onboarding at scale** — When a region's kennels all use Google Calendar, the entire region can be onboarded with only `seed.ts` and `region.ts` changes. Oregon (12 kennels), South Carolina (10 kennels), and Georgia (11 kennels with static schedules) all demonstrate this pattern. Config-driven adapters (Calendar, Meetup, Static Schedule) eliminate the per-source code cost.
+56. **Check prod DB for kennelCode collisions, not just seed.ts** — As the kennel count grows (200+), shortName collisions across regions become common. The `@@unique([shortName, regionId])` constraint allows same shortName in different regions, but kennelCode must be globally unique. Always query the prod database before assigning codes — seed.ts may not reflect manually-created kennels.
 
 ---
 
@@ -574,3 +607,4 @@ Status of automation features — many originally "future" items are now partial
 5. **Test generation**: Auto-generate test fixtures from real scrape samples — not yet implemented
 6. **Health monitoring** ✅: Rolling-window health analysis with 6 alert types; structure hash fingerprinting detects HTML changes; auto-resolve for stable structural changes
 7. **Self-healing** ✅: Alert pipeline → auto-file GitHub issues → Claude AI triage → high-confidence auto-fix PRs → CI validates → human reviews. Safe zone: adapters, seed.ts, test files only; rate-limited to 5 PRs/day.
+8. **Chrome-assisted regional discovery** ✅: 3-stage workflow using Claude in Chrome for autonomous site verification, Calendar ID extraction, and metadata scraping. See `docs/regional-research-prompt.md`. First used for Oregon (12 kennels, single session, zero new code).
