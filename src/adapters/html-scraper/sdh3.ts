@@ -22,6 +22,7 @@ import type {
   ErrorDetails,
   ParseError,
 } from "../types";
+import { safeFetch } from "../safe-fetch";
 import {
   fetchHTMLPage,
   chronoParseDate,
@@ -115,6 +116,64 @@ export function extractHistoryEntry(
 }
 
 /**
+ * Parse structured "Label: Value" fields from HTML containing
+ * <strong>Label:</strong> value<br /> patterns.
+ * Shared by hareline event parsing and individual event page enrichment.
+ */
+export function parseEventFields(fieldsText: string): {
+  hares?: string;
+  location?: string;
+  description?: string;
+} {
+  let hares: string | undefined;
+  let location: string | undefined;
+  const descParts: string[] = [];
+
+  const lines = fieldsText.split("\n");
+  for (const line of lines) {
+    const labelMatch = /^(.+?):\s*(.*)$/.exec(line.trim());
+    if (!labelMatch) continue;
+
+    const label = labelMatch[1].trim().toLowerCase();
+    const value = labelMatch[2].trim();
+    if (!value) continue;
+
+    switch (label) {
+      case "hare":
+      case "hares":
+      case "hare(s)":
+        hares = value;
+        break;
+      case "address":
+        location = value;
+        break;
+      case "run fee":
+      case "hash cash":
+        descParts.push(`Hash Cash: ${value}`);
+        break;
+      case "trail type":
+        descParts.push(`Trail: ${value}`);
+        break;
+      case "dog friendly":
+        descParts.push(`Dog Friendly: ${value}`);
+        break;
+      case "on after":
+        descParts.push(`On After: ${value}`);
+        break;
+      case "notes":
+        descParts.push(value);
+        break;
+    }
+  }
+
+  return {
+    hares,
+    location,
+    description: descParts.length > 0 ? descParts.join(" | ") : undefined,
+  };
+}
+
+/**
  * Parse hareline page HTML into RawEventData[].
  *
  * Events are in <dt class="hashEvent [KENNEL_CODE]"> elements.
@@ -156,48 +215,10 @@ export function parseHarelineEvents(
     const fieldsHtml = fieldsDiv.html() ?? "";
     const fieldsText = stripHtmlTags(fieldsHtml, "\n");
 
-    let hares: string | undefined;
-    let location: string | undefined;
+    const { hares, location, description } = parseEventFields(fieldsText);
+
     let locationUrl: string | undefined;
     let title: string | undefined;
-    const descParts: string[] = [];
-
-    // Parse "Label: Value" patterns from the fields div
-    const lines = fieldsText.split("\n");
-    for (const line of lines) {
-      const labelMatch = /^(.+?):\s*(.*)$/.exec(line.trim());
-      if (!labelMatch) continue;
-
-      const label = labelMatch[1].trim().toLowerCase();
-      const value = labelMatch[2].trim();
-      if (!value) continue;
-
-      switch (label) {
-        case "hare":
-        case "hares":
-        case "hare(s)":
-          hares = value;
-          break;
-        case "address":
-          location = value;
-          break;
-        case "run fee":
-        case "hash cash":
-          descParts.push(`Hash Cash: ${value}`);
-          break;
-        case "trail type":
-          descParts.push(`Trail: ${value}`);
-          break;
-        case "dog friendly":
-          descParts.push(`Dog Friendly: ${value}`);
-          break;
-        case "notes":
-          descParts.push(value);
-          break;
-      }
-    }
-
-    const description = descParts.length > 0 ? descParts.join(" | ") : undefined;
 
     // Extract Map Link URL from the fields div
     const mapLink = fieldsDiv.find("a").filter((_j, a) => {
@@ -282,6 +303,70 @@ export function parseHistoryEvents(
   return events;
 }
 
+/**
+ * Enrich history events by fetching individual event detail pages.
+ * History events only have date/title/kennel; the event pages have
+ * hares, location, description in the same <strong>Label:</strong> format.
+ */
+export async function enrichHistoryEvents(
+  events: RawEventData[],
+): Promise<{ enriched: number; errors: string[] }> {
+  const errors: string[] = [];
+  let enriched = 0;
+
+  // Only enrich events that have a sourceUrl but are missing hares and location
+  const toEnrich = events.filter(
+    (e) => e.sourceUrl && !e.hares && !e.location,
+  );
+  if (toEnrich.length === 0) return { enriched: 0, errors: [] };
+
+  const BATCH_SIZE = 5;
+  for (let b = 0; b < toEnrich.length; b += BATCH_SIZE) {
+    const batch = toEnrich.slice(b, b + BATCH_SIZE);
+    const batchResults = await Promise.allSettled(
+      batch.map(async (event) => {
+        const response = await safeFetch(event.sourceUrl!, {
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} for ${event.sourceUrl}`);
+        }
+        return { html: await response.text(), event };
+      }),
+    );
+
+    for (const result of batchResults) {
+      if (result.status === "rejected") {
+        errors.push(String(result.reason));
+        continue;
+      }
+
+      const { html, event } = result.value;
+      const $ = cheerio.load(html);
+
+      // Event detail pages have structured fields in a <div> with a <span> child
+      // Use the same <strong>Label:</strong> value pattern as the hareline
+      const contentDiv = $("div[style*='margin-left']").first();
+      const fieldsHtml = contentDiv.html() ?? "";
+      const fieldsText = stripHtmlTags(fieldsHtml, "\n");
+      const fields = parseEventFields(fieldsText);
+
+      if (fields.hares) { event.hares = fields.hares; enriched++; }
+      if (fields.location) event.location = fields.location;
+      if (fields.description && !event.description) event.description = fields.description;
+
+      // Extract map link URL
+      const mapLink = contentDiv.find("a").filter((_j, a) => {
+        const href = $(a).attr("href") ?? "";
+        return /maps|goo\.gl/i.test(href);
+      }).first().attr("href");
+      if (mapLink) event.locationUrl = mapLink;
+    }
+  }
+
+  return { enriched, errors };
+}
+
 // ── Adapter class ──
 
 export class SDH3Adapter implements SourceAdapter {
@@ -360,6 +445,23 @@ export class SDH3Adapter implements SourceAdapter {
       }
     }
 
+    // ── Step 2b: Enrich history events with detail page data ──
+    // History events only have date/title/kennel; enrichment fetches individual
+    // event pages to extract hares, location, description.
+    let historyEnriched = 0;
+    if (historyEvents.length > 0) {
+      // Only enrich events within the date window to avoid unnecessary fetches
+      const windowedHistory = historyEvents.filter((e) => {
+        const eventDate = new Date(e.date + "T12:00:00Z");
+        return eventDate >= minDate && eventDate <= maxDate;
+      });
+      const enrichResult = await enrichHistoryEvents(windowedHistory);
+      historyEnriched = enrichResult.enriched;
+      if (enrichResult.errors.length > 0) {
+        allErrors.push(...enrichResult.errors);
+      }
+    }
+
     // ── Step 3: Combine and dedup ──
     // Hareline events win when both pages have the same date+kennel
     const harelineKeys = new Set(
@@ -389,6 +491,7 @@ export class SDH3Adapter implements SourceAdapter {
       diagnosticContext: {
         harelineEventsParsed: harelineEvents.length,
         historyEventsParsed: historyEvents.length,
+        historyEnriched,
         historyDeduped: historyEvents.length - dedupedHistory.length,
         eventsAfterWindow: filteredEvents.length,
         includeHistory: config.includeHistory ?? false,

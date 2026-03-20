@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import {
+  parseEventFields,
   parseHarelineDate,
   extractHistoryEntry,
   parseHarelineEvents,
@@ -200,6 +201,39 @@ describe("extractHistoryEntry", () => {
   });
 });
 
+// ── parseEventFields ──
+
+describe("parseEventFields", () => {
+  it("extracts hares and location from label/value text", () => {
+    const text = "Trail Title\nHare(s): Surf N Turf, Deep Space 69\nAddress: Pioneer Park 1521 Washington Pl, San Diego, CA 92103\nRun Fee: $10\nTrail type: A to A\nDog friendly: Yes";
+    const result = parseEventFields(text);
+    expect(result.hares).toBe("Surf N Turf, Deep Space 69");
+    expect(result.location).toBe("Pioneer Park 1521 Washington Pl, San Diego, CA 92103");
+    expect(result.description).toContain("Hash Cash: $10");
+    expect(result.description).toContain("Trail: A to A");
+    expect(result.description).toContain("Dog Friendly: Yes");
+  });
+
+  it("handles singular 'Hare:' label", () => {
+    const text = "Hare: Solo Runner\nAddress: Some Park";
+    const result = parseEventFields(text);
+    expect(result.hares).toBe("Solo Runner");
+  });
+
+  it("returns undefined for empty/no fields", () => {
+    const result = parseEventFields("Just a title line with no labels");
+    expect(result.hares).toBeUndefined();
+    expect(result.location).toBeUndefined();
+    expect(result.description).toBeUndefined();
+  });
+
+  it("extracts On After field into description", () => {
+    const text = "Hare(s): Test\nOn after: The Pub on 5th";
+    const result = parseEventFields(text);
+    expect(result.description).toContain("On After: The Pub on 5th");
+  });
+});
+
 // ── parseHarelineEvents ──
 
 describe("parseHarelineEvents", () => {
@@ -345,7 +379,11 @@ describe("SDH3Adapter", () => {
   });
 
   it("fetches both hareline and history when includeHistory is true", async () => {
-    // First call returns hareline, second returns history
+    // First call returns hareline, second returns history, subsequent calls are enrichment
+    const enrichmentHtml = `<html><body><div style="margin-left:25px"><span>
+      <strong>Hare(s):</strong> Enriched Hare<br />
+      <strong>Address:</strong> 123 Enriched St<br />
+    </span></div></body></html>`;
     mockedSafeFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -360,6 +398,13 @@ describe("SDH3Adapter", () => {
         statusText: "OK",
         text: () => Promise.resolve(HISTORY_HTML),
         headers: new Headers(),
+      } as Response)
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: () => Promise.resolve(enrichmentHtml),
+        headers: new Headers(),
       } as Response);
 
     const source = makeSource({
@@ -372,10 +417,12 @@ describe("SDH3Adapter", () => {
 
     const result = await adapter.fetch(source, { days: 36500 });
 
-    expect(mockedSafeFetch).toHaveBeenCalledTimes(2);
+    // 2 page fetches + N enrichment fetches for history events
+    expect(mockedSafeFetch.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(result.diagnosticContext?.includeHistory).toBe(true);
     expect(result.diagnosticContext?.harelineEventsParsed).toBeGreaterThan(0);
     expect(result.diagnosticContext?.historyEventsParsed).toBeGreaterThan(0);
+    expect(result.diagnosticContext?.historyEnriched).toBeGreaterThan(0);
   });
 
   it("deduplicates: hareline event wins over history event for same date+kennel", async () => {
@@ -406,6 +453,13 @@ describe("SDH3Adapter", () => {
         status: 200,
         statusText: "OK",
         text: () => Promise.resolve(HISTORY_HTML),
+        headers: new Headers(),
+      } as Response)
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: () => Promise.resolve("<html><body><div style='margin-left:25px'><span></span></div></body></html>"),
         headers: new Headers(),
       } as Response);
 
