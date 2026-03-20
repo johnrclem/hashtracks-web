@@ -21,16 +21,18 @@ This is a **3-stage workflow**. Complete each stage fully and present results be
 **Goal**: Find all kennels in the region, verify they're active, identify the best source type for each.
 
 #### Step 1.1: Check Existing Coverage
-Read `prisma/seed.ts` and list any kennels already in the database for [REGION]. These will be skipped.
+Read `prisma/seed.ts` and the production database and list any kennels already in the database for [REGION]. These will be skipped.
 
 #### Step 1.2: Aggregator-First Discovery
 Check these aggregator sources FIRST — they often cover multiple kennels at once:
 
 1. **HashRego**: Open `https://hashrego.com/events` in Chrome. Scan the index table for any kennels in or near [REGION]. Note their kennel slugs (e.g., "BFMH3", "EWH3") — these can be scraped with zero new code using the HASHREGO adapter.
+   
+2. **Half-Mind.com**: Open `https://half-mind.com/regionalwebsite/index.php` in Chrome. Scan the index table for any kennels in or near [REGION]. Look for kennels and links to their data sources.
 
-2. **Meetup**: Search `https://www.meetup.com/find/?keywords=hash+house+harriers&location=[REGION]` in Chrome. Note any active groups with upcoming events. Extract the `groupUrlname` from each group's URL.
+3. **Meetup**: Search `https://www.meetup.com/find/?keywords=hash+house+harriers&location=[REGION]` in Chrome. Note any active groups with upcoming events. Extract the `groupUrlname` from each group's URL.
 
-3. **Regional Google Calendar**: Search the web for "[REGION] hash house harriers calendar" or "[REGION] hash calendar". If a regional aggregator calendar exists, visit the page in Chrome and extract the Google Calendar ID:
+4. **Regional Google Calendar**: Search the web for "[REGION] hash house harriers calendar" or "[REGION] hash calendar". If a regional aggregator calendar exists, visit the page in Chrome and extract the Google Calendar ID:
    - Use `javascript_tool` to run: `Array.from(document.querySelectorAll('iframe[src*="calendar.google.com"]')).map(f => f.src)`
    - Extract the `src=` parameter from the iframe URL — that's the `calendarId`
    - Note which kennels share this calendar

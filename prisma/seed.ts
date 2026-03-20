@@ -96,6 +96,7 @@ async function ensureRegionRecords(prisma: any) {
       "Columbus, OH", "Cincinnati, OH", "Dayton, OH",
       "Cleveland, OH", "Akron, OH",
     ],
+    "Oregon": ["Portland, OR", "Salem, OR", "Eugene, OR", "Bend, OR"],
   };
 
   let stateLinked = 0;
@@ -1723,6 +1724,112 @@ async function main() {
       foundedYear: 2018,
       description: "Alternate Saturday runs in the Myrtle Beach area. Also hosts pub crawls.",
     },
+    // ===== OREGON =====
+    // --- Portland ---
+    {
+      kennelCode: "n2h3", shortName: "N2H3", fullName: "No Name Hash House Harriers",
+      region: "Portland, OR",
+      website: "https://beercheck.wixsite.com/nonameh3",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "6:45 PM", scheduleFrequency: "Weekly",
+      hashCash: "$5",
+      description: "Portland's weekly Thursday evening hash. Meet at 6:45, hare off at 7. Headlamp required for night trails.",
+      latitude: 45.52, longitude: -122.68,
+    },
+    {
+      kennelCode: "okh3", shortName: "OKH3", fullName: "Oregon Kahuna Hash House Harriers",
+      region: "Portland, OR",
+      website: "http://oregonkahunah3.pbworks.com/",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
+      description: "Portland's Monday evening hash. Also runs as Ka-Three-Na and Katuna for alternating events.",
+      latitude: 45.52, longitude: -122.68,
+    },
+    {
+      kennelCode: "ph4", shortName: "PH4", fullName: "Portland Humpin' Hash House Harriers",
+      region: "Portland, OR",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Portland's Wednesday evening hump day hash. Meets at 6:30, hare off at 7.",
+      latitude: 45.52, longitude: -122.68,
+    },
+    {
+      kennelCode: "stumph3", shortName: "StumpH3", fullName: "Stumptown Hash House Harriers",
+      region: "Portland, OR",
+      website: "https://stumptownh3.wordpress.com/",
+      facebookUrl: "https://www.facebook.com/groups/stumptownh3",
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      description: "Portland's bi-weekly Tuesday evening hash. Gather at 6:30, hares away at 7, pack follows at 7:15.",
+      latitude: 45.52, longitude: -122.68,
+    },
+    {
+      kennelCode: "dwh3", shortName: "DWH3", fullName: "Dead Whores Hash House Harriers",
+      region: "Portland, OR",
+      website: "https://www.dwh3portland.com/",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
+      foundedYear: 2001,
+      description: "Portland's monthly Sunday afternoon hash. Founded 2001 in Lake Oswego. Female-oriented kennel, wankers welcome on analversaries.",
+      latitude: 45.52, longitude: -122.68,
+    },
+    {
+      kennelCode: "oh3", shortName: "OH3", fullName: "Oregon Hash House Harriers",
+      region: "Portland, OR",
+      website: "https://www.oregonhhh.org/",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Bi-weekly Saturdays plus full moon runs",
+      description: "Oregon's flagship kennel. Bi-weekly Saturday afternoon trails plus full moon evening runs in the Portland metro area.",
+      latitude: 45.52, longitude: -122.68,
+    },
+    {
+      kennelCode: "swh3-or", shortName: "SWH3", fullName: "SWH3 Hash House Harriers",
+      region: "Portland, OR",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
+      hashCash: "$5",
+      description: "Monthly Saturday afternoon hash in the Portland-Vancouver metro area. Trails range across Oregon and SW Washington.",
+      latitude: 45.52, longitude: -122.68,
+    },
+    {
+      kennelCode: "tgif", shortName: "TGIF", fullName: "TGIF Hash House Harriers",
+      region: "Portland, OR",
+      scheduleDayOfWeek: "Friday", scheduleTime: "5:30 PM", scheduleFrequency: "Weekly",
+      description: "Portland's Friday evening social hash and pubcrawl. A lighter-format end-of-week gathering.",
+      latitude: 45.52, longitude: -122.68,
+    },
+    // --- Salem ---
+    {
+      kennelCode: "salemh3", shortName: "SalemH3", fullName: "Salem Hash House Harriers",
+      region: "Salem, OR",
+      facebookUrl: "https://www.facebook.com/groups/106108826725143",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:30 PM", scheduleFrequency: "Biweekly",
+      hashCash: "$5",
+      scheduleNotes: "Bi-weekly Saturdays plus full moon runs",
+      description: "Salem's bi-weekly Saturday afternoon hash with occasional full moon evening runs.",
+      latitude: 44.94, longitude: -123.04,
+    },
+    {
+      kennelCode: "cch3-or", shortName: "CCH3", fullName: "Cherry City Hash House Harriers",
+      region: "Salem, OR",
+      scheduleFrequency: "Monthly",
+      description: "Salem-area monthly hash. Named for Salem's cherry blossom heritage. Events held at parks around the Salem-Wilsonville area.",
+      latitude: 44.94, longitude: -123.04,
+    },
+    // --- Eugene ---
+    {
+      kennelCode: "eh3-or", shortName: "EH3", fullName: "Eugene Hash House Harriers",
+      region: "Eugene, OR",
+      website: "https://sites.google.com/site/eugenehasher/",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
+      hashCash: "$5",
+      scheduleNotes: "Sundays plus weekly Friday Hashy Hour social",
+      description: "Eugene's weekly Sunday hash with a 30-strong pack. Trails run 3-6 miles. Also hosts Friday evening Hashy Hours.",
+      latitude: 44.05, longitude: -123.09,
+    },
+    // --- Bend ---
+    {
+      kennelCode: "coh3", shortName: "COH3", fullName: "Central Oregon Hash House Harriers",
+      region: "Bend, OR",
+      website: "https://sites.google.com/site/centraloregonhhh",
+      scheduleFrequency: "Monthly",
+      description: "Central Oregon's monthly hash based in Bend. 3-4 mile trails through high desert terrain with beer checks. Annual campout at Crescent Lake.",
+      latitude: 44.06, longitude: -121.32,
+    },
     // ===== OHIO =====
     // --- Dayton ---
     {
@@ -2022,6 +2129,19 @@ async function main() {
     "goth3": ["Greenville's Other H3", "Greenville's Other Hash", "GOH3", "GothH3"],
     "lth3": ["Luna Ticks", "LunaTicks H3", "Luna Ticks Hash"],
     "gsh3": ["Grand Strand H3", "Grand Strand Hash", "Myrtle Beach H3", "Myrtle Beach Hash"],
+    // ===== OREGON =====
+    "n2h3": ["No Name Hash", "N2H3", "No Name H3", "N3H3", "Portland No Name"],
+    "okh3": ["Kahuna Hash", "Kahuna H3", "Ka-Three-Na", "Katuna", "OKH3", "Oregon Kahuna"],
+    "ph4": ["Hump Hash", "Portland Hump Hash", "Portland Humpin Hash", "PH4", "Humpin Hash"],
+    "stumph3": ["Stumptown Hash", "Stumptown H3", "StumpH3", "Stump"],
+    "dwh3": ["Dead Whores Hash", "Dead Whores H3", "DWH3", "DWH"],
+    "oh3": ["Oregon Hash", "Oregon H3", "OH3", "OregonH3", "PDXGDRH3"],
+    "swh3-or": ["SWH3"],
+    "tgif": ["TGIF Hash", "TGIF H3"],
+    "salemh3": ["Salem Hash", "Salem H3", "SalemH3", "SH3 Salem"],
+    "cch3-or": ["Cherry City Hash", "Cherry City H3", "CCH3", "Cherry City"],
+    "eh3-or": ["Eugene Hash", "Eugene H3", "EH3", "Eugene HHH", "EHHH"],
+    "coh3": ["Central Oregon Hash", "Central Oregon H3", "COH3", "Bend Hash"],
   };
 
   // ── SHARED SFH3 CONFIG (used by both iCal and HTML sources) ──
@@ -2425,9 +2545,9 @@ async function main() {
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
-        kennelSlugs: ["BFMH3", "EWH3", "WH4", "GFH3", "CH3", "DCH4", "DCFMH3", "FCH3"],
+        kennelSlugs: ["BFMH3", "EWH3", "WH4", "GFH3", "CH3", "DCH4", "DCFMH3", "FCH3", "OregonH3"],
       },
-      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3"],
+      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3", "oh3"],
     },
     // ===== TEXAS =====
     // --- Austin (2 Google Calendars) ---
@@ -3512,6 +3632,157 @@ async function main() {
         kennelTag: "Narwhal H3",
       },
       kennelCodes: ["narwhal-h3"],
+    },
+    // ===== OREGON =====
+    // --- Oregon Hashing Calendar aggregator (OH3, TGIF, Cherry City events) ---
+    {
+      name: "Oregon Hashing Calendar",
+      url: "cae3r4u2uhucmmi9rvq5eu6obg@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "cae3r4u2uhucmmi9rvq5eu6obg@group.calendar.google.com",
+        kennelPatterns: [
+          ["OH3.*Full Moon|OH3 #|OH3 -|OH3$", "OH3"],
+          ["TGIF|Friday.*Pubcrawl", "TGIF"],
+          ["Cherry City|Cherry Cherry City", "CCH3"],
+        ],
+        defaultKennelTag: "OH3",
+      },
+      kennelCodes: ["oh3", "tgif", "cch3-or"],
+    },
+    // --- Individual kennel calendars ---
+    {
+      name: "No Name H3 Calendar",
+      url: "63h32shgrk48ci0li17lmoijeg@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "63h32shgrk48ci0li17lmoijeg@group.calendar.google.com",
+        defaultKennelTag: "N2H3",
+      },
+      kennelCodes: ["n2h3"],
+    },
+    {
+      name: "Kahuna H3 Calendar",
+      url: "e63ac95062e8cb80b4c470e316701cfba3046903bc6662c456efe87d52250e9e@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "e63ac95062e8cb80b4c470e316701cfba3046903bc6662c456efe87d52250e9e@group.calendar.google.com",
+        defaultKennelTag: "OKH3",
+      },
+      kennelCodes: ["okh3"],
+    },
+    {
+      name: "Portland Humpin' Hash Calendar",
+      url: "e42428cbbecf52a48618c36aa1654ec0186aa307eb6d608641ef3a9e5c243128@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "e42428cbbecf52a48618c36aa1654ec0186aa307eb6d608641ef3a9e5c243128@group.calendar.google.com",
+        defaultKennelTag: "PH4",
+      },
+      kennelCodes: ["ph4"],
+    },
+    {
+      name: "Stumptown H3 Calendar",
+      url: "5e6c1e6bdcb70c74eb924aee3d74f63e13a65c91f86844f50b37f412a768e82c@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "5e6c1e6bdcb70c74eb924aee3d74f63e13a65c91f86844f50b37f412a768e82c@group.calendar.google.com",
+        defaultKennelTag: "StumpH3",
+      },
+      kennelCodes: ["stumph3"],
+    },
+    {
+      name: "Dead Whores H3 Calendar",
+      url: "e435782c94f98136bde0957e4f791bdd3a0ac0d13970bbfe1ff34f5ddc676990@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "e435782c94f98136bde0957e4f791bdd3a0ac0d13970bbfe1ff34f5ddc676990@group.calendar.google.com",
+        defaultKennelTag: "DWH3",
+      },
+      kennelCodes: ["dwh3"],
+    },
+    {
+      name: "SWH3 Calendar",
+      url: "898ddb527b83d7944c788bfbdb4074be5ee3c5ddf380acbdb206abd2861d6dc2@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "898ddb527b83d7944c788bfbdb4074be5ee3c5ddf380acbdb206abd2861d6dc2@group.calendar.google.com",
+        defaultKennelTag: "SWH3",
+      },
+      kennelCodes: ["swh3-or"],
+    },
+    {
+      name: "Salem H3 Calendar",
+      url: "0f125fcba18bfeca585fe7d3592c70159df9c97d620dfd68fd65a73fcd063d8c@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "0f125fcba18bfeca585fe7d3592c70159df9c97d620dfd68fd65a73fcd063d8c@group.calendar.google.com",
+        defaultKennelTag: "SalemH3",
+      },
+      kennelCodes: ["salemh3"],
+    },
+    {
+      name: "Cherry City H3 Calendar",
+      url: "711a1cfbec0cfbcc26ba28c79d943700e6b7c33c8c11896a86da701fc96291b6@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "711a1cfbec0cfbcc26ba28c79d943700e6b7c33c8c11896a86da701fc96291b6@group.calendar.google.com",
+        defaultKennelTag: "CCH3",
+      },
+      kennelCodes: ["cch3-or"],
+    },
+    {
+      name: "Eugene H3 Calendar",
+      url: "8b593752049f42f9aca8fb04197bfb25d7f4148db8c314991e842bbf6b4ea303@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "8b593752049f42f9aca8fb04197bfb25d7f4148db8c314991e842bbf6b4ea303@group.calendar.google.com",
+        defaultKennelTag: "EH3",
+      },
+      kennelCodes: ["eh3-or"],
+    },
+    {
+      name: "Central Oregon H3 Calendar",
+      url: "6ureum96qhgf13kj820i61ovq8@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "6ureum96qhgf13kj820i61ovq8@group.calendar.google.com",
+        defaultKennelTag: "COH3",
+      },
+      kennelCodes: ["coh3"],
     },
     // ===== OHIO =====
     // --- Cleveland (Meetup) ---
