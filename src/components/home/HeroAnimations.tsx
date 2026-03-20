@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useInView } from "@/hooks/useInView";
 
 /* ── Animated counter that counts up from 0 ── */
 export function AnimatedCounter({ target, duration = 1500 }: { target: number; duration?: number }) {
@@ -48,22 +49,7 @@ export function FadeInSection({
   delay?: number;
   className?: string;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
+  const { ref, visible } = useInView<HTMLDivElement>(0);
 
   return (
     <div
