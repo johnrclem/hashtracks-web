@@ -227,7 +227,6 @@ function mockFetchResponse(body: string, ok = true, status = 200) {
 // Today-relative date string for test rows that land within the ±90 day window
 const todayParts = new Date().toISOString().slice(0, 10).split("-");
 const testDateMDY = `${Number(todayParts[1])}/${Number(todayParts[2])}/${todayParts[0]}`;
-const testDateISO = new Date().toISOString().slice(0, 10);
 
 const sheetConfig = {
   sheetId: "abc123",

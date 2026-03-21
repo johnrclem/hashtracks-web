@@ -1,5 +1,5 @@
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, validateSourceConfig, stripPlaceholder } from "../utils";
 import { safeFetch } from "../safe-fetch";
@@ -367,35 +367,14 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         sampleRows = rows.slice(0, 10);
       }
 
-      let tabHasEventsInWindow = false;
-
-      for (let rowIdx = 1; rowIdx < rows.length; rowIdx++) {
-        const row = rows[rowIdx];
-        try {
-          const dateCell = row[config.columns.date]?.trim();
-          if (!dateCell) continue;
-
-          const dateStr = parseDate(dateCell);
-          if (!dateStr) continue;
-
-          if (dateStr < minISO || dateStr > maxISO) continue;
-          tabHasEventsInWindow = true;
-
-          const event = buildEventFromSheetRow(row, config, source.url, dateStr);
-          if (event) events.push(event);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          errors.push(`Row ${rowIdx} in tab "${tabName}": ${message}`);
-          errorDetails.parse = [...(errorDetails.parse ?? []), {
-            row: rowIdx,
-            section: tabName,
-            error: message,
-            rawText: `Tab: ${tabName}, Row: ${rowIdx}`.slice(0, 2000),
-          }];
-        }
+      const processed = this.processRows(rows, config, source.url, minISO, maxISO, tabName);
+      events.push(...processed.events);
+      errors.push(...processed.errors);
+      if (processed.parseErrors.length > 0) {
+        errorDetails.parse = [...(errorDetails.parse ?? []), ...processed.parseErrors];
       }
 
-      if (!tabHasEventsInWindow && events.length > 0) {
+      if (!processed.hasEventsInWindow && events.length > 0) {
         break;
       }
     }
@@ -415,6 +394,50 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     };
   }
 
+  /** Process parsed CSV rows into events, returning results + parse errors. */
+  private processRows(
+    rows: string[][],
+    config: GoogleSheetsConfig,
+    sourceUrl: string,
+    minISO: string,
+    maxISO: string,
+    section?: string,
+  ): { events: RawEventData[]; errors: string[]; parseErrors: ParseError[]; hasEventsInWindow: boolean } {
+    const events: RawEventData[] = [];
+    const errors: string[] = [];
+    const parseErrors: ParseError[] = [];
+    let hasEventsInWindow = false;
+
+    for (let rowIdx = 1; rowIdx < rows.length; rowIdx++) {
+      const row = rows[rowIdx];
+      try {
+        const dateCell = row[config.columns.date]?.trim();
+        if (!dateCell) continue;
+
+        const dateStr = parseDate(dateCell);
+        if (!dateStr) continue;
+
+        if (dateStr < minISO || dateStr > maxISO) continue;
+        hasEventsInWindow = true;
+
+        const event = buildEventFromSheetRow(row, config, sourceUrl, dateStr);
+        if (event) events.push(event);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const label = section ? `Row ${rowIdx} in tab "${section}"` : `Row ${rowIdx}`;
+        errors.push(`${label}: ${message}`);
+        parseErrors.push({
+          row: rowIdx,
+          section,
+          error: message,
+          rawText: `${label}`.slice(0, 2000),
+        });
+      }
+    }
+
+    return { events, errors, parseErrors, hasEventsInWindow };
+  }
+
   /** Fetch from a direct CSV URL, bypassing tab discovery entirely. */
   private async fetchDirectCsv(
     config: GoogleSheetsConfig,
@@ -424,7 +447,6 @@ export class GoogleSheetsAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const events: RawEventData[] = [];
     const errors: string[] = [];
-    const errorDetails: ErrorDetails = {};
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
@@ -453,28 +475,12 @@ export class GoogleSheetsAdapter implements SourceAdapter {
 
     const sampleRows = rows.slice(0, 10);
 
-    for (let rowIdx = 1; rowIdx < rows.length; rowIdx++) {
-      const row = rows[rowIdx];
-      try {
-        const dateCell = row[config.columns.date]?.trim();
-        if (!dateCell) continue;
-
-        const dateStr = parseDate(dateCell);
-        if (!dateStr) continue;
-
-        if (dateStr < minISO || dateStr > maxISO) continue;
-
-        const event = buildEventFromSheetRow(row, config, sourceUrl, dateStr);
-        if (event) events.push(event);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        errors.push(`Row ${rowIdx}: ${message}`);
-        errorDetails.parse = [...(errorDetails.parse ?? []), {
-          row: rowIdx,
-          error: message,
-          rawText: `Row: ${rowIdx}`.slice(0, 2000),
-        }];
-      }
+    const processed = this.processRows(rows, config, sourceUrl, minISO, maxISO);
+    events.push(...processed.events);
+    errors.push(...processed.errors);
+    const errorDetails: ErrorDetails = {};
+    if (processed.parseErrors.length > 0) {
+      errorDetails.parse = processed.parseErrors;
     }
 
     const hasErrs = hasAnyErrors(errorDetails);
