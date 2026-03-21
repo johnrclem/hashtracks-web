@@ -37,6 +37,18 @@ Check these aggregator sources FIRST — they often cover multiple kennels at on
    - Extract all `src=` parameters from the iframe URL — shared calendars often embed multiple calendar IDs in one iframe. Use `new URL(f.src).searchParams.getAll('src')` to get all of them.
    - Note which kennels share this calendar
 
+5. **JS-Rendered Calendar Aggregators**: The iframe check in #4 only finds embedded Google Calendar iframes. Some sites use custom JavaScript frontends that call the Google Calendar API directly (no iframes). For any regional kennel website, also check subpages like `/calendar/`, `/socal/`, `/events/`, `/schedule/`:
+   - Run via `javascript_tool`:
+     ```javascript
+     // Check for external JS files that might contain calendar config
+     const scripts = Array.from(document.querySelectorAll('script[src]')).map(s => s.src);
+     const pageText = document.documentElement.outerHTML;
+     const calIds = pageText.match(/[a-zA-Z0-9._%-]+@group\.calendar\.google\.com/g);
+     JSON.stringify({ externalScripts: scripts.filter(s => /index|calendar|events/i.test(s)), googleCalendarIds: calIds });
+     ```
+   - If calendar IDs are found, fetch the external JS file and look for a `calendars` array with `id` and `summary` fields — each entry is a per-kennel Google Calendar
+   - Example: lbh3.org/socal uses a custom JS frontend (`index.js`) aggregating 31 per-kennel Google Calendars with zero iframes
+
 #### Step 1.3: Web Search for Remaining Kennels
 Search the web for additional kennels in [REGION] not found via aggregators. Try searches like:
 - "[REGION] hash house harriers"
@@ -57,6 +69,7 @@ For each discovered kennel, visit their website (if found) in Chrome and check:
    // Run via javascript_tool on the kennel's website
    const results = {
      googleCalendar: Array.from(document.querySelectorAll('iframe[src*="calendar.google.com"]')).map(f => f.src),
+     googleCalendarApi: document.documentElement.outerHTML.match(/[a-zA-Z0-9._%-]+@group\.calendar\.google\.com/g) || [],
      icalLinks: Array.from(document.querySelectorAll('a[href*=".ics"], a[href^="webcal:"]')).map(a => a.href),
      meetupLinks: Array.from(document.querySelectorAll('a[href*="meetup.com"]')).map(a => a.href),
      sheetsLinks: Array.from(document.querySelectorAll('a[href*="docs.google.com/spreadsheets"]')).map(a => a.href),
@@ -64,7 +77,7 @@ For each discovered kennel, visit their website (if found) in Chrome and check:
    };
    JSON.stringify(results, null, 2);
    ```
-   **CRITICAL**: Do NOT recommend HTML_SCRAPER if any of the above returns results. Always prefer structured sources.
+   **CRITICAL**: Do NOT recommend HTML_SCRAPER if any of the above returns results. Always prefer structured sources. The `googleCalendarApi` check catches JS-rendered calendar pages that don't use iframes (e.g., lbh3.org/socal).
 
 3. **Tier classification**:
    - **Tier 1**: Structured source found (Calendar, Meetup, iCal, Sheets, HashRego) — config-only onboarding
@@ -312,6 +325,19 @@ At the end, include:
 
 ---
 
+### Stage 4: Gap Validation
+
+After onboarding is complete, cross-reference against Half-Mind.com to verify no major kennels were missed:
+
+1. Open `https://half-mind.com/regionalwebsite/p_list1.php?state=[STATE_ABBREV]` in Chrome
+2. Compare active kennels listed against what was just onboarded
+3. For any active kennel NOT in the database, note it with status and whether a source exists
+4. Present findings to the user — they may choose to add more kennels or defer
+
+This step catches kennels that don't appear on aggregators, Meetup, or web searches but are still active in the hashing community. Example: California gap check revealed Sacramento (2 kennels), Santa Barbara (2 kennels), and Bakersfield as notable omissions from the initial onboarding of 21 kennels.
+
+---
+
 ## Adapter Type Quick Reference
 
 | Type | When to Use | Config Shape | Code Needed? |
@@ -331,5 +357,7 @@ At the end, include:
 4. HTML_SCRAPER (GenericHtmlAdapter) — config-driven CSS selectors
 5. HTML_SCRAPER (custom adapter) — requires new code
 6. STATIC_SCHEDULE — fallback for Facebook-only kennels
+
+**CAUTION on STATIC_SCHEDULE**: Before defaulting to STATIC_SCHEDULE, check whether a regional calendar aggregator covers the kennel. In California, 4 kennels initially planned as STATIC_SCHEDULE turned out to have real Google Calendar data via a regional aggregator (lbh3.org/socal). STATIC_SCHEDULE should be a true last resort — only use it when no calendar, Meetup, iCal, or aggregator source exists.
 
 **CRITICAL RULE**: Before recommending HTML_SCRAPER for ANY kennel, you MUST have already checked for embedded Google Calendar, iCal links, Meetup links, and Google Sheets links using the JavaScript snippet in Stage 1. Only recommend HTML_SCRAPER if none were found.
