@@ -37,6 +37,7 @@ import { SourceForm } from "./SourceForm";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import { toast } from "sonner";
 import type { RegionOption } from "./RegionCombobox";
+import { getStateGroup } from "@/lib/region";
 
 type SourceData = {
   id: string;
@@ -107,8 +108,18 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
       if (!hasMatch) return false;
     }
     if (selectedRegions.length > 0) {
+      // Expand state-level selections to their metro regions
+      const expandedRegions = new Set<string>();
+      for (const r of selectedRegions) {
+        if (r.startsWith("state:")) {
+          const metros = regionsByState.get(r.slice(6)) ?? [];
+          for (const m of metros) expandedRegions.add(m);
+        } else {
+          expandedRegions.add(r);
+        }
+      }
       const hasMatch = source.linkedKennels.some((k) =>
-        selectedRegions.includes(kennelRegionMap.get(k.id) ?? ""),
+        expandedRegions.has(kennelRegionMap.get(k.id) ?? ""),
       );
       if (!hasMatch) return false;
     }
@@ -139,6 +150,22 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
     );
   }
 
+  function toggleStateGroup(state: string) {
+    const stateKey = `state:${state}`;
+    setSelectedRegions((prev) => {
+      if (prev.includes(stateKey)) {
+        // Deselecting state: remove the state key and all its metros
+        const metros = regionsByState.get(state) ?? [];
+        return prev.filter((r) => r !== stateKey && !metros.includes(r));
+      } else {
+        // Selecting state: add state key, remove individual metros from that state
+        const metros = regionsByState.get(state) ?? [];
+        const withoutMetros = prev.filter((r) => !metros.includes(r));
+        return [...withoutMetros, stateKey];
+      }
+    });
+  }
+
   function toggleType(type: string) {
     setSelectedTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
@@ -161,6 +188,16 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
       ),
     ),
   ).sort((a, b) => a.localeCompare(b));
+
+  // Build state → metros mapping for grouped region filter
+  const regionsByState = new Map<string, string[]>();
+  for (const region of availableRegions) {
+    const state = getStateGroup(region);
+    const metros = regionsByState.get(state) ?? [];
+    metros.push(region);
+    regionsByState.set(state, metros);
+  }
+  const stateKeys = Array.from(regionsByState.keys()).sort((a, b) => a.localeCompare(b));
 
   // Only show types that exist in sources
   const availableTypes = Array.from(new Set(sources.map((s) => s.type))).sort((a, b) => a.localeCompare(b));
@@ -223,31 +260,55 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-64 max-w-[calc(100vw-2rem)] p-0" align="start">
+          <PopoverContent className="w-72 max-w-[calc(100vw-2rem)] p-0" align="start">
             <Command>
               <CommandInput placeholder="Search regions..." />
               <CommandList>
                 <CommandEmpty>No regions found.</CommandEmpty>
-                <CommandGroup>
-                  {availableRegions.map((region) => (
-                    <CommandItem
-                      key={region}
-                      value={region}
-                      onSelect={() => toggleRegion(region)}
-                    >
-                      <span
-                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                          selectedRegions.includes(region)
-                            ? "bg-primary border-primary text-primary-foreground"
-                            : "opacity-50"
-                        }`}
-                      >
-                        {selectedRegions.includes(region) && "✓"}
-                      </span>
-                      {region}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
+                {stateKeys.map((state) => {
+                  const metros = regionsByState.get(state) ?? [];
+                  const stateKey = `state:${state}`;
+                  const allMetrosSelected = metros.every((m) => selectedRegions.includes(m));
+                  return (
+                    <CommandGroup key={state} heading={state}>
+                      {metros.length > 1 && (
+                        <CommandItem
+                          value={`${state} all`}
+                          onSelect={() => toggleStateGroup(state)}
+                        >
+                          <span
+                            className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                              selectedRegions.includes(stateKey) || allMetrosSelected
+                                ? "bg-primary border-primary text-primary-foreground"
+                                : "opacity-50"
+                            }`}
+                          >
+                            {(selectedRegions.includes(stateKey) || allMetrosSelected) && "✓"}
+                          </span>
+                          <span className="font-medium">All {state}</span>
+                        </CommandItem>
+                      )}
+                      {metros.map((region) => (
+                        <CommandItem
+                          key={region}
+                          value={region}
+                          onSelect={() => toggleRegion(region)}
+                        >
+                          <span
+                            className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                              selectedRegions.includes(region)
+                                ? "bg-primary border-primary text-primary-foreground"
+                                : "opacity-50"
+                            }`}
+                          >
+                            {selectedRegions.includes(region) && "✓"}
+                          </span>
+                          <span className={metros.length > 1 ? "pl-2" : ""}>{region}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  );
+                })}
               </CommandList>
             </Command>
           </PopoverContent>
