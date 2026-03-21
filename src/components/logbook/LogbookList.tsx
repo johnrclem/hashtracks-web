@@ -58,6 +58,7 @@ export interface LogbookEntry {
 interface LogbookListProps {
   entries: LogbookEntry[];
   stravaConnected?: boolean;
+  allRegions?: Array<{ id: string; name: string }>;
 }
 
 
@@ -119,7 +120,7 @@ function ColumnHeaders() {
   );
 }
 
-export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
+export function LogbookList({ entries, stravaConnected, allRegions }: LogbookListProps) {
   const [editingEntry, setEditingEntry] = useState<LogbookEntry | null>(null);
   const [selectedKennels, setSelectedKennels] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
@@ -158,10 +159,25 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
     return Array.from(map.values()).sort((a, b) => a.shortName.localeCompare(b.shortName));
   }, [entries]);
 
+  // Compute per-region entry counts (for badge display)
+  const regionEntryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of entries) {
+      const r = e.event.kennel.region;
+      counts.set(r, (counts.get(r) ?? 0) + 1);
+    }
+    return counts;
+  }, [entries]);
+
+  // Use server-provided allRegions (all METRO regions) when available,
+  // otherwise fall back to deriving from entries for backwards compatibility
   const regions = useMemo(() => {
+    if (allRegions && allRegions.length > 0) {
+      return allRegions.map((r) => r.name);
+    }
     const set = new Set(entries.map((e) => e.event.kennel.region));
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [entries]);
+  }, [allRegions, entries]);
 
   // Filter entries (uses module-level filterLogbookEntries, exported for testing)
   const filtered = useMemo(
@@ -439,7 +455,12 @@ export function LogbookList({ entries, stravaConnected }: LogbookListProps) {
                       >
                         {selectedRegions.includes(region) && "✓"}
                       </span>
-                      {region}
+                      <span className="flex-1">{region}</span>
+                      {(regionEntryCounts.get(region) ?? 0) > 0 && (
+                        <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+                          {regionEntryCounts.get(region)}
+                        </span>
+                      )}
                     </CommandItem>
                   ))}
                 </CommandGroup>

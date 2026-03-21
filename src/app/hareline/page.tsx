@@ -14,7 +14,7 @@ import { FadeInSection } from "@/components/home/HeroAnimations";
 export default async function HarelinePage() {
   const [events, user] = await Promise.all([
     prisma.event.findMany({
-      where: { status: { not: "CANCELLED" }, kennel: { isHidden: false } },
+      where: { status: { not: "CANCELLED" }, isManualEntry: { not: true }, kennel: { isHidden: false } },
       include: {
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },

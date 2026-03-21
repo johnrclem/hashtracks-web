@@ -9,8 +9,13 @@ import { LogbookList } from "@/components/logbook/LogbookList";
 import { LogbookStatsCards } from "@/components/logbook/LogbookStatsCards";
 import { PendingConfirmations } from "@/components/logbook/PendingConfirmations";
 import { PendingLinkRequests } from "@/components/logbook/PendingLinkRequests";
-import { StravaNudgeBanner } from "@/components/logbook/StravaNudgeBanner";
+import { StravaSuggestions } from "@/components/logbook/StravaSuggestions";
+import { AddRunButton } from "@/components/logbook/AddRunButton";
+import { LogbookOnboarding, StravaConnectBanner, QuickStartGuide } from "@/components/logbook/LogbookOnboarding";
 import { getStravaConnection } from "@/app/strava/actions";
+import { getTodayUtcNoon } from "@/lib/date";
+
+const ONBOARDING_RUN_THRESHOLD = 20;
 
 export const metadata: Metadata = {
   title: "My Logbook · HashTracks",
@@ -20,7 +25,7 @@ export default async function LogbookPage() {
   const user = await getOrCreateUser();
   if (!user) redirect("/sign-in");
 
-  const [attendances, stravaResult] = await Promise.all([
+  const [attendances, stravaResult, allRegions] = await Promise.all([
     prisma.attendance.findMany({
       where: { userId: user.id, status: { in: ["CONFIRMED", "INTENDING"] } },
       include: {
@@ -35,6 +40,11 @@ export default async function LogbookPage() {
       orderBy: { event: { date: "desc" } },
     }),
     getStravaConnection(),
+    prisma.region.findMany({
+      where: { level: "METRO" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const stravaConnected = stravaResult.success ? stravaResult.connected : false;
@@ -66,8 +76,7 @@ export default async function LogbookPage() {
   const uniqueKennels = new Set(
     confirmedEntries.map((e) => e.event.kennel.id),
   ).size;
-  const now = new Date();
-  const todayUtcNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
+  const todayUtcNoon = getTodayUtcNoon();
   const goingCount = entries.filter(
     (e) => e.attendance.status === "INTENDING" && new Date(e.event.date).getTime() > todayUtcNoon
   ).length;
@@ -76,36 +85,80 @@ export default async function LogbookPage() {
     goingCount > 0 ? ` · ${goingCount} upcoming` : ""
   }`;
 
+  // ─── Tier 1: Zero confirmed runs ─────────────────────────────────
+  if (confirmedCount === 0 && goingCount === 0) {
+    return (
+      <div className="min-w-0">
+        <PageHeader
+          title="My Logbook"
+          description={description}
+          actions={
+            <div className="flex items-center gap-2">
+              <AddRunButton />
+            </div>
+          }
+        />
+        <div className="mt-6">
+          <LogbookOnboarding stravaConnected={stravaConnected} />
+        </div>
+      </div>
+    );
+  }
+
+  if (confirmedCount === 0 && goingCount > 0) {
+    return (
+      <div className="min-w-0">
+        <PageHeader
+          title="My Logbook"
+          description={description}
+          actions={
+            <div className="flex items-center gap-2">
+              <AddRunButton />
+            </div>
+          }
+        />
+        <div className="mt-6 space-y-6">
+          <LogbookOnboarding stravaConnected={stravaConnected} />
+          <LogbookList entries={entries} stravaConnected={stravaConnected} allRegions={allRegions} />
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Tier 2-4: Has confirmed runs ──────────────────────────────
   return (
     <div className="min-w-0">
       <PageHeader
         title="My Logbook"
         description={description}
         actions={
-          <Link
-            href="/logbook/stats"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            <ChartNoAxesColumn size={14} />
-            View Stats
-          </Link>
+          <div className="flex items-center gap-2">
+            <AddRunButton />
+            <Link
+              href="/logbook/stats"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              <ChartNoAxesColumn size={14} />
+              View Stats
+            </Link>
+          </div>
         }
       />
 
       {/* Inline stats cards */}
-      {confirmedCount > 0 && (
-        <LogbookStatsCards
-          totalRuns={confirmedCount}
-          totalHares={totalHares}
-          uniqueKennels={uniqueKennels}
-        />
-      )}
+      <LogbookStatsCards
+        totalRuns={confirmedCount}
+        totalHares={totalHares}
+        uniqueKennels={uniqueKennels}
+      />
 
       <div className="mt-6 space-y-6">
+        {!stravaConnected && confirmedCount < ONBOARDING_RUN_THRESHOLD && <StravaConnectBanner />}
         <PendingLinkRequests />
         <PendingConfirmations />
-        <StravaNudgeBanner stravaConnected={stravaConnected} />
-        <LogbookList entries={entries} stravaConnected={stravaConnected} />
+        <StravaSuggestions stravaConnected={stravaConnected} />
+        <LogbookList entries={entries} stravaConnected={stravaConnected} allRegions={allRegions} />
+        {confirmedCount < ONBOARDING_RUN_THRESHOLD && <QuickStartGuide />}
       </div>
     </div>
   );
