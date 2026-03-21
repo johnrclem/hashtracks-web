@@ -810,6 +810,14 @@ describe("sanitizeTitle", () => {
     expect(sanitizeTitle("Trail Name 03/20/2026 Special Run")).toBe("Trail Name Special Run");
   });
 
+  it("strips leading day-of-week + month + day prefix from title", () => {
+    expect(sanitizeTitle("Saturday March 28th OH3 #1364 Granny Panties")).toBe("OH3 #1364 Granny Panties");
+  });
+
+  it("strips leading abbreviated day + month prefix from title", () => {
+    expect(sanitizeTitle("Sat Mar 28 OH3 Trail")).toBe("OH3 Trail");
+  });
+
   it("strips trailing day-of-week + month date", () => {
     expect(sanitizeTitle("SWH3 #1783, Saturday, March 21")).toBe("SWH3 #1783");
   });
@@ -1015,6 +1023,10 @@ describe("sanitizeLocation", () => {
 
   it("strips 3-decimal coordinate pairs (common Google Calendar export)", () => {
     expect(sanitizeLocation("Some Park, Raleigh. 35.898, -78.579")).toBe("Some Park, Raleigh");
+  });
+
+  it("strips bare coordinate pairs without separator prefix", () => {
+    expect(sanitizeLocation("Some Park 35.898606, -78.579631")).toBe("Some Park");
   });
 
   it("does not strip coordinates with too few decimal places (avoids false positives)", () => {

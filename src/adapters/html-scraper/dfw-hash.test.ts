@@ -111,6 +111,24 @@ describe("extractDFWEvents", () => {
     expect(events).toHaveLength(0);
   });
 
+  it("separates title from hare when joined by <br>", () => {
+    const html = `
+      <table>
+        <tr><td>Sun</td><td>Mon</td><td>Tue</td><td>Wed</td><td>Thu</td><td>Fri</td><td>Sat</td></tr>
+        <tr>
+          <td>25 <a href="event.php"><img src="DUH.png" /></a><br />Bubblecum Strikes Again<br /><em>Bubblecum</em></td>
+          <td>26</td><td>27</td><td>28</td><td>29</td><td>30</td><td>31</td>
+        </tr>
+      </table>
+    `;
+    const $ = cheerio.load(html);
+    const { events } = extractDFWEvents($, 2026, 2, "http://test.com");
+    const evt = events.find((e) => e.kennelTag === "DUHHH");
+    expect(evt).toBeDefined();
+    expect(evt!.title).toBe("Bubblecum Strikes Again");
+    expect(evt!.hares).toBe("Bubblecum");
+  });
+
   it("handles empty calendar", () => {
     const html = `<html><body><p>No calendar here</p></body></html>`;
     const $ = cheerio.load(html);

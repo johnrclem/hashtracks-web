@@ -185,17 +185,25 @@ export { buildUrlVariantCandidates };
  * Returns undefined if no match found.
  */
 export function parse12HourTime(text: string): string | undefined {
-  const match = /(\d{1,2}):(\d{2})\s*(am|pm)/i.exec(text);
+  const match = /(\d{1,2}):(\d{2,3})\s*(am|pm)/i.exec(text);
   if (!match) return undefined;
 
   let hours = Number.parseInt(match[1], 10);
-  const minutes = match[2];
+  let mins = Number.parseInt(match[2], 10);
   const ampm = match[3].toLowerCase();
 
+  // Convert 12-hour to 24-hour first
   if (ampm === "pm" && hours !== 12) hours += 12;
   if (ampm === "am" && hours === 12) hours = 0;
 
-  return `${hours.toString().padStart(2, "0")}:${minutes}`;
+  // Normalize overflow minutes after AM/PM conversion (hash humor: "1:69 PM" = "2:09 PM")
+  if (mins >= 60) {
+    hours += Math.floor(mins / 60);
+    mins = mins % 60;
+  }
+  hours = hours % 24; // wrap past midnight
+
+  return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
 }
 
 /**

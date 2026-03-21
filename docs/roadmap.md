@@ -653,6 +653,22 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - [ ] Grouped display in hareline (collapsible parent cards with children)
 - [ ] Series detail page showing full weekend/campout schedule
 
+### Co-Hosted / Multi-Kennel Events
+
+**Why:** Some events are co-hosted by multiple kennels (e.g., Green Dress Runs, holiday events, joint anniversary runs). Currently these create duplicate Event records because the merge pipeline deduplicates within a single kennel (date+kennelTag fingerprint). Two different kennels listing the same real-world event at the same time and place produce two canonical events.
+
+- [ ] **Many-to-many Event↔Kennel relationship** — `EventKennel` join table (eventId, kennelId, role: HOST/CO_HOST)
+- [ ] **Cross-kennel dedup detection** — flag events with same date + time (±30 min) + location (lat/lng proximity or exact match) across different kennels
+- [ ] **Admin merge flow** — review flagged potential duplicates, merge into single canonical event with multiple kennel associations
+- [ ] **UI: show co-hosting kennels** — event cards and detail pages display all associated kennels
+- [ ] **Merge pipeline enhancement** — richer-data-wins field resolution when merging cross-kennel duplicates
+
+*Implementation notes:*
+- New Prisma model: `EventKennel` (eventId, kennelId, role enum HOST/CO_HOST, createdAt)
+- Dedup signal: `haversineDistance(event1, event2) < 500m AND abs(time1 - time2) < 30min AND date1 == date2`
+- Migration: existing `Event.kennelId` becomes the primary host; `EventKennel` records created for co-hosts
+- Existing per-kennel fingerprint dedup is unaffected — cross-kennel dedup is a separate post-merge step
+
 ### Logo Upload
 - [ ] Image upload for kennel logos (currently URL-only field)
 - [ ] Upload to cloud storage (Vercel Blob, S3, or Cloudinary)

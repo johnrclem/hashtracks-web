@@ -139,12 +139,7 @@ export function extractDFWEvents(
           }
           if (!kennelTag) return;
 
-          // Extract title from cell text (everything after the day number, minus hare text)
-          const titleText = cellText
-            .replace(/^\d{1,2}\s*/, "") // remove day number
-            .trim();
-
-          // Extract hares from <em> tags
+          // Extract hares from <em> tags (before title extraction so we can exclude them)
           const emTexts: string[] = [];
           $cell.find("em").each((_m, em) => {
             const t = $(em).text().trim();
@@ -152,14 +147,16 @@ export function extractDFWEvents(
           });
           const hares = emTexts.length > 0 ? emTexts.join(", ") : undefined;
 
-          // Clean title by removing hare text if present
-          let title = titleText;
-          if (hares) {
-            for (const h of emTexts) {
-              title = title.replace(h, "").trim();
-            }
-          }
-          // Remove trailing/leading punctuation artifacts
+          // Extract title from cell HTML: strip <em>, <img>, <a> tags, convert <br> to spaces
+          const cellHtml = $cell.html() ?? "";
+          const titleHtml = cellHtml
+            .replace(/<em[^>]*>.*?<\/em>/gi, "")
+            .replace(/<img[^>]*\/?>/gi, "")
+            .replace(/<a[^>]*>.*?<\/a>/gi, "")
+            .replace(/<br\s*\/?>/gi, " ");
+          let title = titleHtml.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+          // Remove leading day number and trailing/leading punctuation
+          title = title.replace(/^\d{1,2}\s*/, "").trim();
           title = title.replace(/^[,\-–\s]+|[,\-–\s]+$/g, "").trim();
 
           const event: RawEventData = {
