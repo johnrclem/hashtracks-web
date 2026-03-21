@@ -9,6 +9,7 @@ import { KennelCard, type KennelCardData } from "@/components/kennels/KennelCard
 import { KennelFilters, DAY_FULL } from "@/components/kennels/KennelFilters";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { getEventCoords, haversineDistance } from "@/lib/geo";
+import { groupRegionsByState, expandRegionSelections } from "@/lib/region";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ssr: false,
@@ -180,6 +181,16 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     return map;
   }, [kennels, geoState]);
 
+  // Expand state-level region selections to metro names
+  const regionsByState = useMemo(
+    () => groupRegionsByState(kennels.map((k) => k.region)),
+    [kennels],
+  );
+  const expandedRegions = useMemo(
+    () => expandRegionSelections(selectedRegions, regionsByState),
+    [selectedRegions, regionsByState],
+  );
+
   // Filter pipeline
   const filtered = useMemo(() => {
     const query = search.toLowerCase();
@@ -196,8 +207,8 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       ) {
         return false;
       }
-      // Region
-      if (selectedRegions.length > 0 && !selectedRegions.includes(k.region)) {
+      // Region (expanding state-level selections)
+      if (selectedRegions.length > 0 && !expandedRegions.has(k.region)) {
         return false;
       }
       // Run day (match on scheduleDayOfWeek)
@@ -233,7 +244,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       }
       return true;
     });
-  }, [kennels, search, selectedRegions, selectedDays, selectedFrequency, showUpcomingOnly, selectedCountry, nearMeDistance, geoState, kennelDistances, mapBounds]);
+  }, [kennels, search, selectedRegions, expandedRegions, selectedDays, selectedFrequency, showUpcomingOnly, selectedCountry, nearMeDistance, geoState, kennelDistances, mapBounds]);
 
   // Sort
   const sorted = useMemo(() => {

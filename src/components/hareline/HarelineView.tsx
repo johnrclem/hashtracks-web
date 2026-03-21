@@ -25,6 +25,7 @@ import { EventDetailPanel } from "./EventDetailPanel";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { haversineDistance, getEventCoords } from "@/lib/geo";
+import { groupRegionsByState, expandRegionSelections } from "@/lib/region";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -79,6 +80,7 @@ interface FilterCriteria {
   scope: "my" | "all";
   subscribedKennelIds: string[];
   selectedRegions: string[];
+  expandedRegions: Set<string>;
   selectedKennels: string[];
   selectedDays: string[];
   selectedCountry: string;
@@ -123,7 +125,7 @@ function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
 
   if (!passesTimeFilter(eventDate, f.timeFilter, f.todayUtc)) return false;
   if (f.scope === "my" && !f.subscribedKennelIds.includes(event.kennelId)) return false;
-  if (f.selectedRegions.length > 0 && !f.selectedRegions.includes(event.kennel.region)) return false;
+  if (f.selectedRegions.length > 0 && !f.expandedRegions.has(event.kennel.region)) return false;
   if (f.selectedKennels.length > 0 && !f.selectedKennels.includes(event.kennel.id)) return false;
   if (f.selectedDays.length > 0 && !f.selectedDays.includes(getDayOfWeek(event.date))) return false;
   if (f.selectedCountry && event.kennel.country !== f.selectedCountry) return false;
@@ -374,17 +376,27 @@ export function HarelineView({
     return { todayUtc, userLat, userLng };
   }, [geoState]);
 
+  // Expand state-level region selections to metro names (stable ref via useMemo)
+  const regionsByState = useMemo(
+    () => groupRegionsByState(events.map((e) => e.kennel.region)),
+    [events],
+  );
+  const expandedRegions = useMemo(
+    () => expandRegionSelections(selectedRegions, regionsByState),
+    [selectedRegions, regionsByState],
+  );
+
   // Calendar events — all filters EXCEPT time (calendar has its own month navigation / weeks mode)
   const calendarEvents = useMemo(() => {
     return events.filter((event) => {
       return passesAllFilters(event, {
         timeFilter: "all", scope, subscribedKennelIds,
-        selectedRegions, selectedKennels, selectedDays, selectedCountry, searchText,
+        selectedRegions, expandedRegions, selectedKennels, selectedDays, selectedCountry, searchText,
         todayUtc: filterContext.todayUtc, nearMeDistance,
         userLat: filterContext.userLat, userLng: filterContext.userLng,
       });
     });
-  }, [events, scope, subscribedKennelIds, selectedRegions, selectedKennels, selectedDays, selectedCountry, searchText, nearMeDistance, filterContext]);
+  }, [events, scope, subscribedKennelIds, selectedRegions, expandedRegions, selectedKennels, selectedDays, selectedCountry, searchText, nearMeDistance, filterContext]);
 
   // List/map events — derived from calendarEvents by applying time filter on the smaller set
   const filteredEvents = useMemo(() => {

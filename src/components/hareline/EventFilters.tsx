@@ -20,7 +20,9 @@ import { X, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import { NearMeFilter } from "@/components/shared/NearMeFilter";
+import { RegionFilterPopover } from "@/components/shared/RegionFilterPopover";
 import { toggleArrayItem } from "@/lib/format";
+import { groupRegionsByState, expandRegionSelections } from "@/lib/region";
 import type { HarelineEvent } from "./EventCard";
 import type { GeoState } from "@/hooks/useGeolocation";
 
@@ -87,29 +89,11 @@ export function EventFilters({
   activeFilterCount,
   onClearAll,
 }: EventFiltersProps) {
-  // Derive available regions and kennels from events
+  // Derive available regions from events
   const regions = useMemo(() => {
     const regionSet = new Set(events.map((e) => e.kennel.region));
     return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
   }, [events]);
-
-  // Group regions by country for hierarchical display
-  const regionsByCountry = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const e of events) {
-      const country = e.kennel.country || "Other";
-      if (!map.has(country)) map.set(country, []);
-      const list = map.get(country)!;
-      if (!list.includes(e.kennel.region)) list.push(e.kennel.region);
-    }
-    for (const [, list] of map) list.sort((a, b) => a.localeCompare(b));
-    return map;
-  }, [events]);
-
-  const countryKeys = useMemo(
-    () => Array.from(regionsByCountry.keys()).sort((a, b) => a.localeCompare(b)),
-    [regionsByCountry],
-  );
 
   const kennels = useMemo(() => {
     const kennelMap = new Map<string, { id: string; shortName: string; fullName: string; region: string }>();
@@ -123,13 +107,14 @@ export function EventFilters({
         });
       }
     }
-    // Filter by selected regions if any
+    // Filter by selected regions (expanding state-level selections)
     const all = Array.from(kennelMap.values());
     if (selectedRegions.length > 0) {
-      return all.filter((k) => selectedRegions.includes(k.region));
+      const expanded = expandRegionSelections(selectedRegions, groupRegionsByState(regions));
+      return all.filter((k) => expanded.has(k.region));
     }
     return all.sort((a, b) => a.shortName.localeCompare(b.shortName));
-  }, [events, selectedRegions]);
+  }, [events, selectedRegions, regions]);
 
   const countries = useMemo(() => {
     const countrySet = new Set<string>();
@@ -138,10 +123,6 @@ export function EventFilters({
     }
     return Array.from(countrySet).sort((a, b) => a.localeCompare(b));
   }, [events]);
-
-  function toggleRegion(region: string) {
-    onRegionsChange(toggleArrayItem(selectedRegions, region));
-  }
 
   function toggleKennel(kennelId: string) {
     onKennelsChange(toggleArrayItem(selectedKennels, kennelId));
@@ -214,8 +195,11 @@ export function EventFilters({
         )}
 
         {/* Region filter */}
-        <Popover>
-          <PopoverTrigger asChild>
+        <RegionFilterPopover
+          regions={regions}
+          selectedRegions={selectedRegions}
+          onRegionsChange={onRegionsChange}
+          trigger={
             <Button
               variant={selectedRegions.length > 0 ? "secondary" : "outline"}
               size="sm"
@@ -231,63 +215,8 @@ export function EventFilters({
                 <ClearFilterButton onClick={() => onRegionsChange([])} label="Clear region filter" />
               )}
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Search regions..." />
-              <CommandList role="listbox">
-                <CommandEmpty>No regions found.</CommandEmpty>
-                {countryKeys.length > 1 ? (
-                  countryKeys.map((country) => (
-                    <CommandGroup key={country} heading={country}>
-                      {(regionsByCountry.get(country) ?? []).map((region) => (
-                        <CommandItem
-                          key={region}
-                          onSelect={() => toggleRegion(region)}
-                          role="option"
-                          aria-selected={selectedRegions.includes(region)}
-                        >
-                          <span
-                            className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                              selectedRegions.includes(region)
-                                ? "bg-primary border-primary text-primary-foreground"
-                                : "opacity-50"
-                            }`}
-                          >
-                            {selectedRegions.includes(region) && "✓"}
-                          </span>
-                          {region}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  ))
-                ) : (
-                  <CommandGroup>
-                    {regions.map((region) => (
-                      <CommandItem
-                        key={region}
-                        onSelect={() => toggleRegion(region)}
-                        role="option"
-                        aria-selected={selectedRegions.includes(region)}
-                      >
-                        <span
-                          className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                            selectedRegions.includes(region)
-                              ? "bg-primary border-primary text-primary-foreground"
-                              : "opacity-50"
-                          }`}
-                        >
-                          {selectedRegions.includes(region) && "✓"}
-                        </span>
-                        {region}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                )}
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+          }
+        />
 
         {/* Kennel filter */}
         <Popover>

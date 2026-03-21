@@ -37,7 +37,7 @@ import { SourceForm } from "./SourceForm";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import { toast } from "sonner";
 import type { RegionOption } from "./RegionCombobox";
-import { getStateGroup } from "@/lib/region";
+import { getStateGroup, groupRegionsByState, expandRegionSelections } from "@/lib/region";
 
 type SourceData = {
   id: string;
@@ -110,31 +110,16 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
   ).sort((a, b) => a.localeCompare(b));
 
   // Group metro regions by state for hierarchical filter
-  const regionsByState = new Map<string, string[]>();
-  for (const region of availableRegions) {
-    const state = getStateGroup(region);
-    const metros = regionsByState.get(state) ?? [];
-    metros.push(region);
-    regionsByState.set(state, metros);
-  }
+  const regionsByState = groupRegionsByState(availableRegions);
   const stateKeys = Array.from(regionsByState.keys()).sort((a, b) => a.localeCompare(b));
 
   // Only show types that exist in sources
   const availableTypes = Array.from(new Set(sources.map((s) => s.type))).sort((a, b) => a.localeCompare(b));
 
   // Expand state-level selections to metro regions (hoisted out of filter loop)
-  let expandedRegions: Set<string> | null = null;
-  if (selectedRegions.length > 0) {
-    expandedRegions = new Set<string>();
-    for (const r of selectedRegions) {
-      if (r.startsWith("state:")) {
-        const metros = regionsByState.get(r.slice(6)) ?? [];
-        for (const m of metros) expandedRegions.add(m);
-      } else {
-        expandedRegions.add(r);
-      }
-    }
-  }
+  const expandedRegions = selectedRegions.length > 0
+    ? expandRegionSelections(selectedRegions, regionsByState)
+    : null;
 
   const filteredSources = sources.filter((source) => {
     if (selectedKennels.length > 0) {
@@ -171,9 +156,19 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
   }
 
   function toggleRegion(region: string) {
-    setSelectedRegions((prev) =>
-      prev.includes(region) ? prev.filter((r) => r !== region) : [...prev, region],
-    );
+    const state = getStateGroup(region);
+    const stateKey = `state:${state}`;
+    setSelectedRegions((prev) => {
+      if (prev.includes(stateKey)) {
+        // State is selected — explode to individual metros minus this one
+        const metros = regionsByState.get(state) ?? [];
+        return [
+          ...prev.filter((r) => r !== stateKey),
+          ...metros.filter((m) => m !== region),
+        ];
+      }
+      return prev.includes(region) ? prev.filter((r) => r !== region) : [...prev, region];
+    });
   }
 
   function toggleStateGroup(state: string) {
@@ -266,7 +261,8 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
                 {stateKeys.map((state) => {
                   const metros = regionsByState.get(state) ?? [];
                   const stateKey = `state:${state}`;
-                  const allMetrosSelected = metros.every((m) => selectedRegions.includes(m));
+                  const isStateSelected = selectedRegions.includes(stateKey) ||
+                    metros.every((m) => selectedRegions.includes(m));
                   return (
                     <CommandGroup key={state} heading={state}>
                       {metros.length > 1 && (
@@ -276,34 +272,38 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
                         >
                           <span
                             className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                              selectedRegions.includes(stateKey) || allMetrosSelected
+                              isStateSelected
                                 ? "bg-primary border-primary text-primary-foreground"
                                 : "opacity-50"
                             }`}
                           >
-                            {(selectedRegions.includes(stateKey) || allMetrosSelected) && "✓"}
+                            {isStateSelected && "✓"}
                           </span>
                           <span className="font-medium">All {state}</span>
                         </CommandItem>
                       )}
-                      {metros.map((region) => (
-                        <CommandItem
-                          key={region}
-                          value={region}
-                          onSelect={() => toggleRegion(region)}
-                        >
-                          <span
-                            className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                              selectedRegions.includes(region)
-                                ? "bg-primary border-primary text-primary-foreground"
-                                : "opacity-50"
-                            }`}
+                      {metros.map((region) => {
+                        const isRegionSelected = selectedRegions.includes(region) ||
+                          selectedRegions.includes(stateKey);
+                        return (
+                          <CommandItem
+                            key={region}
+                            value={region}
+                            onSelect={() => toggleRegion(region)}
                           >
-                            {selectedRegions.includes(region) && "✓"}
-                          </span>
-                          <span className={metros.length > 1 ? "pl-2" : ""}>{region}</span>
-                        </CommandItem>
-                      ))}
+                            <span
+                              className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                                isRegionSelected
+                                  ? "bg-primary border-primary text-primary-foreground"
+                                  : "opacity-50"
+                              }`}
+                            >
+                              {isRegionSelected && "✓"}
+                            </span>
+                            <span className={metros.length > 1 ? "pl-2" : ""}>{region}</span>
+                          </CommandItem>
+                        );
+                      })}
                     </CommandGroup>
                   );
                 })}

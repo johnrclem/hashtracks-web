@@ -1639,3 +1639,32 @@ const STATE_GROUP_MAP: Record<string, string> = {
 export function getStateGroup(regionName: string): string {
   return STATE_GROUP_MAP[regionName] ?? regionName;
 }
+
+/** Group metro region names by state using STATE_GROUP_MAP. */
+export function groupRegionsByState(regions: string[]): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  for (const region of regions) {
+    const state = getStateGroup(region);
+    const metros = map.get(state) ?? [];
+    metros.push(region);
+    map.set(state, metros);
+  }
+  return map;
+}
+
+/** Expand state-level selections (prefixed "state:") to metro region names. */
+export function expandRegionSelections(
+  selectedRegions: string[],
+  regionsByState: Map<string, string[]>,
+): Set<string> {
+  const expanded = new Set<string>();
+  for (const r of selectedRegions) {
+    if (r.startsWith("state:")) {
+      const metros = regionsByState.get(r.slice(6)) ?? [];
+      for (const m of metros) expanded.add(m);
+    } else {
+      expanded.add(r);
+    }
+  }
+  return expanded;
+}
