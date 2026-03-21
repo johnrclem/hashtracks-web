@@ -1,5 +1,5 @@
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, validateSourceConfig, stripPlaceholder } from "../utils";
 import { safeFetch } from "../safe-fetch";
@@ -29,6 +29,12 @@ interface GoogleSheetsConfig {
   };
   /** Fallback title when title cell is empty/placeholder. Use with runNumber: "${defaultTitle} #${runNumber}" */
   defaultTitle?: string;
+  /** Rows to skip before the header row (title rows, notes). Default: 0 */
+  skipRows?: number;
+  /** Explicit Google Sheet tab gid (numeric). When set, uses export?format=csv&gid=X instead of gviz URL */
+  gid?: number;
+  /** Direct CSV export URL for anonymous published sheets (e.g., /d/e/.../pub?output=csv). Bypasses tab discovery. */
+  csvUrl?: string;
 }
 
 /**
@@ -292,6 +298,11 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     const minISO = minDate.toISOString().slice(0, 10);
     const maxISO = maxDate.toISOString().slice(0, 10);
 
+    // ── Direct CSV URL mode — skip tab discovery entirely ──
+    if (config.csvUrl) {
+      return this.fetchDirectCsv(config, source.url, minISO, maxISO);
+    }
+
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
@@ -299,10 +310,13 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     const rowsPerTab: Record<string, number> = {};
     let sampleRows: string[][] | undefined;
 
-    // Step 1: Discover tabs via Sheets API (or use explicit tabs from config)
+    // Step 1: Discover tabs via Sheets API (or use explicit tabs/gid from config)
     let tabNames: string[];
     if (config.tabs && config.tabs.length > 0) {
       tabNames = config.tabs;
+    } else if (config.gid != null) {
+      // Explicit gid — single tab, no discovery needed
+      tabNames = [""];
     } else {
       const discovery = await discoverSheetTabs(config.sheetId, apiKey);
       if (discovery.error) {
@@ -318,7 +332,9 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     // Step 2: Process each tab (newest first, stop when all events are too old)
     for (const tabName of tabNames) {
       let csvText: string;
-      const csvUrl = `https://docs.google.com/spreadsheets/d/${config.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+      const csvUrl = config.gid != null
+        ? `https://docs.google.com/spreadsheets/d/${config.sheetId}/export?format=csv&gid=${config.gid}`
+        : `https://docs.google.com/spreadsheets/d/${config.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
       const csvController = new AbortController();
       const csvTimeout = setTimeout(() => csvController.abort(), 15_000);
       try {
@@ -341,6 +357,9 @@ export class GoogleSheetsAdapter implements SourceAdapter {
 
       tabsProcessed.push(tabName);
       const rows = parseCSV(csvText);
+      if (config.skipRows) {
+        rows.splice(0, config.skipRows);
+      }
       rowsPerTab[tabName] = rows.length;
       if (rows.length === 0) continue;
 
@@ -348,35 +367,14 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         sampleRows = rows.slice(0, 10);
       }
 
-      let tabHasEventsInWindow = false;
-
-      for (let rowIdx = 1; rowIdx < rows.length; rowIdx++) {
-        const row = rows[rowIdx];
-        try {
-          const dateCell = row[config.columns.date]?.trim();
-          if (!dateCell) continue;
-
-          const dateStr = parseDate(dateCell);
-          if (!dateStr) continue;
-
-          if (dateStr < minISO || dateStr > maxISO) continue;
-          tabHasEventsInWindow = true;
-
-          const event = buildEventFromSheetRow(row, config, source.url, dateStr);
-          if (event) events.push(event);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          errors.push(`Row ${rowIdx} in tab "${tabName}": ${message}`);
-          errorDetails.parse = [...(errorDetails.parse ?? []), {
-            row: rowIdx,
-            section: tabName,
-            error: message,
-            rawText: `Tab: ${tabName}, Row: ${rowIdx}`.slice(0, 2000),
-          }];
-        }
+      const processed = this.processRows(rows, config, source.url, minISO, maxISO, tabName);
+      events.push(...processed.events);
+      errors.push(...processed.errors);
+      if (processed.parseErrors.length > 0) {
+        errorDetails.parse = [...(errorDetails.parse ?? []), ...processed.parseErrors];
       }
 
-      if (!tabHasEventsInWindow && events.length > 0) {
+      if (!processed.hasEventsInWindow && events.length > 0) {
         break;
       }
     }
@@ -392,6 +390,106 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         tabsProcessed,
         rowsPerTab,
       },
+      sampleRows,
+    };
+  }
+
+  /** Process parsed CSV rows into events, returning results + parse errors. */
+  private processRows(
+    rows: string[][],
+    config: GoogleSheetsConfig,
+    sourceUrl: string,
+    minISO: string,
+    maxISO: string,
+    section?: string,
+  ): { events: RawEventData[]; errors: string[]; parseErrors: ParseError[]; hasEventsInWindow: boolean } {
+    const events: RawEventData[] = [];
+    const errors: string[] = [];
+    const parseErrors: ParseError[] = [];
+    let hasEventsInWindow = false;
+
+    for (let rowIdx = 1; rowIdx < rows.length; rowIdx++) {
+      const row = rows[rowIdx];
+      try {
+        const dateCell = row[config.columns.date]?.trim();
+        if (!dateCell) continue;
+
+        const dateStr = parseDate(dateCell);
+        if (!dateStr) continue;
+
+        if (dateStr < minISO || dateStr > maxISO) continue;
+        hasEventsInWindow = true;
+
+        const event = buildEventFromSheetRow(row, config, sourceUrl, dateStr);
+        if (event) events.push(event);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const label = section ? `Row ${rowIdx} in tab "${section}"` : `Row ${rowIdx}`;
+        errors.push(`${label}: ${message}`);
+        parseErrors.push({
+          row: rowIdx,
+          section,
+          error: message,
+          rawText: `${label}`.slice(0, 2000),
+        });
+      }
+    }
+
+    return { events, errors, parseErrors, hasEventsInWindow };
+  }
+
+  /** Fetch from a direct CSV URL, bypassing tab discovery entirely. */
+  private async fetchDirectCsv(
+    config: GoogleSheetsConfig,
+    sourceUrl: string,
+    minISO: string,
+    maxISO: string,
+  ): Promise<ScrapeResult> {
+    const events: RawEventData[] = [];
+    const errors: string[] = [];
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    let csvText: string;
+    try {
+      const res = await safeFetch(config.csvUrl!, { signal: controller.signal });
+      if (!res.ok) {
+        const message = `Failed to fetch CSV URL: ${res.status}`;
+        return { events: [], errors: [message], errorDetails: { fetch: [{ url: config.csvUrl, status: res.status, message }] } };
+      }
+      csvText = await res.text();
+    } catch (err) {
+      const message = `Error fetching CSV URL: ${err}`;
+      return { events: [], errors: [message], errorDetails: { fetch: [{ url: config.csvUrl, message: String(err) }] } };
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const rows = parseCSV(csvText);
+    if (config.skipRows) {
+      rows.splice(0, config.skipRows);
+    }
+    if (rows.length === 0) {
+      return { events: [], errors: [] };
+    }
+
+    const sampleRows = rows.slice(0, 10);
+
+    const processed = this.processRows(rows, config, sourceUrl, minISO, maxISO);
+    events.push(...processed.events);
+    errors.push(...processed.errors);
+    const errorDetails: ErrorDetails = {};
+    if (processed.parseErrors.length > 0) {
+      errorDetails.parse = processed.parseErrors;
+    }
+
+    const hasErrs = hasAnyErrors(errorDetails);
+
+    return {
+      events,
+      errors,
+      errorDetails: hasErrs ? errorDetails : undefined,
+      diagnosticContext: { csvUrl: config.csvUrl },
       sampleRows,
     };
   }

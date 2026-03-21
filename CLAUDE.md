@@ -247,7 +247,7 @@ logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (121)
+## Active Sources (128)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -300,6 +300,15 @@ logbook + kennel directory.
 - **OC Hump Google Calendar** → GOOGLE_CALENDAR → OC Hump
 - **SLOH3 Google Calendar** → GOOGLE_CALENDAR → SLOH3
 - **SDH3 Hareline** → HTML_SCRAPER → 10 San Diego kennels (SDH3, CLH3, LJH3, NCH3, IRH3, Humpin', FMH3, HAH3, MH4, DRH3) + 7,649 historical events
+
+### Washington (8 sources)
+- **WA Hash Google Calendar** → GOOGLE_CALENDAR → 12 Seattle-area kennels (SH3, PSH3, NBH3, RCH3, SeaMon, TH3, SSH3, CUNTh, Taint, Giggity, SEH3, HSWTF)
+- **SH3 Hareline Spreadsheet** → GOOGLE_SHEETS → SH3 (Seattle)
+- **PSH3 Hareline Spreadsheet** → GOOGLE_SHEETS → PSH3 (Puget Sound)
+- **NBH3 Hareline Spreadsheet** → GOOGLE_SHEETS → NBH3 (No Balls)
+- **RCH3 Hareline Spreadsheet** → GOOGLE_SHEETS → RCH3 (Rain City)
+- **SeaMon H3 Hareline Spreadsheet** → GOOGLE_SHEETS → SeaMon
+- **Leap Year H3 Hareline Spreadsheet** → GOOGLE_SHEETS → Leap Year
 
 ### London / UK (7 sources)
 - **London Hash Run List** → HTML_SCRAPER → LH3
