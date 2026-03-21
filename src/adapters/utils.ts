@@ -201,6 +201,7 @@ export function parse12HourTime(text: string): string | undefined {
     hours += Math.floor(mins / 60);
     mins = mins % 60;
   }
+  hours = hours % 24; // wrap past midnight
 
   return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
 }

@@ -149,7 +149,7 @@ export function extractDFWEvents(
 
           // Extract title from cell HTML: strip <em>, <img>, <a> tags, convert <br> to spaces
           const cellHtml = $cell.html() ?? "";
-          let titleHtml = cellHtml
+          const titleHtml = cellHtml
             .replace(/<em[^>]*>.*?<\/em>/gi, "")
             .replace(/<img[^>]*\/?>/gi, "")
             .replace(/<a[^>]*>.*?<\/a>/gi, "")
