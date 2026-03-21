@@ -97,6 +97,7 @@ async function ensureRegionRecords(prisma: any) {
       "Cleveland, OH", "Akron, OH",
     ],
     "Washington": ["Seattle, WA", "Tacoma, WA", "Olympia, WA", "Bremerton, WA"],
+    "Colorado": ["Denver, CO", "Boulder, CO", "Fort Collins, CO", "Colorado Springs, CO"],
     "Oregon": ["Portland, OR", "Salem, OR", "Eugene, OR", "Bend, OR"],
     "California": ["San Francisco, CA", "Oakland, CA", "San Jose, CA", "Marin County, CA", "San Diego, CA", "Santa Cruz, CA", "Los Angeles, CA", "Long Beach, CA", "Orange County, CA", "San Luis Obispo, CA"],
   };
@@ -2090,6 +2091,62 @@ async function main() {
       description: "Biweekly Sunday hash in the Bremerton/Silverdale/Kitsap area. Founded 2012.",
       latitude: 47.57, longitude: -122.63,
     },
+    // ===== COLORADO =====
+    // Denver Metro
+    {
+      kennelCode: "dh3-co", shortName: "DH3", fullName: "Denver Hash House Harriers", region: "Denver, CO",
+      website: "https://www.denverhash.com",
+      facebookUrl: "https://www.facebook.com/groups/278463172274450",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Every other Sunday",
+      description: "Denver's flagship biweekly Sunday afternoon hash. One of Colorado's oldest kennels.",
+      latitude: 39.74, longitude: -104.99,
+    },
+    {
+      kennelCode: "mihi-huha", shortName: "MiHiHuHa", fullName: "Mile High Humpin' Hash House Harriers", region: "Denver, CO",
+      facebookUrl: "https://www.facebook.com/MileHighH3/",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      description: "Denver's weekly Wednesday evening hash.",
+      latitude: 39.74, longitude: -104.99,
+    },
+    // Boulder
+    {
+      kennelCode: "bh3-co", shortName: "BH3", fullName: "Boulder Hash House Harriers", region: "Boulder, CO",
+      website: "https://boulderh3.com",
+      facebookUrl: "https://www.facebook.com/groups/boulderh3/",
+      instagramHandle: "boulderh3",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      description: "Boulder's biweekly Saturday hash. Trails in and around Boulder County.",
+      latitude: 40.01, longitude: -105.27,
+    },
+    // Fort Collins
+    {
+      kennelCode: "fch3-co", shortName: "FCH3", fullName: "Fort Collins Hash House Harriers", region: "Fort Collins, CO",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Last Saturday of month per Half-Mind, biweekly per calendar",
+      description: "Fort Collins biweekly Saturday hash. Trail #305+ and counting.",
+      latitude: 40.59, longitude: -105.08,
+    },
+    // Colorado Springs (3 sub-kennels on one calendar)
+    {
+      kennelCode: "pph4", shortName: "PPH4", fullName: "Pikes Peak Hash House Harriers", region: "Colorado Springs, CO",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      description: "Colorado Springs biweekly Saturday afternoon hash.",
+      latitude: 38.83, longitude: -104.82,
+    },
+    {
+      kennelCode: "kimchi-h3", shortName: "Kimchi", fullName: "Colorado Kimchi Hash House Harriers", region: "Colorado Springs, CO",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Alternating Saturdays with PPH4",
+      description: "Colorado Springs biweekly Saturday afternoon hash, alternating weeks with Pikes Peak.",
+      latitude: 38.83, longitude: -104.82,
+    },
+    {
+      kennelCode: "dim-h3", shortName: "DIM", fullName: "Damn It's Monday Hash House Harriers", region: "Colorado Springs, CO",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Biweekly",
+      description: "Colorado Springs biweekly Monday evening hash.",
+      latitude: 38.83, longitude: -104.82,
+    },
     // ===== OHIO =====
     // --- Dayton ---
     {
@@ -2416,6 +2473,14 @@ async function main() {
     "ssh3-wa": ["South Sound Hash", "South Sound H3", "SSH3"],
     "giggity-h3": ["Giggity Hash", "Giggity H3"],
     "hswtf-h3": ["HSWTF Hash", "HSWTF H3", "Holy Shit What The Fuck"],
+    // ===== COLORADO =====
+    "dh3-co": ["Denver Hash", "Denver H3", "DH3", "DenverH3"],
+    "mihi-huha": ["Mile High Humpin Hash", "MiHiHuHa", "Mile High H3", "MHHH3"],
+    "bh3-co": ["Boulder Hash", "Boulder H3", "BH3"],
+    "fch3-co": ["Fort Collins Hash", "Fort Collins H3", "FCH3", "FoCo Hash"],
+    "pph4": ["Pikes Peak Hash", "Pikes Peak H3", "PPH3", "PP H3"],
+    "kimchi-h3": ["Kimchi Hash", "Colorado Kimchi", "Kimchi H3"],
+    "dim-h3": ["Damn Its Monday Hash", "DIM H3", "DIM Hash"],
     // ===== CALIFORNIA =====
     "sch3-ca": ["Surf City Hash", "Surf City H3", "SCH3", "Santa Cruz Hash"],
     "lah3": ["Los Angeles Hash", "LAH3 Hash", "LA Hash House Harriers"],
@@ -4207,6 +4272,75 @@ async function main() {
         kennelTagRules: { default: "Leap Year" },
       },
       kennelCodes: ["leapyear-h3"],
+    },
+    // ===== COLORADO =====
+    // --- Denver H3 (Google Calendar) ---
+    {
+      name: "Denver H3 Google Calendar",
+      url: "denverkennel@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { defaultKennelTag: "DH3" },
+      kennelCodes: ["dh3-co"],
+    },
+    // --- Mile High Humpin' Hash (Google Calendar) ---
+    {
+      name: "Mile High Humpin Hash Calendar",
+      url: "huhahareraiser@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { defaultKennelTag: "MiHiHuHa" },
+      kennelCodes: ["mihi-huha"],
+    },
+    // --- Colorado H3 Aggregator (Google Calendar — covers Boulder H3 + others) ---
+    {
+      name: "Colorado H3 Aggregator Calendar",
+      url: "v94tqngukqr5cdffg9q7rruvl0@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelPatterns: [
+          ["Boulder H3|^BH3", "BH3"],
+          ["MiHiHuHa|MiHiHUHa", "MiHiHuHa"],
+        ],
+        defaultKennelTag: "BH3",
+      },
+      kennelCodes: ["bh3-co", "mihi-huha"],
+    },
+    // --- Fort Collins H3 (Google Calendar) ---
+    {
+      name: "Fort Collins H3 Google Calendar",
+      url: "fc8df0937002479306c3fed0055fb7273cb62a46abe5c7f652e3e318310f9143@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { defaultKennelTag: "FCH3" },
+      kennelCodes: ["fch3-co"],
+    },
+    // --- Colorado Springs H3 (Google Calendar — multi-kennel) ---
+    {
+      name: "Colorado Springs H3 Calendar",
+      url: "cspringsh3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelPatterns: [
+          ["^PPH4|Pikes Peak", "PPH4"],
+          ["^Kimchi", "Kimchi"],
+          ["^DIM", "DIM"],
+        ],
+        defaultKennelTag: "PPH4",
+      },
+      kennelCodes: ["pph4", "kimchi-h3", "dim-h3"],
     },
     // ===== CALIFORNIA =====
     // --- Santa Cruz (Static Schedule) ---
