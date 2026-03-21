@@ -100,6 +100,42 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
   // Build kennel→region lookup for region filtering
   const kennelRegionMap = new Map(allKennels.map((k) => [k.id, k.region]));
 
+  // Only show regions that have sources linked
+  const availableRegions = Array.from(
+    new Set(
+      sources.flatMap((s) =>
+        s.linkedKennels.map((k) => kennelRegionMap.get(k.id)).filter((v): v is string => Boolean(v)),
+      ),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  // Group metro regions by state for hierarchical filter
+  const regionsByState = new Map<string, string[]>();
+  for (const region of availableRegions) {
+    const state = getStateGroup(region);
+    const metros = regionsByState.get(state) ?? [];
+    metros.push(region);
+    regionsByState.set(state, metros);
+  }
+  const stateKeys = Array.from(regionsByState.keys()).sort((a, b) => a.localeCompare(b));
+
+  // Only show types that exist in sources
+  const availableTypes = Array.from(new Set(sources.map((s) => s.type))).sort((a, b) => a.localeCompare(b));
+
+  // Expand state-level selections to metro regions (hoisted out of filter loop)
+  let expandedRegions: Set<string> | null = null;
+  if (selectedRegions.length > 0) {
+    expandedRegions = new Set<string>();
+    for (const r of selectedRegions) {
+      if (r.startsWith("state:")) {
+        const metros = regionsByState.get(r.slice(6)) ?? [];
+        for (const m of metros) expandedRegions.add(m);
+      } else {
+        expandedRegions.add(r);
+      }
+    }
+  }
+
   const filteredSources = sources.filter((source) => {
     if (selectedKennels.length > 0) {
       const hasMatch = source.linkedKennels.some((k) =>
@@ -107,17 +143,7 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
       );
       if (!hasMatch) return false;
     }
-    if (selectedRegions.length > 0) {
-      // Expand state-level selections to their metro regions
-      const expandedRegions = new Set<string>();
-      for (const r of selectedRegions) {
-        if (r.startsWith("state:")) {
-          const metros = regionsByState.get(r.slice(6)) ?? [];
-          for (const m of metros) expandedRegions.add(m);
-        } else {
-          expandedRegions.add(r);
-        }
-      }
+    if (expandedRegions) {
       const hasMatch = source.linkedKennels.some((k) =>
         expandedRegions.has(kennelRegionMap.get(k.id) ?? ""),
       );
@@ -152,18 +178,12 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
 
   function toggleStateGroup(state: string) {
     const stateKey = `state:${state}`;
-    setSelectedRegions((prev) => {
-      if (prev.includes(stateKey)) {
-        // Deselecting state: remove the state key and all its metros
-        const metros = regionsByState.get(state) ?? [];
-        return prev.filter((r) => r !== stateKey && !metros.includes(r));
-      } else {
-        // Selecting state: add state key, remove individual metros from that state
-        const metros = regionsByState.get(state) ?? [];
-        const withoutMetros = prev.filter((r) => !metros.includes(r));
-        return [...withoutMetros, stateKey];
-      }
-    });
+    const metros = regionsByState.get(state) ?? [];
+    setSelectedRegions((prev) =>
+      prev.includes(stateKey)
+        ? prev.filter((r) => r !== stateKey && !metros.includes(r))
+        : [...prev.filter((r) => !metros.includes(r)), stateKey],
+    );
   }
 
   function toggleType(type: string) {
@@ -179,28 +199,6 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
         : [...prev, status],
     );
   }
-
-  // Only show regions that have sources linked
-  const availableRegions = Array.from(
-    new Set(
-      sources.flatMap((s) =>
-        s.linkedKennels.map((k) => kennelRegionMap.get(k.id)).filter((v): v is string => Boolean(v)),
-      ),
-    ),
-  ).sort((a, b) => a.localeCompare(b));
-
-  // Build state → metros mapping for grouped region filter
-  const regionsByState = new Map<string, string[]>();
-  for (const region of availableRegions) {
-    const state = getStateGroup(region);
-    const metros = regionsByState.get(state) ?? [];
-    metros.push(region);
-    regionsByState.set(state, metros);
-  }
-  const stateKeys = Array.from(regionsByState.keys()).sort((a, b) => a.localeCompare(b));
-
-  // Only show types that exist in sources
-  const availableTypes = Array.from(new Set(sources.map((s) => s.type))).sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="space-y-3">
