@@ -48,6 +48,7 @@ export default async function LogbookPage() {
   ]);
 
   const stravaConnected = stravaResult.success ? stravaResult.connected : false;
+  const stravaLastSyncAt = stravaResult.success ? stravaResult.lastSyncAt : undefined;
 
   const entries = attendances.map((a) => ({
       attendance: {
@@ -156,7 +157,7 @@ export default async function LogbookPage() {
         {!stravaConnected && confirmedCount < ONBOARDING_RUN_THRESHOLD && <StravaConnectBanner />}
         <PendingLinkRequests />
         <PendingConfirmations />
-        <StravaSuggestions stravaConnected={stravaConnected} />
+        <StravaSuggestions stravaConnected={stravaConnected} lastSyncAt={stravaLastSyncAt} />
         <LogbookList entries={entries} stravaConnected={stravaConnected} allRegions={allRegions} />
         {confirmedCount < ONBOARDING_RUN_THRESHOLD && <QuickStartGuide />}
       </div>

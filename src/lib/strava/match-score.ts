@@ -32,8 +32,11 @@ export function scoreMatch(
   // 1. Name match (0–1, weighted 3x)
   const nameScore = fuzzyNameMatch(activity.activityName, kennelShortName);
 
+  // Early exit: generic names like "Afternoon Run" should not match anything
+  if (nameScore < 0.15) return 0;
+
   // 2. Geo proximity (0–1, weighted 2x)
-  let geoScore = 0.2; // neutral default when coords unavailable
+  let geoScore = 0; // no coords = no credit
   if (
     activity.startLat != null &&
     activity.startLng != null &&
@@ -47,7 +50,7 @@ export function scoreMatch(
   }
 
   // 3. Time proximity (0–1): how close is the activity time to the event start time?
-  let timeScore = 0.5; // default when no times available
+  let timeScore = 0.3; // default when no times available
   if (eventStartTime && activity.stravaTimeLocal) {
     const eventMins = timeToMinutes(eventStartTime);
     const activityMins = timeToMinutes(activity.stravaTimeLocal);
