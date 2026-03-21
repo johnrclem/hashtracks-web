@@ -1,5 +1,14 @@
-import { describe, it, expect } from "vitest";
-import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow } from "./adapter";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Source } from "@/generated/prisma/client";
+import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow, GoogleSheetsAdapter } from "./adapter";
+
+// Mock safeFetch
+vi.mock("@/adapters/safe-fetch", () => ({
+  safeFetch: vi.fn(),
+}));
+
+const { safeFetch } = await import("@/adapters/safe-fetch");
+const mockedSafeFetch = vi.mocked(safeFetch);
 
 // ── parseDate ──
 
@@ -179,5 +188,231 @@ describe("buildEventFromSheetRow", () => {
     const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-03-11");
     expect(event).not.toBeNull();
     expect(event!.title).toBe("Halloween Hash");
+  });
+});
+
+// ── GoogleSheetsAdapter integration tests (skipRows, gid, csvUrl) ──
+
+function makeSource(overrides?: Partial<Source>): Source {
+  return {
+    id: "src-sheets",
+    name: "Test Sheet",
+    url: "https://docs.google.com/spreadsheets/d/test-sheet",
+    type: "GOOGLE_SHEETS",
+    trustLevel: 5,
+    scrapeFreq: "weekly",
+    scrapeDays: 90,
+    config: null,
+    isActive: true,
+    lastScrapeAt: null,
+    lastScrapeStatus: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastStructureHash: null,
+    ...overrides,
+  } as Source;
+}
+
+function mockFetchResponse(body: string, ok = true, status = 200) {
+  return {
+    ok,
+    status,
+    statusText: ok ? "OK" : "Error",
+    text: () => Promise.resolve(body),
+    json: () => Promise.resolve(JSON.parse(body)),
+    headers: new Headers(),
+  } as Response;
+}
+
+// Today-relative date string for test rows that land within the ±90 day window
+const todayParts = new Date().toISOString().slice(0, 10).split("-");
+const testDateMDY = `${Number(todayParts[1])}/${Number(todayParts[2])}/${todayParts[0]}`;
+const testDateISO = new Date().toISOString().slice(0, 10);
+
+const sheetConfig = {
+  sheetId: "abc123",
+  columns: { runNumber: 0, date: 1, hares: 2, location: 3, title: 4 },
+  kennelTagRules: { default: "TestH3" },
+};
+
+describe("GoogleSheetsAdapter.fetch — skipRows", () => {
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_CALENDAR_API_KEY", "test-key");
+    mockedSafeFetch.mockReset();
+  });
+
+  it("skips title rows before the header row", async () => {
+    // CSV has 1 title row, then header, then data
+    const csv = [
+      "My Kennel Title Row,,,",
+      "Run#,Date,Hares,Location,Title",
+      `100,${testDateMDY},Alice,Central Park,Fun Run`,
+    ].join("\n");
+
+    // Tab discovery returns one tab
+    mockedSafeFetch
+      .mockResolvedValueOnce(mockFetchResponse(
+        JSON.stringify({ sheets: [{ properties: { title: "2026" } }] }),
+      ))
+      .mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const adapter = new GoogleSheetsAdapter();
+    const source = makeSource({
+      config: { ...sheetConfig, skipRows: 1 } as unknown as null,
+    });
+    const result = await adapter.fetch(source);
+
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].kennelTag).toBe("TestH3");
+    expect(result.events[0].runNumber).toBe(100);
+    expect(result.events[0].title).toBe("Fun Run");
+  });
+
+  it("works without skipRows (backward compat)", async () => {
+    const csv = [
+      "Run#,Date,Hares,Location,Title",
+      `100,${testDateMDY},Alice,Central Park,Fun Run`,
+    ].join("\n");
+
+    mockedSafeFetch
+      .mockResolvedValueOnce(mockFetchResponse(
+        JSON.stringify({ sheets: [{ properties: { title: "2026" } }] }),
+      ))
+      .mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const adapter = new GoogleSheetsAdapter();
+    const source = makeSource({
+      config: sheetConfig as unknown as null,
+    });
+    const result = await adapter.fetch(source);
+
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].title).toBe("Fun Run");
+  });
+});
+
+describe("GoogleSheetsAdapter.fetch — gid", () => {
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_CALENDAR_API_KEY", "test-key");
+    mockedSafeFetch.mockReset();
+  });
+
+  it("uses export?format=csv&gid=X URL and skips tab discovery", async () => {
+    const csv = [
+      "Run#,Date,Hares,Location,Title",
+      `200,${testDateMDY},Bob,Pike Place,Rain Run`,
+    ].join("\n");
+
+    // Only one fetch — the CSV. No Sheets API call for tab discovery.
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const adapter = new GoogleSheetsAdapter();
+    const source = makeSource({
+      config: { ...sheetConfig, gid: 12345 } as unknown as null,
+    });
+    const result = await adapter.fetch(source);
+
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].title).toBe("Rain Run");
+
+    // Verify the URL used
+    const fetchedUrl = mockedSafeFetch.mock.calls[0][0] as string;
+    expect(fetchedUrl).toBe(
+      "https://docs.google.com/spreadsheets/d/abc123/export?format=csv&gid=12345",
+    );
+    // Only 1 fetch call (no Sheets API tab discovery)
+    expect(mockedSafeFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("combines gid with skipRows", async () => {
+    const csv = [
+      "Title banner row,,,,",
+      "Run#,Date,Hares,Location,Title",
+      `300,${testDateMDY},Carol,Rainier,Mountain Hash`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const adapter = new GoogleSheetsAdapter();
+    const source = makeSource({
+      config: { ...sheetConfig, gid: 99, skipRows: 1 } as unknown as null,
+    });
+    const result = await adapter.fetch(source);
+
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].title).toBe("Mountain Hash");
+  });
+});
+
+describe("GoogleSheetsAdapter.fetch — csvUrl", () => {
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_CALENDAR_API_KEY", "test-key");
+    mockedSafeFetch.mockReset();
+  });
+
+  it("fetches from csvUrl directly and skips tab discovery", async () => {
+    const csv = [
+      "Run#,Date,Hares,Location,Title",
+      `400,${testDateMDY},Dave,Capitol Hill,Pub Crawl`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/XXXXX/pub?output=csv";
+    const adapter = new GoogleSheetsAdapter();
+    const source = makeSource({
+      config: { ...sheetConfig, csvUrl } as unknown as null,
+    });
+    const result = await adapter.fetch(source);
+
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].title).toBe("Pub Crawl");
+    expect(result.events[0].kennelTag).toBe("TestH3");
+
+    // Verify it fetched from the csvUrl directly
+    const fetchedUrl = mockedSafeFetch.mock.calls[0][0] as string;
+    expect(fetchedUrl).toBe(csvUrl);
+    // Only 1 fetch call (direct CSV, no tab discovery)
+    expect(mockedSafeFetch).toHaveBeenCalledTimes(1);
+
+    // diagnosticContext should include csvUrl
+    expect(result.diagnosticContext).toEqual({ csvUrl });
+  });
+
+  it("combines csvUrl with skipRows", async () => {
+    const csv = [
+      "Banner row,,,,",
+      "Notes row,,,,",
+      "Run#,Date,Hares,Location,Title",
+      `500,${testDateMDY},Eve,Fremont,Trail Run`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const csvUrl = "https://example.com/pub?output=csv";
+    const adapter = new GoogleSheetsAdapter();
+    const source = makeSource({
+      config: { ...sheetConfig, csvUrl, skipRows: 2 } as unknown as null,
+    });
+    const result = await adapter.fetch(source);
+
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].title).toBe("Trail Run");
+    expect(result.events[0].runNumber).toBe(500);
+  });
+
+  it("returns error when csvUrl fetch fails", async () => {
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse("", false, 403));
+
+    const csvUrl = "https://example.com/pub?output=csv";
+    const adapter = new GoogleSheetsAdapter();
+    const source = makeSource({
+      config: { ...sheetConfig, csvUrl } as unknown as null,
+    });
+    const result = await adapter.fetch(source);
+
+    expect(result.events).toEqual([]);
+    expect(result.errors.length).toBe(1);
+    expect(result.errors[0]).toContain("403");
   });
 });
