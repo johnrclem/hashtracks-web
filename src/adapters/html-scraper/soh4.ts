@@ -81,18 +81,19 @@ export function parseTrailPageHtml(html: string): {
     if (text) fields[key] = { text, href };
   });
 
-  // SOH4 date format in <p> tags: "DayOfWeek - Month DD, YYYY - H:MM pm"
+  // SOH4 date format: "DayOfWeek - Month DD, YYYY - H:MM pm"
   const DATE_LINE_RE = /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*-\s*(\w+ \d{1,2},\s*\d{4})/i;
 
-  // Single pass over <p> elements to extract date and description.
+  // Single pass over headings and paragraphs to extract date and description.
+  // The date is in an <h4> tag (Cheerio parses it as heading, not paragraph).
   // The container includes a calendar widget and "Upcumming Trails" list with
   // other dates, so we target the specific SOH4 date format and stop before
   // labels, the trail list, or the calendar section.
   let date: string | undefined;
   const descParagraphs: string[] = [];
-  container.find("p").each((_i, el) => {
+  container.find("h1, h2, h3, h4, p").each((_i, el) => {
     const pText = decodeEntities($(el).text().replace(/\s+/g, " ").trim());
-    // Extract date from the first matching <p>
+    // Extract date from the first matching element
     const dateMatch = !date ? DATE_LINE_RE.exec(pText) : null;
     if (dateMatch) {
       date = chronoParseDate(dateMatch[1], "en-US") ?? undefined;

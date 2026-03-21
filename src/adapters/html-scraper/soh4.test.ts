@@ -7,7 +7,7 @@ import { parseTrailPageHtml, parseRssItems, extractTrailNumber } from "./soh4";
 const COMPLETE_TRAIL_HTML = `<html><body>
 <div class="em-item em-item-single em-event em-event-single em-event-617">
   <h1>Trail #822: Spring Flours</h1>
-  <p>Saturday - March 21, 2026 - 2:09 pm</p>
+  <h4>Saturday - March 21, 2026 - 2:09 pm</h4>
   <p>March weather has been at times both warm enough to start us thinking
   spring flowers and STRAWBERRY(s) but then cold enough for snow's return to
   crush our spirits to ZERO. Cum to Geddes and encourage Mother Nature to bring
@@ -28,7 +28,7 @@ const COMPLETE_TRAIL_HTML = `<html><body>
 const TBD_TRAIL_HTML = `<html><body>
 <div class="em-item em-item-single em-event em-event-single em-event-620">
   <h1>Trail #825: TBD</h1>
-  <p>Monday - April 6, 2026 - 2:09 pm</p>
+  <h4>Monday - April 6, 2026 - 2:09 pm</h4>
   <p>Trail Details TBD</p>
   <p>
     <strong>Hares:</strong> TBD </br>
@@ -55,7 +55,7 @@ const PLAIN_LOCATION_HTML = `<html><body>
 const BOILERPLATE_HTML = `<html><body>
 <div class="em-item em-item-single em-event em-event-single em-event-619">
   <h1>Trail #824: Pink Full Moon</h1>
-  <p>Wednesday - April 1, 2026 - 6:09 pm</p>
+  <h4>Wednesday - April 1, 2026 - 6:09 pm</h4>
   <p>Come run with us under the full moon!</p>
   <p>https://maps.app.goo.gl/abc123</p>
   <p>Please include hash name and date of trail in description.</p>
@@ -164,7 +164,7 @@ describe("parseTrailPageHtml", () => {
   it("extracts correct date even with calendar widget and upcumming trails in container", () => {
     const html = `<div class="em-event-single">
       <h1>Trail #824: Pink Full Moon</h1>
-      <p>Wednesday - April 1, 2026 - 6:09 pm</p>
+      <h4>Wednesday - April 1, 2026 - 6:09 pm</h4>
       <p>Trail Details TBD</p>
       <p><strong>Hares:</strong> TBD </br></p>
       <p>Saturday - March 21, 2026: Trail #822: Spring Flours
