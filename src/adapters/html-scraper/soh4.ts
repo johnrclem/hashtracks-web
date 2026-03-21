@@ -81,13 +81,33 @@ export function parseTrailPageHtml(html: string): {
     if (text) fields[key] = { text, href };
   });
 
-  // Extract date from container text (e.g., "Saturday - March 21, 2026 - 2:09 pm")
-  // The date is typically in a <p> tag after the <h1> title, so scan the full
-  // container text — chrono-node picks up the first date-like pattern.
-  const date = chronoParseDate(container.text(), "en-US") ?? undefined;
+  // SOH4 date format in <p> tags: "DayOfWeek - Month DD, YYYY - H:MM pm"
+  const DATE_LINE_RE = /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*-\s*(\w+ \d{1,2},\s*\d{4})/i;
 
-  // Extract title from page <title> or first heading
-  const rawTitle = $("h1").first().text().trim()
+  // Single pass over <p> elements to extract date and description.
+  // The container includes a calendar widget and "Upcumming Trails" list with
+  // other dates, so we target the specific SOH4 date format and stop before
+  // labels, the trail list, or the calendar section.
+  let date: string | undefined;
+  const descParagraphs: string[] = [];
+  container.find("p").each((_i, el) => {
+    const pText = decodeEntities($(el).text().replace(/\s+/g, " ").trim());
+    // Extract date from the first matching <p>
+    const dateMatch = !date ? DATE_LINE_RE.exec(pText) : null;
+    if (dateMatch) {
+      date = chronoParseDate(dateMatch[1], "en-US") ?? undefined;
+      return; // skip date <p> from description
+    }
+    // Stop at structured labels, upcumming trails list, or calendar widget
+    if (/\bHares?\s*:|Location\s*:|Start Time\s*:|Hash Cash\s*:|Theme\s*:|On[ -]?After\s*:/i.test(pText)) return false;
+    if (/upcumming|today\s+sun\s+mon/i.test(pText)) return false;
+    if (pText) descParagraphs.push(pText);
+  });
+  let description = descParagraphs.length > 0 ? descParagraphs.join("\n") : undefined;
+
+  // Extract title from first heading or page <title>
+  const rawTitle = container.find("h1, h2").first().text().trim()
+    || $("h1").first().text().trim()
     || $("title").text().replace(/\s*\|.*$/, "").trim()
     || undefined;
 
@@ -104,15 +124,6 @@ export function parseTrailPageHtml(html: string): {
       startTime = parse12HourTime(timeText);
     }
   }
-
-  // Extract narrative description (text before the structured fields)
-  // Use container.text() directly instead of re-serializing HTML through stripHtmlTags
-  const fullText = decodeEntities(container.text().replace(/\s+/g, " "));
-  // Find where the structured labels start
-  const firstLabelIdx = fullText.search(/\bHares?\s*:|Location\s*:|Start Time\s*:|Hash Cash\s*:|Theme\s*:|On[ -]?After\s*:/i);
-  let description = firstLabelIdx > 0
-    ? fullText.slice(0, firstLabelIdx).trim()
-    : undefined;
   // Clean description
   if (description) {
     description = description
