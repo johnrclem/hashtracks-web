@@ -12,7 +12,7 @@ describe("scoreMatch", () => {
       "Brooklyn H3",
       null,
     );
-    expect(highMatch).toBeGreaterThan(lowMatch);
+    expect(highMatch.total).toBeGreaterThan(lowMatch.total);
   });
 
   it("scores higher when activity time is closer to event time", () => {
@@ -26,7 +26,7 @@ describe("scoreMatch", () => {
       "Brooklyn H3",
       "18:30",
     );
-    expect(closeTime).toBeGreaterThan(farTime);
+    expect(closeTime.total).toBeGreaterThan(farTime.total);
   });
 
   it("gives bonus to run sport types", () => {
@@ -40,7 +40,7 @@ describe("scoreMatch", () => {
       "Brooklyn H3",
       null,
     );
-    expect(run).toBeGreaterThan(walk);
+    expect(run.total).toBeGreaterThan(walk.total);
   });
 
   it("handles null times gracefully", () => {
@@ -49,7 +49,7 @@ describe("scoreMatch", () => {
       "Brooklyn H3",
       null,
     );
-    expect(score).toBeGreaterThan(0);
+    expect(score.total).toBeGreaterThan(0);
   });
 
   it("returns 0 for generic activity names (nameScore gate)", () => {
@@ -58,7 +58,28 @@ describe("scoreMatch", () => {
       "BH3",
       null,
     );
-    expect(score).toBe(0);
+    expect(score.total).toBe(0);
+  });
+
+  it("returns breakdown with geoKm when coords provided", () => {
+    const score = scoreMatch(
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: null, startLat: 40.7, startLng: -74.0 },
+      "Brooklyn H3",
+      null,
+      40.7,
+      -74.0,
+    );
+    expect(score.geoKm).not.toBeNull();
+    expect(score.geoScore).toBe(1.0);
+  });
+
+  it("returns null geoKm when coords missing", () => {
+    const score = scoreMatch(
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: null },
+      "Brooklyn H3",
+      null,
+    );
+    expect(score.geoKm).toBeNull();
   });
 });
 

@@ -11,9 +11,14 @@ import {
 import { buildStravaUrl } from "@/lib/strava/url";
 import { syncStravaActivities } from "@/lib/strava/sync";
 import { scoreMatch } from "@/lib/strava/match-score";
-import { haversineDistance } from "@/lib/geo";
-import { fuzzyNameMatch } from "@/lib/fuzzy";
+import type { ScoreBreakdown } from "@/lib/strava/match-score";
 import type { StravaActivityOption, LinkedStravaActivity } from "@/lib/strava/types";
+
+// ── Module-level Constants ──
+
+/** Sport types eligible for match scoring. */
+const SCOREABLE_SPORTS = new Set(["Run", "TrailRun", "VirtualRun", "Walk", "Hike"]);
+const SCOREABLE_SPORTS_ARRAY = [...SCOREABLE_SPORTS];
 
 // ── Internal Helpers ──
 
@@ -36,13 +41,6 @@ function groupByDateStr<T extends { date: Date }>(items: T[]): Map<string, T[]> 
   return map;
 }
 
-/** Parse "HH:MM" into minutes since midnight. Returns null if unparseable. */
-function timeToMinutesLocal(time: string): number | null {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(time);
-  if (!m) return null;
-  return Number.parseInt(m[1], 10) * 60 + Number.parseInt(m[2], 10);
-}
-
 /** Find the best-scoring event match for a Strava activity among same-day candidates. */
 function findBestEventMatch<
   T extends {
@@ -61,11 +59,12 @@ function findBestEventMatch<
   },
   candidates: T[],
   threshold = 2.0,
-): { event: T; score: number } | null {
+): { event: T; score: number; breakdown: ScoreBreakdown } | null {
   let bestEvent: T | null = null;
   let bestScore = -1;
+  let bestBreakdown: ScoreBreakdown | null = null;
   for (const ev of candidates) {
-    const score = scoreMatch(
+    const breakdown = scoreMatch(
       {
         activityName: activity.name,
         stravaSportType: activity.sportType,
@@ -78,13 +77,14 @@ function findBestEventMatch<
       ev.latitude,
       ev.longitude,
     );
-    if (score > bestScore) {
-      bestScore = score;
+    if (breakdown.total > bestScore) {
+      bestScore = breakdown.total;
       bestEvent = ev;
+      bestBreakdown = breakdown;
     }
   }
-  if (!bestEvent || bestScore < threshold) return null;
-  return { event: bestEvent, score: bestScore };
+  if (!bestEvent || !bestBreakdown || bestScore < threshold) return null;
+  return { event: bestEvent, score: bestScore, breakdown: bestBreakdown };
 }
 
 // ── Connection Status ──
@@ -657,7 +657,7 @@ export async function getStravaEventSuggestions(): Promise<
         matchedAttendanceId: null,
         matchDismissed: false,
         dateLocal: { gte: cutoffDateStr },
-        sportType: { in: ["Run", "TrailRun", "VirtualRun", "Walk", "Hike"] },
+        sportType: { in: SCOREABLE_SPORTS_ARRAY },
         distanceMeters: { gte: 1000 },
       },
       select: {
@@ -718,45 +718,21 @@ export async function getStravaEventSuggestions(): Promise<
 
       const match = findBestEventMatch(activity, candidates);
       if (!match) continue;
-      const { event: bestEvent, score: bestScore } = match;
+      const { event: bestEvent, score: bestScore, breakdown: bestBreakdown } = match;
 
-      // Build match reasons
+      // Build match reasons from breakdown (no re-computation needed)
       const matchReasons: string[] = ["Same day"];
 
-      // Geo distance reason
-      if (
-        activity.startLat != null &&
-        activity.startLng != null &&
-        bestEvent.latitude != null &&
-        bestEvent.longitude != null
-      ) {
-        const km = haversineDistance(
-          activity.startLat,
-          activity.startLng,
-          bestEvent.latitude,
-          bestEvent.longitude,
-        );
-        if (km <= 25) {
-          matchReasons.push(`Within ${Math.round(km)} km`);
-        }
+      if (bestBreakdown.geoKm != null && bestBreakdown.geoKm <= 25) {
+        matchReasons.push(`Within ${Math.round(bestBreakdown.geoKm)} km`);
       }
 
-      // Name match reason
-      const nameScore = fuzzyNameMatch(activity.name, bestEvent.kennel.shortName);
-      if (nameScore > 0.5) {
+      if (bestBreakdown.nameScore > 0.5) {
         matchReasons.push(`Name: "${activity.name}"`);
       }
 
-      // Time proximity reason
-      if (activity.timeLocal && bestEvent.startTime) {
-        const actMins = timeToMinutesLocal(activity.timeLocal);
-        const evtMins = timeToMinutesLocal(bestEvent.startTime);
-        if (actMins !== null && evtMins !== null) {
-          const diffMins = Math.abs(actMins - evtMins);
-          if (diffMins < 60) {
-            matchReasons.push("Similar time");
-          }
-        }
+      if (bestBreakdown.timeScore > 0.5) {
+        matchReasons.push("Similar time");
       }
 
       suggestions.push({
@@ -920,7 +896,6 @@ export async function getStravaBackfillActivities(): Promise<
       let candidateEvent: BackfillActivity["candidateEvent"] = null;
 
       // Only score unmatched, non-dismissed, running activities (show all in wizard)
-      const SCOREABLE_SPORTS = new Set(["Run", "TrailRun", "VirtualRun", "Walk", "Hike"]);
       if (!isMatched && !isDismissed && SCOREABLE_SPORTS.has(a.sportType) && a.distanceMeters >= 1000) {
         const candidates = eventsByDate.get(a.dateLocal);
         if (candidates && candidates.length > 0) {

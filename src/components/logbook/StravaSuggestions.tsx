@@ -22,6 +22,7 @@ import {
   formatDateShort,
   formatDuration,
   formatTime,
+  formatRelativeTime,
   regionAbbrev,
   regionColorClasses,
 } from "@/lib/format";
@@ -32,17 +33,6 @@ import { StravaBackfillWizard } from "@/components/logbook/StravaBackfillWizard"
 const HIDE_KEY = "hashtracks:strava-nudge-hidden";
 const SUGGESTION_CAP = 5;
 const LINK_CAP = 5;
-
-// ── Helpers ──
-
-function formatTimeAgo(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
 
 // ── Link match grouping (same approach as StravaNudgeBanner) ──
 
@@ -297,7 +287,7 @@ export function StravaSuggestions({
             <div className="flex items-center gap-2">
               {lastSyncAt && (
                 <span className="text-[11px] text-muted-foreground font-mono">
-                  Synced {formatTimeAgo(lastSyncAt)}
+                  Synced {formatRelativeTime(lastSyncAt)}
                 </span>
               )}
               <Button
