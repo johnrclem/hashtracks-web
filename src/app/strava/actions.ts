@@ -10,7 +10,73 @@ import {
 } from "@/lib/strava/client";
 import { buildStravaUrl } from "@/lib/strava/url";
 import { syncStravaActivities } from "@/lib/strava/sync";
+import { scoreMatch } from "@/lib/strava/match-score";
 import type { StravaActivityOption, LinkedStravaActivity } from "@/lib/strava/types";
+
+// ── Internal Helpers ──
+
+/** Compute the YYYY-MM-DD string for 90 days ago (Strava lookback window). */
+function getStravaCutoffDateStr(): string {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 90);
+  return cutoff.toISOString().substring(0, 10);
+}
+
+/** Group items with a `date: Date` field into a Map keyed by "YYYY-MM-DD". */
+function groupByDateStr<T extends { date: Date }>(items: T[]): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const item of items) {
+    const dateStr = item.date.toISOString().substring(0, 10);
+    const existing = map.get(dateStr) ?? [];
+    existing.push(item);
+    map.set(dateStr, existing);
+  }
+  return map;
+}
+
+/** Find the best-scoring event match for a Strava activity among same-day candidates. */
+function findBestEventMatch<
+  T extends {
+    kennel: { shortName: string };
+    startTime: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  },
+>(
+  activity: {
+    name: string;
+    sportType: string;
+    timeLocal: string | null;
+    startLat: number | null;
+    startLng: number | null;
+  },
+  candidates: T[],
+  threshold = 0.5,
+): { event: T; score: number } | null {
+  let bestEvent: T | null = null;
+  let bestScore = -1;
+  for (const ev of candidates) {
+    const score = scoreMatch(
+      {
+        activityName: activity.name,
+        stravaSportType: activity.sportType,
+        stravaTimeLocal: activity.timeLocal,
+        startLat: activity.startLat,
+        startLng: activity.startLng,
+      },
+      ev.kennel.shortName,
+      ev.startTime,
+      ev.latitude,
+      ev.longitude,
+    );
+    if (score > bestScore) {
+      bestScore = score;
+      bestEvent = ev;
+    }
+  }
+  if (!bestEvent || bestScore < threshold) return null;
+  return { event: bestEvent, score: bestScore };
+}
 
 // ── Connection Status ──
 
@@ -133,7 +199,7 @@ export async function triggerStravaSync(): Promise<
 // ── Activity Lookup (for Edit Dialog dropdown) ──
 
 /**
- * Get cached Strava activities for a specific date (+/- 1 day).
+ * Get cached Strava activities for a specific date (same-day only).
  * Used by the EditAttendanceDialog "Pick from Strava" dropdown.
  * Only returns activities not already matched to another attendance.
  */
@@ -157,25 +223,10 @@ export async function getStravaActivitiesForDate(
     return { error: "Invalid date format (expected YYYY-MM-DD)" };
   }
 
-  // Parse the event date and compute +/- 1 day range
-  const [year, month, day] = eventDate.split("-").map(Number);
-  const eventDateObj = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  const dayBefore = new Date(eventDateObj.getTime() - 24 * 60 * 60 * 1000);
-  const dayAfter = new Date(eventDateObj.getTime() + 24 * 60 * 60 * 1000);
-
-  const formatDate = (d: Date) =>
-    d.toISOString().substring(0, 10); // "YYYY-MM-DD"
-
-  const dateRange = [
-    formatDate(dayBefore),
-    eventDate,
-    formatDate(dayAfter),
-  ];
-
   const activities = await prisma.stravaActivity.findMany({
     where: {
       stravaConnectionId: connection.id,
-      dateLocal: { in: dateRange },
+      dateLocal: { equals: eventDate },
       matchedAttendanceId: null, // Not already matched
     },
     orderBy: { dateLocal: "asc" },
@@ -284,7 +335,7 @@ export interface UnmatchedStravaMatch {
 
 /**
  * Find confirmed attendances (last 90 days, no stravaUrl) that have
- * matching StravaActivities (by date ±1 day, unmatched, not dismissed).
+ * matching StravaActivities (same-day only, unmatched, not dismissed).
  */
 export async function getUnmatchedStravaActivities(): Promise<
   ActionResult<{ matches: UnmatchedStravaMatch[] }>
@@ -300,8 +351,7 @@ export async function getUnmatchedStravaActivities(): Promise<
     if (!connection) return { success: true, matches: [] };
 
     // Get confirmed attendances from last 90 days without a stravaUrl
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 90);
+    const cutoff = new Date(getStravaCutoffDateStr() + "T12:00:00Z");
 
     const attendances = await prisma.attendance.findMany({
       where: {
@@ -330,12 +380,10 @@ export async function getUnmatchedStravaActivities(): Promise<
 
     if (attendances.length === 0) return { success: true, matches: [] };
 
-    // Compute date range for DB filter (±1 day around attendance window)
+    // Compute date range for DB filter (exact dates of attendances)
     const attDates = attendances.map((a) => a.event.date.getTime());
     const earliest = new Date(Math.min(...attDates));
-    earliest.setUTCDate(earliest.getUTCDate() - 1);
     const latest = new Date(Math.max(...attDates));
-    latest.setUTCDate(latest.getUTCDate() + 1);
 
     // Get unmatched, non-dismissed Strava activities within date range
     const activities = await prisma.stravaActivity.findMany({
@@ -371,7 +419,7 @@ export async function getUnmatchedStravaActivities(): Promise<
       activityByDate.set(a.dateLocal, existing);
     }
 
-    // Match attendances to activities by date ±1 day (capped to prevent combinatorial explosion)
+    // Match attendances to activities by same-day only (capped to prevent combinatorial explosion)
     const MATCH_CAP = 50;
     const matches: UnmatchedStravaMatch[] = [];
 
@@ -379,42 +427,33 @@ export async function getUnmatchedStravaActivities(): Promise<
       if (matches.length >= MATCH_CAP) break;
       const eventDate = att.event.date;
       const eventDateStr = eventDate.toISOString().substring(0, 10);
-      const dBefore = new Date(eventDate);
-      dBefore.setUTCDate(dBefore.getUTCDate() - 1);
-      const dayBefore = dBefore.toISOString().substring(0, 10);
-      const dAfter = new Date(eventDate);
-      dAfter.setUTCDate(dAfter.getUTCDate() + 1);
-      const dayAfter = dAfter.toISOString().substring(0, 10);
 
-      for (const dateKey of [dayBefore, eventDateStr, dayAfter]) {
+      const candidates = activityByDate.get(eventDateStr);
+      if (!candidates) continue;
+      for (const activity of candidates) {
         if (matches.length >= MATCH_CAP) break;
-        const candidates = activityByDate.get(dateKey);
-        if (!candidates) continue;
-        for (const activity of candidates) {
-          if (matches.length >= MATCH_CAP) break;
-          matches.push({
-            stravaActivityDbId: activity.id,
-            attendanceId: att.id,
-            kennelShortName: att.event.kennel.shortName,
-            eventDate: eventDateStr,
-            activityName: activity.name,
-            distanceMeters: activity.distanceMeters,
-            // Event context
-            eventId: att.event.id,
-            kennelFullName: att.event.kennel.fullName,
-            eventTitle: att.event.title,
-            eventRunNumber: att.event.runNumber,
-            eventStartTime: att.event.startTime,
-            eventLocationName: att.event.locationName,
-            eventHaresText: att.event.haresText,
-            // Strava activity context
-            stravaSportType: activity.sportType,
-            stravaTimeLocal: activity.timeLocal,
-            stravaMovingTimeSecs: activity.movingTimeSecs,
-            stravaActivityId: activity.stravaActivityId,
-            stravaCity: activity.city ?? null,
-          });
-        }
+        matches.push({
+          stravaActivityDbId: activity.id,
+          attendanceId: att.id,
+          kennelShortName: att.event.kennel.shortName,
+          eventDate: eventDateStr,
+          activityName: activity.name,
+          distanceMeters: activity.distanceMeters,
+          // Event context
+          eventId: att.event.id,
+          kennelFullName: att.event.kennel.fullName,
+          eventTitle: att.event.title,
+          eventRunNumber: att.event.runNumber,
+          eventStartTime: att.event.startTime,
+          eventLocationName: att.event.locationName,
+          eventHaresText: att.event.haresText,
+          // Strava activity context
+          stravaSportType: activity.sportType,
+          stravaTimeLocal: activity.timeLocal,
+          stravaMovingTimeSecs: activity.movingTimeSecs,
+          stravaActivityId: activity.stravaActivityId,
+          stravaCity: activity.city ?? null,
+        });
       }
     }
 
@@ -551,4 +590,352 @@ export async function getLinkedStravaActivity(
   });
 
   return { success: true, activity: activity ?? null };
+}
+
+// ── Strava Event Suggestions ("Were you there?") ──
+
+export interface StravaSuggestion {
+  stravaActivityDbId: string;
+  stravaActivityId: string;
+  activityName: string;
+  sportType: string;
+  dateLocal: string;
+  timeLocal: string | null;
+  distanceMeters: number;
+  movingTimeSecs: number;
+  city: string | null;
+  startLat: number | null;
+  startLng: number | null;
+  eventId: string;
+  kennelShortName: string;
+  kennelFullName: string;
+  kennelSlug: string;
+  eventDate: string;
+  eventTitle: string | null;
+  eventRunNumber: number | null;
+  eventStartTime: string | null;
+  eventLocationName: string | null;
+  eventLat: number | null;
+  eventLng: number | null;
+  matchScore: number;
+}
+
+/**
+ * Find Strava activities from the last 90 days that match events the user
+ * hasn't checked into. Returns top-scoring suggestions (score >= 0.5).
+ */
+export async function getStravaEventSuggestions(): Promise<
+  ActionResult<{ suggestions: StravaSuggestion[] }>
+> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  try {
+    const connection = await prisma.stravaConnection.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+    if (!connection) return { success: true, suggestions: [] };
+
+    // Get unmatched, non-dismissed Strava activities from last 90 days
+    const cutoffDateStr = getStravaCutoffDateStr();
+
+    const activities = await prisma.stravaActivity.findMany({
+      where: {
+        stravaConnectionId: connection.id,
+        matchedAttendanceId: null,
+        matchDismissed: false,
+        dateLocal: { gte: cutoffDateStr },
+      },
+      select: {
+        id: true,
+        stravaActivityId: true,
+        name: true,
+        sportType: true,
+        dateLocal: true,
+        timeLocal: true,
+        distanceMeters: true,
+        movingTimeSecs: true,
+        city: true,
+        startLat: true,
+        startLng: true,
+      },
+    });
+
+    if (activities.length === 0) return { success: true, suggestions: [] };
+
+    // Collect unique date strings and convert to UTC noon Date objects
+    const uniqueDates = [...new Set(activities.map((a) => a.dateLocal))];
+    const dateObjects = uniqueDates.map(
+      (d) => new Date(d + "T12:00:00Z"),
+    );
+
+    // Batch query events on those dates where user has NO attendance AND not manual entry
+    const events = await prisma.event.findMany({
+      where: {
+        date: { in: dateObjects },
+        isManualEntry: { not: true },
+        status: "CONFIRMED",
+        attendances: { none: { userId: user.id } },
+      },
+      select: {
+        id: true,
+        date: true,
+        title: true,
+        runNumber: true,
+        startTime: true,
+        locationName: true,
+        latitude: true,
+        longitude: true,
+        kennel: { select: { shortName: true, fullName: true, slug: true } },
+      },
+    });
+
+    if (events.length === 0) return { success: true, suggestions: [] };
+
+    // Build map of eventDate string -> events[]
+    const eventsByDate = groupByDateStr(events);
+
+    // For each activity, find same-day events and score; keep only the best match
+    const suggestions: StravaSuggestion[] = [];
+
+    for (const activity of activities) {
+      const candidates = eventsByDate.get(activity.dateLocal);
+      if (!candidates || candidates.length === 0) continue;
+
+      const match = findBestEventMatch(activity, candidates);
+      if (!match) continue;
+      const { event: bestEvent, score: bestScore } = match;
+
+      suggestions.push({
+        stravaActivityDbId: activity.id,
+        stravaActivityId: activity.stravaActivityId,
+        activityName: activity.name,
+        sportType: activity.sportType,
+        dateLocal: activity.dateLocal,
+        timeLocal: activity.timeLocal,
+        distanceMeters: activity.distanceMeters,
+        movingTimeSecs: activity.movingTimeSecs,
+        city: activity.city,
+        startLat: activity.startLat,
+        startLng: activity.startLng,
+        eventId: bestEvent.id,
+        kennelShortName: bestEvent.kennel.shortName,
+        kennelFullName: bestEvent.kennel.fullName,
+        kennelSlug: bestEvent.kennel.slug,
+        eventDate: bestEvent.date.toISOString().substring(0, 10),
+        eventTitle: bestEvent.title,
+        eventRunNumber: bestEvent.runNumber,
+        eventStartTime: bestEvent.startTime,
+        eventLocationName: bestEvent.locationName,
+        eventLat: bestEvent.latitude,
+        eventLng: bestEvent.longitude,
+        matchScore: bestScore,
+      });
+    }
+
+    // Sort by dateLocal desc, cap at 30
+    suggestions.sort((a, b) => b.dateLocal.localeCompare(a.dateLocal));
+    const capped = suggestions.slice(0, 30);
+
+    return { success: true, suggestions: capped };
+  } catch (err) {
+    console.error("Failed to get Strava event suggestions:", err);
+    return { error: "Failed to load Strava suggestions" };
+  }
+}
+
+// ── Strava Backfill Wizard ──
+
+export interface BackfillActivity {
+  id: string;
+  stravaActivityId: string;
+  name: string;
+  sportType: string;
+  dateLocal: string;
+  timeLocal: string | null;
+  distanceMeters: number;
+  movingTimeSecs: number;
+  city: string | null;
+  startLat: number | null;
+  startLng: number | null;
+  isMatched: boolean;
+  isDismissed: boolean;
+  candidateEvent: {
+    eventId: string;
+    kennelShortName: string;
+    kennelFullName: string;
+    eventTitle: string | null;
+    eventRunNumber: number | null;
+    eventDate: string;
+    matchScore: number;
+  } | null;
+}
+
+/**
+ * Get ALL Strava activities from the last 90 days for the backfill wizard.
+ * Includes matched, dismissed, and unreviewed activities.
+ * Unmatched activities are scored against same-day events for candidate matches.
+ */
+export async function getStravaBackfillActivities(): Promise<
+  ActionResult<{ activities: BackfillActivity[] }>
+> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  try {
+    const connection = await prisma.stravaConnection.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+    if (!connection) return { success: true, activities: [] };
+
+    // Get ALL Strava activities from last 90 days
+    const cutoffDateStr = getStravaCutoffDateStr();
+
+    const allActivities = await prisma.stravaActivity.findMany({
+      where: {
+        stravaConnectionId: connection.id,
+        dateLocal: { gte: cutoffDateStr },
+      },
+      select: {
+        id: true,
+        stravaActivityId: true,
+        name: true,
+        sportType: true,
+        dateLocal: true,
+        timeLocal: true,
+        distanceMeters: true,
+        movingTimeSecs: true,
+        city: true,
+        startLat: true,
+        startLng: true,
+        matchedAttendanceId: true,
+        matchDismissed: true,
+      },
+      orderBy: { dateLocal: "desc" },
+      take: 200,
+    });
+
+    if (allActivities.length === 0) return { success: true, activities: [] };
+
+    // Collect unique dateLocal values from UNMATCHED, NON-DISMISSED activities
+    const unmatchedDates = new Set<string>();
+    for (const a of allActivities) {
+      if (!a.matchedAttendanceId && !a.matchDismissed) {
+        unmatchedDates.add(a.dateLocal);
+      }
+    }
+
+    // Batch query events on those dates where user has no attendance
+    const dateObjects = [...unmatchedDates].map(
+      (d) => new Date(d + "T12:00:00Z"),
+    );
+
+    const candidateEvents =
+      dateObjects.length > 0
+        ? await prisma.event.findMany({
+            where: {
+              date: { in: dateObjects },
+              isManualEntry: { not: true },
+              status: "CONFIRMED",
+              attendances: { none: { userId: user.id } },
+              kennel: { isHidden: false },
+            },
+            select: {
+              id: true,
+              date: true,
+              title: true,
+              runNumber: true,
+              startTime: true,
+              latitude: true,
+              longitude: true,
+              kennel: { select: { shortName: true, fullName: true } },
+            },
+          })
+        : [];
+
+    // Build map of eventDate string -> events[]
+    const eventsByDate = groupByDateStr(candidateEvents);
+
+    // Build BackfillActivity list
+    const activities: BackfillActivity[] = allActivities.map((a) => {
+      const isMatched = a.matchedAttendanceId !== null;
+      const isDismissed = a.matchDismissed;
+
+      let candidateEvent: BackfillActivity["candidateEvent"] = null;
+
+      // Only score unmatched, non-dismissed activities
+      if (!isMatched && !isDismissed) {
+        const candidates = eventsByDate.get(a.dateLocal);
+        if (candidates && candidates.length > 0) {
+          const match = findBestEventMatch(a, candidates);
+          if (match) {
+            candidateEvent = {
+              eventId: match.event.id,
+              kennelShortName: match.event.kennel.shortName,
+              kennelFullName: match.event.kennel.fullName,
+              eventTitle: match.event.title,
+              eventRunNumber: match.event.runNumber,
+              eventDate: match.event.date.toISOString().substring(0, 10),
+              matchScore: match.score,
+            };
+          }
+        }
+      }
+
+      return {
+        id: a.id,
+        stravaActivityId: a.stravaActivityId,
+        name: a.name,
+        sportType: a.sportType,
+        dateLocal: a.dateLocal,
+        timeLocal: a.timeLocal,
+        distanceMeters: a.distanceMeters,
+        movingTimeSecs: a.movingTimeSecs,
+        city: a.city,
+        startLat: a.startLat,
+        startLng: a.startLng,
+        isMatched,
+        isDismissed,
+        candidateEvent,
+      };
+    });
+
+    return { success: true, activities };
+  } catch (err) {
+    console.error("Failed to get Strava backfill activities:", err);
+    return { error: "Failed to load Strava activities" };
+  }
+}
+
+// ── Undismiss (Undo) ──
+
+/** Undismiss a previously dismissed Strava activity match (for "Undo" in backfill wizard). */
+export async function undismissStravaMatch(
+  stravaActivityDbId: string,
+): Promise<ActionResult> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  try {
+    // Validate user owns the activity via connection
+    const activity = await prisma.stravaActivity.findUnique({
+      where: { id: stravaActivityDbId },
+      include: { connection: { select: { userId: true } } },
+    });
+    if (!activity) return { error: "Activity not found" };
+    if (activity.connection.userId !== user.id) return { error: "Not authorized" };
+
+    await prisma.stravaActivity.update({
+      where: { id: stravaActivityDbId },
+      data: { matchDismissed: false },
+    });
+
+    revalidatePath("/logbook");
+    return { success: true };
+  } catch (err) {
+    console.error("Failed to undismiss Strava match:", err);
+    return { error: "Failed to undo dismissal" };
+  }
 }

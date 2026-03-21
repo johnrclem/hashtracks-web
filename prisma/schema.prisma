@@ -32,6 +32,8 @@ model User {
   rosterGroupRequests   RosterGroupRequest[]
   // Strava
   stravaConnection    StravaConnection?
+  // Manual events
+  submittedEvents     Event[]          @relation("SubmittedEvents")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -303,6 +305,9 @@ model Event {
   isSeriesParent  Boolean     @default(false)
   parentEventId   String?
   status          EventStatus @default(CONFIRMED)
+  isManualEntry     Boolean     @default(false)
+  submittedByUserId String?
+  submittedBy       User?       @relation("SubmittedEvents", fields: [submittedByUserId], references: [id])
 
   kennel      Kennel      @relation(fields: [kennelId], references: [id])
   parentEvent Event?      @relation("EventSeries", fields: [parentEventId], references: [id])

@@ -9,6 +9,7 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     attendance: { findMany: vi.fn() },
+    region: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 
@@ -29,6 +30,20 @@ vi.mock("@/components/logbook/PendingConfirmations", () => ({
 }));
 vi.mock("@/components/logbook/PendingLinkRequests", () => ({
   PendingLinkRequests: () => null,
+}));
+vi.mock("@/components/logbook/StravaSuggestions", () => ({
+  StravaSuggestions: () => null,
+}));
+vi.mock("@/components/logbook/AddRunButton", () => ({
+  AddRunButton: () => null,
+}));
+vi.mock("@/components/logbook/LogbookOnboarding", () => ({
+  LogbookOnboarding: () => null,
+  StravaConnectBanner: () => null,
+  QuickStartGuide: () => null,
+}));
+vi.mock("@/components/logbook/LogbookStatsCards", () => ({
+  LogbookStatsCards: () => null,
 }));
 
 import { getOrCreateUser } from "@/lib/auth";
