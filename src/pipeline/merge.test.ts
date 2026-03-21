@@ -1017,6 +1017,10 @@ describe("sanitizeLocation", () => {
     expect(sanitizeLocation("Some Park, Raleigh. 35.898, -78.579")).toBe("Some Park, Raleigh");
   });
 
+  it("strips bare coordinate pairs without separator prefix", () => {
+    expect(sanitizeLocation("Some Park 35.898606, -78.579631")).toBe("Some Park");
+  });
+
   it("does not strip coordinates with too few decimal places (avoids false positives)", () => {
     expect(sanitizeLocation("Place, City. 35.9, -78.6")).toBe("Place, City. 35.9, -78.6");
   });

@@ -59,6 +59,26 @@ describe("parse12HourTime", () => {
   it("extracts time from surrounding text", () => {
     expect(parse12HourTime("7:00 PM gather at the pub")).toBe("19:00");
   });
+
+  it("normalizes overflow minutes: 1:69 PM → 14:09", () => {
+    expect(parse12HourTime("1:69 PM")).toBe("14:09");
+  });
+
+  it("normalizes overflow minutes: 12:69 PM → 13:09", () => {
+    expect(parse12HourTime("12:69 PM")).toBe("13:09");
+  });
+
+  it("normalizes overflow minutes: 6:69 pm → 19:09", () => {
+    expect(parse12HourTime("6:69 pm")).toBe("19:09");
+  });
+
+  it("normalizes overflow minutes: 5:69 PM → 18:09", () => {
+    expect(parse12HourTime("5:69 PM")).toBe("18:09");
+  });
+
+  it("leaves normal minutes unchanged: 2:30 pm → 14:30", () => {
+    expect(parse12HourTime("2:30 pm")).toBe("14:30");
+  });
 });
 
 describe("googleMapsSearchUrl", () => {
