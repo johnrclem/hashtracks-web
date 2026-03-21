@@ -70,6 +70,8 @@ For each discovered kennel, visit their website (if found) in Chrome and check:
    const results = {
      googleCalendar: Array.from(document.querySelectorAll('iframe[src*="calendar.google.com"]')).map(f => f.src),
      googleCalendarApi: document.documentElement.outerHTML.match(/[a-zA-Z0-9._%-]+@group\.calendar\.google\.com/g) || [],
+     googleSheets: Array.from(document.querySelectorAll('iframe[src*="docs.google.com/spreadsheets"]')).map(f => f.src),
+     googleSheetsInPage: document.documentElement.outerHTML.match(/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9_-]+/g) || [],
      icalLinks: Array.from(document.querySelectorAll('a[href*=".ics"], a[href^="webcal:"]')).map(a => a.href),
      meetupLinks: Array.from(document.querySelectorAll('a[href*="meetup.com"]')).map(a => a.href),
      sheetsLinks: Array.from(document.querySelectorAll('a[href*="docs.google.com/spreadsheets"]')).map(a => a.href),
@@ -77,7 +79,7 @@ For each discovered kennel, visit their website (if found) in Chrome and check:
    };
    JSON.stringify(results, null, 2);
    ```
-   **CRITICAL**: Do NOT recommend HTML_SCRAPER if any of the above returns results. Always prefer structured sources. The `googleCalendarApi` check catches JS-rendered calendar pages that don't use iframes (e.g., lbh3.org/socal).
+   **CRITICAL**: Do NOT recommend HTML_SCRAPER if any of the above returns results. Always prefer structured sources. The `googleCalendarApi` check catches JS-rendered calendar pages that don't use iframes (e.g., lbh3.org/socal). The `googleSheets`/`googleSheetsInPage` checks catch embedded Google Sheets harelines — some sites use double-iframe chains (page → iframe → Google Sheet) where only the intermediate iframe reveals the Sheet ID (e.g., wh3.org/harelines/).
 
 3. **Tier classification**:
    - **Tier 1**: Structured source found (Calendar, Meetup, iCal, Sheets, HashRego) — config-only onboarding
