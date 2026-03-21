@@ -55,11 +55,11 @@ export interface LogbookEntry {
   };
 }
 
-interface LogbookListProps {
+type LogbookListProps = Readonly<{
   entries: LogbookEntry[];
   stravaConnected?: boolean;
   allRegions?: Array<{ id: string; name: string }>;
-}
+}>;
 
 
 /** Format ISO date string to locale-friendly display (exported for testing). */

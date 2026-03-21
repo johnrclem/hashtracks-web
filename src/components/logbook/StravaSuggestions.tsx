@@ -58,9 +58,9 @@ function buildLinkGroups(matches: UnmatchedStravaMatch[]): LinkGroup[] {
 
 export function StravaSuggestions({
   stravaConnected,
-}: {
+}: Readonly<{
   stravaConnected: boolean;
-}) {
+}>) {
   const [suggestions, setSuggestions] = useState<StravaSuggestion[]>([]);
   const [linkMatches, setLinkMatches] = useState<UnmatchedStravaMatch[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -79,7 +79,7 @@ export function StravaSuggestions({
   useEffect(() => {
     if (!stravaConnected) return;
     if (
-      typeof window !== "undefined" &&
+      typeof globalThis.window !== "undefined" &&
       localStorage.getItem(HIDE_KEY) === "true"
     ) {
       setHidden(true);
@@ -116,6 +116,16 @@ export function StravaSuggestions({
     setHidden(true);
   }
 
+  function removeSuggestion(activityDbId: string) {
+    setSuggestions((prev) =>
+      prev.filter((s) => s.stravaActivityDbId !== activityDbId),
+    );
+  }
+
+  function removeLinkMatch(key: string, field: "attendanceId" | "stravaActivityDbId") {
+    setLinkMatches((prev) => prev.filter((m) => m[field] !== key));
+  }
+
   function handleCheckIn(suggestion: StravaSuggestion) {
     startTransition(async () => {
       const result = await checkInWithStrava(
@@ -127,11 +137,7 @@ export function StravaSuggestions({
         return;
       }
       toast.success("Checked in!");
-      setSuggestions((prev) =>
-        prev.filter(
-          (s) => s.stravaActivityDbId !== suggestion.stravaActivityDbId,
-        ),
-      );
+      removeSuggestion(suggestion.stravaActivityDbId);
       router.refresh();
     });
   }
@@ -143,9 +149,7 @@ export function StravaSuggestions({
         toast.error(result.error);
         return;
       }
-      setSuggestions((prev) =>
-        prev.filter((s) => s.stravaActivityDbId !== stravaActivityDbId),
-      );
+      removeSuggestion(stravaActivityDbId);
     });
   }
 
@@ -173,9 +177,7 @@ export function StravaSuggestions({
         return;
       }
       toast.success("Strava activity linked");
-      setLinkMatches((prev) =>
-        prev.filter((m) => m.attendanceId !== group.attendanceId),
-      );
+      removeLinkMatch(group.attendanceId, "attendanceId");
       router.refresh();
     });
   }
@@ -187,9 +189,7 @@ export function StravaSuggestions({
         toast.error(result.error);
         return;
       }
-      setLinkMatches((prev) =>
-        prev.filter((m) => m.stravaActivityDbId !== stravaActivityDbId),
-      );
+      removeLinkMatch(stravaActivityDbId, "stravaActivityDbId");
     });
   }
 
@@ -417,12 +417,12 @@ function SuggestionCard({
   isPending,
   onCheckIn,
   onDismiss,
-}: {
+}: Readonly<{
   suggestion: StravaSuggestion;
   isPending: boolean;
   onCheckIn: () => void;
   onDismiss: () => void;
-}) {
+}>) {
   return (
     <div className="rounded-lg border border-l-[3px] border-l-strava overflow-hidden">
       <div className="px-3 py-2.5 space-y-1.5">

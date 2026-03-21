@@ -10,8 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createManualEvent, searchKennels } from "@/app/logbook/actions";
-import { PARTICIPATION_LEVELS, participationLevelLabel } from "@/lib/format";
-import { regionAbbrev, regionColorClasses } from "@/lib/format";
+import { PARTICIPATION_LEVELS, participationLevelLabel, regionAbbrev, regionColorClasses } from "@/lib/format";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -184,11 +183,12 @@ export function LogUnlistedRunDialog({
         <div className="space-y-4 px-6 py-4">
           {/* Kennel search */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+            <label htmlFor="kennel-search" className="text-xs font-medium text-muted-foreground mb-1.5 block">
               Kennel <span className="text-red-400">*</span>
             </label>
             <div className="relative">
               <Input
+                id="kennel-search"
                 ref={inputRef}
                 placeholder="Search kennels..."
                 value={kennelQuery}
@@ -236,10 +236,11 @@ export function LogUnlistedRunDialog({
 
           {/* Date */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+            <label htmlFor="event-date" className="text-xs font-medium text-muted-foreground mb-1.5 block">
               Date <span className="text-red-400">*</span>
             </label>
             <Input
+              id="event-date"
               type="date"
               max={todayString}
               value={date}
@@ -253,10 +254,10 @@ export function LogUnlistedRunDialog({
 
           {/* Role / Participation Level */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+            <label id="role-selector-label" className="text-xs font-medium text-muted-foreground mb-1.5 block">
               Role
             </label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="role-selector-label">
               {PRIMARY_LEVELS.map((level) => (
                 <button
                   key={level}

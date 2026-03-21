@@ -10,8 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { searchEvents, checkIn } from "@/app/logbook/actions";
 import type { SearchEventResult } from "@/app/logbook/actions";
-import { formatDateShort } from "@/lib/format";
-import { regionAbbrev, regionColorClasses } from "@/lib/format";
+import { formatDateShort, regionAbbrev, regionColorClasses } from "@/lib/format";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -96,25 +95,28 @@ export function QuickAddDialog({ open, onOpenChange, onRequestUnlistedRun }: Qui
     [doSearch, query],
   );
 
+  const markEventAttended = useCallback((eventId: string) => {
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === eventId ? { ...e, alreadyAttended: true } : e,
+      ),
+    );
+  }, []);
+
   const handleCheckIn = useCallback(
     (eventId: string) => {
       startTransition(async () => {
         const result = await checkIn(eventId);
         if (result.success) {
           toast.success("Checked in!");
-          // Mark the event as attended in local state
-          setEvents((prev) =>
-            prev.map((e) =>
-              e.id === eventId ? { ...e, alreadyAttended: true } : e,
-            ),
-          );
+          markEventAttended(eventId);
           router.refresh();
         } else {
           toast.error(result.error);
         }
       });
     },
-    [router],
+    [router, markEventAttended],
   );
 
   return (
@@ -188,26 +190,7 @@ export function QuickAddDialog({ open, onOpenChange, onRequestUnlistedRun }: Qui
 
         {/* Results */}
         <div className="max-h-[320px] overflow-y-auto px-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 size={20} className="animate-spin text-muted-foreground" />
-            </div>
-          ) : events.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              {query
-                ? "No events found. Try a different search."
-                : "No recent events from your subscribed kennels."}
-            </div>
-          ) : (
-            events.map((event) => (
-              <EventRow
-                key={event.id}
-                event={event}
-                onCheckIn={handleCheckIn}
-                isPending={isPending}
-              />
-            ))
-          )}
+          {renderResultsContent({ loading, events, query, handleCheckIn, isPending })}
         </div>
 
         {/* Footer */}
@@ -225,6 +208,45 @@ export function QuickAddDialog({ open, onOpenChange, onRequestUnlistedRun }: Qui
       </DialogContent>
     </Dialog>
   );
+}
+
+function renderResultsContent({
+  loading,
+  events,
+  query,
+  handleCheckIn,
+  isPending,
+}: Readonly<{
+  loading: boolean;
+  events: SearchEventResult[];
+  query: string;
+  handleCheckIn: (eventId: string) => void;
+  isPending: boolean;
+}>) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 size={20} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (events.length === 0) {
+    return (
+      <div className="py-8 text-center text-sm text-muted-foreground">
+        {query
+          ? "No events found. Try a different search."
+          : "No recent events from your subscribed kennels."}
+      </div>
+    );
+  }
+  return events.map((event) => (
+    <EventRow
+      key={event.id}
+      event={event}
+      onCheckIn={handleCheckIn}
+      isPending={isPending}
+    />
+  ));
 }
 
 function EventRow({

@@ -472,7 +472,31 @@ export async function searchEvents(params: {
       kennel: { shortName: string; fullName: string; slug: string; region: string };
     }>;
 
-    if (!params.kennelQuery) {
+    if (params.kennelQuery) {
+      // Search by kennel name
+      const dateFilters: Record<string, unknown> = { lte: todayNoon };
+      if (params.dateFrom) dateFilters.gte = new Date(params.dateFrom + "T12:00:00Z");
+      if (params.dateTo) dateFilters.lte = new Date(params.dateTo + "T12:00:00Z");
+
+      events = await prisma.event.findMany({
+        where: {
+          ...commonFilters,
+          date: dateFilters as { lte: Date; gte?: Date },
+          kennel: {
+            isHidden: false,
+            OR: [
+              { shortName: { contains: params.kennelQuery, mode: "insensitive" } },
+              { fullName: { contains: params.kennelQuery, mode: "insensitive" } },
+            ],
+          },
+        },
+        include: {
+          kennel: { select: { shortName: true, fullName: true, slug: true, region: true } },
+        },
+        orderBy: { date: "desc" },
+        take: params.limit ?? 20,
+      });
+    } else {
       // Smart defaults: subscribed kennels, recent time window
       const [subscriptions, lastCheckIn] = await Promise.all([
         prisma.userKennel.findMany({
@@ -507,30 +531,6 @@ export async function searchEvents(params: {
         },
         orderBy: { date: "desc" },
         take: params.limit ?? 15,
-      });
-    } else {
-      // Search by kennel name
-      const dateFilters: Record<string, unknown> = { lte: todayNoon };
-      if (params.dateFrom) dateFilters.gte = new Date(params.dateFrom + "T12:00:00Z");
-      if (params.dateTo) dateFilters.lte = new Date(params.dateTo + "T12:00:00Z");
-
-      events = await prisma.event.findMany({
-        where: {
-          ...commonFilters,
-          date: dateFilters as { lte: Date; gte?: Date },
-          kennel: {
-            isHidden: false,
-            OR: [
-              { shortName: { contains: params.kennelQuery, mode: "insensitive" } },
-              { fullName: { contains: params.kennelQuery, mode: "insensitive" } },
-            ],
-          },
-        },
-        include: {
-          kennel: { select: { shortName: true, fullName: true, slug: true, region: true } },
-        },
-        orderBy: { date: "desc" },
-        take: params.limit ?? 20,
       });
     }
 
@@ -625,7 +625,7 @@ export async function createManualEvent(data: {
 
   // Parse to UTC noon
   const utcNoon = parseUtcNoonDate(data.date);
-  if (isNaN(utcNoon.getTime())) {
+  if (Number.isNaN(utcNoon.getTime())) {
     return { error: "Invalid date" };
   }
 

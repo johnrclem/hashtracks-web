@@ -43,7 +43,7 @@ export function scoreMatch(
     const km = haversineDistance(activity.startLat, activity.startLng, eventLat, eventLng);
     if (km <= 5) geoScore = 1.0;
     else if (km <= 25) geoScore = 0.5;
-    else geoScore = 0.0;
+    else geoScore = 0;
   }
 
   // 3. Time proximity (0–1): how close is the activity time to the event start time?

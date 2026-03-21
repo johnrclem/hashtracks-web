@@ -25,13 +25,37 @@ import { ExternalLink, Loader2, Check } from "lucide-react";
 
 type FilterTab = "all" | "unreviewed" | "linked" | "dismissed";
 
+/** Update a single activity by ID within the activities list. */
+function updateActivity(
+  prev: BackfillActivity[],
+  id: string,
+  patch: Partial<BackfillActivity>,
+): BackfillActivity[] {
+  return prev.map((a) => (a.id === id ? { ...a, ...patch } : a));
+}
+
+/** Update multiple activities by ID within the activities list. */
+function updateActivitiesByIds(
+  prev: BackfillActivity[],
+  ids: string[],
+  patch: Partial<BackfillActivity>,
+): BackfillActivity[] {
+  return prev.map((a) => (ids.includes(a.id) ? { ...a, ...patch } : a));
+}
+
+/** Resolve the description text for the dialog header. */
+function getDescriptionText(loaded: boolean, total: number): string {
+  if (!loaded) return "Loading activities...";
+  return `${total} ${total === 1 ? "activity" : "activities"} from the last 90 days`;
+}
+
 export function StravaBackfillWizard({
   open,
   onOpenChange,
-}: {
+}: Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+}>) {
   const [activities, setActivities] = useState<BackfillActivity[]>([]);
   const [filter, setFilter] = useState<FilterTab>("all");
   const [loaded, setLoaded] = useState(false);
@@ -108,9 +132,7 @@ export function StravaBackfillWizard({
         );
         if (result.success) {
           setActivities((prev) =>
-            prev.map((a) =>
-              a.id === activity.id ? { ...a, isMatched: true } : a,
-            ),
+            updateActivity(prev, activity.id, { isMatched: true }),
           );
           toast.success("Checked in!");
           router.refresh();
@@ -128,9 +150,7 @@ export function StravaBackfillWizard({
         const result = await dismissStravaMatch(activityId);
         if (result.success) {
           setActivities((prev) =>
-            prev.map((a) =>
-              a.id === activityId ? { ...a, isDismissed: true } : a,
-            ),
+            updateActivity(prev, activityId, { isDismissed: true }),
           );
         } else {
           toast.error(result.error);
@@ -146,9 +166,7 @@ export function StravaBackfillWizard({
         const result = await undismissStravaMatch(activityId);
         if (result.success) {
           setActivities((prev) =>
-            prev.map((a) =>
-              a.id === activityId ? { ...a, isDismissed: false } : a,
-            ),
+            updateActivity(prev, activityId, { isDismissed: false }),
           );
         } else {
           toast.error(result.error);
@@ -167,9 +185,7 @@ export function StravaBackfillWizard({
       const result = await dismissAllStravaMatches(unreviewedIds);
       if (result.success) {
         setActivities((prev) =>
-          prev.map((a) =>
-            unreviewedIds.includes(a.id) ? { ...a, isDismissed: true } : a,
-          ),
+          updateActivitiesByIds(prev, unreviewedIds, { isDismissed: true }),
         );
         toast.success(`Dismissed ${result.dismissedCount} activities`);
       } else {
@@ -194,22 +210,12 @@ export function StravaBackfillWizard({
           <DialogHeader>
             <DialogTitle>Review Strava Activities</DialogTitle>
             <DialogDescription>
-              {loaded
-                ? `${total} ${total === 1 ? "activity" : "activities"} from the last 90 days`
-                : "Loading activities..."}
+              {getDescriptionText(loaded, total)}
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        {!loaded ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : activities.length === 0 ? (
-          <div className="py-12 text-center text-sm text-muted-foreground">
-            No Strava activities found in the last 90 days.
-          </div>
-        ) : (
+        {loaded && activities.length > 0 && (
           <>
             {/* Filter chips + progress */}
             <div className="px-6 space-y-3">
@@ -284,6 +290,18 @@ export function StravaBackfillWizard({
           </>
         )}
 
+        {loaded && activities.length === 0 && (
+          <div className="py-12 text-center text-sm text-muted-foreground">
+            No Strava activities found in the last 90 days.
+          </div>
+        )}
+
+        {!loaded && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
         {/* Footer */}
         {loaded && activities.length > 0 && (
           <div className="flex items-center justify-between border-t px-6 py-3">
@@ -314,13 +332,13 @@ function FilterChip({
   count,
   active,
   onClick,
-}: {
+}: Readonly<{
   tab: FilterTab;
   label: string;
   count: number;
   active: boolean;
   onClick: () => void;
-}) {
+}>) {
   return (
     <button
       type="button"
@@ -344,13 +362,13 @@ function ActivityRow({
   onCheckIn,
   onNotAHash,
   onUndo,
-}: {
+}: Readonly<{
   activity: BackfillActivity;
   isPending: boolean;
   onCheckIn: () => void;
   onNotAHash: () => void;
   onUndo: () => void;
-}) {
+}>) {
   // Already linked
   if (a.isMatched) {
     return (
