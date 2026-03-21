@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -10,13 +9,12 @@ import {
 } from "@/components/ui/popover";
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
 import { NearMeFilter } from "@/components/shared/NearMeFilter";
+import { RegionFilterPopover } from "@/components/shared/RegionFilterPopover";
 import type { GeoState } from "@/hooks/useGeolocation";
 import type { KennelCardData } from "./KennelCard";
 
@@ -68,32 +66,11 @@ export function KennelFilters({
   geoState,
   onRequestLocation,
 }: KennelFiltersProps) {
-  // Derive available regions from kennel list, grouped by country
+  // Derive available regions from kennel list
   const regions = useMemo(() => {
     const regionSet = new Set(kennels.map((k) => k.region));
     return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
   }, [kennels]);
-
-  // Group regions by country for hierarchical display
-  const regionsByCountry = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const k of kennels) {
-      const country = k.country || "Other";
-      if (!map.has(country)) map.set(country, []);
-      const list = map.get(country)!;
-      if (!list.includes(k.region)) list.push(k.region);
-    }
-    // Sort regions within each country
-    for (const [, list] of map) {
-      list.sort((a, b) => a.localeCompare(b));
-    }
-    return map;
-  }, [kennels]);
-
-  const countryKeys = useMemo(
-    () => Array.from(regionsByCountry.keys()).sort((a, b) => a.localeCompare(b)),
-    [regionsByCountry],
-  );
 
   // Derive available frequencies
   const frequencies = useMemo(() => {
@@ -112,14 +89,6 @@ export function KennelFilters({
     }
     return Array.from(countrySet).sort((a, b) => a.localeCompare(b));
   }, [kennels]);
-
-  function toggleRegion(region: string) {
-    if (selectedRegions.includes(region)) {
-      onRegionsChange(selectedRegions.filter((r) => r !== region));
-    } else {
-      onRegionsChange([...selectedRegions, region]);
-    }
-  }
 
   function toggleDay(day: string) {
     if (selectedDays.includes(day)) {
@@ -140,71 +109,11 @@ export function KennelFilters({
   return (
     <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide md:flex-wrap">
       {/* Region filter */}
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 text-xs">
-            Region
-            {selectedRegions.length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs">
-                {selectedRegions.length}
-              </Badge>
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-56 p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Search regions..." />
-            <CommandList>
-              <CommandEmpty>No regions found.</CommandEmpty>
-              {countryKeys.length > 1 ? (
-                // Group by country when multiple countries
-                countryKeys.map((country) => (
-                  <CommandGroup key={country} heading={country}>
-                    {(regionsByCountry.get(country) ?? []).map((region) => (
-                      <CommandItem
-                        key={region}
-                        onSelect={() => toggleRegion(region)}
-                      >
-                        <span
-                          className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                            selectedRegions.includes(region)
-                              ? "bg-primary border-primary text-primary-foreground"
-                              : "opacity-50"
-                          }`}
-                        >
-                          {selectedRegions.includes(region) && "✓"}
-                        </span>
-                        {region}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                ))
-              ) : (
-                // Flat list when single country
-                <CommandGroup>
-                  {regions.map((region) => (
-                    <CommandItem
-                      key={region}
-                      onSelect={() => toggleRegion(region)}
-                    >
-                      <span
-                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                          selectedRegions.includes(region)
-                            ? "bg-primary border-primary text-primary-foreground"
-                            : "opacity-50"
-                        }`}
-                      >
-                        {selectedRegions.includes(region) && "✓"}
-                      </span>
-                      {region}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+      <RegionFilterPopover
+        regions={regions}
+        selectedRegions={selectedRegions}
+        onRegionsChange={onRegionsChange}
+      />
 
       {/* Run day chips */}
       <div className="flex gap-1">

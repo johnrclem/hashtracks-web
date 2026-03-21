@@ -37,6 +37,7 @@ import { SourceForm } from "./SourceForm";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import { toast } from "sonner";
 import type { RegionOption } from "./RegionCombobox";
+import { getStateGroup, groupRegionsByState, expandRegionSelections } from "@/lib/region";
 
 type SourceData = {
   id: string;
@@ -99,6 +100,27 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
   // Build kennel→region lookup for region filtering
   const kennelRegionMap = new Map(allKennels.map((k) => [k.id, k.region]));
 
+  // Only show regions that have sources linked
+  const availableRegions = Array.from(
+    new Set(
+      sources.flatMap((s) =>
+        s.linkedKennels.map((k) => kennelRegionMap.get(k.id)).filter((v): v is string => Boolean(v)),
+      ),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  // Group metro regions by state for hierarchical filter
+  const regionsByState = groupRegionsByState(availableRegions);
+  const stateKeys = Array.from(regionsByState.keys()).sort((a, b) => a.localeCompare(b));
+
+  // Only show types that exist in sources
+  const availableTypes = Array.from(new Set(sources.map((s) => s.type))).sort((a, b) => a.localeCompare(b));
+
+  // Expand state-level selections to metro regions (hoisted out of filter loop)
+  const expandedRegions = selectedRegions.length > 0
+    ? expandRegionSelections(selectedRegions, regionsByState)
+    : null;
+
   const filteredSources = sources.filter((source) => {
     if (selectedKennels.length > 0) {
       const hasMatch = source.linkedKennels.some((k) =>
@@ -106,9 +128,9 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
       );
       if (!hasMatch) return false;
     }
-    if (selectedRegions.length > 0) {
+    if (expandedRegions) {
       const hasMatch = source.linkedKennels.some((k) =>
-        selectedRegions.includes(kennelRegionMap.get(k.id) ?? ""),
+        expandedRegions.has(kennelRegionMap.get(k.id) ?? ""),
       );
       if (!hasMatch) return false;
     }
@@ -134,9 +156,31 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
   }
 
   function toggleRegion(region: string) {
-    setSelectedRegions((prev) =>
-      prev.includes(region) ? prev.filter((r) => r !== region) : [...prev, region],
-    );
+    const state = getStateGroup(region);
+    const stateKey = `state:${state}`;
+    setSelectedRegions((prev) => {
+      if (prev.includes(stateKey)) {
+        // State is selected — explode to individual metros minus this one
+        const metros = regionsByState.get(state) ?? [];
+        return [
+          ...prev.filter((r) => r !== stateKey),
+          ...metros.filter((m) => m !== region),
+        ];
+      }
+      return prev.includes(region) ? prev.filter((r) => r !== region) : [...prev, region];
+    });
+  }
+
+  function toggleStateGroup(state: string) {
+    const stateKey = `state:${state}`;
+    const metros = regionsByState.get(state) ?? [];
+    setSelectedRegions((prev) => {
+      const isSelected = prev.includes(stateKey) ||
+        metros.every((m) => prev.includes(m));
+      return isSelected
+        ? prev.filter((r) => r !== stateKey && !metros.includes(r))
+        : [...prev.filter((r) => !metros.includes(r)), stateKey];
+    });
   }
 
   function toggleType(type: string) {
@@ -152,18 +196,6 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
         : [...prev, status],
     );
   }
-
-  // Only show regions that have sources linked
-  const availableRegions = Array.from(
-    new Set(
-      sources.flatMap((s) =>
-        s.linkedKennels.map((k) => kennelRegionMap.get(k.id)).filter((v): v is string => Boolean(v)),
-      ),
-    ),
-  ).sort((a, b) => a.localeCompare(b));
-
-  // Only show types that exist in sources
-  const availableTypes = Array.from(new Set(sources.map((s) => s.type))).sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="space-y-3">
@@ -223,31 +255,60 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-64 max-w-[calc(100vw-2rem)] p-0" align="start">
+          <PopoverContent className="w-72 max-w-[calc(100vw-2rem)] p-0" align="start">
             <Command>
               <CommandInput placeholder="Search regions..." />
               <CommandList>
                 <CommandEmpty>No regions found.</CommandEmpty>
-                <CommandGroup>
-                  {availableRegions.map((region) => (
-                    <CommandItem
-                      key={region}
-                      value={region}
-                      onSelect={() => toggleRegion(region)}
-                    >
-                      <span
-                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                          selectedRegions.includes(region)
-                            ? "bg-primary border-primary text-primary-foreground"
-                            : "opacity-50"
-                        }`}
-                      >
-                        {selectedRegions.includes(region) && "✓"}
-                      </span>
-                      {region}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
+                {stateKeys.map((state) => {
+                  const metros = regionsByState.get(state) ?? [];
+                  const stateKey = `state:${state}`;
+                  const isStateSelected = selectedRegions.includes(stateKey) ||
+                    metros.every((m) => selectedRegions.includes(m));
+                  return (
+                    <CommandGroup key={state} heading={state}>
+                      {metros.length > 1 && (
+                        <CommandItem
+                          value={`${state} all`}
+                          onSelect={() => toggleStateGroup(state)}
+                        >
+                          <span
+                            className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                              isStateSelected
+                                ? "bg-primary border-primary text-primary-foreground"
+                                : "opacity-50"
+                            }`}
+                          >
+                            {isStateSelected && "✓"}
+                          </span>
+                          <span className="font-medium">All {state}</span>
+                        </CommandItem>
+                      )}
+                      {metros.map((region) => {
+                        const isRegionSelected = selectedRegions.includes(region) ||
+                          selectedRegions.includes(stateKey);
+                        return (
+                          <CommandItem
+                            key={region}
+                            value={region}
+                            onSelect={() => toggleRegion(region)}
+                          >
+                            <span
+                              className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                                isRegionSelected
+                                  ? "bg-primary border-primary text-primary-foreground"
+                                  : "opacity-50"
+                              }`}
+                            >
+                              {isRegionSelected && "✓"}
+                            </span>
+                            <span className={metros.length > 1 ? "pl-2" : ""}>{region}</span>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  );
+                })}
               </CommandList>
             </Command>
           </PopoverContent>
