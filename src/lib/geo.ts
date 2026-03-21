@@ -159,7 +159,7 @@ const GOOGLE_GEOCODE_BASE = "https://maps.googleapis.com/maps/api/geocode/json";
  */
 export async function geocodeAddress(
   address: string,
-): Promise<{ lat: number; lng: number } | null> {
+): Promise<{ lat: number; lng: number; formattedAddress?: string } | null> {
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   if (!apiKey || !address.trim()) return null;
 
@@ -179,7 +179,8 @@ export async function geocodeAddress(
 
     const { lat, lng } = data.results[0].geometry.location;
     if (typeof lat !== "number" || typeof lng !== "number") return null;
-    return { lat, lng };
+    const formattedAddress = data.results[0].formatted_address as string | undefined;
+    return { lat, lng, formattedAddress };
   } catch {
     return null;
   }

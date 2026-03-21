@@ -810,6 +810,14 @@ describe("sanitizeTitle", () => {
     expect(sanitizeTitle("Trail Name 03/20/2026 Special Run")).toBe("Trail Name Special Run");
   });
 
+  it("strips leading day-of-week + month + day prefix from title", () => {
+    expect(sanitizeTitle("Saturday March 28th OH3 #1364 Granny Panties")).toBe("OH3 #1364 Granny Panties");
+  });
+
+  it("strips leading abbreviated day + month prefix from title", () => {
+    expect(sanitizeTitle("Sat Mar 28 OH3 Trail")).toBe("OH3 Trail");
+  });
+
   it("strips trailing day-of-week + month date", () => {
     expect(sanitizeTitle("SWH3 #1783, Saturday, March 21")).toBe("SWH3 #1783");
   });
