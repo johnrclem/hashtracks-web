@@ -60,7 +60,9 @@ export function RegionFilterPopover({
   function toggleStateGroup(state: string) {
     const stateKey = `state:${state}`;
     const metros = regionsByState.get(state) ?? [];
-    if (selectedRegions.includes(stateKey)) {
+    const isSelected = selectedRegions.includes(stateKey) ||
+      metros.every((m) => selectedRegions.includes(m));
+    if (isSelected) {
       onRegionsChange(selectedRegions.filter((r) => r !== stateKey && !metros.includes(r)));
     } else {
       onRegionsChange([...selectedRegions.filter((r) => !metros.includes(r)), stateKey]);

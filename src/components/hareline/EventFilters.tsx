@@ -95,6 +95,8 @@ export function EventFilters({
     return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
   }, [events]);
 
+  const regionsByState = useMemo(() => groupRegionsByState(regions), [regions]);
+
   const kennels = useMemo(() => {
     const kennelMap = new Map<string, { id: string; shortName: string; fullName: string; region: string }>();
     for (const e of events) {
@@ -110,11 +112,11 @@ export function EventFilters({
     // Filter by selected regions (expanding state-level selections)
     const all = Array.from(kennelMap.values());
     if (selectedRegions.length > 0) {
-      const expanded = expandRegionSelections(selectedRegions, groupRegionsByState(regions));
+      const expanded = expandRegionSelections(selectedRegions, regionsByState);
       return all.filter((k) => expanded.has(k.region));
     }
     return all.sort((a, b) => a.shortName.localeCompare(b.shortName));
-  }, [events, selectedRegions, regions]);
+  }, [events, selectedRegions, regionsByState]);
 
   const countries = useMemo(() => {
     const countrySet = new Set<string>();
@@ -205,7 +207,9 @@ export function EventFilters({
               size="sm"
               className={`h-8 shrink-0 text-xs ${selectedRegions.length > 0 ? "border-primary/50" : ""}`}
             >
-              {selectedRegions.length === 1 ? `Region: ${selectedRegions[0]}` : "Region"}
+              {selectedRegions.length === 1
+                ? `Region: ${selectedRegions[0].startsWith("state:") ? selectedRegions[0].slice(6) : selectedRegions[0]}`
+                : "Region"}
               {selectedRegions.length > 1 && (
                 <Badge variant="secondary" className="ml-1 text-xs">
                   {selectedRegions.length}

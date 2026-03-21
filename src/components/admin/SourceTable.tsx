@@ -174,11 +174,13 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
   function toggleStateGroup(state: string) {
     const stateKey = `state:${state}`;
     const metros = regionsByState.get(state) ?? [];
-    setSelectedRegions((prev) =>
-      prev.includes(stateKey)
+    setSelectedRegions((prev) => {
+      const isSelected = prev.includes(stateKey) ||
+        metros.every((m) => prev.includes(m));
+      return isSelected
         ? prev.filter((r) => r !== stateKey && !metros.includes(r))
-        : [...prev.filter((r) => !metros.includes(r)), stateKey],
-    );
+        : [...prev.filter((r) => !metros.includes(r)), stateKey];
+    });
   }
 
   function toggleType(type: string) {
