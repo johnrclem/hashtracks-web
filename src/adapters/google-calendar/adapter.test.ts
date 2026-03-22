@@ -297,6 +297,36 @@ describe("buildRawEventFromGCalItem — descriptionSuffix", () => {
   });
 });
 
+// ── buildRawEventFromGCalItem — all-day event guard ──
+
+describe("buildRawEventFromGCalItem — all-day events", () => {
+  it("skips all-day events (no dateTime, only date)", () => {
+    // All-day events like "Travel Hash: Texas Interhash" have start.date but no start.dateTime
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Travel Hash: Texas Interhash",
+        start: { date: "2026-04-02" },
+        end: { date: "2026-04-06" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "TEST" },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("does not skip timed events (has dateTime)", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Hash Run",
+        start: { dateTime: "2026-04-02T18:30:00-05:00" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "TEST" },
+    );
+    expect(result).not.toBeNull();
+  });
+});
+
 // ── extractTitleFromDescription ──
 
 describe("extractTitleFromDescription", () => {

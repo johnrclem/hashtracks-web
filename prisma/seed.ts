@@ -98,6 +98,7 @@ async function ensureRegionRecords(prisma: any) {
     ],
     "Washington": ["Seattle, WA", "Tacoma, WA", "Olympia, WA", "Bremerton, WA"],
     "Colorado": ["Denver, CO", "Boulder, CO", "Fort Collins, CO", "Colorado Springs, CO"],
+    "Minnesota": ["Minneapolis, MN"],
     "Oregon": ["Portland, OR", "Salem, OR", "Eugene, OR", "Bend, OR"],
     "California": ["San Francisco, CA", "Oakland, CA", "San Jose, CA", "Marin County, CA", "San Diego, CA", "Santa Cruz, CA", "Los Angeles, CA", "Long Beach, CA", "Orange County, CA", "San Luis Obispo, CA"],
   };
@@ -2147,6 +2148,26 @@ async function main() {
       description: "Colorado Springs biweekly Monday evening hash.",
       latitude: 38.83, longitude: -104.82,
     },
+    // ===== MINNESOTA =====
+    {
+      kennelCode: "mh3-mn", shortName: "MH3", fullName: "Minneapolis Hash House Harriers", region: "Minneapolis, MN",
+      website: "https://www.minneapolish3.com",
+      facebookUrl: "https://www.facebook.com/MinneapolisHashHouseHarriers",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "3 PM during DST, 2 PM in winter",
+      hashCash: "$6", foundedYear: 1989,
+      description: "Minneapolis's flagship weekly Sunday hash. Minnesota's oldest kennel, founded 1989. Visitors and virgins hash free.",
+      latitude: 44.98, longitude: -93.27,
+    },
+    {
+      kennelCode: "t3h3", shortName: "T3H3", fullName: "Twin Titties Thirstday Hash House Harriers", region: "Minneapolis, MN",
+      website: "https://www.minneapolish3.com",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Year-round. Hare off 7:15, pack off 7:30",
+      hashCash: "$5", foundedYear: 2017,
+      description: "Minneapolis weekly Thursday evening hash. Sister kennel of MH3, founded 2017. All A-to-A, all live trails, 3-4 miles.",
+      latitude: 44.98, longitude: -93.27,
+    },
     // ===== OHIO =====
     // --- Dayton ---
     {
@@ -2481,6 +2502,9 @@ async function main() {
     "pph4": ["Pikes Peak Hash", "Pikes Peak H3", "PPH3", "PP H3"],
     "kimchi-h3": ["Kimchi Hash", "Colorado Kimchi", "Kimchi H3"],
     "dim-h3": ["Damn Its Monday Hash", "DIM H3", "DIM Hash"],
+    // ===== MINNESOTA =====
+    "mh3-mn": ["Minneapolis Hash", "Minneapolis H3", "MH3", "MplsH3"],
+    "t3h3": ["Twin Titties Hash", "Twin Titties Thirstday", "T3H3", "TTTH3"],
     // ===== CALIFORNIA =====
     "sch3-ca": ["Surf City Hash", "Surf City H3", "SCH3", "Santa Cruz Hash"],
     "lah3": ["Los Angeles Hash", "LAH3 Hash", "LA Hash House Harriers"],
@@ -4331,6 +4355,23 @@ async function main() {
         defaultKennelTag: "PPH4",
       },
       kennelCodes: ["pph4", "kimchi-h3", "dim-h3"],
+    },
+    // ===== MINNESOTA =====
+    {
+      name: "Minneapolis H3 Calendar",
+      url: "minneapolishash@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelPatterns: [
+          ["T3H3|Twin Titties", "T3H3"],
+          ["MH3", "MH3"],
+        ],
+        defaultKennelTag: "MH3",
+      },
+      kennelCodes: ["mh3-mn", "t3h3"],
     },
     // ===== CALIFORNIA =====
     // --- Santa Cruz (Static Schedule) ---

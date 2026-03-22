@@ -247,7 +247,7 @@ logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (133)
+## Active Sources (134)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -316,6 +316,9 @@ logbook + kennel directory.
 - **Colorado H3 Aggregator Calendar** → GOOGLE_CALENDAR → BH3 (Boulder), MiHiHuHa (secondary)
 - **Fort Collins H3 Google Calendar** → GOOGLE_CALENDAR → FCH3
 - **Colorado Springs H3 Calendar** → GOOGLE_CALENDAR → PPH4, Kimchi, DIM (3 CS kennels via kennelPatterns)
+
+### Minnesota (1 source)
+- **Minneapolis H3 Calendar** → GOOGLE_CALENDAR → MH3, T3H3 (2 kennels via kennelPatterns)
 
 ### London / UK (7 sources)
 - **London Hash Run List** → HTML_SCRAPER → LH3
