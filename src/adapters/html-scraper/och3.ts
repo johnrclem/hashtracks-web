@@ -1,4 +1,5 @@
 import type * as cheerio from "cheerio";
+import { load as cheerioLoad } from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
@@ -179,6 +180,62 @@ export function mergeDetailIntoEvent(event: RawEventData, detail: DetailPageData
 }
 
 
+/**
+ * Parse the OCH3 events/links page into event data.
+ * The page has a `<ul>` with `<li>` items for special/memorial events.
+ * Each <li> follows: "DDth Month YYYY - Title - Venue. Description..."
+ */
+export function parseEventsPage(html: string, baseUrl: string): RawEventData[] {
+  const $ = cheerioLoad(html);
+  const events: RawEventData[] = [];
+  const currentYear = new Date().getFullYear();
+
+  // Find <li> items inside div.paragraph (the content area)
+  $("div.paragraph li").each((_i, el) => {
+    const fullText = $(el).text().trim();
+    if (!fullText) return;
+
+    // Extract date from start of text
+    const date = parseOCH3Date(fullText, currentYear);
+    if (!date) return;
+
+    // Strip the date prefix to get remaining content
+    const withoutDate = fullText
+      .replace(/^\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4}\s*-?\s*/i, "")
+      .trim();
+
+    // Split on " - " to extract title and venue
+    const segments = withoutDate.split(/\s+-\s+/).map(s => s.trim()).filter(Boolean);
+    const title = segments[0] || undefined;
+
+    // Try to find venue: look for "From " prefix or last segment if it looks like a location
+    let location: string | undefined;
+    const fromMatch = fullText.match(/From\s+(.+?)(?:\.|$)/i);
+    if (fromMatch) {
+      location = fromMatch[1].trim();
+    } else if (segments.length > 1) {
+      // Last segment is often the venue
+      location = segments[segments.length - 1];
+    }
+
+    // Description: everything after the first sentence or two
+    const sentences = fullText.split(/\.\s+/);
+    const description = sentences.length > 1 ? sentences.slice(1).join(". ").trim() : undefined;
+
+    events.push({
+      date,
+      kennelTag: "OCH3",
+      title,
+      location,
+      description: description || undefined,
+      startTime: getStartTimeForDay(extractDayOfWeek(fullText)),
+      sourceUrl: baseUrl,
+    });
+  });
+
+  return events;
+}
+
 /** Normalize raw text for line-based OCH3 parsing. */
 function normalizeOCH3Text(text: string): string {
   return text
@@ -285,14 +342,16 @@ export class OCH3Adapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const runListUrl = source.url || "http://www.och3.org.uk/upcoming-run-list.html";
 
-    // Derive detail URL from the same domain
+    // Derive detail and events URLs from the same domain
     const urlObj = new URL(runListUrl);
     const detailUrl = `${urlObj.protocol}//${urlObj.host}/next-run-details.html`;
+    const eventsUrl = `${urlObj.protocol}//${urlObj.host}/eventslinks.html`;
 
-    // Fetch both pages in parallel
-    const [runListResult, detailResult] = await Promise.all([
+    // Fetch all three pages in parallel
+    const [runListResult, detailResult, eventsResult] = await Promise.all([
       fetchHTMLPage(runListUrl),
       fetchHTMLPage(detailUrl),
+      fetchHTMLPage(eventsUrl),
     ]);
 
     // Run list failure → immediate error return
@@ -325,6 +384,32 @@ export class OCH3Adapter implements SourceAdapter {
       }
     }
 
+    // Attempt events page enrichment (special/memorial events)
+    let eventsPageMerged = 0;
+    if (!eventsResult.ok) {
+      warnings.push("Events page fetch failed; using run-list data only");
+    } else {
+      const eventsPageData = parseEventsPage(eventsResult.html, eventsUrl);
+      const existingDates = new Set(events.map(e => e.date));
+      for (const ep of eventsPageData) {
+        if (existingDates.has(ep.date)) {
+          // Enrich existing event with title/description/location from events page
+          const idx = events.findIndex(e => e.date === ep.date);
+          if (idx >= 0) {
+            if (ep.title && !events[idx].title) events[idx].title = ep.title;
+            if (ep.description && !events[idx].description) events[idx].description = ep.description;
+            if (ep.location && !events[idx].location) events[idx].location = ep.location;
+            eventsPageMerged++;
+          }
+        } else {
+          // New special event not in run list
+          events.push(ep);
+          existingDates.add(ep.date);
+          eventsPageMerged++;
+        }
+      }
+    }
+
     return {
       events,
       errors: warnings,
@@ -334,6 +419,7 @@ export class OCH3Adapter implements SourceAdapter {
         eventsParsed: events.length,
         fetchDurationMs: runListResult.fetchDurationMs,
         detailPageMerged,
+        eventsPageMerged,
       },
     };
   }

@@ -5,6 +5,7 @@ import {
   getStartTimeForDay,
   parseDotTime,
   parseDetailPage,
+  parseEventsPage,
   mergeDetailIntoEvent,
 } from "./och3";
 import { OCH3Adapter } from "./och3";
@@ -255,10 +256,50 @@ const SAMPLE_DETAIL_HTML = `
 </body></html>
 `;
 
+describe("parseEventsPage", () => {
+  it("extracts events from <li> items", () => {
+    const html = `<html><body>
+      <div class="paragraph">
+        <strong>OCH3 Events</strong>
+        <ul>
+          <li>22nd March 2026 - 'Chipmonk's last lay' Hash - From Charlwood Village Hall, 92 The Street, Charlwood, Horley, RH6 0DU. The village hall is booked from 12.30pm to 3.30pm.</li>
+          <li>10th May 2026 - Memorial Run for Lawrence 'Dynorod' Pearce - The Red Lion, Betchworth</li>
+          <li>23rd May 2026 - 2000th run and overnight stay at The Pheasantry.</li>
+        </ul>
+      </div>
+    </body></html>`;
+    const events = parseEventsPage(html, "http://www.och3.org.uk/eventslinks.html");
+    expect(events).toHaveLength(3);
+    expect(events[0].date).toBe("2026-03-22");
+    expect(events[0].title).toBe("'Chipmonk's last lay' Hash");
+    expect(events[0].location).toBe("Charlwood Village Hall, 92 The Street, Charlwood, Horley, RH6 0DU");
+    expect(events[1].date).toBe("2026-05-10");
+    expect(events[1].title).toBe("Memorial Run for Lawrence 'Dynorod' Pearce");
+    expect(events[2].date).toBe("2026-05-23");
+  });
+
+  it("skips items without parseable dates", () => {
+    const html = `<html><body><div class="paragraph"><ul>
+      <li>Some non-date text about the club</li>
+      <li>22nd March 2026 - Valid Event</li>
+    </ul></div></body></html>`;
+    const events = parseEventsPage(html, "http://test.com");
+    expect(events).toHaveLength(1);
+    expect(events[0].title).toBe("Valid Event");
+  });
+
+  it("returns empty array for page without <li> items", () => {
+    const html = `<html><body><div class="paragraph"><p>No events listed</p></div></body></html>`;
+    const events = parseEventsPage(html, "http://test.com");
+    expect(events).toHaveLength(0);
+  });
+});
+
 describe("OCH3Adapter.fetch", () => {
   it("parses multiple upcoming runs from compact line block", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(SAMPLE_UPCOMING_RUNS_BLOCK_HTML, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }))
       .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
 
     const adapter = new OCH3Adapter();
@@ -284,7 +325,8 @@ describe("OCH3Adapter.fetch", () => {
   it("enriches next event with detail page data", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(SAMPLE_UPCOMING_RUNS_BLOCK_HTML, { status: 200 }))
-      .mockResolvedValueOnce(new Response(SAMPLE_DETAIL_HTML, { status: 200 }));
+      .mockResolvedValueOnce(new Response(SAMPLE_DETAIL_HTML, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
 
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
@@ -318,7 +360,8 @@ describe("OCH3Adapter.fetch", () => {
   it("continues with run-list data when detail page fails", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(SAMPLE_UPCOMING_RUNS_BLOCK_HTML, { status: 200 }))
-      .mockResolvedValueOnce(new Response("Not found", { status: 404, statusText: "Not Found" }));
+      .mockResolvedValueOnce(new Response("Not found", { status: 404, statusText: "Not Found" }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
 
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
@@ -340,7 +383,8 @@ describe("OCH3Adapter.fetch", () => {
 
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(SAMPLE_UPCOMING_RUNS_BLOCK_HTML, { status: 200 }))
-      .mockResolvedValueOnce(new Response(noMatchDetail, { status: 200 }));
+      .mockResolvedValueOnce(new Response(noMatchDetail, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
 
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
@@ -405,6 +449,7 @@ describe("OCH3Adapter.fetch", () => {
 
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(htmlWithNavBleed, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }))
       .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
 
     const adapter = new OCH3Adapter();
