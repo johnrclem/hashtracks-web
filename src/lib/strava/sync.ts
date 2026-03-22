@@ -80,12 +80,18 @@ export async function syncStravaActivities(
   const parsed = rawActivities.map(parseStravaActivity);
   const stravaIds = parsed.map((p) => p.stravaActivityId);
 
-  // Single query to find all existing activities
+  // Single query to find all existing activities (include city for backfill optimization)
   const existingActivities = await prisma.stravaActivity.findMany({
     where: { stravaActivityId: { in: stravaIds } },
-    select: { stravaActivityId: true },
+    select: { stravaActivityId: true, city: true, startLat: true, startLng: true },
   });
   const existingIdSet = new Set(existingActivities.map((a) => a.stravaActivityId));
+  // Track activities that need city backfill (have coords but null city)
+  const needsCityIds = new Set(
+    existingActivities
+      .filter((a) => a.city === null && (a.startLat != null || a.startLng != null))
+      .map((a) => a.stravaActivityId),
+  );
 
   const toCreate = parsed.filter((p) => !existingIdSet.has(p.stravaActivityId));
   const toUpdate = parsed.filter((p) => existingIdSet.has(p.stravaActivityId));
@@ -135,6 +141,16 @@ export async function syncStravaActivities(
         )
       : Promise.resolve(),
   ]);
+
+  // Backfill city for updated activities that had null city (tracked from initial query)
+  if (needsCityIds.size > 0) {
+    const toBackfill = toUpdate
+      .filter((p) => needsCityIds.has(p.stravaActivityId))
+      .filter((p) => p.startLat != null || p.startLng != null);
+    if (toBackfill.length > 0) {
+      await backfillCities(toBackfill);
+    }
+  }
 
   const created = toCreate.length;
   const updated = toUpdate.length;
