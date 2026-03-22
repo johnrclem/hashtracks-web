@@ -174,6 +174,26 @@ export function parseEventFields(fieldsText: string): {
   };
 }
 
+/** Extract the event detail page URL from the float-right span. */
+function extractEventPageUrl(
+  $dt: cheerio.Cheerio<AnyNode>,
+  $: cheerio.CheerioAPI,
+  baseUrl: string,
+): string | undefined {
+  const floatSpan = $dt.find('> span[style*="float"]').first();
+  const href = floatSpan
+    .find("a")
+    .filter((_i, a) => /\/e\/event-/.test($(a).attr("href") ?? ""))
+    .first()
+    .attr("href");
+  if (!href) return undefined;
+  try {
+    return new URL(href, baseUrl).toString();
+  } catch {
+    return undefined;
+  }
+}
+
 /** Extract the first Google Maps link from a Cheerio container. */
 function extractMapLink($container: cheerio.Cheerio<AnyNode>, $: cheerio.CheerioAPI): string | undefined {
   return $container.find("a").filter((_j, a) => {
@@ -192,6 +212,7 @@ function extractMapLink($container: cheerio.Cheerio<AnyNode>, $: cheerio.Cheerio
 export function parseHarelineEvents(
   html: string,
   config: SDH3Config,
+  baseUrl = "https://sdh3.com",
 ): RawEventData[] {
   const $ = cheerio.load(html);
   const events: RawEventData[] = [];
@@ -227,6 +248,7 @@ export function parseHarelineEvents(
     const { hares, location, description } = parseEventFields(fieldsText);
 
     const locationUrl = extractMapLink(fieldsDiv, $);
+    const sourceUrl = extractEventPageUrl($dt, $, baseUrl);
     let title: string | undefined;
 
     // Extract title from first <strong> (kennel-specific trail name if present)
@@ -246,6 +268,7 @@ export function parseHarelineEvents(
       location,
       locationUrl,
       description,
+      sourceUrl,
     });
   });
 
@@ -408,7 +431,7 @@ export class SDH3Adapter implements SourceAdapter {
     if (harelinePage.ok) {
       structureHash = harelinePage.structureHash;
       try {
-        harelineEvents = parseHarelineEvents(harelinePage.html, config);
+        harelineEvents = parseHarelineEvents(harelinePage.html, config, baseUrl);
       } catch (err) {
         const msg = `Hareline parse error: ${err instanceof Error ? err.message : String(err)}`;
         allErrors.push(msg);
