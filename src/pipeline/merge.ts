@@ -43,7 +43,7 @@ export function sanitizeHares(hares: string | undefined | null): string | null {
   h = h.replace(/^Hares?\s+(?:is|are|=)\s+/i, "").trim();
 
   // Truncate at trailing logistics clauses (e.g., ", we are still taking applications...")
-  h = h.replace(/,\s*(?:we |still |also |please |and we |but )\b.*/i, "").trim();
+  h = h.replace(/,\s*(?:and we |we |still |also |please |but )\b.*/i, "").trim();
 
   // Truncate at boilerplate markers (description text leaked into hares)
   const boilerplateIdx = h.search(HARE_BOILERPLATE_RE);

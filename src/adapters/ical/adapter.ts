@@ -13,6 +13,7 @@ export interface ICalSourceConfig {
   skipPatterns?: string[];             // SUMMARY patterns to skip (e.g., "Hand Pump Workday")
   harePatterns?: string[];             // regex strings to extract hares from descriptions
   runNumberPatterns?: string[];        // regex strings to extract run numbers from descriptions
+  locationPatterns?: string[];         // regex strings to extract location from descriptions (overrides default LOCATION_PATTERNS)
   titleHarePattern?: string;           // regex to extract hare names from SUMMARY when description has none
   descriptionSuffix?: string;          // static text appended to every event description
 }
@@ -155,10 +156,11 @@ export function extractRunNumberFromDescription(
 
 /**
  * Extract a location name from an iCal DESCRIPTION field.
+ * Accepts pre-compiled RegExp[] for custom patterns; falls back to default LOCATION_PATTERNS.
  * Used as a fallback when the LOCATION field is empty.
  */
-export function extractLocationFromDescription(description: string): string | undefined {
-  return extractFieldFromDescription(description, LOCATION_PATTERNS, {
+export function extractLocationFromDescription(description: string, customPatterns?: RegExp[]): string | undefined {
+  return extractFieldFromDescription(description, customPatterns ?? LOCATION_PATTERNS, {
     maxLength: 300,
     stripUrls: true,
   });
@@ -337,6 +339,7 @@ function buildRawEventFromVEvent(
   compiledHarePatterns?: RegExp[],
   compiledRunNumberPatterns?: RegExp[],
   compiledTitleHarePattern?: RegExp,
+  compiledLocationPatterns?: RegExp[],
 ): RawEventData | null {
   if (vevent.status === "CANCELLED") return null;
 
@@ -366,7 +369,7 @@ function buildRawEventFromVEvent(
   let location = paramValue(vevent.location);
 
   if (!location && description) {
-    location = extractLocationFromDescription(description);
+    location = extractLocationFromDescription(description, compiledLocationPatterns);
   }
 
   const locationUrl = resolveLocationUrl(vevent.geo, location, description);
@@ -442,6 +445,9 @@ export class ICalAdapter implements SourceAdapter {
     const compiledRunNumberPatterns = config?.runNumberPatterns?.length
       ? compilePatterns(config.runNumberPatterns)
       : undefined;
+    const compiledLocationPatterns = config?.locationPatterns?.length
+      ? compilePatterns(config.locationPatterns)
+      : undefined;
     let compiledTitleHarePattern: RegExp | undefined;
     if (config?.titleHarePattern) {
       try {
@@ -485,7 +491,7 @@ export class ICalAdapter implements SourceAdapter {
           continue;
         }
 
-        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns, compiledTitleHarePattern);
+        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns, compiledTitleHarePattern, compiledLocationPatterns);
         if (event) events.push(event);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
