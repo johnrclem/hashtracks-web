@@ -15,7 +15,7 @@ import { chronoParseDate } from "../utils";
  * Handles: "Wednesday 19th February 2026", "19/02/2026", "19th February", "19/02", etc.
  */
 export function parseBarnesDate(text: string, referenceDate = new Date()): string | null {
-  return chronoParseDate(text, "en-GB", referenceDate, { forwardDate: true });
+  return chronoParseDate(text, "en-GB", referenceDate, { smartForwardDate: true });
 }
 
 /**

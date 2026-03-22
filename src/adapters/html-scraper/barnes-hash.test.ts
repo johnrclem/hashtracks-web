@@ -43,7 +43,18 @@ describe("parseBarnesDate", () => {
   });
 
   it("rolls inferred year forward around year-end", () => {
+    // Dec 15 → Jan 5 is >6 months in the past relative to Dec, so smartForwardDate rolls forward
     expect(parseBarnesDate("5th January", new Date("2026-12-15T00:00:00Z"))).toBe("2027-01-05");
+  });
+
+  it("keeps recent past date in current year", () => {
+    // Jan 28 parsed on March 9 — only ~2 months ago, should NOT roll forward to 2027
+    expect(parseBarnesDate("28th January", new Date("2026-03-09T00:00:00Z"))).toBe("2026-01-28");
+  });
+
+  it("keeps date from a few months ago in current year", () => {
+    // Feb 4 parsed on March 9 — only ~1 month ago, should NOT roll forward
+    expect(parseBarnesDate("4th February", new Date("2026-03-09T00:00:00Z"))).toBe("2026-02-04");
   });
 
   it("infers year when numeric date omits year", () => {
