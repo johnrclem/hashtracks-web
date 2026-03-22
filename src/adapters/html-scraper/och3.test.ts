@@ -342,8 +342,8 @@ describe("parseEventsPage", () => {
     // Only the 1 real event — not the 5 kennel links
     expect(events).toHaveLength(1);
     expect(events[0].date).toBe("2026-03-22");
-    const titles = events.map(e => e.title ?? "");
-    expect(titles.join(" ")).not.toMatch(/Barnes|Brighton|City|Crawley|West London/i);
+    expect(events[0].title).toBe("Real Event");
+    expect(events[0].location).toBe("Some Venue");
   });
 
   it("returns empty array for page without <li> items", () => {
