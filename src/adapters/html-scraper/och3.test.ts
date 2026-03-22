@@ -3,6 +3,7 @@ import {
   parseOCH3Date,
   extractDayOfWeek,
   getStartTimeForDay,
+  inferDayFromDate,
   parseDotTime,
   parseDetailPage,
   parseEventsPage,
@@ -75,6 +76,20 @@ describe("getStartTimeForDay", () => {
   it("defaults to 11:00 for unknown day", () => {
     expect(getStartTimeForDay(null)).toBe("11:00");
     expect(getStartTimeForDay("wednesday")).toBe("11:00");
+  });
+});
+
+describe("inferDayFromDate", () => {
+  it("infers monday from 2026-04-06", () => {
+    expect(inferDayFromDate("2026-04-06")).toBe("monday");
+  });
+
+  it("infers sunday from 2026-03-22", () => {
+    expect(inferDayFromDate("2026-03-22")).toBe("sunday");
+  });
+
+  it("returns null for invalid date", () => {
+    expect(inferDayFromDate("not-a-date")).toBeNull();
   });
 });
 
@@ -276,6 +291,22 @@ describe("parseEventsPage", () => {
     expect(events[1].date).toBe("2026-05-10");
     expect(events[1].title).toBe("Memorial Run for Lawrence 'Dynorod' Pearce");
     expect(events[2].date).toBe("2026-05-23");
+    expect(events[2].title).toContain("2000th run");
+    // Bug 4: location should NOT contain "overnight stay" — should extract "The Pheasantry"
+    if (events[2].location) {
+      expect(events[2].location).not.toContain("overnight stay");
+      expect(events[2].location).toMatch(/pheasantry/i);
+    }
+  });
+
+  it("extracts venue from 'at The [Venue]' pattern for single-segment entries", () => {
+    const html = `<html><body><div class="paragraph"><ul>
+      <li>23rd May 2026 - 2000th run and overnight stay at The Pheasantry.</li>
+    </ul></div></body></html>`;
+    const events = parseEventsPage(html, "http://test.com");
+    expect(events).toHaveLength(1);
+    expect(events[0].location).toBe("The Pheasantry");
+    expect(events[0].location).not.toContain("overnight stay");
   });
 
   it("skips items without parseable dates", () => {
@@ -392,12 +423,13 @@ describe("OCH3Adapter.fetch", () => {
       url: "http://www.och3.org.uk/upcoming-run-list.html",
     } as never);
 
-    expect(result.events).toHaveLength(4);
-    expect(result.diagnosticContext?.detailPageMerged).toBe(false);
-    // All events still have run-list sourceUrl
-    for (const event of result.events) {
-      expect(event.sourceUrl).toContain("upcoming-run-list.html");
-    }
+    // Bug 1 fix: detail page creates new event even when not in run list
+    expect(result.events).toHaveLength(5);
+    expect(result.diagnosticContext?.detailPageMerged).toBe(true);
+    // The detail page event should have the detail sourceUrl
+    const detailEvent = result.events.find(e => e.date === "2026-01-01");
+    expect(detailEvent).toBeDefined();
+    expect(detailEvent!.sourceUrl).toContain("next-run-details.html");
 
     vi.restoreAllMocks();
   });
@@ -528,6 +560,60 @@ describe("OCH3Adapter.fetch", () => {
     expect(allText).not.toContain("About Us");
     expect(allText).not.toContain("Copyright");
 
+    vi.restoreAllMocks();
+  });
+
+  it("creates new event from detail page when not in run list (Bug 1)", async () => {
+    const runListHtml = `<html><body><div class="wsite-section-wrap">
+      <p>Upcoming Runs:</p>
+      <p>29th March 2026 - Steph 'Streaky' - the Palmerston Pub, Carshalton</p>
+    </div></body></html>`;
+    const detailHtml = `<html><body><div class="paragraph">
+      <strong>Run 1991 - Sunday 22nd March at 11.00\nVenue:</strong>
+      Charlwood Parish Hall, 92 The Street, Charlwood, Horley RH6 0DU
+      <br><strong>Hare: Phil 'Layby' Mack</strong>
+    </div></body></html>`;
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(runListHtml, { status: 200 }))
+      .mockResolvedValueOnce(new Response(detailHtml, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new OCH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "http://www.och3.org.uk/upcoming-run-list.html",
+    } as never);
+
+    const mar22 = result.events.find(e => e.date === "2026-03-22");
+    expect(mar22).toBeDefined();
+    expect(mar22!.hares).toBe("Phil 'Layby' Mack");
+    expect(mar22!.location).toContain("Charlwood Parish Hall");
+    expect(mar22!.runNumber).toBe(1991);
+    expect(result.diagnosticContext?.detailPageMerged).toBe(true);
+    vi.restoreAllMocks();
+  });
+
+  it("infers 19:30 for Monday run with no day name in text (Bug 2)", async () => {
+    const html = `<html><body><div class="wsite-section-wrap">
+      <p>Upcoming Runs:</p>
+      <p>6th April 2026 - Iain 'Arsola' Davidson - Town End Car Park, Caterham</p>
+    </div></body></html>`;
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(html, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new OCH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "http://www.och3.org.uk/upcoming-run-list.html",
+    } as never);
+
+    const apr6 = result.events.find(e => e.date === "2026-04-06");
+    expect(apr6).toBeDefined();
+    expect(apr6!.startTime).toBe("19:30");
     vi.restoreAllMocks();
   });
 });
