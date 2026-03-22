@@ -68,6 +68,22 @@ describe("parseDate", () => {
   it("strips day-name suffix for leap year date", () => {
     expect(parseDate("2028/02/29 (Tue)")).toBe("2028-02-29");
   });
+
+  it("returns null for impossible date Feb 30", () => {
+    expect(parseDate("2/30/26")).toBeNull();
+  });
+
+  it("returns null for impossible date Apr 31", () => {
+    expect(parseDate("4/31/26")).toBeNull();
+  });
+
+  it("accepts valid leap day Feb 29 2028", () => {
+    expect(parseDate("2/29/28")).toBe("2028-02-29");
+  });
+
+  it("returns null for non-leap Feb 29", () => {
+    expect(parseDate("2/29/26")).toBeNull();
+  });
 });
 
 // ── inferStartTime ──
