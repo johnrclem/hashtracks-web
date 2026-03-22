@@ -395,7 +395,7 @@ export class OCH3Adapter implements SourceAdapter {
           detailPageMerged = true;
         } else {
           // Detail page run not in run list — create new event
-          const dayOfWeek = extractDayOfWeek(detail.date!) ?? inferDayFromDate(detail.date!);
+          const dayOfWeek = inferDayFromDate(detail.date!);
           events.unshift({
             date: detail.date!,
             kennelTag: "OCH3",
