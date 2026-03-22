@@ -9,6 +9,7 @@ export interface RawEventData {
   description?: string;
   hares?: string;
   location?: string;
+  locationStreet?: string; // Full street address (multi-line address blocks)
   locationUrl?: string; // Google Maps or other maps URL
   latitude?: number;
   longitude?: number;

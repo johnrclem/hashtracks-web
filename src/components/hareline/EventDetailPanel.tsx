@@ -11,6 +11,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { formatTime, formatDateLong, getLabelForUrl, stripMarkdown, stripUrlsFromText } from "@/lib/format";
+import { getFullLocationDisplay } from "@/lib/event-display";
 import type { HarelineEvent } from "./EventCard";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
@@ -170,10 +171,10 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
                     rel="noopener noreferrer"
                     className="text-primary hover:underline"
                   >
-                    {stripUrlsFromText(event.locationName)}
+                    {getFullLocationDisplay(event) ?? stripUrlsFromText(event.locationName)}
                   </a>
                 ) : (
-                  stripUrlsFromText(event.locationName)
+                  getFullLocationDisplay(event) ?? stripUrlsFromText(event.locationName)
                 )}
               </dd>
             </div>

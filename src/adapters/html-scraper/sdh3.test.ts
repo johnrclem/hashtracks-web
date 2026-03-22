@@ -239,6 +239,27 @@ describe("parseEventFields", () => {
     expect(result.description).toBeUndefined();
   });
 
+  it("captures multi-line address block into locationStreet", () => {
+    const text = "Trail Title\nHare(s): Test Hare\nAddress: SRO Lounge\n1807 Fifth Ave\nSan Diego, CA 92101\nRun Fee: $10";
+    const result = parseEventFields(text);
+    expect(result.location).toBe("SRO Lounge");
+    expect(result.locationStreet).toBe("SRO Lounge, 1807 Fifth Ave, San Diego, CA 92101");
+  });
+
+  it("skips 'United States' in multi-line address", () => {
+    const text = "Address: 10330 Friars Rd\nSan Diego, CA 92120\nUnited States\nRun Fee: $5";
+    const result = parseEventFields(text);
+    expect(result.location).toBe("10330 Friars Rd");
+    expect(result.locationStreet).toBe("10330 Friars Rd, San Diego, CA 92120");
+  });
+
+  it("does not set locationStreet for single-line address", () => {
+    const text = "Address: TBD";
+    const result = parseEventFields(text);
+    expect(result.location).toBe("TBD");
+    expect(result.locationStreet).toBeUndefined();
+  });
+
   it("extracts On After field into description", () => {
     const text = "Hare(s): Test\nOn after: The Pub on 5th";
     const result = parseEventFields(text);
