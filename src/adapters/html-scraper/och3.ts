@@ -200,8 +200,13 @@ export function parseEventsPage(html: string, baseUrl: string): RawEventData[] {
   const events: RawEventData[] = [];
   const currentYear = new Date().getFullYear();
 
-  // Find <li> items inside div.paragraph (the content area)
-  $("div.paragraph li").each((_i, el) => {
+  // Only scrape the "OCH3 Events" paragraph — skip "Links to local hashes"
+  // and "Events from other Hashes" sections whose <li> items contain day-of-week
+  // words (e.g., "Barnes H3 (Wednesday evenings)") that chrono misparses as dates.
+  const eventsPara = $("div.paragraph").filter((_i, el) =>
+    /^OCH3 Events$/i.test($(el).find("strong").first().text().trim()),
+  ).first();
+  eventsPara.find("li").each((_i, el) => {
     const fullText = $(el).text().trim();
     if (!fullText) return;
 
