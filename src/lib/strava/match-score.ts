@@ -57,19 +57,23 @@ export function scoreMatch(
   // We still compute the full breakdown so findBestMatchIndex can rank by time/geo
   // even when all candidates have generic names like "Afternoon Run".
 
-  // 2. Geo proximity (0–1, weighted 2x)
-  let geoScore = 0; // no coords = no credit
+  // 2. Geo proximity (weighted 2x)
+  // When activity has GPS but event doesn't, penalize to prevent cross-continent matches
+  let geoScore = 0;
   let geoKm: number | null = null;
-  if (
-    activity.startLat != null &&
-    activity.startLng != null &&
-    eventLat != null &&
-    eventLng != null
-  ) {
-    geoKm = haversineDistance(activity.startLat, activity.startLng, eventLat, eventLng);
+  const activityHasCoords = activity.startLat != null && activity.startLng != null;
+  const eventHasCoords = eventLat != null && eventLng != null;
+
+  if (activityHasCoords && eventHasCoords) {
+    geoKm = haversineDistance(activity.startLat!, activity.startLng!, eventLat!, eventLng!);
     if (geoKm <= 5) geoScore = 1.0;
     else if (geoKm <= 25) geoScore = 0.5;
     else geoScore = 0;
+  } else if (activityHasCoords && !eventHasCoords) {
+    // Activity has GPS but event lacks coords — small penalty to discourage cross-continent
+    // matches while preserving legitimate local events that don't publish coordinates.
+    // Kept at -0.25 (weighted -0.5) so a moderate name+time match still clears threshold.
+    geoScore = -0.25;
   }
 
   // 3. Time proximity (0–1): how close is the activity time to the event start time?
