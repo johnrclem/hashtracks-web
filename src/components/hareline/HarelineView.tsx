@@ -97,8 +97,8 @@ function matchesSearchText(event: HarelineEvent, query: string): boolean {
   const lower = query.toLowerCase();
   return !!(
     event.title?.toLowerCase().includes(lower) ||
-    event.kennel.shortName.toLowerCase().includes(lower) ||
-    event.kennel.fullName.toLowerCase().includes(lower) ||
+    event.kennel?.shortName.toLowerCase().includes(lower) ||
+    event.kennel?.fullName.toLowerCase().includes(lower) ||
     event.haresText?.toLowerCase().includes(lower) ||
     event.locationName?.toLowerCase().includes(lower) ||
     event.locationCity?.toLowerCase().includes(lower) ||
@@ -125,15 +125,15 @@ function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
 
   if (!passesTimeFilter(eventDate, f.timeFilter, f.todayUtc)) return false;
   if (f.scope === "my" && !f.subscribedKennelIds.includes(event.kennelId)) return false;
-  if (f.selectedRegions.length > 0 && !f.expandedRegions.has(event.kennel.region)) return false;
-  if (f.selectedKennels.length > 0 && !f.selectedKennels.includes(event.kennel.id)) return false;
+  if (f.selectedRegions.length > 0 && !f.expandedRegions.has(event.kennel?.region ?? "")) return false;
+  if (f.selectedKennels.length > 0 && !f.selectedKennels.includes(event.kennel?.id ?? "")) return false;
   if (f.selectedDays.length > 0 && !f.selectedDays.includes(getDayOfWeek(event.date))) return false;
-  if (f.selectedCountry && event.kennel.country !== f.selectedCountry) return false;
+  if (f.selectedCountry && event.kennel?.country !== f.selectedCountry) return false;
   if (f.searchText && !matchesSearchText(event, f.searchText)) return false;
 
   // Near-me distance filter — only applies when geolocation is granted
   if (f.nearMeDistance != null && f.userLat != null && f.userLng != null) {
-    const coords = getEventCoords(event.latitude ?? null, event.longitude ?? null, event.kennel.region);
+    const coords = getEventCoords(event.latitude ?? null, event.longitude ?? null, event.kennel?.region ?? "");
     if (!coords) return false; // no coords + no region centroid — exclude
     if (haversineDistance(f.userLat, f.userLng, coords.lat, coords.lng) > f.nearMeDistance) return false;
   }
@@ -378,7 +378,7 @@ export function HarelineView({
 
   // Expand state-level region selections to metro names (stable ref via useMemo)
   const regionsByState = useMemo(
-    () => groupRegionsByState(events.map((e) => e.kennel.region)),
+    () => groupRegionsByState(events.map((e) => e.kennel?.region).filter(Boolean) as string[]),
     [events],
   );
   const expandedRegions = useMemo(

@@ -2858,6 +2858,9 @@ async function main() {
       scrapeDays: 180,
       config: {
         defaultKennelTag: "BAH3",
+        // BAH3 uses emoji-prefixed labels: "🎯 Hares (loud and clear):" and "Where:addr"
+        harePatterns: [String.raw`(?:^|\n)\s*[^\n]*Hares?[^:]*:\s*(.+?)(?:\n|$)`],
+        locationPatterns: [String.raw`(?:^|\n)\s*Where\s*:?\s*(.+?)(?:\n|$)`],
       },
       kennelCodes: ["bah3"],
     },

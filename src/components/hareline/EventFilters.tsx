@@ -91,7 +91,7 @@ export function EventFilters({
 }: EventFiltersProps) {
   // Derive available regions from events
   const regions = useMemo(() => {
-    const regionSet = new Set(events.map((e) => e.kennel.region));
+    const regionSet = new Set(events.map((e) => e.kennel?.region).filter(Boolean) as string[]);
     return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
   }, [events]);
 
@@ -100,7 +100,7 @@ export function EventFilters({
   const kennels = useMemo(() => {
     const kennelMap = new Map<string, { id: string; shortName: string; fullName: string; region: string }>();
     for (const e of events) {
-      if (!kennelMap.has(e.kennel.id)) {
+      if (e.kennel && !kennelMap.has(e.kennel.id)) {
         kennelMap.set(e.kennel.id, {
           id: e.kennel.id,
           shortName: e.kennel.shortName,
@@ -121,7 +121,7 @@ export function EventFilters({
   const countries = useMemo(() => {
     const countrySet = new Set<string>();
     for (const e of events) {
-      if (e.kennel.country) countrySet.add(e.kennel.country);
+      if (e.kennel?.country) countrySet.add(e.kennel.country);
     }
     return Array.from(countrySet).sort((a, b) => a.localeCompare(b));
   }, [events]);

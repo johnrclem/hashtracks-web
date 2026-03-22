@@ -160,7 +160,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
 
   const eventsWithCoords = useMemo<EventWithCoords[]>(() => {
     return events.flatMap((event) => {
-      const coords = getEventCoords(event.latitude, event.longitude, event.kennel.region);
+      const coords = getEventCoords(event.latitude, event.longitude, event.kennel?.region ?? "");
       if (!coords) return [];
       return [
         {
@@ -168,7 +168,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
           lat: coords.lat,
           lng: coords.lng,
           precise: coords.precise,
-          color: getRegionColor(event.kennel.region),
+          color: event.kennel?.region ? getRegionColor(event.kennel.region) : "#6b7280",
         },
       ];
     });

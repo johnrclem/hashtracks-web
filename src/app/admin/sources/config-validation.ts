@@ -236,6 +236,7 @@ export function validateSourceConfig(
   validatePatternArray(obj, "skipPatterns", errors);
   validatePatternArray(obj, "harePatterns", errors);
   validatePatternArray(obj, "runNumberPatterns", errors);
+  validatePatternArray(obj, "locationPatterns", errors);
 
   // Type-specific validation
   runTypeValidator(type, obj, errors);
