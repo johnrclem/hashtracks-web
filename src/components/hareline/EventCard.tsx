@@ -64,7 +64,7 @@ export { formatDate };
 
 /** Compose an accessible label from event fields. */
 function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null): string {
-  const parts: string[] = [event.kennel.shortName];
+  const parts: string[] = [event.kennel?.shortName];
   const { title, isFallback } = getDisplayTitle(event);
   if (!isFallback) parts.push(title);
   parts.push(formatDate(event.date));
@@ -132,7 +132,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
     }
   }
 
-  const regionColor = getRegionColor(event.kennel.region);
+  const regionColor = getRegionColor(event.kennel?.region);
 
   // Weather display
   const weatherEmoji = weather ? getConditionEmoji(weather.conditionType) : null;
@@ -184,15 +184,15 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link
-                  href={`/kennels/${event.kennel.slug}`}
+                  href={`/kennels/${event.kennel?.slug}`}
                   className="font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-2 truncate block"
                   style={{ textDecorationColor: regionColor }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {event.kennel.shortName}
+                  {event.kennel?.shortName}
                 </Link>
               </TooltipTrigger>
-              <TooltipContent>{event.kennel.fullName}</TooltipContent>
+              <TooltipContent>{event.kennel?.fullName}</TooltipContent>
             </Tooltip>
           </span>
 
@@ -244,7 +244,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               </span>
             )}
 
-            <RegionBadge region={event.kennel.region} size="sm" />
+            <RegionBadge region={event.kennel?.region} size="sm" />
           </div>
         </div>
       </div>
@@ -310,18 +310,18 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
-                    href={`/kennels/${event.kennel.slug}`}
+                    href={`/kennels/${event.kennel?.slug}`}
                     className="text-base font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-3"
                     style={{ textDecorationColor: regionColor }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {event.kennel.shortName}
+                    {event.kennel?.shortName}
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent>{event.kennel.fullName}</TooltipContent>
+                <TooltipContent>{event.kennel?.fullName}</TooltipContent>
               </Tooltip>
 
-              <RegionBadge region={event.kennel.region} size="sm" />
+              <RegionBadge region={event.kennel?.region} size="sm" />
 
               {event.runNumber && (
                 <span className="text-xs font-mono text-muted-foreground/50 tabular-nums">
