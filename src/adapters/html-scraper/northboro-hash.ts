@@ -88,6 +88,11 @@ export function parseTrailBlock(
   const parts = afterDate ? afterDate.split(",").map((s) => s.trim()) : [];
   let title = parts[0] || undefined;
 
+  // Strip co-host event suffix: "& Partner Title (Partner Kennel H3)"
+  if (title) {
+    title = title.replace(/\s*&\s+.+?\s*\([^)]*(?:H3|HHH|Hash)\)\s*$/i, "").trim() || undefined;
+  }
+
   // Detect field swap: if the "title" part is actually a time string (e.g. "12:30pm"),
   // the fields are shifted — promote the next part to title and parse the time
   let hares: string | undefined;
