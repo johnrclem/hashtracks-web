@@ -70,8 +70,10 @@ export function scoreMatch(
     else if (geoKm <= 25) geoScore = 0.5;
     else geoScore = 0;
   } else if (activityHasCoords && !eventHasCoords) {
-    // Activity has GPS but event lacks coords — penalize to prevent cross-continent matches
-    geoScore = -0.5;
+    // Activity has GPS but event lacks coords — small penalty to discourage cross-continent
+    // matches while preserving legitimate local events that don't publish coordinates.
+    // Kept at -0.25 (weighted -0.5) so a moderate name+time match still clears threshold.
+    geoScore = -0.25;
   }
 
   // 3. Time proximity (0–1): how close is the activity time to the event start time?

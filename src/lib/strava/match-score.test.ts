@@ -83,6 +83,26 @@ describe("scoreMatch", () => {
     );
     expect(score.geoKm).toBeNull();
   });
+
+  it("applies small geo penalty when activity has coords but event does not", () => {
+    const withPenalty = scoreMatch(
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: null, startLat: 40.7, startLng: -74.0 },
+      "Brooklyn H3",
+      null,
+      null, // event has no coords
+      null,
+    );
+    const noPenalty = scoreMatch(
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: null },
+      "Brooklyn H3",
+      null,
+    );
+    // Penalty reduces score but not so aggressively that a moderate name+time match is killed
+    expect(withPenalty.geoScore).toBe(-0.25);
+    expect(withPenalty.total).toBeLessThan(noPenalty.total);
+    // A strong name match should still clear the 2.0 suggestion threshold despite the penalty
+    expect(withPenalty.total).toBeGreaterThan(2.0);
+  });
 });
 
 describe("findBestMatchIndex", () => {

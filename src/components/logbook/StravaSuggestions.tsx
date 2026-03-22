@@ -546,14 +546,18 @@ function SuggestionCard({
         >
           Not a Hash
         </button>
-        <button
-          type="button"
-          className="text-[11px] text-muted-foreground hover:text-foreground"
-          onClick={onSkip}
-          title="Hide for now — won't permanently dismiss"
-        >
-          Skip
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="text-[11px] text-muted-foreground hover:text-foreground"
+              onClick={onSkip}
+            >
+              Skip
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Hide for now — won't permanently dismiss</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );
