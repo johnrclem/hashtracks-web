@@ -2565,7 +2565,7 @@ async function main() {
     "lbh-phx": ["Lost Boobs Hash", "Lost Boobs H3", "LBH", "Phoenix LBH"],
     "hump-d": ["Hump D Hash", "Hump D H3", "HumpD"],
     "wrong-way": ["Wrong Way Hash", "Wrong Way H3", "Phoenix Wrong Way"],
-    "fdtdd": ["From Dusk Till Down Downs", "Dusk Till Down", "FDTDD"],
+    "fdtdd": ["From Dusk Till Down-Downs", "Dusk Till Down", "FDTDD"],
     "jhav-h3": ["jHavelina Hash", "jHavelina H3", "jHav", "Tucson Hash"],
     "mrhappy": ["Mr Happys Hash", "Mr Happy's H3", "Mr Happy"],
     "pedalfiles": ["Pedal Files Hash", "Pedal Files H3", "Tucson Bike Hash"],
