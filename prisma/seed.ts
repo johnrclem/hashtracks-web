@@ -529,7 +529,7 @@ async function main() {
     },
     // --- Rochester ---
     {
-      kennelCode: "flour-city", shortName: "FCH3", fullName: "Flour City Hash House Harriers", region: "Rochester, NY",
+      kennelCode: "flour-city", shortName: "Flour City H3", fullName: "Flour City Hash House Harriers", region: "Rochester, NY",
       website: "http://flourcityhhh.com/",
       contactEmail: "flourcitymismanagement@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "1:09 PM",
@@ -540,7 +540,7 @@ async function main() {
     },
     // --- Buffalo ---
     {
-      kennelCode: "bh3", shortName: "BH3", fullName: "Buffalo Hash House Harriers", region: "Buffalo, NY",
+      kennelCode: "bh3", shortName: "Buffalo H3", fullName: "Buffalo Hash House Harriers", region: "Buffalo, NY",
       website: "http://hashinthebuff.com/",
       facebookUrl: "https://www.facebook.com/groups/1692560221019401/",
       contactEmail: "hashinthebuff@gmail.com",
@@ -552,7 +552,7 @@ async function main() {
     },
     // --- Hudson Valley ---
     {
-      kennelCode: "hvh3-ny", shortName: "HVH3", fullName: "Hudson Valley Hash House Harriers", region: "New York",
+      kennelCode: "hvh3-ny", shortName: "Hudson Valley H3", fullName: "Hudson Valley Hash House Harriers", region: "New York",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly", scheduleTime: "1:00 PM",
       scheduleNotes: "Monthly when active. Very sporadic -- runs may have months-long gaps.",
       hashCash: "$5", foundedYear: 2015,
@@ -639,7 +639,7 @@ async function main() {
       latitude: 41.356, longitude: -72.101,
     },
     {
-      kennelCode: "sbh3-ct", shortName: "SBH3", fullName: "Skull & Boners Hash House Harriers", region: "Connecticut",
+      kennelCode: "sbh3-ct", shortName: "Skull & Boners", fullName: "Skull & Boners Hash House Harriers", region: "Connecticut",
       contactEmail: "SkullAndBonersH3@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Monthly",
       scheduleNotes: "21+ only.",
@@ -695,14 +695,14 @@ async function main() {
     },
     // Chicago area (Chicagoland Google Calendar aggregator)
     {
-      kennelCode: "ch3", shortName: "CH3", fullName: "Chicago Hash House Harriers", region: "Chicago, IL",
+      kennelCode: "ch3", shortName: "Chicago H3", fullName: "Chicago Hash House Harriers", region: "Chicago, IL",
       website: "https://chicagohash.org", foundedYear: 1978,
       facebookUrl: "https://www.facebook.com/groups/10638781851/",
       scheduleNotes: "Summer: Mondays 7pm. Winter: Sundays 2pm.",
       description: "Chicago's original kennel (est. 1978). Weekly Sunday afternoon runs (winter) / Monday evening runs (summer).",
     },
     {
-      kennelCode: "th3", shortName: "TH3", fullName: "Thirstday Hash House Harriers", region: "Chicago, IL",
+      kennelCode: "th3", shortName: "Thirstday H3", fullName: "Thirstday Hash House Harriers", region: "Chicago, IL",
       website: "https://chicagoth3.com", foundedYear: 2003,
       scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
       description: "Weekly Thursday evening hash. 7 PM meet, 7:30 on-out. Urban trails accessible via public transit.",
@@ -727,7 +727,7 @@ async function main() {
       description: "Monthly 2nd Saturday afternoon hash. Off-the-beaten-path trails.",
     },
     {
-      kennelCode: "bmh3", shortName: "BMH3", fullName: "Bushman Hash House Harriers", region: "Chicago, IL",
+      kennelCode: "bmh3", shortName: "Bushman H3", fullName: "Bushman Hash House Harriers", region: "Chicago, IL",
       website: "https://www.hhhinchicago.com",
       scheduleFrequency: "Monthly", scheduleNotes: "3rd Saturday afternoon",
       description: "Monthly 3rd Saturday afternoon hash. All-woods trails in Cook County Forest Preserves.",
@@ -782,7 +782,7 @@ async function main() {
       description: "Weekly Tuesday evening hash in Northern Virginia / DC Metro. All live trails (est. 2002).",
     },
     {
-      kennelCode: "cch3", shortName: "CCH3", fullName: "Charm City Hash House Harriers", region: "Baltimore, MD",
+      kennelCode: "cch3", shortName: "Charm City H3", fullName: "Charm City Hash House Harriers", region: "Baltimore, MD",
       website: "https://charmcityh3.com",
       facebookUrl: "https://www.facebook.com/CharmCityH3",
       scheduleFrequency: "Biweekly", scheduleNotes: "Alternating Friday 7:00 PM and Saturday afternoons",
@@ -874,7 +874,7 @@ async function main() {
       description: "Monthly Sunday 10 AM ladies-only hash in DC.",
     },
     {
-      kennelCode: "h4", shortName: "H4", fullName: "Hangover Hash House Harriers", region: "Washington, DC",
+      kennelCode: "h4", shortName: "Hangover H3", fullName: "Hangover Hash House Harriers", region: "Washington, DC",
       website: "https://hangoverhash.com", foundedYear: 2012,
       scheduleFrequency: "Monthly", scheduleNotes: "Sunday 10:00 AM",
       description: "Monthly Sunday 10 AM hash. Hashing the DC area since 2012.",
@@ -1126,7 +1126,7 @@ async function main() {
     },
     // London, UK
     {
-      kennelCode: "lh3", shortName: "LH3", fullName: "London Hash House Harriers", region: "London", country: "UK",
+      kennelCode: "lh3", shortName: "London H3", fullName: "London Hash House Harriers", region: "London", country: "UK",
       website: "https://www.londonhash.org", foundedYear: 1975,
       scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Summer: sometimes Monday evenings at 7pm",
@@ -1166,7 +1166,7 @@ async function main() {
       scheduleFrequency: "Monthly", scheduleNotes: "Every full moon evening, 7:30 PM",
     },
     {
-      kennelCode: "eh3", shortName: "EH3", fullName: "Enfield Hash House Harriers", region: "London", country: "UK",
+      kennelCode: "eh3", shortName: "Enfield H3", fullName: "Enfield Hash House Harriers", region: "London", country: "UK",
       website: "https://enfieldhash.org", foundedYear: 1999,
       scheduleFrequency: "Monthly", scheduleNotes: "3rd Wednesday, 7:30 PM",
     },
@@ -1182,7 +1182,7 @@ async function main() {
     },
     // ===== IRELAND =====
     {
-      kennelCode: "dh3", shortName: "DH3", fullName: "Dublin Hash House Harriers", region: "Dublin", country: "IE",
+      kennelCode: "dh3", shortName: "Dublin H3", fullName: "Dublin Hash House Harriers", region: "Dublin", country: "IE",
       website: "https://dublinhhh.com/",
       facebookUrl: "https://www.facebook.com/groups/dublinhashhouseharriers/",
       instagramHandle: "dublinhashhouseharriers",
@@ -1233,7 +1233,7 @@ async function main() {
     },
     // --- Reading ---
     {
-      kennelCode: "rh3", shortName: "RH3", fullName: "Reading Hash House Harriers", region: "Reading, PA",
+      kennelCode: "rh3", shortName: "Reading H3", fullName: "Reading Hash House Harriers", region: "Reading, PA",
       website: "https://readinghhh.blogspot.com/",
       scheduleDayOfWeek: "Monday", scheduleFrequency: "Weekly",
       scheduleNotes: "Mondays (summer); Sundays (winter).",
@@ -1252,7 +1252,7 @@ async function main() {
     },
     // ===== DELAWARE =====
     {
-      kennelCode: "hockessin", shortName: "H4", fullName: "Hockessin Hash House Harriers", region: "Wilmington, DE",
+      kennelCode: "hockessin", shortName: "Hockessin H3", fullName: "Hockessin Hash House Harriers", region: "Wilmington, DE",
       website: "https://www.hockessinhash.org/",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly", scheduleTime: "3:00 PM",
       scheduleNotes: "Saturdays 3 PM (winter); Wednesdays 6:30 PM (summer). Runs in DE/MD/PA/NJ.",
@@ -1300,7 +1300,7 @@ async function main() {
     },
     // --- Hampton Roads (Tidewater) ---
     {
-      kennelCode: "twh3", shortName: "TH3", fullName: "Tidewater Hash House Harriers", region: "Hampton Roads, VA",
+      kennelCode: "twh3", shortName: "Tidewater H3", fullName: "Tidewater Hash House Harriers", region: "Hampton Roads, VA",
       facebookUrl: "https://www.facebook.com/groups/SEVAHHH",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "2:00 PM",
       scheduleNotes: "Sundays year-round. Gather 1:30 PM, start 2:00 PM (spring/fall). Summer 3:30 PM, winter 1:00 PM. 11 sub-kennels run other days.",
@@ -1342,7 +1342,7 @@ async function main() {
     },
     // --- Charlotte ---
     {
-      kennelCode: "ch3-nc", shortName: "CH3", fullName: "Charlotte Hash House Harriers", region: "Charlotte, NC",
+      kennelCode: "ch3-nc", shortName: "Charlotte H3", fullName: "Charlotte Hash House Harriers", region: "Charlotte, NC",
       facebookUrl: "https://www.facebook.com/groups/CharlotteH3/",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "2:00 PM",
       hashCash: "$10", foundedYear: 1992,
@@ -1399,7 +1399,7 @@ async function main() {
     },
     // --- Houston ---
     {
-      kennelCode: "h4-tx", shortName: "H4", fullName: "Houston Hash House Harriers", region: "Houston, TX",
+      kennelCode: "h4-tx", shortName: "Houston H3", fullName: "Houston Hash House Harriers", region: "Houston, TX",
       website: "https://h-townhash.com",
       facebookUrl: "https://www.facebook.com/groups/HoustonHash/",
       scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
@@ -1423,7 +1423,7 @@ async function main() {
     },
     // --- Dallas-Fort Worth ---
     {
-      kennelCode: "dh3-tx", shortName: "DH3", fullName: "Dallas Hash House Harriers", region: "Dallas-Fort Worth, TX",
+      kennelCode: "dh3-tx", shortName: "Dallas H3", fullName: "Dallas Hash House Harriers", region: "Dallas-Fort Worth, TX",
       website: "http://www.dfwhhh.org",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
       description: "Biweekly Saturday runs in the Dallas area.",
@@ -1572,7 +1572,7 @@ async function main() {
       description: "Monthly Sunday runs in the Tampa Bay area.",
     },
     {
-      kennelCode: "lh3-fl", shortName: "LH3", fullName: "Lakeland Hash House Harriers", region: "Tampa Bay, FL",
+      kennelCode: "lh3-fl", shortName: "Lakeland H3", fullName: "Lakeland Hash House Harriers", region: "Tampa Bay, FL",
       facebookUrl: "https://www.facebook.com/groups/283053549709909",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Monthly",
       scheduleNotes: "1st Sunday afternoon of each month.",
@@ -1586,7 +1586,7 @@ async function main() {
       description: "Monthly Saturday runs in the Tampa Bay area.",
     },
     {
-      kennelCode: "sbh3", shortName: "SBH3", fullName: "Spring Brooks Hash House Harriers", region: "Tampa Bay, FL",
+      kennelCode: "sbh3", shortName: "Spring Brooks H3", fullName: "Spring Brooks Hash House Harriers", region: "Tampa Bay, FL",
       facebookUrl: "https://www.facebook.com/groups/1704337600123871",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
       scheduleNotes: "Saturdays opposite TBH3 or BARFH3.",
@@ -1739,7 +1739,7 @@ async function main() {
       description: "Monthly Friday hashing in Atlanta.",
     },
     {
-      kennelCode: "sch3-atl", shortName: "SCH3", fullName: "Southern Comfort Hash House Harriers", region: "Atlanta, GA",
+      kennelCode: "sch3-atl", shortName: "Southern Comfort H3", fullName: "Southern Comfort Hash House Harriers", region: "Atlanta, GA",
       scheduleDayOfWeek: "Friday", scheduleTime: "7:00 PM", scheduleFrequency: "Biweekly",
       description: "Alternate Friday evening runs in Atlanta.",
     },
@@ -1785,7 +1785,7 @@ async function main() {
       description: "Alternate Saturday runs in the Macon area.",
     },
     {
-      kennelCode: "w3h3-ga", shortName: "W3H3", fullName: "Wednesday Wednesday Wednesday H3", region: "Macon, GA",
+      kennelCode: "w3h3-ga", shortName: "Wed Wed Wed H3", fullName: "Wednesday Wednesday Wednesday H3", region: "Macon, GA",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       description: "Weekly Wednesday evening runs in Macon.",
     },
@@ -1804,7 +1804,7 @@ async function main() {
     // ===== SOUTH CAROLINA =====
     // --- Charleston ---
     {
-      kennelCode: "ch3-sc", shortName: "CH3", fullName: "Charleston Hash House Harriers", region: "Charleston, SC",
+      kennelCode: "ch3-sc", shortName: "Charleston H3", fullName: "Charleston Hash House Harriers", region: "Charleston, SC",
       scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       foundedYear: 1988,
       description: "Weekly Thursday evening trail runs in Charleston.",
@@ -1929,7 +1929,7 @@ async function main() {
       latitude: 45.52, longitude: -122.68,
     },
     {
-      kennelCode: "swh3-or", shortName: "SWH3", fullName: "SWH3 Hash House Harriers",
+      kennelCode: "swh3-or", shortName: "Portland SWH3", fullName: "SWH3 Hash House Harriers",
       region: "Portland, OR",
       scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
       hashCash: "$5",
@@ -1963,7 +1963,7 @@ async function main() {
     },
     // --- Eugene ---
     {
-      kennelCode: "eh3-or", shortName: "EH3", fullName: "Eugene Hash House Harriers",
+      kennelCode: "eh3-or", shortName: "Eugene H3", fullName: "Eugene Hash House Harriers",
       region: "Eugene, OR",
       website: "https://sites.google.com/site/eugenehasher/",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
@@ -2009,7 +2009,7 @@ async function main() {
       latitude: 47.61, longitude: -122.33,
     },
     {
-      kennelCode: "rch3-wa", shortName: "RCH3", fullName: "Rain City Hash House Harriers", region: "Seattle, WA",
+      kennelCode: "rch3-wa", shortName: "Rain City H3", fullName: "Rain City Hash House Harriers", region: "Seattle, WA",
       website: "https://wh3.org",
       facebookUrl: "https://www.facebook.com/groups/25456554474/",
       scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
@@ -2057,7 +2057,7 @@ async function main() {
     },
     // --- Tacoma ---
     {
-      kennelCode: "th3-wa", shortName: "TH3", fullName: "Tacoma Hash House Harriers", region: "Tacoma, WA",
+      kennelCode: "th3-wa", shortName: "Tacoma H3", fullName: "Tacoma Hash House Harriers", region: "Tacoma, WA",
       website: "https://wh3.org", foundedYear: 1987,
       facebookUrl: "https://www.facebook.com/groups/468065553263804/",
       scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Monthly",
@@ -2122,7 +2122,7 @@ async function main() {
     },
     // Fort Collins
     {
-      kennelCode: "fch3-co", shortName: "FCH3", fullName: "Fort Collins Hash House Harriers", region: "Fort Collins, CO",
+      kennelCode: "fch3-co", shortName: "Fort Collins H3", fullName: "Fort Collins Hash House Harriers", region: "Fort Collins, CO",
       scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "Last Saturday of month per Half-Mind, biweekly per calendar",
       description: "Fort Collins biweekly Saturday hash. Trail #305+ and counting.",
@@ -2180,7 +2180,7 @@ async function main() {
       latitude: 39.76, longitude: -84.19,
     },
     {
-      kennelCode: "mvh3-day", shortName: "MVH3", fullName: "Miami Valley Hash House Harriers", region: "Dayton, OH",
+      kennelCode: "mvh3-day", shortName: "Miami Valley H3", fullName: "Miami Valley Hash House Harriers", region: "Dayton, OH",
       facebookUrl: "https://www.facebook.com/groups/1703366143261426",
       description: "Dayton-area kennel spawned from DH3.",
       latitude: 39.76, longitude: -84.19,
@@ -2210,7 +2210,7 @@ async function main() {
       latitude: 39.10, longitude: -84.51,
     },
     {
-      kennelCode: "lvh3-cin", shortName: "LVH3", fullName: "Licking Valley Hash House Harriers", region: "Cincinnati, OH",
+      kennelCode: "lvh3-cin", shortName: "Licking Valley H3", fullName: "Licking Valley Hash House Harriers", region: "Cincinnati, OH",
       facebookUrl: "https://www.facebook.com/Licking-Valley-Hash-House-Harriers-841860922532429/",
       scheduleFrequency: "Monthly",
       hashCash: "$8",
@@ -2280,7 +2280,7 @@ async function main() {
     "ih3": ["IH3", "Ithaca Hash", "Ithaca HHH", "Ithaca H3"],
     "flour-city": ["Flour City", "FCH3", "FCHHH", "Flour City Hash", "Rochester Hash", "Flour City HHH"],
     "bh3": ["BH3", "Buffalo Hash", "Hash in the Buff", "Buffalo HHH"],
-    "hvh3-ny": ["HVH3 NY", "Hudson Valley Hash", "HV H3", "Hudson Valley HHH"],
+    "hvh3-ny": ["HVH3 NY", "Hudson Valley Hash", "HV H3", "Hudson Valley HHH", "HVH3"],
     // Pennsylvania (outside Philly)
     "pgh-h3": ["PGH H3", "Pittsburgh Hash", "PGH", "Pittsburgh HHH"],
     "ich3": ["ICH3", "Iron City Hash", "Iron City", "Iron City HHH"],
@@ -2300,7 +2300,7 @@ async function main() {
     // North Carolina
     "swh3": ["SWH3", "Sir Walter's", "Sir Walters", "Sir Walter's Hash", "Sir Walters Hash"],
     "larrikins": ["Larrikins", "Carolina Larrikins", "CLH3", "Larrikins H3"],
-    "ch3-nc": ["CH3 NC", "Charlotte Hash", "Charlotte HHH", "Charlotte H3"],
+    "ch3-nc": ["CH3 NC", "Charlotte Hash", "Charlotte HHH", "Charlotte H3", "CH3"],
     "avlh3": ["AVLH3", "Asheville Hash", "AVL Hash", "Asheville HHH"],
     "cfh3": ["CFH3", "Cape Fear Hash", "Cape Fear", "Cape Fear HHH"],
     "ctrh3": ["CTrH3", "Carolina Trash", "Carolina Trash Hash", "Fayetteville Hash"],
@@ -2335,12 +2335,12 @@ async function main() {
     "asssh3": ["ASSSH3", "ASSS H3", "All Seasons Summit Shiggy"],
     "rumson": ["RH3", "Rumson H3", "Rumson Hash", "Rumson HHH"],
     // Chicago area
-    "ch3": ["Chicago Hash", "Chicago H3", "CHH3"],
-    "th3": ["Thirstday", "Thirstday Hash", "Thirstday H3", "Thursday Hash"],
+    "ch3": ["Chicago Hash", "Chicago H3", "CHH3", "CH3"],
+    "th3": ["Thirstday", "Thirstday Hash", "Thirstday H3", "Thursday Hash", "TH3"],
     "cfmh3": ["Chicago Full Moon", "Chicago Full Moon Hash", "Chicago Moon Hash"],
     "fcmh3": ["First Crack", "First Crack H3", "First Crack of the Moon", "New Moon Hash"],
     "bdh3": ["Big Dogs", "Big Dogs H3", "Big Dogs Hash"],
-    "bmh3": ["Bushman", "Bushman H3", "Bushman Hash", "The Greatest Hash"],
+    "bmh3": ["Bushman", "Bushman H3", "Bushman Hash", "The Greatest Hash", "BMH3"],
     "2ch3": ["Second City", "Second City H3", "Second City Hash"],
     "wwh3": ["Whiskey Wednesday", "Whiskey Wednesday Hash", "WWW H3"],
     "4x2h4": ["4x2 H4", "Four by Two H4", "4x2 Hash", "Four by Two"],
@@ -2349,7 +2349,7 @@ async function main() {
     // DC / DMV area
     "ewh3": ["Everyday is Wednesday", "Every Day is Wednesday"],
     "shith3": ["SHIT H3", "S.H.I.T. H3", "So Happy It's Tuesday"],
-    "cch3": ["Charm City", "Charm City Hash", "Charm City H3"],
+    "cch3": ["Charm City", "Charm City Hash", "Charm City H3", "CCH3"],
     "w3h3": ["Wild and Wonderful Wednesday"],
     "dch4": ["DC Harriettes", "DC Harriettes and Harriers", "Harriettes and Harriers"],
     "wh4": ["White House Hash", "White House H3", "White House"],
@@ -2363,7 +2363,7 @@ async function main() {
     "smuttycrab": ["SMUTTy Crab", "SMUTT", "Smutty Crab H3"],
     "hillbillyh3": ["Hillbilly Hash", "Hillbilly H3"],
     "dcrt": ["DC Red Tent", "Red Tent H3", "Red Tent Harriettes"],
-    "h4": ["Hangover Hash", "Hangover H3", "Hangover"],
+    "h4": ["Hangover Hash", "Hangover H3", "Hangover", "H4"],
     "fuh3": ["Fredericksburg Urban Hash", "FXBG H3"],
     "dcph4": ["DC Powder Pedal Paddle"],
     // San Francisco Bay Area
@@ -2381,14 +2381,14 @@ async function main() {
     "mwh3": ["Muir Woods H3", "Muir Woods Hash", "Muir Woods"],
     "262h3": ["Marathon Hash", "Marathon H3", "26.2 Hash"],
     // London, UK
-    "lh3": ["London Hash", "London H3", "London Hash House Harriers"],
+    "lh3": ["London Hash", "London H3", "London Hash House Harriers", "LH3"],
     "cityh3": ["City Hash", "City H3"],
     "wlh3": ["West London Hash", "West London H3", "WLH"],
     "barnesh3": ["Barnes Hash", "Barnes H3"],
     "och3": ["Old Coulsdon", "Old Coulsdon Hash", "OC Hash"],
     "slh3": ["SLASH", "SLAH3", "South London Hash"],
     "fukfm": ["FUKFMH3", "FUK Full Moon", "First UK Full Moon"],
-    "eh3": ["Enfield Hash", "Enfield H3"],
+    "eh3": ["Enfield Hash", "Enfield H3", "EH3"],
     "ch4": ["Catch the Hare", "CTH"],
     "cunth3": ["CUNT H3", "Currently Unnamed North Thames"],
     // Ireland
@@ -2396,10 +2396,10 @@ async function main() {
     // Texas
     "ah3": ["Austin Hash", "Austin H3", "AH3", "Austin HHH"],
     "kawh3": ["Keep Austin Weird", "KAW!H3", "KAW H3", "KAWH3", "Keep Austin Weird Hash"],
-    "h4-tx": ["Houston Hash", "Houston H3", "H4 Houston", "Houston HHH", "H-Town Hash"],
+    "h4-tx": ["Houston Hash", "Houston H3", "H4 Houston", "Houston HHH", "H-Town Hash", "H4"],
     "bmh3-tx": ["Brass Monkey", "Brass Monkey H3", "Brass Monkey Hash", "Team Brass Monkey"],
     "mosquito-h3": ["Mosquito Hash", "Mosquito H3", "Mosquito HHH"],
-    "dh3-tx": ["Dallas Hash", "Dallas H3", "DH3 Dallas", "Dallas HHH"],
+    "dh3-tx": ["Dallas Hash", "Dallas H3", "DH3 Dallas", "Dallas HHH", "DH3"],
     "duhhh": ["Dallas Urban Hash", "DUHHH", "DUH H3", "Dallas Urban"],
     "noduhhh": ["NODUHHH", "North Dallas Hash", "North of Dallas Urban", "NoDUHHH"],
     "fwh3": ["Fort Worth Hash", "Fort Worth H3", "FWH3", "Ft Worth Hash"],
@@ -2420,9 +2420,9 @@ async function main() {
     "nsah3": ["No Strings Hash", "NSA Hash"],
     "lush": ["LUSH Hash", "Sun-Coast Hashers"],
     "b2b-h3": ["Bay 2 Beaches", "B2B Hash"],
-    "lh3-fl": ["Lakeland Hash"],
+    "lh3-fl": ["Lakeland Hash", "LH3"],
     "barf-h3": ["BARF Hash", "Bay Area Frolic", "BARF H3"],
-    "sbh3": ["Spring Brooks Hash", "SB H3"],
+    "sbh3": ["Spring Brooks Hash", "SB H3", "SBH3"],
     "tth3-fl": ["Taco Tuesday Hash", "Taco Tuesday H3"],
     "o2h3": ["Other Orlando", "Other Orlando Hash", "O2H3 Hash", "Orlando Hash"],
     "okissme-h3": ["OKissMe Hash", "Kissimmee Hash"],
@@ -2445,7 +2445,7 @@ async function main() {
     "sluth3": ["SLUT Hash", "Short Lazy Urban Thursday"],
     "duffh3": ["DUFF Hash", "DUFF H3"],
     "soco-h3": ["Southern Coven", "SoCo Hash", "SoCo H3"],
-    "sch3-atl": ["Southern Comfort Hash", "Southern Comfort H3", "SCH3 ATL"],
+    "sch3-atl": ["Southern Comfort Hash", "Southern Comfort H3", "SCH3 ATL", "SCH3"],
     "hmh3": ["Hog Mountain Hash", "Hog Mountain H3"],
     "cunth3-atl": ["C U Next Tuesday", "CUNT Hash ATL"],
     "dsh3-atl": ["Dark Side Hash", "Dark Side H3", "DSH3 ATL"],
@@ -2453,11 +2453,11 @@ async function main() {
     "pfh3": ["Peach Fuzz Hash", "Peach Fuzz H3"],
     "augh3": ["Augusta Underground", "Augusta Hash", "AUG H3"],
     "mgh4": ["Middle Georgia Hash", "Middle GA H3", "MGH4 Hash"],
-    "w3h3-ga": ["Wednesday Wednesday Wednesday", "W3H3 Macon", "WWW H3 GA"],
+    "w3h3-ga": ["Wednesday Wednesday Wednesday", "W3H3 Macon", "WWW H3 GA", "W3H3"],
     "cvh3": ["Chattahoochee Valley Hash", "Columbus Hash", "CV H3"],
     "r2h3": ["Rumblin Roman Hash", "Rome Hash", "R2H3 Hash"],
     // South Carolina
-    "ch3-sc": ["Charleston Hash", "Charleston H3", "Charleston HHH", "CSCH3"],
+    "ch3-sc": ["Charleston Hash", "Charleston H3", "Charleston HHH", "CSCH3", "CH3"],
     "chh3": ["Charleston Heretics", "Charleston Happy Heretics", "Charleston Heretics H3", "Happy Heretics"],
     "budh3": ["Beaufort Ugly Dog", "Beaufort H3", "BUD H3"],
     "colh3": ["Columbian H3", "Columbian Hash", "Columbia H3", "Columbia Hash"],
@@ -2675,19 +2675,19 @@ async function main() {
       scrapeDays: 365,
       config: {
         kennelPatterns: [
-          ["CH3|Chicago Hash|Chicago H3", "CH3"],
-          ["TH3|Thirstday|Thursday Hash", "TH3"],
+          ["CH3|Chicago Hash|Chicago H3", "Chicago H3"],
+          ["TH3|Thirstday|Thursday Hash", "Thirstday H3"],
           ["CFMH3|Chicago Full Moon|Full Moon Hash|Full Moon H3|Moon Hash", "CFMH3"],
           ["FCMH3|First Crack", "FCMH3"],
           ["BDH3|Big Dogs", "BDH3"],
-          ["BMH3|Bushman", "BMH3"],
+          ["BMH3|Bushman", "Bushman H3"],
           ["2CH3|Second City", "2CH3"],
           ["WWH3|Whiskey Wednesday", "WWH3"],
           ["4X2|4x2", "4X2H4"],
           ["RTH3|Ragtime", "RTH3"],
           ["DLH3|Duneland|South Shore", "DLH3"],
         ],
-        defaultKennelTag: "CH3",
+        defaultKennelTag: "Chicago H3",
       },
       kennelCodes: ["ch3", "th3", "cfmh3", "fcmh3", "bdh3", "bmh3", "2ch3", "wwh3", "4x2h4", "rth3", "dlh3"],
     },
@@ -2865,10 +2865,10 @@ async function main() {
       scrapeDays: 180,
       config: {
         kennelPatterns: [
-          ["^CCH3", "CCH3"],
-          ["^Trail\\s*#", "CCH3"],
+          ["^CCH3", "Charm City H3"],
+          ["^Trail\\s*#", "Charm City H3"],
         ],
-        defaultKennelTag: "CCH3",
+        defaultKennelTag: "Charm City H3",
         titleHarePattern: "~\\s*(.+)$",
       },
       kennelCodes: ["cch3"],
@@ -2934,7 +2934,7 @@ async function main() {
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
-        kennelSlugs: ["BFMH3", "EWH3", "WH4", "GFH3", "CH3", "DCH4", "DCFMH3", "FCH3", "OregonH3"],
+        kennelSlugs: ["BFMH3", "EWH3", "WH4", "GFH3", "Chicago H3", "DCH4", "DCFMH3", "FCH3", "OregonH3"],
       },
       kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3", "oh3"],
     },
@@ -2976,7 +2976,7 @@ async function main() {
         kennelPatterns: [
           ["Mosquito", "Mosquito H3"],
         ],
-        defaultKennelTag: "H4",
+        defaultKennelTag: "Houston H3",
       },
       kennelCodes: ["h4-tx", "mosquito-h3"],
     },
@@ -3056,7 +3056,7 @@ async function main() {
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "FCH3",
+        defaultKennelTag: "Flour City H3",
       },
       kennelCodes: ["flour-city"],
     },
@@ -3102,7 +3102,7 @@ async function main() {
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "BH3",
+        defaultKennelTag: "Buffalo H3",
       },
       kennelCodes: ["bh3"],
     },
@@ -3116,7 +3116,7 @@ async function main() {
       scrapeDays: 90,
       config: {
         groupUrlname: "Hudson-Valley-Hash-House-Harriers",
-        kennelTag: "HVH3",
+        kennelTag: "Hudson Valley H3",
       },
       kennelCodes: ["hvh3-ny"],
     },
@@ -3209,7 +3209,7 @@ async function main() {
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "H4" },
+      config: { defaultKennelTag: "Hockessin H3" },
       kennelCodes: ["hockessin"],
     },
     // ===== VIRGINIA (outside DC metro) =====
@@ -3305,7 +3305,7 @@ async function main() {
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "TH3",
+        kennelTag: "Tidewater H3",
         rrule: "FREQ=WEEKLY;BYDAY=SU",
         startTime: "14:00",
         defaultTitle: "Tidewater H3 Weekly Run",
@@ -3580,7 +3580,7 @@ async function main() {
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "SCH3",
+        kennelTag: "Southern Comfort H3",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=FR",
         anchorDate: "2026-03-06",
         startTime: "19:00",
@@ -3688,7 +3688,7 @@ async function main() {
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "W3H3",
+        kennelTag: "Wed Wed Wed H3",
         rrule: "FREQ=WEEKLY;BYDAY=WE",
         anchorDate: "2026-03-04",
         startTime: "18:30",
@@ -4117,7 +4117,7 @@ async function main() {
       scrapeDays: 365,
       config: {
         calendarId: "898ddb527b83d7944c788bfbdb4074be5ee3c5ddf380acbdb206abd2861d6dc2@group.calendar.google.com",
-        defaultKennelTag: "SWH3",
+        defaultKennelTag: "Portland SWH3",
       },
       kennelCodes: ["swh3-or"],
     },
@@ -4156,7 +4156,7 @@ async function main() {
       scrapeDays: 365,
       config: {
         calendarId: "8b593752049f42f9aca8fb04197bfb25d7f4148db8c314991e842bbf6b4ea303@group.calendar.google.com",
-        defaultKennelTag: "EH3",
+        defaultKennelTag: "Eugene H3",
       },
       kennelCodes: ["eh3-or"],
     },
@@ -4187,9 +4187,9 @@ async function main() {
           ["^SH3\\b|Seattle H3", "SH3"],
           ["^PSH3\\b|Puget Sound", "PSH3"],
           ["^NBH3\\b|No Balls", "NBH3"],
-          ["^RCH3\\b|Rain City", "RCH3"],
+          ["^RCH3\\b|Rain City", "Rain City H3"],
           ["SeaMon", "SeaMon"],
-          ["^TH3\\b|Tacoma H3|^Tacoma", "TH3"],
+          ["^TH3\\b|Tacoma H3|^Tacoma", "Tacoma H3"],
           ["^SSH3\\b|South Sound", "SSH3"],
           ["CUNTh", "CUNTh"],
           ["Taint", "Taint"],
@@ -4251,7 +4251,7 @@ async function main() {
         gid: 0,
         skipRows: 2,
         columns: { runNumber: 0, date: 1, hares: 2, title: 3, location: -1 },
-        kennelTagRules: { default: "RCH3" },
+        kennelTagRules: { default: "Rain City H3" },
       },
       kennelCodes: ["rch3-wa"],
     },
@@ -4335,7 +4335,7 @@ async function main() {
       trustLevel: 7,
       scrapeFreq: "weekly",
       scrapeDays: 90,
-      config: { defaultKennelTag: "FCH3" },
+      config: { defaultKennelTag: "Fort Collins H3" },
       kennelCodes: ["fch3-co"],
     },
     // --- Colorado Springs H3 (Google Calendar — multi-kennel) ---
@@ -4581,7 +4581,7 @@ async function main() {
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "MVH3",
+        defaultKennelTag: "Miami Valley H3",
       },
       kennelCodes: ["mvh3-day"],
     },
@@ -4630,7 +4630,7 @@ async function main() {
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "LVH3",
+        defaultKennelTag: "Licking Valley H3",
       },
       kennelCodes: ["lvh3-cin"],
     },
