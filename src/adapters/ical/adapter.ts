@@ -412,10 +412,12 @@ export class ICalAdapter implements SourceAdapter {
     source: Source,
     options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const lookbackDays = options?.days ?? 90;
-    // Use source.scrapeDays for forward window — iCal feeds often publish events
-    // months in advance (e.g., Charm City H3 lists events 6+ months out)
-    const lookforwardDays = source.scrapeDays ?? options?.days ?? 365;
+    // Fixed 90-day lookback for historical events; use source.scrapeDays for
+    // forward window — iCal feeds often publish events 6+ months in advance.
+    // Note: scrapeSource() passes source.scrapeDays as options.days, so we read
+    // source.scrapeDays directly to avoid the symmetric window that would create.
+    const lookbackDays = 90;
+    const lookforwardDays = source.scrapeDays ?? 365;
     const fetchStart = Date.now();
 
     const now = new Date();
