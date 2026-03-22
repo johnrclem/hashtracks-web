@@ -394,12 +394,14 @@ export async function getUnmatchedStravaActivities(): Promise<
     const earliest = new Date(Math.min(...attDates));
     const latest = new Date(Math.max(...attDates));
 
-    // Get unmatched, non-dismissed Strava activities within date range
+    // Get unmatched, non-dismissed running Strava activities within date range
     const activities = await prisma.stravaActivity.findMany({
       where: {
         stravaConnectionId: connection.id,
         matchedAttendanceId: null,
         matchDismissed: false,
+        sportType: { in: SCOREABLE_SPORTS_ARRAY },
+        distanceMeters: { gte: 1000 },
         dateLocal: {
           gte: earliest.toISOString().substring(0, 10),
           lte: latest.toISOString().substring(0, 10),

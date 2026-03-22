@@ -52,13 +52,15 @@ describe("scoreMatch", () => {
     expect(score.total).toBeGreaterThan(0);
   });
 
-  it("returns 0 for generic activity names (nameScore gate)", () => {
+  it("scores low for generic activity names (filtered by threshold in suggestions)", () => {
     const score = scoreMatch(
       { activityName: "Morning Run", stravaSportType: "Run", stravaTimeLocal: null },
       "BH3",
       null,
     );
-    expect(score.total).toBe(0);
+    // Generic names still score (for findBestMatchIndex) but below suggestion threshold (2.0)
+    expect(score.total).toBeLessThan(2.0);
+    expect(score.total).toBeGreaterThan(0);
   });
 
   it("returns breakdown with geoKm when coords provided", () => {

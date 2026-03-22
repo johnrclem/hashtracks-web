@@ -482,9 +482,9 @@ function SuggestionCard({
         {/* Line 2: Match reasons */}
         {reasons.length > 0 && (
           <div className="flex gap-1 flex-wrap">
-            {reasons.map((reason, i) => (
+            {reasons.map((reason) => (
               <span
-                key={i}
+                key={reason}
                 className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                   reason.startsWith("Same") || reason.startsWith("Within")
                     ? "bg-emerald-50 text-emerald-700"

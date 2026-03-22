@@ -53,8 +53,9 @@ export function scoreMatch(
   // 1. Name match (0–1, weighted 3x)
   const nameScore = fuzzyNameMatch(activity.activityName, kennelShortName);
 
-  // Early exit: generic names like "Afternoon Run" should not match anything
-  if (nameScore < 0.15) return ZERO_BREAKDOWN;
+  // Low name scores get scored but won't pass the suggestion threshold (2.0).
+  // We still compute the full breakdown so findBestMatchIndex can rank by time/geo
+  // even when all candidates have generic names like "Afternoon Run".
 
   // 2. Geo proximity (0–1, weighted 2x)
   let geoScore = 0; // no coords = no credit
