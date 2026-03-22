@@ -1126,17 +1126,29 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -106.49,
     aliases: ["El Paso, TX", "El Paso, Texas"],
   },
-  // ── US Upper Midwest ──
+  // ── US Midwest ──
+  {
+    name: "Minnesota",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Chicago",
+    abbrev: "MN",
+    colorClasses: "bg-sky-200 text-sky-800",
+    pinColor: "#0284c7",
+    centroidLat: 46.73,
+    centroidLng: -94.69,
+    aliases: ["MN"],
+  },
   {
     name: "Minneapolis, MN",
     country: "USA",
     timezone: "America/Chicago",
-    abbrev: "MSP",
-    colorClasses: "bg-blue-100 text-blue-700",
-    pinColor: "#3b82f6",
+    abbrev: "MPLS",
+    colorClasses: "bg-sky-100 text-sky-700",
+    pinColor: "#38bdf8",
     centroidLat: 44.98,
     centroidLng: -93.27,
-    aliases: ["Minnesota", "Minneapolis, Minnesota", "Twin Cities"],
+    aliases: ["Minneapolis, Minnesota", "Twin Cities", "Minneapolis\u2013Saint Paul"],
   },
   // ── US Southeast — Florida ──
   {

@@ -264,6 +264,8 @@ export function buildRawEventFromGCalItem(
   if (item.status === "cancelled") return null;
   if (!item.summary) return null;
   if (!item.start?.dateTime && !item.start?.date) return null;
+  // Skip all-day events — travel blocks, holidays, multi-day markers, not trail runs
+  if (item.start?.date && !item.start?.dateTime) return null;
 
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start);
   if (!dateISO) return null;
