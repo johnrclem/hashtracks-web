@@ -87,10 +87,10 @@ function OverflowPopover({ dayEvents, cellDate, onNavigate }: Readonly<{
             key={ev.id}
             onClick={() => onNavigate(ev.id)}
             className="flex w-full flex-col rounded border-l-2 px-2 py-1 text-left text-xs hover:bg-muted"
-            style={{ borderLeftColor: getRegionColor(ev.kennel.region) }}
+            style={{ borderLeftColor: ev.kennel?.region ? getRegionColor(ev.kennel.region) : "#6b7280" }}
           >
             <div className="flex items-center gap-1.5">
-              <span className="truncate font-medium">{ev.kennel.shortName}</span>
+              <span className="truncate font-medium">{ev.kennel?.shortName}</span>
               {ev.startTime && <span className="ml-auto shrink-0 text-muted-foreground">{formatTimeCompact(ev.startTime)}</span>}
             </div>
             {ev.title && <span className="truncate text-[11px] text-muted-foreground">{ev.title}</span>}
