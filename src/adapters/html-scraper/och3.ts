@@ -205,7 +205,7 @@ export function parseEventsPage(html: string, baseUrl: string): RawEventData[] {
   // words (e.g., "Barnes H3 (Wednesday evenings)") that chrono misparses as dates.
   const eventsPara = $("div.paragraph").filter((_i, el) =>
     /^OCH3 Events$/i.test($(el).find("strong").first().text().trim()),
-  );
+  ).first();
   eventsPara.find("li").each((_i, el) => {
     const fullText = $(el).text().trim();
     if (!fullText) return;
