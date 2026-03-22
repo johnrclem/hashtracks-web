@@ -65,6 +65,10 @@ function mockFetchResponse(html: string) {
 const HARELINE_HTML = `<html><body>
 <dl>
   <dt class="hashEvent SDH3">
+    <span style="float:right;margin-right:5px;white-space:nowrap">
+      <a href="/e/event-20260320180000.shtml"><img src="/site_images/event.png"></a>
+      <a href="https://maps.app.goo.gl/abc123">View Map</a>
+    </span>
     <strong>San Diego H3</strong>
     <span style="white-space:nowrap">Friday, March 20, 2026 6:00pm</span>
     <div>
@@ -78,6 +82,10 @@ const HARELINE_HTML = `<html><body>
     </div>
   </dt>
   <dt class="hashEvent IRH3">
+    <span style="float:right;margin-right:5px;white-space:nowrap">
+      <a href="/e/event-20260321150000.shtml"><img src="/site_images/event.png"></a>
+      <a href="#">View Map</a>
+    </span>
     <strong>Iron Rule H3</strong>
     <span style="white-space:nowrap">Saturday, March 21, 2026 3:00pm</span>
     <div>
@@ -85,6 +93,10 @@ const HARELINE_HTML = `<html><body>
     </div>
   </dt>
   <dt class="hashEvent UNKN">
+    <span style="float:right;margin-right:5px;white-space:nowrap">
+      <a href="/e/event-20260322160000.shtml"><img src="/site_images/event.png"></a>
+      <a href="#">View Map</a>
+    </span>
     <strong>Unknown Kennel</strong>
     <span style="white-space:nowrap">Sunday, March 22, 2026 4:00pm</span>
     <div></div>
@@ -254,6 +266,7 @@ describe("parseHarelineEvents", () => {
       hares: "Trail Blazer & Lost Cause",
       location: "123 Main St, San Diego, CA",
       locationUrl: "https://maps.app.goo.gl/abc123",
+      sourceUrl: "https://sdh3.com/e/event-20260320180000.shtml",
     });
     expect(sdh3Event?.description).toContain("Hash Cash: $7");
     expect(sdh3Event?.description).toContain("Trail: A to A");
@@ -288,6 +301,35 @@ describe("parseHarelineEvents", () => {
     // "UNKN" is not in the config, so it should be skipped
     expect(events).toHaveLength(2);
     expect(events.every((e) => e.kennelTag !== "UNKN")).toBe(true);
+  });
+
+  it("extracts sourceUrl from the float-right span event link", () => {
+    const events = parseHarelineEvents(HARELINE_HTML, config);
+    const sdh3Event = events.find((e) => e.kennelTag === "SDH3");
+    expect(sdh3Event?.sourceUrl).toBe(
+      "https://sdh3.com/e/event-20260320180000.shtml",
+    );
+    const irh3Event = events.find((e) => e.kennelTag === "IRH3");
+    expect(irh3Event?.sourceUrl).toBe(
+      "https://sdh3.com/e/event-20260321150000.shtml",
+    );
+  });
+
+  it("correctly parses date when 'View Map' float span precedes date span", () => {
+    // Regression: the float:right span also contains "white-space" in its style,
+    // so a substring selector would match it first, yielding "View Map" as dateText.
+    const html = `<html><body><dl>
+      <dt class="hashEvent SDH3">
+        <span style="float:right;margin-right:5px;white-space:nowrap">View Map</span>
+        <strong>San Diego H3</strong>
+        <span style="white-space:nowrap">Sunday, March 22, 2026 10:00am</span>
+        <div><span>Tutu Hash<br>Hare(s): Test Hare<br>Address: 123 Park St, San Diego</span></div>
+      </dt>
+    </dl></body></html>`;
+    const events = parseHarelineEvents(html, config);
+    expect(events).toHaveLength(1);
+    expect(events[0].date).toBe("2026-03-22");
+    expect(events[0].startTime).toBe("10:00");
   });
 });
 
@@ -430,6 +472,10 @@ describe("SDH3Adapter", () => {
     const harelineWithOverlap = `<html><body>
 <dl>
   <dt class="hashEvent SDH3">
+    <span style="float:right;margin-right:5px;white-space:nowrap">
+      <a href="/e/event-20061203183000.shtml"><img src="/site_images/event.png"></a>
+      <a href="#">View Map</a>
+    </span>
     <strong>San Diego H3</strong>
     <span style="white-space:nowrap">Sunday, December 3, 2006 6:30pm</span>
     <div>
@@ -503,11 +549,19 @@ describe("SDH3Adapter", () => {
     const farFutureHareline = `<html><body>
 <dl>
   <dt class="hashEvent SDH3">
+    <span style="float:right;margin-right:5px;white-space:nowrap">
+      <a href="/e/event-20990320180000.shtml"><img src="/site_images/event.png"></a>
+      <a href="#">View Map</a>
+    </span>
     <strong>San Diego H3</strong>
     <span style="white-space:nowrap">Friday, March 20, 2099 6:00pm</span>
     <div><strong>Hare(s):</strong> Future Hare</div>
   </dt>
   <dt class="hashEvent SDH3">
+    <span style="float:right;margin-right:5px;white-space:nowrap">
+      <a href="/e/event-20260320180000.shtml"><img src="/site_images/event.png"></a>
+      <a href="#">View Map</a>
+    </span>
     <strong>San Diego H3</strong>
     <span style="white-space:nowrap">Friday, March 20, 2026 6:00pm</span>
     <div><strong>Hare(s):</strong> Current Hare</div>
