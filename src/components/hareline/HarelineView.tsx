@@ -378,7 +378,7 @@ export function HarelineView({
 
   // Expand state-level region selections to metro names (stable ref via useMemo)
   const regionsByState = useMemo(
-    () => groupRegionsByState(events.map((e) => e.kennel.region)),
+    () => groupRegionsByState(events.map((e) => e.kennel?.region).filter(Boolean) as string[]),
     [events],
   );
   const expandedRegions = useMemo(
