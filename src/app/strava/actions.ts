@@ -48,6 +48,7 @@ function findBestEventMatch<
     startTime: string | null;
     latitude: number | null;
     longitude: number | null;
+    timezone?: string | null;
   },
 >(
   activity: {
@@ -56,6 +57,7 @@ function findBestEventMatch<
     timeLocal: string | null;
     startLat: number | null;
     startLng: number | null;
+    timezone?: string | null;
   },
   candidates: T[],
   threshold = 2.0,
@@ -71,11 +73,13 @@ function findBestEventMatch<
         stravaTimeLocal: activity.timeLocal,
         startLat: activity.startLat,
         startLng: activity.startLng,
+        timezone: activity.timezone,
       },
       ev.kennel.shortName,
       ev.startTime,
       ev.latitude,
       ev.longitude,
+      ev.timezone,
     );
     if (breakdown.total > bestScore) {
       bestScore = breakdown.total;
@@ -423,6 +427,7 @@ export async function getUnmatchedStravaActivities(): Promise<
         movingTimeSecs: true,
         stravaActivityId: true,
         city: true,
+        timezone: true,
       },
     });
 
@@ -681,6 +686,7 @@ export async function getStravaEventSuggestions(): Promise<
         city: true,
         startLat: true,
         startLng: true,
+        timezone: true,
       },
     });
 
@@ -709,6 +715,7 @@ export async function getStravaEventSuggestions(): Promise<
         locationName: true,
         latitude: true,
         longitude: true,
+        timezone: true,
         kennel: { select: { shortName: true, fullName: true, slug: true, region: true } },
       },
     });
@@ -849,6 +856,7 @@ export async function getStravaBackfillActivities(): Promise<
         city: true,
         startLat: true,
         startLng: true,
+        timezone: true,
         matchedAttendanceId: true,
         matchDismissed: true,
       },
@@ -889,6 +897,7 @@ export async function getStravaBackfillActivities(): Promise<
               startTime: true,
               latitude: true,
               longitude: true,
+              timezone: true,
               kennel: { select: { shortName: true, fullName: true } },
             },
           })

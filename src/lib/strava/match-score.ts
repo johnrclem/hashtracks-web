@@ -14,6 +14,7 @@ export interface ScoredActivity {
   stravaTimeLocal: string | null;
   startLat?: number | null;
   startLng?: number | null;
+  timezone?: string | null;
 }
 
 export interface ScoreBreakdown {
@@ -43,6 +44,7 @@ export function scoreMatch(
   eventStartTime: string | null,
   eventLat?: number | null,
   eventLng?: number | null,
+  eventTimezone?: string | null,
 ): ScoreBreakdown {
   // 1. Name match (0–1, weighted 3x)
   // Generic names like "Afternoon Run" carry zero kennel-identity signal
@@ -70,11 +72,20 @@ export function scoreMatch(
   }
 
   // 3. Time proximity (0–1): how close is the activity time to the event start time?
+  // When both timezones are known and differ, normalize to UTC before comparing.
   let timeScore = 0.3; // default when no times available
   if (eventStartTime && activity.stravaTimeLocal) {
-    const eventMins = timeToMinutes(eventStartTime);
-    const activityMins = timeToMinutes(activity.stravaTimeLocal);
+    let eventMins = timeToMinutes(eventStartTime);
+    let activityMins = timeToMinutes(activity.stravaTimeLocal);
     if (eventMins !== null && activityMins !== null) {
+      // Normalize to UTC if both timezones are available and different
+      const actTz = parseStravaTimezone(activity.timezone);
+      if (actTz && eventTimezone && actTz !== eventTimezone) {
+        const actOffset = getTimezoneOffsetMinutes(actTz);
+        const evtOffset = getTimezoneOffsetMinutes(eventTimezone);
+        activityMins = ((activityMins - actOffset) % 1440 + 1440) % 1440;
+        eventMins = ((eventMins - evtOffset) % 1440 + 1440) % 1440;
+      }
       const diffMins = Math.abs(eventMins - activityMins);
       // 0 diff = 1.0, 120+ min diff = 0.0
       timeScore = Math.max(0, 1 - diffMins / 120);
@@ -100,12 +111,13 @@ export function findBestMatchIndex(
   eventStartTime: string | null,
   eventLat?: number | null,
   eventLng?: number | null,
+  eventTimezone?: string | null,
 ): number {
   if (activities.length === 0) return 0;
   let bestIdx = 0;
   let bestScore = -1;
   for (let i = 0; i < activities.length; i++) {
-    const s = scoreMatch(activities[i], kennelShortName, eventStartTime, eventLat, eventLng);
+    const s = scoreMatch(activities[i], kennelShortName, eventStartTime, eventLat, eventLng, eventTimezone);
     if (s.total > bestScore) {
       bestScore = s.total;
       bestIdx = i;
@@ -119,4 +131,33 @@ export function timeToMinutes(time: string): number | null {
   const match = /^(\d{1,2}):(\d{2})$/.exec(time);
   if (!match) return null;
   return Number.parseInt(match[1], 10) * 60 + Number.parseInt(match[2], 10);
+}
+
+/**
+ * Extract IANA timezone from Strava's format: "(GMT-05:00) America/New_York"
+ * Returns null if the string doesn't match the expected format.
+ */
+export function parseStravaTimezone(raw?: string | null): string | null {
+  if (!raw) return null;
+  const match = raw.match(/\)\s*(.+)$/);
+  return match?.[1]?.trim() ?? null;
+}
+
+/**
+ * Get the UTC offset in minutes for a given IANA timezone.
+ * Positive means ahead of UTC (e.g., +60 for CET), negative means behind (e.g., -300 for EST).
+ * Uses a fixed reference date to get a consistent offset.
+ */
+export function getTimezoneOffsetMinutes(tz: string): number {
+  try {
+    // Use a fixed reference point to get consistent offset
+    const refDate = new Date("2026-06-15T12:00:00Z");
+    const utcStr = refDate.toLocaleString("en-US", { timeZone: "UTC" });
+    const localStr = refDate.toLocaleString("en-US", { timeZone: tz });
+    const utcTime = new Date(utcStr).getTime();
+    const localTime = new Date(localStr).getTime();
+    return Math.round((localTime - utcTime) / 60000);
+  } catch {
+    return 0; // Fallback: treat as UTC if timezone is invalid
+  }
 }

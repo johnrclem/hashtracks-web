@@ -136,6 +136,35 @@ export async function syncStravaActivities(
       : Promise.resolve(),
   ]);
 
+  // Backfill city for any updated activities that still have null city
+  // (e.g., originally synced before city backfill was added)
+  if (toUpdate.length > 0) {
+    const needsCity = await prisma.stravaActivity.findMany({
+      where: {
+        stravaActivityId: { in: toUpdate.map((p) => p.stravaActivityId) },
+        city: null,
+        NOT: { startLat: null, startLng: null },
+      },
+      select: { stravaActivityId: true, startLat: true, startLng: true, timezone: true },
+    });
+    if (needsCity.length > 0) {
+      // Convert to ParsedStravaActivity shape for backfillCities
+      const toBackfill = needsCity.map((a) => ({
+        stravaActivityId: a.stravaActivityId,
+        name: "",
+        sportType: "",
+        dateLocal: "",
+        timeLocal: null,
+        distanceMeters: 0,
+        movingTimeSecs: 0,
+        startLat: a.startLat,
+        startLng: a.startLng,
+        timezone: a.timezone,
+      }));
+      await backfillCities(toBackfill);
+    }
+  }
+
   const created = toCreate.length;
   const updated = toUpdate.length;
 
