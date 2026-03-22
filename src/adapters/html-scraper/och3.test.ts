@@ -300,7 +300,7 @@ describe("parseEventsPage", () => {
   });
 
   it("extracts venue from 'at The [Venue]' pattern for single-segment entries", () => {
-    const html = `<html><body><div class="paragraph"><ul>
+    const html = `<html><body><div class="paragraph"><strong>OCH3 Events</strong><ul>
       <li>23rd May 2026 - 2000th run and overnight stay at The Pheasantry.</li>
     </ul></div></body></html>`;
     const events = parseEventsPage(html, "http://test.com");
@@ -310,7 +310,7 @@ describe("parseEventsPage", () => {
   });
 
   it("skips items without parseable dates", () => {
-    const html = `<html><body><div class="paragraph"><ul>
+    const html = `<html><body><div class="paragraph"><strong>OCH3 Events</strong><ul>
       <li>Some non-date text about the club</li>
       <li>22nd March 2026 - Valid Event</li>
     </ul></div></body></html>`;
@@ -319,8 +319,35 @@ describe("parseEventsPage", () => {
     expect(events[0].title).toBe("Valid Event");
   });
 
+  it("does NOT parse kennel links as events", () => {
+    const html = `<html><body>
+      <div class="paragraph">
+        <strong>OCH3 Events</strong>
+        <ul>
+          <li>22nd March 2026 - Real Event - Some Venue</li>
+        </ul>
+      </div>
+      <div class="paragraph">
+        <strong>Links to local hashes and other groups</strong>
+        <ul>
+          <li><a href="http://www.barnesh3.com/">Barnes H3</a> (Wednesday evenings)</li>
+          <li><a href="http://www.brightonhash.co.uk/">Brighton H3</a> (Monday evenings)</li>
+          <li><a href="http://www.cityhash.org.uk/">City H3</a> (Tuesday evenings)</li>
+          <li><a href="https://www.facebook.com/groups/440707183531968">Crawley CRAP</a> (usually 1st Sunday of every month)</li>
+          <li><a href="http://westlondonhash.com/">West London H3</a> (Thursday evenings)</li>
+        </ul>
+      </div>
+    </body></html>`;
+    const events = parseEventsPage(html, "http://test.com");
+    // Only the 1 real event — not the 5 kennel links
+    expect(events).toHaveLength(1);
+    expect(events[0].date).toBe("2026-03-22");
+    const titles = events.map(e => e.title ?? "");
+    expect(titles.join(" ")).not.toMatch(/Barnes|Brighton|City|Crawley|West London/i);
+  });
+
   it("returns empty array for page without <li> items", () => {
-    const html = `<html><body><div class="paragraph"><p>No events listed</p></div></body></html>`;
+    const html = `<html><body><div class="paragraph"><strong>OCH3 Events</strong><p>No events listed</p></div></body></html>`;
     const events = parseEventsPage(html, "http://test.com");
     expect(events).toHaveLength(0);
   });
