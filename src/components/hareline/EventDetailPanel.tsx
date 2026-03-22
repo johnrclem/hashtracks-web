@@ -203,7 +203,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
 
       {/* Pinned action footer */}
       <div className="flex flex-wrap gap-2 border-t px-5 py-3">
-        <CalendarExportButton event={event} />
+        <CalendarExportButton event={{ ...event, kennel: event.kennel ?? { shortName: "" } }} />
         {event.sourceUrl && (
           <Button variant="outline" size="sm" asChild>
             <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer">
