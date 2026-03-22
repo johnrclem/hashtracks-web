@@ -212,7 +212,7 @@ export function parseHarelineEvents(
     // (informational, not used for resolution — kennelTag from CSS class is canonical)
 
     // Extract date/time from <span style="white-space:nowrap">
-    const dateSpan = $dt.find('span[style="white-space:nowrap"]').first();
+    const dateSpan = $dt.find("> strong").nextAll("span").first();
     const dateText = decodeEntities(dateSpan.text()).trim();
     if (!dateText) return;
 
