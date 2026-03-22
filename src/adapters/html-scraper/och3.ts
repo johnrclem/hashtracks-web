@@ -201,12 +201,12 @@ export function parseEventsPage(html: string, baseUrl: string): RawEventData[] {
 
     // Strip the date prefix to get remaining content
     const withoutDate = fullText
-      .replace(/^\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4}\s*-?\s*/i, "")
+      .replace(/^\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\s*-?\s*/i, "")
       .trim();
 
     // Split on " - " to extract title and venue
     const segments = withoutDate.split(/\s+-\s+/).map(s => s.trim()).filter(Boolean);
-    const title = segments[0] || undefined;
+    const title = segments[0]?.replace(/\.\s*$/, "").trim() || undefined;
 
     // Try to find venue: look for "From " prefix or last segment if it looks like a location
     let location: string | undefined;
@@ -390,21 +390,20 @@ export class OCH3Adapter implements SourceAdapter {
       warnings.push("Events page fetch failed; using run-list data only");
     } else {
       const eventsPageData = parseEventsPage(eventsResult.html, eventsUrl);
-      const existingDates = new Set(events.map(e => e.date));
+      // Build date→index map for O(1) lookup during merge
+      const dateToIdx = new Map(events.map((e, i) => [e.date, i]));
       for (const ep of eventsPageData) {
-        if (existingDates.has(ep.date)) {
+        const idx = dateToIdx.get(ep.date);
+        if (idx !== undefined) {
           // Enrich existing event with title/description/location from events page
-          const idx = events.findIndex(e => e.date === ep.date);
-          if (idx >= 0) {
-            if (ep.title && !events[idx].title) events[idx].title = ep.title;
-            if (ep.description && !events[idx].description) events[idx].description = ep.description;
-            if (ep.location && !events[idx].location) events[idx].location = ep.location;
-            eventsPageMerged++;
-          }
+          if (ep.title && !events[idx].title) events[idx].title = ep.title;
+          if (ep.description && !events[idx].description) events[idx].description = ep.description;
+          if (ep.location && !events[idx].location) events[idx].location = ep.location;
+          eventsPageMerged++;
         } else {
           // New special event not in run list
+          dateToIdx.set(ep.date, events.length);
           events.push(ep);
-          existingDates.add(ep.date);
           eventsPageMerged++;
         }
       }
