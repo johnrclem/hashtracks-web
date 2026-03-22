@@ -139,8 +139,11 @@ export function timeToMinutes(time: string): number | null {
  */
 export function parseStravaTimezone(raw?: string | null): string | null {
   if (!raw) return null;
-  const match = raw.match(/\)\s*(.+)$/);
-  return match?.[1]?.trim() ?? null;
+  // Strava format: "(GMT-05:00) America/New_York" — extract the IANA part after ") "
+  const idx = raw.indexOf(") ");
+  if (idx === -1) return null;
+  const tz = raw.substring(idx + 2).trim();
+  return tz.length > 0 ? tz : null;
 }
 
 /**

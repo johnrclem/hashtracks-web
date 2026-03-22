@@ -80,12 +80,18 @@ export async function syncStravaActivities(
   const parsed = rawActivities.map(parseStravaActivity);
   const stravaIds = parsed.map((p) => p.stravaActivityId);
 
-  // Single query to find all existing activities
+  // Single query to find all existing activities (include city for backfill optimization)
   const existingActivities = await prisma.stravaActivity.findMany({
     where: { stravaActivityId: { in: stravaIds } },
-    select: { stravaActivityId: true },
+    select: { stravaActivityId: true, city: true, startLat: true, startLng: true },
   });
   const existingIdSet = new Set(existingActivities.map((a) => a.stravaActivityId));
+  // Track activities that need city backfill (have coords but null city)
+  const needsCityIds = new Set(
+    existingActivities
+      .filter((a) => a.city === null && (a.startLat != null || a.startLng != null))
+      .map((a) => a.stravaActivityId),
+  );
 
   const toCreate = parsed.filter((p) => !existingIdSet.has(p.stravaActivityId));
   const toUpdate = parsed.filter((p) => existingIdSet.has(p.stravaActivityId));
@@ -136,31 +142,12 @@ export async function syncStravaActivities(
       : Promise.resolve(),
   ]);
 
-  // Backfill city for any updated activities that still have null city
-  // (e.g., originally synced before city backfill was added)
-  if (toUpdate.length > 0) {
-    const needsCity = await prisma.stravaActivity.findMany({
-      where: {
-        stravaActivityId: { in: toUpdate.map((p) => p.stravaActivityId) },
-        city: null,
-        NOT: { startLat: null, startLng: null },
-      },
-      select: { stravaActivityId: true, startLat: true, startLng: true, timezone: true },
-    });
-    if (needsCity.length > 0) {
-      // Convert to ParsedStravaActivity shape for backfillCities
-      const toBackfill = needsCity.map((a) => ({
-        stravaActivityId: a.stravaActivityId,
-        name: "",
-        sportType: "",
-        dateLocal: "",
-        timeLocal: null,
-        distanceMeters: 0,
-        movingTimeSecs: 0,
-        startLat: a.startLat,
-        startLng: a.startLng,
-        timezone: a.timezone,
-      }));
+  // Backfill city for updated activities that had null city (tracked from initial query)
+  if (needsCityIds.size > 0) {
+    const toBackfill = toUpdate
+      .filter((p) => needsCityIds.has(p.stravaActivityId))
+      .filter((p) => p.startLat != null || p.startLng != null);
+    if (toBackfill.length > 0) {
       await backfillCities(toBackfill);
     }
   }
