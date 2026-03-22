@@ -3,6 +3,8 @@
 import { useState, useEffect, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { toast } from "sonner";
 import {
   getStravaEventSuggestions,
@@ -23,14 +25,13 @@ import {
   formatDuration,
   formatTime,
   formatRelativeTime,
-  regionAbbrev,
-  regionColorClasses,
 } from "@/lib/format";
 import { buildStravaUrl } from "@/lib/strava/url";
 import { RefreshCw } from "lucide-react";
 import { StravaBackfillWizard } from "@/components/logbook/StravaBackfillWizard";
 
 const HIDE_KEY = "hashtracks:strava-nudge-hidden";
+const SKIP_KEY = "hashtracks:strava-skipped-ids";
 const SUGGESTION_CAP = 5;
 const LINK_CAP = 5;
 
@@ -78,6 +79,14 @@ export function StravaSuggestions({
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  // Load skipped IDs from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = globalThis.window?.localStorage.getItem(SKIP_KEY);
+      if (stored) setSkippedIds(new Set(JSON.parse(stored)));
+    } catch { /* ignore corrupt data */ }
+  }, []);
 
   const linkGroups = useMemo(() => buildLinkGroups(linkMatches), [linkMatches]);
 
@@ -166,7 +175,11 @@ export function StravaSuggestions({
   }
 
   function handleSkipSuggestion(stravaActivityDbId: string) {
-    setSkippedIds((prev) => new Set(prev).add(stravaActivityDbId));
+    setSkippedIds((prev) => {
+      const next = new Set(prev).add(stravaActivityDbId);
+      try { globalThis.window?.localStorage.setItem(SKIP_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
   }
 
   function handleDismissAllSuggestions() {
@@ -449,8 +462,6 @@ function SuggestionCard({
   onDismiss: () => void;
   onSkip: () => void;
 }>) {
-  const abbrev = s.kennelRegion ? regionAbbrev(s.kennelRegion) : null;
-  const colorCls = s.kennelRegion ? regionColorClasses(s.kennelRegion) : "";
   const reasons = s.matchReasons ?? [];
 
   return (
@@ -459,19 +470,19 @@ function SuggestionCard({
       <div className="flex-1 min-w-0 space-y-1.5">
         {/* Line 1: Primary event info */}
         <div className="flex items-center gap-2 flex-wrap">
-          <a
-            href={`/hareline/${s.eventId}`}
-            className="font-semibold text-sm text-blue-500 hover:underline"
-          >
-            {s.kennelShortName}
-          </a>
-          {abbrev && (
-            <span
-              className={`inline-flex items-center justify-center rounded-full font-bold shrink-0 h-5 px-1.5 text-[10px] leading-5 ${colorCls}`}
-              title={s.kennelRegion}
-            >
-              {abbrev}
-            </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a
+                href={`/hareline/${s.eventId}`}
+                className="font-semibold text-sm text-blue-500 hover:underline"
+              >
+                {s.kennelShortName}
+              </a>
+            </TooltipTrigger>
+            <TooltipContent>{s.kennelFullName}</TooltipContent>
+          </Tooltip>
+          {s.kennelRegion && (
+            <RegionBadge region={s.kennelRegion} size="sm" />
           )}
           <span className="text-xs text-muted-foreground font-mono">
             {s.eventRunNumber != null && `#${s.eventRunNumber} \u00B7 `}
@@ -539,6 +550,7 @@ function SuggestionCard({
           type="button"
           className="text-[11px] text-muted-foreground hover:text-foreground"
           onClick={onSkip}
+          title="Hide for now — won't permanently dismiss"
         >
           Skip
         </button>
