@@ -38,23 +38,40 @@ interface GoogleSheetsConfig {
 }
 
 /**
- * Parse dates in multiple formats found across Summit H3 tabs:
+ * Parse dates in multiple formats found across hash kennel spreadsheets:
  * - "6-15-25" (M-D-YY with hyphens)
  * - "7/1/2024" (M/D/YYYY with slashes)
  * - "6/13/22" (M/DD/YY with slashes)
+ * - "2026-03-29" (YYYY-MM-DD ISO 8601)
+ * - "2026/03/07" (YYYY/MM/DD)
+ * - "2026/03/07 (Sat)" (YYYY/MM/DD with day-name suffix)
  */
 export function parseDate(dateStr: string): string | null {
   const trimmed = dateStr.trim();
   if (!trimmed) return null;
 
-  const parts = trimmed.split(/[/\-]/).map((s) => Number.parseInt(s, 10));
+  // Strip trailing day-name suffix: "2026/03/07 (Sat)" → "2026/03/07"
+  const cleaned = trimmed.replace(/\s*\(.*\)\s*$/, "");
+
+  const parts = cleaned.split(/[/\-]/).map((s) => Number.parseInt(s, 10));
   if (parts.length !== 3 || parts.some(isNaN)) return null;
 
-  const [month, day, rawYear] = parts;
+  let year: number, month: number, day: number;
+
+  if (parts[0] > 99) {
+    // Year-first: YYYY-MM-DD or YYYY/MM/DD
+    [year, month, day] = parts;
+  } else {
+    // Month-first: M/D/YY or M/D/YYYY
+    [month, day, year] = parts;
+    year = year > 99 ? year : year < 50 ? 2000 + year : 1900 + year;
+  }
+
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
 
-  const year =
-    rawYear > 99 ? rawYear : rawYear < 50 ? 2000 + rawYear : 1900 + rawYear;
+  // Validate the date is real (rejects Feb 30, Apr 31, etc.)
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
 
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }

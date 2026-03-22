@@ -52,6 +52,38 @@ describe("parseDate", () => {
   it("pads single-digit month and day", () => {
     expect(parseDate("1/5/25")).toBe("2025-01-05");
   });
+
+  it("parses YYYY-MM-DD (ISO 8601)", () => {
+    expect(parseDate("2026-03-29")).toBe("2026-03-29");
+  });
+
+  it("parses YYYY/MM/DD", () => {
+    expect(parseDate("2026/03/07")).toBe("2026-03-07");
+  });
+
+  it("strips day-name suffix: YYYY/MM/DD (DayName)", () => {
+    expect(parseDate("2026/03/07 (Sat)")).toBe("2026-03-07");
+  });
+
+  it("strips day-name suffix for leap year date", () => {
+    expect(parseDate("2028/02/29 (Tue)")).toBe("2028-02-29");
+  });
+
+  it("returns null for impossible date Feb 30", () => {
+    expect(parseDate("2/30/26")).toBeNull();
+  });
+
+  it("returns null for impossible date Apr 31", () => {
+    expect(parseDate("4/31/26")).toBeNull();
+  });
+
+  it("accepts valid leap day Feb 29 2028", () => {
+    expect(parseDate("2/29/28")).toBe("2028-02-29");
+  });
+
+  it("returns null for non-leap Feb 29", () => {
+    expect(parseDate("2/29/26")).toBeNull();
+  });
 });
 
 // ── inferStartTime ──

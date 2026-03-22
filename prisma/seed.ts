@@ -4203,28 +4203,15 @@ async function main() {
       config: {
         sheetId: "1XTN-ivc5NClSt4Z1HVYf0ddEzF3aXcnd1ZH0JFpLXm4",
         gid: 237970172,
-        skipRows: 1,
+        skipRows: 2,
         columns: { runNumber: 0, date: 2, hares: 3, title: 4, location: -1 },
         kennelTagRules: { default: "PSH3" },
       },
       kennelCodes: ["psh3"],
     },
-    {
-      name: "No Balls H3 Hareline Sheet",
-      url: "https://docs.google.com/spreadsheets/d/1KyPWGSy_BMKz4ALdHnHa-ovuQ8gunqNSY7pHJpk56IQ",
-      type: "GOOGLE_SHEETS" as const,
-      trustLevel: 5,
-      scrapeFreq: "weekly",
-      scrapeDays: 365,
-      config: {
-        sheetId: "1KyPWGSy_BMKz4ALdHnHa-ovuQ8gunqNSY7pHJpk56IQ",
-        gid: 0,
-        skipRows: 1,
-        columns: { runNumber: 0, date: 1, hares: 2, title: 3, location: -1 },
-        kennelTagRules: { default: "NBH3" },
-      },
-      kennelCodes: ["nbh3-wa"],
-    },
+    // No Balls H3 Hareline Sheet — DISABLED: sheet is private (401), no 2025/2026 data entered.
+    // NBH3 events come through via the shared WA Hash Google Calendar instead.
+    // Re-enable if sheet owner makes it publicly viewable.
     {
       name: "Rain City H3 Hareline Sheet",
       url: "https://docs.google.com/spreadsheets/d/1UOzHLGytOdlzjet7VE25gXAMcuU4oc8fi8gY-4cQUkA",
@@ -4235,7 +4222,7 @@ async function main() {
       config: {
         sheetId: "1UOzHLGytOdlzjet7VE25gXAMcuU4oc8fi8gY-4cQUkA",
         gid: 0,
-        skipRows: 1,
+        skipRows: 2,
         columns: { runNumber: 0, date: 1, hares: 2, title: 3, location: -1 },
         kennelTagRules: { default: "RCH3" },
       },
@@ -4263,7 +4250,7 @@ async function main() {
       type: "GOOGLE_SHEETS" as const,
       trustLevel: 5,
       scrapeFreq: "weekly",
-      scrapeDays: 365,
+      scrapeDays: 800,
       config: {
         sheetId: "anonymous",
         csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_z30ZkQNOwcAka4qU22bAGYIVjJFc5NyICst9OeUWPvi27lNK8ICkZllzLI0gjLwQDjVvlt3mMlDM/pub?output=csv",
