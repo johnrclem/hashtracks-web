@@ -34,7 +34,7 @@ export type HarelineEvent = {
     slug: string;
     region: string;
     country: string;
-  };
+  } | null;
   runNumber: number | null;
   title: string | null;
   haresText: string | null;
@@ -64,7 +64,8 @@ export { formatDate };
 
 /** Compose an accessible label from event fields. */
 function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null): string {
-  const parts: string[] = [event.kennel?.shortName];
+  const parts: string[] = [];
+  if (event.kennel?.shortName) parts.push(event.kennel.shortName);
   const { title, isFallback } = getDisplayTitle(event);
   if (!isFallback) parts.push(title);
   parts.push(formatDate(event.date));
@@ -132,7 +133,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
     }
   }
 
-  const regionColor = getRegionColor(event.kennel?.region);
+  const regionColor = event.kennel?.region ? getRegionColor(event.kennel.region) : "#6b7280";
 
   // Weather display
   const weatherEmoji = weather ? getConditionEmoji(weather.conditionType) : null;
@@ -181,19 +182,21 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
           )}
 
           <span className="relative w-20 shrink-0 truncate">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  href={`/kennels/${event.kennel?.slug}`}
-                  className="font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-2 truncate block"
-                  style={{ textDecorationColor: regionColor }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {event.kennel?.shortName}
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent>{event.kennel?.fullName}</TooltipContent>
-            </Tooltip>
+            {event.kennel ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={`/kennels/${event.kennel.slug}`}
+                    className="font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-2 truncate block"
+                    style={{ textDecorationColor: regionColor }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {event.kennel.shortName}
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>{event.kennel.fullName}</TooltipContent>
+              </Tooltip>
+            ) : null}
           </span>
 
           <span className="relative w-14 shrink-0 font-mono text-xs text-muted-foreground/60">
@@ -244,7 +247,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               </span>
             )}
 
-            <RegionBadge region={event.kennel?.region} size="sm" />
+            {event.kennel && <RegionBadge region={event.kennel.region} size="sm" />}
           </div>
         </div>
       </div>
@@ -307,21 +310,23 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0 flex-wrap">
               {/* Kennel name — the bold visual anchor */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href={`/kennels/${event.kennel?.slug}`}
-                    className="text-base font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-3"
-                    style={{ textDecorationColor: regionColor }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {event.kennel?.shortName}
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>{event.kennel?.fullName}</TooltipContent>
-              </Tooltip>
+              {event.kennel ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={`/kennels/${event.kennel.slug}`}
+                      className="text-base font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-3"
+                      style={{ textDecorationColor: regionColor }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {event.kennel.shortName}
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>{event.kennel.fullName}</TooltipContent>
+                </Tooltip>
+              ) : null}
 
-              <RegionBadge region={event.kennel?.region} size="sm" />
+              {event.kennel && <RegionBadge region={event.kennel.region} size="sm" />}
 
               {event.runNumber && (
                 <span className="text-xs font-mono text-muted-foreground/50 tabular-nums">

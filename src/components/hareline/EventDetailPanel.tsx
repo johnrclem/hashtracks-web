@@ -64,7 +64,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
     ? getTimezoneAbbreviation(event.dateUtc, displayTz)
     : "";
 
-  const regionColor = getRegionColor(event.kennel.region);
+  const regionColor = event.kennel?.region ? getRegionColor(event.kennel.region) : "#6b7280";
 
   return (
     <Card className="flex max-h-[calc(100vh-4rem)] flex-col overflow-hidden border-t-[3px]" style={{ borderTopColor: regionColor }}>
@@ -99,15 +99,19 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/kennels/${event.kennel.slug}`}
-              className="font-medium text-primary hover:underline"
-            >
-              {event.kennel.fullName}
-            </Link>
-            <Badge variant="outline" className="text-xs">
-              {event.kennel.region}
-            </Badge>
+            {event.kennel ? (
+              <Link
+                href={`/kennels/${event.kennel.slug}`}
+                className="font-medium text-primary hover:underline"
+              >
+                {event.kennel.fullName}
+              </Link>
+            ) : null}
+            {event.kennel && (
+              <Badge variant="outline" className="text-xs">
+                {event.kennel.region}
+              </Badge>
+            )}
             {event.status === "CANCELLED" && (
               <Badge variant="destructive">Cancelled</Badge>
             )}
@@ -182,7 +186,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             lng={event.longitude ?? undefined}
             locationName={event.locationName ?? undefined}
             locationAddress={event.locationAddress ?? undefined}
-            regionHint={event.kennel.region}
+            regionHint={event.kennel?.region ?? undefined}
           />
         )}
 
@@ -214,16 +218,18 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             </a>
           </Button>
         ))}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/kennels/${event.kennel.slug}`}>
-                View {event.kennel.shortName}
-              </Link>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{event.kennel.fullName}</TooltipContent>
-        </Tooltip>
+        {event.kennel && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/kennels/${event.kennel.slug}`}>
+                  View {event.kennel.shortName}
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{event.kennel.fullName}</TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </Card>
   );
