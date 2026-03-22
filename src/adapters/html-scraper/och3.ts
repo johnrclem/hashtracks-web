@@ -53,6 +53,16 @@ export function getStartTimeForDay(dayOfWeek: string | null): string {
 }
 
 /**
+ * Infer day-of-week from an ISO date string (e.g., "2026-04-06" → "monday").
+ * Used as fallback when the run-list text has no day name prefix.
+ */
+export function inferDayFromDate(dateStr: string): string | null {
+  const d = new Date(dateStr + "T12:00:00Z");
+  if (isNaN(d.getTime())) return null;
+  return DAYS_OF_WEEK[d.getUTCDay()] ?? null;
+}
+
+/**
  * Parse dot-notation time "19.30" → "19:30".
  * Returns undefined for invalid or absent times.
  */
@@ -208,14 +218,17 @@ export function parseEventsPage(html: string, baseUrl: string): RawEventData[] {
     const segments = withoutDate.split(/\s+-\s+/).map(s => s.trim()).filter(Boolean);
     const title = segments[0]?.replace(/\.\s*$/, "").trim() || undefined;
 
-    // Try to find venue: look for "From " prefix or last segment if it looks like a location
+    // Try to find venue: "From [venue]" > last dash-segment > "at The [venue]" pattern
     let location: string | undefined;
     const fromMatch = fullText.match(/From\s+(.+?)(?:\.|$)/i);
     if (fromMatch) {
       location = fromMatch[1].trim();
     } else if (segments.length > 1) {
-      // Last segment is often the venue
       location = segments[segments.length - 1];
+    } else {
+      // Single segment — try to extract venue from "... at The [Venue]" pattern
+      const atVenue = withoutDate.match(/\bat\s+(The\s+\w[^.]*)/i);
+      if (atVenue) location = atVenue[1].replace(/\.\s*$/, "").trim();
     }
 
     // Description: everything after the first sentence or two
@@ -228,7 +241,7 @@ export function parseEventsPage(html: string, baseUrl: string): RawEventData[] {
       title,
       location,
       description: description || undefined,
-      startTime: getStartTimeForDay(extractDayOfWeek(fullText)),
+      startTime: getStartTimeForDay(extractDayOfWeek(fullText) ?? inferDayFromDate(date)),
       sourceUrl: baseUrl,
     });
   });
@@ -290,7 +303,7 @@ function parseRunEntry(
       kennelTag: "OCH3",
       title,
       location,
-      startTime: getStartTimeForDay(extractDayOfWeek(section)),
+      startTime: getStartTimeForDay(extractDayOfWeek(section) ?? inferDayFromDate(date)),
       sourceUrl: baseUrl,
     },
     year: inferredYear,
@@ -379,6 +392,20 @@ export class OCH3Adapter implements SourceAdapter {
         const matchIdx = events.findIndex((e) => e.date === detail.date);
         if (matchIdx >= 0) {
           events[matchIdx] = mergeDetailIntoEvent(events[matchIdx], detail);
+          detailPageMerged = true;
+        } else {
+          // Detail page run not in run list — create new event
+          const dayOfWeek = inferDayFromDate(detail.date!);
+          events.unshift({
+            date: detail.date!,
+            kennelTag: "OCH3",
+            startTime: detail.startTime ?? getStartTimeForDay(dayOfWeek),
+            location: detail.location,
+            hares: detail.hares,
+            runNumber: detail.runNumber,
+            description: detail.onInn ? `On Inn: ${detail.onInn}` : undefined,
+            sourceUrl: detail.sourceUrl,
+          });
           detailPageMerged = true;
         }
       }

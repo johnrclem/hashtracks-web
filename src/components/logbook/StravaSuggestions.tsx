@@ -363,9 +363,12 @@ export function StravaSuggestions({
           {filteredSuggestions.length > 0 && <div className="border-t my-4" />}
           <div className="space-y-3">
             <div>
-              <h3 className="text-sm font-semibold">
-                Link Strava to check-ins ({linkGroups.length})
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold">Link Strava to check-ins</h3>
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
+                  {linkGroups.length}
+                </span>
+              </div>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Attach Strava data to runs you&apos;ve already logged
               </p>
@@ -373,44 +376,13 @@ export function StravaSuggestions({
 
             <div className="space-y-2">
               {visibleLinks.map((g) => (
-                <div
+                <LinkCard
                   key={g.attendanceId}
-                  className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
-                >
-                  <div className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-                    <span className="shrink-0 font-semibold text-muted-foreground">
-                      {g.kennelShortName}
-                    </span>
-                    <span className="min-w-0 truncate font-medium">
-                      {g.match.activityName}
-                    </span>
-                    <span className="shrink-0 text-xs font-mono text-muted-foreground">
-                      {formatDistance(g.match.distanceMeters)} &middot; {formatDateShort(g.eventDate + "T12:00:00Z")}
-                    </span>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="default"
-                      className="h-7 text-xs"
-                      onClick={() => handleLink(g)}
-                      disabled={isPending}
-                    >
-                      Link
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs"
-                      onClick={() =>
-                        handleDismissLink(g.match.stravaActivityDbId)
-                      }
-                      disabled={isPending}
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
+                  match={g.match}
+                  isPending={isPending}
+                  onLink={() => handleLink(g)}
+                  onDismiss={() => handleDismissLink(g.match.stravaActivityDbId)}
+                />
               ))}
             </div>
 
@@ -447,6 +419,68 @@ export function StravaSuggestions({
   );
 }
 
+// ── Shared sub-components ──
+
+function EventInfoLine({ eventId, kennelShortName, kennelFullName, kennelRegion, eventRunNumber, eventDate }: Readonly<{
+  eventId: string;
+  kennelShortName: string;
+  kennelFullName: string;
+  kennelRegion?: string | null;
+  eventRunNumber?: number | null;
+  eventDate: string;
+}>) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <a
+            href={`/hareline/${eventId}`}
+            className="font-semibold text-sm text-blue-500 hover:underline"
+          >
+            {kennelShortName}
+          </a>
+        </TooltipTrigger>
+        <TooltipContent>{kennelFullName}</TooltipContent>
+      </Tooltip>
+      {kennelRegion && <RegionBadge region={kennelRegion} size="sm" />}
+      <span className="text-xs text-muted-foreground font-mono">
+        {eventRunNumber != null && `#${eventRunNumber} \u00B7 `}
+        {formatDateShort(eventDate + "T12:00:00Z")}
+      </span>
+    </div>
+  );
+}
+
+function StravaActivityLine({ stravaActivityId, activityName, distanceMeters, movingTimeSecs, timeLocal, city }: Readonly<{
+  stravaActivityId: string;
+  activityName: string;
+  distanceMeters: number;
+  movingTimeSecs: number;
+  timeLocal?: string | null;
+  city?: string | null;
+}>) {
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className="text-strava text-[10px]">{"\u2B21"}</span>
+      <a
+        href={buildStravaUrl(stravaActivityId)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="hover:text-strava hover:underline"
+      >
+        {activityName}
+      </a>
+      <span>&middot;</span>
+      <span className="font-mono text-[11px]">
+        {formatDistance(distanceMeters)}
+        {movingTimeSecs > 0 && ` \u00B7 ${formatDuration(movingTimeSecs)}`}
+        {timeLocal && ` \u00B7 ${formatTime(timeLocal)}`}
+        {city && ` \u00B7 ${city}`}
+      </span>
+    </div>
+  );
+}
+
 // ── Suggestion Card (Section A) — Event-first layout ──
 
 function SuggestionCard({
@@ -469,26 +503,14 @@ function SuggestionCard({
       {/* Content */}
       <div className="flex-1 min-w-0 space-y-1.5">
         {/* Line 1: Primary event info */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <a
-                href={`/hareline/${s.eventId}`}
-                className="font-semibold text-sm text-blue-500 hover:underline"
-              >
-                {s.kennelShortName}
-              </a>
-            </TooltipTrigger>
-            <TooltipContent>{s.kennelFullName}</TooltipContent>
-          </Tooltip>
-          {s.kennelRegion && (
-            <RegionBadge region={s.kennelRegion} size="sm" />
-          )}
-          <span className="text-xs text-muted-foreground font-mono">
-            {s.eventRunNumber != null && `#${s.eventRunNumber} \u00B7 `}
-            {formatDateShort(s.eventDate + "T12:00:00Z")}
-          </span>
-        </div>
+        <EventInfoLine
+          eventId={s.eventId}
+          kennelShortName={s.kennelShortName}
+          kennelFullName={s.kennelFullName}
+          kennelRegion={s.kennelRegion}
+          eventRunNumber={s.eventRunNumber}
+          eventDate={s.eventDate}
+        />
 
         {/* Line 2: Match reasons */}
         {reasons.length > 0 && (
@@ -509,23 +531,14 @@ function SuggestionCard({
         )}
 
         {/* Line 3: Secondary Strava activity info */}
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className="text-strava text-[10px]">{"\u2B21"}</span>
-          <a
-            href={buildStravaUrl(s.stravaActivityId)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-strava hover:underline"
-          >
-            {s.activityName}
-          </a>
-          <span>&middot;</span>
-          <span className="font-mono text-[11px]">
-            {formatDistance(s.distanceMeters)}
-            {s.movingTimeSecs > 0 && ` \u00B7 ${formatDuration(s.movingTimeSecs)}`}
-            {s.timeLocal && ` \u00B7 ${formatTime(s.timeLocal)}`}
-          </span>
-        </div>
+        <StravaActivityLine
+          stravaActivityId={s.stravaActivityId}
+          activityName={s.activityName}
+          distanceMeters={s.distanceMeters}
+          movingTimeSecs={s.movingTimeSecs}
+          timeLocal={s.timeLocal}
+          city={s.city}
+        />
       </div>
 
       {/* Actions */}
@@ -558,6 +571,59 @@ function SuggestionCard({
           </TooltipTrigger>
           <TooltipContent>Hide for now — won't permanently dismiss</TooltipContent>
         </Tooltip>
+      </div>
+    </div>
+  );
+}
+
+// ── Link Card (Section B) — Attach Strava to existing check-ins ──
+
+function LinkCard({
+  match: m,
+  isPending,
+  onLink,
+  onDismiss,
+}: Readonly<{
+  match: UnmatchedStravaMatch;
+  isPending: boolean;
+  onLink: () => void;
+  onDismiss: () => void;
+}>) {
+  return (
+    <div className="flex gap-3 rounded-lg border border-l-[3px] border-l-emerald-500 overflow-hidden px-3 py-2.5">
+      <div className="flex-1 min-w-0 space-y-1">
+        {/* Line 1: Event info */}
+        <EventInfoLine
+          eventId={m.eventId}
+          kennelShortName={m.kennelShortName}
+          kennelFullName={m.kennelFullName}
+          kennelRegion={m.kennelRegion}
+          eventRunNumber={m.eventRunNumber}
+          eventDate={m.eventDate}
+        />
+        {/* Line 2: Strava activity */}
+        <StravaActivityLine
+          stravaActivityId={m.stravaActivityId}
+          activityName={m.activityName}
+          distanceMeters={m.distanceMeters}
+          movingTimeSecs={m.stravaMovingTimeSecs}
+          timeLocal={m.stravaTimeLocal}
+          city={m.stravaCity}
+        />
+      </div>
+      {/* Actions */}
+      <div className="flex flex-col gap-1 items-end shrink-0">
+        <Button size="sm" className="h-7 text-xs font-semibold" onClick={onLink} disabled={isPending}>
+          Link
+        </Button>
+        <button
+          type="button"
+          className="text-[11px] text-muted-foreground hover:text-foreground"
+          onClick={onDismiss}
+          disabled={isPending}
+        >
+          Dismiss
+        </button>
       </div>
     </div>
   );

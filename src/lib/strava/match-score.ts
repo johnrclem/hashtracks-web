@@ -62,10 +62,10 @@ export function scoreMatch(
     if (geoKm <= 5) geoScore = 1.0;
     else if (geoKm <= 25) geoScore = 0.5;
     else geoScore = 0;
-  } else if (activityHasCoords && !eventHasCoords) {
-    // Activity has GPS but event lacks coords — small penalty to discourage cross-continent
-    // matches while preserving legitimate local events that don't publish coordinates.
-    // Kept at -0.25 (weighted -0.5) so a moderate name+time match still clears threshold.
+  } else if (activityHasCoords !== eventHasCoords) {
+    // One side has GPS, the other doesn't — cannot verify proximity.
+    // Penalty discourages cross-continent matches while preserving local events
+    // that don't publish coordinates (or activities from privacy zones).
     geoScore = -0.25;
   }
 

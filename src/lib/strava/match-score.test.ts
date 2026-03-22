@@ -133,6 +133,19 @@ describe("scoreMatch", () => {
     // A strong name match should still clear the 2.0 suggestion threshold despite the penalty
     expect(withPenalty.total).toBeGreaterThan(2.0);
   });
+
+  it("applies same geo penalty when event has coords but activity does not", () => {
+    const score = scoreMatch(
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: null },
+      "Brooklyn H3",
+      null,
+      40.7, // event has coords
+      -74.0,
+    );
+    // Activity lacks GPS, event has coords — same penalty as the reverse case
+    expect(score.geoScore).toBe(-0.25);
+    expect(score.hasGeoSignal).toBe(true);
+  });
 });
 
 describe("findBestMatchIndex", () => {
