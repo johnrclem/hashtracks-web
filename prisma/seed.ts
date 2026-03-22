@@ -99,6 +99,7 @@ async function ensureRegionRecords(prisma: any) {
     "Washington": ["Seattle, WA", "Tacoma, WA", "Olympia, WA", "Bremerton, WA"],
     "Colorado": ["Denver, CO", "Boulder, CO", "Fort Collins, CO", "Colorado Springs, CO"],
     "Minnesota": ["Minneapolis, MN"],
+    "Arizona": ["Phoenix, AZ", "Tucson, AZ"],
     "Oregon": ["Portland, OR", "Salem, OR", "Eugene, OR", "Bend, OR"],
     "California": ["San Francisco, CA", "Oakland, CA", "San Jose, CA", "Marin County, CA", "San Diego, CA", "Santa Cruz, CA", "Los Angeles, CA", "Long Beach, CA", "Orange County, CA", "San Luis Obispo, CA"],
   };
@@ -2168,6 +2169,61 @@ async function main() {
       description: "Minneapolis weekly Thursday evening hash. Sister kennel of MH3, founded 2017. All A-to-A, all live trails, 3-4 miles.",
       latitude: 44.98, longitude: -93.27,
     },
+    // ===== ARIZONA =====
+    // Phoenix
+    {
+      kennelCode: "lbh-phx", shortName: "LBH", fullName: "Lost Boobs Hash House Harriers", region: "Phoenix, AZ",
+      website: "https://www.phoenixhhh.org",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Phoenix weekly Monday evening hash. Part of the phoenixhhh.org collective.",
+      latitude: 33.45, longitude: -112.07,
+    },
+    {
+      kennelCode: "hump-d", shortName: "Hump D", fullName: "Hump D Hash House Harriers", region: "Phoenix, AZ",
+      website: "https://www.phoenixhhh.org",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      description: "Phoenix biweekly Wednesday evening hash.",
+      latitude: 33.45, longitude: -112.07,
+    },
+    {
+      kennelCode: "wrong-way", shortName: "Wrong Way", fullName: "Phoenix Wrong Way Hash House Harriers", region: "Phoenix, AZ",
+      website: "https://www.phoenixhhh.org",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "1st, 3rd, and 5th Saturday",
+      description: "Phoenix Saturday afternoon hash. 1st, 3rd, and 5th Saturdays at 2 PM.",
+      latitude: 33.45, longitude: -112.07,
+    },
+    {
+      kennelCode: "fdtdd", shortName: "FDTDD", fullName: "From Dusk Till Down-Downs Hash", region: "Phoenix, AZ",
+      website: "https://www.phoenixhhh.org",
+      scheduleDayOfWeek: "Friday", scheduleTime: "6:30 PM", scheduleFrequency: "Monthly",
+      description: "Phoenix monthly Friday evening hash.",
+      latitude: 33.45, longitude: -112.07,
+    },
+    // Tucson
+    {
+      kennelCode: "jhav-h3", shortName: "jHav", fullName: "jHavelina Hash House Harriers", region: "Tucson, AZ",
+      website: "https://tucsonhash.com",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "4:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "3 PM in winter, 4 PM in spring/fall",
+      description: "Tucson's original weekly Saturday hash. The jHavelina HHH, founded as the original Hash of Tucson. Trail #2070+ and counting.",
+      latitude: 32.22, longitude: -110.97,
+    },
+    {
+      kennelCode: "mrhappy", shortName: "Mr. Happy's", fullName: "Mr. Happy's Hash House Harriers", region: "Tucson, AZ",
+      website: "https://tucsonhash.com",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      description: "Tucson weekly Wednesday evening hash. 2-5 mile trails.",
+      latitude: 32.22, longitude: -110.97,
+    },
+    {
+      kennelCode: "pedalfiles", shortName: "Pedal Files", fullName: "Pedal Files Bash", region: "Tucson, AZ",
+      website: "https://tucsonhash.com",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "10:00 AM", scheduleFrequency: "Monthly",
+      scheduleNotes: "3rd Sunday",
+      description: "Tucson monthly Sunday morning bike hash.",
+      latitude: 32.22, longitude: -110.97,
+    },
     // ===== OHIO =====
     // --- Dayton ---
     {
@@ -2505,6 +2561,14 @@ async function main() {
     // ===== MINNESOTA =====
     "mh3-mn": ["Minneapolis Hash", "Minneapolis H3", "MH3", "MplsH3"],
     "t3h3": ["Twin Titties Hash", "Twin Titties Thirstday", "T3H3", "TTTH3"],
+    // ===== ARIZONA =====
+    "lbh-phx": ["Lost Boobs Hash", "Lost Boobs H3", "LBH", "Phoenix LBH"],
+    "hump-d": ["Hump D Hash", "Hump D H3", "HumpD"],
+    "wrong-way": ["Wrong Way Hash", "Wrong Way H3", "Phoenix Wrong Way"],
+    "fdtdd": ["From Dusk Till Down Downs", "Dusk Till Down", "FDTDD"],
+    "jhav-h3": ["jHavelina Hash", "jHavelina H3", "jHav", "Tucson Hash"],
+    "mrhappy": ["Mr Happys Hash", "Mr Happy's H3", "Mr Happy"],
+    "pedalfiles": ["Pedal Files Hash", "Pedal Files H3", "Tucson Bike Hash"],
     // ===== CALIFORNIA =====
     "sch3-ca": ["Surf City Hash", "Surf City H3", "SCH3", "Santa Cruz Hash"],
     "lah3": ["Los Angeles Hash", "LAH3 Hash", "LA Hash House Harriers"],
@@ -4372,6 +4436,57 @@ async function main() {
         defaultKennelTag: "MH3",
       },
       kennelCodes: ["mh3-mn", "t3h3"],
+    },
+    // ===== ARIZONA =====
+    // --- Phoenix (iCal Feed — multi-kennel) ---
+    {
+      name: "Phoenix H3 Events",
+      url: "https://www.phoenixhhh.org/?plugin=events-manager&page=events.ics",
+      type: "ICAL_FEED" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelPatterns: [
+          ["^LBH\\b|Lost Boobs", "LBH"],
+          ["Hump D", "Hump D"],
+          ["Wrong Way", "Wrong Way"],
+          ["Dusk.*Down|FDTDD", "FDTDD"],
+        ],
+        defaultKennelTag: "Wrong Way",
+      },
+      kennelCodes: ["lbh-phx", "hump-d", "wrong-way", "fdtdd"],
+    },
+    // --- Tucson (Google Calendar — per-kennel) ---
+    {
+      name: "jHavelina H3 Google Calendar",
+      url: "jhavelinahhh@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { defaultKennelTag: "jHav" },
+      kennelCodes: ["jhav-h3"],
+    },
+    {
+      name: "Mr. Happy's H3 Google Calendar",
+      url: "mrhappyshhh@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { defaultKennelTag: "Mr. Happy's" },
+      kennelCodes: ["mrhappy"],
+    },
+    {
+      name: "Pedal Files Bash Google Calendar",
+      url: "tucsonhhh@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { defaultKennelTag: "Pedal Files" },
+      kennelCodes: ["pedalfiles"],
     },
     // ===== CALIFORNIA =====
     // --- Santa Cruz (Static Schedule) ---

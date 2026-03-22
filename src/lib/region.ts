@@ -1150,6 +1150,41 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -93.27,
     aliases: ["Minneapolis, Minnesota", "Twin Cities", "Minneapolis\u2013Saint Paul"],
   },
+  // ── US Southwest ──
+  {
+    name: "Arizona",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Phoenix",
+    abbrev: "AZ",
+    colorClasses: "bg-orange-200 text-orange-800",
+    pinColor: "#ea580c",
+    centroidLat: 34.05,
+    centroidLng: -111.09,
+    aliases: ["AZ"],
+  },
+  {
+    name: "Phoenix, AZ",
+    country: "USA",
+    timezone: "America/Phoenix",
+    abbrev: "PHX",
+    colorClasses: "bg-orange-200 text-orange-800",
+    pinColor: "#ea580c",
+    centroidLat: 33.45,
+    centroidLng: -112.07,
+    aliases: ["Phoenix, Arizona", "Valley of the Sun"],
+  },
+  {
+    name: "Tucson, AZ",
+    country: "USA",
+    timezone: "America/Phoenix",
+    abbrev: "TUS",
+    colorClasses: "bg-orange-100 text-orange-700",
+    pinColor: "#f97316",
+    centroidLat: 32.22,
+    centroidLng: -110.97,
+    aliases: ["Tucson, Arizona"],
+  },
   // ── US Southeast — Florida ──
   {
     name: "Miami, FL",
@@ -1635,6 +1670,9 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Fort Collins, CO": "Colorado",
   "Colorado Springs, CO": "Colorado",
   "Minneapolis, MN": "Minnesota",
+  // Arizona
+  "Phoenix, AZ": "Arizona",
+  "Tucson, AZ": "Arizona",
   // United Kingdom
   "London": "United Kingdom",
   "South West London": "United Kingdom",
