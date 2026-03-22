@@ -412,12 +412,15 @@ export class ICalAdapter implements SourceAdapter {
     source: Source,
     options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const days = options?.days ?? 90;
+    const lookbackDays = options?.days ?? 90;
+    // Use source.scrapeDays for forward window — iCal feeds often publish events
+    // months in advance (e.g., Charm City H3 lists events 6+ months out)
+    const lookforwardDays = source.scrapeDays ?? options?.days ?? 365;
     const fetchStart = Date.now();
 
     const now = new Date();
-    const minDate = new Date(now.getTime() - days * 86_400_000);
-    const maxDate = new Date(now.getTime() + days * 86_400_000);
+    const minDate = new Date(now.getTime() - lookbackDays * 86_400_000);
+    const maxDate = new Date(now.getTime() + lookforwardDays * 86_400_000);
 
     // Step 1: Fetch the ICS content
     const fetchResult = await fetchAndValidateIcsContent(source.url, fetchStart);
