@@ -328,6 +328,7 @@ export interface UnmatchedStravaMatch {
   stravaActivityDbId: string;
   attendanceId: string;
   kennelShortName: string;
+  kennelRegion: string;
   eventDate: string;
   activityName: string;
   distanceMeters: number;
@@ -384,7 +385,7 @@ export async function getUnmatchedStravaActivities(): Promise<
             startTime: true,
             locationName: true,
             haresText: true,
-            kennel: { select: { shortName: true, fullName: true } },
+            kennel: { select: { shortName: true, fullName: true, region: true } },
           },
         },
       },
@@ -452,6 +453,7 @@ export async function getUnmatchedStravaActivities(): Promise<
           stravaActivityDbId: activity.id,
           attendanceId: att.id,
           kennelShortName: att.event.kennel.shortName,
+          kennelRegion: att.event.kennel.region,
           eventDate: eventDateStr,
           activityName: activity.name,
           distanceMeters: activity.distanceMeters,
