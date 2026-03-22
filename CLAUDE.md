@@ -247,7 +247,7 @@ logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (134)
+## Active Sources (138)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -319,6 +319,12 @@ logbook + kennel directory.
 
 ### Minnesota (1 source)
 - **Minneapolis H3 Calendar** → GOOGLE_CALENDAR → MH3, T3H3 (2 kennels via kennelPatterns)
+
+### Arizona (4 sources)
+- **Phoenix H3 Events** → ICAL_FEED → LBH, Hump D, Wrong Way, FDTDD (4 Phoenix kennels via kennelPatterns)
+- **jHavelina H3 Google Calendar** → GOOGLE_CALENDAR → jHav (Tucson)
+- **Mr. Happy's H3 Google Calendar** → GOOGLE_CALENDAR → Mr. Happy's (Tucson)
+- **Pedal Files Bash Google Calendar** → GOOGLE_CALENDAR → Pedal Files (Tucson bike hash)
 
 ### London / UK (7 sources)
 - **London Hash Run List** → HTML_SCRAPER → LH3
