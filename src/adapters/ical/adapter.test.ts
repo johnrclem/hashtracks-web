@@ -547,17 +547,30 @@ describe("ICalAdapter", () => {
   });
 
   it("filters events by date range", async () => {
+    // Create ICS with events far in the past and far in the future (outside any window)
+    const farPastFutureIcs = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:far-past
+DTSTART:20200101T190000Z
+SUMMARY:Ancient Trail
+END:VEVENT
+BEGIN:VEVENT
+UID:far-future
+DTSTART:20290101T190000Z
+SUMMARY:Far Future Trail
+END:VEVENT
+END:VCALENDAR`;
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(SAMPLE_ICS, { status: 200 }),
+      new Response(farPastFutureIcs, { status: 200 }),
     );
 
-    const source = buildMockSource();
-    // Use days=1 to filter out most events (sample events are in March 2026)
-    const result = await adapter.fetch(source, { days: 1 });
+    const source = buildMockSource({ scrapeDays: 90 });
+    const result = await adapter.fetch(source);
 
-    // All events should be filtered out by date range
-    expect(result.events.length).toBeLessThan(5);
-    expect(result.diagnosticContext!.skippedDateRange).toBeGreaterThan(0);
+    // Both events should be filtered out (2020 is >90 days back, 2029 is >90 days forward)
+    expect(result.events).toHaveLength(0);
+    expect(result.diagnosticContext!.skippedDateRange).toBe(2);
   });
 
   it("detects HTML response (deactivated calendar plugin)", async () => {
