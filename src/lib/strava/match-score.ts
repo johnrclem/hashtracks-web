@@ -21,21 +21,15 @@ export interface ScoreBreakdown {
   nameScore: number;
   geoScore: number;
   geoKm: number | null; // actual distance in km, null if coords missing
+  hasGeoSignal: boolean; // true if either side had coordinates
   timeScore: number;
   sportBonus: number;
 }
 
 const RUN_TYPES = new Set(["Run", "TrailRun", "VirtualRun"]);
 
-/** Zero breakdown returned on early-exit (e.g. generic activity names). */
-const ZERO_BREAKDOWN: ScoreBreakdown = {
-  total: 0,
-  nameScore: 0,
-  geoScore: 0,
-  geoKm: null,
-  timeScore: 0,
-  sportBonus: 0,
-};
+/** Generic activity names that carry no kennel-identity signal. */
+const GENERIC_NAME = /^(morning|afternoon|evening|lunch|night|daily)?\s*(run|walk|ride|hike|workout|jog|yoga|swim)s?$/i;
 
 /**
  * Score a Strava activity against an event for match quality.
@@ -51,11 +45,10 @@ export function scoreMatch(
   eventLng?: number | null,
 ): ScoreBreakdown {
   // 1. Name match (0–1, weighted 3x)
-  const nameScore = fuzzyNameMatch(activity.activityName, kennelShortName);
-
-  // Low name scores get scored but won't pass the suggestion threshold (2.0).
-  // We still compute the full breakdown so findBestMatchIndex can rank by time/geo
-  // even when all candidates have generic names like "Afternoon Run".
+  // Generic names like "Afternoon Run" carry zero kennel-identity signal
+  const nameScore = GENERIC_NAME.test(activity.activityName.trim())
+    ? 0
+    : fuzzyNameMatch(activity.activityName, kennelShortName);
 
   // 2. Geo proximity (weighted 2x)
   // When activity has GPS but event doesn't, penalize to prevent cross-continent matches
@@ -94,7 +87,8 @@ export function scoreMatch(
   // Weighted combination: name×3 + geo×2 + time×1 + sport×0.2
   const total = nameScore * 3 + geoScore * 2 + timeScore + sportBonus;
 
-  return { total, nameScore, geoScore, geoKm, timeScore, sportBonus };
+  const hasGeoSignal = activityHasCoords || eventHasCoords;
+  return { total, nameScore, geoScore, geoKm, hasGeoSignal, timeScore, sportBonus };
 }
 
 /**
