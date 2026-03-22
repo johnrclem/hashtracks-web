@@ -66,7 +66,7 @@ export { formatDate };
 function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null): string {
   const parts: string[] = [];
   if (event.kennel?.shortName) parts.push(event.kennel.shortName);
-  const { title, isFallback } = getDisplayTitle(event);
+  const { title, isFallback } = getDisplayTitle({ ...event, kennel: event.kennel ?? { shortName: "", fullName: "" } });
   if (!isFallback) parts.push(title);
   parts.push(formatDate(event.date));
   if (event.runNumber) parts.push(`Run #${event.runNumber}`);
@@ -206,7 +206,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
           {/* Flexible text — absorbs remaining space */}
           <span className={`relative truncate text-muted-foreground ${isCancelled ? "line-through" : ""}`}>
             {(() => {
-              const { title, isFallback } = getDisplayTitle(event);
+              const { title, isFallback } = getDisplayTitle({ ...event, kennel: event.kennel ?? { shortName: "", fullName: "" } });
               return isFallback ? (event.haresText || title) : title;
             })()}
           </span>
@@ -256,7 +256,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
   // ── Medium density ──
   const locationDisplay = getLocationDisplay(event);
-  const { title: displayTitle } = getDisplayTitle(event);
+  const { title: displayTitle } = getDisplayTitle({ ...event, kennel: event.kennel ?? { shortName: "", fullName: "" } });
 
   return (
     <div
