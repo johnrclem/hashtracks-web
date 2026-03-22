@@ -4366,8 +4366,8 @@ async function main() {
       scrapeDays: 90,
       config: {
         kennelPatterns: [
-          ["T3H3|Twin Titties", "T3H3"],
-          ["MH3", "MH3"],
+          ["\\bT3H3\\b|Twin Titties", "T3H3"],
+          ["\\bMH3\\b", "MH3"]
         ],
         defaultKennelTag: "MH3",
       },
