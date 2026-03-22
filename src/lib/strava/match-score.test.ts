@@ -8,7 +8,7 @@ describe("scoreMatch", () => {
       null,
     );
     const lowMatch = scoreMatch(
-      { activityName: "Morning Run", stravaSportType: "Run", stravaTimeLocal: null },
+      { activityName: "Central Park Loop", stravaSportType: "Run", stravaTimeLocal: null },
       "Brooklyn H3",
       null,
     );
@@ -52,15 +52,45 @@ describe("scoreMatch", () => {
     expect(score.total).toBeGreaterThan(0);
   });
 
-  it("scores low for generic activity names (filtered by threshold in suggestions)", () => {
-    const score = scoreMatch(
+  it("zeros nameScore for generic activity names", () => {
+    const generic = scoreMatch(
       { activityName: "Morning Run", stravaSportType: "Run", stravaTimeLocal: null },
       "BH3",
       null,
     );
-    // Generic names still score (for findBestMatchIndex) but below suggestion threshold (2.0)
-    expect(score.total).toBeLessThan(2.0);
-    expect(score.total).toBeGreaterThan(0);
+    expect(generic.nameScore).toBe(0);
+
+    const afternoon = scoreMatch(
+      { activityName: "Afternoon Walk", stravaSportType: "Walk", stravaTimeLocal: null },
+      "NYCH3",
+      null,
+    );
+    expect(afternoon.nameScore).toBe(0);
+
+    // Non-generic name still scores normally
+    const specific = scoreMatch(
+      { activityName: "NYC H3", stravaSportType: "Run", stravaTimeLocal: null },
+      "NYCH3",
+      null,
+    );
+    expect(specific.nameScore).toBeGreaterThan(0);
+  });
+
+  it("includes hasGeoSignal in breakdown", () => {
+    const noGeo = scoreMatch(
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: null },
+      "Brooklyn H3",
+      null,
+    );
+    expect(noGeo.hasGeoSignal).toBe(false);
+
+    const withGeo = scoreMatch(
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: null, startLat: 40.7, startLng: -74.0 },
+      "Brooklyn H3",
+      null,
+      40.7, -74.0,
+    );
+    expect(withGeo.hasGeoSignal).toBe(true);
   });
 
   it("returns breakdown with geoKm when coords provided", () => {

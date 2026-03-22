@@ -83,7 +83,12 @@ function findBestEventMatch<
       bestBreakdown = breakdown;
     }
   }
-  if (!bestEvent || !bestBreakdown || bestScore < threshold) return null;
+  if (!bestEvent || !bestBreakdown || bestScore <= threshold) return null;
+
+  // When no geo signal exists, require a meaningful name match to prevent
+  // short-string false positives (e.g., "NYC H3" vs "BARH3" = 0.333)
+  if (!bestBreakdown.hasGeoSignal && bestBreakdown.nameScore < 0.5) return null;
+
   return { event: bestEvent, score: bestScore, breakdown: bestBreakdown };
 }
 
