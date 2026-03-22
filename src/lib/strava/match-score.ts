@@ -16,11 +16,32 @@ export interface ScoredActivity {
   startLng?: number | null;
 }
 
+export interface ScoreBreakdown {
+  total: number;
+  nameScore: number;
+  geoScore: number;
+  geoKm: number | null; // actual distance in km, null if coords missing
+  timeScore: number;
+  sportBonus: number;
+}
+
 const RUN_TYPES = new Set(["Run", "TrailRun", "VirtualRun"]);
+
+/** Zero breakdown returned on early-exit (e.g. generic activity names). */
+const ZERO_BREAKDOWN: ScoreBreakdown = {
+  total: 0,
+  nameScore: 0,
+  geoScore: 0,
+  geoKm: null,
+  timeScore: 0,
+  sportBonus: 0,
+};
 
 /**
  * Score a Strava activity against an event for match quality.
  * Higher is better. Range: 0–6.2 (name×3 + geo×2 + time×1 + sport×0.2).
+ * Returns a full breakdown so callers can build match-reason labels
+ * without re-computing distances/fuzzy scores.
  */
 export function scoreMatch(
   activity: ScoredActivity,
@@ -28,26 +49,31 @@ export function scoreMatch(
   eventStartTime: string | null,
   eventLat?: number | null,
   eventLng?: number | null,
-): number {
+): ScoreBreakdown {
   // 1. Name match (0–1, weighted 3x)
   const nameScore = fuzzyNameMatch(activity.activityName, kennelShortName);
 
+  // Low name scores get scored but won't pass the suggestion threshold (2.0).
+  // We still compute the full breakdown so findBestMatchIndex can rank by time/geo
+  // even when all candidates have generic names like "Afternoon Run".
+
   // 2. Geo proximity (0–1, weighted 2x)
-  let geoScore = 0.2; // neutral default when coords unavailable
+  let geoScore = 0; // no coords = no credit
+  let geoKm: number | null = null;
   if (
     activity.startLat != null &&
     activity.startLng != null &&
     eventLat != null &&
     eventLng != null
   ) {
-    const km = haversineDistance(activity.startLat, activity.startLng, eventLat, eventLng);
-    if (km <= 5) geoScore = 1.0;
-    else if (km <= 25) geoScore = 0.5;
+    geoKm = haversineDistance(activity.startLat, activity.startLng, eventLat, eventLng);
+    if (geoKm <= 5) geoScore = 1.0;
+    else if (geoKm <= 25) geoScore = 0.5;
     else geoScore = 0;
   }
 
   // 3. Time proximity (0–1): how close is the activity time to the event start time?
-  let timeScore = 0.5; // default when no times available
+  let timeScore = 0.3; // default when no times available
   if (eventStartTime && activity.stravaTimeLocal) {
     const eventMins = timeToMinutes(eventStartTime);
     const activityMins = timeToMinutes(activity.stravaTimeLocal);
@@ -62,7 +88,9 @@ export function scoreMatch(
   const sportBonus = RUN_TYPES.has(activity.stravaSportType) ? 0.2 : 0;
 
   // Weighted combination: name×3 + geo×2 + time×1 + sport×0.2
-  return nameScore * 3 + geoScore * 2 + timeScore + sportBonus;
+  const total = nameScore * 3 + geoScore * 2 + timeScore + sportBonus;
+
+  return { total, nameScore, geoScore, geoKm, timeScore, sportBonus };
 }
 
 /**
@@ -80,15 +108,16 @@ export function findBestMatchIndex(
   let bestScore = -1;
   for (let i = 0; i < activities.length; i++) {
     const s = scoreMatch(activities[i], kennelShortName, eventStartTime, eventLat, eventLng);
-    if (s > bestScore) {
-      bestScore = s;
+    if (s.total > bestScore) {
+      bestScore = s.total;
       bestIdx = i;
     }
   }
   return bestIdx;
 }
 
-function timeToMinutes(time: string): number | null {
+/** Parse "HH:MM" into minutes since midnight. Returns null if unparseable. */
+export function timeToMinutes(time: string): number | null {
   const match = /^(\d{1,2}):(\d{2})$/.exec(time);
   if (!match) return null;
   return Number.parseInt(match[1], 10) * 60 + Number.parseInt(match[2], 10);

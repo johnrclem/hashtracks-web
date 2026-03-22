@@ -12,44 +12,76 @@ describe("scoreMatch", () => {
       "Brooklyn H3",
       null,
     );
-    expect(highMatch).toBeGreaterThan(lowMatch);
+    expect(highMatch.total).toBeGreaterThan(lowMatch.total);
   });
 
   it("scores higher when activity time is closer to event time", () => {
     const closeTime = scoreMatch(
-      { activityName: "Run", stravaSportType: "Run", stravaTimeLocal: "19:00" },
-      "BH3",
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: "19:00" },
+      "Brooklyn H3",
       "18:30",
     );
     const farTime = scoreMatch(
-      { activityName: "Run", stravaSportType: "Run", stravaTimeLocal: "08:00" },
-      "BH3",
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: "08:00" },
+      "Brooklyn H3",
       "18:30",
     );
-    expect(closeTime).toBeGreaterThan(farTime);
+    expect(closeTime.total).toBeGreaterThan(farTime.total);
   });
 
   it("gives bonus to run sport types", () => {
     const run = scoreMatch(
-      { activityName: "Activity", stravaSportType: "Run", stravaTimeLocal: null },
-      "BH3",
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: null },
+      "Brooklyn H3",
       null,
     );
     const walk = scoreMatch(
-      { activityName: "Activity", stravaSportType: "Walk", stravaTimeLocal: null },
-      "BH3",
+      { activityName: "Brooklyn H3", stravaSportType: "Walk", stravaTimeLocal: null },
+      "Brooklyn H3",
       null,
     );
-    expect(run).toBeGreaterThan(walk);
+    expect(run.total).toBeGreaterThan(walk.total);
   });
 
   it("handles null times gracefully", () => {
     const score = scoreMatch(
-      { activityName: "Run", stravaSportType: "Run", stravaTimeLocal: null },
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: null },
+      "Brooklyn H3",
+      null,
+    );
+    expect(score.total).toBeGreaterThan(0);
+  });
+
+  it("scores low for generic activity names (filtered by threshold in suggestions)", () => {
+    const score = scoreMatch(
+      { activityName: "Morning Run", stravaSportType: "Run", stravaTimeLocal: null },
       "BH3",
       null,
     );
-    expect(score).toBeGreaterThan(0);
+    // Generic names still score (for findBestMatchIndex) but below suggestion threshold (2.0)
+    expect(score.total).toBeLessThan(2.0);
+    expect(score.total).toBeGreaterThan(0);
+  });
+
+  it("returns breakdown with geoKm when coords provided", () => {
+    const score = scoreMatch(
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: null, startLat: 40.7, startLng: -74.0 },
+      "Brooklyn H3",
+      null,
+      40.7,
+      -74.0,
+    );
+    expect(score.geoKm).not.toBeNull();
+    expect(score.geoScore).toBe(1.0);
+  });
+
+  it("returns null geoKm when coords missing", () => {
+    const score = scoreMatch(
+      { activityName: "Brooklyn H3", stravaSportType: "Run", stravaTimeLocal: null },
+      "Brooklyn H3",
+      null,
+    );
+    expect(score.geoKm).toBeNull();
   });
 });
 

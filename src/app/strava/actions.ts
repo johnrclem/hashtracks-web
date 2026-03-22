@@ -11,7 +11,14 @@ import {
 import { buildStravaUrl } from "@/lib/strava/url";
 import { syncStravaActivities } from "@/lib/strava/sync";
 import { scoreMatch } from "@/lib/strava/match-score";
+import type { ScoreBreakdown } from "@/lib/strava/match-score";
 import type { StravaActivityOption, LinkedStravaActivity } from "@/lib/strava/types";
+
+// ── Module-level Constants ──
+
+/** Sport types eligible for match scoring. */
+const SCOREABLE_SPORTS = new Set(["Run", "TrailRun", "VirtualRun", "Walk", "Hike"]);
+const SCOREABLE_SPORTS_ARRAY = [...SCOREABLE_SPORTS];
 
 // ── Internal Helpers ──
 
@@ -51,12 +58,13 @@ function findBestEventMatch<
     startLng: number | null;
   },
   candidates: T[],
-  threshold = 0.5,
-): { event: T; score: number } | null {
+  threshold = 2.0,
+): { event: T; score: number; breakdown: ScoreBreakdown } | null {
   let bestEvent: T | null = null;
   let bestScore = -1;
+  let bestBreakdown: ScoreBreakdown | null = null;
   for (const ev of candidates) {
-    const score = scoreMatch(
+    const breakdown = scoreMatch(
       {
         activityName: activity.name,
         stravaSportType: activity.sportType,
@@ -69,13 +77,14 @@ function findBestEventMatch<
       ev.latitude,
       ev.longitude,
     );
-    if (score > bestScore) {
-      bestScore = score;
+    if (breakdown.total > bestScore) {
+      bestScore = breakdown.total;
       bestEvent = ev;
+      bestBreakdown = breakdown;
     }
   }
-  if (!bestEvent || bestScore < threshold) return null;
-  return { event: bestEvent, score: bestScore };
+  if (!bestEvent || !bestBreakdown || bestScore < threshold) return null;
+  return { event: bestEvent, score: bestScore, breakdown: bestBreakdown };
 }
 
 // ── Connection Status ──
@@ -385,12 +394,14 @@ export async function getUnmatchedStravaActivities(): Promise<
     const earliest = new Date(Math.min(...attDates));
     const latest = new Date(Math.max(...attDates));
 
-    // Get unmatched, non-dismissed Strava activities within date range
+    // Get unmatched, non-dismissed running Strava activities within date range
     const activities = await prisma.stravaActivity.findMany({
       where: {
         stravaConnectionId: connection.id,
         matchedAttendanceId: null,
         matchDismissed: false,
+        sportType: { in: SCOREABLE_SPORTS_ARRAY },
+        distanceMeters: { gte: 1000 },
         dateLocal: {
           gte: earliest.toISOString().substring(0, 10),
           lte: latest.toISOString().substring(0, 10),
@@ -610,6 +621,7 @@ export interface StravaSuggestion {
   kennelShortName: string;
   kennelFullName: string;
   kennelSlug: string;
+  kennelRegion: string;
   eventDate: string;
   eventTitle: string | null;
   eventRunNumber: number | null;
@@ -618,11 +630,12 @@ export interface StravaSuggestion {
   eventLat: number | null;
   eventLng: number | null;
   matchScore: number;
+  matchReasons: string[];
 }
 
 /**
  * Find Strava activities from the last 90 days that match events the user
- * hasn't checked into. Returns top-scoring suggestions (score >= 0.5).
+ * hasn't checked into. Returns top-scoring suggestions (score >= 2.0).
  */
 export async function getStravaEventSuggestions(): Promise<
   ActionResult<{ suggestions: StravaSuggestion[] }>
@@ -646,6 +659,8 @@ export async function getStravaEventSuggestions(): Promise<
         matchedAttendanceId: null,
         matchDismissed: false,
         dateLocal: { gte: cutoffDateStr },
+        sportType: { in: SCOREABLE_SPORTS_ARRAY },
+        distanceMeters: { gte: 1000 },
       },
       select: {
         id: true,
@@ -687,7 +702,7 @@ export async function getStravaEventSuggestions(): Promise<
         locationName: true,
         latitude: true,
         longitude: true,
-        kennel: { select: { shortName: true, fullName: true, slug: true } },
+        kennel: { select: { shortName: true, fullName: true, slug: true, region: true } },
       },
     });
 
@@ -705,7 +720,22 @@ export async function getStravaEventSuggestions(): Promise<
 
       const match = findBestEventMatch(activity, candidates);
       if (!match) continue;
-      const { event: bestEvent, score: bestScore } = match;
+      const { event: bestEvent, score: bestScore, breakdown: bestBreakdown } = match;
+
+      // Build match reasons from breakdown (no re-computation needed)
+      const matchReasons: string[] = ["Same day"];
+
+      if (bestBreakdown.geoKm != null && bestBreakdown.geoKm <= 25) {
+        matchReasons.push(`Within ${Math.round(bestBreakdown.geoKm)} km`);
+      }
+
+      if (bestBreakdown.nameScore > 0.5) {
+        matchReasons.push(`Name: "${activity.name}"`);
+      }
+
+      if (bestBreakdown.timeScore > 0.5) {
+        matchReasons.push("Similar time");
+      }
 
       suggestions.push({
         stravaActivityDbId: activity.id,
@@ -723,6 +753,7 @@ export async function getStravaEventSuggestions(): Promise<
         kennelShortName: bestEvent.kennel.shortName,
         kennelFullName: bestEvent.kennel.fullName,
         kennelSlug: bestEvent.kennel.slug,
+        kennelRegion: bestEvent.kennel.region,
         eventDate: bestEvent.date.toISOString().substring(0, 10),
         eventTitle: bestEvent.title,
         eventRunNumber: bestEvent.runNumber,
@@ -731,12 +762,13 @@ export async function getStravaEventSuggestions(): Promise<
         eventLat: bestEvent.latitude,
         eventLng: bestEvent.longitude,
         matchScore: bestScore,
+        matchReasons,
       });
     }
 
-    // Sort by dateLocal desc, cap at 30
-    suggestions.sort((a, b) => b.dateLocal.localeCompare(a.dateLocal));
-    const capped = suggestions.slice(0, 30);
+    // Sort by match score desc, cap at 10
+    suggestions.sort((a, b) => b.matchScore - a.matchScore);
+    const capped = suggestions.slice(0, 10);
 
     return { success: true, suggestions: capped };
   } catch (err) {
@@ -865,8 +897,8 @@ export async function getStravaBackfillActivities(): Promise<
 
       let candidateEvent: BackfillActivity["candidateEvent"] = null;
 
-      // Only score unmatched, non-dismissed activities
-      if (!isMatched && !isDismissed) {
+      // Only score unmatched, non-dismissed, running activities (show all in wizard)
+      if (!isMatched && !isDismissed && SCOREABLE_SPORTS.has(a.sportType) && a.distanceMeters >= 1000) {
         const candidates = eventsByDate.get(a.dateLocal);
         if (candidates && candidates.length > 0) {
           const match = findBestEventMatch(a, candidates);

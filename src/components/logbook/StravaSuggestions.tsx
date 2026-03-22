@@ -22,7 +22,11 @@ import {
   formatDateShort,
   formatDuration,
   formatTime,
+  formatRelativeTime,
+  regionAbbrev,
+  regionColorClasses,
 } from "@/lib/format";
+import { buildStravaUrl } from "@/lib/strava/url";
 import { RefreshCw } from "lucide-react";
 import { StravaBackfillWizard } from "@/components/logbook/StravaBackfillWizard";
 
@@ -58,8 +62,10 @@ function buildLinkGroups(matches: UnmatchedStravaMatch[]): LinkGroup[] {
 
 export function StravaSuggestions({
   stravaConnected,
+  lastSyncAt,
 }: Readonly<{
   stravaConnected: boolean;
+  lastSyncAt?: string;
 }>) {
   const [suggestions, setSuggestions] = useState<StravaSuggestion[]>([]);
   const [linkMatches, setLinkMatches] = useState<UnmatchedStravaMatch[]>([]);
@@ -69,12 +75,18 @@ export function StravaSuggestions({
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const [showAllLinks, setShowAllLinks] = useState(false);
   const [showBackfill, setShowBackfill] = useState(false);
+  const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   const linkGroups = useMemo(() => buildLinkGroups(linkMatches), [linkMatches]);
 
-  const totalCount = suggestions.length + linkGroups.length;
+  const filteredSuggestions = useMemo(
+    () => suggestions.filter((s) => !skippedIds.has(s.stravaActivityDbId)),
+    [suggestions, skippedIds],
+  );
+
+  const totalCount = filteredSuggestions.length + linkGroups.length;
 
   useEffect(() => {
     if (!stravaConnected) return;
@@ -153,9 +165,13 @@ export function StravaSuggestions({
     });
   }
 
+  function handleSkipSuggestion(stravaActivityDbId: string) {
+    setSkippedIds((prev) => new Set(prev).add(stravaActivityDbId));
+  }
+
   function handleDismissAllSuggestions() {
     startTransition(async () => {
-      const ids = suggestions.map((s) => s.stravaActivityDbId);
+      const ids = filteredSuggestions.map((s) => s.stravaActivityDbId);
       const result = await dismissAllStravaMatches(ids);
       if (!result.success) {
         toast.error(result.error);
@@ -223,7 +239,7 @@ export function StravaSuggestions({
             aria-hidden="true"
           />
           <span className="font-medium">{totalCount}</span> Strava{" "}
-          {totalCount === 1 ? "activity" : "activities"} may be hash runs
+          {totalCount === 1 ? "match" : "matches"} for your recent activities
         </p>
         <div className="flex items-center gap-2">
           <Button
@@ -249,33 +265,40 @@ export function StravaSuggestions({
 
   // ── Expanded state ──
   const visibleSuggestions = showAllSuggestions
-    ? suggestions
-    : suggestions.slice(0, SUGGESTION_CAP);
+    ? filteredSuggestions
+    : filteredSuggestions.slice(0, SUGGESTION_CAP);
   const visibleLinks = showAllLinks
     ? linkGroups
     : linkGroups.slice(0, LINK_CAP);
 
   return (
     <div className="space-y-4">
-      {/* Section A: "Were you there?" — event suggestions */}
-      {suggestions.length > 0 && (
+      {/* Section A: "Strava Matches" — event suggestions */}
+      {filteredSuggestions.length > 0 && (
         <div className="space-y-3">
+          {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold">Were you there?</h3>
+              <h3 className="text-sm font-semibold">Strava Matches</h3>
               <span className="rounded-full bg-strava/10 px-2 py-0.5 text-[10px] font-semibold text-strava">
-                {suggestions.length} new
+                {filteredSuggestions.length}
               </span>
             </div>
             <div className="flex items-center gap-2">
+              {lastSyncAt && (
+                <span className="text-[11px] text-muted-foreground font-mono">
+                  Synced {formatRelativeTime(lastSyncAt)}
+                </span>
+              )}
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="h-6 text-xs text-muted-foreground"
-                onClick={handleDismissAllSuggestions}
+                className="h-7 gap-1.5 text-xs font-mono border-strava/40 text-strava hover:bg-strava/5"
+                onClick={handleSyncNow}
                 disabled={isPending}
               >
-                Dismiss All
+                <RefreshCw size={12} className={isPending ? "animate-spin" : ""} />
+                Sync
               </Button>
               <Button
                 variant="ghost"
@@ -288,6 +311,11 @@ export function StravaSuggestions({
             </div>
           </div>
 
+          {/* Subtitle */}
+          <p className="text-xs text-muted-foreground -mt-1">
+            Hash events that match your recent Strava activities
+          </p>
+
           <div className="space-y-2">
             {visibleSuggestions.map((s) => (
               <SuggestionCard
@@ -298,18 +326,19 @@ export function StravaSuggestions({
                 onDismiss={() =>
                   handleDismissSuggestion(s.stravaActivityDbId)
                 }
+                onSkip={() => handleSkipSuggestion(s.stravaActivityDbId)}
               />
             ))}
           </div>
 
-          {!showAllSuggestions && suggestions.length > SUGGESTION_CAP && (
+          {!showAllSuggestions && filteredSuggestions.length > SUGGESTION_CAP && (
             <Button
               variant="ghost"
               size="sm"
               className="text-xs"
               onClick={() => setShowAllSuggestions(true)}
             >
-              Show all {suggestions.length} suggestions
+              Show all {filteredSuggestions.length} suggestions
             </Button>
           )}
         </div>
@@ -318,11 +347,16 @@ export function StravaSuggestions({
       {/* Section B: "Link Strava to check-ins" */}
       {linkGroups.length > 0 && (
         <>
-          {suggestions.length > 0 && <div className="border-t my-4" />}
+          {filteredSuggestions.length > 0 && <div className="border-t my-4" />}
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold">
-              Link Strava to check-ins ({linkGroups.length})
-            </h3>
+            <div>
+              <h3 className="text-sm font-semibold">
+                Link Strava to check-ins ({linkGroups.length})
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Attach Strava data to runs you&apos;ve already logged
+              </p>
+            </div>
 
             <div className="space-y-2">
               {visibleLinks.map((g) => (
@@ -338,7 +372,7 @@ export function StravaSuggestions({
                       {g.match.activityName}
                     </span>
                     <span className="shrink-0 text-xs font-mono text-muted-foreground">
-                      {formatDistance(g.match.distanceMeters)}
+                      {formatDistance(g.match.distanceMeters)} &middot; {formatDateShort(g.eventDate + "T12:00:00Z")}
                     </span>
                   </div>
                   <div className="flex gap-1 shrink-0">
@@ -390,16 +424,6 @@ export function StravaSuggestions({
         >
           Review all Strava activities &rarr;
         </button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 gap-1.5 text-xs font-mono"
-          onClick={handleSyncNow}
-          disabled={isPending}
-        >
-          <RefreshCw size={12} className={isPending ? "animate-spin" : ""} />
-          Sync Now
-        </Button>
       </div>
 
       <StravaBackfillWizard
@@ -410,82 +434,114 @@ export function StravaSuggestions({
   );
 }
 
-// ── Suggestion Card (Section A) ──
+// ── Suggestion Card (Section A) — Event-first layout ──
 
 function SuggestionCard({
   suggestion: s,
   isPending,
   onCheckIn,
   onDismiss,
+  onSkip,
 }: Readonly<{
   suggestion: StravaSuggestion;
   isPending: boolean;
   onCheckIn: () => void;
   onDismiss: () => void;
+  onSkip: () => void;
 }>) {
-  return (
-    <div className="rounded-lg border border-l-[3px] border-l-strava overflow-hidden">
-      <div className="px-3 py-2.5 space-y-1.5">
-        {/* Line 1: Activity name + stats */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="min-w-0 truncate text-sm font-medium">
-              {s.activityName}
-            </span>
-            <span className="shrink-0 text-xs font-mono text-muted-foreground">
-              {formatDistance(s.distanceMeters)}
-              {s.movingTimeSecs > 0 && (
-                <> &middot; {formatDuration(s.movingTimeSecs)}</>
-              )}
-              {s.timeLocal && (
-                <> &middot; {formatTime(s.timeLocal)}</>
-              )}
-            </span>
-          </div>
-          <div className="flex gap-1 shrink-0">
-            <Button
-              size="sm"
-              className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
-              onClick={onCheckIn}
-              disabled={isPending}
-            >
-              I Was There
-            </Button>
-            <button
-              type="button"
-              className="text-xs text-muted-foreground hover:text-foreground px-1.5"
-              onClick={onDismiss}
-              disabled={isPending}
-            >
-              Not a Hash
-            </button>
-          </div>
-        </div>
+  const abbrev = s.kennelRegion ? regionAbbrev(s.kennelRegion) : null;
+  const colorCls = s.kennelRegion ? regionColorClasses(s.kennelRegion) : "";
+  const reasons = s.matchReasons ?? [];
 
-        {/* Line 2: Event match pill */}
-        <div className="flex items-center gap-1.5 rounded bg-muted/50 px-2 py-1 text-xs">
-          <span aria-hidden="true" className="text-muted-foreground">
-            &rarr;
-          </span>
-          <span className="font-semibold">{s.kennelShortName}</span>
-          {s.eventRunNumber != null && (
-            <span className="text-muted-foreground">
-              #{s.eventRunNumber}
+  return (
+    <div className="flex gap-3 rounded-lg border border-l-[3px] border-l-strava overflow-hidden px-3 py-2.5">
+      {/* Content */}
+      <div className="flex-1 min-w-0 space-y-1.5">
+        {/* Line 1: Primary event info */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <a
+            href={`/hareline/${s.eventId}`}
+            className="font-semibold text-sm text-blue-500 hover:underline"
+          >
+            {s.kennelShortName}
+          </a>
+          {abbrev && (
+            <span
+              className={`inline-flex items-center justify-center rounded-full font-bold shrink-0 h-5 px-1.5 text-[10px] leading-5 ${colorCls}`}
+              title={s.kennelRegion}
+            >
+              {abbrev}
             </span>
           )}
-          <span className="text-muted-foreground">&middot;</span>
-          <span className="text-muted-foreground">
+          <span className="text-xs text-muted-foreground font-mono">
+            {s.eventRunNumber != null && `#${s.eventRunNumber} \u00B7 `}
             {formatDateShort(s.eventDate + "T12:00:00Z")}
           </span>
-          {s.eventLocationName && (
-            <>
-              <span className="text-muted-foreground">&middot;</span>
-              <span className="max-w-[200px] truncate text-muted-foreground">
-                {s.eventLocationName}
-              </span>
-            </>
-          )}
         </div>
+
+        {/* Line 2: Match reasons */}
+        {reasons.length > 0 && (
+          <div className="flex gap-1 flex-wrap">
+            {reasons.map((reason) => (
+              <span
+                key={reason}
+                className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                  reason.startsWith("Same") || reason.startsWith("Within")
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {reason}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Line 3: Secondary Strava activity info */}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="text-strava text-[10px]">{"\u2B21"}</span>
+          <a
+            href={buildStravaUrl(s.stravaActivityId)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-strava hover:underline"
+          >
+            {s.activityName}
+          </a>
+          <span>&middot;</span>
+          <span className="font-mono text-[11px]">
+            {formatDistance(s.distanceMeters)}
+            {s.movingTimeSecs > 0 && ` \u00B7 ${formatDuration(s.movingTimeSecs)}`}
+            {s.timeLocal && ` \u00B7 ${formatTime(s.timeLocal)}`}
+          </span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-col gap-1 items-end shrink-0">
+        <Button
+          size="sm"
+          className="bg-emerald-500 hover:bg-emerald-600 text-white h-7 text-xs font-semibold"
+          onClick={onCheckIn}
+          disabled={isPending}
+        >
+          I Was There
+        </Button>
+        <button
+          type="button"
+          className="text-[11px] text-muted-foreground hover:text-foreground"
+          onClick={onDismiss}
+          disabled={isPending}
+        >
+          Not a Hash
+        </button>
+        <button
+          type="button"
+          className="text-[11px] text-muted-foreground hover:text-foreground"
+          onClick={onSkip}
+        >
+          Skip
+        </button>
       </div>
     </div>
   );
