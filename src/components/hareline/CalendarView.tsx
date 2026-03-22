@@ -307,11 +307,12 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
     function accumulate(dayEvents: HarelineEvent[]) {
       count += dayEvents.length;
       for (const e of dayEvents) {
-        if (!seen.has(e.kennel.region)) {
-          seen.set(e.kennel.region, {
-            region: e.kennel.region,
-            abbrev: regionAbbrev(e.kennel.region),
-            colorClasses: regionColorClasses(e.kennel.region),
+        const region = e.kennel?.region ?? "";
+        if (!seen.has(region)) {
+          seen.set(region, {
+            region,
+            abbrev: regionAbbrev(region),
+            colorClasses: regionColorClasses(region),
           });
         }
       }
@@ -397,7 +398,7 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
               <Tooltip key={e.id}>
                 <TooltipTrigger asChild>
                   <span
-                    className={`inline-flex h-5 w-fit max-w-full items-center truncate rounded-full px-1.5 text-[10px] font-bold leading-5 ring-1 ring-inset ring-foreground/10 ${regionColorClasses(e.kennel.region)}`}
+                    className={`inline-flex h-5 w-fit max-w-full items-center truncate rounded-full px-1.5 text-[10px] font-bold leading-5 ring-1 ring-inset ring-foreground/10 ${regionColorClasses(e.kennel?.region ?? "")}`}
                   >
                     {e.startTime && (
                       <span className="font-normal opacity-70">
@@ -405,13 +406,13 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
                       </span>
                     )}
                     {e.startTime && <span className="mx-0.5 opacity-50">·</span>}
-                    {e.kennel.shortName}
+                    {e.kennel?.shortName}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
                   <div className="space-y-0.5">
-                    <p className="font-semibold">{e.kennel.fullName}</p>
-                    <p className="text-xs text-muted-foreground">{e.kennel.region}</p>
+                    <p className="font-semibold">{e.kennel?.fullName}</p>
+                    <p className="text-xs text-muted-foreground">{e.kennel?.region}</p>
                     {e.runNumber && <p className="text-xs">Run #{e.runNumber}</p>}
                     {e.title && <p className="text-xs">{e.title}</p>}
                     {e.startTime && (() => {
@@ -590,7 +591,7 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
           <div className="mt-4 lg:mt-0 lg:w-80 lg:shrink-0">
             <div
               className="space-y-2 rounded-md border border-t-[3px] p-4 lg:sticky lg:top-8 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto"
-              style={{ borderTopColor: selectedEvents.length > 0 && selectedEvents.every((e) => e.kennel.region === selectedEvents[0].kennel.region) ? getRegionColor(selectedEvents[0].kennel.region) : undefined }}
+              style={{ borderTopColor: selectedEvents.length > 0 && selectedEvents.every((e) => e.kennel?.region === selectedEvents[0]?.kennel?.region) ? getRegionColor(selectedEvents[0]?.kennel?.region ?? "") : undefined }}
             >
               <h3 className="text-sm font-medium">
                 {new Date(selectedDay + "T12:00:00Z").toLocaleDateString("en-US", {
