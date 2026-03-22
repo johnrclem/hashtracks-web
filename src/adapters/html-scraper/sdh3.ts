@@ -153,7 +153,7 @@ export function parseEventFields(fieldsText: string): {
         const addressLines = [value];
         for (let k = i + 1; k < lines.length; k++) {
           const nextLine = lines[k].trim();
-          if (!nextLine || /^.+?:\s/.test(nextLine)) break;
+          if (!nextLine || /^(.+?):/.test(nextLine)) break;
           // Skip "United States" / "US" country lines
           if (/^(?:United States|US|USA)$/i.test(nextLine)) continue;
           addressLines.push(nextLine);
