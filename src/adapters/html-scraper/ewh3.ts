@@ -115,7 +115,7 @@ function processPost(
 
   return {
     date: parsed.date,
-    kennelTag: "EWH3",
+    kennelTag: "ewh3",
     runNumber: parsed.runNumber ? Math.floor(parsed.runNumber) : undefined,
     title: parsed.trailName,
     hares: bodyFields.hares,

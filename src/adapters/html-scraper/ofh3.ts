@@ -141,7 +141,7 @@ function processPost(
         error: dateError,
         rawText: `Title: ${titleText}\n\n${bodyText}`.slice(0, 2000),
         partialData: {
-          kennelTag: "OFH3",
+          kennelTag: "ofh3",
           title: titleText || undefined,
           hares: bodyFields.hares,
           location: bodyFields.location,
@@ -163,7 +163,7 @@ function processPost(
 
   return {
     date: eventDate,
-    kennelTag: "OFH3",
+    kennelTag: "ofh3",
     title: cleanedTitle || undefined,
     hares: bodyFields.hares,
     location: bodyFields.location && !isPlaceholder(bodyFields.location) ? bodyFields.location : undefined,

@@ -105,35 +105,35 @@ describe("extractMonthDay", () => {
 
 describe("extractKennelTag", () => {
   it("matches Knickerbocker at start", () => {
-    expect(extractKennelTag("Knickerbocker Run #500")).toBe("Knick");
+    expect(extractKennelTag("Knickerbocker Run #500")).toBe("knick");
   });
 
   it("matches Brooklyn anchored", () => {
-    expect(extractKennelTag("Brooklyn Run #456")).toBe("BrH3");
+    expect(extractKennelTag("Brooklyn Run #456")).toBe("brh3");
   });
 
   it("matches NYCH3 anchored", () => {
-    expect(extractKennelTag("NYCH3 Run #2100: Trail")).toBe("NYCH3");
+    expect(extractKennelTag("NYCH3 Run #2100: Trail")).toBe("nych3");
   });
 
   it("matches contextual pattern with run number", () => {
-    expect(extractKennelTag("Some text Knickerbocker Run 500")).toBe("Knick");
+    expect(extractKennelTag("Some text Knickerbocker Run 500")).toBe("knick");
   });
 
   it("matches Queens Black Knights", () => {
-    expect(extractKennelTag("Queens Black Knights Run #100")).toBe("QBK");
+    expect(extractKennelTag("Queens Black Knights Run #100")).toBe("qbk");
   });
 
   it("matches NAWWH3", () => {
-    expect(extractKennelTag("NAWWH3 Run #50")).toBe("NAWWH3");
+    expect(extractKennelTag("NAWWH3 Run #50")).toBe("nawwh3");
   });
 
-  it("falls back to NYCH3 with run number present", () => {
-    expect(extractKennelTag("Some random text Run #123")).toBe("NYCH3");
+  it("falls back to nych3 with run number present", () => {
+    expect(extractKennelTag("Some random text Run #123")).toBe("nych3");
   });
 
-  it("falls back to NYCH3 when no pattern matches", () => {
-    expect(extractKennelTag("Just some random text")).toBe("NYCH3");
+  it("falls back to nych3 when no pattern matches", () => {
+    expect(extractKennelTag("Just some random text")).toBe("nych3");
   });
 });
 
@@ -157,24 +157,24 @@ describe("extractRunNumber", () => {
   });
 
   it("prefers kennel-scoped run number over cross-kennel reference", () => {
-    // "Summit H3 #2169" appears first, but BrH3 #2 should be preferred when kennelTag is BrH3
+    // "Summit H3 #2169" appears first, but BrH3 #2 should be preferred when kennelTag is brh3
     expect(
       extractRunNumber(
         "38th Annual Downtown Fiasco (also Summit H3 #2169) BrH3 #2",
-        "BrH3",
+        "brh3",
       ),
     ).toBe(2);
   });
 
   it("falls back to first run number when kennel tag has no adjacent number", () => {
     expect(
-      extractRunNumber("Brooklyn special event #456", "BrH3"),
+      extractRunNumber("Brooklyn special event #456", "brh3"),
     ).toBe(456);
   });
 
   it("scopes to kennel pattern for NYC kennel", () => {
     expect(
-      extractRunNumber("NYCH3 Run #100 also Brooklyn #200", "NYCH3"),
+      extractRunNumber("NYCH3 Run #100 also Brooklyn #200", "nych3"),
     ).toBe(100);
   });
 });
@@ -264,7 +264,7 @@ describe("parseDetailsCell", () => {
     const html = `<table><tr><td>NYCH3 Run #2100 Valentine's Trail</td></tr></table>`;
     const $ = cheerio.load(html);
     const result = parseDetailsCell($, $("td").first());
-    expect(result.kennelTag).toBe("NYCH3");
+    expect(result.kennelTag).toBe("nych3");
     expect(result.runNumber).toBe(2100);
   });
 
@@ -294,7 +294,7 @@ describe("parseDetailsCell", () => {
     const html = `<table><tr><td><b>38th Annual Downtown Fiasco (also Summit H3 #2169)</b> BrH3 #2 Start: TBD</td></tr></table>`;
     const $ = cheerio.load(html);
     const result = parseDetailsCell($, $("td").first());
-    expect(result.kennelTag).toBe("BrH3");
+    expect(result.kennelTag).toBe("brh3");
     expect(result.runNumber).toBe(2);
   });
 });
@@ -368,7 +368,7 @@ describe("parseRows", () => {
 
     const result = parseRows($, rows, "https://hashnyc.com", true, "future_hashes");
     expect(result.events.length).toBe(1);
-    expect(result.events[0].kennelTag).toBe("NYCH3");
+    expect(result.events[0].kennelTag).toBe("nych3");
   });
 
   it("defaults section to past_hashes for non-future rows", () => {
@@ -430,7 +430,7 @@ describe("HashNYCAdapter deduplication", () => {
     const result = await adapter.fetch({ url: "https://hashnyc.com" } as never);
 
     // Should be deduplicated: only 1 event, not 2
-    const nychEvents = result.events.filter(e => e.kennelTag === "NYCH3" && e.date === "2026-03-10");
+    const nychEvents = result.events.filter(e => e.kennelTag === "nych3" && e.date === "2026-03-10");
     expect(nychEvents.length).toBe(1);
     // Future table entry should win (later overwrites)
     expect(nychEvents[0].hares).toBe("Updated Hare");

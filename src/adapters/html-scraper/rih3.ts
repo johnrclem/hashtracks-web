@@ -67,7 +67,7 @@ export function parseDtDdBlock(
 
   return {
     date,
-    kennelTag: "RIH3",
+    kennelTag: "rih3",
     runNumber: runNumber && !isNaN(runNumber) ? runNumber : undefined,
     title,
     hares,

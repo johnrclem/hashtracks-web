@@ -37,12 +37,21 @@ export function extractDayNumber(text: string): number | null {
 
 /**
  * Known kennel abbreviations used in the WCFH calendar.
- * Maps the abbreviation as it appears on the page to the kennelTag used by the resolver.
+ * Maps the abbreviation as it appears on the page to the kennelCode used by the resolver.
  */
-const WCFH_KENNEL_TAGS = new Set([
-  "BARFH3", "B2BH3", "JRH3", "LH3", "SBH3", "LUSH",
-  "NSAH3", "CH3", "SPH3", "TTH3", "TBH3",
-]);
+const WCFH_PAGE_TO_CODE: Record<string, string> = {
+  "BARFH3": "barf-h3",
+  "B2BH3": "b2b-h3",
+  "JRH3": "jrh3",
+  "LH3": "lh3-fl",
+  "SBH3": "sbh3",
+  "LUSH": "lush",
+  "NSAH3": "nsah3",
+  "CH3": "circus-h3",
+  "SPH3": "sph3-fl",
+  "TTH3": "tth3-fl",
+  "TBH3": "tbh3-fl",
+};
 
 /**
  * Extract kennel abbreviations from a calendar cell.
@@ -53,8 +62,9 @@ export function extractKennelTags($cell: Cheerio<AnyNode>, $: CheerioAPI): strin
   const tags: string[] = [];
   $cell.find("a").each((_i, el) => {
     const text = $(el).text().trim().replace(/[.,\s]+/g, "");
-    if (text && WCFH_KENNEL_TAGS.has(text)) {
-      tags.push(text);
+    const code = text ? WCFH_PAGE_TO_CODE[text] : undefined;
+    if (code) {
+      tags.push(code);
     }
   });
   return tags;

@@ -12,47 +12,47 @@ import {
 
 describe("extractKennelTag", () => {
   it("matches Boston Ball Buster", () => {
-    expect(extractKennelTag("Boston Ball Buster #123")).toBe("BoBBH3");
+    expect(extractKennelTag("Boston Ball Buster #123")).toBe("bobbh3");
   });
 
   it("matches BoBBH3 abbreviation", () => {
-    expect(extractKennelTag("BoBBH3: Run Name")).toBe("BoBBH3");
+    expect(extractKennelTag("BoBBH3: Run Name")).toBe("bobbh3");
   });
 
   it("matches Beantown", () => {
-    expect(extractKennelTag("Beantown #255: Taste of Spring")).toBe("Beantown");
+    expect(extractKennelTag("Beantown #255: Taste of Spring")).toBe("beantown");
   });
 
   it("matches Pink Taco", () => {
-    expect(extractKennelTag("Pink Taco: Ladies Night")).toBe("Pink Taco");
+    expect(extractKennelTag("Pink Taco: Ladies Night")).toBe("pink-taco");
   });
 
-  it("matches PT2H3 → Pink Taco", () => {
-    expect(extractKennelTag("PT2H3: Run")).toBe("Pink Taco");
+  it("matches PT2H3 → pink-taco", () => {
+    expect(extractKennelTag("PT2H3: Run")).toBe("pink-taco");
   });
 
   it("matches Boston Moon", () => {
-    expect(extractKennelTag("Boston Moon: Full Moon Run")).toBe("Bos Moon");
+    expect(extractKennelTag("Boston Moon: Full Moon Run")).toBe("bos-moon");
   });
 
   it("matches Moon keyword", () => {
-    expect(extractKennelTag("Full Moon Hash")).toBe("Bos Moon");
+    expect(extractKennelTag("Full Moon Hash")).toBe("bos-moon");
   });
 
   it("matches BoH3", () => {
-    expect(extractKennelTag("BoH3: Weekly Run")).toBe("BoH3");
+    expect(extractKennelTag("BoH3: Weekly Run")).toBe("boh3");
   });
 
   it("matches BH3", () => {
-    expect(extractKennelTag("BH3: Something")).toBe("BoH3");
+    expect(extractKennelTag("BH3: Something")).toBe("boh3");
   });
 
-  it("matches B3H4 → BoBBH3", () => {
-    expect(extractKennelTag("B3H4 Run")).toBe("BoBBH3");
+  it("matches B3H4 → bobbh3", () => {
+    expect(extractKennelTag("B3H4 Run")).toBe("bobbh3");
   });
 
-  it("falls back to BoH3 for unknown", () => {
-    expect(extractKennelTag("Unknown Event Name")).toBe("BoH3");
+  it("falls back to boh3 for unknown", () => {
+    expect(extractKennelTag("Unknown Event Name")).toBe("boh3");
   });
 });
 
@@ -371,7 +371,7 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
     const skipPatterns = [/BFM|Ben Franklin/i];
     const result = buildRawEventFromGCalItem(
       baseItem,
-      { defaultKennelTag: "Philly H3" },
+      { defaultKennelTag: "philly-h3" },
       undefined,
       undefined,
       skipPatterns,
@@ -383,13 +383,13 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
     const skipPatterns = [/BFM|Ben Franklin/i];
     const result = buildRawEventFromGCalItem(
       { ...baseItem, summary: "Philly Hash Weekly Run" },
-      { defaultKennelTag: "Philly H3" },
+      { defaultKennelTag: "philly-h3" },
       undefined,
       undefined,
       skipPatterns,
     );
     expect(result).not.toBeNull();
-    expect(result!.kennelTag).toBe("Philly H3");
+    expect(result!.kennelTag).toBe("philly-h3");
   });
 
   it("works with empty skipPatterns array", () => {

@@ -66,7 +66,7 @@ describe("parseIH3Block", () => {
     expect(result).not.toBeNull();
     expect(result!.runNumber).toBe(1119);
     expect(result!.date).toBe("2026-03-15");
-    expect(result!.kennelTag).toBe("IH3");
+    expect(result!.kennelTag).toBe("ih3");
     expect(result!.title).toBe("IH3 #1119");
     expect(result!.hares).toBe("Flesh Flaps & Spike");
     expect(result!.startTime).toBe("14:00");

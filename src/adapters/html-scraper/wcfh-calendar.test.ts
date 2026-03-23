@@ -204,16 +204,16 @@ describe("WCFHCalendarAdapter.fetch", () => {
       url: "https://www.jollyrogerh3.com/WCFH_Calendar.htm",
     } as never);
 
-    // First event is Feb 22 CH3
-    const feb22 = result.events.find(e => e.date === "2026-02-22" && e.kennelTag === "CH3");
+    // First event is Feb 22 CH3 (circus-h3)
+    const feb22 = result.events.find(e => e.date === "2026-02-22" && e.kennelTag === "circus-h3");
     expect(feb22).toBeDefined();
     expect(feb22!.sourceUrl).toBe("https://www.jollyrogerh3.com/WCFH_Calendar.htm");
 
     // March events
-    const mar1 = result.events.find(e => e.date === "2026-03-01" && e.kennelTag === "B2BH3");
+    const mar1 = result.events.find(e => e.date === "2026-03-01" && e.kennelTag === "b2b-h3");
     expect(mar1).toBeDefined();
 
-    const mar8 = result.events.find(e => e.date === "2026-03-08" && e.kennelTag === "CH3");
+    const mar8 = result.events.find(e => e.date === "2026-03-08" && e.kennelTag === "circus-h3");
     expect(mar8).toBeDefined();
 
     vi.restoreAllMocks();
@@ -230,10 +230,10 @@ describe("WCFHCalendarAdapter.fetch", () => {
       url: "https://www.jollyrogerh3.com/WCFH_Calendar.htm",
     } as never);
 
-    // Apr 5 has both CH3 and B2BH3
+    // Apr 5 has both CH3 (circus-h3) and B2BH3 (b2b-h3)
     const apr5Events = result.events.filter(e => e.date === "2026-04-05");
     expect(apr5Events).toHaveLength(2);
-    expect(apr5Events.map(e => e.kennelTag).sort()).toEqual(["B2BH3", "CH3"]);
+    expect(apr5Events.map(e => e.kennelTag).sort()).toEqual(["b2b-h3", "circus-h3"]);
 
     vi.restoreAllMocks();
   });
@@ -268,7 +268,7 @@ describe("WCFHCalendarAdapter.fetch", () => {
       url: "https://www.jollyrogerh3.com/WCFH_Calendar.htm",
     } as never);
 
-    const knownTags = new Set(["BARFH3", "B2BH3", "JRH3", "LH3", "SBH3", "LUSH", "NSAH3", "CH3", "SPH3", "TTH3", "TBH3"]);
+    const knownTags = new Set(["barf-h3", "b2b-h3", "jrh3", "lh3-fl", "sbh3", "lush", "nsah3", "circus-h3", "sph3-fl", "tth3-fl", "tbh3-fl"]);
     for (const event of result.events) {
       expect(knownTags.has(event.kennelTag)).toBe(true);
     }

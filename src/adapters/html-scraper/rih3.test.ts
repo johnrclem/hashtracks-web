@@ -60,7 +60,7 @@ describe("parseDtDdBlock", () => {
 
     expect(result).toMatchObject({
       date: "2026-03-09",
-      kennelTag: "RIH3",
+      kennelTag: "rih3",
       runNumber: 2089,
       title: "RIH3 #2089",
       hares: "WIPOS",
@@ -120,7 +120,7 @@ describe("parseDtDdBlock", () => {
     const result = parseDtDdBlock(fields, SOURCE_URL);
 
     expect(result).toMatchObject({
-      kennelTag: "RIH3",
+      kennelTag: "rih3",
       title: "RIH3 Monday Trail",
       hares: "SomeHasher",
     });

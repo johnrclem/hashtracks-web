@@ -269,7 +269,7 @@ export function parseEventsPage(html: string, baseUrl: string): RawEventData[] {
 
     events.push({
       date,
-      kennelTag: "OCH3",
+      kennelTag: "och3",
       title,
       location,
       description: description || undefined,
@@ -332,7 +332,7 @@ function parseRunEntry(
   return {
     entry: {
       date,
-      kennelTag: "OCH3",
+      kennelTag: "och3",
       title,
       location,
       startTime: getStartTimeForDay(extractDayOfWeek(section) ?? inferDayFromDate(date)),
@@ -430,7 +430,7 @@ export class OCH3Adapter implements SourceAdapter {
           const dayOfWeek = inferDayFromDate(detail.date!);
           events.unshift({
             date: detail.date!,
-            kennelTag: "OCH3",
+            kennelTag: "och3",
             startTime: detail.startTime ?? getStartTimeForDay(dayOfWeek),
             location: detail.location,
             hares: detail.hares,
