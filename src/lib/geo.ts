@@ -62,6 +62,47 @@ export function extractCoordsFromMapsUrl(url: string): { lat: number; lng: numbe
   return null;
 }
 
+/**
+ * Parse DMS (degrees/minutes/seconds) coordinates from a location string.
+ * e.g., `34°08'52.8"N 112°22'05.6"W` → { lat: 34.1480, lng: -112.3682 }
+ * Returns null if no DMS pattern found.
+ */
+export function parseDMSFromLocation(location: string): { lat: number; lng: number } | null {
+  // Match patterns like: 34°08'52.8"N 112°22'05.6"W
+  const dmsRe = /(\d{1,3})°(\d{1,2})'([\d.]+)"([NS])\s+(\d{1,3})°(\d{1,2})'([\d.]+)"([EW])/;
+  const match = dmsRe.exec(location);
+  if (!match) return null;
+
+  const latDeg = Number.parseInt(match[1], 10);
+  const latMin = Number.parseInt(match[2], 10);
+  const latSec = Number.parseFloat(match[3]);
+  const latDir = match[4];
+  const lngDeg = Number.parseInt(match[5], 10);
+  const lngMin = Number.parseInt(match[6], 10);
+  const lngSec = Number.parseFloat(match[7]);
+  const lngDir = match[8];
+
+  let lat = latDeg + latMin / 60 + latSec / 3600;
+  let lng = lngDeg + lngMin / 60 + lngSec / 3600;
+  if (latDir === "S") lat = -lat;
+  if (lngDir === "W") lng = -lng;
+
+  if (!isValidCoords(lat, lng)) return null;
+  return { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 };
+}
+
+/**
+ * Strip DMS coordinate strings from a location, leaving just the venue name and address.
+ * e.g., `Fort Misery, 34°08'52.8"N 112°22'05.6"W, Yavapai County` → `Fort Misery, Yavapai County`
+ */
+export function stripDMSFromLocation(location: string): string {
+  return location
+    .replace(/,?\s*\d{1,3}°\d{1,2}'[\d.]+"[NS]\s+\d{1,3}°\d{1,2}'[\d.]+"[EW]\s*/g, "")
+    .replace(/,\s*,/g, ",")  // collapse double commas
+    .replace(/^,\s*|,\s*$/g, "")  // trim leading/trailing commas
+    .trim();
+}
+
 function isValidCoords(lat: number, lng: number): boolean {
   if (lat === 0 && lng === 0) return false;
   return !Number.isNaN(lat) && !Number.isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;

@@ -473,3 +473,38 @@ describe("resolveShortMapsUrl", () => {
     expect(result).toBeNull();
   });
 });
+
+// ── parseDMSFromLocation ──
+
+import { parseDMSFromLocation, stripDMSFromLocation } from "./geo";
+
+describe("parseDMSFromLocation", () => {
+  it("parses DMS coordinates from location string", () => {
+    const result = parseDMSFromLocation('Fort Misery, 34°08\'52.8"N 112°22\'05.6"W, Yavapai County');
+    expect(result).not.toBeNull();
+    expect(result!.lat).toBeCloseTo(34.1480, 3);
+    expect(result!.lng).toBeCloseTo(-112.3682, 3);
+  });
+
+  it("returns null for location without DMS", () => {
+    expect(parseDMSFromLocation("123 Main St, Phoenix, AZ")).toBeNull();
+  });
+
+  it("handles southern hemisphere", () => {
+    const result = parseDMSFromLocation('33°51\'54.0"S 151°12\'36.0"E');
+    expect(result).not.toBeNull();
+    expect(result!.lat).toBeCloseTo(-33.865, 2);
+    expect(result!.lng).toBeCloseTo(151.21, 2);
+  });
+});
+
+describe("stripDMSFromLocation", () => {
+  it("strips DMS and cleans up commas", () => {
+    const result = stripDMSFromLocation('Fort Misery, 34°08\'52.8"N 112°22\'05.6"W, Yavapai County, AZ');
+    expect(result).toBe("Fort Misery, Yavapai County, AZ");
+  });
+
+  it("returns original when no DMS present", () => {
+    expect(stripDMSFromLocation("123 Main St, Phoenix, AZ")).toBe("123 Main St, Phoenix, AZ");
+  });
+});
