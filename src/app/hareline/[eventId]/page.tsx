@@ -290,7 +290,7 @@ export default async function EventDetailPage({
                         rel="noopener noreferrer"
                         className="text-primary hover:underline"
                       >
-                        {stripUrlsFromText(event.locationName)}
+                        {event.locationStreet ?? stripUrlsFromText(event.locationName)}
                       </a>
                     </dd>
                   </div>
