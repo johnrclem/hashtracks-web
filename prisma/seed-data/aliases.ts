@@ -250,6 +250,10 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== MINNESOTA =====
     "mh3-mn": ["Minneapolis Hash", "Minneapolis H3", "MH3", "MplsH3"],
     "t3h3": ["Twin Titties Hash", "Twin Titties Thirstday", "T3H3", "TTTH3"],
+    // ===== MICHIGAN =====
+    "moa2h3": ["Motown Ann Arbor Hash", "MoA2H3", "Motown Hash", "Ann Arbor Hash", "A2H3"],
+    "demon-h3": ["DeMon Hash", "DeMon H3", "Detroit Monday Hash"],
+    "glh3": ["Greater Lansing Hash", "Greater Lansing H3", "GLH3", "Lansing Hash"],
     // ===== ARIZONA =====
     "lbh-phx": ["Lost Boobs Hash", "Lost Boobs H3", "LBH", "Phoenix LBH"],
     "hump-d": ["Hump D Hash", "Hump D H3", "HumpD"],

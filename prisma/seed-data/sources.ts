@@ -1842,6 +1842,37 @@ export const SOURCES = [
       },
       kennelCodes: ["mh3-mn", "t3h3"],
     },
+    // ===== MICHIGAN =====
+    {
+      name: "MoA2H3 Google Calendar",
+      url: "ea729ba97f0f3cd030c9e8edab00b19b6b9173f3c582cdfcd240dc461b7cc54e@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { defaultKennelTag: "MoA2H3" },
+      kennelCodes: ["moa2h3"],
+    },
+    {
+      name: "DeMon H3 Google Calendar",
+      url: "demonhashhouseharriers@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { defaultKennelTag: "DeMon" },
+      kennelCodes: ["demon-h3"],
+    },
+    {
+      name: "GLH3 Google Calendar",
+      url: "fejshhk8grbkhp9cc3s5blub9o@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { defaultKennelTag: "GLH3" },
+      kennelCodes: ["glh3"],
+    },
     // ===== ARIZONA =====
     // --- Phoenix (iCal Feed — multi-kennel) ---
     {
