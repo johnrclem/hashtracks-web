@@ -101,12 +101,15 @@ export function parseDetailPage($: cheerio.CheerioAPI, detailUrl: string): Detai
   const lines: string[] = [];
   paragraphs.each((_i, el) => {
     $(el).contents().each((_j, node) => {
-      const text = $(node).text().trim();
+      const rawText = $(node).text();
+      const text = rawText.trim();
       if (!text) return;
       // Rejoin fragments split across inline tags (e.g., <b>H</b>ares: → "H" + "ares:")
-      // If the previous line is a short fragment (≤2 chars), merge with this line
+      // If the previous line is a short fragment (≤2 chars), merge with this line.
+      // Use rawText (not fully trimmed) to preserve any leading whitespace between nodes,
+      // preventing words from running together (e.g., "<strong>I</strong> am" → "I am" not "Iam").
       if (lines.length > 0 && lines[lines.length - 1].length <= 2) {
-        lines[lines.length - 1] += text;
+        lines[lines.length - 1] += rawText.trimEnd();
       } else {
         lines.push(text);
       }
