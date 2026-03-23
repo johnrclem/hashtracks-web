@@ -361,18 +361,6 @@ export async function fetchHTMLPage(url: string): Promise<FetchHTMLResult> {
 }
 
 // ---------------------------------------------------------------------------
-// Browser-rendered HTML fetch helper — for Wix, Google Sites, SPAs
-// ---------------------------------------------------------------------------
-
-/**
- * Fetch a URL via the NAS headless browser rendering service, compute
- * structureHash, and load Cheerio. Same discriminated union pattern as
- * fetchHTMLPage() so adapters can use `page.ok` / `page.$` identically.
- *
- * Use this for JS-rendered sites (Wix, Google Sites, SPAs) where standard
- * HTTP fetch returns empty containers.
- */
-// ---------------------------------------------------------------------------
 // Hare boilerplate detection — shared across adapters + pipeline
 // ---------------------------------------------------------------------------
 
@@ -452,6 +440,18 @@ Text: "${text.slice(0, 500)}"`;
   }
 }
 
+// ---------------------------------------------------------------------------
+// Browser-rendered HTML fetch helper — for Wix, Google Sites, SPAs
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch a URL via the NAS headless browser rendering service, compute
+ * structureHash, and load Cheerio. Same discriminated union pattern as
+ * fetchHTMLPage() so adapters can use `page.ok` / `page.$` identically.
+ *
+ * Use this for JS-rendered sites (Wix, Google Sites, SPAs) where standard
+ * HTTP fetch returns empty containers.
+ */
 export async function fetchBrowserRenderedPage(
   url: string,
   options?: { waitFor?: string; selector?: string; timeout?: number },
