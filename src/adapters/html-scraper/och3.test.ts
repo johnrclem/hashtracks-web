@@ -183,6 +183,33 @@ describe("parseDetailPage", () => {
     const detail = parseDetailPage($, "http://www.och3.org.uk/next-run-details.html");
     expect(detail).toBeNull();
   });
+
+  it("parses single-paragraph DOM without field contamination", () => {
+    // Real DOM structure: everything in one .paragraph div with inline tags
+    const html = `<html><body>
+      <div class="paragraph">
+        <strong>Run <span>1992 - Sunday 29th March at 11.00</span>
+        Venue: The Palmerston, 31 Mill Lane, Carshalton, Surrey, SM5 2JY</strong>
+        <b>H</b>ares: Steph 'Streaky' Joseph and Kev 'Cabin Boy' Rogers
+        The Palmerston has just been taken over by a new landlord.
+      </div>
+      <div class="wsite-map">
+        <iframe src="https://maps.google.com/maps?long=-0.16847&lat=51.3658&z=15"></iframe>
+      </div>
+    </body></html>`;
+    const $ = cheerio.load(html);
+    const detail = parseDetailPage($, "http://www.och3.org.uk/next-run-details.html");
+    expect(detail).not.toBeNull();
+    expect(detail!.runNumber).toBe(1992);
+    expect(detail!.location).toBe("The Palmerston, 31 Mill Lane, Carshalton, Surrey, SM5 2JY");
+    // Location should NOT contain description text
+    expect(detail!.location).not.toContain("taken over");
+    expect(detail!.hares).toBe("Steph 'Streaky' Joseph and Kev 'Cabin Boy' Rogers");
+    // Hares should NOT contain description text
+    expect(detail!.hares).not.toContain("taken over");
+    expect(detail!.latitude).toBeCloseTo(51.3658, 3);
+    expect(detail!.longitude).toBeCloseTo(-0.16847, 3);
+  });
 });
 
 describe("mergeDetailIntoEvent", () => {
@@ -218,7 +245,8 @@ describe("mergeDetailIntoEvent", () => {
     expect(merged.sourceUrl).toBe("http://www.och3.org.uk/next-run-details.html");
     // Original fields preserved
     expect(merged.kennelTag).toBe("OCH3");
-    expect(merged.title).toBe("Anna 'Fish n Chips' Cooper");
+    // Title cleared because it matched the hare name (run-list sets hare as title for OCH3)
+    expect(merged.title).toBeUndefined();
   });
 
   it("only overrides populated detail fields", () => {

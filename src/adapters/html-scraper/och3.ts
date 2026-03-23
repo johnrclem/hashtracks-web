@@ -93,9 +93,30 @@ export interface DetailPageData {
  * Extracts run number, time, venue, hares, On Inn, and map coordinates.
  */
 export function parseDetailPage($: cheerio.CheerioAPI, detailUrl: string): DetailPageData | null {
-  // Combine all .paragraph text (handles tags split across elements)
+  // Iterate child nodes within each .paragraph to preserve logical line breaks.
+  // The site wraps all content in a single .paragraph div with inline <strong>/<span>/<b>
+  // tags — Cheerio .text() on the whole div produces one blob without newlines,
+  // causing regexes to capture across field boundaries.
   const paragraphs = $("div.paragraph");
-  const fullText = paragraphs.map((_, el) => $(el).text()).get().join("\n");
+  const lines: string[] = [];
+  paragraphs.each((_i, el) => {
+    $(el).contents().each((_j, node) => {
+      const rawText = $(node).text();
+      const text = rawText.trim();
+      if (!text) return;
+      // Rejoin fragments split across inline tags (e.g., <b>H</b>ares: → "H" + "ares:")
+      // If the previous line is a short fragment (≤2 chars), merge with this line.
+      // Use rawText (not fully trimmed) to preserve any leading whitespace between nodes,
+      // preventing words from running together (e.g., "<strong>I</strong> am" → "I am" not "Iam").
+      if (lines.length > 0 && lines[lines.length - 1].length <= 2) {
+        lines[lines.length - 1] += rawText.trimEnd();
+      } else {
+        lines.push(text);
+      }
+    });
+    lines.push(""); // blank line between paragraphs
+  });
+  const fullText = lines.join("\n");
 
   if (!fullText.trim()) return null;
 
@@ -180,7 +201,13 @@ export function mergeDetailIntoEvent(event: RawEventData, detail: DetailPageData
     merged.latitude = detail.latitude;
     merged.longitude = detail.longitude;
   }
-  if (detail.hares) merged.hares = detail.hares;
+  if (detail.hares) {
+    merged.hares = detail.hares;
+    // Clear title if it's just the hare name (run-list sets hare as title for OCH3)
+    if (merged.title && detail.hares.toLowerCase().includes(merged.title.toLowerCase())) {
+      merged.title = undefined;
+    }
+  }
   if (detail.onInn) {
     merged.description = `On Inn: ${detail.onInn}`;
   }
