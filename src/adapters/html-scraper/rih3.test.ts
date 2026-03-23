@@ -263,7 +263,7 @@ describe("parseHarelineRow", () => {
     expect(parseHarelineRow(["Mon April 6"], "", "", SOURCE_URL)).toBeNull();
   });
 
-  it("excludes Facebook and song links from description", () => {
+  it("preserves Facebook link as text with URL in description", () => {
     const cells = ["Mon April 21", "6:30 PM", "2043"];
     const result = parseHarelineRow(
       cells,
@@ -272,9 +272,60 @@ describe("parseHarelineRow", () => {
       SOURCE_URL,
     );
 
-    expect(result?.description).not.toContain("facebook");
+    expect(result?.description).toContain("facebook.com/groups");
+    expect(result?.description).toContain("See the RIH3 facebook Page");
     expect(result?.description).not.toContain("Song of the Week");
     expect(result?.description).toContain("monsoon slog");
+  });
+
+  it("strips song links from description", () => {
+    const cells = ["Mon April 21", "6:30 PM", "2043"];
+    const result = parseHarelineRow(
+      cells,
+      HARE_SINGLE,
+      DIRECTION_WITH_MAPS,
+      SOURCE_URL,
+    );
+
+    expect(result?.description).not.toContain("Santa Claus");
+    expect(result?.description).not.toContain("Song of the Week");
+  });
+
+  it("strips leading comma from description (Bug #3)", () => {
+    const directionWithComma = `
+<p>,</p>
+<h2>This Hash will bring tears to your eyes</h2>
+<br/><br/><br/>
+Basket says, "Check out the Receding Hareline..."
+<br/><br/>
+<p><a href="https://www.facebook.com/groups/120140164667510">See the RIH3 facebook Page</a></p>
+`;
+    const cells = ["Mon March 30", "6:30 PM", "2092"];
+    const result = parseHarelineRow(
+      cells,
+      HARE_SINGLE,
+      directionWithComma,
+      SOURCE_URL,
+    );
+
+    expect(result?.description).not.toMatch(/^[,\s]/);
+    expect(result?.description).toContain("Basket says");
+  });
+
+  it("resolves same-day date to current year, not next year (Bug #1)", () => {
+    // Simulate scrape running at 2:30 PM on March 23, 2026
+    const midDayRef = new Date(2026, 2, 23, 14, 30, 0);
+    const cells = ["Mon March 23", "6:30 PM", "2091"];
+    const result = parseHarelineRow(
+      cells,
+      HARE_SINGLE,
+      "",
+      SOURCE_URL,
+      midDayRef,
+    );
+
+    // Should still be 2026, NOT 2027
+    expect(result?.date).toBe("2026-03-23");
   });
 });
 
