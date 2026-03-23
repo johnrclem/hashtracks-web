@@ -1,4 +1,4 @@
-import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, reverseGeocode, cityFromTimezone, resolveShortMapsUrl } from "./geo";
+import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, reverseGeocode, cityFromTimezone, resolveShortMapsUrl, parseDMSFromLocation, stripDMSFromLocation } from "./geo";
 
 describe("extractCoordsFromMapsUrl", () => {
   it("parses @lat,lng,zoom path segment", () => {
@@ -471,5 +471,50 @@ describe("resolveShortMapsUrl", () => {
     } as Response);
     const result = await resolveShortMapsUrl("https://maps.app.goo.gl/abc123");
     expect(result).toBeNull();
+  });
+});
+
+// ── parseDMSFromLocation ──
+
+describe("parseDMSFromLocation", () => {
+  it("parses DMS coordinates from location string", () => {
+    const result = parseDMSFromLocation('Fort Misery, 34°08\'52.8"N 112°22\'05.6"W, Yavapai County');
+    expect(result).not.toBeNull();
+    expect(result!.lat).toBeCloseTo(34.1480, 3);
+    expect(result!.lng).toBeCloseTo(-112.3682, 3);
+  });
+
+  it("parses comma-separated DMS coordinates", () => {
+    const result = parseDMSFromLocation('37°25\'19.07"N, 122°05\'06.24"W');
+    expect(result).not.toBeNull();
+    expect(result!.lat).toBeCloseTo(37.4220, 3);
+    expect(result!.lng).toBeCloseTo(-122.0851, 3);
+  });
+
+  it("returns null for location without DMS", () => {
+    expect(parseDMSFromLocation("123 Main St, Phoenix, AZ")).toBeNull();
+  });
+
+  it("handles southern hemisphere", () => {
+    const result = parseDMSFromLocation('33°51\'54.0"S 151°12\'36.0"E');
+    expect(result).not.toBeNull();
+    expect(result!.lat).toBeCloseTo(-33.865, 2);
+    expect(result!.lng).toBeCloseTo(151.21, 2);
+  });
+});
+
+describe("stripDMSFromLocation", () => {
+  it("strips DMS and cleans up commas", () => {
+    const result = stripDMSFromLocation('Fort Misery, 34°08\'52.8"N 112°22\'05.6"W, Yavapai County, AZ');
+    expect(result).toBe("Fort Misery, Yavapai County, AZ");
+  });
+
+  it("strips comma-separated DMS", () => {
+    const result = stripDMSFromLocation('Venue, 37°25\'19.07"N, 122°05\'06.24"W, City');
+    expect(result).toBe("Venue, City");
+  });
+
+  it("returns original when no DMS present", () => {
+    expect(stripDMSFromLocation("123 Main St, Phoenix, AZ")).toBe("123 Main St, Phoenix, AZ");
   });
 });

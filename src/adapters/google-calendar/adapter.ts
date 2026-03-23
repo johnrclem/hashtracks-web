@@ -116,9 +116,10 @@ export function extractTitleFromDescription(description: string): string | undef
   return undefined;
 }
 
-/** Default hare extraction patterns (Boston Hash Calendar format). */
+/** Default hare extraction patterns for Google Calendar descriptions. */
 const DEFAULT_HARE_PATTERNS = [
-  /(?:^|\n)[ \t]*Hares?:[ \t]*(.+)/im,
+  /(?:^|\n)[ \t]*Hare\(?s?\)?:[ \t]*(.+)/im,  // Hare:, Hares:, Hare(s):
+  /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,     // "Hare C*ck Swap" (no colon, name starts uppercase/special)
   /(?:^|\n)[ \t]*Who:[ \t]*(.+)/im,
 ];
 
@@ -223,7 +224,9 @@ function extractDateTimeFromGCalItem(start: { dateTime?: string; date?: string }
 /** Strip HTML from description, preserving newlines, and truncate. */
 function normalizeGCalDescription(rawDesc: string | undefined): { rawDescription: string | undefined; description: string | undefined } {
   if (!rawDesc) return { rawDescription: undefined, description: undefined };
-  const rawDescription = stripHtmlTags(decodeEntities(rawDesc), "\n");
+  let rawDescription = stripHtmlTags(decodeEntities(rawDesc), "\n");
+  // Strip mailto: link artifacts: "text (mailto:email)" → "text"
+  rawDescription = rawDescription.replace(/\s*\(mailto:[^)]+\)/g, "");
   const description = rawDescription
     ? rawDescription.replace(/[ \t]+/g, " ").trim().substring(0, 2000) || undefined
     : undefined;

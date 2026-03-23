@@ -6,7 +6,7 @@ import { regionTimezone, getLabelForUrl, stripUrlsFromText } from "@/lib/format"
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
-import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance } from "@/lib/geo";
+import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
 import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE } from "@/adapters/utils";
 
 /**
@@ -296,6 +296,11 @@ function extractRawCoords(event: RawEventData): { latitude?: number; longitude?:
     const coords = extractCoordsFromMapsUrl(event.locationUrl);
     if (coords) return { latitude: coords.lat, longitude: coords.lng };
   }
+  // Parse DMS coordinates embedded in location string (e.g., "Fort Misery, 34°08'52.8"N 112°22'05.6"W")
+  if (event.location) {
+    const dms = parseDMSFromLocation(event.location);
+    if (dms) return { latitude: dms.lat, longitude: dms.lng };
+  }
   return {};
 }
 
@@ -338,9 +343,11 @@ export function sanitizeTitle(title: string | undefined): string | null {
  */
 export function sanitizeLocation(location: string | undefined): string | null {
   if (!location) return null;
-  const t = location.trim();
+  let t = location.trim();
   if (!t) return null;
   if (isPlaceholder(t)) return null;
+  // Strip embedded DMS coordinates (e.g., "Fort Misery, 34°08'52.8"N 112°22'05.6"W") — coords stored separately
+  t = stripDMSFromLocation(t);
   // Filter "Online event" (Meetup/Calendar default for virtual events — not valid for hash runs)
   if (/^online\s*(?:event)?$/i.test(t)) return null;
   // Strip "Registration: url" values used as location
