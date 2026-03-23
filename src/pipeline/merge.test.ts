@@ -1072,4 +1072,20 @@ describe("sanitizeLocation", () => {
     expect(sanitizeLocation("Park at 9801 Durant Rd, Raleigh. 35.898606, -78.579631"))
       .toBe("9801 Durant Rd, Raleigh");
   });
+
+  it("strips instruction text after em-dash", () => {
+    expect(sanitizeLocation("Santa Cruz, CA — check Facebook for detrails")).toBe("Santa Cruz, CA");
+  });
+
+  it("strips instruction text after en-dash", () => {
+    expect(sanitizeLocation("Downtown Park – see website for details")).toBe("Downtown Park");
+  });
+
+  it("strips instruction text after period", () => {
+    expect(sanitizeLocation("Central Park. Check Facebook for updates")).toBe("Central Park");
+  });
+
+  it("preserves location with legitimate em-dash (venue name)", () => {
+    expect(sanitizeLocation("The Pub — A Fine Establishment")).toBe("The Pub — A Fine Establishment");
+  });
 });
