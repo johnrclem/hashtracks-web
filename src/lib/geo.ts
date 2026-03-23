@@ -62,15 +62,18 @@ export function extractCoordsFromMapsUrl(url: string): { lat: number; lng: numbe
   return null;
 }
 
+/** DMS coordinate pattern: `34°08'52.8"N 112°22'05.6"W` or `34°08'52.8"N, 112°22'05.6"W` (with optional comma) */
+const DMS_PARSE_RE = /(\d{1,3})°(\d{1,2})'([\d.]+)"([NS]),?\s+(\d{1,3})°(\d{1,2})'([\d.]+)"([EW])/;
+const DMS_STRIP_RE = /,?\s*\d{1,3}°\d{1,2}'[\d.]+"[NS],?\s+\d{1,3}°\d{1,2}'[\d.]+"[EW]\s*/g;
+
 /**
  * Parse DMS (degrees/minutes/seconds) coordinates from a location string.
  * e.g., `34°08'52.8"N 112°22'05.6"W` → { lat: 34.1480, lng: -112.3682 }
+ * Also accepts comma separator: `34°08'52.8"N, 112°22'05.6"W`
  * Returns null if no DMS pattern found.
  */
 export function parseDMSFromLocation(location: string): { lat: number; lng: number } | null {
-  // Match patterns like: 34°08'52.8"N 112°22'05.6"W
-  const dmsRe = /(\d{1,3})°(\d{1,2})'([\d.]+)"([NS])\s+(\d{1,3})°(\d{1,2})'([\d.]+)"([EW])/;
-  const match = dmsRe.exec(location);
+  const match = DMS_PARSE_RE.exec(location);
   if (!match) return null;
 
   const latDeg = Number.parseInt(match[1], 10);
@@ -97,7 +100,7 @@ export function parseDMSFromLocation(location: string): { lat: number; lng: numb
  */
 export function stripDMSFromLocation(location: string): string {
   return location
-    .replace(/,?\s*\d{1,3}°\d{1,2}'[\d.]+"[NS]\s+\d{1,3}°\d{1,2}'[\d.]+"[EW]\s*/g, "")
+    .replace(DMS_STRIP_RE, "")
     .replace(/,\s*,/g, ",")  // collapse double commas
     .replace(/^,\s*|,\s*$/g, "")  // trim leading/trailing commas
     .trim();
