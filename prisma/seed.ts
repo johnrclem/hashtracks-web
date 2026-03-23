@@ -103,6 +103,7 @@ async function ensureRegionRecords(prisma: any) {
     "Washington": ["Seattle, WA", "Tacoma, WA", "Olympia, WA", "Bremerton, WA"],
     "Colorado": ["Denver, CO", "Boulder, CO", "Fort Collins, CO", "Colorado Springs, CO"],
     "Minnesota": ["Minneapolis, MN"],
+    "Michigan": ["Detroit, MI", "Lansing, MI"],
     "Arizona": ["Phoenix, AZ", "Tucson, AZ"],
     "Oregon": ["Portland, OR", "Salem, OR", "Eugene, OR", "Bend, OR"],
     "California": ["San Francisco, CA", "Oakland, CA", "San Jose, CA", "Marin County, CA", "San Diego, CA", "Santa Cruz, CA", "Los Angeles, CA", "Long Beach, CA", "Orange County, CA", "San Luis Obispo, CA"],

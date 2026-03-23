@@ -1731,6 +1731,80 @@ export const KENNELS: KennelSeed[] = [
       description: "Minneapolis weekly Thursday evening hash. Sister kennel of MH3, founded 2017. All A-to-A, all live trails, 3-4 miles.",
       latitude: 44.98, longitude: -93.27,
     },
+    // ===== MICHIGAN =====
+    {
+      kennelCode: "moa2h3", shortName: "MoA2H3", fullName: "Motown Ann Arbor Hash House Harriers", region: "Detroit, MI",
+      website: "https://moa2h3.org",
+      facebookUrl: "https://www.facebook.com/MOA2H3",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Variable Sunday afternoon, check calendar",
+      description: "Metro Detroit and Ann Arbor's weekly Sunday hash. The largest kennel in Michigan.",
+      latitude: 42.33, longitude: -83.05,
+    },
+    {
+      kennelCode: "demon-h3", shortName: "DeMon", fullName: "DeMon Hash House Harriers", region: "Detroit, MI",
+      website: "https://demonh3.com",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Detroit's Monday evening hash — 'Detroit's Monday Kennel'.",
+      latitude: 42.33, longitude: -83.05,
+    },
+    {
+      kennelCode: "glh3", shortName: "GLH3", fullName: "Greater Lansing Hash House Harriers", region: "Lansing, MI",
+      website: "https://glh3.net",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "1st Saturday, $10 hash cash",
+      hashCash: "$10",
+      description: "Greater Lansing biweekly Saturday hash. Trail #1042+ and counting.",
+      latitude: 42.73, longitude: -84.56,
+    },
+    // ===== MICHIGAN =====
+    {
+      kennelCode: "moa2h3", shortName: "MoA2H3", fullName: "Motown Ann Arbor Hash House Harriers", region: "Detroit, MI",
+      website: "https://moa2h3.org",
+      facebookUrl: "https://www.facebook.com/MOA2H3",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+      description: "Metro Detroit and Ann Arbor's weekly Sunday hash. The largest kennel in Michigan.",
+      latitude: 42.33, longitude: -83.05,
+    },
+    {
+      kennelCode: "demon-h3", shortName: "DeMon", fullName: "DeMon Hash House Harriers", region: "Detroit, MI",
+      website: "https://demonh3.com",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Detroit's Monday evening hash.",
+      latitude: 42.33, longitude: -83.05,
+    },
+    {
+      kennelCode: "glh3", shortName: "GLH3", fullName: "Greater Lansing Hash House Harriers", region: "Lansing, MI",
+      website: "https://glh3.net",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+      hashCash: "$10",
+      description: "Greater Lansing biweekly Saturday hash. Trail #1042+ and counting.",
+      latitude: 42.73, longitude: -84.56,
+    },
+    // ===== MICHIGAN =====
+    {
+      kennelCode: "moa2h3", shortName: "MoA2H3", fullName: "Motown Ann Arbor Hash House Harriers", region: "Detroit, MI",
+      website: "https://moa2h3.org",
+      facebookUrl: "https://www.facebook.com/MOA2H3",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+      description: "Metro Detroit and Ann Arbor's weekly Sunday hash.",
+      latitude: 42.33, longitude: -83.05,
+    },
+    {
+      kennelCode: "demon-h3", shortName: "DeMon", fullName: "DeMon Hash House Harriers", region: "Detroit, MI",
+      website: "https://demonh3.com",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Detroit's Monday evening hash.",
+      latitude: 42.33, longitude: -83.05,
+    },
+    {
+      kennelCode: "glh3", shortName: "GLH3", fullName: "Greater Lansing Hash House Harriers", region: "Lansing, MI",
+      website: "https://glh3.net",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+      hashCash: "$10",
+      description: "Greater Lansing biweekly Saturday hash. Trail #1042+ and counting.",
+      latitude: 42.73, longitude: -84.56,
+    },
     // ===== ARIZONA =====
     // Phoenix
     {
