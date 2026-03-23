@@ -1013,6 +1013,12 @@ export const KENNELS: KennelSeed[] = [
       description: "Biweekly Saturday runs in Fort Worth.",
       latitude: 32.75, longitude: -97.33,
     },
+    {
+      kennelCode: "yakh3", shortName: "YAKH3", fullName: "YAK Hash House Harriers", region: "Dallas-Fort Worth, TX",
+      website: "http://www.dfwhhh.org",
+      description: "Dallas-Fort Worth area hash kennel.",
+      latitude: 32.78, longitude: -96.80,
+    },
     // --- San Antonio ---
     {
       kennelCode: "sah3", shortName: "SAH3", fullName: "San Antonio Hash House Harriers", region: "San Antonio, TX",

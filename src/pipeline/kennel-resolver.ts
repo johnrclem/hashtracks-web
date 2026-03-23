@@ -16,7 +16,32 @@ export function clearResolverCache() {
   cache.clear();
 }
 
-/** Try exact shortName match: source-scoped first, then global. Alias matching is handled separately by resolveViaAlias. */
+/** Step 0: Try kennelCode match (immutable identifier). Source-scoped first, then global. */
+async function resolveViaKennelCode(
+  normalized: string,
+  sourceId?: string,
+): Promise<ResolveResult | null> {
+  if (sourceId) {
+    const sourceLinked = await prisma.kennel.findFirst({
+      where: {
+        kennelCode: { equals: normalized, mode: "insensitive" },
+        sources: { some: { sourceId } },
+      },
+      select: { id: true },
+    });
+    if (sourceLinked) return { kennelId: sourceLinked.id, matched: true };
+  }
+
+  const kennel = await prisma.kennel.findFirst({
+    where: { kennelCode: { equals: normalized, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (kennel) return { kennelId: kennel.id, matched: true };
+
+  return null;
+}
+
+/** Step 1: Try exact shortName match. Source-scoped first, then global. Alias matching is handled separately by resolveViaAlias. */
 async function resolveViaExactMatch(
   normalized: string,
   sourceId?: string,
@@ -72,6 +97,8 @@ async function resolveViaPatternMapping(
  * Resolve a raw kennel tag to a Kennel ID.
  *
  * Pipeline:
+ * 0. Exact match on Kennel.kennelCode (case-insensitive, immutable identifier)
+ *    - When source-scoped, prefer source-linked kennel
  * 1. Exact match on Kennel.shortName (case-insensitive)
  *    - When shortName is ambiguous (multiple regions), prefer source-linked kennel
  * 2. Case-insensitive match on KennelAlias.alias
@@ -91,6 +118,9 @@ export async function resolveKennelTag(
   const cacheKey = sourceId ? `${normalized.toLowerCase()}:${sourceId}` : normalized.toLowerCase();
   const cached = cache.get(cacheKey);
   if (cached) return cached;
+
+  const kennelCodeResult = await resolveViaKennelCode(normalized, sourceId);
+  if (kennelCodeResult) { cache.set(cacheKey, kennelCodeResult); return kennelCodeResult; }
 
   const exactResult = await resolveViaExactMatch(normalized, sourceId);
   if (exactResult) { cache.set(cacheKey, exactResult); return exactResult; }

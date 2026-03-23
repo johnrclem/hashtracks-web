@@ -499,7 +499,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      kennelCodes: ["dh3-tx", "duhhh", "noduhhh", "fwh3"],
+      kennelCodes: ["dh3-tx", "duhhh", "noduhhh", "fwh3", "yakh3"],
     },
     // --- Corpus Christi (1 Google Calendar) ---
     {
@@ -1764,7 +1764,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "weekly",
       scrapeDays: 90,
-      config: { defaultKennelTag: "DH3" },
+      config: { defaultKennelTag: "dh3-co" },
       kennelCodes: ["dh3-co"],
     },
     // --- Mile High Humpin' Hash (Google Calendar) ---
