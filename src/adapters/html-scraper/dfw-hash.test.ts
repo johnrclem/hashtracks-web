@@ -5,7 +5,6 @@ import {
   ICON_TO_KENNEL,
   extractDFWEvents,
   parseDFWDetailPage,
-  normalizeTime,
   DFWHashAdapter,
 } from "./dfw-hash";
 
@@ -346,32 +345,6 @@ describe("day-number extraction with holiday prefixes (Issue #2)", () => {
   });
 });
 
-describe("normalizeTime", () => {
-  it("normalizes 7:00 PM to 19:00", () => {
-    expect(normalizeTime("7:00 PM")).toBe("19:00");
-  });
-
-  it("normalizes 6:30 pm to 18:30", () => {
-    expect(normalizeTime("6:30 pm")).toBe("18:30");
-  });
-
-  it("normalizes 12:00 PM to 12:00", () => {
-    expect(normalizeTime("12:00 PM")).toBe("12:00");
-  });
-
-  it("normalizes 12:00 AM to 00:00", () => {
-    expect(normalizeTime("12:00 AM")).toBe("00:00");
-  });
-
-  it("normalizes 2:00 PM to 14:00", () => {
-    expect(normalizeTime("2:00 PM")).toBe("14:00");
-  });
-
-  it("returns undefined for invalid time", () => {
-    expect(normalizeTime("Nothing yet")).toBeUndefined();
-  });
-});
-
 describe("parseDFWDetailPage", () => {
   it("parses time, location, hares, and run number from detail page", () => {
     const html = `
@@ -430,7 +403,7 @@ describe("parseDFWDetailPage", () => {
     expect(detail.runNumber).toBeUndefined();
   });
 
-  it("extracts title from h1 element", () => {
+  it("parses time and location from detail page with h1", () => {
     const html = `
       <html><body>
         <h1>Twin Peaks</h1>
@@ -442,9 +415,9 @@ describe("parseDFWDetailPage", () => {
     const $ = cheerio.load(html);
     const detail = parseDFWDetailPage($);
 
-    expect(detail.title).toBe("Twin Peaks");
     expect(detail.startTime).toBe("18:30");
     expect(detail.location).toBe("5260 belt line Dallas 75254");
+    expect(detail.runNumber).toBe(250);
   });
 });
 

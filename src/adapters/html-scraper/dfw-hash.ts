@@ -24,6 +24,7 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
+import { parse12HourTime } from "../utils";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import * as cheerio from "cheerio";
 import type { CheerioAPI, Cheerio } from "cheerio";
@@ -70,7 +71,6 @@ interface DFWEventWithDetail {
  * Falls back to scanning for the first standalone number in cell text.
  */
 function extractDayNumber($cell: Cheerio<AnyNode>, $: CheerioAPI): number | undefined {
-  // Preferred: extract from inner td.dom or td.holiday
   const domCell = $cell.find("td.dom, td.holiday");
   if (domCell.length > 0) {
     const domText = domCell.text().trim();
@@ -126,7 +126,7 @@ export function extractDFWEvents(
       firstRowText.includes("tue")
     ) {
       calendarTable = $(table);
-      return false; // break
+      return false;
     }
   });
 
@@ -147,7 +147,6 @@ export function extractDFWEvents(
     const $cell = $(cell);
 
     try {
-      // Extract day number
       const day = extractDayNumber($cell, $);
       if (day === undefined) return;
 
@@ -155,15 +154,12 @@ export function extractDFWEvents(
       const $eventCell = $cell.find("td.event");
       const $content = $eventCell.length > 0 ? $eventCell : $cell;
 
-      // Look for event icons
       const imgs = $content.find("img");
       if (imgs.length === 0) return;
 
-      // Build the date string
       const date = new Date(Date.UTC(year, month, day, 12, 0, 0));
       const dateStr = date.toISOString().split("T")[0];
 
-      // Extract event.php link for detail page (skip multi.php links)
       let detailUrl: string | undefined;
       const eventLink = $content.find('a[href*="event.php"]').first();
       if (eventLink.length > 0) {
@@ -171,7 +167,6 @@ export function extractDFWEvents(
         detailUrl = href.startsWith("http") ? href : `${DFW_BASE_URL}/${year}/${href}`;
       }
 
-      // Check for multi.php (multi-event day) — we'll handle these via detail pages
       const multiLink = $content.find('a[href*="multi.php"]').first();
       const isMultiEvent = multiLink.length > 0;
 
@@ -244,23 +239,6 @@ export function extractDFWEvents(
 }
 
 /**
- * Normalize a time string like "7:00 PM" or "6:30 pm" to "HH:MM" 24-hour format.
- */
-export function normalizeTime(raw: string): string | undefined {
-  const match = raw.match(/(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)/i);
-  if (!match) return undefined;
-
-  let hours = parseInt(match[1], 10);
-  const minutes = match[2];
-  const ampm = match[3].toUpperCase();
-
-  if (ampm === "PM" && hours < 12) hours += 12;
-  if (ampm === "AM" && hours === 12) hours = 0;
-
-  return `${String(hours).padStart(2, "0")}:${minutes}`;
-}
-
-/**
  * Parse a DFW event detail page for time, location, and other fields.
  *
  * Detail pages use <h5><em>Label:</em> Value</h5> format:
@@ -273,14 +251,12 @@ export function parseDFWDetailPage($: CheerioAPI): {
   startTime?: string;
   location?: string;
   hares?: string;
-  title?: string;
   runNumber?: number;
 } {
   const result: {
     startTime?: string;
     location?: string;
     hares?: string;
-    title?: string;
     runNumber?: number;
   } = {};
 
@@ -288,15 +264,14 @@ export function parseDFWDetailPage($: CheerioAPI): {
   $("h5").each((_i, h5) => {
     const $h5 = $(h5);
     const label = $h5.find("em").first().text().trim().toLowerCase();
-    // Value is the text after the <em> label
-    const fullText = $h5.text().trim();
-    const labelText = $h5.find("em").first().text().trim();
-    const value = fullText.slice(labelText.length).trim();
+    const $h5Clone = $h5.clone();
+    $h5Clone.find("em").remove();
+    const value = $h5Clone.text().replace(/^:/, "").trim();
 
     if (!value || value.toLowerCase() === "nothing yet") return;
 
     if (label.startsWith("time:")) {
-      result.startTime = normalizeTime(value);
+      result.startTime = parse12HourTime(value);
     } else if (label.startsWith("start address:")) {
       result.location = value;
     } else if (label.startsWith("hares:") || label.startsWith("hare:")) {
@@ -304,17 +279,10 @@ export function parseDFWDetailPage($: CheerioAPI): {
     }
   });
 
-  // Extract run number from <h3>Hash Run No NNN</h3>
   const h3Text = $("h3").first().text().trim();
   const runMatch = h3Text.match(/Hash Run No\s*(\d+)/i);
   if (runMatch) {
     result.runNumber = parseInt(runMatch[1], 10);
-  }
-
-  // Extract title from <h1> (more authoritative than calendar cell)
-  const h1Text = $("h1").first().text().trim();
-  if (h1Text) {
-    result.title = h1Text;
   }
 
   return result;
@@ -434,16 +402,6 @@ export class DFWHashAdapter implements SourceAdapter {
           if (detail.startTime) evt.startTime = detail.startTime;
           if (detail.location) evt.location = detail.location;
           if (detail.runNumber) evt.runNumber = detail.runNumber;
-          // Only override title from detail page if it's more specific (not just kennel name)
-          if (detail.title && detail.title !== evt.title) {
-            // Detail page h1 is often just the kennel name — keep calendar title if it's more specific
-            const isJustKennelName = Object.values(ICON_TO_KENNEL).some(
-              (code) => detail.title?.toLowerCase() === code,
-            );
-            if (!isJustKennelName) {
-              evt.title = detail.title;
-            }
-          }
           if (detail.hares && !evt.hares) evt.hares = detail.hares;
 
           detailFetched++;
