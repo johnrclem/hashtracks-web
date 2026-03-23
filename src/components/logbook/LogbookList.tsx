@@ -645,6 +645,11 @@ export function LogbookList({ entries, stravaConnected, allRegions }: LogbookLis
           attendance={editingEntry.attendance}
           eventDate={editingEntry.event.date}
           stravaConnected={stravaConnected}
+          eventContext={{
+            kennelShortName: editingEntry.event.kennel.shortName,
+            runNumber: editingEntry.event.runNumber,
+            date: editingEntry.event.date,
+          }}
         />
       )}
     </div>

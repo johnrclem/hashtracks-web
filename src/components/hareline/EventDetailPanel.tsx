@@ -134,6 +134,11 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             eventDate={event.date}
             isAuthenticated={!!isAuthenticated}
             attendance={attendance ?? null}
+            eventContext={event.kennel ? {
+              kennelShortName: event.kennel.shortName,
+              runNumber: event.runNumber,
+              date: event.date,
+            } : undefined}
           />
         </div>
 
