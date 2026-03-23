@@ -147,6 +147,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "duhhh": ["Dallas Urban Hash", "DUHHH", "DUH H3", "Dallas Urban"],
     "noduhhh": ["NODUHHH", "North Dallas Hash", "North of Dallas Urban", "NoDUHHH"],
     "fwh3": ["Fort Worth Hash", "Fort Worth H3", "FWH3", "Ft Worth Hash"],
+    "yakh3": ["YAK Hash", "YAK H3", "YAKH3", "Yak Hash House Harriers"],
     "sah3": ["San Antonio Hash", "San Antonio H3", "SAH3", "SA Hash"],
     "c2h3": ["Corpus Christi Hash", "Corpus Christi H3", "C2H3", "CC Hash"],
     // Florida

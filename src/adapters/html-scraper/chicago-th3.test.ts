@@ -212,7 +212,7 @@ describe("parseArticle", () => {
     const event = parseArticle($, articles.eq(0), "https://chicagoth3.com/");
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2024-10-03");
-    expect(event!.kennelTag).toBe("TH3");
+    expect(event!.kennelTag).toBe("th3");
     expect(event!.runNumber).toBe(1060);
     expect(event!.title).toBe("TH3 #1060 – October 3, 2024");
     expect(event!.hares).toBe("Trail Blazer");

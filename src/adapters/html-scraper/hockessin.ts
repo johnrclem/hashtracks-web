@@ -62,7 +62,7 @@ export function parseHockessinEvent(
 
   return {
     date,
-    kennelTag: "H4",
+    kennelTag: "hockessin",
     runNumber: !Number.isNaN(runNumber) ? runNumber : undefined,
     title: title || `Hockessin #${runNumber}`,
     location,

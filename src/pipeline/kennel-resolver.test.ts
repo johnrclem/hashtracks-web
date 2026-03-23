@@ -196,23 +196,26 @@ describe("resolveKennelTag", () => {
   });
 
   it("resolves via exact shortName match", async () => {
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);
+    mockKennelFind.mockResolvedValueOnce(null);                          // kennelCode global miss
+    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);   // shortName hit
     const result = await resolveKennelTag("NYCH3");
     expect(result).toEqual({ kennelId: "kennel_1", matched: true });
   });
 
   it("resolves via alias match", async () => {
-    mockKennelFind.mockResolvedValueOnce(null);
+    mockKennelFind.mockResolvedValueOnce(null);                          // kennelCode global miss
+    mockKennelFind.mockResolvedValueOnce(null);                          // shortName miss
     mockAliasFind.mockResolvedValueOnce({ kennelId: "kennel_2" } as never);
     const result = await resolveKennelTag("NYC Hash");
     expect(result).toEqual({ kennelId: "kennel_2", matched: true });
   });
 
   it("resolves via pattern fallback", async () => {
-    // First: shortName miss, alias miss, then pattern maps "queens" → "QBK"
-    mockKennelFind.mockResolvedValueOnce(null); // initial shortName
-    mockAliasFind.mockResolvedValueOnce(null);    // alias
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_qbk" } as never); // pattern re-lookup
+    // kennelCode miss, shortName miss, alias miss, then pattern maps "queens" → "QBK"
+    mockKennelFind.mockResolvedValueOnce(null);                            // kennelCode global miss
+    mockKennelFind.mockResolvedValueOnce(null);                            // initial shortName
+    mockAliasFind.mockResolvedValueOnce(null);                             // alias
+    mockKennelFind.mockResolvedValueOnce({ id: "kennel_qbk" } as never);  // pattern re-lookup
     const result = await resolveKennelTag("queens");
     expect(result).toEqual({ kennelId: "kennel_qbk", matched: true });
   });
@@ -225,37 +228,46 @@ describe("resolveKennelTag", () => {
   });
 
   it("uses cache on second call", async () => {
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);
+    mockKennelFind.mockResolvedValueOnce(null);                          // kennelCode global miss
+    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);   // shortName hit
     await resolveKennelTag("NYCH3");
     await resolveKennelTag("NYCH3");
-    expect(mockKennelFind).toHaveBeenCalledTimes(1);
+    expect(mockKennelFind).toHaveBeenCalledTimes(2); // kennelCode + shortName (first call only)
   });
 
   it("cache is cleared by clearResolverCache", async () => {
-    mockKennelFind.mockResolvedValue({ id: "kennel_1" } as never);
+    // First call: kennelCode miss (global) + shortName hit = 2 findFirst calls
+    mockKennelFind.mockResolvedValueOnce(null);                          // kennelCode global miss
+    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);   // shortName hit
     await resolveKennelTag("NYCH3");
     clearResolverCache();
+    // After cache clear: same 2 calls again
+    mockKennelFind.mockResolvedValueOnce(null);                          // kennelCode global miss
+    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);   // shortName hit
     await resolveKennelTag("NYCH3");
-    expect(mockKennelFind).toHaveBeenCalledTimes(2);
+    expect(mockKennelFind).toHaveBeenCalledTimes(4);
   });
 
   it("normalizes case for cache key", async () => {
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);
+    mockKennelFind.mockResolvedValueOnce(null);                          // kennelCode global miss
+    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);   // shortName hit
     await resolveKennelTag("NYCH3");
     const result = await resolveKennelTag("nych3");
     expect(result).toEqual({ kennelId: "kennel_1", matched: true });
-    expect(mockKennelFind).toHaveBeenCalledTimes(1);
+    expect(mockKennelFind).toHaveBeenCalledTimes(2); // kennelCode + shortName (first call only)
   });
 
   it("prefers source-linked kennel when sourceId is provided", async () => {
-    // Source-scoped query returns the linked kennel
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_boston" } as never);
+    mockKennelFind.mockResolvedValueOnce(null);                              // kennelCode source-scoped miss
+    mockKennelFind.mockResolvedValueOnce(null);                              // kennelCode global miss
+    mockKennelFind.mockResolvedValueOnce({ id: "kennel_boston" } as never);   // shortName source-scoped hit
     const result = await resolveKennelTag("CH3", "source_123");
     expect(result).toEqual({ kennelId: "kennel_boston", matched: true });
-    // First call should include sourceKennels filter
-    expect(mockKennelFind).toHaveBeenCalledWith(
+    // Third call (shortName source-scoped) should include sourceKennels filter
+    expect(mockKennelFind).toHaveBeenNthCalledWith(3,
       expect.objectContaining({
         where: expect.objectContaining({
+          shortName: { equals: "CH3", mode: "insensitive" },
           sources: { some: { sourceId: "source_123" } },
         }),
       }),
@@ -264,21 +276,75 @@ describe("resolveKennelTag", () => {
 
   it("falls back to any kennel when source-scoped query misses", async () => {
     mockKennelFind
-      .mockResolvedValueOnce(null)                         // source-scoped miss
-      .mockResolvedValueOnce({ id: "kennel_any" } as never); // fallback hit
+      .mockResolvedValueOnce(null)                              // kennelCode source-scoped miss
+      .mockResolvedValueOnce(null)                              // kennelCode global miss
+      .mockResolvedValueOnce(null)                              // shortName source-scoped miss
+      .mockResolvedValueOnce({ id: "kennel_any" } as never);    // shortName global hit
     const result = await resolveKennelTag("CH3", "source_456");
     expect(result).toEqual({ kennelId: "kennel_any", matched: true });
-    expect(mockKennelFind).toHaveBeenCalledTimes(2);
+    expect(mockKennelFind).toHaveBeenCalledTimes(4);
   });
 
   it("uses separate cache entries for different sourceIds", async () => {
+    // First call: kennelCode source-scoped hit
     mockKennelFind.mockResolvedValueOnce({ id: "kennel_a" } as never);
     await resolveKennelTag("CH3", "source_1");
 
+    // Second call: different sourceId, kennelCode source-scoped hit
     mockKennelFind.mockResolvedValueOnce({ id: "kennel_b" } as never);
     await resolveKennelTag("CH3", "source_2");
 
     // Should have made 2 DB calls (different cache keys)
     expect(mockKennelFind).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ── kennelCode resolution (Step 0) ──
+
+describe("kennelCode resolution (Step 0)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearResolverCache();
+  });
+
+  it("resolves via kennelCode when source-scoped", async () => {
+    mockKennelFind.mockResolvedValueOnce({ id: "dallas-id" } as never); // kennelCode source-scoped hit
+    const result = await resolveKennelTag("dh3-tx", "dfw-source-id");
+    expect(result.matched).toBe(true);
+    expect(result.kennelId).toBe("dallas-id");
+    // Verify it queried by kennelCode, not shortName
+    expect(mockKennelFind).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          kennelCode: { equals: "dh3-tx", mode: "insensitive" },
+        }),
+      }),
+    );
+  });
+
+  it("falls back to global kennelCode match without sourceId", async () => {
+    // Global kennelCode hit (no sourceId, so no source-scoped call)
+    mockKennelFind.mockResolvedValueOnce({ id: "dallas-id" } as never);
+    const result = await resolveKennelTag("dh3-tx");
+    expect(result.matched).toBe(true);
+    expect(result.kennelId).toBe("dallas-id");
+  });
+
+  it("falls back to global kennelCode when source-scoped misses", async () => {
+    mockKennelFind
+      .mockResolvedValueOnce(null)                            // kennelCode source-scoped miss
+      .mockResolvedValueOnce({ id: "dallas-id" } as never);   // kennelCode global hit
+    const result = await resolveKennelTag("dh3-tx", "other-source");
+    expect(result.matched).toBe(true);
+    expect(result.kennelId).toBe("dallas-id");
+  });
+
+  it("falls through to shortName match when kennelCode doesn't match", async () => {
+    mockKennelFind
+      .mockResolvedValueOnce(null)                              // kennelCode global miss
+      .mockResolvedValueOnce({ id: "denver-id" } as never);     // shortName hit
+    const result = await resolveKennelTag("DH3");
+    expect(result.matched).toBe(true);
+    expect(result.kennelId).toBe("denver-id");
   });
 });

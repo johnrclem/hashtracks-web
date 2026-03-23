@@ -224,7 +224,7 @@ describe("parseArticle", () => {
     const event = parseArticle($, articles.eq(0), "https://chicagohash.org/");
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-02-15");
-    expect(event!.kennelTag).toBe("CH3");
+    expect(event!.kennelTag).toBe("ch3");
     expect(event!.runNumber).toBe(2580);
     expect(event!.title).toBe("CH3 #2580");
     expect(event!.hares).toBe("Speedy McFast");

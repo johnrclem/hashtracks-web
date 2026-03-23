@@ -14,7 +14,7 @@ describe("HockessinAdapter", () => {
       expect(event!.title).toBe("Green Dress Hash");
       expect(event!.date).toBe("2026-03-14");
       expect(event!.startTime).toBe("15:00");
-      expect(event!.kennelTag).toBe("H4");
+      expect(event!.kennelTag).toBe("hockessin");
       expect(event!.location).toContain("404 New London Road");
       expect(event!.location).toContain("Newark");
       expect(event!.location).toContain("DE");

@@ -234,7 +234,7 @@ describe("HangoverAdapter Ghost API integration", () => {
     // First event — has prelubes section (should be stripped)
     expect(result.events[0]).toMatchObject({
       date: "2026-03-08",
-      kennelTag: "H4",
+      kennelTag: "h4",
       runNumber: 215,
       title: "The Spring Trail",
       hares: "Spring Runner and Trail Blazer",
@@ -247,7 +247,7 @@ describe("HangoverAdapter Ghost API integration", () => {
     // Second event — no prelubes section
     expect(result.events[1]).toMatchObject({
       date: "2026-02-15",
-      kennelTag: "H4",
+      kennelTag: "h4",
       runNumber: 214,
       title: "The Hungover Hearts Trail",
       hares: "Just Rebekah and Grinding Nemo",
@@ -428,7 +428,7 @@ describe("HangoverAdapter HTML scraping (legacy)", () => {
     // First event
     expect(result.events[0]).toMatchObject({
       date: "2026-02-15",
-      kennelTag: "H4",
+      kennelTag: "h4",
       runNumber: 214,
       title: "The Hungover Hearts Trail",
       hares: "Just Rebekah and Grinding Nemo",
@@ -441,7 +441,7 @@ describe("HangoverAdapter HTML scraping (legacy)", () => {
     // Second event
     expect(result.events[1]).toMatchObject({
       date: "2026-01-11",
-      kennelTag: "H4",
+      kennelTag: "h4",
       runNumber: 213,
       title: "Need Wood",
       hares: "TestHare1 and TestHare2",
@@ -695,7 +695,7 @@ describe("HangoverAdapter Ghost API — post #212 trail-before-hr", () => {
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({
       date: "2026-01-01",
-      kennelTag: "H4",
+      kennelTag: "h4",
       runNumber: 212,
       title: "The Hangover H3 New Years 2026 Trail",
       hares: "Straight in the Navy",
