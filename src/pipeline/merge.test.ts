@@ -841,6 +841,14 @@ describe("sanitizeTitle", () => {
   it("collapses extra whitespace after date removal", () => {
     expect(sanitizeTitle("SOCO #13  3/20/26  Spring Equinox")).toBe("SOCO #13 Spring Equinox");
   });
+
+  it("strips parenthetical instruction text from title", () => {
+    expect(sanitizeTitle("Philly Hash (See: hashphilly.com for details)")).toBe("Philly Hash");
+  });
+
+  it("strips 'Visit' instruction variant", () => {
+    expect(sanitizeTitle("Weekly Run (Visit our website for info)")).toBe("Weekly Run");
+  });
 });
 
 // ── sanitizeHares ──
