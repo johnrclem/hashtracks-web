@@ -1861,6 +1861,25 @@ export const SOURCES = [
       },
       kennelCodes: ["lbh-phx", "hump-d", "wrong-way", "fdtdd"],
     },
+    // --- Phoenix (HTML Scraper — Big Ass Calendar) ---
+    {
+      name: "Phoenix H3 Big Ass Calendar",
+      url: "https://www.phoenixhhh.org/?page_id=21",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "weekly",
+      scrapeDays: 365,
+      config: {
+        kennelPatterns: [
+          ["^LBH\\b|Lost Boobs", "LBH"],
+          ["Hump D", "Hump D"],
+          ["Wrong Way", "Wrong Way"],
+          ["Dusk.*Down|FDTDD", "FDTDD"],
+        ],
+        defaultKennelTag: "Wrong Way",
+      },
+      kennelCodes: ["lbh-phx", "hump-d", "wrong-way", "fdtdd"],
+    },
     // --- Tucson (Google Calendar — per-kennel) ---
     {
       name: "jHavelina H3 Google Calendar",
