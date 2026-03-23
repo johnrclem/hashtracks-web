@@ -440,6 +440,10 @@ Text: "${text.slice(0, 500)}"`;
   }
 }
 
+// ---------------------------------------------------------------------------
+// Browser-rendered HTML fetch helper — for Wix, Google Sites, SPAs
+// ---------------------------------------------------------------------------
+
 /**
  * Fetch a URL via the NAS headless browser rendering service, compute
  * structureHash, and load Cheerio. Same discriminated union pattern as
