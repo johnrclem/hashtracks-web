@@ -286,49 +286,48 @@ export function StravaSuggestions({
 
   return (
     <div className="space-y-4">
-      {/* Section A: "Strava Matches" — event suggestions */}
-      {filteredSuggestions.length > 0 && (
-        <div className="space-y-3">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold">Strava Matches</h3>
-              <span className="rounded-full bg-strava/10 px-2 py-0.5 text-[10px] font-semibold text-strava">
-                {filteredSuggestions.length}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {lastSyncAt && (
-                <span className="text-[11px] text-muted-foreground font-mono">
-                  Synced {formatRelativeTime(lastSyncAt)}
-                </span>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 gap-1.5 text-xs font-mono border-strava/40 text-strava hover:bg-strava/5"
-                onClick={handleSyncNow}
-                disabled={isPending}
-              >
-                <RefreshCw size={12} className={isPending ? "animate-spin" : ""} />
-                Sync
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-xs text-muted-foreground"
-                onClick={handleHide}
-              >
-                Hide
-              </Button>
-            </div>
+      {/* Section A header — always visible when expanded */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">Strava Matches</h3>
+            <span className="rounded-full bg-strava/10 px-2 py-0.5 text-[10px] font-semibold text-strava">
+              {filteredSuggestions.length}
+            </span>
           </div>
+          <div className="flex items-center gap-2">
+            {lastSyncAt && (
+              <span className="text-[11px] text-muted-foreground font-mono">
+                Synced {formatRelativeTime(lastSyncAt)}
+              </span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 text-xs font-mono border-strava/40 text-strava hover:bg-strava/5"
+              onClick={handleSyncNow}
+              disabled={isPending}
+            >
+              <RefreshCw size={12} className={isPending ? "animate-spin" : ""} />
+              Sync
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs text-muted-foreground"
+              onClick={handleHide}
+            >
+              Hide
+            </Button>
+          </div>
+        </div>
 
-          {/* Subtitle */}
-          <p className="text-xs text-muted-foreground -mt-1">
-            Hash events that match your recent Strava activities
-          </p>
+        <p className="text-xs text-muted-foreground -mt-1">
+          Hash events that match your recent Strava activities
+        </p>
 
+        {/* Suggestion cards — only when there are matches */}
+        {filteredSuggestions.length > 0 && (
           <div className="space-y-2">
             {visibleSuggestions.map((s) => (
               <SuggestionCard
@@ -343,24 +342,24 @@ export function StravaSuggestions({
               />
             ))}
           </div>
+        )}
 
-          {!showAllSuggestions && filteredSuggestions.length > SUGGESTION_CAP && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs"
-              onClick={() => setShowAllSuggestions(true)}
-            >
-              Show all {filteredSuggestions.length} suggestions
-            </Button>
-          )}
-        </div>
-      )}
+        {!showAllSuggestions && filteredSuggestions.length > SUGGESTION_CAP && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs"
+            onClick={() => setShowAllSuggestions(true)}
+          >
+            Show all {filteredSuggestions.length} suggestions
+          </Button>
+        )}
+      </div>
 
       {/* Section B: "Link Strava to check-ins" */}
       {linkGroups.length > 0 && (
         <>
-          {filteredSuggestions.length > 0 && <div className="border-t my-4" />}
+          <div className="border-t my-4" />
           <div className="space-y-3">
             <div>
               <div className="flex items-center gap-2">
