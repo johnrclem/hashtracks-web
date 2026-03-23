@@ -34,6 +34,7 @@ import { HockessinAdapter } from "./html-scraper/hockessin";
 import { RenegadeH3Adapter } from "./html-scraper/renegade-h3";
 import { SWH3Adapter } from "./html-scraper/swh3";
 import { SDH3Adapter } from "./html-scraper/sdh3";
+import { PhoenixHHHAdapter } from "./html-scraper/phoenixhhh";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -93,6 +94,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /renegadeh3\.com/i,       name: "RenegadeH3Adapter",        factory: () => new RenegadeH3Adapter() },
   { pattern: /swh3\.wordpress\.com/i, name: "SWH3Adapter",              factory: () => new SWH3Adapter() },
   { pattern: /sdh3\.com/i,            name: "SDH3Adapter",              factory: () => new SDH3Adapter() },
+  { pattern: /phoenixhhh\.org/i,    name: "PhoenixHHHAdapter",        factory: () => new PhoenixHHHAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */
