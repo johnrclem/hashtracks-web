@@ -215,7 +215,7 @@ describe("parseDetailPage", () => {
 describe("mergeDetailIntoEvent", () => {
   const baseEvent: RawEventData = {
     date: "2026-03-09",
-    kennelTag: "OCH3",
+    kennelTag: "och3",
     title: "Anna 'Fish n Chips' Cooper",
     startTime: "19:30",
     sourceUrl: "http://www.och3.org.uk/upcoming-run-list.html",
@@ -244,7 +244,7 @@ describe("mergeDetailIntoEvent", () => {
     expect(merged.description).toBe("On Inn: The Bush, Dorking");
     expect(merged.sourceUrl).toBe("http://www.och3.org.uk/next-run-details.html");
     // Original fields preserved
-    expect(merged.kennelTag).toBe("OCH3");
+    expect(merged.kennelTag).toBe("och3");
     // Title cleared because it matched the hare name (run-list sets hare as title for OCH3)
     expect(merged.title).toBeUndefined();
   });

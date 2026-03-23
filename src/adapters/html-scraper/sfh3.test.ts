@@ -197,11 +197,11 @@ describe("parseHarelineRows", () => {
 
 describe("SFH3Adapter.fetch", () => {
   const KENNEL_PATTERNS: [string, string][] = [
-    ["^SFH3", "SFH3"],
-    ["^GPH3", "GPH3"],
-    ["^EBH3", "EBH3"],
-    ["^FHAC-U", "FHAC-U"],
-    ["^Marin H3", "MarinH3"],
+    ["^SFH3", "sfh3"],
+    ["^GPH3", "gph3"],
+    ["^EBH3", "ebh3"],
+    ["^FHAC-U", "fhac-u"],
+    ["^Marin H3", "marinh3"],
   ];
 
   it("parses sample HTML and returns events", async () => {
@@ -213,7 +213,7 @@ describe("SFH3Adapter.fetch", () => {
     const result = await adapter.fetch({
       id: "test",
       url: "https://www.sfh3.com/runs?kennels=all",
-      config: { kennelPatterns: KENNEL_PATTERNS, defaultKennelTag: "SFH3" },
+      config: { kennelPatterns: KENNEL_PATTERNS, defaultKennelTag: "sfh3" },
     } as never);
 
     expect(result.events).toHaveLength(5);
@@ -227,7 +227,7 @@ describe("SFH3Adapter.fetch", () => {
     // Verify first event (SFH3)
     const sfh3Event = result.events[0];
     expect(sfh3Event.date).toBe("2026-03-03");
-    expect(sfh3Event.kennelTag).toBe("SFH3");
+    expect(sfh3Event.kennelTag).toBe("sfh3");
     expect(sfh3Event.runNumber).toBe(2302);
     expect(sfh3Event.title).toBe("A Very Heated Rivalry");
     expect(sfh3Event.hares).toBe("Trail Blazer");
@@ -237,12 +237,12 @@ describe("SFH3Adapter.fetch", () => {
 
     // Verify second event (GPH3)
     const gph3Event = result.events[1];
-    expect(gph3Event.kennelTag).toBe("GPH3");
+    expect(gph3Event.kennelTag).toBe("gph3");
     expect(gph3Event.runNumber).toBe(1700);
 
     // Verify Marin H3 event (kennel pattern with space)
     const marinEvent = result.events[4];
-    expect(marinEvent.kennelTag).toBe("MarinH3");
+    expect(marinEvent.kennelTag).toBe("marinh3");
     expect(marinEvent.runNumber).toBe(292);
 
     vi.restoreAllMocks();
@@ -291,14 +291,14 @@ describe("SFH3Adapter.fetch", () => {
       url: "https://www.sfh3.com/runs?kennels=all",
       config: {
         kennelPatterns: KENNEL_PATTERNS,
-        defaultKennelTag: "SFH3",
+        defaultKennelTag: "sfh3",
         skipPatterns: ["^Hand Pump", "^Workday"],
       },
     } as never);
 
     expect(result.events).toHaveLength(2);
-    expect(result.events[0].kennelTag).toBe("SFH3");
-    expect(result.events[1].kennelTag).toBe("GPH3");
+    expect(result.events[0].kennelTag).toBe("sfh3");
+    expect(result.events[1].kennelTag).toBe("gph3");
     expect(result.diagnosticContext).toMatchObject({
       rowsFound: 4,
       eventsParsed: 2,
@@ -328,12 +328,12 @@ describe("SFH3Adapter.fetch", () => {
     const result = await adapter.fetch({
       id: "test",
       url: "https://www.sfh3.com/runs?kennels=all",
-      config: { defaultKennelTag: "SFH3" },
+      config: { defaultKennelTag: "sfh3" },
     } as never);
 
     // Without skipPatterns, the row is emitted (falls back to defaultKennelTag)
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].kennelTag).toBe("SFH3");
+    expect(result.events[0].kennelTag).toBe("sfh3");
     expect(result.diagnosticContext).toMatchObject({ skippedPattern: 0 });
 
     vi.restoreAllMocks();
@@ -359,11 +359,11 @@ describe("SFH3Adapter.fetch", () => {
     const result = await adapter.fetch({
       id: "test",
       url: "https://www.sfh3.com/runs?kennels=all",
-      config: { kennelPatterns: KENNEL_PATTERNS, defaultKennelTag: "SFH3" },
+      config: { kennelPatterns: KENNEL_PATTERNS, defaultKennelTag: "sfh3" },
     } as never);
 
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].kennelTag).toBe("SFH3");
+    expect(result.events[0].kennelTag).toBe("sfh3");
 
     vi.restoreAllMocks();
   });
@@ -388,7 +388,7 @@ describe("SFH3Adapter.fetch", () => {
     const result = await adapter.fetch({
       id: "test",
       url: "https://www.sfh3.com/runs?kennels=all",
-      config: { defaultKennelTag: "SFH3" },
+      config: { defaultKennelTag: "sfh3" },
     } as never);
 
     expect(result.events).toHaveLength(0);

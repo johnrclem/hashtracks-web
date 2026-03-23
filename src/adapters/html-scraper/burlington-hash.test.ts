@@ -50,7 +50,7 @@ describe("parseCalendarLink", () => {
 
     expect(result).toMatchObject({
       date: "2026-04-01",
-      kennelTag: "BurlyH3",
+      kennelTag: "burlyh3",
       runNumber: 846,
       title: "Season Premier",
       hares: "Trailblazer & MapQuest",
@@ -70,7 +70,7 @@ describe("parseCalendarLink", () => {
     const result = parseCalendarLink(href, SOURCE_URL);
 
     expect(result).toMatchObject({
-      kennelTag: "BurlyH3",
+      kennelTag: "burlyh3",
       runNumber: 847,
       title: "Mud Season Hash",
       hares: "Muddy Buddy",
@@ -89,7 +89,7 @@ describe("parseCalendarLink", () => {
     const result = parseCalendarLink(href, SOURCE_URL);
 
     expect(result).toMatchObject({
-      kennelTag: "BurlyH3",
+      kennelTag: "burlyh3",
       title: "Annual Invihash 2026",
       location: "Waterfront Park",
     });
@@ -176,12 +176,12 @@ describe("BurlingtonHashAdapter", () => {
 
     expect(result.events).toHaveLength(2);
     expect(result.events[0]).toMatchObject({
-      kennelTag: "BurlyH3",
+      kennelTag: "burlyh3",
       runNumber: 846,
       title: "Season Premier",
     });
     expect(result.events[1]).toMatchObject({
-      kennelTag: "BurlyH3",
+      kennelTag: "burlyh3",
       runNumber: 847,
       title: "Mud Run",
     });

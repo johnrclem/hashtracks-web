@@ -422,7 +422,7 @@ describe("parseLH3DetailPage", () => {
 describe("mergeLH3DetailIntoEvent", () => {
   const baseEvent: RawEventData = {
     date: "2026-03-14",
-    kennelTag: "LH3",
+    kennelTag: "lh3",
     runNumber: 2823,
     title: "London Hash Run #2823",
     hares: "Run List Hare",
@@ -456,7 +456,7 @@ describe("mergeLH3DetailIntoEvent", () => {
     expect(merged.description).toContain("Distance: 113 meters from Finchley Road station as the Skylark flies");
     // Preserved base fields
     expect(merged.date).toBe("2026-03-14");
-    expect(merged.kennelTag).toBe("LH3");
+    expect(merged.kennelTag).toBe("lh3");
     expect(merged.startTime).toBe("12:00");
   });
 
@@ -514,7 +514,7 @@ describe("LondonHashAdapter.fetch", () => {
     const first = result.events.find((e) => e.runNumber === 2820);
     expect(first).toBeDefined();
     expect(first!.date).toBe("2026-02-21");
-    expect(first!.kennelTag).toBe("LH3");
+    expect(first!.kennelTag).toBe("lh3");
     expect(first!.hares).toBe("Tuna Melt and Opee");
     expect(first!.location).toBe("The Dolphin");
     expect(first!.startTime).toBe("12:00");

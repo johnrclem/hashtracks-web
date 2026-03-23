@@ -97,7 +97,7 @@ describe("parseBarnesRow", () => {
     const event = parseBarnesRow(cells);
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-02-19");
-    expect(event!.kennelTag).toBe("BarnesH3");
+    expect(event!.kennelTag).toBe("barnesh3");
     expect(event!.runNumber).toBe(2104);
     expect(event!.hares).toBe("Speedy & Flasher");
     expect(event!.location).toBe("The Sun Inn, Richmond TW9 1TH");
@@ -141,7 +141,7 @@ describe("parseBarnesRow", () => {
   it("sets BarnesH3 as kennel tag", () => {
     const cells = ["2107  12th March 2026", "Hare Name", "The Fox SW19 3AA"];
     const event = parseBarnesRow(cells);
-    expect(event!.kennelTag).toBe("BarnesH3");
+    expect(event!.kennelTag).toBe("barnesh3");
   });
 });
 
@@ -191,7 +191,7 @@ describe("BarnesHashAdapter.fetch", () => {
 
     const first = result.events[0];
     expect(first.date).toBe("2026-02-19");
-    expect(first.kennelTag).toBe("BarnesH3");
+    expect(first.kennelTag).toBe("barnesh3");
     expect(first.startTime).toBe("19:30");
 
     vi.restoreAllMocks();

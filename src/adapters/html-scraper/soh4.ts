@@ -294,7 +294,7 @@ export class SOH4Adapter implements SourceAdapter {
 
           const event: RawEventData = {
             date,
-            kennelTag: "SOH4",
+            kennelTag: "soh4",
             runNumber: trailNumber,
             title: title || (trailNumber ? `SOH4 Trail #${trailNumber}` : "SOH4 Trail"),
             description: descParts.length > 0 ? descParts.join("\n") : undefined,

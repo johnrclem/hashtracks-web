@@ -4,160 +4,160 @@ import { mapKennelTag, clearResolverCache, resolveKennelTag } from "./kennel-res
 // ── mapKennelTag (pure function) ──
 
 describe("mapKennelTag", () => {
-  it("maps 'ballbuster' → BoBBH3", () => {
-    expect(mapKennelTag("ballbuster")).toBe("BoBBH3");
+  it("maps 'ballbuster' → bobbh3", () => {
+    expect(mapKennelTag("ballbuster")).toBe("bobbh3");
   });
 
-  it("maps 'bobbh3' → BoBBH3", () => {
-    expect(mapKennelTag("bobbh3")).toBe("BoBBH3");
+  it("maps 'bobbh3' → bobbh3", () => {
+    expect(mapKennelTag("bobbh3")).toBe("bobbh3");
   });
 
-  it("maps 'b3h4' → BoBBH3", () => {
-    expect(mapKennelTag("b3h4")).toBe("BoBBH3");
+  it("maps 'b3h4' → bobbh3", () => {
+    expect(mapKennelTag("b3h4")).toBe("bobbh3");
   });
 
-  it("maps 'queens black knights' → QBK", () => {
-    expect(mapKennelTag("queens black knights")).toBe("QBK");
+  it("maps 'queens black knights' → qbk", () => {
+    expect(mapKennelTag("queens black knights")).toBe("qbk");
   });
 
-  it("maps 'new amsterdam' → NAH3", () => {
-    expect(mapKennelTag("new amsterdam")).toBe("NAH3");
+  it("maps 'new amsterdam' → nah3", () => {
+    expect(mapKennelTag("new amsterdam")).toBe("nah3");
   });
 
-  it("maps 'nass...' → NAH3", () => {
-    expect(mapKennelTag("nassau hash")).toBe("NAH3");
+  it("maps 'nass...' → nah3", () => {
+    expect(mapKennelTag("nassau hash")).toBe("nah3");
   });
 
-  it("maps 'long island' → LIL", () => {
-    expect(mapKennelTag("long island")).toBe("LIL");
+  it("maps 'long island' → lil", () => {
+    expect(mapKennelTag("long island")).toBe("lil");
   });
 
-  it("maps 'lunatics' → LIL", () => {
-    expect(mapKennelTag("lunatics")).toBe("LIL");
+  it("maps 'lunatics' → lil", () => {
+    expect(mapKennelTag("lunatics")).toBe("lil");
   });
 
-  it("maps 'staten island' → SI", () => {
-    expect(mapKennelTag("staten island")).toBe("SI");
+  it("maps 'staten island' → si", () => {
+    expect(mapKennelTag("staten island")).toBe("si");
   });
 
-  it("maps 'drinking practice' → Drinking Practice (NYC)", () => {
-    expect(mapKennelTag("drinking practice")).toBe("Drinking Practice (NYC)");
+  it("maps 'drinking practice' → drinking-practice-nyc", () => {
+    expect(mapKennelTag("drinking practice")).toBe("drinking-practice-nyc");
   });
 
-  it("maps 'knickerbocker' → Knick", () => {
-    expect(mapKennelTag("knickerbocker")).toBe("Knick");
+  it("maps 'knickerbocker' → knick", () => {
+    expect(mapKennelTag("knickerbocker")).toBe("knick");
   });
 
-  it("maps 'pink taco' → Pink Taco", () => {
-    expect(mapKennelTag("pink taco")).toBe("Pink Taco");
+  it("maps 'pink taco' → pink-taco", () => {
+    expect(mapKennelTag("pink taco")).toBe("pink-taco");
   });
 
-  it("maps 'pt2h3' → Pink Taco", () => {
-    expect(mapKennelTag("pt2h3")).toBe("Pink Taco");
+  it("maps 'pt2h3' → pink-taco", () => {
+    expect(mapKennelTag("pt2h3")).toBe("pink-taco");
   });
 
-  it("maps 'brooklyn' prefix → BrH3", () => {
-    expect(mapKennelTag("brooklyn hash")).toBe("BrH3");
+  it("maps 'brooklyn' prefix → brh3", () => {
+    expect(mapKennelTag("brooklyn hash")).toBe("brh3");
   });
 
-  it("maps 'brh3' prefix → BrH3", () => {
-    expect(mapKennelTag("brh3")).toBe("BrH3");
+  it("maps 'brh3' prefix → brh3", () => {
+    expect(mapKennelTag("brh3")).toBe("brh3");
   });
 
-  it("maps 'naww' → NAWWH3", () => {
-    expect(mapKennelTag("naww")).toBe("NAWWH3");
+  it("maps 'naww' → nawwh3", () => {
+    expect(mapKennelTag("naww")).toBe("nawwh3");
   });
 
-  it("maps 'nah3' → NAH3", () => {
-    expect(mapKennelTag("nah3")).toBe("NAH3");
+  it("maps 'nah3' → nah3", () => {
+    expect(mapKennelTag("nah3")).toBe("nah3");
   });
 
-  it("maps 'nyc' → NYCH3", () => {
-    expect(mapKennelTag("nyc")).toBe("NYCH3");
+  it("maps 'nyc' → nych3", () => {
+    expect(mapKennelTag("nyc")).toBe("nych3");
   });
 
-  it("maps 'nych3' → NYCH3", () => {
-    expect(mapKennelTag("nych3")).toBe("NYCH3");
+  it("maps 'nych3' → nych3", () => {
+    expect(mapKennelTag("nych3")).toBe("nych3");
   });
 
-  it("maps 'boston hash' → BoH3", () => {
-    expect(mapKennelTag("boston hash")).toBe("BoH3");
+  it("maps 'boston hash' → boh3", () => {
+    expect(mapKennelTag("boston hash")).toBe("boh3");
   });
 
-  it("maps 'bh3' → BoH3", () => {
-    expect(mapKennelTag("bh3")).toBe("BoH3");
+  it("maps 'bh3' → boh3", () => {
+    expect(mapKennelTag("bh3")).toBe("boh3");
   });
 
-  it("maps 'boh3' → BoH3", () => {
-    expect(mapKennelTag("boh3")).toBe("BoH3");
+  it("maps 'boh3' → boh3", () => {
+    expect(mapKennelTag("boh3")).toBe("boh3");
   });
 
-  it("maps 'moon' → Bos Moon", () => {
-    expect(mapKennelTag("moon")).toBe("Bos Moon");
+  it("maps 'moon' → bos-moon", () => {
+    expect(mapKennelTag("moon")).toBe("bos-moon");
   });
 
-  it("maps 'moom' (typo) → Bos Moon", () => {
-    expect(mapKennelTag("moom")).toBe("Bos Moon");
+  it("maps 'moom' (typo) → bos-moon", () => {
+    expect(mapKennelTag("moom")).toBe("bos-moon");
   });
 
-  it("maps 'beantown' → Beantown", () => {
-    expect(mapKennelTag("beantown")).toBe("Beantown");
+  it("maps 'beantown' → beantown", () => {
+    expect(mapKennelTag("beantown")).toBe("beantown");
   });
 
-  it("maps 'summit' → Summit", () => {
-    expect(mapKennelTag("summit")).toBe("Summit");
+  it("maps 'summit' → summit", () => {
+    expect(mapKennelTag("summit")).toBe("summit");
   });
 
-  it("maps 'asssh3' → ASSSH3", () => {
-    expect(mapKennelTag("asssh3")).toBe("ASSSH3");
+  it("maps 'asssh3' → asssh3", () => {
+    expect(mapKennelTag("asssh3")).toBe("asssh3");
   });
 
-  it("maps 'sfm' → SFM", () => {
-    expect(mapKennelTag("sfm")).toBe("SFM");
+  it("maps 'sfm' → sfm", () => {
+    expect(mapKennelTag("sfm")).toBe("sfm");
   });
 
-  it("maps 'queens' → QBK", () => {
-    expect(mapKennelTag("queens")).toBe("QBK");
+  it("maps 'queens' → qbk", () => {
+    expect(mapKennelTag("queens")).toBe("qbk");
   });
 
-  it("maps 'knick' → Knick", () => {
-    expect(mapKennelTag("knick")).toBe("Knick");
+  it("maps 'knick' → knick", () => {
+    expect(mapKennelTag("knick")).toBe("knick");
   });
 
-  it("maps 'columbia' → Columbia", () => {
-    expect(mapKennelTag("columbia")).toBe("Columbia");
+  it("maps 'columbia' → columbia", () => {
+    expect(mapKennelTag("columbia")).toBe("columbia");
   });
 
-  it("maps 'ggfm' → GGFM", () => {
-    expect(mapKennelTag("ggfm")).toBe("GGFM");
+  it("maps 'ggfm' → ggfm", () => {
+    expect(mapKennelTag("ggfm")).toBe("ggfm");
   });
 
-  it("maps 'harriettes' → Harriettes", () => {
-    expect(mapKennelTag("harriettes")).toBe("Harriettes");
+  it("maps 'harriettes' → harriettes-nyc", () => {
+    expect(mapKennelTag("harriettes")).toBe("harriettes-nyc");
   });
 
-  it("maps 'si' → SI", () => {
-    expect(mapKennelTag("si")).toBe("SI");
+  it("maps 'si' → si", () => {
+    expect(mapKennelTag("si")).toBe("si");
   });
 
-  it("maps 'special' → Special (NYC)", () => {
-    expect(mapKennelTag("special")).toBe("Special (NYC)");
+  it("maps 'special' → special-nyc", () => {
+    expect(mapKennelTag("special")).toBe("special-nyc");
   });
 
-  it("maps 'ch3' → CH3", () => {
-    expect(mapKennelTag("ch3")).toBe("CH3");
+  it("maps 'ch3' → ch3", () => {
+    expect(mapKennelTag("ch3")).toBe("ch3");
   });
 
-  it("maps 'chicago' → CH3", () => {
-    expect(mapKennelTag("chicago hash")).toBe("CH3");
+  it("maps 'chicago' → ch3", () => {
+    expect(mapKennelTag("chicago hash")).toBe("ch3");
   });
 
-  it("maps 'ben franklin' → BFM", () => {
-    expect(mapKennelTag("ben franklin")).toBe("BFM");
+  it("maps 'ben franklin' → bfm", () => {
+    expect(mapKennelTag("ben franklin")).toBe("bfm");
   });
 
-  it("maps 'rumson' → Rumson", () => {
-    expect(mapKennelTag("rumson")).toBe("Rumson");
+  it("maps 'rumson' → rumson", () => {
+    expect(mapKennelTag("rumson")).toBe("rumson");
   });
 
   it("returns null for unknown input", () => {

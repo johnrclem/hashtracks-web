@@ -76,13 +76,16 @@ async function resolveViaAlias(normalized: string): Promise<ResolveResult | null
   return null;
 }
 
-/** Step 3: Pattern mapping + retry steps 1 (resolveViaExactMatch) and 2 (resolveViaAlias) with mapped name. */
+/** Step 3: Pattern mapping + retry steps 0–2 with mapped kennelCode. */
 async function resolveViaPatternMapping(
   normalized: string,
   sourceId?: string,
 ): Promise<ResolveResult | null> {
   const mapped = mapKennelTag(normalized.toLowerCase());
   if (!mapped) return null;
+
+  const kennelCodeResult = await resolveViaKennelCode(mapped, sourceId);
+  if (kennelCodeResult) return kennelCodeResult;
 
   const exactResult = await resolveViaExactMatch(mapped, sourceId);
   if (exactResult) return exactResult;
@@ -139,61 +142,61 @@ export async function resolveKennelTag(
 /**
  * Pattern matching fallback from PRD Appendix D.2.
  * Data-driven: patterns are evaluated in order (multi-word first, then shorter).
- * Each entry maps a regex to the canonical kennel shortName.
+ * Each entry maps a regex to the canonical kennelCode (immutable identifier).
  */
 const KENNEL_PATTERNS: readonly [RegExp, string][] = [
   // Multi-word patterns FIRST (longer before shorter)
-  [/ballbuster|bobbh3|b3h4/, "BoBBH3"],
-  [/queens black knights/, "QBK"],
-  [/(?:new amsterdam)|(?:^nass)/, "NAH3"],
-  [/long island|lunatics/, "LIL"],
-  [/staten island/, "SI"],
-  [/drinking practice/, "Drinking Practice (NYC)"],
-  [/knickerbocker/, "Knick"],
-  [/pink taco|pt2h3/, "Pink Taco"],
+  [/ballbuster|bobbh3|b3h4/, "bobbh3"],
+  [/queens black knights/, "qbk"],
+  [/(?:new amsterdam)|(?:^nass)/, "nah3"],
+  [/long island|lunatics/, "lil"],
+  [/staten island/, "si"],
+  [/drinking practice/, "drinking-practice-nyc"],
+  [/knickerbocker/, "knick"],
+  [/pink taco|pt2h3/, "pink-taco"],
 
   // Brooklyn (before generic "br" patterns)
-  [/^(?:brooklyn|brh3)/, "BrH3"],
+  [/^(?:brooklyn|brh3)/, "brh3"],
 
   // NAWW
-  [/naww/, "NAWWH3"],
+  [/naww/, "nawwh3"],
 
   // NAH3
-  [/^nah3/, "NAH3"],
+  [/^nah3/, "nah3"],
 
   // NYC (after more specific NYC-area kennels)
-  [/^(?:nyc|nych3)/, "NYCH3"],
+  [/^(?:nyc|nych3)/, "nych3"],
 
   // Boston area
-  [/^(?:boston hash|bh3|boh3)/, "BoH3"],
-  [/moon|moom/, "Bos Moon"],
-  [/beantown/, "Beantown"],
+  [/^(?:boston hash|bh3|boh3)/, "boh3"],
+  [/moon|moom/, "bos-moon"],
+  [/beantown/, "beantown"],
 
   // Remaining short patterns
-  [/queens/, "QBK"],
-  [/knick/, "Knick"],
-  [/lil/, "LIL"],
-  [/columbia/, "Columbia"],
-  [/ggfm/, "GGFM"],
-  [/harriettes/, "Harriettes"],
-  [/(?:si hash)|(?:^si$)/, "SI"],
-  [/special/, "Special (NYC)"],
+  [/queens/, "qbk"],
+  [/knick/, "knick"],
+  [/lil/, "lil"],
+  [/columbia/, "columbia"],
+  [/ggfm/, "ggfm"],
+  [/harriettes/, "harriettes-nyc"],
+  [/(?:si hash)|(?:^si$)/, "si"],
+  [/special/, "special-nyc"],
 
   // Philadelphia
-  [/ben franklin|bfm/, "BFM"],
-  [/philly|hashphilly/, "Philly H3"],
+  [/ben franklin|bfm/, "bfm"],
+  [/philly|hashphilly/, "philly-h3"],
 
   // Chicago
-  [/(?:^ch3)|(?:chicago)/, "CH3"],
+  [/(?:^ch3)|(?:chicago)/, "ch3"],
 
   // Summit / NJ area
-  [/asssh3|all seasons summit shiggy/, "ASSSH3"],
-  [/(?:summit full moon)|(?:^sfm$)/, "SFM"],
-  [/summit/, "Summit"],
-  [/rumson/, "Rumson"],
+  [/asssh3|all seasons summit shiggy/, "asssh3"],
+  [/(?:summit full moon)|(?:^sfm$)/, "sfm"],
+  [/summit/, "summit"],
+  [/rumson/, "rumson"],
 ];
 
-/** Apply regex pattern matching to map a raw kennel tag to a canonical shortName. Returns null if no pattern matches. */
+/** Apply regex pattern matching to map a raw kennel tag to a canonical kennelCode. Returns null if no pattern matches. */
 export function mapKennelTag(input: string): string | null {
   const normalized = input.trim();
   for (const [pattern, result] of KENNEL_PATTERNS) {

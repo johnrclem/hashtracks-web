@@ -119,7 +119,7 @@ function processPost(
 
   return {
     date: parsed.date,
-    kennelTag: "DCH4",
+    kennelTag: "dch4",
     runNumber: parsed.runNumber,
     title: parsed.theme || `DCH4 Trail #${parsed.runNumber}`,
     hares: bodyFields.hares,

@@ -8,28 +8,29 @@ import { MONTHS_ZERO, parse12HourTime, decodeEntities, stripHtmlTags } from "../
 import { safeFetch } from "../safe-fetch";
 
 // Kennel regex patterns — LONGER strings before shorter substrings
+// Output values are kennelCodes (immutable identifiers), not shortNames
 const KENNEL_PATTERNS: [RegExp, string][] = [
-  [/Knickerbocker/i, "Knick"],
-  [/Queens Black Knights/i, "QBK"],
-  [/New Amsterdam/i, "NAH3"],
-  [/Long Island(?:\s+Lunatics)?/i, "LIL"],
-  [/Staten Island/i, "SI"],
-  [/Drinking Practice/i, "Drinking Practice (NYC)"],
-  [/Brooklyn/i, "BrH3"],
-  [/Harriettes/i, "Harriettes"],
-  [/Columbia/i, "Columbia"],
-  [/NAWW(?:H3)?/i, "NAWWH3"],
-  [/NASS/i, "NAH3"],
-  [/GGFM/i, "GGFM"],
-  [/BrH3/i, "BrH3"],
-  [/NAH3/i, "NAH3"],
-  [/Knick/i, "Knick"],
-  [/QBK/i, "QBK"],
-  [/LIL/i, "LIL"],
-  [/SI\b/i, "SI"],
-  [/NYC(?:H3)?/i, "NYCH3"],
-  [/Queens/i, "QBK"],
-  [/Special/i, "Special (NYC)"],
+  [/Knickerbocker/i, "knick"],
+  [/Queens Black Knights/i, "qbk"],
+  [/New Amsterdam/i, "nah3"],
+  [/Long Island(?:\s+Lunatics)?/i, "lil"],
+  [/Staten Island/i, "si"],
+  [/Drinking Practice/i, "drinking-practice-nyc"],
+  [/Brooklyn/i, "brh3"],
+  [/Harriettes/i, "harriettes-nyc"],
+  [/Columbia/i, "columbia"],
+  [/NAWW(?:H3)?/i, "nawwh3"],
+  [/NASS/i, "nah3"],
+  [/GGFM/i, "ggfm"],
+  [/BrH3/i, "brh3"],
+  [/NAH3/i, "nah3"],
+  [/Knick/i, "knick"],
+  [/QBK/i, "qbk"],
+  [/LIL/i, "lil"],
+  [/SI\b/i, "si"],
+  [/NYC(?:H3)?/i, "nych3"],
+  [/Queens/i, "qbk"],
+  [/Special/i, "special-nyc"],
 ];
 
 // Pre-compiled patterns derived from KENNEL_PATTERNS (avoid per-call RegExp construction)
@@ -108,10 +109,7 @@ export function extractKennelTag(text: string): string {
     if (pattern.test(text)) return tag;
   }
 
-  // Fallback: check if there's a run number (likely NYCH3 as default)
-  if (/(?:Run|Trail|#)\s*\d+/i.test(text)) return "NYCH3";
-
-  return "NYCH3";
+  return "nych3";
 }
 
 /**

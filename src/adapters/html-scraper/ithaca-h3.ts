@@ -134,7 +134,7 @@ export function parseIH3Block(
 
   return {
     date,
-    kennelTag: "IH3",
+    kennelTag: "ih3",
     runNumber: !isNaN(runNumber) ? runNumber : undefined,
     title: `IH3 #${runNumber}`,
     hares,

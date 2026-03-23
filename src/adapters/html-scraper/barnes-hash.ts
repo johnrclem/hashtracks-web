@@ -100,7 +100,7 @@ export function parseBarnesRow(cells: string[], sourceUrl = "http://www.barnesh3
 
   return {
     date,
-    kennelTag: "BarnesH3",
+    kennelTag: "barnesh3",
     runNumber: runNumber ?? undefined,
     title: runNumber ? `Barnes Hash Run #${runNumber}` : undefined,
     hares,

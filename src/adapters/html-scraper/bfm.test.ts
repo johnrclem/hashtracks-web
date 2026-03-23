@@ -67,7 +67,7 @@ describe("BFMAdapter.fetch", () => {
 
     const current = result.events.find((e) => e.runNumber === 1500);
     expect(current).toBeDefined();
-    expect(current!.kennelTag).toBe("BFM");
+    expect(current!.kennelTag).toBe("bfm");
     expect(current!.hares).toBe("Mudflap and Shiggy Pop");
     expect(current!.location).toBe("Central Bar, 123 Main St");
     expect(current!.startTime).toBe("19:00");

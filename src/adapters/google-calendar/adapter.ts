@@ -5,31 +5,32 @@ import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HA
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
+// Output values are kennelCodes (immutable identifiers), not shortNames.
 const BOSTON_KENNEL_PATTERNS: [RegExp, string][] = [
-  [/Boston Ball\s*Buster/i, "BoBBH3"],
-  [/Ball\s*Buster/i, "BoBBH3"],
-  [/BoBBH3/i, "BoBBH3"],
-  [/B3H4/i, "BoBBH3"],
-  [/BBH3/i, "BoBBH3"],
-  [/Beantown/i, "Beantown"],
-  [/Pink Taco/i, "Pink Taco"],
-  [/PT2H3/i, "Pink Taco"],
-  [/Boston Moon/i, "Bos Moon"],
-  [/Bos Moo[mn]/i, "Bos Moon"],
-  [/Full Moon/i, "Bos Moon"],
-  [/\bMoon\b/i, "Bos Moon"],
-  [/Boston H3/i, "BoH3"],
-  [/Boston Hash/i, "BoH3"],
-  [/BoH3/i, "BoH3"],
-  [/BH3/i, "BoH3"],
+  [/Boston Ball\s*Buster/i, "bobbh3"],
+  [/Ball\s*Buster/i, "bobbh3"],
+  [/BoBBH3/i, "bobbh3"],
+  [/B3H4/i, "bobbh3"],
+  [/BBH3/i, "bobbh3"],
+  [/Beantown/i, "beantown"],
+  [/Pink Taco/i, "pink-taco"],
+  [/PT2H3/i, "pink-taco"],
+  [/Boston Moon/i, "bos-moon"],
+  [/Bos Moo[mn]/i, "bos-moon"],
+  [/Full Moon/i, "bos-moon"],
+  [/\bMoon\b/i, "bos-moon"],
+  [/Boston H3/i, "boh3"],
+  [/Boston Hash/i, "boh3"],
+  [/BoH3/i, "boh3"],
+  [/BH3/i, "boh3"],
 ];
 
-/** Extract kennel tag from a Google Calendar event summary using Boston Hash kennel patterns. Falls back to "BoH3". */
+/** Extract kennel tag from a Google Calendar event summary using Boston Hash kennel patterns. Falls back to "boh3". */
 export function extractKennelTag(summary: string): string {
   for (const [pattern, tag] of BOSTON_KENNEL_PATTERNS) {
     if (pattern.test(summary)) return tag;
   }
-  return "BoH3";
+  return "boh3";
 }
 
 /** Default description patterns for run number extraction (Boston Hash Calendar format). */
