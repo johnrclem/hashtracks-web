@@ -40,6 +40,7 @@ export type HarelineEvent = {
   haresText: string | null;
   startTime: string | null;
   locationName: string | null;
+  locationStreet: string | null;
   locationCity: string | null;
   locationAddress: string | null;
   description: string | null;

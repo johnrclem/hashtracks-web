@@ -36,6 +36,10 @@ export interface LocationDisplayEvent {
   locationCity: string | null;
 }
 
+export interface FullLocationDisplayEvent extends LocationDisplayEvent {
+  locationStreet: string | null;
+}
+
 /** Build location display string with city context. Strip URLs defensively. */
 export function getLocationDisplay(event: LocationDisplayEvent): string | null {
   const name = event.locationName?.replace(/https?:\/\/\S+/g, "").trim() || null;
@@ -53,4 +57,10 @@ export function getLocationDisplay(event: LocationDisplayEvent): string | null {
     return `${name}, ${city}`;
   }
   return city || name || null;
+}
+
+/** Full location for event detail page — includes street address with zip when available. */
+export function getFullLocationDisplay(event: FullLocationDisplayEvent): string | null {
+  if (event.locationStreet) return event.locationStreet;
+  return getLocationDisplay(event);
 }

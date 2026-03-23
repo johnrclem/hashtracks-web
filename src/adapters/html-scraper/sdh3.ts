@@ -124,15 +124,17 @@ export function extractHistoryEntry(
 export function parseEventFields(fieldsText: string): {
   hares?: string;
   location?: string;
+  locationStreet?: string;
   description?: string;
 } {
   let hares: string | undefined;
   let location: string | undefined;
+  let locationStreet: string | undefined;
   const descParts: string[] = [];
 
   const lines = fieldsText.split("\n");
-  for (const line of lines) {
-    const labelMatch = /^(.+?):\s*(.*)$/.exec(line.trim());
+  for (let i = 0; i < lines.length; i++) {
+    const labelMatch = /^(.+?):\s*(.*)$/.exec(lines[i].trim());
     if (!labelMatch) continue;
 
     const label = labelMatch[1].trim().toLowerCase();
@@ -145,9 +147,22 @@ export function parseEventFields(fieldsText: string): {
       case "hare(s)":
         hares = value;
         break;
-      case "address":
+      case "address": {
         location = value;
+        // Collect continuation lines (street, city/state/zip) — lines without a label
+        const addressLines = [value];
+        for (let k = i + 1; k < lines.length; k++) {
+          const nextLine = lines[k].trim();
+          if (!nextLine || /^(.+?):/.test(nextLine)) break;
+          // Skip "United States" / "US" country lines
+          if (/^(?:United States|US|USA)$/i.test(nextLine)) continue;
+          addressLines.push(nextLine);
+        }
+        if (addressLines.length > 1) {
+          locationStreet = addressLines.join(", ");
+        }
         break;
+      }
       case "run fee":
       case "hash cash":
         descParts.push(`Hash Cash: ${value}`);
@@ -170,6 +185,7 @@ export function parseEventFields(fieldsText: string): {
   return {
     hares,
     location,
+    locationStreet,
     description: descParts.length > 0 ? descParts.join(" | ") : undefined,
   };
 }
@@ -245,7 +261,7 @@ export function parseHarelineEvents(
     const fieldsHtml = fieldsDiv.html() ?? "";
     const fieldsText = stripHtmlTags(fieldsHtml, "\n");
 
-    const { hares, location, description } = parseEventFields(fieldsText);
+    const { hares, location, locationStreet, description } = parseEventFields(fieldsText);
 
     const locationUrl = extractMapLink(fieldsDiv, $);
     const sourceUrl = extractEventPageUrl($dt, $, baseUrl);
@@ -266,6 +282,7 @@ export function parseHarelineEvents(
       title,
       hares,
       location,
+      locationStreet,
       locationUrl,
       description,
       sourceUrl,
@@ -377,6 +394,7 @@ export async function enrichHistoryEvents(
       let wasEnriched = false;
       if (fields.hares) { event.hares = fields.hares; wasEnriched = true; }
       if (fields.location) { event.location = fields.location; wasEnriched = true; }
+      if (fields.locationStreet) { event.locationStreet = fields.locationStreet; wasEnriched = true; }
       if (fields.description && !event.description) { event.description = fields.description; wasEnriched = true; }
 
       const mapLink = extractMapLink(contentDiv, $);

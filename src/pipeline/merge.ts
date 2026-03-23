@@ -552,7 +552,11 @@ async function upsertCanonicalEvent(
             ? { haresText: sanitizeHares(event.hares) }
             : {}),
           ...(event.location !== undefined
-            ? { locationName: coords.normalizedLocation ?? sanitizeLocation(event.location) }
+            ? {
+                locationName: coords.normalizedLocation ?? sanitizeLocation(event.location),
+                // Clear stale street when location changes but no street provided
+                locationStreet: event.locationStreet ?? null,
+              }
             : {}),
           ...(event.locationUrl !== undefined
             ? { locationAddress: sanitizeLocationUrl(event.locationUrl) }
@@ -610,6 +614,7 @@ async function upsertCanonicalEvent(
         description: event.description,
         haresText: sanitizeHares(event.hares),
         locationName: coords.normalizedLocation ?? sanitizeLocation(event.location),
+        locationStreet: event.locationStreet ?? null,
         locationAddress: sanitizeLocationUrl(event.locationUrl),
         startTime: event.startTime,
         sourceUrl: event.sourceUrl,

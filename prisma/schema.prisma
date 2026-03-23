@@ -294,9 +294,10 @@ model Event {
   title           String?     // Trail/event name
   description     String?
   haresText       String?     // Display text: "Mudflap, Just Simon"
-  locationName    String?     // Start location name
+  locationName    String?     // Start location name (venue or first line of address)
+  locationStreet  String?     // Full street address, e.g. "SRO Lounge, 1807 Fifth Ave, San Diego, CA 92101"
   locationCity    String?     // Reverse-geocoded city, e.g. "Williamsport, MD"
-  locationAddress String?
+  locationAddress String?     // Maps URL for directions
   latitude        Float?
   longitude       Float?
   startTime       String?     // Local time string "HH:MM" — NOT a timestamp
