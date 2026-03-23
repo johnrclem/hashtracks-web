@@ -79,7 +79,15 @@ export function parseHarelineRow(
   // --- Date (year-less, e.g., "Mon March 23") ---
   const rawDate = cells[0]?.trim();
   if (!rawDate) return null;
-  const date = chronoParseDate(rawDate, "en-US", referenceDate, {
+  // Normalize reference to start-of-day to prevent forwardDate from advancing
+  // same-day events to next year (chrono parses year-less dates as midnight,
+  // which is "before" a mid-day reference → year drift)
+  let ref = referenceDate;
+  if (ref) {
+    ref = new Date(ref);
+    ref.setHours(0, 0, 0, 0);
+  }
+  const date = chronoParseDate(rawDate, "en-US", ref, {
     forwardDate: true,
   });
   if (!date) return null;
@@ -122,17 +130,23 @@ export function parseHarelineRow(
   const location =
     locationText && locationText.length > 3 ? locationText : undefined;
 
-  // Description: body text minus title, Facebook boilerplate, song links
+  // Description: body text minus title and song links; preserve Facebook link
   const descRoot = dir$("body").clone();
   descRoot.find("h2").remove();
   descRoot
-    .find(
-      'a[href*="facebook.com/groups"], a[href*="Songs/"], a[href$=".txt"], a[href$=".rtf"]',
-    )
+    .find('a[href*="Songs/"], a[href$=".txt"], a[href$=".rtf"]')
     .closest("p")
     .remove();
+  // Convert Facebook link to plain text with URL instead of removing it
+  descRoot.find('a[href*="facebook.com/groups"]').each((_, a) => {
+    const $a = dir$(a);
+    const href = $a.attr("href") ?? "";
+    const text = $a.text().trim();
+    $a.replaceWith(`${text} (${href})`);
+  });
   const description =
-    descRoot.text().replace(/\s+/g, " ").trim() || undefined;
+    descRoot.text().replace(/\s+/g, " ").trim().replace(/^[,\s]+/, "") ||
+    undefined;
 
   return {
     date,
