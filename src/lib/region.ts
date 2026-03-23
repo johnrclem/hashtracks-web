@@ -1159,7 +1159,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     colorClasses: "bg-sky-200 text-sky-800",
     pinColor: "#0284c7",
     centroidLat: 44.31,
-    centroidLng: -85.60,
+    centroidLng: -85.6,
     aliases: ["MI"],
   },
   {
