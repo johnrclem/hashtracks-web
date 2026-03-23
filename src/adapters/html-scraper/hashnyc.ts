@@ -109,9 +109,6 @@ export function extractKennelTag(text: string): string {
     if (pattern.test(text)) return tag;
   }
 
-  // Fallback: check if there's a run number (likely NYCH3 as default)
-  if (/(?:Run|Trail|#)\s*\d+/i.test(text)) return "nych3";
-
   return "nych3";
 }
 

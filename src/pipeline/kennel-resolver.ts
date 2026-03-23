@@ -76,13 +76,16 @@ async function resolveViaAlias(normalized: string): Promise<ResolveResult | null
   return null;
 }
 
-/** Step 3: Pattern mapping + retry steps 1 (resolveViaExactMatch) and 2 (resolveViaAlias) with mapped name. */
+/** Step 3: Pattern mapping + retry steps 0–2 with mapped kennelCode. */
 async function resolveViaPatternMapping(
   normalized: string,
   sourceId?: string,
 ): Promise<ResolveResult | null> {
   const mapped = mapKennelTag(normalized.toLowerCase());
   if (!mapped) return null;
+
+  const kennelCodeResult = await resolveViaKennelCode(mapped, sourceId);
+  if (kennelCodeResult) return kennelCodeResult;
 
   const exactResult = await resolveViaExactMatch(mapped, sourceId);
   if (exactResult) return exactResult;

@@ -61,7 +61,7 @@ const WCFH_PAGE_TO_CODE: Record<string, string> = {
 export function extractKennelTags($cell: Cheerio<AnyNode>, $: CheerioAPI): string[] {
   const tags: string[] = [];
   $cell.find("a").each((_i, el) => {
-    const text = $(el).text().trim().replace(/[.,\s]+/g, "");
+    const text = $(el).text().trim().replace(/[.,\s]+/g, "").toUpperCase();
     const code = text ? WCFH_PAGE_TO_CODE[text] : undefined;
     if (code) {
       tags.push(code);
