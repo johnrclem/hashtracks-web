@@ -1907,7 +1907,7 @@ export const SOURCES = [
         startTime: "18:30",
         timezone: "America/Los_Angeles",
         defaultTitle: "SCH3 Weekly Thursday Hash",
-        defaultLocation: "Santa Cruz, CA — check Facebook for detrails",
+        defaultLocation: "Santa Cruz, CA — check Facebook for details",
         defaultDescription: "Weekly Thursday evening hash in Santa Cruz.",
       },
       kennelCodes: ["sch3-ca"],
