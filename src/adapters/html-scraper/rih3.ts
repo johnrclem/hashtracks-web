@@ -1,3 +1,17 @@
+/**
+ * Rhode Island Hash House Harriers (RIH3) Hareline Scraper
+ *
+ * Scrapes rih3.com/hareline.html — a classic static HTML page (CoffeeCup editor,
+ * late 1990s) with a 5-column table: Date | Time | Run# | Hare | Directions.
+ *
+ * Two tables on the page: first is the hareline (upcoming runs), second is the
+ * "Hareline Doghouse" (absent members) — skip the second.
+ *
+ * Dates are year-less (e.g., "Mon March 23") — chrono-node infers the year.
+ * Hare names appear in <span> elements and as "and"/"&" text nodes between images.
+ * Directions cell contains H2 title, narrative description, and Google Maps links.
+ */
+
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type {
@@ -7,84 +21,133 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, chronoParseDate } from "../utils";
+import {
+  fetchHTMLPage,
+  chronoParseDate,
+  parse12HourTime,
+  isPlaceholder,
+} from "../utils";
+
+const DAY_PREFIX_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\.?\s+/i;
 
 /**
- * Parse a single event block (a set of <dt>/<dd> pairs) into RawEventData.
+ * Extract hare name(s) from the hare cell HTML.
  *
- * Expected HTML structure per event:
- *   <dt>Date:</dt><dd>Mon. March 9</dd>
- *   <dt>Run</dt><dd>2089</dd>
- *   <dt>Hare:</dt><dd><strong>WIPOS</strong></dd>
- *   <dt>Directions:</dt><dd>[location text + Google Maps link]</dd>
+ * Hare names appear as text inside <span>/<strong> elements, sometimes with
+ * "and" or "&" separators. Extra content (song links, prose) appears in <p>
+ * and <a> elements below hare images — removed before text extraction.
  */
-export function parseDtDdBlock(
-  fields: Map<string, string>,
-  sourceUrl: string,
-): RawEventData | null {
-  const dateText = fields.get("date");
-  if (!dateText) return null;
+export function extractHares(hareHtml: string): string | undefined {
+  const $ = cheerio.load(hareHtml);
 
-  const date = chronoParseDate(dateText, "en-US");
+  // Remove non-hare content
+  $("p").remove();
+  $("img").remove();
+  $("a").remove();
+  $("font").remove();
+
+  const text = $("body").text();
+  const names = text
+    .split(/[\n\r]+/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => l.replace(/^(?:and|&)\s+/i, "").trim())
+    .filter((n) => n.length > 1 && !isPlaceholder(n));
+
+  return names.length > 0 ? names.join(", ") : undefined;
+}
+
+/**
+ * Parse a single hareline table row into RawEventData.
+ * Exported for unit testing.
+ *
+ * @param cells - text content of first 3 cells [date, time, runNumber]
+ * @param hareHtml - innerHTML of the hare cell (td[3])
+ * @param directionHtml - innerHTML of the directions cell (td[4])
+ * @param sourceUrl - the source URL for attribution
+ * @param referenceDate - reference date for year inference on year-less dates
+ */
+export function parseHarelineRow(
+  cells: string[],
+  hareHtml: string,
+  directionHtml: string,
+  sourceUrl: string,
+  referenceDate?: Date,
+): RawEventData | null {
+  if (cells.length < 3) return null;
+
+  // --- Date (year-less, e.g., "Mon March 23") ---
+  const rawDate = cells[0]?.trim();
+  if (!rawDate) return null;
+  const date = chronoParseDate(rawDate, "en-US", referenceDate, {
+    forwardDate: true,
+  });
   if (!date) return null;
 
-  const runText = fields.get("run");
-  const runNumber = runText ? parseInt(runText.trim(), 10) : undefined;
+  // --- Time (12h, e.g., "6:30 PM" or "Mon 6:30 PM") ---
+  const rawTime = (cells[1]?.trim() ?? "").replace(DAY_PREFIX_RE, "");
+  const startTime = parse12HourTime(rawTime) || "18:30";
 
-  // Extract hare name — strip "NEED A HARE" style placeholders
-  let hares: string | undefined;
-  const hareText = fields.get("hare") || fields.get("hares");
-  if (hareText) {
-    const cleaned = hareText.trim();
-    if (!/need\s+a\s+hare|tbd|tba/i.test(cleaned) && cleaned.length > 0) {
-      hares = cleaned;
-    }
-  }
+  // --- Run Number ---
+  const runNum = parseInt(cells[2]?.trim() ?? "", 10);
+  const runNumber = !isNaN(runNum) ? runNum : undefined;
 
-  // Extract location from directions field
-  let location: string | undefined;
-  let locationUrl: string | undefined;
-  const directions = fields.get("directions") || fields.get("location");
-  if (directions) {
-    // Extract Google Maps URL if present
-    const mapMatch = /https?:\/\/(?:www\.)?google\.[a-z.]+\/maps\S*/i.exec(directions);
-    if (mapMatch) {
-      locationUrl = mapMatch[0];
-    }
-    // Clean up the text: remove URLs and extra whitespace
-    const locationText = directions
-      .replace(/https?:\/\/\S+/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (locationText && !/^\s*$/.test(locationText)) {
-      location = locationText;
-    }
-  }
+  // --- Hares ---
+  const hares = extractHares(hareHtml);
 
-  const title = runNumber && !isNaN(runNumber)
-    ? `RIH3 #${runNumber}`
-    : "RIH3 Monday Trail";
+  // --- Directions cell: title, location, description ---
+  const dir$ = cheerio.load(directionHtml);
+
+  // Title from <h2>
+  dir$("h2").find("br").replaceWith(" ");
+  const h2Text = dir$("h2")
+    .first()
+    .text()
+    .trim()
+    .replace(/\s+/g, " ");
+  const title =
+    h2Text ||
+    (runNumber ? `RIH3 #${runNumber}` : "RIH3 Monday Trail");
+
+  // Location from Google Maps link
+  const mapsLink = dir$(
+    'a[href*="google.com/maps"], a[href*="maps.google"]',
+  ).first();
+  const locationUrl = mapsLink.length
+    ? mapsLink.attr("href")?.trim()
+    : undefined;
+  const locationText = mapsLink.length
+    ? mapsLink.text().trim()
+    : undefined;
+  const location =
+    locationText && locationText.length > 3 ? locationText : undefined;
+
+  // Description: body text minus title, Facebook boilerplate, song links
+  const descRoot = dir$("body").clone();
+  descRoot.find("h2").remove();
+  descRoot
+    .find(
+      'a[href*="facebook.com/groups"], a[href*="Songs/"], a[href$=".txt"], a[href$=".rtf"]',
+    )
+    .closest("p")
+    .remove();
+  const description =
+    descRoot.text().replace(/\s+/g, " ").trim() || undefined;
 
   return {
     date,
     kennelTag: "rih3",
-    runNumber: runNumber && !isNaN(runNumber) ? runNumber : undefined,
     title,
+    runNumber,
     hares,
     location,
     locationUrl,
-    startTime: "18:30",
+    startTime,
     sourceUrl,
+    description,
   };
 }
 
-/**
- * Rhode Island Hash House Harriers (RIH3) Hareline Scraper
- *
- * Scrapes rih3.com/hareline.html — a plain static HTML page using <dt>/<dd>
- * definition lists separated by <hr> tags. Typically lists 1-2 upcoming runs
- * with hare names and start locations.
- */
 export class RIH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -97,52 +160,51 @@ export class RIH3Adapter implements SourceAdapter {
     const page = await fetchHTMLPage(harelineUrl);
     if (!page.ok) return page.result;
 
-    const { html, structureHash, fetchDurationMs } = page;
+    const { $, structureHash, fetchDurationMs } = page;
 
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let rowIndex = 0;
+    const scrapeDate = new Date();
 
-    // Split content into blocks by <hr> separators
-    // The page uses <hr> to separate event blocks
-    const blocks = html.split(/<hr\s*\/?>/i);
+    // First table = hareline events (skip second "Doghouse" table)
+    const rows = $("table").first().find("tr");
 
-    for (const block of blocks) {
-      const block$ = cheerio.load(block);
-      const fields = new Map<string, string>();
+    rows.each((i, el) => {
+      const $row = $(el);
+      const tds = $row.find("> td");
 
-      block$("dt").each((_i, dt) => {
-        const key = block$(dt).text().replace(/[:\s]+$/, "").trim().toLowerCase();
-        const dd = block$(dt).next("dd");
-        if (dd.length > 0) {
-          const value = dd.text().trim();
-          if (key && value) {
-            fields.set(key, value);
-          }
-        }
-      });
-
-      if (fields.size === 0) continue;
+      // Skip header row (first row) and malformed rows
+      if (i === 0 || tds.length < 5) return;
 
       try {
-        const event = parseDtDdBlock(fields, harelineUrl);
-        if (event) {
-          events.push(event);
-        }
+        // Extract text for simple columns
+        const cells = tds
+          .slice(0, 3)
+          .map((_, td) => $(td).text().trim())
+          .get();
+
+        // Pass raw HTML for complex columns (hare + directions)
+        const hareHtml = $(tds[3]).html() ?? "";
+        const directionHtml = $(tds[4]).html() ?? "";
+
+        const event = parseHarelineRow(
+          cells,
+          hareHtml,
+          directionHtml,
+          harelineUrl,
+          scrapeDate,
+        );
+        if (event) events.push(event);
       } catch (err) {
-        errors.push(`Error parsing event block at row ${rowIndex}: ${err}`);
-        errorDetails.parse = [
-          ...(errorDetails.parse ?? []),
-          {
-            row: rowIndex,
-            error: String(err),
-            rawText: block.slice(0, 2000),
-          },
-        ];
+        errors.push(`Error parsing row ${i}: ${err}`);
+        (errorDetails.parse ??= []).push({
+          row: i,
+          error: String(err),
+          rawText: $row.text().trim().slice(0, 2000),
+        });
       }
-      rowIndex++;
-    }
+    });
 
     const hasErrors = hasAnyErrors(errorDetails);
 
@@ -152,7 +214,7 @@ export class RIH3Adapter implements SourceAdapter {
       structureHash,
       errorDetails: hasErrors ? errorDetails : undefined,
       diagnosticContext: {
-        blocksFound: blocks.length,
+        rowsFound: rows.length,
         eventsParsed: events.length,
         fetchDurationMs,
       },

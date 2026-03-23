@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
-import { parseDtDdBlock, RIH3Adapter } from "./rih3";
+import { parseHarelineRow, extractHares, RIH3Adapter } from "./rih3";
 
 // Mock safeFetch (used by fetchHTMLPage)
 vi.mock("@/adapters/safe-fetch", () => ({
@@ -47,96 +47,234 @@ function mockFetchResponse(html: string) {
   } as Response);
 }
 
-describe("parseDtDdBlock", () => {
-  it("parses standard event with date, run number, hare, and directions", () => {
-    const fields = new Map([
-      ["date", "Mon. March 9"],
-      ["run", "2089"],
-      ["hare", "WIPOS"],
-      ["directions", "St. Andrews Farm, Barrington https://www.google.com/maps/place/123"],
-    ]);
+// --- Fixtures based on real rih3.com/hareline.html ---
 
-    const result = parseDtDdBlock(fields, SOURCE_URL);
+const HARE_SINGLE = `
+<strong><span style="FONT-SIZE: large">Rusty</span></strong>
+<br/><img border="0" src="Images/guinness.jpg" width="200" height="150"/><br/>
+`;
+
+const HARE_TWO_SPANS = `
+<strong>
+<span style="FONT-SIZE: large">tongue in rEar</span>
+<br/><img border="0" src="Images/licking.gif" width="200" height="300"/><br/>
+<span style="FONT-SIZE: large">and ProbonoR</span>
+</strong><br><img border="0" src="Images/probonor.jpg" width="250" height="350"/>
+`;
+
+const HARE_AND_TEXT_NODE = `
+<strong>
+<span style="FONT-SIZE: large">Cracker Jackoff</span><br/>
+<img border="0" src="Images/cjo.jpg" width="200" height="250"/><br/>
+</strong>
+<br/>and BJL<br/>
+<img border="0" src="Images/spaceod.gif" width="200" height="250"/>
+`;
+
+const HARE_AMPERSAND = `
+<strong>
+<span style="FONT-SIZE: large">EtiClit </span>
+<br/><img border="0" src="Images/shaken.gif" width="200" height="150"/><br/>
+& Sister Sauna Snatch<br/>
+<img border="0" src="Images/sauna.gif" width="150" height="250"/><br/></strong>
+`;
+
+const HARE_WITH_PROSE = `
+<strong><span style="FONT-SIZE: large">Hairy Kirschner</span>
+</strong><br/>
+<img border="0" src="Images/men6.gif" width="150" height="160"/><br/>
+<span style="FONT-SIZE: large">and Luxury Box</span></strong>
+<br><img border="0" src="Images/lb2.jpg" width="200" height="150"/>
+</strong><br/>
+<p align="left"><span style="font-size: medium;"><a href="Songs/Favorites/Holeminer.txt"><span style="font-family: Arial; color: #cc0000;">Talking to WHO at last week's Hash</span></a></span></p>
+`;
+
+const HARE_TBD = `<strong><span style="FONT-SIZE: large">TBD</span></strong>`;
+
+const DIRECTION_WITH_MAPS = `
+<br/><p><strong></strong></p>
+<h2><strong>Sandy Point Beach Hash<br/>But it's the First Hash of Spring</strong></h2>
+<strong>
+After that 4+ miles monsoon slog, starting from the small dirt lot on Smith Rd.
+<br/><br/>
+<a href="https://www.google.com/maps/place/Bradford+Ave,+Portsmouth,+RI+02871/" target="new">
+<font color="#cc0000">Park Here. Just a short bit from the dog park</font></a>
+<br/><br/>
+<p align="left"><a href="Songs/Favorites/santaclauseiscuming.txt">
+<span style="font-family: Arial; color: #cc0000;">His Song of the Week: Santa Claus</span></a></p>
+<br/>
+<p align="left"><span style="font-size: small;"><span style="font-family: Arial; color: #cc0000;">
+<a href="https://www.facebook.com/groups/120140164667510" target="new">See the RIH3 facebook Page for updates</a>
+</span></span></p>
+</strong>
+`;
+
+const DIRECTION_NO_MAPS = `
+<p><h2>This Hash will bring tears to your eyes</h2>
+<br/><br/><br/>
+Basket says, "Check out the Receding Hareline..."
+<br/><br/>
+<p><a href="Songs/Favorites/coldwinter.txt">Her Song of the Week</a></p>
+<br/><br/>
+<p><a href="https://www.facebook.com/groups/120140164667510">See the RIH3 facebook Page for updates</a></p>
+`;
+
+// --- Tests ---
+
+describe("extractHares", () => {
+  it("extracts single hare", () => {
+    expect(extractHares(HARE_SINGLE)).toBe("Rusty");
+  });
+
+  it("extracts two hares from spans with 'and' prefix", () => {
+    expect(extractHares(HARE_TWO_SPANS)).toBe("tongue in rEar, ProbonoR");
+  });
+
+  it("extracts hare from 'and' text node outside strong", () => {
+    expect(extractHares(HARE_AND_TEXT_NODE)).toBe("Cracker Jackoff, BJL");
+  });
+
+  it("extracts hare with '&' separator", () => {
+    expect(extractHares(HARE_AMPERSAND)).toBe("EtiClit, Sister Sauna Snatch");
+  });
+
+  it("excludes prose/song links from hare names", () => {
+    const result = extractHares(HARE_WITH_PROSE);
+    expect(result).toBe("Hairy Kirschner, Luxury Box");
+    expect(result).not.toContain("Talking");
+    expect(result).not.toContain("Holeminer");
+  });
+
+  it("returns undefined for TBD placeholder", () => {
+    expect(extractHares(HARE_TBD)).toBeUndefined();
+  });
+
+  it("returns undefined for empty HTML", () => {
+    expect(extractHares("")).toBeUndefined();
+  });
+});
+
+describe("parseHarelineRow", () => {
+  it("parses standard event with all fields", () => {
+    const cells = ["Mon April 21", "6:30 PM", "2043"];
+    const result = parseHarelineRow(
+      cells,
+      HARE_TWO_SPANS,
+      DIRECTION_WITH_MAPS,
+      SOURCE_URL,
+    );
 
     expect(result).toMatchObject({
-      date: "2026-03-09",
+      date: "2026-04-21",
       kennelTag: "rih3",
-      runNumber: 2089,
-      title: "RIH3 #2089",
-      hares: "WIPOS",
+      runNumber: 2043,
       startTime: "18:30",
+      hares: "tongue in rEar, ProbonoR",
       sourceUrl: SOURCE_URL,
     });
-    expect(result?.location).toContain("St. Andrews Farm");
+    expect(result?.title).toContain("Sandy Point Beach Hash");
     expect(result?.locationUrl).toContain("google.com/maps");
+    expect(result?.location).toContain("Park Here");
   });
 
-  it("parses event with missing hare (NEED A HARE)", () => {
-    const fields = new Map([
-      ["date", "Mon. March 16"],
-      ["run", "2090"],
-      ["hare", "NEED A HARE"],
-    ]);
+  it("normalizes H2 title with line breaks", () => {
+    const cells = ["Mon March 23", "6:30 PM", "2091"];
+    const result = parseHarelineRow(
+      cells,
+      HARE_SINGLE,
+      DIRECTION_WITH_MAPS,
+      SOURCE_URL,
+    );
 
-    const result = parseDtDdBlock(fields, SOURCE_URL);
+    // H2 has <br/> between two lines — should become single space
+    expect(result?.title).toBe(
+      "Sandy Point Beach Hash But it's the First Hash of Spring",
+    );
+  });
+
+  it("extracts Google Maps URL as locationUrl", () => {
+    const cells = ["Mon April 21", "6:30 PM", "2043"];
+    const result = parseHarelineRow(
+      cells,
+      HARE_SINGLE,
+      DIRECTION_WITH_MAPS,
+      SOURCE_URL,
+    );
+
+    expect(result?.locationUrl).toContain(
+      "google.com/maps/place/Bradford+Ave",
+    );
+  });
+
+  it("handles event without Google Maps link", () => {
+    const cells = ["Mon March 30", "6:30 PM", "2092"];
+    const result = parseHarelineRow(
+      cells,
+      HARE_SINGLE,
+      DIRECTION_NO_MAPS,
+      SOURCE_URL,
+    );
 
     expect(result).toMatchObject({
-      date: "2026-03-16",
-      runNumber: 2090,
-      title: "RIH3 #2090",
+      date: "2026-03-30",
+      runNumber: 2092,
+      title: "This Hash will bring tears to your eyes",
     });
-    expect(result?.hares).toBeUndefined();
-  });
-
-  it("parses event with TBD hare", () => {
-    const fields = new Map([
-      ["date", "Mon. March 23"],
-      ["run", "2091"],
-      ["hare", "TBD"],
-    ]);
-
-    const result = parseDtDdBlock(fields, SOURCE_URL);
-    expect(result?.hares).toBeUndefined();
-  });
-
-  it("returns null for block without date", () => {
-    const fields = new Map([
-      ["run", "2089"],
-      ["hare", "WIPOS"],
-    ]);
-    expect(parseDtDdBlock(fields, SOURCE_URL)).toBeNull();
-  });
-
-  it("returns null for empty fields", () => {
-    expect(parseDtDdBlock(new Map(), SOURCE_URL)).toBeNull();
-  });
-
-  it("handles event without run number", () => {
-    const fields = new Map([
-      ["date", "Mon. April 6"],
-      ["hare", "SomeHasher"],
-    ]);
-
-    const result = parseDtDdBlock(fields, SOURCE_URL);
-
-    expect(result).toMatchObject({
-      kennelTag: "rih3",
-      title: "RIH3 Monday Trail",
-      hares: "SomeHasher",
-    });
-    expect(result?.runNumber).toBeUndefined();
-  });
-
-  it("extracts location without URL", () => {
-    const fields = new Map([
-      ["date", "Mon. March 9"],
-      ["run", "2089"],
-      ["directions", "Downtown Providence, near the State House"],
-    ]);
-
-    const result = parseDtDdBlock(fields, SOURCE_URL);
-    expect(result?.location).toBe("Downtown Providence, near the State House");
     expect(result?.locationUrl).toBeUndefined();
+    expect(result?.location).toBeUndefined();
+  });
+
+  it("falls back to run number title when no H2", () => {
+    const cells = ["Mon April 6", "6:30 PM", "2093"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, "", SOURCE_URL);
+
+    expect(result?.title).toBe("RIH3 #2093");
+  });
+
+  it("falls back to generic title when no H2 and no run number", () => {
+    const cells = ["Mon April 6", "6:30 PM", ""];
+    const result = parseHarelineRow(cells, HARE_SINGLE, "", SOURCE_URL);
+
+    expect(result?.title).toBe("RIH3 Monday Trail");
+  });
+
+  it("strips day-of-week prefix from time", () => {
+    const cells = ["Mon March 23", "Mon 6:30 PM", "2091"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, "", SOURCE_URL);
+
+    expect(result?.startTime).toBe("18:30");
+  });
+
+  it("defaults to 18:30 for unparseable time", () => {
+    const cells = ["Mon March 23", "NOON'ish", "2091"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, "", SOURCE_URL);
+
+    expect(result?.startTime).toBe("18:30");
+  });
+
+  it("returns null for missing date", () => {
+    const cells = ["", "6:30 PM", "2091"];
+    expect(
+      parseHarelineRow(cells, HARE_SINGLE, "", SOURCE_URL),
+    ).toBeNull();
+  });
+
+  it("returns null for insufficient columns", () => {
+    expect(parseHarelineRow(["Mon April 6"], "", "", SOURCE_URL)).toBeNull();
+  });
+
+  it("excludes Facebook and song links from description", () => {
+    const cells = ["Mon April 21", "6:30 PM", "2043"];
+    const result = parseHarelineRow(
+      cells,
+      HARE_SINGLE,
+      DIRECTION_WITH_MAPS,
+      SOURCE_URL,
+    );
+
+    expect(result?.description).not.toContain("facebook");
+    expect(result?.description).not.toContain("Song of the Week");
+    expect(result?.description).toContain("monsoon slog");
   });
 });
 
@@ -151,41 +289,89 @@ describe("RIH3Adapter", () => {
     expect(adapter.type).toBe("HTML_SCRAPER");
   });
 
-  it("parses multiple events separated by <hr>", async () => {
-    const html = `
-      <html><body>
-        <dl>
-          <dt>Date:</dt><dd>Mon. March 9</dd>
-          <dt>Run</dt><dd>2089</dd>
-          <dt>Hare:</dt><dd><strong>WIPOS</strong></dd>
-          <dt>Directions:</dt><dd>St. Andrews Farm, Barrington</dd>
-        </dl>
-        <hr>
-        <dl>
-          <dt>Date:</dt><dd>Mon. March 16</dd>
-          <dt>Run</dt><dd>2090</dd>
-          <dt>Hare:</dt><dd><strong>Just Pat</strong></dd>
-          <dt>Directions:</dt><dd>TBD</dd>
-        </dl>
-      </body></html>
-    `;
+  it("parses multiple rows from a hareline table", async () => {
+    const html = `<html><body>
+      <table border="5">
+        <tbody>
+          <tr>
+            <td><span>Date:</span></td>
+            <td><span>Time:</span></td>
+            <td><span>Run</span></td>
+            <td><span>Hare:</span></td>
+            <td><span>Directions:</span></td>
+          </tr>
+          <tr>
+            <td>Mon April 21</td>
+            <td>6:30 PM</td>
+            <td>2043</td>
+            <td><strong><span style="FONT-SIZE: large">Rusty</span></strong>
+                <br/><img src="Images/guinness.jpg"/></td>
+            <td><h2>Spring Trail</h2>Meet at the park.
+                <p><a href="https://www.facebook.com/groups/120140164667510">FB</a></p></td>
+          </tr>
+          <tr>
+            <td>Mon. Aug 25</td>
+            <td>6:30 PM</td>
+            <td>2061</td>
+            <td><strong><span style="FONT-SIZE: large">Hairy</span></strong>
+                <br/><img src="Images/men6.gif"/><br/>
+                and Luxury Box<br/><img src="Images/lb2.jpg"/></td>
+            <td><h2>Summer Hash</h2>
+                <a href="https://www.google.com/maps/place/Lincoln+RI" target="new">
+                <font color="#cc0000">Park at John St</font></a></td>
+          </tr>
+        </tbody>
+      </table>
+      <table border="5"><tbody><tr><td>HARELINE DOGHOUSE</td></tr></tbody></table>
+    </body></html>`;
     mockFetchResponse(html);
 
     const result = await adapter.fetch(makeSource());
 
     expect(result.events).toHaveLength(2);
     expect(result.events[0]).toMatchObject({
-      runNumber: 2089,
-      hares: "WIPOS",
+      date: "2026-04-21",
+      kennelTag: "rih3",
+      runNumber: 2043,
+      hares: "Rusty",
+      title: "Spring Trail",
+      startTime: "18:30",
     });
     expect(result.events[1]).toMatchObject({
-      runNumber: 2090,
-      hares: "Just Pat",
+      date: "2026-08-25",
+      runNumber: 2061,
+      hares: "Hairy, Luxury Box",
+      title: "Summer Hash",
+      locationUrl: expect.stringContaining("google.com/maps"),
     });
   });
 
+  it("skips commented-out rows", async () => {
+    const html = `<html><body>
+      <table border="5">
+        <tbody>
+          <tr><td>Date:</td><td>Time:</td><td>Run</td><td>Hare:</td><td>Directions:</td></tr>
+          <!-- <tr><td>Sat Feb 8</td><td>NOON</td><td>2033</td><td>Old Hare</td><td>Old trail</td></tr> --->
+          <tr>
+            <td>Mon April 21</td><td>6:30 PM</td><td>2043</td>
+            <td><strong>Rusty</strong></td>
+            <td><h2>Active Trail</h2></td>
+          </tr>
+        </tbody>
+      </table>
+    </body></html>`;
+    mockFetchResponse(html);
+
+    const result = await adapter.fetch(makeSource());
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].runNumber).toBe(2043);
+  });
+
   it("handles page with no events", async () => {
-    const html = `<html><body><p>No upcoming runs</p></body></html>`;
+    const html = `<html><body><table border="5"><tbody>
+      <tr><td>Date:</td><td>Time:</td><td>Run</td><td>Hare:</td><td>Directions:</td></tr>
+    </tbody></table></body></html>`;
     mockFetchResponse(html);
 
     const result = await adapter.fetch(makeSource());
@@ -210,37 +396,41 @@ describe("RIH3Adapter", () => {
   });
 
   it("includes structureHash and diagnosticContext", async () => {
-    const html = `
-      <html><body>
-        <dt>Date:</dt><dd>Mon. March 9</dd>
-        <dt>Run</dt><dd>2089</dd>
-        <dt>Hare:</dt><dd>TestHare</dd>
-      </body></html>
-    `;
+    const html = `<html><body>
+      <table border="5"><tbody>
+        <tr><td>Date:</td><td>Time:</td><td>Run</td><td>Hare:</td><td>Directions:</td></tr>
+        <tr><td>Mon April 21</td><td>6:30 PM</td><td>2043</td>
+            <td><strong>Rusty</strong></td><td><h2>Trail</h2></td></tr>
+      </tbody></table>
+    </body></html>`;
     mockFetchResponse(html);
 
     const result = await adapter.fetch(makeSource());
 
     expect(result.structureHash).toBe("mock-hash-rih3");
-    expect(result.diagnosticContext).toHaveProperty("blocksFound");
+    expect(result.diagnosticContext).toHaveProperty("rowsFound");
     expect(result.diagnosticContext).toHaveProperty("eventsParsed");
     expect(result.diagnosticContext).toHaveProperty("fetchDurationMs");
   });
 
-  it("skips NEED A HARE placeholders", async () => {
-    const html = `
-      <html><body>
-        <dt>Date:</dt><dd>Mon. March 23</dd>
-        <dt>Run</dt><dd>2091</dd>
-        <dt>Hare:</dt><dd>NEED A HARE</dd>
-      </body></html>
-    `;
+  it("ignores second table (Doghouse)", async () => {
+    const html = `<html><body>
+      <table border="5"><tbody>
+        <tr><td>Date:</td><td>Time:</td><td>Run</td><td>Hare:</td><td>Directions:</td></tr>
+        <tr><td>Mon April 21</td><td>6:30 PM</td><td>2043</td>
+            <td><strong>Rusty</strong></td><td><h2>Trail</h2></td></tr>
+      </tbody></table>
+      <table border="5"><tbody>
+        <tr><td colspan="3">HARELINE DOGHOUSE:</td></tr>
+        <tr><td>&nbsp;</td><td>Wee Balls</td><td>Moved to Texas</td></tr>
+      </tbody></table>
+    </body></html>`;
     mockFetchResponse(html);
 
     const result = await adapter.fetch(makeSource());
 
+    // Only 1 event from the first table, no doghouse entries
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].hares).toBeUndefined();
-    expect(result.events[0].runNumber).toBe(2091);
+    expect(result.events[0].runNumber).toBe(2043);
   });
 });
