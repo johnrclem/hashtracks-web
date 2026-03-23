@@ -359,7 +359,7 @@ export function StravaSuggestions({
       {/* Section B: "Link Strava to check-ins" */}
       {linkGroups.length > 0 && (
         <>
-          <div className="border-t my-4" />
+          <div className="border-t" />
           <div className="space-y-3">
             <div>
               <div className="flex items-center gap-2">
