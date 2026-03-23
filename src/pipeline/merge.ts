@@ -227,10 +227,18 @@ async function handleDuplicateFingerprint(
     return existing.eventId;
   }
 
-  // Unprocessed duplicate — collect diagnostic samples
+  // Orphaned RawEvent: unprocessed with no linked Event (e.g., canonical Event was
+  // admin-deleted). Re-process it — the caller will upsert the RawEvent and create
+  // a fresh canonical Event. Without this, orphaned RawEvents are permanently stuck.
+  if (!existing.eventId) {
+    ctx.result.skipped--; // undo the increment — this will be counted as created
+    return false;
+  }
+
+  // Unprocessed duplicate with linked Event — collect diagnostic samples
   await collectSkippedAndBlockedSamples(event, ctx);
 
-  return existing.eventId; // May be null if unprocessed
+  return existing.eventId;
 }
 
 /**
