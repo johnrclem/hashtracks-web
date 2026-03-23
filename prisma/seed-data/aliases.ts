@@ -137,6 +137,13 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "cunth3": ["CUNT H3", "Currently Unnamed North Thames"],
     // Ireland
     "dh3": ["Dublin H3", "Dublin HHH", "Dublin Hash", "DH3", "I Love Monday"],
+    // ===== UK — SCOTLAND =====
+    "edinburghh3": ["Edinburgh Hash", "EH3", "Edinburgh HHH"],
+    "glasgowh3": ["Glasgow Hash", "GH3", "Glasgow HHH"],
+    // ===== UK — BRISTOL =====
+    "bristolh3": ["Bristol Hash", "BH3", "Bristol HHH", "BRIS"],
+    "bristol-grey": ["Bristol Greyhound Hash", "Greyhound Hash", "GREY"],
+    "bogs-h3": ["Bogs of Somerset Hash", "Bogs Hash", "BOGS"],
     // Texas
     "ah3": ["Austin Hash", "Austin H3", "AH3", "Austin HHH"],
     "kawh3": ["Keep Austin Weird", "KAW!H3", "KAW H3", "KAWH3", "Keep Austin Weird Hash"],
@@ -147,7 +154,6 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "duhhh": ["Dallas Urban Hash", "DUHHH", "DUH H3", "Dallas Urban"],
     "noduhhh": ["NODUHHH", "North Dallas Hash", "North of Dallas Urban", "NoDUHHH"],
     "fwh3": ["Fort Worth Hash", "Fort Worth H3", "FWH3", "Ft Worth Hash"],
-    "yakh3": ["YAK Hash", "YAK H3", "YAKH3", "Yak Hash House Harriers"],
     "sah3": ["San Antonio Hash", "San Antonio H3", "SAH3", "SA Hash"],
     "c2h3": ["Corpus Christi Hash", "Corpus Christi H3", "C2H3", "CC Hash"],
     // Florida

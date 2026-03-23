@@ -89,12 +89,12 @@ logbook + kennel directory.
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
-- `prisma/seed.ts` — 188 kennels, 585 aliases, 108 sources, 93 regions (first-class model with hierarchy)
+- `prisma/seed.ts` — 193 kennels, 600 aliases, 111 sources, 97 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
 - `src/lib/format.ts` — Shared utilities: time formatting, date formatting, participation levels, schedule formatting, social URL helpers
-- `src/lib/region.ts` — Region seed data (74 regions), sync fallback lookups (timezone, colors, centroids, abbrev), region slug generation, RegionLevel hierarchy, `regionNameToData`
+- `src/lib/region.ts` — Region seed data (78 regions), sync fallback lookups (timezone, colors, centroids, abbrev), region slug generation, RegionLevel hierarchy, `regionNameToData`
 - `src/lib/calendar.ts` — Google Calendar URL + .ics file generation (client-side)
 - `src/proxy.ts` — Clerk route protection (public vs authenticated routes) — Next.js 16 proxy convention
 - `src/adapters/types.ts` — SourceAdapter interface + RawEventData types
@@ -247,7 +247,7 @@ logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (141)
+## Active Sources (144)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -339,6 +339,13 @@ logbook + kennel directory.
 - **Old Coulsdon Hash Run List** → HTML_SCRAPER → OCH3
 - **SLASH Run List** → HTML_SCRAPER → SLH3
 - **Enfield Hash Blog** → HTML_SCRAPER → EH3
+
+### Scotland (2 sources)
+- **Glasgow H3 Hareline** → HTML_SCRAPER (GenericHtml) → Glasgow H3
+- **Edinburgh H3 Hareline** → HTML_SCRAPER → Edinburgh H3
+
+### Bristol (1 source)
+- **West of England Hash Run List** → HTML_SCRAPER (GenericHtml) → Bristol H3, GREY, BOGS (3 kennels)
 
 ### Ireland (1 source)
 - **Dublin H3 Website Hareline** → HTML_SCRAPER → DH3

@@ -107,6 +107,7 @@ async function ensureRegionRecords(prisma: any) {
     "Arizona": ["Phoenix, AZ", "Tucson, AZ"],
     "Oregon": ["Portland, OR", "Salem, OR", "Eugene, OR", "Bend, OR"],
     "California": ["San Francisco, CA", "Oakland, CA", "San Jose, CA", "Marin County, CA", "San Diego, CA", "Santa Cruz, CA", "Los Angeles, CA", "Long Beach, CA", "Orange County, CA", "San Luis Obispo, CA"],
+    "Scotland": ["Edinburgh", "Glasgow"],
   };
 
   let stateLinked = 0;
