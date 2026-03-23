@@ -252,6 +252,37 @@ describe("extractHares", () => {
   it("preserves hare names starting with 'the' (e.g. 'The Pope')", () => {
     expect(extractHares("Hare: The Pope")).toBe("The Pope");
   });
+
+  it("extracts from Hare(s): pattern (jHavelina format)", () => {
+    expect(extractHares("Trail info\nHare(s): Splat!\nLocation: Park")).toBe("Splat!");
+  });
+
+  it("extracts from 'Hare [Name]' without colon (MH3 format)", () => {
+    expect(extractHares("Details\nHare C*ck Swap\nLocation: Park")).toBe("C*ck Swap");
+  });
+
+  it("does not false-match 'hare off at' as a hare name", () => {
+    expect(extractHares("Pack off at 7:30, hare off at 7:15")).toBeUndefined();
+  });
+});
+
+// ── mailto artifact stripping ──
+
+describe("mailto stripping in description", () => {
+  it("strips mailto: artifacts from description", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "MH3 #1974 - Test",
+        start: { dateTime: "2026-03-22T15:00:00-05:00" },
+        description: "Zelle: test@gmail.com (mailto:test@gmail.com)",
+        status: "confirmed",
+      },
+      null,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.description).not.toContain("mailto:");
+    expect(result!.description).toContain("test@gmail.com");
+  });
 });
 
 // ── HTML entity decoding in titles ──
