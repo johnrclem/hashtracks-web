@@ -334,6 +334,8 @@ export function sanitizeTitle(title: string | undefined): string | null {
   cleaned = cleaned.replace(/\s{2,}/g, " ").trim();
   // Strip embedded email addresses
   cleaned = cleaned.replace(/\s*<?[\w.+-]+@[\w.-]+>?\s*/g, " ").trim();
+  // Strip parenthetical instruction text (e.g., "(See: hashphilly.com for details)")
+  cleaned = cleaned.replace(/\s*\((?:See|Visit|Check|Go to)[:\s].+?\)/gi, "").trim();
   return cleaned || null;
 }
 
