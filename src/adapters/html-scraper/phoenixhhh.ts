@@ -15,6 +15,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { safeFetch } from "../safe-fetch";
 import { parse12HourTime, validateSourceConfig, compilePatterns, buildDateWindow, stripHtmlTags, decodeEntities } from "../utils";
+// Shared hare extraction — lives in GCal adapter but is generic. TODO: move to utils.ts
 import { extractHares } from "../google-calendar/adapter";
 
 // ── Config shape ──
@@ -101,9 +102,10 @@ export function parseEventFromItem(
   const timeText = $item.find(".em-item-meta-line.em-event-time").text().trim();
   const startTime = parse12HourTime(timeText);
 
-  // Location
-  const locationEl = $item.find(".em-item-meta-line.em-event-location a");
-  const location = locationEl.text().trim() || undefined;
+  // Location — try link text first, fall back to plain text in meta line
+  const locationMeta = $item.find(".em-item-meta-line.em-event-location");
+  const locationLink = locationMeta.find("a");
+  const location = (locationLink.length > 0 ? locationLink.text().trim() : locationMeta.text().trim()) || undefined;
 
   // Description
   const descHtml = $item.find(".em-item-desc").html() ?? "";
@@ -178,6 +180,7 @@ export class PhoenixHHHAdapter implements SourceAdapter {
     const endYear = maxDate.getUTCFullYear();
 
     const allEvents: RawEventData[] = [];
+    const seenKeys = new Set<string>(); // dedup month boundary spillover
     const allErrors: string[] = [];
     const errorDetails: ErrorDetails = {};
     const allParseErrors: ParseError[] = [];
@@ -230,9 +233,11 @@ export class PhoenixHHHAdapter implements SourceAdapter {
                 return;
               }
 
-              // Filter by date window
+              // Filter by date window + dedup (month views include spillover days from adjacent months)
               const eventDate = new Date(event.date + "T12:00:00Z");
-              if (eventDate >= minDate && eventDate <= maxDate) {
+              const dedupKey = `${event.date}|${event.sourceUrl ?? event.title ?? ""}`;
+              if (eventDate >= minDate && eventDate <= maxDate && !seenKeys.has(dedupKey)) {
+                seenKeys.add(dedupKey);
                 allEvents.push(event);
               }
             } catch (err) {
