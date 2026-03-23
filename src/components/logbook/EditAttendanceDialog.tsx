@@ -73,17 +73,13 @@ export function EditAttendanceDialog({
   const [linkedActivity, setLinkedActivity] = useState<LinkedStravaActivity | null>(null);
   const [linkedLoading, setLinkedLoading] = useState(false);
 
-  // Reset showMoreLevels when the selected level changes to a primary level
-  useEffect(() => {
-    if (PRIMARY_LEVELS.includes(level)) {
-      // Don't collapse if user explicitly opened it
-    }
-  }, [level]);
-
-  // Initialize showMoreLevels if current level is a secondary level
+  // Initialize showMoreLevels if current level is a secondary level; reset confirmDelete on close
   useEffect(() => {
     if (open && MORE_LEVELS.includes(attendance.participationLevel)) {
       setShowMoreLevels(true);
+    }
+    if (!open) {
+      setConfirmDelete(false);
     }
   }, [open, attendance.participationLevel]);
 
@@ -304,7 +300,7 @@ export function EditAttendanceDialog({
           <div className="space-y-2">
             <Label id="edit-level-label">Participation Level</Label>
             <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="edit-level-label">
-              {PRIMARY_LEVELS.map((l) => (
+              {(showMoreLevels ? [...PRIMARY_LEVELS, ...MORE_LEVELS] : PRIMARY_LEVELS).map((l) => (
                 <button
                   key={l}
                   type="button"
@@ -327,21 +323,6 @@ export function EditAttendanceDialog({
                   More...
                 </button>
               )}
-              {showMoreLevels &&
-                MORE_LEVELS.map((l) => (
-                  <button
-                    key={l}
-                    type="button"
-                    onClick={() => setLevel(l)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      level === l
-                        ? "bg-emerald-500 text-white font-semibold"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
-                  >
-                    {participationLevelLabel(l)}
-                  </button>
-                ))}
             </div>
           </div>
 
