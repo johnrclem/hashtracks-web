@@ -142,6 +142,13 @@ For each kennel the user approved, perform thorough Chrome-based extraction.
    ```
 5. If a multi-kennel calendar, note which kennels share it (check event titles for kennel name patterns)
 
+#### iCal/Feed Event Volume Verification
+**CRITICAL:** Before classifying an iCal feed as Tier 1, fetch it and count the VEVENT entries:
+```bash
+curl -s "URL" | grep -c "BEGIN:VEVENT"
+```
+If the feed returns fewer than ~20 events, it may be scope=future only (common with WordPress Events Manager). Check if the site's HTML calendar shows significantly more events — if so, the HTML calendar is the better primary source, with iCal as secondary enrichment. WordPress Events Manager iCal feeds typically return only ~7 upcoming events.
+
 #### Meetup Verification Protocol
 1. Navigate to the Meetup group page in Chrome
 2. Check "Upcoming events" — count and note dates
