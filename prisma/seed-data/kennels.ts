@@ -357,7 +357,6 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/273947756839837/",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:09 PM", scheduleFrequency: "Weekly",
       description: "Weekly Wednesday 6:09 PM hash in Jefferson County, West Virginia (Harpers Ferry area).",
-      latitude: 39.32, longitude: -77.86,
     },
     {
       kennelCode: "dch4", shortName: "DCH4", fullName: "DC Harriettes and Harriers Hash House", region: "Washington, DC",
@@ -755,6 +754,43 @@ export const KENNELS: KennelSeed[] = [
       description: "Ireland's only regularly running hash. Alternates between Sunday afternoon and Monday evening runs in the Dublin area.",
       latitude: 53.3498, longitude: -6.2603,
     },
+    // ===== UK — SCOTLAND =====
+    {
+      kennelCode: "edinburghh3", shortName: "Edinburgh H3", fullName: "Edinburgh Hash House Harriers", region: "Edinburgh", country: "UK",
+      website: "https://www.edinburghh3.com",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Weekly",
+      description: "Edinburgh's weekly Sunday morning hash. Run #2302+ and counting.",
+      latitude: 55.95, longitude: -3.19,
+    },
+    {
+      kennelCode: "glasgowh3", shortName: "Glasgow H3", fullName: "Glasgow Hash House Harriers", region: "Glasgow", country: "UK",
+      website: "https://glasgowh3.co.uk",
+      scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      description: "Glasgow's weekly Monday evening hash. Run #2206+ and counting.",
+      latitude: 55.86, longitude: -4.25,
+    },
+    // ===== UK — BRISTOL =====
+    {
+      kennelCode: "bristolh3", shortName: "Bristol H3", fullName: "Bristol Hash House Harriers", region: "Bristol", country: "UK",
+      website: "https://bristolhash.org.uk",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Weekly",
+      description: "Bristol's weekly Sunday morning hash. Part of the West of England hashing scene.",
+      latitude: 51.45, longitude: -2.59,
+    },
+    {
+      kennelCode: "bristol-grey", shortName: "GREY", fullName: "Bristol Greyhound Hash House Harriers", region: "Bristol", country: "UK",
+      website: "https://bristolhash.org.uk",
+      scheduleDayOfWeek: "Monday", scheduleFrequency: "Weekly",
+      description: "Bristol Greyhound hash, running Monday evenings.",
+      latitude: 51.45, longitude: -2.59,
+    },
+    {
+      kennelCode: "bogs-h3", shortName: "BOGS", fullName: "Bogs of Somerset Hash House Harriers", region: "Bristol", country: "UK",
+      website: "https://bristolhash.org.uk",
+      scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly",
+      description: "Bogs of Somerset hash, running Wednesday evenings in north-west Somerset.",
+      latitude: 51.35, longitude: -2.97,
+    },
     // ===== PENNSYLVANIA (outside Philly) =====
     // --- Pittsburgh ---
     {
@@ -1013,12 +1049,6 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
       description: "Biweekly Saturday runs in Fort Worth.",
       latitude: 32.75, longitude: -97.33,
-    },
-    {
-      kennelCode: "yakh3", shortName: "YAKH3", fullName: "YAK Hash House Harriers", region: "Dallas-Fort Worth, TX",
-      website: "http://www.dfwhhh.org",
-      description: "Dallas-Fort Worth area hash kennel.",
-      latitude: 32.78, longitude: -96.80,
     },
     // --- San Antonio ---
     {
@@ -1759,7 +1789,55 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "glh3", shortName: "GLH3", fullName: "Greater Lansing Hash House Harriers", region: "Lansing, MI",
       website: "https://glh3.net",
       scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
-      scheduleNotes: "Every other Saturday, $10 hash cash",
+      scheduleNotes: "1st Saturday, $10 hash cash",
+      hashCash: "$10",
+      description: "Greater Lansing biweekly Saturday hash. Trail #1042+ and counting.",
+      latitude: 42.73, longitude: -84.56,
+    },
+    // ===== MICHIGAN =====
+    {
+      kennelCode: "moa2h3", shortName: "MoA2H3", fullName: "Motown Ann Arbor Hash House Harriers", region: "Detroit, MI",
+      website: "https://moa2h3.org",
+      facebookUrl: "https://www.facebook.com/MOA2H3",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+      description: "Metro Detroit and Ann Arbor's weekly Sunday hash. The largest kennel in Michigan.",
+      latitude: 42.33, longitude: -83.05,
+    },
+    {
+      kennelCode: "demon-h3", shortName: "DeMon", fullName: "DeMon Hash House Harriers", region: "Detroit, MI",
+      website: "https://demonh3.com",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Detroit's Monday evening hash.",
+      latitude: 42.33, longitude: -83.05,
+    },
+    {
+      kennelCode: "glh3", shortName: "GLH3", fullName: "Greater Lansing Hash House Harriers", region: "Lansing, MI",
+      website: "https://glh3.net",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+      hashCash: "$10",
+      description: "Greater Lansing biweekly Saturday hash. Trail #1042+ and counting.",
+      latitude: 42.73, longitude: -84.56,
+    },
+    // ===== MICHIGAN =====
+    {
+      kennelCode: "moa2h3", shortName: "MoA2H3", fullName: "Motown Ann Arbor Hash House Harriers", region: "Detroit, MI",
+      website: "https://moa2h3.org",
+      facebookUrl: "https://www.facebook.com/MOA2H3",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+      description: "Metro Detroit and Ann Arbor's weekly Sunday hash.",
+      latitude: 42.33, longitude: -83.05,
+    },
+    {
+      kennelCode: "demon-h3", shortName: "DeMon", fullName: "DeMon Hash House Harriers", region: "Detroit, MI",
+      website: "https://demonh3.com",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Detroit's Monday evening hash.",
+      latitude: 42.33, longitude: -83.05,
+    },
+    {
+      kennelCode: "glh3", shortName: "GLH3", fullName: "Greater Lansing Hash House Harriers", region: "Lansing, MI",
+      website: "https://glh3.net",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
       hashCash: "$10",
       description: "Greater Lansing biweekly Saturday hash. Trail #1042+ and counting.",
       latitude: 42.73, longitude: -84.56,

@@ -1159,7 +1159,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     colorClasses: "bg-sky-200 text-sky-800",
     pinColor: "#0284c7",
     centroidLat: 44.31,
-    centroidLng: -85.6,
+    centroidLng: -85.60,
     aliases: ["MI"],
   },
   {
@@ -1403,6 +1403,53 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     pinColor: "#f43f5e",
     centroidLat: 51.51,
     centroidLng: -0.27,
+  },
+  // ── UK — Scotland ──
+  {
+    name: "Scotland",
+    country: "UK",
+    level: "STATE_PROVINCE",
+    timezone: "Europe/London",
+    abbrev: "SCO",
+    colorClasses: "bg-blue-200 text-blue-800",
+    pinColor: "#2563eb",
+    centroidLat: 56.49,
+    centroidLng: -4.20,
+    aliases: ["Scotland"],
+  },
+  {
+    name: "Edinburgh",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "EDI",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#3b82f6",
+    centroidLat: 55.95,
+    centroidLng: -3.19,
+    aliases: ["Edinburgh, Scotland"],
+  },
+  {
+    name: "Glasgow",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "GLA",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#3b82f6",
+    centroidLat: 55.86,
+    centroidLng: -4.25,
+    aliases: ["Glasgow, Scotland"],
+  },
+  // ── UK — England (outside London) ──
+  {
+    name: "Bristol",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "BRS",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 51.45,
+    centroidLng: -2.59,
+    aliases: ["Bristol, England"],
   },
 ];
 
@@ -1718,6 +1765,11 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Enfield": "United Kingdom",
   "Barnes": "United Kingdom",
   "West London": "United Kingdom",
+  // Scotland
+  "Edinburgh": "Scotland",
+  "Glasgow": "Scotland",
+  // England (outside London)
+  "Bristol": "United Kingdom",
   // Ireland
   "Dublin": "Ireland",
 };
