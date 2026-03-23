@@ -364,6 +364,8 @@ export function sanitizeLocation(location: string | undefined): string | null {
     // Strip trailing decimal coordinate pairs (e.g., ". 35.898606, -78.579631" or bare "35.898, -78.579")
     .replace(/[.,]?\s*-?\d+\.\d{3,},\s*-?\d+\.\d{3,}\s*$/, "")
     .replace(/\.\s*$/, "")  // clean up trailing period left behind
+    // Strip instruction suffixes after em-dash or period ("— check Facebook for details")
+.replace(/(\s*[—–]|\.)\s*(?:check|see|visit|call|contact|email|for)\b.*/i, "")
     .trim();
   // Clean up embedded URLs, double commas, extra whitespace, normalize state abbrev
   let cleaned = stripUrlsFromText(stripped)

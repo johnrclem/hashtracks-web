@@ -184,6 +184,8 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "EWH3",
+        // EWH3 calendar summaries: "Hare1 & Hare2 - Location TBD"
+        titleHarePattern: "^(.+?)\\s*-\\s*(?:Location|TBD)",
       },
       kennelCodes: ["ewh3"],
     },
@@ -1725,7 +1727,7 @@ export const SOURCES = [
       name: "SeaMon H3 Hareline Sheet",
       url: "https://docs.google.com/spreadsheets/d/12Ajped8oyheVayDmHs0d8glLVo23VOg8gRKCe4yQP-g",
       type: "GOOGLE_SHEETS" as const,
-      trustLevel: 5,
+      trustLevel: 8, // higher than WA Calendar (7) so run#/hare data from sheet wins
       scrapeFreq: "weekly",
       scrapeDays: 365,
       config: {
