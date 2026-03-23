@@ -45,6 +45,7 @@ import { REGION_CENTROIDS } from "@/lib/geo";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { RestoreEventButton } from "@/components/admin/RestoreEventButton";
 import { stripMarkdown, stripUrlsFromText } from "@/lib/format";
+import { getFullLocationDisplay } from "@/lib/event-display";
 
 export default async function EventDetailPage({
   params,
@@ -290,7 +291,7 @@ export default async function EventDetailPage({
                         rel="noopener noreferrer"
                         className="text-primary hover:underline"
                       >
-                        {event.locationStreet ?? stripUrlsFromText(event.locationName)}
+                        {getFullLocationDisplay(event) ?? stripUrlsFromText(event.locationName)}
                       </a>
                     </dd>
                   </div>
