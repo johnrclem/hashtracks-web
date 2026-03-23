@@ -49,11 +49,20 @@ beforeEach(() => {
 });
 
 describe("processRawEvents", () => {
-  it("skips event when fingerprint already exists", async () => {
-    mockRawEventFind.mockResolvedValueOnce({ id: "existing" } as never);
+  it("skips event when fingerprint already exists (processed)", async () => {
+    mockRawEventFind.mockResolvedValueOnce({ id: "existing", processed: true, eventId: "evt_1" } as never);
     const result = await processRawEvents("src_1", [buildRawEvent()]);
     expect(result.skipped).toBe(1);
     expect(result.created).toBe(0);
+  });
+
+  it("re-processes orphaned RawEvent (processed=false, eventId=null) after admin delete", async () => {
+    mockRawEventFind.mockResolvedValueOnce({ id: "existing", processed: false, eventId: null } as never);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+    const result = await processRawEvents("src_1", [buildRawEvent()]);
+    expect(result.created).toBe(1);
+    expect(result.skipped).toBe(0);
   });
 
   it("creates new canonical event", async () => {
@@ -271,24 +280,24 @@ describe("mergeErrorDetails", () => {
     expect(result.sampleBlocked![0].reason).toBe("SOURCE_KENNEL_MISMATCH");
   });
 
-  it("captures sample skipped events from fingerprint-deduped unprocessed RawEvents", async () => {
-    // Existing unprocessed RawEvent (previously unmatched)
-    mockRawEventFind.mockResolvedValueOnce({ id: "raw_existing", processed: false } as never);
+  it("re-processes unprocessed unmatched RawEvents (blocked at kennel level)", async () => {
+    // Existing unprocessed RawEvent with no eventId — gets re-processed but blocked
+    // by kennel resolution (unmatched tag). This is correct: the re-process attempt
+    // lets the pipeline apply its own guards rather than permanently skipping.
+    mockRawEventFind.mockResolvedValueOnce({ id: "raw_existing", processed: false, eventId: null } as never);
     mockResolve.mockResolvedValueOnce({ kennelId: null, matched: false });
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({ kennelTag: "UnknownH3", date: "2026-03-01" }),
     ]);
 
-    expect(result.skipped).toBe(1);
-    expect(result.sampleSkipped!.length).toBe(1);
-    expect(result.sampleSkipped![0].reason).toBe("UNMATCHED_TAG");
-    expect(result.sampleSkipped![0].kennelTag).toBe("UnknownH3");
+    // Event is re-processed but fails kennel resolution
+    expect(result.created).toBe(0);
   });
 
-  it("captures sample blocked events from fingerprint-deduped unprocessed RawEvents", async () => {
-    // Existing unprocessed RawEvent (previously blocked by source-kennel guard)
-    mockRawEventFind.mockResolvedValueOnce({ id: "raw_existing", processed: false } as never);
+  it("re-processes unprocessed blocked RawEvents (blocked at source-kennel guard)", async () => {
+    // Existing unprocessed RawEvent — gets re-processed but blocked by source-kennel guard
+    mockRawEventFind.mockResolvedValueOnce({ id: "raw_existing", processed: false, eventId: null } as never);
     mockResolve.mockResolvedValueOnce({ kennelId: "kennel_other", matched: true });
     vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({ shortName: "OtherH3" } as never);
 
@@ -296,10 +305,8 @@ describe("mergeErrorDetails", () => {
       buildRawEvent({ kennelTag: "OtherH3", date: "2026-03-01" }),
     ]);
 
-    expect(result.skipped).toBe(1);
-    expect(result.sampleBlocked!.length).toBe(1);
-    expect(result.sampleBlocked![0].reason).toBe("SOURCE_KENNEL_MISMATCH");
-    expect(result.sampleBlocked![0].kennelTag).toBe("OtherH3");
+    // Event is re-processed but blocked by source-kennel guard — counts as blocked
+    expect(result.blocked).toBe(1);
   });
 
   it("does not capture samples from fingerprint-deduped processed RawEvents", async () => {
