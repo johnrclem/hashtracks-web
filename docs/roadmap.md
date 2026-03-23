@@ -2,7 +2,7 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-03-13
+Last updated: 2026-03-23
 
 **Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
 
@@ -18,7 +18,7 @@ Last updated: 2026-03-13
 - [x] Master-detail layout: event list + detail panel on desktop, full-page on mobile
 - [x] Admin UI: source management, manual scrape trigger, scrape logs, source health
 
-### Data Sources (69 live)
+### Data Sources (174 live)
 
 **NYC / NJ / Philly (8 sources)**
 - [x] **hashnyc.com** (HTML Scraper) — 11 NYC-area kennels
@@ -53,9 +53,10 @@ Last updated: 2026-03-13
 - [x] **OFH3 Blogspot Trail Posts** (HTML Scraper) — OFH3
 - [x] **Hangover H3 DigitalPress Blog** (HTML Scraper) — H4
 
-**SF Bay Area (2 sources)**
+**SF Bay Area (3 sources)**
 - [x] **SFH3 MultiHash iCal Feed** (iCal Feed) — 13 SF Bay Area kennels
 - [x] **SFH3 MultiHash HTML Hareline** (HTML Scraper) — 13 SF Bay Area kennels (secondary enrichment)
+- [x] **Surf City H3 Static Schedule** (Static Schedule) — SCH3 (Santa Cruz)
 
 **London / UK (7 sources)**
 - [x] **London Hash Run List** (HTML Scraper) — LH3
@@ -110,6 +111,98 @@ Last updated: 2026-03-13
 - [x] **RIH3 Static Schedule** (Static Schedule) — RIH3 (Rhode Island)
 - [x] **RIH3 Website Hareline** (HTML Scraper) — RIH3 (Rhode Island)
 - [x] **Narwhal H3 Meetup (CTH3)** (Meetup) — CTH3 (Connecticut)
+
+**Texas (10 sources)**
+- [x] **Austin H3 Calendar** (Google Calendar API) — AH3
+- [x] **Keep Austin Weird H3 Calendar** (Google Calendar API) — KAW!H3
+- [x] **Houston Hash Calendar** (Google Calendar API) — H4
+- [x] **Brass Monkey H3 Blog** (HTML Scraper, Blogger API) — BMH3
+- [x] **Mosquito H3 Static Schedule (1st Wed)** (Static Schedule) — Mosquito H3
+- [x] **Mosquito H3 Static Schedule (3rd Wed)** (Static Schedule) — Mosquito H3
+- [x] **DFW Hash Calendar** (HTML Scraper, PHP calendar) — DH3, DUHHH, NODUHHH, FWH3
+- [x] **Corpus Christi H3 Calendar** (Google Calendar API) — C2H3
+
+**Upstate New York (6 sources)**
+- [x] **Flour City H3 Google Calendar** (Google Calendar API) — FCH3 (Rochester)
+- [x] **SOH4 Website** (HTML Scraper, RSS+iCal) — SOH4 (Syracuse)
+- [x] **Halve Mein Website** (HTML Scraper, PHP table) — HMHHH (Capital District)
+- [x] **IH3 Website Hareline** (HTML Scraper, WordPress hare-line) — IH3 (Ithaca)
+- [x] **Buffalo H3 Google Calendar** (Google Calendar API) — BH3 (Buffalo)
+- [x] **Hudson Valley H3 Meetup** (Meetup) — HVH3-NY (Hudson Valley)
+
+**Pennsylvania (outside Philly) (6 sources)**
+- [x] **Pittsburgh Hash Calendar** (Google Calendar API) — PGH H3
+- [x] **Iron City H3 iCal Feed** (iCal Feed) — ICH3 (Pittsburgh)
+- [x] **Nittany Valley H3 Calendar** (Google Calendar API) — NVHHH (State College)
+- [x] **LVH3 Hareline Calendar** (Google Calendar API) — LVH3 (Lehigh Valley)
+- [x] **Reading H3 Localendar** (iCal Feed) — RH3 (Reading)
+- [x] **H5 Google Calendar** (Google Calendar API) — H5 (Harrisburg)
+
+**Delaware (1 source)**
+- [x] **Hockessin H3 Website** (HTML Scraper) — H4 (Wilmington)
+
+**Southern California (12 sources)**
+- [x] **LAH3 Google Calendar** (Google Calendar API) — LAH3
+- [x] **LBH3 Google Calendar** (Google Calendar API) — LBH3
+- [x] **TDH3 Google Calendar** (Google Calendar API) — TDH3
+- [x] **GAL Google Calendar** (Google Calendar API) — GAL
+- [x] **SUPH3 Google Calendar** (Google Calendar API) — SUPH3
+- [x] **Foothill H3 Google Calendar** (Google Calendar API) — FtH3
+- [x] **East LA H3 Google Calendar** (Google Calendar API) — ELAH3
+- [x] **Signal Hill H3 Google Calendar** (Google Calendar API) — SGH3
+- [x] **OCHHH Google Calendar** (Google Calendar API) — OCHHH
+- [x] **OC Hump Google Calendar** (Google Calendar API) — OC Hump
+- [x] **SLOH3 Google Calendar** (Google Calendar API) — SLOH3
+- [x] **SDH3 Hareline** (HTML Scraper) — 10 San Diego kennels + 7,649 historical events
+
+**Washington (8 sources)**
+- [x] **WA Hash Google Calendar** (Google Calendar API) — 12 Seattle-area kennels
+- [x] **SH3 Hareline Spreadsheet** (Google Sheets) — SH3 (Seattle)
+- [x] **PSH3 Hareline Spreadsheet** (Google Sheets) — PSH3 (Puget Sound)
+- [x] **NBH3 Hareline Spreadsheet** (Google Sheets) — NBH3 (No Balls)
+- [x] **RCH3 Hareline Spreadsheet** (Google Sheets) — RCH3 (Rain City)
+- [x] **SeaMon H3 Hareline Spreadsheet** (Google Sheets) — SeaMon
+- [x] **Leap Year H3 Hareline Spreadsheet** (Google Sheets) — Leap Year
+
+**Colorado (5 sources)**
+- [x] **Denver H3 Google Calendar** (Google Calendar API) — DH3
+- [x] **Mile High Humpin Hash Calendar** (Google Calendar API) — MiHiHuHa
+- [x] **Colorado H3 Aggregator Calendar** (Google Calendar API) — BH3 (Boulder), MiHiHuHa (secondary)
+- [x] **Fort Collins H3 Google Calendar** (Google Calendar API) — FCH3
+- [x] **Colorado Springs H3 Calendar** (Google Calendar API) — PPH4, Kimchi, DIM (3 CS kennels via kennelPatterns)
+
+**Minnesota (1 source)**
+- [x] **Minneapolis H3 Calendar** (Google Calendar API) — MH3, T3H3 (2 kennels via kennelPatterns)
+
+**Michigan (3 sources)**
+- [x] **MoA2H3 Google Calendar** (Google Calendar API) — MoA2H3 (Detroit/Ann Arbor)
+- [x] **DeMon H3 Google Calendar** (Google Calendar API) — DeMon (Detroit Monday)
+- [x] **GLH3 Google Calendar** (Google Calendar API) — GLH3 (Greater Lansing)
+
+**Arizona (4 sources)**
+- [x] **Phoenix H3 Events** (iCal Feed) — LBH, Hump D, Wrong Way, FDTDD (4 Phoenix kennels via kennelPatterns)
+- [x] **jHavelina H3 Google Calendar** (Google Calendar API) — jHav (Tucson)
+- [x] **Mr. Happy's H3 Google Calendar** (Google Calendar API) — Mr. Happy's (Tucson)
+- [x] **Pedal Files Bash Google Calendar** (Google Calendar API) — Pedal Files (Tucson bike hash)
+
+**Virginia (outside DC metro) (9 sources)**
+- [x] **Richmond H3 Google Calendar** (Google Calendar API) — RH3 (Richmond)
+- [x] **Richmond H3 Meetup** (Meetup) — RH3 (Richmond)
+- [x] **Fort Eustis H3 Google Calendar** (Google Calendar API) — FEH3 (Hampton Roads)
+- [x] **Fort Eustis H3 Meetup** (Meetup) — FEH3 (Hampton Roads)
+- [x] **BDSM H3 Meetup** (Meetup) — BDSMH3 (Hampton Roads)
+- [x] **cHARLOTtesville H3 Meetup** (Meetup) — CvilleH3 (Charlottesville)
+- [x] **FUH3 Static Schedule** (Static Schedule) — FUH3 (Fredericksburg)
+- [x] **Tidewater H3 Static Schedule** (Static Schedule) — TH3 (Hampton Roads)
+- [x] **Seven Hills H3 Static Schedule** (Static Schedule) — 7H4 (Lynchburg)
+
+**North Carolina (6 sources)**
+- [x] **SWH3 Google Calendar** (Google Calendar API) — SWH3 (Raleigh)
+- [x] **Carolina Larrikins Google Calendar** (Google Calendar API) — Larrikins (Raleigh)
+- [x] **Charlotte H3 Meetup** (Meetup) — CH3 (Charlotte)
+- [x] **Asheville H3 Meetup** (Meetup) — AVLH3 (Asheville)
+- [x] **Cape Fear H3 Website** (HTML Scraper) — CFH3 (Wilmington, NC)
+- [x] **Carolina Trash H3 Meetup** (Meetup) — CTrH3 (Fayetteville)
 
 ### The Logbook — Sprint 5 COMPLETE
 - [x] "I Was There" one-click check-in (past events only, defaults to RUN)
@@ -267,7 +360,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] Meetup.com public API adapter — no auth required (`src/adapters/meetup/adapter.ts`)
 - [x] GroupUrlname auto-detection from URLs
 - [x] Config validation for Meetup-specific fields
-- 5 live sources: Miami H3, Savannah H3, Von Tramp H3, Narwhal H3, Charleston Heretics
+- 17+ live Meetup sources across FL, GA, SC, NY, VA, NC, VT, CT
 
 ### User Feedback — COMPLETE
 - [x] In-app "Send Feedback" dialog (bug report, feature request, question, other)
@@ -302,7 +395,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 
 ### Static Schedule Adapter — COMPLETE
 - [x] RRULE-based event generation for kennels without scrapeable web sources (Facebook-only)
-- [x] 26 live sources — largest adapter type by count
+- [x] 35+ live sources — largest adapter type by count
 - [x] Zero external fetch — generates events from recurrence rules + defaults stored in `Source.config`
 - [x] Config: `rrule`, `defaultTitle`, `defaultLocation`, `defaultStartTime`, `defaultKennelTag`
 - [x] Supports complex RRULE patterns (1st/3rd Sunday, every other Saturday, etc.)
@@ -310,7 +403,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [ ] Seasonal schedule switching: many kennels change day/time seasonally (e.g., SAH3: Friday 6:30 PM summer / Sunday 3:30 PM winter) — needs RRULE enhancement or `seasonalSchedule` config with date ranges
 
 ### Meetup Adapter Live — COMPLETE
-- [x] 5 live Meetup sources: Miami H3, Savannah H3, Von Tramp H3 (VT), Narwhal H3 (CT), Charleston Heretics
+- [x] 17+ live Meetup sources across FL, GA, SC, NY, VA, NC, VT, CT
 - [x] Highest-ROI automated source where available — rich historical data (100s of past events)
 - [x] Zero-code onboarding via admin wizard (auto-detect from URL, AI-assisted kennelTag suggestion)
 
@@ -320,6 +413,17 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] **South Carolina**: 10 kennels, 10 sources (Meetup + static schedules, zero new adapter code)
 - [x] **New England**: Vermont (VTH3, BurH3), Rhode Island (RIH3), Connecticut (CTH3) — Meetup + HTML + static
 - [x] **Dublin, Ireland**: First non-US/UK kennel (DH3, HTML scraper)
+- [x] **Texas**: 11 kennels, 10 sources — Austin, Houston, DFW, Corpus Christi; Google Calendar + Blogger API + PHP calendar + static schedules
+- [x] **Upstate NY**: 6 kennels, 6 sources — Rochester, Syracuse, Capital District, Ithaca, Buffalo, Hudson Valley; 3 new adapters (SOH4 RSS+iCal, Halve Mein PHP table, IH3 WordPress hare-line)
+- [x] **PA + DE**: 7 kennels, 7 sources — Pittsburgh, State College, Lehigh Valley, Reading, Harrisburg, Wilmington; Hockessin adapter (90s HTML)
+- [x] **Southern California**: 21 kennels, 12 sources — LA, Long Beach, OC, San Diego, SLO; SDH3 adapter with 7,649 historical events
+- [x] **Washington**: 14 kennels, 8 sources — Seattle area; enhanced GOOGLE_SHEETS adapter with `skipRows`, `gid`, `csvUrl` config
+- [x] **Colorado**: 7 kennels, 5 sources — Denver, Boulder, Fort Collins, Colorado Springs; all from coloradoh3.com aggregator
+- [x] **Minnesota**: 2 kennels, 1 source — Minneapolis; shared Google Calendar with kennelPatterns
+- [x] **Michigan**: 3 kennels, 3 sources — Detroit/Ann Arbor, Greater Lansing; Google Calendar
+- [x] **Arizona**: 7 kennels, 4 sources — Phoenix (iCal feed), Tucson (3 Google Calendars)
+- [x] **Virginia**: 9 kennels, 9 sources — Richmond, Hampton Roads, Charlottesville, Fredericksburg, Lynchburg; Google Calendar + Meetup + static schedules
+- [x] **North Carolina**: 6 kennels, 6 sources — Raleigh, Charlotte, Asheville, Wilmington NC, Fayetteville; Google Calendar + Meetup + HTML scraper
 - [x] KennelCode conflict resolution with region suffixes (`ch3-sc`, `ph3-atl`, etc.)
 
 ### Design Refresh — COMPLETE
@@ -360,11 +464,40 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 ### Uncancel Events — COMPLETE
 - [x] Admin action to restore previously cancelled events
 
+### Phoenix H3 Scraper — COMPLETE
+- [x] phoenixhhh.org Events Manager AJAX scraper with POST-based pagination
+- [x] Detail page title enrichment (batched concurrent fetches, 300ms rate limiting)
+- [x] Multi-kennel extraction via kennelPatterns config (LBH, Hump D, Wrong Way, FDTDD)
+
+### DFW Scraper Fixes + kennelCode Migration — COMPLETE
+- [x] Day-number extraction handles holiday-prefixed cells (FullMoon, Safety Day, Easter)
+- [x] Detail page scraping for time, location, run number (batched, 3 concurrent, 300ms delays)
+- [x] YAKH3 kennel added (5th DFW kennel)
+- [x] kennelCode as Step 0 in kennel resolver (immutable identifier, preferred over shortName)
+- [x] All adapters migrated from shortName to kennelCode for kennelTag emission
+- [x] 6 collision-critical adapters fixed (Dublin DH3, Chicago CH3/TH3, Hangover/Hockessin H4, Brass Monkey BMH3)
+
+### Google Calendar skipPatterns — COMPLETE
+- [x] `skipPatterns` config field: regex-based event filtering (skip cross-kennel duplicate posts)
+- [x] BFM/Philly calendar split: separate sources with skipPatterns to prevent cross-posting
+
+### Seed Data Modularization — COMPLETE
+- [x] Split monolithic seed.ts into `prisma/seed-data/` modular files (kennels.ts, aliases.ts, sources.ts, regions.ts)
+
+### SEO Infrastructure — COMPLETE
+- [x] Open Graph images, sitemap.xml, JSON-LD structured data, social share buttons
+
+### DMS Coordinate Parsing — COMPLETE
+- [x] Parse DMS coordinates (degrees/minutes/seconds) from location strings, strip from display text
+
+### Orphaned RawEvents Fix — COMPLETE
+- [x] Admin event deletion now properly cascades to orphaned RawEvent records
+
 ### Current Stats
-- 152 kennels (with rich profiles), 481 aliases, 69 sources, 64 regions (3 countries: US, UK, Ireland)
-- 7 live adapter types: STATIC_SCHEDULE (26), HTML_SCRAPER (24), GOOGLE_CALENDAR (8), MEETUP (5), ICAL_FEED (3), GOOGLE_SHEETS (2), HASHREGO (1)
+- 261 kennels (with rich profiles), ~900 aliases, 174 sources, 93 regions (3 countries: US, UK, Ireland)
+- 9 live adapter types: STATIC_SCHEDULE, HTML_SCRAPER, GOOGLE_CALENDAR, MEETUP, ICAL_FEED, GOOGLE_SHEETS, HASHREGO, BLOGGER_API, RSS_ICAL
 - 27 models, 20 enums in Prisma schema
-- 109 test files, 2516 test cases
+- 119 test files, ~2,578 test cases
 
 ---
 
@@ -393,12 +526,23 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 - [x] **Georgia** (20 kennels, 11 sources) — Atlanta metro, Savannah; Atlanta Hash Board scraper + Meetup + static schedules
 - [x] **New England** (5 kennels, 5 sources) — Vermont, Rhode Island, Connecticut; Meetup + HTML scrapers + static schedules
 - [x] **Dublin, Ireland** (1 kennel, 1 source) — DH3 (HTML scraper) — first non-US/UK country
+- [x] **Texas** (11 kennels, 10 sources) — Austin, Houston, DFW, San Antonio, Corpus Christi; Google Calendar + Blogger API + PHP calendar scraper + static schedules
+- [x] **Upstate NY** (6 kennels, 6 sources) — Rochester, Syracuse, Capital District, Ithaca, Buffalo, Hudson Valley; Google Calendar + HTML scrapers + Meetup
+- [x] **PA + DE** (7 kennels, 7 sources) — Pittsburgh, State College, Lehigh Valley, Reading, Harrisburg, Wilmington; Google Calendar + iCal + HTML scraper
+- [x] **Southern California** (21 kennels, 12 sources) — LA, Long Beach, OC, San Diego, SLO; 11 Google Calendars from lbh3.org/socal aggregator + SDH3 HTML scraper (7,649 historical events)
+- [x] **Washington** (14 kennels, 8 sources) — Seattle, Tacoma, Olympia, Bremerton; Google Calendar + 7 per-kennel Google Sheets harelines
+- [x] **Colorado** (7 kennels, 5 sources) — Denver, Boulder, Fort Collins, Colorado Springs; Google Calendar (all from coloradoh3.com aggregator)
+- [x] **Minnesota** (2 kennels, 1 source) — Minneapolis; shared Google Calendar with kennelPatterns
+- [x] **Michigan** (3 kennels, 3 sources) — Detroit/Ann Arbor, Greater Lansing; Google Calendar
+- [x] **Arizona** (7 kennels, 4 sources) — Phoenix, Tucson; iCal feed + Google Calendar
+- [x] **Virginia** (9 kennels, 9 sources) — Richmond, Hampton Roads, Charlottesville, Fredericksburg, Lynchburg; Google Calendar + Meetup + static schedules
+- [x] **North Carolina** (6 kennels, 6 sources) — Raleigh, Charlotte, Asheville, Wilmington NC, Fayetteville; Google Calendar + Meetup + HTML scraper
 
 **Remaining opportunities:**
 - [ ] **Hash Rego kennel directory** — scrape `/kennels/` page for new kennel discovery + auto-onboarding
 - [ ] **gotothehash.net** — evaluate as a potential aggregator source (similar to hashnyc.com pattern)
 - [ ] **half-mind.com event listings** — evaluate as supplementary discovery data
-- [x] **Meetup.com sources** — 5 live sources (Miami, Savannah, VT, CT, Charleston); adapter supports zero-code onboarding via admin wizard
+- [x] **Meetup.com sources** — 17+ live sources across 8 states; adapter supports zero-code onboarding via admin wizard
 - [ ] Continue refining kennel resolver patterns as new sources reveal new name variants
 
 **Implementation notes:**
@@ -638,7 +782,7 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 ### Additional Adapter Types
 - [x] **iCal feed adapter** (`ICAL_FEED`): Live with SFH3 MultiHash source (11 Bay Area kennels)
 - [x] **Hash Rego adapter** (`HASHREGO`): Live with 7 DC/Philly kennel slugs, multi-day splitting
-- [x] **Meetup adapter** (`MEETUP`): Public API adapter built, no live sources yet
+- [x] **Meetup adapter** (`MEETUP`): 17+ live sources across 8 states, zero-code onboarding via admin wizard
 - [x] **WordPress REST API** (`WORDPRESS_API`): Shared utility for blog-based sources (EWH3, DCH4)
 - [ ] **RSS/Atom adapter** (`RSS_FEED`): For kennels with blog-style event posts (WordPress blog scrapers already cover some of this)
 - [ ] **Facebook Events adapter** (`FACEBOOK_EVENTS`): Scrape public Facebook page events via NAS headless browser with authenticated session. Would unlock dozens of Facebook-only kennels (e.g., CT: SBH3, Rotten Groton; many small-market kennels). Requires: cookie/session persistence in browser render service, anti-detection measures, periodic re-auth. High-value capability — many kennels have no web presence outside Facebook.
@@ -675,10 +819,11 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - [ ] Image processing: resize + optimize for 64x64 display
 - [ ] Update QuickInfoCard and hero section to use uploaded images
 
-### SEO & Social Sharing
-- [ ] Open Graph tags on event detail pages (title, description, kennel, date)
-- [ ] OG tags on kennel pages (with logo image if available)
-- [ ] Meta descriptions for search engines
+### SEO & Social Sharing — COMPLETE
+- [x] Open Graph tags on event detail pages (title, description, kennel, date)
+- [x] OG tags on kennel pages (with logo image if available)
+- [x] Meta descriptions for search engines
+- [x] Sitemap.xml, JSON-LD structured data, social share buttons
 
 ### Calendar Feed Subscriptions (Per-Kennel)
 - [ ] Subscribable calendar feed per kennel (auto-updating .ics URL)
@@ -726,7 +871,7 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 - [ ] Performance: pagination, React Query caching on list views
 - [ ] Rate limiting on public API routes
-- [ ] Double-header handling (same kennel, same day, two events)
+- [x] Double-header handling (same kennel, same day, two events) — `allowDoubleHeaders` flag on merge pipeline
 - [ ] Email/notification integration for source health alerts
 
 ### Self-Healing Hardening (Phase 4)

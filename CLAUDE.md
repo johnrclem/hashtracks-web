@@ -56,11 +56,11 @@ logbook + kennel directory.
 - Use `cuid()` for all IDs (Prisma default)
 - Dates stored as UTC noon to avoid DST issues (see PRD Appendix F.4)
 - `startTime` is a string "HH:MM" not a DateTime (many sources lack full timestamps)
-- Kennel resolution: shortName exact match → alias match → pattern match (retries shortName + alias) → flag for admin
+- Kennel resolution: kennelCode exact match → shortName exact match → alias match → pattern match (retries kennelCode + shortName + alias) → flag for admin
 - Source-kennel guard: merge pipeline blocks events for kennels not linked via `SourceKennel` → generates `SOURCE_KENNEL_MISMATCH` alert
 - EventLink: extensible link table (Hash Rego, Meetup, etc.) — created by merge pipeline from `RawEventData.externalLinks` or when a second source provides a different sourceUrl
 - Multi-day events: split into separate Event records linked via `parentEventId` + `isSeriesParent`, grouped by `RawEventData.seriesId`
-- Kennel rename safety: renaming a kennel auto-adds the old shortName as an alias
+- Kennel rename safety: renaming a kennel auto-adds the old shortName as an alias; kennelCode is immutable and unaffected by renames
 - All scraper adapters implement the `SourceAdapter` interface in `src/adapters/types.ts`
 - API routes return consistent shapes: `{ data, error?, meta? }`
 

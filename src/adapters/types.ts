@@ -3,7 +3,7 @@ import type { SourceType, Source } from "@/generated/prisma/client";
 /** Raw event data extracted from a source before kennel resolution or deduplication */
 export interface RawEventData {
   date: string; // YYYY-MM-DD
-  kennelTag: string; // Raw kennel identifier from source (e.g. "NYCH3", "Brooklyn")
+  kennelTag: string; // Kennel identifier — use kennelCode (e.g. "nych3", "bfm") for stable resolution
   runNumber?: number;
   title?: string;
   description?: string;
