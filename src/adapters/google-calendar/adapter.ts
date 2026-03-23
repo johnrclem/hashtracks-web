@@ -164,6 +164,7 @@ const mapsUrl = googleMapsSearchUrl;
 interface CalendarSourceConfig {
   kennelPatterns?: [string, string][];  // [[regex, kennelTag], ...]
   defaultKennelTag?: string;            // fallback for unrecognized events
+  skipPatterns?: string[];              // regex strings — skip events whose summary matches
   harePatterns?: string[];              // regex strings to extract hares from descriptions
   runNumberPatterns?: string[];         // regex strings to extract run numbers from descriptions
   descriptionSuffix?: string;           // appended to every event description
@@ -263,6 +264,7 @@ export function buildRawEventFromGCalItem(
   sourceConfig: CalendarSourceConfig | null,
   compiledHarePatterns?: RegExp[],
   compiledRunNumberPatterns?: RegExp[],
+  compiledSkipPatterns?: RegExp[],
 ): RawEventData | null {
   if (item.status === "cancelled") return null;
   if (!item.summary) return null;
@@ -273,6 +275,13 @@ export function buildRawEventFromGCalItem(
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start);
   if (!dateISO) return null;
   const summary = decodeEntities(item.summary);
+
+  // Skip events whose summary matches any configured skip pattern (e.g., cross-kennel posts)
+  if (compiledSkipPatterns?.length) {
+    for (const re of compiledSkipPatterns) {
+      if (re.test(summary)) return null;
+    }
+  }
   const { rawDescription, description } = normalizeGCalDescription(item.description);
   const hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(summary, sourceConfig);
@@ -340,6 +349,9 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     const compiledRunNumberPatterns = sourceConfig?.runNumberPatterns?.length
       ? compilePatterns(sourceConfig.runNumberPatterns)
       : undefined;
+    const compiledSkipPatterns = sourceConfig?.skipPatterns?.length
+      ? compilePatterns(sourceConfig.skipPatterns, "i")
+      : undefined;
 
     do {
       const url = new URL(
@@ -382,7 +394,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
       for (const item of items) {
         try {
-          const event = buildRawEventFromGCalItem(item, sourceConfig, compiledHarePatterns, compiledRunNumberPatterns);
+          const event = buildRawEventFromGCalItem(item, sourceConfig, compiledHarePatterns, compiledRunNumberPatterns, compiledSkipPatterns);
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
