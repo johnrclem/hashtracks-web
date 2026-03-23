@@ -454,10 +454,12 @@ interface RawEventData {
 
 ### Kennel Tag Resolution
 
-When a scraper emits a `kennelTag` (e.g., "NYC Hash", "Knickerbocker"), the merge pipeline resolves it to a canonical `Kennel` record via:
-1. Exact match on `Kennel.shortName`
+When a scraper emits a `kennelTag` (now a `kennelCode` value like `"nych3"`, `"bfm"`), the merge pipeline resolves it to a canonical `Kennel` record via:
+0. Exact match on `Kennel.kennelCode` (immutable identifier, preferred)
+1. Exact match on `Kennel.shortName` (fallback for legacy sources)
 2. Case-insensitive match on `KennelAlias.alias`
-3. If no match → flag for admin review
+3. Pattern matching fallback → retry steps 0–2 with mapped kennelCode
+4. If no match → flag for admin review
 
 **Lesson:** Kennel name normalization is harder than it looks. The current GAS system has a two-level pipeline (regex extraction → alias matching → canonical short name → display tag). Each step can fail independently. Build robust logging for unmatched kennel tags.
 

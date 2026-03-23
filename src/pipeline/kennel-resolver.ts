@@ -105,7 +105,7 @@ async function resolveViaPatternMapping(
  * 1. Exact match on Kennel.shortName (case-insensitive)
  *    - When shortName is ambiguous (multiple regions), prefer source-linked kennel
  * 2. Case-insensitive match on KennelAlias.alias
- * 3. Pattern matching fallback (PRD Appendix D.2) → retry steps 1 (resolveViaExactMatch) and 2 (resolveViaAlias) with mapped name
+ * 3. Pattern matching fallback (PRD Appendix D.2) → retry steps 0, 1, and 2 with mapped kennelCode
  * 4. No match → { kennelId: null, matched: false }
  *
  * @param tag - Raw kennel tag from scraper

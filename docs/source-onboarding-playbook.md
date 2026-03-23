@@ -17,7 +17,7 @@ Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent
 ```
 
 - **Fingerprint dedup**: SHA-256 of `date|kennelTag|runNumber|title` prevents duplicate RawEvents
-- **Kennel resolver**: `shortName exact match → alias case-insensitive → pattern fallback → flag unmatched`
+- **Kennel resolver**: `kennelCode exact match → shortName exact match → alias case-insensitive → pattern fallback → flag unmatched`
 - **Source-kennel guard**: Resolved kennel must be linked to the source via `SourceKennel` — blocks events for unlinked kennels and generates a `SOURCE_KENNEL_MISMATCH` alert
 - **ScrapeLog**: Every scrape run is audited with timing, event counts, and error details
 - **Force rescrape**: `force` param deletes existing RawEvents and re-processes from scratch

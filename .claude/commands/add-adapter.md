@@ -10,7 +10,7 @@ Create a new HTML scraper adapter for the source at URL: $ARGUMENTS
 2. **Create the adapter file**
    - File: `src/adapters/html-scraper/{name}.ts`
    - Implement the `SourceAdapter` interface from `src/adapters/types.ts`
-   - Return `RawEventData[]` with at minimum: `date`, `kennelTag`
+   - Return `RawEventData[]` with at minimum: `date`, `kennelTag` (use kennelCode from seed data for stable resolution)
    - Follow existing patterns — see simple examples:
      - `src/adapters/html-scraper/barnes-hash.ts` (single kennel, UK dates)
      - `src/adapters/html-scraper/city-hash.ts` (div-card layout)
