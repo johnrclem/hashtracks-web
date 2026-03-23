@@ -17,12 +17,19 @@ export interface AttendanceData {
   notes: string | null;
 }
 
+interface EventContext {
+  kennelShortName: string;
+  runNumber: number | null;
+  date: string; // ISO date string
+}
+
 interface CheckInButtonProps {
   readonly eventId: string;
   readonly eventDate: string; // ISO string
   readonly isAuthenticated: boolean;
   readonly attendance: AttendanceData | null;
   readonly stravaConnected?: boolean;
+  readonly eventContext?: EventContext;
 }
 
 /** Render the check-in button for a past event. */
@@ -31,11 +38,13 @@ function PastEventButton({
   eventDate,
   attendance,
   stravaConnected,
+  eventContext,
 }: Readonly<{
   eventId: string;
   eventDate: string;
   attendance: AttendanceData | null;
   stravaConnected?: boolean;
+  eventContext?: EventContext;
 }>) {
   const [isPending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
@@ -77,6 +86,7 @@ function PastEventButton({
           attendance={attendance}
           eventDate={eventDate}
           stravaConnected={stravaConnected}
+          eventContext={eventContext}
         />
       </>
     );
@@ -122,6 +132,7 @@ function PastEventButton({
           attendance={dialogAttendance}
           eventDate={eventDate}
           stravaConnected={stravaConnected}
+          eventContext={eventContext}
         />
       )}
     </>
@@ -185,6 +196,7 @@ export function CheckInButton({
   isAuthenticated,
   attendance,
   stravaConnected,
+  eventContext,
 }: CheckInButtonProps) {
   const now = new Date();
   const todayUtcNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
@@ -201,7 +213,7 @@ export function CheckInButton({
   }
 
   if (isPast) {
-    return <PastEventButton eventId={eventId} eventDate={eventDate} attendance={attendance} stravaConnected={stravaConnected} />;
+    return <PastEventButton eventId={eventId} eventDate={eventDate} attendance={attendance} stravaConnected={stravaConnected} eventContext={eventContext} />;
   }
 
   return <FutureEventButton eventId={eventId} attendance={attendance} />;

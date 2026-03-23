@@ -208,6 +208,11 @@ export default async function EventDetailPage({
             isAuthenticated={!!user}
             attendance={attendance}
             stravaConnected={stravaConnected}
+            eventContext={{
+              kennelShortName: event.kennel.shortName,
+              runNumber: event.runNumber,
+              date: event.date.toISOString(),
+            }}
           />
           {(confirmedCount > 0 || goingCount > 0) && (
             <div className="flex items-center gap-1.5">
