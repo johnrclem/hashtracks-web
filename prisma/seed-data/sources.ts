@@ -111,6 +111,7 @@ export const SOURCES = [
           ["Philly Hash|hashphilly|Philly H3", "Philly H3"],
         ],
         defaultKennelTag: "Philly H3",
+        skipPatterns: ["BFM|Ben Franklin|BFMH3"],
       },
       kennelCodes: ["philly-h3"],
     },

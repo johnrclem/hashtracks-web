@@ -358,6 +358,52 @@ describe("buildRawEventFromGCalItem — all-day events", () => {
   });
 });
 
+// ── buildRawEventFromGCalItem — skipPatterns ──
+
+describe("buildRawEventFromGCalItem — skipPatterns", () => {
+  const baseItem = {
+    summary: "BFM Special Trail",
+    start: { dateTime: "2026-04-02T18:30:00-05:00" },
+    status: "confirmed" as const,
+  };
+
+  it("skips events matching a skipPattern", () => {
+    const skipPatterns = [/BFM|Ben Franklin/i];
+    const result = buildRawEventFromGCalItem(
+      baseItem,
+      { defaultKennelTag: "Philly H3" },
+      undefined,
+      undefined,
+      skipPatterns,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("does not skip events that don't match skipPatterns", () => {
+    const skipPatterns = [/BFM|Ben Franklin/i];
+    const result = buildRawEventFromGCalItem(
+      { ...baseItem, summary: "Philly Hash Weekly Run" },
+      { defaultKennelTag: "Philly H3" },
+      undefined,
+      undefined,
+      skipPatterns,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.kennelTag).toBe("Philly H3");
+  });
+
+  it("works with empty skipPatterns array", () => {
+    const result = buildRawEventFromGCalItem(
+      baseItem,
+      { defaultKennelTag: "TEST" },
+      undefined,
+      undefined,
+      [],
+    );
+    expect(result).not.toBeNull();
+  });
+});
+
 // ── extractTitleFromDescription ──
 
 describe("extractTitleFromDescription", () => {
