@@ -338,8 +338,9 @@ export function buildRawEventFromGCalItem(
   const { rawDescription, description } = normalizeGCalDescription(item.description);
   const hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(summary, sourceConfig);
-  // Location: prefer item.location, fall back to description extraction
-  let location = item.location ? decodeEntities(item.location) : undefined;
+  // Location: prefer item.location (unless placeholder), fall back to description extraction
+  let location = item.location ? decodeEntities(item.location).trim() : undefined;
+  if (location && isPlaceholder(location)) location = undefined;
   if (!location && rawDescription) {
     location = extractLocationFromDescription(rawDescription);
   }

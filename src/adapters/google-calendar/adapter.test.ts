@@ -608,22 +608,47 @@ describe("buildRawEventFromGCalItem — description fallback for location", () =
     expect(event).not.toBeNull();
     expect(event!.location).toBe("The Real Place");
   });
+
+  it("treats placeholder item.location as absent and falls back to description", () => {
+    const item = {
+      summary: "Hash Run",
+      description: "Where: The Old Pub, 123 Main St",
+      location: "TBD",
+      start: { dateTime: "2026-03-15T14:00:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("The Old Pub, 123 Main St");
+  });
 });
 
 describe("buildRawEventFromGCalItem — description fallback for time", () => {
-  it("falls back to description time when dateTime has no time component", () => {
-    // This scenario is mostly theoretical since we skip all-day events,
-    // but test the description fallback path with a timed event that has no startTime
+  it("falls back to description time when dateTime yields no parseable time", () => {
+    // dateTime without a T-separated time component — extractDateTimeFromGCalItem returns no startTime
     const item = {
       summary: "Hash Run",
       description: "Pack Meet: 6:30pm\nHare: Someone",
+      start: { dateTime: "2026-03-15" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.startTime).toBe("18:30");
+  });
+
+  it("prefers dateTime-derived time over description time", () => {
+    const item = {
+      summary: "Hash Run",
+      description: "Pack Meet: 6:00pm",
       start: { dateTime: "2026-03-15T18:30:00-04:00" },
       status: "confirmed",
     };
     const config = { defaultKennelTag: "TEST" };
     const event = buildRawEventFromGCalItem(item, config);
     expect(event).not.toBeNull();
-    // dateTime is present so startTime comes from there
     expect(event!.startTime).toBe("18:30");
   });
 });

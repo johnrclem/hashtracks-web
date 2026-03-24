@@ -864,7 +864,7 @@ describe("sanitizeTitle", () => {
   });
 
   it("does not strip Location TBD when not a trailing suffix", () => {
-    expect(sanitizeTitle("Trail Name")).toBe("Trail Name");
+    expect(sanitizeTitle("Location TBD - Meet at the Park")).toBe("Location TBD - Meet at the Park");
   });
 });
 
