@@ -9,6 +9,16 @@ import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
 import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
 import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE } from "@/adapters/utils";
 
+/** Map kennel country field to Google Geocoding ccTLD region bias code. */
+function countryToRegionBias(country?: string | null): string | undefined {
+  if (!country) return undefined;
+  const normalized = country.toUpperCase();
+  if (normalized === "US" || normalized === "USA") return "us";
+  if (normalized === "UK" || normalized === "GB") return "gb";
+  if (normalized === "IE" || normalized === "IRELAND") return "ie";
+  return undefined;
+}
+
 /**
  * Sanitize raw event fields: decode HTML entities in text fields.
  * Applied at the top of processNewRawEvent() so all downstream sanitizers receive clean text.
@@ -103,8 +113,8 @@ interface MergeContext {
   trustLevel: number;
   /** Kennel IDs linked to this source via SourceKennel (for the guard check). */
   linkedKennelIds: Set<string>;
-  /** Per-batch cache of kennelId → region + coords to avoid N+1 queries. */
-  kennelCache: Map<string, { region: string; latitude: number | null; longitude: number | null }>;
+  /** Per-batch cache of kennelId → region + coords + country to avoid N+1 queries. */
+  kennelCache: Map<string, { region: string; latitude: number | null; longitude: number | null; country: string }>;
   /** Per-batch cache of short Maps URL → resolved full URL (avoids repeated HTTP calls). */
   shortUrlCache: Map<string, string | null>;
   /** Per-batch tracking: which canonical Event IDs have been matched for each kennel+date.
@@ -114,12 +124,12 @@ interface MergeContext {
   result: MergeResult;
 }
 
-/** Resolve kennel data (region + coords), using the per-batch cache to avoid N+1 queries. */
-async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<{ region: string; latitude: number | null; longitude: number | null }> {
+/** Resolve kennel data (region + coords + country), using the per-batch cache to avoid N+1 queries. */
+async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<{ region: string; latitude: number | null; longitude: number | null; country: string }> {
   let cached = ctx.kennelCache.get(kennelId);
   if (cached === undefined) {
-    const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { region: true, latitude: true, longitude: true } });
-    cached = { region: kennel?.region ?? "", latitude: kennel?.latitude ?? null, longitude: kennel?.longitude ?? null };
+    const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { region: true, latitude: true, longitude: true, country: true } });
+    cached = { region: kennel?.region ?? "", latitude: kennel?.latitude ?? null, longitude: kennel?.longitude ?? null, country: kennel?.country ?? "" };
     ctx.kennelCache.set(kennelId, cached);
   }
   return cached;
@@ -338,6 +348,8 @@ export function sanitizeTitle(title: string | undefined): string | null {
     /,?\s*(?:Sun(?:day)?|Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?),?\s*(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:,?\s*\d{4})?\s*$/i,
     "",
   );
+  // Strip trailing " - Location TBD" suffixes (e.g., EWH3 calendar: "Hare Names - Location TBD")
+  cleaned = cleaned.replace(/\s*-\s*Location\s+TBD\s*$/i, "").trim();
   // Collapse multiple spaces from stripping and trim
   cleaned = cleaned.replace(/\s{2,}/g, " ").trim();
   // Strip embedded email addresses
@@ -420,6 +432,7 @@ async function resolveCoords(
   existingCoords?: { latitude: number | null; longitude: number | null; locationAddress: string | null },
   shortUrlCache?: Map<string, string | null>,
   kennelCoords?: { latitude: number | null; longitude: number | null },
+  regionBias?: string,
 ): Promise<{ latitude?: number; longitude?: number; normalizedLocation?: string }> {
   const rawCoords = extractRawCoords(event);
   if (rawCoords.latitude != null) return rawCoords;
@@ -448,7 +461,7 @@ async function resolveCoords(
   }
 
   if (event.location) {
-    const geocoded = await geocodeAddress(event.location);
+    const geocoded = await geocodeAddress(event.location, regionBias ? { regionBias } : undefined);
     if (geocoded) {
       // Validate geocoded result against kennel's known coords (if available)
       // Skip geocode if result is >200km from kennel — likely wrong city/state
@@ -543,7 +556,7 @@ async function upsertCanonicalEvent(
         latitude: existingEvent.latitude,
         longitude: existingEvent.longitude,
         locationAddress: existingEvent.locationAddress,
-      }, ctx.shortUrlCache, kennelData);
+      }, ctx.shortUrlCache, kennelData, countryToRegionBias(kennelData.country));
 
       // Reverse-geocode city when we have new coords and locationCity isn't already set
       let locationCity: string | null | undefined;
@@ -617,7 +630,7 @@ async function upsertCanonicalEvent(
     ctx.result.updated++;
   } else {
     // Create new canonical Event
-    const coords = await resolveCoords(event, undefined, ctx.shortUrlCache, kennelData);
+    const coords = await resolveCoords(event, undefined, ctx.shortUrlCache, kennelData, countryToRegionBias(kennelData.country));
     // Reverse-geocode city when coords are available
     const locationCity = (coords.latitude != null && coords.longitude != null)
       ? await reverseGeocode(coords.latitude, coords.longitude)
@@ -813,7 +826,7 @@ export async function processRawEvents(
 
   clearResolverCache();
 
-  const kennelCache = new Map<string, { region: string; latitude: number | null; longitude: number | null }>();
+  const kennelCache = new Map<string, { region: string; latitude: number | null; longitude: number | null; country: string }>();
   const shortUrlCache = new Map<string, string | null>();
   const batchMatchedEvents = new Map<string, Set<string>>();
   const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, kennelCache, shortUrlCache, batchMatchedEvents, result };

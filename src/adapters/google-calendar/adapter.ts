@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, appendDescriptionSuffix } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, appendDescriptionSuffix, isPlaceholder, parse12HourTime } from "../utils";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -88,6 +88,29 @@ export function extractTitle(summary: string): string {
   return stripped || summary;
 }
 
+/** Shared label names used in description field parsing (start-of-line detection + embedded truncation). */
+const LABEL_NAMES = "Hares?|Who|Where|Location|When|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions|Pack\\s*Meet|Meet(?:ing)?|Circle|Chalk\\s*Talk";
+
+/** Extended label names with additional title-only terms. */
+const TITLE_LABEL_NAMES = `${LABEL_NAMES}|Trail Type|Distance|Length`;
+
+// Pre-compiled regexes for extractTitleFromDescription (called per-event)
+const TITLE_LABEL_RE = new RegExp(`^(?:${TITLE_LABEL_NAMES})\\s*:`, "i");
+const TITLE_EMBEDDED_LABEL_RE = new RegExp(`\\s+(?:${LABEL_NAMES})\\s*:.*`, "i");
+const TITLE_TRAILING_EMOJI_RE = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/gu;
+const TITLE_MULTI_EXCL_RE = /[!]{2,}/g;
+const TITLE_MULTI_QUEST_RE = /[?]{2,}/g;
+const TITLE_URL_RE = /^https?:\/\//;
+const TITLE_PURE_TIME_RE = /^\d{1,2}:\d{2}\s*[ap]m$/i;
+
+// Pre-compiled regexes for extractLocationFromDescription
+const LOCATION_LABEL_RE = /(?:^|\n)\s*(?:WHERE|Location|Address|Meet(?:ing)?\s*(?:spot|point|at)?)\s*:\s*(.+)/im;
+const LOCATION_TRUNCATE_RE = new RegExp(`\\s+(?:${LABEL_NAMES})\\s*:.*`, "i");
+const LOCATION_URL_RE = /\s*https?:\/\/\S+.*/i;
+
+// Pre-compiled regex for extractTimeFromDescription
+const TIME_LABEL_RE = /(?:^|\n)\s*(?:Pack\s*Meet|Circle|Time|Start|When|Chalk\s*Talk)\s*:?\s*.*?(\d{1,2}:\d{2}\s*[ap]m)/im;
+
 /**
  * Extract a meaningful event title from the description when the calendar event
  * title is just the kennel abbreviation (e.g., "C2H3").
@@ -97,24 +120,53 @@ export function extractTitle(summary: string): string {
  */
 export function extractTitleFromDescription(description: string): string | undefined {
   const lines = description.split("\n").map((l) => l.trim()).filter(Boolean);
-  // Known label patterns that indicate structured data, not a title
-  const labelRe = /^(?:Hares?|Who|Where|Location|When|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions|Trail Type|Distance|Length)\s*:/i;
   for (const line of lines) {
-    if (labelRe.test(line)) continue;
+    if (TITLE_LABEL_RE.test(line)) continue;
     // Truncate at the first embedded label pattern (e.g., "Green Dresses!! 👗 Hare: Ant Farmer!")
-    let text = line.replace(/\s+(?:Hares?|Who|Where|Location|When|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions)\s*:.*/i, "");
+    let text = line.replace(TITLE_EMBEDDED_LABEL_RE, "");
     // Clean up: strip trailing emoji clusters and excessive punctuation
     text = text
-      .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/gu, "")
-      .replace(/[!]{2,}/g, "!")
-      .replace(/[?]{2,}/g, "?")
+      .replace(TITLE_TRAILING_EMOJI_RE, "")
+      .replace(TITLE_MULTI_EXCL_RE, "!")
+      .replace(TITLE_MULTI_QUEST_RE, "?")
       .trim();
-    // Skip if too short or still looks like a label/URL
     if (text.length < 3) continue;
-    if (/^https?:\/\//.test(text)) continue;
+    if (TITLE_URL_RE.test(text)) continue;
+    if (TITLE_PURE_TIME_RE.test(text)) continue;
     return text;
   }
   return undefined;
+}
+
+/**
+ * Extract a location from the event description when `item.location` is missing.
+ * Looks for common label patterns (WHERE:, Location:, Address:, Meet at:, etc.)
+ * and returns the first match, truncated at the next label or URL.
+ */
+export function extractLocationFromDescription(description: string): string | undefined {
+  const match = LOCATION_LABEL_RE.exec(description);
+  if (!match?.[1]) return undefined;
+
+  let location = match[1].trim();
+  location = location.replace(LOCATION_TRUNCATE_RE, "");
+  location = location.replace(LOCATION_URL_RE, "");
+  location = location.split("\n")[0].trim();
+
+  if (location.length < 3) return undefined;
+  if (isPlaceholder(location)) return undefined;
+
+  return location;
+}
+
+/**
+ * Extract a start time from the event description when `item.start.dateTime` yields no time.
+ * Looks for common label patterns (Pack Meet:, Circle:, Time:, Start:, When:, Chalk Talk:)
+ * and parses the first 12-hour time found.
+ */
+export function extractTimeFromDescription(description: string): string | undefined {
+  const match = TIME_LABEL_RE.exec(description);
+  if (!match?.[1]) return undefined;
+  return parse12HourTime(match[1]);
 }
 
 /** Default hare extraction patterns for Google Calendar descriptions. */
@@ -286,12 +338,23 @@ export function buildRawEventFromGCalItem(
   const { rawDescription, description } = normalizeGCalDescription(item.description);
   const hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(summary, sourceConfig);
-  const location = item.location ? decodeEntities(item.location) : undefined;
+  // Location: prefer item.location (unless placeholder), fall back to description extraction
+  let location = item.location ? decodeEntities(item.location).trim() : undefined;
+  if (location && isPlaceholder(location)) location = undefined;
+  if (!location && rawDescription) {
+    location = extractLocationFromDescription(rawDescription);
+  }
 
   // Determine title: if title matches kennel tag, try description fallback
   let title = useFullTitle ? summary : extractTitle(summary);
   if (title.toLowerCase() === kennelTag.toLowerCase() && rawDescription) {
     title = extractTitleFromDescription(rawDescription) ?? title;
+  }
+
+  // Start time: prefer dateTime-derived time, fall back to description extraction
+  let resolvedStartTime = startTime;
+  if (!resolvedStartTime && rawDescription) {
+    resolvedStartTime = extractTimeFromDescription(rawDescription);
   }
 
   return {
@@ -303,7 +366,7 @@ export function buildRawEventFromGCalItem(
     hares,
     location,
     locationUrl: location ? mapsUrl(location) : undefined,
-    startTime,
+    startTime: resolvedStartTime,
     sourceUrl: item.htmlLink,
   };
 }

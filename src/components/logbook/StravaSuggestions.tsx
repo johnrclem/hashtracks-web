@@ -568,7 +568,7 @@ function SuggestionCard({
               Skip
             </button>
           </TooltipTrigger>
-          <TooltipContent>Hide for now — won't permanently dismiss</TooltipContent>
+          <TooltipContent>Hide for now — won&apos;t permanently dismiss</TooltipContent>
         </Tooltip>
       </div>
     </div>

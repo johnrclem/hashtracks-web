@@ -276,6 +276,67 @@ describe("WCFHCalendarAdapter.fetch", () => {
     vi.restoreAllMocks();
   });
 
+  it("generates display titles using calendar abbreviations, not kennelCodes", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_HTML, { status: 200 }),
+    );
+
+    const adapter = new WCFHCalendarAdapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://www.jollyrogerh3.com/WCFH_Calendar.htm",
+    } as never);
+
+    // TTH3 should use the display abbreviation, not the kennelCode "tth3-fl"
+    const tth3 = result.events.find(e => e.kennelTag === "tth3-fl");
+    expect(tth3).toBeDefined();
+    expect(tth3!.title).toBe("TTH3 Trail");
+
+    // CH3 → circus-h3 should produce "CH3 Trail"
+    const ch3 = result.events.find(e => e.kennelTag === "circus-h3");
+    expect(ch3).toBeDefined();
+    expect(ch3!.title).toBe("CH3 Trail");
+
+    // SPH3 → sph3-fl should produce "SPH3 Trail"
+    const sph3 = result.events.find(e => e.kennelTag === "sph3-fl");
+    expect(sph3).toBeDefined();
+    expect(sph3!.title).toBe("SPH3 Trail");
+
+    // B2BH3 → b2b-h3 should produce "B2BH3 Trail"
+    const b2b = result.events.find(e => e.kennelTag === "b2b-h3");
+    expect(b2b).toBeDefined();
+    expect(b2b!.title).toBe("B2BH3 Trail");
+
+    // TBH3 → tbh3-fl should produce "TBH3 Trail"
+    const tbh3 = result.events.find(e => e.kennelTag === "tbh3-fl");
+    expect(tbh3).toBeDefined();
+    expect(tbh3!.title).toBe("TBH3 Trail");
+
+    vi.restoreAllMocks();
+  });
+
+  it("all emitted events have title fields with display abbreviations", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_HTML, { status: 200 }),
+    );
+
+    const adapter = new WCFHCalendarAdapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://www.jollyrogerh3.com/WCFH_Calendar.htm",
+    } as never);
+
+    // Every event should have a title ending in " Trail"
+    for (const event of result.events) {
+      expect(event.title).toBeDefined();
+      expect(event.title).toMatch(/ Trail$/);
+      // Title should NOT contain lowercase kennelCode slugs (no hyphens)
+      expect(event.title).not.toMatch(/-/);
+    }
+
+    vi.restoreAllMocks();
+  });
+
   it("returns fetch error on network failure", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
       new Error("Network error"),

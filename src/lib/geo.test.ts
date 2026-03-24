@@ -251,6 +251,62 @@ describe("geocodeAddress", () => {
     const calledUrl = fetchSpy.mock.calls[0][0] as string;
     expect(calledUrl).toContain("language=en");
   });
+
+  it("appends &region= when regionBias option is provided", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [{ geometry: { location: { lat: 39.28, lng: -77.86 } } }],
+      }),
+    } as Response);
+    await geocodeAddress("Charlestown", { regionBias: "us" });
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const calledUrl = fetchSpy.mock.calls[0][0] as string;
+    expect(calledUrl).toContain("&region=us");
+  });
+
+  it("does not include &region= when no options provided (backward compatible)", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [{ geometry: { location: { lat: 40.0, lng: -74.0 } } }],
+      }),
+    } as Response);
+    await geocodeAddress("Some Address");
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const calledUrl = fetchSpy.mock.calls[0][0] as string;
+    expect(calledUrl).not.toContain("&region=");
+  });
+
+  it("does not include &region= when regionBias is undefined", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [{ geometry: { location: { lat: 51.5, lng: -0.1 } } }],
+      }),
+    } as Response);
+    await geocodeAddress("London", { regionBias: undefined });
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const calledUrl = fetchSpy.mock.calls[0][0] as string;
+    expect(calledUrl).not.toContain("&region=");
+  });
+
+  it("passes gb region bias for UK kennels", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [{ geometry: { location: { lat: 51.5, lng: -0.1 } } }],
+      }),
+    } as Response);
+    await geocodeAddress("Barnes", { regionBias: "gb" });
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const calledUrl = fetchSpy.mock.calls[0][0] as string;
+    expect(calledUrl).toContain("&region=gb");
+  });
 });
 
 describe("reverseGeocode", () => {

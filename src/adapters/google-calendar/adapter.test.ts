@@ -5,6 +5,8 @@ import {
   extractTitle,
   extractHares,
   extractTitleFromDescription,
+  extractLocationFromDescription,
+  extractTimeFromDescription,
   buildRawEventFromGCalItem,
 } from "./adapter";
 
@@ -477,5 +479,176 @@ describe("buildRawEventFromGCalItem — title fallback from description", () => 
     const event = buildRawEventFromGCalItem(item, config);
     expect(event).not.toBeNull();
     expect(event!.title).toBe("C2H3");
+  });
+});
+
+// ── extractLocationFromDescription ──
+
+describe("extractLocationFromDescription", () => {
+  it("extracts WHERE: pattern", () => {
+    expect(extractLocationFromDescription("WHERE: Portland Saturday Market fountain")).toBe("Portland Saturday Market fountain");
+  });
+
+  it("extracts Location: pattern", () => {
+    expect(extractLocationFromDescription("Hare: Someone\nLocation: 123 Main St, Portland, OR")).toBe("123 Main St, Portland, OR");
+  });
+
+  it("extracts Meet at: pattern", () => {
+    expect(extractLocationFromDescription("Meet at: Central Park")).toBe("Central Park");
+  });
+
+  it("truncates at next label", () => {
+    expect(extractLocationFromDescription("WHERE: The Park\nWhen: 7pm")).toBe("The Park");
+  });
+
+  it("returns undefined for placeholder", () => {
+    expect(extractLocationFromDescription("WHERE: TBD")).toBeUndefined();
+  });
+
+  it("returns undefined when too short", () => {
+    expect(extractLocationFromDescription("WHERE: NY")).toBeUndefined();
+  });
+
+  it("returns undefined when no pattern matches", () => {
+    expect(extractLocationFromDescription("Just a regular description")).toBeUndefined();
+  });
+
+  it("truncates at URL", () => {
+    expect(extractLocationFromDescription("WHERE: The Pub https://maps.google.com/foo")).toBe("The Pub");
+  });
+
+  it("extracts Address: pattern", () => {
+    expect(extractLocationFromDescription("Address: 456 Oak Ave, Suite 100")).toBe("456 Oak Ave, Suite 100");
+  });
+});
+
+// ── extractTimeFromDescription ──
+
+describe("extractTimeFromDescription", () => {
+  it("extracts Pack Meet time", () => {
+    expect(extractTimeFromDescription("Pack Meet: 6:30pm")).toBe("18:30");
+  });
+
+  it("extracts When: time", () => {
+    expect(extractTimeFromDescription("When: Monday March 23th 7:00 PM")).toBe("19:00");
+  });
+
+  it("extracts Time: pattern", () => {
+    expect(extractTimeFromDescription("Time: 4:00 pm")).toBe("16:00");
+  });
+
+  it("extracts Circle time", () => {
+    expect(extractTimeFromDescription("Circle: 6:30 PM")).toBe("18:30");
+  });
+
+  it("extracts Chalk Talk time", () => {
+    expect(extractTimeFromDescription("Chalk Talk: 5:45 pm")).toBe("17:45");
+  });
+
+  it("returns undefined when no time found", () => {
+    expect(extractTimeFromDescription("Just some text with no time")).toBeUndefined();
+  });
+
+  it("extracts Start: time", () => {
+    expect(extractTimeFromDescription("Start: 3:00 PM")).toBe("15:00");
+  });
+});
+
+// ── extractTitleFromDescription — updated label filtering ──
+
+describe("extractTitleFromDescription — updated label filtering", () => {
+  it("skips Pack Meet lines", () => {
+    expect(extractTitleFromDescription("Pack Meet: 6:30pm\nActual Title Here")).toBe("Actual Title Here");
+  });
+
+  it("skips pure time strings", () => {
+    expect(extractTitleFromDescription("6:30pm\nReal Title")).toBe("Real Title");
+  });
+
+  it("skips Meeting lines", () => {
+    expect(extractTitleFromDescription("Meeting: at the park\nTrail Name")).toBe("Trail Name");
+  });
+
+  it("skips Circle lines", () => {
+    expect(extractTitleFromDescription("Circle: 7:00 PM\nSt. Patrick's Day Run")).toBe("St. Patrick's Day Run");
+  });
+
+  it("skips Chalk Talk lines", () => {
+    expect(extractTitleFromDescription("Chalk Talk: 5:45 pm\nSummer Solstice")).toBe("Summer Solstice");
+  });
+});
+
+// ── buildRawEventFromGCalItem — description fallbacks ──
+
+describe("buildRawEventFromGCalItem — description fallback for location", () => {
+  it("falls back to description location when item.location is missing", () => {
+    const item = {
+      summary: "Hash Run",
+      description: "Hare: Someone\nWhere: The Old Pub, 123 Main St",
+      start: { dateTime: "2026-03-15T14:00:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("The Old Pub, 123 Main St");
+    expect(event!.locationUrl).toContain("google.com/maps");
+  });
+
+  it("prefers item.location over description", () => {
+    const item = {
+      summary: "Hash Run",
+      description: "Where: Some Other Place",
+      location: "The Real Place",
+      start: { dateTime: "2026-03-15T14:00:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("The Real Place");
+  });
+
+  it("treats placeholder item.location as absent and falls back to description", () => {
+    const item = {
+      summary: "Hash Run",
+      description: "Where: The Old Pub, 123 Main St",
+      location: "TBD",
+      start: { dateTime: "2026-03-15T14:00:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("The Old Pub, 123 Main St");
+  });
+});
+
+describe("buildRawEventFromGCalItem — description fallback for time", () => {
+  it("falls back to description time when dateTime yields no parseable time", () => {
+    // dateTime without a T-separated time component — extractDateTimeFromGCalItem returns no startTime
+    const item = {
+      summary: "Hash Run",
+      description: "Pack Meet: 6:30pm\nHare: Someone",
+      start: { dateTime: "2026-03-15" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.startTime).toBe("18:30");
+  });
+
+  it("prefers dateTime-derived time over description time", () => {
+    const item = {
+      summary: "Hash Run",
+      description: "Pack Meet: 6:00pm",
+      start: { dateTime: "2026-03-15T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.startTime).toBe("18:30");
   });
 });

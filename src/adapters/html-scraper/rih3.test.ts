@@ -174,7 +174,20 @@ describe("parseHarelineRow", () => {
     });
     expect(result?.title).toContain("Sandy Point Beach Hash");
     expect(result?.locationUrl).toContain("google.com/maps");
-    expect(result?.location).toContain("Park Here");
+    // Navigation instructions stripped: "Park Here. Just a short bit from the dog park" → "dog park"
+    expect(result?.location).toBe("dog park");
+  });
+
+  it("strips navigation instructions from Maps link text", () => {
+    const dirHtml = `
+      <h2><strong>Test Run</strong></h2>
+      <a href="https://www.google.com/maps/place/Melville+Park">
+        <font color="#cc0000">Park Here. Just a short bit from the dog park at Melville Park, Portsmouth, RI</font>
+      </a>
+    `;
+    const cells = ["Mon April 28", "6:30 PM", "2044"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBe("dog park at Melville Park, Portsmouth, RI");
   });
 
   it("normalizes H2 title with line breaks", () => {
