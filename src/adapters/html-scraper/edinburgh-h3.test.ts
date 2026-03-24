@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as cheerio from "cheerio";
-import { parseRunBlock, parseEdinburghRuns, EdinburghH3Adapter } from "./edinburgh-h3";
-import { decodeEntities } from "../utils";
+import { parseRunBlock, parseEdinburghRuns, extractWeeblyBlockText, EdinburghH3Adapter } from "./edinburgh-h3";
 
 describe("EdinburghH3Adapter", () => {
   describe("parseRunBlock", () => {
@@ -189,21 +188,12 @@ Venue Some Place`;
   });
 
   describe("Weebly HTML integration (realistic structure)", () => {
-    // Helper: mimic the adapter's extractWeeblyBlockText + parseRunBlock pipeline
+    // Uses the exported extractWeeblyBlockText directly — no logic duplication
     function extractFromH2s(html: string): ReturnType<typeof parseRunBlock>[] {
       const $ = cheerio.load(html);
       const runs: ReturnType<typeof parseRunBlock>[] = [];
       $("h2.wsite-content-title").each((_, el) => {
-        let innerHtml = $(el).html() ?? "";
-        // Same logic as extractWeeblyBlockText in the adapter:
-        innerHtml = innerHtml.replace(/\s+/g, " ");
-        innerHtml = innerHtml.replace(/<\/(span|strong|font|a|em|b|i)>/gi, "</$1> ");
-        innerHtml = innerHtml.replace(/<br\s*\/?>/gi, "\n");
-        innerHtml = innerHtml.replace(/<[^>]+>/g, "");
-        const blockText = decodeEntities(innerHtml)
-          .split("\n")
-          .map((line: string) => line.replace(/\s{2,}/g, " ").trim())
-          .join("\n");
+        const blockText = extractWeeblyBlockText($(el).html() ?? "");
         const parsed = parseRunBlock(blockText);
         if (parsed) runs.push(parsed);
       });
@@ -211,9 +201,6 @@ Venue Some Place`;
     }
 
     it("parses real Weebly HTML with <strong> + <br> structure", () => {
-      // Actual edinburghh3.com structure: fields inside <strong> separated by <br>.
-      // IMPORTANT: No template literal newlines between adjacent inline elements —
-      // Weebly renders them on the same line. Only <br> creates line breaks.
       const html = `<html><body><h2 class="wsite-content-title"><strong>Run No. 2302<br>Date 22nd March 2026<br>Hares Rugrat &amp; Hairspray</strong><br><strong>Venue</strong> <strong>Holyrood Park,</strong> <a href="#">Meadowbank car park</a> <strong>(EH8 7AT)</strong><br><strong>Time 11:00</strong><br><strong>ON INN:</strong> <a href="#">The Bellfield Brewery</a> <strong>.</strong></h2><h2 class="wsite-content-title"><strong>Run No. 2303<br>Date 29th March 2026<br>Hares Shaggus &amp; Megasaurarse</strong><br><strong>Venue</strong> <strong>Car Park, Glenlochart Road, EH10 5PY</strong><br><strong>Time 11:00</strong></h2></body></html>`;
 
       const runs = extractFromH2s(html);
@@ -222,12 +209,13 @@ Venue Some Place`;
       expect(runs[0]!.runNumber).toBe(2302);
       expect(runs[0]!.date).toBe("2026-03-22");
       expect(runs[0]!.hares).toBe("Rugrat & Hairspray");
-      expect(runs[0]!.location).toContain("Holyrood Park");
+      expect(runs[0]!.location).toBe("Holyrood Park, Meadowbank car park (EH8 7AT)");
       expect(runs[0]!.startTime).toBe("11:00");
-      // ON INN may or may not parse depending on whitespace — verify it's at least present in the block
-      // The important thing is that date, hares, venue, and time all extract correctly
+      expect(runs[0]!.onInn).toBe("The Bellfield Brewery.");
       expect(runs[1]!.runNumber).toBe(2303);
       expect(runs[1]!.date).toBe("2026-03-29");
+      expect(runs[1]!.hares).toBe("Shaggus & Megasaurarse");
+      expect(runs[1]!.location).toBe("Car Park, Glenlochart Road, EH10 5PY");
     });
 
     it("handles nested font tags inside strong", () => {
@@ -239,6 +227,7 @@ Venue Some Place`;
       expect(runs[0]!.runNumber).toBe(2310);
       expect(runs[0]!.date).toBe("2026-05-01");
       expect(runs[0]!.hares).toBe("Captain Slog");
+      expect(runs[0]!.location).toBe("Arthur's Seat Car Park");
       expect(runs[0]!.startTime).toBe("10:30");
     });
   });

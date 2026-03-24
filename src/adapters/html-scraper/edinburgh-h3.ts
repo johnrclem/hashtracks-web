@@ -139,24 +139,18 @@ export function parseEdinburghRuns(text: string): ParsedRun[] {
 }
 
 /**
- * Extract text from a Weebly h2 element's innerHTML, converting <br> to \n.
- * Inserts spaces after inline elements so adjacent <strong>s don't concatenate
- * (Cheerio's .text() merges them without spaces).
+ * Extract text from a Weebly h2 element's innerHTML, converting `<br>` to `\n`.
+ * Collapses all whitespace first (so only `<br>` produces line breaks), inserts
+ * spaces after inline closing tags, strips HTML, and cleans punctuation artifacts.
  */
-function extractWeeblyBlockText(innerHtml: string): string {
-  // First collapse all existing whitespace (including template literal newlines) to single spaces
-  // THEN convert <br> to newlines — this ensures only <br> produces line breaks
-  let html = innerHtml.replace(/\s+/g, " ");
-  // Insert spaces after inline closing tags so adjacent elements get separated
-  html = html.replace(/<\/(span|strong|font|a|em|b|i)>/gi, "</$1> ");
-  // Convert <br> to newlines (the ONLY source of line breaks)
-  html = html.replace(/<br\s*\/?>/gi, "\n");
-  // Strip remaining tags
-  html = html.replace(/<[^>]+>/g, "");
-  // Decode entities, normalize whitespace per line
+export function extractWeeblyBlockText(innerHtml: string): string {
+  let html = innerHtml.replaceAll(/\s+/g, " ");
+  html = html.replaceAll(/<\/(span|strong|font|a|em|b|i|p|div)>/gi, "</$1> ");
+  html = html.replaceAll(/<br\s*\/?>/gi, "\n");
+  html = html.replaceAll(/<[^>]+>/g, "");
   return decodeEntities(html)
     .split("\n")
-    .map((line) => line.replace(/\s{2,}/g, " ").trim())
+    .map((line) => line.replaceAll(/\s{2,}/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim())
     .join("\n");
 }
 
@@ -181,9 +175,8 @@ export class EdinburghH3Adapter implements SourceAdapter {
 
     try {
       // Parse each <h2 class="wsite-content-title"> as a run block.
-      // Weebly renders fields inside <strong> with <br> tags for line breaks.
-      // Cheerio's .text() ignores <br>, so we walk the DOM recursively,
-      // converting <br> to \n to produce parseable per-line output.
+      // Weebly renders fields inside <strong> with <br> for line breaks.
+      // extractWeeblyBlockText() converts innerHTML to parseable per-line text.
       const h2s = $("h2.wsite-content-title");
       const runs: ParsedRun[] = [];
       h2s.each((_, el) => {
