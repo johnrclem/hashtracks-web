@@ -293,7 +293,7 @@ export const SOURCES = [
     },
     // Ireland
     {
-      name: "Dublin H3 Website Archive",
+      name: "Dublin H3 Website Hareline",
       url: "https://dublinhhh.com/archive",
       type: "HTML_SCRAPER" as const,
       trustLevel: 7,
