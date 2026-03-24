@@ -258,11 +258,12 @@ enum SourceHealth {
 }
 
 model SourceKennel {
-  id       String @id @default(cuid())
-  sourceId String
-  kennelId String
-  source   Source @relation(fields: [sourceId], references: [id])
-  kennel   Kennel @relation(fields: [kennelId], references: [id])
+  id           String  @id @default(cuid())
+  sourceId     String
+  kennelId     String
+  externalSlug String? // External kennel identifier (e.g., HashRego slug "BFMH3")
+  source       Source  @relation(fields: [sourceId], references: [id])
+  kennel       Kennel  @relation(fields: [kennelId], references: [id])
 
   @@unique([sourceId, kennelId])
 }

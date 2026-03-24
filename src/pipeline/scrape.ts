@@ -307,8 +307,18 @@ export async function scrapeSource(
 
     const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
 
+    // For HASHREGO, load SourceKennel externalSlugs and pass to adapter
+    let kennelSlugs: string[] | undefined;
+    if (source.type === "HASHREGO") {
+      const sks = await prisma.sourceKennel.findMany({
+        where: { sourceId, externalSlug: { not: null } },
+        select: { externalSlug: true },
+      });
+      kennelSlugs = sks.map((sk) => sk.externalSlug!);
+    }
+
     const fetchStart = Date.now();
-    const scrapeResult = await adapter.fetch(source, { days });
+    const scrapeResult = await adapter.fetch(source, { days, kennelSlugs });
     const fetchDurationMs = Date.now() - fetchStart;
 
     // AI Recovery

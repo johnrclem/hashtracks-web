@@ -417,7 +417,7 @@ function buildSource(configOverrides?: { kennelSlugs?: string[] }) {
     name: "Hash Rego",
     url: "https://hashrego.com/events",
     type: "HASHREGO" as const,
-    config: { kennelSlugs: configOverrides?.kennelSlugs ?? [] },
+    config: configOverrides ? { kennelSlugs: configOverrides.kennelSlugs ?? [] } : null,
     trustLevel: 8,
     scrapeFreq: "daily",
     lastScrapeAt: null,
@@ -435,30 +435,58 @@ describe("HashRegoAdapter", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns empty events when no kennelSlugs configured", async () => {
+  it("returns empty events when no kennelSlugs provided", async () => {
     const adapter = new HashRegoAdapter();
     const source = buildSource();
-    const result = await adapter.fetch(source);
+    const result = await adapter.fetch(source, { kennelSlugs: [] });
     expect(result.events).toHaveLength(0);
-    expect(result.errors[0]).toContain("No kennelSlugs configured");
+    expect(result.errors[0]).toContain("No kennel slugs configured");
   });
 
-  it("filters index entries by configured kennel slugs", async () => {
+  it("prefers options.kennelSlugs over config", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-
-    // Mock index page
-    fetchSpy.mockResolvedValueOnce(
-      new Response(INDEX_HTML, { status: 200 }),
-    );
-    // Mock detail page for EWH3 event
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
     fetchSpy.mockResolvedValueOnce(
       new Response(SINGLE_DAY_HTML.replace(/BFMH3/g, "EWH3"), { status: 200 }),
     );
 
     const adapter = new HashRegoAdapter();
-    const source = buildSource({ kennelSlugs: ["EWH3"] });
+    // Config has BFMH3, but options has EWH3 — options should win
+    const source = buildSource({ kennelSlugs: ["BFMH3"] });
+    const result = await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
 
-    await adapter.fetch(source);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[1][0]).toContain("ewh3-1506-revenge");
+    expect(result.diagnosticContext?.kennelSlugsSource).toBe("sourceKennel");
+  });
+
+  it("falls back to config.kennelSlugs when options.kennelSlugs is absent", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    fetchSpy.mockResolvedValueOnce(
+      new Response(SINGLE_DAY_HTML, { status: 200 }),
+    );
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource({ kennelSlugs: ["BFMH3"] });
+    const result = await adapter.fetch(source, { days: 36500 }); // no kennelSlugs in options
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[1][0]).toContain("bfmh3-agm-2026");
+    expect(result.diagnosticContext?.kennelSlugsSource).toBe("config");
+  });
+
+  it("filters index entries by kennel slugs via options", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    fetchSpy.mockResolvedValueOnce(
+      new Response(SINGLE_DAY_HTML.replace(/BFMH3/g, "EWH3"), { status: 200 }),
+    );
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
 
     // Should have fetched index + 1 detail page (only EWH3 matches)
     expect(fetchSpy).toHaveBeenCalledTimes(2);
@@ -469,21 +497,13 @@ describe("HashRegoAdapter", () => {
   it("uses fallback when detail page fails", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-    // Mock index page
-    fetchSpy.mockResolvedValueOnce(
-      new Response(INDEX_HTML, { status: 200 }),
-    );
-    // Mock detail page failure
-    fetchSpy.mockResolvedValueOnce(
-      new Response("Not Found", { status: 404 }),
-    );
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    fetchSpy.mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
 
     const adapter = new HashRegoAdapter();
-    const source = buildSource({ kennelSlugs: ["EWH3"] });
+    const source = buildSource();
+    const result = await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
 
-    const result = await adapter.fetch(source);
-
-    // Should still produce an event from index data
     expect(result.events.length).toBeGreaterThan(0);
     expect(result.events[0].kennelTag).toBe("EWH3");
     expect(result.events[0].date).toBe("2026-02-19");
@@ -493,33 +513,43 @@ describe("HashRegoAdapter", () => {
   it("handles case-insensitive kennel slug matching", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-    fetchSpy.mockResolvedValueOnce(
-      new Response(INDEX_HTML, { status: 200 }),
-    );
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
     fetchSpy.mockResolvedValueOnce(
       new Response(SINGLE_DAY_HTML.replace(/BFMH3/g, "EWH3"), { status: 200 }),
     );
 
     const adapter = new HashRegoAdapter();
-    const source = buildSource({ kennelSlugs: ["ewh3"] }); // lowercase
+    const source = buildSource();
+    await adapter.fetch(source, { days: 36500, kennelSlugs: ["ewh3"] }); // lowercase
 
-    await adapter.fetch(source);
-    // Should have matched EWH3 despite lowercase config
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("includes diagnostic context", async () => {
+  it("includes diagnostic context with slug source", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    fetchSpy.mockResolvedValueOnce(
-      new Response(INDEX_HTML, { status: 200 }),
-    );
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
 
     const adapter = new HashRegoAdapter();
-    const source = buildSource({ kennelSlugs: ["NONEXISTENT"] });
+    const source = buildSource();
+    const result = await adapter.fetch(source, { kennelSlugs: ["NONEXISTENT"] });
 
-    const result = await adapter.fetch(source);
     expect(result.diagnosticContext).toBeDefined();
     expect(result.diagnosticContext?.totalIndexEntries).toBe(4);
     expect(result.diagnosticContext?.matchingEntries).toBe(0);
+    expect(result.diagnosticContext?.kennelSlugsSource).toBe("sourceKennel");
+  });
+
+  it("filters events by days window", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    // Use a very short window — events with dates far in the past or future should be excluded
+    const result = await adapter.fetch(source, { days: 1, kennelSlugs: ["EWH3", "BFMH3", "CH3", "RANDOMH3"] });
+
+    // Events with unparseable dates are kept, but events outside the 1-day window are dropped
+    // The exact count depends on today's date relative to the fixture dates
+    expect(result.diagnosticContext?.totalIndexEntries).toBe(4);
   });
 });

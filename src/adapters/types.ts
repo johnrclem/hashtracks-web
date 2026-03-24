@@ -80,7 +80,7 @@ export interface ScrapeResult {
 /** All adapters implement this interface */
 export interface SourceAdapter {
   type: SourceType;
-  fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult>;
+  fetch(source: Source, options?: { days?: number; kennelSlugs?: string[] }): Promise<ScrapeResult>;
 }
 
 /** Result of the merge pipeline processing */
