@@ -200,51 +200,51 @@ Join us for a great time.' />
 </body>
 </html>`;
 
-describe("parseEventDetail", () => {
-  const indexEntry = {
-    slug: "bfmh3-agm-2026",
-    kennelSlug: "BFMH3",
-    title: "BFMH3 AGM 2026",
-    startDate: "02/05/26",
-    startTime: "07:00 PM",
-    type: "Trail",
-    cost: "$35",
-  };
+const BFMH3_INDEX_ENTRY = {
+  slug: "bfmh3-agm-2026",
+  kennelSlug: "BFMH3",
+  title: "BFMH3 AGM 2026",
+  startDate: "02/05/26",
+  startTime: "07:00 PM",
+  type: "Trail",
+  cost: "$35",
+};
 
+describe("parseEventDetail", () => {
   it("extracts title from og:title", () => {
-    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", indexEntry);
+    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
     expect(parsed.title).toBe("BFMH3 AGM 2026: The Dog Days Are Over");
   });
 
   it("extracts kennel slug from sidebar link", () => {
-    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", indexEntry);
+    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
     expect(parsed.kennelSlug).toBe("BFMH3");
   });
 
   it("extracts hares", () => {
-    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", indexEntry);
+    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
     expect(parsed.hares).toBe("BananAss");
   });
 
   it("extracts cost", () => {
-    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", indexEntry);
+    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
     expect(parsed.cost).toBe("$35");
   });
 
   it("extracts location from Where field", () => {
-    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", indexEntry);
+    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
     expect(parsed.location).toBe("Misconduct Tavern Rittenhouse");
   });
 
   it("detects single-day event", () => {
-    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", indexEntry);
+    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
     expect(parsed.isMultiDay).toBe(false);
     expect(parsed.dates).toHaveLength(1);
     expect(parsed.dates[0]).toBe("2026-02-05");
   });
 
   it("cleans description by removing extracted fields", () => {
-    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", indexEntry);
+    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
     expect(parsed.description).toBeDefined();
     // Should not contain the extracted field lines
     expect(parsed.description).not.toContain("**Hare(s):**");
@@ -285,24 +285,24 @@ Location: Holiday Club
 </body>
 </html>`;
 
-describe("parseEventDetail (multi-day)", () => {
-  const indexEntry = {
-    slug: "anthrax-2025",
-    kennelSlug: "CH3",
-    title: "Anthrax of Horrors 2025",
-    startDate: "12/12/25",
-    startTime: "07:00 PM",
-    type: "Hash Weekend",
-    cost: "$119",
-  };
+const ANTHRAX_INDEX_ENTRY = {
+  slug: "anthrax-2025",
+  kennelSlug: "CH3",
+  title: "Anthrax of Horrors 2025",
+  startDate: "12/12/25",
+  startTime: "07:00 PM",
+  type: "Hash Weekend",
+  cost: "$119",
+};
 
+describe("parseEventDetail (multi-day)", () => {
   it("detects multi-day event from date range", () => {
-    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", indexEntry);
+    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", ANTHRAX_INDEX_ENTRY);
     expect(parsed.isMultiDay).toBe(true);
   });
 
   it("generates dates for each day in range", () => {
-    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", indexEntry);
+    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", ANTHRAX_INDEX_ENTRY);
     expect(parsed.dates).toHaveLength(3);
     expect(parsed.dates[0]).toBe("2025-12-12");
     expect(parsed.dates[1]).toBe("2025-12-13");
@@ -310,7 +310,7 @@ describe("parseEventDetail (multi-day)", () => {
   });
 
   it("extracts kennel slug", () => {
-    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", indexEntry);
+    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", ANTHRAX_INDEX_ENTRY);
     expect(parsed.kennelSlug).toBe("CH3");
   });
 });
@@ -319,15 +319,7 @@ describe("parseEventDetail (multi-day)", () => {
 
 describe("splitToRawEvents", () => {
   it("produces one event for single-day", () => {
-    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", {
-      slug: "bfmh3-agm-2026",
-      kennelSlug: "BFMH3",
-      title: "BFMH3 AGM 2026",
-      startDate: "02/05/26",
-      startTime: "07:00 PM",
-      type: "Trail",
-      cost: "$35",
-    });
+    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
     const events = splitToRawEvents(parsed, "bfmh3-agm-2026");
     expect(events).toHaveLength(1);
     expect(events[0].date).toBe("2026-02-05");
@@ -339,29 +331,13 @@ describe("splitToRawEvents", () => {
   });
 
   it("does not set seriesId for single-day events", () => {
-    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", {
-      slug: "bfmh3-agm-2026",
-      kennelSlug: "BFMH3",
-      title: "BFMH3 AGM 2026",
-      startDate: "02/05/26",
-      startTime: "07:00 PM",
-      type: "Trail",
-      cost: "$35",
-    });
+    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
     const events = splitToRawEvents(parsed, "bfmh3-agm-2026");
     expect(events[0].seriesId).toBeUndefined();
   });
 
   it("produces multiple events for multi-day with seriesId", () => {
-    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", {
-      slug: "anthrax-2025",
-      kennelSlug: "CH3",
-      title: "Anthrax of Horrors 2025",
-      startDate: "12/12/25",
-      startTime: "07:00 PM",
-      type: "Hash Weekend",
-      cost: "$119",
-    });
+    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", ANTHRAX_INDEX_ENTRY);
     const events = splitToRawEvents(parsed, "anthrax-2025");
     expect(events).toHaveLength(3);
     expect(events[0].date).toBe("2025-12-12");
@@ -375,15 +351,7 @@ describe("splitToRawEvents", () => {
   });
 
   it("adds day labels to multi-day event titles", () => {
-    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", {
-      slug: "anthrax-2025",
-      kennelSlug: "CH3",
-      title: "Anthrax of Horrors 2025",
-      startDate: "12/12/25",
-      startTime: "07:00 PM",
-      type: "Hash Weekend",
-      cost: "$119",
-    });
+    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", ANTHRAX_INDEX_ENTRY);
     const events = splitToRawEvents(parsed, "anthrax-2025");
     expect(events[0].title).toContain("(Day 1)");
     expect(events[1].title).toContain("(Day 2)");
@@ -391,15 +359,7 @@ describe("splitToRawEvents", () => {
   });
 
   it("all multi-day events share the same Hash Rego link", () => {
-    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", {
-      slug: "anthrax-2025",
-      kennelSlug: "CH3",
-      title: "Anthrax of Horrors 2025",
-      startDate: "12/12/25",
-      startTime: "07:00 PM",
-      type: "Hash Weekend",
-      cost: "$119",
-    });
+    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", ANTHRAX_INDEX_ENTRY);
     const events = splitToRawEvents(parsed, "anthrax-2025");
     for (const e of events) {
       expect(e.externalLinks).toEqual([
@@ -417,7 +377,7 @@ function buildSource(configOverrides?: { kennelSlugs?: string[] }) {
     name: "Hash Rego",
     url: "https://hashrego.com/events",
     type: "HASHREGO" as const,
-    config: { kennelSlugs: configOverrides?.kennelSlugs ?? [] },
+    config: configOverrides ? { kennelSlugs: configOverrides.kennelSlugs ?? [] } : null,
     trustLevel: 8,
     scrapeFreq: "daily",
     lastScrapeAt: null,
@@ -433,32 +393,67 @@ function buildSource(configOverrides?: { kennelSlugs?: string[] }) {
 describe("HashRegoAdapter", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // Freeze time to before all fixture dates so they fall within the forward window
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
   });
 
-  it("returns empty events when no kennelSlugs configured", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("returns empty events when no kennelSlugs provided", async () => {
     const adapter = new HashRegoAdapter();
     const source = buildSource();
-    const result = await adapter.fetch(source);
+    const result = await adapter.fetch(source, { kennelSlugs: [] });
     expect(result.events).toHaveLength(0);
-    expect(result.errors[0]).toContain("No kennelSlugs configured");
+    expect(result.errors[0]).toContain("No kennel slugs configured");
   });
 
-  it("filters index entries by configured kennel slugs", async () => {
+  it("prefers options.kennelSlugs over config", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-
-    // Mock index page
-    fetchSpy.mockResolvedValueOnce(
-      new Response(INDEX_HTML, { status: 200 }),
-    );
-    // Mock detail page for EWH3 event
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
     fetchSpy.mockResolvedValueOnce(
       new Response(SINGLE_DAY_HTML.replace(/BFMH3/g, "EWH3"), { status: 200 }),
     );
 
     const adapter = new HashRegoAdapter();
-    const source = buildSource({ kennelSlugs: ["EWH3"] });
+    // Config has BFMH3, but options has EWH3 — options should win
+    const source = buildSource({ kennelSlugs: ["BFMH3"] });
+    const result = await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
 
-    await adapter.fetch(source);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[1][0]).toContain("ewh3-1506-revenge");
+    expect(result.diagnosticContext?.kennelSlugsSource).toBe("sourceKennel");
+  });
+
+  it("falls back to config.kennelSlugs when options.kennelSlugs is absent", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    fetchSpy.mockResolvedValueOnce(
+      new Response(SINGLE_DAY_HTML, { status: 200 }),
+    );
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource({ kennelSlugs: ["BFMH3"] });
+    const result = await adapter.fetch(source, { days: 36500 }); // no kennelSlugs in options
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[1][0]).toContain("bfmh3-agm-2026");
+    expect(result.diagnosticContext?.kennelSlugsSource).toBe("config");
+  });
+
+  it("filters index entries by kennel slugs via options", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    fetchSpy.mockResolvedValueOnce(
+      new Response(SINGLE_DAY_HTML.replace(/BFMH3/g, "EWH3"), { status: 200 }),
+    );
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
 
     // Should have fetched index + 1 detail page (only EWH3 matches)
     expect(fetchSpy).toHaveBeenCalledTimes(2);
@@ -469,21 +464,13 @@ describe("HashRegoAdapter", () => {
   it("uses fallback when detail page fails", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-    // Mock index page
-    fetchSpy.mockResolvedValueOnce(
-      new Response(INDEX_HTML, { status: 200 }),
-    );
-    // Mock detail page failure
-    fetchSpy.mockResolvedValueOnce(
-      new Response("Not Found", { status: 404 }),
-    );
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    fetchSpy.mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
 
     const adapter = new HashRegoAdapter();
-    const source = buildSource({ kennelSlugs: ["EWH3"] });
+    const source = buildSource();
+    const result = await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
 
-    const result = await adapter.fetch(source);
-
-    // Should still produce an event from index data
     expect(result.events.length).toBeGreaterThan(0);
     expect(result.events[0].kennelTag).toBe("EWH3");
     expect(result.events[0].date).toBe("2026-02-19");
@@ -493,33 +480,45 @@ describe("HashRegoAdapter", () => {
   it("handles case-insensitive kennel slug matching", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-    fetchSpy.mockResolvedValueOnce(
-      new Response(INDEX_HTML, { status: 200 }),
-    );
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
     fetchSpy.mockResolvedValueOnce(
       new Response(SINGLE_DAY_HTML.replace(/BFMH3/g, "EWH3"), { status: 200 }),
     );
 
     const adapter = new HashRegoAdapter();
-    const source = buildSource({ kennelSlugs: ["ewh3"] }); // lowercase
+    const source = buildSource();
+    await adapter.fetch(source, { days: 36500, kennelSlugs: ["ewh3"] }); // lowercase
 
-    await adapter.fetch(source);
-    // Should have matched EWH3 despite lowercase config
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("includes diagnostic context", async () => {
+  it("includes diagnostic context with slug source", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    fetchSpy.mockResolvedValueOnce(
-      new Response(INDEX_HTML, { status: 200 }),
-    );
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
 
     const adapter = new HashRegoAdapter();
-    const source = buildSource({ kennelSlugs: ["NONEXISTENT"] });
+    const source = buildSource();
+    const result = await adapter.fetch(source, { kennelSlugs: ["NONEXISTENT"] });
 
-    const result = await adapter.fetch(source);
     expect(result.diagnosticContext).toBeDefined();
     expect(result.diagnosticContext?.totalIndexEntries).toBe(4);
     expect(result.diagnosticContext?.matchingEntries).toBe(0);
+    expect(result.diagnosticContext?.kennelSlugsSource).toBe("sourceKennel");
+  });
+
+  it("filters events by days window", async () => {
+    vi.setSystemTime(new Date("2026-02-15T12:00:00Z"));
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    // days=10 → lookback 7 days (Feb 8), cutoff +10 days (Feb 25)
+    // EWH3 02/19/26 ✓ (within window), BFMH3 02/05/26 ✗ (before Feb 8 lookback)
+    // CH3 12/12/25 ✗ (way before), RANDOMH3 03/01/26 ✗ (after Feb 25)
+    const result = await adapter.fetch(source, { days: 10, kennelSlugs: ["EWH3", "BFMH3", "CH3", "RANDOMH3"] });
+
+    expect(result.diagnosticContext?.matchingEntries).toBe(1); // Only EWH3
   });
 });

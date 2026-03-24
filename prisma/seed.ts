@@ -251,7 +251,7 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
   console.log("Seeding sources...");
   let created = 0;
   for (const source of sources) {
-    const { kennelCodes, ...sourceData } = source;
+    const { kennelCodes, kennelSlugMap, ...sourceData } = source;
 
     // Check if source already exists by URL or name+type
     const existingSource = await prisma.source.findFirst({
@@ -295,7 +295,7 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
         }
       }
 
-      await linkKennelsToSource(prisma, activeSource.id, kennelCodes, kennelRecords);
+      await linkKennelsToSource(prisma, activeSource.id, kennelCodes, kennelRecords, kennelSlugMap);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       const meta = e != null && typeof e === "object" && "meta" in e ? (e as { meta: unknown }).meta : undefined;
@@ -308,14 +308,15 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function linkKennelsToSource(prisma: any, sourceId: string, kennelCodes: string[], kennelRecords: Map<string, { id: string }>) {
+async function linkKennelsToSource(prisma: any, sourceId: string, kennelCodes: string[], kennelRecords: Map<string, { id: string }>, slugMap?: Record<string, string>) {
   for (const code of kennelCodes) {
     const kennel = kennelRecords.get(code);
     if (!kennel) { console.warn(`  ⚠ Kennel code "${code}" not found, skipping source link`); continue; }
+    const externalSlug = slugMap?.[code] ?? null;
     await prisma.sourceKennel.upsert({
       where: { sourceId_kennelId: { sourceId, kennelId: kennel.id } },
-      update: {},
-      create: { sourceId, kennelId: kennel.id },
+      update: slugMap ? { externalSlug } : {},
+      create: { sourceId, kennelId: kennel.id, ...(externalSlug ? { externalSlug } : {}) },
     });
   }
 }
