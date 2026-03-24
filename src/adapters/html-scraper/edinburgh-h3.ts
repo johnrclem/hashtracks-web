@@ -24,7 +24,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { chronoParseDate, fetchHTMLPage, buildDateWindow, stripPlaceholder } from "../utils";
+import { chronoParseDate, fetchHTMLPage, buildDateWindow, stripPlaceholder, decodeEntities } from "../utils";
 
 /** Parsed fields from a single run block. */
 export interface ParsedRun {
@@ -138,6 +138,22 @@ export function parseEdinburghRuns(text: string): ParsedRun[] {
   return runs;
 }
 
+/**
+ * Extract text from a Weebly h2 element's innerHTML, converting `<br>` to `\n`.
+ * Collapses all whitespace first (so only `<br>` produces line breaks), inserts
+ * spaces after inline closing tags, strips HTML, and cleans punctuation artifacts.
+ */
+export function extractWeeblyBlockText(innerHtml: string): string {
+  let html = innerHtml.replaceAll(/\s+/g, " ");
+  html = html.replaceAll(/<\/(span|strong|font|a|em|b|i|p|div)>/gi, "</$1> ");
+  html = html.replaceAll(/<br\s*\/?>/gi, "\n");
+  html = html.replaceAll(/<[^>]+>/g, "");
+  return decodeEntities(html)
+    .split("\n")
+    .map((line) => line.replaceAll(/\s{2,}/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim())
+    .join("\n");
+}
+
 export class EdinburghH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -159,17 +175,13 @@ export class EdinburghH3Adapter implements SourceAdapter {
 
     try {
       // Parse each <h2 class="wsite-content-title"> as a run block.
-      // Weebly renders run data as inline <span>/<font>/<a> children within a single <h2>.
-      // Cheerio's .text() concatenates these without newlines, so we join children manually.
+      // Weebly renders fields inside <strong> with <br> for line breaks.
+      // extractWeeblyBlockText() converts innerHTML to parseable per-line text.
       const h2s = $("h2.wsite-content-title");
       const runs: ParsedRun[] = [];
       h2s.each((_, el) => {
-        const lines: string[] = [];
-        $(el).children().each((_, child) => {
-          const t = $(child).text().trim();
-          if (t) lines.push(t);
-        });
-        const blockText = lines.join("\n");
+        const innerHtml = $(el).html() ?? "";
+        const blockText = extractWeeblyBlockText(innerHtml);
         const parsed = parseRunBlock(blockText);
         if (parsed) runs.push(parsed);
       });
