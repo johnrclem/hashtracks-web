@@ -13,6 +13,7 @@ import { createManualEvent, searchKennels } from "@/app/logbook/actions";
 import { PARTICIPATION_LEVELS, participationLevelLabel, regionAbbrev, regionColorClasses } from "@/lib/format";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   useState,
   useEffect,
@@ -69,9 +70,11 @@ export function LogUnlistedRunDialog({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Reset state when dialog opens
+  // Reset state when dialog opens — batched via unstable_batchedUpdates equivalent
+  // (React 18+ auto-batches setState in effects, so this is safe)
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (open) {
+    if (open && !prevOpenRef.current) {
       setKennelId(null);
       setKennelQuery("");
       setKennelResults([]);
@@ -85,6 +88,7 @@ export function LogUnlistedRunDialog({
       setShowMoreLevels(false);
       setError(null);
     }
+    prevOpenRef.current = open;
   }, [open]);
 
   // Close dropdown when clicking outside
@@ -344,12 +348,12 @@ export function LogUnlistedRunDialog({
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t bg-muted/50 px-6 py-3">
-          <a
+          <Link
             href="/kennels/request"
             className="text-xs text-blue-500 hover:text-blue-600 transition-colors"
           >
             Can&apos;t find your kennel? Request it
-          </a>
+          </Link>
           <Button
             onClick={handleSubmit}
             disabled={isPending || !kennelId || !date}
