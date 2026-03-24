@@ -24,7 +24,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { chronoParseDate, fetchHTMLPage, buildDateWindow, stripPlaceholder } from "../utils";
+import { chronoParseDate, fetchHTMLPage, buildDateWindow, stripPlaceholder, decodeEntities } from "../utils";
 
 /** Parsed fields from a single run block. */
 export interface ParsedRun {
@@ -138,6 +138,28 @@ export function parseEdinburghRuns(text: string): ParsedRun[] {
   return runs;
 }
 
+/**
+ * Extract text from a Weebly h2 element's innerHTML, converting <br> to \n.
+ * Inserts spaces after inline elements so adjacent <strong>s don't concatenate
+ * (Cheerio's .text() merges them without spaces).
+ */
+function extractWeeblyBlockText(innerHtml: string): string {
+  // First collapse all existing whitespace (including template literal newlines) to single spaces
+  // THEN convert <br> to newlines — this ensures only <br> produces line breaks
+  let html = innerHtml.replace(/\s+/g, " ");
+  // Insert spaces after inline closing tags so adjacent elements get separated
+  html = html.replace(/<\/(span|strong|font|a|em|b|i)>/gi, "</$1> ");
+  // Convert <br> to newlines (the ONLY source of line breaks)
+  html = html.replace(/<br\s*\/?>/gi, "\n");
+  // Strip remaining tags
+  html = html.replace(/<[^>]+>/g, "");
+  // Decode entities, normalize whitespace per line
+  return decodeEntities(html)
+    .split("\n")
+    .map((line) => line.replace(/\s{2,}/g, " ").trim())
+    .join("\n");
+}
+
 export class EdinburghH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -159,17 +181,14 @@ export class EdinburghH3Adapter implements SourceAdapter {
 
     try {
       // Parse each <h2 class="wsite-content-title"> as a run block.
-      // Weebly renders run data as inline <span>/<font>/<a> children within a single <h2>.
-      // Cheerio's .text() concatenates these without newlines, so we join children manually.
+      // Weebly renders fields inside <strong> with <br> tags for line breaks.
+      // Cheerio's .text() ignores <br>, so we walk the DOM recursively,
+      // converting <br> to \n to produce parseable per-line output.
       const h2s = $("h2.wsite-content-title");
       const runs: ParsedRun[] = [];
       h2s.each((_, el) => {
-        const lines: string[] = [];
-        $(el).children().each((_, child) => {
-          const t = $(child).text().trim();
-          if (t) lines.push(t);
-        });
-        const blockText = lines.join("\n");
+        const innerHtml = $(el).html() ?? "";
+        const blockText = extractWeeblyBlockText(innerHtml);
         const parsed = parseRunBlock(blockText);
         if (parsed) runs.push(parsed);
       });
