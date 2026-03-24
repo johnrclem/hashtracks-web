@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import * as cheerio from "cheerio";
 import { parseRunBlock, parseEdinburghRuns, EdinburghH3Adapter } from "./edinburgh-h3";
 
 describe("EdinburghH3Adapter", () => {
@@ -183,6 +184,87 @@ Venue Some Place`;
 
       expect(runs).toHaveLength(1);
       expect(runs[0].runNumber).toBe(2302);
+    });
+  });
+
+  describe("Weebly HTML integration", () => {
+    it("parses realistic Weebly HTML with inline spans (no newlines)", () => {
+      // This mimics the actual edinburghh3.com structure where all run data
+      // is inside a single <h2> with inline <span>/<font> children.
+      // Cheerio's .text() on the body would produce one long line per <h2>.
+      const html = `<html><body>
+        <h2 class="wsite-content-title">
+          <span>Run No. 2302</span>
+          <span>Date 22nd March 2026</span>
+          <span>Hares Rugrat &amp; Hairspray</span>
+          <span>Venue Holyrood Park, Meadowbank car park (EH8 7AT)</span>
+          <span>Time 11:00</span>
+          <span>ON INN: The Bellfield Brewery.</span>
+        </h2>
+        <h2 class="wsite-content-title">
+          <span>Run No. 2303</span>
+          <span>Date 29th March 2026</span>
+          <span>Hares Shaggus &amp; Megasaurarse</span>
+          <span>Venue Car Park, Glenlochart Road, EH10 5PY</span>
+          <span>Time 11:00</span>
+        </h2>
+      </body></html>`;
+
+      const $ = cheerio.load(html);
+      const runs: ReturnType<typeof parseRunBlock>[] = [];
+      $("h2.wsite-content-title").each((_, el) => {
+        const lines: string[] = [];
+        $(el).children().each((_, child) => {
+          const t = $(child).text().trim();
+          if (t) lines.push(t);
+        });
+        const blockText = lines.join("\n");
+        const parsed = parseRunBlock(blockText);
+        if (parsed) runs.push(parsed);
+      });
+
+      expect(runs).toHaveLength(2);
+      expect(runs[0]!.runNumber).toBe(2302);
+      expect(runs[0]!.date).toBe("2026-03-22");
+      expect(runs[0]!.hares).toBe("Rugrat & Hairspray");
+      expect(runs[0]!.location).toBe("Holyrood Park, Meadowbank car park (EH8 7AT)");
+      expect(runs[0]!.startTime).toBe("11:00");
+      expect(runs[0]!.onInn).toBe("The Bellfield Brewery.");
+      expect(runs[1]!.runNumber).toBe(2303);
+      expect(runs[1]!.date).toBe("2026-03-29");
+      expect(runs[1]!.hares).toBe("Shaggus & Megasaurarse");
+      expect(runs[1]!.location).toBe("Car Park, Glenlochart Road, EH10 5PY");
+    });
+
+    it("handles nested font tags inside spans", () => {
+      const html = `<html><body>
+        <h2 class="wsite-content-title">
+          <span><font color="#000000">Run No. 2310</font></span>
+          <span><font color="#000000">Date 1st May 2026</font></span>
+          <span><font color="#000000">Hares Captain Slog</font></span>
+          <span><font color="#000000">Venue Arthur's Seat Car Park</font></span>
+          <span><font color="#000000">Time 10:30</font></span>
+        </h2>
+      </body></html>`;
+
+      const $ = cheerio.load(html);
+      const runs: ReturnType<typeof parseRunBlock>[] = [];
+      $("h2.wsite-content-title").each((_, el) => {
+        const lines: string[] = [];
+        $(el).children().each((_, child) => {
+          const t = $(child).text().trim();
+          if (t) lines.push(t);
+        });
+        const blockText = lines.join("\n");
+        const parsed = parseRunBlock(blockText);
+        if (parsed) runs.push(parsed);
+      });
+
+      expect(runs).toHaveLength(1);
+      expect(runs[0]!.runNumber).toBe(2310);
+      expect(runs[0]!.date).toBe("2026-05-01");
+      expect(runs[0]!.hares).toBe("Captain Slog");
+      expect(runs[0]!.startTime).toBe("10:30");
     });
   });
 

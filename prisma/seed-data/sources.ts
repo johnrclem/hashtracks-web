@@ -294,7 +294,7 @@ export const SOURCES = [
     // Ireland
     {
       name: "Dublin H3 Website Hareline",
-      url: "https://dublinhhh.com/hareline",
+      url: "https://dublinhhh.com/archive",
       type: "HTML_SCRAPER" as const,
       trustLevel: 7,
       scrapeFreq: "daily",

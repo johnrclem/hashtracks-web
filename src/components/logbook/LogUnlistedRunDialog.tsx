@@ -70,9 +70,11 @@ export function LogUnlistedRunDialog({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Reset state when dialog opens
+  // Reset state when dialog opens — batched via unstable_batchedUpdates equivalent
+  // (React 18+ auto-batches setState in effects, so this is safe)
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (open) {
+    if (open && !prevOpenRef.current) {
       setKennelId(null);
       setKennelQuery("");
       setKennelResults([]);
@@ -86,6 +88,7 @@ export function LogUnlistedRunDialog({
       setShowMoreLevels(false);
       setError(null);
     }
+    prevOpenRef.current = open;
   }, [open]);
 
   // Close dropdown when clicking outside

@@ -283,6 +283,9 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
         if (JSON.stringify(sourceData.config) !== JSON.stringify(existingSource.config)) {
           updates.config = sourceData.config;
         }
+        if (sourceData.url && sourceData.url !== existingSource.url) {
+          updates.url = sourceData.url;
+        }
         if (Object.keys(updates).length > 0) {
           await prisma.source.update({
             where: { id: existingSource.id },
