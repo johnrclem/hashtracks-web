@@ -310,7 +310,7 @@ async function linkKennelsToSource(prisma: any, sourceId: string, kennelCodes: s
     const externalSlug = slugMap?.[code] ?? null;
     await prisma.sourceKennel.upsert({
       where: { sourceId_kennelId: { sourceId, kennelId: kennel.id } },
-      update: externalSlug ? { externalSlug } : {},
+      update: slugMap ? { externalSlug } : {},
       create: { sourceId, kennelId: kennel.id, ...(externalSlug ? { externalSlug } : {}) },
     });
   }

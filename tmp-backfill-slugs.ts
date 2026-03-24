@@ -5,9 +5,7 @@
  * Usage: npx tsx tmp-backfill-slugs.ts
  */
 import "dotenv/config";
-import { PrismaClient } from "./src/generated/prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "./src/lib/db";
 
 async function main() {
   const hashregoSource = await prisma.source.findFirst({
@@ -63,5 +61,8 @@ async function main() {
 }
 
 main()
-  .catch(console.error)
+  .catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  })
   .finally(() => prisma.$disconnect());

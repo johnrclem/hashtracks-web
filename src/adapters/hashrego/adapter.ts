@@ -2,6 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { validateSourceConfig } from "../utils";
+import { safeFetch } from "../safe-fetch";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import {
   parseEventsIndex,
@@ -19,6 +20,7 @@ interface HashRegoConfig {
 
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 500;
+const LOOKBACK_DAYS = 7;
 const USER_AGENT = "Mozilla/5.0 (compatible; HashTracks-Scraper)";
 
 /**
@@ -65,7 +67,7 @@ export class HashRegoAdapter implements SourceAdapter {
     // Step 1: Fetch events index
     let indexHtml: string;
     try {
-      const res = await fetch("https://hashrego.com/events", {
+      const res = await safeFetch("https://hashrego.com/events", {
         headers: { "User-Agent": USER_AGENT },
       });
       if (!res.ok) {
@@ -87,7 +89,7 @@ export class HashRegoAdapter implements SourceAdapter {
     const days = options?.days ?? 90;
     const now = new Date();
     const lookbackDate = new Date(now);
-    lookbackDate.setDate(lookbackDate.getDate() - days);
+    lookbackDate.setDate(lookbackDate.getDate() - LOOKBACK_DAYS);
     const cutoffDate = new Date(now);
     cutoffDate.setDate(cutoffDate.getDate() + days);
 
@@ -146,16 +148,15 @@ async function fetchAndParseDetail(
 ): Promise<RawEventData[]> {
   try {
     const detailUrl = `https://hashrego.com/events/${entry.slug}`;
-    const detailRes = await fetch(detailUrl, {
+    const detailRes = await safeFetch(detailUrl, {
       headers: { "User-Agent": USER_AGENT },
     });
 
     if (!detailRes.ok) {
       errors.push(`Detail fetch failed for ${entry.slug}: HTTP ${detailRes.status}`);
-      errorDetails.fetch = [
-        ...(errorDetails.fetch ?? []),
+      (errorDetails.fetch ??= []).push(
         { url: detailUrl, status: detailRes.status, message: `HTTP ${detailRes.status}` },
-      ];
+      );
       return createFromIndex(entry);
     }
 
@@ -165,10 +166,9 @@ async function fetchAndParseDetail(
   } catch (err) {
     const msg = `Error processing ${entry.slug}: ${err}`;
     errors.push(msg);
-    errorDetails.parse = [
-      ...(errorDetails.parse ?? []),
+    (errorDetails.parse ??= []).push(
       { row: 0, section: entry.slug, error: String(err), rawText: `Slug: ${entry.slug}\nTitle: ${entry.title ?? "unknown"}\nDate: ${entry.startDate ?? "unknown"}`.slice(0, 2000) },
-    ];
+    );
     return createFromIndex(entry);
   }
 }
