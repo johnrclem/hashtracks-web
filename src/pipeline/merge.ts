@@ -113,8 +113,8 @@ interface MergeContext {
   trustLevel: number;
   /** Kennel IDs linked to this source via SourceKennel (for the guard check). */
   linkedKennelIds: Set<string>;
-  /** Per-batch cache of kennelId → region + coords + country to avoid N+1 queries. */
-  kennelCache: Map<string, { region: string; latitude: number | null; longitude: number | null; country: string }>;
+  /** Per-batch cache of kennelId → region + coords + country + region centroid to avoid N+1 queries. */
+  kennelCache: Map<string, { region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }>;
   /** Per-batch cache of short Maps URL → resolved full URL (avoids repeated HTTP calls). */
   shortUrlCache: Map<string, string | null>;
   /** Per-batch tracking: which canonical Event IDs have been matched for each kennel+date.
@@ -124,12 +124,22 @@ interface MergeContext {
   result: MergeResult;
 }
 
-/** Resolve kennel data (region + coords + country), using the per-batch cache to avoid N+1 queries. */
-async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<{ region: string; latitude: number | null; longitude: number | null; country: string }> {
+/** Resolve kennel data (region + coords + country + region centroid), using the per-batch cache to avoid N+1 queries. */
+async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<{ region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }> {
   let cached = ctx.kennelCache.get(kennelId);
   if (cached === undefined) {
-    const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { region: true, latitude: true, longitude: true, country: true } });
-    cached = { region: kennel?.region ?? "", latitude: kennel?.latitude ?? null, longitude: kennel?.longitude ?? null, country: kennel?.country ?? "" };
+    const kennel = await prisma.kennel.findUnique({
+      where: { id: kennelId },
+      select: { region: true, latitude: true, longitude: true, country: true, regionRef: { select: { centroidLat: true, centroidLng: true } } },
+    });
+    cached = {
+      region: kennel?.region ?? "",
+      latitude: kennel?.latitude ?? null,
+      longitude: kennel?.longitude ?? null,
+      country: kennel?.country ?? "",
+      regionCentroidLat: kennel?.regionRef?.centroidLat ?? null,
+      regionCentroidLng: kennel?.regionRef?.centroidLng ?? null,
+    };
     ctx.kennelCache.set(kennelId, cached);
   }
   return cached;
@@ -431,7 +441,7 @@ async function resolveCoords(
   event: RawEventData,
   existingCoords?: { latitude: number | null; longitude: number | null; locationAddress: string | null },
   shortUrlCache?: Map<string, string | null>,
-  kennelCoords?: { latitude: number | null; longitude: number | null },
+  kennelCoords?: { latitude: number | null; longitude: number | null; regionCentroidLat?: number | null; regionCentroidLng?: number | null },
   regionBias?: string,
 ): Promise<{ latitude?: number; longitude?: number; normalizedLocation?: string }> {
   const rawCoords = extractRawCoords(event);
@@ -463,10 +473,12 @@ async function resolveCoords(
   if (event.location) {
     const geocoded = await geocodeAddress(event.location, regionBias ? { regionBias } : undefined);
     if (geocoded) {
-      // Validate geocoded result against kennel's known coords (if available)
-      // Skip geocode if result is >200km from kennel — likely wrong city/state
-      if (kennelCoords?.latitude != null && kennelCoords?.longitude != null) {
-        const dist = haversineDistance(geocoded.lat, geocoded.lng, kennelCoords.latitude, kennelCoords.longitude);
+      // Validate geocoded result against kennel coords or region centroid (if available)
+      // Skip geocode if result is >200km from reference point — likely wrong city/state
+      const valLat = kennelCoords?.latitude ?? kennelCoords?.regionCentroidLat;
+      const valLng = kennelCoords?.longitude ?? kennelCoords?.regionCentroidLng;
+      if (valLat != null && valLng != null) {
+        const dist = haversineDistance(geocoded.lat, geocoded.lng, valLat, valLng);
         if (dist > 200) {
           console.warn(`Geocode validation: "${event.location}" resolved ${dist.toFixed(0)}km from kennel — skipping`);
           return {};
@@ -826,7 +838,7 @@ export async function processRawEvents(
 
   clearResolverCache();
 
-  const kennelCache = new Map<string, { region: string; latitude: number | null; longitude: number | null; country: string }>();
+  const kennelCache = new Map<string, { region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }>();
   const shortUrlCache = new Map<string, string | null>();
   const batchMatchedEvents = new Map<string, Set<string>>();
   const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, kennelCache, shortUrlCache, batchMatchedEvents, result };

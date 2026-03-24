@@ -357,6 +357,7 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/273947756839837/",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:09 PM", scheduleFrequency: "Weekly",
       description: "Weekly Wednesday 6:09 PM hash in Jefferson County, West Virginia (Harpers Ferry area).",
+      latitude: 39.32, longitude: -77.87,
     },
     {
       kennelCode: "dch4", shortName: "DCH4", fullName: "DC Harriettes and Harriers Hash House", region: "Washington, DC",
