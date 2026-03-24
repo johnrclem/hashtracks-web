@@ -70,7 +70,7 @@ interface DFWEventWithDetail {
  *
  * Falls back to scanning for the first standalone number in cell text.
  */
-function extractDayNumber($cell: Cheerio<AnyNode>, $: CheerioAPI): number | undefined {
+function extractDayNumber($cell: Cheerio<AnyNode>, _$: CheerioAPI): number | undefined {
   const domCell = $cell.find("td.dom, td.holiday");
   if (domCell.length > 0) {
     const domText = domCell.text().trim();
@@ -239,6 +239,56 @@ export function extractDFWEvents(
 }
 
 /**
+ * Patterns that indicate the heading is a kennel name, not a venue.
+ * Case-insensitive matching.
+ */
+const KENNEL_NAME_PATTERNS = [
+  /hash/i,
+  /\bh3\b/i,
+  /\bh4\b/i,
+  /\bhhh\b/i,
+  /\bdallas\b/i,
+  /\bduh\b/i,
+  /\bnoduh\b/i,
+  /\bfort worth\b/i,
+  /\bdfw\b/i,
+  /\byak\b/i,
+];
+
+/** Day-of-week prefix pattern (detail pages sometimes have date headings). */
+const DAY_PREFIX_PATTERN = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i;
+
+/**
+ * Extract a venue name from the detail page headings.
+ *
+ * Looks at <h2> text (skipping date-like headings), then falls back to <h1>.
+ * Filters out kennel names and empty/whitespace strings.
+ */
+function extractVenueName($: CheerioAPI): string | undefined {
+  // Collect candidate headings: all <h2> then <h1>
+  const candidates: string[] = [];
+  $("h2").each((_i, el) => {
+    candidates.push($(el).text().trim());
+  });
+  $("h1").each((_i, el) => {
+    candidates.push($(el).text().trim());
+  });
+
+  for (const text of candidates) {
+    if (!text) continue;
+    // Skip date-like headings (e.g. "Monday, March 23, 2026")
+    if (DAY_PREFIX_PATTERN.test(text)) continue;
+    // Skip kennel name headings
+    if (KENNEL_NAME_PATTERNS.some((p) => p.test(text))) continue;
+    // Skip run number headings
+    if (/Hash Run No/i.test(text)) continue;
+    return text;
+  }
+
+  return undefined;
+}
+
+/**
  * Parse a DFW event detail page for time, location, and other fields.
  *
  * Detail pages use <h5><em>Label:</em> Value</h5> format:
@@ -283,6 +333,14 @@ export function parseDFWDetailPage($: CheerioAPI): {
   const runMatch = h3Text.match(/Hash Run No\s*(\d+)/i);
   if (runMatch) {
     result.runNumber = parseInt(runMatch[1], 10);
+  }
+
+  // Extract venue name from <h2> heading and prepend to location
+  if (result.location) {
+    const venueName = extractVenueName($);
+    if (venueName) {
+      result.location = `${venueName}, ${result.location}`;
+    }
   }
 
   return result;

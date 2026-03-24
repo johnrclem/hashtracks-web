@@ -53,6 +53,11 @@ const WCFH_PAGE_TO_CODE: Record<string, string> = {
   "TBH3": "tbh3-fl",
 };
 
+/** Reverse lookup: kennelCode → display abbreviation used on the WCFH calendar page. */
+const WCFH_CODE_TO_ABBREV: Record<string, string> = Object.fromEntries(
+  Object.entries(WCFH_PAGE_TO_CODE).map(([abbrev, code]) => [code, abbrev]),
+);
+
 /**
  * Extract kennel abbreviations from a calendar cell.
  * Kennel tags appear as <a> link text within the cell.
@@ -162,6 +167,7 @@ export class WCFHCalendarAdapter implements SourceAdapter {
             events.push({
               date: dateStr,
               kennelTag: tag,
+              title: `${WCFH_CODE_TO_ABBREV[tag] ?? tag} Trail`,
               sourceUrl,
             });
           }

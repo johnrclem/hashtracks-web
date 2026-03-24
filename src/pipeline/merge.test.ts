@@ -856,6 +856,16 @@ describe("sanitizeTitle", () => {
   it("strips 'Visit' instruction variant", () => {
     expect(sanitizeTitle("Weekly Run (Visit our website for info)")).toBe("Weekly Run");
   });
+
+  it("strips trailing ' - Location TBD' from EWH3-style titles", () => {
+    expect(sanitizeTitle("Havana Lewinsky & Just Tommy - Location TBD")).toBe(
+      "Havana Lewinsky & Just Tommy",
+    );
+  });
+
+  it("does not strip Location TBD when not a trailing suffix", () => {
+    expect(sanitizeTitle("Trail Name")).toBe("Trail Name");
+  });
 });
 
 // ── sanitizeHares ──

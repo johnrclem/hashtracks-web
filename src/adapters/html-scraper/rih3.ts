@@ -126,6 +126,11 @@ export function parseHarelineRow(
     : undefined;
   const locationText = mapsLink.length
     ? mapsLink.text().trim()
+      // Strip leading navigation instructions (e.g., "Park Here. Just a short bit from the dog park at Melville Park, ...")
+      .replace(/^Park\s+Here\.?\s*/i, "")
+      .replace(/^(?:Get\s+directions?\s+to|Walk\s+to|Head\s+to|Just\s+)\s*/i, "")
+      .replace(/^(?:a\s+)?(?:short\s+)?(?:bit\s+)?(?:from|near|by)\s+(?:the\s+)?/i, "")
+      .trim()
     : undefined;
   const location =
     locationText && locationText.length > 3 ? locationText : undefined;

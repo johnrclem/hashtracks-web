@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, appendDescriptionSuffix } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, appendDescriptionSuffix, isPlaceholder, parse12HourTime } from "../utils";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -98,7 +98,7 @@ export function extractTitle(summary: string): string {
 export function extractTitleFromDescription(description: string): string | undefined {
   const lines = description.split("\n").map((l) => l.trim()).filter(Boolean);
   // Known label patterns that indicate structured data, not a title
-  const labelRe = /^(?:Hares?|Who|Where|Location|When|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions|Trail Type|Distance|Length)\s*:/i;
+  const labelRe = /^(?:Hares?|Who|Where|Location|When|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions|Trail Type|Distance|Length|Pack\s*Meet|Meet(?:ing)?|Circle|Chalk\s*Talk)\s*:/i;
   for (const line of lines) {
     if (labelRe.test(line)) continue;
     // Truncate at the first embedded label pattern (e.g., "Green Dresses!! 👗 Hare: Ant Farmer!")
@@ -112,9 +112,48 @@ export function extractTitleFromDescription(description: string): string | undef
     // Skip if too short or still looks like a label/URL
     if (text.length < 3) continue;
     if (/^https?:\/\//.test(text)) continue;
+    // Skip pure time strings (e.g., "6:30pm" leaked from Pack Meet lines)
+    if (/^\d{1,2}:\d{2}\s*[ap]m$/i.test(text)) continue;
     return text;
   }
   return undefined;
+}
+
+/**
+ * Extract a location from the event description when `item.location` is missing.
+ * Looks for common label patterns (WHERE:, Location:, Address:, Meet at:, etc.)
+ * and returns the first match, truncated at the next label or URL.
+ */
+export function extractLocationFromDescription(description: string): string | undefined {
+  const match = /(?:^|\n)\s*(?:WHERE|Location|Address|Meet(?:ing)?\s*(?:spot|point|at)?)\s*:\s*(.+)/im.exec(description);
+  if (!match?.[1]) return undefined;
+
+  let location = match[1].trim();
+
+  // Truncate at next label pattern (Hare:, When:, Time:, What:, etc.)
+  location = location.replace(/\s+(?:Hares?|Who|Where|Location|When|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions|Pack\s*Meet|Circle|Chalk\s*Talk)\s*:.*/i, "");
+
+  // Truncate at URLs
+  location = location.replace(/\s*https?:\/\/\S+.*/i, "");
+
+  // Take only the first line
+  location = location.split("\n")[0].trim();
+
+  if (location.length < 3) return undefined;
+  if (isPlaceholder(location)) return undefined;
+
+  return location;
+}
+
+/**
+ * Extract a start time from the event description when `item.start.dateTime` yields no time.
+ * Looks for common label patterns (Pack Meet:, Circle:, Time:, Start:, When:, Chalk Talk:)
+ * and parses the first 12-hour time found.
+ */
+export function extractTimeFromDescription(description: string): string | undefined {
+  const match = /(?:^|\n)\s*(?:Pack\s*Meet|Circle|Time|Start|When|Chalk\s*Talk)\s*:?\s*.*?(\d{1,2}:\d{2}\s*[ap]m)/im.exec(description);
+  if (!match?.[1]) return undefined;
+  return parse12HourTime(match[1]);
 }
 
 /** Default hare extraction patterns for Google Calendar descriptions. */
@@ -286,12 +325,22 @@ export function buildRawEventFromGCalItem(
   const { rawDescription, description } = normalizeGCalDescription(item.description);
   const hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(summary, sourceConfig);
-  const location = item.location ? decodeEntities(item.location) : undefined;
+  // Location: prefer item.location, fall back to description extraction
+  let location = item.location ? decodeEntities(item.location) : undefined;
+  if (!location && rawDescription) {
+    location = extractLocationFromDescription(rawDescription);
+  }
 
   // Determine title: if title matches kennel tag, try description fallback
   let title = useFullTitle ? summary : extractTitle(summary);
   if (title.toLowerCase() === kennelTag.toLowerCase() && rawDescription) {
     title = extractTitleFromDescription(rawDescription) ?? title;
+  }
+
+  // Start time: prefer dateTime-derived time, fall back to description extraction
+  let resolvedStartTime = startTime;
+  if (!resolvedStartTime && rawDescription) {
+    resolvedStartTime = extractTimeFromDescription(rawDescription);
   }
 
   return {
@@ -303,7 +352,7 @@ export function buildRawEventFromGCalItem(
     hares,
     location,
     locationUrl: location ? mapsUrl(location) : undefined,
-    startTime,
+    startTime: resolvedStartTime,
     sourceUrl: item.htmlLink,
   };
 }

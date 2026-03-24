@@ -416,8 +416,84 @@ describe("parseDFWDetailPage", () => {
     const detail = parseDFWDetailPage($);
 
     expect(detail.startTime).toBe("18:30");
-    expect(detail.location).toBe("5260 belt line Dallas 75254");
+    // Venue name "Twin Peaks" prepended to address
+    expect(detail.location).toBe("Twin Peaks, 5260 belt line Dallas 75254");
     expect(detail.runNumber).toBe(250);
+  });
+
+  it("prepends venue name from <h2> to address", () => {
+    const html = `
+      <html><body>
+        <h2>Twin Peaks</h2>
+        <h3>Hash Run No 250</h3>
+        <h5><em>Time:</em> 6:30 PM</h5>
+        <h5><em>Start address:</em> 5260 belt line Dallas 75254</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+
+    expect(detail.location).toBe("Twin Peaks, 5260 belt line Dallas 75254");
+  });
+
+  it("filters out kennel name heading (NODUH Hash)", () => {
+    const html = `
+      <html><body>
+        <h1>NODUH Hash</h1>
+        <h2>Monday, March 23, 2026</h2>
+        <h3>Hash Run No 340</h3>
+        <h5><em>Time:</em> 7:00 PM</h5>
+        <h5><em>Start address:</em> Sam Houston Trail Park, Irving</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+
+    // "NODUH Hash" and date heading both filtered — location is just the address
+    expect(detail.location).toBe("Sam Houston Trail Park, Irving");
+  });
+
+  it("filters out DFW Hash heading", () => {
+    const html = `
+      <html><body>
+        <h2>DFW Hash</h2>
+        <h3>Hash Run No 100</h3>
+        <h5><em>Start address:</em> 123 Main St, Dallas</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+
+    expect(detail.location).toBe("123 Main St, Dallas");
+  });
+
+  it("does not change location when no heading exists", () => {
+    const html = `
+      <html><body>
+        <h3>Hash Run No 100</h3>
+        <h5><em>Start address:</em> 123 Main St, Dallas</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+
+    expect(detail.location).toBe("123 Main St, Dallas");
+  });
+
+  it("does not set venue as location when no address exists", () => {
+    const html = `
+      <html><body>
+        <h2>Twin Peaks</h2>
+        <h3>Hash Run No 250</h3>
+        <h5><em>Time:</em> 6:30 PM</h5>
+        <h5><em>Start address:</em> Nothing yet</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+
+    // No location because address was "Nothing yet", venue should not create one
+    expect(detail.location).toBeUndefined();
   });
 });
 

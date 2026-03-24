@@ -203,12 +203,16 @@ const GOOGLE_GEOCODE_BASE = "https://maps.googleapis.com/maps/api/geocode/json";
  */
 export async function geocodeAddress(
   address: string,
+  options?: { regionBias?: string },
 ): Promise<{ lat: number; lng: number; formattedAddress?: string } | null> {
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   if (!apiKey || !address.trim()) return null;
 
   try {
-    const url = `${GOOGLE_GEOCODE_BASE}?address=${encodeURIComponent(address)}&language=en&key=${apiKey}`;
+    let url = `${GOOGLE_GEOCODE_BASE}?address=${encodeURIComponent(address)}&language=en&key=${apiKey}`;
+    if (options?.regionBias) {
+      url += `&region=${encodeURIComponent(options.regionBias)}`;
+    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(url, { signal: controller.signal });
