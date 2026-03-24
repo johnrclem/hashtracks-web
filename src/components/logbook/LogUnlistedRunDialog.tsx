@@ -13,6 +13,7 @@ import { createManualEvent, searchKennels } from "@/app/logbook/actions";
 import { PARTICIPATION_LEVELS, participationLevelLabel, regionAbbrev, regionColorClasses } from "@/lib/format";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   useState,
   useEffect,
@@ -344,12 +345,12 @@ export function LogUnlistedRunDialog({
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t bg-muted/50 px-6 py-3">
-          <a
+          <Link
             href="/kennels/request"
             className="text-xs text-blue-500 hover:text-blue-600 transition-colors"
           >
             Can&apos;t find your kennel? Request it
-          </a>
+          </Link>
           <Button
             onClick={handleSubmit}
             disabled={isPending || !kennelId || !date}
