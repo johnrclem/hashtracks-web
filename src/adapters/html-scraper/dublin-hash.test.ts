@@ -1,9 +1,51 @@
-import { describe, it, expect } from "vitest";
-import { parseHarelineRow } from "./dublin-hash";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Source } from "@/generated/prisma/client";
+import { parseHarelineRow, DublinHashAdapter } from "./dublin-hash";
+
+// Mock safeFetch (used by fetchHTMLPage)
+vi.mock("@/adapters/safe-fetch", () => ({
+  safeFetch: vi.fn(),
+}));
+
+// Mock structure-hash
+vi.mock("@/pipeline/structure-hash", () => ({
+  generateStructureHash: vi.fn(() => "mock-hash-dublin"),
+}));
+
+const { safeFetch } = await import("@/adapters/safe-fetch");
+const mockedSafeFetch = vi.mocked(safeFetch);
+
+function makeSource(overrides?: Partial<Source>): Source {
+  return {
+    id: "src-dublin",
+    name: "Dublin H3 Website Archive",
+    url: "https://dublinhhh.com/archive",
+    type: "HTML_SCRAPER",
+    trustLevel: 7,
+    scrapeFreq: "daily",
+    scrapeDays: 365,
+    config: {},
+    isActive: true,
+    lastScrapedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  } as Source;
+}
+
+function mockFetchResponse(html: string) {
+  mockedSafeFetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: () => Promise.resolve(html),
+    headers: new Headers({ "content-type": "text/html" }),
+  } as Response);
+}
 
 describe("DublinHashAdapter", () => {
   describe("parseHarelineRow", () => {
-    const sourceUrl = "https://dublinhhh.com/hareline";
+    const sourceUrl = "https://dublinhhh.com/archive";
 
     it("parses a standard Dublin H3 row", () => {
       const cells = [
@@ -163,6 +205,57 @@ describe("DublinHashAdapter", () => {
 
       expect(event).not.toBeNull();
       expect(event!.startTime).toBe("14:00");
+    });
+  });
+
+  describe("fetch — date window filtering", () => {
+    let adapter: DublinHashAdapter;
+
+    beforeEach(() => {
+      adapter = new DublinHashAdapter();
+      vi.clearAllMocks();
+    });
+
+    it("filters events outside the date window", async () => {
+      // Table with one far-future event (2099) and one near-term event (2026)
+      const html = `<html><body>
+<table>
+  <tr><th>Day</th><th>Date</th><th>Time</th><th>Hash</th><th>Location</th><th>Hares</th><th>Notes</th></tr>
+  <tr>
+    <td>Monday</td><td>16 March 2099</td><td>19:30</td>
+    <td><a href="/archive/2099-03-16-dublin-h3/">Dublin H3 #9999</a></td>
+    <td>Far Future Pub</td><td>FutureHare</td><td></td>
+  </tr>
+  <tr>
+    <td>Monday</td><td>16 March 2026</td><td>19:30</td>
+    <td><a href="/archive/2026-03-16-dublin-h3/">Dublin H3 #1668</a></td>
+    <td>Dalkey DART Station</td><td>Polly</td><td></td>
+  </tr>
+  <tr>
+    <td>Monday</td><td>16 March 1990</td><td>19:30</td>
+    <td><a href="/archive/1990-03-16-dublin-h3/">Dublin H3 #100</a></td>
+    <td>Ancient Pub</td><td>OldHare</td><td></td>
+  </tr>
+</table>
+</body></html>`;
+
+      mockFetchResponse(html);
+
+      const source = makeSource();
+      const result = await adapter.fetch(source, { days: 90 });
+
+      // Far future event (2099) should be filtered out
+      const futureEvent = result.events.find((e) => e.date === "2099-03-16");
+      expect(futureEvent).toBeUndefined();
+
+      // Far past event (1990) should be filtered out
+      const pastEvent = result.events.find((e) => e.date === "1990-03-16");
+      expect(pastEvent).toBeUndefined();
+
+      // Near-term event (2026) should be included
+      const currentEvent = result.events.find((e) => e.date === "2026-03-16");
+      expect(currentEvent).toBeDefined();
+      expect(currentEvent!.title).toBe("Dublin H3 #1668");
     });
   });
 });

@@ -155,14 +155,24 @@ export class EdinburghH3Adapter implements SourceAdapter {
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
-    // Extract full text content from page body
-    // Weebly renders content in .wsite-section-wrap or main content area
-    const text = $("body").text();
-
     const { minDate, maxDate } = buildDateWindow(options?.days ?? 90);
 
     try {
-      const runs = parseEdinburghRuns(text);
+      // Parse each <h2 class="wsite-content-title"> as a run block.
+      // Weebly renders run data as inline <span>/<font>/<a> children within a single <h2>.
+      // Cheerio's .text() concatenates these without newlines, so we join children manually.
+      const h2s = $("h2.wsite-content-title");
+      const runs: ParsedRun[] = [];
+      h2s.each((_, el) => {
+        const lines: string[] = [];
+        $(el).children().each((_, child) => {
+          const t = $(child).text().trim();
+          if (t) lines.push(t);
+        });
+        const blockText = lines.join("\n");
+        const parsed = parseRunBlock(blockText);
+        if (parsed) runs.push(parsed);
+      });
 
       for (const run of runs) {
         if (!run.date) continue;
@@ -199,7 +209,7 @@ export class EdinburghH3Adapter implements SourceAdapter {
         row: 0,
         section: "hareline",
         error: String(err),
-        rawText: text.slice(0, 2000),
+        rawText: $("body").text().slice(0, 2000),
       });
     }
 

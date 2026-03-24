@@ -1,8 +1,8 @@
 /**
  * Dublin Hash House Harriers (DH3) HTML Scraper
  *
- * Scrapes dublinhhh.com/hareline for upcoming runs.
- * The hareline is a Jekyll-generated HTML table with columns:
+ * Scrapes dublinhhh.com/archive for all events (past + future).
+ * The archive is a Jekyll-generated HTML table with columns:
  *   Day | Date | Time | Hash (series + run#) | Location | Hares | Notes
  *
  * Two run series share the table:
@@ -19,7 +19,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { chronoParseDate, fetchHTMLPage } from "../utils";
+import { chronoParseDate, fetchHTMLPage, buildDateWindow } from "../utils";
 
 /**
  * Parse a single table row into a RawEventData.
@@ -99,9 +99,9 @@ export class DublinHashAdapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const sourceUrl = source.url || "https://dublinhhh.com/hareline";
+    const sourceUrl = source.url || "https://dublinhhh.com/archive";
 
     const page = await fetchHTMLPage(sourceUrl);
     if (!page.ok) return page.result;
@@ -110,6 +110,7 @@ export class DublinHashAdapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
+    const { minDate, maxDate } = buildDateWindow(options?.days);
 
     const rows = $("table tr");
 
@@ -134,6 +135,9 @@ export class DublinHashAdapter implements SourceAdapter {
 
         const event = parseHarelineRow(cells, hrefs, sourceUrl);
         if (event) {
+          // Filter by date window (archive page has all historical events)
+          const eventDate = new Date(event.date + "T12:00:00Z");
+          if (eventDate < minDate || eventDate > maxDate) return;
           events.push(event);
         }
       } catch (err) {
