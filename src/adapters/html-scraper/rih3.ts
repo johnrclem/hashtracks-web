@@ -30,6 +30,11 @@ import {
 
 const DAY_PREFIX_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\.?\s+/i;
 
+/** Days to backdate the chrono reference so `forwardDate: true` doesn't push
+ *  recent year-less dates (e.g., "March 23") into the next year when scraping
+ *  shortly after the event. */
+const RECENT_EVENT_TOLERANCE_DAYS = 7;
+
 /**
  * Extract hare name(s) from the hare cell HTML.
  *
@@ -79,13 +84,14 @@ export function parseHarelineRow(
   // --- Date (year-less, e.g., "Mon March 23") ---
   const rawDate = cells[0]?.trim();
   if (!rawDate) return null;
-  // Backdate reference by 7 days so forwardDate doesn't push recent events
-  // to next year (e.g., scraping "March 23" on March 24 → 2027 without buffer)
+  // Backdate reference by RECENT_EVENT_TOLERANCE_DAYS so forwardDate doesn't
+  // push recent events to next year (e.g., scraping "March 23" on March 24
+  // → 2027 without buffer)
   let ref = referenceDate;
   if (ref) {
     ref = new Date(ref);
     ref.setHours(0, 0, 0, 0);
-    ref.setDate(ref.getDate() - 7);
+    ref.setDate(ref.getDate() - RECENT_EVENT_TOLERANCE_DAYS);
   }
   const date = chronoParseDate(rawDate, "en-US", ref, {
     forwardDate: true,
