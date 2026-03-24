@@ -129,7 +129,7 @@ async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<{
   let cached = ctx.kennelCache.get(kennelId);
   if (cached === undefined) {
     const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { region: true, latitude: true, longitude: true, country: true } });
-    cached = { region: kennel?.region ?? "", latitude: kennel?.latitude ?? null, longitude: kennel?.longitude ?? null, country: kennel?.country ?? "USA" };
+    cached = { region: kennel?.region ?? "", latitude: kennel?.latitude ?? null, longitude: kennel?.longitude ?? null, country: kennel?.country ?? "" };
     ctx.kennelCache.set(kennelId, cached);
   }
   return cached;
