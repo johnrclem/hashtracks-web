@@ -79,13 +79,13 @@ export function parseHarelineRow(
   // --- Date (year-less, e.g., "Mon March 23") ---
   const rawDate = cells[0]?.trim();
   if (!rawDate) return null;
-  // Normalize reference to start-of-day to prevent forwardDate from advancing
-  // same-day events to next year (chrono parses year-less dates as midnight,
-  // which is "before" a mid-day reference → year drift)
+  // Backdate reference by 7 days so forwardDate doesn't push recent events
+  // to next year (e.g., scraping "March 23" on March 24 → 2027 without buffer)
   let ref = referenceDate;
   if (ref) {
     ref = new Date(ref);
     ref.setHours(0, 0, 0, 0);
+    ref.setDate(ref.getDate() - 7);
   }
   const date = chronoParseDate(rawDate, "en-US", ref, {
     forwardDate: true,

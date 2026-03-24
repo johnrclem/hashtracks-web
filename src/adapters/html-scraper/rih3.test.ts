@@ -340,6 +340,22 @@ Basket says, "Check out the Receding Hareline..."
     // Should still be 2026, NOT 2027
     expect(result?.date).toBe("2026-03-23");
   });
+
+  it("resolves yesterday's date to current year, not next year", () => {
+    // Simulate scrape running the next day (March 24 at 10:53 AM)
+    const nextDayRef = new Date(2026, 2, 24, 10, 53, 0);
+    const cells = ["Mon March 23", "6:30 PM", "2091"];
+    const result = parseHarelineRow(
+      cells,
+      HARE_SINGLE,
+      "",
+      SOURCE_URL,
+      nextDayRef,
+    );
+
+    // Should still be 2026, NOT 2027
+    expect(result?.date).toBe("2026-03-23");
+  });
 });
 
 describe("RIH3Adapter", () => {
