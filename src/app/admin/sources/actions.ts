@@ -465,6 +465,7 @@ export async function createKennelForSource(
   return { success: true };
 }
 
+/** Update a SourceKennel's externalSlug (inline editing from admin source detail page). */
 export async function updateSourceKennelSlug(
   sourceKennelId: string,
   externalSlug: string | null,
@@ -472,23 +473,30 @@ export async function updateSourceKennelSlug(
   const admin = await getAdminUser();
   if (!admin) return { success: false, error: "Unauthorized" };
 
-  await prisma.sourceKennel.update({
+  const updated = await prisma.sourceKennel.update({
     where: { id: sourceKennelId },
     data: { externalSlug: externalSlug?.trim().toUpperCase() || null },
+    select: { sourceId: true },
   });
 
   revalidatePath("/admin/sources");
+  revalidatePath(`/admin/sources/${updated.sourceId}`);
   return { success: true };
 }
 
+/** Remove a kennel's link to a source (admin source detail page). */
 export async function unlinkKennelFromSource(
   sourceKennelId: string,
 ): Promise<{ success: boolean; error?: string }> {
   const admin = await getAdminUser();
   if (!admin) return { success: false, error: "Unauthorized" };
 
-  await prisma.sourceKennel.delete({ where: { id: sourceKennelId } });
+  const deleted = await prisma.sourceKennel.delete({
+    where: { id: sourceKennelId },
+    select: { sourceId: true },
+  });
 
   revalidatePath("/admin/sources");
+  revalidatePath(`/admin/sources/${deleted.sourceId}`);
   return { success: true };
 }

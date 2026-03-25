@@ -142,6 +142,7 @@ function SlugRow({
   }
 
   function saveSlug() {
+    if (isPending) return;
     const trimmed = editValue.trim() || null;
     // No change — just close
     if (trimmed === sourceKennel.externalSlug) {

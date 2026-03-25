@@ -6,7 +6,7 @@ vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     source: { create: vi.fn(), update: vi.fn(), delete: vi.fn(), findUnique: vi.fn() },
-    sourceKennel: { create: vi.fn(), deleteMany: vi.fn(), findUnique: vi.fn() },
+    sourceKennel: { create: vi.fn(), deleteMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
     rawEvent: { count: vi.fn() },
     alert: { findMany: vi.fn(), update: vi.fn() },
     kennel: { findFirst: vi.fn() },
@@ -38,11 +38,8 @@ const mockResolveKennelTag = vi.mocked(resolveKennelTag);
 const mockSourceFindUnique = vi.mocked(prisma.source.findUnique);
 const mockSourceUpdate = vi.mocked(prisma.source.update);
 const mockSKFindUnique = vi.mocked(prisma.sourceKennel.findUnique);
-// sourceKennel.update may not be auto-mocked; ensure it exists
-if (!prisma.sourceKennel.update) {
-  (prisma.sourceKennel as Record<string, unknown>).update = vi.fn();
-}
 const mockSKUpdate = vi.mocked(prisma.sourceKennel.update);
+const mockSKDelete = vi.mocked(prisma.sourceKennel.delete);
 const mockAlertFindMany = vi.mocked(prisma.alert.findMany);
 
 beforeEach(() => {
@@ -244,23 +241,25 @@ describe("updateSourceKennelSlug", () => {
 
   it("uppercases and trims the slug", async () => {
     mockAdminAuth.mockResolvedValue({ id: "admin" } as never);
-    mockSKUpdate.mockResolvedValue({} as never);
+    mockSKUpdate.mockResolvedValue({ sourceId: "src1" } as never);
 
     await updateSourceKennelSlug("sk1", "  bfmh3  ");
     expect(mockSKUpdate).toHaveBeenCalledWith({
       where: { id: "sk1" },
       data: { externalSlug: "BFMH3" },
+      select: { sourceId: true },
     });
   });
 
   it("sets null for empty string", async () => {
     mockAdminAuth.mockResolvedValue({ id: "admin" } as never);
-    mockSKUpdate.mockResolvedValue({} as never);
+    mockSKUpdate.mockResolvedValue({ sourceId: "src1" } as never);
 
     await updateSourceKennelSlug("sk1", "");
     expect(mockSKUpdate).toHaveBeenCalledWith({
       where: { id: "sk1" },
       data: { externalSlug: null },
+      select: { sourceId: true },
     });
   });
 });
