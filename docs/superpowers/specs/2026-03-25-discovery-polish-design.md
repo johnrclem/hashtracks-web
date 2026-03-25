@@ -27,6 +27,11 @@ Detect events sharing identical coordinates (within ~0.0001 tolerance). Render a
 
 **Implementation layer ordering:** Co-location grouping must happen *before* marker registration with `MarkerClusterer`. The flow is: (1) compute co-located groups from the events array, (2) render each group as a single `AdvancedMarker` (with count badge if group size > 1), (3) register those grouped markers with `MarkerClusterer`. This replaces the current pattern in `ClusteredMarkers.tsx` where every event gets its own marker. Maintain a `Map<AdvancedMarkerElement, EventWithCoords[]>` reverse lookup so click handlers can access the full event list for any marker or cluster.
 
+#### 1d. Applies to both hareline AND kennel maps
+The kennel map (`ClusteredKennelMarkers.tsx`) has the same stacking problem when multiple kennels share precise coordinates (e.g., sister kennels in the same city backfilled to the same point). The kennel map's region aggregate pins partially mitigate this for imprecise kennels, but precise kennels still stack.
+
+**Shared utility:** Extract `groupByCoordinates<T>(items: T[], getCoords: (t: T) => { lat: number; lng: number }): Map<string, T[]>` as a pure function in `src/lib/map-utils.ts`. Both `ClusteredMarkers.tsx` (hareline) and `ClusteredKennelMarkers.tsx` (kennels) use this utility for their respective grouping logic. The custom cluster renderer (1b), `onClusterClick` handler (1c), and reverse lookup map pattern all apply to both maps.
+
 #### 1b. Custom cluster renderer
 Replace default blue Google clusters with branded styling:
 - Neutral dark background (slate-800) with white count label
@@ -154,8 +159,8 @@ Lightweight form (modal dialog triggered from multiple entry points):
 - Footer: "Suggest a kennel" link
 - Homepage: subtle CTA in the value props section
 
-#### 4c. Backend
-Store as `KennelSuggestion` model with proper Prisma enums (consistent with the 20+ enums already in the schema):
+#### 4c. Backend — Extend existing `KennelRequest` model
+The schema already has a `KennelRequest` model (`id, userId, kennelName, region, country, sourceUrl, notes, status`). Rather than creating a new model, extend it with the fields needed for public suggestions:
 
 ```prisma
 enum SuggestionRelationship {
@@ -164,35 +169,52 @@ enum SuggestionRelationship {
   FOUND_ONLINE
 }
 
-enum SuggestionStatus {
-  NEW
-  REVIEWED
-  ADDED
-  DISMISSED
-}
-
-model KennelSuggestion {
-  id           String                  @id @default(cuid())
+model KennelRequest {
+  id           String                   @id @default(cuid())
+  userId       String?                  // CHANGED: now optional (was required) for anonymous suggestions
+  user         User?                    @relation(fields: [userId], references: [id])
   kennelName   String
-  cityRegion   String
-  regionId     String?                 // Auto-linked if cityRegion matches a known region
-  region       Region?                 @relation(fields: [regionId], references: [id])
-  websiteUrl   String?
-  relationship SuggestionRelationship
-  email        String?
+  region       String?
+  country      String?
+  sourceUrl    String?                  // Website, Facebook page, etc.
   notes        String?
-  status       SuggestionStatus        @default(NEW)
-  ipHash       String?                 // SHA-256 of IP, for anonymous rate limiting
-  userId       String?
-  user         User?                   @relation(fields: [userId], references: [id])
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
+  status       RequestStatus            @default(PENDING)
+  resolvedAt   DateTime?
+  createdAt    DateTime                 @default(now())
+  // NEW fields for public suggestions:
+  relationship SuggestionRelationship?  // null for legacy requests
+  email        String?                  // For anonymous follow-up
+  ipHash       String?                  // SHA-256 of IP, for anonymous rate limiting
+  regionId     String?                  // Auto-linked if region text matches a known Region
+  linkedRegion Region?                  @relation(fields: [regionId], references: [id])
+  source       String?                  @default("ADMIN") // "ADMIN" (legacy) | "PUBLIC" (suggestion form)
 }
 ```
 
-The server action auto-links `regionId` when the free-text `cityRegion` matches a known region name or alias, making admin review easier and enabling grouping by coverage area.
+**Key changes from current model:**
+- `userId` becomes optional (`String?`) to support anonymous suggestions
+- New fields: `relationship`, `email`, `ipHash`, `regionId`, `source`
+- All new fields are optional to maintain backward compatibility with existing records
+- `source` field distinguishes admin-created requests from public suggestions
+
+The server action auto-links `regionId` when the free-text `region` matches a known region name or alias, making admin review easier and enabling grouping by coverage area.
 
 Admin sees suggestions in the existing research dashboard (new tab or section). `ON_MISMAN` suggestions flagged for priority review.
+
+#### 4e. Admin suggestion review workflow
+Add a "Suggestions" tab to the ResearchDashboard alongside existing proposal tabs:
+
+**Table columns:** Kennel Name, Region, Relationship, Website, Submitted By (email or user), Date, Status, Actions
+**Actions per row:**
+- **Create Kennel** — Opens existing kennel creation flow, pre-fills name/region
+- **Link to Existing** — If suggestion matches an existing kennel, mark as resolved
+- **Reject** — Mark as REJECTED with optional note
+- **Priority badge** — `ON_MISMAN` suggestions get a visual flag for fast-tracking
+
+**Server actions** (added to `/src/app/admin/research/actions.ts`):
+- `getKennelSuggestions(regionId?)` — List suggestions filtered by region/status
+- `resolveKennelSuggestion(id, resolution: 'APPROVED' | 'REJECTED')` — Mark resolved
+- Reuse existing `createKennel` flow when approving
 
 #### 4d. Rate limiting
 - Honeypot field for primary spam prevention (hidden input, reject if filled)
@@ -242,16 +264,77 @@ When region-filtered (via URL or auto-restore):
 
 ---
 
+## 6. Mobile UX Considerations
+
+### Problem
+The current filter bar horizontal-scrolls on mobile and is already crowded. Adding region chips and a location prompt could make discoverability worse. The map view takes ~85% of the viewport on mobile, pushing other content off screen.
+
+### Solution
+
+#### 6a. Mobile filter layout
+- **Region quick-chips** (from 3b): Render as the first row above the filter bar, horizontally scrollable with `overflow-x-auto`. This gives them prominence without competing with existing filters.
+- **Location prompt** (from 3a): On mobile, render as a slim banner above the hareline content (not inside the filter bar). Banner dismisses after choice and doesn't reappear.
+- **Existing filters**: No changes to the current horizontal scroll behavior — it works well enough and a full mobile drawer is out of scope for this phase.
+
+#### 6b. Map view sizing
+- Reduce default map height on mobile: `h-[60vh]` instead of current `h-[calc(100vh-14rem)]` (~85vh)
+- Add a "Expand map" / "Collapse map" toggle below the map for users who want full-screen
+- Ensures filter bar and at least some content remain visible without scrolling
+
+#### 6c. Co-located event popover on mobile
+- Desktop: Popover anchored to the pin (Radix Popover)
+- Mobile: Bottom sheet / drawer sliding up from bottom of map area (more thumb-friendly)
+- List items in the sheet are tap targets (min 44px height per item)
+
+#### 6d. Suggest a Kennel form on mobile
+- Use a full-page route (`/suggest`) on mobile instead of a modal dialog
+- Dialog still works on desktop (larger viewport)
+- Detect via responsive breakpoint, not user agent
+
+---
+
+## 7. Analytics Tracking
+
+### Problem
+No custom analytics exist in the codebase. To understand whether the discovery improvements are working, we need basic interaction tracking.
+
+### Solution
+
+#### 7a. Lightweight event tracking via Vercel Web Analytics custom events
+Vercel Analytics already runs in the app layout. Use `track()` from `@vercel/analytics` for custom events (no new infrastructure):
+
+**Events to track:**
+| Event | Properties | Why |
+|-------|-----------|-----|
+| `location_prompt_shown` | `page` | How many new visitors see the prompt |
+| `location_prompt_action` | `action: "geolocation" \| "region" \| "dismiss"` | Which option users pick |
+| `region_chip_click` | `region`, `page` | Which regions are most tapped |
+| `suggest_kennel_submit` | `relationship`, `hasAuth` | Suggestion volume and user type |
+| `suggest_kennel_entry` | `entryPoint: "empty_state" \| "footer" \| "directory" \| "homepage"` | Which CTAs drive suggestions |
+| `empty_state_shown` | `context: "near_me" \| "region" \| "search" \| "general"`, `page` | How often users hit dead ends |
+| `map_colocated_popover` | `eventCount` | How often stacked pins are clicked |
+
+#### 7b. Implementation
+- Import `track` from `@vercel/analytics` in relevant client components
+- Call `track('event_name', { properties })` on user actions
+- No new models, API routes, or dependencies needed
+- Dashboard: Vercel Analytics dashboard shows custom events automatically
+
+---
+
 ## Scope & Non-Goals
 
 ### In scope
-- Map clustering/stacking fixes (hareline + kennel maps)
+- Map clustering/stacking fixes (hareline + kennel maps, shared utility)
 - Region drill-down on map interactions
 - Filter UX improvements (defaults, chips, empty states)
-- "Suggest a Kennel" form + backend
+- "Suggest a Kennel" form + backend (extends existing `KennelRequest` model)
+- Admin suggestion review workflow (new tab in ResearchDashboard)
 - First-time location prompt (homepage + hareline/kennels)
 - Return visitor preference persistence
 - Scoping headers and region-aware page titles
+- Mobile UX adjustments (map sizing, mobile popovers, region chip layout)
+- Analytics tracking via Vercel custom events
 
 ### Out of scope (deferred to Phase 2+)
 - Guided multi-step onboarding wizard
@@ -261,39 +344,50 @@ When region-filtered (via URL or auto-restore):
 - PWA / push notifications
 - Region landing pages (dedicated `/regions/{slug}` routes)
 - Map style customization (satellite, terrain modes)
+- Mobile filter drawer/bottom sheet (current horizontal scroll works; full drawer is a larger effort)
+- Component-level accessibility audit (skip-to-content, focus management, aria-expanded on all popovers)
 
 ---
 
 ## Data Model Changes
 
-### New enums: `SuggestionRelationship`, `SuggestionStatus`
-See Section 4c for definitions.
+### New enum: `SuggestionRelationship`
+See Section 4c for definition.
 
-### New model: `KennelSuggestion`
-See Section 4c for full schema (includes `regionId` relation, `ipHash`, proper enums).
+### Extended model: `KennelRequest`
+See Section 4c for full schema diff. Key changes: `userId` becomes optional, new fields added (`relationship`, `email`, `ipHash`, `regionId`, `source`). All new fields are optional for backward compatibility. The `Region` model gains a new reverse relation but no schema change is needed (Prisma infers it).
 
-### No changes to existing models
-All other improvements are UI/client-side (localStorage, URL params, component logic). The `Region` model gains a new reverse relation from `KennelSuggestion` but no schema change is needed (Prisma infers it).
+### New utility: `src/lib/map-utils.ts`
+Shared `groupByCoordinates<T>()` pure function used by both hareline and kennel map clustering (Section 1d).
+
+### No other model changes
+All other improvements are UI/client-side (localStorage, URL params, component logic).
 
 ---
 
 ## Testing Strategy
 
-- **Map clustering:** Unit tests for co-location grouping logic (coordinate rounding, group detection, `groupEventsByLocation()` pure function)
-- **Filter defaults:** Unit tests for `resolveLocationDefault()` pure function (URL params vs stored pref precedence, null cases)
-- **Suggest a Kennel:** Server action tests (validation, rate limiting by ipHash, DB persistence, region auto-linking, honeypot rejection)
+- **Map clustering:** Unit tests for `groupByCoordinates()` pure function (coordinate rounding, group detection, tolerance edge cases)
+- **Filter defaults:** Unit tests for `resolveLocationDefault()` pure function (URL params vs stored pref precedence, null cases, dismiss behavior)
+- **Suggest a Kennel:** Server action tests (validation, rate limiting by ipHash, DB persistence, region auto-linking, honeypot rejection, backward compatibility with existing KennelRequest records)
+- **Admin suggestion review:** Server action tests for `resolveKennelSuggestion()` (status transitions, kennel creation)
 - **Empty states:** Visual review (no automated component tests — matches current convention)
 - **Region URL resolution:** Unit tests for case-insensitive region name/alias matching
 - **Custom cluster renderer:** Visual review (renderer returns DOM elements, not easily unit-testable)
-- **Integration:** Manual walkthrough of first-time user flow on mobile + desktop
+- **Analytics:** Verify `track()` calls fire correctly (manual review in Vercel Analytics dashboard)
+- **Mobile:** Manual walkthrough on iPhone/Android viewport sizes (375px, 390px, 414px)
+- **Integration:** End-to-end manual walkthrough of first-time user flow on mobile + desktop
 
 ---
 
 ## Success Criteria
 
 1. A new visitor can find runs near them within 30 seconds of landing
-2. No stacked/unclickable pins on either map view
+2. No stacked/unclickable pins on either map view (hareline + kennel)
 3. Map clusters provide meaningful drill-down (region filter or event list)
 4. Empty states always offer an actionable next step
 5. Return visitors see their region context restored automatically
 6. "Suggest a Kennel" captures demand signal from uncovered areas
+7. Admin can review and act on suggestions from the research dashboard
+8. Mobile map doesn't dominate the viewport; co-located popovers are thumb-friendly
+9. Analytics events fire for key interactions (location prompt, region chips, suggestions, empty states)
