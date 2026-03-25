@@ -6,7 +6,7 @@ export const metadata = { title: "Source Research — HashTracks Admin" };
 export const maxDuration = 300;
 
 export default async function ResearchPage() {
-  const [regions, proposals, coverageGaps, geminiDiscoveries, allKennels] = await Promise.all([
+  const [regions, proposals, coverageGaps, geminiDiscoveries, allKennels, kennelSuggestions] = await Promise.all([
     prisma.region.findMany({
       select: { id: true, name: true, abbrev: true, country: true },
       orderBy: { name: "asc" },
@@ -50,6 +50,12 @@ export default async function ResearchPage() {
       where: { isHidden: false },
       select: { id: true, shortName: true, fullName: true },
       orderBy: { shortName: "asc" },
+    }),
+    // Public kennel suggestions
+    prisma.kennelRequest.findMany({
+      where: { source: "PUBLIC" },
+      orderBy: { createdAt: "desc" },
+      include: { linkedRegion: { select: { name: true, abbrev: true } } },
     }),
   ]);
 
@@ -112,6 +118,14 @@ export default async function ResearchPage() {
     ]),
   );
 
+  const serializedSuggestions = kennelSuggestions.map(({ linkedRegion, createdAt, resolvedAt, updatedAt, ...rest }) => ({
+    ...rest,
+    regionName: linkedRegion?.name ?? rest.region ?? null,
+    regionAbbrev: linkedRegion?.abbrev ?? null,
+    createdAt: createdAt.toISOString(),
+    resolvedAt: resolvedAt?.toISOString() ?? null,
+  }));
+
   return (
     <div>
       <h2 className="text-lg font-semibold mb-4">Source Research</h2>
@@ -122,6 +136,7 @@ export default async function ResearchPage() {
         coverageGaps={serializedGaps}
         statusCounts={statusCounts}
         kennels={allKennels}
+        suggestions={serializedSuggestions}
       />
     </div>
   );

@@ -2,8 +2,11 @@
 
 import { useState, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { SearchX } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { KennelCard, type KennelCardData } from "@/components/kennels/KennelCard";
 import { KennelFilters, DAY_FULL } from "@/components/kennels/KennelFilters";
@@ -166,6 +169,17 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     setDisplayViewState("grid");
     setMapBounds(null);
     syncUrl({ regions: [region], display: "grid" });
+  }
+  function clearAllFilters() {
+    setSearchState("");
+    setSelectedRegionsState([]);
+    setSelectedDaysState([]);
+    setSelectedFrequencyState("");
+    setShowUpcomingOnlyState(false);
+    setSelectedCountryState("");
+    setNearMeDistanceState(null);
+    setMapBounds(null);
+    syncUrl({ q: "", regions: [], days: [], freq: "", upcoming: false, country: "", distance: null });
   }
 
   // Compute distances for each kennel (when geolocation is available)
@@ -377,8 +391,21 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       {displayView === "map" ? (
         <KennelMapView kennels={filtered} onRegionSelect={handleRegionSelect} onBoundsFilter={setMapBounds} />
       ) : filtered.length === 0 ? (
-        <div className="py-12 text-center">
-          <p className="text-muted-foreground">No kennels match your filters.</p>
+        <div className="flex flex-col items-center gap-3 py-12 text-center">
+          <SearchX className="h-10 w-10 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">
+            {search
+              ? `No kennels matching '${search}'.`
+              : "No kennels match your filters."}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button variant="outline" size="sm" onClick={clearAllFilters}>
+              Clear all filters
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/suggest">Suggest a kennel</Link>
+            </Button>
+          </div>
         </div>
       ) : sort === "alpha" && grouped ? (
         // Grouped by region

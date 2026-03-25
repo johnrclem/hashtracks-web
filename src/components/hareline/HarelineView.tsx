@@ -16,10 +16,11 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { SearchX } from "lucide-react";
 import { EventCard, type HarelineEvent } from "./EventCard";
 import { getDayOfWeek, formatDateLong, parseList } from "@/lib/format";
 import { EventFilters } from "./EventFilters";
+import { EmptyState } from "./EmptyState";
+import { RegionQuickChips } from "./RegionQuickChips";
 import { CalendarView } from "./CalendarView";
 import { EventDetailPanel } from "./EventDetailPanel";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
@@ -462,30 +463,22 @@ export function HarelineView({
     </div>
   ) : null;
 
+  const emptyContext: "near_me" | "region" | "kennel" | "search" | "my_kennels" | "general" =
+    nearMeDistance != null && geoState.status === "granted" ? "near_me" :
+    selectedRegions.length > 0 ? "region" :
+    selectedKennels.length > 0 ? "kennel" :
+    searchText ? "search" :
+    scope === "my" ? "my_kennels" :
+    "general";
+
   const emptyState = (
-    <div className="flex flex-col items-center gap-3 py-16 text-center">
-      <SearchX className="h-10 w-10 text-muted-foreground/50" />
-      <div>
-        <p className="text-base font-medium text-foreground">No events found</p>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {scope === "my"
-            ? "No events from your subscribed kennels match these filters."
-            : "No events match your current filters."}
-        </p>
-      </div>
-      <div className="flex gap-2">
-        {activeFilterCount > 0 && (
-          <Button variant="outline" size="sm" onClick={clearAllFilters}>
-            Clear all filters
-          </Button>
-        )}
-        {scope === "my" && (
-          <Button variant="outline" size="sm" onClick={() => setScope("all")}>
-            Switch to All Kennels
-          </Button>
-        )}
-      </div>
-    </div>
+    <EmptyState
+      context={emptyContext}
+      regionName={selectedRegions.length === 1 ? selectedRegions[0] : undefined}
+      query={searchText || undefined}
+      onClearFilters={clearAllFilters}
+      onSwitchToAll={scope === "my" ? () => { setScope("all"); } : undefined}
+    />
   );
 
   const listContent = (
@@ -596,6 +589,13 @@ export function HarelineView({
       </div>
 
       <Separator className="my-1" />
+
+      {/* Region quick-chips */}
+      <RegionQuickChips
+        events={events}
+        selectedRegions={selectedRegions}
+        onRegionsChange={setSelectedRegions}
+      />
 
       {/* Filters */}
       <EventFilters

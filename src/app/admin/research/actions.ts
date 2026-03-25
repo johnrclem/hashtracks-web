@@ -312,6 +312,33 @@ export async function bulkRejectProposals(ids: string[]) {
   return { success: true };
 }
 
+// ─── Kennel Suggestion Actions ───────────────────────────────────────────────
+
+/** Approve or reject a public kennel suggestion. */
+export async function resolveKennelSuggestion(
+  id: string,
+  resolution: "APPROVED" | "REJECTED",
+): Promise<{ success: boolean; error?: string }> {
+  const admin = await getAdminUser();
+  if (!admin) return { success: false, error: "Not authorized" };
+
+  const request = await prisma.kennelRequest.findUnique({ where: { id } });
+  if (!request) return { success: false, error: "Suggestion not found" };
+  if (request.source !== "PUBLIC") return { success: false, error: "Not a public suggestion" };
+  if (request.status !== "PENDING") return { success: false, error: "Already resolved" };
+
+  await prisma.kennelRequest.update({
+    where: { id },
+    data: {
+      status: resolution,
+      resolvedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/admin/research");
+  return { success: true };
+}
+
 // ── Feedback / Refinement Actions ────────────────────────────────────────────
 
 /** Change URL and re-analyze (e.g., /index.php → /events.php). */
