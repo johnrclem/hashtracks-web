@@ -84,7 +84,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "cfmh3": ["Chicago Full Moon", "Chicago Full Moon Hash", "Chicago Moon Hash"],
     "fcmh3": ["First Crack", "First Crack H3", "First Crack of the Moon", "New Moon Hash"],
     "bdh3": ["Big Dogs", "Big Dogs H3", "Big Dogs Hash"],
-    "bmh3": ["Bushman", "Bushman H3", "Bushman Hash", "The Greatest Hash", "BMH3"],
+    "bmh3": ["Bushman", "Bushman H3", "Bushman Hash", "The Greatest Hash"],
     "2ch3": ["Second City", "Second City H3", "Second City Hash"],
     "wwh3": ["Whiskey Wednesday", "Whiskey Wednesday Hash", "WWW H3"],
     "4x2h4": ["4x2 H4", "Four by Two H4", "4x2 Hash", "Four by Two"],
