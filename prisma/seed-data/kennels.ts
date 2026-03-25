@@ -1914,6 +1914,23 @@ export const KENNELS: KennelSeed[] = [
       description: "Tucson monthly Sunday morning bike hash.",
       latitude: 32.22, longitude: -110.97,
     },
+    // ===== HAWAII =====
+    {
+      kennelCode: "ah3-hi", shortName: "AH3", fullName: "Aloha Hash House Harriers", region: "Honolulu, HI",
+      website: "https://alohah3.com",
+      facebookUrl: "https://www.facebook.com/AlohaH3/",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+      foundedYear: 1991, hashCash: "$5",
+      description: "Oahu's flagship weekly Saturday hash. Hashing in paradise since 1991.",
+      latitude: 21.31, longitude: -157.86,
+    },
+    {
+      kennelCode: "h5-hi", shortName: "H5", fullName: "Honolulu Hash House Harriers", region: "Honolulu, HI",
+      website: "https://hawaii.gotothehash.net",
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "5:45 PM", scheduleFrequency: "Weekly",
+      description: "Honolulu weekly Tuesday evening hash.",
+      latitude: 21.31, longitude: -157.86,
+    },
     // ===== OHIO =====
     // --- Dayton ---
     {

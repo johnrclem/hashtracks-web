@@ -2036,6 +2036,32 @@ export const SOURCES = [
       config: { defaultKennelTag: "Pedal Files" },
       kennelCodes: ["pedalfiles"],
     },
+    // ===== HAWAII =====
+    {
+      name: "Aloha H3 Google Calendar",
+      url: "alohahhh@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        kennelPatterns: [
+          ["\\bH5\\b|Honolulu H[45]", "H5"],
+        ],
+        defaultKennelTag: "AH3",
+      },
+      kennelCodes: ["ah3-hi", "h5-hi"],
+    },
+    {
+      name: "Honolulu H5 Google Calendar",
+      url: "jhhk1bllbl4thqk9in5qtffb68@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { defaultKennelTag: "H5" },
+      kennelCodes: ["h5-hi"],
+    },
     // ===== CALIFORNIA =====
     // --- Santa Cruz (Google Calendar) ---
     {

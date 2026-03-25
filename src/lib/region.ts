@@ -1219,6 +1219,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -110.97,
     aliases: ["Tucson, Arizona"],
   },
+  // ── US Pacific ──
+  {
+    name: "Hawaii",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "Pacific/Honolulu",
+    abbrev: "HI",
+    colorClasses: "bg-cyan-200 text-cyan-800",
+    pinColor: "#0891b2",
+    centroidLat: 21.31,
+    centroidLng: -157.86,
+    aliases: ["HI"],
+  },
+  {
+    name: "Honolulu, HI",
+    country: "USA",
+    timezone: "Pacific/Honolulu",
+    abbrev: "HNL",
+    colorClasses: "bg-cyan-100 text-cyan-700",
+    pinColor: "#06b6d4",
+    centroidLat: 21.31,
+    centroidLng: -157.86,
+    aliases: ["Honolulu, Hawaii", "Oahu"],
+  },
   // ── US Southeast — Florida ──
   {
     name: "Miami, FL",
@@ -1814,6 +1838,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Arizona
   "Phoenix, AZ": "Arizona",
   "Tucson, AZ": "Arizona",
+  // Hawaii
+  "Honolulu, HI": "Hawaii",
   // United Kingdom
   "London": "United Kingdom",
   "South West London": "United Kingdom",
