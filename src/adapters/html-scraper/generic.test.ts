@@ -172,6 +172,73 @@ describe("parseEventRow", () => {
     const event = parseEventRow($t, $t("tr").first(), config, "https://example.com");
     expect(event?.startTime).toBe("19:00");
   });
+
+  it("truncates location at UK postcode when locationTruncateAfter is set", () => {
+    const html = `<table><tr>
+      <td>25th March 2026</td>
+      <td>The Regency, 22-24 Lower Church Road, Weston-super-Mare BS23 2AG. Try the Grove Park car park, Grove Road BS23 2AA, £2 after 6pm.</td>
+    </tr></table>`;
+    const $loc = cheerio.load(html);
+    const config: GenericHtmlConfig = {
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(1)", location: "td:nth-child(2)" },
+      defaultKennelTag: "bogs",
+      dateLocale: "en-GB",
+      locationTruncateAfter: "uk-postcode",
+    };
+    const event = parseEventRow($loc, $loc("tr").first(), config, "https://example.com");
+    expect(event?.location).toBe(
+      "The Regency, 22-24 Lower Church Road, Weston-super-Mare BS23 2AG",
+    );
+  });
+
+  it("does not truncate location when locationTruncateAfter is not set", () => {
+    const fullLocation =
+      "The Regency, 22-24 Lower Church Road, Weston-super-Mare BS23 2AG. Try the Grove Park car park, Grove Road BS23 2AA, £2 after 6pm.";
+    const html = `<table><tr>
+      <td>25th March 2026</td>
+      <td>${fullLocation}</td>
+    </tr></table>`;
+    const $loc = cheerio.load(html);
+    const config: GenericHtmlConfig = {
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(1)", location: "td:nth-child(2)" },
+      defaultKennelTag: "bogs",
+      dateLocale: "en-GB",
+    };
+    const event = parseEventRow($loc, $loc("tr").first(), config, "https://example.com");
+    expect(event?.location).toBe(fullLocation);
+  });
+
+  it("uses defaultStartTime when no per-event time exists", () => {
+    const html = `<table><tr><td>March 15, 2026</td></tr></table>`;
+    const $t = cheerio.load(html);
+    const config: GenericHtmlConfig = {
+      ...BASE_CONFIG,
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(1)" },
+      defaultStartTime: "19:15",
+    };
+    const event = parseEventRow($t, $t("tr").first(), config, "https://example.com");
+    expect(event?.startTime).toBe("19:15");
+  });
+
+  it("prefers extracted startTime over defaultStartTime", () => {
+    const html = `<table><tr><td>March 15, 2026</td><td>6:30 PM</td></tr></table>`;
+    const $t = cheerio.load(html);
+    const config: GenericHtmlConfig = {
+      ...BASE_CONFIG,
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(1)", startTime: "td:nth-child(2)" },
+      defaultStartTime: "19:15",
+    };
+    const event = parseEventRow($t, $t("tr").first(), config, "https://example.com");
+    expect(event?.startTime).toBe("18:30");
+  });
 });
 
 describe("GenericHtmlAdapter", () => {

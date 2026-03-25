@@ -6,6 +6,7 @@ import {
   extractMonthDay,
   extractKennelTag,
   extractRunNumber,
+  extractRawDesignation,
   extractTitle,
   extractTime,
   extractHares,
@@ -296,6 +297,85 @@ describe("parseDetailsCell", () => {
     const result = parseDetailsCell($, $("td").first());
     expect(result.kennelTag).toBe("brh3");
     expect(result.runNumber).toBe(2);
+  });
+});
+
+// ── extractRawDesignation ──
+
+describe("extractRawDesignation", () => {
+  it("extracts NYC #2142", () => {
+    expect(extractRawDesignation("NYC #2142")).toBe("NYC #2142");
+  });
+  it("extracts Brooklyn #1179", () => {
+    expect(extractRawDesignation("Brooklyn #1179")).toBe("Brooklyn #1179");
+  });
+  it("extracts GGFM #432 from titled event", () => {
+    expect(extractRawDesignation("Pink MoonGGFM #432Start: Shenanigan's Pub")).toBe("GGFM #432");
+  });
+  it("extracts NAWW #389", () => {
+    expect(extractRawDesignation("NAWW #389")).toBe("NAWW #389");
+  });
+  it("extracts Queens #248 from titled event", () => {
+    expect(extractRawDesignation("7-11 C*ms to Queens!Queens #248Start: TBD")).toBe("Queens #248");
+  });
+  it("extracts LIL #147", () => {
+    expect(extractRawDesignation("Bears!LIL #147Start: Your Mother's House")).toBe("LIL #147");
+  });
+  it("returns undefined when no designation found", () => {
+    expect(extractRawDesignation("Just some random text")).toBeUndefined();
+  });
+});
+
+// ── parseDetailsCell title format (raw designation) ──
+
+describe("parseDetailsCell title format", () => {
+  it("untitled NYC event uses raw designation as title", () => {
+    const html = `<table><tr><td>NYC #2142<br>Start: The Library</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.title).toBe("NYC #2142");
+  });
+
+  it("untitled Brooklyn event uses raw designation as title", () => {
+    const html = `<table><tr><td>Brooklyn #1179</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.title).toBe("Brooklyn #1179");
+  });
+
+  it("untitled NAWW event uses raw designation as title", () => {
+    const html = `<table><tr><td>NAWW #389</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.title).toBe("NAWW #389");
+  });
+
+  it("titled GGFM event preserves raw designation in title", () => {
+    const html = `<table><tr><td><b>Pink Moon</b><br>GGFM #432<br>Start: Shenanigan's Pub</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.title).toBe("Pink Moon - GGFM #432");
+  });
+
+  it("titled NYC AGM preserves raw designation in title", () => {
+    const html = `<table><tr><td><b>AGM</b><br>NYC #2149</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.title).toBe("AGM - NYC #2149");
+  });
+
+  it("titled Brooklyn event preserves raw designation in title", () => {
+    const html = `<table><tr><td><b>Memorial Day Hash</b><br>Brooklyn #1183</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.title).toBe("Memorial Day Hash - Brooklyn #1183");
+  });
+
+  it("titled Queens event preserves raw designation in title", () => {
+    const html = `<table><tr><td><b>7-11 C*ms to Queens!</b><br>Queens #248<br>Start: TBD</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.title).toBe("7-11 C*ms to Queens! - Queens #248");
   });
 });
 
