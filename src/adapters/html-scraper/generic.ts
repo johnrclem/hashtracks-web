@@ -46,6 +46,8 @@ export interface GenericHtmlConfig {
   columns: GenericHtmlColumns;
   defaultKennelTag: string;
   dateLocale?: DateLocale;    // "en-US" | "en-GB" — defaults to "en-US"
+  locationTruncateAfter?: "uk-postcode";  // truncate location at first UK postcode match
+  defaultStartTime?: string;               // "HH:MM" fallback when page doesn't have per-event times
 }
 
 /** Type guard: does this config look like a GenericHtmlConfig? */
@@ -116,7 +118,15 @@ export function parseEventRow(
   const kennelTag = extractText($, $row, columns.kennelTag) || defaultKennelTag;
   const title = extractText($, $row, columns.title);
   const hares = extractText($, $row, columns.hares);
-  const location = extractText($, $row, columns.location);
+  let location = extractText($, $row, columns.location);
+  // UK postcode truncation: strip driving directions after postcode
+  if (config.locationTruncateAfter === "uk-postcode" && location) {
+    const postcodeRegex = /([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})/i;
+    const postcodeMatch = postcodeRegex.exec(location);
+    if (postcodeMatch) {
+      location = location.slice(0, postcodeMatch.index! + postcodeMatch[0].length).trim();
+    }
+  }
   const locationUrl = extractHref($, $row, columns.locationUrl) ?? extractHref($, $row, columns.location);
   const sourceEventUrl = extractHref($, $row, columns.sourceUrl);
 
@@ -136,6 +146,10 @@ export function parseEventRow(
         startTime = timeText;
       }
     }
+  }
+  // Fall back to config default when no per-event time extracted
+  if (!startTime && config.defaultStartTime) {
+    startTime = config.defaultStartTime;
   }
 
   return {

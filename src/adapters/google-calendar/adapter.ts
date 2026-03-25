@@ -88,6 +88,19 @@ export function extractTitle(summary: string): string {
   return stripped || summary;
 }
 
+// Pre-compiled date prefix patterns for stripDatePrefix (split to stay under regex complexity limits)
+const DATE_PREFIX_FULL_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*[,\s]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*[,\s]+\d{1,2}(?:st|nd|rd|th)?[,\s]+/i;
+const DATE_PREFIX_NUMERIC_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*[,\s]+\d{1,2}\/\d{1,2}[,\s]+/i;
+
+/** Strip leading day/date prefixes like "Wed April 1st", "Sat 3/28" from titles. */
+export function stripDatePrefix(text: string): string {
+  const stripped = text
+    .replace(DATE_PREFIX_FULL_RE, "")
+    .replace(DATE_PREFIX_NUMERIC_RE, "")
+    .trim();
+  return stripped || text;
+}
+
 /** Shared label names used in description field parsing (start-of-line detection + embedded truncation). */
 const LABEL_NAMES = "Hares?|Who|Where|Location|When|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions|Pack\\s*Meet|Meet(?:ing)?|Circle|Chalk\\s*Talk";
 
@@ -102,6 +115,7 @@ const TITLE_MULTI_EXCL_RE = /[!]{2,}/g;
 const TITLE_MULTI_QUEST_RE = /[?]{2,}/g;
 const TITLE_URL_RE = /^https?:\/\//;
 const TITLE_PURE_TIME_RE = /^\d{1,2}:\d{2}\s*[ap]m$/i;
+const TITLE_EMBEDDED_TIME_RE = /\d{1,2}:\d{2}\s*(?:am|pm)/i;
 
 // Pre-compiled regexes for extractLocationFromDescription
 const LOCATION_LABEL_RE = /(?:^|\n)\s*(?:WHERE|Location|Address|Meet(?:ing)?\s*(?:spot|point|at)?)\s*:\s*(.+)/im;
@@ -133,6 +147,7 @@ export function extractTitleFromDescription(description: string): string | undef
     if (text.length < 3) continue;
     if (TITLE_URL_RE.test(text)) continue;
     if (TITLE_PURE_TIME_RE.test(text)) continue;
+    if (TITLE_EMBEDDED_TIME_RE.test(text)) continue;
     return text;
   }
   return undefined;
@@ -200,6 +215,8 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       hares = hares.split("\n")[0].trim();
       // Truncate at boilerplate markers (description text leaking into hares)
       hares = hares.replace(HARE_BOILERPLATE_RE, "").trim();
+      // Strip trailing US phone numbers (e.g., "719-360-3805", "(555) 123-4567")
+      hares = hares.replace(/\s*\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\s*$/, "").trim();
       // Skip generic/non-hare "Who:" answers
       if (/^(?:that be you|your|all|everyone)/i.test(hares)) continue;
       // Filter hare strings starting with common prepositions/verbs (description text, not names)
@@ -347,6 +364,7 @@ export function buildRawEventFromGCalItem(
 
   // Determine title: if title matches kennel tag, try description fallback
   let title = useFullTitle ? summary : extractTitle(summary);
+  title = stripDatePrefix(title);
   if (title.toLowerCase() === kennelTag.toLowerCase() && rawDescription) {
     title = extractTitleFromDescription(rawDescription) ?? title;
   }

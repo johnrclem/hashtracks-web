@@ -109,6 +109,15 @@ export function parseTrailBlock(
     // Normal case: remaining first-line parts are hares
     hares = parts.slice(1).join(", ");
   }
+
+  // NbH3 convention: "Trail Name: Hare1 & Hare2" — split on first ": "
+  if (title && title.includes(": ")) {
+    const colonIdx = title.indexOf(": ");
+    const afterColon = title.slice(colonIdx + 2).trim();
+    title = title.slice(0, colonIdx).trim();
+    hares = hares ? `${afterColon}, ${hares}` : afterColon;
+  }
+
   let location: string | undefined;
 
   for (let i = 1; i < lines.length; i++) {

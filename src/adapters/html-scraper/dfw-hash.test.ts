@@ -595,6 +595,50 @@ describe("DFWHashAdapter.fetch", () => {
     expect(enriched[0].location).toBe("Sam Houston Trail Park, Irving");
   });
 
+  it("detail page hares overwrite truncated calendar grid hares", async () => {
+    // Calendar grid may extract a truncated hare from <em> (e.g. "S" from
+    // a clipped tag), but the detail page has the full "Hare: Son of a Peach"
+    // label. The enrichment guard must always prefer the detail page value.
+    const adapter = new DFWHashAdapter();
+
+    const detailHtml = `
+      <html><body>
+        <h3>Hash Run No 500</h3>
+        <h5><em>Time:</em> 6:30 PM</h5>
+        <h5><em>Start address:</em> Deep Ellum, Dallas</h5>
+        <h5><em>Hares:</em> Son of a Peach</h5>
+      </body></html>
+    `;
+
+    const mockModule = await import("../safe-fetch");
+    vi.spyOn(mockModule, "safeFetch")
+      // Month 1 calendar — has truncated hare names in <em> tags
+      .mockResolvedValueOnce(
+        new Response(SAMPLE_CALENDAR_HTML, { status: 200 }) as never,
+      )
+      // Month 2 calendar
+      .mockResolvedValueOnce(
+        new Response(SAMPLE_CALENDAR_HTML, { status: 200 }) as never,
+      )
+      // All detail page requests return the full hare name
+      .mockImplementation(
+        async () => new Response(detailHtml, { status: 200 }) as never,
+      );
+
+    const result = await adapter.fetch({
+      id: "test-dfw",
+      url: "http://www.dfwhhh.org/calendar/",
+    } as never);
+
+    // Calendar grid events had hares like "Hare Name", "Dallas Hare", etc.
+    // Detail page returns "Son of a Peach" — it should overwrite all of them
+    const eventsWithHares = result.events.filter((e) => e.hares);
+    expect(eventsWithHares.length).toBeGreaterThan(0);
+    for (const evt of eventsWithHares) {
+      expect(evt.hares).toBe("Son of a Peach");
+    }
+  });
+
   it("gracefully handles detail page fetch failures", async () => {
     const adapter = new DFWHashAdapter();
 

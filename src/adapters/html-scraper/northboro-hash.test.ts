@@ -200,6 +200,44 @@ describe("parseTrailBlock", () => {
       startTime: "13:00",
     });
   });
+
+  it("splits title:hares on colon delimiter in field-swap case", () => {
+    const result = parseTrailBlock(
+      ["April Trail #228, 4/5/26, 12:30pm, Hoppy birfday: Cum So Hard Me Die (CSHMD) & Cuntographer (C-tog)"],
+      SOURCE_URL,
+    );
+    expect(result).toMatchObject({
+      date: "2026-04-05",
+      runNumber: 228,
+      title: "Hoppy birfday",
+      hares: "Cum So Hard Me Die (CSHMD) & Cuntographer (C-tog)",
+      startTime: "12:30",
+    });
+  });
+
+  it("splits title:hares on colon delimiter in normal case", () => {
+    const result = parseTrailBlock(
+      ["June Trail #230, 6/15/26, Blasphemahash!!: Jesus Serves and Vulva"],
+      SOURCE_URL,
+    );
+    expect(result).toMatchObject({
+      runNumber: 230,
+      title: "Blasphemahash!!",
+      hares: "Jesus Serves and Vulva",
+    });
+  });
+
+  it("does not split title when no colon delimiter present", () => {
+    const result = parseTrailBlock(
+      ["July Trail #242, 7/18/26, 12:30pm, The Summer Hash, Captain Hash"],
+      SOURCE_URL,
+    );
+    expect(result).toMatchObject({
+      title: "The Summer Hash",
+      hares: "Captain Hash",
+      startTime: "12:30",
+    });
+  });
 });
 
 describe("NorthboroHashAdapter", () => {

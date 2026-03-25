@@ -460,7 +460,7 @@ export class DFWHashAdapter implements SourceAdapter {
           if (detail.startTime) evt.startTime = detail.startTime;
           if (detail.location) evt.location = detail.location;
           if (detail.runNumber) evt.runNumber = detail.runNumber;
-          if (detail.hares && !evt.hares) evt.hares = detail.hares;
+          if (detail.hares) evt.hares = detail.hares;
 
           detailFetched++;
         } else {

@@ -133,6 +133,45 @@ export function extractRunNumber(text: string, kennelTag?: string): number | und
 }
 
 /**
+ * Extract the raw kennel display name + run number as it appears in the source HTML.
+ * e.g. "NYC #2142", "Brooklyn #1179", "GGFM #432", "Queens #248", "NAWW #389"
+ * Returns the matched string verbatim to preserve original casing and spacing.
+ *
+ * Split into separate patterns (vs. one mega-regex) to stay under regex complexity limits
+ * and to support optional H3 suffixes (e.g. NYCH3 #..., NAWWH3 #...).
+ */
+const RAW_DESIGNATION_PATTERNS: RegExp[] = [
+  /\bNYC(?:H3)?\b\s*#\s*\d+/i,
+  /\bBrooklyn\b\s*#\s*\d+/i,
+  /\bKnickerbocker\b\s*#\s*\d+/i,
+  /\bQueens\s*Black\s*Knights\b\s*#\s*\d+/i,
+  /\bNew\s*Amsterdam\b\s*#\s*\d+/i,
+  /\bLong\s*Island(?:\s+Lunatics)?\b\s*#\s*\d+/i,
+  /\bStaten\s*Island\b\s*#\s*\d+/i,
+  /\bDrinking\s*Practice\b\s*#\s*\d+/i,
+  /\bHarriettes\b\s*#\s*\d+/i,
+  /\bColumbia\b\s*#\s*\d+/i,
+  /\bNAWW(?:H3)?\b\s*#\s*\d+/i,
+  /\bNASS\b\s*#\s*\d+/i,
+  /\bGGFM\b\s*#\s*\d+/i,
+  /\bBrH3\b\s*#\s*\d+/i,
+  /\bNAH3\b\s*#\s*\d+/i,
+  /\bKnick\b\s*#\s*\d+/i,
+  /\bQBK\b\s*#\s*\d+/i,
+  /\bLIL\b\s*#\s*\d+/i,
+  /\bSI\b\s*#\s*\d+/i,
+  /\bQueens\b\s*#\s*\d+/i,
+];
+
+export function extractRawDesignation(text: string): string | undefined {
+  for (const pattern of RAW_DESIGNATION_PATTERNS) {
+    const match = pattern.exec(text);
+    if (match) return match[0];
+  }
+  return undefined;
+}
+
+/**
  * Extract title from the details cell.
  * The title is everything after the kennel/run number prefix.
  */
@@ -377,9 +416,12 @@ export function parseDetailsCell(
   }
 
   let title: string | undefined;
+  const rawDesignation = extractRawDesignation(cellText);
   if (eventName) {
-    const designation = runNumber ? `${kennelTag} #${runNumber}` : kennelTag;
+    const designation = rawDesignation ?? (runNumber ? `${kennelTag} #${runNumber}` : kennelTag);
     title = `${eventName} - ${designation}`;
+  } else if (rawDesignation) {
+    title = rawDesignation;
   } else {
     const fallbackText = cellText.replace(/Start:[\s\S]*/i, "").trim();
     title = extractTitle(fallbackText) || undefined;

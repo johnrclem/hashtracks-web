@@ -352,6 +352,7 @@ export const SOURCES = [
         },
         defaultKennelTag: "Bristol H3",
         dateLocale: "en-GB",
+        locationTruncateAfter: "uk-postcode",
       },
       kennelCodes: ["bristolh3", "bristol-grey", "bogs-h3"],
     },
