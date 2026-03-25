@@ -27,12 +27,10 @@ type LinkedKennel = {
 };
 
 interface SourceKennelSlugTableProps {
-  sourceId: string;
   kennels: LinkedKennel[];
 }
 
 export function SourceKennelSlugTable({
-  sourceId,
   kennels,
 }: Readonly<SourceKennelSlugTableProps>) {
   const [search, setSearch] = useState("");
@@ -52,7 +50,7 @@ export function SourceKennelSlugTable({
       (sk) =>
         sk.kennel.shortName.toLowerCase().includes(q) ||
         sk.kennel.fullName.toLowerCase().includes(q) ||
-        (sk.externalSlug && sk.externalSlug.toLowerCase().includes(q)),
+        sk.externalSlug?.toLowerCase().includes(q),
     );
   }, [sorted, search]);
 
@@ -118,9 +116,9 @@ export function SourceKennelSlugTable({
 
 function SlugRow({
   sourceKennel,
-}: {
+}: Readonly<{
   sourceKennel: LinkedKennel;
-}) {
+}>) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
@@ -160,7 +158,7 @@ function SlugRow({
       } else {
         toast.success(
           trimmed
-            ? `Slug updated to "${trimmed}"`
+            ? `Slug updated to "${trimmed.toUpperCase()}"`
             : "Slug cleared",
         );
         setIsEditing(false);

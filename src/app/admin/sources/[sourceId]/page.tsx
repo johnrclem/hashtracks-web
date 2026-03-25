@@ -489,7 +489,7 @@ export default async function SourceDetailPage({
 
       {/* Linked Kennels */}
       {source.type === "HASHREGO" ? (
-        <SourceKennelSlugTable sourceId={source.id} kennels={source.kennels} />
+        <SourceKennelSlugTable kennels={source.kennels} />
       ) : (
         <div>
           <h2 className="mb-2 text-lg font-semibold">Linked Kennels</h2>
