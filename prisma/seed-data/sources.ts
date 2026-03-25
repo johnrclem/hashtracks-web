@@ -2046,10 +2046,10 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
-      scrapeDays: 90,
+      scrapeDays: 365,
       config: {
         kennelPatterns: [
-          ["^H5\\b|Honolulu H[45]", "H5"],
+          ["\\bH5\\b|Honolulu H[45]", "H5"],
         ],
         defaultKennelTag: "AH3",
       },
@@ -2061,7 +2061,7 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
-      scrapeDays: 90,
+      scrapeDays: 365,
       config: { defaultKennelTag: "H5" },
       kennelCodes: ["h5-hi"],
     },
