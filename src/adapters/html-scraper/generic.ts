@@ -121,7 +121,8 @@ export function parseEventRow(
   let location = extractText($, $row, columns.location);
   // UK postcode truncation: strip driving directions after postcode
   if (config.locationTruncateAfter === "uk-postcode" && location) {
-    const postcodeMatch = location.match(/([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})/i);
+    const postcodeRegex = /([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})/i;
+    const postcodeMatch = postcodeRegex.exec(location);
     if (postcodeMatch) {
       location = location.slice(0, postcodeMatch.index! + postcodeMatch[0].length).trim();
     }

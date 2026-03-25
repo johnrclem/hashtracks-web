@@ -88,12 +88,17 @@ export function extractTitle(summary: string): string {
   return stripped || summary;
 }
 
+// Pre-compiled date prefix patterns for stripDatePrefix (split to stay under regex complexity limits)
+const DATE_PREFIX_FULL_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*[,\s]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*[,\s]+\d{1,2}(?:st|nd|rd|th)?[,\s]+/i;
+const DATE_PREFIX_NUMERIC_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*[,\s]+\d{1,2}\/\d{1,2}[,\s]+/i;
+
 /** Strip leading day/date prefixes like "Wed April 1st", "Sat 3/28" from titles. */
 export function stripDatePrefix(text: string): string {
-  return text
-    .replace(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*[,\s]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*[,\s]+\d{1,2}(?:st|nd|rd|th)?[,\s]+/i, "")
-    .replace(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*[,\s]+\d{1,2}\/\d{1,2}[,\s]+/i, "")
-    .trim() || text;
+  const stripped = text
+    .replace(DATE_PREFIX_FULL_RE, "")
+    .replace(DATE_PREFIX_NUMERIC_RE, "")
+    .trim();
+  return stripped || text;
 }
 
 /** Shared label names used in description field parsing (start-of-line detection + embedded truncation). */
