@@ -69,7 +69,7 @@ export function SourceKennelSlugTable({
         )}
       </div>
 
-      {kennels.length > 3 && (
+      {(kennels.length > 3 || search.trim()) && (
         <Input
           placeholder="Filter by kennel or slug..."
           value={search}
@@ -238,7 +238,8 @@ function SlugRow({
           variant="ghost"
           className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={handleUnlink}
-          disabled={isPending}
+          disabled={isPending || isEditing}
+          title={isEditing ? "Save or cancel edit before unlinking" : undefined}
         >
           {isPending ? "..." : "Unlink"}
         </Button>
