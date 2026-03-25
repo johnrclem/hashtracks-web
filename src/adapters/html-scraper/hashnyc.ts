@@ -153,7 +153,7 @@ const RAW_DESIGNATION_PATTERNS: RegExp[] = [
   /\bColumbia\b\s*#\s*\d+/i,
   /\bNAWW(?:H3)?\b\s*#\s*\d+/i,
   /\bNASS\b\s*#\s*\d+/i,
-  /\bGGFM\b\s*#\s*\d+/i,
+  /(?<![A-Z])GGFM\b\s*#\s*\d+/,
   /\bBrH3\b\s*#\s*\d+/i,
   /\bNAH3\b\s*#\s*\d+/i,
   /\bKnick\b\s*#\s*\d+/i,

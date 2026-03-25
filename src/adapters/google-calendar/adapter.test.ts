@@ -539,6 +539,40 @@ describe("extractLocationFromDescription", () => {
   it("extracts Address: pattern", () => {
     expect(extractLocationFromDescription("Address: 456 Oak Ave, Suite 100")).toBe("456 Oak Ave, Suite 100");
   });
+
+  it("extracts Start: label with coordinates and place name (KAW!H3 format)", () => {
+    const desc = "Hare: Gayzelle\nTrail: Mostly pavement\nStart: 30.290552, -97.772365, the corner of Enfield and Exposition\nBring: virgins";
+    expect(extractLocationFromDescription(desc)).toBe("30.290552, -97.772365, the corner of Enfield and Exposition");
+  });
+
+  it("returns undefined when Start: value is a time string", () => {
+    expect(extractLocationFromDescription("Start: 6:30pm\nWhere: The Park")).toBe("The Park");
+  });
+
+  it("returns undefined for Start: with bare time", () => {
+    expect(extractLocationFromDescription("Start: 7:00 PM")).toBeUndefined();
+  });
+
+  it("extracts bare LOCATION label with URL line then place name (Mr. Happy's format)", () => {
+    const desc = "🍆🍅🥒Veggie hash🍆🍅🥒\n\nLOCATION\nhttps://maps.app.goo.gl/NGW5BNYxe8mNCXyv7\nVista del Prado Park\n\nWe're the Mr. Happy's Hashers";
+    expect(extractLocationFromDescription(desc)).toBe("Vista del Prado Park");
+  });
+
+  it("extracts bare WHERE label with no URL line", () => {
+    expect(extractLocationFromDescription("WHERE\nCentral Park")).toBe("Central Park");
+  });
+
+  it("extracts bare LOCATION label without URL intermediary", () => {
+    expect(extractLocationFromDescription("LOCATION\nThe Old Pub, 123 Main St")).toBe("The Old Pub, 123 Main St");
+  });
+
+  it("returns undefined for Start: with 24-hour time", () => {
+    expect(extractLocationFromDescription("Start: 18:30")).toBeUndefined();
+  });
+
+  it("returns undefined for Start: with bare time (no am/pm)", () => {
+    expect(extractLocationFromDescription("Start: 7:00")).toBeUndefined();
+  });
 });
 
 // ── extractTimeFromDescription ──
@@ -603,8 +637,13 @@ describe("extractTitleFromDescription — updated label filtering", () => {
 
   it("skips schedule line even when label regex does not match compound label", () => {
     // "Chalk Talk & Hares Off:" doesn't match TITLE_LABEL_RE because of the "& Hares Off" part
-    // But the embedded time "7:05pm" should still cause it to be skipped
+    // But the schedule pattern ": 7:05pm" should still cause it to be skipped
     expect(extractTitleFromDescription("Chalk Talk & Hares Off: 7:05pm\nTrail Info")).toBe("Trail Info");
+  });
+
+  it("does not skip legitimate titles that mention times", () => {
+    // Titles like "5K at 7:30pm" should NOT be filtered — only schedule lines (label: time)
+    expect(extractTitleFromDescription("5K at 7:30pm")).toBe("5K at 7:30pm");
   });
 });
 

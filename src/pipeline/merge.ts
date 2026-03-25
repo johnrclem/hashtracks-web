@@ -391,6 +391,8 @@ export function sanitizeLocation(location: string | undefined): string | null {
   const stripped = t.replace(/^Maps,\s*/i, "")
     .replace(/^(?:Meet|Park|Start|Gather|Hash|Walk)\s+at\s+/i, "")
     .replace(/^(?:Head|Leave|Walk)\s+(?:to|from)\s+/i, "")
+    // Strip leading decimal coordinate pairs (e.g., "30.290552, -97.772365, the corner of...")
+    .replace(/^-?\d+\.\d{3,},\s*-?\d+\.\d{3,}[,\s]*/, "")
     // Strip trailing decimal coordinate pairs (e.g., ". 35.898606, -78.579631" or bare "35.898, -78.579")
     .replace(/[.,]?\s*-?\d+\.\d{3,},\s*-?\d+\.\d{3,}\s*$/, "")
     .replace(/\.\s*$/, "")  // clean up trailing period left behind
