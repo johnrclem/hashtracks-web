@@ -85,6 +85,44 @@ export const TYPE_LABELS: Record<string, string> = {
 };
 
 const HEALTH_OPTIONS = ["HEALTHY", "DEGRADED", "FAILING", "STALE", "UNKNOWN"];
+type SortKey = "name" | "type" | "healthStatus" | "lastScrapeAt" | "linkedKennels" | "rawEventCount";
+type SortDirection = "asc" | "desc";
+
+function getNextSortDirection(currentKey: SortKey, activeKey: SortKey, currentDirection: SortDirection): SortDirection {
+  if (currentKey !== activeKey) return "asc";
+  return currentDirection === "asc" ? "desc" : "asc";
+}
+
+function SortableTableHead({
+  label,
+  sortKey,
+  activeSortKey,
+  direction,
+  onSort,
+  className,
+}: {
+  label: string;
+  sortKey: SortKey;
+  activeSortKey: SortKey;
+  direction: SortDirection;
+  onSort: (key: SortKey) => void;
+  className?: string;
+}) {
+  const isActive = activeSortKey === sortKey;
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 text-left hover:text-foreground/90"
+        onClick={() => onSort(sortKey)}
+        aria-label={`Sort by ${label}${isActive ? ` (${direction})` : ""}`}
+      >
+        <span>{label}</span>
+        <span aria-hidden>{isActive ? (direction === "asc" ? "↑" : "↓") : "↕"}</span>
+      </button>
+    </TableHead>
+  );
+}
 
 /** Admin source table with kennel/type/health filtering and per-row actions. */
 export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }: SourceTableProps) {
@@ -92,6 +130,8 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedHealth, setSelectedHealth] = useState<string[]>([]);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   if (sources.length === 0) {
     return <p className="text-sm text-muted-foreground">No sources yet.</p>;
@@ -146,8 +186,36 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
     return true;
   });
 
+  const sortedSources = [...filteredSources].sort((a, b) => {
+    const order = sortDirection === "asc" ? 1 : -1;
+
+    switch (sortKey) {
+      case "name":
+      case "type":
+      case "healthStatus":
+        return order * a[sortKey].localeCompare(b[sortKey]);
+      case "lastScrapeAt": {
+        const aTime = a.lastScrapeAt ? new Date(a.lastScrapeAt).getTime() : 0;
+        const bTime = b.lastScrapeAt ? new Date(b.lastScrapeAt).getTime() : 0;
+        return order * (aTime - bTime);
+      }
+      case "linkedKennels":
+        return order * (a.linkedKennels.length - b.linkedKennels.length);
+      case "rawEventCount":
+        return order * (a.rawEventCount - b.rawEventCount);
+      default:
+        return 0;
+    }
+  });
+
   const activeFilterCount =
     selectedKennels.length + selectedRegions.length + selectedTypes.length + selectedHealth.length;
+
+  function handleSort(key: SortKey) {
+    const nextDirection = getNextSortDirection(key, sortKey, sortDirection);
+    setSortKey(key);
+    setSortDirection(nextDirection);
+  }
 
   function toggleKennel(id: string) {
     setSelectedKennels((prev) =>
@@ -420,17 +488,57 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead className="hidden sm:table-cell">Type</TableHead>
-            <TableHead>Health</TableHead>
-            <TableHead className="hidden sm:table-cell">Last Scrape</TableHead>
-            <TableHead className="hidden sm:table-cell text-center">Linked</TableHead>
-            <TableHead className="hidden sm:table-cell text-center">Raw Events</TableHead>
+            <SortableTableHead
+              label="Name"
+              sortKey="name"
+              activeSortKey={sortKey}
+              direction={sortDirection}
+              onSort={handleSort}
+            />
+            <SortableTableHead
+              label="Type"
+              sortKey="type"
+              activeSortKey={sortKey}
+              direction={sortDirection}
+              onSort={handleSort}
+              className="hidden sm:table-cell"
+            />
+            <SortableTableHead
+              label="Health"
+              sortKey="healthStatus"
+              activeSortKey={sortKey}
+              direction={sortDirection}
+              onSort={handleSort}
+            />
+            <SortableTableHead
+              label="Last Scrape"
+              sortKey="lastScrapeAt"
+              activeSortKey={sortKey}
+              direction={sortDirection}
+              onSort={handleSort}
+              className="hidden sm:table-cell"
+            />
+            <SortableTableHead
+              label="Linked"
+              sortKey="linkedKennels"
+              activeSortKey={sortKey}
+              direction={sortDirection}
+              onSort={handleSort}
+              className="hidden sm:table-cell text-center"
+            />
+            <SortableTableHead
+              label="Raw Events"
+              sortKey="rawEventCount"
+              activeSortKey={sortKey}
+              direction={sortDirection}
+              onSort={handleSort}
+              className="hidden sm:table-cell text-center"
+            />
             <TableHead className="w-10"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredSources.map((source) => (
+          {sortedSources.map((source) => (
             <SourceRow
               key={source.id}
               source={source}
