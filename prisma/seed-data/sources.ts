@@ -527,18 +527,23 @@ export const SOURCES = [
     // --- Houston (1 Google Calendar + 1 Blogger + 2 Static Schedules) ---
     {
       name: "Houston Hash Calendar",
-      url: "houstonhash@gmail.com",
+      url: "hashvoice@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
         kennelPatterns: [
-          ["Mosquito", "Mosquito H3"],
+          ["Brass Monkey H3|Brass Monkey", "BMH3"],
+          ["GALVESTON H3|Galveston H3|GH3\\s*#|#\\d+\\s*Galveston", "Galveston H3"],
+          ["Space City H3|Space City Hash|SCH3", "Space City H3"],
+          ["Moooouston H3|Moooo?uston", "Moooouston H3"],
+          ["Mosquito H3|Mosquito", "Mosquito H3"],
         ],
         defaultKennelTag: "Houston H3",
+        skipPatterns: ["^VOICE:", "^Platterpuss"],
       },
-      kennelCodes: ["h4-tx", "mosquito-h3"],
+      kennelCodes: ["h4-tx", "bmh3-tx", "mosquito-h3", "moooouston-h3", "space-city-h3", "galh3"],
     },
     {
       name: "Brass Monkey H3 Blog",
