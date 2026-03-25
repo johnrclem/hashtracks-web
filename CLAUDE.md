@@ -247,7 +247,7 @@ logbook + kennel directory.
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (144)
+## Active Sources (146)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -349,6 +349,10 @@ logbook + kennel directory.
 
 ### Ireland (1 source)
 - **Dublin H3 Website Hareline** → HTML_SCRAPER → DH3
+
+### Germany (2 sources)
+- **Berlin H3 iCal Feed** → ICAL_FEED → BH3, BH3FM (2 Berlin kennels)
+- **Stuttgart H3 Google Calendar** → GOOGLE_CALENDAR → SH3, DST, FM, SUPER (4 Stuttgart kennels)
 
 ### Florida (8 sources)
 - **Miami H3 Meetup** → MEETUP → MH3

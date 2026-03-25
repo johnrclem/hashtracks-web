@@ -291,5 +291,23 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "ochhh": ["Orange County Hash", "OC Hash", "OCHHH", "OC H3"],
     "ochump": ["OC Hump Hash", "OC Hump H3"],
     "sloh3": ["San Luis Obispo Hash", "SLO Hash", "SLO H3", "SLOH3"],
+    // ===== GERMANY =====
+    // Berlin
+    "berlinh3": ["Berlin Hash", "Berlin H3", "Berlin HHH"],
+    "bh3fm": ["Berlin Full Moon Hash", "Berlin Full Moon H3", "BH3FM"],
+    // Stuttgart
+    "sh3-de": ["Stuttgart Hash", "Stuttgart H3", "SH3 Stuttgart"],
+    "dst-h3": ["DST Hash", "DST H3", "Stuttgart Tuesday Hash"],
+    "fm-stgt": ["Stuttgart Full Moon Hash", "Stuttgart Full Moon"],
+    "super-h3": ["SUPER Hash", "SUPER H3"],
+    // Munich
+    "mh3-de": ["Munich Hash", "Munich H3", "MH3 Munich", "München Hash"],
+    "mfmh3": ["Munich Full Moon Hash", "Munich Full Moon H3", "MFMH3"],
+    "massh3": ["MASS Hash", "MASS H3"],
+    "fh3": ["Frankfurt Hash", "Frankfurt H3", "FH3", "Frankfurt HHH"],
+    "ffmh3": ["Frankfurt Full Moon Hash", "Frankfurt Full Moon", "FFM H3"],
+    "shits-fra": ["SHITS Hash", "SHITS H3", "S.H.I.T.S."],
+    "dom-fra": ["DOM Hash", "D.O.M. Hash", "DOM H3"],
+    "bikeh3-fra": ["Frankfurt Bike Hash", "Bike Bash Frankfurt"],
   };
 

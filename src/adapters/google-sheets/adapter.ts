@@ -53,6 +53,24 @@ export function parseDate(dateStr: string): string | null {
   // Strip trailing day-name suffix: "2026/03/07 (Sat)" → "2026/03/07"
   const cleaned = trimmed.replace(/\s*\(.*\)\s*$/, "");
 
+  // D-Mon-YY or DD-Mon-YYYY: "3-Jan-26", "20-Dec-25", "15-Mar-2026"
+  const monthNames: Record<string, number> = {
+    jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+    jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+  };
+  const dMonMatch = /^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/.exec(cleaned);
+  if (dMonMatch) {
+    const day = Number.parseInt(dMonMatch[1], 10);
+    const month = monthNames[dMonMatch[2].toLowerCase()];
+    let year = Number.parseInt(dMonMatch[3], 10);
+    if (!month || day < 1 || day > 31) return null;
+    year = year > 99 ? year : year < 50 ? 2000 + year : 1900 + year;
+    // Validate date is real
+    const d = new Date(Date.UTC(year, month - 1, day));
+    if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
   const parts = cleaned.split(/[/\-]/).map((s) => Number.parseInt(s, 10));
   if (parts.length !== 3 || parts.some(isNaN)) return null;
 
