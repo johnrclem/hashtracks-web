@@ -28,6 +28,8 @@ import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { haversineDistance, getEventCoords } from "@/lib/geo";
 import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
+import { LocationPrompt } from "./LocationPrompt";
+import { getLocationPref, resolveLocationDefault } from "@/lib/location-pref";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -460,6 +462,58 @@ export function HarelineView({
     [syncUrl],
   );
 
+  // On mount: apply stored location preference if no URL filters are present
+  const locationPrefApplied = useRef(false);
+  useEffect(() => {
+    if (locationPrefApplied.current) return;
+    locationPrefApplied.current = true;
+
+    const pref = getLocationPref();
+    const result = resolveLocationDefault(searchParams, pref);
+    if (!result) return;
+
+    if (result.regions) {
+      setSelectedRegions(result.regions);
+    } else if (result.nearMeDistance) {
+      setNearMeDistance(result.nearMeDistance);
+      requestLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Determine if URL has any filter params (for LocationPrompt)
+  const hasUrlFilters = useMemo(() => {
+    const filterParams = ["regions", "dist", "days", "kennels", "q", "country"];
+    return filterParams.some((p) => searchParams.has(p));
+  }, [searchParams]);
+
+  // Unique metro region names from events (for LocationPrompt picker)
+  const uniqueRegionNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of events) {
+      if (e.kennel?.region) set.add(e.kennel.region);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [events]);
+
+  // Persist location preference when user manually changes Near Me or region filters
+  const handleSetNearMeFromPrompt = useCallback(
+    (distance: number) => {
+      setNearMeDistance(distance);
+      requestLocation();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [syncUrl],
+  );
+
+  const handleSetRegionFromPrompt = useCallback(
+    (region: string) => {
+      setSelectedRegions([region]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [syncUrl],
+  );
+
   // Dynamic page title based on selected regions
   useEffect(() => {
     if (selectedRegions.length === 1) {
@@ -547,6 +601,14 @@ export function HarelineView({
 
   return (
     <div className="mt-3 space-y-4">
+      {/* Location prompt for first-time visitors */}
+      <LocationPrompt
+        hasUrlFilters={hasUrlFilters}
+        onSetNearMe={handleSetNearMeFromPrompt}
+        onSetRegion={handleSetRegionFromPrompt}
+        regionNames={uniqueRegionNames}
+      />
+
       {/* Controls bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Left: time range select */}

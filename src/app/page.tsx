@@ -11,6 +11,7 @@ import {
   PulseDot,
   RegionTicker,
 } from "@/components/home/HeroAnimations";
+import { FindRunsSection } from "@/components/home/FindRunsSection";
 import { Calendar, BookOpen, Users, MapPin, ArrowRight, Beer, Zap, Globe, ClipboardList, Clock, Footprints } from "lucide-react";
 
 export default async function HomePage() {
@@ -180,6 +181,15 @@ export default async function HomePage() {
         <div className="border-y border-foreground/5 bg-foreground/[0.015]">
           <RegionTicker regions={regionNames} />
         </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════
+          FIND RUNS NEAR YOU
+       ═══════════════════════════════════════════════ */}
+      {regionNames.length > 0 && (
+        <FadeInSection>
+          <FindRunsSection regions={regionNames} />
+        </FadeInSection>
       )}
 
       {/* ═══════════════════════════════════════════════

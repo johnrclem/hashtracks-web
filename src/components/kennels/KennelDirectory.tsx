@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -13,6 +13,8 @@ import { KennelFilters, DAY_FULL } from "@/components/kennels/KennelFilters";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { getEventCoords, haversineDistance } from "@/lib/geo";
 import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
+import { LocationPrompt } from "@/components/hareline/LocationPrompt";
+import { getLocationPref, resolveLocationDefault } from "@/lib/location-pref";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ssr: false,
@@ -309,6 +311,58 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   // Show "Nearest" sort option only when geolocation is granted
   const showNearestSort = geoState.status === "granted";
 
+  // On mount: apply stored location preference if no URL filters are present
+  const locationPrefApplied = useRef(false);
+  useEffect(() => {
+    if (locationPrefApplied.current) return;
+    locationPrefApplied.current = true;
+
+    const pref = getLocationPref();
+    const result = resolveLocationDefault(searchParams, pref);
+    if (!result) return;
+
+    if (result.regions) {
+      setSelectedRegions(result.regions);
+    } else if (result.nearMeDistance) {
+      setNearMeDistance(result.nearMeDistance);
+      requestLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Determine if URL has any filter params (for LocationPrompt)
+  const hasUrlFilters = useMemo(() => {
+    const filterParams = ["regions", "distance", "days", "q", "country", "freq", "upcoming"];
+    return filterParams.some((p) => searchParams.has(p));
+  }, [searchParams]);
+
+  // Unique metro region names from kennels (for LocationPrompt picker)
+  const uniqueRegionNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const k of kennels) {
+      if (k.region) set.add(k.region);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [kennels]);
+
+  // Callbacks for LocationPrompt
+  const handleSetNearMeFromPrompt = useCallback(
+    (distance: number) => {
+      setNearMeDistance(distance);
+      requestLocation();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [syncUrl],
+  );
+
+  const handleSetRegionFromPrompt = useCallback(
+    (region: string) => {
+      setSelectedRegions([region]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [syncUrl],
+  );
+
   // Dynamic page title based on selected regions
   useEffect(() => {
     if (selectedRegions.length === 1) {
@@ -320,6 +374,14 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
 
   return (
     <div className="mt-6 space-y-4">
+      {/* Location prompt for first-time visitors */}
+      <LocationPrompt
+        hasUrlFilters={hasUrlFilters}
+        onSetNearMe={handleSetNearMeFromPrompt}
+        onSetRegion={handleSetRegionFromPrompt}
+        regionNames={uniqueRegionNames}
+      />
+
       {/* Search + sort row */}
       <div className="flex flex-wrap items-center gap-3">
         <Input
