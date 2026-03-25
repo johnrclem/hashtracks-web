@@ -308,17 +308,15 @@ export async function scrapeSource(
     const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
 
     // For HASHREGO, load SourceKennel externalSlugs and pass to adapter.
-    // Only use DB slugs when every linked kennel has been backfilled;
-    // otherwise fall back to config.kennelSlugs via undefined.
+    // Use all available DB slugs; fall back to config only when zero exist.
     let kennelSlugs: string[] | undefined;
     if (source.type === "HASHREGO") {
       const sks = await prisma.sourceKennel.findMany({
-        where: { sourceId },
+        where: { sourceId, externalSlug: { not: null } },
         select: { externalSlug: true },
       });
-      const dbSlugs = sks.flatMap((sk) => sk.externalSlug ? [sk.externalSlug] : []);
-      const hasMissingExternalSlugs = sks.some((sk) => !sk.externalSlug);
-      kennelSlugs = hasMissingExternalSlugs ? undefined : dbSlugs;
+      const dbSlugs = sks.map((sk) => sk.externalSlug!);
+      kennelSlugs = dbSlugs.length > 0 ? dbSlugs : undefined;
     }
 
     const fetchStart = Date.now();
