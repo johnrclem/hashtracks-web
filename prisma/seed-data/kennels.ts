@@ -1069,6 +1069,23 @@ export const KENNELS: KennelSeed[] = [
       description: "Runs on the 1st and 3rd Wednesday of each month in Houston.",
       latitude: 29.79, longitude: -95.76,
     },
+    {
+      kennelCode: "moooouston-h3", shortName: "Moooouston H3", fullName: "Moooouston Hash House Harriers", region: "Houston, TX",
+      scheduleFrequency: "Monthly",
+      description: "Houston monthly hash.",
+      latitude: 29.76, longitude: -95.37,
+    },
+    {
+      kennelCode: "space-city-h3", shortName: "Space City H3", fullName: "Space City Hash House Harriers", region: "Houston, TX",
+      scheduleFrequency: "Irregular",
+      description: "Houston area Space City hash.",
+      latitude: 29.76, longitude: -95.37,
+    },
+    {
+      kennelCode: "galh3", shortName: "Galveston H3", fullName: "Galveston Hash House Harriers", region: "Houston, TX",
+      description: "Galveston Island hash.",
+      latitude: 29.30, longitude: -94.80,
+    },
     // --- Dallas-Fort Worth ---
     {
       kennelCode: "dh3-tx", shortName: "Dallas H3", fullName: "Dallas Hash House Harriers", region: "Dallas-Fort Worth, TX",
