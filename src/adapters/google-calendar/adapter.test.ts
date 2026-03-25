@@ -3,6 +3,7 @@ import {
   extractKennelTag,
   extractRunNumber,
   extractTitle,
+  stripDatePrefix,
   extractHares,
   extractTitleFromDescription,
   extractLocationFromDescription,
@@ -265,6 +266,24 @@ describe("extractHares", () => {
 
   it("does not false-match 'hare off at' as a hare name", () => {
     expect(extractHares("Pack off at 7:30, hare off at 7:15")).toBeUndefined();
+  });
+
+  it("strips trailing phone number (dashed format)", () => {
+    expect(extractHares("Hare: Dr Sh!t Yeah! 719-360-3805")).toBe("Dr Sh!t Yeah!");
+  });
+
+  it("strips trailing phone number (parenthesized format)", () => {
+    expect(extractHares("Hare: Trail Name (555) 123-4567")).toBe("Trail Name");
+  });
+
+  it("strips trailing phone number (dotted format)", () => {
+    expect(extractHares("Hares: Name1 & Name2 555.123.4567")).toBe("Name1 & Name2");
+  });
+
+  it("strips phone from full description context", () => {
+    const description =
+      "March Madness!\nRilea's Pub 5672 N Union Blvd\nHare: Dr Sh!t Yeah! 719-360-3805\nBring: whistle";
+    expect(extractHares(description)).toBe("Dr Sh!t Yeah!");
   });
 });
 
@@ -575,6 +594,41 @@ describe("extractTitleFromDescription — updated label filtering", () => {
 
   it("skips Chalk Talk lines", () => {
     expect(extractTitleFromDescription("Chalk Talk: 5:45 pm\nSummer Solstice")).toBe("Summer Solstice");
+  });
+
+  it("skips lines with embedded time patterns", () => {
+    const desc = "Pack Meet: 6:30pm\nChalk Talk & Hares Off: 7:05pm\nPack Off: 7:20pm-ish";
+    expect(extractTitleFromDescription(desc)).toBeUndefined();
+  });
+
+  it("skips schedule line even when label regex does not match compound label", () => {
+    // "Chalk Talk & Hares Off:" doesn't match TITLE_LABEL_RE because of the "& Hares Off" part
+    // But the embedded time "7:05pm" should still cause it to be skipped
+    expect(extractTitleFromDescription("Chalk Talk & Hares Off: 7:05pm\nTrail Info")).toBe("Trail Info");
+  });
+});
+
+// ── stripDatePrefix ──
+
+describe("stripDatePrefix", () => {
+  it("strips day + month + ordinal prefix", () => {
+    expect(stripDatePrefix("Wed April 1st OH3 Full Moon #1365")).toBe("OH3 Full Moon #1365");
+  });
+
+  it("strips Saturday + month + date prefix", () => {
+    expect(stripDatePrefix("Saturday March 28th Toga Hash")).toBe("Toga Hash");
+  });
+
+  it("strips abbreviated day + numeric date prefix", () => {
+    expect(stripDatePrefix("Sat 3/28 Trail Name")).toBe("Trail Name");
+  });
+
+  it("returns original text when no date prefix", () => {
+    expect(stripDatePrefix("OH3 Full Moon #1365")).toBe("OH3 Full Moon #1365");
+  });
+
+  it("returns original text when prefix would consume everything", () => {
+    expect(stripDatePrefix("Wed April 1st")).toBe("Wed April 1st");
   });
 });
 

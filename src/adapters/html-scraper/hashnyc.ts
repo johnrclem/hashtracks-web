@@ -133,6 +133,16 @@ export function extractRunNumber(text: string, kennelTag?: string): number | und
 }
 
 /**
+ * Extract the raw kennel display name + run number as it appears in the source HTML.
+ * e.g. "NYC #2142", "Brooklyn #1179", "GGFM #432", "Queens #248", "NAWW #389"
+ * Returns the matched string verbatim to preserve original casing and spacing.
+ */
+export function extractRawDesignation(text: string): string | undefined {
+  const match = /(?:NYC|Brooklyn|Knickerbocker|Queens\s*Black\s*Knights|New\s*Amsterdam|Long\s*Island(?:\s+Lunatics)?|Staten\s*Island|Drinking\s*Practice|Harriettes|Columbia|NAWW|NASS|GGFM|BrH3|NAH3|Knick|QBK|LIL|SI|Queens)\s*#\s*\d+/i.exec(text);
+  return match ? match[0] : undefined;
+}
+
+/**
  * Extract title from the details cell.
  * The title is everything after the kennel/run number prefix.
  */
@@ -377,9 +387,12 @@ export function parseDetailsCell(
   }
 
   let title: string | undefined;
+  const rawDesignation = extractRawDesignation(cellText);
   if (eventName) {
-    const designation = runNumber ? `${kennelTag} #${runNumber}` : kennelTag;
+    const designation = rawDesignation ?? (runNumber ? `${kennelTag} #${runNumber}` : kennelTag);
     title = `${eventName} - ${designation}`;
+  } else if (rawDesignation) {
+    title = rawDesignation;
   } else {
     const fallbackText = cellText.replace(/Start:[\s\S]*/i, "").trim();
     title = extractTitle(fallbackText) || undefined;
