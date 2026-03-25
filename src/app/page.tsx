@@ -383,6 +383,18 @@ export default async function HomePage() {
               </div>
             </FadeInSection>
           </div>
+
+          <FadeInSection delay={300}>
+            <p className="mt-8 text-center text-sm text-muted-foreground">
+              Don&apos;t see your kennel?{" "}
+              <Link
+                href="/suggest"
+                className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-orange-700"
+              >
+                Suggest it
+              </Link>
+            </p>
+          </FadeInSection>
         </div>
       </section>
 

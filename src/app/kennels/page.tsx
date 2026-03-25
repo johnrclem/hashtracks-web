@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { getStateGroup } from "@/lib/region";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FadeInSection } from "@/components/home/HeroAnimations";
+import { SuggestKennelDialog } from "@/components/suggest/SuggestKennelDialog";
 
 export const metadata: Metadata = {
   title: "Kennels · HashTracks",
@@ -68,9 +70,15 @@ export default async function KennelsPage() {
           title="Kennel Directory"
           description="Browse hashing kennels and subscribe to your home kennels."
           actions={
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/kennels/request">Request a Kennel</Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <SuggestKennelDialog
+                trigger={
+                  <Button variant="outline" size="sm">
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Suggest a Kennel
+                  </Button>
+                }
+              />
+            </div>
           }
         />
       </FadeInSection>

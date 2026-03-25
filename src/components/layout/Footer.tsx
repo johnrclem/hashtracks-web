@@ -7,6 +7,7 @@ const exploreLinks = [
   { href: "/kennels", label: "Kennel Directory" },
   { href: "/logbook", label: "My Logbook" },
   { href: "/for-misman", label: "For Kennel Organizers" },
+  { href: "/suggest", label: "Suggest a Kennel" },
 ];
 
 const communityLinks = [

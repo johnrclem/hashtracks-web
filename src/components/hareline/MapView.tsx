@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { LocateFixed, X } from "lucide-react";
 import { getEventCoords, getRegionColor } from "@/lib/geo";
 import { ClusteredMarkers, type EventWithCoords } from "./ClusteredMarkers";
+import { ColocatedEventList } from "./ColocatedEventList";
 import type { HarelineEvent } from "./EventCard";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
 const VIEWPORT_STORAGE_KEY = "hareline-map-viewport";
+const LG_BREAKPOINT = 1024;
 
 /** Shared base styles for legend circle icons. */
 const LEGEND_ICON_BASE: React.CSSProperties = {
@@ -149,14 +151,48 @@ interface MapViewProps {
   readonly selectedEventId?: string | null;
   /** Callback when a map pin is clicked. */
   readonly onSelectEvent: (event: HarelineEvent | null) => void;
+  /** Placeholder for Step 8: filter events by region when a region cluster is clicked. */
+  readonly onRegionFilter?: (region: string) => void;
 }
 
-export default function MapView({ events, selectedEventId, onSelectEvent }: MapViewProps) {
+/** State for the co-located event list overlay. */
+interface ColocatedListState {
+  events: EventWithCoords[];
+  position: { lat: number; lng: number };
+}
+
+export default function MapView({ events, selectedEventId, onSelectEvent, onRegionFilter: _onRegionFilter }: MapViewProps) {
   const router = useRouter();
   const handleNavigate = useCallback((id: string) => router.push(`/hareline/${id}`), [router]);
   const skipAutoZoomRef = useRef(false);
   const handleRestored = useCallback(() => { skipAutoZoomRef.current = true; }, []);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
+
+  // Co-located event list overlay state
+  const [colocatedList, setColocatedList] = useState<ColocatedListState | null>(null);
+
+  const handleShowColocated = useCallback(
+    (colocatedEvents: EventWithCoords[], position: { lat: number; lng: number }) => {
+      setColocatedList({ events: colocatedEvents, position });
+    },
+    [],
+  );
+
+  const handleColocatedSelect = useCallback(
+    (event: HarelineEvent) => {
+      setColocatedList(null);
+      if (typeof window !== "undefined" && window.innerWidth < LG_BREAKPOINT) {
+        router.push(`/hareline/${event.id}`);
+      } else {
+        onSelectEvent(event);
+      }
+    },
+    [onSelectEvent, router],
+  );
+
+  const handleColocatedClose = useCallback(() => {
+    setColocatedList(null);
+  }, []);
 
   const eventsWithCoords = useMemo<EventWithCoords[]>(() => {
     return events.flatMap((event) => {
@@ -210,7 +246,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
 
   return (
     <APIProvider apiKey={apiKey}>
-      <div className="h-[calc(100vh-14rem)] min-h-[400px] overflow-hidden rounded-md border">
+      <div className="relative h-[calc(100vh-14rem)] min-h-[400px] overflow-hidden rounded-md border">
         <Map
           mapId={MAP_ID}
           defaultBounds={defaultBounds}
@@ -219,13 +255,17 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
           mapTypeControl={false}
           streetViewControl={false}
           zoomControl={true}
-          onClick={() => { onSelectEvent(null); }}
+          onClick={() => {
+            onSelectEvent(null);
+            setColocatedList(null);
+          }}
         >
           <ClusteredMarkers
             events={eventsWithCoords}
             selectedEventId={selectedEventId}
             onSelectEvent={onSelectEvent}
             onNavigate={handleNavigate}
+            onShowColocated={handleShowColocated}
           />
 
           {/* Reset view button */}
@@ -268,6 +308,19 @@ export default function MapView({ events, selectedEventId, onSelectEvent }: MapV
             </div>
           </MapControl>
         </Map>
+
+        {/* Co-located event list overlay */}
+        {colocatedList && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center lg:items-center lg:justify-center">
+            <div className="pointer-events-auto mb-4 w-full max-w-xs px-4 lg:mb-0 lg:px-0">
+              <ColocatedEventList
+                events={colocatedList.events}
+                onSelectEvent={handleColocatedSelect}
+                onClose={handleColocatedClose}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </APIProvider>
   );
