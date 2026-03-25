@@ -33,7 +33,7 @@ function makeSource(overrides?: Partial<Source>): Source {
       archiveUrl: "https://frankfurt-hash.de/index.php/coming-runs/category/3?id=3&task=archive&filter_reset=1&limit=0",
       kennelPatterns: [
         ["SHITS|Shits", "SHITS"],
-        ["^FM |Full Moon|Frankfurt Full Moon", "FFMH3"],
+        ["^FM\\b|Full Moon|Frankfurt Full Moon", "FFMH3"],
         ["^DOM Run", "DOM"],
         ["Bike Hash|Bike Bash", "Bike Hash"],
       ],
@@ -138,11 +138,11 @@ const ARCHIVE_HTML = `<html><body>
 // ── parseJEMEvent tests ──
 
 describe("parseJEMEvent", () => {
-  const compiled = [
-    { re: /SHITS|Shits/i, tag: "SHITS" },
-    { re: /^FM |Full Moon|Frankfurt Full Moon/i, tag: "FFMH3" },
-    { re: /^DOM Run/i, tag: "DOM" },
-    { re: /Bike Hash|Bike Bash/i, tag: "Bike Hash" },
+  const compiled: [RegExp, string][] = [
+    [/SHITS|Shits/i, "SHITS"],
+    [/^FM\b|Full Moon|Frankfurt Full Moon/i, "FFMH3"],
+    [/^DOM Run/i, "DOM"],
+    [/Bike Hash|Bike Bash/i, "Bike Hash"],
   ];
   const defaultTag = "FH3";
   const baseUrl = "https://frankfurt-hash.de";
@@ -320,11 +320,11 @@ describe("parseJEMEvent", () => {
 // ── parseJEMEventList tests ──
 
 describe("parseJEMEventList", () => {
-  const compiled = [
-    { re: /SHITS|Shits/i, tag: "SHITS" },
-    { re: /^FM |Full Moon|Frankfurt Full Moon/i, tag: "FFMH3" },
-    { re: /^DOM Run/i, tag: "DOM" },
-    { re: /Bike Hash|Bike Bash/i, tag: "Bike Hash" },
+  const compiled: [RegExp, string][] = [
+    [/SHITS|Shits/i, "SHITS"],
+    [/^FM\b|Full Moon|Frankfurt Full Moon/i, "FFMH3"],
+    [/^DOM Run/i, "DOM"],
+    [/Bike Hash|Bike Bash/i, "Bike Hash"],
   ];
 
   it("parses multiple events from a full page", () => {
@@ -387,7 +387,7 @@ describe("FrankfurtHashAdapter", () => {
 
     // Upcoming has 5, archive has 3 but one is a dup of upcoming (#2114)
     // After dedup: 5 + 2 = 7 total (before date window filtering)
-    // The 2008 event and 2024 event are outside the ±365 day window from today (2026-03-24)
+    // The 2008 event and 2024 event are outside the ±365 day window from today
     const ctx = result.diagnosticContext as Record<string, unknown>;
     expect(ctx.upcomingEventsParsed).toBe(5);
     expect(ctx.archiveEventsParsed).toBe(3);
@@ -410,12 +410,12 @@ describe("FrankfurtHashAdapter", () => {
     const adapter = new FrankfurtHashAdapter();
     const source = makeSource({ config: null });
 
-    await expect(adapter.fetch(source)).rejects.toThrow("source.config must be an object");
+    await expect(adapter.fetch(source)).rejects.toThrow("source.config is null");
   });
 
   it("throws on missing kennelPatterns", async () => {
     const adapter = new FrankfurtHashAdapter();
-    const source = makeSource({ config: { defaultKennelTag: "FH3" } });
+    const source = makeSource({ config: { defaultKennelTag: "FH3", archiveUrl: "https://example.com" } });
 
     await expect(adapter.fetch(source)).rejects.toThrow("kennelPatterns");
   });

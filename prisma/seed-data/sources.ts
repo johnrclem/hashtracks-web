@@ -383,7 +383,6 @@ export const SOURCES = [
           ["^DST\\b", "DST"],
           ["^FM\\b|Full Moon", "FM"],
           ["^SUPER\\b", "SUPER"],
-          ["^SH3\\b|^Stuttgart", "SH3"],
         ],
         defaultKennelTag: "SH3",
       },
@@ -2320,7 +2319,8 @@ export const SOURCES = [
         columns: { runNumber: 0, date: 1, hares: 4, location: 5, title: 6 },
         kennelTagRules: { default: "MH3" },
       },
-      kennelCodes: ["mh3-de", "mfmh3", "massh3"],
+      // Group column has MH3/MFMH3/MASS H3 but Sheets adapter can't route by column — all events tagged MH3
+      kennelCodes: ["mh3-de"],
     },
     // Frankfurt (HTML Scraper — JEM archive, 1098 events)
     {

@@ -1680,7 +1680,7 @@ export function inferCountry(name: string): string {
   if (/\b(uk|england|scotland|wales|london|surrey|sussex)\b/.test(lower)) return "UK";
   if (/\b(australia|sydney|melbourne|brisbane|perth)\b/.test(lower)) return "Australia";
   if (/\b(canada|toronto|vancouver|montreal|calgary)\b/.test(lower)) return "Canada";
-  if (/\b(germany|berlin|munich|hamburg|stuttgart|frankfurt)\b/.test(lower)) return "Germany";
+  if (/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt)\b/.test(lower)) return "Germany";
   if (/\b(japan|tokyo|osaka)\b/.test(lower)) return "Japan";
   return "USA";
 }

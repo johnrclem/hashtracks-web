@@ -25,40 +25,26 @@ import {
   fetchHTMLPage,
   buildDateWindow,
   decodeEntities,
+  validateSourceConfig,
+  compilePatterns,
+  type FetchHTMLResult,
 } from "../utils";
 
 // ── Config shape ──
 
 interface FrankfurtHashConfig {
-  /** Full URL for the archive page; derived from source URL if omitted */
-  archiveUrl?: string;
+  /** Full URL for the archive page */
+  archiveUrl: string;
   /** [[regex, kennelTag], ...] — first match wins */
   kennelPatterns: [string, string][];
   /** Fallback kennel tag when no pattern matches */
   defaultKennelTag: string;
 }
 
-// ── Compiled pattern helper ──
+// ── Pattern matching helper ──
 
-interface CompiledPattern {
-  re: RegExp;
-  tag: string;
-}
-
-function compileKennelPatterns(patterns: [string, string][]): CompiledPattern[] {
-  const compiled: CompiledPattern[] = [];
-  for (const [regex, tag] of patterns) {
-    try {
-      compiled.push({ re: new RegExp(regex, "i"), tag });
-    } catch {
-      // Skip malformed patterns
-    }
-  }
-  return compiled;
-}
-
-function matchKennelTag(title: string, compiled: CompiledPattern[], defaultTag: string): string {
-  for (const { re, tag } of compiled) {
+function matchKennelTag(title: string, compiled: [RegExp, string][], defaultTag: string): string {
+  for (const [re, tag] of compiled) {
     if (re.test(title)) return tag;
   }
   return defaultTag;
@@ -73,7 +59,7 @@ function matchKennelTag(title: string, compiled: CompiledPattern[], defaultTag: 
 export function parseJEMEvent(
   $li: cheerio.Cheerio<AnyNode>,
   $: cheerio.CheerioAPI,
-  compiledPatterns: CompiledPattern[],
+  compiledPatterns: [RegExp, string][],
   defaultKennelTag: string,
   baseUrl: string,
 ): RawEventData | null {
@@ -133,7 +119,7 @@ export function parseJEMEvent(
  */
 export function parseJEMEventList(
   html: string,
-  compiledPatterns: CompiledPattern[],
+  compiledPatterns: [RegExp, string][],
   defaultKennelTag: string,
   baseUrl: string,
 ): RawEventData[] {
@@ -148,6 +134,40 @@ export function parseJEMEventList(
   return events;
 }
 
+// ── Page fetch processing helper ──
+
+function processPageFetch(
+  page: FetchHTMLResult,
+  section: string,
+  compiledPatterns: [RegExp, string][],
+  defaultTag: string,
+  baseUrl: string,
+  errors: string[],
+  errorDetails: ErrorDetails,
+  parseErrors: ParseError[],
+): { events: RawEventData[]; structureHash?: string } {
+  if (!page.ok) {
+    errors.push(...page.result.errors);
+    if (page.result.errorDetails?.fetch) {
+      errorDetails.fetch = [
+        ...(errorDetails.fetch ?? []),
+        ...page.result.errorDetails.fetch,
+      ];
+    }
+    return { events: [] };
+  }
+
+  try {
+    const events = parseJEMEventList(page.html, compiledPatterns, defaultTag, baseUrl);
+    return { events, structureHash: page.structureHash };
+  } catch (err) {
+    const msg = `${section} parse error: ${err instanceof Error ? err.message : String(err)}`;
+    errors.push(msg);
+    parseErrors.push({ row: 0, section: section.toLowerCase(), error: msg });
+    return { events: [], structureHash: page.structureHash };
+  }
+}
+
 // ── Adapter class ──
 
 export class FrankfurtHashAdapter implements SourceAdapter {
@@ -157,23 +177,23 @@ export class FrankfurtHashAdapter implements SourceAdapter {
     source: Source,
     options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const raw = source.config;
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-      throw new Error("FrankfurtHashAdapter: source.config must be an object");
-    }
-    const config = raw as unknown as FrankfurtHashConfig;
-    if (!config.kennelPatterns || !Array.isArray(config.kennelPatterns)) {
-      throw new Error("FrankfurtHashAdapter: missing required config field \"kennelPatterns\"");
-    }
-    if (!config.defaultKennelTag || typeof config.defaultKennelTag !== "string") {
-      throw new Error("FrankfurtHashAdapter: missing required config field \"defaultKennelTag\"");
-    }
+    const config = validateSourceConfig<FrankfurtHashConfig>(
+      source.config,
+      "FrankfurtHashAdapter",
+      { kennelPatterns: "array", defaultKennelTag: "string", archiveUrl: "string" },
+    );
 
     const baseUrl = source.url
       ? (() => { try { return new URL(source.url).origin; } catch { return "https://frankfurt-hash.de"; } })()
       : "https://frankfurt-hash.de";
 
-    const compiledPatterns = compileKennelPatterns(config.kennelPatterns);
+    // Compile kennel patterns once (same approach as PhoenixHHHAdapter)
+    const patternStrings = config.kennelPatterns.map(([p]) => p);
+    const compiledRegexes = compilePatterns(patternStrings, "i");
+    const compiledPatterns: [RegExp, string][] = compiledRegexes.map((re, i) => [
+      re,
+      config.kennelPatterns[i][1],
+    ]);
     const { minDate, maxDate } = buildDateWindow(options?.days);
     const isInWindow = (e: RawEventData) => {
       const eventDate = new Date(e.date + "T12:00:00Z");
@@ -184,72 +204,30 @@ export class FrankfurtHashAdapter implements SourceAdapter {
     const errorDetails: ErrorDetails = {};
     const parseErrors: ParseError[] = [];
 
-    // Derive archive URL from source URL if not explicitly configured
-    const archiveUrl = config.archiveUrl
-      ?? `${source.url}?task=archive&filter_reset=1&limit=0`;
-
     // Fetch upcoming + archive in parallel
     const [upcomingPage, archivePage] = await Promise.all([
       fetchHTMLPage(source.url),
-      fetchHTMLPage(archiveUrl),
+      fetchHTMLPage(config.archiveUrl),
     ]);
 
-    let upcomingEvents: RawEventData[] = [];
-    let archiveEvents: RawEventData[] = [];
-    let structureHash: string | undefined;
-
-    // Parse upcoming events
-    if (upcomingPage.ok) {
-      structureHash = upcomingPage.structureHash;
-      try {
-        upcomingEvents = parseJEMEventList(
-          upcomingPage.html, compiledPatterns, config.defaultKennelTag, baseUrl,
-        );
-      } catch (err) {
-        const msg = `Upcoming parse error: ${err instanceof Error ? err.message : String(err)}`;
-        allErrors.push(msg);
-        parseErrors.push({ row: 0, section: "upcoming", error: msg });
-      }
-    } else {
-      allErrors.push(...upcomingPage.result.errors);
-      if (upcomingPage.result.errorDetails?.fetch) {
-        errorDetails.fetch = [
-          ...(errorDetails.fetch ?? []),
-          ...upcomingPage.result.errorDetails.fetch,
-        ];
-      }
-    }
-
-    // Parse archive events
-    if (archivePage.ok) {
-      try {
-        archiveEvents = parseJEMEventList(
-          archivePage.html, compiledPatterns, config.defaultKennelTag, baseUrl,
-        );
-      } catch (err) {
-        const msg = `Archive parse error: ${err instanceof Error ? err.message : String(err)}`;
-        allErrors.push(msg);
-        parseErrors.push({ row: 0, section: "archive", error: msg });
-      }
-    } else {
-      allErrors.push(...archivePage.result.errors);
-      if (archivePage.result.errorDetails?.fetch) {
-        errorDetails.fetch = [
-          ...(errorDetails.fetch ?? []),
-          ...archivePage.result.errorDetails.fetch,
-        ];
-      }
-    }
+    const upcoming = processPageFetch(
+      upcomingPage, "Upcoming", compiledPatterns, config.defaultKennelTag,
+      baseUrl, allErrors, errorDetails, parseErrors,
+    );
+    const archive = processPageFetch(
+      archivePage, "Archive", compiledPatterns, config.defaultKennelTag,
+      baseUrl, allErrors, errorDetails, parseErrors,
+    );
 
     // Combine and dedup — upcoming events win for same date+title
     const upcomingKeys = new Set(
-      upcomingEvents.map((e) => `${e.date}|${e.title}`),
+      upcoming.events.map((e) => `${e.date}|${e.title}`),
     );
-    const dedupedArchive = archiveEvents.filter(
+    const dedupedArchive = archive.events.filter(
       (e) => !upcomingKeys.has(`${e.date}|${e.title}`),
     );
 
-    const allEvents = [...upcomingEvents, ...dedupedArchive];
+    const allEvents = [...upcoming.events, ...dedupedArchive];
 
     // Filter by date window
     const filteredEvents = allEvents.filter(isInWindow);
@@ -261,12 +239,12 @@ export class FrankfurtHashAdapter implements SourceAdapter {
     return {
       events: filteredEvents,
       errors: allErrors,
-      structureHash,
+      structureHash: upcoming.structureHash,
       errorDetails: Object.keys(errorDetails).length > 0 ? errorDetails : undefined,
       diagnosticContext: {
-        upcomingEventsParsed: upcomingEvents.length,
-        archiveEventsParsed: archiveEvents.length,
-        archiveDeduped: archiveEvents.length - dedupedArchive.length,
+        upcomingEventsParsed: upcoming.events.length,
+        archiveEventsParsed: archive.events.length,
+        archiveDeduped: archive.events.length - dedupedArchive.length,
         eventsAfterWindow: filteredEvents.length,
       },
     };
