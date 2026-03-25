@@ -2035,23 +2035,15 @@ export const SOURCES = [
       kennelCodes: ["pedalfiles"],
     },
     // ===== CALIFORNIA =====
-    // --- Santa Cruz (Static Schedule) ---
+    // --- Santa Cruz (Google Calendar) ---
     {
-      name: "Surf City H3 Static Schedule",
-      url: "https://www.sch3.net",
-      type: "STATIC_SCHEDULE" as const,
-      trustLevel: 3,
-      scrapeFreq: "weekly",
+      name: "Surf City H3 Google Calendar",
+      url: "SCH3Calendar@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
       scrapeDays: 90,
-      config: {
-        kennelTag: "SCH3",
-        rrule: "FREQ=WEEKLY;BYDAY=TH",
-        startTime: "18:30",
-        timezone: "America/Los_Angeles",
-        defaultTitle: "SCH3 Weekly Thursday Hash",
-        defaultLocation: "Santa Cruz, CA — check Facebook for details",
-        defaultDescription: "Weekly Thursday evening hash in Santa Cruz.",
-      },
+      config: { defaultKennelTag: "SCH3" },
       kennelCodes: ["sch3-ca"],
     },
     // --- Los Angeles Area (Google Calendar) ---
