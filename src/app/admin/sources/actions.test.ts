@@ -24,11 +24,15 @@ vi.mock("@/pipeline/kennel-resolver", () => ({
 vi.mock("@/pipeline/scrape", () => ({
   scrapeSource: vi.fn(),
 }));
+vi.mock("@/lib/kennel-utils", () => ({
+  buildKennelIdentifiers: vi.fn(),
+  createKennelRecord: vi.fn(),
+}));
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { resolveKennelTag } from "@/pipeline/kennel-resolver";
-import { createSource, updateSource, deleteSource, linkKennelToSourceDirect, updateSourceKennelSlug } from "./actions";
+import { createSource, updateSource, deleteSource, linkKennelToSourceDirect, createKennelForSource, updateSourceKennelSlug } from "./actions";
 
 const mockAdminAuth = vi.mocked(getAdminUser);
 const mockSourceCreate = vi.mocked(prisma.source.create);
@@ -165,6 +169,34 @@ describe("linkKennelToSourceDirect externalSlug", () => {
       update: {},
       create: { sourceId: "s1", kennelId: "k1" },
     });
+  });
+});
+
+describe("createKennelForSource externalSlug", () => {
+  const mockSKUpsert = vi.mocked(prisma.sourceKennel.upsert);
+
+  it("sets externalSlug to tag (not shortName) for HASHREGO sources", async () => {
+    const { createKennelRecord } = await import("@/lib/kennel-utils");
+    vi.mocked(createKennelRecord).mockResolvedValue({ kennelId: "k_new" });
+    mockSKUpsert.mockResolvedValue({} as never);
+    mockSourceFindUnique.mockResolvedValue({ id: "s1", type: "HASHREGO" } as never);
+
+    await createKennelForSource("s1", "UPSTATE-H3", { shortName: "UH3", fullName: "Upstate H3", region: "NY" });
+
+    expect(mockSKUpsert).toHaveBeenCalledWith({
+      where: { sourceId_kennelId: { sourceId: "s1", kennelId: "k_new" } },
+      update: { externalSlug: "UPSTATE-H3" },
+      create: { sourceId: "s1", kennelId: "k_new", externalSlug: "UPSTATE-H3" },
+    });
+  });
+
+  it("returns error when source not found", async () => {
+    const { createKennelRecord } = await import("@/lib/kennel-utils");
+    vi.mocked(createKennelRecord).mockResolvedValue({ kennelId: "k_new" });
+    mockSourceFindUnique.mockResolvedValue(null as never);
+
+    const result = await createKennelForSource("s1", "UPSTATE-H3", { shortName: "UH3", fullName: "Upstate H3", region: "NY" });
+    expect(result).toMatchObject({ error: "Source not found" });
   });
 });
 

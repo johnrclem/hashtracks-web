@@ -213,14 +213,11 @@ export async function linkKennelToSourceDirect(
   });
   if (!source) return { error: "Source not found" };
 
+  const slugData = source.type === "HASHREGO" ? { externalSlug: kennelTag.toUpperCase() } : {};
   await prisma.sourceKennel.upsert({
     where: { sourceId_kennelId: { sourceId, kennelId } },
-    update: source.type === "HASHREGO" ? { externalSlug: kennelTag.toUpperCase() } : {},
-    create: {
-      sourceId,
-      kennelId,
-      ...(source.type === "HASHREGO" ? { externalSlug: kennelTag.toUpperCase() } : {}),
-    },
+    update: slugData,
+    create: { sourceId, kennelId, ...slugData },
   });
 
   // Auto-resolve any matching SOURCE_KENNEL_MISMATCH alert for this source
@@ -369,16 +366,14 @@ export async function createKennelForSource(
     where: { id: sourceId },
     select: { type: true },
   });
+  if (!source) return { error: "Source not found" };
 
-  // Link to source (upsert with externalSlug for HASHREGO)
+  // Link to source — use the original tag (HashRego slug), not the admin display name
+  const slugData = source.type === "HASHREGO" ? { externalSlug: tag.toUpperCase() } : {};
   await prisma.sourceKennel.upsert({
     where: { sourceId_kennelId: { sourceId, kennelId: result.kennelId } },
-    update: source?.type === "HASHREGO" ? { externalSlug: kennelData.shortName.toUpperCase() } : {},
-    create: {
-      sourceId,
-      kennelId: result.kennelId,
-      ...(source?.type === "HASHREGO" ? { externalSlug: kennelData.shortName.toUpperCase() } : {}),
-    },
+    update: slugData,
+    create: { sourceId, kennelId: result.kennelId, ...slugData },
   });
 
   await autoResolveUnmatchedAlerts(sourceId, admin.id);
