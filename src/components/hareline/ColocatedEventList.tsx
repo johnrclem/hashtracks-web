@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Clock, MapPin, X } from "lucide-react";
 import { formatTime } from "@/lib/format";
 import type { EventWithCoords } from "./ClusteredMarkers";
 import type { HarelineEvent } from "./EventCard";
@@ -11,10 +11,11 @@ interface ColocatedEventListProps {
   onClose: () => void;
 }
 
-/** Format an ISO date to a compact "Mar 25" style. */
+/** Format an ISO date to "Wed, Mar 25" style. */
 function shortDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", {
+    weekday: "short",
     month: "short",
     day: "numeric",
     timeZone: "UTC",
@@ -25,65 +26,98 @@ function shortDate(iso: string): string {
  * Event picker shown when a user clicks a stacked pin (multiple events at the
  * same coordinates) or a co-located cluster on the hareline map.
  */
-export function ColocatedEventList({ events, onSelectEvent, onClose }: ColocatedEventListProps) {
+export function ColocatedEventList({
+  events,
+  onSelectEvent,
+  onClose,
+}: ColocatedEventListProps) {
+  // Derive location label from the first event that has one
+  const locationHint =
+    events[0]?.event.locationCity ||
+    events[0]?.event.locationName?.slice(0, 40);
+
   return (
-    <div className="bg-background border rounded-lg shadow-lg p-2 max-w-xs w-full">
+    <div className="bg-background/95 backdrop-blur-sm border rounded-xl shadow-xl w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-1 pb-1.5">
-        <span className="text-xs font-medium text-muted-foreground">
-          {events.length} events at this location
-        </span>
+      <div className="flex items-center justify-between px-3 py-2.5 border-b bg-muted/30">
+        <div className="min-w-0">
+          <span className="text-sm font-semibold">
+            {events.length} events at this location
+          </span>
+          {locationHint && (
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
+              {locationHint}
+            </p>
+          )}
+        </div>
         <button
           onClick={onClose}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+          className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           aria-label="Close event list"
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="h-4 w-4" />
         </button>
       </div>
 
       {/* Event rows */}
-      <div className="max-h-[264px] overflow-y-auto">
+      <div className="max-h-[320px] overflow-y-auto divide-y divide-border/50">
         {events.map(({ event, color }) => (
           <button
             key={event.id}
             onClick={() => onSelectEvent(event)}
-            className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-accent transition-colors"
-            style={{ minHeight: 44 }}
+            className="group flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50"
+            style={{ minHeight: 52 }}
           >
-            {/* Region color dot */}
+            {/* Region color accent bar */}
             <span
-              className="shrink-0 rounded-full"
-              style={{
-                width: 8,
-                height: 8,
-                backgroundColor: color,
-              }}
+              className="shrink-0 mt-1 rounded-full w-2 h-2 ring-2 ring-offset-1 ring-offset-background"
+              style={{ backgroundColor: color, ringColor: color }}
             />
 
-            {/* Date */}
-            <span className="shrink-0 text-xs text-muted-foreground w-12">
-              {shortDate(event.date)}
+            {/* Main content */}
+            <div className="flex-1 min-w-0 space-y-0.5">
+              {/* Top line: kennel + run # */}
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-sm font-semibold truncate">
+                  {event.kennel?.shortName ?? "Unknown"}
+                </span>
+                {event.runNumber && (
+                  <span className="shrink-0 text-xs text-muted-foreground font-mono">
+                    #{event.runNumber}
+                  </span>
+                )}
+              </div>
+
+              {/* Title */}
+              {event.title && (
+                <p className="text-xs text-muted-foreground truncate leading-snug">
+                  {event.title}
+                </p>
+              )}
+
+              {/* Meta row: date + time + location */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground/80">
+                  {shortDate(event.date)}
+                </span>
+                {event.startTime && (
+                  <span className="flex items-center gap-0.5">
+                    <Clock className="h-3 w-3" />
+                    {formatTime(event.startTime)}
+                  </span>
+                )}
+                {event.hares && (
+                  <span className="truncate max-w-[120px]">
+                    {event.hares}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Hover chevron */}
+            <span className="shrink-0 mt-2 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors">
+              ›
             </span>
-
-            {/* Kennel name */}
-            <span className="shrink-0 text-sm font-medium truncate max-w-[80px]">
-              {event.kennel?.shortName ?? "Unknown"}
-            </span>
-
-            {/* Title (truncated) */}
-            {event.title && (
-              <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
-                {event.title}
-              </span>
-            )}
-
-            {/* Start time */}
-            {event.startTime && (
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {formatTime(event.startTime)}
-              </span>
-            )}
           </button>
         ))}
       </div>

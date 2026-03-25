@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import type { KennelPin } from "./ClusteredKennelMarkers";
 
 interface ColocatedKennelListProps {
@@ -10,59 +10,76 @@ interface ColocatedKennelListProps {
   onClose: () => void;
 }
 
-export function ColocatedKennelList({ pins, onSelectKennel, onClose }: ColocatedKennelListProps) {
+export function ColocatedKennelList({
+  pins,
+  onSelectKennel,
+  onClose,
+}: ColocatedKennelListProps) {
   return (
-    <div className="bg-background border rounded-lg shadow-lg p-2 w-[260px] max-h-[340px] flex flex-col">
+    <div className="bg-background/95 backdrop-blur-sm border rounded-xl shadow-xl w-[320px] max-w-[calc(100vw-2rem)] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-1 pb-1.5 border-b mb-1">
-        <span className="text-xs font-semibold text-muted-foreground">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b bg-muted/30">
+        <span className="text-sm font-semibold">
           {pins.length} kennels at this location
         </span>
         <button
           onClick={onClose}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+          className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           aria-label="Close kennel list"
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="h-4 w-4" />
         </button>
       </div>
 
-      {/* Scrollable list — max ~6 rows visible then scroll */}
-      <div className="overflow-y-auto flex-1" style={{ maxHeight: 6 * 52 }}>
+      {/* Kennel rows */}
+      <div
+        className="overflow-y-auto divide-y divide-border/50"
+        style={{ maxHeight: 6 * 60 }}
+      >
         {pins.map((pin) => (
           <button
             key={pin.id}
             onClick={() => onSelectKennel(pin.id)}
-            className="flex items-center gap-2 w-full text-left px-1.5 py-2 rounded hover:bg-muted/50 transition-colors"
-            style={{ minHeight: 44 }}
+            className="group flex items-center gap-3 w-full text-left px-3 py-2.5 transition-colors hover:bg-accent/50"
+            style={{ minHeight: 52 }}
           >
             {/* Region color dot */}
             <span
-              className="shrink-0 rounded-full"
-              style={{
-                width: 8,
-                height: 8,
-                backgroundColor: pin.color,
-              }}
+              className="shrink-0 rounded-full w-2.5 h-2.5 ring-2 ring-offset-1 ring-offset-background"
+              style={{ backgroundColor: pin.color, ringColor: pin.color }}
             />
 
             {/* Kennel info */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold truncate leading-tight">{pin.shortName}</p>
-              {pin.schedule && (
-                <p className="text-xs text-muted-foreground truncate leading-tight mt-0.5">
-                  {pin.schedule}
-                </p>
-              )}
+            <div className="flex-1 min-w-0 space-y-0.5">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-sm font-semibold truncate">
+                  {pin.shortName}
+                </span>
+                {pin.fullName && pin.fullName !== pin.shortName && (
+                  <span className="text-xs text-muted-foreground truncate hidden sm:inline">
+                    {pin.fullName}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {pin.schedule && (
+                  <span className="truncate">{pin.schedule}</span>
+                )}
+                {pin.nextEvent && (
+                  <span className="shrink-0 font-medium text-foreground/80">
+                    Next: {pin.nextEvent.date}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* View link */}
             <Link
               href={`/kennels/${pin.slug}`}
               onClick={(e) => e.stopPropagation()}
-              className="shrink-0 text-xs font-medium text-primary hover:underline"
+              className="shrink-0 flex items-center gap-1 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
             >
-              View &rarr;
+              View <ExternalLink className="h-3 w-3" />
             </Link>
           </button>
         ))}
