@@ -36,6 +36,8 @@ interface ClusteredMarkersProps {
   onNavigate?: (eventId: string) => void;
   /** Called when a stacked pin or co-located cluster is clicked. */
   onShowColocated: (events: EventWithCoords[], position: { lat: number; lng: number }) => void;
+  /** Called when a cluster contains events from a single region — applies region filter. */
+  onRegionFilter?: (region: string) => void;
 }
 
 /** Compute marker size based on selection and precision state. */
@@ -95,6 +97,7 @@ export function ClusteredMarkers({
   onSelectEvent,
   onNavigate,
   onShowColocated,
+  onRegionFilter,
 }: ClusteredMarkersProps) {
   const map = useMap();
   const clustererRef = useRef<MarkerClusterer | null>(null);
@@ -106,6 +109,10 @@ export function ClusteredMarkers({
   // Stable ref for the onShowColocated callback so the cluster click handler can access it
   const onShowColocatedRef = useRef(onShowColocated);
   onShowColocatedRef.current = onShowColocated;
+
+  // Stable ref for the onRegionFilter callback
+  const onRegionFilterRef = useRef(onRegionFilter);
+  onRegionFilterRef.current = onRegionFilter;
 
   // Group events by rounded coordinates
   const groups = useMemo<CoordGroup[]>(() => {
@@ -143,9 +150,19 @@ export function ClusteredMarkers({
         // All same location — show colocated list
         onShowColocatedRef.current(allEvents, { lat: allEvents[0].lat, lng: allEvents[0].lng });
       } else {
-        // Mixed locations — default zoom
-        if (cluster.bounds) {
-          clusterMap.fitBounds(cluster.bounds);
+        // Multiple locations — check if all events share a single region
+        const regions = new Set(
+          allEvents.map((e) => e.event.kennel?.region).filter(Boolean) as string[],
+        );
+        if (regions.size === 1 && onRegionFilterRef.current) {
+          // All events in cluster are from the same region — apply region filter
+          const [region] = regions;
+          onRegionFilterRef.current(region);
+        } else {
+          // Mixed regions — default zoom
+          if (cluster.bounds) {
+            clusterMap.fitBounds(cluster.bounds);
+          }
         }
       }
     },

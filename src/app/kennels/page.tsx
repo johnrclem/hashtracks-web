@@ -4,15 +4,24 @@ import { Suspense } from "react";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
-import { getStateGroup } from "@/lib/region";
+import { getStateGroup, regionAbbrev } from "@/lib/region";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FadeInSection } from "@/components/home/HeroAnimations";
 import { SuggestKennelDialog } from "@/components/suggest/SuggestKennelDialog";
 
-export const metadata: Metadata = {
-  title: "Kennels · HashTracks",
-};
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}): Promise<Metadata> {
+  const params = await searchParams;
+  const regions = typeof params.regions === "string" ? params.regions.split(",") : [];
+  if (regions.length === 1) {
+    return { title: `${regionAbbrev(regions[0])} Kennels | HashTracks` };
+  }
+  return { title: "Kennels | HashTracks" };
+}
 
 export default async function KennelsPage() {
   const now = new Date();

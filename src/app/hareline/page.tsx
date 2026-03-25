@@ -2,11 +2,21 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { getWeatherForEvents } from "@/lib/weather";
-
-export const metadata: Metadata = {
-  title: "Hareline · HashTracks",
-};
 import { getOrCreateUser } from "@/lib/auth";
+import { regionAbbrev } from "@/lib/region";
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}): Promise<Metadata> {
+  const params = await searchParams;
+  const regions = typeof params.regions === "string" ? params.regions.split(",") : [];
+  if (regions.length === 1) {
+    return { title: `${regionAbbrev(regions[0])} Runs | HashTracks` };
+  }
+  return { title: "Hareline | HashTracks" };
+}
 import { HarelineView } from "@/components/hareline/HarelineView";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FadeInSection } from "@/components/home/HeroAnimations";

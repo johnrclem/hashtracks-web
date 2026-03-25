@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -26,7 +27,7 @@ import { EventDetailPanel } from "./EventDetailPanel";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { haversineDistance, getEventCoords } from "@/lib/geo";
-import { groupRegionsByState, expandRegionSelections } from "@/lib/region";
+import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -450,6 +451,24 @@ export function HarelineView({
     syncUrl({ regions: [], kennels: [], days: [], country: "", dist: "", q: "" });
   }
 
+  // Handle region filter from map cluster click
+  const handleRegionFilter = useCallback(
+    (region: string) => {
+      setSelectedRegions([region]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [syncUrl],
+  );
+
+  // Dynamic page title based on selected regions
+  useEffect(() => {
+    if (selectedRegions.length === 1) {
+      document.title = `${regionAbbrev(selectedRegions[0])} Runs | HashTracks`;
+    } else {
+      document.title = "Hareline | HashTracks";
+    }
+  }, [selectedRegions]);
+
   const detailPanel = selectedEvent ? (
     <div className="hidden lg:block">
       <div className="sticky top-8 max-h-[calc(100vh-4rem)]">
@@ -636,6 +655,17 @@ export function HarelineView({
           )}
         </p>
       )}
+
+      {/* Cross-link to kennel directory when a single region is selected */}
+      {selectedRegions.length === 1 && (
+        <Link
+          href={`/kennels?regions=${encodeURIComponent(selectedRegions[0])}`}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          View {regionAbbrev(selectedRegions[0])} kennels &rarr;
+        </Link>
+      )}
+
       {/* Screen-reader live region for filter count (debounced) */}
       <div ref={liveRegionRef} className="sr-only" aria-live="polite" aria-atomic="true" />
 
@@ -656,6 +686,7 @@ export function HarelineView({
               events={sortedEvents}
               selectedEventId={selectedEvent?.id}
               onSelectEvent={setSelectedEvent}
+              onRegionFilter={handleRegionFilter}
             />
           </div>
           {detailPanel}

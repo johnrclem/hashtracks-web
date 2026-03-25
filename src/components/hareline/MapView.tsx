@@ -151,7 +151,7 @@ interface MapViewProps {
   readonly selectedEventId?: string | null;
   /** Callback when a map pin is clicked. */
   readonly onSelectEvent: (event: HarelineEvent | null) => void;
-  /** Placeholder for Step 8: filter events by region when a region cluster is clicked. */
+  /** Filter events by region when a region cluster is clicked. */
   readonly onRegionFilter?: (region: string) => void;
 }
 
@@ -161,7 +161,7 @@ interface ColocatedListState {
   position: { lat: number; lng: number };
 }
 
-export default function MapView({ events, selectedEventId, onSelectEvent, onRegionFilter: _onRegionFilter }: MapViewProps) {
+export default function MapView({ events, selectedEventId, onSelectEvent, onRegionFilter }: MapViewProps) {
   const router = useRouter();
   const handleNavigate = useCallback((id: string) => router.push(`/hareline/${id}`), [router]);
   const skipAutoZoomRef = useRef(false);
@@ -266,6 +266,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
             onSelectEvent={onSelectEvent}
             onNavigate={handleNavigate}
             onShowColocated={handleShowColocated}
+            onRegionFilter={onRegionFilter}
           />
 
           {/* Reset view button */}

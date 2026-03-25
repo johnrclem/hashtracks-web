@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -12,7 +12,7 @@ import { KennelCard, type KennelCardData } from "@/components/kennels/KennelCard
 import { KennelFilters, DAY_FULL } from "@/components/kennels/KennelFilters";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { getEventCoords, haversineDistance } from "@/lib/geo";
-import { groupRegionsByState, expandRegionSelections } from "@/lib/region";
+import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ssr: false,
@@ -309,6 +309,15 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   // Show "Nearest" sort option only when geolocation is granted
   const showNearestSort = geoState.status === "granted";
 
+  // Dynamic page title based on selected regions
+  useEffect(() => {
+    if (selectedRegions.length === 1) {
+      document.title = `${regionAbbrev(selectedRegions[0])} Kennels | HashTracks`;
+    } else {
+      document.title = "Kennels | HashTracks";
+    }
+  }, [selectedRegions]);
+
   return (
     <div className="mt-6 space-y-4">
       {/* Search + sort row */}
@@ -386,6 +395,16 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
           </>
         )}
       </p>
+
+      {/* Cross-link to hareline when a single region is selected */}
+      {selectedRegions.length === 1 && (
+        <Link
+          href={`/hareline?regions=${encodeURIComponent(selectedRegions[0])}`}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          View upcoming events in {regionAbbrev(selectedRegions[0])} &rarr;
+        </Link>
+      )}
 
       {/* Map or Grid */}
       {displayView === "map" ? (
