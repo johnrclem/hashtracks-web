@@ -114,6 +114,10 @@ const TITLE_EMBEDDED_TIME_RE = /\d{1,2}:\d{2}\s*(?:am|pm)/i;
 
 // Pre-compiled regexes for extractLocationFromDescription
 const LOCATION_LABEL_RE = /(?:^|\n)\s*(?:WHERE|Location|Address|Meet(?:ing)?\s*(?:spot|point|at)?)\s*:\s*(.+)/im;
+// Fallback: bare label (no colon) with value on subsequent line, optionally after a URL line
+const LOCATION_BARE_LABEL_RE = /(?:^|\n)\s*(?:WHERE|LOCATION)\s*\n(?:\s*https?:\/\/\S+\s*\n)?\s*(.+)/im;
+// Secondary fallback: "Start:" as location label (lower priority — often contains time, not location)
+const LOCATION_START_RE = /(?:^|\n)\s*Start\s*:\s*(.+)/im;
 const LOCATION_TRUNCATE_RE = new RegExp(`\\s+(?:${LABEL_NAMES})\\s*:.*`, "i");
 const LOCATION_URL_RE = /\s*https?:\/\/\S+.*/i;
 
@@ -154,7 +158,16 @@ export function extractTitleFromDescription(description: string): string | undef
  * and returns the first match, truncated at the next label or URL.
  */
 export function extractLocationFromDescription(description: string): string | undefined {
-  const match = LOCATION_LABEL_RE.exec(description);
+  // Primary: unambiguous location labels (WHERE:, Location:, Address:, Meet at:)
+  let match = LOCATION_LABEL_RE.exec(description);
+  // Fallback: bare label (no colon) with value on subsequent line (e.g., "LOCATION\n<url>\n<place>")
+  if (!match?.[1]) {
+    match = LOCATION_BARE_LABEL_RE.exec(description);
+  }
+  // Secondary fallback: "Start:" (lower priority — often contains time, not location)
+  if (!match?.[1]) {
+    match = LOCATION_START_RE.exec(description);
+  }
   if (!match?.[1]) return undefined;
 
   let location = match[1].trim();
@@ -164,6 +177,8 @@ export function extractLocationFromDescription(description: string): string | un
 
   if (location.length < 3) return undefined;
   if (isPlaceholder(location)) return undefined;
+  // Filter time-only values (e.g., "Start: 6:30pm" should not be a location)
+  if (/^\d{1,2}:\d{2}\s*(?:am|pm)/i.test(location)) return undefined;
 
   return location;
 }

@@ -1032,6 +1032,11 @@ describe("sanitizeLocation", () => {
       .toBe("123 Main St, Springfield");
   });
 
+  it("strips leading decimal coordinate pair", () => {
+    expect(sanitizeLocation("30.290552, -97.772365, the corner of Enfield and Exposition"))
+      .toBe("the corner of Enfield and Exposition");
+  });
+
   it("does not strip non-coordinate trailing numbers", () => {
     expect(sanitizeLocation("Suite 200, 123 Main St")).toBe("Suite 200, 123 Main St");
   });

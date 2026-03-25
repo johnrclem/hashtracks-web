@@ -539,6 +539,32 @@ describe("extractLocationFromDescription", () => {
   it("extracts Address: pattern", () => {
     expect(extractLocationFromDescription("Address: 456 Oak Ave, Suite 100")).toBe("456 Oak Ave, Suite 100");
   });
+
+  it("extracts Start: label with coordinates and place name (KAW!H3 format)", () => {
+    const desc = "Hare: Gayzelle\nTrail: Mostly pavement\nStart: 30.290552, -97.772365, the corner of Enfield and Exposition\nBring: virgins";
+    expect(extractLocationFromDescription(desc)).toBe("30.290552, -97.772365, the corner of Enfield and Exposition");
+  });
+
+  it("returns undefined when Start: value is a time string", () => {
+    expect(extractLocationFromDescription("Start: 6:30pm\nWhere: The Park")).toBe("The Park");
+  });
+
+  it("returns undefined for Start: with bare time", () => {
+    expect(extractLocationFromDescription("Start: 7:00 PM")).toBeUndefined();
+  });
+
+  it("extracts bare LOCATION label with URL line then place name (Mr. Happy's format)", () => {
+    const desc = "🍆🍅🥒Veggie hash🍆🍅🥒\n\nLOCATION\nhttps://maps.app.goo.gl/NGW5BNYxe8mNCXyv7\nVista del Prado Park\n\nWe're the Mr. Happy's Hashers";
+    expect(extractLocationFromDescription(desc)).toBe("Vista del Prado Park");
+  });
+
+  it("extracts bare WHERE label with no URL line", () => {
+    expect(extractLocationFromDescription("WHERE\nCentral Park")).toBe("Central Park");
+  });
+
+  it("extracts bare LOCATION label without URL intermediary", () => {
+    expect(extractLocationFromDescription("LOCATION\nThe Old Pub, 123 Main St")).toBe("The Old Pub, 123 Main St");
+  });
 });
 
 // ── extractTimeFromDescription ──
