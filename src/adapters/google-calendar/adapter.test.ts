@@ -565,6 +565,14 @@ describe("extractLocationFromDescription", () => {
   it("extracts bare LOCATION label without URL intermediary", () => {
     expect(extractLocationFromDescription("LOCATION\nThe Old Pub, 123 Main St")).toBe("The Old Pub, 123 Main St");
   });
+
+  it("returns undefined for Start: with 24-hour time", () => {
+    expect(extractLocationFromDescription("Start: 18:30")).toBeUndefined();
+  });
+
+  it("returns undefined for Start: with bare time (no am/pm)", () => {
+    expect(extractLocationFromDescription("Start: 7:00")).toBeUndefined();
+  });
 });
 
 // ── extractTimeFromDescription ──
@@ -629,8 +637,13 @@ describe("extractTitleFromDescription — updated label filtering", () => {
 
   it("skips schedule line even when label regex does not match compound label", () => {
     // "Chalk Talk & Hares Off:" doesn't match TITLE_LABEL_RE because of the "& Hares Off" part
-    // But the embedded time "7:05pm" should still cause it to be skipped
+    // But the schedule pattern ": 7:05pm" should still cause it to be skipped
     expect(extractTitleFromDescription("Chalk Talk & Hares Off: 7:05pm\nTrail Info")).toBe("Trail Info");
+  });
+
+  it("does not skip legitimate titles that mention times", () => {
+    // Titles like "5K at 7:30pm" should NOT be filtered — only schedule lines (label: time)
+    expect(extractTitleFromDescription("5K at 7:30pm")).toBe("5K at 7:30pm");
   });
 });
 

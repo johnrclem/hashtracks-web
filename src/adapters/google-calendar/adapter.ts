@@ -115,7 +115,8 @@ const TITLE_MULTI_EXCL_RE = /[!]{2,}/g;
 const TITLE_MULTI_QUEST_RE = /[?]{2,}/g;
 const TITLE_URL_RE = /^https?:\/\//;
 const TITLE_PURE_TIME_RE = /^\d{1,2}:\d{2}\s*[ap]m$/i;
-const TITLE_EMBEDDED_TIME_RE = /\d{1,2}:\d{2}\s*(?:am|pm)/i;
+// Schedule-line pattern: "Label: time" or "Label & Label: time" — skip as title candidates
+const TITLE_SCHEDULE_LINE_RE = /:\s*\d{1,2}:\d{2}\s*(?:am|pm)/i;
 
 // Pre-compiled regexes for extractLocationFromDescription
 const LOCATION_LABEL_RE = /(?:^|\n)\s*(?:WHERE|Location|Address|Meet(?:ing)?\s*(?:spot|point|at)?)\s*:\s*(.+)/im;
@@ -123,6 +124,8 @@ const LOCATION_LABEL_RE = /(?:^|\n)\s*(?:WHERE|Location|Address|Meet(?:ing)?\s*(
 const LOCATION_BARE_LABEL_RE = /(?:^|\n)\s*(?:WHERE|LOCATION)\s*\n(?:\s*https?:\/\/\S+\s*\n)?\s*(.+)/im;
 // Secondary fallback: "Start:" as location label (lower priority — often contains time, not location)
 const LOCATION_START_RE = /(?:^|\n)\s*Start\s*:\s*(.+)/im;
+// Filters bare time values from location results (e.g., "6:30pm", "18:30", "7:00")
+const LOCATION_TIME_ONLY_RE = /^\d{1,2}:\d{2}(\s*(?:am|pm))?\s*$/i;
 const LOCATION_TRUNCATE_RE = new RegExp(`\\s+(?:${LABEL_NAMES})\\s*:.*`, "i");
 const LOCATION_URL_RE = /\s*https?:\/\/\S+.*/i;
 
@@ -151,7 +154,7 @@ export function extractTitleFromDescription(description: string): string | undef
     if (text.length < 3) continue;
     if (TITLE_URL_RE.test(text)) continue;
     if (TITLE_PURE_TIME_RE.test(text)) continue;
-    if (TITLE_EMBEDDED_TIME_RE.test(text)) continue;
+    if (TITLE_SCHEDULE_LINE_RE.test(text)) continue;
     return text;
   }
   return undefined;
@@ -163,16 +166,9 @@ export function extractTitleFromDescription(description: string): string | undef
  * and returns the first match, truncated at the next label or URL.
  */
 export function extractLocationFromDescription(description: string): string | undefined {
-  // Primary: unambiguous location labels (WHERE:, Location:, Address:, Meet at:)
   let match = LOCATION_LABEL_RE.exec(description);
-  // Fallback: bare label (no colon) with value on subsequent line (e.g., "LOCATION\n<url>\n<place>")
-  if (!match?.[1]) {
-    match = LOCATION_BARE_LABEL_RE.exec(description);
-  }
-  // Secondary fallback: "Start:" (lower priority — often contains time, not location)
-  if (!match?.[1]) {
-    match = LOCATION_START_RE.exec(description);
-  }
+  if (!match?.[1]) match = LOCATION_BARE_LABEL_RE.exec(description);
+  if (!match?.[1]) match = LOCATION_START_RE.exec(description);
   if (!match?.[1]) return undefined;
 
   let location = match[1].trim();
@@ -182,8 +178,7 @@ export function extractLocationFromDescription(description: string): string | un
 
   if (location.length < 3) return undefined;
   if (isPlaceholder(location)) return undefined;
-  // Filter time-only values (e.g., "Start: 6:30pm" should not be a location)
-  if (/^\d{1,2}:\d{2}\s*(?:am|pm)/i.test(location)) return undefined;
+  if (LOCATION_TIME_ONLY_RE.test(location)) return undefined;
 
   return location;
 }
