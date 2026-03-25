@@ -220,6 +220,8 @@ In `prisma/seed.ts`, add to the `sources` array:
 }
 ```
 
+**Scrape frequency**: Use `"daily"` for all non-static sources (Google Calendar, Sheets, HTML scrapers, iCal feeds, Meetup). Only `STATIC_SCHEDULE` sources should use `"weekly"` — they generate events from RRULEs with no external fetch.
+
 **Important**: `kennelCodes` controls which kennels the source can create events for. The merge pipeline **blocks** events for any kennel not in this list. If a source covers multiple kennels, list them all. If you're unsure, add the kennel and verify — the `SOURCE_KENNEL_MISMATCH` alert will tell you if events are being blocked.
 
 For multi-kennel Google Calendar sources, use `kennelPatterns` config:
