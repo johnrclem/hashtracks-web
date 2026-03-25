@@ -5,7 +5,8 @@ import { useEffect, useRef, useCallback, useMemo } from "react";
 import { useMap, AdvancedMarker } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import type { Marker, Cluster, onClusterClickHandler } from "@googlemaps/markerclusterer";
-import { groupByCoordinates, parseCoordKey, HashTracksClusterRenderer } from "@/lib/map-utils";
+import { groupByCoordinates, parseCoordKey, toCoordKey, HashTracksClusterRenderer } from "@/lib/map-utils";
+import { LG_BREAKPOINT } from "@/hooks/useIsMobile";
 import type { HarelineEvent } from "./EventCard";
 
 /** Event enriched with resolved coordinates and pin color for map rendering. */
@@ -17,8 +18,6 @@ export interface EventWithCoords {
   precise: boolean;
   color: string;
 }
-
-const LG_BREAKPOINT = 1024;
 
 /** A group of co-located events that share the same rounded coordinates. */
 interface CoordGroup {
@@ -114,6 +113,9 @@ export function ClusteredMarkers({
   const onRegionFilterRef = useRef(onRegionFilter);
   onRegionFilterRef.current = onRegionFilter;
 
+  // Ref that always holds the latest coordinate grouping — read by getRefCallback to avoid stale closures
+  const groupDataRef = useRef<Map<string, EventWithCoords[]>>(new Map());
+
   // Group events by rounded coordinates
   const groups = useMemo<CoordGroup[]>(() => {
     const grouped = groupByCoordinates(events, (e) => ({ lat: e.lat, lng: e.lng }));
@@ -122,6 +124,8 @@ export function ClusteredMarkers({
       const { lat, lng } = parseCoordKey(key);
       result.push({ key, events: groupEvents, lat, lng });
     }
+    // Keep groupDataRef in sync with latest grouping
+    groupDataRef.current = grouped;
     return result;
   }, [events]);
 
@@ -139,11 +143,7 @@ export function ClusteredMarkers({
 
       // Check if all events share the same rounded coords
       const coordKeys = new Set(
-        allEvents.map((e) => {
-          const lat = Math.round(e.lat * 10000) / 10000;
-          const lng = Math.round(e.lng * 10000) / 10000;
-          return `${lat},${lng}`;
-        }),
+        allEvents.map((e) => toCoordKey(e.lat, e.lng)),
       );
 
       if (coordKeys.size === 1 && allEvents.length > 0) {
@@ -192,11 +192,14 @@ export function ClusteredMarkers({
     };
   }, [map, handleClusterClick]);
 
-  // Stable per-group ref callback factory — avoids new function identity on every render
-  const getRefCallback = useCallback((groupKey: string, groupEvents: EventWithCoords[]) => {
+  // Stable per-group ref callback factory — avoids new function identity on every render.
+  // Reads from groupDataRef so the reverse lookup always has the latest data even if
+  // the callback fires after a re-render (fixes stale closure).
+  const getRefCallback = useCallback((groupKey: string) => {
     let cb = refCallbacksRef.current.get(groupKey);
     if (!cb) {
       cb = (marker: Marker | null) => {
+        const latestEvents = groupDataRef.current.get(groupKey) ?? [];
         const prev = markersRef.current.get(groupKey);
         if (marker) {
           if (prev !== marker) {
@@ -205,11 +208,11 @@ export function ClusteredMarkers({
               markerToEventsRef.current.delete(prev);
             }
             markersRef.current.set(groupKey, marker);
-            markerToEventsRef.current.set(marker, groupEvents);
+            markerToEventsRef.current.set(marker, latestEvents);
             clustererRef.current?.addMarker(marker);
           } else {
             // Same marker element, just update the events mapping
-            markerToEventsRef.current.set(marker, groupEvents);
+            markerToEventsRef.current.set(marker, latestEvents);
           }
         } else if (prev) {
           clustererRef.current?.removeMarker(prev);
@@ -219,10 +222,11 @@ export function ClusteredMarkers({
       };
       refCallbacksRef.current.set(groupKey, cb);
     } else {
-      // Update the captured groupEvents for existing callbacks
+      // Existing callback — eagerly update the marker→events mapping with latest data
       const existingMarker = markersRef.current.get(groupKey);
       if (existingMarker) {
-        markerToEventsRef.current.set(existingMarker, groupEvents);
+        const latestEvents = groupDataRef.current.get(groupKey) ?? [];
+        markerToEventsRef.current.set(existingMarker, latestEvents);
       }
     }
     return cb;
@@ -251,7 +255,7 @@ export function ClusteredMarkers({
                 }
               }}
               title={`${event.kennel?.shortName ?? ""}${event.title ? ` \u2014 ${event.title}` : ""}${event.startTime ? ` \u00B7 ${event.startTime}` : ""}`}
-              ref={getRefCallback(group.key, group.events) as React.Ref<never>}
+              ref={getRefCallback(group.key) as React.Ref<never>}
             >
               <div style={getMarkerStyle(size, color, precise, isSelected)} />
             </AdvancedMarker>
@@ -276,7 +280,7 @@ export function ClusteredMarkers({
               onShowColocated(group.events, { lat: group.lat, lng: group.lng });
             }}
             title={`${group.events.length} events: ${kennelNames}`}
-            ref={getRefCallback(group.key, group.events) as React.Ref<never>}
+            ref={getRefCallback(group.key) as React.Ref<never>}
           >
             <div style={getGroupBadgeStyle(badgeColor, hasSelected)}>
               {group.events.length}

@@ -17,6 +17,15 @@ function roundCoord(n: number): number {
 }
 
 /**
+ * Build a coordinate key string from lat/lng by rounding to 4 decimal places.
+ * Inverse of `parseCoordKey`. Used by `groupByCoordinates` and for coordinate
+ * equality checks in cluster click handlers.
+ */
+export function toCoordKey(lat: number, lng: number): string {
+  return `${roundCoord(lat)},${roundCoord(lng)}`;
+}
+
+/**
  * Group items by their rounded coordinates.
  *
  * Items returning null from `getCoords` are excluded.
@@ -35,7 +44,7 @@ export function groupByCoordinates<T>(
     const coords = getCoords(item);
     if (!coords) continue;
 
-    const key = `${roundCoord(coords.lat)},${roundCoord(coords.lng)}`;
+    const key = toCoordKey(coords.lat, coords.lng);
     const group = groups.get(key);
     if (group) {
       group.push(item);

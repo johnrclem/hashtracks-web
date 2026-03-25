@@ -1,4 +1,4 @@
-import { groupByCoordinates, parseCoordKey } from "./map-utils";
+import { groupByCoordinates, parseCoordKey, toCoordKey } from "./map-utils";
 
 // ── groupByCoordinates ───────────────────────────────────────────────────────
 
@@ -69,6 +69,32 @@ describe("groupByCoordinates", () => {
     const result = groupByCoordinates(items, getCoords);
     expect(result.size).toBe(1);
     expect(result.get("-33.8688,151.2093")).toEqual(items);
+  });
+});
+
+// ── toCoordKey ───────────────────────────────────────────────────────────────
+
+describe("toCoordKey", () => {
+  it("rounds to 4 decimal places and returns lat,lng string", () => {
+    expect(toCoordKey(40.74884, -73.98562)).toBe("40.7488,-73.9856");
+  });
+
+  it("handles negative coordinates", () => {
+    expect(toCoordKey(-33.8688, 151.2093)).toBe("-33.8688,151.2093");
+  });
+
+  it("is consistent with groupByCoordinates key format", () => {
+    const items = [{ lat: 51.5074, lng: -0.1278 }];
+    const groups = groupByCoordinates(items, (i) => i);
+    const [key] = groups.keys();
+    expect(toCoordKey(51.5074, -0.1278)).toBe(key);
+  });
+
+  it("is the inverse of parseCoordKey", () => {
+    const key = toCoordKey(40.7488, -73.9856);
+    const parsed = parseCoordKey(key);
+    expect(parsed.lat).toBe(40.7488);
+    expect(parsed.lng).toBe(-73.9856);
   });
 });
 

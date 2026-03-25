@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { Clock, X } from "lucide-react";
 import { track } from "@vercel/analytics";
-import { formatTime } from "@/lib/format";
+import { formatTime, formatDateShort } from "@/lib/format";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   Sheet,
   SheetContent,
@@ -17,17 +18,6 @@ interface ColocatedEventListProps {
   events: EventWithCoords[];
   onSelectEvent: (event: HarelineEvent) => void;
   onClose: () => void;
-}
-
-/** Format an ISO date to "Wed, Mar 25" style. */
-function shortDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
 }
 
 /** Shared event rows rendered inside both mobile sheet and desktop card. */
@@ -77,7 +67,7 @@ function EventRows({
             {/* Meta row: date + time + hares */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="font-medium text-foreground/80">
-                {shortDate(event.date)}
+                {formatDateShort(event.date)}
               </span>
               {event.startTime && (
                 <span className="flex items-center gap-0.5">
@@ -115,12 +105,7 @@ export function ColocatedEventList({
   onSelectEvent,
   onClose,
 }: ColocatedEventListProps) {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsMobile(window.innerWidth < 1024);
-  }, []);
+  const isMobile = useIsMobile();
 
   // Analytics: track popover open
   useEffect(() => {

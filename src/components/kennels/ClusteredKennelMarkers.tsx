@@ -5,7 +5,7 @@ import { useEffect, useRef, useCallback, useMemo } from "react";
 import { useMap, AdvancedMarker } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import type { Cluster } from "@googlemaps/markerclusterer";
-import { groupByCoordinates, parseCoordKey, HashTracksClusterRenderer } from "@/lib/map-utils";
+import { groupByCoordinates, parseCoordKey, toCoordKey, HashTracksClusterRenderer } from "@/lib/map-utils";
 
 export interface KennelPin {
   id: string;
@@ -44,6 +44,16 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
   // Maps marker elements to their pin groups for cluster click handling
   const markerToPinsRef = useRef<Map<google.maps.marker.AdvancedMarkerElement, KennelPin[]>>(new Map());
 
+  // Stable refs for callbacks so the cluster click handler can access them without re-creating
+  const onShowColocatedRef = useRef(onShowColocated);
+  onShowColocatedRef.current = onShowColocated;
+
+  const onSelectPinRef = useRef(onSelectPin);
+  onSelectPinRef.current = onSelectPin;
+
+  // Ref that always holds the latest coordinate grouping — read by getRefCallback to avoid stale closures
+  const groupDataRef = useRef<Map<string, KennelPin[]>>(new Map());
+
   // Group pins by rounded coordinates
   const pinGroups = useMemo<PinGroup[]>(() => {
     const grouped = groupByCoordinates(pins, (p) => ({ lat: p.lat, lng: p.lng }));
@@ -52,6 +62,8 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
       const { lat, lng } = parseCoordKey(key);
       groups.push({ key, pins: groupPins, lat, lng });
     }
+    // Keep groupDataRef in sync with latest grouping
+    groupDataRef.current = grouped;
     return groups;
   }, [pins]);
 
@@ -68,8 +80,7 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
       // Check if all pins share the same rounded coordinates
       const coordKeys = new Set<string>();
       for (const pin of allPins) {
-        const key = groupByCoordinates([pin], (p) => ({ lat: p.lat, lng: p.lng })).keys().next().value;
-        if (key) coordKeys.add(key);
+        coordKeys.add(toCoordKey(pin.lat, pin.lng));
       }
 
       if (coordKeys.size === 1 && allPins.length > 1) {
@@ -77,13 +88,13 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
         const pos = cluster.position
           ? { lat: cluster.position.lat(), lng: cluster.position.lng() }
           : { lat: allPins[0].lat, lng: allPins[0].lng };
-        onShowColocated(allPins, pos);
+        onShowColocatedRef.current(allPins, pos);
       } else if (cluster.bounds) {
         // Mixed locations — zoom to fit
         _map.fitBounds(cluster.bounds);
       }
     },
-    [onShowColocated],
+    [],
   );
 
   // Initialize clusterer when map is ready
@@ -109,11 +120,14 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
     };
   }, [map, handleClusterClick]);
 
-  // Stable per-group ref callback factory — avoids new function identity on every render
-  const getRefCallback = useCallback((groupKey: string, groupPins: KennelPin[]) => {
+  // Stable per-group ref callback factory — avoids new function identity on every render.
+  // Reads from groupDataRef so the reverse lookup always has the latest data even if
+  // the callback fires after a re-render (fixes stale closure).
+  const getRefCallback = useCallback((groupKey: string) => {
     let cb = refCallbacksRef.current.get(groupKey);
     if (!cb) {
       cb = (marker: google.maps.marker.AdvancedMarkerElement | null) => {
+        const latestPins = groupDataRef.current.get(groupKey) ?? [];
         const prev = markersRef.current.get(groupKey);
         if (marker) {
           if (prev !== marker) {
@@ -122,11 +136,11 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
               markerToPinsRef.current.delete(prev);
             }
             markersRef.current.set(groupKey, marker);
-            markerToPinsRef.current.set(marker, groupPins);
+            markerToPinsRef.current.set(marker, latestPins);
             clustererRef.current?.addMarker(marker);
           } else {
             // Same marker element, but pins may have changed — update mapping
-            markerToPinsRef.current.set(marker, groupPins);
+            markerToPinsRef.current.set(marker, latestPins);
           }
         } else if (prev) {
           clustererRef.current?.removeMarker(prev);
@@ -135,6 +149,13 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
         }
       };
       refCallbacksRef.current.set(groupKey, cb);
+    } else {
+      // Existing callback — eagerly update the marker→pins mapping with latest data
+      const existingMarker = markersRef.current.get(groupKey);
+      if (existingMarker) {
+        const latestPins = groupDataRef.current.get(groupKey) ?? [];
+        markerToPinsRef.current.set(existingMarker, latestPins);
+      }
     }
     return cb;
   }, []);
@@ -166,7 +187,7 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
                 ? `${group.pins.length} kennels: ${group.pins.map((p) => p.shortName).join(", ")}`
                 : singlePin?.shortName
             }
-            ref={getRefCallback(group.key, group.pins)}
+            ref={getRefCallback(group.key)}
           >
             {isMulti ? (
               /* Multi-pin: circle with count badge */

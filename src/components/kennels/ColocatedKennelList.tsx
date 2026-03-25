@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ExternalLink, X } from "lucide-react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   Sheet,
   SheetContent,
@@ -93,12 +93,7 @@ export function ColocatedKennelList({
   onSelectKennel,
   onClose,
 }: ColocatedKennelListProps) {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsMobile(window.innerWidth < 1024);
-  }, []);
+  const isMobile = useIsMobile();
 
   if (isMobile) {
     return (

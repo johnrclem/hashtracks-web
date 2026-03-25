@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { track } from "@vercel/analytics";
 import { regionAbbrev } from "@/lib/region";
 import { getRegionColor } from "@/lib/geo";
+import { toggleArrayItem } from "@/lib/format";
 import type { HarelineEvent } from "./EventCard";
 
 interface RegionQuickChipsProps {
@@ -42,11 +43,7 @@ export function RegionQuickChips({
 
   function toggleRegion(regionName: string) {
     track("region_chip_click", { region: regionName });
-    if (selectedRegions.includes(regionName)) {
-      onRegionsChange(selectedRegions.filter((r) => r !== regionName));
-    } else {
-      onRegionsChange([...selectedRegions, regionName]);
-    }
+    onRegionsChange(toggleArrayItem(selectedRegions, regionName));
   }
 
   return (
