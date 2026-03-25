@@ -285,7 +285,7 @@ logbook + kennel directory.
 ### SF Bay Area (3 sources)
 - **SFH3 MultiHash iCal Feed** → ICAL_FEED → 13 SF Bay Area kennels
 - **SFH3 MultiHash HTML Hareline** → HTML_SCRAPER → 13 SF Bay Area kennels (secondary)
-- **Surf City H3 Static Schedule** → STATIC_SCHEDULE → SCH3 (Santa Cruz)
+- **Surf City H3 Google Calendar** → GOOGLE_CALENDAR → SCH3 (Santa Cruz)
 
 ### Southern California (12 sources)
 - **LAH3 Google Calendar** → GOOGLE_CALENDAR → LAH3
