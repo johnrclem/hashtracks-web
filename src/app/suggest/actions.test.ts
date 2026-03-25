@@ -5,7 +5,7 @@ const mockUser = { id: "user_1" };
 vi.mock("@/lib/auth", () => ({ getOrCreateUser: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
-    kennelRequest: { create: vi.fn(), count: vi.fn() },
+    kennelRequest: { create: vi.fn(), count: vi.fn(), findFirst: vi.fn() },
     region: { findFirst: vi.fn() },
   },
 }));
@@ -47,6 +47,7 @@ import { submitKennelSuggestion } from "./actions";
 const mockAuth = vi.mocked(getOrCreateUser);
 const mockCreate = vi.mocked(prisma.kennelRequest.create);
 const mockCount = vi.mocked(prisma.kennelRequest.count);
+const mockRequestFind = vi.mocked(prisma.kennelRequest.findFirst);
 const mockRegionFind = vi.mocked(prisma.region.findFirst);
 const mockHeaders = vi.mocked(headers);
 
@@ -69,6 +70,7 @@ beforeEach(() => {
   mockAuth.mockResolvedValue(mockUser as never);
   mockCreate.mockResolvedValue({} as never);
   mockCount.mockResolvedValue(0 as never);
+  mockRequestFind.mockResolvedValue(null as never);
   mockRegionFind.mockResolvedValue(null as never);
   mockHeaders.mockResolvedValue(
     new Map([["x-forwarded-for", "1.2.3.4"]]) as never,
@@ -247,5 +249,102 @@ describe("submitKennelSuggestion", () => {
     expect(mockCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId: null }),
     });
+  });
+
+  it("rejects javascript: URLs in sourceUrl", async () => {
+    const fd = makeFormData({
+      ...validFields,
+      sourceUrl: "javascript:alert(1)",
+    });
+    const result = await submitKennelSuggestion(null, fd);
+    expect(result).toEqual({ error: "Invalid URL — must start with http:// or https://" });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects data: URLs in sourceUrl", async () => {
+    const fd = makeFormData({
+      ...validFields,
+      sourceUrl: "data:text/html,<h1>bad</h1>",
+    });
+    const result = await submitKennelSuggestion(null, fd);
+    expect(result).toEqual({ error: "Invalid URL — must start with http:// or https://" });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed URLs in sourceUrl", async () => {
+    const fd = makeFormData({
+      ...validFields,
+      sourceUrl: "not a url",
+    });
+    const result = await submitKennelSuggestion(null, fd);
+    expect(result).toEqual({ error: "Invalid URL format" });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("accepts valid http/https URLs in sourceUrl", async () => {
+    const fd = makeFormData({
+      ...validFields,
+      sourceUrl: "https://example.com/hash",
+    });
+    const result = await submitKennelSuggestion(null, fd);
+    expect(result).toEqual({ success: true });
+    expect(mockCreate).toHaveBeenCalled();
+  });
+
+  it("returns error when notes exceed 1000 characters", async () => {
+    const fd = makeFormData({
+      ...validFields,
+      notes: "x".repeat(1001),
+    });
+    const result = await submitKennelSuggestion(null, fd);
+    expect(result).toEqual({ error: "Notes too long (max 1000 characters)" });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("accepts notes at exactly 1000 characters", async () => {
+    const fd = makeFormData({
+      ...validFields,
+      notes: "x".repeat(1000),
+    });
+    const result = await submitKennelSuggestion(null, fd);
+    expect(result).toEqual({ success: true });
+    expect(mockCreate).toHaveBeenCalled();
+  });
+
+  it("returns silent success for duplicate kennel+region within 24h", async () => {
+    mockRequestFind.mockResolvedValueOnce({ id: "existing_req" } as never);
+
+    const fd = makeFormData(validFields);
+    const result = await submitKennelSuggestion(null, fd);
+
+    expect(result).toEqual({ success: true });
+    expect(mockRequestFind).toHaveBeenCalledWith({
+      where: {
+        kennelName: { equals: "Test Hash House Harriers", mode: "insensitive" },
+        region: { equals: "New York City", mode: "insensitive" },
+        createdAt: { gte: expect.any(Date) },
+        source: "PUBLIC",
+      },
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("creates request when no duplicate exists", async () => {
+    mockRequestFind.mockResolvedValueOnce(null as never);
+
+    const fd = makeFormData(validFields);
+    const result = await submitKennelSuggestion(null, fd);
+
+    expect(result).toEqual({ success: true });
+    expect(mockCreate).toHaveBeenCalled();
+  });
+
+  it("salts the IP hash (ipHash is a non-empty hex string)", async () => {
+    const fd = makeFormData(validFields);
+    await submitKennelSuggestion(null, fd);
+
+    const createCall = mockCreate.mock.calls[0]?.[0] as { data: { ipHash: string } } | undefined;
+    expect(createCall?.data.ipHash).toBeTruthy();
+    expect(createCall?.data.ipHash).toMatch(/^[a-f0-9]{64}$/);
   });
 });

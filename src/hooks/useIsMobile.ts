@@ -7,7 +7,10 @@ export const LG_BREAKPOINT = 1024;
 export function useIsMobile(breakpoint = LG_BREAKPOINT): boolean {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    setIsMobile(window.innerWidth < breakpoint); // eslint-disable-line react-hooks/set-state-in-effect
+    const check = () => setIsMobile(window.innerWidth < breakpoint);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, [breakpoint]);
   return isMobile;
 }

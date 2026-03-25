@@ -71,13 +71,13 @@ function getConfig(props: EmptyStateProps) {
   }
 }
 
-export function EmptyState(props: EmptyStateProps) {
+export function EmptyState(props: Readonly<EmptyStateProps>) {
   const { context, onClearFilters, onSwitchToAll } = props;
   const { icon: Icon, message, subtext } = getConfig(props);
 
   useEffect(() => {
     track("empty_state_shown", { context });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [context]);
 
   return (
     <div className="flex flex-col items-center gap-4 py-16 text-center px-4">

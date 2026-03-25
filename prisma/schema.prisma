@@ -464,6 +464,11 @@ enum AlertStatus {
 
 // ── KENNEL REQUESTS ──
 
+enum RequestSource {
+  ADMIN
+  PUBLIC
+}
+
 enum SuggestionRelationship {
   HASH_WITH    // "I hash with them"
   ON_MISMAN    // "I'm on their mismanagement"
@@ -484,7 +489,7 @@ model KennelRequest {
   ipHash       String?                 // SHA-256 of submitter IP (rate limiting)
   regionId     String?
   linkedRegion Region?                 @relation(fields: [regionId], references: [id])
-  source       String?                 @default("ADMIN") // "ADMIN" | "PUBLIC"
+  source       RequestSource?          @default(ADMIN)
   status       RequestStatus           @default(PENDING)
   resolvedAt   DateTime?
   createdAt    DateTime                @default(now())

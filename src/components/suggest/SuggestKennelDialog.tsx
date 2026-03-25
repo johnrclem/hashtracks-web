@@ -17,7 +17,7 @@ interface SuggestKennelDialogProps {
   trigger: React.ReactNode;
 }
 
-export function SuggestKennelDialog({ trigger }: SuggestKennelDialogProps) {
+export function SuggestKennelDialog({ trigger }: Readonly<SuggestKennelDialogProps>) {
   const [open, setOpen] = useState(false);
   const isMobile = useIsMobile();
 

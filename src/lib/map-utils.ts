@@ -3,8 +3,7 @@
  * Used by both Hareline MapView and Kennel MapView to handle co-located pins.
  */
 
-import type { Cluster, Marker, Renderer } from "@googlemaps/markerclusterer";
-import type { ClusterStats } from "@googlemaps/markerclusterer";
+import type { Cluster, Marker, Renderer, ClusterStats } from "@googlemaps/markerclusterer";
 
 // ── Coordinate grouping ─────────────────────────────────────────────────────
 

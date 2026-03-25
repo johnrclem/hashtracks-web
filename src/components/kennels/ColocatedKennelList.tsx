@@ -92,7 +92,7 @@ export function ColocatedKennelList({
   pins,
   onSelectKennel,
   onClose,
-}: ColocatedKennelListProps) {
+}: Readonly<ColocatedKennelListProps>) {
   const isMobile = useIsMobile();
 
   if (isMobile) {

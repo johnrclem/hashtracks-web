@@ -63,7 +63,7 @@ export function clearLocationPref(): void {
  * When any of these are present, the stored preference is ignored so URL
  * params always win.
  */
-const FILTER_PARAMS = ["regions", "dist", "days", "kennels", "q", "country"];
+export const FILTER_PARAMS = ["regions", "dist", "days", "kennels", "q", "country"];
 
 /**
  * Resolves what location default (if any) should be applied given the current

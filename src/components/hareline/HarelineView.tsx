@@ -29,7 +29,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { haversineDistance, getEventCoords } from "@/lib/geo";
 import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 import { LocationPrompt } from "./LocationPrompt";
-import { getLocationPref, resolveLocationDefault } from "@/lib/location-pref";
+import { getLocationPref, resolveLocationDefault, FILTER_PARAMS } from "@/lib/location-pref";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -483,8 +483,7 @@ export function HarelineView({
 
   // Determine if URL has any filter params (for LocationPrompt)
   const hasUrlFilters = useMemo(() => {
-    const filterParams = ["regions", "dist", "days", "kennels", "q", "country"];
-    return filterParams.some((p) => searchParams.has(p));
+    return FILTER_PARAMS.some((p) => searchParams.has(p));
   }, [searchParams]);
 
   // Unique metro region names from events (for LocationPrompt picker)
@@ -536,13 +535,14 @@ export function HarelineView({
     </div>
   ) : null;
 
-  const emptyContext: "near_me" | "region" | "kennel" | "search" | "my_kennels" | "general" =
-    nearMeDistance != null && geoState.status === "granted" ? "near_me" :
-    selectedRegions.length > 0 ? "region" :
-    selectedKennels.length > 0 ? "kennel" :
-    searchText ? "search" :
-    scope === "my" ? "my_kennels" :
-    "general";
+  const emptyContext = ((): "near_me" | "region" | "kennel" | "search" | "my_kennels" | "general" => {
+    if (nearMeDistance != null && geoState.status === "granted") return "near_me";
+    if (selectedRegions.length > 0) return "region";
+    if (selectedKennels.length > 0) return "kennel";
+    if (searchText) return "search";
+    if (scope === "my") return "my_kennels";
+    return "general";
+  })();
 
   const emptyState = (
     <EmptyState

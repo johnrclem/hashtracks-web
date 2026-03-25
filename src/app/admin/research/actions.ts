@@ -2,8 +2,8 @@
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { Prisma } from "@/generated/prisma/client";
-import type { SourceType } from "@/generated/prisma/client";
+import { Prisma, RequestSource } from "@/generated/prisma/client";
+import type { SourceType, RequestStatus } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { researchSourcesForRegion, buildDetectedConfig } from "@/pipeline/source-research";
 import { detectSourceType } from "@/lib/source-detect";
@@ -317,14 +317,14 @@ export async function bulkRejectProposals(ids: string[]) {
 /** Approve or reject a public kennel suggestion. */
 export async function resolveKennelSuggestion(
   id: string,
-  resolution: "APPROVED" | "REJECTED",
+  resolution: Extract<RequestStatus, "APPROVED" | "REJECTED">,
 ): Promise<{ success: boolean; error?: string }> {
   const admin = await getAdminUser();
   if (!admin) return { success: false, error: "Not authorized" };
 
   const request = await prisma.kennelRequest.findUnique({ where: { id } });
   if (!request) return { success: false, error: "Suggestion not found" };
-  if (request.source !== "PUBLIC") return { success: false, error: "Not a public suggestion" };
+  if (request.source !== RequestSource.PUBLIC) return { success: false, error: "Not a public suggestion" };
   if (request.status !== "PENDING") return { success: false, error: "Already resolved" };
 
   await prisma.kennelRequest.update({

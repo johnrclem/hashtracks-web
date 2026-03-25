@@ -489,15 +489,11 @@ export function ResearchDashboard({ regions, proposals, discoveries, coverageGap
                     )}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    {s.regionAbbrev ? (
-                      <Badge variant="outline" className="text-xs">
-                        {s.regionAbbrev}
-                      </Badge>
-                    ) : s.regionName ? (
-                      <span className="text-xs text-muted-foreground">{s.regionName}</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    {(() => {
+                      if (s.regionAbbrev) return <Badge variant="outline" className="text-xs">{s.regionAbbrev}</Badge>;
+                      if (s.regionName) return <span className="text-xs text-muted-foreground">{s.regionName}</span>;
+                      return <span className="text-muted-foreground">—</span>;
+                    })()}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     {s.relationship ? (
@@ -512,23 +508,29 @@ export function ResearchDashboard({ regions, proposals, discoveries, coverageGap
                     )}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell max-w-[200px] truncate">
-                    {s.sourceUrl && isSafeUrl(s.sourceUrl) ? (
-                      <a
-                        href={s.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline-offset-4 hover:underline"
-                        title={s.sourceUrl}
-                      >
-                        {truncateUrl(s.sourceUrl)}
-                      </a>
-                    ) : s.sourceUrl ? (
-                      <span className="text-muted-foreground" title={s.sourceUrl}>
-                        {truncateUrl(s.sourceUrl)}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    {(() => {
+                      if (s.sourceUrl && isSafeUrl(s.sourceUrl)) {
+                        return (
+                          <a
+                            href={s.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary underline-offset-4 hover:underline"
+                            title={s.sourceUrl}
+                          >
+                            {truncateUrl(s.sourceUrl)}
+                          </a>
+                        );
+                      }
+                      if (s.sourceUrl) {
+                        return (
+                          <span className="text-muted-foreground" title={s.sourceUrl}>
+                            {truncateUrl(s.sourceUrl)}
+                          </span>
+                        );
+                      }
+                      return <span className="text-muted-foreground">—</span>;
+                    })()}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-xs">
                     {s.email ?? "Anonymous"}

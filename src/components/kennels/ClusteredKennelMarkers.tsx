@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/refs */
 
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useEffect, useRef, useCallback, useMemo } from "react";
 import { useMap, AdvancedMarker } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import type { Cluster } from "@googlemaps/markerclusterer";
@@ -36,7 +36,7 @@ interface ClusteredKennelMarkersProps {
   onShowColocated: (pins: KennelPin[], position: { lat: number; lng: number }) => void;
 }
 
-export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onShowColocated }: ClusteredKennelMarkersProps) {
+export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onShowColocated }: Readonly<ClusteredKennelMarkersProps>) {
   const map = useMap();
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const markersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement>>(new Map());
@@ -125,7 +125,14 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
   // the callback fires after a re-render (fixes stale closure).
   const getRefCallback = useCallback((groupKey: string) => {
     let cb = refCallbacksRef.current.get(groupKey);
-    if (!cb) {
+    if (cb) {
+      // Existing callback — eagerly update the marker→pins mapping with latest data
+      const existingMarker = markersRef.current.get(groupKey);
+      if (existingMarker) {
+        const latestPins = groupDataRef.current.get(groupKey) ?? [];
+        markerToPinsRef.current.set(existingMarker, latestPins);
+      }
+    } else {
       cb = (marker: google.maps.marker.AdvancedMarkerElement | null) => {
         const latestPins = groupDataRef.current.get(groupKey) ?? [];
         const prev = markersRef.current.get(groupKey);
@@ -149,103 +156,135 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
         }
       };
       refCallbacksRef.current.set(groupKey, cb);
-    } else {
-      // Existing callback — eagerly update the marker→pins mapping with latest data
-      const existingMarker = markersRef.current.get(groupKey);
-      if (existingMarker) {
-        const latestPins = groupDataRef.current.get(groupKey) ?? [];
-        markerToPinsRef.current.set(existingMarker, latestPins);
-      }
     }
     return cb;
   }, []);
 
   return (
     <>
-      {pinGroups.map((group) => {
-        const isMulti = group.pins.length > 1;
-        // For a single pin, check if it's selected
-        const singlePin = !isMulti ? group.pins[0] : null;
-        const isSelected = singlePin ? selectedPinId === singlePin.id : false;
-        // For multi-pin groups, check if any pin is selected
-        const hasSelectedPin = isMulti && group.pins.some((p) => p.id === selectedPinId);
-        const primaryColor = group.pins[0].color;
-
-        return (
-          <AdvancedMarker
-            key={group.key}
-            position={{ lat: group.lat, lng: group.lng }}
-            onClick={() => {
-              if (isMulti) {
-                onShowColocated(group.pins, { lat: group.lat, lng: group.lng });
-              } else {
-                onSelectPin(group.pins[0].id);
-              }
-            }}
-            title={
-              isMulti
-                ? `${group.pins.length} kennels: ${group.pins.map((p) => p.shortName).join(", ")}`
-                : singlePin?.shortName
-            }
-            ref={getRefCallback(group.key)}
-          >
-            {isMulti ? (
-              /* Multi-pin: circle with count badge */
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  backgroundColor: primaryColor,
-                  border: hasSelectedPin ? "3px solid white" : "2px solid white",
-                  boxShadow: hasSelectedPin
-                    ? `0 0 0 2px ${primaryColor}, 0 2px 6px rgba(0,0,0,0.4)`
-                    : "0 1px 4px rgba(0,0,0,0.4)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "11px",
-                  fontWeight: "bold",
-                  color: "white",
-                  transition: "all 0.15s ease",
-                  userSelect: "none",
-                  position: "relative",
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1.2)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"; }}
-              >
-                {group.pins.length}
-              </div>
-            ) : (
-              /* Single pin: existing style */
-              <div
-                style={{
-                  width: isSelected ? 32 : 28,
-                  height: isSelected ? 32 : 28,
-                  borderRadius: "50%",
-                  backgroundColor: primaryColor,
-                  border: isSelected ? "3px solid white" : "2px solid white",
-                  boxShadow: isSelected
-                    ? `0 0 0 2px ${primaryColor}, 0 2px 6px rgba(0,0,0,0.4)`
-                    : "0 1px 4px rgba(0,0,0,0.4)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "9px",
-                  fontWeight: "bold",
-                  color: "white",
-                  transition: "all 0.15s ease",
-                  userSelect: "none",
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1.2)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"; }}
-              />
-            )}
-          </AdvancedMarker>
-        );
-      })}
+      {pinGroups.map((group) => (
+        <KennelPinMarker
+          key={group.key}
+          group={group}
+          selectedPinId={selectedPinId}
+          onSelectPin={onSelectPin}
+          onShowColocated={onShowColocated}
+          refCallback={getRefCallback(group.key)}
+        />
+      ))}
     </>
+  );
+}
+
+// ── Extracted sub-component to reduce cognitive complexity ────────────────────
+
+/** Build inline style for a multi-pin badge marker. */
+function getMultiPinStyle(color: string, hasSelected: boolean): React.CSSProperties {
+  return {
+    width: 32,
+    height: 32,
+    borderRadius: "50%",
+    backgroundColor: color,
+    border: hasSelected ? "3px solid white" : "2px solid white",
+    boxShadow: hasSelected
+      ? `0 0 0 2px ${color}, 0 2px 6px rgba(0,0,0,0.4)`
+      : "0 1px 4px rgba(0,0,0,0.4)",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "11px",
+    fontWeight: "bold",
+    color: "white",
+    transition: "all 0.15s ease",
+    userSelect: "none",
+    position: "relative",
+  };
+}
+
+/** Build inline style for a single kennel pin marker. */
+function getSinglePinStyle(color: string, isSelected: boolean): React.CSSProperties {
+  const size = isSelected ? 32 : 28;
+  return {
+    width: size,
+    height: size,
+    borderRadius: "50%",
+    backgroundColor: color,
+    border: isSelected ? "3px solid white" : "2px solid white",
+    boxShadow: isSelected
+      ? `0 0 0 2px ${color}, 0 2px 6px rgba(0,0,0,0.4)`
+      : "0 1px 4px rgba(0,0,0,0.4)",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "9px",
+    fontWeight: "bold",
+    color: "white",
+    transition: "all 0.15s ease",
+    userSelect: "none",
+  };
+}
+
+function handleScaleUp(e: React.MouseEvent<HTMLDivElement>) {
+  (e.currentTarget as HTMLDivElement).style.transform = "scale(1.2)";
+}
+
+function handleScaleDown(e: React.MouseEvent<HTMLDivElement>) {
+  (e.currentTarget as HTMLDivElement).style.transform = "scale(1)";
+}
+
+/** Renders a single AdvancedMarker for a pin group (single or multi-kennel). */
+function KennelPinMarker({
+  group,
+  selectedPinId,
+  onSelectPin,
+  onShowColocated,
+  refCallback,
+}: Readonly<{
+  group: PinGroup;
+  selectedPinId: string | null;
+  onSelectPin: (id: string) => void;
+  onShowColocated: (pins: KennelPin[], position: { lat: number; lng: number }) => void;
+  refCallback: (marker: google.maps.marker.AdvancedMarkerElement | null) => void;
+}>) {
+  const isMulti = group.pins.length > 1;
+  const primaryColor = group.pins[0].color;
+
+  if (isMulti) {
+    const hasSelectedPin = group.pins.some((p) => p.id === selectedPinId);
+    return (
+      <AdvancedMarker
+        position={{ lat: group.lat, lng: group.lng }}
+        onClick={() => onShowColocated(group.pins, { lat: group.lat, lng: group.lng })}
+        title={`${group.pins.length} kennels: ${group.pins.map((p) => p.shortName).join(", ")}`}
+        ref={refCallback}
+      >
+        <div
+          style={getMultiPinStyle(primaryColor, hasSelectedPin)}
+          onMouseEnter={handleScaleUp}
+          onMouseLeave={handleScaleDown}
+        >
+          {group.pins.length}
+        </div>
+      </AdvancedMarker>
+    );
+  }
+
+  const singlePin = group.pins[0];
+  const isSelected = selectedPinId === singlePin.id;
+  return (
+    <AdvancedMarker
+      position={{ lat: group.lat, lng: group.lng }}
+      onClick={() => onSelectPin(singlePin.id)}
+      title={singlePin.shortName}
+      ref={refCallback}
+    >
+      <div
+        style={getSinglePinStyle(primaryColor, isSelected)}
+        onMouseEnter={handleScaleUp}
+        onMouseLeave={handleScaleDown}
+      />
+    </AdvancedMarker>
   );
 }

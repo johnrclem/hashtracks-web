@@ -18,7 +18,7 @@ export function RegionQuickChips({
   events,
   selectedRegions,
   onRegionsChange,
-}: RegionQuickChipsProps) {
+}: Readonly<RegionQuickChipsProps>) {
   // Compute top 6 regions by event count
   const topRegions = useMemo(() => {
     const counts = new Map<string, number>();

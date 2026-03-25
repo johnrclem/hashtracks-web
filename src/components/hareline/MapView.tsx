@@ -181,7 +181,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
   const handleColocatedSelect = useCallback(
     (event: HarelineEvent) => {
       setColocatedList(null);
-      if (typeof window !== "undefined" && window.innerWidth < LG_BREAKPOINT) {
+      if (globalThis.window && globalThis.window.innerWidth < LG_BREAKPOINT) {
         router.push(`/hareline/${event.id}`);
       } else {
         onSelectEvent(event);

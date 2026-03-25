@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";

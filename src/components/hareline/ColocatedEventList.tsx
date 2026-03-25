@@ -104,7 +104,7 @@ export function ColocatedEventList({
   events,
   onSelectEvent,
   onClose,
-}: ColocatedEventListProps) {
+}: Readonly<ColocatedEventListProps>) {
   const isMobile = useIsMobile();
 
   // Analytics: track popover open

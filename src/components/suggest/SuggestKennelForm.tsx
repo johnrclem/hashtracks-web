@@ -18,7 +18,7 @@ interface SuggestKennelFormProps {
   onSuccess?: () => void;
 }
 
-export function SuggestKennelForm({ onSuccess }: SuggestKennelFormProps) {
+export function SuggestKennelForm({ onSuccess }: Readonly<SuggestKennelFormProps>) {
   const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction, isPending] = useActionState<
     SuggestionState,
@@ -172,6 +172,7 @@ export function SuggestKennelForm({ onSuccess }: SuggestKennelFormProps) {
             id="suggest-notes"
             name="notes"
             rows={3}
+            maxLength={1000}
             placeholder="Anything else we should know? (run schedule, social media links, etc.)"
           />
         </div>

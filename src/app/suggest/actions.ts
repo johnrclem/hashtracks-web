@@ -1,8 +1,9 @@
 "use server";
 
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
+import { RequestSource } from "@/generated/prisma/client";
 import { getOrCreateUser } from "@/lib/auth";
 import { REGION_SEED_DATA } from "@/lib/region";
 
@@ -51,8 +52,22 @@ export async function submitKennelSuggestion(
   }
 
   const sourceUrl = (formData.get("sourceUrl") as string)?.trim() || null;
+  if (sourceUrl) {
+    try {
+      const parsed = new URL(sourceUrl);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        return { error: "Invalid URL — must start with http:// or https://" };
+      }
+    } catch {
+      return { error: "Invalid URL format" };
+    }
+  }
+
   const email = (formData.get("email") as string)?.trim() || null;
   const notes = (formData.get("notes") as string)?.trim() || null;
+  if (notes && notes.length > 1000) {
+    return { error: "Notes too long (max 1000 characters)" };
+  }
 
   // ── Optional auth (don't require login) ──
   let userId: string | null = null;
@@ -69,7 +84,7 @@ export async function submitKennelSuggestion(
     headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     headersList.get("x-real-ip") ||
     "unknown";
-  const ipHash = crypto.createHash("sha256").update(ip).digest("hex");
+  const ipHash = crypto.createHash("sha256").update(ip + (process.env.CRON_SECRET ?? "ht-ip-salt")).digest("hex");
 
   // ── Rate limiting (DB-based) ──
   const windowStart = new Date(Date.now() - RATE_WINDOW_MS);
@@ -119,6 +134,20 @@ export async function submitKennelSuggestion(
     }
   }
 
+  // ── Deduplication check (same kennel+region within 24h) ──
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const existingDupe = await prisma.kennelRequest.findFirst({
+    where: {
+      kennelName: { equals: kennelName, mode: "insensitive" },
+      region: { equals: region, mode: "insensitive" },
+      createdAt: { gte: oneDayAgo },
+      source: RequestSource.PUBLIC,
+    },
+  });
+  if (existingDupe) {
+    return { success: true }; // Silent success — don't reveal to bots
+  }
+
   // ── Create the request ──
   await prisma.kennelRequest.create({
     data: {
@@ -131,7 +160,7 @@ export async function submitKennelSuggestion(
       email,
       ipHash,
       regionId,
-      source: "PUBLIC",
+      source: RequestSource.PUBLIC,
     },
   });
 

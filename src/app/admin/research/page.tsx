@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { RequestSource } from "@/generated/prisma/client";
 import { ResearchDashboard } from "@/components/admin/ResearchDashboard";
 import type { ConfidenceLevel } from "@/pipeline/source-research";
 
@@ -53,7 +54,7 @@ export default async function ResearchPage() {
     }),
     // Public kennel suggestions
     prisma.kennelRequest.findMany({
-      where: { source: "PUBLIC" },
+      where: { source: RequestSource.PUBLIC },
       orderBy: { createdAt: "desc" },
       include: { linkedRegion: { select: { name: true, abbrev: true } } },
     }),

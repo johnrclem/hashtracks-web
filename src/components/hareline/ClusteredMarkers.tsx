@@ -97,7 +97,7 @@ export function ClusteredMarkers({
   onNavigate,
   onShowColocated,
   onRegionFilter,
-}: ClusteredMarkersProps) {
+}: Readonly<ClusteredMarkersProps>) {
   const map = useMap();
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const markersRef = useRef<Map<string, Marker>>(new Map());
@@ -197,7 +197,14 @@ export function ClusteredMarkers({
   // the callback fires after a re-render (fixes stale closure).
   const getRefCallback = useCallback((groupKey: string) => {
     let cb = refCallbacksRef.current.get(groupKey);
-    if (!cb) {
+    if (cb) {
+      // Existing callback — eagerly update the marker→events mapping with latest data
+      const existingMarker = markersRef.current.get(groupKey);
+      if (existingMarker) {
+        const latestEvents = groupDataRef.current.get(groupKey) ?? [];
+        markerToEventsRef.current.set(existingMarker, latestEvents);
+      }
+    } else {
       cb = (marker: Marker | null) => {
         const latestEvents = groupDataRef.current.get(groupKey) ?? [];
         const prev = markersRef.current.get(groupKey);
@@ -221,13 +228,6 @@ export function ClusteredMarkers({
         }
       };
       refCallbacksRef.current.set(groupKey, cb);
-    } else {
-      // Existing callback — eagerly update the marker→events mapping with latest data
-      const existingMarker = markersRef.current.get(groupKey);
-      if (existingMarker) {
-        const latestEvents = groupDataRef.current.get(groupKey) ?? [];
-        markerToEventsRef.current.set(existingMarker, latestEvents);
-      }
     }
     return cb;
   }, []);
