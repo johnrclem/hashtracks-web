@@ -124,10 +124,10 @@ export function SuggestKennelForm({ onSuccess }: SuggestKennelFormProps) {
               <RadioGroupItem value="ON_MISMAN" id="rel-misman" />
               <div>
                 <span className="text-sm font-medium">
-                  I&apos;m on misman
+                  I help run this kennel
                 </span>
                 <p className="text-xs text-muted-foreground">
-                  I manage attendance for this kennel
+                  I&apos;m on misman or help organize trails
                 </p>
               </div>
             </label>
