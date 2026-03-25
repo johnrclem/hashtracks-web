@@ -6,7 +6,7 @@ vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     source: { create: vi.fn(), update: vi.fn(), delete: vi.fn(), findUnique: vi.fn() },
-    sourceKennel: { create: vi.fn(), deleteMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    sourceKennel: { create: vi.fn(), deleteMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), delete: vi.fn() },
     rawEvent: { count: vi.fn() },
     alert: { findMany: vi.fn(), update: vi.fn() },
     kennel: { findFirst: vi.fn() },
@@ -36,8 +36,6 @@ const mockSKCreate = vi.mocked(prisma.sourceKennel.create);
 const mockRawEventCount = vi.mocked(prisma.rawEvent.count);
 const mockResolveKennelTag = vi.mocked(resolveKennelTag);
 const mockSourceFindUnique = vi.mocked(prisma.source.findUnique);
-const mockSourceUpdate = vi.mocked(prisma.source.update);
-const mockSKFindUnique = vi.mocked(prisma.sourceKennel.findUnique);
 const mockSKUpdate = vi.mocked(prisma.sourceKennel.update);
 const mockSKDelete = vi.mocked(prisma.sourceKennel.delete);
 const mockAlertFindMany = vi.mocked(prisma.alert.findMany);
@@ -97,138 +95,76 @@ describe("deleteSource", () => {
   });
 });
 
-describe("HASHREGO slug-to-link auto-sync", () => {
-  it("createSource auto-links kennels resolved from slugs", async () => {
-    mockResolveKennelTag.mockImplementation(async (tag: string) => {
-      if (tag === "UH3") return { kennelId: "k_uh3", matched: true };
-      return { kennelId: null, matched: false };
-    });
-
+describe("createSource kennel linking", () => {
+  it("creates SourceKennel links from form kennelIds", async () => {
     const fd = new FormData();
-    fd.set("name", "Hash Rego");
-    fd.set("url", "https://hashrego.com/events");
-    fd.set("type", "HASHREGO");
-    fd.set("config", JSON.stringify({ kennelSlugs: ["UH3"] }));
-    fd.set("kennelIds", "k1");
+    fd.set("name", "Test");
+    fd.set("url", "https://test.com");
+    fd.set("type", "HTML_SCRAPER");
+    fd.set("kennelIds", "k1, k2");
 
     const result = await createSource(fd);
     expect(result).toEqual({ success: true });
-    // Should create links for both k1 (form) and k_uh3 (slug-resolved)
     expect(mockSKCreate).toHaveBeenCalledTimes(2);
     const createdIds = mockSKCreate.mock.calls.map((c) => (c[0] as { data: { kennelId: string } }).data.kennelId);
     expect(createdIds).toContain("k1");
-    expect(createdIds).toContain("k_uh3");
+    expect(createdIds).toContain("k2");
   });
 
-  it("createSource does not duplicate if slug resolves to already-linked kennel", async () => {
-    mockResolveKennelTag.mockResolvedValue({ kennelId: "k1", matched: true });
-
+  it("does not resolve slugs from config (legacy behavior removed)", async () => {
     const fd = new FormData();
     fd.set("name", "Hash Rego");
     fd.set("url", "https://hashrego.com/events");
     fd.set("type", "HASHREGO");
-    fd.set("config", JSON.stringify({ kennelSlugs: ["BFM"] }));
     fd.set("kennelIds", "k1");
 
     await createSource(fd);
-    // k1 is both form-selected and slug-resolved — should only create once
-    expect(mockSKCreate).toHaveBeenCalledTimes(1);
-  });
-
-  it("updateSource auto-links slug-resolved kennels", async () => {
-    mockResolveKennelTag.mockImplementation(async (tag: string) => {
-      if (tag === "UH3") return { kennelId: "k_uh3", matched: true };
-      if (tag === "BFM") return { kennelId: "k_bfm", matched: true };
-      return { kennelId: null, matched: false };
-    });
-
-    const fd = new FormData();
-    fd.set("name", "Hash Rego");
-    fd.set("url", "https://hashrego.com/events");
-    fd.set("type", "HASHREGO");
-    fd.set("config", JSON.stringify({ kennelSlugs: ["UH3", "BFM"] }));
-    fd.set("kennelIds", "k_bfm"); // only BFM was in the form
-
-    const result = await updateSource("s1", fd);
-    expect(result).toEqual({ success: true });
-    // Transaction should create links for both k_bfm and k_uh3
-    const txCalls = vi.mocked(prisma.$transaction).mock.calls[0][0] as unknown as unknown[];
-    expect(txCalls).toHaveLength(2); // deleteMany + update
-  });
-
-  it("does not resolve slugs for non-HASHREGO sources", async () => {
-    const fd = new FormData();
-    fd.set("name", "Cal");
-    fd.set("url", "https://cal.google.com");
-    fd.set("type", "GOOGLE_CALENDAR");
-    fd.set("kennelIds", "k1");
-
-    await createSource(fd);
+    // Slug resolution no longer happens — only form kennelIds are used
     expect(mockResolveKennelTag).not.toHaveBeenCalled();
     expect(mockSKCreate).toHaveBeenCalledTimes(1);
   });
 });
 
-describe("HASHREGO link-to-slug auto-sync", () => {
-  it("linkKennelToSourceDirect adds slug to HASHREGO config", async () => {
+describe("linkKennelToSourceDirect externalSlug", () => {
+  const mockSKUpsert = vi.mocked(prisma.sourceKennel.upsert);
+
+  it("sets externalSlug on SourceKennel for HASHREGO sources", async () => {
     mockResolveKennelTag.mockResolvedValue({ kennelId: "k_uh3", matched: true });
-    mockSKFindUnique.mockResolvedValue(null as never);
-    mockSKCreate.mockResolvedValue({} as never);
+    mockSKUpsert.mockResolvedValue({} as never);
     mockSourceFindUnique.mockResolvedValue({
       id: "s1",
       type: "HASHREGO",
-      config: { kennelSlugs: ["BFM"] },
     } as never);
     mockAlertFindMany.mockResolvedValue([] as never);
 
     const result = await linkKennelToSourceDirect("s1", "UH3");
     expect(result).toEqual({ success: true });
 
-    // Should update source config to include UH3
-    expect(mockSourceUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "s1" },
-        data: { config: { kennelSlugs: ["BFM", "UH3"] } },
-      }),
-    );
+    // Should upsert SourceKennel with externalSlug
+    expect(mockSKUpsert).toHaveBeenCalledWith({
+      where: { sourceId_kennelId: { sourceId: "s1", kennelId: "k_uh3" } },
+      update: { externalSlug: "UH3" },
+      create: { sourceId: "s1", kennelId: "k_uh3", externalSlug: "UH3" },
+    });
   });
 
-  it("linkKennelToSourceDirect does not add duplicate slug", async () => {
-    mockResolveKennelTag.mockResolvedValue({ kennelId: "k_bfm", matched: true });
-    mockSKFindUnique.mockResolvedValue(null as never);
-    mockSKCreate.mockResolvedValue({} as never);
-    mockSourceFindUnique.mockResolvedValue({
-      id: "s1",
-      type: "HASHREGO",
-      config: { kennelSlugs: ["BFM"] },
-    } as never);
-    mockAlertFindMany.mockResolvedValue([] as never);
-
-    await linkKennelToSourceDirect("s1", "BFM");
-    // Config already has BFM — should NOT call update
-    const configUpdateCalls = mockSourceUpdate.mock.calls.filter(
-      (c) => (c[0] as { data: { config?: unknown } }).data.config !== undefined,
-    );
-    expect(configUpdateCalls).toHaveLength(0);
-  });
-
-  it("linkKennelToSourceDirect skips slug sync for non-HASHREGO sources", async () => {
+  it("does not set externalSlug for non-HASHREGO sources", async () => {
     mockResolveKennelTag.mockResolvedValue({ kennelId: "k1", matched: true });
-    mockSKFindUnique.mockResolvedValue(null as never);
-    mockSKCreate.mockResolvedValue({} as never);
+    mockSKUpsert.mockResolvedValue({} as never);
     mockSourceFindUnique.mockResolvedValue({
       id: "s1",
       type: "HTML_SCRAPER",
-      config: null,
     } as never);
     mockAlertFindMany.mockResolvedValue([] as never);
 
     await linkKennelToSourceDirect("s1", "UH3");
-    // Should not update config for non-HASHREGO
-    const configUpdateCalls = mockSourceUpdate.mock.calls.filter(
-      (c) => (c[0] as { data: { config?: unknown } }).data.config !== undefined,
-    );
-    expect(configUpdateCalls).toHaveLength(0);
+
+    // Should upsert without externalSlug
+    expect(mockSKUpsert).toHaveBeenCalledWith({
+      where: { sourceId_kennelId: { sourceId: "s1", kennelId: "k1" } },
+      update: {},
+      create: { sourceId: "s1", kennelId: "k1" },
+    });
   });
 });
 

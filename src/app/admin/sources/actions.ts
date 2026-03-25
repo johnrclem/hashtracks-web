@@ -10,88 +10,6 @@ import { scrapeSource } from "@/pipeline/scrape";
 import { validateSourceConfig } from "./config-validation";
 import { buildKennelIdentifiers, createKennelRecord } from "@/lib/kennel-utils";
 
-/** Type guard: is this a HASHREGO source config with an optional kennelSlugs array?
- *  When kennelSlugs is present, validates it is actually an array to guard against malformed JSON. */
-function isHashRegoConfig(
-  config: unknown,
-  type: string,
-): config is { kennelSlugs?: string[] } {
-  if (type !== "HASHREGO" || !config || typeof config !== "object" || Array.isArray(config)) {
-    return false;
-  }
-  const obj = config as Record<string, unknown>;
-  // If kennelSlugs is present, it must be an array
-  if ("kennelSlugs" in obj && !Array.isArray(obj.kennelSlugs)) {
-    return false;
-  }
-  return true;
-}
-
-/**
- * For HASHREGO sources, resolve each configured kennelSlug to a Kennel record
- * and return their IDs so they can be auto-linked as SourceKennel records.
- */
-async function resolveHashRegoSlugsToKennelIds(
-  config: unknown,
-  type: string,
-): Promise<string[]> {
-  if (!isHashRegoConfig(config, type)) return [];
-  if (!config.kennelSlugs?.length) return [];
-
-  clearResolverCache();
-  const results = await Promise.all(
-    config.kennelSlugs.map((slug) => resolveKennelTag(slug)),
-  );
-  return results
-    .filter((r) => r.matched && r.kennelId)
-    .map((r) => r.kennelId!);
-}
-
-/**
- * Combine form-selected kennel IDs with slug-resolved kennel IDs (HASHREGO auto-sync).
- * Returns a deduplicated array of kennel IDs.
- */
-async function getCombinedKennelIds(
-  kennelIdsStr: string,
-  config: unknown,
-  type: string,
-): Promise<string[]> {
-  const ids = kennelIdsStr
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
-  const slugKennelIds = await resolveHashRegoSlugsToKennelIds(config, type);
-  const idSet = new Set(ids);
-  for (const kid of slugKennelIds) {
-    idSet.add(kid);
-  }
-  return Array.from(idSet);
-}
-
-/**
- * For a HASHREGO source, fetch its config and add `slug` to kennelSlugs if missing.
- * No-op for non-HASHREGO sources or if slug already exists.
- * Uses a transaction to prevent TOCTOU races on the config read-modify-write.
- */
-async function syncHashRegoSlug(sourceId: string, slug: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    const source = await tx.source.findUnique({
-      where: { id: sourceId },
-      select: { type: true, config: true },
-    });
-    if (!source || !isHashRegoConfig(source.config, source.type)) return;
-
-    const slugs = source.config.kennelSlugs ?? [];
-    const upperSlug = slug.toUpperCase();
-    if (slugs.some((s) => s.toUpperCase() === upperSlug)) return;
-
-    await tx.source.update({
-      where: { id: sourceId },
-      data: { config: { ...source.config, kennelSlugs: [...slugs, upperSlug] } as Prisma.InputJsonValue },
-    });
-  });
-}
-
 /** Parse and validate config JSON from form input. Returns the parsed value or an error. */
 function parseConfigJson(
   configRaw: string,
@@ -191,8 +109,8 @@ export async function createSource(formData: FormData) {
     },
   });
 
-  // Create SourceKennel links (auto-include slug-resolved kennels for HASHREGO)
-  const ids = await getCombinedKennelIds(kennelIds, config, type);
+  // Create SourceKennel links
+  const ids = kennelIds.split(",").map(id => id.trim()).filter(Boolean);
   for (const kennelId of ids) {
     await prisma.sourceKennel.create({
       data: { sourceId: source.id, kennelId },
@@ -222,8 +140,7 @@ export async function updateSource(sourceId: string, formData: FormData) {
     }
   }
 
-  // Auto-include slug-resolved kennels for HASHREGO sources
-  const ids = await getCombinedKennelIds(kennelIds, config, type);
+  const ids = kennelIds.split(",").map(id => id.trim()).filter(Boolean);
 
   await prisma.$transaction([
     prisma.sourceKennel.deleteMany({ where: { sourceId } }),
@@ -289,20 +206,22 @@ export async function linkKennelToSourceDirect(
     return { error: `Cannot resolve "${kennelTag}" to a kennel` };
   }
 
-  // Check if link already exists
-  const existing = await prisma.sourceKennel.findUnique({
+  // Query source type to conditionally set externalSlug for HASHREGO
+  const source = await prisma.source.findUnique({
+    where: { id: sourceId },
+    select: { type: true },
+  });
+  if (!source) return { error: "Source not found" };
+
+  await prisma.sourceKennel.upsert({
     where: { sourceId_kennelId: { sourceId, kennelId } },
+    update: source.type === "HASHREGO" ? { externalSlug: kennelTag.toUpperCase() } : {},
+    create: {
+      sourceId,
+      kennelId,
+      ...(source.type === "HASHREGO" ? { externalSlug: kennelTag.toUpperCase() } : {}),
+    },
   });
-  if (existing) {
-    return { error: "Kennel is already linked to this source" };
-  }
-
-  await prisma.sourceKennel.create({
-    data: { sourceId, kennelId },
-  });
-
-  // Auto-add slug to HASHREGO config if not already present
-  await syncHashRegoSlug(sourceId, kennelTag);
 
   // Auto-resolve any matching SOURCE_KENNEL_MISMATCH alert for this source
   const matchingAlerts = await prisma.alert.findMany({
@@ -445,13 +364,22 @@ export async function createKennelForSource(
   const result = await createKennelRecord(kennelData, tag);
   if ("error" in result) return result;
 
-  // Link to source
-  await prisma.sourceKennel.create({
-    data: { sourceId, kennelId: result.kennelId },
+  // Query source type to conditionally set externalSlug for HASHREGO
+  const source = await prisma.source.findUnique({
+    where: { id: sourceId },
+    select: { type: true },
   });
 
-  // Auto-add slug to HASHREGO config if not already present
-  await syncHashRegoSlug(sourceId, kennelData.shortName);
+  // Link to source (upsert with externalSlug for HASHREGO)
+  await prisma.sourceKennel.upsert({
+    where: { sourceId_kennelId: { sourceId, kennelId: result.kennelId } },
+    update: source?.type === "HASHREGO" ? { externalSlug: kennelData.shortName.toUpperCase() } : {},
+    create: {
+      sourceId,
+      kennelId: result.kennelId,
+      ...(source?.type === "HASHREGO" ? { externalSlug: kennelData.shortName.toUpperCase() } : {}),
+    },
+  });
 
   await autoResolveUnmatchedAlerts(sourceId, admin.id);
 

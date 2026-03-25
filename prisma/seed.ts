@@ -280,7 +280,7 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
         if (sourceData.name !== existingSource.name) {
           updates.name = sourceData.name;
         }
-        if (JSON.stringify(sourceData.config) !== JSON.stringify(existingSource.config)) {
+        if (sourceData.config !== undefined && JSON.stringify(sourceData.config) !== JSON.stringify(existingSource.config)) {
           updates.config = sourceData.config;
         }
         if (sourceData.url && sourceData.url !== existingSource.url) {

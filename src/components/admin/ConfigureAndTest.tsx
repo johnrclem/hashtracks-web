@@ -34,10 +34,6 @@ import {
   type ICalConfig,
 } from "./config-panels/ICalConfigPanel";
 import {
-  HashRegoConfigPanel,
-  type HashRegoConfig,
-} from "./config-panels/HashRegoConfigPanel";
-import {
   SheetsConfigPanel,
   type SheetsConfig,
 } from "./config-panels/SheetsConfigPanel";
@@ -62,7 +58,6 @@ const CONFIG_TYPES = new Set([
   "GOOGLE_CALENDAR",
   "GOOGLE_SHEETS",
   "ICAL_FEED",
-  "HASHREGO",
   "MEETUP",
   "RSS_FEED",
   "STATIC_SCHEDULE",
@@ -72,7 +67,6 @@ const CONFIG_TYPES = new Set([
 const PANEL_TYPES = new Set([
   "GOOGLE_CALENDAR",
   "ICAL_FEED",
-  "HASHREGO",
   "GOOGLE_SHEETS",
   "MEETUP",
   "RSS_FEED",
@@ -83,7 +77,8 @@ const PANEL_TYPES = new Set([
  * Types that can receive an AI config suggestion on mount.
  * MEETUP is included: the AI extracts groupUrlname from the URL to bootstrap event fetching,
  * then suggests a proper kennelTag from the event data.
- * RSS_FEED, HASHREGO are excluded — they require full config to fetch any events.
+ * RSS_FEED is excluded — it requires full config to fetch any events.
+ * HASHREGO is excluded — kennel slugs come from SourceKennel records, not config.
  */
 const TYPES_WITH_AI_SUGGESTION = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HTML_SCRAPER", "MEETUP"]);
 
@@ -189,11 +184,10 @@ export function ConfigureAndTest({
   const hasPanel =
     PANEL_TYPES.has(type) || (type === "HTML_SCRAPER" && hasICalConfigShape(config)) || hasGenericConfig;
 
-  function getPanelType(): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | "rss" | "static-schedule" | "generic-html" | null {
+  function getPanelType(): "ical" | "calendar" | "sheets" | "meetup" | "rss" | "static-schedule" | "generic-html" | null {
     if (type === "ICAL_FEED" || (type === "HTML_SCRAPER" && hasICalConfigShape(config)))
       return "ical";
     if (type === "GOOGLE_CALENDAR") return "calendar";
-    if (type === "HASHREGO") return "hashrego";
     if (type === "GOOGLE_SHEETS") return "sheets";
     if (type === "MEETUP") return "meetup";
     if (type === "RSS_FEED") return "rss";
@@ -317,7 +311,7 @@ export function ConfigureAndTest({
   );
 
   function handleConfigChange(
-    newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig | MeetupConfig | StaticScheduleConfig,
+    newConfig: CalendarConfig | ICalConfig | SheetsConfig | MeetupConfig | StaticScheduleConfig,
   ) {
     const entries = Object.entries(newConfig).filter(([, v]) => v !== undefined);
     const cleaned = Object.fromEntries(entries) as Record<string, unknown>;
@@ -555,13 +549,6 @@ export function ConfigureAndTest({
             sampleDescriptions={sampleDescriptions}
             geminiAvailable={geminiAvailable}
             allKennels={allKennelsWithExtra}
-          />
-        )}
-
-        {panelType === "hashrego" && (
-          <HashRegoConfigPanel
-            config={config as HashRegoConfig | null}
-            onChange={handleConfigChange}
           />
         )}
 

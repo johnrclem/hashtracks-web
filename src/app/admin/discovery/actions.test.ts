@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Prisma } from "@/generated/prisma/client";
 
 // --- Mocks (before imports) ---
 
@@ -8,7 +7,7 @@ vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     source: { findFirst: vi.fn(), update: vi.fn() },
-    sourceKennel: { create: vi.fn() },
+    sourceKennel: { create: vi.fn(), upsert: vi.fn() },
     kennel: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
     kennelAlias: { create: vi.fn() },
     kennelDiscovery: { findUnique: vi.fn(), update: vi.fn() },
@@ -62,8 +61,7 @@ import {
 
 const mockAdmin = vi.mocked(getAdminUser);
 const mockSourceFind = vi.mocked(prisma.source.findFirst);
-const mockSourceUpdate = vi.mocked(prisma.source.update);
-const mockSourceKennelCreate = vi.mocked(prisma.sourceKennel.create);
+const mockSourceKennelUpsert = vi.mocked(prisma.sourceKennel.upsert);
 const mockKennelFind = vi.mocked(prisma.kennel.findUnique);
 const mockDiscoveryFind = vi.mocked(prisma.kennelDiscovery.findUnique);
 const mockDiscoveryUpdate = vi.mocked(prisma.kennelDiscovery.update);
@@ -112,51 +110,23 @@ describe("linkDiscoveryToKennel", () => {
     mockKennelFind.mockResolvedValue(fakeKennel as never);
     mockDiscoveryUpdate.mockResolvedValue({} as never);
     mockSourceFind.mockResolvedValue(fakeHashRegoSource as never);
-    mockSourceUpdate.mockResolvedValue({} as never);
-    mockSourceKennelCreate.mockResolvedValue({} as never);
+    mockSourceKennelUpsert.mockResolvedValue({} as never);
   });
 
-  it("adds slug to Hash Rego source config and creates SourceKennel", async () => {
+  it("upserts SourceKennel with externalSlug", async () => {
     const result = await linkDiscoveryToKennel("disc-1", "kennel-1");
     expect(result).toEqual({ success: true });
 
-    // Source config updated with new slug
-    expect(mockSourceUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "src-hr" },
-        data: {
-          config: { kennelSlugs: ["BFM", "EWH3", "NewH3"] },
-        },
-      }),
-    );
-
-    // SourceKennel join created
-    expect(mockSourceKennelCreate).toHaveBeenCalledWith({
-      data: { sourceId: "src-hr", kennelId: "kennel-1" },
+    // SourceKennel upserted with externalSlug
+    expect(mockSourceKennelUpsert).toHaveBeenCalledWith({
+      where: { sourceId_kennelId: { sourceId: "src-hr", kennelId: "kennel-1" } },
+      update: { externalSlug: "NewH3" },
+      create: { sourceId: "src-hr", kennelId: "kennel-1", externalSlug: "NewH3" },
     });
   });
 
-  it("skips slug addition if already present in config", async () => {
-    mockSourceFind.mockResolvedValue({
-      id: "src-hr",
-      config: { kennelSlugs: ["BFM", "NewH3"] },
-    } as never);
-
-    await linkDiscoveryToKennel("disc-1", "kennel-1");
-
-    // Source.update should NOT be called (slug already present)
-    expect(mockSourceUpdate).not.toHaveBeenCalled();
-    // SourceKennel should still be created
-    expect(mockSourceKennelCreate).toHaveBeenCalled();
-  });
-
-  it("handles P2002 on duplicate SourceKennel gracefully", async () => {
-    const p2002 = new Prisma.PrismaClientKnownRequestError(
-      "Unique constraint failed",
-      { code: "P2002", clientVersion: "0.0.0" },
-    );
-    mockSourceKennelCreate.mockRejectedValue(p2002);
-
+  it("handles duplicate SourceKennel via upsert (no P2002)", async () => {
+    // upsert is idempotent — no error even if record exists
     const result = await linkDiscoveryToKennel("disc-1", "kennel-1");
     expect(result).toEqual({ success: true });
   });
@@ -166,59 +136,7 @@ describe("linkDiscoveryToKennel", () => {
 
     const result = await linkDiscoveryToKennel("disc-1", "kennel-1");
     expect(result).toEqual({ success: true });
-    expect(mockSourceUpdate).not.toHaveBeenCalled();
-    expect(mockSourceKennelCreate).not.toHaveBeenCalled();
-  });
-
-  it("handles null source config", async () => {
-    mockSourceFind.mockResolvedValue({
-      id: "src-hr",
-      config: null,
-    } as never);
-
-    await linkDiscoveryToKennel("disc-1", "kennel-1");
-
-    expect(mockSourceUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { config: { kennelSlugs: ["NewH3"] } },
-      }),
-    );
-  });
-
-  it("preserves extra config keys during slug merge", async () => {
-    mockSourceFind.mockResolvedValue({
-      id: "src-hr",
-      config: { kennelSlugs: ["BFM"], baseUrl: "https://hashrego.com", retries: 3 },
-    } as never);
-
-    await linkDiscoveryToKennel("disc-1", "kennel-1");
-
-    expect(mockSourceUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: {
-          config: {
-            kennelSlugs: ["BFM", "NewH3"],
-            baseUrl: "https://hashrego.com",
-            retries: 3,
-          },
-        },
-      }),
-    );
-  });
-
-  it("treats array config as empty (does not corrupt data)", async () => {
-    mockSourceFind.mockResolvedValue({
-      id: "src-hr",
-      config: ["bad", "data"],
-    } as never);
-
-    await linkDiscoveryToKennel("disc-1", "kennel-1");
-
-    expect(mockSourceUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { config: { kennelSlugs: ["NewH3"] } },
-      }),
-    );
+    expect(mockSourceKennelUpsert).not.toHaveBeenCalled();
   });
 });
 
@@ -228,8 +146,7 @@ describe("addKennelFromDiscovery", () => {
   beforeEach(() => {
     mockDiscoveryFind.mockResolvedValue(fakeDiscovery as never);
     mockSourceFind.mockResolvedValue(fakeHashRegoSource as never);
-    mockSourceUpdate.mockResolvedValue({} as never);
-    mockSourceKennelCreate.mockResolvedValue({} as never);
+    mockSourceKennelUpsert.mockResolvedValue({} as never);
   });
 
   it("links new kennel to Hash Rego source after creation", async () => {
@@ -244,10 +161,12 @@ describe("addKennelFromDiscovery", () => {
     // Should have linked to Hash Rego source with the new kennel ID
     expect(mockSourceFind).toHaveBeenCalledWith({
       where: { type: "HASHREGO" },
-      select: { id: true, config: true },
+      select: { id: true },
     });
-    expect(mockSourceKennelCreate).toHaveBeenCalledWith({
-      data: { sourceId: "src-hr", kennelId: "new-kennel-1" },
+    expect(mockSourceKennelUpsert).toHaveBeenCalledWith({
+      where: { sourceId_kennelId: { sourceId: "src-hr", kennelId: "new-kennel-1" } },
+      update: { externalSlug: "NewH3" },
+      create: { sourceId: "src-hr", kennelId: "new-kennel-1", externalSlug: "NewH3" },
     });
   });
 
@@ -274,8 +193,7 @@ describe("addKennelFromDiscovery", () => {
     });
 
     expect(result).toEqual({ success: true, kennelId: "new-kennel-1" });
-    expect(mockSourceUpdate).not.toHaveBeenCalled();
-    expect(mockSourceKennelCreate).not.toHaveBeenCalled();
+    expect(mockSourceKennelUpsert).not.toHaveBeenCalled();
   });
 });
 
@@ -287,8 +205,7 @@ describe("confirmMatch", () => {
     mockKennelFind.mockResolvedValue(fakeKennel as never);
     mockDiscoveryUpdate.mockResolvedValue({} as never);
     mockSourceFind.mockResolvedValue(fakeHashRegoSource as never);
-    mockSourceUpdate.mockResolvedValue({} as never);
-    mockSourceKennelCreate.mockResolvedValue({} as never);
+    mockSourceKennelUpsert.mockResolvedValue({} as never);
   });
 
   it("links matched kennel to Hash Rego source on confirm", async () => {
@@ -297,10 +214,12 @@ describe("confirmMatch", () => {
 
     expect(mockSourceFind).toHaveBeenCalledWith({
       where: { type: "HASHREGO" },
-      select: { id: true, config: true },
+      select: { id: true },
     });
-    expect(mockSourceKennelCreate).toHaveBeenCalledWith({
-      data: { sourceId: "src-hr", kennelId: "kennel-1" },
+    expect(mockSourceKennelUpsert).toHaveBeenCalledWith({
+      where: { sourceId_kennelId: { sourceId: "src-hr", kennelId: "kennel-1" } },
+      update: { externalSlug: "NewH3" },
+      create: { sourceId: "src-hr", kennelId: "kennel-1", externalSlug: "NewH3" },
     });
   });
 

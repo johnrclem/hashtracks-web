@@ -13,7 +13,7 @@ export function isSafeRegexString(p: unknown): boolean {
 }
 
 /** Types that require a non-empty config object */
-const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "HASHREGO", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"]);
+const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"]);
 
 /** Validate a single regex pattern for syntax and ReDoS safety */
 function validateRegex(
@@ -92,18 +92,6 @@ function validateGoogleSheetsConfig(obj: Record<string, unknown>, errors: string
     !(obj.kennelTagRules as Record<string, unknown>).default
   ) {
     errors.push("Google Sheets config requires kennelTagRules with a default tag");
-  }
-}
-
-/** Validate Hash Rego required fields. */
-function validateHashRegoConfig(obj: Record<string, unknown>, errors: string[]): void {
-  if (
-    !obj.kennelSlugs ||
-    !Array.isArray(obj.kennelSlugs) ||
-    obj.kennelSlugs.length === 0 ||
-    obj.kennelSlugs.some((s: unknown) => typeof s !== "string" || s.trim().length === 0)
-  ) {
-    errors.push("Hash Rego config requires at least one non-empty kennelSlug");
   }
 }
 
@@ -200,7 +188,6 @@ function validateGenericHtmlConfig(obj: Record<string, unknown>, errors: string[
 /** Run type-specific validation for a source config. */
 function runTypeValidator(type: string, obj: Record<string, unknown>, errors: string[]): void {
   if (type === "GOOGLE_SHEETS") validateGoogleSheetsConfig(obj, errors);
-  else if (type === "HASHREGO") validateHashRegoConfig(obj, errors);
   else if (type === "MEETUP") validateMeetupConfig(obj, errors);
   else if (type === "RSS_FEED") validateRssFeedConfig(obj, errors);
   else if (type === "STATIC_SCHEDULE") validateStaticScheduleConfig(obj, errors);
