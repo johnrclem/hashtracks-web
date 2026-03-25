@@ -11,9 +11,11 @@ describe("validateSourceConfig", () => {
       expect(validateSourceConfig("GOOGLE_CALENDAR", undefined)).toEqual([]);
       expect(validateSourceConfig("ICAL_FEED", null)).toEqual([]);
       expect(validateSourceConfig("HTML_SCRAPER", null)).toEqual([]);
+      expect(validateSourceConfig("HASHREGO", null)).toEqual([]);
+      expect(validateSourceConfig("HASHREGO", undefined)).toEqual([]);
     });
 
-    it.each(["GOOGLE_SHEETS", "HASHREGO", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"])(
+    it.each(["GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"])(
       "rejects null config for %s",
       (type) => {
         const errors = validateSourceConfig(type, null);
@@ -22,7 +24,7 @@ describe("validateSourceConfig", () => {
       },
     );
 
-    it.each(["GOOGLE_SHEETS", "HASHREGO", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"])(
+    it.each(["GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"])(
       "rejects undefined config for %s",
       (type) => {
         const errors = validateSourceConfig(type, undefined);
@@ -240,29 +242,6 @@ describe("validateSourceConfig", () => {
         kennelTagRules: {},
       });
       expect(errors.some((e) => e.includes("kennelTagRules"))).toBe(true);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // HASHREGO required fields
-  // ---------------------------------------------------------------------------
-
-  describe("HASHREGO required fields", () => {
-    it("requires non-empty kennelSlugs array", () => {
-      const errors = validateSourceConfig("HASHREGO", {});
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("kennelSlug");
-    });
-
-    it("rejects empty kennelSlugs array", () => {
-      const errors = validateSourceConfig("HASHREGO", { kennelSlugs: [] });
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("kennelSlug");
-    });
-
-    it("accepts valid Hash Rego config", () => {
-      const config = { kennelSlugs: ["BFMH3", "EWH3"] };
-      expect(validateSourceConfig("HASHREGO", config)).toEqual([]);
     });
   });
 

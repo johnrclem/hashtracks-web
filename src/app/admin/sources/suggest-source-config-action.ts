@@ -410,13 +410,6 @@ function buildTypeInstructions(type: string, tagCounts: Map<string, number>): st
     case "MEETUP":
       return buildSingleKennelInstructions(type, uniqueTags, firstTag);
 
-    case "HASHREGO": {
-      const tags = [...tagCounts.keys()];
-      return `This is a Hash Rego source with kennel tags: ${tags.join(", ")}. Suggest config:
-{"kennelSlugs":["SLUG1","SLUG2"]}
-The kennelSlugs must exactly match the kennel identifiers used on hashrego.com — they are uppercase short codes (e.g. "EWH3", "BFMH3"). Use the kennel tags found in the sample above as the slug values.`;
-    }
-
     default:
       return `Suggest appropriate config for source type ${type} based on the sample events.`;
   }
@@ -487,15 +480,6 @@ function validateConfigShape(raw: unknown, type: string): Record<string, unknown
   // For simple single-kennel types, require a non-empty kennelTag
   if (type === "RSS_FEED" || type === "MEETUP") {
     if (!isNonEmptyString(obj.kennelTag)) return {};
-  }
-
-  // For HASHREGO, require at least one slug
-  if (type === "HASHREGO") {
-    if (!Array.isArray(obj.kennelSlugs)) return {};
-    obj.kennelSlugs = (obj.kennelSlugs as unknown[]).filter(
-      (s): s is string => typeof s === "string" && s.length > 0,
-    );
-    if ((obj.kennelSlugs as string[]).length === 0) return {};
   }
 
   return obj;

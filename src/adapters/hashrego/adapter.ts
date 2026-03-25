@@ -1,7 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { validateSourceConfig } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import {
@@ -12,11 +11,6 @@ import {
   parseHashRegoTime,
   type IndexEntry,
 } from "./parser";
-
-/** Legacy config shape — used as fallback when options.kennelSlugs is not provided. */
-interface HashRegoConfig {
-  kennelSlugs: string[];
-}
 
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 500;
@@ -39,25 +33,11 @@ export class HashRegoAdapter implements SourceAdapter {
     source: Source,
     options?: { days?: number; kennelSlugs?: string[] },
   ): Promise<ScrapeResult> {
-    // Prefer SourceKennel slugs (new path), fall back to config (legacy path)
-    let slugList: string[];
-    if (options?.kennelSlugs && options.kennelSlugs.length > 0) {
-      slugList = options.kennelSlugs;
-    } else {
-      try {
-        const config = validateSourceConfig<HashRegoConfig>(
-          source.config, "HashRegoAdapter", { kennelSlugs: "array" },
-        );
-        slugList = config.kennelSlugs;
-      } catch {
-        return { events: [], errors: ["No kennel slugs configured — nothing to scrape"] };
-      }
+    const slugList = options?.kennelSlugs ?? [];
+    if (slugList.length === 0) {
+      return { events: [], errors: ["No kennel slugs provided — nothing to scrape"] };
     }
-
     const kennelSlugs = new Set(slugList.map((s) => s.toUpperCase()));
-    if (kennelSlugs.size === 0) {
-      return { events: [], errors: ["No kennel slugs configured — nothing to scrape"] };
-    }
 
     const events: RawEventData[] = [];
     const errors: string[] = [];
@@ -118,7 +98,6 @@ export class HashRegoAdapter implements SourceAdapter {
     }
 
     const hasErrorDetails = hasAnyErrors(errorDetails);
-    const slugSource = options?.kennelSlugs ? "sourceKennel" : "config";
 
     return {
       events,
@@ -129,7 +108,6 @@ export class HashRegoAdapter implements SourceAdapter {
         totalIndexEntries: allEntries.length,
         matchingEntries: matchingEntries.length,
         kennelSlugsConfigured: slugList,
-        kennelSlugsSource: slugSource,
         eventsProduced: events.length,
         fetchDurationMs: Date.now() - fetchStart,
       },

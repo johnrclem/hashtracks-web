@@ -407,10 +407,10 @@ describe("HashRegoAdapter", () => {
     const source = buildSource();
     const result = await adapter.fetch(source, { kennelSlugs: [] });
     expect(result.events).toHaveLength(0);
-    expect(result.errors[0]).toContain("No kennel slugs configured");
+    expect(result.errors[0]).toContain("No kennel slugs provided");
   });
 
-  it("prefers options.kennelSlugs over config", async () => {
+  it("uses options.kennelSlugs to filter events", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
     fetchSpy.mockResolvedValueOnce(
@@ -418,29 +418,12 @@ describe("HashRegoAdapter", () => {
     );
 
     const adapter = new HashRegoAdapter();
-    // Config has BFMH3, but options has EWH3 — options should win
-    const source = buildSource({ kennelSlugs: ["BFMH3"] });
+    const source = buildSource();
     const result = await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
 
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(fetchSpy.mock.calls[1][0]).toContain("ewh3-1506-revenge");
-    expect(result.diagnosticContext?.kennelSlugsSource).toBe("sourceKennel");
-  });
-
-  it("falls back to config.kennelSlugs when options.kennelSlugs is absent", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
-    fetchSpy.mockResolvedValueOnce(
-      new Response(SINGLE_DAY_HTML, { status: 200 }),
-    );
-
-    const adapter = new HashRegoAdapter();
-    const source = buildSource({ kennelSlugs: ["BFMH3"] });
-    const result = await adapter.fetch(source, { days: 36500 }); // no kennelSlugs in options
-
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-    expect(fetchSpy.mock.calls[1][0]).toContain("bfmh3-agm-2026");
-    expect(result.diagnosticContext?.kennelSlugsSource).toBe("config");
+    expect(result.diagnosticContext?.kennelSlugsConfigured).toEqual(["EWH3"]);
   });
 
   it("filters index entries by kennel slugs via options", async () => {
@@ -503,7 +486,7 @@ describe("HashRegoAdapter", () => {
     expect(result.diagnosticContext).toBeDefined();
     expect(result.diagnosticContext?.totalIndexEntries).toBe(4);
     expect(result.diagnosticContext?.matchingEntries).toBe(0);
-    expect(result.diagnosticContext?.kennelSlugsSource).toBe("sourceKennel");
+    expect(result.diagnosticContext?.kennelSlugsConfigured).toEqual(["NONEXISTENT"]);
   });
 
   it("filters events by days window", async () => {

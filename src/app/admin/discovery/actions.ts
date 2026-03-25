@@ -29,8 +29,8 @@ async function ensureAlias(kennelId: string, alias: string): Promise<void> {
 
 /**
  * Link a kennel to the Hash Rego event source so its events flow into the hareline.
- * Adds the slug to Source.config.kennelSlugs and creates a SourceKennel join record.
- * No-op if no HASHREGO source exists. Idempotent (safe to call multiple times).
+ * Creates a SourceKennel join record with the externalSlug for kennel routing.
+ * No-op if no HASHREGO source exists. Idempotent (upsert handles duplicates).
  */
 async function linkKennelToHashRegoSource(
   kennelId: string,
@@ -38,36 +38,15 @@ async function linkKennelToHashRegoSource(
 ): Promise<void> {
   const source = await prisma.source.findFirst({
     where: { type: "HASHREGO" },
-    select: { id: true, config: true },
+    select: { id: true },
   });
   if (!source) return;
 
-  // Add slug to config.kennelSlugs (Set dedup prevents duplicates)
-  const raw = source.config;
-  const config =
-    typeof raw === "object" && raw !== null && !Array.isArray(raw)
-      ? (raw as { kennelSlugs?: string[] })
-      : {};
-  const slugs = new Set(config.kennelSlugs ?? []);
-  if (!slugs.has(externalSlug)) {
-    slugs.add(externalSlug);
-    await prisma.source.update({
-      where: { id: source.id },
-      data: {
-        config: { ...config, kennelSlugs: [...slugs] } as Prisma.InputJsonValue,
-      },
-    });
-  }
-
-  // Create SourceKennel join record (idempotent via P2002 catch)
-  try {
-    await prisma.sourceKennel.create({
-      data: { sourceId: source.id, kennelId },
-    });
-  } catch (e: unknown) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return;
-    throw e;
-  }
+  await prisma.sourceKennel.upsert({
+    where: { sourceId_kennelId: { sourceId: source.id, kennelId } },
+    update: { externalSlug },
+    create: { sourceId: source.id, kennelId, externalSlug },
+  });
 }
 
 /** Run a full discovery sync: parse directory → enrich via API → fuzzy match → upsert. */

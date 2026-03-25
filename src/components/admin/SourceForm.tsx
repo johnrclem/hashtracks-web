@@ -44,10 +44,6 @@ import {
   type ICalConfig,
 } from "./config-panels/ICalConfigPanel";
 import {
-  HashRegoConfigPanel,
-  type HashRegoConfig,
-} from "./config-panels/HashRegoConfigPanel";
-import {
   SheetsConfigPanel,
   type SheetsConfig,
 } from "./config-panels/SheetsConfigPanel";
@@ -82,14 +78,13 @@ const CONFIG_TYPES = new Set([
   "GOOGLE_CALENDAR",
   "GOOGLE_SHEETS",
   "ICAL_FEED",
-  "HASHREGO",
   "MEETUP",
   "RSS_FEED",
   "STATIC_SCHEDULE",
 ]);
 
 /** Types that get a dedicated config panel (vs raw JSON) */
-const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "HASHREGO", "GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"]);
+const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"]);
 
 type SourceData = {
   id: string;
@@ -208,10 +203,9 @@ export function SourceForm({ source, allKennels, allRegions, openAlertTags, gemi
   function getPanelType(
     type: string,
     config: Record<string, unknown> | null,
-  ): "ical" | "calendar" | "hashrego" | "sheets" | "meetup" | "rss" | "static-schedule" | null {
+  ): "ical" | "calendar" | "sheets" | "meetup" | "rss" | "static-schedule" | null {
     if (type === "ICAL_FEED" || (type === "HTML_SCRAPER" && hasICalConfigShape(config))) return "ical";
     if (type === "GOOGLE_CALENDAR") return "calendar";
-    if (type === "HASHREGO") return "hashrego";
     if (type === "GOOGLE_SHEETS") return "sheets";
     if (type === "MEETUP") return "meetup";
     if (type === "RSS_FEED") return "rss";
@@ -230,7 +224,7 @@ export function SourceForm({ source, allKennels, allRegions, openAlertTags, gemi
   }
 
   /** Sync structured config object → raw JSON string */
-  function handleConfigChange(newConfig: CalendarConfig | ICalConfig | HashRegoConfig | SheetsConfig | MeetupConfig | RssConfig | StaticScheduleConfig) {
+  function handleConfigChange(newConfig: CalendarConfig | ICalConfig | SheetsConfig | MeetupConfig | RssConfig | StaticScheduleConfig) {
     // Clean undefined values
     const entries = Object.entries(newConfig).filter(
       ([, v]) => v !== undefined,
@@ -550,18 +544,6 @@ export function SourceForm({ source, allKennels, allRegions, openAlertTags, gemi
                 ]}
                 sampleTitlesByTag={sampleTitlesByTag}
                 geminiAvailable={geminiAvailable}
-              />
-            </div>
-          )}
-
-          {panelType === "hashrego" && (
-            <div className="space-y-2 rounded-md border p-4">
-              <Label className="text-sm font-semibold">
-                Hash Rego Configuration
-              </Label>
-              <HashRegoConfigPanel
-                config={configObj as HashRegoConfig | null}
-                onChange={handleConfigChange}
               />
             </div>
           )}
