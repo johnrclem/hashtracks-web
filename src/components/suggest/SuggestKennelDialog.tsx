@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,21 @@ interface SuggestKennelDialogProps {
 
 export function SuggestKennelDialog({ trigger }: SuggestKennelDialogProps) {
   const [open, setOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMobile(window.innerWidth < 1024);
+  }, []);
+
+  // On mobile, navigate to the full-page suggest form instead of opening a dialog
+  if (isMobile) {
+    return (
+      <Link href="/suggest">
+        {trigger}
+      </Link>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

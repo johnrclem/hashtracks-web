@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { track } from "@vercel/analytics";
 import { MapPinOff, SearchX, CalendarOff, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -72,6 +74,10 @@ function getConfig(props: EmptyStateProps) {
 export function EmptyState(props: EmptyStateProps) {
   const { context, onClearFilters, onSwitchToAll } = props;
   const { icon: Icon, message, subtext } = getConfig(props);
+
+  useEffect(() => {
+    track("empty_state_shown", { context });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex flex-col items-center gap-4 py-16 text-center px-4">

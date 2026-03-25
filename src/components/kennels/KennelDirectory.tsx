@@ -380,6 +380,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         onSetNearMe={handleSetNearMeFromPrompt}
         onSetRegion={handleSetRegionFromPrompt}
         regionNames={uniqueRegionNames}
+        page="kennels"
       />
 
       {/* Search + sort row */}

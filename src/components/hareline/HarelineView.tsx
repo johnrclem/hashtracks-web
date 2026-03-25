@@ -607,6 +607,7 @@ export function HarelineView({
         onSetNearMe={handleSetNearMeFromPrompt}
         onSetRegion={handleSetRegionFromPrompt}
         regionNames={uniqueRegionNames}
+        page="hareline"
       />
 
       {/* Controls bar */}

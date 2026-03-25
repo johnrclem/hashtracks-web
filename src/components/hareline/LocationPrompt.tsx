@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { track } from "@vercel/analytics";
 import { MapPin, Loader2, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +26,8 @@ interface LocationPromptProps {
   readonly onSetNearMe: (distance: number) => void;
   readonly onSetRegion: (region: string) => void;
   readonly regionNames: string[];
+  /** Which page this prompt is shown on (for analytics). */
+  readonly page?: "hareline" | "kennels";
 }
 
 export function LocationPrompt({
@@ -32,6 +35,7 @@ export function LocationPrompt({
   onSetNearMe,
   onSetRegion,
   regionNames,
+  page = "hareline",
 }: LocationPromptProps) {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -59,7 +63,8 @@ export function LocationPrompt({
     }
 
     setVisible(true);
-  }, [hasUrlFilters]);
+    track("location_prompt_shown", { page });
+  }, [hasUrlFilters, page]);
 
   // When geolocation is granted after user clicks "Use my location", apply the filter
   useEffect(() => {
@@ -75,6 +80,7 @@ export function LocationPrompt({
   if (!mounted || !visible) return null;
 
   function handleDismiss() {
+    track("location_prompt_action", { action: "dismiss" });
     try {
       sessionStorage.setItem(SESSION_KEY, "true");
     } catch {
@@ -84,10 +90,12 @@ export function LocationPrompt({
   }
 
   function handleUseLocation() {
+    track("location_prompt_action", { action: "geolocation" });
     requestLocation();
   }
 
   function handleSelectRegion(region: string) {
+    track("location_prompt_action", { action: "region" });
     setLocationPref({ type: "region", name: region });
     onSetRegion(region);
     setRegionOpen(false);

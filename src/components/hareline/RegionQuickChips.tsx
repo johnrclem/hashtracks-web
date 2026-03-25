@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { X } from "lucide-react";
+import { track } from "@vercel/analytics";
 import { regionAbbrev } from "@/lib/region";
 import { getRegionColor } from "@/lib/geo";
 import type { HarelineEvent } from "./EventCard";
@@ -40,6 +41,7 @@ export function RegionQuickChips({
   if (topRegions.length === 0) return null;
 
   function toggleRegion(regionName: string) {
+    track("region_chip_click", { region: regionName });
     if (selectedRegions.includes(regionName)) {
       onRegionsChange(selectedRegions.filter((r) => r !== regionName));
     } else {

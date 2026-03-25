@@ -230,7 +230,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
 
   if (!apiKey) {
     return (
-      <div className="flex h-[calc(100vh-14rem)] min-h-[400px] items-center justify-center rounded-md border text-sm text-muted-foreground">
+      <div className="flex h-[60vh] lg:h-[calc(100vh-14rem)] min-h-[300px] items-center justify-center rounded-md border text-sm text-muted-foreground">
         Google Maps API key not configured.
       </div>
     );
@@ -238,7 +238,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
 
   if (eventsWithCoords.length === 0) {
     return (
-      <div className="flex h-[calc(100vh-14rem)] min-h-[400px] items-center justify-center rounded-md border text-sm text-muted-foreground">
+      <div className="flex h-[60vh] lg:h-[calc(100vh-14rem)] min-h-[300px] items-center justify-center rounded-md border text-sm text-muted-foreground">
         No events to display on the map.
       </div>
     );
@@ -246,7 +246,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
 
   return (
     <APIProvider apiKey={apiKey}>
-      <div className="relative h-[calc(100vh-14rem)] min-h-[400px] overflow-hidden rounded-md border">
+      <div className="relative h-[60vh] lg:h-[calc(100vh-14rem)] min-h-[300px] overflow-hidden rounded-md border">
         <Map
           mapId={MAP_ID}
           defaultBounds={defaultBounds}
