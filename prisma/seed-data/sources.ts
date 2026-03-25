@@ -355,6 +355,39 @@ export const SOURCES = [
       },
       kennelCodes: ["bristolh3", "bristol-grey", "bogs-h3"],
     },
+    // ===== GERMANY =====
+    // Berlin (iCal Feed — 2 kennels, rolling window)
+    {
+      name: "Berlin H3 iCal Feed",
+      url: "https://www.berlin-h3.eu/events.ics",
+      type: "ICAL_FEED" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelPatterns: [["Full Moon Run", "BH3FM"]],
+        defaultKennelTag: "BH3",
+      },
+      kennelCodes: ["berlinh3", "bh3fm"],
+    },
+    // Stuttgart (Google Calendar — 4 sub-kennels)
+    {
+      name: "Stuttgart H3 Google Calendar",
+      url: "1op2o8a7q9k5gif7m7b4n2ft7g@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelPatterns: [
+          ["^DST\\b", "DST"],
+          ["^FM\\b|Full Moon", "FM"],
+          ["^SUPER\\b", "SUPER"],
+        ],
+        defaultKennelTag: "SH3",
+      },
+      kennelCodes: ["sh3-de", "dst-h3", "fm-stgt", "super-h3"],
+    },
     // Bay Area iCal feed (sfh3.com aggregator — ~11 kennels)
     {
       name: "SFH3 MultiHash iCal Feed",
@@ -2270,6 +2303,44 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       kennelCodes: ["renh3"],
+    },
+    // ===== GERMANY =====
+    // Munich (Google Sheets — multi-kennel)
+    {
+      name: "Munich H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtbizBGgic04azrTshlhcpRolA73yaiIijIFUSV0Gq7gU7KKchGWl0JRPHeIYspoq1PAx5XlyLTBfr/pub",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 365,
+      config: {
+        sheetId: "anonymous",
+        csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtbizBGgic04azrTshlhcpRolA73yaiIijIFUSV0Gq7gU7KKchGWl0JRPHeIYspoq1PAx5XlyLTBfr/pub?output=csv&gid=2100367947",
+        columns: { runNumber: 0, date: 1, hares: 4, location: 5, title: 6 },
+        kennelTagRules: { default: "MH3" },
+      },
+      // Group column has MH3/MFMH3/MASS H3 but Sheets adapter can't route by column — all events tagged MH3
+      kennelCodes: ["mh3-de"],
+    },
+    // Frankfurt (HTML Scraper — JEM archive, 1098 events)
+    {
+      name: "Frankfurt H3 Hareline",
+      url: "https://frankfurt-hash.de/index.php/coming-runs/category/3:next-fh3-run",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "weekly",
+      scrapeDays: 365,
+      config: {
+        archiveUrl: "https://frankfurt-hash.de/index.php/coming-runs/category/3?id=3&task=archive&filter_reset=1&limit=0",
+        kennelPatterns: [
+          ["SHITS|Shits", "SHITS"],
+          ["^FM |Full Moon|Frankfurt Full Moon", "FFMH3"],
+          ["^DOM Run", "DOM"],
+          ["Bike Hash|Bike Bash", "Bike Hash"],
+        ],
+        defaultKennelTag: "FH3",
+      },
+      kennelCodes: ["fh3", "ffmh3", "shits-fra", "dom-fra", "bikeh3-fra"],
     },
   ];
 

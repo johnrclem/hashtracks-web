@@ -792,6 +792,53 @@ export const KENNELS: KennelSeed[] = [
       description: "Bogs of Somerset hash, running Wednesday evenings in north-west Somerset.",
       latitude: 51.35, longitude: -2.97,
     },
+    // ===== GERMANY =====
+    // Berlin
+    {
+      kennelCode: "berlinh3", shortName: "BH3", fullName: "Berlin Hash House Harriers", region: "Berlin", country: "Germany",
+      website: "https://www.berlin-h3.eu",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "13:45 meet, 14:00/14:45 start depending on season",
+      hashCash: "€5", foundedYear: 1979,
+      description: "Berlin's flagship weekly Saturday hash. Drinking since 1979. Run #2329+ and counting.",
+      latitude: 52.52, longitude: 13.41,
+    },
+    {
+      kennelCode: "bh3fm", shortName: "BH3FM", fullName: "Berlin Full Moon Hash House Harriers", region: "Berlin", country: "Germany",
+      website: "https://www.berlin-h3.eu",
+      scheduleFrequency: "Monthly", scheduleNotes: "Full moon evening",
+      description: "Berlin monthly full moon hash.",
+      latitude: 52.52, longitude: 13.41,
+    },
+    // Stuttgart
+    {
+      kennelCode: "sh3-de", shortName: "SH3", fullName: "Stuttgart Hash House Harriers", region: "Stuttgart", country: "Germany",
+      website: "https://www.stuttgarthash.de",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      description: "Stuttgart's biweekly Sunday afternoon hash.",
+      latitude: 48.78, longitude: 9.18,
+    },
+    {
+      kennelCode: "dst-h3", shortName: "DST", fullName: "DST Hash House Harriers", region: "Stuttgart", country: "Germany",
+      website: "https://www.stuttgarthash.de",
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Stuttgart weekly Tuesday evening hash.",
+      latitude: 48.78, longitude: 9.18,
+    },
+    {
+      kennelCode: "fm-stgt", shortName: "FM", fullName: "Stuttgart Full Moon Hash House Harriers", region: "Stuttgart", country: "Germany",
+      website: "https://www.stuttgarthash.de",
+      scheduleFrequency: "Monthly", scheduleTime: "7:00 PM",
+      description: "Stuttgart monthly full moon hash.",
+      latitude: 48.78, longitude: 9.18,
+    },
+    {
+      kennelCode: "super-h3", shortName: "SUPER", fullName: "SUPER Hash House Harriers", region: "Stuttgart", country: "Germany",
+      website: "https://www.stuttgarthash.de",
+      scheduleFrequency: "Irregular",
+      description: "Stuttgart special occasions hash.",
+      latitude: 48.78, longitude: 9.18,
+    },
     // ===== PENNSYLVANIA (outside Philly) =====
     // --- Pittsburgh ---
     {
@@ -1930,6 +1977,67 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "$8", foundedYear: 2014,
       description: "Columbus's hash kennel, established 2014. Biweekly Saturday trail runs.",
       latitude: 39.96, longitude: -82.99,
+    },
+    // ===== GERMANY =====
+    // --- Munich ---
+    {
+      kennelCode: "mh3-de", shortName: "MH3", fullName: "Munich Hash House Harriers", region: "Munich", country: "Germany",
+      website: "https://mh3.beer",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+      hashCash: "€5",
+      description: "Munich's biweekly Saturday afternoon hash.",
+      latitude: 48.14, longitude: 11.58,
+    },
+    {
+      kennelCode: "mfmh3", shortName: "MFMH3", fullName: "Munich Full Moon Hash House Harriers", region: "Munich", country: "Germany",
+      website: "https://mh3.beer",
+      scheduleFrequency: "Monthly",
+      description: "Munich monthly full moon hash.",
+      latitude: 48.14, longitude: 11.58,
+    },
+    {
+      kennelCode: "massh3", shortName: "MASS H3", fullName: "MASS Hash House Harriers", region: "Munich", country: "Germany",
+      website: "https://mh3.beer",
+      scheduleFrequency: "Irregular",
+      description: "Munich special events hash.",
+      latitude: 48.14, longitude: 11.58,
+    },
+    // --- Frankfurt ---
+    {
+      kennelCode: "fh3", shortName: "FH3", fullName: "Frankfurt Hash House Harriers", region: "Frankfurt", country: "Germany",
+      website: "https://frankfurt-hash.de",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:30 PM", scheduleFrequency: "Biweekly",
+      hashCash: "€5",
+      description: "Frankfurt's biweekly Sunday afternoon hash. Run #2114+ and counting.",
+      latitude: 50.11, longitude: 8.68,
+    },
+    {
+      kennelCode: "ffmh3", shortName: "FFMH3", fullName: "Frankfurt Full Moon Hash", region: "Frankfurt", country: "Germany",
+      website: "https://frankfurt-hash.de",
+      scheduleFrequency: "Monthly",
+      description: "Frankfurt monthly full moon hash.",
+      latitude: 50.11, longitude: 8.68,
+    },
+    {
+      kennelCode: "shits-fra", shortName: "SHITS", fullName: "S.H.I.T.S. Hash House Harriers", region: "Frankfurt", country: "Germany",
+      website: "https://frankfurt-hash.de",
+      scheduleFrequency: "Irregular",
+      description: "Frankfurt area special hash.",
+      latitude: 50.11, longitude: 8.68,
+    },
+    {
+      kennelCode: "dom-fra", shortName: "DOM", fullName: "D.O.M. Hash House Harriers", region: "Frankfurt", country: "Germany",
+      website: "https://frankfurt-hash.de",
+      scheduleFrequency: "Irregular",
+      description: "Frankfurt area D.O.M. hash.",
+      latitude: 50.11, longitude: 8.68,
+    },
+    {
+      kennelCode: "bikeh3-fra", shortName: "Bike Hash", fullName: "Frankfurt BIKE Hash", region: "Frankfurt", country: "Germany",
+      website: "https://frankfurt-hash.de",
+      scheduleFrequency: "Irregular",
+      description: "Frankfurt area bike hash.",
+      latitude: 50.11, longitude: 8.68,
     },
   ];
 

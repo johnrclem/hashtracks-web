@@ -1451,6 +1451,63 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -2.59,
     aliases: ["Bristol, England"],
   },
+  // ── Continental Europe — Germany ──
+  {
+    name: "Germany",
+    country: "Germany",
+    level: "COUNTRY",
+    timezone: "Europe/Berlin",
+    abbrev: "DE",
+    colorClasses: "bg-yellow-200 text-yellow-800",
+    pinColor: "#ca8a04",
+    centroidLat: 51.16,
+    centroidLng: 10.45,
+    aliases: ["Deutschland", "DE"],
+  },
+  {
+    name: "Berlin",
+    country: "Germany",
+    timezone: "Europe/Berlin",
+    abbrev: "BER",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#eab308",
+    centroidLat: 52.52,
+    centroidLng: 13.41,
+    aliases: ["Berlin, Germany"],
+  },
+  {
+    name: "Stuttgart",
+    country: "Germany",
+    timezone: "Europe/Berlin",
+    abbrev: "STR",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#eab308",
+    centroidLat: 48.78,
+    centroidLng: 9.18,
+    aliases: ["Stuttgart, Germany"],
+  },
+  {
+    name: "Munich",
+    country: "Germany",
+    timezone: "Europe/Berlin",
+    abbrev: "MUC",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#eab308",
+    centroidLat: 48.14,
+    centroidLng: 11.58,
+    aliases: ["Munich, Germany", "München"],
+  },
+  {
+    name: "Frankfurt",
+    country: "Germany",
+    timezone: "Europe/Berlin",
+    abbrev: "FRA",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#eab308",
+    centroidLat: 50.11,
+    centroidLng: 8.68,
+    aliases: ["Frankfurt, Germany", "Frankfurt am Main"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -1623,7 +1680,7 @@ export function inferCountry(name: string): string {
   if (/\b(uk|england|scotland|wales|london|surrey|sussex)\b/.test(lower)) return "UK";
   if (/\b(australia|sydney|melbourne|brisbane|perth)\b/.test(lower)) return "Australia";
   if (/\b(canada|toronto|vancouver|montreal|calgary)\b/.test(lower)) return "Canada";
-  if (/\b(germany|berlin|munich|hamburg)\b/.test(lower)) return "Germany";
+  if (/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt)\b/.test(lower)) return "Germany";
   if (/\b(japan|tokyo|osaka)\b/.test(lower)) return "Japan";
   return "USA";
 }
@@ -1772,6 +1829,11 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Bristol": "United Kingdom",
   // Ireland
   "Dublin": "Ireland",
+  // Germany
+  "Berlin": "Germany",
+  "Stuttgart": "Germany",
+  "Munich": "Germany",
+  "Frankfurt": "Germany",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */

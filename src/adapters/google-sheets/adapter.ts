@@ -37,6 +37,37 @@ interface GoogleSheetsConfig {
   csvUrl?: string;
 }
 
+/** Month abbreviation → 1-based month number lookup. */
+const MONTH_NAMES: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
+/** Expand 2-digit years: 0–49 → 2000s, 50–99 → 1900s, ≥100 returned as-is. */
+function normalizeYear(rawYear: number): number {
+  if (rawYear > 99) return rawYear;
+  return rawYear < 50 ? 2000 + rawYear : 1900 + rawYear;
+}
+
+/** Format a validated (year, month, day) triple as YYYY-MM-DD, or null if the date is invalid. */
+function formatValidDate(year: number, month: number, day: number): string | null {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** Parse D-Mon-YY / DD-Mon-YYYY dates: "3-Jan-26", "20-Dec-25", "15-Mar-2026". */
+function parseDMonDate(cleaned: string): string | null {
+  const match = /^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/.exec(cleaned);
+  if (!match) return null;
+  const day = Number.parseInt(match[1], 10);
+  const month = MONTH_NAMES[match[2].toLowerCase()];
+  if (!month) return null;
+  const year = normalizeYear(Number.parseInt(match[3], 10));
+  return formatValidDate(year, month, day);
+}
+
 /**
  * Parse dates in multiple formats found across hash kennel spreadsheets:
  * - "6-15-25" (M-D-YY with hyphens)
@@ -53,6 +84,10 @@ export function parseDate(dateStr: string): string | null {
   // Strip trailing day-name suffix: "2026/03/07 (Sat)" → "2026/03/07"
   const cleaned = trimmed.replace(/\s*\(.*\)\s*$/, "");
 
+  // D-Mon-YY or DD-Mon-YYYY: "3-Jan-26", "20-Dec-25", "15-Mar-2026"
+  const dMonResult = parseDMonDate(cleaned);
+  if (dMonResult) return dMonResult;
+
   const parts = cleaned.split(/[/\-]/).map((s) => Number.parseInt(s, 10));
   if (parts.length !== 3 || parts.some(isNaN)) return null;
 
@@ -64,16 +99,10 @@ export function parseDate(dateStr: string): string | null {
   } else {
     // Month-first: M/D/YY or M/D/YYYY
     [month, day, year] = parts;
-    year = year > 99 ? year : year < 50 ? 2000 + year : 1900 + year;
+    year = normalizeYear(year);
   }
 
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-
-  // Validate the date is real (rejects Feb 30, Apr 31, etc.)
-  const d = new Date(Date.UTC(year, month - 1, day));
-  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
-
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return formatValidDate(year, month, day);
 }
 
 /**

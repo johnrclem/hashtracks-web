@@ -84,6 +84,22 @@ describe("parseDate", () => {
   it("returns null for non-leap Feb 29", () => {
     expect(parseDate("2/29/26")).toBeNull();
   });
+
+  it("parses D-Mon-YY format (Munich hareline)", () => {
+    expect(parseDate("3-Jan-26")).toBe("2026-01-03");
+  });
+
+  it("parses DD-Mon-YY format", () => {
+    expect(parseDate("20-Dec-25")).toBe("2025-12-20");
+  });
+
+  it("parses DD-Mon-YYYY format", () => {
+    expect(parseDate("15-Mar-2026")).toBe("2026-03-15");
+  });
+
+  it("returns null for invalid D-Mon-YY", () => {
+    expect(parseDate("32-Jan-26")).toBeNull();
+  });
 });
 
 // ── inferStartTime ──
