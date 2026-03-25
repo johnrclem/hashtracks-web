@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useMemo, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { deleteSource, toggleSourceEnabled } from "@/app/admin/sources/actions";
@@ -93,6 +93,11 @@ function getNextSortDirection(currentKey: SortKey, activeKey: SortKey, currentDi
   return currentDirection === "asc" ? "desc" : "asc";
 }
 
+function getSortIndicator(isActive: boolean, direction: SortDirection): string {
+  if (!isActive) return "↕";
+  return direction === "asc" ? "↑" : "↓";
+}
+
 function SortableTableHead({
   label,
   sortKey,
@@ -100,25 +105,26 @@ function SortableTableHead({
   direction,
   onSort,
   className,
-}: {
+}: Readonly<{
   label: string;
   sortKey: SortKey;
   activeSortKey: SortKey;
   direction: SortDirection;
   onSort: (key: SortKey) => void;
   className?: string;
-}) {
+}>) {
   const isActive = activeSortKey === sortKey;
+  const ariaLabel = isActive ? `Sort by ${label} (${direction})` : `Sort by ${label}`;
   return (
     <TableHead className={className}>
       <button
         type="button"
         className="inline-flex items-center gap-1 text-left hover:text-foreground/90"
         onClick={() => onSort(sortKey)}
-        aria-label={`Sort by ${label}${isActive ? ` (${direction})` : ""}`}
+        aria-label={ariaLabel}
       >
         <span>{label}</span>
-        <span aria-hidden>{isActive ? (direction === "asc" ? "↑" : "↓") : "↕"}</span>
+        <span aria-hidden="true">{getSortIndicator(isActive, direction)}</span>
       </button>
     </TableHead>
   );
@@ -133,89 +139,113 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
+  // Build kennel→region lookup for region filtering
+  const kennelRegionMap = useMemo(
+    () => new Map(allKennels.map((k) => [k.id, k.region])),
+    [allKennels],
+  );
+
+  // Only show regions that have sources linked
+  const availableRegions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          sources.flatMap((s) =>
+            s.linkedKennels.map((k) => kennelRegionMap.get(k.id)).filter((v): v is string => Boolean(v)),
+          ),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    [sources, kennelRegionMap],
+  );
+
+  // Group metro regions by state for hierarchical filter
+  const regionsByState = useMemo(() => groupRegionsByState(availableRegions), [availableRegions]);
+  const stateKeys = useMemo(
+    () => Array.from(regionsByState.keys()).sort((a, b) => a.localeCompare(b)),
+    [regionsByState],
+  );
+
+  // Only show types that exist in sources
+  const availableTypes = useMemo(
+    () => Array.from(new Set(sources.map((s) => s.type))).sort((a, b) => a.localeCompare(b)),
+    [sources],
+  );
+
+  // Expand state-level selections to metro regions (hoisted out of filter loop)
+  const expandedRegions = useMemo(
+    () => (selectedRegions.length > 0 ? expandRegionSelections(selectedRegions, regionsByState) : null),
+    [selectedRegions, regionsByState],
+  );
+
+  const filteredSources = useMemo(
+    () =>
+      sources.filter((source) => {
+        if (selectedKennels.length > 0) {
+          const hasMatch = source.linkedKennels.some((k) => selectedKennels.includes(k.id));
+          if (!hasMatch) return false;
+        }
+        if (expandedRegions) {
+          const hasMatch = source.linkedKennels.some((k) =>
+            expandedRegions.has(kennelRegionMap.get(k.id) ?? ""),
+          );
+          if (!hasMatch) return false;
+        }
+        if (selectedTypes.length > 0 && !selectedTypes.includes(source.type)) {
+          return false;
+        }
+        if (selectedHealth.length > 0 && !selectedHealth.includes(source.healthStatus)) {
+          return false;
+        }
+        return true;
+      }),
+    [sources, selectedKennels, expandedRegions, selectedTypes, selectedHealth, kennelRegionMap],
+  );
+
+  const handleSort = useCallback(
+    (key: SortKey) => {
+      const nextDirection = getNextSortDirection(key, sortKey, sortDirection);
+      setSortKey(key);
+      setSortDirection(nextDirection);
+    },
+    [sortKey, sortDirection],
+  );
+
+  const sortedSources = useMemo(
+    () =>
+      [...filteredSources].sort((a, b) => {
+        const order = sortDirection === "asc" ? 1 : -1;
+
+        switch (sortKey) {
+          case "name":
+            return order * a.name.localeCompare(b.name);
+          case "type":
+            return order * (TYPE_LABELS[a.type] ?? a.type).localeCompare(TYPE_LABELS[b.type] ?? b.type);
+          case "healthStatus":
+            return order * a.healthStatus.localeCompare(b.healthStatus);
+          case "lastScrapeAt": {
+            // Nulls always sort last regardless of direction
+            if (!a.lastScrapeAt && !b.lastScrapeAt) return 0;
+            if (!a.lastScrapeAt) return 1;
+            if (!b.lastScrapeAt) return -1;
+            return order * (new Date(a.lastScrapeAt).getTime() - new Date(b.lastScrapeAt).getTime());
+          }
+          case "linkedKennels":
+            return order * (a.linkedKennels.length - b.linkedKennels.length);
+          case "rawEventCount":
+            return order * (a.rawEventCount - b.rawEventCount);
+          default:
+            return 0;
+        }
+      }),
+    [filteredSources, sortKey, sortDirection],
+  );
+
   if (sources.length === 0) {
     return <p className="text-sm text-muted-foreground">No sources yet.</p>;
   }
 
-  // Build kennel→region lookup for region filtering
-  const kennelRegionMap = new Map(allKennels.map((k) => [k.id, k.region]));
-
-  // Only show regions that have sources linked
-  const availableRegions = Array.from(
-    new Set(
-      sources.flatMap((s) =>
-        s.linkedKennels.map((k) => kennelRegionMap.get(k.id)).filter((v): v is string => Boolean(v)),
-      ),
-    ),
-  ).sort((a, b) => a.localeCompare(b));
-
-  // Group metro regions by state for hierarchical filter
-  const regionsByState = groupRegionsByState(availableRegions);
-  const stateKeys = Array.from(regionsByState.keys()).sort((a, b) => a.localeCompare(b));
-
-  // Only show types that exist in sources
-  const availableTypes = Array.from(new Set(sources.map((s) => s.type))).sort((a, b) => a.localeCompare(b));
-
-  // Expand state-level selections to metro regions (hoisted out of filter loop)
-  const expandedRegions = selectedRegions.length > 0
-    ? expandRegionSelections(selectedRegions, regionsByState)
-    : null;
-
-  const filteredSources = sources.filter((source) => {
-    if (selectedKennels.length > 0) {
-      const hasMatch = source.linkedKennels.some((k) =>
-        selectedKennels.includes(k.id),
-      );
-      if (!hasMatch) return false;
-    }
-    if (expandedRegions) {
-      const hasMatch = source.linkedKennels.some((k) =>
-        expandedRegions.has(kennelRegionMap.get(k.id) ?? ""),
-      );
-      if (!hasMatch) return false;
-    }
-    if (selectedTypes.length > 0 && !selectedTypes.includes(source.type)) {
-      return false;
-    }
-    if (
-      selectedHealth.length > 0 &&
-      !selectedHealth.includes(source.healthStatus)
-    ) {
-      return false;
-    }
-    return true;
-  });
-
-  const sortedSources = [...filteredSources].sort((a, b) => {
-    const order = sortDirection === "asc" ? 1 : -1;
-
-    switch (sortKey) {
-      case "name":
-      case "type":
-      case "healthStatus":
-        return order * a[sortKey].localeCompare(b[sortKey]);
-      case "lastScrapeAt": {
-        const aTime = a.lastScrapeAt ? new Date(a.lastScrapeAt).getTime() : 0;
-        const bTime = b.lastScrapeAt ? new Date(b.lastScrapeAt).getTime() : 0;
-        return order * (aTime - bTime);
-      }
-      case "linkedKennels":
-        return order * (a.linkedKennels.length - b.linkedKennels.length);
-      case "rawEventCount":
-        return order * (a.rawEventCount - b.rawEventCount);
-      default:
-        return 0;
-    }
-  });
-
   const activeFilterCount =
     selectedKennels.length + selectedRegions.length + selectedTypes.length + selectedHealth.length;
-
-  function handleSort(key: SortKey) {
-    const nextDirection = getNextSortDirection(key, sortKey, sortDirection);
-    setSortKey(key);
-    setSortDirection(nextDirection);
-  }
 
   function toggleKennel(id: string) {
     setSelectedKennels((prev) =>
