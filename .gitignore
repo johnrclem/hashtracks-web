@@ -46,3 +46,6 @@ next-env.d.ts
 
 # script output
 /data
+
+# clerk configuration (can include secrets)
+/.clerk/

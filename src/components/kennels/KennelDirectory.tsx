@@ -1,15 +1,20 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { SearchX } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { KennelCard, type KennelCardData } from "@/components/kennels/KennelCard";
 import { KennelFilters, DAY_FULL } from "@/components/kennels/KennelFilters";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { getEventCoords, haversineDistance } from "@/lib/geo";
-import { groupRegionsByState, expandRegionSelections } from "@/lib/region";
+import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
+import { LocationPrompt } from "@/components/hareline/LocationPrompt";
+import { getLocationPref, resolveLocationDefault } from "@/lib/location-pref";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ssr: false,
@@ -167,6 +172,17 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     setMapBounds(null);
     syncUrl({ regions: [region], display: "grid" });
   }
+  function clearAllFilters() {
+    setSearchState("");
+    setSelectedRegionsState([]);
+    setSelectedDaysState([]);
+    setSelectedFrequencyState("");
+    setShowUpcomingOnlyState(false);
+    setSelectedCountryState("");
+    setNearMeDistanceState(null);
+    setMapBounds(null);
+    syncUrl({ q: "", regions: [], days: [], freq: "", upcoming: false, country: "", distance: null });
+  }
 
   // Compute distances for each kennel (when geolocation is available)
   const kennelDistances = useMemo(() => {
@@ -295,8 +311,78 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   // Show "Nearest" sort option only when geolocation is granted
   const showNearestSort = geoState.status === "granted";
 
+  // On mount: apply stored location preference if no URL filters are present
+  const locationPrefApplied = useRef(false);
+  useEffect(() => {
+    if (locationPrefApplied.current) return;
+    locationPrefApplied.current = true;
+
+    const pref = getLocationPref();
+    const result = resolveLocationDefault(searchParams, pref);
+    if (!result) return;
+
+    if (result.regions) {
+      setSelectedRegions(result.regions);
+    } else if (result.nearMeDistance) {
+      setNearMeDistance(result.nearMeDistance);
+      requestLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Determine if URL has any filter params (for LocationPrompt)
+  const hasUrlFilters = useMemo(() => {
+    const filterParams = ["regions", "distance", "days", "q", "country", "freq", "upcoming"];
+    return filterParams.some((p) => searchParams.has(p));
+  }, [searchParams]);
+
+  // Unique metro region names from kennels (for LocationPrompt picker)
+  const uniqueRegionNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const k of kennels) {
+      if (k.region) set.add(k.region);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [kennels]);
+
+  // Callbacks for LocationPrompt
+  const handleSetNearMeFromPrompt = useCallback(
+    (distance: number) => {
+      setNearMeDistance(distance);
+      requestLocation();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [syncUrl],
+  );
+
+  const handleSetRegionFromPrompt = useCallback(
+    (region: string) => {
+      setSelectedRegions([region]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [syncUrl],
+  );
+
+  // Dynamic page title based on selected regions
+  useEffect(() => {
+    if (selectedRegions.length === 1) {
+      document.title = `${regionAbbrev(selectedRegions[0])} Kennels | HashTracks`;
+    } else {
+      document.title = "Kennels | HashTracks";
+    }
+  }, [selectedRegions]);
+
   return (
     <div className="mt-6 space-y-4">
+      {/* Location prompt for first-time visitors */}
+      <LocationPrompt
+        hasUrlFilters={hasUrlFilters}
+        onSetNearMe={handleSetNearMeFromPrompt}
+        onSetRegion={handleSetRegionFromPrompt}
+        regionNames={uniqueRegionNames}
+        page="kennels"
+      />
+
       {/* Search + sort row */}
       <div className="flex flex-wrap items-center gap-3">
         <Input
@@ -373,12 +459,35 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         )}
       </p>
 
+      {/* Cross-link to hareline when a single region is selected */}
+      {selectedRegions.length === 1 && (
+        <Link
+          href={`/hareline?regions=${encodeURIComponent(selectedRegions[0])}`}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          View upcoming events in {regionAbbrev(selectedRegions[0])} &rarr;
+        </Link>
+      )}
+
       {/* Map or Grid */}
       {displayView === "map" ? (
         <KennelMapView kennels={filtered} onRegionSelect={handleRegionSelect} onBoundsFilter={setMapBounds} />
       ) : filtered.length === 0 ? (
-        <div className="py-12 text-center">
-          <p className="text-muted-foreground">No kennels match your filters.</p>
+        <div className="flex flex-col items-center gap-3 py-12 text-center">
+          <SearchX className="h-10 w-10 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">
+            {search
+              ? `No kennels matching '${search}'.`
+              : "No kennels match your filters."}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button variant="outline" size="sm" onClick={clearAllFilters}>
+              Clear all filters
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/suggest">Suggest a kennel</Link>
+            </Button>
+          </div>
         </div>
       ) : sort === "alpha" && grouped ? (
         // Grouped by region

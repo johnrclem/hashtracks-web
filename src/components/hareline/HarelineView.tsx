@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -16,16 +17,19 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { SearchX } from "lucide-react";
 import { EventCard, type HarelineEvent } from "./EventCard";
 import { getDayOfWeek, formatDateLong, parseList } from "@/lib/format";
 import { EventFilters } from "./EventFilters";
+import { EmptyState } from "./EmptyState";
+import { RegionQuickChips } from "./RegionQuickChips";
 import { CalendarView } from "./CalendarView";
 import { EventDetailPanel } from "./EventDetailPanel";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { haversineDistance, getEventCoords } from "@/lib/geo";
-import { groupRegionsByState, expandRegionSelections } from "@/lib/region";
+import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
+import { LocationPrompt } from "./LocationPrompt";
+import { getLocationPref, resolveLocationDefault, FILTER_PARAMS } from "@/lib/location-pref";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -449,6 +453,75 @@ export function HarelineView({
     syncUrl({ regions: [], kennels: [], days: [], country: "", dist: "", q: "" });
   }
 
+  // Handle region filter from map cluster click
+  const handleRegionFilter = useCallback(
+    (region: string) => {
+      setSelectedRegions([region]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [syncUrl],
+  );
+
+  // On mount: apply stored location preference if no URL filters are present
+  const locationPrefApplied = useRef(false);
+  useEffect(() => {
+    if (locationPrefApplied.current) return;
+    locationPrefApplied.current = true;
+
+    const pref = getLocationPref();
+    const result = resolveLocationDefault(searchParams, pref);
+    if (!result) return;
+
+    if (result.regions) {
+      setSelectedRegions(result.regions);
+    } else if (result.nearMeDistance) {
+      setNearMeDistance(result.nearMeDistance);
+      requestLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Determine if URL has any filter params (for LocationPrompt)
+  const hasUrlFilters = useMemo(() => {
+    return FILTER_PARAMS.some((p) => searchParams.has(p));
+  }, [searchParams]);
+
+  // Unique metro region names from events (for LocationPrompt picker)
+  const uniqueRegionNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of events) {
+      if (e.kennel?.region) set.add(e.kennel.region);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [events]);
+
+  // Persist location preference when user manually changes Near Me or region filters
+  const handleSetNearMeFromPrompt = useCallback(
+    (distance: number) => {
+      setNearMeDistance(distance);
+      requestLocation();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [syncUrl],
+  );
+
+  const handleSetRegionFromPrompt = useCallback(
+    (region: string) => {
+      setSelectedRegions([region]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [syncUrl],
+  );
+
+  // Dynamic page title based on selected regions
+  useEffect(() => {
+    if (selectedRegions.length === 1) {
+      document.title = `${regionAbbrev(selectedRegions[0])} Runs | HashTracks`;
+    } else {
+      document.title = "Hareline | HashTracks";
+    }
+  }, [selectedRegions]);
+
   const detailPanel = selectedEvent ? (
     <div className="hidden lg:block">
       <div className="sticky top-8 max-h-[calc(100vh-4rem)]">
@@ -462,30 +535,23 @@ export function HarelineView({
     </div>
   ) : null;
 
+  const emptyContext = ((): "near_me" | "region" | "kennel" | "search" | "my_kennels" | "general" => {
+    if (nearMeDistance != null && geoState.status === "granted") return "near_me";
+    if (selectedRegions.length > 0) return "region";
+    if (selectedKennels.length > 0) return "kennel";
+    if (searchText) return "search";
+    if (scope === "my") return "my_kennels";
+    return "general";
+  })();
+
   const emptyState = (
-    <div className="flex flex-col items-center gap-3 py-16 text-center">
-      <SearchX className="h-10 w-10 text-muted-foreground/50" />
-      <div>
-        <p className="text-base font-medium text-foreground">No events found</p>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {scope === "my"
-            ? "No events from your subscribed kennels match these filters."
-            : "No events match your current filters."}
-        </p>
-      </div>
-      <div className="flex gap-2">
-        {activeFilterCount > 0 && (
-          <Button variant="outline" size="sm" onClick={clearAllFilters}>
-            Clear all filters
-          </Button>
-        )}
-        {scope === "my" && (
-          <Button variant="outline" size="sm" onClick={() => setScope("all")}>
-            Switch to All Kennels
-          </Button>
-        )}
-      </div>
-    </div>
+    <EmptyState
+      context={emptyContext}
+      regionName={selectedRegions.length === 1 ? selectedRegions[0] : undefined}
+      query={searchText || undefined}
+      onClearFilters={clearAllFilters}
+      onSwitchToAll={scope === "my" ? () => { setScope("all"); } : undefined}
+    />
   );
 
   const listContent = (
@@ -535,6 +601,15 @@ export function HarelineView({
 
   return (
     <div className="mt-3 space-y-4">
+      {/* Location prompt for first-time visitors */}
+      <LocationPrompt
+        hasUrlFilters={hasUrlFilters}
+        onSetNearMe={handleSetNearMeFromPrompt}
+        onSetRegion={handleSetRegionFromPrompt}
+        regionNames={uniqueRegionNames}
+        page="hareline"
+      />
+
       {/* Controls bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Left: time range select */}
@@ -597,6 +672,13 @@ export function HarelineView({
 
       <Separator className="my-1" />
 
+      {/* Region quick-chips */}
+      <RegionQuickChips
+        events={events}
+        selectedRegions={selectedRegions}
+        onRegionsChange={setSelectedRegions}
+      />
+
       {/* Filters */}
       <EventFilters
         events={events}
@@ -636,6 +718,17 @@ export function HarelineView({
           )}
         </p>
       )}
+
+      {/* Cross-link to kennel directory when a single region is selected */}
+      {selectedRegions.length === 1 && (
+        <Link
+          href={`/kennels?regions=${encodeURIComponent(selectedRegions[0])}`}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          View {regionAbbrev(selectedRegions[0])} kennels &rarr;
+        </Link>
+      )}
+
       {/* Screen-reader live region for filter count (debounced) */}
       <div ref={liveRegionRef} className="sr-only" aria-live="polite" aria-atomic="true" />
 
@@ -656,6 +749,7 @@ export function HarelineView({
               events={sortedEvents}
               selectedEventId={selectedEvent?.id}
               onSelectEvent={setSelectedEvent}
+              onRegionFilter={handleRegionFilter}
             />
           </div>
           {detailPanel}

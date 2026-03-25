@@ -37,12 +37,13 @@ import {
   startRegionResearch,
   rejectProposal,
   bulkRejectProposals,
+  resolveKennelSuggestion,
 } from "@/app/admin/research/actions";
 import { ProposalApprovalDialog } from "./ProposalApprovalDialog";
 import { KennelDiscoveryCard } from "./KennelDiscoveryCard";
 import { AddKennelFromResearchDialog } from "./AddKennelFromResearchDialog";
 import { TYPE_LABELS } from "./SourceTable";
-import type { SourceType, ProposalStatus, DiscoveryStatus } from "@/generated/prisma/client";
+import type { SourceType, ProposalStatus, DiscoveryStatus, RequestStatus, SuggestionRelationship } from "@/generated/prisma/client";
 import type { ConfidenceLevel } from "@/pipeline/source-research";
 
 export interface SerializedProposal {
@@ -81,6 +82,22 @@ export interface SerializedDiscovery {
   regionName: string | null;
 }
 
+export interface SerializedSuggestion {
+  id: string;
+  kennelName: string;
+  region: string | null;
+  regionName: string | null;
+  regionAbbrev: string | null;
+  regionId: string | null;
+  sourceUrl: string | null;
+  notes: string | null;
+  relationship: SuggestionRelationship | null;
+  email: string | null;
+  status: RequestStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
 interface Props {
   regions: { id: string; name: string; abbrev: string; country: string }[];
   proposals: SerializedProposal[];
@@ -88,9 +105,10 @@ interface Props {
   coverageGaps: Record<string, { id: string; shortName: string; website: string | null }[]>;
   statusCounts: { pending: number; approved: number; rejected: number; error: number; total: number };
   kennels: { id: string; shortName: string; fullName: string | null }[];
+  suggestions: SerializedSuggestion[];
 }
 
-type StatusFilter = "PENDING" | "APPROVED" | "REJECTED" | "ERROR" | "ALL";
+type StatusFilter = "PENDING" | "APPROVED" | "REJECTED" | "ERROR" | "ALL" | "SUGGESTIONS";
 
 const CONFIDENCE_COLORS: Record<string, string> = {
   high: "text-green-600",
@@ -104,7 +122,13 @@ function isSafeUrl(url: string): boolean {
   catch { return false; }
 }
 
-export function ResearchDashboard({ regions, proposals, discoveries, coverageGaps, statusCounts, kennels }: Readonly<Props>) {
+const RELATIONSHIP_LABELS: Record<string, string> = {
+  HASH_WITH: "Hashes with them",
+  ON_MISMAN: "On mismanagement",
+  FOUND_ONLINE: "Found online",
+};
+
+export function ResearchDashboard({ regions, proposals, discoveries, coverageGaps, statusCounts, kennels, suggestions }: Readonly<Props>) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [regionInput, setRegionInput] = useState("");
@@ -114,6 +138,8 @@ export function ResearchDashboard({ regions, proposals, discoveries, coverageGap
   const [selectedProposal, setSelectedProposal] = useState<SerializedProposal | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [addDiscovery, setAddDiscovery] = useState<SerializedDiscovery | null>(null);
+
+  const pendingSuggestionCount = suggestions.filter((s) => s.status === "PENDING").length;
 
   // Display text for the combobox trigger
   const selectedRegion = regions.find((r) => r.id === selectedRegionId);
@@ -215,6 +241,18 @@ export function ResearchDashboard({ regions, proposals, discoveries, coverageGap
       } else {
         toast.success(`${selectedIds.size} proposals rejected`);
         setSelectedIds(new Set());
+        router.refresh();
+      }
+    });
+  }
+
+  function handleResolveSuggestion(id: string, resolution: "APPROVED" | "REJECTED") {
+    startTransition(async () => {
+      const result = await resolveKennelSuggestion(id, resolution);
+      if (!result.success) {
+        toast.error(result.error ?? "Failed to resolve suggestion");
+      } else {
+        toast.success(`Suggestion ${resolution.toLowerCase()}`);
         router.refresh();
       }
     });
@@ -396,6 +434,13 @@ export function ResearchDashboard({ regions, proposals, discoveries, coverageGap
             <TabsTrigger value="ALL">
               All ({statusCounts.total})
             </TabsTrigger>
+            <TabsTrigger value="SUGGESTIONS" className="relative">
+              Suggestions{pendingSuggestionCount > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold w-5 h-5">
+                  {pendingSuggestionCount}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -411,88 +456,237 @@ export function ResearchDashboard({ regions, proposals, discoveries, coverageGap
         )}
       </div>
 
-      {/* Proposals table */}
-      {filteredProposals.length > 0 ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {statusFilter === "PENDING" && (
-                <TableHead className="w-8">
-                  <Checkbox
-                    checked={selectedIds.size === filteredProposals.length && filteredProposals.length > 0}
-                    onCheckedChange={toggleSelectAll}
-                  />
-                </TableHead>
-              )}
-              <TableHead>URL</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead className="hidden sm:table-cell">Kennel</TableHead>
-              <TableHead className="hidden md:table-cell">Region</TableHead>
-              <TableHead className="hidden sm:table-cell">Confidence</TableHead>
-              <TableHead className="hidden lg:table-cell">Method</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredProposals.map((p) => (
-              <TableRow key={p.id}>
-                {statusFilter === "PENDING" && (
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedIds.has(p.id)}
-                      onCheckedChange={() => toggleSelect(p.id)}
-                    />
+      {/* Suggestions table (when Suggestions tab active) */}
+      {statusFilter === "SUGGESTIONS" ? (
+        suggestions.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Kennel Name</TableHead>
+                <TableHead className="hidden sm:table-cell">Region</TableHead>
+                <TableHead className="hidden md:table-cell">Relationship</TableHead>
+                <TableHead className="hidden lg:table-cell">Website</TableHead>
+                <TableHead className="hidden sm:table-cell">Submitted By</TableHead>
+                <TableHead className="hidden md:table-cell">Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {suggestions.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell className="font-medium">
+                    {s.kennelName}
+                    {s.notes && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="ml-1 text-muted-foreground cursor-help text-xs">[notes]</span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          {s.notes}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {(() => {
+                      if (s.regionAbbrev) return <Badge variant="outline" className="text-xs">{s.regionAbbrev}</Badge>;
+                      if (s.regionName) return <span className="text-xs text-muted-foreground">{s.regionName}</span>;
+                      return <span className="text-muted-foreground">—</span>;
+                    })()}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {s.relationship ? (
+                      <Badge
+                        variant="secondary"
+                        className={`text-xs ${s.relationship === "ON_MISMAN" ? "bg-amber-100 text-amber-800 border-amber-300" : ""}`}
+                      >
+                        {RELATIONSHIP_LABELS[s.relationship] ?? s.relationship}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell max-w-[200px] truncate">
+                    {(() => {
+                      if (s.sourceUrl && isSafeUrl(s.sourceUrl)) {
+                        return (
+                          <a
+                            href={s.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary underline-offset-4 hover:underline"
+                            title={s.sourceUrl}
+                          >
+                            {truncateUrl(s.sourceUrl)}
+                          </a>
+                        );
+                      }
+                      if (s.sourceUrl) {
+                        return (
+                          <span className="text-muted-foreground" title={s.sourceUrl}>
+                            {truncateUrl(s.sourceUrl)}
+                          </span>
+                        );
+                      }
+                      return <span className="text-muted-foreground">—</span>;
+                    })()}
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell text-xs">
+                    {s.email ?? "Anonymous"}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+                    {new Date(s.createdAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    {s.status === "PENDING" && (
+                      <Badge variant="outline" className="text-xs text-yellow-700 border-yellow-400">
+                        Pending
+                      </Badge>
+                    )}
+                    {s.status === "APPROVED" && (
+                      <Badge variant="outline" className="text-xs text-green-700 border-green-400">
+                        Approved
+                      </Badge>
+                    )}
+                    {s.status === "REJECTED" && (
+                      <Badge variant="outline" className="text-xs text-red-700 border-red-400">
+                        Rejected
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right space-x-1">
+                    {s.status === "PENDING" && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleResolveSuggestion(s.id, "APPROVED")}
+                          disabled={isPending}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleResolveSuggestion(s.id, "REJECTED")}
+                          disabled={isPending}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <p className="text-sm text-muted-foreground py-8 text-center">
+            No public kennel suggestions yet.
+          </p>
+        )
+      ) : (
+        /* Proposals table (all other tabs) */
+        filteredProposals.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {statusFilter === "PENDING" && (
+                  <TableHead className="w-8">
+                    <Checkbox
+                      checked={selectedIds.size === filteredProposals.length && filteredProposals.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                 )}
-                <TableCell className="max-w-[200px] sm:max-w-xs truncate">
-                  {isSafeUrl(p.url) ? (
-                    <a
-                      href={p.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline-offset-4 hover:underline"
-                      title={p.url}
-                    >
-                      {truncateUrl(p.url)}
-                    </a>
-                  ) : (
-                    <span className="text-muted-foreground" title={p.url}>
-                      {truncateUrl(p.url)}
-                    </span>
+                <TableHead>URL</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead className="hidden sm:table-cell">Kennel</TableHead>
+                <TableHead className="hidden md:table-cell">Region</TableHead>
+                <TableHead className="hidden sm:table-cell">Confidence</TableHead>
+                <TableHead className="hidden lg:table-cell">Method</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProposals.map((p) => (
+                <TableRow key={p.id}>
+                  {statusFilter === "PENDING" && (
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(p.id)}
+                        onCheckedChange={() => toggleSelect(p.id)}
+                      />
+                    </TableCell>
                   )}
-                </TableCell>
-                <TableCell>
-                  {p.detectedType ? (
-                    <Badge variant="secondary" className="text-xs">
-                      {TYPE_LABELS[p.detectedType] ?? p.detectedType}
+                  <TableCell className="max-w-[200px] sm:max-w-xs truncate">
+                    {isSafeUrl(p.url) ? (
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline-offset-4 hover:underline"
+                        title={p.url}
+                      >
+                        {truncateUrl(p.url)}
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground" title={p.url}>
+                        {truncateUrl(p.url)}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {p.detectedType ? (
+                      <Badge variant="secondary" className="text-xs">
+                        {TYPE_LABELS[p.detectedType] ?? p.detectedType}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {p.kennelName ?? "—"}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    <Badge variant="outline" className="text-xs">
+                      {p.regionAbbrev}
                     </Badge>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  {p.kennelName ?? "—"}
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  <Badge variant="outline" className="text-xs">
-                    {p.regionAbbrev}
-                  </Badge>
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  {p.confidence ? (
-                    <span className={CONFIDENCE_COLORS[p.confidence] ?? ""}>
-                      {p.confidence}
-                    </span>
-                  ) : (
-                    "—"
-                  )}
-                </TableCell>
-                <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
-                  {formatMethod(p.discoveryMethod)}
-                </TableCell>
-                <TableCell className="text-right space-x-1">
-                  {p.status === "PENDING" && (
-                    <>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {p.confidence ? (
+                      <span className={CONFIDENCE_COLORS[p.confidence] ?? ""}>
+                        {p.confidence}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+                    {formatMethod(p.discoveryMethod)}
+                  </TableCell>
+                  <TableCell className="text-right space-x-1">
+                    {p.status === "PENDING" && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedProposal(p)}
+                        >
+                          Review
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleReject(p.id)}
+                          disabled={isPending}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                    {p.status === "ERROR" && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -500,42 +694,25 @@ export function ResearchDashboard({ regions, proposals, discoveries, coverageGap
                       >
                         Review
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleReject(p.id)}
-                        disabled={isPending}
-                      >
-                        Reject
-                      </Button>
-                    </>
-                  )}
-                  {p.status === "ERROR" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedProposal(p)}
-                    >
-                      Review
-                    </Button>
-                  )}
-                  {p.status === "APPROVED" && (
-                    <span className="text-xs text-green-600">Approved</span>
-                  )}
-                  {p.status === "REJECTED" && (
-                    <span className="text-xs text-muted-foreground">Rejected</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <p className="text-sm text-muted-foreground py-8 text-center">
-          {statusFilter === "PENDING"
-            ? "No pending proposals. Select a region and click Research to discover sources."
-            : "No proposals match this filter."}
-        </p>
+                    )}
+                    {p.status === "APPROVED" && (
+                      <span className="text-xs text-green-600">Approved</span>
+                    )}
+                    {p.status === "REJECTED" && (
+                      <span className="text-xs text-muted-foreground">Rejected</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <p className="text-sm text-muted-foreground py-8 text-center">
+            {statusFilter === "PENDING"
+              ? "No pending proposals. Select a region and click Research to discover sources."
+              : "No proposals match this filter."}
+          </p>
+        )
       )}
 
       {/* Approval dialog */}

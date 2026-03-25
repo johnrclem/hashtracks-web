@@ -11,6 +11,7 @@ import {
   PulseDot,
   RegionTicker,
 } from "@/components/home/HeroAnimations";
+import { FindRunsSection } from "@/components/home/FindRunsSection";
 import { Calendar, BookOpen, Users, MapPin, ArrowRight, Beer, Zap, Globe, ClipboardList, Clock, Footprints } from "lucide-react";
 
 export default async function HomePage() {
@@ -180,6 +181,15 @@ export default async function HomePage() {
         <div className="border-y border-foreground/5 bg-foreground/[0.015]">
           <RegionTicker regions={regionNames} />
         </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════
+          FIND RUNS NEAR YOU
+       ═══════════════════════════════════════════════ */}
+      {regionNames.length > 0 && (
+        <FadeInSection>
+          <FindRunsSection regions={regionNames} />
+        </FadeInSection>
       )}
 
       {/* ═══════════════════════════════════════════════
@@ -383,6 +393,18 @@ export default async function HomePage() {
               </div>
             </FadeInSection>
           </div>
+
+          <FadeInSection delay={300}>
+            <p className="mt-8 text-center text-sm text-muted-foreground">
+              Don&apos;t see your kennel?{" "}
+              <Link
+                href="/suggest"
+                className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-orange-700"
+              >
+                Suggest it
+              </Link>
+            </p>
+          </FadeInSection>
         </div>
       </section>
 

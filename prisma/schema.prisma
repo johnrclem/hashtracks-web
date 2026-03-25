@@ -34,6 +34,8 @@ model User {
   stravaConnection    StravaConnection?
   // Manual events
   submittedEvents     Event[]          @relation("SubmittedEvents")
+  // Kennel suggestions
+  kennelRequests      KennelRequest[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -91,6 +93,7 @@ model Region {
   kennels             Kennel[]
   sourceProposals     SourceProposal[]
   kennelDiscoveries   KennelDiscovery[]
+  kennelRequests      KennelRequest[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -462,17 +465,40 @@ enum AlertStatus {
 
 // ── KENNEL REQUESTS ──
 
+enum RequestSource {
+  ADMIN
+  PUBLIC
+}
+
+enum SuggestionRelationship {
+  HASH_WITH    // "I hash with them"
+  ON_MISMAN    // "I'm on their mismanagement"
+  FOUND_ONLINE // "I found them online"
+}
+
 model KennelRequest {
-  id         String        @id @default(cuid())
-  userId     String
-  kennelName String
-  region     String?
-  country    String?
-  sourceUrl  String?       // Website, Facebook page, etc.
-  notes      String?
-  status     RequestStatus @default(PENDING)
-  resolvedAt DateTime?
-  createdAt  DateTime      @default(now())
+  id           String                  @id @default(cuid())
+  userId       String?
+  user         User?                   @relation(fields: [userId], references: [id])
+  kennelName   String
+  region       String?
+  country      String?
+  sourceUrl    String?                 // Website, Facebook page, etc.
+  notes        String?
+  relationship SuggestionRelationship?
+  email        String?                 // Optional contact email (anonymous submissions)
+  ipHash       String?                 // SHA-256 of submitter IP (rate limiting)
+  regionId     String?
+  linkedRegion Region?                 @relation(fields: [regionId], references: [id])
+  source       RequestSource?          @default(ADMIN)
+  status       RequestStatus           @default(PENDING)
+  resolvedAt   DateTime?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@index([userId])
+  @@index([ipHash])
+  @@index([regionId])
 }
 
 enum RequestStatus {

@@ -9,6 +9,7 @@ import { LocateFixed, Search } from "lucide-react";
 import { REGION_CENTROIDS, getRegionColor, getEventCoords } from "@/lib/geo";
 import { formatSchedule } from "@/lib/format";
 import { ClusteredKennelMarkers, type KennelPin } from "./ClusteredKennelMarkers";
+import { ColocatedKennelList } from "./ColocatedKennelList";
 import type { KennelCardData } from "./KennelCard";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
@@ -103,6 +104,7 @@ function RestoreViewport({ onRestored }: { onRestored: () => void }) {
 
 export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter }: KennelMapViewProps) {
   const [selectedKennelId, setSelectedKennelId] = useState<string | null>(null);
+  const [colocatedList, setColocatedList] = useState<{ pins: KennelPin[]; position: { lat: number; lng: number } } | null>(null);
   const [showSearchButton, setShowSearchButton] = useState(false);
   const userInteractedRef = useRef(false);
   const skipAutoZoomRef = useRef(false);
@@ -244,7 +246,7 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
             mapTypeControl={false}
             streetViewControl={false}
             zoomControl={true}
-            onClick={() => setSelectedKennelId(null)}
+            onClick={() => { setSelectedKennelId(null); setColocatedList(null); }}
             onDragend={handleDragEnd}
             onZoomChanged={handleZoomChanged}
             onIdle={handleIdle}
@@ -253,7 +255,11 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
             <ClusteredKennelMarkers
               pins={kennelPins}
               selectedPinId={selectedKennelId}
-              onSelectPin={setSelectedKennelId}
+              onSelectPin={(id) => { setSelectedKennelId(id); setColocatedList(null); }}
+              onShowColocated={(pinsAtLocation, position) => {
+                setColocatedList({ pins: pinsAtLocation, position });
+                setSelectedKennelId(null);
+              }}
             />
 
             {/* InfoWindow for selected kennel */}
@@ -294,6 +300,25 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
                 </InfoWindow>
               );
             })()}
+
+            {/* Co-located kennel list overlay */}
+            {colocatedList && (
+              <AdvancedMarker
+                position={colocatedList.position}
+                zIndex={2000}
+              >
+                <div style={{ transform: "translate(-50%, -110%)" }}>
+                  <ColocatedKennelList
+                    pins={colocatedList.pins}
+                    onSelectKennel={(id) => {
+                      setSelectedKennelId(id);
+                      setColocatedList(null);
+                    }}
+                    onClose={() => setColocatedList(null)}
+                  />
+                </div>
+              </AdvancedMarker>
+            )}
 
             {/* Reset view button */}
             {defaultBounds && <ResetViewControl bounds={defaultBounds} />}
