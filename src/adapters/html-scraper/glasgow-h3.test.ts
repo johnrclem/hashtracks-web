@@ -129,4 +129,31 @@ describe("GlasgowH3Adapter", () => {
     expect(result.events).toHaveLength(1);
     expect(result.events[0].startTime).toBe("19:00");
   });
+
+  it("includes recent past events — forwardDate does not push them to next year", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-26T12:00:00Z"));
+    try {
+      const html = `<html><body>
+        <div class="row no-brd">
+          <table class="halloffame">
+            <tr><th>Run No</th><th>When</th><th>Where</th><th>Hare / Hares</th></tr>
+            <tr><td>2206</td><td>Monday 23 March</td><td>Redhurst Hotel</td><td>Audrey</td></tr>
+            <tr><td>2207</td><td>Monday 30 March</td><td>Hamilton</td><td>Bob</td></tr>
+          </table>
+        </div>
+      </body></html>`;
+
+      mockFetchResponse(html);
+      const source = { id: "src-glasgow", url: sourceUrl, config: {} } as unknown as Source;
+      const result = await adapter.fetch(source, { days: 90 });
+
+      // Both events should be included — March 23 is within 90-day lookback
+      expect(result.events).toHaveLength(2);
+      expect(result.events.find(e => e.runNumber === 2206)).toBeDefined();
+      expect(result.events.find(e => e.runNumber === 2207)).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

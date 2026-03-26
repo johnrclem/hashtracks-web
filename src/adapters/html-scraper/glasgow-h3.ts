@@ -42,8 +42,18 @@ export function parseGlasgowRow(
   // Column 1: Date — en-GB format like "Monday 23 March" (no year)
   const dateText = cells[1]?.trim();
   if (!dateText) return null;
-  const date = chronoParseDate(dateText, "en-GB", undefined, { forwardDate: true });
+  let date = chronoParseDate(dateText, "en-GB");
   if (!date) return null;
+
+  // Year-rollover: dates without a year default to current year. If the parsed
+  // date is >9 months in the past, it's likely next year (e.g., "6 January"
+  // parsed in December should resolve to next January, not last January).
+  const YEAR_ROLLOVER_THRESHOLD_MS = 270 * 24 * 60 * 60 * 1000; // ~9 months
+  const parsed = new Date(date + "T12:00:00Z");
+  if (parsed.getTime() < Date.now() - YEAR_ROLLOVER_THRESHOLD_MS) {
+    parsed.setUTCFullYear(parsed.getUTCFullYear() + 1);
+    date = parsed.toISOString().slice(0, 10);
+  }
 
   // Column 2: Location
   const location = cells[2]?.trim() || undefined;
