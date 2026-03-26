@@ -5,9 +5,9 @@ import Link from "next/link";
 import { APIProvider, Map as GoogleMap, AdvancedMarker, InfoWindow, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LocateFixed, Search } from "lucide-react";
+import { LocateFixed, Search, X } from "lucide-react";
 import { REGION_CENTROIDS, getRegionColor, getEventCoords } from "@/lib/geo";
-import { formatSchedule } from "@/lib/format";
+import { formatSchedule, formatDateShort } from "@/lib/format";
 import { ClusteredKennelMarkers, type KennelPin } from "./ClusteredKennelMarkers";
 import { ColocatedKennelList } from "./ColocatedKennelList";
 import type { KennelCardData } from "./KennelCard";
@@ -57,6 +57,35 @@ function ResetViewControl({ bounds }: { bounds: MapBounds }) {
           <LocateFixed className="mr-1.5 h-3.5 w-3.5" />
           Reset view
         </Button>
+      </div>
+    </MapControl>
+  );
+}
+
+/** First-time precision banner — dismissible, persisted via localStorage. */
+function PrecisionBanner() {
+  const [dismissed, setDismissed] = useState(true); // default true to avoid flash
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDismissed(localStorage.getItem("map-precision-dismissed") === "true");
+  }, []);
+
+  if (dismissed) return null;
+
+  return (
+    <MapControl position={ControlPosition.TOP_CENTER}>
+      <div className="mx-2 mt-2.5 flex items-center gap-2 rounded-md border bg-background/95 px-3 py-1.5 text-xs shadow-sm backdrop-blur-sm">
+        <span>Filled pins = exact locations · Hollow pins = approximate region centers</span>
+        <button
+          onClick={() => {
+            setDismissed(true);
+            localStorage.setItem("map-precision-dismissed", "true");
+          }}
+          className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+          aria-label="Dismiss precision info"
+        >
+          <X className="h-3 w-3" />
+        </button>
       </div>
     </MapControl>
   );
@@ -290,7 +319,7 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
                       {pin.nextEvent ? (
                         <>
                           <span className="font-medium">Next run:</span>{" "}
-                          {new Date(pin.nextEvent.date).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })}
+                          {formatDateShort(pin.nextEvent.date)}
                           {pin.nextEvent.title && <span className="text-muted-foreground"> — {pin.nextEvent.title}</span>}
                         </>
                       ) : (
@@ -326,6 +355,9 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
 
             {/* Save viewport to sessionStorage on idle */}
             <SaveViewport />
+
+            {/* First-time precision info banner */}
+            <PrecisionBanner />
 
             {/* Legend */}
             <MapControl position={ControlPosition.BOTTOM_LEFT}>
@@ -398,13 +430,9 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
           {/* Co-located kennel list overlay — positioned within the map container to avoid edge clipping */}
           {colocatedList && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center lg:items-center lg:justify-center">
-              <div className="pointer-events-auto mb-4 w-full max-w-xs px-4 lg:mb-0 lg:px-0">
+              <div className="pointer-events-auto mb-4 w-full max-w-sm px-4 lg:mb-0 lg:px-0">
                 <ColocatedKennelList
                   pins={colocatedList.pins}
-                  onSelectKennel={(id) => {
-                    setSelectedKennelId(id);
-                    setColocatedList(null);
-                  }}
                   onClose={() => setColocatedList(null)}
                 />
               </div>
