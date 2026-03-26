@@ -37,7 +37,7 @@ import { SourceForm } from "./SourceForm";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import { toast } from "sonner";
 import type { RegionOption } from "./RegionCombobox";
-import { getStateGroup, groupRegionsByState, expandRegionSelections } from "@/lib/region";
+import { getStateGroup, groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 
 type SourceData = {
   id: string;
@@ -599,6 +599,11 @@ function SourceRow({
   const [isScraping, setIsScraping] = useState(false);
   const router = useRouter();
 
+  const kennelRegionMap = useMemo(
+    () => new Map(allKennels.map((k) => [k.id, k.region])),
+    [allKennels],
+  );
+
   function handleToggleEnabled() {
     setMenuOpen(false);
     startTransition(async () => {
@@ -741,7 +746,11 @@ function SourceRow({
               {source.linkedKennels.length}
             </TooltipTrigger>
             <TooltipContent side="left" className="max-w-xs">
-              {source.linkedKennels.map((k) => k.shortName).join(", ")}
+              {source.linkedKennels.map((k) => {
+                const region = kennelRegionMap.get(k.id);
+                const abbrev = region ? regionAbbrev(region) : null;
+                return abbrev ? `${k.shortName} (${abbrev})` : k.shortName;
+              }).join(", ")}
             </TooltipContent>
           </Tooltip>
         ) : (

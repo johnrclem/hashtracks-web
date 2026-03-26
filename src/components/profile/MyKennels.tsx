@@ -76,6 +76,7 @@ function KennelRow({
             <Link
               href={`/kennels/${kennel.slug}`}
               className="font-medium hover:underline"
+              title={kennel.fullName}
             >
               {kennel.shortName}
             </Link>

@@ -401,6 +401,22 @@ async function seedKennels(prisma: any, kennels: KennelSeed[], kennelAliases: Re
     for (const [slug, names] of dupSlugs) console.warn(`  - slug "${slug}": ${names.join(", ")}`);
   }
 
+  // Check for shortName collisions (different kennels with same display name)
+  const shortNameGroups = new Map<string, string[]>();
+  for (const kennel of kennels) {
+    const sn = kennel.shortName;
+    const existing = shortNameGroups.get(sn) || [];
+    existing.push(`${kennel.shortName} (${kennel.kennelCode})`);
+    shortNameGroups.set(sn, existing);
+  }
+  const shortNameCollisions = [...shortNameGroups.entries()].filter(([, codes]) => codes.length > 1);
+  if (shortNameCollisions.length > 0) {
+    console.warn("⚠ Seed data has kennels with duplicate shortNames:");
+    for (const [shortName, entries] of shortNameCollisions) {
+      console.warn(`  - shortName "${shortName}": ${entries.join(", ")}`);
+    }
+  }
+
   const regionMap = await ensureRegionRecords(prisma);
   const kennelRecords = await ensureKennelRecords(prisma, kennels, toSlugFn, regionMap);
   await ensureAliases(prisma, kennelAliases, kennelRecords);

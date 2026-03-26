@@ -306,7 +306,7 @@ export async function getPendingConfirmations() {
           title: true,
           runNumber: true,
           status: true,
-          kennel: { select: { shortName: true } },
+          kennel: { select: { shortName: true, fullName: true } },
         },
       },
     },
@@ -334,6 +334,7 @@ export async function getPendingConfirmations() {
       eventTitle: r.event.title,
       runNumber: r.event.runNumber,
       kennelShortName: r.event.kennel.shortName,
+      kennelFullName: r.event.kennel.fullName,
       haredThisTrail: r.haredThisTrail,
     }));
 

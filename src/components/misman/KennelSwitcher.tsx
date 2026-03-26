@@ -29,7 +29,7 @@ export function KennelSwitcher({
 
   // If user only has one kennel, show plain heading
   if (kennels.length <= 1) {
-    return <h1 className="text-2xl font-bold">{currentKennel.shortName}</h1>;
+    return <h1 className="text-2xl font-bold" title={currentKennel.fullName}>{currentKennel.shortName}</h1>;
   }
 
   function handleChange(slug: string) {

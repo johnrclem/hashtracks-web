@@ -90,7 +90,7 @@ function OverflowPopover({ dayEvents, cellDate, onNavigate }: Readonly<{
             style={{ borderLeftColor: ev.kennel?.region ? getRegionColor(ev.kennel.region) : "#6b7280" }}
           >
             <div className="flex items-center gap-1.5">
-              <span className="truncate font-medium">{ev.kennel?.shortName}</span>
+              <span className="truncate font-medium" title={ev.kennel?.fullName}>{ev.kennel?.shortName}</span>
               {ev.startTime && <span className="ml-auto shrink-0 text-muted-foreground">{formatTimeCompact(ev.startTime)}</span>}
             </div>
             {ev.title && <span className="truncate text-[11px] text-muted-foreground">{ev.title}</span>}
@@ -399,6 +399,7 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
                 <TooltipTrigger asChild>
                   <span
                     className={`inline-flex h-5 w-fit max-w-full items-center truncate rounded-full px-1.5 text-[10px] font-bold leading-5 ring-1 ring-inset ring-foreground/10 ${regionColorClasses(e.kennel?.region ?? "")}`}
+                    title={e.kennel?.fullName}
                   >
                     {e.startTime && (
                       <span className="font-normal opacity-70">

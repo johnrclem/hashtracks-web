@@ -40,7 +40,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
         {/* Header: shortName + region badge */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="text-base font-bold leading-tight truncate">
+            <h3 className="text-base font-bold leading-tight truncate" title={kennel.fullName}>
               {kennel.shortName}
             </h3>
             <p className="text-sm text-muted-foreground truncate">
