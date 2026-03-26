@@ -126,6 +126,16 @@ describe("parseEwh3Body", () => {
     const text = "Hares: Roose Rips, Ha-Cum-On My Tatas, Ms. Nuttersworth\nWhere: Somewhere";
     expect(parseEwh3Body(text).hares).toBe("Roose Rips, Ha-Cum-On My Tatas, Ms. Nuttersworth");
   });
+
+  it("does not match 'Share:' as 'Hare:' — extracts actual hares after Bike Share line", () => {
+    const text = "Nearest Capital Bike Share: https://maps.app.goo.gl/abc123\nHares: Havana Lewinsky, Just Tommy, and Oh Hey! Not Gay\nTrail Details: stuff";
+    expect(parseEwh3Body(text).hares).toBe("Havana Lewinsky, Just Tommy, and Oh Hey! Not Gay");
+  });
+
+  it("extracts hares when Bike Share has non-URL value", () => {
+    const text = "Nearest Capital Bike Share: King St Metro North / Cameron St\nHares: Ha-Cum-On My Tatas & mystery hares\nTrail Details: stuff";
+    expect(parseEwh3Body(text).hares).toBe("Ha-Cum-On My Tatas & mystery hares");
+  });
 });
 
 const SAMPLE_HTML = `

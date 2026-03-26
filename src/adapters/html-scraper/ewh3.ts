@@ -76,7 +76,7 @@ export function parseEwh3Body(text: string): {
   onAfter?: string;
   endMetro?: string;
 } {
-  const hareMatch = text.match(/Hares?:\s*(.+?)(?=(?:When|Where|Bring|Nearest|Trail Details|Miscellaneous|End Metro|On\s*After|Last Trains|Give Back):|\n|$)/i);
+  const hareMatch = text.match(/\bHares?:\s*(.+?)(?=(?:When|Where|Bring|Nearest|Trail Details|Miscellaneous|End Metro|On\s*After|Last Trains|Give Back):|\n|$)/i);
   const onAfterMatch = text.match(/On[- ]?After\*?:\s*(.+?)(?=\n|$)/i);
   const endMetroMatch = text.match(/End Metro:\s*(.+?)(?=\n|$)/i);
 
@@ -163,6 +163,8 @@ export class EWH3Adapter implements SourceAdapter {
 
     for (const post of wpResult.posts) {
       const $ = cheerio.load(post.content);
+      // Insert newlines at <p> boundaries so labels don't run together (e.g., "ThursdayHares:")
+      $("p, br").before("\n");
       const bodyText = $.text();
       const event = processPost(post.title, bodyText, post.url, baseUrl);
       if (event) events.push(event);
@@ -223,6 +225,8 @@ export class EWH3Adapter implements SourceAdapter {
       if (!titleText) continue;
 
       const contentEl = article.find(".entry-content, .post-content").first();
+      // Insert newlines at <p> boundaries so labels don't run together
+      contentEl.find("p, br").before("\n");
       const bodyText = contentEl.text() || "";
       const event = processPost(titleText, bodyText, postUrl, baseUrl);
       if (event) events.push(event);
