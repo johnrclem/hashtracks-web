@@ -21,7 +21,7 @@ import { getLocationPref, setLocationPref, clearLocationPref } from "@/lib/locat
 
 const SESSION_KEY = "hashtracks:locationPromptDismissed";
 const DISMISS_COUNT_KEY = "hashtracks:locationPromptDismissCount";
-const PERMANENT_DISMISS_KEY = "hashtracks:locationPromptDismissed";
+const PERMANENT_DISMISS_KEY = "hashtracks:locationPromptPermanentlyDismissed";
 
 interface LocationPromptProps {
   readonly hasUrlFilters: boolean;
