@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LocateFixed, Search } from "lucide-react";
 import { REGION_CENTROIDS, getRegionColor, getEventCoords } from "@/lib/geo";
-import { formatSchedule } from "@/lib/format";
+import { formatSchedule, formatDateShort } from "@/lib/format";
 import { ClusteredKennelMarkers, type KennelPin } from "./ClusteredKennelMarkers";
 import { ColocatedKennelList } from "./ColocatedKennelList";
 import type { KennelCardData } from "./KennelCard";
+import { MapPrecisionBanner as PrecisionBanner } from "@/components/shared/MapPrecisionBanner";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
 const VIEWPORT_STORAGE_KEY = "kennels-map-viewport";
@@ -61,6 +62,7 @@ function ResetViewControl({ bounds }: { bounds: MapBounds }) {
     </MapControl>
   );
 }
+
 
 /** Auto-zoom when pins change (e.g. filter applied). Skips if viewport was restored from session. */
 function AutoZoom({ bounds, skipRef, autoZoomingRef }: { bounds: MapBounds | undefined; skipRef: React.RefObject<boolean>; autoZoomingRef: React.RefObject<boolean> }) {
@@ -290,7 +292,7 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
                       {pin.nextEvent ? (
                         <>
                           <span className="font-medium">Next run:</span>{" "}
-                          {new Date(pin.nextEvent.date).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })}
+                          {formatDateShort(pin.nextEvent.date)}
                           {pin.nextEvent.title && <span className="text-muted-foreground"> — {pin.nextEvent.title}</span>}
                         </>
                       ) : (
@@ -326,6 +328,9 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
 
             {/* Save viewport to sessionStorage on idle */}
             <SaveViewport />
+
+            {/* First-time precision info banner */}
+            <PrecisionBanner />
 
             {/* Legend */}
             <MapControl position={ControlPosition.BOTTOM_LEFT}>
@@ -398,13 +403,9 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
           {/* Co-located kennel list overlay — positioned within the map container to avoid edge clipping */}
           {colocatedList && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center lg:items-center lg:justify-center">
-              <div className="pointer-events-auto mb-4 w-full max-w-xs px-4 lg:mb-0 lg:px-0">
+              <div className="pointer-events-auto mb-4 w-full max-w-sm px-4 lg:mb-0 lg:px-0">
                 <ColocatedKennelList
                   pins={colocatedList.pins}
-                  onSelectKennel={(id) => {
-                    setSelectedKennelId(id);
-                    setColocatedList(null);
-                  }}
                   onClose={() => setColocatedList(null)}
                 />
               </div>

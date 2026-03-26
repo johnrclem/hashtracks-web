@@ -8,24 +8,40 @@ import { getRegionColor } from "@/lib/geo";
 import { toggleArrayItem } from "@/lib/format";
 import type { HarelineEvent } from "./EventCard";
 
-interface RegionQuickChipsProps {
-  events: HarelineEvent[];
-  selectedRegions: string[];
-  onRegionsChange: (regions: string[]) => void;
+interface RegionQuickChipsBaseProps {
+  readonly selectedRegions: string[];
+  readonly onRegionsChange: (regions: string[]) => void;
+  readonly label?: "events" | "kennels";
 }
+
+interface WithEvents extends RegionQuickChipsBaseProps {
+  readonly events: HarelineEvent[];
+  readonly regionCounts?: never;
+}
+
+interface WithCounts extends RegionQuickChipsBaseProps {
+  readonly events?: never;
+  readonly regionCounts: Map<string, number>;
+}
+
+type RegionQuickChipsProps = WithEvents | WithCounts;
 
 export function RegionQuickChips({
   events,
+  regionCounts,
   selectedRegions,
   onRegionsChange,
-}: Readonly<RegionQuickChipsProps>) {
-  // Compute top 6 regions by event count
+  label,
+}: RegionQuickChipsProps) {
+  // Compute top 6 regions by count
   const topRegions = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const e of events) {
-      const region = e.kennel?.region;
-      if (region) {
-        counts.set(region, (counts.get(region) ?? 0) + 1);
+    const counts: Map<string, number> = regionCounts ?? new Map<string, number>();
+    if (!regionCounts && events) {
+      for (const e of events) {
+        const region = e.kennel?.region;
+        if (region) {
+          counts.set(region, (counts.get(region) ?? 0) + 1);
+        }
       }
     }
     return Array.from(counts.entries())
@@ -37,7 +53,7 @@ export function RegionQuickChips({
         count,
         color: getRegionColor(name),
       }));
-  }, [events]);
+  }, [events, regionCounts]);
 
   if (topRegions.length === 0) return null;
 
@@ -60,7 +76,7 @@ export function RegionQuickChips({
                 : "border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/20 cursor-pointer"
             }`}
             aria-pressed={isSelected}
-            title={`${region.name} (${region.count} events)`}
+            title={`${region.name} (${region.count} ${region.count === 1 ? (label ?? "events").replace(/s$/, "") : (label ?? "events")})`}
           >
             {/* Region color dot */}
             <span
