@@ -32,7 +32,7 @@ interface KennelDirectoryProps {
 
 function parseList(value: string | null): string[] {
   if (!value) return [];
-  return value.split(",").filter(Boolean);
+  return value.split("|").filter(Boolean);
 }
 
 export function KennelDirectory({ kennels }: KennelDirectoryProps) {
@@ -97,7 +97,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         } else if (typeof val === "number") {
           str = String(val);
         } else if (Array.isArray(val)) {
-          str = val.join(",");
+          str = val.join("|");
         } else {
           str = val;
         }
