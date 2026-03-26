@@ -13,6 +13,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 import { NearMeFilter } from "@/components/shared/NearMeFilter";
 import { RegionFilterPopover } from "@/components/shared/RegionFilterPopover";
 import type { GeoState } from "@/hooks/useGeolocation";
@@ -113,6 +115,32 @@ export function KennelFilters({
         regions={regions}
         selectedRegions={selectedRegions}
         onRegionsChange={onRegionsChange}
+        trigger={
+          <Button
+            variant={selectedRegions.length > 0 ? "secondary" : "outline"}
+            size="sm"
+            className={`h-8 text-xs ${selectedRegions.length > 0 ? "border-primary/50" : ""}`}
+          >
+            {selectedRegions.length === 1
+              ? `Region: ${selectedRegions[0].startsWith("state:") ? selectedRegions[0].slice(6) : selectedRegions[0]}`
+              : "Region"}
+            {selectedRegions.length > 1 && (
+              <Badge variant="secondary" className="ml-1 text-xs">
+                {selectedRegions.length}
+              </Badge>
+            )}
+            {selectedRegions.length > 0 && (
+              <span
+                className="ml-1 rounded-full p-0.5 hover:bg-muted"
+                onClick={(e) => { e.stopPropagation(); onRegionsChange([]); }}
+                onMouseDown={(e) => { e.preventDefault(); }}
+                aria-label="Clear region filter"
+              >
+                <X className="h-3 w-3" />
+              </span>
+            )}
+          </Button>
+        }
       />
 
       {/* Run day chips */}

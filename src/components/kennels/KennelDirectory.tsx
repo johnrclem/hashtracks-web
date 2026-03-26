@@ -63,7 +63,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     return sortParam === "active" || sortParam === "nearest" ? sortParam : "alpha";
   });
   const [displayView, setDisplayViewState] = useState<"grid" | "map">(
-    searchParams.get("display") === "map" ? "map" : "grid",
+    searchParams.get("view") === "map" ? "map" : "grid",
   );
   const [mapBounds, setMapBounds] = useState<{ south: number; north: number; west: number; east: number } | null>(null);
 
@@ -80,7 +80,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         country: selectedCountry,
         distance: nearMeDistance,
         sort,
-        display: displayView,
+        view: displayView,
         ...overrides,
       };
 
@@ -100,7 +100,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         // Only add non-default values
         const isDefault =
           (key === "sort" && str === "alpha") ||
-          (key === "display" && str === "grid") ||
+          (key === "view" && str === "grid") ||
           (key === "upcoming" && str !== "true") ||
           str === "";
         if (!isDefault) {
@@ -160,13 +160,13 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   function setDisplayView(v: "grid" | "map") {
     setDisplayViewState(v);
     if (v === "grid") setMapBounds(null); // Clear area filter when switching to grid
-    syncUrl({ display: v });
+    syncUrl({ view: v });
   }
   function handleRegionSelect(region: string) {
     setSelectedRegionsState([region]);
     setDisplayViewState("grid");
     setMapBounds(null);
-    syncUrl({ regions: [region], display: "grid" });
+    syncUrl({ regions: [region], view: "grid" });
   }
   function clearAllFilters() {
     setSearchState("");
