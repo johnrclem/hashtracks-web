@@ -13,7 +13,6 @@ const STORAGE_KEY = "map-precision-dismissed";
 export function MapPrecisionBanner() {
   const [dismissed, setDismissed] = useState(true); // default true to avoid flash
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDismissed(localStorage.getItem(STORAGE_KEY) === "true");
   }, []);
 

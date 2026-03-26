@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 import { track } from "@vercel/analytics";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
@@ -51,9 +51,7 @@ function KennelRows({
             </p>
           </div>
 
-          <span className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors">
-            &rsaquo;
-          </span>
+          <ChevronRight className="shrink-0 h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </Link>
       ))}
     </div>
@@ -105,6 +103,7 @@ export function ColocatedKennelList({
           {headerText}
         </span>
         <button
+          type="button"
           onClick={onClose}
           className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           aria-label="Close kennel list"

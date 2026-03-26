@@ -5,7 +5,7 @@ import Link from "next/link";
 import { APIProvider, Map as GoogleMap, AdvancedMarker, InfoWindow, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LocateFixed, Search, X } from "lucide-react";
+import { LocateFixed, Search } from "lucide-react";
 import { REGION_CENTROIDS, getRegionColor, getEventCoords } from "@/lib/geo";
 import { formatSchedule, formatDateShort } from "@/lib/format";
 import { ClusteredKennelMarkers, type KennelPin } from "./ClusteredKennelMarkers";
@@ -63,7 +63,6 @@ function ResetViewControl({ bounds }: { bounds: MapBounds }) {
   );
 }
 
-// PrecisionBanner extracted to src/components/shared/MapPrecisionBanner.tsx
 
 /** Auto-zoom when pins change (e.g. filter applied). Skips if viewport was restored from session. */
 function AutoZoom({ bounds, skipRef, autoZoomingRef }: { bounds: MapBounds | undefined; skipRef: React.RefObject<boolean>; autoZoomingRef: React.RefObject<boolean> }) {

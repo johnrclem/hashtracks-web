@@ -76,7 +76,7 @@ export function RegionQuickChips({
                 : "border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/20 cursor-pointer"
             }`}
             aria-pressed={isSelected}
-            title={`${region.name} (${region.count} ${label ?? "events"})`}
+            title={`${region.name} (${region.count} ${region.count === 1 ? (label ?? "events").replace(/s$/, "") : (label ?? "events")})`}
           >
             {/* Region color dot */}
             <span
