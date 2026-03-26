@@ -1,25 +1,25 @@
 // ── SHARED SFH3 CONFIG (used by both iCal and HTML sources) ──
 
 const sfh3KennelPatterns: Array<[string, string]> = [
-    ["^SFH3", "SFH3"],
-    ["^GPH3", "GPH3"],
-    ["^EBH3", "EBH3"],
-    ["^SVH3", "SVH3"],
-    ["^FHAgnews", "FHAC-U"],
-    ["^FHAC-U", "FHAC-U"],
-    ["^Agnews", "Agnews"],
-    ["^Marin H3", "MarinH3"],
-    ["^FCH3", "FCH3"],
-    ["^FMH3", "SFFMH3"],
-    ["^BARH3", "BARH3"],
-    ["^VMH3", "VMH3"],
-    ["^MWH3", "MWH3"],
-    ["^26\\.2H3", "26.2H3"],
+    ["^SFH3", "sfh3"],
+    ["^GPH3", "gph3"],
+    ["^EBH3", "ebh3"],
+    ["^SVH3", "svh3"],
+    ["^FHAgnews", "fhac-u"],
+    ["^FHAC-U", "fhac-u"],
+    ["^Agnews", "agnews"],
+    ["^Marin H3", "marinh3"],
+    ["^FCH3", "fch3"],
+    ["^FMH3", "sffmh3"],
+    ["^BARH3", "barh3"],
+    ["^VMH3", "vmh3"],
+    ["^MWH3", "mwh3"],
+    ["^26\\.2H3", "262h3"],
 ];
 
 const sfh3Config = {
   kennelPatterns: sfh3KennelPatterns,
-  defaultKennelTag: "SFH3",
+  defaultKennelTag: "sfh3",
   skipPatterns: ["^Hand Pump", "^Workday"],
 };
 
@@ -59,7 +59,7 @@ export const SOURCES = [
       config: {
         sheetId: "1wG-BNb5ekMHM5euiPJT1nxQXZ3UxNqFZMdQtCBbYaMk",
         columns: { runNumber: 0, specialRun: 1, date: 2, hares: 3, location: 4, title: 6, description: 9 },
-        kennelTagRules: { default: "Summit", specialRunMap: { "ASSSH3": "ASSSH3" }, numericSpecialTag: "SFM" },
+        kennelTagRules: { default: "summit", specialRunMap: { "ASSSH3": "asssh3" }, numericSpecialTag: "sfm" },
         startTimeRules: { byDayOfWeek: { "Mon": "19:00", "Sat": "15:00", "Fri": "19:00" }, default: "15:00" },
       },
       kennelCodes: ["summit", "sfm", "asssh3"],
@@ -72,7 +72,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "Rumson",
+        kennelTag: "rumson",
         rrule: "FREQ=WEEKLY;BYDAY=SA",
         anchorDate: "2026-01-03",
         startTime: "10:17",
@@ -91,12 +91,10 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         kennelPatterns: [
-          ["BFM|Ben Franklin|BFMH3", "BFM"],
-          ["Philly Hash|hashphilly|Philly H3", "Philly H3"],
-          ["Main Line", "Main Line H3"],
-          ["TTH3", "TTH3"],
+          ["BFM|Ben Franklin|BFMH3", "bfm"],
+          ["Philly Hash|hashphilly|Philly H3", "philly-h3"],
         ],
-        defaultKennelTag: "BFM",
+        defaultKennelTag: "bfm",
       },
       kennelCodes: ["bfm", "philly-h3"],
     },
@@ -109,10 +107,10 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         kennelPatterns: [
-          ["BFM|Ben Franklin|BFMH3", "BFM"],
-          ["Philly Hash|hashphilly|Philly H3", "Philly H3"],
+          ["BFM|Ben Franklin|BFMH3", "bfm"],
+          ["Philly Hash|hashphilly|Philly H3", "philly-h3"],
         ],
-        defaultKennelTag: "Philly H3",
+        defaultKennelTag: "philly-h3",
       },
       kennelCodes: ["bfm", "philly-h3"],
     },
@@ -143,19 +141,19 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         kennelPatterns: [
-          ["CH3|Chicago Hash|Chicago H3", "Chicago H3"],
-          ["TH3|Thirstday|Thursday Hash", "Thirstday H3"],
-          ["CFMH3|Chicago Full Moon|Full Moon Hash|Full Moon H3|Moon Hash", "CFMH3"],
-          ["FCMH3|First Crack", "FCMH3"],
-          ["BDH3|Big Dogs", "BDH3"],
-          ["BMH3|Bushman", "Bushman H3"],
-          ["2CH3|Second City", "2CH3"],
-          ["WWH3|Whiskey Wednesday", "WWH3"],
-          ["4X2|4x2", "4X2H4"],
-          ["RTH3|Ragtime", "RTH3"],
-          ["DLH3|Duneland|South Shore", "DLH3"],
+          ["CH3|Chicago Hash|Chicago H3", "ch3"],
+          ["TH3|Thirstday|Thursday Hash", "th3"],
+          ["CFMH3|Chicago Full Moon|Full Moon Hash|Full Moon H3|Moon Hash", "cfmh3"],
+          ["FCMH3|First Crack", "fcmh3"],
+          ["BDH3|Big Dogs", "bdh3"],
+          ["BMH3|Bushman", "bmh3"],
+          ["2CH3|Second City", "2ch3"],
+          ["WWH3|Whiskey Wednesday", "wwh3"],
+          ["4X2|4x2", "4x2h4"],
+          ["RTH3|Ragtime", "rth3"],
+          ["DLH3|Duneland|South Shore", "dlh3"],
         ],
-        defaultKennelTag: "Chicago H3",
+        defaultKennelTag: "ch3",
       },
       kennelCodes: ["ch3", "th3", "cfmh3", "fcmh3", "bdh3", "bmh3", "2ch3", "wwh3", "4x2h4", "rth3", "dlh3"],
     },
@@ -185,7 +183,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "EWH3",
+        defaultKennelTag: "ewh3",
       },
       kennelCodes: ["ewh3"],
     },
@@ -197,7 +195,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "SHITH3",
+        defaultKennelTag: "shith3",
       },
       kennelCodes: ["shith3"],
     },
@@ -221,7 +219,7 @@ export const SOURCES = [
         sheetId: "19mNka1u64ZNOHS7z_EoqRIrAOdqg5HkY9Uk8u6LwAsI",
         tabs: ["W3H3 Hareline"],
         columns: { runNumber: 0, date: 1, hares: 2, location: 3, title: 4 },
-        kennelTagRules: { default: "W3H3" },
+        kennelTagRules: { default: "w3h3" },
         startTimeRules: { byDayOfWeek: { "Wed": "18:09" }, default: "18:09" },
         defaultTitle: "Wild & Wonderful Wednesday Trail",
       },
@@ -309,7 +307,18 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: {},
+      config: {
+        containerSelector: "table",
+        rowSelector: "tr",
+        columns: {
+          runNumber: "td:nth-child(1)",
+          date: "td:nth-child(2)",
+          location: "td:nth-child(3)",
+          hares: "td:nth-child(4)",
+        },
+        defaultKennelTag: "glasgowh3",
+        dateLocale: "en-GB",
+      },
       kennelCodes: ["glasgowh3"],
     },
     {
@@ -339,7 +348,7 @@ export const SOURCES = [
           location: "td:nth-child(3)",
           hares: "td:nth-child(5)",
         },
-        defaultKennelTag: "Bristol H3",
+        defaultKennelTag: "bristolh3",
         dateLocale: "en-GB",
         locationTruncateAfter: "uk-postcode",
       },
@@ -355,8 +364,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
-        kennelPatterns: [["Full Moon Run", "BH3FM"]],
-        defaultKennelTag: "BH3",
+        kennelPatterns: [["Full Moon Run", "bh3fm"]],
+        defaultKennelTag: "berlinh3",
       },
       kennelCodes: ["berlinh3", "bh3fm"],
     },
@@ -370,11 +379,11 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelPatterns: [
-          ["^DST\\b", "DST"],
-          ["^FM\\b|Full Moon", "FM"],
-          ["^SUPER\\b", "SUPER"],
+          ["^DST\\b", "dst-h3"],
+          ["^FM\\b|Full Moon", "fm-stgt"],
+          ["^SUPER\\b", "super-h3"],
         ],
-        defaultKennelTag: "SH3",
+        defaultKennelTag: "sh3-de",
       },
       kennelCodes: ["sh3-de", "dst-h3", "fm-stgt", "super-h3"],
     },
@@ -410,10 +419,10 @@ export const SOURCES = [
       scrapeDays: 180,
       config: {
         kennelPatterns: [
-          ["^CCH3", "Charm City H3"],
-          ["^Trail\\s*#", "Charm City H3"],
+          ["^CCH3", "cch3"],
+          ["^Trail\\s*#", "cch3"],
         ],
-        defaultKennelTag: "Charm City H3",
+        defaultKennelTag: "cch3",
         titleHarePattern: "~\\s*(.+)$",
       },
       kennelCodes: ["cch3"],
@@ -426,7 +435,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 180,
       config: {
-        defaultKennelTag: "BAH3",
+        defaultKennelTag: "bah3",
         // BAH3 uses emoji-prefixed labels: "🎯 Hares (loud and clear):" and "Where:addr"
         harePatterns: [String.raw`(?:^|\n)\s*[^\n]*Hares?[^:]*:\s*(.+?)(?:\n|$)`],
         locationPatterns: [String.raw`(?:^|\n)\s*Where\s*:?\s*(.+?)(?:\n|$)`],
@@ -494,7 +503,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "AH3",
+        defaultKennelTag: "ah3",
       },
       kennelCodes: ["ah3"],
     },
@@ -506,7 +515,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "KAW!H3",
+        defaultKennelTag: "kawh3",
       },
       kennelCodes: ["kawh3"],
     },
@@ -520,13 +529,13 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         kennelPatterns: [
-          ["Brass Monkey H3|Brass Monkey", "BMH3"],
-          ["GALVESTON H3|Galveston H3|GH3\\s*#|#\\d+\\s*Galveston", "Galveston H3"],
-          ["Space City H3|Space City Hash|SCH3", "Space City H3"],
-          ["Moooouston H3|Moooo?uston", "Moooouston H3"],
-          ["Mosquito H3|Mosquito", "Mosquito H3"],
+          ["Brass Monkey H3|Brass Monkey", "bmh3-tx"],
+          ["GALVESTON H3|Galveston H3|GH3\\s*#|#\\d+\\s*Galveston", "galh3"],
+          ["Space City H3|Space City Hash|SCH3", "space-city-h3"],
+          ["Moooouston H3|Moooo?uston", "moooouston-h3"],
+          ["Mosquito H3|Mosquito", "mosquito-h3"],
         ],
-        defaultKennelTag: "Houston H3",
+        defaultKennelTag: "h4-tx",
         skipPatterns: ["^VOICE:", "^Platterpuss"],
       },
       kennelCodes: ["h4-tx", "bmh3-tx", "mosquito-h3", "moooouston-h3", "space-city-h3", "galh3"],
@@ -548,7 +557,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "Mosquito H3",
+        kennelTag: "mosquito-h3",
         rrule: "FREQ=MONTHLY;BYDAY=1WE",
         startTime: "18:30",
         defaultTitle: "Mosquito H3 Bimonthly Run",
@@ -565,7 +574,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "Mosquito H3",
+        kennelTag: "mosquito-h3",
         rrule: "FREQ=MONTHLY;BYDAY=3WE",
         startTime: "18:30",
         defaultTitle: "Mosquito H3 Bimonthly Run",
@@ -593,7 +602,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "C2H3",
+        defaultKennelTag: "c2h3",
       },
       kennelCodes: ["c2h3"],
     },
@@ -607,7 +616,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "Flour City H3",
+        defaultKennelTag: "flour-city",
       },
       kennelCodes: ["flour-city"],
     },
@@ -619,7 +628,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { defaultKennelTag: "SOH4" },
+      config: { defaultKennelTag: "soh4" },
       kennelCodes: ["soh4"],
     },
     // --- Capital District (HTML scraper) ---
@@ -630,7 +639,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { defaultKennelTag: "HMHHH" },
+      config: { defaultKennelTag: "halvemein" },
       kennelCodes: ["halvemein"],
     },
     // --- Ithaca (HTML scraper) ---
@@ -641,7 +650,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { defaultKennelTag: "IH3" },
+      config: { defaultKennelTag: "ih3" },
       kennelCodes: ["ih3"],
     },
     // --- Buffalo (Google Calendar) ---
@@ -653,7 +662,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "Buffalo H3",
+        defaultKennelTag: "bh3",
       },
       kennelCodes: ["bh3"],
     },
@@ -667,7 +676,7 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         groupUrlname: "Hudson-Valley-Hash-House-Harriers",
-        kennelTag: "Hudson Valley H3",
+        kennelTag: "hvh3-ny",
       },
       kennelCodes: ["hvh3-ny"],
     },
@@ -681,7 +690,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "PGH H3",
+        defaultKennelTag: "pgh-h3",
       },
       kennelCodes: ["pgh-h3"],
     },
@@ -694,7 +703,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 180,
       config: {
-        defaultKennelTag: "ICH3",
+        defaultKennelTag: "ich3",
       },
       kennelCodes: ["ich3"],
     },
@@ -707,7 +716,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "NVHHH",
+        defaultKennelTag: "nvhhh",
       },
       kennelCodes: ["nvhhh"],
     },
@@ -720,7 +729,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "LVH3",
+        defaultKennelTag: "lvh3",
         descriptionSuffix: "Check the LVH3 Facebook page for the latest event details and updates: https://www.facebook.com/groups/lvh3/",
       },
       kennelCodes: ["lvh3"],
@@ -734,7 +743,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 180,
       config: {
-        defaultKennelTag: "RH3",
+        defaultKennelTag: "rh3",
       },
       kennelCodes: ["rh3"],
     },
@@ -747,7 +756,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "H5",
+        defaultKennelTag: "h5-hash",
       },
       kennelCodes: ["h5-hash"],
     },
@@ -760,7 +769,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "Hockessin H3" },
+      config: { defaultKennelTag: "hockessin" },
       kennelCodes: ["hockessin"],
     },
     // ===== VIRGINIA (outside DC metro) =====
@@ -772,7 +781,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { defaultKennelTag: "RVAH3" },
+      config: { defaultKennelTag: "rvah3" },
       kennelCodes: ["rvah3"],
     },
     {
@@ -782,7 +791,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { groupUrlname: "richmond-hash-house-harriers", kennelTag: "RVAH3" },
+      config: { groupUrlname: "richmond-hash-house-harriers", kennelTag: "rvah3" },
       kennelCodes: ["rvah3"],
     },
     // --- Fort Eustis (Calendar + Meetup) ---
@@ -793,7 +802,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { defaultKennelTag: "FEH3" },
+      config: { defaultKennelTag: "feh3" },
       kennelCodes: ["feh3"],
     },
     {
@@ -803,7 +812,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { groupUrlname: "FEH3-Hash", kennelTag: "FEH3" },
+      config: { groupUrlname: "FEH3-Hash", kennelTag: "feh3" },
       kennelCodes: ["feh3"],
     },
     // --- BDSM H3 (Meetup) ---
@@ -814,7 +823,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { groupUrlname: "BDSM-Hash-House-Harriers", kennelTag: "BDSMH3" },
+      config: { groupUrlname: "BDSM-Hash-House-Harriers", kennelTag: "bdsmh3" },
       kennelCodes: ["bdsmh3"],
     },
     // --- cHARLOTtesville (Meetup) ---
@@ -825,7 +834,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { groupUrlname: "meetup-group-xxcniptw", kennelTag: "CvilleH3" },
+      config: { groupUrlname: "meetup-group-xxcniptw", kennelTag: "cvilleh3" },
       kennelCodes: ["cvilleh3"],
     },
     // --- Fredericksburg (Static Schedule — kennel already exists, adding source) ---
@@ -837,7 +846,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "FUH3",
+        kennelTag: "fuh3",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
         anchorDate: "2026-03-08",
         startTime: "15:00",
@@ -856,7 +865,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "Tidewater H3",
+        kennelTag: "twh3",
         rrule: "FREQ=WEEKLY;BYDAY=SU",
         startTime: "14:00",
         defaultTitle: "Tidewater H3 Weekly Run",
@@ -874,7 +883,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "7H4",
+        kennelTag: "7h4",
         rrule: "FREQ=WEEKLY;BYDAY=WE",
         startTime: "18:30",
         defaultTitle: "Seven Hills H3 Weekly Run",
@@ -892,7 +901,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { defaultKennelTag: "SWH3" },
+      config: { defaultKennelTag: "swh3" },
       kennelCodes: ["swh3"],
     },
     {
@@ -910,7 +919,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { defaultKennelTag: "Larrikins" },
+      config: { defaultKennelTag: "larrikins" },
       kennelCodes: ["larrikins"],
     },
     // --- Charlotte (Meetup) ---
@@ -921,7 +930,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { groupUrlname: "charlotte-hash-house-harriers", kennelTag: "CH3" },
+      config: { groupUrlname: "charlotte-hash-house-harriers", kennelTag: "ch3-nc" },
       kennelCodes: ["ch3-nc"],
     },
     // --- Asheville (Meetup) ---
@@ -932,7 +941,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { groupUrlname: "AVLH3-On-On", kennelTag: "AVLH3" },
+      config: { groupUrlname: "AVLH3-On-On", kennelTag: "avlh3" },
       kennelCodes: ["avlh3"],
     },
     // --- Wilmington / Cape Fear (WordPress hareline page) ---
@@ -944,7 +953,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 180,
       config: {
-        defaultKennelTag: "CFH3",
+        defaultKennelTag: "cfh3",
         containerSelector: "table:first-of-type",
         rowSelector: "tr",
         columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
@@ -959,7 +968,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { groupUrlname: "fayetteville-running-training-meetup-group", kennelTag: "CTrH3" },
+      config: { groupUrlname: "fayetteville-running-training-meetup-group", kennelTag: "ctrh3" },
       kennelCodes: ["ctrh3"],
     },
     // ===== FLORIDA =====
@@ -973,7 +982,7 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         groupUrlname: "miami-hash-house-harriers",
-        kennelTag: "MIA H3",
+        kennelTag: "mia-h3",
       },
       kennelCodes: ["mia-h3"],
     },
@@ -985,7 +994,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "KWH3",
+        defaultKennelTag: "kwh3",
       },
       kennelCodes: ["kwh3"],
     },
@@ -997,7 +1006,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "O2H3",
+        defaultKennelTag: "o2h3",
       },
       kennelCodes: ["o2h3"],
     },
@@ -1020,7 +1029,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "Wildcard H3",
+        kennelTag: "wildcard-h3",
         rrule: "FREQ=WEEKLY;BYDAY=MO",
         anchorDate: "2026-03-02",
         startTime: "18:30",
@@ -1038,7 +1047,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "H6",
+        kennelTag: "h6",
         rrule: "FREQ=WEEKLY;BYDAY=FR",
         anchorDate: "2026-03-06",
         startTime: "18:30",
@@ -1056,7 +1065,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "PBH3",
+        kennelTag: "pbh3",
         rrule: "FREQ=WEEKLY;BYDAY=WE",
         anchorDate: "2026-03-04",
         startTime: "18:30",
@@ -1074,7 +1083,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "GATR H3",
+        kennelTag: "gatr-h3",
         rrule: "FREQ=MONTHLY;BYDAY=3SA",
         anchorDate: "2026-03-21",
         startTime: "14:00",
@@ -1095,7 +1104,7 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         groupUrlname: "savannah-hash-house-harriers",
-        kennelTag: "SavH3",
+        kennelTag: "savh3",
       },
       kennelCodes: ["savh3"],
     },
@@ -1109,15 +1118,15 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         forums: {
-          "2": { kennelTag: "AH4", hashDay: "Saturday" },
-          "4": { kennelTag: "PH3", hashDay: "Saturday" },
-          "5": { kennelTag: "BSH3", hashDay: "Sunday" },
-          "6": { kennelTag: "SOBH3", hashDay: "Sunday" },
-          "7": { kennelTag: "WHH3", hashDay: "Sunday" },
-          "8": { kennelTag: "MLH4", hashDay: "Monday" },
-          "9": { kennelTag: "DUFF H3", hashDay: "Wednesday" },
-          "10": { kennelTag: "SLUT H3", hashDay: "Thursday" },
-          "11": { kennelTag: "SoCo", hashDay: "Friday" },
+          "2": { kennelTag: "ah4", hashDay: "Saturday" },
+          "4": { kennelTag: "ph3-atl", hashDay: "Saturday" },
+          "5": { kennelTag: "bsh3", hashDay: "Sunday" },
+          "6": { kennelTag: "sobh3", hashDay: "Sunday" },
+          "7": { kennelTag: "whh3", hashDay: "Sunday" },
+          "8": { kennelTag: "mlh4", hashDay: "Monday" },
+          "9": { kennelTag: "duffh3", hashDay: "Wednesday" },
+          "10": { kennelTag: "sluth3", hashDay: "Thursday" },
+          "11": { kennelTag: "soco-h3", hashDay: "Friday" },
         },
       },
       kennelCodes: ["ah4", "ph3-atl", "bsh3", "sobh3", "whh3", "mlh4", "duffh3", "sluth3", "soco-h3"],
@@ -1131,7 +1140,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "Southern Comfort H3",
+        kennelTag: "sch3-atl",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=FR",
         anchorDate: "2026-03-06",
         startTime: "19:00",
@@ -1149,7 +1158,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "HMH3",
+        kennelTag: "hmh3",
         rrule: "FREQ=MONTHLY;BYDAY=1SU",
         anchorDate: "2026-03-01",
         startTime: "13:30",
@@ -1167,7 +1176,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "CUNT H3",
+        kennelTag: "cunth3-atl",
         rrule: "FREQ=MONTHLY;BYDAY=1TU",
         anchorDate: "2026-03-03",
         startTime: "19:00",
@@ -1185,7 +1194,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "PFH3",
+        kennelTag: "pfh3",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=WE",
         anchorDate: "2026-03-04",
         startTime: "18:30",
@@ -1203,7 +1212,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "AUGH3",
+        kennelTag: "augh3",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
         anchorDate: "2026-03-07",
         startTime: "14:00",
@@ -1221,7 +1230,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "MGH4",
+        kennelTag: "mgh4",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
         anchorDate: "2026-03-07",
         startTime: "14:00",
@@ -1239,7 +1248,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "Wed Wed Wed H3",
+        kennelTag: "w3h3-ga",
         rrule: "FREQ=WEEKLY;BYDAY=WE",
         anchorDate: "2026-03-04",
         startTime: "18:30",
@@ -1257,7 +1266,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "CVH3",
+        kennelTag: "cvh3",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
         anchorDate: "2026-03-07",
         startTime: "11:00",
@@ -1275,7 +1284,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "R2H3",
+        kennelTag: "r2h3",
         rrule: "FREQ=MONTHLY;BYDAY=2SA",
         anchorDate: "2026-03-14",
         startTime: "14:30",
@@ -1295,7 +1304,7 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         groupUrlname: "charlestonheretics",
-        kennelTag: "CHH3",
+        kennelTag: "chh3",
       },
       kennelCodes: ["chh3"],
     },
@@ -1307,7 +1316,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "Charleston H3",
+        kennelTag: "ch3-sc",
         rrule: "FREQ=WEEKLY;BYDAY=TH",
         anchorDate: "2026-03-05",
         startTime: "18:30",
@@ -1325,7 +1334,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "BUDH3",
+        kennelTag: "budh3",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
         anchorDate: "2026-03-07",
         startTime: "15:00",
@@ -1343,7 +1352,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "ColH3",
+        kennelTag: "colh3",
         rrule: "FREQ=MONTHLY;BYDAY=1SU",
         anchorDate: "2026-03-01",
         startTime: "15:00",
@@ -1361,7 +1370,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "ColH3",
+        kennelTag: "colh3",
         rrule: "FREQ=MONTHLY;BYDAY=3SU",
         anchorDate: "2026-03-15",
         startTime: "15:00",
@@ -1379,7 +1388,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "SecH3",
+        kennelTag: "sech3",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
         anchorDate: "2026-03-14",
         startTime: "15:00",
@@ -1397,7 +1406,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "PalH3",
+        kennelTag: "palh3",
         rrule: "FREQ=MONTHLY;BYDAY=3SA",
         anchorDate: "2026-03-21",
         startTime: "14:00",
@@ -1415,7 +1424,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "UH3",
+        kennelTag: "uh3",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU",
         anchorDate: "2026-03-08",
         startTime: "14:00",
@@ -1433,7 +1442,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "GOTH3",
+        kennelTag: "goth3",
         rrule: "FREQ=MONTHLY;BYDAY=3SA",
         anchorDate: "2026-03-21",
         startTime: "14:30",
@@ -1451,7 +1460,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "GSH3",
+        kennelTag: "gsh3",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
         anchorDate: "2026-03-07",
         startTime: "16:00",
@@ -1470,7 +1479,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "HVH3",
+        kennelTag: "hvh3",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=TH",
         startTime: "18:30",
         timezone: "America/New_York",
@@ -1488,7 +1497,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
-        kennelTag: "PooFH3",
+        kennelTag: "poofh3",
         rrule: "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3",
         startTime: "14:00",
         timezone: "America/New_York",
@@ -1517,7 +1526,7 @@ export const SOURCES = [
       scrapeDays: 180,
       config: {
         groupUrlname: "vontramph3",
-        kennelTag: "VTH3",
+        kennelTag: "vth3",
       },
       kennelCodes: ["vth3"],
     },
@@ -1539,7 +1548,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
-        kennelTag: "RIH3",
+        kennelTag: "rih3",
         rrule: "FREQ=WEEKLY;BYDAY=MO",
         anchorDate: "2026-03-09",
         startTime: "18:30",
@@ -1569,7 +1578,7 @@ export const SOURCES = [
       scrapeDays: 180,
       config: {
         groupUrlname: "meetup-group-cwrnpwpc",
-        kennelTag: "Narwhal H3",
+        kennelTag: "narwhal-h3",
       },
       kennelCodes: ["narwhal-h3"],
     },
@@ -1585,11 +1594,11 @@ export const SOURCES = [
       config: {
         calendarId: "cae3r4u2uhucmmi9rvq5eu6obg@group.calendar.google.com",
         kennelPatterns: [
-          ["OH3.*Full Moon|OH3 #|OH3 -|OH3$", "OH3"],
-          ["TGIF|Friday.*Pubcrawl", "TGIF"],
-          ["Cherry City|Cherry Cherry City", "CCH3"],
+          ["OH3.*Full Moon|OH3 #|OH3 -|OH3$", "oh3"],
+          ["TGIF|Friday.*Pubcrawl", "tgif"],
+          ["Cherry City|Cherry Cherry City", "cch3-or"],
         ],
-        defaultKennelTag: "OH3",
+        defaultKennelTag: "oh3",
       },
       kennelCodes: ["oh3", "tgif", "cch3-or"],
     },
@@ -1603,7 +1612,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         calendarId: "63h32shgrk48ci0li17lmoijeg@group.calendar.google.com",
-        defaultKennelTag: "N2H3",
+        defaultKennelTag: "n2h3",
       },
       kennelCodes: ["n2h3"],
     },
@@ -1616,7 +1625,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         calendarId: "e63ac95062e8cb80b4c470e316701cfba3046903bc6662c456efe87d52250e9e@group.calendar.google.com",
-        defaultKennelTag: "OKH3",
+        defaultKennelTag: "okh3",
       },
       kennelCodes: ["okh3"],
     },
@@ -1629,7 +1638,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         calendarId: "e42428cbbecf52a48618c36aa1654ec0186aa307eb6d608641ef3a9e5c243128@group.calendar.google.com",
-        defaultKennelTag: "PH4",
+        defaultKennelTag: "ph4",
       },
       kennelCodes: ["ph4"],
     },
@@ -1642,7 +1651,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         calendarId: "5e6c1e6bdcb70c74eb924aee3d74f63e13a65c91f86844f50b37f412a768e82c@group.calendar.google.com",
-        defaultKennelTag: "StumpH3",
+        defaultKennelTag: "stumph3",
       },
       kennelCodes: ["stumph3"],
     },
@@ -1655,7 +1664,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         calendarId: "e435782c94f98136bde0957e4f791bdd3a0ac0d13970bbfe1ff34f5ddc676990@group.calendar.google.com",
-        defaultKennelTag: "DWH3",
+        defaultKennelTag: "dwh3",
       },
       kennelCodes: ["dwh3"],
     },
@@ -1668,7 +1677,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         calendarId: "898ddb527b83d7944c788bfbdb4074be5ee3c5ddf380acbdb206abd2861d6dc2@group.calendar.google.com",
-        defaultKennelTag: "Portland SWH3",
+        defaultKennelTag: "swh3-or",
       },
       kennelCodes: ["swh3-or"],
     },
@@ -1681,7 +1690,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         calendarId: "0f125fcba18bfeca585fe7d3592c70159df9c97d620dfd68fd65a73fcd063d8c@group.calendar.google.com",
-        defaultKennelTag: "SalemH3",
+        defaultKennelTag: "salemh3",
       },
       kennelCodes: ["salemh3"],
     },
@@ -1694,7 +1703,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         calendarId: "711a1cfbec0cfbcc26ba28c79d943700e6b7c33c8c11896a86da701fc96291b6@group.calendar.google.com",
-        defaultKennelTag: "CCH3",
+        defaultKennelTag: "cch3-or",
       },
       kennelCodes: ["cch3-or"],
     },
@@ -1707,7 +1716,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         calendarId: "8b593752049f42f9aca8fb04197bfb25d7f4148db8c314991e842bbf6b4ea303@group.calendar.google.com",
-        defaultKennelTag: "Eugene H3",
+        defaultKennelTag: "eh3-or",
       },
       kennelCodes: ["eh3-or"],
     },
@@ -1720,7 +1729,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         calendarId: "6ureum96qhgf13kj820i61ovq8@group.calendar.google.com",
-        defaultKennelTag: "COH3",
+        defaultKennelTag: "coh3",
       },
       kennelCodes: ["coh3"],
     },
@@ -1735,21 +1744,21 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelPatterns: [
-          ["^SH3\\b|Seattle H3", "SH3"],
-          ["^PSH3\\b|Puget Sound", "PSH3"],
-          ["^NBH3\\b|No Balls", "NBH3"],
-          ["^RCH3\\b|Rain City", "Rain City H3"],
-          ["SeaMon", "SeaMon"],
-          ["^TH3\\b|Tacoma H3|^Tacoma", "Tacoma H3"],
-          ["^SSH3\\b|South Sound", "SSH3"],
-          ["CUNTh", "CUNTh"],
-          ["Taint", "Taint"],
-          ["Giggity", "Giggity"],
-          ["South End|^SEH3|^SEH5", "SEH3"],
-          ["HSWTF", "HSWTF"],
-          ["Leap Year", "Leap Year"],
+          ["^SH3\\b|Seattle H3", "sh3-wa"],
+          ["^PSH3\\b|Puget Sound", "psh3"],
+          ["^NBH3\\b|No Balls", "nbh3-wa"],
+          ["^RCH3\\b|Rain City", "rch3-wa"],
+          ["SeaMon", "seamon-h3"],
+          ["^TH3\\b|Tacoma H3|^Tacoma", "th3-wa"],
+          ["^SSH3\\b|South Sound", "ssh3-wa"],
+          ["CUNTh", "cunth3-wa"],
+          ["Taint", "taint-h3"],
+          ["Giggity", "giggity-h3"],
+          ["South End|^SEH3|^SEH5", "seh3-wa"],
+          ["HSWTF", "hswtf-h3"],
+          ["Leap Year", "leapyear-h3"],
         ],
-        defaultKennelTag: "SH3",
+        defaultKennelTag: "sh3-wa",
       },
       kennelCodes: ["sh3-wa", "psh3", "nbh3-wa", "rch3-wa", "seamon-h3", "th3-wa", "ssh3-wa", "cunth3-wa", "taint-h3", "giggity-h3", "seh3-wa", "hswtf-h3", "leapyear-h3"],
     },
@@ -1767,7 +1776,7 @@ export const SOURCES = [
         skipRows: 0,
         tabs: ["Sheet1"],
         columns: { runNumber: 0, date: 1, hares: 2, title: 3, location: 4, description: 5 },
-        kennelTagRules: { default: "SH3" },
+        kennelTagRules: { default: "sh3-wa" },
       },
       kennelCodes: ["sh3-wa"],
     },
@@ -1783,7 +1792,7 @@ export const SOURCES = [
         gid: 237970172,
         skipRows: 2,
         columns: { runNumber: 0, date: 2, hares: 3, title: 4, location: -1 },
-        kennelTagRules: { default: "PSH3" },
+        kennelTagRules: { default: "psh3" },
       },
       kennelCodes: ["psh3"],
     },
@@ -1802,7 +1811,7 @@ export const SOURCES = [
         gid: 0,
         skipRows: 2,
         columns: { runNumber: 0, date: 1, hares: 2, title: 3, location: -1 },
-        kennelTagRules: { default: "Rain City H3" },
+        kennelTagRules: { default: "rch3-wa" },
       },
       kennelCodes: ["rch3-wa"],
     },
@@ -1818,7 +1827,7 @@ export const SOURCES = [
         gid: 0,
         skipRows: 1,
         columns: { runNumber: 0, date: 1, hares: 2, title: 3, location: -1 },
-        kennelTagRules: { default: "SeaMon" },
+        kennelTagRules: { default: "seamon-h3" },
       },
       kennelCodes: ["seamon-h3"],
     },
@@ -1834,7 +1843,7 @@ export const SOURCES = [
         csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_z30ZkQNOwcAka4qU22bAGYIVjJFc5NyICst9OeUWPvi27lNK8ICkZllzLI0gjLwQDjVvlt3mMlDM/pub?output=csv",
         skipRows: 2,
         columns: { runNumber: 0, date: 1, hares: 2, title: 3, location: -1 },
-        kennelTagRules: { default: "Leap Year" },
+        kennelTagRules: { default: "leapyear-h3" },
       },
       kennelCodes: ["leapyear-h3"],
     },
@@ -1847,7 +1856,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "DH3" },
+      config: { defaultKennelTag: "dh3-co" },
       kennelCodes: ["dh3-co"],
     },
     // --- Mile High Humpin' Hash (Google Calendar) ---
@@ -1858,7 +1867,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "MiHiHuHa" },
+      config: { defaultKennelTag: "mihi-huha" },
       kennelCodes: ["mihi-huha"],
     },
     // --- Colorado H3 Aggregator (Google Calendar — covers Boulder H3 + others) ---
@@ -1871,10 +1880,10 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelPatterns: [
-          ["Boulder H3|^BH3", "BH3"],
-          ["MiHiHuHa|MiHiHUHa", "MiHiHuHa"],
+          ["Boulder H3|^BH3", "bh3-co"],
+          ["MiHiHuHa|MiHiHUHa", "mihi-huha"],
         ],
-        defaultKennelTag: "BH3",
+        defaultKennelTag: "bh3-co",
       },
       kennelCodes: ["bh3-co", "mihi-huha"],
     },
@@ -1886,7 +1895,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "Fort Collins H3" },
+      config: { defaultKennelTag: "fch3-co" },
       kennelCodes: ["fch3-co"],
     },
     // --- Colorado Springs H3 (Google Calendar — multi-kennel) ---
@@ -1899,11 +1908,11 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelPatterns: [
-          ["^PPH4|Pikes Peak", "PPH4"],
-          ["^Kimchi", "Kimchi"],
-          ["^DIM", "DIM"],
+          ["^PPH4|Pikes Peak", "pph4"],
+          ["^Kimchi", "kimchi-h3"],
+          ["^DIM", "dim-h3"],
         ],
-        defaultKennelTag: "PPH4",
+        defaultKennelTag: "pph4",
       },
       kennelCodes: ["pph4", "kimchi-h3", "dim-h3"],
     },
@@ -1917,10 +1926,10 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelPatterns: [
-          ["\\bT3H3\\b|Twin Titties", "T3H3"],
-          ["\\bMH3\\b", "MH3"]
+          ["\\bT3H3\\b|Twin Titties", "t3h3"],
+          ["\\bMH3\\b", "mh3-mn"]
         ],
-        defaultKennelTag: "MH3",
+        defaultKennelTag: "mh3-mn",
       },
       kennelCodes: ["mh3-mn", "t3h3"],
     },
@@ -1932,7 +1941,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "MoA2H3" },
+      config: { defaultKennelTag: "moa2h3" },
       kennelCodes: ["moa2h3"],
     },
     {
@@ -1942,7 +1951,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "DeMon" },
+      config: { defaultKennelTag: "demon-h3" },
       kennelCodes: ["demon-h3"],
     },
     {
@@ -1952,7 +1961,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "GLH3" },
+      config: { defaultKennelTag: "glh3" },
       kennelCodes: ["glh3"],
     },
     // ===== ARIZONA =====
@@ -1966,12 +1975,12 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelPatterns: [
-          ["^LBH\\b|Lost Boobs", "LBH"],
-          ["Hump D", "Hump D"],
-          ["Wrong Way", "Wrong Way"],
-          ["Dusk.*Down|FDTDD", "FDTDD"],
+          ["^LBH\\b|Lost Boobs", "lbh-phx"],
+          ["Hump D", "hump-d"],
+          ["Wrong Way", "wrong-way"],
+          ["Dusk.*Down|FDTDD", "fdtdd"],
         ],
-        defaultKennelTag: "Wrong Way",
+        defaultKennelTag: "wrong-way",
       },
       kennelCodes: ["lbh-phx", "hump-d", "wrong-way", "fdtdd"],
     },
@@ -1985,12 +1994,12 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         kennelPatterns: [
-          ["^LBH\\b|Lost Boobs", "LBH"],
-          ["Hump D", "Hump D"],
-          ["Wrong Way", "Wrong Way"],
-          ["Dusk.*Down|FDTDD", "FDTDD"],
+          ["^LBH\\b|Lost Boobs", "lbh-phx"],
+          ["Hump D", "hump-d"],
+          ["Wrong Way", "wrong-way"],
+          ["Dusk.*Down|FDTDD", "fdtdd"],
         ],
-        defaultKennelTag: "Wrong Way",
+        defaultKennelTag: "wrong-way",
       },
       kennelCodes: ["lbh-phx", "hump-d", "wrong-way", "fdtdd"],
     },
@@ -2002,7 +2011,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "jHav" },
+      config: { defaultKennelTag: "jhav-h3" },
       kennelCodes: ["jhav-h3"],
     },
     {
@@ -2012,7 +2021,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "Mr. Happy's" },
+      config: { defaultKennelTag: "mrhappy" },
       kennelCodes: ["mrhappy"],
     },
     {
@@ -2022,7 +2031,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "Pedal Files" },
+      config: { defaultKennelTag: "pedalfiles" },
       kennelCodes: ["pedalfiles"],
     },
     // ===== HAWAII =====
@@ -2035,9 +2044,9 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         kennelPatterns: [
-          ["\\bH5\\b|Honolulu H[45]", "H5"],
+          ["\\bH5\\b|Honolulu H[45]", "h5-hi"],
         ],
-        defaultKennelTag: "AH3",
+        defaultKennelTag: "ah3-hi",
       },
       kennelCodes: ["ah3-hi", "h5-hi"],
     },
@@ -2048,7 +2057,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { defaultKennelTag: "H5" },
+      config: { defaultKennelTag: "h5-hi" },
       kennelCodes: ["h5-hi"],
     },
     // ===== CALIFORNIA =====
@@ -2060,7 +2069,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "SCH3" },
+      config: { defaultKennelTag: "sch3-ca" },
       kennelCodes: ["sch3-ca"],
     },
     // --- Los Angeles Area (Google Calendar) ---
@@ -2071,7 +2080,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "LAH3" },
+      config: { defaultKennelTag: "lah3" },
       kennelCodes: ["lah3"],
     },
     {
@@ -2081,7 +2090,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "LBH3" },
+      config: { defaultKennelTag: "lbh3" },
       kennelCodes: ["lbh3"],
     },
     {
@@ -2091,7 +2100,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "TDH3" },
+      config: { defaultKennelTag: "tdh3-lb" },
       kennelCodes: ["tdh3-lb"],
     },
     {
@@ -2101,7 +2110,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "GAL" },
+      config: { defaultKennelTag: "gal-h3" },
       kennelCodes: ["gal-h3"],
     },
     {
@@ -2111,7 +2120,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "SUPH3" },
+      config: { defaultKennelTag: "suph3" },
       kennelCodes: ["suph3"],
     },
     {
@@ -2121,7 +2130,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "FtH3" },
+      config: { defaultKennelTag: "fth3" },
       kennelCodes: ["fth3"],
     },
     {
@@ -2131,7 +2140,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "ELAH3" },
+      config: { defaultKennelTag: "elah3" },
       kennelCodes: ["elah3"],
     },
     {
@@ -2141,7 +2150,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "SGH3" },
+      config: { defaultKennelTag: "sgh3" },
       kennelCodes: ["sgh3"],
     },
     // --- Orange County (Google Calendar) ---
@@ -2152,7 +2161,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "OCHHH" },
+      config: { defaultKennelTag: "ochhh" },
       kennelCodes: ["ochhh"],
     },
     {
@@ -2162,7 +2171,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "OC Hump" },
+      config: { defaultKennelTag: "ochump" },
       kennelCodes: ["ochump"],
     },
     // --- Central Coast (Google Calendar) ---
@@ -2173,7 +2182,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "SLOH3" },
+      config: { defaultKennelTag: "sloh3" },
       kennelCodes: ["sloh3"],
     },
     // --- San Diego (HTML Scraper) ---
@@ -2186,16 +2195,16 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelCodeMap: {
-          "SDH3": "SDH3", "CLH3": "CLH3", "LJH3": "LJH3",
-          "NCH3": "NCH3", "IRH3": "IRH3", "H4": "Humpin'",
-          "FMH3": "FMH3", "HAH3": "HAH3", "MH4": "MH4",
-          "DRH3": "DRH3",
+          "SDH3": "sdh3", "CLH3": "clh3-sd", "LJH3": "ljh3",
+          "NCH3": "nch3-sd", "IRH3": "irh3-sd", "H4": "humpin-sd",
+          "FMH3": "fmh3-sd", "HAH3": "hah3-sd", "MH4": "mh4-sd",
+          "DRH3": "drh3-sd",
         },
         kennelNameMap: {
-          "San Diego": "SDH3", "Larrikins": "CLH3", "La Jolla": "LJH3",
-          "North County": "NCH3", "Iron Rule": "IRH3", "Humpin": "Humpin'",
-          "Full Moon": "FMH3", "Half-Assed": "HAH3", "Mission Harriettes": "MH4",
-          "Diaper Rash": "DRH3",
+          "San Diego": "sdh3", "Larrikins": "clh3-sd", "La Jolla": "ljh3",
+          "North County": "nch3-sd", "Iron Rule": "irh3-sd", "Humpin": "humpin-sd",
+          "Full Moon": "fmh3-sd", "Half-Assed": "hah3-sd", "Mission Harriettes": "mh4-sd",
+          "Diaper Rash": "drh3-sd",
         },
         includeHistory: true,
       },
@@ -2212,7 +2221,7 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         groupUrlname: "cleveland-hash-house-harriers-and-harriettes",
-        kennelTag: "CleH4",
+        kennelTag: "cleh4",
       },
       kennelCodes: ["cleh4"],
     },
@@ -2226,7 +2235,7 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         groupUrlname: "rubber-city-hash-house-harriers-and-harriettes",
-        kennelTag: "RCH3",
+        kennelTag: "rch3",
       },
       kennelCodes: ["rch3"],
     },
@@ -2239,7 +2248,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "DH4",
+        defaultKennelTag: "dh4",
       },
       kennelCodes: ["dh4"],
     },
@@ -2251,7 +2260,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "Miami Valley H3",
+        defaultKennelTag: "mvh3-day",
       },
       kennelCodes: ["mvh3-day"],
     },
@@ -2263,7 +2272,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "SWOT",
+        defaultKennelTag: "swot-h3",
       },
       kennelCodes: ["swot-h3"],
     },
@@ -2276,7 +2285,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "SCH4",
+        defaultKennelTag: "sch4",
       },
       kennelCodes: ["sch4"],
     },
@@ -2288,7 +2297,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "QCH4",
+        defaultKennelTag: "qch4",
       },
       kennelCodes: ["qch4"],
     },
@@ -2300,7 +2309,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
-        defaultKennelTag: "Licking Valley H3",
+        defaultKennelTag: "lvh3-cin",
       },
       kennelCodes: ["lvh3-cin"],
     },
@@ -2327,7 +2336,7 @@ export const SOURCES = [
         sheetId: "anonymous",
         csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtbizBGgic04azrTshlhcpRolA73yaiIijIFUSV0Gq7gU7KKchGWl0JRPHeIYspoq1PAx5XlyLTBfr/pub?output=csv&gid=2100367947",
         columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6, title: 7 },
-        kennelTagRules: { default: "MH3" },
+        kennelTagRules: { default: "mh3-de" },
       },
       // Group column has MH3/MFMH3/MASS H3 but Sheets adapter can't route by column — all events tagged MH3
       kennelCodes: ["mh3-de"],
@@ -2343,12 +2352,12 @@ export const SOURCES = [
       config: {
         archiveUrl: "https://frankfurt-hash.de/index.php/coming-runs/category/3?id=3&task=archive&filter_reset=1&limit=0",
         kennelPatterns: [
-          ["SHITS|Shits", "SHITS"],
-          ["^FM |Full Moon|Frankfurt Full Moon", "FFMH3"],
-          ["^DOM Run", "DOM"],
-          ["Bike Hash|Bike Bash", "Bike Hash"],
+          ["SHITS|Shits", "shits-fra"],
+          ["^FM |Full Moon|Frankfurt Full Moon", "ffmh3"],
+          ["^DOM Run", "dom-fra"],
+          ["Bike Hash|Bike Bash", "bikeh3-fra"],
         ],
-        defaultKennelTag: "FH3",
+        defaultKennelTag: "fh3",
       },
       kennelCodes: ["fh3", "ffmh3", "shits-fra", "dom-fra", "bikeh3-fra"],
     },

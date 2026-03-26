@@ -417,6 +417,24 @@ async function seedKennels(prisma: any, kennels: KennelSeed[], kennelAliases: Re
     }
   }
 
+  // Check for alias collisions (same alias on different kennels)
+  const aliasToKennels = new Map<string, string[]>();
+  for (const [code, aliasList] of Object.entries(kennelAliases)) {
+    for (const alias of aliasList) {
+      const key = alias.toLowerCase();
+      const existing = aliasToKennels.get(key) ?? [];
+      existing.push(code);
+      aliasToKennels.set(key, existing);
+    }
+  }
+  const aliasCollisions = [...aliasToKennels.entries()].filter(([, codes]) => codes.length > 1);
+  if (aliasCollisions.length > 0) {
+    console.warn("⚠ Alias collisions detected (routing depends on source-scoping):");
+    for (const [alias, codes] of aliasCollisions) {
+      console.warn(`  - "${alias}": ${codes.join(", ")}`);
+    }
+  }
+
   const regionMap = await ensureRegionRecords(prisma);
   const kennelRecords = await ensureKennelRecords(prisma, kennels, toSlugFn, regionMap);
   await ensureAliases(prisma, kennelAliases, kennelRecords);

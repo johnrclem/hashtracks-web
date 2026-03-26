@@ -66,8 +66,23 @@ async function resolveViaExactMatch(
   return null;
 }
 
-/** Step 2: Try alias match. */
-async function resolveViaAlias(normalized: string): Promise<ResolveResult | null> {
+/** Step 2: Try alias match. Source-scoped first, then global. */
+async function resolveViaAlias(
+  normalized: string,
+  sourceId?: string,
+): Promise<ResolveResult | null> {
+  // Source-scoped first: prefer alias on a kennel linked to this source
+  if (sourceId) {
+    const linked = await prisma.kennelAlias.findFirst({
+      where: {
+        alias: { equals: normalized, mode: "insensitive" },
+        kennel: { sources: { some: { sourceId } } },
+      },
+      select: { kennelId: true },
+    });
+    if (linked) return { kennelId: linked.kennelId, matched: true };
+  }
+  // Global fallback
   const alias = await prisma.kennelAlias.findFirst({
     where: { alias: { equals: normalized, mode: "insensitive" } },
     select: { kennelId: true },
@@ -90,7 +105,7 @@ async function resolveViaPatternMapping(
   const exactResult = await resolveViaExactMatch(mapped, sourceId);
   if (exactResult) return exactResult;
 
-  const aliasResult = await resolveViaAlias(mapped);
+  const aliasResult = await resolveViaAlias(mapped, sourceId);
   if (aliasResult) return aliasResult;
 
   return null;
@@ -128,7 +143,7 @@ export async function resolveKennelTag(
   const exactResult = await resolveViaExactMatch(normalized, sourceId);
   if (exactResult) { cache.set(cacheKey, exactResult); return exactResult; }
 
-  const aliasResult = await resolveViaAlias(normalized);
+  const aliasResult = await resolveViaAlias(normalized, sourceId);
   if (aliasResult) { cache.set(cacheKey, aliasResult); return aliasResult; }
 
   const patternResult = await resolveViaPatternMapping(normalized, sourceId);
