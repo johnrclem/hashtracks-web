@@ -36,6 +36,7 @@ import { SWH3Adapter } from "./html-scraper/swh3";
 import { SDH3Adapter } from "./html-scraper/sdh3";
 import { PhoenixHHHAdapter } from "./html-scraper/phoenixhhh";
 import { EdinburghH3Adapter } from "./html-scraper/edinburgh-h3";
+import { GlasgowH3Adapter } from "./html-scraper/glasgow-h3";
 import { FrankfurtHashAdapter } from "./html-scraper/frankfurt-hash";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
@@ -98,6 +99,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /sdh3\.com/i,            name: "SDH3Adapter",              factory: () => new SDH3Adapter() },
   { pattern: /phoenixhhh\.org/i,    name: "PhoenixHHHAdapter",        factory: () => new PhoenixHHHAdapter() },
   { pattern: /edinburghh3\.com/i,  name: "EdinburghH3Adapter",       factory: () => new EdinburghH3Adapter() },
+  { pattern: /glasgowh3\.co\.uk/i, name: "GlasgowH3Adapter",        factory: () => new GlasgowH3Adapter() },
   { pattern: /frankfurt-hash\.de/i, name: "FrankfurtHashAdapter",    factory: () => new FrankfurtHashAdapter() },
 ];
 
