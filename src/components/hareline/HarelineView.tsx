@@ -290,7 +290,7 @@ export function HarelineView({
       };
 
       for (const [key, val] of Object.entries(state)) {
-        const str = Array.isArray(val) ? val.join(",") : val;
+        const str = Array.isArray(val) ? val.join("|") : val;
         // Only add non-default values to keep URL clean
         const isDefault =
           (key === "time" && str === getDefaultTimeFilter(currentView)) ||
