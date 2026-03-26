@@ -1925,7 +1925,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 21.31, longitude: -157.86,
     },
     {
-      kennelCode: "h5-hi", shortName: "H5", fullName: "Honolulu Hash House Harriers", region: "Honolulu, HI",
+      kennelCode: "h5-hi", shortName: "Honolulu H5", fullName: "Honolulu Hash House Harriers", region: "Honolulu, HI",
       website: "https://hawaii.gotothehash.net",
       scheduleDayOfWeek: "Tuesday", scheduleTime: "5:45 PM", scheduleFrequency: "Weekly",
       description: "Honolulu weekly Tuesday evening hash.",
