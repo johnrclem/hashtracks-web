@@ -704,6 +704,11 @@ export function HarelineView({
         onClearAll={clearAllFilters}
       />
 
+      {/* Dynamic scoping header when a single region is selected */}
+      {selectedRegions.length === 1 && (
+        <h2 className="text-lg font-semibold">Runs in {selectedRegions[0]}</h2>
+      )}
+
       {/* Results count (hidden for calendar — it shows its own count) */}
       {(view === "list" || view === "map") && (
         <p className="text-sm text-muted-foreground" aria-hidden="true">

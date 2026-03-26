@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useRef, useCallback, type RefObject } fro
 import { useRouter } from "next/navigation";
 import { APIProvider, Map, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
 import { Button } from "@/components/ui/button";
-import { LocateFixed, X } from "lucide-react";
+import { ChevronDown, ChevronUp, LocateFixed, X } from "lucide-react";
 import { getEventCoords, getRegionColor } from "@/lib/geo";
 import { ClusteredMarkers, type EventWithCoords } from "./ClusteredMarkers";
 import { ColocatedEventList } from "./ColocatedEventList";
@@ -168,6 +168,9 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
   const handleRestored = useCallback(() => { skipAutoZoomRef.current = true; }, []);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
 
+  // Mobile map expand/collapse state
+  const [expanded, setExpanded] = useState(false);
+
   // Co-located event list overlay state
   const [colocatedList, setColocatedList] = useState<ColocatedListState | null>(null);
 
@@ -246,7 +249,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
 
   return (
     <APIProvider apiKey={apiKey}>
-      <div className="relative h-[60vh] lg:h-[calc(100vh-14rem)] min-h-[300px] overflow-hidden rounded-md border">
+      <div className={`relative ${expanded ? "h-[calc(100vh-8rem)]" : "h-[60vh]"} lg:h-[calc(100vh-14rem)] min-h-[300px] overflow-hidden rounded-md border transition-[height] duration-300`}>
         <Map
           mapId={MAP_ID}
           defaultBounds={defaultBounds}
@@ -323,6 +326,13 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
           </div>
         )}
       </div>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-center gap-1 w-full py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors lg:hidden border-b"
+      >
+        {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        {expanded ? "Collapse map" : "Expand map"}
+      </button>
     </APIProvider>
   );
 }

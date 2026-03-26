@@ -442,6 +442,11 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         onRequestLocation={requestLocation}
       />
 
+      {/* Dynamic scoping header when a single region is selected */}
+      {selectedRegions.length === 1 && (
+        <h2 className="text-lg font-semibold">Kennels in {selectedRegions[0]}</h2>
+      )}
+
       {/* Results count */}
       <p className="text-sm text-muted-foreground">
         {filtered.length} {filtered.length === 1 ? "kennel" : "kennels"}
