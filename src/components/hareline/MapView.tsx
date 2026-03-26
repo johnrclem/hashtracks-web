@@ -9,6 +9,7 @@ import { getEventCoords, getRegionColor } from "@/lib/geo";
 import { ClusteredMarkers, type EventWithCoords } from "./ClusteredMarkers";
 import { ColocatedEventList } from "./ColocatedEventList";
 import type { HarelineEvent } from "./EventCard";
+import { MapPrecisionBanner as PrecisionBanner } from "@/components/shared/MapPrecisionBanner";
 
 const MAP_ID = "6e8b0a11ead2ddaa6c87840c";
 const VIEWPORT_STORAGE_KEY = "hareline-map-viewport";
@@ -49,34 +50,7 @@ function ResetViewControl({ bounds, onBoundsFilter }: Readonly<{ bounds: MapBoun
   );
 }
 
-/** First-time precision banner — dismissible, persisted via localStorage. */
-function PrecisionBanner() {
-  const [dismissed, setDismissed] = useState(true); // default true to avoid flash
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDismissed(localStorage.getItem("map-precision-dismissed") === "true");
-  }, []);
-
-  if (dismissed) return null;
-
-  return (
-    <MapControl position={ControlPosition.TOP_CENTER}>
-      <div className="mx-2 mt-2.5 flex items-center gap-2 rounded-md border bg-background/95 px-3 py-1.5 text-xs shadow-sm backdrop-blur-sm">
-        <span>Filled pins = exact locations · Hollow pins = approximate region centers</span>
-        <button
-          onClick={() => {
-            setDismissed(true);
-            localStorage.setItem("map-precision-dismissed", "true");
-          }}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground"
-          aria-label="Dismiss precision info"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      </div>
-    </MapControl>
-  );
-}
+// PrecisionBanner extracted to src/components/shared/MapPrecisionBanner.tsx
 
 /** Auto-zoom when the events list changes (e.g. filter applied). Skips if viewport was restored from session. */
 function AutoZoom({ bounds, skipRef, autoZoomingRef }: Readonly<{ bounds: { south: number; north: number; west: number; east: number } | undefined; skipRef?: RefObject<boolean>; autoZoomingRef?: RefObject<boolean> }>) {

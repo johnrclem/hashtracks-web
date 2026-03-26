@@ -11,8 +11,7 @@ import type { HarelineEvent } from "./EventCard";
 interface RegionQuickChipsBaseProps {
   readonly selectedRegions: string[];
   readonly onRegionsChange: (regions: string[]) => void;
-  /** Label used in tooltip — "events" (default) or "kennels" */
-  readonly label?: string;
+  readonly label?: "events" | "kennels";
 }
 
 interface WithEvents extends RegionQuickChipsBaseProps {

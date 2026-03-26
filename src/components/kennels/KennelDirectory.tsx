@@ -338,22 +338,16 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     return filterParams.some((p) => searchParams.has(p));
   }, [searchParams]);
 
-  // Unique metro region names from kennels (for LocationPrompt picker)
-  const uniqueRegionNames = useMemo(() => {
-    const set = new Set<string>();
-    for (const k of kennels) {
-      if (k.region) set.add(k.region);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [kennels]);
-
-  // Compute kennel counts per region (for RegionQuickChips)
-  const kennelRegionCounts = useMemo(() => {
+  // Region data derived from kennels — single pass for both LocationPrompt and RegionQuickChips
+  const { uniqueRegionNames, kennelRegionCounts } = useMemo(() => {
     const counts = new Map<string, number>();
     for (const k of kennels) {
       if (k.region) counts.set(k.region, (counts.get(k.region) ?? 0) + 1);
     }
-    return counts;
+    return {
+      uniqueRegionNames: Array.from(counts.keys()).sort((a, b) => a.localeCompare(b)),
+      kennelRegionCounts: counts,
+    };
   }, [kennels]);
 
   // Callbacks for LocationPrompt

@@ -37,12 +37,8 @@ function KennelRows({
           style={{ minHeight: 52, borderLeft: `3px solid ${pin.color}` }}
           onClick={onClose}
         >
-          {/* Kennel info */}
           <div className="flex-1 min-w-0 space-y-0.5">
-            {/* Line 1: Kennel name — bold, no truncation */}
             <p className="text-sm font-semibold">{pin.shortName}</p>
-
-            {/* Line 2: Schedule + next run date */}
             <p className="text-xs text-muted-foreground">
               {pin.schedule && <>{pin.schedule} &middot; </>}
               {pin.nextEvent ? (
@@ -55,7 +51,6 @@ function KennelRows({
             </p>
           </div>
 
-          {/* Hover chevron */}
           <span className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors">
             &rsaquo;
           </span>
