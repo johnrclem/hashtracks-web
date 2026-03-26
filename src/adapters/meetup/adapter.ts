@@ -175,6 +175,10 @@ export function resolveVenue(
     if (/^(?:maps|google\s*maps)$/i.test(name.trim())) {
       name = "";
     }
+    // Skip compound-address names where name = "address, city, zip" (not a real venue name)
+    if (resolved.address && name && name.startsWith(resolved.address) && name.length > resolved.address.length) {
+      name = "";
+    }
     if (resolved.state && name) {
       const stripped = stripTrailingState(name, resolved.state);
       // Only deduplicate words when state-stripping detected corruption (state was embedded in name)
