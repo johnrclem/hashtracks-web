@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { ExternalLink, X } from "lucide-react";
+import { X } from "lucide-react";
+import { track } from "@vercel/analytics";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   Sheet,
@@ -9,73 +11,55 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { formatDateShort } from "@/lib/format";
 import type { KennelPin } from "./ClusteredKennelMarkers";
 
 interface ColocatedKennelListProps {
   pins: KennelPin[];
-  onSelectKennel: (id: string) => void;
   onClose: () => void;
 }
 
 /** Shared kennel rows rendered inside both mobile sheet and desktop card. */
 function KennelRows({
   pins,
-  onSelectKennel,
+  onClose,
 }: {
   pins: KennelPin[];
-  onSelectKennel: (id: string) => void;
+  onClose: () => void;
 }) {
   return (
-    <div
-      className="overflow-y-auto divide-y divide-border/50"
-      style={{ maxHeight: 6 * 60 }}
-    >
+    <div className="overflow-y-auto divide-y divide-border/50 max-h-[360px]">
       {pins.map((pin) => (
-        <button
+        <Link
           key={pin.id}
-          onClick={() => onSelectKennel(pin.id)}
+          href={`/kennels/${pin.slug}`}
           className="group flex items-center gap-3 w-full text-left px-3 py-2.5 transition-colors hover:bg-accent/50"
-          style={{ minHeight: 52 }}
+          style={{ minHeight: 52, borderLeft: `3px solid ${pin.color}` }}
+          onClick={onClose}
         >
-          {/* Region color dot */}
-          <span
-            className="shrink-0 rounded-full w-2.5 h-2.5 ring-2 ring-offset-1 ring-offset-background"
-            style={{ backgroundColor: pin.color }}
-          />
-
           {/* Kennel info */}
           <div className="flex-1 min-w-0 space-y-0.5">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-sm font-semibold truncate">
-                {pin.shortName}
-              </span>
-              {pin.fullName && pin.fullName !== pin.shortName && (
-                <span className="text-xs text-muted-foreground truncate hidden sm:inline">
-                  {pin.fullName}
+            {/* Line 1: Kennel name — bold, no truncation */}
+            <p className="text-sm font-semibold">{pin.shortName}</p>
+
+            {/* Line 2: Schedule + next run date */}
+            <p className="text-xs text-muted-foreground">
+              {pin.schedule && <>{pin.schedule} &middot; </>}
+              {pin.nextEvent ? (
+                <span className="font-medium text-foreground/80">
+                  Next: {formatDateShort(pin.nextEvent.date)}
                 </span>
+              ) : (
+                <span className="italic">No upcoming runs</span>
               )}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              {pin.schedule && (
-                <span className="truncate">{pin.schedule}</span>
-              )}
-              {pin.nextEvent && (
-                <span className="shrink-0 font-medium text-foreground/80">
-                  Next: {pin.nextEvent.date}
-                </span>
-              )}
-            </div>
+            </p>
           </div>
 
-          {/* View link */}
-          <Link
-            href={`/kennels/${pin.slug}`}
-            onClick={(e) => e.stopPropagation()}
-            className="shrink-0 flex items-center gap-1 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
-          >
-            View <ExternalLink className="h-3 w-3" />
-          </Link>
-        </button>
+          {/* Hover chevron */}
+          <span className="shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors">
+            &rsaquo;
+          </span>
+        </Link>
       ))}
     </div>
   );
@@ -90,10 +74,18 @@ function KennelRows({
  */
 export function ColocatedKennelList({
   pins,
-  onSelectKennel,
   onClose,
 }: Readonly<ColocatedKennelListProps>) {
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    track("map_colocated_kennel_popover", { kennelCount: pins.length });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const region = pins[0]?.region;
+  const headerText = region
+    ? `${pins.length} kennels in ${region}`
+    : `${pins.length} kennels at this location`;
 
   if (isMobile) {
     return (
@@ -101,21 +93,21 @@ export function ColocatedKennelList({
         <SheetContent side="bottom" className="px-0 pb-0 max-h-[70vh]" showCloseButton={false}>
           <SheetHeader className="px-4 pb-2">
             <SheetTitle className="text-sm">
-              {pins.length} kennels at this location
+              {headerText}
             </SheetTitle>
           </SheetHeader>
-          <KennelRows pins={pins} onSelectKennel={onSelectKennel} />
+          <KennelRows pins={pins} onClose={onClose} />
         </SheetContent>
       </Sheet>
     );
   }
 
   return (
-    <div className="bg-background/95 backdrop-blur-sm border rounded-xl shadow-xl w-[320px] max-w-[calc(100vw-2rem)] overflow-hidden">
+    <div className="bg-background/95 backdrop-blur-sm border rounded-xl shadow-xl w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b bg-muted/30">
         <span className="text-sm font-semibold">
-          {pins.length} kennels at this location
+          {headerText}
         </span>
         <button
           onClick={onClose}
@@ -126,7 +118,7 @@ export function ColocatedKennelList({
         </button>
       </div>
 
-      <KennelRows pins={pins} onSelectKennel={onSelectKennel} />
+      <KennelRows pins={pins} onClose={onClose} />
     </div>
   );
 }

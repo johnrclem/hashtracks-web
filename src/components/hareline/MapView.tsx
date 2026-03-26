@@ -399,7 +399,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
         {/* Co-located event list overlay */}
         {colocatedList && (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center lg:items-center lg:justify-center">
-            <div className="pointer-events-auto mb-4 w-full max-w-xs px-4 lg:mb-0 lg:px-0">
+            <div className="pointer-events-auto mb-4 w-full max-w-sm px-4 lg:mb-0 lg:px-0">
               <ColocatedEventList
                 events={colocatedList.events}
                 onSelectEvent={handleColocatedSelect}

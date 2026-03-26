@@ -14,6 +14,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { getEventCoords, haversineDistance } from "@/lib/geo";
 import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 import { LocationPrompt } from "@/components/hareline/LocationPrompt";
+import { RegionQuickChips } from "@/components/hareline/RegionQuickChips";
 import { getLocationPref, resolveLocationDefault, clearLocationPref } from "@/lib/location-pref";
 import { parseList } from "@/lib/format";
 
@@ -63,7 +64,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     return sortParam === "active" || sortParam === "nearest" ? sortParam : "alpha";
   });
   const [displayView, setDisplayViewState] = useState<"grid" | "map">(
-    searchParams.get("view") === "map" ? "map" : "grid",
+    searchParams.get("view") === "grid" ? "grid" : "map",
   );
   const [mapBounds, setMapBounds] = useState<{ south: number; north: number; west: number; east: number } | null>(null);
 
@@ -100,7 +101,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         // Only add non-default values
         const isDefault =
           (key === "sort" && str === "alpha") ||
-          (key === "view" && str === "grid") ||
+          (key === "view" && str === "map") ||
           (key === "upcoming" && str !== "true") ||
           str === "";
         if (!isDefault) {
@@ -346,6 +347,15 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [kennels]);
 
+  // Compute kennel counts per region (for RegionQuickChips)
+  const kennelRegionCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const k of kennels) {
+      if (k.region) counts.set(k.region, (counts.get(k.region) ?? 0) + 1);
+    }
+    return counts;
+  }, [kennels]);
+
   // Callbacks for LocationPrompt
   const handleSetNearMeFromPrompt = useCallback(
     (distance: number) => {
@@ -390,6 +400,13 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
           setPrefApplied(null);
           syncUrl({ regions: [] });
         }}
+      />
+
+      <RegionQuickChips
+        regionCounts={kennelRegionCounts}
+        selectedRegions={selectedRegions}
+        onRegionsChange={setSelectedRegions}
+        label="kennels"
       />
 
       {/* Search + sort row */}
