@@ -897,7 +897,7 @@ describe("sanitizeHares", () => {
   });
 
   it("truncates at boilerplate marker 'Location:'", () => {
-    expect(sanitizeHares("Penis ColadaLocation: Probably Bolton")).toBe("Penis Colada");
+    expect(sanitizeHares("Penis Colada Location: Probably Bolton")).toBe("Penis Colada");
   });
 
   it("truncates at 'Hash Cash' marker", () => {
@@ -930,6 +930,32 @@ describe("sanitizeHares", () => {
     expect(result!.length).toBeLessThanOrEqual(200);
     // Should truncate at last comma
     expect(result).not.toContain("C");
+  });
+
+  // Fix 1: word boundary prevents false positive on "on on" substring
+  it("does not truncate hare name containing 'on on' substring", () => {
+    expect(sanitizeHares("Son on of a Peach")).toBe("Son on of a Peach");
+  });
+
+  it("does not truncate hare name containing 'Start' substring (Headstart)", () => {
+    expect(sanitizeHares("Headstart")).toBe("Headstart");
+  });
+
+  it("still truncates at real On On boilerplate marker", () => {
+    expect(sanitizeHares("Captain Hash On On: The Pub")).toBe("Captain Hash");
+  });
+
+  it("still truncates at real On-On boilerplate marker", () => {
+    expect(sanitizeHares("Captain Hash On-On: The Pub")).toBe("Captain Hash");
+  });
+
+  // Fix 2: URL rejection
+  it("rejects bare URL as hare value", () => {
+    expect(sanitizeHares("https://maps.app.goo.gl/cqc9yN889CTN23vLA")).toBeNull();
+  });
+
+  it("rejects http URL as hare value", () => {
+    expect(sanitizeHares("http://example.com/hares")).toBeNull();
   });
 });
 

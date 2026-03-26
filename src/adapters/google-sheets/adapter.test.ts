@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow, GoogleSheetsAdapter } from "./adapter";
+import type { GoogleSheetsConfig } from "./adapter";
 
 // Mock safeFetch
 vi.mock("@/adapters/safe-fetch", () => ({
@@ -236,6 +237,43 @@ describe("buildEventFromSheetRow", () => {
     const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-03-11");
     expect(event).not.toBeNull();
     expect(event!.title).toBe("Halloween Hash");
+  });
+
+  it("uses defaultTitle when title column is not configured", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3 },
+      kennelTagRules: { default: "MH3" },
+      defaultTitle: "MH3",
+    };
+    const row = ["932", "2026-04-01", "Some Hare", "Munich"];
+    const result = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-04-01");
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("MH3 #932");
+  });
+
+  it("uses defaultTitle without run number when both are empty", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3 },
+      kennelTagRules: { default: "MH3" },
+      defaultTitle: "MH3",
+    };
+    const row = ["", "2026-04-01", "Some Hare", "Munich"];
+    const result = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-04-01");
+    expect(result).toBeNull();
+  });
+
+  it("title is undefined when column not configured and no defaultTitle", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3 },
+      kennelTagRules: { default: "TestH3" },
+    };
+    const row = ["100", "2026-04-01", "Some Hare", "Park"];
+    const result = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-04-01");
+    expect(result).not.toBeNull();
+    expect(result!.title).toBeUndefined();
   });
 });
 

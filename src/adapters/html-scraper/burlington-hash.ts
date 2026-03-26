@@ -82,7 +82,7 @@ export function parseCalendarLink(
   // Parse details — strip HTML and extract hares
   const detailText = cheerio.load(details).text().trim();
   let hares: string | undefined;
-  const haresMatch = /Hares?:\s*(.+?)(?:\n|$)/i.exec(detailText);
+  const haresMatch = /Hares?:\s*(.+?)(?=Location:|Cost:|HASH CASH|On-On|On On|\n|$)/i.exec(detailText);
   if (haresMatch) {
     hares = haresMatch[1].trim();
     // Clean up trailing punctuation or "Cost:" etc.

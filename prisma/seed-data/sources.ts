@@ -310,7 +310,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
-        containerSelector: "table",
+        containerSelector: "table:first-of-type",
         rowSelector: "tr",
         columns: {
           runNumber: "td:nth-child(1)",
@@ -2337,8 +2337,9 @@ export const SOURCES = [
       config: {
         sheetId: "anonymous",
         csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtbizBGgic04azrTshlhcpRolA73yaiIijIFUSV0Gq7gU7KKchGWl0JRPHeIYspoq1PAx5XlyLTBfr/pub?output=csv&gid=2100367947",
-        columns: { runNumber: 0, date: 1, hares: 4, location: 5, title: 6 },
+        columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6 },
         kennelTagRules: { default: "MH3" },
+        defaultTitle: "MH3",
       },
       // Group column has MH3/MFMH3/MASS H3 but Sheets adapter can't route by column — all events tagged MH3
       kennelCodes: ["mh3-de"],

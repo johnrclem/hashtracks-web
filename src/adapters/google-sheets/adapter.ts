@@ -5,7 +5,7 @@ import { googleMapsSearchUrl, validateSourceConfig, stripPlaceholder } from "../
 import { safeFetch } from "../safe-fetch";
 
 /** Config stored in Source.config JSON for Google Sheets sources */
-interface GoogleSheetsConfig {
+export interface GoogleSheetsConfig {
   sheetId: string;
   /** Optional explicit tab names. If omitted, auto-discovers year-prefixed tabs. */
   tabs?: string[];
@@ -15,7 +15,7 @@ interface GoogleSheetsConfig {
     date: number;
     hares: number;
     location: number;
-    title: number;
+    title?: number;
     description?: number;
   };
   kennelTagRules: {
@@ -279,7 +279,7 @@ export function buildEventFromSheetRow(
   // Strip placeholder values (TBD, TBA, N/A, etc.)
   const hares = stripPlaceholder(row[config.columns.hares]);
   const location = stripPlaceholder(row[config.columns.location]);
-  let title = stripPlaceholder(row[config.columns.title]);
+  let title = config.columns.title != null ? stripPlaceholder(row[config.columns.title]) : undefined;
 
   // Apply defaultTitle fallback when title is empty
   if (!title && config.defaultTitle) {

@@ -192,6 +192,28 @@ describe("resolveVenue", () => {
     expect(result.location).not.toContain("Maps,");
     expect(result.location).toBe("64A Market St, Portland, ME");
   });
+
+  it("skips compound-address venue name when address is a prefix of name", () => {
+    const result = resolveVenue({}, {
+      name: "13480 Congress Lake Avenue, Hartville, 44632",
+      address: "13480 Congress Lake Avenue",
+      city: "Hartville",
+      state: "OH",
+      lat: 40.978622,
+      lng: -81.31964,
+    } as never);
+    expect(result.location).toBe("13480 Congress Lake Avenue, Hartville, OH");
+  });
+
+  it("keeps real venue name when it differs from address", () => {
+    const result = resolveVenue({}, {
+      name: "Quail Hollow Park",
+      address: "13480 Congress Lake Ave NE",
+      city: "Hartville",
+      state: "OH",
+    } as never);
+    expect(result.location).toBe("Quail Hollow Park, 13480 Congress Lake Ave NE, Hartville, OH");
+  });
 });
 
 describe("stripTrailingState", () => {

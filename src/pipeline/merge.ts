@@ -49,6 +49,9 @@ export function sanitizeHares(hares: string | undefined | null): string | null {
   if (!h) return null;
   if (isPlaceholder(h)) return null;
 
+  // Reject bare URLs (e.g., Google Maps links extracted as hare names)
+  if (/^https?:\/\//i.test(h)) return null;
+
   // Strip "Hare is " / "Hare: " prefix (some calendars embed the label in the value)
   h = h.replace(/^Hares?\s+(?:is|are|=)\s+/i, "").trim();
 
