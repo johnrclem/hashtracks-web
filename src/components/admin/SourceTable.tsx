@@ -37,7 +37,7 @@ import { SourceForm } from "./SourceForm";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import { toast } from "sonner";
 import type { RegionOption } from "./RegionCombobox";
-import { getStateGroup, groupRegionsByState, expandRegionSelections } from "@/lib/region";
+import { getStateGroup, groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 
 type SourceData = {
   id: string;
@@ -575,6 +575,7 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
               allKennels={allKennels}
               allRegions={allRegions}
               geminiAvailable={geminiAvailable}
+              kennelRegionMap={kennelRegionMap}
             />
           ))}
         </TableBody>
@@ -588,11 +589,13 @@ function SourceRow({
   allKennels,
   allRegions,
   geminiAvailable,
+  kennelRegionMap,
 }: {
   source: SourceData;
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
   allRegions: RegionOption[];
   geminiAvailable?: boolean;
+  kennelRegionMap: Map<string, string>;
 }) {
   const [isPending, startTransition] = useTransition();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -741,7 +744,11 @@ function SourceRow({
               {source.linkedKennels.length}
             </TooltipTrigger>
             <TooltipContent side="left" className="max-w-xs">
-              {source.linkedKennels.map((k) => k.shortName).join(", ")}
+              {source.linkedKennels.map((k) => {
+                const region = kennelRegionMap.get(k.id);
+                const abbrev = region ? regionAbbrev(region) : null;
+                return abbrev ? `${k.shortName} (${abbrev})` : k.shortName;
+              }).join(", ")}
             </TooltipContent>
           </Tooltip>
         ) : (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,11 @@ function TagRow({
 
   const router = useRouter();
 
+  const kennelMap = useMemo(
+    () => new Map(allKennels.map((k) => [k.id, k])),
+    [allKennels],
+  );
+
   if (resolved) {
     return (
       <div className="flex items-center gap-2 text-xs text-green-700">
@@ -148,20 +153,24 @@ function TagRow({
           {/* Quick suggestions */}
           {suggestions.length > 0 && (
             <div className="flex flex-wrap gap-1">
-              {suggestions.slice(0, 5).map((s) => (
-                <Button
-                  key={s.id}
-                  size="sm"
-                  variant={selectedKennelId === s.id ? "default" : "outline"}
-                  className="h-6 text-[11px]"
-                  onClick={() => setSelectedKennelId(s.id)}
-                >
-                  {s.shortName}
-                  <span className="ml-1 opacity-60">
-                    {Math.round((s.score ?? 0) * 100)}%
-                  </span>
-                </Button>
-              ))}
+              {suggestions.slice(0, 5).map((s) => {
+                const full = kennelMap.get(s.id);
+                return (
+                  <Button
+                    key={s.id}
+                    size="sm"
+                    variant={selectedKennelId === s.id ? "default" : "outline"}
+                    className="h-6 text-[11px]"
+                    onClick={() => setSelectedKennelId(s.id)}
+                    title={full ? [full.fullName, full.region].filter(Boolean).join(" — ") || undefined : undefined}
+                  >
+                    {s.shortName}
+                    <span className="ml-1 opacity-60">
+                      {Math.round((s.score ?? 0) * 100)}%
+                    </span>
+                  </Button>
+                );
+              })}
             </div>
           )}
 
@@ -174,7 +183,17 @@ function TagRow({
               <SelectContent>
                 {allKennels.map((k) => (
                   <SelectItem key={k.id} value={k.id} className="text-xs">
-                    {k.shortName}
+                    <span className="font-medium">{k.shortName}</span>
+                    {k.fullName && (
+                      <span className="ml-1 text-muted-foreground">
+                        — {k.fullName}
+                      </span>
+                    )}
+                    {k.region && (
+                      <span className="ml-1 text-muted-foreground/60">
+                        ({k.region})
+                      </span>
+                    )}
                   </SelectItem>
                 ))}
               </SelectContent>

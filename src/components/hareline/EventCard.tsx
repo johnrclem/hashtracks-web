@@ -191,6 +191,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
                     className="font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-2 truncate block"
                     style={{ textDecorationColor: regionColor }}
                     onClick={(e) => e.stopPropagation()}
+                    title={event.kennel.fullName}
                   >
                     {event.kennel.shortName}
                   </Link>
@@ -319,6 +320,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
                       className="text-base font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-3"
                       style={{ textDecorationColor: regionColor }}
                       onClick={(e) => e.stopPropagation()}
+                      title={event.kennel.fullName}
                     >
                       {event.kennel.shortName}
                     </Link>

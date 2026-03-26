@@ -273,7 +273,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "pedalfiles": ["Pedal Files Hash", "Pedal Files H3", "Tucson Bike Hash"],
     // ===== HAWAII =====
     "ah3-hi": ["Aloha Hash", "Aloha H3", "AH3", "Aloha HHH"],
-    "h5-hi": ["Honolulu Hash", "Honolulu H5", "H5 Honolulu", "Honolulu H4"],
+    "h5-hi": ["Honolulu Hash", "Honolulu H5", "H5 Honolulu", "Honolulu H4", "H5"],
     // ===== CALIFORNIA =====
     "sch3-ca": ["Surf City Hash", "Surf City H3", "SCH3", "Santa Cruz Hash"],
     "lah3": ["Los Angeles Hash", "LAH3 Hash", "LA Hash House Harriers"],

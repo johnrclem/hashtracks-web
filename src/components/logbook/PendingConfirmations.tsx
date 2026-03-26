@@ -18,6 +18,7 @@ interface PendingRecord {
   eventTitle: string | null;
   runNumber: number | null;
   kennelShortName: string;
+  kennelFullName?: string;
   haredThisTrail: boolean;
 }
 
@@ -94,7 +95,7 @@ export function PendingConfirmations() {
           >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-sm">
-                <Badge variant="outline" className="shrink-0 text-xs">
+                <Badge variant="outline" className="shrink-0 text-xs" title={p.kennelFullName}>
                   {p.kennelShortName}
                 </Badge>
                 <span className="font-medium truncate">
