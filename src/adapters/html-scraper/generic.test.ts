@@ -239,6 +239,42 @@ describe("parseEventRow", () => {
     const event = parseEventRow($t, $t("tr").first(), config, "https://example.com");
     expect(event?.startTime).toBe("18:30");
   });
+
+  it("rejects absurdly large run numbers from date text in wrong column", () => {
+    // "13 - 14 June 2026" stripped to digits "13142026" should be rejected
+    const html = `<div class="c"><div class="r">
+      <span class="rn">13 - 14 June 2026</span>
+      <span class="d">March 28, 2026</span>
+    </div></div>`;
+    const $r = cheerio.load(html);
+    const config: GenericHtmlConfig = {
+      containerSelector: ".c",
+      rowSelector: ".r",
+      columns: { runNumber: ".rn", date: ".d" },
+      defaultKennelTag: "test",
+    };
+    const result = parseEventRow($r, $r(".r").first(), config, "https://example.com");
+    if (result) {
+      expect(result.runNumber).toBeUndefined();
+    }
+  });
+
+  it("accepts normal 4-digit run numbers", () => {
+    const html = `<div class="c"><div class="r">
+      <span class="rn">2206</span>
+      <span class="d">March 23, 2026</span>
+    </div></div>`;
+    const $r = cheerio.load(html);
+    const config: GenericHtmlConfig = {
+      containerSelector: ".c",
+      rowSelector: ".r",
+      columns: { runNumber: ".rn", date: ".d" },
+      defaultKennelTag: "test",
+    };
+    const result = parseEventRow($r, $r(".r").first(), config, "https://example.com");
+    expect(result).toBeDefined();
+    expect(result!.runNumber).toBe(2206);
+  });
 });
 
 describe("GenericHtmlAdapter", () => {

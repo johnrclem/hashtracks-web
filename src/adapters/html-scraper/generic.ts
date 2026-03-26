@@ -133,7 +133,13 @@ export function parseEventRow(
   // Run number: extract digits
   const runNumberText = extractText($, $row, columns.runNumber);
   const runDigits = runNumberText?.replaceAll(/\D/g, "");
-  const runNumber = runDigits ? Number.parseInt(runDigits, 10) || undefined : undefined;
+  let runNumber: number | undefined;
+  if (runDigits) {
+    const parsed = Number.parseInt(runDigits, 10);
+    // Sanity cap: real hash run numbers are < 100000; larger values are
+    // date strings or other text that leaked into the run-number column
+    runNumber = parsed > 0 && parsed < 100000 ? parsed : undefined;
+  }
 
   // Start time: try to extract from dedicated field, or parse from date text
   let startTime: string | undefined;

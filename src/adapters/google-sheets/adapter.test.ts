@@ -237,6 +237,43 @@ describe("buildEventFromSheetRow", () => {
     expect(event).not.toBeNull();
     expect(event!.title).toBe("Halloween Hash");
   });
+
+  it("uses defaultTitle when title column is not configured", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3 },
+      kennelTagRules: { default: "MH3" },
+      defaultTitle: "MH3",
+    };
+    const row = ["932", "2026-04-01", "Some Hare", "Munich"];
+    const result = buildEventFromSheetRow(row, config as any, "https://example.com", "2026-04-01");
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("MH3 #932");
+  });
+
+  it("uses defaultTitle without run number when both are empty", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3 },
+      kennelTagRules: { default: "MH3" },
+      defaultTitle: "MH3",
+    };
+    const row = ["", "2026-04-01", "Some Hare", "Munich"];
+    const result = buildEventFromSheetRow(row, config as any, "https://example.com", "2026-04-01");
+    expect(result).toBeNull();
+  });
+
+  it("title is undefined when column not configured and no defaultTitle", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3 },
+      kennelTagRules: { default: "TestH3" },
+    };
+    const row = ["100", "2026-04-01", "Some Hare", "Park"];
+    const result = buildEventFromSheetRow(row, config as any, "https://example.com", "2026-04-01");
+    expect(result).not.toBeNull();
+    expect(result!.title).toBeUndefined();
+  });
 });
 
 // ── GoogleSheetsAdapter integration tests (skipRows, gid, csvUrl) ──

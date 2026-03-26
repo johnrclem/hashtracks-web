@@ -15,7 +15,7 @@ interface GoogleSheetsConfig {
     date: number;
     hares: number;
     location: number;
-    title: number;
+    title?: number;
     description?: number;
   };
   kennelTagRules: {
@@ -279,7 +279,7 @@ export function buildEventFromSheetRow(
   // Strip placeholder values (TBD, TBA, N/A, etc.)
   const hares = stripPlaceholder(row[config.columns.hares]);
   const location = stripPlaceholder(row[config.columns.location]);
-  let title = stripPlaceholder(row[config.columns.title]);
+  let title = config.columns.title != null ? stripPlaceholder(row[config.columns.title]) : undefined;
 
   // Apply defaultTitle fallback when title is empty
   if (!title && config.defaultTitle) {

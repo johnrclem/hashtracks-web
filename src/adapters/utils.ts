@@ -372,7 +372,7 @@ export async function fetchHTMLPage(url: string): Promise<FetchHTMLResult> {
  * The pipeline's sanitizeHares() is the authoritative safety net; adapter-level
  * usage is best-effort early cleanup.
  */
-export const HARE_BOILERPLATE_RE = /\s*(?:WHAT TIME|WHAT TO WEAR|WHERE|Location|HASH CASH|Cost|Price|Length|Distance|Directions|Trail Type|Trail is|Start|Meet at|Registration|WHAT IS THE COST|On-On|On On|Question|Call\s|Lost\?|\(\d{3}\)\s*\d{3})[:\s].*/i;
+export const HARE_BOILERPLATE_RE = /\s*\b(?:WHAT TIME|WHAT TO WEAR|WHERE|Location|HASH CASH|Cost|Price|Length|Distance|Directions|Trail Type|Trail is|Start|Meet at|Registration|WHAT IS THE COST|On-On|On On|Question|Call\s|Lost\?)[:\s].*|\s*\(\d{3}\)\s*\d{3}.*/i;
 
 // ---------------------------------------------------------------------------
 // Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
