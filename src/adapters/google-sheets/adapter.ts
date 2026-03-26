@@ -5,7 +5,7 @@ import { googleMapsSearchUrl, validateSourceConfig, stripPlaceholder } from "../
 import { safeFetch } from "../safe-fetch";
 
 /** Config stored in Source.config JSON for Google Sheets sources */
-interface GoogleSheetsConfig {
+export interface GoogleSheetsConfig {
   sheetId: string;
   /** Optional explicit tab names. If omitted, auto-discovers year-prefixed tabs. */
   tabs?: string[];

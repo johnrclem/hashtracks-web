@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow, GoogleSheetsAdapter } from "./adapter";
+import type { GoogleSheetsConfig } from "./adapter";
 
 // Mock safeFetch
 vi.mock("@/adapters/safe-fetch", () => ({
@@ -246,7 +247,7 @@ describe("buildEventFromSheetRow", () => {
       defaultTitle: "MH3",
     };
     const row = ["932", "2026-04-01", "Some Hare", "Munich"];
-    const result = buildEventFromSheetRow(row, config as any, "https://example.com", "2026-04-01");
+    const result = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-04-01");
     expect(result).not.toBeNull();
     expect(result!.title).toBe("MH3 #932");
   });
@@ -259,7 +260,7 @@ describe("buildEventFromSheetRow", () => {
       defaultTitle: "MH3",
     };
     const row = ["", "2026-04-01", "Some Hare", "Munich"];
-    const result = buildEventFromSheetRow(row, config as any, "https://example.com", "2026-04-01");
+    const result = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-04-01");
     expect(result).toBeNull();
   });
 
@@ -270,7 +271,7 @@ describe("buildEventFromSheetRow", () => {
       kennelTagRules: { default: "TestH3" },
     };
     const row = ["100", "2026-04-01", "Some Hare", "Park"];
-    const result = buildEventFromSheetRow(row, config as any, "https://example.com", "2026-04-01");
+    const result = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-04-01");
     expect(result).not.toBeNull();
     expect(result!.title).toBeUndefined();
   });
