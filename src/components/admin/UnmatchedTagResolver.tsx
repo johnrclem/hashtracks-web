@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,11 @@ function TagRow({
 
   const router = useRouter();
 
+  const kennelMap = useMemo(
+    () => new Map(allKennels.map((k) => [k.id, k])),
+    [allKennels],
+  );
+
   if (resolved) {
     return (
       <div className="flex items-center gap-2 text-xs text-green-700">
@@ -149,7 +154,7 @@ function TagRow({
           {suggestions.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {suggestions.slice(0, 5).map((s) => {
-                const full = allKennels.find((k) => k.id === s.id);
+                const full = kennelMap.get(s.id);
                 return (
                   <Button
                     key={s.id}
@@ -157,7 +162,7 @@ function TagRow({
                     variant={selectedKennelId === s.id ? "default" : "outline"}
                     className="h-6 text-[11px]"
                     onClick={() => setSelectedKennelId(s.id)}
-                    title={full ? `${full.fullName} (${full.region})` : undefined}
+                    title={full ? [full.fullName, full.region].filter(Boolean).join(" — ") || undefined : undefined}
                   >
                     {s.shortName}
                     <span className="ml-1 opacity-60">

@@ -228,7 +228,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="outline" size="sm" asChild>
-                <Link href={`/kennels/${event.kennel.slug}`} title={event.kennel.fullName}>
+                <Link href={`/kennels/${event.kennel.slug}`}>
                   View {event.kennel.shortName}
                 </Link>
               </Button>

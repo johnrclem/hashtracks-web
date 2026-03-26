@@ -575,6 +575,7 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
               allKennels={allKennels}
               allRegions={allRegions}
               geminiAvailable={geminiAvailable}
+              kennelRegionMap={kennelRegionMap}
             />
           ))}
         </TableBody>
@@ -588,21 +589,18 @@ function SourceRow({
   allKennels,
   allRegions,
   geminiAvailable,
+  kennelRegionMap,
 }: {
   source: SourceData;
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
   allRegions: RegionOption[];
   geminiAvailable?: boolean;
+  kennelRegionMap: Map<string, string>;
 }) {
   const [isPending, startTransition] = useTransition();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const router = useRouter();
-
-  const kennelRegionMap = useMemo(
-    () => new Map(allKennels.map((k) => [k.id, k.region])),
-    [allKennels],
-  );
 
   function handleToggleEnabled() {
     setMenuOpen(false);

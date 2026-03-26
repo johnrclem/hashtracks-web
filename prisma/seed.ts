@@ -406,7 +406,7 @@ async function seedKennels(prisma: any, kennels: KennelSeed[], kennelAliases: Re
   for (const kennel of kennels) {
     const sn = kennel.shortName;
     const existing = shortNameGroups.get(sn) || [];
-    existing.push(`${kennel.shortName} (${kennel.kennelCode})`);
+    existing.push(kennel.kennelCode);
     shortNameGroups.set(sn, existing);
   }
   const shortNameCollisions = [...shortNameGroups.entries()].filter(([, codes]) => codes.length > 1);

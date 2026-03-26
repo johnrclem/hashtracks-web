@@ -399,7 +399,6 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
                 <TooltipTrigger asChild>
                   <span
                     className={`inline-flex h-5 w-fit max-w-full items-center truncate rounded-full px-1.5 text-[10px] font-bold leading-5 ring-1 ring-inset ring-foreground/10 ${regionColorClasses(e.kennel?.region ?? "")}`}
-                    title={e.kennel?.fullName}
                   >
                     {e.startTime && (
                       <span className="font-normal opacity-70">
