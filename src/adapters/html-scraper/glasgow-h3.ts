@@ -48,8 +48,9 @@ export function parseGlasgowRow(
   // Year-rollover: dates without a year default to current year. If the parsed
   // date is >9 months in the past, it's likely next year (e.g., "6 January"
   // parsed in December should resolve to next January, not last January).
+  const YEAR_ROLLOVER_THRESHOLD_MS = 270 * 24 * 60 * 60 * 1000; // ~9 months
   const parsed = new Date(date + "T12:00:00Z");
-  if (parsed.getTime() < Date.now() - 270 * 24 * 60 * 60 * 1000) {
+  if (parsed.getTime() < Date.now() - YEAR_ROLLOVER_THRESHOLD_MS) {
     parsed.setUTCFullYear(parsed.getUTCFullYear() + 1);
     date = parsed.toISOString().slice(0, 10);
   }
