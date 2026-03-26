@@ -14,7 +14,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { getEventCoords, haversineDistance } from "@/lib/geo";
 import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 import { LocationPrompt } from "@/components/hareline/LocationPrompt";
-import { getLocationPref, resolveLocationDefault } from "@/lib/location-pref";
+import { getLocationPref, resolveLocationDefault, clearLocationPref } from "@/lib/location-pref";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ssr: false,
@@ -311,6 +311,9 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   // Show "Nearest" sort option only when geolocation is granted
   const showNearestSort = geoState.status === "granted";
 
+  // Track when a stored preference was auto-applied (for return-visitor banner)
+  const [prefApplied, setPrefApplied] = useState<{ region?: string } | null>(null);
+
   // On mount: apply stored location preference if no URL filters are present
   const locationPrefApplied = useRef(false);
   useEffect(() => {
@@ -323,6 +326,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
 
     if (result.regions) {
       setSelectedRegions(result.regions);
+      setPrefApplied({ region: result.regions[0] });
     } else if (result.nearMeDistance) {
       setNearMeDistance(result.nearMeDistance);
       requestLocation();
@@ -374,13 +378,21 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
 
   return (
     <div className="mt-6 space-y-4">
-      {/* Location prompt for first-time visitors */}
+      {/* Location prompt for first-time / return visitors */}
       <LocationPrompt
         hasUrlFilters={hasUrlFilters}
         onSetNearMe={handleSetNearMeFromPrompt}
         onSetRegion={handleSetRegionFromPrompt}
         regionNames={uniqueRegionNames}
         page="kennels"
+        prefApplied={!!prefApplied}
+        appliedRegionName={prefApplied?.region}
+        onClearRegion={() => {
+          setSelectedRegions([]);
+          clearLocationPref();
+          setPrefApplied(null);
+          syncUrl({ regions: [] });
+        }}
       />
 
       {/* Search + sort row */}
@@ -470,7 +482,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
           href={`/hareline?regions=${encodeURIComponent(selectedRegions[0])}`}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          View upcoming events in {regionAbbrev(selectedRegions[0])} &rarr;
+          View upcoming events in {selectedRegions[0]} &rarr;
         </Link>
       )}
 
