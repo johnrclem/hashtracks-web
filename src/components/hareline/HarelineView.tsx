@@ -29,7 +29,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { haversineDistance, getEventCoords } from "@/lib/geo";
 import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 import { LocationPrompt } from "./LocationPrompt";
-import { getLocationPref, resolveLocationDefault, FILTER_PARAMS } from "@/lib/location-pref";
+import { getLocationPref, resolveLocationDefault, clearLocationPref, FILTER_PARAMS } from "@/lib/location-pref";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -390,6 +390,16 @@ export function HarelineView({
     [selectedRegions, regionsByState],
   );
 
+  // Time-filtered events — applies ONLY the time filter so region chip counts
+  // reflect the visible time range (e.g. "next 4 weeks") without being skewed
+  // by region/kennel/search selections.
+  const timeFilteredEvents = useMemo(() => {
+    return events.filter((event) => {
+      const eventDate = new Date(event.date).getTime();
+      return passesTimeFilter(eventDate, timeFilter, filterContext.todayUtc);
+    });
+  }, [events, timeFilter, filterContext.todayUtc]);
+
   // Calendar events — all filters EXCEPT time (calendar has its own month navigation / weeks mode)
   const calendarEvents = useMemo(() => {
     return events.filter((event) => {
@@ -462,6 +472,9 @@ export function HarelineView({
     [syncUrl],
   );
 
+  // Track when a stored preference was auto-applied (for return-visitor banner)
+  const [prefApplied, setPrefApplied] = useState<{ region?: string } | null>(null);
+
   // On mount: apply stored location preference if no URL filters are present
   const locationPrefApplied = useRef(false);
   useEffect(() => {
@@ -474,6 +487,7 @@ export function HarelineView({
 
     if (result.regions) {
       setSelectedRegions(result.regions);
+      setPrefApplied({ region: result.regions[0] });
     } else if (result.nearMeDistance) {
       setNearMeDistance(result.nearMeDistance);
       requestLocation();
@@ -601,13 +615,21 @@ export function HarelineView({
 
   return (
     <div className="mt-3 space-y-4">
-      {/* Location prompt for first-time visitors */}
+      {/* Location prompt for first-time / return visitors */}
       <LocationPrompt
         hasUrlFilters={hasUrlFilters}
         onSetNearMe={handleSetNearMeFromPrompt}
         onSetRegion={handleSetRegionFromPrompt}
         regionNames={uniqueRegionNames}
         page="hareline"
+        prefApplied={!!prefApplied}
+        appliedRegionName={prefApplied?.region}
+        onClearRegion={() => {
+          setSelectedRegions([]);
+          clearLocationPref();
+          setPrefApplied(null);
+          syncUrl({ regions: [] });
+        }}
       />
 
       {/* Controls bar */}
@@ -674,7 +696,7 @@ export function HarelineView({
 
       {/* Region quick-chips */}
       <RegionQuickChips
-        events={events}
+        events={timeFilteredEvents}
         selectedRegions={selectedRegions}
         onRegionsChange={setSelectedRegions}
       />
@@ -730,7 +752,7 @@ export function HarelineView({
           href={`/kennels?regions=${encodeURIComponent(selectedRegions[0])}`}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          View {regionAbbrev(selectedRegions[0])} kennels &rarr;
+          View {selectedRegions[0]} kennels &rarr;
         </Link>
       )}
 
