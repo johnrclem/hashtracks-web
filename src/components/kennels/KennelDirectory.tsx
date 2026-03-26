@@ -15,6 +15,7 @@ import { getEventCoords, haversineDistance } from "@/lib/geo";
 import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 import { LocationPrompt } from "@/components/hareline/LocationPrompt";
 import { getLocationPref, resolveLocationDefault, clearLocationPref } from "@/lib/location-pref";
+import { parseList } from "@/lib/format";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ssr: false,
@@ -28,11 +29,6 @@ const KennelMapView = dynamic(() => import("./KennelMapView"), {
 /** Props for the KennelDirectory — searchable, filterable, sortable directory of all kennels. */
 interface KennelDirectoryProps {
   kennels: KennelCardData[];
-}
-
-function parseList(value: string | null): string[] {
-  if (!value) return [];
-  return value.split("|").filter(Boolean);
 }
 
 export function KennelDirectory({ kennels }: KennelDirectoryProps) {
