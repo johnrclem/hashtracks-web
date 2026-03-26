@@ -129,7 +129,7 @@ export function ClusteredMarkers({
     return result;
   }, [events]);
 
-  // Handle cluster click: show co-located list if all events share same coords, else zoom
+  // Handle cluster click: show co-located list, apply region filter, or zoom
   const handleClusterClick: onClusterClickHandler = useCallback(
     (_event: google.maps.MapMouseEvent, cluster: Cluster, clusterMap: google.maps.Map) => {
       // Collect all events from markers in this cluster
@@ -140,30 +140,38 @@ export function ClusteredMarkers({
           if (evts) allEvents.push(...evts);
         }
       }
+      if (allEvents.length === 0) return;
 
       // Check if all events share the same rounded coords
       const coordKeys = new Set(
         allEvents.map((e) => toCoordKey(e.lat, e.lng)),
       );
+      const allSameCoords = coordKeys.size === 1;
 
-      if (coordKeys.size === 1 && allEvents.length > 0) {
-        // All same location — show colocated list
+      // Check if any event has precise (non-centroid) coordinates
+      const hasPrecise = allEvents.some((e) => e.precise);
+
+      // (1) Truly co-located: same coords AND at least one precise pin
+      //     (centroid-only clusters are NOT truly co-located — they just
+      //     share the region fallback position)
+      if (allSameCoords && hasPrecise) {
         onShowColocatedRef.current(allEvents, { lat: allEvents[0].lat, lng: allEvents[0].lng });
-      } else {
-        // Multiple locations — check if all events share a single region
-        const regions = new Set(
-          allEvents.map((e) => e.event.kennel?.region).filter(Boolean) as string[],
-        );
-        if (regions.size === 1 && onRegionFilterRef.current) {
-          // All events in cluster are from the same region — apply region filter
-          const [region] = regions;
-          onRegionFilterRef.current(region);
-        } else {
-          // Mixed regions — default zoom
-          if (cluster.bounds) {
-            clusterMap.fitBounds(cluster.bounds);
-          }
-        }
+        return;
+      }
+
+      // (2) All events share a single region → apply region filter
+      const regions = new Set(
+        allEvents.map((e) => e.event.kennel?.region).filter(Boolean) as string[],
+      );
+      if (regions.size === 1 && onRegionFilterRef.current) {
+        const [region] = regions;
+        onRegionFilterRef.current(region);
+        return;
+      }
+
+      // (3) Mixed regions — default zoom
+      if (cluster.bounds) {
+        clusterMap.fitBounds(cluster.bounds);
       }
     },
     [],

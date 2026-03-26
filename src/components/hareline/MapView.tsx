@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useRef, useCallback, type RefObject } fro
 import { useRouter } from "next/navigation";
 import { APIProvider, Map, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
 import { Button } from "@/components/ui/button";
-import { LocateFixed, X } from "lucide-react";
+import { ChevronDown, ChevronUp, LocateFixed, Search, X } from "lucide-react";
 import { getEventCoords, getRegionColor } from "@/lib/geo";
 import { ClusteredMarkers, type EventWithCoords } from "./ClusteredMarkers";
 import { ColocatedEventList } from "./ColocatedEventList";
@@ -22,8 +22,10 @@ const LEGEND_ICON_BASE: React.CSSProperties = {
   opacity: 0.5,
 };
 
-/** Reset view button — fits map back to the initial bounds and clears saved viewport. */
-function ResetViewControl({ bounds }: { bounds: { south: number; north: number; west: number; east: number } }) {
+type MapBounds = { south: number; north: number; west: number; east: number };
+
+/** Reset view button — fits map back to the initial bounds, clears saved viewport, and clears bounds filter. */
+function ResetViewControl({ bounds, onBoundsFilter }: Readonly<{ bounds: MapBounds; onBoundsFilter?: (bounds: MapBounds | null) => void }>) {
   const map = useMap();
   return (
     <MapControl position={ControlPosition.TOP_RIGHT}>
@@ -34,6 +36,7 @@ function ResetViewControl({ bounds }: { bounds: { south: number; north: number; 
           className="bg-background shadow-sm"
           onClick={() => {
             map?.fitBounds(bounds);
+            onBoundsFilter?.(null);
             try { sessionStorage.removeItem(VIEWPORT_STORAGE_KEY); } catch { /* noop */ }
           }}
           aria-label="Reset map to show all events"
@@ -76,7 +79,7 @@ function PrecisionBanner() {
 }
 
 /** Auto-zoom when the events list changes (e.g. filter applied). Skips if viewport was restored from session. */
-function AutoZoom({ bounds, skipRef }: { bounds: { south: number; north: number; west: number; east: number } | undefined; skipRef?: RefObject<boolean> }) {
+function AutoZoom({ bounds, skipRef, autoZoomingRef }: Readonly<{ bounds: { south: number; north: number; west: number; east: number } | undefined; skipRef?: RefObject<boolean>; autoZoomingRef?: RefObject<boolean> }>) {
   const map = useMap();
   const prevBoundsKeyRef = useRef("");
   const boundsKey = bounds ? `${bounds.south},${bounds.north},${bounds.west},${bounds.east}` : "";
@@ -89,15 +92,16 @@ function AutoZoom({ bounds, skipRef }: { bounds: { south: number; north: number;
     }
     if (bounds && boundsKey !== prevBoundsKeyRef.current) {
       prevBoundsKeyRef.current = boundsKey;
+      if (autoZoomingRef) autoZoomingRef.current = true;
       map?.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
     }
-  }, [map, bounds, boundsKey, skipRef]);
+  }, [map, bounds, boundsKey, skipRef, autoZoomingRef]);
 
   return null;
 }
 
 /** Restore saved map viewport from sessionStorage on initial mount. */
-function RestoreViewport({ onRestored }: { onRestored: () => void }) {
+function RestoreViewport({ onRestored }: Readonly<{ onRestored: () => void }>) {
   const map = useMap();
   const restoredRef = useRef(false);
 
@@ -118,6 +122,42 @@ function RestoreViewport({ onRestored }: { onRestored: () => void }) {
   }, [map, onRestored]);
 
   return null;
+}
+
+/** Floating "Search this area" button — reads current map bounds and passes to parent. */
+function SearchThisAreaButton({ onBoundsFilter, onDone }: Readonly<{ onBoundsFilter: (bounds: MapBounds) => void; onDone: () => void }>) {
+  const map = useMap();
+
+  const handleClick = useCallback(() => {
+    if (!map) return;
+    const bounds = map.getBounds();
+    if (!bounds) return;
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    onBoundsFilter({
+      south: sw.lat(),
+      north: ne.lat(),
+      west: sw.lng(),
+      east: ne.lng(),
+    });
+    onDone();
+  }, [map, onBoundsFilter, onDone]);
+
+  return (
+    <MapControl position={ControlPosition.TOP_CENTER}>
+      <div className="mt-2.5">
+        <Button
+          variant="outline"
+          size="sm"
+          className="bg-background shadow-md"
+          onClick={handleClick}
+        >
+          <Search className="mr-1.5 h-3.5 w-3.5" />
+          Search this area
+        </Button>
+      </div>
+    </MapControl>
+  );
 }
 
 /** Saves the current map viewport to sessionStorage on every idle event. */
@@ -153,6 +193,8 @@ interface MapViewProps {
   readonly onSelectEvent: (event: HarelineEvent | null) => void;
   /** Filter events by region when a region cluster is clicked. */
   readonly onRegionFilter?: (region: string) => void;
+  /** Callback when user clicks "Search this area" — passes visible map bounds for filtering. */
+  readonly onBoundsFilter?: (bounds: MapBounds | null) => void;
 }
 
 /** State for the co-located event list overlay. */
@@ -161,12 +203,18 @@ interface ColocatedListState {
   position: { lat: number; lng: number };
 }
 
-export default function MapView({ events, selectedEventId, onSelectEvent, onRegionFilter }: MapViewProps) {
+export default function MapView({ events, selectedEventId, onSelectEvent, onRegionFilter, onBoundsFilter }: Readonly<MapViewProps>) {
   const router = useRouter();
   const handleNavigate = useCallback((id: string) => router.push(`/hareline/${id}`), [router]);
   const skipAutoZoomRef = useRef(false);
+  const autoZoomingRef = useRef(false);
+  const userInteractedRef = useRef(false);
+  const [showSearchButton, setShowSearchButton] = useState(false);
   const handleRestored = useCallback(() => { skipAutoZoomRef.current = true; }, []);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; // NOSONAR - NEXT_PUBLIC keys are intentionally browser-exposed
+
+  // Mobile map expand/collapse state
+  const [expanded, setExpanded] = useState(false);
 
   // Co-located event list overlay state
   const [colocatedList, setColocatedList] = useState<ColocatedListState | null>(null);
@@ -192,6 +240,28 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
 
   const handleColocatedClose = useCallback(() => {
     setColocatedList(null);
+  }, []);
+
+  // Map event handlers for "Search this area" interaction tracking
+  const handleDragEnd = useCallback(() => {
+    userInteractedRef.current = true;
+  }, []);
+
+  const handleZoomChanged = useCallback(() => {
+    // Skip zoom events triggered by programmatic auto-zoom (fitBounds)
+    if (!autoZoomingRef.current) {
+      userInteractedRef.current = true;
+    }
+  }, []);
+
+  const handleIdle = useCallback(() => {
+    // Clear auto-zooming flag once the map settles after fitBounds
+    autoZoomingRef.current = false;
+    // Show "Search this area" button after user interaction
+    if (userInteractedRef.current) {
+      setShowSearchButton(true);
+      userInteractedRef.current = false;
+    }
   }, []);
 
   const eventsWithCoords = useMemo<EventWithCoords[]>(() => {
@@ -246,7 +316,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
 
   return (
     <APIProvider apiKey={apiKey}>
-      <div className="relative h-[60vh] lg:h-[calc(100vh-14rem)] min-h-[300px] overflow-hidden rounded-md border">
+      <div className={`relative ${expanded ? "h-[calc(100vh-8rem)]" : "h-[60vh]"} lg:h-[calc(100vh-14rem)] min-h-[300px] overflow-hidden rounded-md border transition-[height] duration-300`}>
         <Map
           mapId={MAP_ID}
           defaultBounds={defaultBounds}
@@ -259,6 +329,9 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
             onSelectEvent(null);
             setColocatedList(null);
           }}
+          onDragend={handleDragEnd}
+          onZoomChanged={handleZoomChanged}
+          onIdle={handleIdle}
         >
           <ClusteredMarkers
             events={eventsWithCoords}
@@ -270,10 +343,23 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
           />
 
           {/* Reset view button */}
-          {defaultBounds && <ResetViewControl bounds={defaultBounds} />}
+          {defaultBounds && (
+            <ResetViewControl
+              bounds={defaultBounds}
+              onBoundsFilter={onBoundsFilter}
+            />
+          )}
+
+          {/* "Search this area" button */}
+          {showSearchButton && onBoundsFilter && (
+            <SearchThisAreaButton
+              onBoundsFilter={onBoundsFilter}
+              onDone={() => setShowSearchButton(false)}
+            />
+          )}
 
           {/* Auto-zoom on filter change */}
-          <AutoZoom bounds={defaultBounds} skipRef={skipAutoZoomRef} />
+          <AutoZoom bounds={defaultBounds} skipRef={skipAutoZoomRef} autoZoomingRef={autoZoomingRef} />
 
           {/* Restore viewport from sessionStorage on back-nav */}
           <RestoreViewport onRestored={handleRestored} />
@@ -323,6 +409,13 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
           </div>
         )}
       </div>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-center gap-1 w-full py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors lg:hidden border-b"
+      >
+        {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        {expanded ? "Collapse map" : "Expand map"}
+      </button>
     </APIProvider>
   );
 }

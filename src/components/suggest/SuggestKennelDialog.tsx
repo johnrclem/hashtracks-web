@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { track } from "@vercel/analytics";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   Dialog,
@@ -21,10 +22,16 @@ export function SuggestKennelDialog({ trigger }: Readonly<SuggestKennelDialogPro
   const [open, setOpen] = useState(false);
   const isMobile = useIsMobile();
 
+  useEffect(() => {
+    if (open) {
+      track("suggest_kennel_entry", { entryPoint: "dialog" });
+    }
+  }, [open]);
+
   // On mobile, navigate to the full-page suggest form instead of opening a dialog
   if (isMobile) {
     return (
-      <Link href="/suggest">
+      <Link href="/suggest" onClick={() => track("suggest_kennel_entry", { entryPoint: "dialog" })}>
         {trigger}
       </Link>
     );

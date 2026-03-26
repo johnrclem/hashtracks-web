@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 import { EventCard, type HarelineEvent } from "./EventCard";
 import { getDayOfWeek, formatDateLong, parseList } from "@/lib/format";
 import { EventFilters } from "./EventFilters";
@@ -29,7 +30,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { haversineDistance, getEventCoords } from "@/lib/geo";
 import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 import { LocationPrompt } from "./LocationPrompt";
-import { getLocationPref, resolveLocationDefault, FILTER_PARAMS } from "@/lib/location-pref";
+import { getLocationPref, resolveLocationDefault, clearLocationPref, FILTER_PARAMS } from "@/lib/location-pref";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -248,6 +249,9 @@ export function HarelineView({
   const liveRegionRef = useRef<HTMLDivElement>(null);
   const announceTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // Map bounds filter state — only active when map view is shown
+  const [mapBounds, setMapBounds] = useState<{ south: number; north: number; west: number; east: number } | null>(null);
+
   // Selected event for detail panel (desktop only)
   const [selectedEvent, setSelectedEvent] = useState<HarelineEvent | null>(null);
 
@@ -290,7 +294,7 @@ export function HarelineView({
       };
 
       for (const [key, val] of Object.entries(state)) {
-        const str = Array.isArray(val) ? val.join(",") : val;
+        const str = Array.isArray(val) ? val.join("|") : val;
         // Only add non-default values to keep URL clean
         const isDefault =
           (key === "time" && str === getDefaultTimeFilter(currentView)) ||
@@ -314,6 +318,8 @@ export function HarelineView({
   // Wrapper setters that sync to URL
   function setView(v: ViewMode) {
     setViewState(v);
+    // Clear map bounds filter when switching away from map
+    if (v !== "map") setMapBounds(null);
     // When switching to map and current filter is "upcoming", auto-narrow to "4w"
     if (v === "map" && timeFilter === "upcoming") {
       setTimeFilterState("4w");
@@ -342,6 +348,7 @@ export function HarelineView({
   }
   function setSelectedRegions(v: string[]) {
     setSelectedRegionsState(v);
+    setPrefApplied(null);
     resetListState();
     syncUrl({ regions: v });
   }
@@ -390,6 +397,16 @@ export function HarelineView({
     [selectedRegions, regionsByState],
   );
 
+  // Time-filtered events — applies ONLY the time filter so region chip counts
+  // reflect the visible time range (e.g. "next 4 weeks") without being skewed
+  // by region/kennel/search selections.
+  const timeFilteredEvents = useMemo(() => {
+    return events.filter((event) => {
+      const eventDate = new Date(event.date).getTime();
+      return passesTimeFilter(eventDate, timeFilter, filterContext.todayUtc);
+    });
+  }, [events, timeFilter, filterContext.todayUtc]);
+
   // Calendar events — all filters EXCEPT time (calendar has its own month navigation / weeks mode)
   const calendarEvents = useMemo(() => {
     return events.filter((event) => {
@@ -402,12 +419,20 @@ export function HarelineView({
     });
   }, [events, scope, subscribedKennelIds, selectedRegions, expandedRegions, selectedKennels, selectedDays, selectedCountry, searchText, nearMeDistance, filterContext]);
 
-  // List/map events — derived from calendarEvents by applying time filter on the smaller set
+  // List/map events — derived from calendarEvents by applying time filter + optional map bounds
   const filteredEvents = useMemo(() => {
-    return calendarEvents.filter((event) =>
-      passesTimeFilter(new Date(event.date).getTime(), timeFilter, filterContext.todayUtc),
-    );
-  }, [calendarEvents, timeFilter, filterContext.todayUtc]);
+    return calendarEvents.filter((event) => {
+      if (!passesTimeFilter(new Date(event.date).getTime(), timeFilter, filterContext.todayUtc)) return false;
+      // Map bounds filter — only when active (map view with "Search this area")
+      if (mapBounds) {
+        const coords = getEventCoords(event.latitude ?? null, event.longitude ?? null, event.kennel?.region ?? "");
+        if (!coords) return false;
+        if (coords.lat < mapBounds.south || coords.lat > mapBounds.north) return false;
+        if (coords.lng < mapBounds.west || coords.lng > mapBounds.east) return false;
+      }
+      return true;
+    });
+  }, [calendarEvents, timeFilter, filterContext.todayUtc, mapBounds]);
 
   const sortedEvents = useMemo(() => {
     return sortEvents(filteredEvents, timeFilter);
@@ -440,7 +465,7 @@ export function HarelineView({
   const remaining = sortedEvents.length - visibleCount;
 
   const activeFilterCount =
-    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance != null ? 1 : 0) + (searchText ? 1 : 0);
+    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance == null ? 0 : 1) + (searchText ? 1 : 0) + (mapBounds ? 1 : 0);
 
   function clearAllFilters() {
     setSelectedRegionsState([]);
@@ -449,18 +474,25 @@ export function HarelineView({
     setSelectedCountryState("");
     setNearMeDistanceState(null);
     setSearchTextState("");
+    setMapBounds(null);
     resetListState();
     syncUrl({ regions: [], kennels: [], days: [], country: "", dist: "", q: "" });
   }
 
-  // Handle region filter from map cluster click
+  // Handle region filter from map cluster click — does NOT clear prefApplied
+  // (only user-initiated filter changes should clear the return-visitor state)
   const handleRegionFilter = useCallback(
     (region: string) => {
-      setSelectedRegions([region]);
+      setSelectedRegionsState([region]);
+      resetListState();
+      syncUrl({ regions: [region] });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [syncUrl],
   );
+
+  // Track when a stored preference was auto-applied (for return-visitor banner)
+  const [prefApplied, setPrefApplied] = useState<{ region?: string } | null>(null);
 
   // On mount: apply stored location preference if no URL filters are present
   const locationPrefApplied = useRef(false);
@@ -474,6 +506,7 @@ export function HarelineView({
 
     if (result.regions) {
       setSelectedRegions(result.regions);
+      setPrefApplied({ region: result.regions[0] });
     } else if (result.nearMeDistance) {
       setNearMeDistance(result.nearMeDistance);
       requestLocation();
@@ -601,13 +634,21 @@ export function HarelineView({
 
   return (
     <div className="mt-3 space-y-4">
-      {/* Location prompt for first-time visitors */}
+      {/* Location prompt for first-time / return visitors */}
       <LocationPrompt
         hasUrlFilters={hasUrlFilters}
         onSetNearMe={handleSetNearMeFromPrompt}
         onSetRegion={handleSetRegionFromPrompt}
         regionNames={uniqueRegionNames}
         page="hareline"
+        prefApplied={!!prefApplied}
+        appliedRegionName={prefApplied?.region}
+        onClearRegion={() => {
+          setSelectedRegions([]);
+          clearLocationPref();
+          setPrefApplied(null);
+          syncUrl({ regions: [] });
+        }}
       />
 
       {/* Controls bar */}
@@ -674,7 +715,7 @@ export function HarelineView({
 
       {/* Region quick-chips */}
       <RegionQuickChips
-        events={events}
+        events={timeFilteredEvents}
         selectedRegions={selectedRegions}
         onRegionsChange={setSelectedRegions}
       />
@@ -704,6 +745,11 @@ export function HarelineView({
         onClearAll={clearAllFilters}
       />
 
+      {/* Dynamic scoping header when a single region is selected */}
+      {selectedRegions.length === 1 && (
+        <h2 className="text-lg font-semibold">Runs in {selectedRegions[0]}</h2>
+      )}
+
       {/* Results count (hidden for calendar — it shows its own count) */}
       {(view === "list" || view === "map") && (
         <p className="text-sm text-muted-foreground" aria-hidden="true">
@@ -713,8 +759,18 @@ export function HarelineView({
           {timeLabel} {filteredEvents.length === 1 ? "event" : "events"}
           {scope === "my" ? " from your kennels" : ""}
           {nearMeDistance != null && geoState.status === "granted" ? ` within ${nearMeDistance} km` : ""}
-          {view === "map" && timeFilter === "4w" && (
+          {mapBounds ? " in this area" : ""}
+          {view === "map" && timeFilter === "4w" && !mapBounds && (
             <span className="ml-2 text-xs text-muted-foreground/70">Map shows next 4 weeks</span>
+          )}
+          {mapBounds && (
+            <button
+              onClick={() => setMapBounds(null)}
+              className="ml-2 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs font-medium text-primary hover:bg-accent transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Clear area filter
+            </button>
           )}
         </p>
       )}
@@ -725,7 +781,7 @@ export function HarelineView({
           href={`/kennels?regions=${encodeURIComponent(selectedRegions[0])}`}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          View {regionAbbrev(selectedRegions[0])} kennels &rarr;
+          View {selectedRegions[0]} kennels &rarr;
         </Link>
       )}
 
@@ -750,6 +806,7 @@ export function HarelineView({
               selectedEventId={selectedEvent?.id}
               onSelectEvent={setSelectedEvent}
               onRegionFilter={handleRegionFilter}
+              onBoundsFilter={setMapBounds}
             />
           </div>
           {detailPanel}

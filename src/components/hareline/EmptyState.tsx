@@ -94,7 +94,7 @@ export function EmptyState(props: Readonly<EmptyStateProps>) {
         {(context === "near_me" || context === "region") && (
           <>
             <Button variant="default" size="sm" asChild>
-              <Link href="/suggest">Suggest a kennel</Link>
+              <Link href="/suggest" onClick={() => track("suggest_kennel_entry", { entryPoint: "empty_state" })}>Suggest a kennel</Link>
             </Button>
             <Button variant="outline" size="sm" onClick={onClearFilters}>
               Browse all events

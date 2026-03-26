@@ -11,7 +11,7 @@ export async function generateMetadata({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }): Promise<Metadata> {
   const params = await searchParams;
-  const regions = typeof params.regions === "string" ? params.regions.split(",") : [];
+  const regions = typeof params.regions === "string" ? params.regions.split("|") : [];
   if (regions.length === 1) {
     return { title: `${regionAbbrev(regions[0])} Runs | HashTracks` };
   }

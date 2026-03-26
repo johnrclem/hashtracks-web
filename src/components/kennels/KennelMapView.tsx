@@ -31,6 +31,13 @@ interface RegionPin {
 
 type MapBounds = { south: number; north: number; west: number; east: number };
 
+/** Shared base styles for legend circle icons. */
+const LEGEND_ICON_STYLE: React.CSSProperties = {
+  width: 10,
+  height: 10,
+  borderRadius: "50%",
+};
+
 /** Reset view button — fits map back to the initial bounds and clears saved viewport. */
 function ResetViewControl({ bounds }: { bounds: MapBounds }) {
   const map = useMap();
@@ -237,7 +244,7 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
   return (
     <div className="flex flex-col gap-2">
       <APIProvider apiKey={apiKey}>
-        <div className="h-[500px] overflow-hidden rounded-md border">
+        <div className="relative h-[500px] overflow-hidden rounded-md border">
           <GoogleMap
             mapId={MAP_ID}
             defaultBounds={defaultBounds}
@@ -301,24 +308,7 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
               );
             })()}
 
-            {/* Co-located kennel list overlay */}
-            {colocatedList && (
-              <AdvancedMarker
-                position={colocatedList.position}
-                zIndex={2000}
-              >
-                <div style={{ transform: "translate(-50%, -110%)" }}>
-                  <ColocatedKennelList
-                    pins={colocatedList.pins}
-                    onSelectKennel={(id) => {
-                      setSelectedKennelId(id);
-                      setColocatedList(null);
-                    }}
-                    onClose={() => setColocatedList(null)}
-                  />
-                </div>
-              </AdvancedMarker>
-            )}
+            {/* Co-located kennel list overlay is rendered outside the GoogleMap (below) to avoid edge clipping */}
 
             {/* Reset view button */}
             {defaultBounds && <ResetViewControl bounds={defaultBounds} />}
@@ -340,14 +330,29 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
             {/* Legend */}
             <MapControl position={ControlPosition.BOTTOM_LEFT}>
               <div className="m-2.5 rounded-md border bg-background/90 px-3 py-1.5 text-xs shadow-sm backdrop-blur-sm">
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-current" /> Kennel
+                {kennelPins.length > 0 && (
+                  <span>
+                    <span
+                      className="mr-1 inline-block align-middle"
+                      style={{ ...LEGEND_ICON_STYLE, backgroundColor: "currentColor", opacity: 0.5 }}
+                    />
+                    {kennelPins.length} kennel {kennelPins.length === 1 ? "pin" : "pins"}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block h-3.5 w-3.5 rounded-full bg-current opacity-60" /> Region cluster
+                )}
+                {kennelPins.length > 0 && regionPins.length > 0 && <span className="mx-1.5">&middot;</span>}
+                {regionPins.length > 0 && (
+                  <span>
+                    <span
+                      className="mr-1 inline-block align-middle"
+                      style={{ ...LEGEND_ICON_STYLE, backgroundColor: "transparent", border: "1.5px solid currentColor", opacity: 0.5 }}
+                    />
+                    {regionPins.length} region {regionPins.length === 1 ? "cluster" : "clusters"}
                   </span>
-                </div>
+                )}
+                {unmappedCount > 0 && (kennelPins.length > 0 || regionPins.length > 0) && <span className="mx-1.5">&middot;</span>}
+                {unmappedCount > 0 && (
+                  <span>{unmappedCount} not on map</span>
+                )}
               </div>
             </MapControl>
 
@@ -389,14 +394,26 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
               );
             })}
           </GoogleMap>
+
+          {/* Co-located kennel list overlay — positioned within the map container to avoid edge clipping */}
+          {colocatedList && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center lg:items-center lg:justify-center">
+              <div className="pointer-events-auto mb-4 w-full max-w-xs px-4 lg:mb-0 lg:px-0">
+                <ColocatedKennelList
+                  pins={colocatedList.pins}
+                  onSelectKennel={(id) => {
+                    setSelectedKennelId(id);
+                    setColocatedList(null);
+                  }}
+                  onClose={() => setColocatedList(null)}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </APIProvider>
 
-      <p className="text-xs text-muted-foreground">
-        {kennelPins.length} kennel {kennelPins.length === 1 ? "pin" : "pins"}
-        {regionPins.length > 0 && ` · ${regionPins.length} region ${regionPins.length === 1 ? "cluster" : "clusters"}`}
-        {unmappedCount > 0 && ` · ${unmappedCount} not on map`}
-      </p>
+      {/* Counts are shown in the in-map legend overlay */}
     </div>
   );
 }
