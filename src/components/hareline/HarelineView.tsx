@@ -348,6 +348,7 @@ export function HarelineView({
   }
   function setSelectedRegions(v: string[]) {
     setSelectedRegionsState(v);
+    setPrefApplied(null);
     resetListState();
     syncUrl({ regions: v });
   }
@@ -464,7 +465,7 @@ export function HarelineView({
   const remaining = sortedEvents.length - visibleCount;
 
   const activeFilterCount =
-    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance != null ? 1 : 0) + (searchText ? 1 : 0) + (mapBounds ? 1 : 0);
+    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance == null ? 0 : 1) + (searchText ? 1 : 0) + (mapBounds ? 1 : 0);
 
   function clearAllFilters() {
     setSelectedRegionsState([]);
@@ -478,10 +479,13 @@ export function HarelineView({
     syncUrl({ regions: [], kennels: [], days: [], country: "", dist: "", q: "" });
   }
 
-  // Handle region filter from map cluster click
+  // Handle region filter from map cluster click — does NOT clear prefApplied
+  // (only user-initiated filter changes should clear the return-visitor state)
   const handleRegionFilter = useCallback(
     (region: string) => {
-      setSelectedRegions([region]);
+      setSelectedRegionsState([region]);
+      resetListState();
+      syncUrl({ regions: [region] });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [syncUrl],

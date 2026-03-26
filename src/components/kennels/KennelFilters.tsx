@@ -130,14 +130,15 @@ export function KennelFilters({
               </Badge>
             )}
             {selectedRegions.length > 0 && (
-              <span
-                className="ml-1 rounded-full p-0.5 hover:bg-muted"
+              <button
+                type="button"
+                className="ml-1 appearance-none border-none bg-transparent cursor-pointer rounded-full p-0.5 hover:bg-muted"
                 onClick={(e) => { e.stopPropagation(); onRegionsChange([]); }}
                 onMouseDown={(e) => { e.preventDefault(); }}
                 aria-label="Clear region filter"
               >
                 <X className="h-3 w-3" />
-              </span>
+              </button>
             )}
           </Button>
         }

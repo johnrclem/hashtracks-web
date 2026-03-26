@@ -31,6 +31,13 @@ interface RegionPin {
 
 type MapBounds = { south: number; north: number; west: number; east: number };
 
+/** Shared base styles for legend circle icons. */
+const LEGEND_ICON_STYLE: React.CSSProperties = {
+  width: 10,
+  height: 10,
+  borderRadius: "50%",
+};
+
 /** Reset view button — fits map back to the initial bounds and clears saved viewport. */
 function ResetViewControl({ bounds }: { bounds: MapBounds }) {
   const map = useMap();
@@ -327,7 +334,7 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
                   <span>
                     <span
                       className="mr-1 inline-block align-middle"
-                      style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "currentColor", opacity: 0.5 }}
+                      style={{ ...LEGEND_ICON_STYLE, backgroundColor: "currentColor", opacity: 0.5 }}
                     />
                     {kennelPins.length} kennel {kennelPins.length === 1 ? "pin" : "pins"}
                   </span>
@@ -337,7 +344,7 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
                   <span>
                     <span
                       className="mr-1 inline-block align-middle"
-                      style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "transparent", border: "1.5px solid currentColor", opacity: 0.5 }}
+                      style={{ ...LEGEND_ICON_STYLE, backgroundColor: "transparent", border: "1.5px solid currentColor", opacity: 0.5 }}
                     />
                     {regionPins.length} region {regionPins.length === 1 ? "cluster" : "clusters"}
                   </span>

@@ -109,7 +109,12 @@ export function toggleArrayItem<T>(array: T[], value: T): T[] {
  */
 export function parseList(value: string | null): string[] {
   if (!value) return [];
-  return value.split("|").filter(Boolean);
+  // Pipe is the primary delimiter (new format)
+  if (value.includes("|")) return value.split("|").filter(Boolean);
+  // Comma fallback for legacy URLs (days, kennels — values don't contain commas)
+  if (value.includes(",")) return value.split(",").map(s => s.trim()).filter(Boolean);
+  // Single value
+  return [value].filter(Boolean);
 }
 
 /**

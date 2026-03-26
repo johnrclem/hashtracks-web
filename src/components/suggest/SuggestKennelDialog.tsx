@@ -31,7 +31,7 @@ export function SuggestKennelDialog({ trigger }: Readonly<SuggestKennelDialogPro
   // On mobile, navigate to the full-page suggest form instead of opening a dialog
   if (isMobile) {
     return (
-      <Link href="/suggest">
+      <Link href="/suggest" onClick={() => track("suggest_kennel_entry", { entryPoint: "dialog" })}>
         {trigger}
       </Link>
     );

@@ -25,7 +25,7 @@ const LEGEND_ICON_BASE: React.CSSProperties = {
 type MapBounds = { south: number; north: number; west: number; east: number };
 
 /** Reset view button — fits map back to the initial bounds, clears saved viewport, and clears bounds filter. */
-function ResetViewControl({ bounds, onBoundsFilter }: { bounds: MapBounds; onBoundsFilter?: (bounds: MapBounds | null) => void }) {
+function ResetViewControl({ bounds, onBoundsFilter }: Readonly<{ bounds: MapBounds; onBoundsFilter?: (bounds: MapBounds | null) => void }>) {
   const map = useMap();
   return (
     <MapControl position={ControlPosition.TOP_RIGHT}>
@@ -79,7 +79,7 @@ function PrecisionBanner() {
 }
 
 /** Auto-zoom when the events list changes (e.g. filter applied). Skips if viewport was restored from session. */
-function AutoZoom({ bounds, skipRef, autoZoomingRef }: { bounds: { south: number; north: number; west: number; east: number } | undefined; skipRef?: RefObject<boolean>; autoZoomingRef?: RefObject<boolean> }) {
+function AutoZoom({ bounds, skipRef, autoZoomingRef }: Readonly<{ bounds: { south: number; north: number; west: number; east: number } | undefined; skipRef?: RefObject<boolean>; autoZoomingRef?: RefObject<boolean> }>) {
   const map = useMap();
   const prevBoundsKeyRef = useRef("");
   const boundsKey = bounds ? `${bounds.south},${bounds.north},${bounds.west},${bounds.east}` : "";
@@ -101,7 +101,7 @@ function AutoZoom({ bounds, skipRef, autoZoomingRef }: { bounds: { south: number
 }
 
 /** Restore saved map viewport from sessionStorage on initial mount. */
-function RestoreViewport({ onRestored }: { onRestored: () => void }) {
+function RestoreViewport({ onRestored }: Readonly<{ onRestored: () => void }>) {
   const map = useMap();
   const restoredRef = useRef(false);
 
@@ -125,7 +125,7 @@ function RestoreViewport({ onRestored }: { onRestored: () => void }) {
 }
 
 /** Floating "Search this area" button — reads current map bounds and passes to parent. */
-function SearchThisAreaButton({ onBoundsFilter, onDone }: { onBoundsFilter: (bounds: MapBounds) => void; onDone: () => void }) {
+function SearchThisAreaButton({ onBoundsFilter, onDone }: Readonly<{ onBoundsFilter: (bounds: MapBounds) => void; onDone: () => void }>) {
   const map = useMap();
 
   const handleClick = useCallback(() => {
@@ -203,7 +203,7 @@ interface ColocatedListState {
   position: { lat: number; lng: number };
 }
 
-export default function MapView({ events, selectedEventId, onSelectEvent, onRegionFilter, onBoundsFilter }: MapViewProps) {
+export default function MapView({ events, selectedEventId, onSelectEvent, onRegionFilter, onBoundsFilter }: Readonly<MapViewProps>) {
   const router = useRouter();
   const handleNavigate = useCallback((id: string) => router.push(`/hareline/${id}`), [router]);
   const skipAutoZoomRef = useRef(false);

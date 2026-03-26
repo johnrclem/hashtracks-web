@@ -122,6 +122,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   }
   function setSelectedRegions(v: string[]) {
     setSelectedRegionsState(v);
+    setPrefApplied(null);
     syncUrl({ regions: v });
   }
   function setSelectedDays(v: string[]) {
@@ -451,9 +452,12 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       />
 
       {/* Dynamic scoping header when a single region is selected */}
-      {selectedRegions.length === 1 && (
-        <h2 className="text-lg font-semibold">Kennels in {selectedRegions[0]}</h2>
-      )}
+      {selectedRegions.length === 1 && (() => {
+        const displayRegion = selectedRegions[0].startsWith("state:")
+          ? selectedRegions[0].slice(6)
+          : selectedRegions[0];
+        return <h2 className="text-lg font-semibold">Kennels in {displayRegion}</h2>;
+      })()}
 
       {/* Results count */}
       <p className="text-sm text-muted-foreground">
@@ -473,14 +477,19 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       </p>
 
       {/* Cross-link to hareline when a single region is selected */}
-      {selectedRegions.length === 1 && (
-        <Link
-          href={`/hareline?regions=${encodeURIComponent(selectedRegions[0])}`}
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          View upcoming events in {selectedRegions[0]} &rarr;
-        </Link>
-      )}
+      {selectedRegions.length === 1 && (() => {
+        const displayRegion = selectedRegions[0].startsWith("state:")
+          ? selectedRegions[0].slice(6)
+          : selectedRegions[0];
+        return (
+          <Link
+            href={`/hareline?regions=${encodeURIComponent(selectedRegions[0])}`}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            View upcoming events in {displayRegion} &rarr;
+          </Link>
+        );
+      })()}
 
       {/* Map or Grid */}
       {displayView === "map" ? (

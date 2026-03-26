@@ -22,6 +22,8 @@ import { getLocationPref, setLocationPref, clearLocationPref } from "@/lib/locat
 const SESSION_KEY = "hashtracks:locationPromptDismissed";
 const DISMISS_COUNT_KEY = "hashtracks:locationPromptDismissCount";
 const PERMANENT_DISMISS_KEY = "hashtracks:locationPromptPermanentlyDismissed";
+const RETURN_BANNER_DISMISSED_KEY = "hashtracks:returnBannerDismissed";
+const PERMANENT_DISMISS_THRESHOLD = 3;
 
 interface LocationPromptProps {
   readonly hasUrlFilters: boolean;
@@ -59,6 +61,16 @@ export function LocationPrompt({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
+
+    // Check if return banner was previously dismissed this session
+    try {
+      if (sessionStorage.getItem(RETURN_BANNER_DISMISSED_KEY)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setReturnBannerDismissed(true);
+      }
+    } catch {
+      // sessionStorage unavailable
+    }
 
     // Don't show if URL already has filters
     if (hasUrlFilters) return;
@@ -118,7 +130,7 @@ export function LocationPrompt({
       const count = parseInt(localStorage.getItem(DISMISS_COUNT_KEY) ?? "0", 10);
       const newCount = count + 1;
       localStorage.setItem(DISMISS_COUNT_KEY, String(newCount));
-      if (newCount >= 3) {
+      if (newCount >= PERMANENT_DISMISS_THRESHOLD) {
         localStorage.setItem(PERMANENT_DISMISS_KEY, "true");
       }
     } catch {
@@ -131,6 +143,11 @@ export function LocationPrompt({
   function handleReturnBannerDismiss() {
     try {
       sessionStorage.setItem(SESSION_KEY, "true");
+    } catch {
+      // Best-effort
+    }
+    try {
+      sessionStorage.setItem(RETURN_BANNER_DISMISSED_KEY, "true");
     } catch {
       // Best-effort
     }
