@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 import { EventCard, type HarelineEvent } from "./EventCard";
 import { getDayOfWeek, formatDateLong, parseList } from "@/lib/format";
 import { EventFilters } from "./EventFilters";
@@ -248,6 +249,9 @@ export function HarelineView({
   const liveRegionRef = useRef<HTMLDivElement>(null);
   const announceTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // Map bounds filter state — only active when map view is shown
+  const [mapBounds, setMapBounds] = useState<{ south: number; north: number; west: number; east: number } | null>(null);
+
   // Selected event for detail panel (desktop only)
   const [selectedEvent, setSelectedEvent] = useState<HarelineEvent | null>(null);
 
@@ -314,6 +318,8 @@ export function HarelineView({
   // Wrapper setters that sync to URL
   function setView(v: ViewMode) {
     setViewState(v);
+    // Clear map bounds filter when switching away from map
+    if (v !== "map") setMapBounds(null);
     // When switching to map and current filter is "upcoming", auto-narrow to "4w"
     if (v === "map" && timeFilter === "upcoming") {
       setTimeFilterState("4w");
@@ -412,12 +418,20 @@ export function HarelineView({
     });
   }, [events, scope, subscribedKennelIds, selectedRegions, expandedRegions, selectedKennels, selectedDays, selectedCountry, searchText, nearMeDistance, filterContext]);
 
-  // List/map events — derived from calendarEvents by applying time filter on the smaller set
+  // List/map events — derived from calendarEvents by applying time filter + optional map bounds
   const filteredEvents = useMemo(() => {
-    return calendarEvents.filter((event) =>
-      passesTimeFilter(new Date(event.date).getTime(), timeFilter, filterContext.todayUtc),
-    );
-  }, [calendarEvents, timeFilter, filterContext.todayUtc]);
+    return calendarEvents.filter((event) => {
+      if (!passesTimeFilter(new Date(event.date).getTime(), timeFilter, filterContext.todayUtc)) return false;
+      // Map bounds filter — only when active (map view with "Search this area")
+      if (mapBounds) {
+        const coords = getEventCoords(event.latitude ?? null, event.longitude ?? null, event.kennel?.region ?? "");
+        if (!coords) return false;
+        if (coords.lat < mapBounds.south || coords.lat > mapBounds.north) return false;
+        if (coords.lng < mapBounds.west || coords.lng > mapBounds.east) return false;
+      }
+      return true;
+    });
+  }, [calendarEvents, timeFilter, filterContext.todayUtc, mapBounds]);
 
   const sortedEvents = useMemo(() => {
     return sortEvents(filteredEvents, timeFilter);
@@ -450,7 +464,7 @@ export function HarelineView({
   const remaining = sortedEvents.length - visibleCount;
 
   const activeFilterCount =
-    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance != null ? 1 : 0) + (searchText ? 1 : 0);
+    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance != null ? 1 : 0) + (searchText ? 1 : 0) + (mapBounds ? 1 : 0);
 
   function clearAllFilters() {
     setSelectedRegionsState([]);
@@ -459,6 +473,7 @@ export function HarelineView({
     setSelectedCountryState("");
     setNearMeDistanceState(null);
     setSearchTextState("");
+    setMapBounds(null);
     resetListState();
     syncUrl({ regions: [], kennels: [], days: [], country: "", dist: "", q: "" });
   }
@@ -740,8 +755,18 @@ export function HarelineView({
           {timeLabel} {filteredEvents.length === 1 ? "event" : "events"}
           {scope === "my" ? " from your kennels" : ""}
           {nearMeDistance != null && geoState.status === "granted" ? ` within ${nearMeDistance} km` : ""}
-          {view === "map" && timeFilter === "4w" && (
+          {mapBounds ? " in this area" : ""}
+          {view === "map" && timeFilter === "4w" && !mapBounds && (
             <span className="ml-2 text-xs text-muted-foreground/70">Map shows next 4 weeks</span>
+          )}
+          {mapBounds && (
+            <button
+              onClick={() => setMapBounds(null)}
+              className="ml-2 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs font-medium text-primary hover:bg-accent transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Clear area filter
+            </button>
           )}
         </p>
       )}
@@ -777,6 +802,7 @@ export function HarelineView({
               selectedEventId={selectedEvent?.id}
               onSelectEvent={setSelectedEvent}
               onRegionFilter={handleRegionFilter}
+              onBoundsFilter={setMapBounds}
             />
           </div>
           {detailPanel}
