@@ -299,6 +299,77 @@ describe("resolveKennelTag", () => {
   });
 });
 
+// ── source-scoped alias resolution (Step 2) ──
+
+describe("source-scoped alias resolution", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearResolverCache();
+  });
+
+  it("resolves to source-linked kennel when same alias exists on two kennels", async () => {
+    // kennelCode: source-scoped miss + global miss
+    mockKennelFind.mockResolvedValueOnce(null);
+    mockKennelFind.mockResolvedValueOnce(null);
+    // shortName: source-scoped miss + global miss
+    mockKennelFind.mockResolvedValueOnce(null);
+    mockKennelFind.mockResolvedValueOnce(null);
+    // alias: source-scoped hit (the kennel linked to this source)
+    mockAliasFind.mockResolvedValueOnce({ kennelId: "kennel_source_linked" } as never);
+
+    const result = await resolveKennelTag("H4", "source_abc");
+    expect(result).toEqual({ kennelId: "kennel_source_linked", matched: true });
+
+    // Verify the source-scoped alias query included the source filter
+    expect(mockAliasFind).toHaveBeenNthCalledWith(1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          alias: { equals: "H4", mode: "insensitive" },
+          kennel: { sources: { some: { sourceId: "source_abc" } } },
+        }),
+      }),
+    );
+  });
+
+  it("falls back to global alias when no sourceId is provided", async () => {
+    // kennelCode: global miss
+    mockKennelFind.mockResolvedValueOnce(null);
+    // shortName: global miss
+    mockKennelFind.mockResolvedValueOnce(null);
+    // alias: global hit (no source-scoped call since no sourceId)
+    mockAliasFind.mockResolvedValueOnce({ kennelId: "kennel_global" } as never);
+
+    const result = await resolveKennelTag("H4");
+    expect(result).toEqual({ kennelId: "kennel_global", matched: true });
+
+    // Only one alias call (global), no source-scoped call
+    expect(mockAliasFind).toHaveBeenCalledTimes(1);
+    expect(mockAliasFind).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { alias: { equals: "H4", mode: "insensitive" } },
+      }),
+    );
+  });
+
+  it("falls through to global alias when source-scoped alias misses", async () => {
+    // kennelCode: source-scoped miss + global miss
+    mockKennelFind.mockResolvedValueOnce(null);
+    mockKennelFind.mockResolvedValueOnce(null);
+    // shortName: source-scoped miss + global miss
+    mockKennelFind.mockResolvedValueOnce(null);
+    mockKennelFind.mockResolvedValueOnce(null);
+    // alias: source-scoped miss, then global hit
+    mockAliasFind.mockResolvedValueOnce(null);
+    mockAliasFind.mockResolvedValueOnce({ kennelId: "kennel_global_fallback" } as never);
+
+    const result = await resolveKennelTag("H4", "source_xyz");
+    expect(result).toEqual({ kennelId: "kennel_global_fallback", matched: true });
+
+    // Two alias calls: source-scoped miss then global hit
+    expect(mockAliasFind).toHaveBeenCalledTimes(2);
+  });
+});
+
 // ── kennelCode resolution (Step 0) ──
 
 describe("kennelCode resolution (Step 0)", () => {
