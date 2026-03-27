@@ -378,6 +378,12 @@ export function buildRawEventFromGCalItem(
   if (title.toLowerCase() === kennelTag.toLowerCase() && rawDescription) {
     title = extractTitleFromDescription(rawDescription) ?? title;
   }
+  // If title looks like a bare kennel code (2-10 alphanumeric chars, no spaces),
+  // try extracting a better title from the description
+  if (/^[A-Za-z0-9]{2,10}$/.test(title) && rawDescription) {
+    const descTitle = extractTitleFromDescription(rawDescription);
+    if (descTitle) title = descTitle;
+  }
 
   // Start time: prefer dateTime-derived time, fall back to description extraction
   let resolvedStartTime = startTime;

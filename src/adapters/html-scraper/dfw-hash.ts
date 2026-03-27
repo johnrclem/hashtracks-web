@@ -315,8 +315,8 @@ export function parseDFWDetailPage($: CheerioAPI): {
     const $h5 = $(h5);
     const label = $h5.find("em").first().text().trim().toLowerCase();
     const $h5Clone = $h5.clone();
-    $h5Clone.find("em").remove();
-    const value = $h5Clone.text().replace(/^:/, "").trim();
+    $h5Clone.find("em").first().remove();
+    const value = $h5Clone.text().replace(/^[\s:]+/, "").trim();
 
     if (!value || value.toLowerCase() === "nothing yet") return;
 

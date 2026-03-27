@@ -791,8 +791,16 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { groupUrlname: "richmond-hash-house-harriers", kennelTag: "rvah3" },
-      kennelCodes: ["rvah3"],
+      config: {
+        groupUrlname: "richmond-hash-house-harriers",
+        kennelTag: "rvah3",
+        kennelPatterns: [
+          ["^BIBH3", "bibh3"],
+          ["^TMFMH3", "tmfmh3"],
+          ["^Chain Gang", "chain-gang-hhh"],
+        ],
+      },
+      kennelCodes: ["rvah3", "bibh3", "tmfmh3", "chain-gang-hhh"],
     },
     // --- Fort Eustis (Calendar + Meetup) ---
     {
@@ -957,6 +965,8 @@ export const SOURCES = [
         containerSelector: "table:first-of-type",
         rowSelector: "tr",
         columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
+        forwardDate: true,
+        maxPastDays: 14,
       },
       kennelCodes: ["cfh3"],
     },
