@@ -5,7 +5,8 @@ import { useUser, useClerk } from "@clerk/nextjs";
 import { Globe, Thermometer, Info, Shield, Users, LogOut, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
-import { useUnitsPreference } from "@/components/providers/units-preference-provider";
+import { useUnitsPreference, type TempUnit } from "@/components/providers/units-preference-provider";
+import type { TimeDisplayPref } from "@/generated/prisma/client";
 import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -70,7 +71,7 @@ export function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps) {
               <span className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Globe className="h-4 w-4" /> Time
               </span>
-              <ToggleGroup type="single" variant="outline" size="sm" value={preference} onValueChange={(v) => v && setPreference(v as "EVENT_LOCAL" | "USER_LOCAL")}>
+              <ToggleGroup type="single" variant="outline" size="sm" value={preference} onValueChange={(v) => v && setPreference(v as TimeDisplayPref)}>
                 <ToggleGroupItem value="EVENT_LOCAL">Event</ToggleGroupItem>
                 <ToggleGroupItem value="USER_LOCAL">Local</ToggleGroupItem>
               </ToggleGroup>
@@ -79,7 +80,7 @@ export function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps) {
               <span className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Thermometer className="h-4 w-4" /> Temp
               </span>
-              <ToggleGroup type="single" variant="outline" size="sm" value={tempUnit} onValueChange={(v) => v && setTempUnit(v as "IMPERIAL" | "METRIC")}>
+              <ToggleGroup type="single" variant="outline" size="sm" value={tempUnit} onValueChange={(v) => v && setTempUnit(v as TempUnit)}>
                 <ToggleGroupItem value="IMPERIAL">°F</ToggleGroupItem>
                 <ToggleGroupItem value="METRIC">°C</ToggleGroupItem>
               </ToggleGroup>
