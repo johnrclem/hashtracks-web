@@ -1637,7 +1637,8 @@ export function regionAbbrev(region: string): string {
   return resolveRegion(region)?.abbrev ?? region;
 }
 
-/** Appends dark-mode Tailwind classes to light-mode region color classes. */
+/** Appends dark-mode Tailwind classes to light-mode region color classes.
+ *  Expects "bg-{color}-N text-{color}-N" format (no opacity modifiers). */
 function withDarkVariants(classes: string): string {
   const bgMatch = classes.match(/bg-(\w+)-\d+/);
   if (!bgMatch) return classes;

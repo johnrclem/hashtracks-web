@@ -75,9 +75,9 @@ function HeatmapOverlay({ locations }: { locations: TrailLocation[] }) {
 
 export function TrailLocationMap({ locations, region }: TrailHeatmapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const { colorScheme } = useMapColorScheme();
+  const { colorScheme: scheme } = useMapColorScheme();
   const regionColor = getRegionColor(region);
-  const mapStyles = colorScheme === "DARK" ? DARK_GRAYSCALE_STYLES : LIGHT_GRAYSCALE_STYLES;
+  const mapStyles = scheme === "DARK" ? DARK_GRAYSCALE_STYLES : LIGHT_GRAYSCALE_STYLES;
 
   const bounds = useMemo(() => {
     if (locations.length === 0) return undefined;
@@ -143,7 +143,6 @@ export function TrailLocationMap({ locations, region }: TrailHeatmapProps) {
         <div className="h-[240px] sm:h-[300px]">
           <Map
             defaultBounds={bounds}
-            colorScheme={colorScheme}
             styles={mapStyles}
             gestureHandling="none"
             disableDefaultUI

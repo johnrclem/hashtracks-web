@@ -2,6 +2,7 @@
 
 import { useTheme } from "next-themes";
 
+/** Matches .dark --background in globals.css (slate-950). */
 const DARK_MARKER_BORDER = "hsl(222 47% 11%)";
 
 /** Returns map color scheme and marker border color based on the resolved app theme. */
