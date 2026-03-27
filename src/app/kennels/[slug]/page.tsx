@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { formatSchedule } from "@/lib/format";
 
 export async function generateMetadata({
   params,
@@ -11,10 +12,35 @@ export async function generateMetadata({
   const { slug } = await params;
   const kennel = await prisma.kennel.findUnique({
     where: { slug },
-    select: { shortName: true, isHidden: true },
+    select: {
+      shortName: true,
+      fullName: true,
+      isHidden: true,
+      description: true,
+      foundedYear: true,
+      scheduleDayOfWeek: true,
+      scheduleTime: true,
+      scheduleFrequency: true,
+    },
   });
   if (!kennel || kennel.isHidden) return { title: "Kennel · HashTracks" };
-  return { title: `${kennel.shortName} · Kennels · HashTracks` };
+  const title = `${kennel.shortName} · Kennels · HashTracks`;
+
+  const parts: string[] = [];
+  if (kennel.fullName && kennel.fullName !== kennel.shortName) {
+    parts.push(kennel.fullName);
+  }
+  const schedule = formatSchedule(kennel);
+  if (schedule) parts.push(`Runs ${schedule}`);
+  if (kennel.foundedYear) parts.push(`Founded ${kennel.foundedYear}`);
+  if (kennel.description) parts.push(kennel.description);
+  const description = (parts.join(". ") || `${kennel.shortName} on HashTracks`).slice(0, 200);
+
+  return {
+    title,
+    description,
+    openGraph: { title, description },
+  };
 }
 import { getOrCreateUser } from "@/lib/auth";
 import { Users } from "lucide-react";

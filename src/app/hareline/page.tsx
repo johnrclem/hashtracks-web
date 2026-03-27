@@ -13,9 +13,16 @@ export async function generateMetadata({
   const params = await searchParams;
   const regions = typeof params.regions === "string" ? params.regions.split("|") : [];
   if (regions.length === 1) {
-    return { title: `${regionAbbrev(regions[0])} Runs | HashTracks` };
+    const abbrev = regionAbbrev(regions[0]);
+    return {
+      title: `${abbrev} Runs | HashTracks`,
+      description: `Upcoming hash house harrier runs in the ${abbrev} area.`,
+    };
   }
-  return { title: "Hareline | HashTracks" };
+  return {
+    title: "Hareline | HashTracks",
+    description: "Browse upcoming hash house harrier runs across all regions on HashTracks.",
+  };
 }
 import { HarelineView } from "@/components/hareline/HarelineView";
 import { PageHeader } from "@/components/layout/PageHeader";

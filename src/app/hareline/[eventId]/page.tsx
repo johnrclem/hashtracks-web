@@ -11,9 +11,9 @@ export async function generateMetadata({
   const { eventId } = await params;
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    select: {
-      date: true,
-      kennel: { select: { shortName: true } },
+    include: {
+      kennel: { select: { shortName: true, fullName: true } },
+      hares: { select: { hareName: true }, take: 5 },
     },
   });
   if (!event) return { title: "Event · HashTracks" };
@@ -23,7 +23,23 @@ export async function generateMetadata({
     year: "numeric",
     timeZone: "UTC",
   });
-  return { title: `${dateStr} · ${event.kennel.shortName} · HashTracks` };
+  const title = `${dateStr} · ${event.kennel.shortName} · HashTracks`;
+
+  const parts: string[] = [`${event.kennel.fullName ?? event.kennel.shortName} — ${dateStr}`];
+  if (event.runNumber) parts[0] += ` · Run #${event.runNumber}`;
+  if (event.title) parts.push(event.title);
+  if (event.locationName) parts.push(event.locationName);
+  if (event.hares.length > 0) {
+    const names = event.hares.map((h) => h.hareName).join(", ");
+    parts.push(`Hares: ${names}`);
+  }
+  const description = parts.join(". ").slice(0, 200);
+
+  return {
+    title,
+    description,
+    openGraph: { title, description },
+  };
 }
 import { getOrCreateUser, getAdminUser, getMismanUser } from "@/lib/auth";
 import { getStravaConnection } from "@/app/strava/actions";
