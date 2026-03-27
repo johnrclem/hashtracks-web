@@ -866,6 +866,34 @@ describe("sanitizeTitle", () => {
   it("does not strip Location TBD when not a trailing suffix", () => {
     expect(sanitizeTitle("Location TBD - Meet at the Park")).toBe("Location TBD - Meet at the Park");
   });
+
+  it("returns null for 'Wanna Hare?' CTA title", () => {
+    expect(sanitizeTitle("Wanna Hare? Check out our upcoming available dates!")).toBeNull();
+  });
+
+  it("returns null for 'available dates' CTA title", () => {
+    expect(sanitizeTitle("Check out our available dates for haring")).toBeNull();
+  });
+
+  it("returns null for schedule description used as title", () => {
+    expect(sanitizeTitle("Mosquito H3 runs on the first and third Wednesdays of the month on the west side of Houston.")).toBeNull();
+  });
+
+  it("returns null for 'meets every' schedule description", () => {
+    expect(sanitizeTitle("BH3 meets every Saturday at 2pm")).toBeNull();
+  });
+
+  it("returns null for 'hashes on the' schedule description", () => {
+    expect(sanitizeTitle("Our kennel hashes on the second Sunday")).toBeNull();
+  });
+
+  it("passes through normal title containing 'run' (regression)", () => {
+    expect(sanitizeTitle("Fun Run at the Park")).toBe("Fun Run at the Park");
+  });
+
+  it("passes through title with 'run on' not matching schedule pattern (regression)", () => {
+    expect(sanitizeTitle("Trail Run on the Beach")).toBe("Trail Run on the Beach");
+  });
 });
 
 // ── sanitizeHares ──
@@ -956,6 +984,16 @@ describe("sanitizeHares", () => {
 
   it("rejects http URL as hare value", () => {
     expect(sanitizeHares("http://example.com/hares")).toBeNull();
+  });
+
+  // Fix 3: single-character artifact rejection
+  it("rejects single-character hare value as scraping artifact", () => {
+    expect(sanitizeHares("S")).toBeNull();
+    expect(sanitizeHares("A")).toBeNull();
+  });
+
+  it("passes through two-character hare name", () => {
+    expect(sanitizeHares("Al")).toBe("Al");
   });
 });
 

@@ -275,6 +275,21 @@ describe("parseEventRow", () => {
     expect(result).toBeDefined();
     expect(result!.runNumber).toBe(2206);
   });
+
+  it("passes forwardDate option to chronoParseDate", () => {
+    const html = `<table><tr><td>March 28</td><td>Salty Dog</td><td>The Bar</td><td>1500</td></tr></table>`;
+    const $f = cheerio.load(html);
+    const configWithForward: GenericHtmlConfig = {
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(1)", hares: "td:nth-child(2)", location: "td:nth-child(3)", runNumber: "td:nth-child(4)" },
+      defaultKennelTag: "test",
+      forwardDate: true,
+    };
+    const event = parseEventRow($f, $f("tr").first(), configWithForward, "https://example.com");
+    expect(event).toBeDefined();
+    expect(event!.date).toMatch(/^\d{4}-03-28$/);
+  });
 });
 
 describe("GenericHtmlAdapter", () => {
@@ -389,6 +404,36 @@ describe("GenericHtmlAdapter", () => {
     expect(result.events[0].runNumber).toBe(515);
     expect(result.events[0].date).toBe("2026-03-21");
     expect(result.events[1].runNumber).toBe(516);
+  });
+
+  it("filters past events when maxPastDays is configured", async () => {
+    // Create HTML with one future date and one old date (30 days ago)
+    const today = new Date();
+    const futureDate = new Date(today);
+    futureDate.setDate(futureDate.getDate() + 7);
+    const pastDate = new Date(today);
+    pastDate.setDate(pastDate.getDate() - 30);
+    const fmtDate = (d: Date) =>
+      `${d.toLocaleString("en-US", { month: "long" })} ${d.getDate()}, ${d.getFullYear()}`;
+
+    const html = `<html><body><table id="events"><tbody>
+      <tr><td>${fmtDate(futureDate)}</td><td>Future Hare</td><td>Bar</td><td>100</td></tr>
+      <tr><td>${fmtDate(pastDate)}</td><td>Old Hare</td><td>Pub</td><td>99</td></tr>
+    </tbody></table></body></html>`;
+    const $ = cheerio.load(html);
+    mockFetchHTMLPage.mockResolvedValue({
+      ok: true, html, $, structureHash: "x", fetchDurationMs: 50,
+    });
+
+    const source = {
+      id: "test",
+      url: "https://example.com",
+      config: { ...BASE_CONFIG, columns: { date: "td:nth-child(1)", hares: "td:nth-child(2)", location: "td:nth-child(3)", runNumber: "td:nth-child(4)" }, maxPastDays: 14 },
+    } as unknown as Source;
+
+    const result = await adapter.fetch(source);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].hares).toBe("Future Hare");
   });
 
   it("returns empty events when page has no matching rows", async () => {

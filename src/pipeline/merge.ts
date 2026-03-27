@@ -52,6 +52,9 @@ export function sanitizeHares(hares: string | undefined | null): string | null {
   // Reject bare URLs (e.g., Google Maps links extracted as hare names)
   if (/^https?:\/\//i.test(h)) return null;
 
+  // Reject single-character values (no real hash name is 1 char — likely a scraping artifact)
+  if (h.length === 1) return null;
+
   // Strip "Hare is " / "Hare: " prefix (some calendars embed the label in the value)
   h = h.replace(/^Hares?\s+(?:is|are|=)\s+/i, "").trim();
 
@@ -85,7 +88,16 @@ const ADMIN_TITLE_PATTERNS = [
   /looking\s+for\s+hares?/i,
   /email\s+the\s+hare/i,
   /volunteer\s+to\s+hare/i,
+  /wanna\s+hare/i,
+  /available\s+dates/i,
+  /check\s+out\s+our/i,
 ];
+
+/** Detects schedule descriptions used as event titles (e.g., "Mosquito H3 runs on the first and third...") */
+const ORDINALS = "first|second|third|fourth|last|1st|2nd|3rd|4th";
+const SCHEDULE_DESC_RE = new RegExp(
+  `\\b(?:runs?\\s+on\\s+the\\s+(?:${ORDINALS})|meets?\\s+every|hashes?\\s+on\\s+the\\s+(?:${ORDINALS})|runs?\\s+every)\\b`, "i",
+);
 const isAdminTitle = (s: string) => ADMIN_TITLE_PATTERNS.some(re => re.test(s));
 
 /**
@@ -349,6 +361,8 @@ export function sanitizeTitle(title: string | undefined): string | null {
   const stripped = t.replace(/^[A-Z0-9]{2,10}\s*[:–—-]\s*/i, "").trim();
   // Filter out admin/meta content in titles (test both original and stripped)
   if (isAdminTitle(t) || isAdminTitle(stripped)) return null;
+  // Filter schedule descriptions used as titles (e.g., "Mosquito H3 runs on the first and third Wednesdays")
+  if (SCHEDULE_DESC_RE.test(t) || SCHEDULE_DESC_RE.test(stripped)) return null;
   // Strip embedded numeric dates (M/DD/YY, MM/DD/YYYY) — but not "#N/NN" run numbers
   let cleaned = t.replace(/(?<!#)\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, "");
   // Strip leading "DayOfWeek Month DDth" prefix (e.g., "Saturday March 28th OH3 #1364 Granny Panties")

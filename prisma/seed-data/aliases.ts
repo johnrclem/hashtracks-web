@@ -36,6 +36,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "hockessin": ["Hockessin", "H4", "Hockessin Hash", "Hockessin HHH"],
     // Virginia (outside DC metro)
     "rvah3": ["RH3", "RVAH3", "Richmond Hash", "Richmond HHH", "RVA Hash"],
+    "bibh3": ["BIBH3", "Belle Isle Babes", "Belle Isle Babes H3", "BIB H3"],
+    "tmfmh3": ["TMFMH3", "Titanic Memorial", "Titanic Memorial Full Moon", "Titanic H3"],
+    "chain-gang-hhh": ["Chain Gang", "Chain Gang HHH", "Chain Gang Hash"],
     "feh3": ["FEH3", "Fort Eustis Hash", "Fort Eustis", "Ft Eustis Hash", "Fort Eustis HHH"],
     "bdsmh3": ["BDSMH3", "BDSM Hash", "Bad Decisions Hash", "Bad Decisions Start Monday"],
     "cvilleh3": ["CvilleH3", "Charlottesville Hash", "Harlots", "cHARLOTtesville Hash", "Cville Hash"],

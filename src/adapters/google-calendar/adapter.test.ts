@@ -499,6 +499,19 @@ describe("buildRawEventFromGCalItem — title fallback from description", () => 
     expect(event).not.toBeNull();
     expect(event!.title).toBe("C2H3");
   });
+
+  it("falls back to description title when summary is a bare kennel code different from assigned tag", () => {
+    const item = {
+      summary: "OCHHH",
+      description: "OC Hump Trail\nHare: Howdy Do Me\n11385 Pioneer Road, Tustin, CA",
+      start: { dateTime: "2026-04-01T18:30:00-07:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "ochump" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("OC Hump Trail");
+  });
 });
 
 // ── extractLocationFromDescription ──

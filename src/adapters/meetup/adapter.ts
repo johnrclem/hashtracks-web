@@ -66,6 +66,8 @@ export interface MeetupConfig {
   groupUrlname: string;
   /** Kennel shortName to assign all events to. */
   kennelTag: string;
+  /** Optional per-event kennel routing: [[regexPattern, kennelTag], ...] */
+  kennelPatterns?: [string, string][];
 }
 
 /** Shape of an event entry in Meetup's __NEXT_DATA__ Apollo state. */
@@ -252,11 +254,25 @@ function extractDateTime(dateTime: string): { date: string; startTime: string } 
   };
 }
 
+/** Pre-compile kennel pattern strings into RegExp objects. */
+function compileKennelPatterns(
+  patterns?: [string, string][],
+): [RegExp, string][] | undefined {
+  if (!patterns) return undefined;
+  const compiled: [RegExp, string][] = [];
+  for (const [pattern, tag] of patterns) {
+    try { compiled.push([new RegExp(pattern, "i"), tag]); }
+    catch (e) { console.warn(`Malformed kennel pattern skipped: "${pattern}"`, e); }
+  }
+  return compiled.length > 0 ? compiled : undefined;
+}
+
 /** Build a RawEventData from an Apollo event entry. */
-function buildRawEventFromApollo(
+export function buildRawEventFromApollo(
   ev: ApolloEvent,
   state: Record<string, Record<string, unknown>>,
   kennelTag: string,
+  compiledPatterns?: [RegExp, string][],
 ): RawEventData {
   const { date, startTime } = ev.dateTime
     ? extractDateTime(ev.dateTime)
@@ -264,9 +280,20 @@ function buildRawEventFromApollo(
 
   const venueInfo = resolveVenue(state, ev.venue);
 
+  // Override kennelTag if title matches a kennel pattern
+  let resolvedKennelTag = kennelTag;
+  if (compiledPatterns && ev.title) {
+    for (const [re, tag] of compiledPatterns) {
+      if (re.test(ev.title)) {
+        resolvedKennelTag = tag;
+        break;
+      }
+    }
+  }
+
   return {
     date,
-    kennelTag,
+    kennelTag: resolvedKennelTag,
     title: ev.title || undefined,
     description: cleanMeetupDescription(ev.description),
     location: venueInfo.location,
@@ -437,10 +464,11 @@ export class MeetupAdapter implements SourceAdapter {
       errorDetails.parse = [{ row: 0, error: message }];
     }
 
+    const compiledPatterns = compileKennelPatterns(config.kennelPatterns);
     for (const [i, ev] of allApolloEvents.entries()) {
       try {
         if (!ev.dateTime) continue;
-        events.push(buildRawEventFromApollo(ev, mergedState, config.kennelTag));
+        events.push(buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns));
       } catch (err) {
         const msg = `Failed to parse event "${ev.id}": ${err instanceof Error ? err.message : String(err)}`;
         errors.push(msg);

@@ -2,20 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
-  const { slug } = await params;
-  const kennel = await prisma.kennel.findUnique({
-    where: { slug },
-    select: { shortName: true, isHidden: true },
-  });
-  if (!kennel || kennel.isHidden) return { title: "Kennel · HashTracks" };
-  return { title: `${kennel.shortName} · Kennels · HashTracks` };
-}
+import { formatSchedule, stripMarkdown } from "@/lib/format";
 import { getOrCreateUser } from "@/lib/auth";
 import { Users } from "lucide-react";
 import { SubscribeButton } from "@/components/kennels/SubscribeButton";
@@ -29,6 +16,48 @@ import { EventTabs } from "@/components/kennels/EventTabs";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { getRegionColor } from "@/lib/region";
 import { FadeInSection } from "@/components/home/HeroAnimations";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const kennel = await prisma.kennel.findUnique({
+    where: { slug },
+    select: {
+      shortName: true,
+      fullName: true,
+      isHidden: true,
+      description: true,
+      foundedYear: true,
+      scheduleDayOfWeek: true,
+      scheduleTime: true,
+      scheduleFrequency: true,
+    },
+  });
+  if (!kennel || kennel.isHidden) return { title: "Kennel · HashTracks" };
+  const title = `${kennel.shortName} · Kennels · HashTracks`;
+
+  const parts: string[] = [];
+  if (kennel.fullName && kennel.fullName !== kennel.shortName) {
+    parts.push(kennel.fullName);
+  }
+  const schedule = formatSchedule(kennel);
+  if (schedule) parts.push(`Runs ${schedule}`);
+  if (kennel.foundedYear) parts.push(`Founded ${kennel.foundedYear}`);
+  if (kennel.description) parts.push(stripMarkdown(kennel.description));
+  const raw = parts.join(". ") || `${kennel.shortName} on HashTracks`;
+  const description = raw.length > 200
+    ? raw.slice(0, raw.lastIndexOf(" ", 200)) + "..."
+    : raw;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description },
+  };
+}
 
 export default async function KennelDetailPage({
   params,
