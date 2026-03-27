@@ -456,6 +456,31 @@ describe("chronoParseDate", () => {
     expect(chronoParseDate("5th March", "en-GB", ref)).toBe("2026-03-05");
   });
 
+  // smartForwardDate option
+  it("smartForwardDate keeps recent past date in current year", () => {
+    const ref = new Date(Date.UTC(2026, 2, 9)); // March 9, 2026
+    // Jan 28 is only ~2 months ago — should stay in 2026
+    expect(chronoParseDate("28th January", "en-GB", ref, { smartForwardDate: true })).toBe("2026-01-28");
+  });
+
+  it("smartForwardDate rolls forward date >6 months in past", () => {
+    const ref = new Date(Date.UTC(2026, 11, 15)); // Dec 15, 2026
+    // Jan 5 is ~11 months ago — should roll forward to 2027
+    expect(chronoParseDate("5th January", "en-GB", ref, { smartForwardDate: true })).toBe("2027-01-05");
+  });
+
+  it("smartForwardDate preserves explicit year regardless of age", () => {
+    const ref = new Date(Date.UTC(2026, 11, 15)); // Dec 15, 2026
+    // Explicit year 2026 should be kept even though it's >6 months ago
+    expect(chronoParseDate("5th January 2026", "en-GB", ref, { smartForwardDate: true })).toBe("2026-01-05");
+  });
+
+  it("smartForwardDate keeps future date in current year", () => {
+    const ref = new Date(Date.UTC(2026, 2, 9)); // March 9, 2026
+    // April 5 is in the future — should stay in 2026
+    expect(chronoParseDate("5th April", "en-GB", ref, { smartForwardDate: true })).toBe("2026-04-05");
+  });
+
   // M/D/YYYY format (US)
   it("parses US numeric M/D/YYYY: '2/12/2026'", () => {
     expect(chronoParseDate("2/12/2026", "en-US")).toBe("2026-02-12");
