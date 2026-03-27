@@ -379,8 +379,8 @@ export function buildRawEventFromGCalItem(
     title = extractTitleFromDescription(rawDescription) ?? title;
   }
   // If title looks like a bare kennel code (2-10 alphanumeric chars, no spaces),
-  // it's likely a different kennel's abbreviation used as the event name — try description
-  if (/^[A-Za-z0-9!]{2,10}$/.test(title) && rawDescription) {
+  // try extracting a better title from the description
+  if (/^[A-Za-z0-9]{2,10}$/.test(title) && rawDescription) {
     const descTitle = extractTitleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }

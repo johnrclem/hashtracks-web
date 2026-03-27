@@ -262,7 +262,7 @@ function compileKennelPatterns(
   const compiled: [RegExp, string][] = [];
   for (const [pattern, tag] of patterns) {
     try { compiled.push([new RegExp(pattern, "i"), tag]); }
-    catch { /* skip malformed regex */ }
+    catch (e) { console.warn(`Malformed kennel pattern skipped: "${pattern}"`, e); }
   }
   return compiled.length > 0 ? compiled : undefined;
 }
