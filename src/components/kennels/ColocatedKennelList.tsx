@@ -59,7 +59,7 @@ function KennelRows({
             </p>
 
             {/* Line 3: schedule + next run with title */}
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground truncate">
               {pin.schedule && <>{pin.schedule} · </>}
               {pin.nextEvent ? (
                 <span className="font-medium text-foreground/80">
