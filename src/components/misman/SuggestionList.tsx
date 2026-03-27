@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { InfoPopover } from "@/components/ui/info-popover";
 
 const MAX_VISIBLE = 10;
@@ -43,22 +44,44 @@ export function SuggestionList({
   onSelect,
   disabled,
 }: SuggestionListProps) {
-  const { visible, hiddenCount } = getVisibleSuggestions(
-    suggestions,
-    attendedHasherIds,
+  const [expanded, setExpanded] = useState(false);
+
+  const allAvailable = useMemo(
+    () => getVisibleSuggestions(suggestions, attendedHasherIds, Infinity).visible,
+    [suggestions, attendedHasherIds],
   );
 
-  if (visible.length === 0) return null;
+  if (allAvailable.length === 0) return null;
+
+  const hiddenCount = Math.max(0, allAvailable.length - MAX_VISIBLE);
+  const visible = expanded ? allAvailable : allAvailable.slice(0, MAX_VISIBLE);
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1">
         <p className="text-xs font-medium text-muted-foreground">
           Suggestions
-          {hiddenCount > 0 && (
-            <span className="ml-1 font-normal">(+{hiddenCount} more)</span>
-          )}
         </p>
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setExpanded((prev) => !prev)}
+            aria-expanded={expanded}
+          >
+            {expanded ? (
+              <>
+                Show less
+                <ChevronUp className="h-3.5 w-3.5" />
+              </>
+            ) : (
+              <>
+                (+{hiddenCount} more)
+                <ChevronDown className="h-3.5 w-3.5" />
+              </>
+            )}
+          </button>
+        )}
         <InfoPopover title="Suggestions">
           Suggestions are based on who shows up most often and most recently.
           They update as you add hashers &mdash; tap a name to mark them as
