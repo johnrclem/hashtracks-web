@@ -4,6 +4,9 @@ import { prisma } from "@/lib/db";
 import { getWeatherForEvents } from "@/lib/weather";
 import { getOrCreateUser } from "@/lib/auth";
 import { regionAbbrev } from "@/lib/region";
+import { HarelineView } from "@/components/hareline/HarelineView";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { FadeInSection } from "@/components/home/HeroAnimations";
 
 export async function generateMetadata({
   searchParams,
@@ -24,9 +27,6 @@ export async function generateMetadata({
     description: "Browse upcoming hash house harrier runs across all regions on HashTracks.",
   };
 }
-import { HarelineView } from "@/components/hareline/HarelineView";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { FadeInSection } from "@/components/home/HeroAnimations";
 
 export default async function HarelinePage() {
   const [events, user] = await Promise.all([

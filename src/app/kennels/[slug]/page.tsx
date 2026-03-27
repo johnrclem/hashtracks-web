@@ -2,7 +2,20 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { formatSchedule } from "@/lib/format";
+import { formatSchedule, stripMarkdown } from "@/lib/format";
+import { getOrCreateUser } from "@/lib/auth";
+import { Users } from "lucide-react";
+import { SubscribeButton } from "@/components/kennels/SubscribeButton";
+import { MismanAccessButton } from "@/components/kennels/MismanAccessButton";
+import type { HarelineEvent } from "@/components/hareline/EventCard";
+import { MismanManagementSection } from "@/components/kennels/MismanManagementSection";
+import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
+import { KennelStats } from "@/components/kennels/KennelStats";
+import { TrailLocationMap } from "@/components/kennels/TrailLocationMap";
+import { EventTabs } from "@/components/kennels/EventTabs";
+import { RegionBadge } from "@/components/hareline/RegionBadge";
+import { getRegionColor } from "@/lib/region";
+import { FadeInSection } from "@/components/home/HeroAnimations";
 
 export async function generateMetadata({
   params,
@@ -33,8 +46,11 @@ export async function generateMetadata({
   const schedule = formatSchedule(kennel);
   if (schedule) parts.push(`Runs ${schedule}`);
   if (kennel.foundedYear) parts.push(`Founded ${kennel.foundedYear}`);
-  if (kennel.description) parts.push(kennel.description);
-  const description = (parts.join(". ") || `${kennel.shortName} on HashTracks`).slice(0, 200);
+  if (kennel.description) parts.push(stripMarkdown(kennel.description));
+  const raw = parts.join(". ") || `${kennel.shortName} on HashTracks`;
+  const description = raw.length > 200
+    ? raw.slice(0, raw.lastIndexOf(" ", 200)) + "..."
+    : raw;
 
   return {
     title,
@@ -42,19 +58,6 @@ export async function generateMetadata({
     openGraph: { title, description },
   };
 }
-import { getOrCreateUser } from "@/lib/auth";
-import { Users } from "lucide-react";
-import { SubscribeButton } from "@/components/kennels/SubscribeButton";
-import { MismanAccessButton } from "@/components/kennels/MismanAccessButton";
-import type { HarelineEvent } from "@/components/hareline/EventCard";
-import { MismanManagementSection } from "@/components/kennels/MismanManagementSection";
-import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
-import { KennelStats } from "@/components/kennels/KennelStats";
-import { TrailLocationMap } from "@/components/kennels/TrailLocationMap";
-import { EventTabs } from "@/components/kennels/EventTabs";
-import { RegionBadge } from "@/components/hareline/RegionBadge";
-import { getRegionColor } from "@/lib/region";
-import { FadeInSection } from "@/components/home/HeroAnimations";
 
 export default async function KennelDetailPage({
   params,

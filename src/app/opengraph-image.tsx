@@ -17,7 +17,6 @@ export default function OgImage() {
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: "#141417",
-          fontFamily: "Inter, system-ui, sans-serif",
           padding: "60px 80px",
         }}
       >

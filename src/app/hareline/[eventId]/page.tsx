@@ -2,6 +2,27 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { getOrCreateUser, getAdminUser, getMismanUser } from "@/lib/auth";
+import { getStravaConnection } from "@/app/strava/actions";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+import { CheckInButton } from "@/components/logbook/CheckInButton";
+import { CalendarExportButton } from "@/components/hareline/CalendarExportButton";
+import { EventLocationMap } from "@/components/hareline/EventLocationMap";
+import { EventWeatherCard } from "@/components/hareline/EventWeatherCard";
+import { EventTimeDisplay } from "@/components/hareline/EventTimeDisplay";
+import { SourcesDropdown } from "@/components/hareline/SourcesDropdown";
+import { getEventDayWeather } from "@/lib/weather";
+import { REGION_CENTROIDS } from "@/lib/geo";
+import { InfoPopover } from "@/components/ui/info-popover";
+import { RestoreEventButton } from "@/components/admin/RestoreEventButton";
+import { stripMarkdown, stripUrlsFromText } from "@/lib/format";
+import { getFullLocationDisplay } from "@/lib/event-display";
 
 export async function generateMetadata({
   params,
@@ -32,8 +53,13 @@ export async function generateMetadata({
   if (event.hares.length > 0) {
     const names = event.hares.map((h) => h.hareName).join(", ");
     parts.push(`Hares: ${names}`);
+  } else if (event.haresText) {
+    parts.push(`Hares: ${event.haresText}`);
   }
-  const description = parts.join(". ").slice(0, 200);
+  const raw = parts.join(". ");
+  const description = raw.length > 200
+    ? raw.slice(0, raw.lastIndexOf(" ", 200)) + "..."
+    : raw;
 
   return {
     title,
@@ -41,27 +67,6 @@ export async function generateMetadata({
     openGraph: { title, description },
   };
 }
-import { getOrCreateUser, getAdminUser, getMismanUser } from "@/lib/auth";
-import { getStravaConnection } from "@/app/strava/actions";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
-import { CheckInButton } from "@/components/logbook/CheckInButton";
-import { CalendarExportButton } from "@/components/hareline/CalendarExportButton";
-import { EventLocationMap } from "@/components/hareline/EventLocationMap";
-import { EventWeatherCard } from "@/components/hareline/EventWeatherCard";
-import { EventTimeDisplay } from "@/components/hareline/EventTimeDisplay";
-import { SourcesDropdown } from "@/components/hareline/SourcesDropdown";
-import { getEventDayWeather } from "@/lib/weather";
-import { REGION_CENTROIDS } from "@/lib/geo";
-import { InfoPopover } from "@/components/ui/info-popover";
-import { RestoreEventButton } from "@/components/admin/RestoreEventButton";
-import { stripMarkdown, stripUrlsFromText } from "@/lib/format";
-import { getFullLocationDisplay } from "@/lib/event-display";
 
 export default async function EventDetailPage({
   params,
