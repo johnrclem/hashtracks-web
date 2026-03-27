@@ -212,10 +212,11 @@ export default async function EventDetailPage({
           {event.status === "TENTATIVE" && (
             <Badge variant="outline">Tentative</Badge>
           )}
+          <span className="text-xs text-muted-foreground">·</span>
+          <span className={`text-xs ${Date.now() - event.updatedAt.getTime() > 7 * 86_400_000 ? "text-amber-500" : "text-muted-foreground"}`}>
+            Updated {formatRelativeTime(event.updatedAt)}
+          </span>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Updated {formatRelativeTime(event.updatedAt)}
-        </p>
       </div>
 
       {/* Event title */}
