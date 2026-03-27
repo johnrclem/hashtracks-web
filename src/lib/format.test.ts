@@ -270,23 +270,27 @@ describe("stripUrlsFromText", () => {
 });
 
 describe("formatRelativeTime", () => {
+  const NOW = new Date("2026-03-27T12:00:00Z").getTime();
+
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NOW); });
+  afterEach(() => { vi.useRealTimers(); });
+
   it("returns 'just now' for < 1 minute ago", () => {
-    expect(formatRelativeTime(new Date(Date.now() - 30_000))).toBe("just now");
+    expect(formatRelativeTime(new Date(NOW - 30_000))).toBe("just now");
   });
   it("returns minutes for < 1 hour ago", () => {
-    expect(formatRelativeTime(new Date(Date.now() - 5 * 60_000))).toBe("5m ago");
+    expect(formatRelativeTime(new Date(NOW - 5 * 60_000))).toBe("5m ago");
   });
   it("returns hours for < 24 hours ago", () => {
-    expect(formatRelativeTime(new Date(Date.now() - 3 * 3_600_000))).toBe("3h ago");
+    expect(formatRelativeTime(new Date(NOW - 3 * 3_600_000))).toBe("3h ago");
   });
   it("returns days for < 7 days ago", () => {
-    expect(formatRelativeTime(new Date(Date.now() - 2 * 86_400_000))).toBe("2d ago");
+    expect(formatRelativeTime(new Date(NOW - 2 * 86_400_000))).toBe("2d ago");
   });
   it("returns formatted date for >= 7 days ago", () => {
-    const old = new Date("2025-02-18T12:00:00Z");
-    expect(formatRelativeTime(old)).toMatch(/Feb 18/);
+    expect(formatRelativeTime(new Date("2026-02-18T12:00:00Z"))).toMatch(/Feb 18/);
   });
   it("accepts ISO string input", () => {
-    expect(formatRelativeTime(new Date(Date.now() - 10 * 60_000).toISOString())).toBe("10m ago");
+    expect(formatRelativeTime(new Date(NOW - 10 * 60_000).toISOString())).toBe("10m ago");
   });
 });
