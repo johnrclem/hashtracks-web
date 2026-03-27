@@ -11,6 +11,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
 import { formatDateShort } from "@/lib/format";
 import type { KennelPin } from "./ClusteredKennelMarkers";
 
@@ -23,9 +24,11 @@ interface ColocatedKennelListProps {
 function KennelRows({
   pins,
   onClose,
+  showRegion,
 }: {
   pins: KennelPin[];
   onClose: () => void;
+  showRegion: boolean;
 }) {
   return (
     <div className="overflow-y-auto divide-y divide-border/50 max-h-[360px]">
@@ -33,17 +36,39 @@ function KennelRows({
         <Link
           key={pin.id}
           href={`/kennels/${pin.slug}`}
-          className="group flex items-center gap-3 w-full text-left px-3 py-2.5 transition-colors hover:bg-accent/50"
-          style={{ minHeight: 52, borderLeft: `3px solid ${pin.color}` }}
+          className="group flex items-start gap-3 w-full text-left px-3 py-2.5 transition-colors hover:bg-accent/50"
+          style={{ minHeight: 60, borderLeft: `3px solid ${pin.color}` }}
           onClick={onClose}
         >
           <div className="flex-1 min-w-0 space-y-0.5">
-            <p className="text-sm font-semibold">{pin.shortName}</p>
+            {/* Line 1: shortName + region badge */}
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-semibold truncate">
+                {pin.shortName}
+              </span>
+              {showRegion && (
+                <Badge variant="outline" className="shrink-0 text-[10px] px-1.5 py-0">
+                  {pin.region}
+                </Badge>
+              )}
+            </div>
+
+            {/* Line 2: fullName */}
+            <p className="text-xs text-muted-foreground truncate">
+              {pin.fullName}
+            </p>
+
+            {/* Line 3: schedule + next run with title */}
             <p className="text-xs text-muted-foreground">
-              {pin.schedule && <>{pin.schedule} &middot; </>}
+              {pin.schedule && <>{pin.schedule} · </>}
               {pin.nextEvent ? (
                 <span className="font-medium text-foreground/80">
                   Next: {formatDateShort(pin.nextEvent.date)}
+                  {pin.nextEvent.title && (
+                    <span className="font-normal text-muted-foreground">
+                      {" "}— {pin.nextEvent.title}
+                    </span>
+                  )}
                 </span>
               ) : (
                 <span className="italic">No upcoming runs</span>
@@ -51,7 +76,7 @@ function KennelRows({
             </p>
           </div>
 
-          <ChevronRight className="shrink-0 h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          <ChevronRight className="shrink-0 mt-1.5 h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </Link>
       ))}
     </div>
@@ -75,7 +100,8 @@ export function ColocatedKennelList({
     track("map_colocated_kennel_popover", { kennelCount: pins.length });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const region = pins[0]?.region;
+  const allSameRegion = pins.every((p) => p.region === pins[0]?.region);
+  const region = allSameRegion ? pins[0]?.region : null;
   const headerText = region
     ? `${pins.length} kennels in ${region}`
     : `${pins.length} kennels at this location`;
@@ -89,7 +115,7 @@ export function ColocatedKennelList({
               {headerText}
             </SheetTitle>
           </SheetHeader>
-          <KennelRows pins={pins} onClose={onClose} />
+          <KennelRows pins={pins} onClose={onClose} showRegion={!allSameRegion} />
         </SheetContent>
       </Sheet>
     );
@@ -112,7 +138,7 @@ export function ColocatedKennelList({
         </button>
       </div>
 
-      <KennelRows pins={pins} onClose={onClose} />
+      <KennelRows pins={pins} onClose={onClose} showRegion={!allSameRegion} />
     </div>
   );
 }
