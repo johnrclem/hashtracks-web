@@ -287,6 +287,9 @@ describe("formatRelativeTime", () => {
   it("returns days for < 7 days ago", () => {
     expect(formatRelativeTime(new Date(NOW - 2 * 86_400_000))).toBe("2d ago");
   });
+  it("returns formatted date at exactly 7 days", () => {
+    expect(formatRelativeTime(new Date(NOW - 7 * 86_400_000))).toMatch(/Mar 20/);
+  });
   it("returns formatted date for >= 7 days ago", () => {
     expect(formatRelativeTime(new Date("2026-02-18T12:00:00Z"))).toMatch(/Feb 18/);
   });
