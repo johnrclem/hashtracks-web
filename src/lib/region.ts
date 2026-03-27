@@ -38,7 +38,8 @@ export interface RegionSeedRecord {
  */
 // NOTE: colorClasses values below are referenced by RegionBadge via the DB.
 // Tailwind scans this file at build time, so these classes are NOT purged.
-// Do not remove these string literals without updating tailwind.config.ts safelist.
+// Do not remove these string literals. Dark mode variants are appended at
+// runtime by withDarkVariants() — see the CSS safelist in globals.css.
 export const REGION_SEED_DATA: RegionSeedRecord[] = [
   // ── COUNTRIES (top-level) ──
   {
@@ -1636,9 +1637,24 @@ export function regionAbbrev(region: string): string {
   return resolveRegion(region)?.abbrev ?? region;
 }
 
+/** Appends dark-mode Tailwind classes to light-mode region color classes. */
+function withDarkVariants(classes: string): string {
+  const bgMatch = classes.match(/bg-(\w+)-\d+/);
+  if (!bgMatch) return classes;
+  const color = bgMatch[1];
+  return `${classes} dark:bg-${color}-900/40 dark:text-${color}-200`;
+}
+
+const _darkVariantCache = new Map<string, string>();
+
 /** Tailwind color classes for a region badge. Accepts name, alias, or slug. Falls back to gray. */
 export function regionColorClasses(region: string): string {
-  return resolveRegion(region)?.colorClasses ?? "bg-gray-200 text-gray-800";
+  const cached = _darkVariantCache.get(region);
+  if (cached) return cached;
+  const base = resolveRegion(region)?.colorClasses ?? "bg-gray-200 text-gray-800";
+  const result = withDarkVariants(base);
+  _darkVariantCache.set(region, result);
+  return result;
 }
 
 /** Tailwind background class only (no text class). Useful for color dots/indicators. */

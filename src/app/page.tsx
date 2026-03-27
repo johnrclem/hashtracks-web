@@ -65,15 +65,15 @@ export default async function HomePage() {
       <section className="relative overflow-hidden px-4 pb-16 pt-8 sm:pt-14 sm:pb-24">
         {/* Background texture */}
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.035]"
+          className="pointer-events-none absolute inset-0 opacity-[0.035] dark:opacity-[0.06]"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           }}
         />
 
         {/* Gradient orbs */}
-        <div className="pointer-events-none absolute -top-40 left-1/4 h-80 w-80 rounded-full bg-orange-200/30 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 right-1/4 h-64 w-64 rounded-full bg-rose-200/20 blur-3xl" />
+        <div className="pointer-events-none absolute -top-40 left-1/4 h-80 w-80 rounded-full bg-orange-200/30 dark:bg-orange-800/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 right-1/4 h-64 w-64 rounded-full bg-rose-200/20 dark:bg-rose-800/15 blur-3xl" />
 
         <div className="relative mx-auto max-w-5xl text-center">
           {/* Main headline */}

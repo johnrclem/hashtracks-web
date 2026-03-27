@@ -123,7 +123,7 @@ export function LogbookStats({
             >
               <div className="flex items-start gap-2.5">
                 {m.reached ? (
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-500 dark:text-green-400" />
                 ) : (
                   <Target className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground/40" />
                 )}
@@ -148,7 +148,7 @@ export function LogbookStats({
                       </p>
                       <div className="mt-2 h-1 rounded-full bg-muted/30">
                         <div
-                          className="h-1 rounded-full bg-green-500/50 transition-all duration-700 ease-out"
+                          className="h-1 rounded-full bg-green-500/50 dark:bg-green-400/50 transition-all duration-700 ease-out"
                           style={{
                             width: milestoneView.visible
                               ? `${Math.min((totalRuns / m.target) * 100, 100)}%`

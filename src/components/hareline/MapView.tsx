@@ -6,6 +6,7 @@ import { APIProvider, Map, MapControl, ControlPosition, useMap } from "@vis.gl/r
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, LocateFixed, Search, X } from "lucide-react";
 import { getEventCoords, getRegionColor } from "@/lib/geo";
+import { useMapColorScheme } from "@/hooks/useMapColorScheme";
 import { ClusteredMarkers, type EventWithCoords } from "./ClusteredMarkers";
 import { ColocatedEventList } from "./ColocatedEventList";
 import type { HarelineEvent } from "./EventCard";
@@ -178,6 +179,7 @@ interface ColocatedListState {
 }
 
 export default function MapView({ events, selectedEventId, onSelectEvent, onRegionFilter, onBoundsFilter }: Readonly<MapViewProps>) {
+  const { colorScheme } = useMapColorScheme();
   const router = useRouter();
   const handleNavigate = useCallback((id: string) => router.push(`/hareline/${id}`), [router]);
   const skipAutoZoomRef = useRef(false);
@@ -293,6 +295,7 @@ export default function MapView({ events, selectedEventId, onSelectEvent, onRegi
       <div className={`relative ${expanded ? "h-[calc(100vh-8rem)]" : "h-[60vh]"} lg:h-[calc(100vh-14rem)] min-h-[300px] overflow-hidden rounded-md border transition-[height] duration-300`}>
         <Map
           mapId={MAP_ID}
+          colorScheme={colorScheme}
           defaultBounds={defaultBounds}
           gestureHandling="greedy"
           disableDefaultUI={false}

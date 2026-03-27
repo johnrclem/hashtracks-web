@@ -43,9 +43,9 @@ const FIELD_OPTIONS = [
 /** Map confidence level to badge styling. */
 function confidenceBadgeClass(level: "high" | "medium" | "low"): string {
   switch (level) {
-    case "high": return "border-green-200 text-green-700";
-    case "medium": return "border-amber-200 text-amber-700";
-    case "low": return "border-red-200 text-red-700";
+    case "high": return "border-green-200 text-green-700 dark:border-green-800 dark:text-green-300";
+    case "medium": return "border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-300";
+    case "low": return "border-red-200 text-red-700 dark:border-red-800 dark:text-red-300";
   }
 }
 
@@ -228,7 +228,7 @@ export function GenericHtmlConfigPanel({
                   <tr key={`row-${rowIdx}`} className="border-t"> {/* NOSONAR: static preview data, never reordered */}
                     {row.map((cell, cellIdx) => (
                       <td key={`cell-${rowIdx}-${cellIdx}`} className="max-w-[200px] truncate px-2 py-1 text-muted-foreground">
-                        {cell || <span className="text-gray-300">—</span>}
+                        {cell || <span className="text-gray-300 dark:text-gray-600">—</span>}
                       </td>
                     ))}
                   </tr>

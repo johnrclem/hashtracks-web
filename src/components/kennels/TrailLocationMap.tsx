@@ -3,15 +3,25 @@
 import { useMemo, useEffect, useRef } from "react";
 import { APIProvider, Map, useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
 import { getRegionColor } from "@/lib/region";
+import { useMapColorScheme } from "@/hooks/useMapColorScheme";
 import { Flame } from "lucide-react";
 
-/** Grayscale basemap so the warm heatmap pops against muted terrain. */
-const GRAYSCALE_STYLES: google.maps.MapTypeStyle[] = [
+/** Grayscale basemap so the warm heatmap pops against muted terrain (light mode). */
+const LIGHT_GRAYSCALE_STYLES: google.maps.MapTypeStyle[] = [
   { elementType: "geometry", stylers: [{ saturation: -100 }, { lightness: 10 }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#666666" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#e0e0e0" }] },
   { featureType: "road", elementType: "geometry", stylers: [{ lightness: 20 }] },
+];
+
+/** Grayscale basemap for dark mode. */
+const DARK_GRAYSCALE_STYLES: google.maps.MapTypeStyle[] = [
+  { elementType: "geometry", stylers: [{ saturation: -100 }, { lightness: -70 }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#aaaaaa" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#1a1a1a" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#2a2a2a" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ lightness: -60 }] },
 ];
 
 interface TrailLocation {
@@ -65,7 +75,9 @@ function HeatmapOverlay({ locations }: { locations: TrailLocation[] }) {
 
 export function TrailLocationMap({ locations, region }: TrailHeatmapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const { colorScheme } = useMapColorScheme();
   const regionColor = getRegionColor(region);
+  const mapStyles = colorScheme === "DARK" ? DARK_GRAYSCALE_STYLES : LIGHT_GRAYSCALE_STYLES;
 
   const bounds = useMemo(() => {
     if (locations.length === 0) return undefined;
@@ -131,7 +143,8 @@ export function TrailLocationMap({ locations, region }: TrailHeatmapProps) {
         <div className="h-[240px] sm:h-[300px]">
           <Map
             defaultBounds={bounds}
-            styles={GRAYSCALE_STYLES}
+            colorScheme={colorScheme}
+            styles={mapStyles}
             gestureHandling="none"
             disableDefaultUI
             zoomControl={false}

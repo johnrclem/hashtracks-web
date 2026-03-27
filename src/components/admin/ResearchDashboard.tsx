@@ -111,9 +111,9 @@ interface Props {
 type StatusFilter = "PENDING" | "APPROVED" | "REJECTED" | "ERROR" | "ALL" | "SUGGESTIONS";
 
 const CONFIDENCE_COLORS: Record<string, string> = {
-  high: "text-green-600",
-  medium: "text-yellow-600",
-  low: "text-red-600",
+  high: "text-green-600 dark:text-green-400",
+  medium: "text-yellow-600 dark:text-yellow-400",
+  low: "text-red-600 dark:text-red-400",
 };
 
 /** Only allow http/https URLs in href to prevent javascript: XSS. */
@@ -436,7 +436,7 @@ export function ResearchDashboard({ regions, proposals, discoveries, coverageGap
             </TabsTrigger>
             <TabsTrigger value="SUGGESTIONS" className="relative">
               Suggestions{pendingSuggestionCount > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold w-5 h-5">
+                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-orange-500 dark:bg-orange-600 text-white text-[10px] font-bold w-5 h-5">
                   {pendingSuggestionCount}
                 </span>
               )}
@@ -499,7 +499,7 @@ export function ResearchDashboard({ regions, proposals, discoveries, coverageGap
                     {s.relationship ? (
                       <Badge
                         variant="secondary"
-                        className={`text-xs ${s.relationship === "ON_MISMAN" ? "bg-amber-100 text-amber-800 border-amber-300" : ""}`}
+                        className={`text-xs ${s.relationship === "ON_MISMAN" ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-700" : ""}`}
                       >
                         {RELATIONSHIP_LABELS[s.relationship] ?? s.relationship}
                       </Badge>
@@ -540,17 +540,17 @@ export function ResearchDashboard({ regions, proposals, discoveries, coverageGap
                   </TableCell>
                   <TableCell>
                     {s.status === "PENDING" && (
-                      <Badge variant="outline" className="text-xs text-yellow-700 border-yellow-400">
+                      <Badge variant="outline" className="text-xs text-yellow-700 border-yellow-400 dark:text-yellow-300 dark:border-yellow-600">
                         Pending
                       </Badge>
                     )}
                     {s.status === "APPROVED" && (
-                      <Badge variant="outline" className="text-xs text-green-700 border-green-400">
+                      <Badge variant="outline" className="text-xs text-green-700 border-green-400 dark:text-green-300 dark:border-green-600">
                         Approved
                       </Badge>
                     )}
                     {s.status === "REJECTED" && (
-                      <Badge variant="outline" className="text-xs text-red-700 border-red-400">
+                      <Badge variant="outline" className="text-xs text-red-700 border-red-400 dark:text-red-300 dark:border-red-600">
                         Rejected
                       </Badge>
                     )}

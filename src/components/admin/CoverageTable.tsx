@@ -83,8 +83,8 @@ const HEALTH_BAR_COLORS: Record<string, string> = {
   DEGRADED: "bg-amber-500",
   FAILING: "bg-red-500",
   STALE: "bg-orange-400",
-  UNKNOWN: "bg-gray-400",
-  DISABLED: "bg-gray-300",
+  UNKNOWN: "bg-gray-400 dark:bg-gray-600",
+  DISABLED: "bg-gray-300 dark:bg-gray-700",
 };
 
 const HEALTH_BAR_ORDER = ["HEALTHY", "DEGRADED", "FAILING", "STALE", "UNKNOWN", "DISABLED"];
@@ -172,10 +172,10 @@ export function CoverageTable({ kennels }: CoverageTableProps) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
           { label: "Total Kennels", value: kennels.length, color: "text-foreground" },
-          { label: "Covered",       value: covered.length,   color: "text-green-700" },
-          { label: "Uncovered",     value: uncovered.length, color: "text-amber-700" },
-          { label: "% Coverage",    value: `${pct}%`,        color: pct >= 75 ? "text-green-700" : pct >= 50 ? "text-amber-700" : "text-red-700" },
-          { label: "Stale Sources", value: staleCount,       color: staleCount > 0 ? "text-orange-700" : "text-green-700" },
+          { label: "Covered",       value: covered.length,   color: "text-green-700 dark:text-green-300" },
+          { label: "Uncovered",     value: uncovered.length, color: "text-amber-700 dark:text-amber-300" },
+          { label: "% Coverage",    value: `${pct}%`,        color: pct >= 75 ? "text-green-700 dark:text-green-300" : pct >= 50 ? "text-amber-700 dark:text-amber-300" : "text-red-700 dark:text-red-300" },
+          { label: "Stale Sources", value: staleCount,       color: staleCount > 0 ? "text-orange-700 dark:text-orange-300" : "text-green-700 dark:text-green-300" },
         ].map(({ label, value, color }) => (
           <div key={label} className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground">{label}</p>
@@ -204,7 +204,7 @@ export function CoverageTable({ kennels }: CoverageTableProps) {
                   <td className="px-3 py-2 font-medium">{region}</td>
                   <td className="px-3 py-2 text-right text-muted-foreground">{s.total}</td>
                   <td className="px-3 py-2 text-right">
-                    <span className={s.covered < s.total ? "text-amber-700 font-medium" : "text-green-700"}>
+                    <span className={s.covered < s.total ? "text-amber-700 dark:text-amber-300 font-medium" : "text-green-700 dark:text-green-300"}>
                       {s.covered}/{s.total}
                     </span>
                   </td>
@@ -222,12 +222,12 @@ export function CoverageTable({ kennels }: CoverageTableProps) {
       {/* Well-covered kennels */}
       {wellCovered.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-green-700">Well-Covered (2+ sources)</h3>
+          <h3 className="mb-2 text-sm font-semibold text-green-700 dark:text-green-300">Well-Covered (2+ sources)</h3>
           <div className="flex flex-wrap gap-1.5">
             {wellCovered.map((k) => (
-              <span key={k.id} className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs text-green-800">
+              <span key={k.id} className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-200">
                 {k.shortName}
-                <span className="text-green-600">×{k.sources.length}</span>
+                <span className="text-green-600 dark:text-green-400">×{k.sources.length}</span>
               </span>
             ))}
           </div>
@@ -293,7 +293,7 @@ export function CoverageTable({ kennels }: CoverageTableProps) {
                     {k.sources.length === 0 ? (
                       <Link
                         href="/admin/sources/new"
-                        className="inline-flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 hover:underline"
+                        className="inline-flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200 hover:underline"
                       >
                         + Add Source
                       </Link>

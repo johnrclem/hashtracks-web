@@ -46,7 +46,7 @@ export function DayOfWeekChart({ data }: { data: DayData[] }) {
               </div>
               <span className="text-xs font-medium text-muted-foreground">{d.label}</span>
               <span
-                className="h-4 text-[10px] font-bold uppercase tracking-wide text-amber-500 transition-opacity duration-500"
+                className="h-4 text-[10px] font-bold uppercase tracking-wide text-amber-500 dark:text-amber-400 transition-opacity duration-500"
                 style={{ opacity: isPeak && visible ? 1 : 0, transitionDelay: `${i * 60 + 600}ms` }}
               >
                 Fave

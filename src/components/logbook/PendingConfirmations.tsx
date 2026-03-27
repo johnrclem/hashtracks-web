@@ -104,7 +104,7 @@ export function PendingConfirmations() {
                   {p.eventTitle || (p.runNumber ? "" : "Untitled")}
                 </span>
                 {p.haredThisTrail && (
-                  <span className="text-xs text-orange-600 shrink-0">Hare</span>
+                  <span className="text-xs text-orange-600 dark:text-orange-400 shrink-0">Hare</span>
                 )}
               </div>
               <div className="text-xs text-muted-foreground">

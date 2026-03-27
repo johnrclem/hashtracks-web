@@ -80,9 +80,9 @@ export function SuggestionChips({
   }
 
   function confidenceColor(confidence: number): string {
-    if (confidence >= 0.8) return "border-green-300 bg-green-50 text-green-800";
-    if (confidence >= 0.5) return "border-amber-300 bg-amber-50 text-amber-800";
-    return "border-gray-200 bg-gray-50 text-gray-600";
+    if (confidence >= 0.8) return "border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950/30 dark:text-green-200";
+    if (confidence >= 0.5) return "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200";
+    return "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-400";
   }
 
   return (
@@ -90,21 +90,21 @@ export function SuggestionChips({
       {/* Deterministic suggestions */}
       {pending.length > 0 && (
         <div className="space-y-1">
-          <p className="text-xs font-medium text-amber-700">
+          <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
             Suggested patterns for unmatched tags:
           </p>
           <div className="flex flex-wrap gap-1">
             {pending.map(([pattern, tag]) => (
               <div
                 key={tag}
-                className="flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-800"
+                className="flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200"
               >
                 <span className="font-mono">{pattern}</span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-4 w-4 p-0 text-green-700 hover:text-green-900"
+                  className="h-4 w-4 p-0 text-green-700 hover:text-green-900 dark:text-green-300 dark:hover:text-green-100"
                   title="Accept"
                   onClick={() => {
                     onAccept([pattern, tag]);
@@ -169,7 +169,7 @@ export function SuggestionChips({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-4 w-4 p-0 text-green-700 hover:text-green-900"
+                  className="h-4 w-4 p-0 text-green-700 hover:text-green-900 dark:text-green-300 dark:hover:text-green-100"
                   title={`Accept: ${s.reason}`}
                   onClick={() => {
                     onAccept([s.pattern, s.tag]);

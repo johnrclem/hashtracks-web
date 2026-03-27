@@ -74,7 +74,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
           {kennel.nextEvent ? (
             <>
               <span className="text-muted-foreground">Next run: </span>
-              <span className={isNextSoon ? "font-semibold text-blue-600" : ""}>
+              <span className={isNextSoon ? "font-semibold text-blue-600 dark:text-blue-400" : ""}>
                 {formatDateShort(kennel.nextEvent.date)}
               </span>
             </>
