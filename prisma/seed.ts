@@ -6,6 +6,15 @@ import type { KennelSeed } from "./seed-data/kennels";
 import { KENNEL_ALIASES } from "./seed-data/aliases";
 import { SOURCES } from "./seed-data/sources";
 
+/** JSON.stringify with sorted keys — prevents false diffs from key ordering differences between seed objects and DB-returned JSON. */
+function stableStringify(obj: unknown): string {
+  return JSON.stringify(obj, (_, v) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
+      : v,
+  );
+}
+
 function toSlug(shortName: string): string {
   return shortName
     .toLowerCase()
@@ -281,7 +290,7 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
         if (sourceData.name !== existingSource.name) {
           updates.name = sourceData.name;
         }
-        if (sourceData.config !== undefined && JSON.stringify(sourceData.config) !== JSON.stringify(existingSource.config)) {
+        if (sourceData.config !== undefined && stableStringify(sourceData.config) !== stableStringify(existingSource.config)) {
           updates.config = sourceData.config;
         }
         if (sourceData.url && sourceData.url !== existingSource.url) {
