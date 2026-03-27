@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
 import { useUser, useClerk } from "@clerk/nextjs";
-import { Globe, Clock, Thermometer, Info, Shield, Users, LogOut } from "lucide-react";
+import { Globe, Thermometer, Info, Shield, Users, LogOut, Sun, Moon, Monitor } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
 import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Dialog,
   DialogContent,
@@ -20,22 +21,13 @@ interface MobileMoreSheetProps {
 
 const navLinkClass = "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted";
 
-const prefBtnClass = (active: boolean) =>
-  `flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${active ? "bg-muted font-medium" : "hover:bg-muted"}`;
-
 export function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps) {
   const { user } = useUser();
   const { signOut } = useClerk();
   const isAdmin = (user?.publicMetadata as { role?: string } | undefined)?.role === "admin";
   const { preference, setPreference } = useTimePreference();
   const { tempUnit, setTempUnit } = useUnitsPreference();
-
-  const prefOptions: { icon: LucideIcon; label: string; active: boolean; onSelect: () => void }[] = [
-    { icon: Globe, label: "Event Local Time", active: preference === "EVENT_LOCAL", onSelect: () => setPreference("EVENT_LOCAL") },
-    { icon: Clock, label: "My Local Time", active: preference === "USER_LOCAL", onSelect: () => setPreference("USER_LOCAL") },
-    { icon: Thermometer, label: "°F — Fahrenheit", active: tempUnit === "IMPERIAL", onSelect: () => setTempUnit("IMPERIAL") },
-    { icon: Thermometer, label: "°C — Celsius", active: tempUnit === "METRIC", onSelect: () => setTempUnit("METRIC") },
-  ];
+  const { theme, setTheme } = useTheme();
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -73,16 +65,35 @@ export function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps) {
           <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Preferences
           </p>
-          <div className="space-y-1">
-            {prefOptions.map((opt) => {
-              const Icon = opt.icon;
-              return (
-                <button key={opt.label} onClick={opt.onSelect} className={prefBtnClass(opt.active)}>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                  {opt.label}
-                </button>
-              );
-            })}
+          <div className="space-y-3 px-3">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Globe className="h-4 w-4" /> Time
+              </span>
+              <ToggleGroup type="single" variant="outline" size="sm" value={preference} onValueChange={(v) => v && setPreference(v as "EVENT_LOCAL" | "USER_LOCAL")}>
+                <ToggleGroupItem value="EVENT_LOCAL">Event</ToggleGroupItem>
+                <ToggleGroupItem value="USER_LOCAL">Local</ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Thermometer className="h-4 w-4" /> Temp
+              </span>
+              <ToggleGroup type="single" variant="outline" size="sm" value={tempUnit} onValueChange={(v) => v && setTempUnit(v as "IMPERIAL" | "METRIC")}>
+                <ToggleGroupItem value="IMPERIAL">°F</ToggleGroupItem>
+                <ToggleGroupItem value="METRIC">°C</ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Sun className="h-4 w-4" /> Theme
+              </span>
+              <ToggleGroup type="single" variant="outline" size="sm" value={theme} onValueChange={(v) => v && setTheme(v)}>
+                <ToggleGroupItem value="light"><Sun className="h-3.5 w-3.5" /></ToggleGroupItem>
+                <ToggleGroupItem value="dark"><Moon className="h-3.5 w-3.5" /></ToggleGroupItem>
+                <ToggleGroupItem value="system"><Monitor className="h-3.5 w-3.5" /></ToggleGroupItem>
+              </ToggleGroup>
+            </div>
           </div>
         </div>
 
