@@ -392,6 +392,18 @@ describe("parseDFWDetailPage", () => {
     expect(detail.runNumber).toBe(100);
   });
 
+  it("extracts hare name wrapped in second em tag (defense-in-depth)", () => {
+    const html = `
+      <html><body>
+        <h3>Hash Run No 500</h3>
+        <h5><em>Hares:</em> <em>Son of a Peach</em></h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+    expect(detail.hares).toBe("Son of a Peach");
+  });
+
   it("handles detail page with missing fields gracefully", () => {
     const html = `<html><body><p>Minimal page</p></body></html>`;
     const $ = cheerio.load(html);

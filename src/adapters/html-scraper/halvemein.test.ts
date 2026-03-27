@@ -174,6 +174,15 @@ describe("parseHalveMeinRow", () => {
     expect(result!.hares).toBeUndefined();
   });
 
+  it("filters 'Sign Up!' with non-breaking space as hare placeholder", () => {
+    const result = parseHalveMeinRow(
+      ["821", "Wednesday", "March 18, 2026 6:00 PM", "TBD", "Sign\u00A0Up!"],
+      sourceUrl,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBeUndefined();
+  });
+
   // --- New tests for bug fixes ---
 
   it("parses custom month Sextembeer", () => {

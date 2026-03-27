@@ -48,6 +48,8 @@ export interface GenericHtmlConfig {
   dateLocale?: DateLocale;    // "en-US" | "en-GB" — defaults to "en-US"
   locationTruncateAfter?: "uk-postcode";  // truncate location at first UK postcode match
   defaultStartTime?: string;               // "HH:MM" fallback when page doesn't have per-event times
+  forwardDate?: boolean;                   // resolve year-less dates to next future occurrence
+  maxPastDays?: number;                    // skip events with dates more than N days in the past
 }
 
 /** Type guard: does this config look like a GenericHtmlConfig? */
@@ -95,6 +97,12 @@ function extractHref(
   return href || undefined;
 }
 
+/** Filters CTA/placeholder values from hares column (e.g., "Sign Up!", "TBD", "Volunteer"). */
+const CTA_HARES_RE = /^(?:tbd|tba|tbc|n\/a|sign[\s\u00A0]*up!?|volunteer|needed|required)$/i;
+
+/** UK postcode pattern for location truncation. */
+const UK_POSTCODE_RE = /([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})/i;
+
 /**
  * Parse a single row element into RawEventData using the column config.
  * Exported for unit testing.
@@ -111,18 +119,18 @@ export function parseEventRow(
   const dateText = extractText($, $row, columns.date);
   if (!dateText) return null;
 
-  const date = chronoParseDate(dateText, dateLocale);
+  const date = chronoParseDate(dateText, dateLocale, undefined, { forwardDate: config.forwardDate });
   if (!date) return null;
 
   // Extract optional fields
   const kennelTag = extractText($, $row, columns.kennelTag) || defaultKennelTag;
   const title = extractText($, $row, columns.title);
-  const hares = extractText($, $row, columns.hares);
+  const rawHares = extractText($, $row, columns.hares);
+  const hares = rawHares && !CTA_HARES_RE.test(rawHares) ? rawHares : undefined;
   let location = extractText($, $row, columns.location);
   // UK postcode truncation: strip driving directions after postcode
   if (config.locationTruncateAfter === "uk-postcode" && location) {
-    const postcodeRegex = /([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})/i;
-    const postcodeMatch = postcodeRegex.exec(location);
+    const postcodeMatch = UK_POSTCODE_RE.exec(location);
     if (postcodeMatch) {
       location = location.slice(0, postcodeMatch.index! + postcodeMatch[0].length).trim();
     }
@@ -209,10 +217,17 @@ export class GenericHtmlAdapter implements SourceAdapter {
       ? container.find(config.rowSelector)
       : $(config.rowSelector); // fallback: try rowSelector directly
 
+    // Pre-compute past-date cutoff if maxPastDays is configured
+    const pastCutoff = config.maxPastDays != null
+      ? new Date(Date.now() - config.maxPastDays * 86_400_000).toISOString().split("T")[0]
+      : undefined;
+
     rows.each((i, el) => {
       try {
         const event = parseEventRow($, $(el), config, sourceUrl);
         if (event) {
+          // Skip events too far in the past
+          if (pastCutoff && event.date < pastCutoff) return;
           events.push(event);
         }
         // Silently skip rows that don't parse (headers, empty rows, etc.)

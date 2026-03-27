@@ -918,6 +918,22 @@ export const KENNELS: KennelSeed[] = [
       description: "Weekly Sunday runs in Richmond since 1992 with 1,685+ trails.",
       latitude: 37.54, longitude: -77.44,
     },
+    {
+      kennelCode: "bibh3", shortName: "BIBH3", fullName: "Belle Isle Babes Hash House Harriers", region: "Richmond, VA",
+      foundedYear: 2015,
+      description: "Richmond's Belle Isle Babes H3, est. 2015.",
+      latitude: 37.54, longitude: -77.44,
+    },
+    {
+      kennelCode: "tmfmh3", shortName: "TMFMH3", fullName: "Titanic Memorial Full Moon Hash House Harriers", region: "Richmond, VA",
+      description: "Richmond's full moon hash.",
+      latitude: 37.54, longitude: -77.44,
+    },
+    {
+      kennelCode: "chain-gang-hhh", shortName: "Chain Gang", fullName: "Chain Gang Hash House Harriers", region: "Richmond, VA",
+      description: "Chain Gang Hash House Harriers in Richmond, VA.",
+      latitude: 37.54, longitude: -77.44,
+    },
     // --- Hampton Roads ---
     {
       kennelCode: "feh3", shortName: "FEH3", fullName: "Fort Eustis Hash House Harriers", region: "Hampton Roads, VA",

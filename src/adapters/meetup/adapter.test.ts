@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName } from "./adapter";
+import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
 
 vi.mock("../safe-fetch", () => ({
@@ -981,5 +981,58 @@ describe("dedupByDate", () => {
 
     const result = dedupByDate([withDate, noDate] as never[]);
     expect(result).toHaveLength(2);
+  });
+});
+
+// ── buildRawEventFromApollo — kennelPatterns ──
+
+describe("buildRawEventFromApollo — kennelPatterns", () => {
+  const emptyState = {} as Record<string, Record<string, unknown>>;
+
+  it("routes event to matched kennel pattern", () => {
+    const ev = {
+      __typename: "Event",
+      id: "1",
+      title: "BIBH3 Trail #246 - TITS HAVE EYES BDAY TRAIL",
+      dateTime: "2026-04-01T18:30:00-04:00",
+    };
+    const patterns: [RegExp, string][] = [[/^BIBH3/i, "bibh3"], [/^TMFMH3/i, "tmfmh3"]];
+    const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3", patterns);
+    expect(event.kennelTag).toBe("bibh3");
+  });
+
+  it("routes Chain Gang event correctly", () => {
+    const ev = {
+      __typename: "Event",
+      id: "2",
+      title: "Chain Gang Hash House Harriers Trail #39",
+      dateTime: "2026-04-05T11:00:00-04:00",
+    };
+    const patterns: [RegExp, string][] = [[/^BIBH3/i, "bibh3"], [/^Chain Gang/i, "chain-gang-hhh"]];
+    const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3", patterns);
+    expect(event.kennelTag).toBe("chain-gang-hhh");
+  });
+
+  it("falls back to default kennelTag when no pattern matches", () => {
+    const ev = {
+      __typename: "Event",
+      id: "3",
+      title: "RH3 trail #1687",
+      dateTime: "2026-04-06T13:00:00-04:00",
+    };
+    const patterns: [RegExp, string][] = [[/^BIBH3/i, "bibh3"], [/^TMFMH3/i, "tmfmh3"]];
+    const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3", patterns);
+    expect(event.kennelTag).toBe("rvah3");
+  });
+
+  it("uses default kennelTag when no patterns provided", () => {
+    const ev = {
+      __typename: "Event",
+      id: "4",
+      title: "BIBH3 Trail #247",
+      dateTime: "2026-04-08T18:30:00-04:00",
+    };
+    const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3");
+    expect(event.kennelTag).toBe("rvah3");
   });
 });
