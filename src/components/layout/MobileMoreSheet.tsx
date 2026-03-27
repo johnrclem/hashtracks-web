@@ -71,7 +71,7 @@ export function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps) {
               <span className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Globe className="h-4 w-4" /> Time
               </span>
-              <ToggleGroup type="single" variant="outline" size="sm" value={preference} onValueChange={(v) => v && setPreference(v as TimeDisplayPref)}>
+              <ToggleGroup type="single" variant="outline" size="sm" value={preference} onValueChange={(v) => { if (v === "EVENT_LOCAL" || v === "USER_LOCAL") setPreference(v); }}>
                 <ToggleGroupItem value="EVENT_LOCAL">Event</ToggleGroupItem>
                 <ToggleGroupItem value="USER_LOCAL">Local</ToggleGroupItem>
               </ToggleGroup>
@@ -80,7 +80,7 @@ export function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps) {
               <span className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Thermometer className="h-4 w-4" /> Temp
               </span>
-              <ToggleGroup type="single" variant="outline" size="sm" value={tempUnit} onValueChange={(v) => v && setTempUnit(v as TempUnit)}>
+              <ToggleGroup type="single" variant="outline" size="sm" value={tempUnit} onValueChange={(v) => { if (v === "IMPERIAL" || v === "METRIC") setTempUnit(v); }}>
                 <ToggleGroupItem value="IMPERIAL">°F</ToggleGroupItem>
                 <ToggleGroupItem value="METRIC">°C</ToggleGroupItem>
               </ToggleGroup>
@@ -90,9 +90,9 @@ export function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps) {
                 <Sun className="h-4 w-4" /> Theme
               </span>
               <ToggleGroup type="single" variant="outline" size="sm" value={theme} onValueChange={(v) => v && setTheme(v)}>
-                <ToggleGroupItem value="light"><Sun className="h-3.5 w-3.5" /></ToggleGroupItem>
-                <ToggleGroupItem value="dark"><Moon className="h-3.5 w-3.5" /></ToggleGroupItem>
-                <ToggleGroupItem value="system"><Monitor className="h-3.5 w-3.5" /></ToggleGroupItem>
+                <ToggleGroupItem value="light" aria-label="Light"><Sun className="h-3.5 w-3.5" /></ToggleGroupItem>
+                <ToggleGroupItem value="dark" aria-label="Dark"><Moon className="h-3.5 w-3.5" /></ToggleGroupItem>
+                <ToggleGroupItem value="system" aria-label="System"><Monitor className="h-3.5 w-3.5" /></ToggleGroupItem>
               </ToggleGroup>
             </div>
           </div>
