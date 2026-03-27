@@ -110,7 +110,7 @@ export default function OgImage() {
               backgroundColor: "#f97316",
             }}
           />
-          hashtracks.com
+          hashtracks.xyz
         </div>
       </div>
     ),
