@@ -21,7 +21,7 @@ import { getEventDayWeather } from "@/lib/weather";
 import { REGION_CENTROIDS } from "@/lib/geo";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { RestoreEventButton } from "@/components/admin/RestoreEventButton";
-import { stripMarkdown, stripUrlsFromText } from "@/lib/format";
+import { stripMarkdown, stripUrlsFromText, formatRelativeTime } from "@/lib/format";
 import { getFullLocationDisplay } from "@/lib/event-display";
 
 export async function generateMetadata({
@@ -213,6 +213,9 @@ export default async function EventDetailPage({
             <Badge variant="outline">Tentative</Badge>
           )}
         </div>
+        <p className="text-xs text-muted-foreground">
+          Updated {formatRelativeTime(event.updatedAt)}
+        </p>
       </div>
 
       {/* Event title */}
