@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/refs */
 
 import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useMapColorScheme } from "@/hooks/useMapColorScheme";
 import { useMap, AdvancedMarker } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import type { Marker, Cluster, onClusterClickHandler } from "@googlemaps/markerclusterer";
@@ -52,6 +53,7 @@ export function getMarkerStyle(
   color: string,
   precise: boolean,
   isSelected: boolean,
+  markerBorder: string,
 ): React.CSSProperties {
   return {
     width: size,
@@ -60,7 +62,7 @@ export function getMarkerStyle(
     border: `${isSelected ? 3 : 2}px solid ${color}`,
     borderRadius: "50%",
     boxShadow: isSelected
-      ? `0 0 0 2px white, 0 0 0 4px ${color}`
+      ? `0 0 0 2px ${markerBorder}, 0 0 0 4px ${color}`
       : "0 1px 4px rgba(0,0,0,0.4)",
     cursor: "pointer",
     transition: "all 0.15s ease",
@@ -68,7 +70,7 @@ export function getMarkerStyle(
 }
 
 /** Build inline style for a co-located group badge (circle with count overlay). */
-function getGroupBadgeStyle(color: string, isSelected: boolean): React.CSSProperties {
+function getGroupBadgeStyle(color: string, isSelected: boolean, markerBorder: string): React.CSSProperties {
   const size = isSelected ? 28 : 24;
   return {
     width: size,
@@ -83,7 +85,7 @@ function getGroupBadgeStyle(color: string, isSelected: boolean): React.CSSProper
     fontSize: "11px",
     fontWeight: "600",
     boxShadow: isSelected
-      ? `0 0 0 2px white, 0 0 0 4px ${color}`
+      ? `0 0 0 2px ${markerBorder}, 0 0 0 4px ${color}`
       : "0 1px 4px rgba(0,0,0,0.4)",
     cursor: "pointer",
     transition: "all 0.15s ease",
@@ -98,6 +100,7 @@ export function ClusteredMarkers({
   onShowColocated,
   onRegionFilter,
 }: Readonly<ClusteredMarkersProps>) {
+  const { markerBorder } = useMapColorScheme();
   const map = useMap();
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const markersRef = useRef<Map<string, Marker>>(new Map());
@@ -265,7 +268,7 @@ export function ClusteredMarkers({
               title={`${event.kennel?.shortName ?? ""}${event.title ? ` \u2014 ${event.title}` : ""}${event.startTime ? ` \u00B7 ${event.startTime}` : ""}`}
               ref={getRefCallback(group.key) as React.Ref<never>}
             >
-              <div style={getMarkerStyle(size, color, precise, isSelected)} />
+              <div style={getMarkerStyle(size, color, precise, isSelected, markerBorder)} />
             </AdvancedMarker>
           );
         }
@@ -290,7 +293,7 @@ export function ClusteredMarkers({
             title={`${group.events.length} events: ${kennelNames}`}
             ref={getRefCallback(group.key) as React.Ref<never>}
           >
-            <div style={getGroupBadgeStyle(badgeColor, hasSelected)}>
+            <div style={getGroupBadgeStyle(badgeColor, hasSelected, markerBorder)}>
               {group.events.length}
             </div>
           </AdvancedMarker>

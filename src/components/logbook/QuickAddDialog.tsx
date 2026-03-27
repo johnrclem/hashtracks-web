@@ -200,7 +200,7 @@ export function QuickAddDialog({ open, onOpenChange, onRequestUnlistedRun }: Qui
             onClick={() => {
               onRequestUnlistedRun?.();
             }}
-            className="text-sm text-blue-500 hover:text-blue-600 transition-colors"
+            className="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
           >
             Can&apos;t find it? Log an unlisted run
           </button>
@@ -298,7 +298,7 @@ function EventRow({
         ) : (
           <Button
             size="sm"
-            className="bg-emerald-500 text-white hover:bg-emerald-600 h-7 text-xs px-3"
+            className="bg-emerald-500 text-white hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 h-7 text-xs px-3"
             onClick={() => onCheckIn(event.id)}
             disabled={isPending}
           >

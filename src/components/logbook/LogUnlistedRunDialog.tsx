@@ -188,7 +188,7 @@ export function LogUnlistedRunDialog({
           {/* Kennel search */}
           <div>
             <label htmlFor="kennel-search" className="text-xs font-medium text-muted-foreground mb-1.5 block">
-              Kennel <span className="text-red-400">*</span>
+              Kennel <span className="text-red-400 dark:text-red-500">*</span>
             </label>
             <div className="relative">
               <Input
@@ -241,7 +241,7 @@ export function LogUnlistedRunDialog({
           {/* Date */}
           <div>
             <label htmlFor="event-date" className="text-xs font-medium text-muted-foreground mb-1.5 block">
-              Date <span className="text-red-400">*</span>
+              Date <span className="text-red-400 dark:text-red-500">*</span>
             </label>
             <Input
               id="event-date"
@@ -269,7 +269,7 @@ export function LogUnlistedRunDialog({
                   onClick={() => setParticipationLevel(level)}
                   className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                     participationLevel === level
-                      ? "bg-emerald-500 text-white"
+                      ? "bg-emerald-500 text-white dark:bg-emerald-600"
                       : "bg-muted text-muted-foreground hover:bg-muted/80"
                   }`}
                 >
@@ -293,7 +293,7 @@ export function LogUnlistedRunDialog({
                     onClick={() => setParticipationLevel(level)}
                     className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                       participationLevel === level
-                        ? "bg-emerald-500 text-white"
+                        ? "bg-emerald-500 text-white dark:bg-emerald-600"
                         : "bg-muted text-muted-foreground hover:bg-muted/80"
                     }`}
                   >
@@ -350,14 +350,14 @@ export function LogUnlistedRunDialog({
         <div className="flex items-center justify-between border-t bg-muted/50 px-6 py-3">
           <Link
             href="/kennels/request"
-            className="text-xs text-blue-500 hover:text-blue-600 transition-colors"
+            className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
           >
             Can&apos;t find your kennel? Request it
           </Link>
           <Button
             onClick={handleSubmit}
             disabled={isPending || !kennelId || !date}
-            className="bg-emerald-500 text-white hover:bg-emerald-600 h-8 text-sm px-4"
+            className="bg-emerald-500 text-white hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 h-8 text-sm px-4"
           >
             {isPending ? (
               <>

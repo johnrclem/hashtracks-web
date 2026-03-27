@@ -187,11 +187,11 @@ export default async function KennelDetailPage({
             <img
               src={kennel.logoUrl}
               alt={`${kennel.shortName} logo`}
-              className="h-20 w-20 rounded-xl object-contain bg-white ring-2 ring-white shadow-md sm:h-24 sm:w-24"
+              className="h-20 w-20 rounded-xl object-contain bg-white dark:bg-background ring-2 ring-white dark:ring-white/20 shadow-md sm:h-24 sm:w-24"
             />
           ) : (
             <div
-              className="flex h-20 w-20 items-center justify-center rounded-xl text-xl font-bold text-white shadow-md ring-2 ring-white/80 sm:h-24 sm:w-24 sm:text-2xl"
+              className="flex h-20 w-20 items-center justify-center rounded-xl text-xl font-bold text-white shadow-md ring-2 ring-white/80 dark:ring-white/20 sm:h-24 sm:w-24 sm:text-2xl"
               style={{ backgroundColor: regionColor }}
             >
               {initials}

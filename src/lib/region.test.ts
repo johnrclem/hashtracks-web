@@ -71,7 +71,7 @@ describe("slug-aware lookups", () => {
   });
 
   it("regionColorClasses accepts slug", () => {
-    expect(regionColorClasses("new-york-city-ny")).toBe("bg-blue-200 text-blue-800");
+    expect(regionColorClasses("new-york-city-ny")).toBe("bg-blue-200 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200");
   });
 
   it("getRegionColor accepts slug", () => {
@@ -89,7 +89,7 @@ describe("slug-aware lookups", () => {
   });
 
   it("falls back to gray for unknown slug", () => {
-    expect(regionColorClasses("fake-slug")).toBe("bg-gray-200 text-gray-800");
+    expect(regionColorClasses("fake-slug")).toBe("bg-gray-200 text-gray-800 dark:bg-gray-900/40 dark:text-gray-200");
     expect(getRegionColor("fake-slug")).toBe("#6b7280");
     expect(getRegionCentroid("fake-slug")).toBeNull();
   });

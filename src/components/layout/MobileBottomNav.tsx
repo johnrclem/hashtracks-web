@@ -43,7 +43,7 @@ export function MobileBottomNav() {
               >
                 <div className="relative">
                   {active && (
-                    <span className="absolute -top-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-orange-400" />
+                    <span className="absolute -top-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-orange-400 dark:bg-orange-500" />
                   )}
                   <Icon className="h-5 w-5" />
                 </div>
@@ -63,7 +63,7 @@ export function MobileBottomNav() {
           >
             <div className="relative">
               {isMoreActive && (
-                <span className="absolute -top-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-orange-400" />
+                <span className="absolute -top-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-orange-400 dark:bg-orange-500" />
               )}
               <MoreHorizontal className="h-5 w-5" />
             </div>

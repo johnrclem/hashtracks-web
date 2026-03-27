@@ -64,9 +64,9 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 type ColumnKey = (typeof REQUIRED_COLUMNS)[number]["key"] | (typeof OPTIONAL_COLUMNS)[number]["key"];
 
 function confidenceClasses(confidence: number): string {
-  if (confidence >= 0.8) return "border-green-300 bg-green-50 text-green-800";
-  if (confidence >= 0.5) return "border-amber-300 bg-amber-50 text-amber-800";
-  return "border-gray-200 bg-gray-50 text-gray-600";
+  if (confidence >= 0.8) return "border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950/30 dark:text-green-200";
+  if (confidence >= 0.5) return "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200";
+  return "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-950/30 dark:text-gray-400";
 }
 
 export function SheetsConfigPanel({
@@ -255,7 +255,7 @@ export function SheetsConfigPanel({
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 gap-1 text-xs border-green-300 text-green-700 hover:bg-green-50"
+              className="h-7 gap-1 text-xs border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-950/30"
               onClick={acceptAll}
             >
               ✓ Accept All

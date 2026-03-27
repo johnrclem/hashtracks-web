@@ -2,12 +2,13 @@
 
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { APIProvider, Map as GoogleMap, AdvancedMarker, InfoWindow, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
+import { APIProvider, Map as GoogleMap, AdvancedMarker, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LocateFixed, Search } from "lucide-react";
+import { LocateFixed, Search, X } from "lucide-react";
 import { REGION_CENTROIDS, getRegionColor, getEventCoords } from "@/lib/geo";
 import { formatSchedule, formatDateShort } from "@/lib/format";
+import { useMapColorScheme } from "@/hooks/useMapColorScheme";
 import { ClusteredKennelMarkers, type KennelPin } from "./ClusteredKennelMarkers";
 import { ColocatedKennelList } from "./ColocatedKennelList";
 import type { KennelCardData } from "./KennelCard";
@@ -112,6 +113,7 @@ function RestoreViewport({ onRestored }: { onRestored: () => void }) {
 }
 
 export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter }: KennelMapViewProps) {
+  const { colorScheme, markerBorder } = useMapColorScheme();
   const [selectedKennelId, setSelectedKennelId] = useState<string | null>(null);
   const [colocatedList, setColocatedList] = useState<{ pins: KennelPin[]; position: { lat: number; lng: number } } | null>(null);
   const [showSearchButton, setShowSearchButton] = useState(false);
@@ -249,6 +251,7 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
         <div className="relative h-[500px] overflow-hidden rounded-md border">
           <GoogleMap
             mapId={MAP_ID}
+            colorScheme={colorScheme}
             defaultBounds={defaultBounds}
             gestureHandling="greedy"
             disableDefaultUI={false}
@@ -271,46 +274,7 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
               }}
             />
 
-            {/* InfoWindow for selected kennel */}
-            {selectedKennelId && (() => {
-              const pin = kennelPins.find((p) => p.id === selectedKennelId);
-              if (!pin) return null;
-              return (
-                <InfoWindow
-                  position={{ lat: pin.lat, lng: pin.lng }}
-                  onCloseClick={() => setSelectedKennelId(null)}
-                  pixelOffset={[0, -18]}
-                >
-                  <div className="min-w-[180px] max-w-[260px]" style={{ borderTop: `3px solid ${pin.color}`, paddingTop: 8 }}>
-                    <p className="m-0 text-[14px] font-bold">{pin.shortName}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{pin.fullName}</p>
-                    <Badge variant="outline" className="mt-1 text-[10px]">{pin.region}</Badge>
-                    {pin.schedule && (
-                      <p className="mt-1.5 text-xs text-muted-foreground">{pin.schedule}</p>
-                    )}
-                    <p className="mt-1 text-xs">
-                      {pin.nextEvent ? (
-                        <>
-                          <span className="font-medium">Next run:</span>{" "}
-                          {formatDateShort(pin.nextEvent.date)}
-                          {pin.nextEvent.title && <span className="text-muted-foreground"> — {pin.nextEvent.title}</span>}
-                        </>
-                      ) : (
-                        <span className="italic text-muted-foreground">No upcoming runs</span>
-                      )}
-                    </p>
-                    <Link
-                      href={`/kennels/${pin.slug}`}
-                      className="mt-2 inline-block text-xs font-medium text-primary no-underline hover:underline"
-                    >
-                      View Kennel →
-                    </Link>
-                  </div>
-                </InfoWindow>
-              );
-            })()}
-
-            {/* Co-located kennel list overlay is rendered outside the GoogleMap (below) to avoid edge clipping */}
+            {/* Kennel detail overlay is rendered outside the GoogleMap (below) to support dark mode theming */}
 
             {/* Reset view button */}
             {defaultBounds && <ResetViewControl bounds={defaultBounds} />}
@@ -377,7 +341,7 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
                       height: size,
                       borderRadius: "50%",
                       backgroundColor: color,
-                      border: "2px solid white",
+                      border: `2px solid ${markerBorder}`,
                       boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
                       cursor: "pointer",
                       display: "flex",
@@ -399,6 +363,60 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
               );
             })}
           </GoogleMap>
+
+          {/* Selected kennel detail overlay — custom card for dark mode support */}
+          {selectedKennelId && !colocatedList && (() => {
+            const pin = kennelPins.find((p) => p.id === selectedKennelId);
+            if (!pin) return null;
+            return (
+              <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2">
+                <div
+                  className="bg-background/95 backdrop-blur-sm border rounded-xl shadow-xl w-[280px] overflow-hidden"
+                  style={{ borderLeft: `3px solid ${pin.color}` }}
+                >
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <p className="text-sm font-bold truncate">{pin.shortName}</p>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedKennelId(null)}
+                      className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                      aria-label="Close"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="px-3 pb-3 space-y-1.5">
+                    {pin.fullName && (
+                      <p className="text-xs text-muted-foreground truncate">{pin.fullName}</p>
+                    )}
+                    <Badge variant="outline" className="text-[10px]">{pin.region}</Badge>
+                    {pin.schedule && (
+                      <p className="text-xs text-muted-foreground">{pin.schedule}</p>
+                    )}
+                    <p className="text-xs">
+                      {pin.nextEvent ? (
+                        <>
+                          <span className="font-medium">Next run:</span>{" "}
+                          {formatDateShort(pin.nextEvent.date)}
+                          {pin.nextEvent.title && (
+                            <span className="text-muted-foreground"> — {pin.nextEvent.title}</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="italic text-muted-foreground">No upcoming runs</span>
+                      )}
+                    </p>
+                    <Link
+                      href={`/kennels/${pin.slug}`}
+                      className="inline-block text-xs font-medium text-primary hover:underline"
+                    >
+                      View Kennel →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Co-located kennel list overlay — positioned within the map container to avoid edge clipping */}
           {colocatedList && (

@@ -364,7 +364,7 @@ export function StravaSuggestions({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">Link Strava to check-ins</h3>
-                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400">
                   {linkGroups.length}
                 </span>
               </div>
@@ -434,7 +434,7 @@ function EventInfoLine({ eventId, kennelShortName, kennelFullName, kennelRegion,
         <TooltipTrigger asChild>
           <a
             href={`/hareline/${eventId}`}
-            className="font-semibold text-sm text-blue-500 hover:underline"
+            className="font-semibold text-sm text-blue-500 dark:text-blue-400 hover:underline"
           >
             {kennelShortName}
           </a>
@@ -519,7 +519,7 @@ function SuggestionCard({
                 key={reason}
                 className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                   reason.startsWith("Same") || reason.startsWith("Within")
-                    ? "bg-emerald-50 text-emerald-700"
+                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
                     : "bg-muted text-muted-foreground"
                 }`}
               >
@@ -544,7 +544,7 @@ function SuggestionCard({
       <div className="flex flex-col gap-1 items-end shrink-0">
         <Button
           size="sm"
-          className="bg-emerald-500 hover:bg-emerald-600 text-white h-7 text-xs font-semibold"
+          className="bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white h-7 text-xs font-semibold"
           onClick={onCheckIn}
           disabled={isPending}
         >

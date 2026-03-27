@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/refs */
 
 import React, { useEffect, useRef, useCallback, useMemo } from "react";
+import { useMapColorScheme } from "@/hooks/useMapColorScheme";
 import { useMap, AdvancedMarker } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import type { Cluster } from "@googlemaps/markerclusterer";
@@ -37,6 +38,7 @@ interface ClusteredKennelMarkersProps {
 }
 
 export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onShowColocated }: Readonly<ClusteredKennelMarkersProps>) {
+  const { markerBorder } = useMapColorScheme();
   const map = useMap();
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const markersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement>>(new Map());
@@ -170,6 +172,7 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
           onSelectPin={onSelectPin}
           onShowColocated={onShowColocated}
           refCallback={getRefCallback(group.key)}
+          markerBorder={markerBorder}
         />
       ))}
     </>
@@ -179,13 +182,13 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
 // ── Extracted sub-component to reduce cognitive complexity ────────────────────
 
 /** Build inline style for a multi-pin badge marker. */
-function getMultiPinStyle(color: string, hasSelected: boolean): React.CSSProperties {
+function getMultiPinStyle(color: string, hasSelected: boolean, markerBorder: string): React.CSSProperties {
   return {
     width: 32,
     height: 32,
     borderRadius: "50%",
     backgroundColor: color,
-    border: hasSelected ? "3px solid white" : "2px solid white",
+    border: hasSelected ? `3px solid ${markerBorder}` : `2px solid ${markerBorder}`,
     boxShadow: hasSelected
       ? `0 0 0 2px ${color}, 0 2px 6px rgba(0,0,0,0.4)`
       : "0 1px 4px rgba(0,0,0,0.4)",
@@ -203,14 +206,14 @@ function getMultiPinStyle(color: string, hasSelected: boolean): React.CSSPropert
 }
 
 /** Build inline style for a single kennel pin marker. */
-function getSinglePinStyle(color: string, isSelected: boolean): React.CSSProperties {
+function getSinglePinStyle(color: string, isSelected: boolean, markerBorder: string): React.CSSProperties {
   const size = isSelected ? 32 : 28;
   return {
     width: size,
     height: size,
     borderRadius: "50%",
     backgroundColor: color,
-    border: isSelected ? "3px solid white" : "2px solid white",
+    border: isSelected ? `3px solid ${markerBorder}` : `2px solid ${markerBorder}`,
     boxShadow: isSelected
       ? `0 0 0 2px ${color}, 0 2px 6px rgba(0,0,0,0.4)`
       : "0 1px 4px rgba(0,0,0,0.4)",
@@ -241,12 +244,14 @@ function KennelPinMarker({
   onSelectPin,
   onShowColocated,
   refCallback,
+  markerBorder,
 }: Readonly<{
   group: PinGroup;
   selectedPinId: string | null;
   onSelectPin: (id: string) => void;
   onShowColocated: (pins: KennelPin[], position: { lat: number; lng: number }) => void;
   refCallback: (marker: google.maps.marker.AdvancedMarkerElement | null) => void;
+  markerBorder: string;
 }>) {
   const isMulti = group.pins.length > 1;
   const primaryColor = group.pins[0].color;
@@ -261,7 +266,7 @@ function KennelPinMarker({
         ref={refCallback}
       >
         <div
-          style={getMultiPinStyle(primaryColor, hasSelectedPin)}
+          style={getMultiPinStyle(primaryColor, hasSelectedPin, markerBorder)}
           onMouseEnter={handleScaleUp}
           onMouseLeave={handleScaleDown}
         >
@@ -281,7 +286,7 @@ function KennelPinMarker({
       ref={refCallback}
     >
       <div
-        style={getSinglePinStyle(primaryColor, isSelected)}
+        style={getSinglePinStyle(primaryColor, isSelected, markerBorder)}
         onMouseEnter={handleScaleUp}
         onMouseLeave={handleScaleDown}
       />
