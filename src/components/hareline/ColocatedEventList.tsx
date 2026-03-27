@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Clock, X } from "lucide-react";
+import { ChevronRight, Clock, X } from "lucide-react";
 import { track } from "@vercel/analytics";
 import { formatTime, formatDateShort } from "@/lib/format";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -84,9 +84,7 @@ function EventRows({
           </div>
 
           {/* Hover chevron */}
-          <span className="shrink-0 mt-2 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors">
-            ›
-          </span>
+          <ChevronRight className="shrink-0 mt-2 h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </button>
       ))}
     </div>
