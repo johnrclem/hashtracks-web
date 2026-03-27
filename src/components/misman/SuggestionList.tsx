@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { InfoPopover } from "@/components/ui/info-popover";
 
@@ -46,13 +46,15 @@ export function SuggestionList({
 }: SuggestionListProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const all = getVisibleSuggestions(suggestions, attendedHasherIds, Infinity);
-  const hiddenCount = Math.max(0, all.visible.length - MAX_VISIBLE);
-  const visible = expanded
-    ? all.visible
-    : all.visible.slice(0, MAX_VISIBLE);
+  const allAvailable = useMemo(
+    () => getVisibleSuggestions(suggestions, attendedHasherIds, Infinity).visible,
+    [suggestions, attendedHasherIds],
+  );
 
-  if (visible.length === 0) return null;
+  if (allAvailable.length === 0) return null;
+
+  const hiddenCount = Math.max(0, allAvailable.length - MAX_VISIBLE);
+  const visible = expanded ? allAvailable : allAvailable.slice(0, MAX_VISIBLE);
 
   return (
     <div className="space-y-1.5">
@@ -65,6 +67,7 @@ export function SuggestionList({
             type="button"
             className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             onClick={() => setExpanded((prev) => !prev)}
+            aria-expanded={expanded}
           >
             {expanded ? (
               <>
