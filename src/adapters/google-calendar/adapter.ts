@@ -173,8 +173,12 @@ export function extractLocationFromDescription(description: string): string | un
 
   let location = match[1].trim();
   location = location.replace(LOCATION_TRUNCATE_RE, "");
-  location = location.replace(LOCATION_URL_RE, "");
-  location = location.split("\n")[0].trim();
+  // If the entire location value is a Maps URL, return it as-is for downstream geocoding
+  const firstLine = location.split("\n")[0].trim();
+  if (/^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|google\.\w+\/maps)\//i.test(firstLine)) {
+    return firstLine;
+  }
+  location = firstLine.replace(LOCATION_URL_RE, "").trim();
 
   if (location.length < 3) return undefined;
   if (isPlaceholder(location)) return undefined;
@@ -395,6 +399,8 @@ export function buildRawEventFromGCalItem(
     resolvedStartTime = extractTimeFromDescription(rawDescription);
   }
 
+  // If extracted location is a Maps URL, use it as locationUrl for geocoding instead of display location
+  const locationIsUrl = location && /^https?:\/\//i.test(location);
   return {
     date: dateISO,
     kennelTag,
@@ -402,8 +408,8 @@ export function buildRawEventFromGCalItem(
     title,
     description: appendDescriptionSuffix(description, sourceConfig?.descriptionSuffix),
     hares,
-    location,
-    locationUrl: location ? mapsUrl(location) : undefined,
+    location: locationIsUrl ? undefined : location,
+    locationUrl: locationIsUrl ? location : (location ? mapsUrl(location) : undefined),
     startTime: resolvedStartTime,
     sourceUrl: item.htmlLink,
   };

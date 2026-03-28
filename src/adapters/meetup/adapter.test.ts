@@ -1035,4 +1035,28 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
     const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3");
     expect(event.kennelTag).toBe("rvah3");
   });
+
+  it("extracts hares from description (HARE: pattern)", () => {
+    const ev = {
+      __typename: "Event",
+      id: "5",
+      title: "Rubber City Trail",
+      dateTime: "2026-03-28T15:00:00-04:00",
+      description: "<p>HARE: Deez Akronutz, Just Gracia, Chick w/ Heart On</p><p>Trail details...</p>",
+    };
+    const event = buildRawEventFromApollo(ev as never, emptyState, "rch3");
+    expect(event.hares).toBe("Deez Akronutz, Just Gracia, Chick w/ Heart On");
+  });
+
+  it("returns undefined hares when description has no hare pattern", () => {
+    const ev = {
+      __typename: "Event",
+      id: "6",
+      title: "Regular Trail",
+      dateTime: "2026-04-01T18:30:00-04:00",
+      description: "<p>Just a regular trail with no hare info</p>",
+    };
+    const event = buildRawEventFromApollo(ev as never, emptyState, "rch3");
+    expect(event.hares).toBeUndefined();
+  });
 });

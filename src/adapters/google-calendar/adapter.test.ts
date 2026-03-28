@@ -608,6 +608,15 @@ describe("extractLocationFromDescription", () => {
   it("returns undefined for Start: with bare time (no am/pm)", () => {
     expect(extractLocationFromDescription("Start: 7:00")).toBeUndefined();
   });
+
+  it("returns Maps short URL as-is when it is the entire location value (LAH3 pattern)", () => {
+    expect(extractLocationFromDescription("Location: https://maps.app.goo.gl/zpyewJa4kXbu2pnd9?g_st=a"))
+      .toBe("https://maps.app.goo.gl/zpyewJa4kXbu2pnd9?g_st=a");
+  });
+
+  it("still truncates inline URL when location has text before it", () => {
+    expect(extractLocationFromDescription("WHERE: The Pub https://maps.google.com/foo")).toBe("The Pub");
+  });
 });
 
 // ── extractTimeFromDescription ──

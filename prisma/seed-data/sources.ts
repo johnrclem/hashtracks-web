@@ -962,7 +962,7 @@ export const SOURCES = [
       scrapeDays: 180,
       config: {
         defaultKennelTag: "cfh3",
-        containerSelector: "table:first-of-type",
+        containerSelector: "figure:first-of-type table",
         rowSelector: "tr",
         columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
         forwardDate: true,
