@@ -629,8 +629,6 @@ export interface StravaSuggestion {
   distanceMeters: number;
   movingTimeSecs: number;
   city: string | null;
-  startLat: number | null;
-  startLng: number | null;
   eventId: string;
   kennelShortName: string;
   kennelFullName: string;
@@ -768,8 +766,6 @@ export async function getStravaEventSuggestions(
         distanceMeters: activity.distanceMeters,
         movingTimeSecs: activity.movingTimeSecs,
         city: activity.city,
-        startLat: activity.startLat,
-        startLng: activity.startLng,
         eventId: bestEvent.id,
         kennelShortName: bestEvent.kennel.shortName,
         kennelFullName: bestEvent.kennel.fullName,
@@ -788,7 +784,11 @@ export async function getStravaEventSuggestions(
     }
 
     // Sort by match score desc, cap at 10
-    suggestions.sort((a, b) => b.matchScore - a.matchScore);
+    suggestions.sort((a, b) =>
+      b.matchScore - a.matchScore
+      || a.dateLocal.localeCompare(b.dateLocal)
+      || a.stravaActivityDbId.localeCompare(b.stravaActivityDbId),
+    );
     const CAP = 10;
     const hasMore = suggestions.length > CAP;
     const capped = suggestions.slice(0, CAP);

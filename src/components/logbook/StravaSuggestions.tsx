@@ -78,32 +78,45 @@ export function StravaSuggestions({
   const [showBackfill, setShowBackfill] = useState(false);
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const [hasMore, setHasMore] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  // Ref so async callbacks always read the latest skippedIds without re-creating closures
+  // Ref so async callbacks always read the latest values without re-creating closures
   const skippedIdsRef = useRef(skippedIds);
   useEffect(() => { skippedIdsRef.current = skippedIds; }, [skippedIds]);
+  const suggestionsRef = useRef(suggestions);
+  useEffect(() => { suggestionsRef.current = suggestions; }, [suggestions]);
 
-  // Shared helper: fetch suggestions from server and update state
-  const fetchingRef = useRef(false);
+  // Request counter: only the latest response is applied (stale responses are dropped)
+  const requestIdRef = useRef(0);
+
   async function refreshSuggestions() {
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
+    const thisRequest = ++requestIdRef.current;
+    setIsRefreshing(true);
     try {
+      // Exclude skipped IDs + currently-visible suggestion IDs to avoid duplicates
+      const excludeIds = [
+        ...skippedIdsRef.current,
+        ...suggestionsRef.current.map((s) => s.stravaActivityDbId),
+      ];
       const result = await getStravaEventSuggestions({
-        excludeActivityIds: [...skippedIdsRef.current],
+        excludeActivityIds: excludeIds.length > 0 ? excludeIds : undefined,
       });
+      if (thisRequest !== requestIdRef.current) return; // stale response
       if (result.success) {
         setSuggestions(result.suggestions);
         setHasMore(result.hasMore);
       } else {
+        toast.error(result.error ?? "Failed to load suggestions");
         setHasMore(false);
       }
     } catch {
+      if (thisRequest !== requestIdRef.current) return;
+      toast.error("Failed to load more suggestions");
       setHasMore(false);
     } finally {
-      fetchingRef.current = false;
+      if (thisRequest === requestIdRef.current) setIsRefreshing(false);
     }
   }
 
@@ -161,12 +174,14 @@ export function StravaSuggestions({
     };
   }, [stravaConnected]);
 
-  // Auto-refetch when all suggestions are exhausted but more exist on the server
+  // Auto-refetch when all suggestions are exhausted but more exist on the server.
+  // refreshSuggestions is intentionally omitted — it reads state via refs and the
+  // reactive deps (filteredSuggestions.length, hasMore) already trigger re-evaluation.
   useEffect(() => {
-    if (!loaded || !hasMore || isPending) return;
+    if (!loaded || !hasMore || isPending || isRefreshing) return;
     if (filteredSuggestions.length > 0) return;
     refreshSuggestions();
-  }, [filteredSuggestions.length, hasMore, loaded, isPending]);
+  }, [filteredSuggestions.length, hasMore, loaded, isPending, isRefreshing]);
 
   if (!stravaConnected || !loaded || hidden || totalCount === 0) return null;
 
@@ -229,6 +244,7 @@ export function StravaSuggestions({
         return;
       }
       setSuggestions([]);
+      setHasMore(false);
       toast.success("All suggestions dismissed");
     });
   }
@@ -397,9 +413,16 @@ export function StravaSuggestions({
             size="sm"
             className="text-xs text-strava"
             onClick={refreshSuggestions}
-            disabled={isPending}
+            disabled={isPending || isRefreshing}
           >
-            Load more matches
+            {isRefreshing ? (
+              <>
+                <RefreshCw size={12} className="animate-spin mr-1" />
+                Loading...
+              </>
+            ) : (
+              "Load more matches"
+            )}
           </Button>
         )}
       </div>
