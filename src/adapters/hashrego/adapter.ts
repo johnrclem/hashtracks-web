@@ -43,6 +43,9 @@ export class HashRegoAdapter implements SourceAdapter {
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
     const fetchStart = Date.now();
+    let detailPagesFetched = 0;
+    let detailPagesFailed = 0;
+    let indexOnlyFallbacks = 0;
 
     // Step 1: Fetch events index
     let indexHtml: string;
@@ -91,13 +94,23 @@ export class HashRegoAdapter implements SourceAdapter {
         batch.map((entry) => fetchAndParseDetail(entry, errors, errorDetails)),
       );
       for (const result of results) {
+        detailPagesFetched++;
         if (result.status === "fulfilled") {
           events.push(...result.value);
+        } else {
+          detailPagesFailed++;
         }
       }
     }
 
     const hasErrorDetails = hasAnyErrors(errorDetails);
+
+    // Compute unmapped kennel slugs: slugs in the index that weren't in our configured set
+    const allIndexSlugs = [...new Set(allEntries.map((e) => e.kennelSlug.toUpperCase()))];
+    const unmappedKennelSlugs = allIndexSlugs.filter((s) => !kennelSlugs.has(s));
+
+    // Count index-only fallbacks (detail page failures that fell back to index data)
+    indexOnlyFallbacks = (errorDetails.fetch?.length ?? 0) + (errorDetails.parse?.length ?? 0);
 
     return {
       events,
@@ -110,6 +123,11 @@ export class HashRegoAdapter implements SourceAdapter {
         kennelSlugsConfigured: slugList,
         eventsProduced: events.length,
         fetchDurationMs: Date.now() - fetchStart,
+        detailPagesFetched,
+        detailPagesFailed,
+        indexOnlyFallbacks,
+        uniqueKennelSlugsInIndex: allIndexSlugs,
+        unmappedKennelSlugs,
       },
     };
   }

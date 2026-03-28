@@ -8,6 +8,14 @@ export interface ReconcileResult {
   cancelled: number;
   /** IDs of the cancelled Event records. */
   cancelledEventIds: string[];
+  /** Number of CONFIRMED events examined as reconciliation candidates. */
+  candidatesExamined: number;
+  /** Number of orphaned events preserved because they have other sources. */
+  multiSourcePreserved: number;
+  /** Number of kennels actually in reconciliation scope. */
+  kennelsInScope: number;
+  /** Total number of kennels linked to this source (for partial-scrape detection). */
+  totalLinkedKennels: number;
 }
 
 /**
@@ -25,7 +33,14 @@ export async function reconcileStaleEvents(
   sourceId: string,
   scrapedEvents: RawEventData[],
   days: number,
+  scrapedKennelIds?: string[],
 ): Promise<ReconcileResult> {
+  const emptyResult: ReconcileResult = {
+    cancelled: 0, cancelledEventIds: [],
+    candidatesExamined: 0, multiSourcePreserved: 0,
+    kennelsInScope: 0, totalLinkedKennels: 0,
+  };
+
   // Build set of (kennelId, date) keys from the scrape results
   const scrapedKeys = new Set<string>();
   const resolutions = await Promise.all(
@@ -43,10 +58,26 @@ export async function reconcileStaleEvents(
     where: { sourceId },
     select: { kennelId: true },
   });
-  const linkedKennelIds = sourceKennels.map((sk) => sk.kennelId);
+  const allLinkedKennelIds = sourceKennels.map((sk) => sk.kennelId);
+
+  if (allLinkedKennelIds.length === 0) {
+    return emptyResult;
+  }
+
+  // When scrapedKennelIds is provided, only reconcile events for kennels that were
+  // actually in scope for the scrape. This prevents false cancellations when the
+  // adapter only scrapes a subset of linked kennels (e.g., HASHREGO with partial
+  // externalSlug coverage).
+  let linkedKennelIds: string[];
+  if (scrapedKennelIds && scrapedKennelIds.length > 0) {
+    const scrapedSet = new Set(scrapedKennelIds);
+    linkedKennelIds = allLinkedKennelIds.filter((id) => scrapedSet.has(id));
+  } else {
+    linkedKennelIds = allLinkedKennelIds;
+  }
 
   if (linkedKennelIds.length === 0) {
-    return { cancelled: 0, cancelledEventIds: [] };
+    return { ...emptyResult, totalLinkedKennels: allLinkedKennelIds.length };
   }
 
   // Compute the scrape time window (same as adapter)
@@ -76,8 +107,14 @@ export async function reconcileStaleEvents(
     return !scrapedKeys.has(key);
   });
 
+  const baseDiag = {
+    candidatesExamined: candidates.length,
+    kennelsInScope: linkedKennelIds.length,
+    totalLinkedKennels: allLinkedKennelIds.length,
+  };
+
   if (orphaned.length === 0) {
-    return { cancelled: 0, cancelledEventIds: [] };
+    return { cancelled: 0, cancelledEventIds: [], multiSourcePreserved: 0, ...baseDiag };
   }
 
   // Check which orphaned events have RawEvents from other sources (single query)
@@ -107,5 +144,7 @@ export async function reconcileStaleEvents(
   return {
     cancelled: cancelledEventIds.length,
     cancelledEventIds,
+    multiSourcePreserved: eventsWithOtherSources.size,
+    ...baseDiag,
   };
 }

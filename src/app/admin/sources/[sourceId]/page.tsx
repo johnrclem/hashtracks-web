@@ -910,6 +910,35 @@ export default async function SourceDetailPage({
                           </Tooltip>
                         );
                       })()}
+                      {log.eventsCancelled > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Badge variant="outline" className="text-[10px] py-0 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400 border-red-200 dark:border-red-800">
+                              {log.eventsCancelled} cancelled
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {log.eventsCancelled} event{log.eventsCancelled !== 1 ? "s" : ""} cancelled by reconciliation
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {(() => {
+                        const ctx = log.diagnosticContext as Record<string, unknown> | null;
+                        const restored = ctx?.eventsRestored as number | undefined;
+                        if (!restored || restored === 0) return null;
+                        return (
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Badge variant="outline" className="text-[10px] py-0 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
+                                {restored} restored
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {restored} previously cancelled event{restored !== 1 ? "s" : ""} auto-restored
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })()}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">{log.eventsFound}</TableCell>
@@ -952,7 +981,10 @@ export default async function SourceDetailPage({
                     {log.diagnosticContext && (() => {
                       const ctx = log.diagnosticContext as Record<string, unknown>;
                       const ai = ctx.aiRecovery as { attempted?: number; succeeded?: number; failed?: number; durationMs?: number; recoveredFields?: Array<{ fields: string[]; confidence: string }> } | undefined;
-                      const otherCtx = Object.fromEntries(Object.entries(ctx).filter(([k]) => k !== "aiRecovery"));
+                      const reconciliation = ctx.reconciliation as { cancelled?: number; candidatesExamined?: number; multiSourcePreserved?: number; kennelsInScope?: number; totalLinkedKennels?: number } | undefined;
+                      const unmappedSlugs = ctx.unmappedKennelSlugs as string[] | undefined;
+                      const internalKeys = new Set(["aiRecovery", "reconciliation", "eventsRestored", "unmappedKennelSlugs"]);
+                      const otherCtx = Object.fromEntries(Object.entries(ctx).filter(([k]) => !internalKeys.has(k)));
                       const hasOther = Object.keys(otherCtx).length > 0;
 
                       return (
@@ -975,6 +1007,32 @@ export default async function SourceDetailPage({
                                     {ai.failed} error{ai.failed === 1 ? "" : "s"} could not be recovered — may need code changes
                                   </p>
                                 )}
+                              </div>
+                            </details>
+                          )}
+                          {reconciliation && (reconciliation.cancelled ?? 0) + (reconciliation.candidatesExamined ?? 0) > 0 && (
+                            <details className="mt-1">
+                              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                                Reconciliation ({reconciliation.kennelsInScope}/{reconciliation.totalLinkedKennels} kennels, {reconciliation.candidatesExamined} candidates)
+                              </summary>
+                              <div className="mt-1 ml-2 text-xs text-muted-foreground space-y-0.5">
+                                <div>Kennels in scope: <span className="font-medium">{reconciliation.kennelsInScope}</span> / {reconciliation.totalLinkedKennels} linked</div>
+                                <div>Candidates examined: <span className="font-medium">{reconciliation.candidatesExamined}</span></div>
+                                <div>Cancelled: <span className={`font-medium ${(reconciliation.cancelled ?? 0) > 0 ? "text-red-600 dark:text-red-400" : ""}`}>{reconciliation.cancelled ?? 0}</span></div>
+                                {(reconciliation.multiSourcePreserved ?? 0) > 0 && (
+                                  <div>Multi-source preserved: <span className="font-medium">{reconciliation.multiSourcePreserved}</span></div>
+                                )}
+                              </div>
+                            </details>
+                          )}
+                          {unmappedSlugs && unmappedSlugs.length > 0 && (
+                            <details className="mt-1">
+                              <summary className="cursor-pointer text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300">
+                                {unmappedSlugs.length} unmapped kennel slug{unmappedSlugs.length !== 1 ? "s" : ""} on Hash Rego
+                              </summary>
+                              <div className="mt-1 ml-2 text-xs text-muted-foreground">
+                                {unmappedSlugs.slice(0, 15).join(", ")}
+                                {unmappedSlugs.length > 15 && ` … and ${unmappedSlugs.length - 15} more`}
                               </div>
                             </details>
                           )}
