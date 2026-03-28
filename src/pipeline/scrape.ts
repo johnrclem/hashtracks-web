@@ -341,14 +341,9 @@ export async function scrapeSource(
     let reconcileContext: Record<string, unknown> | undefined;
     if (!force && scrapeResult.events.length > 0 && scrapeResult.errors.length === 0) {
       const reconciled = await reconcileStaleEvents(sourceId, scrapeResult.events, days, scrapedKennelIds);
+      const { cancelledEventIds: _, ...reconDiag } = reconciled;
       cancelledCount = reconciled.cancelled;
-      reconcileContext = {
-        cancelled: reconciled.cancelled,
-        candidatesExamined: reconciled.candidatesExamined,
-        multiSourcePreserved: reconciled.multiSourcePreserved,
-        kennelsInScope: reconciled.kennelsInScope,
-        totalLinkedKennels: reconciled.totalLinkedKennels,
-      };
+      reconcileContext = reconDiag;
       if (reconciled.cancelled > 5) {
         console.warn(
           `[scrape] High cancellation count: ${reconciled.cancelled} events cancelled ` +
@@ -362,7 +357,6 @@ export async function scrapeSource(
     const { combined: combinedErrorDetails, hasErrors: hasErrorDetails } =
       buildCombinedErrorDetails(scrapeResult.errorDetails, mergeResult.mergeErrorDetails);
     const diagnosticContext = buildDiagnosticContext(scrapeResult.diagnosticContext, aiRecovery);
-    // Attach reconciliation and restoration diagnostics
     if (reconcileContext) diagnosticContext.reconciliation = reconcileContext;
     if (mergeResult.restored > 0) diagnosticContext.eventsRestored = mergeResult.restored;
 

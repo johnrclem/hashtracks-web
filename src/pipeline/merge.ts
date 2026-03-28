@@ -635,9 +635,6 @@ async function upsertCanonicalEvent(
         locationCity = null;
       }
 
-      // Auto-restore: if source actively returns this event, it's not stale
-      const shouldRestore = existingEvent.status === "CANCELLED";
-
       await prisma.event.update({
         where: { id: existingEvent.id },
         data: {
