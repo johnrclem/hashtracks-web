@@ -339,21 +339,20 @@ export async function scrapeSource(
             },
             select: { externalSlug: true, matchedKennelId: true },
           });
-          const fallbackSlugs: string[] = Array.from(
-            new Set<string>(discoveries.map((d) => d.externalSlug as string)),
-          );
-          if (fallbackSlugs.length > 0) {
+          const slugSet = new Set<string>();
+          const kennelIdSet = new Set<string>();
+          for (const d of discoveries) {
+            slugSet.add(d.externalSlug as string);
+            if (d.matchedKennelId != null) {
+              kennelIdSet.add(d.matchedKennelId);
+            }
+          }
+          if (slugSet.size > 0) {
             console.warn(
-              `[scrape] HASHREGO: 0 SourceKennel slugs, falling back to ${fallbackSlugs.length} KennelDiscovery slugs`,
+              `[scrape] HASHREGO: 0 SourceKennel slugs, falling back to ${slugSet.size} KennelDiscovery slugs`,
             );
-            kennelSlugs = fallbackSlugs;
-            scrapedKennelIds = Array.from(
-              new Set<string>(
-                discoveries
-                  .filter((d) => d.matchedKennelId != null)
-                  .map((d) => d.matchedKennelId as string),
-              ),
-            );
+            kennelSlugs = Array.from(slugSet);
+            scrapedKennelIds = Array.from(kennelIdSet);
           }
         }
       }
