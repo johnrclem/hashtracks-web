@@ -198,6 +198,7 @@ async function refreshExistingEvent(
   const timezone = regionTimezone(region);
   const eventDate = parseUtcNoonDate(event.date);
   const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
+  // No start time → can't update dateUtc/timezone; upsertCanonicalEvent handles restores for these
   if (!composedUtc) return;
 
   const existingEvent = await prisma.event.findUnique({

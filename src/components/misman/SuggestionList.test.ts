@@ -66,6 +66,16 @@ describe("getVisibleSuggestions", () => {
     expect(hiddenCount).toBe(0);
   });
 
+  it("returns all when maxVisible is Infinity (expanded mode)", () => {
+    const { visible, hiddenCount } = getVisibleSuggestions(
+      makeSuggestions(25),
+      new Set(),
+      Infinity,
+    );
+    expect(visible).toHaveLength(25);
+    expect(hiddenCount).toBe(0);
+  });
+
   it("preserves score ordering (highest first)", () => {
     const suggestions = makeSuggestions(5);
     const { visible } = getVisibleSuggestions(suggestions, new Set());
