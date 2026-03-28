@@ -54,6 +54,8 @@ export function getLocationDisplay(event: LocationDisplayEvent): string | null {
       const cityNameEscaped = cityName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       if (new RegExp(`\\b${cityNameEscaped}\\b`, "i").test(name)) return name;
     }
+    // Don't append city when location already has a complete US address (ends with state + optional zip)
+    if (/, [A-Z]{2}(?:\s+\d{5}(?:-\d{4})?)?\s*$/.test(name)) return name;
     return `${name}, ${city}`;
   }
   return city || name || null;

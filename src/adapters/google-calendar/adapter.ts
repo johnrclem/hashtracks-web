@@ -197,8 +197,8 @@ export function extractTimeFromDescription(description: string): string | undefi
 /** Default hare extraction patterns for Google Calendar descriptions. */
 const DEFAULT_HARE_PATTERNS = [
   /(?:^|\n)[ \t]*Hare\(?s?\)?:[ \t]*(.+)/im,  // Hare:, Hares:, Hare(s):
-  /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,     // "Hare C*ck Swap" (no colon, name starts uppercase/special)
-  /(?:^|\n)[ \t]*Who:[ \t]*(.+)/im,
+  /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.+)/im,  // Who:, WHO (hares):, Who(hare):
+  /(?:^|\n)[ \t]*Hare[ \t]+(?!(?:drop|is|was|has|had|can|will|would|should|could|for|and|or|the|a|off)\b)([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon) — exclude common verbs/prepositions
 ];
 
 /**
@@ -223,6 +223,10 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       let hares = match[1].trim();
       // Clean up trailing punctuation/whitespace
       hares = hares.split("\n")[0].trim();
+      // Truncate at asterisk separators (e.g., "Denny's Sucks *** could use a co-hare")
+      hares = hares.replace(/\s*\*{2,}\s*.*$/, "").trim();
+      // Strip trailing co-hare commentary (e.g., "could use a co-hare", "need a co-hare")
+      hares = hares.replace(/\s*(?:could|need)\s+.*?co-?hares?\b.*$/i, "").trim();
       // Truncate at boilerplate markers (description text leaking into hares)
       hares = hares.replace(HARE_BOILERPLATE_RE, "").trim();
       // Strip trailing US phone numbers (e.g., "719-360-3805", "(555) 123-4567")
