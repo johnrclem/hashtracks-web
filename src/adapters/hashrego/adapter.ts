@@ -35,7 +35,7 @@ export class HashRegoAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const slugList = options?.kennelSlugs ?? [];
     if (slugList.length === 0) {
-      return { events: [], errors: ["No kennel slugs provided — nothing to scrape"] };
+      return { events: [], errors: ["No kennel slugs provided — check SourceKennel.externalSlug is populated for this source"] };
     }
     const kennelSlugs = new Set(slugList.map((s) => s.toUpperCase()));
 

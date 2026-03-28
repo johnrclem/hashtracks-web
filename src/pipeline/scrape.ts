@@ -308,7 +308,7 @@ export async function scrapeSource(
     const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
 
     // For HASHREGO, load SourceKennel externalSlugs and pass to adapter.
-    // Use all available DB slugs; fall back to config only when zero exist.
+    // Falls back to KennelDiscovery matched slugs if SourceKennel has none.
     let kennelSlugs: string[] | undefined;
     if (source.type === "HASHREGO") {
       const sks = await prisma.sourceKennel.findMany({
@@ -316,7 +316,23 @@ export async function scrapeSource(
         select: { externalSlug: true },
       });
       const dbSlugs = sks.map((sk) => sk.externalSlug!);
-      kennelSlugs = dbSlugs.length > 0 ? dbSlugs : undefined;
+
+      if (dbSlugs.length > 0) {
+        kennelSlugs = dbSlugs;
+      } else {
+        // Safety fallback: use KennelDiscovery matched slugs
+        const discoveries = await prisma.kennelDiscovery.findMany({
+          where: { externalSource: "HASHREGO", matchedKennelId: { not: null } },
+          select: { externalSlug: true },
+        });
+        const fallbackSlugs = discoveries.map((d) => d.externalSlug);
+        if (fallbackSlugs.length > 0) {
+          console.warn(
+            `[scrape] HASHREGO: 0 SourceKennel slugs, falling back to ${fallbackSlugs.length} KennelDiscovery slugs`,
+          );
+          kennelSlugs = fallbackSlugs;
+        }
+      }
     }
 
     const fetchStart = Date.now();
