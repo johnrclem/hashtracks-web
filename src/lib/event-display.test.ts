@@ -6,7 +6,6 @@ describe("getLocationDisplay", () => {
     expect(getLocationDisplay({
       locationName: "The Rusty Bucket",
       locationCity: "Boston, MA",
-      locationStreet: null,
     })).toBe("The Rusty Bucket, Boston, MA");
   });
 
@@ -14,7 +13,6 @@ describe("getLocationDisplay", () => {
     expect(getLocationDisplay({
       locationName: "Central Park, Boston",
       locationCity: "Boston, MA",
-      locationStreet: null,
     })).toBe("Central Park, Boston");
   });
 
@@ -22,7 +20,6 @@ describe("getLocationDisplay", () => {
     expect(getLocationDisplay({
       locationName: "123 Main St, Boston, MA",
       locationCity: "Boston, MA",
-      locationStreet: null,
     })).toBe("123 Main St, Boston, MA");
   });
 
@@ -30,7 +27,6 @@ describe("getLocationDisplay", () => {
     expect(getLocationDisplay({
       locationName: "13480 Congress Lake Avenue, Hartville, OH",
       locationCity: "Akron, OH",
-      locationStreet: null,
     })).toBe("13480 Congress Lake Avenue, Hartville, OH");
   });
 
@@ -38,7 +34,6 @@ describe("getLocationDisplay", () => {
     expect(getLocationDisplay({
       locationName: "1776 Memorial Park, Friendswood, TX 77546",
       locationCity: "Houston, TX",
-      locationStreet: null,
     })).toBe("1776 Memorial Park, Friendswood, TX 77546");
   });
 
@@ -46,7 +41,6 @@ describe("getLocationDisplay", () => {
     expect(getLocationDisplay({
       locationName: "100 Broadway, New York, NY 10001-1234",
       locationCity: "Manhattan, NY",
-      locationStreet: null,
     })).toBe("100 Broadway, New York, NY 10001-1234");
   });
 
@@ -54,7 +48,6 @@ describe("getLocationDisplay", () => {
     expect(getLocationDisplay({
       locationName: "The Pub on Main",
       locationCity: "Akron, OH",
-      locationStreet: null,
     })).toBe("The Pub on Main, Akron, OH");
   });
 
@@ -62,7 +55,6 @@ describe("getLocationDisplay", () => {
     expect(getLocationDisplay({
       locationName: null,
       locationCity: "Boston, MA",
-      locationStreet: null,
     })).toBe("Boston, MA");
   });
 
@@ -70,7 +62,6 @@ describe("getLocationDisplay", () => {
     expect(getLocationDisplay({
       locationName: "The Pub",
       locationCity: null,
-      locationStreet: null,
     })).toBe("The Pub");
   });
 
@@ -78,7 +69,6 @@ describe("getLocationDisplay", () => {
     expect(getLocationDisplay({
       locationName: null,
       locationCity: null,
-      locationStreet: null,
     })).toBeNull();
   });
 });

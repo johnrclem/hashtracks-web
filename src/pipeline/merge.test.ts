@@ -24,7 +24,7 @@ vi.mock("./kennel-resolver", () => ({
 import { prisma } from "@/lib/db";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -737,8 +737,6 @@ describe("sanitizeLocationUrl", () => {
 });
 
 // ── sanitizeTitle + sanitizeHares ──
-
-import { sanitizeTitle, sanitizeLocation, sanitizeHares } from "./merge";
 
 describe("sanitizeTitle", () => {
   it("passes through normal titles", () => {

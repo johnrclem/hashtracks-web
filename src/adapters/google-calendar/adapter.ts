@@ -198,7 +198,7 @@ export function extractTimeFromDescription(description: string): string | undefi
 const DEFAULT_HARE_PATTERNS = [
   /(?:^|\n)[ \t]*Hare\(?s?\)?:[ \t]*(.+)/im,  // Hare:, Hares:, Hare(s):
   /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.+)/im,  // Who:, WHO (hares):, Who(hare):
-  /(?:^|\n)[ \t]*Hare[ \t]+(?!(?:drop|is|was|has|had|can|will|would|should|could|for|and|or|the|a|off)\b)([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon) — exclude common verbs/prepositions
+  /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon, name starts uppercase/special)
 ];
 
 /**
@@ -234,7 +234,7 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       // Skip generic/non-hare "Who:" answers
       if (/^(?:that be you|your|all|everyone)/i.test(hares)) continue;
       // Filter hare strings starting with common prepositions/verbs (description text, not names)
-      if (/^(?:away|at|from)\b/i.test(hares)) continue;
+      if (/^(?:away|at|from|drop|is|was|has|had|can|will|would|should|could|for|and|or|off)\b/i.test(hares)) continue;
       if (hares.length > 0 && hares.length < 200) return hares;
     }
   }
