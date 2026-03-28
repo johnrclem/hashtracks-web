@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useTransition, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -78,13 +78,34 @@ export function StravaSuggestions({
   const [showBackfill, setShowBackfill] = useState(false);
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const [hasMore, setHasMore] = useState(false);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  // Keep a ref to skippedIds so async fetches always use the latest value
+  // Ref so async callbacks always read the latest skippedIds without re-creating closures
   const skippedIdsRef = useRef(skippedIds);
-  skippedIdsRef.current = skippedIds;
+  useEffect(() => { skippedIdsRef.current = skippedIds; }, [skippedIds]);
+
+  // Shared helper: fetch suggestions from server and update state
+  const fetchingRef = useRef(false);
+  async function refreshSuggestions() {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    try {
+      const result = await getStravaEventSuggestions({
+        excludeActivityIds: [...skippedIdsRef.current],
+      });
+      if (result.success) {
+        setSuggestions(result.suggestions);
+        setHasMore(result.hasMore);
+      } else {
+        setHasMore(false);
+      }
+    } catch {
+      setHasMore(false);
+    } finally {
+      fetchingRef.current = false;
+    }
+  }
 
   // Load skipped IDs from localStorage on mount
   useEffect(() => {
@@ -102,21 +123,6 @@ export function StravaSuggestions({
   );
 
   const totalCount = filteredSuggestions.length + linkGroups.length;
-
-  const fetchMoreSuggestions = useCallback(async () => {
-    setIsFetchingMore(true);
-    try {
-      const result = await getStravaEventSuggestions({
-        excludeActivityIds: [...skippedIdsRef.current],
-      });
-      if (result.success) {
-        setSuggestions(result.suggestions);
-        setHasMore(result.hasMore);
-      }
-    } finally {
-      setIsFetchingMore(false);
-    }
-  }, []);
 
   useEffect(() => {
     if (!stravaConnected) return;
@@ -155,12 +161,12 @@ export function StravaSuggestions({
     };
   }, [stravaConnected]);
 
-  // Auto-refetch when suggestions run low and more exist on the server
+  // Auto-refetch when all suggestions are exhausted but more exist on the server
   useEffect(() => {
-    if (!loaded || !hasMore || isFetchingMore || isPending) return;
-    if (filteredSuggestions.length > 2) return;
-    fetchMoreSuggestions();
-  }, [filteredSuggestions.length, hasMore, loaded, isPending, isFetchingMore, fetchMoreSuggestions]);
+    if (!loaded || !hasMore || isPending) return;
+    if (filteredSuggestions.length > 0) return;
+    refreshSuggestions();
+  }, [filteredSuggestions.length, hasMore, loaded, isPending]);
 
   if (!stravaConnected || !loaded || hidden || totalCount === 0) return null;
 
@@ -263,16 +269,10 @@ export function StravaSuggestions({
       }
       toast.success(`Synced ${result.syncedCount} activities`);
       // Re-fetch both data sources
-      const [suggestionsResult, matchesResult] = await Promise.all([
-        getStravaEventSuggestions({
-          excludeActivityIds: [...skippedIdsRef.current],
-        }),
+      const [, matchesResult] = await Promise.all([
+        refreshSuggestions(),
         getUnmatchedStravaActivities(),
       ]);
-      if (suggestionsResult.success) {
-        setSuggestions(suggestionsResult.suggestions);
-        setHasMore(suggestionsResult.hasMore);
-      }
       if (matchesResult.success) setLinkMatches(matchesResult.matches);
       router.refresh();
     });
@@ -396,17 +396,10 @@ export function StravaSuggestions({
             variant="ghost"
             size="sm"
             className="text-xs text-strava"
-            onClick={fetchMoreSuggestions}
-            disabled={isFetchingMore}
+            onClick={refreshSuggestions}
+            disabled={isPending}
           >
-            {isFetchingMore ? (
-              <>
-                <RefreshCw size={12} className="animate-spin mr-1" />
-                Loading...
-              </>
-            ) : (
-              "Load more matches"
-            )}
+            Load more matches
           </Button>
         )}
       </div>
