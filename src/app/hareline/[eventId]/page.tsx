@@ -21,7 +21,7 @@ import { getEventDayWeather } from "@/lib/weather";
 import { REGION_CENTROIDS } from "@/lib/geo";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { RestoreEventButton } from "@/components/admin/RestoreEventButton";
-import { stripMarkdown, stripUrlsFromText } from "@/lib/format";
+import { stripMarkdown, stripUrlsFromText, formatRelativeTime } from "@/lib/format";
 import { getFullLocationDisplay } from "@/lib/event-display";
 
 export async function generateMetadata({
@@ -212,6 +212,12 @@ export default async function EventDetailPage({
           {event.status === "TENTATIVE" && (
             <Badge variant="outline">Tentative</Badge>
           )}
+          {(event.status === "CANCELLED" || event.status === "TENTATIVE") && (
+            <span className="text-xs text-muted-foreground">·</span>
+          )}
+          <span className={`text-xs ${Date.now() - event.updatedAt.getTime() >= 7 * 86_400_000 ? "text-amber-500" : "text-muted-foreground"}`}>
+            Updated {formatRelativeTime(event.updatedAt)}
+          </span>
         </div>
       </div>
 
