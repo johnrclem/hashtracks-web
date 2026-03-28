@@ -651,8 +651,10 @@ export interface StravaSuggestion {
  * Find Strava activities from the last 90 days that match events the user
  * hasn't checked into. Returns top-scoring suggestions (score >= 2.0).
  */
-export async function getStravaEventSuggestions(): Promise<
-  ActionResult<{ suggestions: StravaSuggestion[] }>
+export async function getStravaEventSuggestions(
+  opts?: { excludeActivityIds?: string[] },
+): Promise<
+  ActionResult<{ suggestions: StravaSuggestion[]; hasMore: boolean }>
 > {
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
@@ -662,7 +664,7 @@ export async function getStravaEventSuggestions(): Promise<
       where: { userId: user.id },
       select: { id: true },
     });
-    if (!connection) return { success: true, suggestions: [] };
+    if (!connection) return { success: true, suggestions: [], hasMore: false };
 
     // Get unmatched, non-dismissed Strava activities from last 90 days
     const cutoffDateStr = getStravaCutoffDateStr();
@@ -675,6 +677,9 @@ export async function getStravaEventSuggestions(): Promise<
         dateLocal: { gte: cutoffDateStr },
         sportType: { in: SCOREABLE_SPORTS_ARRAY },
         distanceMeters: { gte: 1000 },
+        ...(opts?.excludeActivityIds?.length
+          ? { id: { notIn: opts.excludeActivityIds } }
+          : {}),
       },
       select: {
         id: true,
@@ -692,7 +697,7 @@ export async function getStravaEventSuggestions(): Promise<
       },
     });
 
-    if (activities.length === 0) return { success: true, suggestions: [] };
+    if (activities.length === 0) return { success: true, suggestions: [], hasMore: false };
 
     // Collect unique date strings and convert to UTC noon Date objects
     const uniqueDates = [...new Set(activities.map((a) => a.dateLocal))];
@@ -722,7 +727,7 @@ export async function getStravaEventSuggestions(): Promise<
       },
     });
 
-    if (events.length === 0) return { success: true, suggestions: [] };
+    if (events.length === 0) return { success: true, suggestions: [], hasMore: false };
 
     // Build map of eventDate string -> events[]
     const eventsByDate = groupByDateStr(events);
@@ -784,9 +789,11 @@ export async function getStravaEventSuggestions(): Promise<
 
     // Sort by match score desc, cap at 10
     suggestions.sort((a, b) => b.matchScore - a.matchScore);
-    const capped = suggestions.slice(0, 10);
+    const CAP = 10;
+    const hasMore = suggestions.length > CAP;
+    const capped = suggestions.slice(0, CAP);
 
-    return { success: true, suggestions: capped };
+    return { success: true, suggestions: capped, hasMore };
   } catch (err) {
     console.error("Failed to get Strava event suggestions:", err);
     return { error: "Failed to load Strava suggestions" };

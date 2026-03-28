@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useMemo } from "react";
+import { useState, useEffect, useTransition, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -77,8 +77,14 @@ export function StravaSuggestions({
   const [showAllLinks, setShowAllLinks] = useState(false);
   const [showBackfill, setShowBackfill] = useState(false);
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
+  const [hasMore, setHasMore] = useState(false);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  // Keep a ref to skippedIds so async fetches always use the latest value
+  const skippedIdsRef = useRef(skippedIds);
+  skippedIdsRef.current = skippedIds;
 
   // Load skipped IDs from localStorage on mount
   useEffect(() => {
@@ -97,6 +103,21 @@ export function StravaSuggestions({
 
   const totalCount = filteredSuggestions.length + linkGroups.length;
 
+  const fetchMoreSuggestions = useCallback(async () => {
+    setIsFetchingMore(true);
+    try {
+      const result = await getStravaEventSuggestions({
+        excludeActivityIds: [...skippedIdsRef.current],
+      });
+      if (result.success) {
+        setSuggestions(result.suggestions);
+        setHasMore(result.hasMore);
+      }
+    } finally {
+      setIsFetchingMore(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!stravaConnected) return;
     if (
@@ -111,12 +132,16 @@ export function StravaSuggestions({
     async function fetchData() {
       try {
         const [suggestionsResult, matchesResult] = await Promise.all([
-          getStravaEventSuggestions(),
+          getStravaEventSuggestions({
+            excludeActivityIds: [...skippedIdsRef.current],
+          }),
           getUnmatchedStravaActivities(),
         ]);
         if (cancelled) return;
-        if (suggestionsResult.success)
+        if (suggestionsResult.success) {
           setSuggestions(suggestionsResult.suggestions);
+          setHasMore(suggestionsResult.hasMore);
+        }
         if (matchesResult.success) setLinkMatches(matchesResult.matches);
       } catch (err) {
         console.error("Failed to fetch Strava data:", err);
@@ -129,6 +154,13 @@ export function StravaSuggestions({
       cancelled = true;
     };
   }, [stravaConnected]);
+
+  // Auto-refetch when suggestions run low and more exist on the server
+  useEffect(() => {
+    if (!loaded || !hasMore || isFetchingMore || isPending) return;
+    if (filteredSuggestions.length > 2) return;
+    fetchMoreSuggestions();
+  }, [filteredSuggestions.length, hasMore, loaded, isPending, isFetchingMore, fetchMoreSuggestions]);
 
   if (!stravaConnected || !loaded || hidden || totalCount === 0) return null;
 
@@ -232,11 +264,15 @@ export function StravaSuggestions({
       toast.success(`Synced ${result.syncedCount} activities`);
       // Re-fetch both data sources
       const [suggestionsResult, matchesResult] = await Promise.all([
-        getStravaEventSuggestions(),
+        getStravaEventSuggestions({
+          excludeActivityIds: [...skippedIdsRef.current],
+        }),
         getUnmatchedStravaActivities(),
       ]);
-      if (suggestionsResult.success)
+      if (suggestionsResult.success) {
         setSuggestions(suggestionsResult.suggestions);
+        setHasMore(suggestionsResult.hasMore);
+      }
       if (matchesResult.success) setLinkMatches(matchesResult.matches);
       router.refresh();
     });
@@ -251,8 +287,8 @@ export function StravaSuggestions({
             className="mr-2 inline-block h-2 w-2 rounded-full bg-strava animate-pulse"
             aria-hidden="true"
           />
-          <span className="font-medium">{totalCount}</span> Strava{" "}
-          {totalCount === 1 ? "match" : "matches"} for your recent activities
+          <span className="font-medium">{totalCount}{hasMore ? "+" : ""}</span> Strava{" "}
+          {totalCount === 1 && !hasMore ? "match" : "matches"} for your recent activities
         </p>
         <div className="flex items-center gap-2">
           <Button
@@ -292,7 +328,7 @@ export function StravaSuggestions({
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold">Strava Matches</h3>
             <span className="rounded-full bg-strava/10 px-2 py-0.5 text-[10px] font-semibold text-strava">
-              {filteredSuggestions.length}
+              {filteredSuggestions.length}{hasMore ? "+" : ""}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -352,6 +388,25 @@ export function StravaSuggestions({
             onClick={() => setShowAllSuggestions(true)}
           >
             Show all {filteredSuggestions.length} suggestions
+          </Button>
+        )}
+
+        {hasMore && filteredSuggestions.length <= SUGGESTION_CAP && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-strava"
+            onClick={fetchMoreSuggestions}
+            disabled={isFetchingMore}
+          >
+            {isFetchingMore ? (
+              <>
+                <RefreshCw size={12} className="animate-spin mr-1" />
+                Loading...
+              </>
+            ) : (
+              "Load more matches"
+            )}
           </Button>
         )}
       </div>
