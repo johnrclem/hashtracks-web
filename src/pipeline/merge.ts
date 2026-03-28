@@ -81,6 +81,20 @@ export function sanitizeHares(hares: string | undefined | null): string | null {
   return h || null;
 }
 
+/**
+ * Derive a user-friendly kennel name for default event titles.
+ * For short/cryptic codes (≤4 chars), derives a readable name from fullName.
+ * Strips "Hash House Harriers" suffix and appends "H3" when appropriate.
+ */
+export function friendlyKennelName(shortName: string, fullName: string | null): string {
+  if (shortName.length > 4) return shortName;
+  if (!fullName) return shortName;
+  const friendly = fullName.replace(/\s*Hash House Harriers?\s*$/i, "").trim();
+  if (!friendly || friendly === shortName) return shortName;
+  const hadHHH = /Hash House Harriers?/i.test(fullName);
+  return hadHHH ? `${friendly} H3` : friendly;
+}
+
 /** Compiled once — matches admin/meta content in event titles (split to keep regex complexity low). */
 const ADMIN_TITLE_PATTERNS = [
   /hares?\s+needed/i,
@@ -128,8 +142,8 @@ interface MergeContext {
   trustLevel: number;
   /** Kennel IDs linked to this source via SourceKennel (for the guard check). */
   linkedKennelIds: Set<string>;
-  /** Per-batch cache of kennelId → region + coords + country + region centroid to avoid N+1 queries. */
-  kennelCache: Map<string, { region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }>;
+  /** Per-batch cache of kennelId → kennel data to avoid N+1 queries. */
+  kennelCache: Map<string, { shortName: string; fullName: string | null; region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }>;
   /** Per-batch cache of short Maps URL → resolved full URL (avoids repeated HTTP calls). */
   shortUrlCache: Map<string, string | null>;
   /** Per-batch tracking: which canonical Event IDs have been matched for each kennel+date.
@@ -139,15 +153,17 @@ interface MergeContext {
   result: MergeResult;
 }
 
-/** Resolve kennel data (region + coords + country + region centroid), using the per-batch cache to avoid N+1 queries. */
-async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<{ region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }> {
+/** Resolve kennel data (name + region + coords + country + region centroid), using the per-batch cache to avoid N+1 queries. */
+async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<{ shortName: string; fullName: string | null; region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }> {
   let cached = ctx.kennelCache.get(kennelId);
   if (cached === undefined) {
     const kennel = await prisma.kennel.findUnique({
       where: { id: kennelId },
-      select: { region: true, latitude: true, longitude: true, country: true, regionRef: { select: { centroidLat: true, centroidLng: true } } },
+      select: { shortName: true, fullName: true, region: true, latitude: true, longitude: true, country: true, regionRef: { select: { centroidLat: true, centroidLng: true } } },
     });
     cached = {
+      shortName: kennel?.shortName ?? "",
+      fullName: kennel?.fullName ?? null,
       region: kennel?.region ?? "",
       latitude: kennel?.latitude ?? null,
       longitude: kennel?.longitude ?? null,
@@ -186,17 +202,24 @@ async function refreshExistingEvent(
 
   const existingEvent = await prisma.event.findUnique({
     where: { id: existingEventId },
-    select: { trustLevel: true, dateUtc: true, timezone: true },
+    select: { trustLevel: true, dateUtc: true, timezone: true, status: true },
   });
   const isHigherOrEqualTrust = !existingEvent || ctx.trustLevel >= existingEvent.trustLevel;
   const isAlreadyCurrent =
     existingEvent?.dateUtc?.getTime() === composedUtc.getTime() &&
     existingEvent?.timezone === timezone;
-  if (isHigherOrEqualTrust && !isAlreadyCurrent) {
+  // Auto-restore cancelled events when source still returns them
+  const shouldRestore = existingEvent?.status === "CANCELLED";
+  const needsUpdate = (isHigherOrEqualTrust && !isAlreadyCurrent) || shouldRestore;
+  if (needsUpdate) {
     await prisma.event.update({
       where: { id: existingEventId },
-      data: { dateUtc: composedUtc, timezone },
+      data: {
+        ...(isHigherOrEqualTrust && !isAlreadyCurrent ? { dateUtc: composedUtc, timezone } : {}),
+        ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
+      },
     });
+    if (shouldRestore) ctx.result.restored++;
   }
 }
 
@@ -618,6 +641,17 @@ async function upsertCanonicalEvent(
   if (existingEvent) {
     targetEventId = existingEvent.id;
 
+    // Auto-restore: if any source actively returns this event, it's not stale
+    const shouldRestore = existingEvent.status === "CANCELLED";
+    if (shouldRestore && ctx.trustLevel < existingEvent.trustLevel) {
+      // Lower-trust source can't update fields, but can still restore status
+      await prisma.event.update({
+        where: { id: existingEvent.id },
+        data: { status: "CONFIRMED" },
+      });
+      ctx.result.restored++;
+    }
+
     // Update only if our source trust level >= existing
     if (ctx.trustLevel >= existingEvent.trustLevel) {
       const coords = await resolveCoords(event, {
@@ -642,6 +676,7 @@ async function upsertCanonicalEvent(
       await prisma.event.update({
         where: { id: existingEvent.id },
         data: {
+          ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
           runNumber: event.runNumber ?? existingEvent.runNumber,
           title: sanitizeTitle(event.title) ?? existingEvent.title,
           // Preserve existing fields when source doesn't provide them (undefined)
@@ -696,6 +731,7 @@ async function upsertCanonicalEvent(
     });
 
     ctx.result.updated++;
+    if (shouldRestore) ctx.result.restored++;
   } else {
     // Create new canonical Event
     const coords = await resolveCoords(event, undefined, ctx.shortUrlCache, kennelData, countryToRegionBias(kennelData.country));
@@ -790,16 +826,9 @@ async function processNewRawEvent(
   // Decode HTML entities in text fields before any downstream processing
   sanitizeRawFields(event);
 
-  // Generate a default title when the adapter didn't provide one — ensures future
-  // placeholder events (e.g. DFW calendar) still pass the empty-event guard.
-  if (!sanitizeTitle(event.title) && event.kennelTag) {
-    event.title = event.runNumber
-      ? `${event.kennelTag} Trail #${event.runNumber}`
-      : `${event.kennelTag} Trail`;
-  }
-
-  // Validate the event has at least one meaningful display field before processing
-  const hasDisplayData = event.title || event.location || event.hares || event.runNumber;
+  // Validate the event has at least one meaningful display field before processing.
+  // kennelTag counts because we'll generate a default title from it after kennel resolution.
+  const hasDisplayData = event.title || event.location || event.hares || event.runNumber || event.kennelTag;
   if (!hasDisplayData) {
     ctx.result.eventErrors++;
     if (ctx.result.eventErrorMessages.length < 50) {
@@ -821,6 +850,16 @@ async function processNewRawEvent(
 
   const kennelId = await resolveAndGuardKennel(event, ctx);
   if (!kennelId) return null;
+
+  // Generate a default title using the kennel's display name (not the raw adapter tag).
+  // Must happen AFTER kennel resolution so we have access to shortName/fullName.
+  if (!sanitizeTitle(event.title) && kennelId) {
+    const kennelData = await resolveKennelData(kennelId, ctx);
+    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName);
+    event.title = event.runNumber
+      ? `${displayName} Trail #${event.runNumber}`
+      : `${displayName} Trail`;
+  }
 
   const targetEventId = await upsertCanonicalEvent(event, kennelId, rawEvent.id, ctx);
 
@@ -873,6 +912,7 @@ export async function processRawEvents(
     unmatched: [],
     blocked: 0,
     blockedTags: [],
+    restored: 0,
     eventErrors: 0,
     eventErrorMessages: [],
     mergeErrorDetails: [],
@@ -894,7 +934,7 @@ export async function processRawEvents(
 
   clearResolverCache();
 
-  const kennelCache = new Map<string, { region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }>();
+  const kennelCache = new Map<string, { shortName: string; fullName: string | null; region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }>();
   const shortUrlCache = new Map<string, string | null>();
   const batchMatchedEvents = new Map<string, Set<string>>();
   const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, kennelCache, shortUrlCache, batchMatchedEvents, result };
