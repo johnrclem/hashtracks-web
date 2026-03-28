@@ -198,21 +198,29 @@ async function refreshExistingEvent(
   const timezone = regionTimezone(region);
   const eventDate = parseUtcNoonDate(event.date);
   const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
+  // No start time → can't update dateUtc/timezone; upsertCanonicalEvent handles restores for these
   if (!composedUtc) return;
 
   const existingEvent = await prisma.event.findUnique({
     where: { id: existingEventId },
-    select: { trustLevel: true, dateUtc: true, timezone: true },
+    select: { trustLevel: true, dateUtc: true, timezone: true, status: true },
   });
   const isHigherOrEqualTrust = !existingEvent || ctx.trustLevel >= existingEvent.trustLevel;
   const isAlreadyCurrent =
     existingEvent?.dateUtc?.getTime() === composedUtc.getTime() &&
     existingEvent?.timezone === timezone;
-  if (isHigherOrEqualTrust && !isAlreadyCurrent) {
+  // Auto-restore cancelled events when source still returns them
+  const shouldRestore = existingEvent?.status === "CANCELLED";
+  const needsUpdate = (isHigherOrEqualTrust && !isAlreadyCurrent) || shouldRestore;
+  if (needsUpdate) {
     await prisma.event.update({
       where: { id: existingEventId },
-      data: { dateUtc: composedUtc, timezone },
+      data: {
+        ...(isHigherOrEqualTrust && !isAlreadyCurrent ? { dateUtc: composedUtc, timezone } : {}),
+        ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
+      },
     });
+    if (shouldRestore) ctx.result.restored++;
   }
 }
 
@@ -597,6 +605,17 @@ async function upsertCanonicalEvent(
   if (existingEvent) {
     targetEventId = existingEvent.id;
 
+    // Auto-restore: if any source actively returns this event, it's not stale
+    const shouldRestore = existingEvent.status === "CANCELLED";
+    if (shouldRestore && ctx.trustLevel < existingEvent.trustLevel) {
+      // Lower-trust source can't update fields, but can still restore status
+      await prisma.event.update({
+        where: { id: existingEvent.id },
+        data: { status: "CONFIRMED" },
+      });
+      ctx.result.restored++;
+    }
+
     // Update only if our source trust level >= existing
     if (ctx.trustLevel >= existingEvent.trustLevel) {
       const coords = await resolveCoords(event, {
@@ -621,6 +640,7 @@ async function upsertCanonicalEvent(
       await prisma.event.update({
         where: { id: existingEvent.id },
         data: {
+          ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
           runNumber: event.runNumber ?? existingEvent.runNumber,
           title: sanitizeTitle(event.title) ?? existingEvent.title,
           // Preserve existing fields when source doesn't provide them (undefined)
@@ -675,6 +695,7 @@ async function upsertCanonicalEvent(
     });
 
     ctx.result.updated++;
+    if (shouldRestore) ctx.result.restored++;
   } else {
     // Create new canonical Event
     const coords = await resolveCoords(event, undefined, ctx.shortUrlCache, kennelData, countryToRegionBias(kennelData.country));
@@ -855,6 +876,7 @@ export async function processRawEvents(
     unmatched: [],
     blocked: 0,
     blockedTags: [],
+    restored: 0,
     eventErrors: 0,
     eventErrorMessages: [],
     mergeErrorDetails: [],

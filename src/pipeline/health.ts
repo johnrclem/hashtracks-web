@@ -38,6 +38,8 @@ interface AnalyzeInput {
   /** SHA-256 structural fingerprint of the source HTML (for change detection). */
   structureHash?: string;
   aiRecovery?: AiRecoveryContext;
+  /** Number of events cancelled by reconciliation on this scrape. */
+  cancelledCount?: number;
 }
 
 /** Type alias for the shape of recent scrape log rows used across checks. */
@@ -260,6 +262,38 @@ function checkUnmatchedTags(
   };
 }
 
+/** Alert when too many events are cancelled in a single scrape. */
+function checkExcessiveCancellations(
+  input: AnalyzeInput,
+  recentSuccessful: RecentLog[],
+): AlertCandidate | null {
+  const count = input.cancelledCount ?? 0;
+  if (count === 0) return null;
+
+  // Absolute threshold: >10 cancellations in one scrape is always suspicious
+  const absoluteThreshold = 10;
+  // Relative threshold: cancellations > 50% of average event count
+  const avgEvents = recentSuccessful.length > 0
+    ? recentSuccessful.reduce((sum, l) => sum + l.eventsFound, 0) / recentSuccessful.length
+    : 0;
+  const relativeThreshold = avgEvents > 0 ? avgEvents * 0.5 : Infinity;
+
+  const isCritical = avgEvents > 0 && count > relativeThreshold;
+  const isWarning = count > absoluteThreshold;
+
+  if (!isWarning && !isCritical) return null;
+
+  return {
+    type: "EXCESSIVE_CANCELLATIONS" as AlertType,
+    severity: isCritical ? "CRITICAL" : "WARNING",
+    title: `${count} events cancelled in one scrape`,
+    details: isCritical
+      ? `${count} events cancelled (avg events: ${Math.round(avgEvents)}). This exceeds 50% of the rolling average and may indicate a scraper regression or slug mapping issue.`
+      : `${count} events cancelled in a single reconciliation pass. Review for possible false cancellations.`,
+    context: { cancelledCount: count, avgEventsFound: Math.round(avgEvents) },
+  };
+}
+
 /** Alert if events resolved to valid kennels that are not linked to this source via SourceKennel. */
 function checkSourceKennelMismatches(
   input: AnalyzeInput,
@@ -350,6 +384,11 @@ export async function analyzeHealth(
   checkedTypes.add("SOURCE_KENNEL_MISMATCH");
   const mismatchAlert = checkSourceKennelMismatches(input);
   if (mismatchAlert) alerts.push(mismatchAlert);
+
+  // 8. Excessive cancellations (needs baseline for relative threshold)
+  checkedTypes.add("EXCESSIVE_CANCELLATIONS");
+  const cancellationAlert = checkExcessiveCancellations(input, recentSuccessful);
+  if (cancellationAlert) alerts.push(cancellationAlert);
 
   // Determine overall health status
   let healthStatus: SourceHealth;

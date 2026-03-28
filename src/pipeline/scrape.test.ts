@@ -51,7 +51,7 @@ const mockAnalyzeHealth = vi.mocked(analyzeHealth);
 
 const fakeSource = { id: "src_1", type: "HTML_SCRAPER", url: "https://test.com" };
 const fakeMergeResult = {
-  created: 3, updated: 1, skipped: 2, blocked: 0,
+  created: 3, updated: 1, skipped: 2, blocked: 0, restored: 0,
   unmatched: [], blockedTags: [],
   eventErrors: 0, eventErrorMessages: [],
 };
