@@ -925,7 +925,7 @@ export default async function SourceDetailPage({
                       {(() => {
                         const ctx = log.diagnosticContext as Record<string, unknown> | null;
                         const restored = ctx?.eventsRestored as number | undefined;
-                        if (!restored || restored === 0) return null;
+                        if (!restored) return null;
                         return (
                           <Tooltip>
                             <TooltipTrigger>

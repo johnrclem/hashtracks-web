@@ -45,7 +45,6 @@ export class HashRegoAdapter implements SourceAdapter {
     const fetchStart = Date.now();
     let detailPagesFetched = 0;
     let detailPagesFailed = 0;
-    let indexOnlyFallbacks = 0;
 
     // Step 1: Fetch events index
     let indexHtml: string;
@@ -109,8 +108,8 @@ export class HashRegoAdapter implements SourceAdapter {
     const allIndexSlugs = [...new Set(allEntries.map((e) => e.kennelSlug.toUpperCase()))];
     const unmappedKennelSlugs = allIndexSlugs.filter((s) => !kennelSlugs.has(s));
 
-    // Count index-only fallbacks (detail page failures that fell back to index data)
-    indexOnlyFallbacks = (errorDetails.fetch?.length ?? 0) + (errorDetails.parse?.length ?? 0);
+    // Approximate fallback count from detail page errors (each error triggers createFromIndex)
+    const indexOnlyFallbacks = (errorDetails.fetch?.length ?? 0) + (errorDetails.parse?.length ?? 0);
 
     return {
       events,
