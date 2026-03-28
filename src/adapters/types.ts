@@ -91,6 +91,7 @@ export interface MergeResult {
   unmatched: string[]; // kennel tags that couldn't be resolved
   blocked: number; // events skipped due to source-kennel mismatch
   blockedTags: string[]; // kennel tags that resolved but weren't linked to source
+  restored: number; // events auto-restored from CANCELLED back to CONFIRMED
   eventErrors: number; // count of individual events that failed to process
   eventErrorMessages: string[]; // error messages (capped at 50)
   mergeErrorDetails?: Array<{ fingerprint?: string; reason: string }>; // Phase 2A: Structured merge errors

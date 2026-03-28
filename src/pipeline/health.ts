@@ -38,6 +38,7 @@ interface AnalyzeInput {
   /** SHA-256 structural fingerprint of the source HTML (for change detection). */
   structureHash?: string;
   aiRecovery?: AiRecoveryContext;
+  cancelledCount?: number;
 }
 
 /** Type alias for the shape of recent scrape log rows used across checks. */

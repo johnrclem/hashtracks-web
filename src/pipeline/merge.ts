@@ -836,6 +836,7 @@ export async function processRawEvents(
     unmatched: [],
     blocked: 0,
     blockedTags: [],
+    restored: 0,
     eventErrors: 0,
     eventErrorMessages: [],
     mergeErrorDetails: [],
