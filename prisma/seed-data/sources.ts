@@ -342,6 +342,19 @@ export const SOURCES = [
       config: {},
       kennelCodes: ["norfolkh3"],
     },
+    // ===== UK — LIVERPOOL =====
+    {
+      name: "Mersey Thirstdays Website",
+      url: "https://www.merseythirstdayshash.com/next-run-s/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 7300,
+      config: {
+        pastRunsUrl: "https://www.merseythirstdayshash.com/past-runs/",
+      },
+      kennelCodes: ["mth3"],
+    },
     // ===== UK — BRISTOL =====
     {
       name: "West of England Hash Run List",

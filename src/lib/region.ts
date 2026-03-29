@@ -1487,6 +1487,28 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 1.30,
     aliases: ["Norfolk, England", "Norwich"],
   },
+  {
+    name: "Liverpool",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "LPL",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 53.41,
+    centroidLng: -2.98,
+    aliases: ["Liverpool, England", "Merseyside"],
+  },
+  {
+    name: "Birmingham",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "BHM",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 52.49,
+    centroidLng: -1.89,
+    aliases: ["Birmingham, England", "West Midlands"],
+  },
   // ── Continental Europe — Germany ──
   {
     name: "Germany",
@@ -1882,6 +1904,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // England (outside London)
   "Bristol": "United Kingdom",
   "Norfolk": "United Kingdom",
+  "Liverpool": "United Kingdom",
+  "Birmingham": "United Kingdom",
   // Ireland
   "Dublin": "Ireland",
   // Germany
