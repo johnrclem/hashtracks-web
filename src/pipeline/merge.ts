@@ -650,7 +650,6 @@ async function upsertCanonicalEvent(
         where: { id: existingEvent.id },
         data: { status: "CONFIRMED" },
       });
-      ctx.result.restored++;
     }
 
     // Update only if our source trust level >= existing
@@ -856,7 +855,7 @@ async function processNewRawEvent(
   // Must happen AFTER kennel resolution so we have access to shortName/fullName.
   if (!sanitizeTitle(event.title) && kennelId) {
     const kennelData = await resolveKennelData(kennelId, ctx);
-    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName);
+    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || event.kennelTag;
     event.title = event.runNumber
       ? `${displayName} Trail #${event.runNumber}`
       : `${displayName} Trail`;
