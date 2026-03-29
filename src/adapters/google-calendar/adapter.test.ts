@@ -402,6 +402,8 @@ describe("titleHarePattern — hare extraction from summary", () => {
     );
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Actual Hare Name");
+    // Title should NOT be stripped when hares came from description
+    expect(result!.title).toContain("AH3");
   });
 });
 

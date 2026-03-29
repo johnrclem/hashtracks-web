@@ -389,10 +389,12 @@ export function buildRawEventFromGCalItem(
   const { rawDescription, description } = normalizeGCalDescription(item.description);
   let hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;
   // Fall back to extracting hares from title when description has none
+  let haresFromTitle = false;
   if (!hares && compiledTitleHarePattern) {
     const titleMatch = compiledTitleHarePattern.exec(summary);
     if (titleMatch?.[1]) {
       hares = titleMatch[1].trim() || undefined;
+      haresFromTitle = !!hares;
     }
   }
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(summary, sourceConfig);
@@ -415,8 +417,8 @@ export function buildRawEventFromGCalItem(
     const descTitle = extractTitleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }
-  // When hares were extracted from the title via titleHarePattern, strip them from the title
-  if (hares && compiledTitleHarePattern) {
+  // Strip hare names from title only when they actually came from the title
+  if (haresFromTitle && compiledTitleHarePattern) {
     const cleaned = title.replace(compiledTitleHarePattern, "").trim();
     if (cleaned) title = cleaned;
   }
