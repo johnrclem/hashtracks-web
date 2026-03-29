@@ -143,6 +143,12 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== UK — SCOTLAND =====
     "edinburghh3": ["Edinburgh Hash", "EH3", "Edinburgh HHH"],
     "glasgowh3": ["Glasgow Hash", "GH3", "Glasgow HHH"],
+    // ===== UK — NORFOLK =====
+    "norfolkh3": ["Norfolk Hash", "Norfolk HHH", "Norfolk H3"],
+    // ===== UK — LIVERPOOL =====
+    "mth3": ["Mersey Thirstdays", "Mersey Thirstday HHH", "Mersey Thirstdays HHH"],
+    // ===== UK — BIRMINGHAM =====
+    "bullmoon": ["Bull Moon H3", "BMH3", "Bull Moon Hash", "Bull Moon HHH"],
     // ===== UK — BRISTOL =====
     "bristolh3": ["Bristol Hash", "BH3", "Bristol HHH", "BRIS"],
     "bristol-grey": ["Bristol Greyhound Hash", "Greyhound Hash", "GREY"],

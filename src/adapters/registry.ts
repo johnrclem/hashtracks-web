@@ -37,6 +37,7 @@ import { SDH3Adapter } from "./html-scraper/sdh3";
 import { PhoenixHHHAdapter } from "./html-scraper/phoenixhhh";
 import { EdinburghH3Adapter } from "./html-scraper/edinburgh-h3";
 import { NorfolkH3Adapter } from "./html-scraper/norfolk-h3";
+import { MerseyThirstdaysAdapter } from "./html-scraper/mersey-thirstdays";
 import { GlasgowH3Adapter } from "./html-scraper/glasgow-h3";
 import { FrankfurtHashAdapter } from "./html-scraper/frankfurt-hash";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
@@ -101,6 +102,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /phoenixhhh\.org/i,    name: "PhoenixHHHAdapter",        factory: () => new PhoenixHHHAdapter() },
   { pattern: /edinburghh3\.com/i,  name: "EdinburghH3Adapter",       factory: () => new EdinburghH3Adapter() },
   { pattern: /norfolkh3\.co\.uk/i, name: "NorfolkH3Adapter",        factory: () => new NorfolkH3Adapter() },
+  { pattern: /merseythirstdayshash/i, name: "MerseyThirstdaysAdapter", factory: () => new MerseyThirstdaysAdapter() },
   { pattern: /glasgowh3\.co\.uk/i, name: "GlasgowH3Adapter",        factory: () => new GlasgowH3Adapter() },
   { pattern: /frankfurt-hash\.de/i, name: "FrankfurtHashAdapter",    factory: () => new FrankfurtHashAdapter() },
 ];
