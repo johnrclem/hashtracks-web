@@ -534,6 +534,19 @@ describe("buildRawEventFromGCalItem — title fallback from description", () => 
     expect(event).not.toBeNull();
     expect(event!.title).toBe("OC Hump Trail");
   });
+
+  it("routes Maps URL from description to locationUrl and clears location", () => {
+    const item = {
+      summary: "Hash Run",
+      description: "Location: https://maps.app.goo.gl/zpyewJa4kXbu2pnd9",
+      start: { dateTime: "2026-03-15T14:00:00-04:00" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, { defaultKennelTag: "lah3" });
+    expect(event).not.toBeNull();
+    expect(event!.location).toBeUndefined();
+    expect(event!.locationUrl).toBe("https://maps.app.goo.gl/zpyewJa4kXbu2pnd9");
+  });
 });
 
 // ── extractLocationFromDescription ──
@@ -607,6 +620,15 @@ describe("extractLocationFromDescription", () => {
 
   it("returns undefined for Start: with bare time (no am/pm)", () => {
     expect(extractLocationFromDescription("Start: 7:00")).toBeUndefined();
+  });
+
+  it("returns Maps short URL as-is when it is the entire location value (LAH3 pattern)", () => {
+    expect(extractLocationFromDescription("Location: https://maps.app.goo.gl/zpyewJa4kXbu2pnd9?g_st=a"))
+      .toBe("https://maps.app.goo.gl/zpyewJa4kXbu2pnd9?g_st=a");
+  });
+
+  it("still truncates inline URL when location has text before it", () => {
+    expect(extractLocationFromDescription("WHERE: The Pub https://maps.google.com/foo")).toBe("The Pub");
   });
 });
 

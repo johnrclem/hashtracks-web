@@ -128,6 +128,8 @@ const LOCATION_START_RE = /(?:^|\n)\s*Start\s*:\s*(.+)/im;
 const LOCATION_TIME_ONLY_RE = /^\d{1,2}:\d{2}(\s*(?:am|pm))?\s*$/i;
 const LOCATION_TRUNCATE_RE = new RegExp(`\\s+(?:${LABEL_NAMES})\\s*:.*`, "i");
 const LOCATION_URL_RE = /\s*https?:\/\/\S+.*/i;
+/** Google Maps short/full URL pattern — used to preserve Maps links as locationUrl for geocoding. */
+const MAPS_URL_RE = /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|google\.\w+\/maps)\//i;
 
 // Pre-compiled regex for extractTimeFromDescription
 const TIME_LABEL_RE = /(?:^|\n)\s*(?:Pack\s*Meet|Circle|Time|Start|When|Chalk\s*Talk)\s*:?\s*.*?(\d{1,2}:\d{2}\s*[ap]m)/im;
@@ -173,8 +175,12 @@ export function extractLocationFromDescription(description: string): string | un
 
   let location = match[1].trim();
   location = location.replace(LOCATION_TRUNCATE_RE, "");
-  location = location.replace(LOCATION_URL_RE, "");
-  location = location.split("\n")[0].trim();
+  // If the entire location value is a Maps URL, return it as-is for downstream geocoding
+  const firstLine = location.split("\n")[0].trim();
+  if (MAPS_URL_RE.test(firstLine)) {
+    return firstLine;
+  }
+  location = firstLine.replace(LOCATION_URL_RE, "").trim();
 
   if (location.length < 3) return undefined;
   if (isPlaceholder(location)) return undefined;
@@ -395,6 +401,9 @@ export function buildRawEventFromGCalItem(
     resolvedStartTime = extractTimeFromDescription(rawDescription);
   }
 
+  // Any URL as location (Maps or otherwise) gets routed to locationUrl for geocoding,
+  // not stored as display location. resolveCoords handles URL → address resolution.
+  const locationIsUrl = location && /^https?:\/\//i.test(location);
   return {
     date: dateISO,
     kennelTag,
@@ -402,8 +411,8 @@ export function buildRawEventFromGCalItem(
     title,
     description: appendDescriptionSuffix(description, sourceConfig?.descriptionSuffix),
     hares,
-    location,
-    locationUrl: location ? mapsUrl(location) : undefined,
+    location: locationIsUrl ? undefined : location,
+    locationUrl: location ? (locationIsUrl ? location : mapsUrl(location)) : undefined,
     startTime: resolvedStartTime,
     sourceUrl: item.htmlLink,
   };

@@ -4,6 +4,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { hasAnyErrors } from "../types";
 import { validateSourceConfig, stripHtmlTags, buildDateWindow } from "../utils";
 import { safeFetch } from "../safe-fetch";
+import { extractHares as extractHaresFromDescription } from "../google-calendar/adapter";
 
 /** US state abbreviation → full name mapping (50 states + DC). */
 const US_STATE_ABBREV_TO_NAME: Record<string, string> = {
@@ -291,11 +292,19 @@ export function buildRawEventFromApollo(
     }
   }
 
+  // Extract hares from description (Meetup events often have "HARE:" or "Hare(s):" in the body).
+  const descForHares = ev.description
+    ? stripHtmlTags(ev.description, "\n")
+    : undefined;
+  const hares = descForHares ? extractHaresFromDescription(descForHares) : undefined;
+  const cleanedDesc = cleanMeetupDescription(ev.description);
+
   return {
     date,
     kennelTag: resolvedKennelTag,
     title: ev.title || undefined,
-    description: cleanMeetupDescription(ev.description),
+    description: cleanedDesc,
+    hares,
     location: venueInfo.location,
     latitude: venueInfo.latitude,
     longitude: venueInfo.longitude,
