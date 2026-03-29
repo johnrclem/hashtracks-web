@@ -36,7 +36,6 @@ import {
   decodeEntities,
   extractUkPostcode,
   googleMapsSearchUrl,
-  isPlaceholder,
   parse12HourTime,
   stripPlaceholder,
   buildDateWindow,
@@ -44,6 +43,7 @@ import {
 import { safeFetch } from "../safe-fetch";
 
 const USE_RESIDENTIAL_PROXY = true;
+const KENNEL_TAG = "Norfolk H3";
 
 /** Parsed fields from a single Norfolk H3 run block. */
 export interface ParsedNorfolkRun {
@@ -53,7 +53,7 @@ export interface ParsedNorfolkRun {
   location?: string;
   locationUrl?: string;
   hares?: string;
-  notes?: string; // special event notes, parking info, etc.
+  notes?: string;
 }
 
 /**
@@ -81,8 +81,7 @@ export function parseNorfolkDate(text: string): {
   date: string;
   startTime?: string;
 } | null {
-  // Extract time from patterns like "11am", "7pm", "2:30pm"
-  // The lookahead handles merged text like "11amBelated" where \b would fail
+  // Lookbehind handles merged text like "11amBelated" where \b would fail
   const timeMatch = /(?<!\w)(\d{1,2}(?::\d{2})?\s*[ap]m)/i.exec(text);
   let startTime: string | undefined;
   if (timeMatch) {
@@ -94,7 +93,6 @@ export function parseNorfolkDate(text: string): {
     startTime = parse12HourTime(normalized);
   }
 
-  // Parse the date portion using chrono-node (en-GB for UK ordinal dates)
   const date = chronoParseDate(text, "en-GB");
   if (!date) return null;
 
@@ -124,7 +122,6 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
 
   if (lines.length === 0) return null;
 
-  // --- Date + Time extraction ---
   const firstLine = lines[0];
   const dateResult = parseNorfolkDate(firstLine);
   if (!dateResult) return null;
@@ -132,7 +129,6 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
   result.date = dateResult.date;
   result.startTime = dateResult.startTime;
 
-  // --- Venue extraction ---
   const fullText = lines.join("\n");
 
   // Match Venue: followed by content up to next known label or end
@@ -147,57 +143,44 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
       .replace(/^\s*,\s*/, "")
       .trim();
 
-    if (
-      venueText &&
-      !isPlaceholder(venueText) &&
-      !/^\?\??\??$/.test(venueText)
-    ) {
-      result.location = venueText;
+    const venue = stripPlaceholder(venueText);
+    if (venue) {
+      result.location = venue;
 
-      // Extract UK postcode for Google Maps URL
-      const postcode = extractUkPostcode(venueText);
+      const postcode = extractUkPostcode(venue);
       if (postcode) {
         result.locationUrl = googleMapsSearchUrl(postcode);
       }
     }
   }
 
-  // --- Hares extraction ---
   const haresMatch = fullText.match(/Hare\(s\):\s*(.*?)(?:\n|$)/i);
   if (haresMatch) {
     const haresText = haresMatch[1].trim();
-    if (
-      haresText &&
-      !isPlaceholder(haresText) &&
-      !/^It could be you\??$/i.test(haresText)
-    ) {
+    // "It could be you?" is a Norfolk-specific volunteer prompt, not a real hare name
+    if (!/^It could be you\??$/i.test(haresText)) {
       result.hares = stripPlaceholder(haresText);
     }
   }
 
-  // --- Notes extraction ---
+  // Collect lines that aren't part of venue/hares blocks as notes
   const noteLines: string[] = [];
-  let inVenue = false;
-  let inHares = false;
+  let inLabeledBlock = false;
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
 
-    if (/^Venue:/i.test(line)) {
-      inVenue = true;
-      inHares = false;
-      continue;
-    }
-    if (/^Hare\(s\):/i.test(line)) {
-      inHares = true;
-      inVenue = false;
+    if (/^(?:Venue|Hare\(s\)):/i.test(line)) {
+      inLabeledBlock = true;
       continue;
     }
     if (/^Please\s+park/i.test(line) || /^Contact\s+/i.test(line)) {
       continue;
     }
 
-    if (inVenue || inHares) continue;
+    // A new labeled section or a line that doesn't look like an address
+    // continuation (no postcode, no short continuation) exits the block
+    if (inLabeledBlock) continue;
 
     if (line.length > 3) {
       noteLines.push(line);
@@ -224,14 +207,15 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
 
 /**
  * Convert WordPress post content HTML to clean text with line breaks.
- * Converts <br> and </p> to newlines, strips HTML tags, decodes entities.
+ * Converts <br> and </p> to newlines, strips tags, decodes entities.
+ * Differs from shared stripHtmlTags() — preserves newlines only for <br>/<p>
+ * (not all block elements) to maintain labeled-field boundaries.
  * Exported for unit testing.
  */
 export function htmlToText(html: string): string {
   let text = html;
   text = text.replace(/<br\s*\/?>/gi, "\n");
   text = text.replace(/<\/p>/gi, "\n");
-  // Insert space after inline closing tags to prevent run-together text
   text = text.replace(/<\/(strong|em|b|i|a|span)>/gi, "</$1> ");
   text = text.replace(/<[^>]+>/g, "");
   text = decodeEntities(text);
@@ -294,20 +278,18 @@ export class NorfolkH3Adapter implements SourceAdapter {
           return { html, fetchUrl: candidateUrl };
         }
         const message = `HTTP ${response.status}: ${response.statusText}`;
-        errorDetails.fetch = [
-          ...(errorDetails.fetch ?? []),
-          { url: candidateUrl, status: response.status, message },
-        ];
+        (errorDetails.fetch ??= []).push({
+          url: candidateUrl,
+          status: response.status,
+          message,
+        });
 
         if (response.status !== 403 && response.status !== 404) {
           return null;
         }
       } catch (err) {
         const message = `Fetch failed: ${err}`;
-        errorDetails.fetch = [
-          ...(errorDetails.fetch ?? []),
-          { url: candidateUrl, message },
-        ];
+        (errorDetails.fetch ??= []).push({ url: candidateUrl, message });
       }
     }
     return null;
@@ -344,10 +326,11 @@ export class NorfolkH3Adapter implements SourceAdapter {
     const $ = cheerio.load(html);
 
     const { minDate, maxDate } = buildDateWindow(options?.days ?? 90);
+    let primaryPostCount = 0;
 
     try {
-      // Primary selector: WordPress Block Theme post loop
       let posts = $(".wp-block-post-template > li").toArray();
+      primaryPostCount = posts.length;
 
       // Fallback selectors in case the theme changes
       if (posts.length === 0) {
@@ -360,14 +343,12 @@ export class NorfolkH3Adapter implements SourceAdapter {
       for (const el of posts) {
         const post = $(el);
 
-        // Extract run number from title
         const titleEl = post
           .find(".wp-block-post-title, h3, h2")
           .first();
         const titleText = decodeEntities(titleEl.text().trim());
         const runNumber = extractRunNumber(titleText);
 
-        // Extract content
         const contentEl = post
           .find(".wp-block-post-content, .entry-content, .post-content")
           .first();
@@ -382,17 +363,16 @@ export class NorfolkH3Adapter implements SourceAdapter {
 
         if (runNumber) parsed.runNumber = runNumber;
 
-        // Filter by date window
         const eventDate = new Date(parsed.date + "T12:00:00Z");
         if (eventDate < minDate || eventDate > maxDate) continue;
 
         const title = parsed.runNumber
-          ? `Norfolk H3 #${parsed.runNumber}`
-          : "Norfolk H3";
+          ? `${KENNEL_TAG} #${parsed.runNumber}`
+          : KENNEL_TAG;
 
         events.push({
           date: parsed.date,
-          kennelTag: "Norfolk H3",
+          kennelTag: KENNEL_TAG,
           runNumber: parsed.runNumber,
           title,
           hares: parsed.hares,
@@ -421,7 +401,7 @@ export class NorfolkH3Adapter implements SourceAdapter {
       errorDetails: hasErrors ? errorDetails : undefined,
       diagnosticContext: {
         fetchMethod: "residential-proxy",
-        postsFound: $(".wp-block-post-template > li").length,
+        postsFound: primaryPostCount,
         eventsParsed: events.length,
         fetchDurationMs,
       },
