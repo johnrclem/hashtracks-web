@@ -225,6 +225,15 @@ export function validateSourceConfig(
   validatePatternArray(obj, "runNumberPatterns", errors);
   validatePatternArray(obj, "locationPatterns", errors);
 
+  // Single-pattern validation (titleHarePattern is a string, not an array)
+  if ("titleHarePattern" in obj && obj.titleHarePattern !== undefined) {
+    if (typeof obj.titleHarePattern !== "string") {
+      errors.push("titleHarePattern must be a string");
+    } else {
+      validateRegex(obj.titleHarePattern, "titleHarePattern", errors);
+    }
+  }
+
   // Type-specific validation
   runTypeValidator(type, obj, errors);
 

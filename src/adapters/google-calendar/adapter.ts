@@ -256,8 +256,10 @@ export function extractHares(description: string, customPatterns?: string[] | Re
 
 const mapsUrl = googleMapsSearchUrl;
 
-/** Detect when a GCal location field contains instruction text instead of an address. */
+/** Instruction phrases that indicate a GCal location field contains directions, not an address. */
 const NON_ADDRESS_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in)/i;
+
+/** Returns true if text starts with instruction phrasing rather than an address. */
 function isNonAddressText(text: string): boolean {
   return NON_ADDRESS_RE.test(text.trim());
 }
@@ -417,10 +419,13 @@ export function buildRawEventFromGCalItem(
     const descTitle = extractTitleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }
-  // Strip hare names from title only when they actually came from the title
+  // Strip only the hare-name capture group from the title, preserving the rest (e.g., "AH3 #2269")
   if (haresFromTitle && compiledTitleHarePattern) {
-    const cleaned = title.replace(compiledTitleHarePattern, "").trim();
-    if (cleaned) title = cleaned;
+    const titleMatch = compiledTitleHarePattern.exec(title);
+    if (titleMatch?.index === 0 && titleMatch[1]) {
+      const cleaned = title.slice(titleMatch[1].length).trimStart();
+      if (cleaned) title = cleaned;
+    }
   }
 
   // Start time: prefer dateTime-derived time, fall back to description extraction
@@ -491,14 +496,9 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     const compiledSkipPatterns = sourceConfig?.skipPatterns?.length
       ? compilePatterns(sourceConfig.skipPatterns, "i")
       : undefined;
-    let compiledTitleHarePattern: RegExp | undefined;
-    if (sourceConfig?.titleHarePattern) {
-      try {
-        compiledTitleHarePattern = new RegExp(sourceConfig.titleHarePattern, "i");
-      } catch {
-        console.warn(`Invalid titleHarePattern for source ${source.id}: ${sourceConfig.titleHarePattern}`);
-      }
-    }
+    const compiledTitleHarePattern = sourceConfig?.titleHarePattern
+      ? compilePatterns([sourceConfig.titleHarePattern], "i")[0]
+      : undefined;
 
     do {
       const url = new URL(

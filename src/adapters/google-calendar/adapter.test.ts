@@ -316,18 +316,29 @@ describe("extractHares", () => {
   });
 });
 
+// ── Test helper for buildRawEventFromGCalItem ──
+
+/** Build a minimal GCal event for testing, with sensible defaults. */
+function testGCalEvent(overrides: Record<string, unknown> = {}) {
+  return {
+    summary: "Hash Run",
+    start: { dateTime: "2026-03-29T14:00:00-04:00" },
+    status: "confirmed",
+    ...overrides,
+  };
+}
+
 // ── non-address location fallback ──
 
 describe("non-address location detection", () => {
   it("rejects instruction text in location and falls back to description", () => {
     const result = buildRawEventFromGCalItem(
-      {
+      testGCalEvent({
         summary: "Palm Sunday",
         start: { dateTime: "2026-03-29T14:00:00-06:00" },
         description: "Where: The Rusty Bucket, 123 Main St\nSome details",
         location: "use the link because there's a Lil parking lot",
-        status: "confirmed",
-      },
+      }),
       { defaultKennelTag: "dh3-co" },
     );
     expect(result).not.toBeNull();
@@ -336,13 +347,10 @@ describe("non-address location detection", () => {
 
   it("rejects 'check the description' location text", () => {
     const result = buildRawEventFromGCalItem(
-      {
-        summary: "Hash Run",
-        start: { dateTime: "2026-03-29T14:00:00-04:00" },
+      testGCalEvent({
         description: "Where: The Park, Downtown\nDetails here",
         location: "check the description for details",
-        status: "confirmed",
-      },
+      }),
       { defaultKennelTag: "test" },
     );
     expect(result).not.toBeNull();
@@ -351,13 +359,10 @@ describe("non-address location detection", () => {
 
   it("preserves normal address in location field", () => {
     const result = buildRawEventFromGCalItem(
-      {
-        summary: "Hash Run",
-        start: { dateTime: "2026-03-29T14:00:00-04:00" },
+      testGCalEvent({
         description: "Some description",
         location: "12017 Amherst Dr, Austin, TX 78759",
-        status: "confirmed",
-      },
+      }),
       { defaultKennelTag: "test" },
     );
     expect(result).not.toBeNull();
@@ -368,37 +373,35 @@ describe("non-address location detection", () => {
 // ── titleHarePattern (Austin H3 style) ──
 
 describe("titleHarePattern — hare extraction from summary", () => {
+  const titleHareRE = /^(.+?)\s+AH3\s+#/i;
+
   it("extracts hare names from summary when format is '[Hares] AH3 #N'", () => {
-    const pattern = /^(.+?)\s+AH3\s+#/i;
     const result = buildRawEventFromGCalItem(
-      {
+      testGCalEvent({
         summary: "Baba Gagush & Crusty Beaver AH3 #2269",
         start: { dateTime: "2026-03-29T14:00:00-05:00" },
         description: "MAP: https://maps.app.goo.gl/bPryrj1CNfrg6kxQ7\nA to B, Dog Friendly",
         location: "12017 Amherst Dr, Austin, TX 78759, USA",
-        status: "confirmed",
-      },
+      }),
       { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` },
       undefined, undefined, undefined,
-      pattern,
+      titleHareRE,
     );
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Baba Gagush & Crusty Beaver");
-    expect(result!.title).not.toContain("Baba Gagush");
+    expect(result!.title).toBe("AH3 #2269");
   });
 
   it("description hares take priority over title hares", () => {
-    const pattern = /^(.+?)\s+AH3\s+#/i;
     const result = buildRawEventFromGCalItem(
-      {
+      testGCalEvent({
         summary: "Title Name AH3 #2270",
         start: { dateTime: "2026-04-05T14:00:00-05:00" },
         description: "Hare: Actual Hare Name\nDetails here",
-        status: "confirmed",
-      },
+      }),
       { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` },
       undefined, undefined, undefined,
-      pattern,
+      titleHareRE,
     );
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Actual Hare Name");

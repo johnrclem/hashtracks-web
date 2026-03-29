@@ -437,20 +437,24 @@ describe("GenericHtmlAdapter", () => {
   });
 
   it("stops parsing when run numbers decrease (Cape Fear receding hareline)", async () => {
-    // Use future dates for upcoming rows so maxPastDays doesn't filter them
+    // All rows use future dates so maxPastDays cannot filter them —
+    // only stopWhenRunNumberDecreases prevents the receding rows from appearing
     const today = new Date();
     const d1 = new Date(today); d1.setDate(d1.getDate() + 7);
     const d2 = new Date(today); d2.setDate(d2.getDate() + 21);
     const d3 = new Date(today); d3.setDate(d3.getDate() + 35);
+    const d4 = new Date(today); d4.setDate(d4.getDate() + 49);
+    const d5 = new Date(today); d5.setDate(d5.getDate() + 63);
+    const d6 = new Date(today); d6.setDate(d6.getDate() + 77);
     const fmt = (d: Date) => `${d.toLocaleString("en-US", { month: "long" })} ${d.getDate()}, ${d.getFullYear()}`;
     const html = `<html><body>
       <figure><table>
         <tr><td>514</td><td>${fmt(d1)}</td><td>Photo Spread</td></tr>
         <tr><td>515</td><td>${fmt(d2)}</td><td>Mis-Man</td></tr>
         <tr><td>516</td><td>${fmt(d3)}</td><td>TBD</td></tr>
-        <tr><td>513</td><td>February 21, 2026</td><td>Stiffy</td></tr>
-        <tr><td>250</td><td>September 9, 2018</td><td>Mission and Jello</td></tr>
-        <tr><td>129</td><td>May 15, 2016</td><td>Cums Late</td></tr>
+        <tr><td>513</td><td>${fmt(d4)}</td><td>Stiffy</td></tr>
+        <tr><td>250</td><td>${fmt(d5)}</td><td>Mission and Jello</td></tr>
+        <tr><td>129</td><td>${fmt(d6)}</td><td>Cums Late</td></tr>
       </table></figure>
     </body></html>`;
     const $ = cheerio.load(html);
@@ -467,7 +471,6 @@ describe("GenericHtmlAdapter", () => {
         rowSelector: "tr",
         columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
         forwardDate: true,
-        maxPastDays: 14,
         stopWhenRunNumberDecreases: true,
       },
     } as unknown as Source;
