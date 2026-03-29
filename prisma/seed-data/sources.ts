@@ -331,6 +331,17 @@ export const SOURCES = [
       config: {},
       kennelCodes: ["edinburghh3"],
     },
+    // ===== UK — NORFOLK =====
+    {
+      name: "Norfolk H3 Trails Page",
+      url: "https://norfolkh3.co.uk/trails/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {},
+      kennelCodes: ["norfolkh3"],
+    },
     // ===== UK — BRISTOL =====
     {
       name: "West of England Hash Run List",

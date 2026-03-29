@@ -378,7 +378,7 @@ export const HARE_BOILERPLATE_RE = /\s*\b(?:WHAT TIME|WHAT TO WEAR|WHERE|Locatio
 // Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
 // ---------------------------------------------------------------------------
 
-const PLACEHOLDER_RE = /^(?:tbd|tba|tbc|n\/a|needed|required|registration|\?\??)$/i;
+const PLACEHOLDER_RE = /^(?:tbd|tba|tbc|n\/a|needed|required|registration|\?{1,3})$/i;
 
 /**
  * Check if a value is a common placeholder (TBD, TBA, TBC, N/A, ?, ??, needed, required).

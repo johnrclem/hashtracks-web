@@ -1476,6 +1476,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -2.59,
     aliases: ["Bristol, England"],
   },
+  {
+    name: "Norfolk",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "NFK",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 52.63,
+    centroidLng: 1.30,
+    aliases: ["Norfolk, England", "Norwich"],
+  },
   // ── Continental Europe — Germany ──
   {
     name: "Germany",
@@ -1870,6 +1881,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Glasgow": "Scotland",
   // England (outside London)
   "Bristol": "United Kingdom",
+  "Norfolk": "United Kingdom",
   // Ireland
   "Dublin": "Ireland",
   // Germany
