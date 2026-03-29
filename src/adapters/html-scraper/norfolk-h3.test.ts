@@ -181,6 +181,23 @@ describe("NorfolkH3Adapter", () => {
       expect(run!.locationUrl).toContain("6QG");
     });
 
+    it("captures notes after the hares block", () => {
+      const text = [
+        "Sunday 12th April 2026, 11am",
+        "Venue:",
+        "The Dukes Head",
+        "Corpusty",
+        "NR11 6QG",
+        "Hare(s):",
+        "Woolly Jumper and Bagpuss",
+        "Dead Beat Cats band playing at 4pm.",
+      ].join("\n");
+
+      const run = parseNorfolkRunBlock(text);
+      expect(run).not.toBeNull();
+      expect(run!.notes).toContain("Dead Beat Cats");
+    });
+
     it("returns null for empty text", () => {
       expect(parseNorfolkRunBlock("")).toBeNull();
       expect(parseNorfolkRunBlock("   \n  \n  ")).toBeNull();
@@ -309,7 +326,7 @@ describe("NorfolkH3Adapter", () => {
       const result = await adapter.fetch(source, { days: 365 });
 
       // Should find 3 posts — all have dates
-      expect(result.events.length).toBeGreaterThanOrEqual(2);
+      expect(result.events.length).toBe(3);
 
       // First event: Run #2139
       const run2139 = result.events.find((e) => e.runNumber === 2139);

@@ -133,7 +133,7 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
 
   // Match Venue: followed by content up to next known label or end
   const venueMatch = fullText.match(
-    /Venue:\s*([\s\S]*?)(?=\n\s*(?:Hare\(s\):|Please\s+park|Contact|$))/i,
+    /Venue:\s*([\s\S]*?)(?=\n\s*(?:Hare\(s\):|Please\s+park|Contact)|\s*$)/i,
   );
   if (venueMatch) {
     const venueText = venueMatch[1]
@@ -163,29 +163,17 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
     }
   }
 
-  // Collect lines that aren't part of venue/hares blocks as notes
-  const noteLines: string[] = [];
-  let inLabeledBlock = false;
+  // Collect notes by subtracting known blocks from the text
+  let remainingText = lines.slice(1).join("\n");
+  if (venueMatch) remainingText = remainingText.replace(venueMatch[0], "");
+  if (haresMatch) remainingText = remainingText.replace(haresMatch[0], "");
 
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-
-    if (/^(?:Venue|Hare\(s\)):/i.test(line)) {
-      inLabeledBlock = true;
-      continue;
-    }
-    if (/^Please\s+park/i.test(line) || /^Contact\s+/i.test(line)) {
-      continue;
-    }
-
-    // A new labeled section or a line that doesn't look like an address
-    // continuation (no postcode, no short continuation) exits the block
-    if (inLabeledBlock) continue;
-
-    if (line.length > 3) {
-      noteLines.push(line);
-    }
-  }
+  const noteLines = remainingText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .filter((l) => !/^Please\s+park/i.test(l) && !/^Contact\s+/i.test(l))
+    .filter((l) => l.length > 3);
 
   // Check if the first line has merged notes after the time
   const mergedNotes = firstLine
