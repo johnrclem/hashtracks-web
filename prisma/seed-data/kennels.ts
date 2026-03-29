@@ -792,6 +792,16 @@ export const KENNELS: KennelSeed[] = [
       description: "Bogs of Somerset hash, running Wednesday evenings in north-west Somerset.",
       latitude: 51.35, longitude: -2.97,
     },
+    // ===== UK — NORFOLK =====
+    {
+      kennelCode: "norfolkh3", shortName: "Norfolk H3", fullName: "Norfolk Hash House Harriers", region: "Norfolk", country: "UK",
+      website: "https://norfolkh3.co.uk/",
+      facebookUrl: "https://www.facebook.com/NorfolkH3/",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Sunday 11am (winter), Wednesday 7pm (summer). Biweekly.",
+      description: "Norfolk's biweekly hash, running at different pubs across Norfolk. Sunday mornings in winter, Wednesday evenings in summer.",
+      latitude: 52.63, longitude: 1.30,
+    },
     // ===== GERMANY =====
     // Berlin
     {
