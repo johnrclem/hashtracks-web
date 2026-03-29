@@ -1275,3 +1275,19 @@ describe("sanitizeLocation", () => {
       .toBe("North Main Street, Springfield, IL");
   });
 });
+
+// ── NON_ENGLISH_GEO_RE (French locale location normalization) ──
+
+describe("NON_ENGLISH_GEO_RE coverage", () => {
+  // The regex is internal to merge.ts, but we can verify sanitizeLocation
+  // still passes French text through (it doesn't strip it — that's resolveCoords' job)
+  it("sanitizeLocation preserves French location text for downstream normalization", () => {
+    expect(sanitizeLocation("Rochester, État de New York, États-Unis"))
+      .toBe("Rochester, État de New York, États-Unis");
+  });
+
+  it("sanitizeLocation preserves German location text", () => {
+    expect(sanitizeLocation("Frankfurt, Bundesland Hessen, Deutschland"))
+      .toBe("Frankfurt, Bundesland Hessen, Deutschland");
+  });
+});

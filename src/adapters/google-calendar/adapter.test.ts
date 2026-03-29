@@ -278,6 +278,13 @@ describe("extractHares", () => {
     expect(extractHares(desc)).toBeUndefined();
   });
 
+  it("extracts WHO (hares): when HTML stripping splits label from colon", () => {
+    // GCal API returns HTML like "<b>WHO (hares)</b>: Name" which after
+    // stripHtmlTags may produce "WHO (hares)\n: Name" (newline before colon)
+    const desc = "WHO (hares)\n: A Girl Named Steve\nWHEN:Monday, March 21st, 2026\nWHAT: song lyrics with Hare drop another";
+    expect(extractHares(desc)).toBe("A Girl Named Steve");
+  });
+
   it("truncates at *** separator in hare field", () => {
     expect(extractHares("Hare(s): Denny's Sucks *** could use a co-hare")).toBe("Denny's Sucks");
   });
@@ -306,6 +313,95 @@ describe("extractHares", () => {
     const description =
       "March Madness!\nRilea's Pub 5672 N Union Blvd\nHare: Dr Sh!t Yeah! 719-360-3805\nBring: whistle";
     expect(extractHares(description)).toBe("Dr Sh!t Yeah!");
+  });
+});
+
+// ── non-address location fallback ──
+
+describe("non-address location detection", () => {
+  it("rejects instruction text in location and falls back to description", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Palm Sunday",
+        start: { dateTime: "2026-03-29T14:00:00-06:00" },
+        description: "Where: The Rusty Bucket, 123 Main St\nSome details",
+        location: "use the link because there's a Lil parking lot",
+        status: "confirmed",
+      },
+      { defaultKennelTag: "dh3-co" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.location).toBe("The Rusty Bucket, 123 Main St");
+  });
+
+  it("rejects 'check the description' location text", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Hash Run",
+        start: { dateTime: "2026-03-29T14:00:00-04:00" },
+        description: "Where: The Park, Downtown\nDetails here",
+        location: "check the description for details",
+        status: "confirmed",
+      },
+      { defaultKennelTag: "test" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.location).toBe("The Park, Downtown");
+  });
+
+  it("preserves normal address in location field", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Hash Run",
+        start: { dateTime: "2026-03-29T14:00:00-04:00" },
+        description: "Some description",
+        location: "12017 Amherst Dr, Austin, TX 78759",
+        status: "confirmed",
+      },
+      { defaultKennelTag: "test" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.location).toBe("12017 Amherst Dr, Austin, TX 78759");
+  });
+});
+
+// ── titleHarePattern (Austin H3 style) ──
+
+describe("titleHarePattern — hare extraction from summary", () => {
+  it("extracts hare names from summary when format is '[Hares] AH3 #N'", () => {
+    const pattern = /^(.+?)\s+AH3\s+#/i;
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Baba Gagush & Crusty Beaver AH3 #2269",
+        start: { dateTime: "2026-03-29T14:00:00-05:00" },
+        description: "MAP: https://maps.app.goo.gl/bPryrj1CNfrg6kxQ7\nA to B, Dog Friendly",
+        location: "12017 Amherst Dr, Austin, TX 78759, USA",
+        status: "confirmed",
+      },
+      { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` },
+      undefined, undefined, undefined,
+      pattern,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Baba Gagush & Crusty Beaver");
+    expect(result!.title).not.toContain("Baba Gagush");
+  });
+
+  it("description hares take priority over title hares", () => {
+    const pattern = /^(.+?)\s+AH3\s+#/i;
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Title Name AH3 #2270",
+        start: { dateTime: "2026-04-05T14:00:00-05:00" },
+        description: "Hare: Actual Hare Name\nDetails here",
+        status: "confirmed",
+      },
+      { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` },
+      undefined, undefined, undefined,
+      pattern,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Actual Hare Name");
   });
 });
 
