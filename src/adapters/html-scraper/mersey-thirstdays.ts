@@ -222,13 +222,13 @@ export function splitByYearMarkers(text: string): Map<number, string[]> {
   const parts = text.split(/▲\s*(\d{4})\s*▲/);
   // parts: [before_first_marker, year1, section1_text, year2, section2_text, ...]
 
-  // The text before the first ▲ marker is the current year (top of page)
-  // We need to figure out what year that is from the first marker
+  // Runs before the first ▲ marker belong to the year AFTER that marker.
+  // E.g., text before ▲ 2025 ▲ is 2026 runs. This assumes the site never
+  // adds a ▲ CURRENT_YEAR ▲ header at the top — if they do, the +1 logic
+  // would mis-date the first section. The page has been stable since 2006.
   let currentYear: number | null = null;
   if (parts.length >= 2) {
     currentYear = parseInt(parts[1], 10);
-    // The section before the first marker belongs to that year (or year+1)
-    // Since markers appear BETWEEN years, the text before ▲ 2025 ▲ is 2026
     if (parts[0].trim()) {
       sections.set(currentYear + 1, splitIntoRunLines(parts[0]));
     }
@@ -374,14 +374,16 @@ function extractTrashFlashUrls(
 ): { trashUrl?: string; flashUrl?: string } {
   if (!runNumber) return {};
   const result: { trashUrl?: string; flashUrl?: string } = {};
+  // Anchor on non-digit after run number to avoid Run1 matching Run10/Run100
+  const pattern = new RegExp(`Run\\s*${runNumber}(?!\\d)`);
 
   $("a").each((_, el) => {
     const href = $(el).attr("href") || "";
     const text = $(el).text().trim().toLowerCase();
-    if (text === "trash" && href.includes(`Run${runNumber}`)) {
+    if (text === "trash" && pattern.test(href)) {
       result.trashUrl = href;
     }
-    if (text === "flash" && href.includes(`Run${runNumber}`)) {
+    if (text === "flash" && pattern.test(href)) {
       result.flashUrl = href;
     }
   });

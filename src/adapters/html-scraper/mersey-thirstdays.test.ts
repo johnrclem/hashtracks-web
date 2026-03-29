@@ -1,4 +1,3 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   parseMerseyNextRunBlock,
   parseMerseyNextRuns,
@@ -7,6 +6,15 @@ import {
   MerseyThirstdaysAdapter,
 } from "./mersey-thirstdays";
 import type { Source } from "@/generated/prisma/client";
+
+// Freeze time so chrono-node date inference is deterministic
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-03-01T12:00:00.000Z"));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("MerseyThirstdaysAdapter", () => {
   describe("parseMerseyNextRunBlock", () => {
@@ -260,10 +268,6 @@ describe("MerseyThirstdaysAdapter", () => {
   });
 
   describe("adapter integration", () => {
-    beforeEach(() => {
-      vi.restoreAllMocks();
-    });
-
     it("has correct type", () => {
       const adapter = new MerseyThirstdaysAdapter();
       expect(adapter.type).toBe("HTML_SCRAPER");
@@ -317,6 +321,61 @@ describe("MerseyThirstdaysAdapter", () => {
       expect(run600!.location).toContain("Augustus John");
       expect(run600!.kennelTag).toBe("MTH3");
       expect(run600!.startTime).toBe("19:00");
+    });
+
+    it("fetches both pages and deduplicates by run number", async () => {
+      const mockNextHtml = `<html><body>
+        <div class="n module-type-text diyfeLiveArea">
+          <div>-------------------------------------------------</div>
+          <div>16th April</div>
+          <div><strong>Run 600</strong></div>
+          <div>Hare: Snoozeanne</div>
+          <div>On Inn: The Augustus John Peach St, Liverpool L3 5TX</div>
+        </div>
+      </body></html>`;
+
+      const mockPastHtml = `<html><body>
+        <div class="n module-type-text diyfeLiveArea">
+          <div>600 16th April Hare Snoozeanne. The Augustus John, Liverpool</div>
+          <div>▲  2025  ▲</div>
+          <div>580 11 December Hare FCUK. The Bouverie, Chester</div>
+        </div>
+      </body></html>`;
+
+      let callCount = 0;
+      const mockFetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        const html = callCount === 1 ? mockNextHtml : mockPastHtml;
+        return Promise.resolve({
+          ok: true,
+          text: () => Promise.resolve(html),
+          status: 200,
+          statusText: "OK",
+        });
+      });
+      vi.stubGlobal("fetch", mockFetch);
+
+      const adapter = new MerseyThirstdaysAdapter();
+      const source = {
+        id: "test",
+        url: "https://www.merseythirstdayshash.com/next-run-s/",
+        config: {
+          pastRunsUrl: "https://www.merseythirstdayshash.com/past-runs/",
+        },
+      } as unknown as Source;
+
+      const result = await adapter.fetch(source, { days: 7300 });
+
+      // Run 600 should appear once (from next-runs, deduped from past)
+      const run600s = result.events.filter((e) => e.runNumber === 600);
+      expect(run600s.length).toBe(1);
+      expect(run600s[0].sourceUrl).toContain("next-run-s"); // From next-runs page
+
+      // Run 580 should appear from past-runs
+      const run580 = result.events.find((e) => e.runNumber === 580);
+      expect(run580).toBeDefined();
+      expect(run580!.date).toBe("2025-12-11");
+      expect(run580!.hares).toBe("FCUK");
     });
   });
 });
