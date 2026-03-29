@@ -436,6 +436,51 @@ describe("GenericHtmlAdapter", () => {
     expect(result.events[0].hares).toBe("Future Hare");
   });
 
+  it("stops parsing when run numbers decrease (Cape Fear receding hareline)", async () => {
+    // All rows use future dates so maxPastDays cannot filter them —
+    // only stopWhenRunNumberDecreases prevents the receding rows from appearing
+    const today = new Date();
+    const d1 = new Date(today); d1.setDate(d1.getDate() + 7);
+    const d2 = new Date(today); d2.setDate(d2.getDate() + 21);
+    const d3 = new Date(today); d3.setDate(d3.getDate() + 35);
+    const d4 = new Date(today); d4.setDate(d4.getDate() + 49);
+    const d5 = new Date(today); d5.setDate(d5.getDate() + 63);
+    const d6 = new Date(today); d6.setDate(d6.getDate() + 77);
+    const fmt = (d: Date) => `${d.toLocaleString("en-US", { month: "long" })} ${d.getDate()}, ${d.getFullYear()}`;
+    const html = `<html><body>
+      <figure><table>
+        <tr><td>514</td><td>${fmt(d1)}</td><td>Photo Spread</td></tr>
+        <tr><td>515</td><td>${fmt(d2)}</td><td>Mis-Man</td></tr>
+        <tr><td>516</td><td>${fmt(d3)}</td><td>TBD</td></tr>
+        <tr><td>513</td><td>${fmt(d4)}</td><td>Stiffy</td></tr>
+        <tr><td>250</td><td>${fmt(d5)}</td><td>Mission and Jello</td></tr>
+        <tr><td>129</td><td>${fmt(d6)}</td><td>Cums Late</td></tr>
+      </table></figure>
+    </body></html>`;
+    const $ = cheerio.load(html);
+    mockFetchHTMLPage.mockResolvedValue({
+      ok: true, html, $, structureHash: "x", fetchDurationMs: 50,
+    });
+
+    const source = {
+      id: "cfh3",
+      url: "https://capefearh3.com/hare-line/",
+      config: {
+        defaultKennelTag: "cfh3",
+        containerSelector: "figure:first-of-type table",
+        rowSelector: "tr",
+        columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
+        forwardDate: true,
+        stopWhenRunNumberDecreases: true,
+      },
+    } as unknown as Source;
+
+    const result = await adapter.fetch(source);
+    // Should only get the 3 upcoming events (514, 515, 516), not the receding hareline
+    expect(result.events).toHaveLength(3);
+    expect(result.events.map(e => e.runNumber)).toEqual([514, 515, 516]);
+  });
+
   it("returns empty events when page has no matching rows", async () => {
     const html = `<html><body><div>No table here</div></body></html>`;
     const $ = cheerio.load(html);

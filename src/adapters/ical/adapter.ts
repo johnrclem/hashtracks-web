@@ -453,14 +453,9 @@ export class ICalAdapter implements SourceAdapter {
     const compiledLocationPatterns = config?.locationPatterns?.length
       ? compilePatterns(config.locationPatterns)
       : undefined;
-    let compiledTitleHarePattern: RegExp | undefined;
-    if (config?.titleHarePattern) {
-      try {
-        compiledTitleHarePattern = new RegExp(config.titleHarePattern, "i");
-      } catch {
-        console.warn(`Invalid titleHarePattern for source ${source.id}: ${config.titleHarePattern}`);
-      }
-    }
+    const compiledTitleHarePattern = config?.titleHarePattern
+      ? compilePatterns([config.titleHarePattern], "i")[0]
+      : undefined;
 
     const events: RawEventData[] = [];
     const errors: string[] = [];

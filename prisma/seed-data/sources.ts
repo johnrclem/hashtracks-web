@@ -504,6 +504,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "ah3",
+        titleHarePattern: String.raw`^(.+?)\s+AH3\s+#`,
       },
       kennelCodes: ["ah3"],
     },
@@ -967,6 +968,7 @@ export const SOURCES = [
         columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
         forwardDate: true,
         maxPastDays: 14,
+        stopWhenRunNumberDecreases: true,
       },
       kennelCodes: ["cfh3"],
     },
@@ -1961,7 +1963,10 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "demon-h3" },
+      config: {
+        defaultKennelTag: "demon-h3",
+        harePatterns: [String.raw`(?:^|\n)\s*WHO\s*\(?(?:hares?)?\)?\s*:?\s*(.+)`],
+      },
       kennelCodes: ["demon-h3"],
     },
     {

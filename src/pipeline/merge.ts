@@ -515,7 +515,7 @@ function sanitizeLocationUrl(url: string | undefined): string | null {
  * the location text hasn't changed.
  */
 /** Detect non-English geographic terms in a location string (e.g., French "État de New York"). */
-const NON_ENGLISH_GEO_RE = /\b(?:États?[ -]Unis|État de|Bundesland|Straße|Vereinigte Staaten|Provincia de|Comunidad de|Préfecture)\b/i;
+export const NON_ENGLISH_GEO_RE = /\b(?:États?[ -]Unis|État de|Bundesland|Straße|Vereinigte Staaten|Provincia de|Comunidad de|Préfecture)\b/i;
 
 async function resolveCoords(
   event: RawEventData,
