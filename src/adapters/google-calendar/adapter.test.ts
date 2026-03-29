@@ -268,6 +268,28 @@ describe("extractHares", () => {
     expect(extractHares("Pack off at 7:30, hare off at 7:15")).toBeUndefined();
   });
 
+  it("extracts from WHO (hares): pattern (DeMon format)", () => {
+    const desc = "WHO (hares): A Girl Named Steve\nWHAT TIME: 7:00 PM\nSome song lyrics\nHare drop another for the prince";
+    expect(extractHares(desc)).toBe("A Girl Named Steve");
+  });
+
+  it("does not extract song lyric after 'Hare drop' (negative lookahead)", () => {
+    const desc = "Some intro\nHare drop another for the prince of this\nMore lyrics";
+    expect(extractHares(desc)).toBeUndefined();
+  });
+
+  it("truncates at *** separator in hare field", () => {
+    expect(extractHares("Hare(s): Denny's Sucks *** could use a co-hare")).toBe("Denny's Sucks");
+  });
+
+  it("strips 'could use a co-hare' commentary", () => {
+    expect(extractHares("Hare(s): Denny's Sucks could use a co-hare")).toBe("Denny's Sucks");
+  });
+
+  it("strips 'need a co-hare' commentary", () => {
+    expect(extractHares("Hare: Trail Blazer need a cohare for this one")).toBe("Trail Blazer");
+  });
+
   it("strips trailing phone number (dashed format)", () => {
     expect(extractHares("Hare: Dr Sh!t Yeah! 719-360-3805")).toBe("Dr Sh!t Yeah!");
   });

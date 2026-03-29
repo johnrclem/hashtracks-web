@@ -410,6 +410,42 @@ export function sanitizeTitle(title: string | undefined): string | null {
   return cleaned || null;
 }
 
+/** Abbreviation map for address normalization (used by deduplicateAddressPrefix). */
+const ADDR_ABBREVIATIONS: Record<string, string> = {
+  north: "n", south: "s", east: "e", west: "w",
+  road: "rd", street: "st", avenue: "ave",
+  boulevard: "blvd", place: "pl", drive: "dr",
+  lane: "ln", court: "ct", circle: "cir", highway: "hwy",
+};
+
+/** Normalize an address segment for comparison: lowercase + expand common abbreviations. */
+function normalizeAddr(s: string): string {
+  let normalized = s.toLowerCase();
+  for (const [word, abbr] of Object.entries(ADDR_ABBREVIATIONS)) {
+    normalized = normalized.replaceAll(new RegExp(`\\b${word}\\b`, "g"), abbr);
+  }
+  return normalized.replaceAll(/[.\s]+/g, " ").trim();
+}
+
+/**
+ * Deduplicate abbreviated address prefixes in Google Calendar locations.
+ * E.g., "North San Miguel Road & Barcelona Place, N San Miguel Rd & Barcelona Pl, Walnut, CA"
+ * → "North San Miguel Road & Barcelona Place, Walnut, CA"
+ */
+function deduplicateAddressPrefix(location: string): string {
+  const parts = location.split(", ");
+  if (parts.length < 3) return location;
+  const norm0 = normalizeAddr(parts[0]);
+  const norm1 = normalizeAddr(parts[1]);
+  if (norm0 && norm1 && (norm0 === norm1 || norm0.includes(norm1) || norm1.includes(norm0))) {
+    const keepFirst = parts[0].length >= parts[1].length;
+    return keepFirst
+      ? [parts[0], ...parts.slice(2)].join(", ")
+      : parts.slice(1).join(", ");
+  }
+  return location;
+}
+
 /**
  * Sanitize location names: filter placeholders (TBA/TBD) and bare URLs.
  * Returns null for locations that are not meaningful display text.
@@ -447,6 +483,7 @@ export function sanitizeLocation(location: string | undefined): string | null {
     .trim()
     .replace(/,\s*([a-z]{2})$/i, (_, st: string) => `, ${st.toUpperCase()}`);
   if (!cleaned || isPlaceholder(cleaned)) return null;
+  cleaned = deduplicateAddressPrefix(cleaned);
   // Deduplicate comma-separated segments (case-insensitive, keep first occurrence)
   const segments = cleaned.split(", ");
   if (segments.length > 1) {
@@ -613,7 +650,6 @@ async function upsertCanonicalEvent(
         where: { id: existingEvent.id },
         data: { status: "CONFIRMED" },
       });
-      ctx.result.restored++;
     }
 
     // Update only if our source trust level >= existing
@@ -819,7 +855,7 @@ async function processNewRawEvent(
   // Must happen AFTER kennel resolution so we have access to shortName/fullName.
   if (!sanitizeTitle(event.title) && kennelId) {
     const kennelData = await resolveKennelData(kennelId, ctx);
-    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName);
+    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || event.kennelTag;
     event.title = event.runNumber
       ? `${displayName} Trail #${event.runNumber}`
       : `${displayName} Trail`;

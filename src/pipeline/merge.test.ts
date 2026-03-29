@@ -24,7 +24,7 @@ vi.mock("./kennel-resolver", () => ({
 import { prisma } from "@/lib/db";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -773,8 +773,6 @@ describe("sanitizeLocationUrl", () => {
 
 // ── sanitizeTitle + sanitizeHares ──
 
-import { sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName } from "./merge";
-
 describe("sanitizeTitle", () => {
   it("passes through normal titles", () => {
     expect(sanitizeTitle("The Pre-Saint Patrick's Day Trail")).toBe("The Pre-Saint Patrick's Day Trail");
@@ -1260,5 +1258,20 @@ describe("sanitizeLocation", () => {
 
   it("preserves location with legitimate em-dash (venue name)", () => {
     expect(sanitizeLocation("The Pub — A Fine Establishment")).toBe("The Pub — A Fine Establishment");
+  });
+
+  it("deduplicates abbreviated intersection name (LBH3 pattern)", () => {
+    expect(sanitizeLocation("North San Miguel Road & Barcelona Place, N San Miguel Rd & Barcelona Pl, Walnut, CA 91789, USA"))
+      .toBe("North San Miguel Road & Barcelona Place, Walnut, CA 91789, USA");
+  });
+
+  it("does not deduplicate legitimately different address segments", () => {
+    expect(sanitizeLocation("123 Main St, Suite 200, Springfield, IL"))
+      .toBe("123 Main St, Suite 200, Springfield, IL");
+  });
+
+  it("deduplicates when abbreviated form is first", () => {
+    expect(sanitizeLocation("N Main St, North Main Street, Springfield, IL"))
+      .toBe("North Main Street, Springfield, IL");
   });
 });
