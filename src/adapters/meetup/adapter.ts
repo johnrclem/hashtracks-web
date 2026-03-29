@@ -293,9 +293,8 @@ export function buildRawEventFromApollo(
   }
 
   // Extract hares from description (Meetup events often have "HARE:" or "Hare(s):" in the body).
-  // Convert block-level HTML tags to newlines before stripping so extractHares can split on lines.
   const descForHares = ev.description
-    ? stripHtmlTags(ev.description.replace(/<\/p>|<br\s*\/?>/gi, "\n"))
+    ? stripHtmlTags(ev.description, "\n")
     : undefined;
   const hares = descForHares ? extractHaresFromDescription(descForHares) : undefined;
   const cleanedDesc = cleanMeetupDescription(ev.description);

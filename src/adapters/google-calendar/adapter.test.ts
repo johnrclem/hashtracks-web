@@ -534,6 +534,19 @@ describe("buildRawEventFromGCalItem — title fallback from description", () => 
     expect(event).not.toBeNull();
     expect(event!.title).toBe("OC Hump Trail");
   });
+
+  it("routes Maps URL from description to locationUrl and clears location", () => {
+    const item = {
+      summary: "Hash Run",
+      description: "Location: https://maps.app.goo.gl/zpyewJa4kXbu2pnd9",
+      start: { dateTime: "2026-03-15T14:00:00-04:00" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, { defaultKennelTag: "lah3" });
+    expect(event).not.toBeNull();
+    expect(event!.location).toBeUndefined();
+    expect(event!.locationUrl).toBe("https://maps.app.goo.gl/zpyewJa4kXbu2pnd9");
+  });
 });
 
 // ── extractLocationFromDescription ──
