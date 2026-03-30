@@ -41,7 +41,7 @@ function extractFieldAfterLabel(
     // The label's <p>, then find the next <p> sibling
     const labelP = $(el).closest("p");
     const nextP = labelP.nextAll("p").first();
-    if (!nextP.length) return null;
+    if (!nextP.length) continue;
 
     const text = decodeEntities(nextP.text().trim());
     const link = nextP.find("a").first();
@@ -86,7 +86,17 @@ export function parseCfh3Post(
 
   // Build location
   const location = whereField?.text || undefined;
-  const locationUrl = whereField?.href?.startsWith("http") ? whereField.href : undefined;
+  let locationUrl: string | undefined;
+  if (whereField?.href) {
+    try {
+      const parsed = new URL(whereField.href);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        locationUrl = parsed.href;
+      }
+    } catch {
+      // Invalid URL (e.g., address text used as href) — skip
+    }
+  }
 
   // Build description from optional fields
   const descParts: string[] = [];
@@ -121,7 +131,7 @@ export class CapeFearH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
   async fetch(
-    source: Source,
+    _source: Source,
     _options?: { days?: number },
   ): Promise<ScrapeResult> {
     const events: RawEventData[] = [];
@@ -130,7 +140,7 @@ export class CapeFearH3Adapter implements SourceAdapter {
 
     const apiUrl =
       "https://public-api.wordpress.com/rest/v1.1/sites/capefearh3.com/posts/" +
-      "?number=5&fields=ID,date,title,URL,slug,content,categories";
+      "?number=20&fields=ID,date,title,URL,content";
 
     const fetchStart = Date.now();
     let posts: WpComPost[];

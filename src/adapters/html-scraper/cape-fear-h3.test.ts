@@ -95,6 +95,13 @@ describe("parseCfh3Post", () => {
     expect(result!.location).toContain("2094 Old Mill Creek Rd SE");
   });
 
+  it("rejects invalid URL in Where link href", () => {
+    // POST_HTML_PHOTO has href="http://2094 Old Mill Creek Rd SE, Winnabow" (address, not URL)
+    const $ = cheerio.load(POST_HTML_PHOTO);
+    const result = parseCfh3Post($, "2026-03-03T13:41:27-05:00");
+    expect(result!.locationUrl).toBeUndefined();
+  });
+
   it("returns null for post without When field", () => {
     const html = `<p>Just a random post with no event data.</p>`;
     const $ = cheerio.load(html);
