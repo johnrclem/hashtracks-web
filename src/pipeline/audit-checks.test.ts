@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   checkHareQuality,
+  checkTitleQuality,
   type AuditEventRow,
   type AuditFinding,
 } from "./audit-checks";
@@ -188,5 +189,93 @@ describe("checkHareQuality", () => {
     const findings = checkHareQuality(event);
     expect(findings).toHaveLength(1);
     expect(findings[0].rule).toBe("hare-single-char");
+  });
+});
+
+describe("checkTitleQuality", () => {
+  it("flags title-raw-kennel-code as error when title starts with kennelCode Trail but not kennelShortName", () => {
+    const event = makeEvent({
+      title: "h4-tx Trail #2555",
+      kennelCode: "h4-tx",
+      kennelShortName: "Houston H3",
+    });
+    const findings = checkTitleQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("title-raw-kennel-code");
+    expect(findings[0].severity).toBe("error");
+    expect(findings[0].category).toBe("title");
+    expect(findings[0].field).toBe("title");
+    expect(findings[0].expectedValue).toBe("Houston H3 Trail...");
+  });
+
+  it("flags title-cta-text as warning for CTA language", () => {
+    const event = makeEvent({
+      title: "Wanna Hare? Check out our upcoming available dates!",
+    });
+    const findings = checkTitleQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("title-cta-text");
+    expect(findings[0].severity).toBe("warning");
+  });
+
+  it("flags title-schedule-description as warning for schedule language", () => {
+    const event = makeEvent({
+      title: "Mosquito H3 runs on the first and third Wednesdays",
+    });
+    const findings = checkTitleQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("title-schedule-description");
+    expect(findings[0].severity).toBe("warning");
+  });
+
+  it("flags title-html-entities as warning for HTML entities", () => {
+    const event = makeEvent({
+      title: "St Patrick&apos;s Day Hash &amp; Run",
+    });
+    const findings = checkTitleQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("title-html-entities");
+    expect(findings[0].severity).toBe("warning");
+  });
+
+  it("flags title-time-only as warning for time-only title", () => {
+    const event = makeEvent({ title: "12:30pm" });
+    const findings = checkTitleQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("title-time-only");
+    expect(findings[0].severity).toBe("warning");
+  });
+
+  it("returns no findings for a clean title", () => {
+    const event = makeEvent({ title: "NYCH3 #2800 Spring Equinox" });
+    const findings = checkTitleQuality(event);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("skips events with null title", () => {
+    const event = makeEvent({ title: null });
+    const findings = checkTitleQuality(event);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("does not flag title-raw-kennel-code when title starts with kennelShortName", () => {
+    const event = makeEvent({
+      title: "Houston H3 Trail #2555",
+      kennelCode: "h4-tx",
+      kennelShortName: "Houston H3",
+    });
+    const findings = checkTitleQuality(event);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("prioritizes title-raw-kennel-code over other rules", () => {
+    const event = makeEvent({
+      title: "h4-tx Trail wanna hare",
+      kennelCode: "h4-tx",
+      kennelShortName: "Houston H3",
+    });
+    const findings = checkTitleQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("title-raw-kennel-code");
   });
 });

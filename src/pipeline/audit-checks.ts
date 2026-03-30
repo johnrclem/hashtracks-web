@@ -57,6 +57,15 @@ export function finding(
   };
 }
 
+const TITLE_CTA_PATTERN =
+  /\b(?:wanna\s+hare|available\s+dates|check\s+out\s+our|sign\s*up)\b/i;
+const TITLE_SCHEDULE_PATTERN =
+  /\b(?:runs?\s+on\s+the\s+(?:first|second|third|fourth|last)|meets?\s+every|hashes?\s+on\s+the|runs?\s+every)\b/i;
+const TITLE_HTML_ENTITIES_PATTERN =
+  /&(?:amp|lt|gt|quot|apos|#\d+|#x[\da-f]+);/i;
+const TITLE_TIME_ONLY_PATTERN =
+  /^(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)|\d{1,2}:\d{2})$/i;
+
 const CTA_PATTERN =
   /^(?:tbd|tba|tbc|n\/a|sign[\s\u00A0]*up!?|volunteer|needed|required)$/i;
 const BOILERPLATE_MARKERS = [
@@ -66,6 +75,91 @@ const BOILERPLATE_MARKERS = [
   "Location",
   "Directions",
 ];
+
+export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
+  const { title, kennelCode, kennelShortName } = event;
+
+  // Skip events with null title
+  if (title === null) {
+    return [];
+  }
+
+  // 1. title-raw-kennel-code (error): title starts with `{kennelCode} Trail` but NOT with `{kennelShortName}`
+  const escapedCode = kennelCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const kennelCodeTrailPattern = new RegExp(
+    `^${escapedCode}\\s+Trail`,
+    "i"
+  );
+  if (
+    kennelCodeTrailPattern.test(title) &&
+    !title.startsWith(kennelShortName)
+  ) {
+    return [
+      finding(event, {
+        category: "title",
+        field: "title",
+        currentValue: title,
+        rule: "title-raw-kennel-code",
+        severity: "error",
+        expectedValue: `${kennelShortName} Trail...`,
+      }),
+    ];
+  }
+
+  // 2. title-cta-text (warning)
+  if (TITLE_CTA_PATTERN.test(title)) {
+    return [
+      finding(event, {
+        category: "title",
+        field: "title",
+        currentValue: title,
+        rule: "title-cta-text",
+        severity: "warning",
+      }),
+    ];
+  }
+
+  // 3. title-schedule-description (warning)
+  if (TITLE_SCHEDULE_PATTERN.test(title)) {
+    return [
+      finding(event, {
+        category: "title",
+        field: "title",
+        currentValue: title,
+        rule: "title-schedule-description",
+        severity: "warning",
+      }),
+    ];
+  }
+
+  // 4. title-html-entities (warning)
+  if (TITLE_HTML_ENTITIES_PATTERN.test(title)) {
+    return [
+      finding(event, {
+        category: "title",
+        field: "title",
+        currentValue: title,
+        rule: "title-html-entities",
+        severity: "warning",
+      }),
+    ];
+  }
+
+  // 5. title-time-only (warning)
+  if (TITLE_TIME_ONLY_PATTERN.test(title)) {
+    return [
+      finding(event, {
+        category: "title",
+        field: "title",
+        currentValue: title,
+        rule: "title-time-only",
+        severity: "warning",
+      }),
+    ];
+  }
+
+  return [];
+}
 
 export function checkHareQuality(event: AuditEventRow): AuditFinding[] {
   const { haresText } = event;
