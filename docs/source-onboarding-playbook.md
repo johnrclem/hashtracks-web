@@ -101,14 +101,39 @@ curl -s "https://example.com/calendar.ics" | head -100
 - Do they already exist in our DB? (check `prisma/seed.ts`)
 - One source can feed multiple kennels (aggregator pattern)
 
-### 3. Add kennels + aliases to seed (if new)
+### 3. Pre-research metadata harvest (for new kennels)
+
+Before adding kennels to the seed, harvest metadata from two external directories. These provide aliases, schedule details, founding info, and lineage data that would otherwise require manual research per kennel.
+
+**HHH Genealogy Project** (primary for aliases + lineage):
+Open `https://genealogy.gotothehash.net/index.php?r=chapters/list&country=United%20States&state=STATE_NAME` (use full state name, URL-encoded spaces). For each kennel, the detail page provides:
+- Full name and **aliases** ("Also known as") — add these directly to `kennelAliases` in seed
+- Active/inactive status — skip inactive kennels unless you have evidence they're active
+- First run date — use for `foundedYear`
+- Schedule (day of week, frequency) — use for `scheduleDayOfWeek`, `scheduleFrequency`
+- Founder and parent hash lineage — useful context for regional onboarding
+- Runner type (Mixed/Men-only) — note in kennel description if relevant
+
+**Half-Mind.com** (primary for schedule details + contact info):
+Open `https://half-mind.com/regionalwebsite/p_list1.php?state=XX` (2-letter state abbreviation). For each kennel detail page:
+- Schedule with day, time, and **seasonal variations** — captures details Genealogy misses
+- Lat/lng coordinates — useful for verifying kennel region assignment
+- Website URL and Facebook URL — starting points for Step 6 (adapter discovery)
+- Hash cash amount — add to kennel seed data
+- Email, hotline, contacts — not needed for seed but useful for outreach
+
+**Priority order**: Check Genealogy first (richer alias data), then Half-Mind (richer schedule/contact data). Cross-reference both — neither is complete alone.
+
+> **Note**: The main gotothehash.net site is defunct (subpages return 522 errors). Only the homepage and `genealogy.gotothehash.net` subdomain are functional.
+
+### 4. Add kennels + aliases to seed (if new)
 
 In `prisma/seed.ts`:
 - Add kennel entries to the `kennels` array with `shortName`, `fullName`, `region`
 - Add aliases to the `kennelAliases` record (case-insensitive matching)
 - Run `npx prisma db seed` to create them
 
-### 4. Choose or build adapter type
+### 5. Choose or build adapter type
 
 Existing adapter types:
 - `HTML_SCRAPER` — For websites with event tables/lists (Cheerio parsing). Each site gets its own adapter class, routed by URL pattern in `htmlScrapersByUrl`. Currently: hashnyc, bfm, hashphilly, cityhash (Makesweat), westlondonhash, londonhash, barneshash, och3, slash-hash, chicago, thirstday, sfh3, ewh3, dch4, ofh3, hangover, shith3, enfieldhash, northboro (browser-rendered). Also includes `GenericHtmlAdapter` for config-driven CSS selector scraping.
@@ -122,7 +147,7 @@ Existing adapter types:
 
 If none fit, create a new adapter implementing `SourceAdapter` from `src/adapters/types.ts`.
 
-### 5. Implement or configure the adapter
+### 6. Implement or configure the adapter
 
 **For Google Sheets (no code needed):**
 Just add a new source record with config JSON to the seed. The adapter reads column mappings, kennel tag rules, and start time rules from `Source.config`:
@@ -209,20 +234,20 @@ config: { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", ... }
 - Return `ScrapeResult`: `{ events, errors, errorDetails?, structureHash?, diagnosticContext? }`
 - Register in `src/adapters/registry.ts`
 
-### 6. Add kennel tag extraction logic
+### 7. Add kennel tag extraction logic
 
 How does this source identify which kennel an event belongs to? Common patterns:
 - **Text patterns**: Regex on event title/description (hashnyc, Boston Calendar)
 - **Column-based**: Dedicated column values (Google Sheets)
 - **Calendar-based**: Different calendars for different kennels
 
-### 7. Add pattern matching to kennel resolver
+### 8. Add pattern matching to kennel resolver
 
 If the adapter produces kennel tags that don't exactly match `shortName` or existing aliases, add fallback patterns to `mapKennelTag()` in `src/pipeline/kennel-resolver.ts`.
 
 **Important**: Longer/more specific patterns BEFORE shorter ones (e.g., "summit full moon" before "summit").
 
-### 8. Add source to seed
+### 9. Add source to seed
 
 In `prisma/seed.ts`, add to the `sources` array:
 ```typescript
@@ -252,7 +277,7 @@ config: {
 }
 ```
 
-### 9. Test locally
+### 10. Test locally
 
 ```bash
 # Seed the new kennels and source
@@ -272,7 +297,7 @@ Verify:
 - Run numbers, hare names, locations populated
 - No errors in scrape results
 
-### 10. Deploy + force scrape
+### 11. Deploy + force scrape
 
 ```bash
 git add . && git commit && git push
@@ -280,7 +305,7 @@ git add . && git commit && git push
 # Trigger force scrape from admin UI
 ```
 
-### 11. Review data quality
+### 12. Review data quality
 
 - Check hareline for new events with correct kennel attribution
 - Check kennel pages: `/kennels/{slug}`
@@ -653,6 +678,9 @@ The display layer (`getLocationDisplay()` in `EventCard.tsx`) deduplicates city 
 70. **Check for archive/history pages during research** — Dublin's `/archive` page has 186+ events in the same table format as `/hareline` (which only had 4 future events). When a site has separate hareline (future) and archive (past) pages using the same HTML structure, scrape the archive page as the primary source — it's the superset. This is the same pattern as SDH3's hareline+history dual-page approach.
 71. **Always check for a structured API before scraping HTML tables** — HTML tables with year-less dates, inconsistent formatting, or mixed upcoming/past data are fragile to scrape. Before building an HTML scraper, check: (a) WordPress.com REST API (`/wp-json/` returns 404? try `public-api.wordpress.com/rest/v1.1/sites/{domain}/posts/`), (b) Blogger API v3, (c) Ghost Content API, (d) PHP/AJAX endpoints behind calendar widgets, (e) iCal/RSS feeds. API sources provide ISO dates with years, structured fields, and pagination — eliminating entire classes of date-parsing bugs. The Cape Fear adapter went through 3 PRs fighting year-less M-D dates in a hareline table before discovering the WordPress.com API was available with full ISO 8601 dates all along.
 72. **WordPress.com public REST API needs no auth** — Self-hosted WordPress exposes `/wp-json/wp/v2/posts` (requires the site to enable it). WordPress.com-hosted sites (identifiable by `*.wordpress.com` CNAME or "Starter" plan badge) expose a different public API at `https://public-api.wordpress.com/rest/v1.1/sites/{domain}/posts/?number=20&fields=ID,date,title,URL,content`. No API key needed. Returns ISO 8601 dates, HTML content per post, and pagination via `next_page` token. Use the publish date's year as a chrono-node reference to resolve year-less event dates in post bodies. See `src/adapters/html-scraper/cape-fear-h3.ts` for the reference implementation.
+73. **genealogy.gotothehash.net is a structured kennel database** — The HHH Genealogy Project (`genealogy.gotothehash.net`) is a Yii Framework database with ~670 US kennel records (~331 active) and ~306 UK records (~140 active). Per-kennel pages provide: full name, aliases ("Also known as"), active/inactive status, first run date, schedule, founder, parent hash lineage, descendants, runner type (Mixed/Men-only), and logos. URL pattern: `/index.php?r=chapters/list&country=United%20States&state=STATE_NAME` (use full state name, URL-encoded spaces). The "Also known as" field is uniquely valuable — it directly maps to `kennelAliases` entries in seed.ts with minimal manual work. Use it alongside Half-Mind for pre-research metadata harvesting before adding new kennels (see Step 3).
+74. **gotothehash.net main site is defunct** — As of early 2026, all gotothehash.net subpages (state pages, megacenter pages, contact links) return 522 errors (doteasy.com hosting is dead). Only the homepage loads, linking to the Genealogy Project subdomain and listing Nash Hash/intercontinental events. Do not attempt to scrape gotothehash.net subpages — only `genealogy.gotothehash.net` is functional. If you encounter gotothehash.net links during research, redirect attention to the genealogy subdomain instead.
+75. **Two external directories complement each other for metadata** — Half-Mind.com (lesson #53) excels at schedule details (day/time/seasonal variations), coordinates, website/Facebook URLs, hash cash, and contact info. The Genealogy Project (lesson #73) excels at aliases, founding dates, parent-child lineage, and active/inactive status. Neither is complete alone — always cross-reference both during the pre-research metadata harvest step. Priority: Genealogy first (richer alias data for seed), then Half-Mind (richer operational data for schedule fields).
 
 ---
 

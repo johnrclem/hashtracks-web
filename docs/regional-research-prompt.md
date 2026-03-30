@@ -28,7 +28,25 @@ Check these aggregator sources FIRST — they often cover multiple kennels at on
 
 1. **HashRego**: Open `https://hashrego.com/events` in Chrome. Scan the index table for any kennels in or near [REGION]. Note their kennel slugs (e.g., "BFMH3", "EWH3") — these can be scraped with zero new code using the HASHREGO adapter.
    
-2. **Half-Mind.com**: Open `https://half-mind.com/regionalwebsite/index.php` in Chrome. Scan the index table for any kennels in or near [REGION]. Look for kennels and links to their data sources.
+2. **Half-Mind.com**: Open `https://half-mind.com/regionalwebsite/p_list1.php?state=[STATE_ABBREV]` in Chrome (use 2-letter state abbreviation). This is a comprehensive kennel directory with per-kennel metadata far richer than the index page suggests. For each kennel entry, Half-Mind provides: full name, alive/dead status, IH Directory eligibility (monthly activity proxy), schedule with day/time/seasonal variations, lat/lng coordinates, website URL, Facebook URL, email, hotline phone, contacts with hash names, founder, parent hash, and hash cash (in free-text "Kennel Details"). Use it to:
+   - Discover kennels with alive/dead status pre-flagged (filter to "AliveOnly" to skip dead kennels)
+   - Extract schedule details (day, time, frequency, seasonal switching)
+   - Harvest website and Facebook URLs for Step 1.4 verification
+   - Collect founder and parent hash info for kennel metadata
+
+   To extract kennel listings from a Half-Mind state page, run via `javascript_tool`:
+   ```javascript
+   // Extract kennel summary data from Half-Mind state listing
+   const text = document.body.innerText;
+   const alive = (text.match(/This Club is Alive/g) || []).length;
+   const dead = (text.match(/HASH\/LINK IS DEAD/g) || []).length;
+   const links = Array.from(document.querySelectorAll('a[href*="p_view"]')).map(a => ({
+     name: a.textContent.trim(),
+     detailUrl: a.href,
+   }));
+   JSON.stringify({ totalKennels: alive + dead, alive, dead, kennelLinks: links });
+   ```
+   Then visit each detail page to extract the full metadata fields listed above.
 
 3. **Meetup**: Search `https://www.meetup.com/find/?keywords=hash+house+harriers&location=[REGION]` in Chrome. Note any active groups with upcoming events. Extract the `groupUrlname` from each group's URL.
 
@@ -48,6 +66,13 @@ Check these aggregator sources FIRST — they often cover multiple kennels at on
      ```
    - If calendar IDs are found, fetch the external JS file and look for a `calendars` array with `id` and `summary` fields — each entry is a per-kennel Google Calendar
    - Example: lbh3.org/socal uses a custom JS frontend (`index.js`) aggregating 31 per-kennel Google Calendars with zero iframes
+
+6. **HHH Genealogy Project (genealogy.gotothehash.net)**: Open `https://genealogy.gotothehash.net/index.php?r=chapters/list&country=United%20States&state=[STATE_NAME]` in Chrome (use full state name, URL-encoded spaces; for UK regions use `&country=United%20Kingdom`). This Yii Framework database indexes ~670 US kennel records (~331 active) and ~306 UK records (~140 active) with structured per-kennel data: full name, aliases ("Also known as"), active/inactive status, first run date, schedule, founder, parent hash lineage, descendants, and runner type (Mixed/Men-only). Use it to:
+   - Discover kennels not listed on Half-Mind or other aggregators
+   - Harvest aliases (the "Also known as" field maps directly to `kennelAliases` in seed.ts)
+   - Cross-reference active/inactive status against Half-Mind
+   - Identify parent-child hash relationships for regional context
+   - Note: The main gotothehash.net site is defunct (subpages return 522 errors from dead hosting) — only the homepage and this genealogy subdomain are functional
 
 #### Step 1.3: Web Search for Remaining Kennels
 Search the web for additional kennels in [REGION] not found via aggregators. Try searches like:
@@ -163,13 +188,19 @@ If the feed returns fewer than ~20 events, it may be scope=future only (common w
 5. Classification: ACTIVE (90 days), DORMANT (6-12 months), INACTIVE (>12 months)
 
 #### Metadata Extraction Protocol
-For each kennel, gather from their website, Facebook, and any other pages:
-1. **Founded year** — check About/Info/FAQ pages
-2. **Hash cash** — entry fee amount (e.g., "$8", "$5")
-3. **Schedule** — day of week, frequency (weekly/biweekly/monthly), typical start time
-4. **Social links** — Facebook, Instagram, X/Twitter, Discord URLs
+For each kennel, gather metadata from multiple sources in this priority order:
+
+**Primary: External directories** (check these FIRST — they often have data the kennel's own site lacks):
+- **Genealogy Project** (`genealogy.gotothehash.net`): aliases ("Also known as"), founded date ("First Run"), schedule, founder, parent hash, runner type
+- **Half-Mind.com** (detail page): schedule with seasonal variations, lat/lng, website URL, Facebook URL, hash cash (in "Kennel Details" text), contacts, founder
+
+**Secondary: Kennel's own website and social media** (verify and supplement directory data):
+1. **Founded year** — check About/Info/FAQ pages; cross-reference with Genealogy "First Run" date (often more precise)
+2. **Hash cash** — entry fee amount (e.g., "$8", "$5"); Half-Mind often has this in free text
+3. **Schedule** — day of week, frequency (weekly/biweekly/monthly), typical start time; Half-Mind has the most detailed schedule data including seasonal switching
+4. **Social links** — Facebook, Instagram, X/Twitter, Discord URLs; Half-Mind provides website and Facebook URLs as starting points
 5. **Dog/walker friendly** — if mentioned on the site
-6. **Aliases** — abbreviations, nicknames, social media handles used for the kennel
+6. **Aliases** — abbreviations, nicknames, social media handles; Genealogy's "Also known as" field is the richest source for these
 7. **Description** — Write a 1-2 sentence description for every kennel. Use info from the website About page if available. If not, write a factual description from schedule + location info (e.g., "Weekly Saturday afternoon trail running and drinking club in the Portland metro area. Dog-friendly."). Keep tone consistent across the region.
 
 #### Stage 2 Output
@@ -336,12 +367,40 @@ At the end, include:
 
 ### Stage 4: Gap Validation
 
-After onboarding is complete, cross-reference against Half-Mind.com to verify no major kennels were missed:
+After onboarding is complete, cross-reference against both kennel directories to verify no major kennels were missed:
 
+#### 4.1: Half-Mind Gap Check
 1. Open `https://half-mind.com/regionalwebsite/p_list1.php?state=[STATE_ABBREV]` in Chrome
-2. Compare active kennels listed against what was just onboarded
+2. Filter to alive kennels and compare against what was just onboarded
 3. For any active kennel NOT in the database, note it with status and whether a source exists
-4. Present findings to the user — they may choose to add more kennels or defer
+4. Note any kennels Half-Mind marks as "dead" that you onboarded as active (may need verification)
+
+#### 4.2: Genealogy Project Gap Check
+1. Open `https://genealogy.gotothehash.net/index.php?r=chapters/list&country=United%20States&state=[STATE_NAME]` in Chrome (use full state name, URL-encoded spaces; for UK: `&country=United%20Kingdom`)
+2. Filter to active kennels and compare against onboarded list
+3. Check the "Also known as" field for any kennel names that might match already-onboarded kennels under a different name
+4. Note any active kennels unique to this source (not on Half-Mind either)
+
+#### 4.3: Cross-Reference Summary
+Present a consolidated gap report:
+
+```text
+## Gap Validation Results
+
+### Covered by both directories
+- [Kennels appearing in both Half-Mind and Genealogy that are already onboarded]
+
+### Found only in Half-Mind (not in Genealogy)
+- [Kennel] — [alive/dead] — [has source? Y/N]
+
+### Found only in Genealogy (not in Half-Mind)
+- [Kennel] — [active/inactive] — [has source? Y/N]
+
+### Potential duplicates (different names, same kennel)
+- [Genealogy name] ↔ [Half-Mind name] — [evidence: aliases, same city, same day]
+```
+
+Present findings to the user — they may choose to add more kennels or defer.
 
 This step catches kennels that don't appear on aggregators, Meetup, or web searches but are still active in the hashing community. Example: California gap check revealed Sacramento (2 kennels), Santa Barbara (2 kennels), and Bakersfield as notable omissions from the initial onboarding of 21 kennels.
 
