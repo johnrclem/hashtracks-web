@@ -6,7 +6,11 @@ import type { AuditFinding } from "./audit-checks";
 import { formatIssueTitle, formatIssueBody } from "./audit-format";
 
 const FETCH_TIMEOUT_MS = 10_000;
-const REPO = "johnrclem/hashtracks-web";
+const DEFAULT_REPO = "johnrclem/hashtracks-web";
+
+function getRepo(): string {
+  return process.env.GITHUB_REPOSITORY ?? DEFAULT_REPO;
+}
 
 /**
  * File a GitHub issue with audit findings. Returns the issue URL on success, null on failure.
@@ -38,7 +42,7 @@ export async function fileAuditIssue(findings: AuditFinding[]): Promise<string |
 
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${REPO}/issues`,
+      `https://api.github.com/repos/${getRepo()}/issues`,
       {
         method: "POST",
         headers,
@@ -61,7 +65,7 @@ export async function fileAuditIssue(findings: AuditFinding[]): Promise<string |
     // Add claude-fix label separately so triage workflow receives one labeled event
     try {
       await fetch(
-        `https://api.github.com/repos/${REPO}/issues/${issue.number}/labels`,
+        `https://api.github.com/repos/${getRepo()}/issues/${issue.number}/labels`,
         {
           method: "POST",
           headers,
@@ -85,7 +89,7 @@ export async function fileAuditIssue(findings: AuditFinding[]): Promise<string |
 async function checkExistingAuditIssue(token: string, date: string): Promise<string | null> {
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${REPO}/issues?state=open&labels=audit&per_page=10`,
+      `https://api.github.com/repos/${getRepo()}/issues?state=open&labels=audit&per_page=10`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
