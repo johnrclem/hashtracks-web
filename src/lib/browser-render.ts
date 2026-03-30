@@ -13,6 +13,9 @@ export interface RenderOptions {
   waitFor?: string;
   /** CSS selector to extract — returns only that element's HTML (default: full page) */
   selector?: string;
+  /** URL substring to match a child iframe — returns that frame's rendered content instead of the main page.
+   *  Used for cross-origin iframes (e.g., Wix Table Master) that can't be rendered standalone. */
+  frameUrl?: string;
   /** Max wait in ms (default: 15000, capped at 30000 server-side) */
   timeout?: number;
 }
@@ -45,6 +48,7 @@ export async function browserRender(options: RenderOptions): Promise<string> {
         url: options.url,
         waitFor: options.waitFor,
         selector: options.selector,
+        frameUrl: options.frameUrl,
         timeout: options.timeout,
       }),
       signal: AbortSignal.timeout(45_000), // 30s render timeout + 15s tunnel buffer

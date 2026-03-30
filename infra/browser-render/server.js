@@ -166,7 +166,7 @@ const server = http.createServer(async (req, res) => {
       return jsonResponse(res, 400, { error: "Invalid JSON body" });
     }
 
-    const { url, waitFor, selector, timeout } = parsed;
+    const { url, waitFor, selector, frameUrl, timeout } = parsed;
     if (!url || typeof url !== "string") {
       busy = false;
       return jsonResponse(res, 400, {
@@ -206,6 +206,7 @@ const server = http.createServer(async (req, res) => {
     );
     const waitForSelector = typeof waitFor === "string" ? waitFor : "body";
 
+    const renderStart = Date.now();
     console.log(
       `[${new Date().toISOString()}] Rendering ${url} (waitFor: ${waitForSelector}, timeout: ${pageTimeout}ms)`,
     );
@@ -213,8 +214,11 @@ const server = http.createServer(async (req, res) => {
     const b = await getBrowser();
     page = await b.newPage();
 
+    // Use domcontentloaded instead of networkidle — Wix/SPA sites have
+    // continuous background requests that prevent networkidle from firing.
+    // The waitForSelector call below handles waiting for actual content.
     await page.goto(url, {
-      waitUntil: "networkidle",
+      waitUntil: "domcontentloaded",
       timeout: pageTimeout,
     });
 
@@ -224,7 +228,45 @@ const server = http.createServer(async (req, res) => {
     });
 
     let html;
-    if (typeof selector === "string") {
+    if (typeof frameUrl === "string") {
+      // Extract content from a child iframe matching the URL pattern.
+      // Used for cross-origin iframes (e.g., Wix Table Master widgets)
+      // that return "unauthorized" when rendered standalone.
+      const allFrames = page.frames();
+      console.log(
+        `[${new Date().toISOString()}] Looking for frame matching "${frameUrl}" among ${allFrames.length} frames:`,
+      );
+      for (const f of allFrames) {
+        const fUrl = f.url();
+        const matches = fUrl.includes(frameUrl);
+        console.log(`  ${matches ? "✓" : " "} ${fUrl.slice(0, 150)}`);
+      }
+
+      // Skip the main frame (index 0) — only search child frames
+      const frame = allFrames.slice(1).find((f) => f.url().includes(frameUrl));
+      if (!frame) {
+        const frameCount = allFrames.length;
+        await page.close();
+        page = null;
+        busy = false;
+        return jsonResponse(res, 422, {
+          error: `No child frame matching "${frameUrl}" found (${frameCount} frames total)`,
+        });
+      }
+
+      // Wait for frame content to render, capped to remaining page timeout
+      const frameTimeout = Math.max(pageTimeout - (Date.now() - renderStart), 5000);
+      try {
+        await frame.waitForSelector("table tr td, table tbody tr", { timeout: Math.min(frameTimeout, 15000) });
+      } catch {
+        try {
+          await frame.waitForLoadState("networkidle", { timeout: Math.min(frameTimeout, 10000) });
+        } catch {
+          // Frame may not reach networkidle — continue with whatever loaded
+        }
+      }
+      html = await frame.content();
+    } else if (typeof selector === "string") {
       const element = await page.$(selector);
       if (!element) {
         await page.close();

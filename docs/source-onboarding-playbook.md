@@ -27,7 +27,7 @@ Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent
 
 | Concern | HTML Scraper | Browser-Rendered HTML | Google Calendar | Google Sheets | iCal Feed | Blogger API | Ghost Content API | Meetup | Hash Rego | Static Schedule |
 |---------|-------------|----------------------|----------------|--------------|-----------|-------------|-------------------|--------|-----------|
-| Data access | HTTP GET + Cheerio parse | `browserRender()` → Cheerio parse (NAS Playwright service) | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse | Blogger API v3 (blog ID discovery + posts endpoint) | Ghost Content API (public key, JSON with full HTML) | Meetup public REST API | HTTP GET + Cheerio parse (index + detail pages) | None (generates from RRULE) |
+| Data access | HTTP GET + Cheerio parse | `browserRender()` → Cheerio parse (NAS Playwright service). Supports `frameUrl` for cross-origin iframe content (Wix Table Master). | Calendar API v3 | Sheets API (tabs) + CSV export (data) | HTTP GET + node-ical parse | Blogger API v3 (blog ID discovery + posts endpoint) | Ghost Content API (public key, JSON with full HTML) | Meetup public REST API | HTTP GET + Cheerio parse (index + detail pages) | None (generates from RRULE) |
 | Auth needed | None | None (internal `BROWSER_RENDER_KEY`) | API key | API key (tab discovery only) | None | API key (same `GOOGLE_CALENDAR_API_KEY`) | None (public read-only key embedded in page) | None (public groups) | None | None |
 | Kennel tags | Regex patterns on event text | Hardcoded per adapter (single-kennel) | `config.kennelPatterns` (multi-kennel) or `config.defaultKennelTag` (single-kennel) or hardcoded SUMMARY regex (Boston) | Column-based rules from config JSON | `config.kennelPatterns` (regex on SUMMARY) or `config.defaultKennelTag` | Hardcoded per adapter (single-kennel Blogspot blogs) | Hardcoded per adapter (single-kennel Ghost blogs) | `config.kennelTag` (single kennel, all events) | Per-event from Hash Rego data, filtered by `config.kennelSlugs` | `config.kennelTag` (single kennel) |
 | Date format | Site-specific (ordinals, DD/MM/YYYY, US dates) | Site-specific (JS-rendered content, parsed after render) | ISO 8601 timestamps | Multi-format: M-D-YY, M/D/YYYY | ISO 8601 / DTSTART | API returns ISO 8601 `published`; post body parsed with site-specific logic | API returns ISO 8601 `published_at`; post body HTML parsed for trail date | ISO 8601 (`local_date`) | Site-specific HTML parsing | Generated from RRULE |
@@ -77,6 +77,16 @@ curl -s -X POST https://proxy.hashtracks.xyz/render \
   -H "X-Render-Key: $BROWSER_RENDER_KEY" \
   -d '{"url":"https://example.com","waitFor":"body"}' | head -200
 # Look for: rendered text content, event patterns, CSS classes
+```
+
+**For browser-rendered sites with cross-origin iframes (Wix Table Master, etc.):**
+```bash
+# Use frameUrl to extract iframe content from within the parent page
+curl -s -X POST https://proxy.hashtracks.xyz/render \
+  -H "X-Render-Key: $BROWSER_RENDER_KEY" \
+  -d '{"url":"https://example.com","waitFor":"iframe","frameUrl":"wix-visual-data","timeout":25000}'
+# Returns the iframe's rendered HTML (not the parent page)
+# Use compId in frameUrl to target a specific iframe when multiple exist
 ```
 
 **For iCal feeds:**
@@ -186,6 +196,13 @@ config: { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", ... }
 2. Export pure parsing functions for unit testing (e.g., `parseDateFromTitle()`, `parseRunCard()`)
 3. Add URL pattern to `htmlScrapersByUrl` in `src/adapters/registry.ts`
 4. Create `src/adapters/html-scraper/{site-name}.test.ts` with embedded HTML fixtures
+
+**For browser-rendered HTML scrapers (Wix, SPAs):**
+1. Same as HTML scrapers above, but use `fetchBrowserRenderedPage()` instead of `fetchHTMLPage()`
+2. Set `waitFor` to a CSS selector that indicates content has loaded (e.g., `.ms_event`, `iframe[title='Table Master']`)
+3. For cross-origin iframes: use `frameUrl` parameter with URL substring match (e.g., `frameUrl: "comp-ksnfhbg7"`)
+4. For multiple iframes on one page: use the iframe's `compId` in the `frameUrl` to target the correct one
+5. Wix pages may never reach `networkidle` — the server uses `domcontentloaded` + `waitForSelector` instead
 
 **For completely new adapter types:**
 - Implement the `SourceAdapter` interface: `{ type, fetch(source, options?) }`
@@ -486,6 +503,31 @@ git add . && git commit && git push
 - **Key lesson**: Chrome-assisted discovery dramatically accelerates regional onboarding. Calendar IDs embedded in iframes can be extracted programmatically using `javascript_tool` instead of manual browser inspection. Combined with Google Calendar API event queries to identify unnamed calendars, this enables full region onboarding in a single session.
 - **Key lesson**: Half-Mind.com (`half-mind.com/regionalwebsite/p_list1.php?state=XX`) is a valuable aggregator for initial kennel discovery — provides kennel names, run days, and website URLs for most US states.
 - **Key lesson**: When regional calendars embed multiple calendar IDs and the Chrome extension blocks the raw values (cookie/base64 filtering), use `atob()` to decode base64 calendar IDs or extract just the hostname/path to confirm it's a Google Calendar, then use the Calendar API to identify calendars by their event content.
+
+### UK Adapter Patterns (Norfolk, Mersey Thirstdays, Bull Moon)
+
+**Norfolk H3** (WordPress Block Theme + residential proxy):
+- WAF-blocked sites need `safeFetch({ useResidentialProxy: true })` with browser-like headers
+- WordPress Block Theme post loops: parse `<ul class="wp-block-post-template"> > li` elements
+- Norfolk-specific volunteer prompt "It could be you?" is not a real hare name — filter alongside TBC/TBA
+
+**Mersey Thirstdays** (IONOS/Jimdo static HTML, multi-page):
+- IONOS WYSIWYG editor produces deeply nested `<div style="font-size:15.4px;">` — text extraction + regex is the only reliable approach (DOM structure is unusable)
+- Multi-page adapter: next-runs page (dash-separated blocks) + past-runs page (year-section archive, ~597 events)
+- Past runs have 3+ format eras with REVERSED field order in oldest entries (location before hare pre-2022)
+- Year markers `▲ YYYY ▲` in past-runs page assign years to entries — more reliable than chrono-node year inference
+- Run number dedup: next-runs page data wins over past-runs (richer fields: postcode, venue address, nearest station)
+- Key lesson: Don't defer historical data scraping to a follow-up PR — the research context (format eras, parsing strategies) is fresh during initial implementation
+
+**Bull Moon** (Wix SPA + Table Master cross-origin iframes):
+- Wix Table Master widgets render event data in cross-origin iframes (`wix-visual-data.appspot.com`)
+- Iframe URLs return "unauthorized" when rendered standalone — must use `frameUrl` parameter to extract content from within the parent page context
+- `frameUrl` matches iframe by URL substring — use Table Master `compId` (e.g., `comp-ksnfhbg7`) to disambiguate when multiple iframes exist on one page
+- Wix pages never reach `networkidle` (continuous background requests) — server uses `domcontentloaded` for `page.goto`, then `waitForSelector` for content readiness
+- NAS browser render handles one render at a time — `Promise.all` for multiple pages will get 429 on the second request, client 3-retry logic with 2s backoff handles this gracefully
+- Two event series from one kennel (Bull Moon monthly Sat 12pm + T3 weekly Thu 6:45pm) — classify by Event column text, apply per-series default start times
+- 2-digit year dates ("Thu, 2 Apr 26") confuse chrono-node — use manual parsing with century inference (< 70 → 20xx, ≥ 70 → 19xx)
+- Key lesson: Always spike-test browser rendering against the actual site before writing the adapter — iframe discovery and rendering strategy cannot be assumed from documentation
 
 ---
 

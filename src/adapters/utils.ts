@@ -459,7 +459,7 @@ Text: "${text.slice(0, 500)}"`;
  */
 export async function fetchBrowserRenderedPage(
   url: string,
-  options?: { waitFor?: string; selector?: string; timeout?: number },
+  options?: { waitFor?: string; selector?: string; frameUrl?: string; timeout?: number },
 ): Promise<FetchHTMLResult> {
   const fetchStart = Date.now();
   try {
