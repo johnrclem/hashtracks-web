@@ -903,3 +903,105 @@ describe("buildRawEventFromGCalItem — description fallback for time", () => {
     expect(event!.startTime).toBe("18:30");
   });
 });
+
+// ── Title-embedded field extraction ──
+
+describe("buildRawEventFromGCalItem — parenthetical hare extraction", () => {
+  it("extracts hare name from trailing parenthetical", () => {
+    const item = {
+      summary: "Beantown #276 (Mr Rogers)",
+      start: { dateTime: "2026-04-01T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "beantown" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Beantown #276");
+    expect(event!.hares).toBe("Mr Rogers");
+  });
+
+  it("does not extract hares from instructional parenthetical", () => {
+    const item = {
+      summary: "BFMH3 Weekly Hash (Trail info usually posted Monday on website, or email for more details!)",
+      start: { dateTime: "2026-04-01T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "BFM" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("BFMH3 Weekly Hash");
+    expect(event!.hares).toBeUndefined();
+  });
+
+  it("does not override hares from description with parenthetical", () => {
+    const item = {
+      summary: "Hash #100 (Trail Name Here)",
+      description: "Hare: Speedy",
+      start: { dateTime: "2026-04-01T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Speedy");
+  });
+});
+
+describe("buildRawEventFromGCalItem — w/ hare-location extraction", () => {
+  it("extracts hares and location from 'w/' pattern", () => {
+    const item = {
+      summary: "Passover Trail w/ Mongo & Tatas - Dupont Circle",
+      start: { dateTime: "2026-04-01T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "EWH3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Passover Trail");
+    expect(event!.hares).toBe("Mongo & Tatas");
+    expect(event!.location).toBe("Dupont Circle");
+  });
+
+  it("extracts hares and location from 'with' pattern", () => {
+    const item = {
+      summary: "Spring Fling with HashSlinger - Capitol Hill",
+      start: { dateTime: "2026-04-01T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "EWH3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Spring Fling");
+    expect(event!.hares).toBe("HashSlinger");
+    expect(event!.location).toBe("Capitol Hill");
+  });
+
+  it("does not override location from item.location", () => {
+    const item = {
+      summary: "Trail w/ SomeHare - Somewhere",
+      location: "123 Main St, Washington, DC",
+      start: { dateTime: "2026-04-01T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "EWH3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    // item.location takes precedence, so w/ pattern should not extract location
+    expect(event!.hares).toBe("SomeHare");
+  });
+});
+
+describe("buildRawEventFromGCalItem — non-English country name stripping", () => {
+  it("strips French country suffix from location", () => {
+    const item = {
+      summary: "FCH3 Hash Run",
+      location: "Lucien Morin Park, 1135 Empire Blvd, Rochester, NY 14609, États-Unis",
+      start: { dateTime: "2026-04-01T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "FCH3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("Lucien Morin Park, 1135 Empire Blvd, Rochester, NY 14609");
+  });
+});

@@ -380,6 +380,25 @@ export async function fetchHTMLPage(url: string): Promise<FetchHTMLResult> {
 export const HARE_BOILERPLATE_RE = /\s*\b(?:WHAT TIME|WHAT TO WEAR|WHERE|Location|HASH CASH|Cost|Price|Length|Distance|Directions|Trail Type|Trail is|Start|Meet at|Registration|WHAT IS THE COST|On-On|On On|Question|Call\s|Lost\?)[:\s].*|\s*\(\d{3}\)\s*\d{3}.*/i;
 
 // ---------------------------------------------------------------------------
+// Non-English country name normalization
+// ---------------------------------------------------------------------------
+
+/**
+ * Trailing non-English country name patterns. Strips ", États-Unis" and similar
+ * suffixes that leak in when a GCal calendar owner's locale is non-English, or
+ * when the geocoder returns localized country names despite `language=en`.
+ */
+const NON_ENGLISH_COUNTRY_SUFFIX_RE = /,\s*(?:États[ -]Unis|Vereinigte Staaten|Estados Unidos|Etats[ -]Unis)\s*$/i;
+
+/**
+ * Strip trailing non-English country names from a location string.
+ * e.g. "Rochester, NY 14609, États-Unis" → "Rochester, NY 14609"
+ */
+export function stripNonEnglishCountry(location: string): string {
+  return location.replace(NON_ENGLISH_COUNTRY_SUFFIX_RE, "").trim();
+}
+
+// ---------------------------------------------------------------------------
 // Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
 // ---------------------------------------------------------------------------
 

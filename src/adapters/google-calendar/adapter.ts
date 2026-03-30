@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, appendDescriptionSuffix, isPlaceholder, parse12HourTime } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, appendDescriptionSuffix, isPlaceholder, parse12HourTime, stripNonEnglishCountry } from "../utils";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -133,6 +133,11 @@ const MAPS_URL_RE = /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|google\.\w+
 
 // Pre-compiled regex for extractTimeFromDescription
 const TIME_LABEL_RE = /(?:^|\n)\s*(?:Pack\s*Meet|Circle|Time|Start|When|Chalk\s*Talk)\s*:?\s*.*?(\d{1,2}:\d{2}\s*[ap]m)/im;
+
+// Pre-compiled regexes for title-embedded field extraction
+const TITLE_W_HARE_LOCATION_RE = / w(?:ith|\/) (.+?) - (.+)$/i;
+const TITLE_TRAILING_PAREN_RE = /\s*\(([^)]+)\)$/;
+const INSTRUCTIONAL_PAREN_RE = /\b(?:posted|website|email|check|details|usually|info)\b/i;
 
 /**
  * Extract a meaningful event title from the description when the calendar event
@@ -401,7 +406,7 @@ export function buildRawEventFromGCalItem(
   }
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(summary, sourceConfig);
   // Location: prefer item.location (unless placeholder or instruction text), fall back to description extraction
-  let location = item.location ? decodeEntities(item.location).trim() : undefined;
+  let location = item.location ? stripNonEnglishCountry(decodeEntities(item.location).trim()) : undefined;
   if (location && (isPlaceholder(location) || isNonAddressText(location))) location = undefined;
   if (!location && rawDescription) {
     location = extractLocationFromDescription(rawDescription);
@@ -425,6 +430,33 @@ export function buildRawEventFromGCalItem(
     if (titleMatch?.index === 0 && titleMatch[1]) {
       const cleaned = title.slice(titleMatch[1].length).trimStart();
       if (cleaned) title = cleaned;
+    }
+  }
+
+  // --- Title-embedded field extraction (hares, location) ---
+
+  // Pattern 1: "Title w/ Hare1 & Hare2 - Location" (common in DC/EWH3 events)
+  if (!hares || !location) {
+    const wMatch = TITLE_W_HARE_LOCATION_RE.exec(title);
+    if (wMatch) {
+      if (!hares) hares = wMatch[1].trim();
+      if (!location) location = wMatch[2].trim();
+      title = title.slice(0, wMatch.index).trim();
+    }
+  }
+
+  // Pattern 2: Trailing "(Hare Name)" parenthetical (common in Boston/many kennels)
+  const parenMatch = TITLE_TRAILING_PAREN_RE.exec(title);
+  if (parenMatch) {
+    const inner = parenMatch[1].trim();
+    const isInstructional = inner.length > 40 || INSTRUCTIONAL_PAREN_RE.test(inner);
+    if (!isInstructional && !hares) {
+      // Short parenthetical that looks like a name → extract as hares
+      hares = inner;
+      title = title.slice(0, parenMatch.index).trim();
+    } else if (isInstructional) {
+      // Long instructional parenthetical → strip from title
+      title = title.slice(0, parenMatch.index).trim();
     }
   }
 
