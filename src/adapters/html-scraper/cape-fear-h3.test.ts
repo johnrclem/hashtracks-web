@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseCfh3Post } from "./cape-fear-h3";
+import { parseCfh3Post, parseHarelineRow, parseHarelineTable } from "./cape-fear-h3";
 import * as cheerio from "cheerio";
 
 // Real post content from WordPress.com API (March 21 trail)
@@ -113,5 +113,91 @@ describe("parseCfh3Post", () => {
     const $ = cheerio.load(POST_HTML_MIS_MAN);
     const result = parseCfh3Post($, "2026-03-17T18:40:42-04:00");
     expect(result!.kennelTag).toBe("cfh3");
+  });
+});
+
+const SOURCE_URL = "https://capefearh3.com/hare-line/";
+
+describe("parseHarelineRow", () => {
+  it("parses simple M-D date", () => {
+    const result = parseHarelineRow(["514", "3-7", "Photo Spread"], 2026, SOURCE_URL);
+    expect(result).toMatchObject({
+      date: "2026-03-07",
+      runNumber: 514,
+      hares: "Photo Spread",
+      kennelTag: "cfh3",
+    });
+  });
+
+  it("parses date with description as title", () => {
+    const result = parseHarelineRow(["516", "4-4 EASTER WKND", "TBD"], 2026, SOURCE_URL);
+    expect(result).toMatchObject({
+      date: "2026-04-04",
+      runNumber: 516,
+      title: "EASTER WKND",
+    });
+  });
+
+  it("parses date with colon separator", () => {
+    const result = parseHarelineRow(["524", "5-30: Hash Olympics", "TBD"], 2026, SOURCE_URL);
+    expect(result).toMatchObject({
+      date: "2026-05-30",
+      title: "Hash Olympics",
+    });
+  });
+
+  it("parses slash date with multi-day range", () => {
+    const result = parseHarelineRow(["527", "7/24 – 7/26 PEG ISLAND", "TBD"], 2026, SOURCE_URL);
+    expect(result).toMatchObject({
+      date: "2026-07-24",
+      title: "PEG ISLAND",
+    });
+  });
+
+  it("keeps TBD hares (provides schedule visibility)", () => {
+    const result = parseHarelineRow(["516", "4-4", "TBD"], 2026, SOURCE_URL);
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBeUndefined();
+  });
+
+  it("returns null for empty cells", () => {
+    const result = parseHarelineRow(["", "", ""], 2026, SOURCE_URL);
+    expect(result).toBeNull();
+  });
+});
+
+describe("parseHarelineTable", () => {
+  const HARELINE_HTML = `<html><body>
+    <figure class="wp-block-table"><table>
+      <tr><th>Trail #</th><th>Date</th><th>Hare(s)</th></tr>
+      <tr><td>514</td><td>3-7</td><td>Photo Spread</td></tr>
+      <tr><td>515</td><td>3-21 Mis-Management trail</td><td>Mis-Man</td></tr>
+      <tr><td>516</td><td>4-4 EASTER WKND</td><td>TBD</td></tr>
+    </table></figure>
+    <p>Receding hareline – trails and hares of the past:</p>
+    <figure class="wp-block-table"><table>
+      <tr><td>513</td><td>2-21</td><td>Old Hare</td></tr>
+      <tr><td>512</td><td>2-7</td><td>Another</td></tr>
+    </table></figure>
+  </body></html>`;
+
+  it("parses only the first table (upcoming events)", () => {
+    const $ = cheerio.load(HARELINE_HTML);
+    const events = parseHarelineTable($, 2026, SOURCE_URL);
+    expect(events).toHaveLength(3);
+    expect(events.map(e => e.runNumber)).toEqual([514, 515, 516]);
+  });
+
+  it("does not include receding hareline events", () => {
+    const $ = cheerio.load(HARELINE_HTML);
+    const events = parseHarelineTable($, 2026, SOURCE_URL);
+    expect(events.every(e => (e.runNumber ?? 0) >= 514)).toBe(true);
+  });
+
+  it("extracts title from date description", () => {
+    const $ = cheerio.load(HARELINE_HTML);
+    const events = parseHarelineTable($, 2026, SOURCE_URL);
+    expect(events[1].title).toBe("Mis-Management trail");
+    expect(events[2].title).toBe("EASTER WKND");
   });
 });

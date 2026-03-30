@@ -117,6 +117,88 @@ export function parseCfh3Post(
   };
 }
 
+/** Regex to extract M-D or M/D from the start of a date cell. */
+const DATE_PREFIX_RE = /^(\d{1,2})[\/\-](\d{1,2})/;
+
+/**
+ * Parse a single row from the CFH3 hare-line upcoming table.
+ * Exported for unit testing.
+ */
+export function parseHarelineRow(
+  cells: string[],
+  currentYear: number,
+  sourceUrl: string,
+): RawEventData | null {
+  const [trailNum, dateCell, haresCell] = cells;
+  if (!dateCell) return null;
+
+  const dateMatch = DATE_PREFIX_RE.exec(dateCell);
+  if (!dateMatch) return null;
+
+  const month = parseInt(dateMatch[1], 10);
+  const day = parseInt(dateMatch[2], 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  const date = `${currentYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+  const afterDate = dateCell.slice(dateMatch[0].length)
+    .replace(/^\s*[–\-]\s*\d{1,2}\/\d{1,2}\s*/, "")
+    .replace(/^[:\s]+/, "")
+    .trim();
+  const title = afterDate || undefined;
+
+  const runDigits = trailNum?.trim().replace(/\D/g, "");
+  const runNumber = runDigits ? parseInt(runDigits, 10) : undefined;
+
+  const hares = haresCell?.trim();
+  const isPlaceholderHares = !hares || isPlaceholder(hares);
+
+  return {
+    date,
+    kennelTag: "cfh3",
+    runNumber: runNumber && runNumber > 0 ? runNumber : undefined,
+    title,
+    hares: isPlaceholderHares ? undefined : hares,
+    sourceUrl,
+  };
+}
+
+/**
+ * Parse the FIRST table from the CFH3 hare-line page (upcoming events only).
+ * Stops before the receding hareline table.
+ * Exported for unit testing.
+ */
+export function parseHarelineTable(
+  $: CheerioAPI,
+  currentYear: number,
+  sourceUrl: string,
+): RawEventData[] {
+  const events: RawEventData[] = [];
+  const firstTable = $("table").first();
+  if (!firstTable.length) return events;
+
+  let lastRunNumber: number | undefined;
+
+  firstTable.find("tr").each((_i, el) => {
+    const tds = $(el).find("td").toArray();
+    if (tds.length < 2) return; // skip header rows
+
+    const cells = tds.map(td => $(td).text().trim());
+    const event = parseHarelineRow(cells, currentYear, sourceUrl);
+    if (!event) return;
+
+    // Stop if run numbers decrease (defense-in-depth)
+    if (event.runNumber != null && lastRunNumber != null && event.runNumber < lastRunNumber) {
+      return false; // break .each()
+    }
+    if (event.runNumber != null) lastRunNumber = event.runNumber;
+
+    events.push(event);
+  });
+
+  return events;
+}
+
 /**
  * Cape Fear H3 WordPress.com Blog Scraper
  *
@@ -160,8 +242,6 @@ export class CapeFearH3Adapter implements SourceAdapter {
       errorDetails.fetch = [{ url: apiUrl, message }];
       return { events: [], errors: [message], errorDetails };
     }
-    const fetchDurationMs = Date.now() - fetchStart;
-
     for (let i = 0; i < posts.length; i++) {
       const post = posts[i];
       const $ = cheerio.load(post.content);
@@ -180,6 +260,36 @@ export class CapeFearH3Adapter implements SourceAdapter {
       });
     }
 
+    // Fetch the hare-line page for upcoming events not covered by blog posts
+    const blogDates = new Set(events.map(e => e.date));
+    let harelineCount = 0;
+    try {
+      const harelineUrl =
+        "https://public-api.wordpress.com/rest/v1.1/sites/capefearh3.com/posts/339" +
+        "?fields=content";
+      const hlResponse = await safeFetch(harelineUrl, {
+        headers: { Accept: "application/json" },
+      });
+      if (hlResponse.ok) {
+        const hlData = (await hlResponse.json()) as { content?: string };
+        if (hlData.content) {
+          const hl$ = cheerio.load(hlData.content);
+          const currentYear = new Date().getUTCFullYear();
+          const harelineEvents = parseHarelineTable(hl$, currentYear, "https://capefearh3.com/hare-line/");
+          for (const evt of harelineEvents) {
+            if (!blogDates.has(evt.date)) {
+              events.push(evt);
+              harelineCount++;
+            }
+          }
+        }
+      }
+    } catch {
+      // Hare-line fetch failed — graceful degradation, return blog posts only
+    }
+
+    const fetchDurationMs = Date.now() - fetchStart;
+
     return {
       events,
       errors,
@@ -187,6 +297,8 @@ export class CapeFearH3Adapter implements SourceAdapter {
       diagnosticContext: {
         fetchMethod: "wordpress-com-api",
         postsFound: posts.length,
+        blogEventsParsed: events.length - harelineCount,
+        harelineEventsParsed: harelineCount,
         eventsParsed: events.length,
         fetchDurationMs,
       },
