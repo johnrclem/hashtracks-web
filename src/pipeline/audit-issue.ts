@@ -62,19 +62,19 @@ export async function fileAuditIssue(findings: AuditFinding[]): Promise<string |
 
     const issue = (await res.json()) as { html_url: string; number: number };
 
-    // Add claude-fix label separately so triage workflow receives one labeled event
+    // Add claude-autofix directly — audit issues skip triage (findings are already well-structured)
     try {
       await fetch(
         `https://api.github.com/repos/${getRepo()}/issues/${issue.number}/labels`,
         {
           method: "POST",
           headers,
-          body: JSON.stringify({ labels: ["claude-fix"] }),
+          body: JSON.stringify({ labels: ["claude-autofix"] }),
           signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         },
       );
     } catch (err) {
-      console.error(`[audit-issue] Failed to add claude-fix label to #${issue.number}:`, err);
+      console.error(`[audit-issue] Failed to add claude-autofix label to #${issue.number}:`, err);
     }
 
     console.log(`[audit-issue] Created issue #${issue.number}: ${issue.html_url}`);
