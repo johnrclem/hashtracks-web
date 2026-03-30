@@ -64,7 +64,7 @@ export async function fileAuditIssue(findings: AuditFinding[]): Promise<string |
 
     // Add claude-autofix directly — audit issues skip triage (findings are already well-structured)
     try {
-      await fetch(
+      const labelRes = await fetch(
         `https://api.github.com/repos/${getRepo()}/issues/${issue.number}/labels`,
         {
           method: "POST",
@@ -73,6 +73,9 @@ export async function fileAuditIssue(findings: AuditFinding[]): Promise<string |
           signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         },
       );
+      if (!labelRes.ok) {
+        console.error(`[audit-issue] Failed to add claude-autofix label to #${issue.number}: ${labelRes.status}`);
+      }
     } catch (err) {
       console.error(`[audit-issue] Failed to add claude-autofix label to #${issue.number}:`, err);
     }
