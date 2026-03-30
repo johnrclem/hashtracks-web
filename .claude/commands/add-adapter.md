@@ -30,9 +30,17 @@ Create a new HTML scraper adapter for the source at URL: $ARGUMENTS
    - Add SourceKennel linking record(s)
    - Add Kennel record if it doesn't exist (with aliases)
 
-6. **Verify**
+6. **Unit tests**
    - Run `npx vitest {test-file}` to verify the new adapter
    - Run `npm test` to ensure no regressions
+
+7. **Live verification (MANDATORY)**
+   - Fetch the real production URL: `curl -s "$URL"` (or `browserRender()` for JS-rendered sites)
+   - Run the adapter's parse function against the live HTML
+   - Verify: events array is non-empty, dates are valid with upcoming events, required fields populated
+   - If live HTML differs from test fixture, UPDATE the fixture
+   - Do NOT consider this adapter complete until live verification passes
+   - See `/verify-adapter` for the full verification methodology
 
 ## Key conventions
 - Dates stored as UTC noon to avoid DST issues
