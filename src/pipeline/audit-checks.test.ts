@@ -6,7 +6,6 @@ import {
   checkEventQuality,
   checkDescriptionQuality,
   type AuditEventRow,
-  type AuditFinding,
 } from "./audit-checks";
 
 function makeEvent(overrides: Partial<AuditEventRow> = {}): AuditEventRow {
@@ -178,7 +177,7 @@ describe("checkHareQuality", () => {
     const f = findings[0];
     expect(f.kennelShortName).toBe("NYCH3");
     expect(f.eventId).toBe("evt-1");
-    expect(f.eventUrl).toBe("https://www.hashtracks.xyz/hareline");
+    expect(f.eventUrl).toBe("https://www.hashtracks.xyz/hareline/evt-1");
     expect(f.sourceUrl).toBe("https://hashnyc.com/run/42");
     expect(f.adapterType).toBe("HTML_SCRAPER");
     expect(f.category).toBe("hares");

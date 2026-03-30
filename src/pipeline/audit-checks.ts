@@ -31,8 +31,11 @@ export interface AuditFinding {
 
 const HARELINE_BASE_URL = "https://www.hashtracks.xyz/hareline";
 
+/** Minimal event shape needed by finding() — avoids requiring full AuditEventRow. */
+type FindingEvent = Pick<AuditEventRow, "id" | "kennelShortName" | "sourceUrl" | "sourceType">;
+
 export function finding(
-  event: AuditEventRow,
+  event: FindingEvent,
   params: {
     category: AuditFinding["category"];
     field: string;
@@ -45,7 +48,7 @@ export function finding(
   return {
     kennelShortName: event.kennelShortName,
     eventId: event.id,
-    eventUrl: HARELINE_BASE_URL,
+    eventUrl: `${HARELINE_BASE_URL}/${event.id}`,
     sourceUrl: event.sourceUrl,
     adapterType: event.sourceType,
     category: params.category,
@@ -85,7 +88,8 @@ export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
   }
 
   // 1. title-raw-kennel-code (error): title starts with `{kennelCode} Trail` but NOT with `{kennelShortName}`
-  const escapedCode = kennelCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Dynamic regex is necessary here — kennelCode varies per event. Input is escaped.
+  const escapedCode = kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const kennelCodeTrailPattern = new RegExp(
     `^${escapedCode}\\s+Trail`,
     "i"
@@ -179,17 +183,17 @@ type DescriptionEventRow = Pick<
 function normalizeSegment(s: string): string {
   return s
     .toLowerCase()
-    .replace(/\bnorth\b/g, "n")
-    .replace(/\bsouth\b/g, "s")
-    .replace(/\beast\b/g, "e")
-    .replace(/\bwest\b/g, "w")
-    .replace(/\broad\b/g, "rd")
-    .replace(/\bstreet\b/g, "st")
-    .replace(/\bavenue\b/g, "ave")
-    .replace(/\bboulevard\b/g, "blvd")
-    .replace(/\bplace\b/g, "pl")
-    .replace(/\bdrive\b/g, "dr")
-    .replace(/[.\s]+/g, " ")
+    .replaceAll(/\bnorth\b/g, "n")
+    .replaceAll(/\bsouth\b/g, "s")
+    .replaceAll(/\beast\b/g, "e")
+    .replaceAll(/\bwest\b/g, "w")
+    .replaceAll(/\broad\b/g, "rd")
+    .replaceAll(/\bstreet\b/g, "st")
+    .replaceAll(/\bavenue\b/g, "ave")
+    .replaceAll(/\bboulevard\b/g, "blvd")
+    .replaceAll(/\bplace\b/g, "pl")
+    .replaceAll(/\bdrive\b/g, "dr")
+    .replaceAll(/[.\s]+/g, " ")
     .trim();
 }
 
@@ -204,7 +208,7 @@ export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[]
     // 1. location-url: locationName starts with URL scheme
     if (locationName.startsWith("https://") || locationName.startsWith("http://")) {
       findings.push(
-        finding(event as AuditEventRow, {
+        finding(event, {
           category: "location",
           field: "locationName",
           currentValue: locationName,
@@ -222,7 +226,7 @@ export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[]
       const b = normalizeSegment(parts[1]);
       if (a.includes(b) || b.includes(a)) {
         findings.push(
-          finding(event as AuditEventRow, {
+          finding(event, {
             category: "location",
             field: "locationName",
             currentValue: locationName,
@@ -241,10 +245,10 @@ export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[]
       const cityName = locationCity.split(",")[0].trim();
       if (!locationName.includes(cityName)) {
         findings.push(
-          finding(event as AuditEventRow, {
+          finding(event, {
             category: "location",
-            field: "locationName",
-            currentValue: locationName,
+            field: "locationName+locationCity",
+            currentValue: `${locationName}, ${locationCity}`,
             rule: "location-region-appended",
             severity: "warning",
             expectedValue: locationName,
@@ -268,10 +272,10 @@ export function checkEventQuality(events: EventQualityRow[]): AuditFinding[] {
 
     // 1. event-improbable-time: hour >= 23 or 0-3
     const hourStr = startTime.split(":")[0];
-    const hour = parseInt(hourStr, 10);
-    if (!isNaN(hour) && (hour >= 23 || hour <= 3)) {
+    const hour = Number.parseInt(hourStr, 10);
+    if (!Number.isNaN(hour) && (hour >= 23 || hour <= 3)) {
       findings.push(
-        finding(event as AuditEventRow, {
+        finding(event, {
           category: "event",
           field: "startTime",
           currentValue: startTime,
@@ -297,7 +301,7 @@ export function checkDescriptionQuality(events: DescriptionEventRow[]): AuditFin
     // 1. description-dropped: description is null but rawDescription is non-null and >20 chars
     if (description === null) {
       findings.push(
-        finding(event as AuditEventRow, {
+        finding(event, {
           category: "description",
           field: "description",
           currentValue: "(empty)",

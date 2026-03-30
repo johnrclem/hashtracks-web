@@ -9,8 +9,10 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import pg from "pg";
-import { execSync } from "child_process";
-import fs from "fs";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
   checkHareQuality,
   checkTitleQuality,
@@ -120,17 +122,25 @@ async function main() {
       const body = formatIssueBody(findings);
 
       console.log(`\nCreating GitHub issue: ${title}`);
-      const bodyFile = "/tmp/audit-issue-body.md";
-      fs.writeFileSync(bodyFile, body);
-
+      const bodyFile = path.join(os.tmpdir(), `audit-issue-${Date.now()}.md`);
       try {
-        const result = execSync(
-          `gh issue create --repo johnrclem/hashtracks-web --title "${title}" --label audit --label claude-fix --body-file ${bodyFile}`,
-          { encoding: "utf8" },
-        );
-        console.log(`Issue created: ${result.trim()}`);
-      } catch (err) {
-        console.error("Failed to create GitHub issue:", err);
+        fs.writeFileSync(bodyFile, body);
+        const result = spawnSync("gh", [
+          "issue", "create",
+          "--repo", "johnrclem/hashtracks-web",
+          "--title", title,
+          "--label", "audit",
+          "--label", "claude-fix",
+          "--label", "alert",
+          "--body-file", bodyFile,
+        ], { encoding: "utf8" });
+        if (result.status === 0) {
+          console.log(`Issue created: ${result.stdout.trim()}`);
+        } else {
+          console.error("Failed to create GitHub issue:", result.stderr);
+        }
+      } finally {
+        try { fs.unlinkSync(bodyFile); } catch { /* ignore cleanup errors */ }
       }
     }
   }
