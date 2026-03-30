@@ -11,10 +11,9 @@ When you create or modify an adapter, you MUST verify it against the live source
 ## After unit tests pass:
 
 1. **Find the source URL** -- look up the source in `prisma/seed.ts` to get the production URL
-2. **Fetch the live HTML:**
-   - For static HTML sites: `curl -s "$URL"` and pipe through the adapter's parse function
-   - For JS-rendered sites (Wix, Google Sites): use `browserRender()` or WebFetch
-   - For API-based adapters (Google Calendar, Meetup, etc.): call the API endpoint directly
+2. **Fetch live data and run the adapter:**
+   - Call the adapter's `fetch(source, options?)` method which returns `Promise<ScrapeResult>` with events in `result.events`
+   - For manual verification: `curl -s "$URL"` for static HTML, `browserRender()` for JS-rendered sites, `fetchBloggerPosts()` for Blogspot, API calls for Calendar/Meetup
 3. **Validate the output:**
    - Events array is non-empty
    - Dates are valid and include upcoming events (not all in the past)

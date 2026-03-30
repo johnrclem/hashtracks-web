@@ -104,13 +104,13 @@ logbook + kennel directory.
 
 ## On-Demand Context
 Large reference lists are in `.claude/rules/`. They load automatically when you touch matching files:
-- `rules/active-sources.md` — 150 active data sources by region (loads for adapter/pipeline work)
+- `rules/active-sources.md` — 146 active data sources by region (loads for adapter/pipeline work)
 - `rules/important-files.md` — 200+ file references by domain area
-- `rules/database.md` — Railway DB connection and Prisma workflow (loads for prisma/* and .env*)
-- `rules/nas-deployment.md` — NAS Docker deployment commands (loads for infra/*)
+- `rules/database.md` — Railway DB connection and Prisma workflow (loads for `prisma/*` and `.env*`)
+- `rules/nas-deployment.md` — NAS Docker deployment commands (loads for `infra/*`)
 - `rules/adapter-patterns.md` — Adapter coding conventions and patterns (loads for adapter work)
 - `rules/testing-coverage.md` — Detailed test coverage areas (loads for test files)
-- `rules/documentation-index.md` — Docs directory index (loads for docs/*)
+- `rules/documentation-index.md` — Docs directory index (loads for `docs/*`)
 - `rules/live-verification.md` — Mandatory live adapter verification (loads for adapter work)
 
 ## What NOT To Do

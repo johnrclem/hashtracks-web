@@ -1,12 +1,12 @@
 ---
-description: Active data sources catalog — 150 sources across 25+ regions
+description: Active data sources catalog — 146 sources across 25+ regions
 globs:
   - src/adapters/**
   - prisma/seed.ts
   - src/pipeline/**
 ---
 
-# Active Sources (150)
+# Active Sources (146)
 
 ## NYC / NJ / Philly (8 sources)
 - **hashnyc.com** -> HTML_SCRAPER -> 11 NYC-area kennels
@@ -60,14 +60,13 @@ globs:
 - **SLOH3 Google Calendar** -> GOOGLE_CALENDAR -> SLOH3
 - **SDH3 Hareline** -> HTML_SCRAPER -> 10 San Diego kennels + 7,649 historical events
 
-## Washington (8 sources)
+## Washington (6 sources)
 - **WA Hash Google Calendar** -> GOOGLE_CALENDAR -> 12 Seattle-area kennels
-- **SH3 Hareline Spreadsheet** -> GOOGLE_SHEETS -> SH3 (Seattle)
-- **PSH3 Hareline Spreadsheet** -> GOOGLE_SHEETS -> PSH3 (Puget Sound)
-- **NBH3 Hareline Spreadsheet** -> GOOGLE_SHEETS -> NBH3 (No Balls)
-- **RCH3 Hareline Spreadsheet** -> GOOGLE_SHEETS -> RCH3 (Rain City)
-- **SeaMon H3 Hareline Spreadsheet** -> GOOGLE_SHEETS -> SeaMon
-- **Leap Year H3 Hareline Spreadsheet** -> GOOGLE_SHEETS -> Leap Year
+- **SH3 Hareline Sheet** -> GOOGLE_SHEETS -> SH3 (Seattle)
+- **PSH3 Hareline Sheet** -> GOOGLE_SHEETS -> PSH3 (Puget Sound)
+- **RCH3 Hareline Sheet** -> GOOGLE_SHEETS -> RCH3 (Rain City)
+- **SeaMon H3 Hareline Sheet** -> GOOGLE_SHEETS -> SeaMon
+- **Leap Year H3 Hareline Sheet** -> GOOGLE_SHEETS -> Leap Year
 
 ## Colorado (5 sources)
 - **Denver H3 Google Calendar** -> GOOGLE_CALENDAR -> DH3
@@ -154,7 +153,7 @@ globs:
 - **GOTH3 Static Schedule** -> STATIC_SCHEDULE -> GOTH3
 - **Grand Strand H3 Static Schedule** -> STATIC_SCHEDULE -> GSH3
 
-## Texas (10 sources)
+## Texas (8 sources)
 - **Austin H3 Calendar** -> GOOGLE_CALENDAR -> AH3
 - **Keep Austin Weird H3 Calendar** -> GOOGLE_CALENDAR -> KAW!H3
 - **Houston Hash Calendar** -> GOOGLE_CALENDAR -> H4

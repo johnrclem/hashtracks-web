@@ -7,7 +7,7 @@ globs:
 # Adapter Patterns & Conventions
 
 ## SourceAdapter Interface
-All adapters implement `SourceAdapter` from `src/adapters/types.ts` and return `RawEventData[]`.
+All adapters implement `SourceAdapter` from `src/adapters/types.ts`. The `fetch(source, options?)` method returns `Promise<ScrapeResult>`, with parsed events in `ScrapeResult.events`.
 
 ## Adapter Types
 - **Cheerio** (`HTML_SCRAPER`): For static HTML sites. Use `cheerio.load(html)` for parsing.

@@ -29,7 +29,7 @@ Research all kennels in the target region, create adapters, verify them live, an
    - `npx tsc --noEmit && npm run lint && npm test`
 
 6. **Update sources rule**
-   - Add new sources to `.claude/rules/active-sources.md`
+   - Run `/update-sources-rule` to sync `.claude/rules/active-sources.md` with seed data
 
 7. **Report**
    - Summary: region name, kennels onboarded, sources created, total events from live verification

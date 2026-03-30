@@ -35,8 +35,9 @@ Create a new HTML scraper adapter for the source at URL: $ARGUMENTS
    - Run `npm test` to ensure no regressions
 
 7. **Live verification (MANDATORY)**
+   - Resolve the source URL from `prisma/seed-data/sources.ts` (the URL you added in step 5)
    - Fetch the real production URL: `curl -s "$URL"` (or `browserRender()` for JS-rendered sites)
-   - Run the adapter's parse function against the live HTML
+   - Run the adapter's `fetch()` method against the live data
    - Verify: events array is non-empty, dates are valid with upcoming events, required fields populated
    - If live HTML differs from test fixture, UPDATE the fixture
    - Do NOT consider this adapter complete until live verification passes

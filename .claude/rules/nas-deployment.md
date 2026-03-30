@@ -26,4 +26,4 @@ ssh nas-tailscale "cd /volume1/docker/proxy-relay && \
   /volume1/@appstore/ContainerManager/usr/bin/docker compose up -d --build proxy-relay"
 ```
 
-**Note:** `scp -O` flag is required for Synology SSH. Container Manager docker binary is at `/volume1/@appstore/ContainerManager/usr/bin/docker`.
+**Note:** `scp -O` flag is required for Synology SSH. The Container Manager `docker` and `docker compose` binaries are at `/volume1/@appstore/ContainerManager/usr/bin/`.

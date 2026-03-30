@@ -3,7 +3,7 @@ Sync `.claude/rules/active-sources.md` with the current state of `prisma/seed.ts
 ## Steps
 
 1. **Read current seed data**
-   - Parse `prisma/seed.ts` to extract all Source records
+   - Parse `prisma/seed-data/sources.ts` to extract all Source records
    - Group sources by region
 
 2. **Read current rule**

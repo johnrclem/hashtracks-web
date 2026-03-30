@@ -1,4 +1,4 @@
-Verify an adapter works against the live production website for: $ARGUMENTS
+Verify an adapter works against the live production source for: $ARGUMENTS
 
 ## Steps
 
@@ -7,17 +7,18 @@ Verify an adapter works against the live production website for: $ARGUMENTS
    - Extract the source URL and source type
 
 2. **Fetch live data**
-   - For `HTML_SCRAPER`: `curl -s "$URL"` (or `browserRender()` for JS-rendered sites)
+   - For `HTML_SCRAPER`: `curl -s "$URL"` (or `browserRender()` for JS-rendered sites, or `fetchBloggerPosts()` for Blogspot sites, or `fetchWordPressPosts()` for WordPress sites)
    - For `GOOGLE_CALENDAR`: Use the Calendar API with the calendar ID from config
    - For `GOOGLE_SHEETS`: Fetch the CSV export URL
    - For `ICAL_FEED`: `curl -s "$URL"`
+   - For `RSS_FEED`: `curl -s "$URL"` to fetch RSS/Atom XML
    - For `MEETUP`: Call the Meetup API endpoint
    - For `HASHREGO`: `curl -s "$URL"`
    - For `STATIC_SCHEDULE`: No fetch needed — generate events from RRULE config
 
 3. **Run the adapter's parse function**
    - Import the adapter and call its `fetchEvents()` or parse function with the live data
-   - Use a quick vitest one-off or write a temporary test
+   - Use a quick vitest one-off or write a temporary test (delete temp files after verification)
 
 4. **Validate output**
    - Events array is non-empty
@@ -32,7 +33,7 @@ Verify an adapter works against the live production website for: $ARGUMENTS
    - If verification FAILS: diagnose the issue and fix the adapter
    - If live HTML differs from test fixture: update the fixture
 
-## Quick single-command verification
+## Quick Unit Test Command
 ```bash
 npx vitest run --reporter=verbose {adapter-test-file}
 ```
