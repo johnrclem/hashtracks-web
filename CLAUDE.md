@@ -33,7 +33,7 @@ logbook + kennel directory.
 - **AI:** Gemini 2.0 Flash for complex HTML parsing (low temp, cached results), parse error recovery, column auto-detection, kennel pattern suggestions, HTML structure analysis with few-shot learning from existing adapter patterns
 - **Kennel geocoding:** lat/lng on Kennel model, backfill via Google Geocoding API, Near Me distance filter (client-side Haversine)
 - **Region hierarchy:** RegionLevel enum (COUNTRY/STATE_PROVINCE/METRO), parent-child linking
-- **Analytics:** Vercel Web Analytics + Speed Insights
+- **Analytics:** PostHog (client + server event tracking, privacy-first, reverse proxy via `/ingest`), Sentry error tracking (client + server + edge), Vercel Speed Insights (Core Web Vitals)
 - **CI/CD:** GitHub Actions (type check + lint + tests on all PRs); Claude Code automation for issue triage + auto-fix
 - **Self-healing:** Alert pipeline auto-files GitHub issues → Claude triages → high-confidence fixes auto-PR'd → CI validates
 - **Deployment:** Vercel (auto-deploy from main branch)
@@ -87,6 +87,12 @@ logbook + kennel directory.
 - RESIDENTIAL_PROXY_KEY=  # API key for residential proxy auth
 - BROWSER_RENDER_URL=    # NAS browser render service URL (for JS-rendered sites + iframe extraction via frameUrl)
 - BROWSER_RENDER_KEY=    # API key for browser render service auth
+- NEXT_PUBLIC_POSTHOG_KEY= # PostHog project API key (browser-exposed, used by client SDK)
+- POSTHOG_API_KEY=       # PostHog project API key (server-side event capture)
+- NEXT_PUBLIC_SENTRY_DSN= # Sentry DSN (client + server error tracking)
+- SENTRY_AUTH_TOKEN=     # Sentry auth token (build-time only, source map upload to Vercel)
+- SENTRY_ORG=            # Sentry organization slug (build-time)
+- SENTRY_PROJECT=        # Sentry project slug (build-time)
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
@@ -220,6 +226,18 @@ logbook + kennel directory.
 - `src/components/hareline/MapView.tsx` — Interactive map tab for Hareline (@vis.gl/react-google-maps, region-colored pins)
 - `src/components/hareline/EventWeatherCard.tsx` — Weather forecast display (condition emoji, °F/°C, precip ≥20%)
 - `src/components/providers/units-preference-provider.tsx` — °F/°C preference context (localStorage-based, useUnitsPreference hook)
+- `src/lib/analytics.ts` — Typed client-side PostHog event capture wrapper (`capture()`, `identifyUser()`)
+- `src/lib/analytics-server.ts` — Server-side PostHog client (`captureServerEvent()` with flush for Vercel serverless)
+- `src/components/providers/posthog-provider.tsx` — PostHog client init, privacy-first config, custom pageview hook, `/ingest` reverse proxy
+- `src/components/providers/posthog-identify.tsx` — PostHog + Sentry user identification on Clerk login
+- `sentry.client.config.ts` — Sentry client-side initialization
+- `sentry.server.config.ts` — Sentry server-side initialization
+- `sentry.edge.config.ts` — Sentry edge runtime initialization
+- `src/instrumentation.ts` — Next.js instrumentation hook (Sentry server/edge init + request error capture)
+- `src/app/global-error.tsx` — Global error boundary with Sentry capture
+- `src/app/admin/analytics/actions.ts` — Server actions for community health, user engagement, operational metrics
+- `src/app/admin/analytics/page.tsx` — Admin analytics dashboard (recharts)
+- `src/components/admin/AnalyticsDashboard.tsx` — Dashboard UI: charts, stat cards, tables (community/engagement/operational)
 - `vercel.json` — Vercel Cron config (triggers QStash dispatch at 6:00 AM UTC)
 - `src/lib/qstash.ts` — QStash Client + Receiver singletons (Upstash fan-out queue)
 - `src/lib/cron-auth.ts` — Dual auth: QStash signature verification → Bearer CRON_SECRET fallback
