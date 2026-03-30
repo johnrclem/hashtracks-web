@@ -1566,6 +1566,52 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 8.68,
     aliases: ["Frankfurt, Germany", "Frankfurt am Main"],
   },
+  // ── Japan ──
+  {
+    name: "Japan",
+    country: "Japan",
+    level: "COUNTRY",
+    timezone: "Asia/Tokyo",
+    abbrev: "JP",
+    colorClasses: "bg-red-200 text-red-800",
+    pinColor: "#dc2626",
+    centroidLat: 36.2,
+    centroidLng: 138.25,
+    aliases: ["JP", "日本"],
+  },
+  {
+    name: "Tokyo",
+    country: "Japan",
+    timezone: "Asia/Tokyo",
+    abbrev: "TYO",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 35.68,
+    centroidLng: 139.77,
+    aliases: ["Tokyo, Japan", "東京"],
+  },
+  {
+    name: "Kansai",
+    country: "Japan",
+    timezone: "Asia/Tokyo",
+    abbrev: "KIX",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 34.69,
+    centroidLng: 135.50,
+    aliases: ["Kansai, Japan", "Osaka, Japan", "Kyoto, Japan", "Kobe, Japan", "関西"],
+  },
+  {
+    name: "Okinawa",
+    country: "Japan",
+    timezone: "Asia/Tokyo",
+    abbrev: "OKA",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 26.34,
+    centroidLng: 127.77,
+    aliases: ["Okinawa, Japan", "沖縄"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -1913,6 +1959,10 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Stuttgart": "Germany",
   "Munich": "Germany",
   "Frankfurt": "Germany",
+  // Japan
+  "Tokyo": "Japan",
+  "Kansai": "Japan",
+  "Okinawa": "Japan",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */

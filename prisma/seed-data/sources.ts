@@ -2408,5 +2408,63 @@ export const SOURCES = [
       },
       kennelCodes: ["fh3", "ffmh3", "shits-fra", "dom-fra", "bikeh3-fra"],
     },
+
+    // ===== JAPAN =====
+    // Tokyo H3 — Harrier Central public API
+    {
+      name: "Tokyo H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        cityNames: "Tokyo",
+        defaultKennelTag: "tokyo-h3",
+      },
+      kennelCodes: ["tokyo-h3"],
+    },
+    // KFMH3 — Kinky Fully Mooned Google Calendar (Osaka)
+    {
+      name: "KFMH3 Google Calendar",
+      url: "595aa2ab39c504c22d8636bb4e99590a2ecfc51c4aadb752ad15bc16e6e40dcf@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "595aa2ab39c504c22d8636bb4e99590a2ecfc51c4aadb752ad15bc16e6e40dcf@group.calendar.google.com",
+        defaultKennelTag: "kfmh3",
+      },
+      kennelCodes: ["kfmh3"],
+    },
+    // Kyoto H3 Google Calendar
+    {
+      name: "Kyoto H3 Google Calendar",
+      url: "8f856affa4ba7fedce78561cd2553a2ee3deb306fcf8319db7b2ca112b468ca5@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "8f856affa4ba7fedce78561cd2553a2ee3deb306fcf8319db7b2ca112b468ca5@group.calendar.google.com",
+        defaultKennelTag: "kyoto-h3",
+      },
+      kennelCodes: ["kyoto-h3"],
+    },
+    // Osaka H3 Google Calendar
+    {
+      name: "Osaka H3 Google Calendar",
+      url: "7675c3154cb07e0769e722e4d95fd69707353d74941b69be0480fc65c0a97fd1@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "7675c3154cb07e0769e722e4d95fd69707353d74941b69be0480fc65c0a97fd1@group.calendar.google.com",
+        defaultKennelTag: "osaka-h3",
+      },
+      kennelCodes: ["osaka-h3"],
+    },
   ];
 

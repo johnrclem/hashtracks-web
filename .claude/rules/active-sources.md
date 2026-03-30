@@ -1,12 +1,12 @@
 ---
-description: Active data sources catalog — 146 sources across 25+ regions
+description: Active data sources catalog — 150 sources across 26+ regions
 globs:
   - src/adapters/**
   - prisma/seed.ts
   - src/pipeline/**
 ---
 
-# Active Sources (146)
+# Active Sources (150)
 
 ## NYC / NJ / Philly (8 sources)
 - **hashnyc.com** -> HTML_SCRAPER -> 11 NYC-area kennels
@@ -207,6 +207,12 @@ globs:
 - **RIH3 Static Schedule** -> STATIC_SCHEDULE -> RIH3 (Rhode Island)
 - **RIH3 Website Hareline** -> HTML_SCRAPER -> RIH3 (Rhode Island)
 - **Narwhal H3 Meetup (CTH3)** -> MEETUP -> CTH3 (Connecticut)
+
+## Japan (4 sources)
+- **Tokyo H3 Harrier Central** → HARRIER_CENTRAL → Tokyo H3
+- **KFMH3 Google Calendar** → GOOGLE_CALENDAR → KFMH3 (Osaka, monthly full moon)
+- **Kyoto H3 Google Calendar** → GOOGLE_CALENDAR → Kyoto H3
+- **Osaka H3 Google Calendar** → GOOGLE_CALENDAR → Osaka H3
 
 See `docs/source-onboarding-playbook.md` for how to add new sources.
 See `docs/roadmap.md` for implementation roadmap.

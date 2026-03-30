@@ -1,0 +1,229 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { HarrierCentralAdapter } from "./adapter";
+import type { HCEvent } from "./adapter";
+import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
+import type { Source } from "@/generated/prisma/client";
+
+vi.mock("../safe-fetch", () => ({
+  safeFetch: vi.fn(),
+}));
+
+import { safeFetch } from "../safe-fetch";
+const mockSafeFetch = vi.mocked(safeFetch);
+
+function makeSource(config: unknown): Source {
+  return {
+    id: "src-hc-1",
+    config,
+    url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+    type: "HARRIER_CENTRAL",
+    scrapeDays: 365,
+  } as unknown as Source;
+}
+
+function buildHCEvent(overrides: Partial<HCEvent> = {}): HCEvent {
+  return {
+    publicEventId: "5bc67750-377f-43a5-846a-a4993c6121d1",
+    publicKennelId: "57f5b2c6-8d8f-41e0-8dbf-d03a0a9aa10e",
+    kennelName: "Tokyo Hash House Harriers",
+    kennelShortName: "TH3",
+    kennelUniqueShortName: "TH3",
+    eventName: "Takadanobanba",
+    eventNumber: 2577,
+    eventStartDatetime: "2026-04-27T19:15:00",
+    syncLat: 35.71348246362192,
+    syncLong: 139.70431584647287,
+    locationOneLineDesc: "Yamanote, Tozai lines. Waseda exit",
+    resolvableLocation: "35.713482463621920, 139.704315846472870",
+    hares: "Khuming Rouge",
+    eventCityAndCountry: "Tokyo, Japan",
+    isVisible: 1,
+    isCountedRun: 1,
+    daysUntilEvent: 28,
+    kennelLogo: "https://harriercentral.blob.core.windows.net/harrier/Tokyo%20H3%20Revised.png",
+    ...overrides,
+  };
+}
+
+function mockApiResponse(events: HCEvent[]) {
+  mockSafeFetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    json: async () => [events],
+  } as never);
+}
+
+describe("generateAccessToken", () => {
+  it("produces a 64-char hex string", () => {
+    const token = generateAccessToken("getEvents");
+    expect(token).toMatch(/^[0-9A-F]{64}$/);
+  });
+
+  it("produces different tokens for different query types", () => {
+    const t1 = generateAccessToken("getEvents");
+    const t2 = generateAccessToken("getKennel");
+    expect(t1).not.toBe(t2);
+  });
+
+  it("uses the correct public hasher ID", () => {
+    expect(PUBLIC_HASHER_ID).toBe("11111111-1111-1111-1111-111111111111");
+  });
+});
+
+describe("HarrierCentralAdapter", () => {
+  let adapter: HarrierCentralAdapter;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    adapter = new HarrierCentralAdapter();
+  });
+
+  it("has correct type", () => {
+    expect(adapter.type).toBe("HARRIER_CENTRAL");
+  });
+
+  describe("fetch", () => {
+    it("fetches and converts events from API response", async () => {
+      const hcEvent = buildHCEvent();
+      mockApiResponse([hcEvent]);
+
+      const source = makeSource({ cityNames: "Tokyo", defaultKennelTag: "tokyo-h3" });
+      const result = await adapter.fetch(source);
+
+      expect(result.events).toHaveLength(1);
+      expect(result.errors).toHaveLength(0);
+
+      const evt = result.events[0];
+      expect(evt.date).toBe("2026-04-27");
+      expect(evt.startTime).toBe("19:15");
+      expect(evt.kennelTag).toBe("tokyo-h3");
+      expect(evt.title).toBe("Takadanobanba");
+      expect(evt.runNumber).toBe(2577);
+      expect(evt.hares).toBe("Khuming Rouge");
+      expect(evt.location).toBe("Yamanote, Tozai lines. Waseda exit");
+      expect(evt.latitude).toBeCloseTo(35.713, 2);
+      expect(evt.longitude).toBeCloseTo(139.704, 2);
+      expect(evt.sourceUrl).toContain(hcEvent.publicEventId);
+    });
+
+    it("skips invisible events", async () => {
+      mockApiResponse([buildHCEvent({ isVisible: 0 })]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events).toHaveLength(0);
+    });
+
+    it("skips events with TBA hares and location", async () => {
+      mockApiResponse([buildHCEvent({ hares: "TBA", locationOneLineDesc: "TBA" })]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].hares).toBeUndefined();
+      expect(result.events[0].location).toBeUndefined();
+    });
+
+    it("uses kennelPatterns to resolve kennel tag", async () => {
+      const seattleEvents = [
+        buildHCEvent({ kennelName: "SeaMon H3", kennelShortName: "SeaMon", kennelUniqueShortName: "SeaMon" }),
+        buildHCEvent({ kennelName: "Puget Sound H3", kennelShortName: "PSH3", kennelUniqueShortName: "PSH3" }),
+      ];
+      mockApiResponse(seattleEvents);
+
+      const source = makeSource({
+        cityNames: "Seattle",
+        kennelPatterns: [
+          ["SeaMon", "seamon-h3"],
+          ["Puget Sound|PSH3", "psh3"],
+        ],
+        defaultKennelTag: "seattle-unknown",
+      });
+
+      const result = await adapter.fetch(source);
+      expect(result.events).toHaveLength(2);
+      expect(result.events[0].kennelTag).toBe("seamon-h3");
+      expect(result.events[1].kennelTag).toBe("psh3");
+    });
+
+    it("falls back to kennelUniqueShortName when no config patterns match", async () => {
+      mockApiResponse([buildHCEvent()]);
+      const result = await adapter.fetch(makeSource({}));
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].kennelTag).toBe("TH3");
+    });
+
+    it("handles API errors gracefully", async () => {
+      mockSafeFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => [[{
+          errorType: 3,
+          errorTitle: "Invalid access token",
+          errorUserMessage: "An invalid access token was passed",
+        }]],
+      } as never);
+
+      const result = await adapter.fetch(makeSource({ cityNames: "Tokyo" }));
+      expect(result.events).toHaveLength(0);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain("Invalid access token");
+    });
+
+    it("handles HTTP errors gracefully", async () => {
+      mockSafeFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      } as never);
+
+      const result = await adapter.fetch(makeSource({ cityNames: "Tokyo" }));
+      expect(result.events).toHaveLength(0);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain("HTTP 500");
+    });
+
+    it("handles network errors gracefully", async () => {
+      mockSafeFetch.mockRejectedValueOnce(new Error("Network timeout"));
+
+      const result = await adapter.fetch(makeSource({ cityNames: "Tokyo" }));
+      expect(result.events).toHaveLength(0);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain("Network timeout");
+    });
+
+    it("sends correct API body with cityNames filter", async () => {
+      mockApiResponse([]);
+      await adapter.fetch(makeSource({ cityNames: "Tokyo", defaultKennelTag: "tokyo-h3" }));
+
+      expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+      const callBody = JSON.parse(mockSafeFetch.mock.calls[0][1]!.body as string);
+      expect(callBody.queryType).toBe("getEvents");
+      expect(callBody.cityNames).toBe("Tokyo");
+      expect(callBody.publicHasherId).toBe(PUBLIC_HASHER_ID);
+      expect(callBody.accessToken).toMatch(/^[0-9A-F]{64}$/);
+    });
+
+    it("filters out events beyond the days cutoff", async () => {
+      const farFuture = buildHCEvent({ eventStartDatetime: "2028-06-01T19:15:00" });
+      const nearFuture = buildHCEvent({ eventStartDatetime: "2026-04-15T19:15:00" });
+      mockApiResponse([farFuture, nearFuture]);
+
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }), { days: 30 });
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].date).toBe("2026-04-15");
+    });
+
+    it("preserves zero-value lat/lng and eventNumber", async () => {
+      mockApiResponse([buildHCEvent({ syncLat: 0, syncLong: 0, eventNumber: 0 })]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].latitude).toBe(0);
+      expect(result.events[0].longitude).toBe(0);
+      expect(result.events[0].runNumber).toBe(0);
+    });
+
+    it("includes diagnosticContext in result", async () => {
+      mockApiResponse([buildHCEvent()]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.diagnosticContext).toBeDefined();
+      expect(result.diagnosticContext!.apiEventsReturned).toBe(1);
+      expect(result.diagnosticContext!.eventsEmitted).toBe(1);
+    });
+  });
+});
