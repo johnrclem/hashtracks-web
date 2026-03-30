@@ -254,10 +254,26 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      // Wait for frame content to render, capped to remaining page timeout
+      // Wait for frame content to render, capped to remaining page timeout.
+      // Two-phase wait: first for any table cell, then for a cell with text content.
+      // Phase 2 catches Angular/Table Master widgets that render empty placeholder
+      // rows before populating data (e.g., NTKH4's Table Master).
       const frameTimeout = Math.max(pageTimeout - (Date.now() - renderStart), 5000);
       try {
         await frame.waitForSelector("table tr td, table tbody tr", { timeout: Math.min(frameTimeout, 15000) });
+        // Phase 2: wait for a <td> with non-whitespace text (data row, not empty placeholder)
+        const phase2Timeout = Math.max(frameTimeout - (Date.now() - renderStart), 3000);
+        try {
+          await frame.waitForFunction(
+            () => {
+              const cell = document.querySelector("table tbody td, table tr td");
+              return cell !== null && cell.textContent.trim().length > 0;
+            },
+            { timeout: Math.min(phase2Timeout, 10000) },
+          );
+        } catch {
+          // Data rows may not appear (empty table) — continue with whatever loaded
+        }
       } catch {
         try {
           await frame.waitForLoadState("networkidle", { timeout: Math.min(frameTimeout, 10000) });

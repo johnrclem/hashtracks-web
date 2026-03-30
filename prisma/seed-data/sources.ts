@@ -2466,5 +2466,71 @@ export const SOURCES = [
       },
       kennelCodes: ["osaka-h3"],
     },
+    // F3H3* Website (Tokyo)
+    {
+      name: "F3H3 Website",
+      url: "https://www.f3h3.net/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["f3h3"],
+    },
+    // Sumo H3 Website (Kanagawa)
+    {
+      name: "Sumo H3 Website",
+      url: "https://sumoh3.gotothehash.net/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["sumo-h3"],
+    },
+    // Yoko Yoko H3 Website (Yokohama/Yokosuka)
+    {
+      name: "Yoko Yoko H3 Website",
+      url: "https://y2h3.net/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["yoko-yoko-h3"],
+    },
+    // Hayama 4H Website (Hayama/Zushi)
+    {
+      name: "Hayama 4H Website",
+      url: "https://sites.google.com/site/hayama4h/hashes",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["hayama-4h"],
+    },
+    // Samurai H3 Website (Tokyo — Wix + Table Master)
+    {
+      name: "Samurai H3 Website",
+      url: "https://samuraihash2017.wixsite.com/samurai/hare-line",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        browserRender: true,
+      },
+      kennelCodes: ["samurai-h3"],
+    },
+    // New Tokyo Katch Website (Tokyo — Wix + Table Master)
+    {
+      name: "New Tokyo Katch Website",
+      url: "https://newtokyohash.wixsite.com/newtokyokatchhash/hareline",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        browserRender: true,
+      },
+      kennelCodes: ["new-tokyo-katch"],
+    },
   ];
 
