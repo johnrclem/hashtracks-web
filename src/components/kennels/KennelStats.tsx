@@ -9,6 +9,7 @@ interface KennelStatsProps {
   totalEvents: number;
   oldestEventDate: string | null;
   nextRunDate: string | null;
+  lastEventDate: string | null;
   foundedYear?: number | null;
   region?: string;
 }
@@ -25,6 +26,26 @@ function formatNextRun(nextRunDate: string): string {
   return new Date(nextRunDate).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function formatLastRun(lastEventDate: string): string {
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
+  const eventUtc = new Date(lastEventDate).getTime();
+  const diffDays = Math.round((todayUtc - eventUtc) / 86400000);
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays <= 30) return `${diffDays} days ago`;
+  if (diffDays <= 365) {
+    const months = Math.round(diffDays / 30);
+    return `${months} month${months === 1 ? "" : "s"} ago`;
+  }
+  return new Date(lastEventDate).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
     timeZone: "UTC",
   });
 }
@@ -47,10 +68,11 @@ export function KennelStats({
   totalEvents,
   oldestEventDate,
   nextRunDate,
+  lastEventDate,
   foundedYear,
   region,
 }: KennelStatsProps) {
-  if (totalEvents === 0) return null;
+  if (totalEvents === 0 && !lastEventDate) return null;
 
   const hex = region ? getRegionColor(region) : "#6b7280";
   const [r, g, b] = hexToRgb(hex);
@@ -93,6 +115,12 @@ export function KennelStats({
       icon: <ArrowRight className="h-5 w-5" />,
       value: formatNextRun(nextRunDate),
       label: "Next Run",
+    });
+  } else if (lastEventDate) {
+    stats.push({
+      icon: <Clock className="h-5 w-5" />,
+      value: formatLastRun(lastEventDate),
+      label: "Last Run",
     });
   }
 

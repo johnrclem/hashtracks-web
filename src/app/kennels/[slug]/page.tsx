@@ -250,6 +250,7 @@ export default async function KennelDetailPage({
         totalEvents={totalEvents}
         oldestEventDate={oldestEventDate}
         nextRunDate={nextRunDate}
+        lastEventDate={kennel.lastEventDate ? kennel.lastEventDate.toISOString() : null}
         foundedYear={kennel.foundedYear}
         region={kennel.region ?? undefined}
       />
