@@ -5,7 +5,7 @@ import { fileAuditIssue } from "@/pipeline/audit-issue";
 
 /**
  * Daily data quality audit endpoint.
- * Triggered by QStash (or manually with Bearer CRON_SECRET).
+ * Triggered by Vercel Cron (GET) or QStash (POST) or manually with Bearer CRON_SECRET.
  * Queries upcoming events for known bad patterns and files a GitHub issue if findings exist.
  */
 export async function POST(request: Request) {
@@ -44,4 +44,9 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+/** Vercel Cron triggers GET requests. */
+export async function GET(request: Request) {
+  return POST(request);
 }
