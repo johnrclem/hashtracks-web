@@ -51,6 +51,7 @@ export default async function KennelsPage() {
         scheduleDayOfWeek: true,
         scheduleTime: true,
         scheduleFrequency: true,
+        lastEventDate: true,
       },
     }),
     prisma.event.findMany({
@@ -75,6 +76,7 @@ export default async function KennelsPage() {
       ...k,
       stateGroup: getStateGroup(k.region),
       nextEvent: next ? { date: next.date.toISOString(), title: next.title } : null,
+      lastEventDate: k.lastEventDate ? k.lastEventDate.toISOString() : null,
     };
   });
 

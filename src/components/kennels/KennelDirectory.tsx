@@ -17,6 +17,7 @@ import { LocationPrompt } from "@/components/hareline/LocationPrompt";
 import { RegionQuickChips } from "@/components/hareline/RegionQuickChips";
 import { getLocationPref, resolveLocationDefault, clearLocationPref } from "@/lib/location-pref";
 import { parseList } from "@/lib/format";
+import { getActivityStatus } from "@/lib/activity-status";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ssr: false,
@@ -50,6 +51,9 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   const [showUpcomingOnly, setShowUpcomingOnlyState] = useState(
     searchParams.get("upcoming") === "true",
   );
+  const [showActiveOnly, setShowActiveOnlyState] = useState(
+    searchParams.get("active") !== "false",
+  );
   const [selectedCountry, setSelectedCountryState] = useState(
     searchParams.get("country") ?? "",
   );
@@ -78,6 +82,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         days: selectedDays,
         freq: selectedFrequency,
         upcoming: showUpcomingOnly,
+        active: showActiveOnly,
         country: selectedCountry,
         distance: nearMeDistance,
         sort,
@@ -103,6 +108,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
           (key === "sort" && str === "alpha") ||
           (key === "view" && str === "map") ||
           (key === "upcoming" && str !== "true") ||
+          (key === "active" && str !== "false") ||
           str === "";
         if (!isDefault) {
           params.set(key, str);
@@ -113,7 +119,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
       window.history.replaceState(window.history.state, "", newUrl);
     },
-    [search, selectedRegions, selectedDays, selectedFrequency, showUpcomingOnly, selectedCountry, nearMeDistance, sort, displayView],
+    [search, selectedRegions, selectedDays, selectedFrequency, showUpcomingOnly, showActiveOnly, selectedCountry, nearMeDistance, sort, displayView],
   );
 
   // Wrapper setters that sync URL
@@ -137,6 +143,10 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   function setShowUpcomingOnly(v: boolean) {
     setShowUpcomingOnlyState(v);
     syncUrl({ upcoming: v });
+  }
+  function setShowActiveOnly(v: boolean) {
+    setShowActiveOnlyState(v);
+    syncUrl({ active: v });
   }
   function setSelectedCountry(v: string) {
     setSelectedCountryState(v);
@@ -176,10 +186,11 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     setSelectedDaysState([]);
     setSelectedFrequencyState("");
     setShowUpcomingOnlyState(false);
+    setShowActiveOnlyState(true);
     setSelectedCountryState("");
     setNearMeDistanceState(null);
     setMapBounds(null);
-    syncUrl({ q: "", regions: [], days: [], freq: "", upcoming: false, country: "", distance: null });
+    syncUrl({ q: "", regions: [], days: [], freq: "", upcoming: false, active: null, country: "", distance: null });
   }
 
   // Compute distances for each kennel (when geolocation is available)
@@ -240,6 +251,11 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       if (showUpcomingOnly && !k.nextEvent) {
         return false;
       }
+      // Active only
+      if (showActiveOnly) {
+        const status = getActivityStatus(k.lastEventDate ? new Date(k.lastEventDate) : null);
+        if (status !== "active") return false;
+      }
       // Country
       if (selectedCountry && k.country !== selectedCountry) {
         return false;
@@ -258,7 +274,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       }
       return true;
     });
-  }, [kennels, search, selectedRegions, expandedRegions, selectedDays, selectedFrequency, showUpcomingOnly, selectedCountry, nearMeDistance, geoState, kennelDistances, mapBounds]);
+  }, [kennels, search, selectedRegions, expandedRegions, selectedDays, selectedFrequency, showUpcomingOnly, showActiveOnly, selectedCountry, nearMeDistance, geoState, kennelDistances, mapBounds]);
 
   // Sort
   const sorted = useMemo(() => {
@@ -454,6 +470,8 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         onFrequencyChange={setSelectedFrequency}
         showUpcomingOnly={showUpcomingOnly}
         onUpcomingOnlyChange={setShowUpcomingOnly}
+        showActiveOnly={showActiveOnly}
+        onActiveOnlyChange={setShowActiveOnly}
         selectedCountry={selectedCountry}
         onCountryChange={setSelectedCountry}
         nearMeDistance={nearMeDistance}

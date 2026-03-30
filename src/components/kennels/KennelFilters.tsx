@@ -43,6 +43,8 @@ interface KennelFiltersProps {
   onFrequencyChange: (freq: string) => void;
   showUpcomingOnly: boolean;
   onUpcomingOnlyChange: (v: boolean) => void;
+  showActiveOnly: boolean;
+  onActiveOnlyChange: (v: boolean) => void;
   selectedCountry: string;
   onCountryChange: (country: string) => void;
   nearMeDistance: number | null;
@@ -61,6 +63,8 @@ export function KennelFilters({
   onFrequencyChange,
   showUpcomingOnly,
   onUpcomingOnlyChange,
+  showActiveOnly,
+  onActiveOnlyChange,
   selectedCountry,
   onCountryChange,
   nearMeDistance,
@@ -105,6 +109,7 @@ export function KennelFilters({
     selectedDays.length +
     (selectedFrequency ? 1 : 0) +
     (showUpcomingOnly ? 1 : 0) +
+    (!showActiveOnly ? 1 : 0) +
     (selectedCountry ? 1 : 0) +
     (nearMeDistance != null ? 1 : 0);
 
@@ -223,6 +228,19 @@ export function KennelFilters({
         Has upcoming
       </button>
 
+      {/* Active only toggle */}
+      <button
+        onClick={() => onActiveOnlyChange(!showActiveOnly)}
+        aria-pressed={showActiveOnly}
+        className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+          showActiveOnly
+            ? "bg-primary text-primary-foreground"
+            : "border text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Active only
+      </button>
+
       {/* Near me filter */}
       <NearMeFilter
         nearMeDistance={nearMeDistance}
@@ -264,6 +282,7 @@ export function KennelFilters({
             onDaysChange([]);
             onFrequencyChange("");
             onUpcomingOnlyChange(false);
+            onActiveOnlyChange(true);
             onCountryChange("");
             onNearMeDistanceChange(null);
           }}
