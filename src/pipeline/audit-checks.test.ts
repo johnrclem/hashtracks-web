@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   checkHareQuality,
   checkTitleQuality,
+  checkLocationQuality,
+  checkEventQuality,
+  checkDescriptionQuality,
   type AuditEventRow,
   type AuditFinding,
 } from "./audit-checks";
@@ -277,5 +280,152 @@ describe("checkTitleQuality", () => {
     const findings = checkTitleQuality(event);
     expect(findings).toHaveLength(1);
     expect(findings[0].rule).toBe("title-raw-kennel-code");
+  });
+});
+
+describe("checkLocationQuality", () => {
+  it("flags location-url when locationName starts with https://", () => {
+    const event = makeEvent({
+      locationName: "https://maps.google.com/?q=Central+Park",
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("location-url");
+    expect(findings[0].severity).toBe("warning");
+    expect(findings[0].category).toBe("location");
+  });
+
+  it("flags location-url when locationName starts with http://", () => {
+    const event = makeEvent({
+      locationName: "http://maps.example.com/location",
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("location-url");
+  });
+
+  it("flags location-duplicate-segments when first two parts overlap", () => {
+    const event = makeEvent({
+      locationName: "Central Park, Central Park North, New York, NY",
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("location-duplicate-segments");
+    expect(findings[0].severity).toBe("warning");
+  });
+
+  it("flags location-region-appended when state code is appended but locationCity city name is not in locationName", () => {
+    const event = makeEvent({
+      locationName: "Central Park, Manhattan, NY",
+      locationCity: "New York, NY",
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("location-region-appended");
+    expect(findings[0].severity).toBe("warning");
+    expect(findings[0].expectedValue).toBe("Central Park, Manhattan, NY");
+  });
+
+  it("passes clean location with no issues", () => {
+    const event = makeEvent({
+      locationName: "Central Park, New York, NY",
+      locationCity: "New York, NY",
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("skips events with null locationName", () => {
+    const event = makeEvent({ locationName: null });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("does not flag location-region-appended when locationCity city name appears in locationName", () => {
+    const event = makeEvent({
+      locationName: "Some Bar, Brooklyn, NY",
+      locationCity: "Brooklyn, NY",
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("does not flag location-region-appended when locationCity is null", () => {
+    const event = makeEvent({
+      locationName: "Some Bar, Queens, NY",
+      locationCity: null,
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(0);
+  });
+});
+
+describe("checkEventQuality", () => {
+  it("flags event-improbable-time when startTime hour is 23", () => {
+    const event = makeEvent({ startTime: "23:45" });
+    const findings = checkEventQuality([event]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("event-improbable-time");
+    expect(findings[0].severity).toBe("warning");
+    expect(findings[0].category).toBe("event");
+  });
+
+  it("flags event-improbable-time when startTime hour is in early morning (2:00)", () => {
+    const event = makeEvent({ startTime: "02:00" });
+    const findings = checkEventQuality([event]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("event-improbable-time");
+  });
+
+  it("passes normal startTime of 18:30", () => {
+    const event = makeEvent({ startTime: "18:30" });
+    const findings = checkEventQuality([event]);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("skips events with null startTime", () => {
+    const event = makeEvent({ startTime: null });
+    const findings = checkEventQuality([event]);
+    expect(findings).toHaveLength(0);
+  });
+});
+
+describe("checkDescriptionQuality", () => {
+  it("flags description-dropped when description is null but rawDescription has content", () => {
+    const event = makeEvent({
+      description: null,
+    });
+    const rawDescription = "A".repeat(21);
+    const findings = checkDescriptionQuality([{ ...event, rawDescription }]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("description-dropped");
+    expect(findings[0].severity).toBe("warning");
+    expect(findings[0].category).toBe("description");
+    expect(findings[0].currentValue).toBe("(empty)");
+    expect(findings[0].expectedValue).toBe(`Raw data has 21 chars`);
+  });
+
+  it("passes events that have a description", () => {
+    const event = makeEvent({ description: "Meet at the park entrance" });
+    const findings = checkDescriptionQuality([
+      { ...event, rawDescription: "Meet at the park entrance" },
+    ]);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("skips events with no rawDescription", () => {
+    const event = makeEvent({ description: null });
+    const findings = checkDescriptionQuality([
+      { ...event, rawDescription: null },
+    ]);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("skips events with short rawDescription (<=20 chars)", () => {
+    const event = makeEvent({ description: null });
+    const findings = checkDescriptionQuality([
+      { ...event, rawDescription: "Short" },
+    ]);
+    expect(findings).toHaveLength(0);
   });
 });

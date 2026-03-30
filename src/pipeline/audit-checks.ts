@@ -161,6 +161,157 @@ export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
   return [];
 }
 
+type LocationEventRow = Pick<
+  AuditEventRow,
+  "id" | "kennelShortName" | "locationName" | "locationCity" | "sourceUrl" | "sourceType"
+>;
+
+type EventQualityRow = Pick<
+  AuditEventRow,
+  "id" | "kennelShortName" | "startTime" | "date" | "sourceUrl" | "sourceType" | "scrapeDays"
+>;
+
+type DescriptionEventRow = Pick<
+  AuditEventRow,
+  "id" | "kennelShortName" | "description" | "sourceUrl" | "sourceType"
+> & { rawDescription: string | null };
+
+function normalizeSegment(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\bnorth\b/g, "n")
+    .replace(/\bsouth\b/g, "s")
+    .replace(/\beast\b/g, "e")
+    .replace(/\bwest\b/g, "w")
+    .replace(/\broad\b/g, "rd")
+    .replace(/\bstreet\b/g, "st")
+    .replace(/\bavenue\b/g, "ave")
+    .replace(/\bboulevard\b/g, "blvd")
+    .replace(/\bplace\b/g, "pl")
+    .replace(/\bdrive\b/g, "dr")
+    .replace(/[.\s]+/g, " ")
+    .trim();
+}
+
+export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+
+  for (const event of events) {
+    const { locationName, locationCity } = event;
+
+    if (locationName === null) continue;
+
+    // 1. location-url: locationName starts with URL scheme
+    if (locationName.startsWith("https://") || locationName.startsWith("http://")) {
+      findings.push(
+        finding(event as AuditEventRow, {
+          category: "location",
+          field: "locationName",
+          currentValue: locationName,
+          rule: "location-url",
+          severity: "warning",
+        })
+      );
+      continue;
+    }
+
+    // 2. location-duplicate-segments: >=3 parts, check if first two overlap
+    const parts = locationName.split(", ");
+    if (parts.length >= 3) {
+      const a = normalizeSegment(parts[0]);
+      const b = normalizeSegment(parts[1]);
+      if (a.includes(b) || b.includes(a)) {
+        findings.push(
+          finding(event as AuditEventRow, {
+            category: "location",
+            field: "locationName",
+            currentValue: locationName,
+            rule: "location-duplicate-segments",
+            severity: "warning",
+          })
+        );
+        continue;
+      }
+    }
+
+    // 3. location-region-appended: ends with `, XX` or `, XX NNNNN`, locationCity exists,
+    //    and locationCity's city name is NOT found in locationName
+    const regionAppendedPattern = /,\s*[A-Z]{2}(?:\s+\d{5})?$/;
+    if (regionAppendedPattern.test(locationName) && locationCity) {
+      const cityName = locationCity.split(",")[0].trim();
+      if (!locationName.includes(cityName)) {
+        findings.push(
+          finding(event as AuditEventRow, {
+            category: "location",
+            field: "locationName",
+            currentValue: locationName,
+            rule: "location-region-appended",
+            severity: "warning",
+            expectedValue: locationName,
+          })
+        );
+        continue;
+      }
+    }
+  }
+
+  return findings;
+}
+
+export function checkEventQuality(events: EventQualityRow[]): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+
+  for (const event of events) {
+    const { startTime } = event;
+
+    if (startTime === null) continue;
+
+    // 1. event-improbable-time: hour >= 23 or 0-3
+    const hourStr = startTime.split(":")[0];
+    const hour = parseInt(hourStr, 10);
+    if (!isNaN(hour) && (hour >= 23 || hour <= 3)) {
+      findings.push(
+        finding(event as AuditEventRow, {
+          category: "event",
+          field: "startTime",
+          currentValue: startTime,
+          rule: "event-improbable-time",
+          severity: "warning",
+        })
+      );
+    }
+  }
+
+  return findings;
+}
+
+export function checkDescriptionQuality(events: DescriptionEventRow[]): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+
+  for (const event of events) {
+    const { description, rawDescription } = event;
+
+    // Skip events with no raw description or short raw description
+    if (!rawDescription || rawDescription.length <= 20) continue;
+
+    // 1. description-dropped: description is null but rawDescription is non-null and >20 chars
+    if (description === null) {
+      findings.push(
+        finding(event as AuditEventRow, {
+          category: "description",
+          field: "description",
+          currentValue: "(empty)",
+          rule: "description-dropped",
+          severity: "warning",
+          expectedValue: `Raw data has ${rawDescription.length} chars`,
+        })
+      );
+    }
+  }
+
+  return findings;
+}
+
 export function checkHareQuality(event: AuditEventRow): AuditFinding[] {
   const { haresText } = event;
 
