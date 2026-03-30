@@ -2,9 +2,23 @@ import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { Prisma, type User } from "@/generated/prisma/client";
 
+/**
+ * Safe wrapper around Clerk's currentUser(). Returns null instead of throwing
+ * when middleware didn't run (e.g., bot hitting a non-existent .js path that
+ * 404s — the matcher skips static extensions, but the not-found page still
+ * renders through RootLayout).
+ */
+async function safeCurrentUser() {
+  try {
+    return await currentUser();
+  } catch {
+    return null;
+  }
+}
+
 /** Get the current user from DB, creating a record on first sign-in (Clerk → DB sync). */
 export async function getOrCreateUser(): Promise<User | null> {
-  const clerkUser = await currentUser();
+  const clerkUser = await safeCurrentUser();
   if (!clerkUser) return null;
 
   // Step 1: look up by clerkId (fast path)
@@ -67,7 +81,7 @@ export async function getOrCreateUser(): Promise<User | null> {
 
 /** Get the current user if they have the "admin" role in Clerk metadata. Returns null otherwise. */
 export async function getAdminUser(): Promise<User | null> {
-  const clerkUser = await currentUser();
+  const clerkUser = await safeCurrentUser();
   if (!clerkUser) return null;
 
   const metadata = clerkUser.publicMetadata as { role?: string } | null;
@@ -82,7 +96,7 @@ export async function getAdminUser(): Promise<User | null> {
  * or if they are a site admin.
  */
 export async function getMismanUser(kennelId: string): Promise<User | null> {
-  const clerkUser = await currentUser();
+  const clerkUser = await safeCurrentUser();
   if (!clerkUser) return null;
 
   // Site admins always have misman access

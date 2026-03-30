@@ -5,6 +5,8 @@ import { AdminNavTabs } from "@/components/admin/AdminNavTabs";
 import { Shield } from "lucide-react";
 import { FadeInSection } from "@/components/home/HeroAnimations";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({
   children,
 }: {
