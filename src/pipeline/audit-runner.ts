@@ -9,6 +9,7 @@ import {
   checkLocationQuality,
   checkEventQuality,
   checkDescriptionQuality,
+  type AuditEventRow,
   type AuditFinding,
 } from "./audit-checks";
 
@@ -19,7 +20,7 @@ export interface AuditResult {
 }
 
 /** Run all audit checks on pre-queried rows. Usable by both API route and standalone script. */
-export function runChecks(rows: Parameters<typeof checkHareQuality>[0][]): { findings: AuditFinding[]; summary: Record<string, number> } {
+export function runChecks(rows: AuditEventRow[]): { findings: AuditFinding[]; summary: Record<string, number> } {
   const findings: AuditFinding[] = [];
   for (const row of rows) {
     findings.push(...checkHareQuality(row), ...checkTitleQuality(row));

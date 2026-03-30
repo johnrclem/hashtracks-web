@@ -73,8 +73,8 @@ export async function fileAuditIssue(findings: AuditFinding[]): Promise<string |
           signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         },
       );
-    } catch {
-      console.error(`[audit-issue] Failed to add claude-fix label to #${issue.number}`);
+    } catch (err) {
+      console.error(`[audit-issue] Failed to add claude-fix label to #${issue.number}:`, err);
     }
 
     console.log(`[audit-issue] Created issue #${issue.number}: ${issue.html_url}`);
@@ -89,7 +89,7 @@ export async function fileAuditIssue(findings: AuditFinding[]): Promise<string |
 async function checkExistingAuditIssue(token: string, date: string): Promise<string | null> {
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${getRepo()}/issues?state=open&labels=audit&per_page=10`,
+      `https://api.github.com/repos/${getRepo()}/issues?state=open&labels=audit&per_page=100`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -102,7 +102,8 @@ async function checkExistingAuditIssue(token: string, date: string): Promise<str
     const issues = (await res.json()) as { title: string; html_url: string }[];
     const todaysIssue = issues.find(i => i.title.includes(date));
     return todaysIssue?.html_url ?? null;
-  } catch {
+  } catch (err) {
+    console.error("[audit-issue] Failed to check for existing audit issues:", err);
     return null;
   }
 }

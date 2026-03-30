@@ -13,6 +13,7 @@ export interface AuditEventRow {
   sourceType: string;
   kennelCode: string;
   scrapeDays: number;
+  rawDescription: string | null;
 }
 
 export interface AuditFinding {

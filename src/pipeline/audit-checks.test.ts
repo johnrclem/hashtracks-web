@@ -24,6 +24,7 @@ function makeEvent(overrides: Partial<AuditEventRow> = {}): AuditEventRow {
     sourceType: "HTML_SCRAPER",
     kennelCode: "NYCH3",
     scrapeDays: 7,
+    rawDescription: null,
     ...overrides,
   };
 }
