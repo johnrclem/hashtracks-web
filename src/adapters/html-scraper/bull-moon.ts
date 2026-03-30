@@ -212,7 +212,14 @@ function extractTableRows(
   const tables = $("table").toArray();
   if (tables.length === 0) return { headers: [], rows: [] };
 
-  const table = $(tables[0]);
+  // Find the first table with actual header cells (skip empty/decoration tables)
+  let table = $(tables[0]);
+  for (const t of tables) {
+    if ($(t).find("th").length >= 2) {
+      table = $(t);
+      break;
+    }
+  }
 
   const headers: string[] = [];
   table.find("thead th, tr:first-child th").each((_, el) => {

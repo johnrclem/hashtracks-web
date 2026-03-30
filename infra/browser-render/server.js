@@ -213,8 +213,11 @@ const server = http.createServer(async (req, res) => {
     const b = await getBrowser();
     page = await b.newPage();
 
+    // Use domcontentloaded instead of networkidle — Wix/SPA sites have
+    // continuous background requests that prevent networkidle from firing.
+    // The waitForSelector call below handles waiting for actual content.
     await page.goto(url, {
-      waitUntil: "networkidle",
+      waitUntil: "domcontentloaded",
       timeout: pageTimeout,
     });
 
@@ -228,20 +231,38 @@ const server = http.createServer(async (req, res) => {
       // Extract content from a child iframe matching the URL pattern.
       // Used for cross-origin iframes (e.g., Wix Table Master widgets)
       // that return "unauthorized" when rendered standalone.
-      const frame = page.frames().find((f) => f.url().includes(frameUrl));
+      const allFrames = page.frames();
+      console.log(
+        `[${new Date().toISOString()}] Looking for frame matching "${frameUrl}" among ${allFrames.length} frames:`,
+      );
+      for (const f of allFrames) {
+        const fUrl = f.url();
+        const matches = fUrl.includes(frameUrl);
+        console.log(`  ${matches ? "✓" : " "} ${fUrl.slice(0, 150)}`);
+      }
+
+      // Skip the main frame (index 0) — only search child frames
+      const frame = allFrames.slice(1).find((f) => f.url().includes(frameUrl));
       if (!frame) {
+        const frameCount = allFrames.length;
         await page.close();
         page = null;
         busy = false;
         return jsonResponse(res, 422, {
-          error: `No frame matching "${frameUrl}" found (${page.frames().length} frames total)`,
+          error: `No child frame matching "${frameUrl}" found (${frameCount} frames total)`,
         });
       }
-      // Wait for frame content to render (table data may load async)
+
+      // Wait for frame content to render — try multiple strategies
       try {
-        await frame.waitForLoadState("networkidle", { timeout: 10000 });
+        await frame.waitForSelector("table tr td, table tbody tr", { timeout: 15000 });
       } catch {
-        // Frame may not reach networkidle — continue with whatever loaded
+        // Table rows may not appear — try waiting for any content
+        try {
+          await frame.waitForLoadState("networkidle", { timeout: 10000 });
+        } catch {
+          // Frame may not reach networkidle — continue with whatever loaded
+        }
       }
       html = await frame.content();
     } else if (typeof selector === "string") {

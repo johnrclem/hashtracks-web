@@ -48,6 +48,7 @@ export async function browserRender(options: RenderOptions): Promise<string> {
         url: options.url,
         waitFor: options.waitFor,
         selector: options.selector,
+        frameUrl: options.frameUrl,
         timeout: options.timeout,
       }),
       signal: AbortSignal.timeout(45_000), // 30s render timeout + 15s tunnel buffer
