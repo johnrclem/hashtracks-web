@@ -387,6 +387,7 @@ export const HARE_BOILERPLATE_RE = /\s*\b(?:WHAT TIME|WHAT TO WEAR|WHERE|Locatio
  * Trailing non-English country name patterns. Strips ", États-Unis" and similar
  * suffixes that leak in when a GCal calendar owner's locale is non-English, or
  * when the geocoder returns localized country names despite `language=en`.
+ * Currently only covers US country names (French, German, Spanish variants).
  */
 const NON_ENGLISH_COUNTRY_SUFFIX_RE = /,\s*(?:États[ -]Unis|Vereinigte Staaten|Estados Unidos|Etats[ -]Unis)\s*$/i;
 

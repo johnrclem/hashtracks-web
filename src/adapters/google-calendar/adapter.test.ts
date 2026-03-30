@@ -944,6 +944,34 @@ describe("buildRawEventFromGCalItem — parenthetical hare extraction", () => {
     const event = buildRawEventFromGCalItem(item, config);
     expect(event).not.toBeNull();
     expect(event!.hares).toBe("Speedy");
+    // Parenthetical stays in title when hares already set from description
+    expect(event!.title).toBe("Hash #100 (Trail Name Here)");
+  });
+
+  it("rejects descriptive parentheticals as hares", () => {
+    const item = {
+      summary: "Summer Trail (A to B)",
+      start: { dateTime: "2026-04-01T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Summer Trail (A to B)");
+    expect(event!.hares).toBeUndefined();
+  });
+
+  it("rejects directive parentheticals as hares", () => {
+    const item = {
+      summary: "Hash #200 (No Dogs)",
+      start: { dateTime: "2026-04-01T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Hash #200 (No Dogs)");
+    expect(event!.hares).toBeUndefined();
   });
 });
 
@@ -962,18 +990,17 @@ describe("buildRawEventFromGCalItem — w/ hare-location extraction", () => {
     expect(event!.location).toBe("Dupont Circle");
   });
 
-  it("extracts hares and location from 'with' pattern", () => {
+  it("does not match 'with' (only matches 'w/' abbreviation)", () => {
     const item = {
-      summary: "Spring Fling with HashSlinger - Capitol Hill",
+      summary: "Running with Bears - Riverside Park",
       start: { dateTime: "2026-04-01T18:30:00-04:00" },
       status: "confirmed",
     };
     const config = { defaultKennelTag: "EWH3" };
     const event = buildRawEventFromGCalItem(item, config);
     expect(event).not.toBeNull();
-    expect(event!.title).toBe("Spring Fling");
-    expect(event!.hares).toBe("HashSlinger");
-    expect(event!.location).toBe("Capitol Hill");
+    expect(event!.title).toBe("Running with Bears - Riverside Park");
+    expect(event!.hares).toBeUndefined();
   });
 
   it("does not override location from item.location", () => {
@@ -986,8 +1013,23 @@ describe("buildRawEventFromGCalItem — w/ hare-location extraction", () => {
     const config = { defaultKennelTag: "EWH3" };
     const event = buildRawEventFromGCalItem(item, config);
     expect(event).not.toBeNull();
-    // item.location takes precedence, so w/ pattern should not extract location
+    expect(event!.title).toBe("Trail");
     expect(event!.hares).toBe("SomeHare");
+    expect(event!.location).toBe("123 Main St, Washington, DC");
+  });
+
+  it("rejects placeholder values in w/ captures", () => {
+    const item = {
+      summary: "Hash Run w/ TBD - TBA",
+      start: { dateTime: "2026-04-01T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Hash Run");
+    expect(event!.hares).toBeUndefined();
+    expect(event!.location).toBeUndefined();
   });
 });
 

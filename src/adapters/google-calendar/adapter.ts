@@ -135,9 +135,13 @@ const MAPS_URL_RE = /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|google\.\w+
 const TIME_LABEL_RE = /(?:^|\n)\s*(?:Pack\s*Meet|Circle|Time|Start|When|Chalk\s*Talk)\s*:?\s*.*?(\d{1,2}:\d{2}\s*[ap]m)/im;
 
 // Pre-compiled regexes for title-embedded field extraction
-const TITLE_W_HARE_LOCATION_RE = / w(?:ith|\/) (.+?) - (.+)$/i;
+// Only matches "w/" abbreviation (not "with") to avoid false positives on natural language titles
+const TITLE_W_HARE_LOCATION_RE = / w\/ (.+?) - (.+)$/i;
 const TITLE_TRAILING_PAREN_RE = /\s*\(([^)]+)\)$/;
 const INSTRUCTIONAL_PAREN_RE = /\b(?:posted|website|email|check|details|usually|info)\b/i;
+/** Reject parentheticals that look descriptive rather than name-like (e.g., "(A to B)", "(No Dogs)") */
+const NON_NAME_PAREN_RE = /\b(?:to|from|no|not|only|all|free|via|and back)\b/i;
+const MAX_HARE_PAREN_LENGTH = 40;
 
 /**
  * Extract a meaningful event title from the description when the calendar event
@@ -435,27 +439,32 @@ export function buildRawEventFromGCalItem(
 
   // --- Title-embedded field extraction (hares, location) ---
 
-  // Pattern 1: "Title w/ Hare1 & Hare2 - Location" (common in DC/EWH3 events)
+  // Pattern: "Title w/ Hare1 & Hare2 - Location" (common in DC/EWH3 events).
+  // The entire w/ suffix is always stripped from the title when matched, even if
+  // only one of hares/location is missing — the suffix is not a meaningful title part.
   if (!hares || !location) {
     const wMatch = TITLE_W_HARE_LOCATION_RE.exec(title);
     if (wMatch) {
-      if (!hares) hares = wMatch[1].trim();
-      if (!location) location = wMatch[2].trim();
+      const wHares = wMatch[1].trim();
+      const wLocation = wMatch[2].trim();
+      if (!hares && !isPlaceholder(wHares)) hares = wHares;
+      if (!location && !isPlaceholder(wLocation)) location = wLocation;
       title = title.slice(0, wMatch.index).trim();
     }
   }
 
-  // Pattern 2: Trailing "(Hare Name)" parenthetical (common in Boston/many kennels)
+  // Trailing "(Hare Name)" parenthetical (common in Boston/many kennels).
+  // When hares are already set from description, the parenthetical is left in the title
+  // since it may be a subtitle rather than a hare name.
   const parenMatch = TITLE_TRAILING_PAREN_RE.exec(title);
   if (parenMatch) {
     const inner = parenMatch[1].trim();
-    const isInstructional = inner.length > 40 || INSTRUCTIONAL_PAREN_RE.test(inner);
-    if (!isInstructional && !hares) {
-      // Short parenthetical that looks like a name → extract as hares
+    const isInstructional = inner.length > MAX_HARE_PAREN_LENGTH || INSTRUCTIONAL_PAREN_RE.test(inner);
+    const isNameLike = !NON_NAME_PAREN_RE.test(inner);
+    if (!isInstructional && isNameLike && !hares) {
       hares = inner;
       title = title.slice(0, parenMatch.index).trim();
     } else if (isInstructional) {
-      // Long instructional parenthetical → strip from title
       title = title.slice(0, parenMatch.index).trim();
     }
   }
