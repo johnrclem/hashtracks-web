@@ -1,0 +1,192 @@
+import { describe, it, expect } from "vitest";
+import {
+  checkHareQuality,
+  type AuditEventRow,
+  type AuditFinding,
+} from "./audit-checks";
+
+function makeEvent(overrides: Partial<AuditEventRow> = {}): AuditEventRow {
+  return {
+    id: "evt-1",
+    kennelShortName: "NYCH3",
+    haresText: "On-Sec Hare",
+    title: "Weekly Run #42",
+    description: null,
+    locationName: null,
+    locationCity: null,
+    startTime: "18:30",
+    runNumber: 42,
+    date: "2026-04-01",
+    sourceUrl: "https://hashnyc.com/run/42",
+    sourceType: "HTML_SCRAPER",
+    kennelCode: "NYCH3",
+    scrapeDays: 7,
+    ...overrides,
+  };
+}
+
+describe("checkHareQuality", () => {
+  it("returns no findings for a clean hare value", () => {
+    const event = makeEvent({ haresText: "John Doe / Jane Doe" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("skips events with null haresText", () => {
+    const event = makeEvent({ haresText: null });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("flags hare-single-char as error when haresText is exactly 1 character", () => {
+    const event = makeEvent({ haresText: "X" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-single-char");
+    expect(findings[0].severity).toBe("error");
+    expect(findings[0].category).toBe("hares");
+    expect(findings[0].field).toBe("haresText");
+  });
+
+  it("flags hare-cta-text as warning for 'TBD'", () => {
+    const event = makeEvent({ haresText: "TBD" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-cta-text");
+    expect(findings[0].severity).toBe("warning");
+  });
+
+  it("flags hare-cta-text as warning for 'tba' (case-insensitive)", () => {
+    const event = makeEvent({ haresText: "tba" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-cta-text");
+  });
+
+  it("flags hare-cta-text for 'sign up!' variant", () => {
+    const event = makeEvent({ haresText: "sign up!" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-cta-text");
+  });
+
+  it("flags hare-cta-text for 'volunteer'", () => {
+    const event = makeEvent({ haresText: "volunteer" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-cta-text");
+  });
+
+  it("flags hare-cta-text for 'needed'", () => {
+    const event = makeEvent({ haresText: "needed" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-cta-text");
+  });
+
+  it("flags hare-url as warning when haresText starts with https://", () => {
+    const event = makeEvent({ haresText: "https://example.com/signup" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-url");
+    expect(findings[0].severity).toBe("warning");
+  });
+
+  it("flags hare-url as warning when haresText starts with http://", () => {
+    const event = makeEvent({ haresText: "http://example.com/signup" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-url");
+  });
+
+  it("flags hare-description-leak as warning when haresText length > 200", () => {
+    const longText = "A".repeat(201);
+    const event = makeEvent({ haresText: longText });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-description-leak");
+    expect(findings[0].severity).toBe("warning");
+  });
+
+  it("does not flag hare-description-leak for exactly 200 characters", () => {
+    const text = "A".repeat(200);
+    const event = makeEvent({ haresText: text });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("flags hare-phone-number as warning when haresText contains a phone number", () => {
+    const event = makeEvent({ haresText: "Call (555) 867-5309 to hare" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-phone-number");
+    expect(findings[0].severity).toBe("warning");
+  });
+
+  it("flags hare-phone-number for dotted format 555.867.5309", () => {
+    const event = makeEvent({ haresText: "555.867.5309" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-phone-number");
+  });
+
+  it("flags hare-boilerplate-leak when haresText contains 'WHAT TIME'", () => {
+    const event = makeEvent({
+      haresText: "WHAT TIME: 6:30 PM WHERE: Central Park",
+    });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-boilerplate-leak");
+    expect(findings[0].severity).toBe("warning");
+  });
+
+  it("flags hare-boilerplate-leak when haresText contains 'HASH CASH'", () => {
+    const event = makeEvent({ haresText: "HASH CASH: $5" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-boilerplate-leak");
+  });
+
+  it("flags hare-boilerplate-leak when haresText contains 'WHERE'", () => {
+    const event = makeEvent({ haresText: "WHERE: the park" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-boilerplate-leak");
+  });
+
+  it("flags hare-boilerplate-leak when haresText contains 'Location'", () => {
+    const event = makeEvent({ haresText: "Location: TBD" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-boilerplate-leak");
+  });
+
+  it("flags hare-boilerplate-leak when haresText contains 'Directions'", () => {
+    const event = makeEvent({ haresText: "Directions: go north" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-boilerplate-leak");
+  });
+
+  it("populates finding fields correctly", () => {
+    const event = makeEvent({ haresText: "TBD" });
+    const findings = checkHareQuality(event);
+    const f = findings[0];
+    expect(f.kennelShortName).toBe("NYCH3");
+    expect(f.eventId).toBe("evt-1");
+    expect(f.eventUrl).toBe("https://www.hashtracks.xyz/hareline");
+    expect(f.sourceUrl).toBe("https://hashnyc.com/run/42");
+    expect(f.adapterType).toBe("HTML_SCRAPER");
+    expect(f.category).toBe("hares");
+    expect(f.field).toBe("haresText");
+    expect(f.currentValue).toBe("TBD");
+  });
+
+  it("prioritizes hare-single-char over other rules for a single-char value", () => {
+    // A single char that also matches phone-like patterns shouldn't apply
+    const event = makeEvent({ haresText: "1" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-single-char");
+  });
+});
