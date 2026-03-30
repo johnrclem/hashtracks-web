@@ -55,7 +55,7 @@ async function main() {
       kennel: { select: { shortName: true, kennelCode: true } },
       rawEvents: {
         take: 1,
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ scrapedAt: "desc" }],
         select: {
           rawData: true,
           source: { select: { type: true, scrapeDays: true } },
@@ -85,21 +85,15 @@ async function main() {
     rawDescription: (e.rawEvents[0]?.rawData as Record<string, unknown>)?.description as string | null ?? null,
   }));
 
-  // Run all checks
-  const findings: AuditFinding[] = [
-    ...checkHareQuality(rows),
-    ...checkTitleQuality(rows),
-    ...checkLocationQuality(rows),
-    ...checkEventQuality(rows),
-    ...checkDescriptionQuality(rows.map(r => ({
-      id: r.id,
-      kennelShortName: r.kennelShortName,
-      description: r.description,
-      rawDescription: r.rawDescription,
-      sourceUrl: r.sourceUrl,
-      sourceType: r.sourceType,
-    }))),
-  ];
+  // Run all checks — hare/title take single events, location/event/description take arrays
+  const findings: AuditFinding[] = [];
+  for (const row of rows) {
+    findings.push(...checkHareQuality(row));
+    findings.push(...checkTitleQuality(row));
+  }
+  findings.push(...checkLocationQuality(rows));
+  findings.push(...checkEventQuality(rows));
+  findings.push(...checkDescriptionQuality(rows));
 
   // Print summary
   const byCategory = new Map<string, number>();
