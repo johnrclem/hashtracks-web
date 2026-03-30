@@ -220,21 +220,28 @@ describe("parseHarelineRow", () => {
   });
 
   it("handles event without Google Maps link", () => {
-    const cells = ["Mon March 30", "6:30 PM", "2092"];
-    const result = parseHarelineRow(
-      cells,
-      HARE_SINGLE,
-      DIRECTION_NO_MAPS,
-      SOURCE_URL,
-    );
+    // Pin date so forwardDate doesn't push "March 30" to next year
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2026, 2, 25, 12)));
+    try {
+      const cells = ["Mon March 30", "6:30 PM", "2092"];
+      const result = parseHarelineRow(
+        cells,
+        HARE_SINGLE,
+        DIRECTION_NO_MAPS,
+        SOURCE_URL,
+      );
 
-    expect(result).toMatchObject({
-      date: "2026-03-30",
-      runNumber: 2092,
-      title: "This Hash will bring tears to your eyes",
-    });
-    expect(result?.locationUrl).toBeUndefined();
-    expect(result?.location).toBeUndefined();
+      expect(result).toMatchObject({
+        date: "2026-03-30",
+        runNumber: 2092,
+        title: "This Hash will bring tears to your eyes",
+      });
+      expect(result?.locationUrl).toBeUndefined();
+      expect(result?.location).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("falls back to run number title when no H2", () => {
