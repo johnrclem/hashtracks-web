@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as cheerio from "cheerio";
-import { parseEventRow, GenericHtmlAdapter, isGenericHtmlConfig } from "./generic";
+import { parseEventRow, GenericHtmlAdapter, isGenericHtmlConfig, fixYearMonotonicity } from "./generic";
 import type { GenericHtmlConfig } from "./generic";
 import type { Source } from "@/generated/prisma/client";
 
@@ -481,46 +481,57 @@ describe("GenericHtmlAdapter", () => {
     expect(result.events.map(e => e.runNumber)).toEqual([514, 515, 516]);
   });
 
-  it("parses hyphenated M-D dates from Cape Fear hare line format", async () => {
-    const html = `<html><body>
-      <figure><table>
-        <tr><th>Trail #</th><th>Date</th><th>Hare(s)</th></tr>
-        <tr><td>514</td><td>3-7</td><td>Photo Spread</td></tr>
-        <tr><td>515</td><td>3-21</td><td>Mis-Man</td></tr>
-        <tr><td>516</td><td>4-4 EASTER WKND</td><td>TBD</td></tr>
-        <tr><td>517</td><td>4-18</td><td>Triple B</td></tr>
-        <tr><td>518</td><td>5-2</td><td>Plow Pants</td></tr>
-        <tr><td>519</td><td>10-31: 5th Saturday Social HALLOWEEN</td><td>TBD</td></tr>
-        <tr><td>520</td><td>7/24 – 7/26 PEG ISLAND</td><td>TBD</td></tr>
-      </table></figure>
-    </body></html>`;
-    const $ = cheerio.load(html);
-    mockFetchHTMLPage.mockResolvedValue({
-      ok: true, html, $, structureHash: "x", fetchDurationMs: 50,
-    });
+  it("parses hyphenated M-D dates and corrects year jumps (Cape Fear pattern)", async () => {
+    // Pin "today" to March 29, 2026 so forwardDate behavior is deterministic:
+    // 3-7 and 3-21 have passed → chrono pushes to 2027; 4-4+ are future → stay 2026
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2026, 2, 29, 12)));
 
-    const source = {
-      id: "cfh3-hyphen",
-      url: "https://capefearh3.com/hare-line/",
-      config: {
-        defaultKennelTag: "cfh3",
-        containerSelector: "figure:first-of-type table",
-        rowSelector: "tr",
-        columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
-        forwardDate: true,
-        stopWhenRunNumberDecreases: true,
-      },
-    } as unknown as Source;
+    try {
+      const html = `<html><body>
+        <figure><table>
+          <tr><th>Trail #</th><th>Date</th><th>Hare(s)</th></tr>
+          <tr><td>514</td><td>3-7</td><td>Photo Spread</td></tr>
+          <tr><td>515</td><td>3-21</td><td>Mis-Man</td></tr>
+          <tr><td>516</td><td>4-4 EASTER WKND</td><td>TBD</td></tr>
+          <tr><td>517</td><td>4-18</td><td>Triple B</td></tr>
+          <tr><td>518</td><td>5-2</td><td>Plow Pants</td></tr>
+          <tr><td>519</td><td>10-31: 5th Saturday Social HALLOWEEN</td><td>TBD</td></tr>
+          <tr><td>520</td><td>7/24 – 7/26 PEG ISLAND</td><td>TBD</td></tr>
+        </table></figure>
+      </body></html>`;
+      const $ = cheerio.load(html);
+      mockFetchHTMLPage.mockResolvedValue({
+        ok: true, html, $, structureHash: "x", fetchDurationMs: 50,
+      });
 
-    const result = await adapter.fetch(source);
-    // All 7 data rows should parse (header row has no <td>, so parseEventRow skips it)
-    expect(result.events).toHaveLength(7);
-    expect(result.events.map(e => e.runNumber)).toEqual([514, 515, 516, 517, 518, 519, 520]);
-    // Verify dates parsed correctly (year inferred via forwardDate)
-    const expectedMonthDays = ["03-07", "03-21", "04-04", "04-18", "05-02", "10-31", "07-24"];
-    expect(result.events.map(e => e.date?.substring(5))).toEqual(expectedMonthDays);
-    expect(result.events[0].hares).toBe("Photo Spread");
-    expect(result.events[2].hares).toBeUndefined();
+      const source = {
+        id: "cfh3-hyphen",
+        url: "https://capefearh3.com/hare-line/",
+        config: {
+          defaultKennelTag: "cfh3",
+          containerSelector: "figure:first-of-type table",
+          rowSelector: "tr",
+          columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
+          forwardDate: true,
+          maxPastDays: 14,
+          stopWhenRunNumberDecreases: true,
+        },
+      } as unknown as Source;
+
+      const result = await adapter.fetch(source);
+      // 3-7 is >14 days past after year correction → filtered by maxPastDays re-apply
+      // 3-21 is 8 days past → within maxPastDays window
+      expect(result.events.map(e => e.runNumber)).toEqual([515, 516, 517, 518, 519, 520]);
+      // All dates should be 2026 (year correction fixed 3-21 from 2027 → 2026)
+      expect(result.events.every(e => e.date!.startsWith("2026-"))).toBe(true);
+      const expectedMonthDays = ["03-21", "04-04", "04-18", "05-02", "10-31", "07-24"];
+      expect(result.events.map(e => e.date?.substring(5))).toEqual(expectedMonthDays);
+      expect(result.events[0].hares).toBe("Mis-Man");
+      expect(result.events[1].hares).toBeUndefined(); // TBD filtered
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("returns empty events when page has no matching rows", async () => {
@@ -539,5 +550,81 @@ describe("GenericHtmlAdapter", () => {
     const result = await adapter.fetch(source);
     expect(result.events).toHaveLength(0);
     expect(result.diagnosticContext?.rowsFound).toBe(0);
+  });
+});
+
+describe("fixYearMonotonicity", () => {
+  const makeEvent = (date: string, runNumber?: number) => ({
+    date,
+    kennelTag: "TEST",
+    sourceUrl: "https://example.com",
+    runNumber,
+  });
+
+  it("corrects year jumps when run numbers are ascending", () => {
+    const events = [
+      makeEvent("2027-03-07", 514),
+      makeEvent("2027-03-21", 515),
+      makeEvent("2026-04-04", 516),
+      makeEvent("2026-04-18", 517),
+    ];
+    const fixed = fixYearMonotonicity(events);
+    expect(fixed.map(e => e.date)).toEqual([
+      "2026-03-07",
+      "2026-03-21",
+      "2026-04-04",
+      "2026-04-18",
+    ]);
+  });
+
+  it("returns unchanged when dates are already monotonic", () => {
+    const events = [
+      makeEvent("2026-03-07", 514),
+      makeEvent("2026-04-04", 515),
+      makeEvent("2026-05-02", 516),
+    ];
+    const fixed = fixYearMonotonicity(events);
+    expect(fixed.map(e => e.date)).toEqual(["2026-03-07", "2026-04-04", "2026-05-02"]);
+  });
+
+  it("returns unchanged when events have no run numbers", () => {
+    const events = [
+      makeEvent("2027-03-07"),
+      makeEvent("2026-04-04"),
+    ];
+    const fixed = fixYearMonotonicity(events);
+    expect(fixed.map(e => e.date)).toEqual(["2027-03-07", "2026-04-04"]);
+  });
+
+  it("returns unchanged when run numbers are not ascending", () => {
+    const events = [
+      makeEvent("2027-03-07", 516),
+      makeEvent("2026-04-04", 514),
+    ];
+    const fixed = fixYearMonotonicity(events);
+    expect(fixed.map(e => e.date)).toEqual(["2027-03-07", "2026-04-04"]);
+  });
+
+  it("preserves legitimate Dec→Jan year boundary", () => {
+    const events = [
+      makeEvent("2026-12-05", 535),
+      makeEvent("2027-01-16", 536),
+    ];
+    const fixed = fixYearMonotonicity(events);
+    expect(fixed.map(e => e.date)).toEqual(["2026-12-05", "2027-01-16"]);
+  });
+
+  it("handles mixed events with and without run numbers", () => {
+    const events = [
+      makeEvent("2027-03-07", 514),
+      makeEvent("2026-03-15"),          // no run number
+      makeEvent("2026-04-04", 516),
+    ];
+    const fixed = fixYearMonotonicity(events);
+    // #514 compared to #516: 2027-03-07 > 2026-04-04 by >6mo → subtract year
+    expect(fixed[0].date).toBe("2026-03-07");
+    // Event without run number is unchanged
+    expect(fixed[1].date).toBe("2026-03-15");
+    expect(fixed[2].date).toBe("2026-04-04");
   });
 });
