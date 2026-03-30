@@ -865,6 +865,15 @@ async function processNewRawEvent(
 
   await createEventLinks(targetEventId, sourceId, event.externalLinks);
 
+  // Update kennel's lastEventDate cache if this event is newer
+  const eventDateForCache = parseUtcNoonDate(event.date);
+  await prisma.$executeRaw`
+    UPDATE "Kennel"
+    SET "lastEventDate" = ${eventDateForCache}, "updatedAt" = NOW()
+    WHERE id = ${kennelId}
+    AND ("lastEventDate" IS NULL OR "lastEventDate" < ${eventDateForCache})
+  `;
+
   return targetEventId;
 }
 
