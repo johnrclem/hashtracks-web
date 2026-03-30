@@ -2218,21 +2218,5 @@ export const KENNELS: KennelSeed[] = [
       description: "Osaka hash kennel running in Japan's second-largest city and the Kansai region.",
       latitude: 34.69, longitude: 135.50,
     },
-    {
-      kennelCode: "kobe-h3", shortName: "Kobe H3", fullName: "Kobe Hash House Harriers", region: "Kansai", country: "Japan",
-      facebookUrl: "https://www.facebook.com/groups/kobeH3",
-      foundedYear: 1978,
-      description: "Kobe hash kennel, one of Japan's oldest, running in the port city of Kobe since 1978.",
-      latitude: 34.69, longitude: 135.19,
-    },
-
-    // ── Japan: Okinawa ──
-    {
-      kennelCode: "okinawa-h3", shortName: "Okinawa H3", fullName: "Okinawa Hash House Harriers", region: "Okinawa", country: "Japan",
-      facebookUrl: "https://www.facebook.com/groups/525326264519133",
-      foundedYear: 1980,
-      description: "Okinawa's hash kennel, running on the island since 1980.",
-      latitude: 26.34, longitude: 127.77,
-    },
   ];
 

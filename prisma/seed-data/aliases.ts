@@ -338,8 +338,5 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "kfmh3": ["Kinky Fully Mooned", "KFMH3", "Kinky Hash", "Kinky Full Moon"],
     "kyoto-h3": ["Kyoto Hash", "Kyoto HHH", "Kyoto H3"],
     "osaka-h3": ["Osaka Hash", "Osaka HHH", "Osaka H3"],
-    "kobe-h3": ["Kobe Hash", "Kobe HHH", "Kobe Harriers"],
-    // Okinawa
-    "okinawa-h3": ["Okinawa Hash", "Okinawa HHH", "Okinawa H3"],
   };
 
