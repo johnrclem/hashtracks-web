@@ -2,7 +2,7 @@
 
 A community platform where hashers discover upcoming runs, track attendance, and view personal stats. Think: aggregated event calendar + personal logbook + kennel directory.
 
-**Live:** [hashtracks-web.vercel.app](https://hashtracks-web.vercel.app)
+**Live:** [hashtracks.xyz](https://hashtracks.xyz)
 
 ## Tech Stack
 
@@ -51,7 +51,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Features
 
 ### Hareline (Event Calendar)
-- Aggregated event list, calendar, and **map** views from 69 data sources
+- Aggregated event list, calendar, and **map** views from 150+ data sources
 - Filters: time scope (upcoming/past), region, kennel, day of week (apply across all views)
 - Master-detail layout with side panel on desktop
 - Region-colored badges, calendar export (Google Calendar + .ics)
@@ -64,7 +64,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - Stats dashboard: per-kennel, per-region breakdowns with milestone markers
 
 ### Kennel Directory
-- Browse and search 152 kennels across 64 regions (US, UK, Ireland)
+- Browse and search 190+ kennels across 97 regions (US, UK, Ireland, Germany)
 - Rich kennel profiles: schedule, social links, hash cash, dog-friendly/walkers-welcome flags
 - Filters: region, run day, frequency, has upcoming, country
 - Sort: A–Z (grouped by region) or Recently Active
@@ -83,7 +83,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Source Engine
 - 7 source types: HTML Scraper, Google Calendar, Google Sheets, iCal Feed, Hash Rego, Meetup, Static Schedule (RRULE-based); HTML Scraper includes implementation variants: browser-rendered (Wix/SPA), WordPress REST API, Blogger API, and generic config-driven CSS selector scraping
-- 69 live sources feeding 152 kennels across 12 regions (NYC, Boston, Chicago, DC, SF Bay, London, Florida, Georgia, South Carolina, Massachusetts, New England, Dublin)
+- 150+ live sources feeding 190+ kennels across 25+ regions (US coast-to-coast, UK, Ireland, Germany)
 - Automated daily scrapes via Vercel Cron
 - Merge pipeline with fingerprint dedup, trust levels, and kennel alias resolution
 - Event reconciliation: detects and cancels stale events when sources change
@@ -107,6 +107,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - Source management: scrape triggers, lookback configuration, structured scrape logs
 - Kennel CRUD with auto-alias on rename, duplicate detection, kennel merge tool
 - Alert dashboard with acknowledge/snooze/resolve workflow and repair history
+- **Analytics dashboard:** community health, user engagement, and operational metrics with recharts
 - Misman request queue with approve/reject and invite link generation
 - Roster group management: create, rename, dissolve, approve requests
 - CI enforcement: type checking, linting, and tests required on all PRs via GitHub Actions
@@ -121,21 +122,31 @@ Open [http://localhost:3000](http://localhost:3000).
 - Temperature units toggle: °F / °C (localStorage-persisted, defaults to °F)
 - Header dropdowns for quick switching; event cards and detail pages respect both preferences
 
-## Data Sources (69)
+## Data Sources (150+)
 
 | Region | Sources | Kennels |
 |--------|---------|---------|
-| NYC / NJ / Philly | hashnyc.com, Summit Sheets, BFM + Philly Calendars, BFM + Philly websites, Hash Rego | 17 kennels |
-| Massachusetts | Boston Calendar, HVH3 + PooFH3 static, Northboro browser-rendered | 11 kennels |
-| Chicago | Chicagoland Calendar, CH3 + TH3 websites | 11 kennels |
-| DC / DMV | EWH3 + SHITH3 Calendars, SHITH3 website, W3H3 Sheets, CCH3 + BAH3 iCal, EWH3 + DCH4 + OFH3 + Hangover blogs | 19 kennels |
-| SF Bay Area | SFH3 iCal Feed, SFH3 HTML Hareline | 13 kennels |
-| London / UK | LH3, CityH3, WLH3, BarnesH3, OCH3, SLH3, EH3 websites | 10 kennels |
-| Ireland | Dublin H3 website | 1 kennel |
-| Florida | Miami Meetup, Key West + O2H3 Calendars, WCFH3 scraper, 4 static schedules | 29 kennels |
-| Georgia | Savannah Meetup, Atlanta Hash Board, 9 static schedules | 20 kennels |
-| South Carolina | Charleston Heretics Meetup, 9 static schedules | 10 kennels |
-| New England | VT Meetup, Burlington + RIH3 websites, RIH3 static schedule, CT Meetup | 5 kennels |
+| NYC / NJ / Philly | 8 sources (hashnyc.com, Summit Sheets, Calendars, websites, Hash Rego) | 17 kennels |
+| Massachusetts | 4 sources (Boston Calendar, static schedules, Northboro browser-rendered) | 11 kennels |
+| Chicago | 3 sources (Chicagoland Calendar, CH3 + TH3 websites) | 11 kennels |
+| DC / DMV | 10 sources (Calendars, iCal feeds, WordPress blogs, Sheets) | 19 kennels |
+| SF Bay Area | 3 sources (SFH3 iCal + HTML, Surf City Calendar) | 13 kennels |
+| Southern California | 12 sources (Google Calendars, SDH3 hareline) | 20+ kennels |
+| Washington | 8 sources (WA Hash Calendar, Sheets for 6 kennels) | 12 kennels |
+| Colorado | 5 sources (Denver, Boulder, Ft Collins, CO Springs Calendars) | 8 kennels |
+| Texas | 10 sources (Austin, Houston, DFW Calendars, Brass Monkey blog) | 10+ kennels |
+| London / UK + Scotland | 9 sources (HTML scrapers, GenericHtml) | 12 kennels |
+| Germany | 4 sources (Berlin iCal, Stuttgart + Munich Calendars, Frankfurt scraper) | 12 kennels |
+| Ireland | 1 source (Dublin H3 website) | 1 kennel |
+| Florida | 8 sources (Meetup, Calendars, WCFH3 scraper, static schedules) | 29 kennels |
+| Georgia | 11 sources (Meetup, Atlanta Hash Board, static schedules) | 20 kennels |
+| South Carolina | 10 sources (Meetup, static schedules) | 10 kennels |
+| Virginia | 9 sources (Calendars, Meetup, static schedules) | 9 kennels |
+| North Carolina | 6 sources (Calendars, Meetup, website) | 6 kennels |
+| Upstate New York | 6 sources (Calendars, Meetup, HTML scrapers) | 6 kennels |
+| Pennsylvania | 6 sources (Calendars, iCal feeds) | 6 kennels |
+| New England | 5 sources (Meetup, websites, static schedule) | 5 kennels |
+| Other (AZ, HI, MN, MI, DE) | 10+ sources | 15+ kennels |
 
 ## Documentation
 
@@ -192,3 +203,10 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Data quality hardening:** Location cleanup, venue dedup, placeholder filtering, event city backfill from coordinates
 - **DB seed automation:** Slug collision handling, `ensurePattern()` refactor
 - **Dublin H3 adapter:** First Ireland-based kennel (HTML scraper)
+- **Massive source expansion:** 150+ sources across 25+ regions — Southern CA, Washington, Colorado, Texas, Virginia, North Carolina, Upstate NY, Pennsylvania, Germany, Scotland, Arizona, Hawaii, Minnesota, Michigan, Delaware
+- **Strava integration:** OAuth connect, activity sync, match suggestions, privacy zone handling
+- **Near Me filter:** Geolocation-based distance filtering on hareline and kennel directory
+- **Kennel map view:** Interactive Google Maps with region-colored pins and aggregate markers
+- **Source research pipeline:** AI-powered URL discovery, classification, and proposal workflow
+- **GenericHtml adapter:** Config-driven CSS selector scraping with AI-assisted setup
+- **Open Graph + social sharing:** Metadata, og:image, Twitter cards
