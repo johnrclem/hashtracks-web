@@ -242,7 +242,7 @@ describe("NewTokyoKatchAdapter", () => {
       expect(browserRender).toHaveBeenCalledWith(
         expect.objectContaining({
           url: "https://newtokyohash.wixsite.com/newtokyokatchhash/hareline",
-          frameUrl: "wix-visual-data.appspot.com",
+          frameUrl: "comp-lg062cu2",
           waitFor: "iframe[title='Table Master']",
         }),
       );

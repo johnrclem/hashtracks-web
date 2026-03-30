@@ -13,6 +13,18 @@
  */
 
 import * as cheerio from "cheerio";
+
+/** Field boundary keywords — truncate hare/location text at these labels */
+const FIELD_BOUNDARIES = [
+  "Requirements", "Registration", "Theme", "Cost", "Fee", "Where",
+  "Location", "Start", "Time", "What", "When", "Hash cash", "Price",
+  "Trail", "Bring", "NO BAG", "Details", "The following", "Afterwards",
+  "Map", "THEME", "A to A",
+];
+const FIELD_BOUNDARY_RE = new RegExp(
+  `\\s*(?:${FIELD_BOUNDARIES.map((s) => s.replace(/\s+/g, "\\s+")).join("|")})\\s*:.*`,
+  "i",
+);
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
@@ -30,8 +42,8 @@ import { fetchHTMLPage, chronoParseDate, parse12HourTime } from "../utils";
 export function extractRunNumber(text: string): number | undefined {
   const match = /(?:Run\s*(?:Count\s*)?)?#\s*(\d+)/i.exec(text);
   if (!match) return undefined;
-  const num = parseInt(match[1], 10);
-  return isNaN(num) ? undefined : num;
+  const num = Number.parseInt(match[1], 10);
+  return Number.isNaN(num) ? undefined : num;
 }
 
 /**
@@ -47,7 +59,7 @@ export function extractHare(text: string): string | undefined {
   // Truncate at common field boundaries
   hare = hare
     .split(/\n/)[0]
-    .replace(/\s*(?:Requirements|Registration|Theme|Cost|Fee|Where|Location|Start|Time|What|When|Hash\s*cash|Price|Trail|Bring|NO BAG|Details|The following|Afterwards|Map|THEME|A to A)\s*:.*/i, "")
+    .replace(FIELD_BOUNDARY_RE, "")
     .trim();
   return hare || undefined;
 }
@@ -127,7 +139,7 @@ export function parseEventCell(
 
   // Convert <br> to newlines for line-based parsing
   body$("br").replaceWith("\n");
-  const bodyText = body$.text().replace(/[ \t]+/g, " ").trim();
+  const bodyText = body$.text().replaceAll(/[ \t]+/g, " ").trim();
 
   // --- Extract semi-structured fields ---
   const runNumber = extractRunNumber(bodyText);
@@ -194,7 +206,8 @@ export class YokoYokoH3Adapter implements SourceAdapter {
         if (event) events.push(event);
       } catch (err) {
         errors.push(`Error parsing row ${i}: ${err}`);
-        (errorDetails.parse ??= []).push({
+        if (!errorDetails.parse) errorDetails.parse = [];
+        errorDetails.parse.push({
           row: i,
           error: String(err),
           rawText: $row.text().trim().slice(0, 2000),

@@ -265,7 +265,10 @@ const server = http.createServer(async (req, res) => {
         const phase2Timeout = Math.max(frameTimeout - (Date.now() - renderStart), 3000);
         try {
           await frame.waitForFunction(
-            () => Array.from(document.querySelectorAll("table tr td")).some((td) => td.textContent.trim().length > 0),
+            () => {
+              const cell = document.querySelector("table tbody td, table tr td");
+              return cell !== null && cell.textContent.trim().length > 0;
+            },
             { timeout: Math.min(phase2Timeout, 10000) },
           );
         } catch {

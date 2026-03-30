@@ -55,8 +55,8 @@ export function parseHarelineRow(
   if (!date) return null;
 
   // --- Run Number ---
-  const runNum = parseInt(rawRun?.trim() ?? "", 10);
-  const runNumber = !isNaN(runNum) ? runNum : undefined;
+  const runNum = Number.parseInt(rawRun?.trim() ?? "", 10);
+  const runNumber = !Number.isNaN(runNum) ? runNum : undefined;
 
   // --- Station (used as location) ---
   const station = stripPlaceholder(rawStation);
@@ -68,7 +68,7 @@ export function parseHarelineRow(
   const hares = stripPlaceholder(rawHares);
 
   // --- Notes (used as description) ---
-  const notesText = rawNotes?.trim().replace(/\s+/g, " ") || undefined;
+  const notesText = rawNotes?.trim().replaceAll(/\s+/g, " ") || undefined;
   const notes = notesText && notesText !== "\u00a0" ? notesText : undefined;
 
   // Skip off-week rows (no run number AND no station/hares/notes)
@@ -137,7 +137,8 @@ export class F3H3Adapter implements SourceAdapter {
         if (event) events.push(event);
       } catch (err) {
         errors.push(`Error parsing row ${i}: ${err}`);
-        (errorDetails.parse ??= []).push({
+        if (!errorDetails.parse) errorDetails.parse = [];
+        errorDetails.parse.push({
           row: i,
           error: String(err),
           rawText: $row.text().trim().slice(0, 2000),

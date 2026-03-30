@@ -39,7 +39,7 @@ export function parseSumoDate(
   const match = /^(\d{1,2})\s+([A-Za-z]{3})/.exec(trimmed);
   if (!match) return null;
 
-  const day = parseInt(match[1], 10);
+  const day = Number.parseInt(match[1], 10);
   const monthStr = match[2].toLowerCase();
   const month = MONTHS[monthStr];
   if (!month || day < 1 || day > 31) return null;
@@ -72,7 +72,7 @@ export function parseHarelineRow(
   const runNumber = runNumberFromLink;
 
   // --- Description / Title ---
-  const descText = rawDescription?.trim().replace(/\s+/g, " ") || undefined;
+  const descText = rawDescription?.trim().replaceAll(/\s+/g, " ") || undefined;
   const isPlaceholderDesc =
     !descText || isPlaceholder(descText) || /^HARE NEEDED/i.test(descText);
 
@@ -145,8 +145,8 @@ export class SumoH3Adapter implements SourceAdapter {
         // Extract run number from the link title attribute in first cell
         const runLink = $(tds[0]).find("a").first();
         const runTitle = runLink.attr("title")?.trim();
-        const runNum = runTitle ? parseInt(runTitle, 10) : NaN;
-        const runNumber = !isNaN(runNum) ? runNum : undefined;
+        const runNum = runTitle ? Number.parseInt(runTitle, 10) : NaN;
+        const runNumber = !Number.isNaN(runNum) ? runNum : undefined;
 
         const cells = tds.map((_, td) => $(td).text().trim()).get();
 
@@ -154,7 +154,8 @@ export class SumoH3Adapter implements SourceAdapter {
         if (event) events.push(event);
       } catch (err) {
         errors.push(`Error parsing row ${i}: ${err}`);
-        (errorDetails.parse ??= []).push({
+        if (!errorDetails.parse) errorDetails.parse = [];
+        errorDetails.parse.push({
           row: i,
           error: String(err),
           rawText: $row.text().trim().slice(0, 2000),

@@ -42,9 +42,9 @@ export function parseNtkDate(text: string): string | null {
   const match = /^(\d{1,2})-(\w+)-(\d{4})$/.exec(text.trim());
   if (!match) return null;
 
-  const day = parseInt(match[1], 10);
+  const day = Number.parseInt(match[1], 10);
   const monthStr = match[2].toLowerCase();
-  const year = parseInt(match[3], 10);
+  const year = Number.parseInt(match[3], 10);
 
   const month = MONTHS[monthStr];
   if (month === undefined) return null;
@@ -106,7 +106,7 @@ export function parseNtkRow(
 
   const runIdx = columnMap.get("run");
   const runText = runIdx !== undefined ? cells[runIdx]?.trim() : undefined;
-  const runNumber = runText ? parseInt(runText, 10) : undefined;
+  const runNumber = runText ? Number.parseInt(runText, 10) : undefined;
 
   const hareIdx = columnMap.get("hare");
   const hareText = hareIdx !== undefined ? cells[hareIdx]?.trim() : undefined;
@@ -130,7 +130,7 @@ export function parseNtkRow(
 
   return {
     date,
-    runNumber: runNumber && !isNaN(runNumber) ? runNumber : undefined,
+    runNumber: runNumber && !Number.isNaN(runNumber) ? runNumber : undefined,
     location,
     line,
     hares: hareParts.length > 0 ? hareParts.join("; ") : undefined,
@@ -249,7 +249,8 @@ export class NewTokyoKatchAdapter implements SourceAdapter {
       }
     } catch (err) {
       allErrors.push(`Parse error: ${err}`);
-      (allErrorDetails.parse ??= []).push({
+      if (!allErrorDetails.parse) allErrorDetails.parse = [];
+      allErrorDetails.parse.push({
         row: 0,
         section: "hareline",
         error: String(err),

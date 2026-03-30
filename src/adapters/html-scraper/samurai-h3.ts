@@ -43,7 +43,7 @@ export function parseSamuraiDate(text: string): string | null {
   const match = /^(\d{1,2})-(\w+)$/.exec(text.trim());
   if (!match) return null;
 
-  const day = parseInt(match[1], 10);
+  const day = Number.parseInt(match[1], 10);
   const monthStr = match[2].toLowerCase();
   const month = MONTHS[monthStr];
   if (month === undefined) return null;
@@ -103,6 +103,13 @@ export interface ParsedSamuraiRun {
   train?: string;
 }
 
+/** Look up a column by name, trim, and strip placeholders in one step. */
+function getCell(cells: string[], columnMap: Map<string, number>, name: string): string | undefined {
+  const idx = columnMap.get(name);
+  if (idx === undefined) return undefined;
+  return stripPlaceholder(cells[idx]?.trim()) || undefined;
+}
+
 /**
  * Parse a single table row from the Samurai H3 Table Master widget.
  * Exported for unit testing.
@@ -111,53 +118,31 @@ export function parseSamuraiRow(
   cells: string[],
   columnMap: Map<string, number>,
 ): ParsedSamuraiRun | null {
-  const dateIdx = columnMap.get("date");
-  if (dateIdx === undefined || !cells[dateIdx]) return null;
+  const rawDate = getCell(cells, columnMap, "date");
+  if (!rawDate) return null;
 
-  const date = parseSamuraiDate(cells[dateIdx].trim());
+  const date = parseSamuraiDate(rawDate);
   if (!date) return null;
 
-  const timeIdx = columnMap.get("time");
-  const timeText = timeIdx !== undefined ? cells[timeIdx]?.trim() : undefined;
+  const timeText = getCell(cells, columnMap, "time");
   const startTime = timeText && /^\d{1,2}:\d{2}$/.test(timeText) ? timeText : undefined;
 
-  const runNumIdx = columnMap.get("runNumber");
-  const runNumText = runNumIdx !== undefined ? cells[runNumIdx]?.trim() : undefined;
-  const runNumber = runNumText ? parseInt(runNumText, 10) : undefined;
+  const runNumText = getCell(cells, columnMap, "runNumber");
+  const runNumber = runNumText ? Number.parseInt(runNumText, 10) : undefined;
 
-  const hareIdx = columnMap.get("hare");
-  const hareText = hareIdx !== undefined ? cells[hareIdx]?.trim() : undefined;
-  const sweepIdx = columnMap.get("sweep");
-  const sweepText = sweepIdx !== undefined ? cells[sweepIdx]?.trim() : undefined;
-
-  // Combine hare and sweep into hares string
-  const hareParts: string[] = [];
-  const hareVal = stripPlaceholder(hareText);
-  if (hareVal) hareParts.push(hareVal);
-  const sweepVal = stripPlaceholder(sweepText);
-  if (sweepVal) hareParts.push(`Sweep: ${sweepVal}`);
-
-  const venueIdx = columnMap.get("venue");
-  const location = venueIdx !== undefined ? stripPlaceholder(cells[venueIdx]?.trim()) : undefined;
-
-  const feeIdx = columnMap.get("fee");
-  const fee = feeIdx !== undefined ? stripPlaceholder(cells[feeIdx]?.trim()) : undefined;
-
-  const noteIdx = columnMap.get("note");
-  const note = noteIdx !== undefined ? stripPlaceholder(cells[noteIdx]?.trim()) : undefined;
-
-  const trainIdx = columnMap.get("train");
-  const train = trainIdx !== undefined ? stripPlaceholder(cells[trainIdx]?.trim()) : undefined;
+  const hareVal = getCell(cells, columnMap, "hare");
+  const sweepVal = getCell(cells, columnMap, "sweep");
+  const hareParts = [hareVal, sweepVal ? `Sweep: ${sweepVal}` : null].filter(Boolean);
 
   return {
     date,
     startTime,
-    runNumber: runNumber && !isNaN(runNumber) ? runNumber : undefined,
-    location,
+    runNumber: runNumber && !Number.isNaN(runNumber) ? runNumber : undefined,
+    location: getCell(cells, columnMap, "venue"),
     hares: hareParts.length > 0 ? hareParts.join("; ") : undefined,
-    fee,
-    note,
-    train,
+    fee: getCell(cells, columnMap, "fee"),
+    note: getCell(cells, columnMap, "note"),
+    train: getCell(cells, columnMap, "train"),
   };
 }
 
@@ -274,7 +259,8 @@ export class SamuraiH3Adapter implements SourceAdapter {
       }
     } catch (err) {
       allErrors.push(`Parse error: ${err}`);
-      (allErrorDetails.parse ??= []).push({
+      if (!allErrorDetails.parse) allErrorDetails.parse = [];
+      allErrorDetails.parse.push({
         row: 0,
         section: "hareline",
         error: String(err),

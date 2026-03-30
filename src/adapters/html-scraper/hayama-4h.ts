@@ -33,12 +33,12 @@ export function parseSectionText(
   sourceUrl: string,
 ): RawEventData | null {
   // Normalize whitespace (collapse runs, trim)
-  const normalized = text.replace(/\s+/g, " ").trim();
+  const normalized = text.replaceAll(/\s+/g, " ").trim();
   if (!normalized) return null;
 
   // --- Run number ---
   const noMatch = /No:\s*(\d+)/i.exec(normalized);
-  const runNumber = noMatch ? parseInt(noMatch[1], 10) : undefined;
+  const runNumber = noMatch ? Number.parseInt(noMatch[1], 10) : undefined;
 
   // --- Date (YYYY-MM-DD) ---
   const dateMatch = /Date:\s*(\d{4}-\d{2}-\d{2})/i.exec(normalized);
@@ -110,7 +110,8 @@ export class Hayama4HAdapter implements SourceAdapter {
         if (event) events.push(event);
       } catch (err) {
         errors.push(`Error parsing section ${i}: ${err}`);
-        (errorDetails.parse ??= []).push({
+        if (!errorDetails.parse) errorDetails.parse = [];
+        errorDetails.parse.push({
           row: i,
           error: String(err),
           rawText: $(el).text().trim().slice(0, 2000),

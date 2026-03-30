@@ -247,7 +247,7 @@ describe("SamuraiH3Adapter", () => {
       expect(browserRender).toHaveBeenCalledWith(
         expect.objectContaining({
           url: "https://samuraihash2017.wixsite.com/samurai/hare-line",
-          frameUrl: "wix-visual-data.appspot.com",
+          frameUrl: "comp-j6bd1pcq",
           waitFor: "iframe[title='Table Master']",
         }),
       );
