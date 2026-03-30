@@ -109,7 +109,7 @@ export function KennelFilters({
     selectedDays.length +
     (selectedFrequency ? 1 : 0) +
     (showUpcomingOnly ? 1 : 0) +
-    (showActiveOnly ? 1 : 0) +
+    (!showActiveOnly ? 1 : 0) +
     (selectedCountry ? 1 : 0) +
     (nearMeDistance != null ? 1 : 0);
 
@@ -282,7 +282,7 @@ export function KennelFilters({
             onDaysChange([]);
             onFrequencyChange("");
             onUpcomingOnlyChange(false);
-            onActiveOnlyChange(false);
+            onActiveOnlyChange(true);
             onCountryChange("");
             onNearMeDistanceChange(null);
           }}

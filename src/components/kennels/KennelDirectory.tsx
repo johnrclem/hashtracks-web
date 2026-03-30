@@ -146,7 +146,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   }
   function setShowActiveOnly(v: boolean) {
     setShowActiveOnlyState(v);
-    syncUrl({ active: v ? null : false });
+    syncUrl({ active: v });
   }
   function setSelectedCountry(v: string) {
     setSelectedCountryState(v);
@@ -186,11 +186,11 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     setSelectedDaysState([]);
     setSelectedFrequencyState("");
     setShowUpcomingOnlyState(false);
-    setShowActiveOnlyState(false);
+    setShowActiveOnlyState(true);
     setSelectedCountryState("");
     setNearMeDistanceState(null);
     setMapBounds(null);
-    syncUrl({ q: "", regions: [], days: [], freq: "", upcoming: false, active: false, country: "", distance: null });
+    syncUrl({ q: "", regions: [], days: [], freq: "", upcoming: false, active: null, country: "", distance: null });
   }
 
   // Compute distances for each kennel (when geolocation is available)
