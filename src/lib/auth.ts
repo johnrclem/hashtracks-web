@@ -2,17 +2,23 @@ import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { Prisma, type User } from "@/generated/prisma/client";
 
-/** Get the current user from DB, creating a record on first sign-in (Clerk → DB sync). */
-export async function getOrCreateUser(): Promise<User | null> {
-  let clerkUser;
+/**
+ * Safe wrapper around Clerk's currentUser(). Returns null instead of throwing
+ * when middleware didn't run (e.g., bot hitting a non-existent .js path that
+ * 404s — the matcher skips static extensions, but the not-found page still
+ * renders through RootLayout).
+ */
+async function safeCurrentUser() {
   try {
-    clerkUser = await currentUser();
+    return await currentUser();
   } catch {
-    // Middleware didn't run for this request (e.g., bot hitting a non-existent
-    // .js path that 404s — the matcher skips static extensions, but the
-    // not-found page still renders through RootLayout). Treat as unauthenticated.
     return null;
   }
+}
+
+/** Get the current user from DB, creating a record on first sign-in (Clerk → DB sync). */
+export async function getOrCreateUser(): Promise<User | null> {
+  const clerkUser = await safeCurrentUser();
   if (!clerkUser) return null;
 
   // Step 1: look up by clerkId (fast path)
@@ -75,12 +81,7 @@ export async function getOrCreateUser(): Promise<User | null> {
 
 /** Get the current user if they have the "admin" role in Clerk metadata. Returns null otherwise. */
 export async function getAdminUser(): Promise<User | null> {
-  let clerkUser;
-  try {
-    clerkUser = await currentUser();
-  } catch {
-    return null;
-  }
+  const clerkUser = await safeCurrentUser();
   if (!clerkUser) return null;
 
   const metadata = clerkUser.publicMetadata as { role?: string } | null;
@@ -95,12 +96,7 @@ export async function getAdminUser(): Promise<User | null> {
  * or if they are a site admin.
  */
 export async function getMismanUser(kennelId: string): Promise<User | null> {
-  let clerkUser;
-  try {
-    clerkUser = await currentUser();
-  } catch {
-    return null;
-  }
+  const clerkUser = await safeCurrentUser();
   if (!clerkUser) return null;
 
   // Site admins always have misman access
