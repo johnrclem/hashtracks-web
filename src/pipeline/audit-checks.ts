@@ -13,6 +13,7 @@ export interface AuditEventRow {
   sourceType: string;
   kennelCode: string;
   scrapeDays: number;
+  rawDescription: string | null;
 }
 
 export interface AuditFinding {
@@ -60,6 +61,18 @@ export function finding(
   };
 }
 
+/** Memoized regex cache for kennelCode → Trail pattern (avoids recompiling per event). */
+const kennelCodePatternCache = new Map<string, RegExp>();
+function getKennelCodePattern(kennelCode: string): RegExp {
+  let pattern = kennelCodePatternCache.get(kennelCode);
+  if (!pattern) {
+    const escaped = kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+    pattern = new RegExp(String.raw`^${escaped}\s+Trail`, "i");
+    kennelCodePatternCache.set(kennelCode, pattern);
+  }
+  return pattern;
+}
+
 const TITLE_CTA_PATTERN =
   /\b(?:wanna\s+hare|available\s+dates|check\s+out\s+our|sign\s*up)\b/i;
 const TITLE_SCHEDULE_PATTERNS = [
@@ -74,13 +87,8 @@ const TITLE_TIME_ONLY_PATTERN =
 
 const CTA_PATTERN =
   /^(?:tbd|tba|tbc|n\/a|sign[\s\u00A0]*up!?|volunteer|needed|required)$/i;
-const BOILERPLATE_MARKERS = [
-  "WHAT TIME",
-  "WHERE",
-  "HASH CASH",
-  "Location",
-  "Directions",
-];
+// Reuse the shared boilerplate regex from adapter utils
+import { HARE_BOILERPLATE_RE } from "@/adapters/utils";
 
 export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
   const { title, kennelCode, kennelShortName } = event;
@@ -91,12 +99,7 @@ export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
   }
 
   // 1. title-raw-kennel-code (error): title starts with `{kennelCode} Trail` but NOT with `{kennelShortName}`
-  // Dynamic regex is necessary here — kennelCode varies per event. Input is escaped.
-  const escapedCode = kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-  const kennelCodeTrailPattern = new RegExp(
-    String.raw`^${escapedCode}\s+Trail`,
-    "i"
-  );
+  const kennelCodeTrailPattern = getKennelCodePattern(kennelCode);
   if (
     kennelCodeTrailPattern.test(title) &&
     !title.startsWith(kennelShortName)
@@ -397,7 +400,7 @@ export function checkHareQuality(event: AuditEventRow): AuditFinding[] {
   }
 
   // 6. hare-boilerplate-leak (warning): contains boilerplate markers
-  if (BOILERPLATE_MARKERS.some((marker) => haresText.includes(marker))) {
+  if (HARE_BOILERPLATE_RE.test(haresText)) {
     return [
       finding(event, {
         category: "hares",
