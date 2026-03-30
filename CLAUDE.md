@@ -27,8 +27,9 @@ logbook + kennel directory.
 - **Database:** PostgreSQL via Prisma ORM (Railway hosted)
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS + shadcn/ui components
-- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()`; Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup); STATIC_SCHEDULE adapter for RRULE-based event generation (no external fetch); Meetup public REST API adapter (5 live sources)
+- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()` (supports `frameUrl` for cross-origin iframe content extraction, e.g., Wix Table Master widgets); Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup); STATIC_SCHEDULE adapter for RRULE-based event generation (no external fetch); Meetup public REST API adapter (5 live sources)
 - **Residential Proxy:** Optional NAS-based forward proxy for WAF-blocked targets (Cloudflare Tunnel, see `docs/residential-proxy-spec.md`)
+- **NAS Infrastructure:** Synology DS423+ at `nas-tailscale` (Tailscale IP `100.122.201.59`). Hosts browser render service (Playwright/Chromium) and residential proxy relay, both behind Cloudflare Tunnel (`proxy.hashtracks.xyz`). Deploy via `scp -O` + Docker Compose.
 - **AI:** Gemini 2.0 Flash for complex HTML parsing (low temp, cached results), parse error recovery, column auto-detection, kennel pattern suggestions, HTML structure analysis with few-shot learning from existing adapter patterns
 - **Kennel geocoding:** lat/lng on Kennel model, backfill via Google Geocoding API, Near Me distance filter (client-side Haversine)
 - **Region hierarchy:** RegionLevel enum (COUNTRY/STATE_PROVINCE/METRO), parent-child linking
@@ -84,7 +85,7 @@ logbook + kennel directory.
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
 - RESIDENTIAL_PROXY_URL=  # NAS residential proxy URL (for WAF-blocked scrape targets)
 - RESIDENTIAL_PROXY_KEY=  # API key for residential proxy auth
-- BROWSER_RENDER_URL=    # NAS browser render service URL (for JS-rendered sites)
+- BROWSER_RENDER_URL=    # NAS browser render service URL (for JS-rendered sites + iframe extraction via frameUrl)
 - BROWSER_RENDER_KEY=    # API key for browser render service auth
 
 ## Important Files
@@ -245,6 +246,7 @@ logbook + kennel directory.
 - `docs/test-coverage-analysis.md` — Test coverage gap analysis and priorities
 - `docs/self-healing-automation-plan.md` — Self-healing automation loop architecture, confidence scoring rubric, implementation roadmap
 - `infra/proxy-relay/` — NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
+- `infra/browser-render/` — NAS-hosted Playwright rendering service (Dockerfile + server.js). Part of proxy-relay Docker Compose stack.
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
 ## Active Sources (150)
@@ -474,6 +476,30 @@ See `docs/roadmap.md` for implementation roadmap.
   - Strava: OAuth token refresh, activity date parsing, match suggestions, privacy zone handling
   - Utilities: format helpers, calendar URL/ICS generation, auth (Clerk→DB sync), fuzzy matching, timezone utilities, geo utilities (coordinate extraction, region colors), weather forecast (API integration, date matching, null handling)
 - **CI enforcement:** All PRs must pass `npx tsc --noEmit`, `npm run lint`, and `npm test` via `.github/workflows/ci.yml`
+
+## NAS Deployment (browser-render + proxy-relay)
+
+Both services share a Docker Compose stack at `/volume1/docker/proxy-relay/` on the NAS (`nas-tailscale`).
+Browser render source files live at `/volume1/docker/browser-render/` (referenced via `context: ../browser-render` in compose).
+
+```bash
+# Copy updated server.js to NAS
+scp -O infra/browser-render/server.js nas-tailscale:/volume1/docker/browser-render/
+
+# Rebuild and restart browser-render service
+ssh nas-tailscale "cd /volume1/docker/proxy-relay && \
+  /volume1/@appstore/ContainerManager/usr/bin/docker compose up -d --build browser-render"
+
+# Check logs
+ssh nas-tailscale "docker logs browser-render --tail 20"
+
+# For proxy-relay updates
+scp -O infra/proxy-relay/server.js nas-tailscale:/volume1/docker/proxy-relay/
+ssh nas-tailscale "cd /volume1/docker/proxy-relay && \
+  /volume1/@appstore/ContainerManager/usr/bin/docker compose up -d --build proxy-relay"
+```
+
+**Note:** `scp -O` flag is required for Synology SSH. Container Manager docker binary is at `/volume1/@appstore/ContainerManager/usr/bin/docker`.
 
 ## What NOT To Do
 - Don't use Playwright **in the app** for scraping — use the NAS browser render service for JS-rendered sites, Cheerio for everything else
