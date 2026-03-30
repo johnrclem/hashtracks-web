@@ -138,6 +138,19 @@ async function createEventLinks(
 
 // ── Helper types for internal decomposition ──
 
+/** Cached kennel data shape used by the per-batch cache and resolveKennelData. */
+type KennelCacheEntry = {
+  kennelCode: string;
+  shortName: string;
+  fullName: string | null;
+  region: string;
+  latitude: number | null;
+  longitude: number | null;
+  country: string;
+  regionCentroidLat: number | null;
+  regionCentroidLng: number | null;
+};
+
 /** Per-batch state threaded through all merge helper functions. */
 interface MergeContext {
   sourceId: string;
@@ -146,7 +159,7 @@ interface MergeContext {
   /** Kennel IDs linked to this source via SourceKennel (for the guard check). */
   linkedKennelIds: Set<string>;
   /** Per-batch cache of kennelId → kennel data to avoid N+1 queries. */
-  kennelCache: Map<string, { kennelCode: string; shortName: string; fullName: string | null; region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }>;
+  kennelCache: Map<string, KennelCacheEntry>;
   /** Per-batch cache of short Maps URL → resolved full URL (avoids repeated HTTP calls). */
   shortUrlCache: Map<string, string | null>;
   /** Per-batch tracking: which canonical Event IDs have been matched for each kennel+date.
@@ -157,7 +170,7 @@ interface MergeContext {
 }
 
 /** Resolve kennel data (name + region + coords + country + region centroid), using the per-batch cache to avoid N+1 queries. */
-async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<{ kennelCode: string; shortName: string; fullName: string | null; region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }> {
+async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<KennelCacheEntry> {
   let cached = ctx.kennelCache.get(kennelId);
   if (cached === undefined) {
     const kennel = await prisma.kennel.findUnique({
@@ -676,6 +689,8 @@ async function upsertCanonicalEvent(
         locationAddress: existingEvent.locationAddress,
       }, ctx.shortUrlCache, kennelData, countryToRegionBias(kennelData.country));
 
+      const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
+
       // Reverse-geocode city when we have new coords and locationCity isn't already set
       let locationCity: string | null | undefined;
       if (coords.latitude != null && coords.longitude != null) {
@@ -683,7 +698,6 @@ async function upsertCanonicalEvent(
           coords.latitude !== existingEvent.latitude || coords.longitude !== existingEvent.longitude;
         if (coordsChanged || !existingEvent.locationCity) {
           const rawCity = await reverseGeocode(coords.latitude, coords.longitude);
-          const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
           locationCity = suppressRedundantCity(locName, rawCity);
         }
       } else if (event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) {
@@ -706,7 +720,7 @@ async function upsertCanonicalEvent(
             : {}),
           ...(event.location !== undefined
             ? {
-                locationName: coords.normalizedLocation ?? sanitizeLocation(event.location),
+                locationName: locName,
                 // Clear stale street when location changes but no street provided
                 locationStreet: event.locationStreet ?? null,
               }
@@ -768,7 +782,7 @@ async function upsertCanonicalEvent(
         title: sanitizeTitle(event.title),
         description: event.description,
         haresText: sanitizeHares(event.hares),
-        locationName: coords.normalizedLocation ?? sanitizeLocation(event.location),
+        locationName: locName,
         locationStreet: event.locationStreet ?? null,
         locationAddress: sanitizeLocationUrl(event.locationUrl),
         startTime: event.startTime,
@@ -870,28 +884,23 @@ async function processNewRawEvent(
   const kennelId = await resolveAndGuardKennel(event, ctx);
   if (!kennelId) return null;
 
-  // Generate or fix the event title using the kennel's display name (not the raw adapter tag).
+  // Fix the event title using the kennel's display name (not the raw adapter tag).
   // Must happen AFTER kennel resolution so we have access to shortName/fullName.
-  if (kennelId) {
-    const sanitized = sanitizeTitle(event.title);
-    if (!sanitized) {
-      // No valid title — generate a default from the kennel's friendly name
-      const kennelData = await resolveKennelData(kennelId, ctx);
-      const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || event.kennelTag;
-      event.title = event.runNumber
-        ? `${displayName} Trail #${event.runNumber}`
-        : `${displayName} Trail`;
-    } else {
-      // Valid title — check if it uses raw kennelCode instead of friendly name
-      const kennelData = await resolveKennelData(kennelId, ctx);
-      const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName);
-      if (displayName && displayName.toLowerCase() !== kennelData.kennelCode.toLowerCase()) {
-        const escaped = kennelData.kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-        const codePattern = new RegExp(String.raw`^${escaped}(\s+Trail.*)`, "i");
-        const match = sanitized.match(codePattern);
-        if (match) {
-          event.title = `${displayName}${match[1]}`;
-        }
+  const kennelData = await resolveKennelData(kennelId, ctx);
+  const sanitized = sanitizeTitle(event.title);
+  if (!sanitized) {
+    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || event.kennelTag;
+    event.title = event.runNumber
+      ? `${displayName} Trail #${event.runNumber}`
+      : `${displayName} Trail`;
+  } else {
+    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName);
+    if (displayName && displayName.toLowerCase() !== kennelData.kennelCode.toLowerCase()) {
+      const escaped = kennelData.kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+      const codePattern = new RegExp(String.raw`^${escaped}(\s+Trail.*)`, "i");
+      const match = sanitized.match(codePattern);
+      if (match) {
+        event.title = `${displayName}${match[1]}`;
       }
     }
   }
@@ -969,7 +978,7 @@ export async function processRawEvents(
 
   clearResolverCache();
 
-  const kennelCache = new Map<string, { kennelCode: string; shortName: string; fullName: string | null; region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }>();
+  const kennelCache = new Map<string, KennelCacheEntry>();
   const shortUrlCache = new Map<string, string | null>();
   const batchMatchedEvents = new Map<string, Set<string>>();
   const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, kennelCache, shortUrlCache, batchMatchedEvents, result };

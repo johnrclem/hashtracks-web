@@ -14,9 +14,6 @@ import { sanitizeHares, sanitizeLocation, suppressRedundantCity } from "../src/p
 
 const dryRun = !process.argv.includes("--apply");
 
-const CTA_PATTERN = /^(?:tbd|tba|tbc|n\/a|sign[\s\u00A0]*up!?|volunteer|needed|required)$/i;
-const REGION_APPENDED_RE = /,\s*[A-Z]{2}(?:\s+\d{5})?$/;
-
 async function main() {
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
   const adapter = new PrismaPg(pool);
@@ -94,9 +91,7 @@ async function main() {
   let cityFixed = 0;
   for (const ev of eventsWithCity) {
     if (!ev.locationName || !ev.locationCity) continue;
-    if (!REGION_APPENDED_RE.test(ev.locationName)) continue;
-    const cityName = ev.locationCity.split(",")[0].trim();
-    if (cityName && !ev.locationName.includes(cityName)) {
+    if (suppressRedundantCity(ev.locationName, ev.locationCity) === null) {
       if (dryRun) {
         console.log(`  [dry] locationCity: "${ev.locationName}" + "${ev.locationCity}" -> null`);
       } else {
