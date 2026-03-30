@@ -478,33 +478,33 @@ describe("chronoParseDate", () => {
 
   // Hyphenated M-D format (Cape Fear H3 pattern)
   it("parses hyphenated M-D: '3-7' as March 7", () => {
-    const ref = new Date(Date.UTC(2026, 0, 1)); // Jan 1, 2026
+    const ref = new Date(Date.UTC(2026, 0, 1, 12));
     expect(chronoParseDate("3-7", "en-US", ref)).toBe("2026-03-07");
   });
 
   it("parses hyphenated M-DD: '4-18' as April 18", () => {
-    const ref = new Date(Date.UTC(2026, 0, 1));
+    const ref = new Date(Date.UTC(2026, 0, 1, 12));
     expect(chronoParseDate("4-18", "en-US", ref)).toBe("2026-04-18");
   });
 
   it("parses hyphenated MM-DD: '10-31' as October 31", () => {
     // Without forwardDate, chrono implies the most recent past October
-    const ref = new Date(Date.UTC(2026, 0, 1));
+    const ref = new Date(Date.UTC(2026, 0, 1, 12));
     expect(chronoParseDate("10-31", "en-US", ref)).toBe("2025-10-31");
   });
 
   it("parses hyphenated MM-DD with forwardDate: '10-31' as October 31 of current year", () => {
-    const ref = new Date(Date.UTC(2026, 0, 1));
+    const ref = new Date(Date.UTC(2026, 0, 1, 12));
     expect(chronoParseDate("10-31", "en-US", ref, { forwardDate: true })).toBe("2026-10-31");
   });
 
   it("parses hyphenated M-D with trailing text: '10-31: 5th Saturday Social HALLOWEEN'", () => {
-    const ref = new Date(Date.UTC(2026, 0, 1));
+    const ref = new Date(Date.UTC(2026, 0, 1, 12));
     expect(chronoParseDate("10-31: 5th Saturday Social HALLOWEEN", "en-US", ref, { forwardDate: true })).toBe("2026-10-31");
   });
 
   it("parses hyphenated M-D with forwardDate", () => {
-    const ref = new Date(Date.UTC(2026, 11, 15)); // Dec 15, 2026
+    const ref = new Date(Date.UTC(2026, 11, 15, 12));
     expect(chronoParseDate("3-7", "en-US", ref, { forwardDate: true })).toBe("2027-03-07");
   });
 

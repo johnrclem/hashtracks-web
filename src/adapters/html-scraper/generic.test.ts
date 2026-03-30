@@ -517,13 +517,8 @@ describe("GenericHtmlAdapter", () => {
     expect(result.events).toHaveLength(7);
     expect(result.events.map(e => e.runNumber)).toEqual([514, 515, 516, 517, 518, 519, 520]);
     // Verify dates parsed correctly (year inferred via forwardDate)
-    expect(result.events[0].date).toMatch(/^\d{4}-03-07$/);
-    expect(result.events[1].date).toMatch(/^\d{4}-03-21$/);
-    expect(result.events[2].date).toMatch(/^\d{4}-04-04$/);
-    expect(result.events[3].date).toMatch(/^\d{4}-04-18$/);
-    expect(result.events[4].date).toMatch(/^\d{4}-05-02$/);
-    expect(result.events[5].date).toMatch(/^\d{4}-10-31$/);
-    expect(result.events[6].date).toMatch(/^\d{4}-07-24$/);
+    const expectedMonthDays = ["03-07", "03-21", "04-04", "04-18", "05-02", "10-31", "07-24"];
+    expect(result.events.map(e => e.date?.substring(5))).toEqual(expectedMonthDays);
     expect(result.events[0].hares).toBe("Photo Spread");
     expect(result.events[2].hares).toBeUndefined();
   });
