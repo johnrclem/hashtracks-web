@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
+import { ActivityStatusBadge } from "@/components/kennels/ActivityStatusBadge";
 import { formatSchedule, formatDateShort } from "@/lib/format";
 
 export interface KennelCardData {
@@ -18,6 +19,7 @@ export interface KennelCardData {
   scheduleTime: string | null;
   scheduleFrequency: string | null;
   nextEvent: { date: string; title: string | null } | null;
+  lastEventDate: string | null;
 }
 
 interface KennelCardProps {
@@ -47,7 +49,10 @@ export function KennelCard({ kennel }: KennelCardProps) {
               {kennel.fullName}
             </p>
           </div>
-          <RegionBadge region={kennel.region} size="sm" />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <ActivityStatusBadge lastEventDate={kennel.lastEventDate} />
+            <RegionBadge region={kennel.region} size="sm" />
+          </div>
         </div>
 
         {/* Schedule + founded */}
