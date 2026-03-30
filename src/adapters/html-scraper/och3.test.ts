@@ -568,6 +568,7 @@ describe("OCH3Adapter.fetch", () => {
 
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(htmlWithScripts, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }))
       .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
 
     const adapter = new OCH3Adapter();
@@ -601,6 +602,7 @@ describe("OCH3Adapter.fetch", () => {
 
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(htmlWithNav, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }))
       .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
 
     const adapter = new OCH3Adapter();

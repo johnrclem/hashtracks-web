@@ -44,7 +44,7 @@ describe("getEventDayWeather", () => {
   });
 
   it("returns null when API key is not configured", async () => {
-    vi.unstubAllEnvs(); // removes GOOGLE_WEATHER_API_KEY
+    vi.stubEnv("GOOGLE_WEATHER_API_KEY", ""); // clear the key
     const result = await getEventDayWeather(40.71, -74.01, new Date("2026-03-01"));
     expect(result).toBeNull();
   });

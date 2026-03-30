@@ -493,7 +493,10 @@ describe("HashRegoAdapter", () => {
     vi.setSystemTime(new Date("2026-02-15T12:00:00Z"));
 
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    fetchSpy
+      .mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }))
+      // Detail page fetch for the 1 matching entry (EWH3)
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
 
     const adapter = new HashRegoAdapter();
     const source = buildSource();

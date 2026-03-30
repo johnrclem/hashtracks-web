@@ -21,6 +21,16 @@ vi.mock("./kennel-resolver", () => ({
   clearResolverCache: vi.fn(),
 }));
 
+vi.mock("@/lib/geo", () => ({
+  extractCoordsFromMapsUrl: vi.fn(() => null),
+  geocodeAddress: vi.fn(async () => null),
+  resolveShortMapsUrl: vi.fn(async () => null),
+  reverseGeocode: vi.fn(async () => null),
+  haversineDistance: vi.fn(() => 0),
+  parseDMSFromLocation: vi.fn(() => null),
+  stripDMSFromLocation: vi.fn((loc: string) => loc),
+}));
+
 import { prisma } from "@/lib/db";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";

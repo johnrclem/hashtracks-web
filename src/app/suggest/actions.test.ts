@@ -3,6 +3,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockUser = { id: "user_1" };
 
 vi.mock("@/lib/auth", () => ({ getOrCreateUser: vi.fn() }));
+vi.mock("@/lib/analytics-server", () => ({
+  captureServerEvent: vi.fn(),
+}));
 vi.mock("@/lib/db", () => ({
   prisma: {
     kennelRequest: { create: vi.fn(), count: vi.fn(), findFirst: vi.fn() },

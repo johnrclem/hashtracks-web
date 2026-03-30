@@ -1,10 +1,21 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import {
   parseEnfieldDate,
   parseEnfieldBody,
   inferYear,
   EnfieldHashAdapter,
 } from "./enfield-hash";
+
+// Stub proxy env vars to prevent adapter from routing through residential proxy
+// (1Password op:// references in env are truthy but not real URLs)
+beforeAll(() => {
+  vi.stubEnv("RESIDENTIAL_PROXY_URL", "");
+  vi.stubEnv("RESIDENTIAL_PROXY_KEY", "");
+});
+
+afterAll(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("inferYear", () => {
   it("returns current year when date is within 6 months", () => {
