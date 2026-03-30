@@ -16,6 +16,8 @@ if (
     persistence: "memory",
     disable_session_recording: true,
     ip: false,
+    // `respect_dnt` is intentionally omitted to unblock event capture from browsers with Do Not Track enabled.
+    // Our other privacy-first settings (e.g., memory persistence, no session recording) are deemed sufficient.
     capture_pageview: false, // manual via PostHogPageView
     capture_pageleave: true,
   });
