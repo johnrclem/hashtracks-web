@@ -199,6 +199,25 @@ describe("HarrierCentralAdapter", () => {
       expect(callBody.accessToken).toMatch(/^[0-9A-F]{64}$/);
     });
 
+    it("filters out events beyond the days cutoff", async () => {
+      const farFuture = buildHCEvent({ eventStartDatetime: "2028-06-01T19:15:00" });
+      const nearFuture = buildHCEvent({ eventStartDatetime: "2026-04-15T19:15:00" });
+      mockApiResponse([farFuture, nearFuture]);
+
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }), { days: 30 });
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].date).toBe("2026-04-15");
+    });
+
+    it("preserves zero-value lat/lng and eventNumber", async () => {
+      mockApiResponse([buildHCEvent({ syncLat: 0, syncLong: 0, eventNumber: 0 })]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].latitude).toBe(0);
+      expect(result.events[0].longitude).toBe(0);
+      expect(result.events[0].runNumber).toBe(0);
+    });
+
     it("includes diagnosticContext in result", async () => {
       mockApiResponse([buildHCEvent()]);
       const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));

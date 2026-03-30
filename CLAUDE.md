@@ -14,26 +14,18 @@ logbook + kennel directory.
 - `npx prisma migrate dev` — Create migration
 - `npx prisma db seed` — Seed launch kennels and aliases
 
-## Database (Railway)
-- **Host:** `trolley.proxy.rlwy.net:18763` (public TCP proxy → PostgreSQL)
-- **Connection:** `DATABASE_URL` in `.env` and `.env.local` (both must stay in sync)
-- **Prisma config:** `prisma.config.ts` loads `DATABASE_URL` via `dotenv/config` (reads `.env`)
-- **Node version:** Prisma 7 requires Node 20+ — run `eval "$(fnm env)" && fnm use 20` before any `npx prisma` command
-- **Schema sync:** `npx prisma db push` runs automatically during Vercel builds, but **`npx prisma db seed` must be run manually** when new seed data is added (regions, kennels, sources, aliases)
-- **Direct access:** The Railway DB is reachable from the dev environment (no VPN/SSH needed) — just ensure Node 20 is active
-
 ## Architecture
 - **Framework:** Next.js 16 App Router, TypeScript strict mode
 - **Database:** PostgreSQL via Prisma ORM (Railway hosted)
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS + shadcn/ui components
-- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()` (supports `frameUrl` for cross-origin iframe content extraction, e.g., Wix Table Master widgets); Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup); STATIC_SCHEDULE adapter for RRULE-based event generation (no external fetch); Meetup public REST API adapter (5 live sources); Harrier Central public REST API adapter (hashruns.org, config-driven)
-- **Residential Proxy:** Optional NAS-based forward proxy for WAF-blocked targets (Cloudflare Tunnel, see `docs/residential-proxy-spec.md`)
-- **NAS Infrastructure:** Synology DS423+ at `nas-tailscale` (via Tailscale). Hosts browser render service (Playwright/Chromium) and residential proxy relay, both behind Cloudflare Tunnel (`proxy.hashtracks.xyz`). Deploy via `scp -O` + Docker Compose.
-- **AI:** Gemini 2.0 Flash for complex HTML parsing (low temp, cached results), parse error recovery, column auto-detection, kennel pattern suggestions, HTML structure analysis with few-shot learning from existing adapter patterns
+- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()`; Blogger API v3 for Blogspot-hosted sites; GenericHtmlAdapter for config-driven CSS selector scraping; STATIC_SCHEDULE adapter for RRULE-based event generation; Meetup public REST API adapter; Harrier Central public REST API adapter (hashruns.org, config-driven)
+- **Residential Proxy:** Optional NAS-based forward proxy for WAF-blocked targets
+- **NAS Infrastructure:** Synology DS423+ at `nas-tailscale` (via Tailscale). Hosts browser render service and residential proxy relay.
+- **AI:** Gemini 2.0 Flash for complex HTML parsing, parse error recovery, column auto-detection, kennel pattern suggestions
 - **Kennel geocoding:** lat/lng on Kennel model, backfill via Google Geocoding API, Near Me distance filter (client-side Haversine)
 - **Region hierarchy:** RegionLevel enum (COUNTRY/STATE_PROVINCE/METRO), parent-child linking
-- **Analytics:** PostHog (client + server event tracking, privacy-first, reverse proxy via `/ingest`), Sentry error tracking (client + server + edge), Vercel Speed Insights (Core Web Vitals)
+- **Analytics:** PostHog (client + server), Sentry error tracking (client + server + edge), Vercel Speed Insights
 - **CI/CD:** GitHub Actions (type check + lint + tests on all PRs); Claude Code automation for issue triage + auto-fix
 - **Self-healing:** Alert pipeline auto-files GitHub issues → Claude triages → high-confidence fixes auto-PR'd → CI validates
 - **Deployment:** Vercel (auto-deploy from main branch)
@@ -488,44 +480,26 @@ See `docs/roadmap.md` for implementation roadmap.
 - **Run:** `npm test` (115 test files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
-- **Exported helpers:** Pure functions in adapters/pipeline are exported for direct unit testing (additive-only, no behavior change)
 - **Convention:** Test files live next to source files as `*.test.ts`
-- **Coverage areas:**
-  - Adapters: hashnyc HTML parsing, Google Calendar extraction, Google Sheets CSV parsing, iCal feed parsing, Blogger API v3 utility, London HTML scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago scrapers (CH3, TH3), DC scrapers (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3 HTML), Philly (BFM, HashPhilly), Texas scrapers (Brass Monkey Blogger, DFW PHP calendar), Upstate NY scrapers (SOH4 RSS+iCal, Halve Mein PHP table, IH3 WordPress hare-line), Hockessin H3 (90s HTML parsing), Northboro HTML scraper (browser-rendered, Wix parsing), Hash Rego (index parsing, detail parsing, multi-day splitting), Meetup.com API, WordPress REST API, generic HTML adapter (config parsing, row extraction, locale handling), shared adapter utilities
-  - Pipeline: merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alert generation, event reconciliation, auto-issue filing (adapter resolution, rate limiting, cooldown, dedup, AGENT_CONTEXT sanitization), post-merge fix verification
-  - AI: Gemini API wrapper (caching, rate-limit handling, search grounding), parse recovery fallback, HTML structure analysis (container detection, few-shot examples, column mapping)
-  - Research: source research pipeline (URL discovery, dedup, classification, concurrency), research server actions (approve/reject, URL update, feedback refinement), HTML analysis pipeline extraction
-  - Server actions: logbook CRUD, profile, kennel subscriptions, admin CRUD, misman attendance/roster/history
-  - Admin: config validation (with ReDoS detection), source type detection
-  - Misman: audit log, hare sync, CSV import parsing, suggestion scoring, verification status, invite tokens
-  - Region: region admin CRUD, hierarchy validation, merge re-parenting, self-parent guard
-  - Strava: OAuth token refresh, activity date parsing, match suggestions, privacy zone handling
-  - Utilities: format helpers, calendar URL/ICS generation, auth (Clerk→DB sync), fuzzy matching, timezone utilities, geo utilities (coordinate extraction, region colors), weather forecast (API integration, date matching, null handling)
 - **CI enforcement:** All PRs must pass `npx tsc --noEmit`, `npm run lint`, and `npm test` via `.github/workflows/ci.yml`
 
-## NAS Deployment (browser-render + proxy-relay)
+## Workflow Expectations
+- **Autonomous completion:** Complete multi-step tasks end-to-end without pausing for approval between steps. Research → Plan → Execute → Verify is the standard flow.
+- **Live verification:** New or modified adapters MUST be verified against the live production URL, not just mocked fixtures. See `.claude/rules/live-verification.md`.
+- **Existing patterns first:** Before writing new code, check if an existing adapter, utility, or pattern already handles the case.
+- **Include historical data:** When building adapters, include historical event data if the source provides it — don't defer to follow-up PRs.
+- **Run checks before shipping:** Always run `npx tsc --noEmit && npm run lint && npm test` before considering work complete.
 
-Both services share a Docker Compose stack at `/volume1/docker/proxy-relay/` on the NAS (`nas-tailscale`).
-Browser render source files live at `/volume1/docker/browser-render/` (referenced via `context: ../browser-render` in compose).
-
-```bash
-# Copy updated server.js to NAS
-scp -O infra/browser-render/server.js nas-tailscale:/volume1/docker/browser-render/
-
-# Rebuild and restart browser-render service
-ssh nas-tailscale "cd /volume1/docker/proxy-relay && \
-  /volume1/@appstore/ContainerManager/usr/bin/docker compose up -d --build browser-render"
-
-# Check logs
-ssh nas-tailscale "docker logs browser-render --tail 20"
-
-# For proxy-relay updates
-scp -O infra/proxy-relay/server.js nas-tailscale:/volume1/docker/proxy-relay/
-ssh nas-tailscale "cd /volume1/docker/proxy-relay && \
-  /volume1/@appstore/ContainerManager/usr/bin/docker compose up -d --build proxy-relay"
-```
-
-**Note:** `scp -O` flag is required for Synology SSH. Container Manager docker binary is at `/volume1/@appstore/ContainerManager/usr/bin/docker`.
+## On-Demand Context
+Large reference lists are in `.claude/rules/`. They load automatically when you touch matching files:
+- `rules/active-sources.md` — 146 active data sources by region (loads for adapter/pipeline work)
+- `rules/important-files.md` — 200+ file references by domain area
+- `rules/database.md` — Railway DB connection and Prisma workflow (loads for `prisma/*` and `.env*`)
+- `rules/nas-deployment.md` — NAS Docker deployment commands (loads for `infra/*`)
+- `rules/adapter-patterns.md` — Adapter coding conventions and patterns (loads for adapter work)
+- `rules/testing-coverage.md` — Detailed test coverage areas (loads for test files)
+- `rules/documentation-index.md` — Docs directory index (loads for `docs/*`)
+- `rules/live-verification.md` — Mandatory live adapter verification (loads for adapter work)
 
 ## What NOT To Do
 - Don't use Playwright **in the app** for scraping — use the NAS browser render service for JS-rendered sites, Cheerio for everything else

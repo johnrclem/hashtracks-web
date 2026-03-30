@@ -21,6 +21,7 @@ const PUBLIC_HASHER_ID = "11111111-1111-1111-1111-111111111111";
 export function generateAccessToken(queryType: string): string {
   const nowMicros = Date.now() * 1000;
   const epochMicros = HC_EPOCH_MS * 1000;
+  // 86469 = time-slot divisor (seconds) from Harrier Central's Dart implementation
   const s = Math.floor(Math.floor((nowMicros - epochMicros) / 1e6) / 86469);
 
   const procName = `hcportal_${queryType}`;

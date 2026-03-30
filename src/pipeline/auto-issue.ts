@@ -46,6 +46,7 @@ const ADAPTER_FILE_MAP: Record<string, string> = {
   MEETUP: "src/adapters/meetup/adapter.ts",
   RSS_FEED: "src/adapters/rss/adapter.ts",
   STATIC_SCHEDULE: "src/adapters/static-schedule/adapter.ts",
+  HARRIER_CENTRAL: "src/adapters/harrier-central/adapter.ts",
 };
 
 /** URL patterns to adapter file paths for HTML scrapers. */

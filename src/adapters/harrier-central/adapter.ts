@@ -75,7 +75,7 @@ export class HarrierCentralAdapter implements SourceAdapter {
 
     if (config.cityNames) body.cityNames = config.cityNames;
     if (config.kennelUniqueShortName) body.kennelUniqueShortName = config.kennelUniqueShortName;
-    if (config.publicKennelId) body.publicKennelIds = config.publicKennelId;
+    if (config.publicKennelId) body.publicKennelIds = config.publicKennelId; // API param is plural
 
     // Fetch events from the API
     let hcEvents: HCEvent[];
@@ -131,6 +131,8 @@ export class HarrierCentralAdapter implements SourceAdapter {
       if (!hcEvent.eventStartDatetime) continue;
       if (!hcEvent.isVisible) continue;
 
+      // Timestamps lack TZ offset (e.g., "2026-04-27T19:15:00"); date/time extraction
+      // via slice/regex is TZ-safe — only this maxDate comparison uses new Date()
       const eventDate = new Date(hcEvent.eventStartDatetime);
       if (eventDate > maxDate) continue;
 
@@ -145,13 +147,13 @@ export class HarrierCentralAdapter implements SourceAdapter {
         date: dateStr,
         kennelTag,
         title: hcEvent.eventName || undefined,
-        runNumber: hcEvent.eventNumber || undefined,
+        runNumber: hcEvent.eventNumber != null ? hcEvent.eventNumber : undefined,
         startTime,
         hares: hcEvent.hares && hcEvent.hares !== "TBA" ? hcEvent.hares : undefined,
         location: hcEvent.locationOneLineDesc && hcEvent.locationOneLineDesc !== "TBA"
           ? hcEvent.locationOneLineDesc : undefined,
-        latitude: hcEvent.syncLat || undefined,
-        longitude: hcEvent.syncLong || undefined,
+        latitude: hcEvent.syncLat != null ? hcEvent.syncLat : undefined,
+        longitude: hcEvent.syncLong != null ? hcEvent.syncLong : undefined,
         sourceUrl: `https://www.hashruns.org/#/event/${hcEvent.publicEventId}`,
       };
 
