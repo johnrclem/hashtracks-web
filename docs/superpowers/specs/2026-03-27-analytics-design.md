@@ -58,7 +58,7 @@ posthog.init(POSTHOG_KEY, {
   persistence: 'memory',                 // no cookies
   disable_session_recording: true,       // no session replay
   ip: false,                             // anonymize IP after geo lookup
-  respect_dnt: true,                     // honor Do Not Track
+  // respect_dnt removed — privacy-first config (no cookies, no replay, anonymized IPs) is sufficient
   capture_pageview: false,               // manual via PostHogPageView hook
   capture_pageleave: true,               // time on page
 })

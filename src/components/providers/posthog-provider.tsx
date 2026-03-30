@@ -16,7 +16,6 @@ if (
     persistence: "memory",
     disable_session_recording: true,
     ip: false,
-    respect_dnt: true,
     capture_pageview: false, // manual via PostHogPageView
     capture_pageleave: true,
   });
