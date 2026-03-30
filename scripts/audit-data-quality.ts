@@ -21,7 +21,7 @@ import {
   checkDescriptionQuality,
   type AuditFinding,
 } from "../src/pipeline/audit-checks";
-import { formatIssueTitle, formatIssueBody } from "./audit-format";
+import { formatIssueTitle, formatIssueBody } from "../src/pipeline/audit-format";
 
 const postIssue = process.argv.includes("--post-issue");
 

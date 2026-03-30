@@ -1,4 +1,7 @@
-import type { AuditFinding } from "../src/pipeline/audit-checks";
+/**
+ * Format audit findings as GitHub-issue-compatible markdown.
+ */
+import type { AuditFinding } from "./audit-checks";
 
 const CATEGORY_LABELS: Record<string, string> = {
   hares: "Hare Extraction",
@@ -19,15 +22,18 @@ export function formatIssueBody(findings: AuditFinding[]): string {
   ];
 
   for (const f of findings) {
-    lines.push(`### ${f.kennelShortName} — ${CATEGORY_LABELS[f.category] ?? f.category} Failure`);
-    lines.push(`* **Impacted HashTracks Event URL:** ${f.eventUrl}`);
+    lines.push(
+      `### ${f.kennelShortName} — ${CATEGORY_LABELS[f.category] ?? f.category} Failure`,
+      `* **Impacted HashTracks Event URL:** ${f.eventUrl}`,
+    );
     if (f.sourceUrl) lines.push(`* **Source URL:** ${f.sourceUrl}`);
-    lines.push(`* **Suspected Adapter:** ${f.adapterType}`);
-    lines.push(`* **Field(s) Affected:** ${f.field}`);
-    lines.push(`* **Current Extracted Value:** \`"${f.currentValue}"\``);
+    lines.push(
+      `* **Suspected Adapter:** ${f.adapterType}`,
+      `* **Field(s) Affected:** ${f.field}`,
+      `* **Current Extracted Value:** \`"${f.currentValue}"\``,
+    );
     if (f.expectedValue) lines.push(`* **Expected Value:** \`"${f.expectedValue}"\``);
-    lines.push(`* **Audit Rule:** \`${f.rule}\` (severity: ${f.severity})`);
-    lines.push("");
+    lines.push(`* **Audit Rule:** \`${f.rule}\` (severity: ${f.severity})`, "");
   }
 
   return lines.join("\n");
