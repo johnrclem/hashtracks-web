@@ -977,23 +977,15 @@ export const SOURCES = [
       config: { groupUrlname: "AVLH3-On-On", kennelTag: "avlh3" },
       kennelCodes: ["avlh3"],
     },
-    // --- Wilmington / Cape Fear (WordPress hareline page) ---
+    // --- Wilmington / Cape Fear (WordPress.com blog API) ---
     {
       name: "Cape Fear H3 Website",
-      url: "https://capefearh3.com/hare-line/",
+      url: "https://capefearh3.com/",
       type: "HTML_SCRAPER" as const,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: {
-        defaultKennelTag: "cfh3",
-        containerSelector: "figure:first-of-type table",
-        rowSelector: "tr",
-        columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
-        forwardDate: true,
-        maxPastDays: 14,
-        stopWhenRunNumberDecreases: true,
-      },
+      config: { defaultKennelTag: "cfh3" },
       kennelCodes: ["cfh3"],
     },
     // --- Fayetteville (Meetup) ---

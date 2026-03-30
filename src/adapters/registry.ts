@@ -40,6 +40,7 @@ import { NorfolkH3Adapter } from "./html-scraper/norfolk-h3";
 import { MerseyThirstdaysAdapter } from "./html-scraper/mersey-thirstdays";
 import { GlasgowH3Adapter } from "./html-scraper/glasgow-h3";
 import { FrankfurtHashAdapter } from "./html-scraper/frankfurt-hash";
+import { CapeFearH3Adapter } from "./html-scraper/cape-fear-h3";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -105,6 +106,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /merseythirstdayshash/i, name: "MerseyThirstdaysAdapter", factory: () => new MerseyThirstdaysAdapter() },
   { pattern: /glasgowh3\.co\.uk/i, name: "GlasgowH3Adapter",        factory: () => new GlasgowH3Adapter() },
   { pattern: /frankfurt-hash\.de/i, name: "FrankfurtHashAdapter",    factory: () => new FrankfurtHashAdapter() },
+  { pattern: /capefearh3\.com/i,   name: "CapeFearH3Adapter",      factory: () => new CapeFearH3Adapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */
