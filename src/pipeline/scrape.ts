@@ -33,6 +33,8 @@ export interface ScrapeSourceResult {
   blocked: number;
   /** Events cancelled by stale-event reconciliation. */
   cancelled: number;
+  /** Events auto-restored from CANCELLED back to CONFIRMED. */
+  restored: number;
   /** Kennel tags that could not be resolved to any known kennel. */
   unmatched: string[];
   /** Kennel tags blocked by the source-kennel mismatch guard. */
@@ -308,15 +310,52 @@ export async function scrapeSource(
     const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
 
     // For HASHREGO, load SourceKennel externalSlugs and pass to adapter.
-    // Use all available DB slugs; fall back to config only when zero exist.
+    // Falls back to KennelDiscovery matched slugs (scoped to linked kennels) if SourceKennel has none.
+    // Also capture kennel IDs to scope reconciliation to scraped kennels only.
     let kennelSlugs: string[] | undefined;
+    let scrapedKennelIds: string[] | undefined;
     if (source.type === "HASHREGO") {
       const sks = await prisma.sourceKennel.findMany({
-        where: { sourceId, externalSlug: { not: null } },
-        select: { externalSlug: true },
+        where: { sourceId },
+        select: { externalSlug: true, kennelId: true },
       });
-      const dbSlugs = sks.map((sk) => sk.externalSlug!);
-      kennelSlugs = dbSlugs.length > 0 ? dbSlugs : undefined;
+      const dbSlugs = sks
+        .map((sk) => sk.externalSlug)
+        .filter((slug): slug is string => slug !== null);
+
+      if (dbSlugs.length > 0) {
+        kennelSlugs = dbSlugs;
+        scrapedKennelIds = sks
+          .filter((sk) => sk.externalSlug !== null)
+          .map((sk) => sk.kennelId);
+      } else {
+        // Safety fallback: use KennelDiscovery matched slugs scoped to linked kennels
+        const linkedKennelIds = sks.map((sk) => sk.kennelId);
+        if (linkedKennelIds.length > 0) {
+          const discoveries = await prisma.kennelDiscovery.findMany({
+            where: {
+              externalSource: "HASHREGO",
+              matchedKennelId: { in: linkedKennelIds },
+            },
+            select: { externalSlug: true, matchedKennelId: true },
+          });
+          const slugSet = new Set<string>();
+          const kennelIdSet = new Set<string>();
+          for (const d of discoveries) {
+            slugSet.add(d.externalSlug as string);
+            if (d.matchedKennelId != null) {
+              kennelIdSet.add(d.matchedKennelId);
+            }
+          }
+          if (slugSet.size > 0) {
+            console.warn(
+              `[scrape] HASHREGO: 0 SourceKennel slugs, falling back to ${slugSet.size} KennelDiscovery slugs`,
+            );
+            kennelSlugs = Array.from(slugSet);
+            scrapedKennelIds = Array.from(kennelIdSet);
+          }
+        }
+      }
     }
 
     const fetchStart = Date.now();
@@ -332,17 +371,29 @@ export async function scrapeSource(
     const mergeResult = await processRawEvents(sourceId, scrapeResult.events);
     const mergeDurationMs = Date.now() - mergeStart;
 
-    // Reconcile stale events
+    // Reconcile stale events (scope to scraped kennels for partial-scrape adapters)
     let cancelledCount = 0;
+    let reconcileContext: Record<string, unknown> | undefined;
     if (!force && scrapeResult.events.length > 0 && scrapeResult.errors.length === 0) {
-      const reconciled = await reconcileStaleEvents(sourceId, scrapeResult.events, days);
+      const reconciled = await reconcileStaleEvents(sourceId, scrapeResult.events, days, scrapedKennelIds);
+      const { cancelledEventIds: _, ...reconDiag } = reconciled;
       cancelledCount = reconciled.cancelled;
+      reconcileContext = reconDiag;
+      if (reconciled.cancelled > 5) {
+        console.warn(
+          `[scrape] High cancellation count: ${reconciled.cancelled} events cancelled ` +
+          `for source "${source.name}" (${sourceId}). ` +
+          `Scope: ${reconciled.kennelsInScope}/${reconciled.totalLinkedKennels} kennels.`,
+        );
+      }
     }
 
     const allErrors = [...scrapeResult.errors, ...mergeResult.eventErrorMessages];
     const { combined: combinedErrorDetails, hasErrors: hasErrorDetails } =
       buildCombinedErrorDetails(scrapeResult.errorDetails, mergeResult.mergeErrorDetails);
     const diagnosticContext = buildDiagnosticContext(scrapeResult.diagnosticContext, aiRecovery);
+    if (reconcileContext) diagnosticContext.reconciliation = reconcileContext;
+    if (mergeResult.restored > 0) diagnosticContext.eventsRestored = mergeResult.restored;
 
     await updateScrapeLogWithResults({
       scrapeLogId: scrapeLog.id, startedAt, scrapeResult, mergeResult,
@@ -362,6 +413,7 @@ export async function scrapeSource(
       aiRecovery: aiRecovery && aiRecovery.attempted > 0
         ? { attempted: aiRecovery.attempted, succeeded: aiRecovery.succeeded, failed: aiRecovery.failed }
         : undefined,
+      cancelledCount,
     });
 
     return {
@@ -374,6 +426,7 @@ export async function scrapeSource(
       skipped: mergeResult.skipped,
       blocked: mergeResult.blocked,
       cancelled: cancelledCount,
+      restored: mergeResult.restored,
       unmatched: mergeResult.unmatched,
       blockedTags: mergeResult.blockedTags,
       errors: allErrors,
@@ -413,6 +466,7 @@ export async function scrapeSource(
       skipped: 0,
       blocked: 0,
       cancelled: 0,
+      restored: 0,
       unmatched: [],
       blockedTags: [],
       errors: [errorMsg],

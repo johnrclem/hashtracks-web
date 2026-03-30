@@ -169,7 +169,7 @@ export function RegionFormDialog({
                 id="colorClasses"
                 name="colorClasses"
                 required
-                defaultValue={region?.colorClasses ?? "bg-gray-200 text-gray-800"}
+                defaultValue={region?.colorClasses ?? "bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200"}
                 placeholder="bg-blue-200 text-blue-800"
               />
             </div>

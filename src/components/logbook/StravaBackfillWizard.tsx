@@ -257,11 +257,11 @@ export function StravaBackfillWizard({
                   <span className="font-mono text-muted-foreground">
                     {reviewed} of {total} reviewed
                   </span>
-                  <span className="font-mono text-emerald-600">{pct}%</span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400">{pct}%</span>
                 </div>
                 <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                    className="h-full rounded-full bg-emerald-500 dark:bg-emerald-400 transition-all duration-300"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
@@ -448,7 +448,7 @@ function ActivityRow({
             <div className="flex flex-col items-end gap-1 shrink-0">
               <Button
                 size="sm"
-                className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
+                className="h-7 text-xs bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white"
                 onClick={onCheckIn}
                 disabled={isPending}
               >

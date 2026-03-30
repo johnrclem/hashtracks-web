@@ -792,6 +792,43 @@ export const KENNELS: KennelSeed[] = [
       description: "Bogs of Somerset hash, running Wednesday evenings in north-west Somerset.",
       latitude: 51.35, longitude: -2.97,
     },
+    // ===== UK — NORFOLK =====
+    {
+      kennelCode: "norfolkh3", shortName: "Norfolk H3", fullName: "Norfolk Hash House Harriers", region: "Norfolk", country: "UK",
+      website: "https://norfolkh3.co.uk/",
+      facebookUrl: "https://www.facebook.com/NorfolkH3/",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Sunday 11am (winter), Wednesday 7pm (summer). Biweekly.",
+      description: "Norfolk's biweekly hash, running at different pubs across Norfolk. Sunday mornings in winter, Wednesday evenings in summer.",
+      latitude: 52.63, longitude: 1.30,
+    },
+    // ===== UK — LIVERPOOL =====
+    {
+      kennelCode: "mth3", shortName: "MTH3", fullName: "Mersey Thirstdays Hash House Harriers",
+      region: "Liverpool", country: "UK",
+      website: "https://www.merseythirstdayshash.com/",
+      facebookUrl: "https://www.facebook.com/groups/4739194099/",
+      contactEmail: "dij@liverpool.ac.uk",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Every other Thursday at 7pm. Occasional deviations around holidays.",
+      hashCash: "£2.50", foundedYear: 2006,
+      description: "A fortnightly Thursday evening hash across the Liverpool/Merseyside area. Runs start near Merseyrail stations and follow chalk-marked trails through streets, alleyways, and footpaths. All fitness levels welcome.",
+      latitude: 53.41, longitude: -2.98,
+    },
+    // ===== UK — BIRMINGHAM =====
+    {
+      kennelCode: "bullmoon", shortName: "Bull Moon", fullName: "Bull Moon Hash House Harriers",
+      region: "Birmingham", country: "UK",
+      website: "https://www.bullmoonh3.co.uk/",
+      facebookUrl: "https://www.facebook.com/groups/bullmoonh3/",
+      instagramHandle: "bullmoonh3",
+      contactEmail: "admin@bullmoonh3.co.uk",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Two event series: (1) Bull Moon — monthly Saturday near full moon at 12pm; (2) T3 (Thirsty This Thursday) — weekly Thursday at 6:45pm. Run fee £2.50, first-timers free.",
+      hashCash: "£2.50", foundedYear: 2016,
+      description: "Birmingham's Full Moon hash, meeting monthly on a Saturday near the full moon from pubs across the Birmingham area. Also runs T3, a weekly Thursday evening trail from central Birmingham pubs.",
+      latitude: 52.49, longitude: -1.89,
+    },
     // ===== GERMANY =====
     // Berlin
     {

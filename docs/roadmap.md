@@ -2,9 +2,11 @@
 
 Living document tracking what's been built, what's next, and where we're headed.
 
-Last updated: 2026-03-23
+Last updated: 2026-03-29
 
 **Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
+
+**User research:** See [facebook-user-research.md](facebook-user-research.md) for analysis of the 16.6K-member Hash House Harriers Facebook group. Key finding: the #1 post type is "Is there a hash in [location]?" — validating Discovery & Travel UX as the next highest-priority feature area.
 
 ---
 
@@ -18,7 +20,7 @@ Last updated: 2026-03-23
 - [x] Master-detail layout: event list + detail panel on desktop, full-page on mobile
 - [x] Admin UI: source management, manual scrape trigger, scrape logs, source health
 
-### Data Sources (174 live)
+### Data Sources (185 live)
 
 **NYC / NJ / Philly (8 sources)**
 - [x] **hashnyc.com** (HTML Scraper) — 11 NYC-area kennels
@@ -56,7 +58,7 @@ Last updated: 2026-03-23
 **SF Bay Area (3 sources)**
 - [x] **SFH3 MultiHash iCal Feed** (iCal Feed) — 13 SF Bay Area kennels
 - [x] **SFH3 MultiHash HTML Hareline** (HTML Scraper) — 13 SF Bay Area kennels (secondary enrichment)
-- [x] **Surf City H3 Static Schedule** (Static Schedule) — SCH3 (Santa Cruz)
+- [x] **Surf City H3 Google Calendar** (Google Calendar API) — SCH3 (Santa Cruz)
 
 **London / UK (7 sources)**
 - [x] **London Hash Run List** (HTML Scraper) — LH3
@@ -67,8 +69,31 @@ Last updated: 2026-03-23
 - [x] **SLASH Run List** (HTML Scraper) — SLH3 (South London)
 - [x] **Enfield Hash Blog** (HTML Scraper) — EH3
 
+**Scotland (2 sources)**
+- [x] **Glasgow H3 Hareline** (HTML Scraper, GenericHtml) — Glasgow H3
+- [x] **Edinburgh H3 Hareline** (HTML Scraper) — Edinburgh H3
+
+**Bristol (1 source)**
+- [x] **West of England Hash Run List** (HTML Scraper, GenericHtml) — Bristol H3, GREY, BOGS (3 kennels)
+
 **Ireland (1 source)**
 - [x] **Dublin H3 Website Hareline** (HTML Scraper) — DH3
+
+**Norfolk (1 source)**
+- [x] **Norfolk H3 Run List** (HTML Scraper, residential proxy) — Norfolk H3
+
+**Merseyside (1 source)**
+- [x] **Mersey Thirstdays Website** (HTML Scraper) — MTH3
+
+**Germany (4 sources)**
+- [x] **Berlin H3 iCal Feed** (iCal Feed) — BH3, BH3FM (2 Berlin kennels)
+- [x] **Stuttgart H3 Google Calendar** (Google Calendar API) — SH3, DST, FM, SUPER (4 Stuttgart kennels)
+- [x] **Munich H3 Hareline Sheet** (Google Sheets) — MH3 (Munich)
+- [x] **Frankfurt H3 Hareline** (HTML Scraper) — FH3, FFMH3, SHITS, DOM, Bike Hash (5 Frankfurt kennels)
+
+**Hawaii (2 sources)**
+- [x] **Aloha H3 Google Calendar** (Google Calendar API) — AH3, H5 (2 Honolulu kennels via kennelPatterns)
+- [x] **Honolulu H5 Google Calendar** (Google Calendar API) — H5
 
 **Florida (8 sources)**
 - [x] **Miami H3 Meetup** (Meetup) — MH3
@@ -269,6 +294,14 @@ See [misman-attendance-requirements.md](misman-attendance-requirements.md) and [
 - [x] Admin: kennel merge UI with fuzzy duplicate prevention
 - [x] Admin: slim source table, detail page tooltips
 - [x] **Navigation pattern decision:** Misman sub-tabs (Attendance/Roster/History) vs Alert pill-filters (Open/Resolved/All) use intentionally different patterns — sub-tabs switch between distinct content views while pill-filters narrow a single list by status. The divergence is justified and should be preserved.
+- [x] Map polish round 2: kennel popup redesign, default map view, region chips (PR #349)
+- [x] Map colocated popup enrichment with fullName, next-event, region badges (PR #353)
+- [x] "Search this area" on hareline map (PR #345)
+- [x] Kennel name disambiguation: title attrs, SourceTable region, seed warning (PR #343)
+- [x] Kennel routing resilience: source-scoped aliases + kennelCode migration (PR #348)
+- [x] "Updated X ago" timestamp on event detail page (PR #358)
+- [x] Attendance suggestion expand/collapse toggle (PR #359)
+- [x] Dark mode comprehensive polish (PR #356) + mobile dark mode toggle with ToggleGroup (PR #351)
 
 ### Kennel Page Redesign — COMPLETE
 - [x] 17 new nullable profile fields on Kennel model (schedule, social, details, flags)
@@ -384,6 +417,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] Series linking: multi-day events split into per-day records linked via parentEventId
 - [x] Event detail page + sidebar panel render EventLink buttons
 - [x] Seed: Hash Rego source with 7 kennel slugs (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3)
+- [x] externalSlug backfill + KennelDiscovery fallback scoping fix (PR #364)
 
 ### Hareline UX Overhaul (PR #160) — COMPLETE
 - [x] Accessibility: skip nav, focus management, ARIA labels, keyboard-navigable EventCard
@@ -451,6 +485,8 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] Event city backfill from reverse geocoding coordinates
 - [x] `getLocationDisplay()` deduplicates city from location name
 - [x] Geocoding improvements: server-only API key, bulk coordinate resolution
+- [x] Three additional audit rounds (Mar 25-29): hare extraction from titles, Cape Fear CSS selector fix, GCal Maps URL location extraction, Meetup hare parsing, boilerplate filtering improvements
+- [x] Event reconciliation self-healing: auto-restore for false cancellations with diagnostics
 
 ### DB Seed Automation — COMPLETE
 - [x] Slug collision handling with `ensurePattern()` refactor (pre-check instead of P2002 retry)
@@ -486,6 +522,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 
 ### SEO Infrastructure — COMPLETE
 - [x] Open Graph images, sitemap.xml, JSON-LD structured data, social share buttons
+- [x] Open Graph metadata with branded OG image for hashtracks.xyz (PR #355)
 
 ### DMS Coordinate Parsing — COMPLETE
 - [x] Parse DMS coordinates (degrees/minutes/seconds) from location strings, strip from display text
@@ -494,10 +531,10 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] Admin event deletion now properly cascades to orphaned RawEvent records
 
 ### Current Stats
-- 261 kennels (with rich profiles), ~900 aliases, 174 sources, 93 regions (3 countries: US, UK, Ireland)
+- 290 kennels (with rich profiles), ~950 aliases, 185 sources, 137 regions (4 countries: US, UK, Ireland, Germany)
 - 9 live adapter types: STATIC_SCHEDULE, HTML_SCRAPER, GOOGLE_CALENDAR, MEETUP, ICAL_FEED, GOOGLE_SHEETS, HASHREGO, BLOGGER_API, RSS_ICAL
 - 27 models, 20 enums in Prisma schema
-- 119 test files, ~2,578 test cases
+- 128 test files
 
 ---
 
@@ -537,6 +574,12 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 - [x] **Arizona** (7 kennels, 4 sources) — Phoenix, Tucson; iCal feed + Google Calendar
 - [x] **Virginia** (9 kennels, 9 sources) — Richmond, Hampton Roads, Charlottesville, Fredericksburg, Lynchburg; Google Calendar + Meetup + static schedules
 - [x] **North Carolina** (6 kennels, 6 sources) — Raleigh, Charlotte, Asheville, Wilmington NC, Fayetteville; Google Calendar + Meetup + HTML scraper
+- [x] **Scotland** (2 kennels, 2 sources) — Glasgow H3, Edinburgh H3; GenericHtml + HTML scraper
+- [x] **Bristol** (3 kennels, 1 source) — Bristol H3, GREY, BOGS; West of England Hash Run List (GenericHtml, 3 kennels from 1 source)
+- [x] **Norfolk** (1 kennel, 1 source) — Norfolk H3; HTML scraper with residential proxy
+- [x] **Merseyside** (1 kennel, 1 source) — Mersey Thirstdays (MTH3); HTML scraper
+- [x] **Germany** (12 kennels, 4 sources) — Berlin, Stuttgart, Munich, Frankfurt; iCal + Google Calendar + Google Sheets + HTML scraper
+- [x] **Hawaii** (2 kennels, 2 sources) — Honolulu; Google Calendar with kennelPatterns
 
 **Remaining opportunities:**
 - [ ] **Hash Rego kennel directory** — scrape `/kennels/` page for new kennel discovery + auto-onboarding
@@ -544,6 +587,15 @@ Regional research complete — see [kennel-research/](kennel-research/) for deta
 - [ ] **half-mind.com event listings** — evaluate as supplementary discovery data
 - [x] **Meetup.com sources** — 17+ live sources across 8 states; adapter supports zero-code onboarding via admin wizard
 - [ ] Continue refining kennel resolver patterns as new sources reveal new name variants
+
+**FB-identified demand (locations with zero current coverage):**
+The Hash House Harriers Facebook group (16.6K members) generates multiple "Is there a hash in [X]?" posts weekly with 20-72 comments each. These locations have the highest organic demand but no HashTracks coverage yet:
+- Mississippi (Biloxi area — 20 comments; nearest active: Gulf Coast H3 Mobile, NOH3 New Orleans)
+- Maine (Portland — 22 comments)
+- Kentucky (Louisville, Lexington — 3 known kennels: Louisville H3, Cerberus Legion Full Moon H3, Horses Ass)
+- Idaho (Twin Falls)
+- Oklahoma (Tulsa)
+- International: Iceland/Reykjavik (KeflavikH3 just formed), Brazil (Belo Horizonte asked twice with no answer, Sao Paulo), Morocco (Tangier)
 
 **Implementation notes:**
 - Follow [source-onboarding-playbook.md](source-onboarding-playbook.md) for each new source
@@ -568,26 +620,60 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 ---
 
-## Priority 2: Strava Integration
+## Priority 2: Discovery & Travel UX
 
-**Status: MVP COMPLETE** (PRs #126, #128)
+**Status: Foundation COMPLETE, key features remaining**
 
-**Strategic rationale:** Zero hashing platforms integrate with fitness tracking apps. Harrier Central, gotothehash.net, half-mind.com — none of them connect runs to GPS data. This feature bridges the gap between hashing and fitness tracking.
+**Strategic rationale:** The #1 post type in the 16.6K-member Hash House Harriers Facebook group is "Is there a hash in [location]?" — posts that generate 20-72 comments each, multiple times per week. Existing directories (half-mind.com, gotothehash.net) are manually maintained, frequently outdated, and can't answer "what's running near me this week?" HashTracks already has the data and map infrastructure to be the definitive answer — but needs stronger public-facing discovery UX.
 
-**See:** [competitive-analysis.md](competitive-analysis.md) — "What HashTracks Has That HC Doesn't"
+**See:** [facebook-user-research.md](facebook-user-research.md) — Pain Points #1 (Where Is There a Hash), #4 (Dead/Inactive Kennels), #5 (Travel Hashing)
 
-- [x] **Strava OAuth flow** — real redirect, refresh token storage, auto-refresh (`src/lib/strava/client.ts`)
-- [x] **Activity history fetch + server-side cache** — StravaActivity model, date string extraction (`src/lib/strava/sync.ts`)
-- [x] **Auto-suggest matches** — by date + region, privacy zone fallback to timezone
-- [x] **One-click attach** — normalize URL to `https://www.strava.com/activities/{id}`
-- [x] **Post-check-in prompt** — suggest linking activity after attendance check-in
-- [x] **Check-in nudge banner** — gentle reminder on logbook page (`StravaNudgeBanner.tsx`)
-- [x] **Rate limit handling** — 429 errors with user-friendly messaging
+### Already Built
+- [x] **Map tab on Hareline** — Google Maps JS (`@vis.gl/react-google-maps`), region-colored pins, click pin → EventDetailPanel, all filters apply, URL-persisted view state
+- [x] **Event detail map** — Google Maps Static API image on EventDetailPanel + standalone event page; coordinate extraction from Maps URLs in merge pipeline
+- [x] **Map toggle on Kennel Directory** — interactive map with kennel pins, color-coded by region, click → kennel page
+- [x] **"Near me" distance filtering** — browser geolocation + Haversine, 10/25/50/100/250 km options
+- [x] **"Search this area" on hareline map** — dynamic map-based event filtering (PR #345)
+- [x] **Map polish** — kennel popup redesign, colocated popup enrichment, default map view, region chips (PRs #349, #353)
 
-### Remaining Strava Work
-- [ ] **Out-of-town run discovery** — Strava activities in regions with no logged attendance → suggest logging
-- [ ] **Advanced matching** — distance/genre validation, multi-day event correlation
-- [ ] **Queue-based sync** — needed when scaling past ~50 concurrent users
+### Kennel Activity Status (New — high value, low effort)
+
+**Why:** Facebook group members repeatedly complain about dead kennels in existing directories. One member manually created a Florida kennel map marking active vs inactive kennels. half-mind.com lists kennels with no indication of whether they still run. This is a trust gap HashTracks can close automatically.
+
+- [ ] Auto-compute activity status from event data (`MAX(date) WHERE kennelId = X`)
+- [ ] Status tiers: **Active** (event in last 90 days), **Possibly Inactive** (90-365 days), **Inactive** (365+ days)
+- [ ] Display status badge on kennel directory cards and kennel profile pages
+- [ ] Filter: "Active only" toggle on kennel directory (default on)
+- [ ] Kennel-only records (no source) default to "Unknown" status
+
+**Implementation notes:**
+- Computed from Event table — no new model needed
+- Can be cached in a `lastEventDate` field on Kennel for performance (updated by merge pipeline)
+- Badge component similar to RegionBadge pattern
+- Filter integrates with existing KennelFilters component
+
+### Public Kennel Finder (New — SEO play)
+
+**Why:** Every "Is there a hash in [X]?" Facebook post is a potential user who would find HashTracks via Google instead — if we rank for "hash house harriers [city]" searches. Currently the hareline and kennel directory require understanding the app. A dedicated public finder page optimized for the exact query people ask would capture this traffic.
+
+- [ ] Public landing page at `/find` or `/discover` — no auth required
+- [ ] Map-centered UX with location search bar ("Find a hash near...")
+- [ ] SEO-optimized for "hash house harriers [city]" search queries
+- [ ] Shows: kennel name, next run date, distance, activity status
+- [ ] CTA: "See full schedule" → hareline filtered to that kennel
+
+### Travel Mode Search (Promoted from future enhancement)
+
+**Why:** "Hash tourism" is a passionate segment — the Facebook group has users searching for runs during marathons, business trips, and intentional "hash every state" projects. They need: destination + date range → matching events.
+
+- [ ] "Runs in [City/Region] between [Date A] and [Date B]"
+- [ ] Input: destination + date range → output: matching events with map
+- [ ] Pairs with Log Unlisted Run for runs found while traveling
+
+### "No Kennel Here" Interest Registration (Future)
+- [ ] Users register interest for locations with no coverage
+- [ ] When a kennel forms or is onboarded, notify interested users
+- [ ] Generates organic demand signal for source coverage prioritization (e.g., Belo Horizonte asked twice with no answer)
 
 ---
 
@@ -672,22 +758,27 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 ---
 
-## Priority 5: Map-Based Discovery
+## Priority 5: Strava Integration
 
-**Strategic rationale:** HC's #1 user testimonial is a traveling hasher who searched by radius and found a run. HC has invested years in map performance, distance filtering, and geo exploration. This is the killer feature HashTracks is missing for the traveling hasher persona. The good news: no PostGIS needed — Event model already has `latitude`, `longitude` fields and client-side distance calculation is sufficient for v1.
+**Status: MVP COMPLETE** (PRs #126, #128, #361)
 
-**See:** [competitive-analysis.md](competitive-analysis.md) — Theme: Discovery Quality
+**Strategic rationale:** Zero hashing platforms integrate with fitness tracking apps. Harrier Central, gotothehash.net, half-mind.com — none of them connect runs to GPS data. This feature bridges the gap between hashing and fitness tracking. MVP is complete — remaining work is optimization for scale.
 
-- [x] **Map tab on Hareline** — Google Maps JS (`@vis.gl/react-google-maps`), region-colored pins (filled = precise location, hollow = region centroid), click pin → EventDetailPanel, all filters apply, URL-persisted view state
-- [x] **Event detail map** — Google Maps Static API image on EventDetailPanel + standalone event page; clickable → opens Google Maps; coordinate extraction from `locationAddress` Google Maps URLs in merge pipeline
-- [x] **EventLocationMap text-address fallback** — Works without lat/lng; falls back to `locationName` text address for Google Maps Static API center/markers parameter (covers all hashnyc.com events and text-only sources)
-- [x] **Coordinate extraction from Maps URLs** — merge pipeline calls `extractCoordsFromMapsUrl()` on `locationAddress` (supports @lat,lng, ?q=, ll=, query= URL patterns), stores precise lat/lng on Event records
-- [x] **Map toggle on Kennel Directory** — interactive map with kennel pins, region-colored, click → kennel page (PR #178)
-- [x] **"Near me" distance filtering on Kennel Directory** — browser geolocation + Haversine, 10/25/50/100/250 km options (PR #178)
+**See:** [competitive-analysis.md](competitive-analysis.md) — "What HashTracks Has That HC Doesn't"
 
-- [ ] **Travel Mode search** (future enhancement)
-  - "Runs in [City/Region] between [Date A] and [Date B]"
-  - Pairs with Log Unlisted Run for runs found while traveling
+- [x] **Strava OAuth flow** — real redirect, refresh token storage, auto-refresh (`src/lib/strava/client.ts`)
+- [x] **Activity history fetch + server-side cache** — StravaActivity model, date string extraction (`src/lib/strava/sync.ts`)
+- [x] **Auto-suggest matches** — by date + region, privacy zone fallback to timezone
+- [x] **One-click attach** — normalize URL to `https://www.strava.com/activities/{id}`
+- [x] **Post-check-in prompt** — suggest linking activity after attendance check-in
+- [x] **Check-in nudge banner** — gentle reminder on logbook page (`StravaNudgeBanner.tsx`)
+- [x] **Rate limit handling** — 429 errors with user-friendly messaging
+- [x] **Pagination fix** — fixed Strava activity pagination + race condition in sync (PR #361)
+
+### Remaining Strava Work
+- [ ] **Out-of-town run discovery** — Strava activities in regions with no logged attendance → suggest logging
+- [ ] **Advanced matching** — distance/genre validation, multi-day event correlation
+- [ ] **Queue-based sync** — needed when scaling past ~50 concurrent users
 
 ---
 
@@ -983,18 +1074,18 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 ## Priority Summary
 
-| # | Feature | Strategic Driver | Effort | HC Gap Exploited |
-|---|---------|-----------------|--------|------------------|
-| 1 | **Expand Source Coverage** (admin wizard COMPLETE) | Widen primary moat | Ongoing (new sources via wizard) | Manual data entry |
-| 2 | **Strava Integration** (OAuth + auto-match) | Unique differentiator, no competitor has this | 2-3 sprints | Zero fitness integration |
-| 3 | **Misman Growth Lever** (milestone watch, landing page, real-world testing) | B2B adoption, replace Google Sheets | 1 sprint | Paid kennel admin with less capability |
-| 4 | **User Onboarding** (personal CSV import, log unlisted run, manual submission) | Reduce friction, serve traveling hashers | 1-2 sprints | Walled garden onboarding |
-| 5 | **Map-Based Discovery** (map tab, near-me, travel mode) | Traveling hasher killer feature | 1 sprint | App-only proximity search |
-| 6 | **PWA & Notifications** (web push, add-to-home-screen) | Retention, engagement loops | 1 sprint | Native app friction |
-| 7 | **Social Visibility** (who's going, event comments) | Engagement, coordination | Small per feature | RSVP visibility, Trail Chat |
-| 8 | **Data Portability** (CSV exports, payment links) | Trust, data ownership, lightweight Hash Cash | Small per feature | Excel export, Hash Cash |
-| 9 | **Additional Integrations** (iCal, RSS, event series, SEO) | Coverage depth, discoverability | Varies | Feature parity |
-| 10 | **Kennel Onboarding Scaling** (coverage dashboard, discovery, generic HTML) | Automate growth, eliminate manual bottleneck | 3 sprints | No competitor automates source onboarding |
+| # | Feature | Strategic Driver | Effort | FB Validated |
+|---|---------|-----------------|--------|--------------|
+| 1 | **Expand Source Coverage** (185 live, admin wizard) | Widen primary moat | Ongoing | "Is there a hash in [X]?" posts with 20-72 comments |
+| 2 | **Discovery & Travel UX** (activity status, public finder, travel mode) | Capture FB "where's a hash?" traffic | 1-2 sprints | #1 pain point: every search post is a missed user |
+| 3 | **Misman Growth Lever** (milestone watch, landing page, testing) | B2B adoption, replace Google Sheets | 1 sprint | Indirect: kennel organizers are power users |
+| 4 | **User Onboarding** (CSV import, log unlisted run, manual submission) | Reduce friction, serve traveling hashers | 1-2 sprints | Travel hashers need to log runs at unlisted kennels |
+| 5 | **Strava Integration** (MVP complete, optimization remaining) | Unique differentiator | Small | Not mentioned in FB group |
+| 6 | **PWA & Notifications** (web push, add-to-home-screen) | Retention, engagement loops | 1 sprint | Not directly validated |
+| 7 | **Social Visibility** (who's going, event comments) | Engagement, coordination | Small per feature | Charleston cancellation shows real-time need |
+| 8 | **Data Portability** (CSV exports, payment links) | Trust, data ownership | Small per feature | Not directly validated |
+| 9 | **Additional Integrations** (event series, calendar feeds, weather) | Coverage depth | Varies | Not directly validated |
+| 10 | **Kennel Onboarding Scaling** (discovery queue, generic HTML) | Automate growth | 1 sprint remaining | Scales answer to coverage gap demand |
 
 ---
 
@@ -1002,6 +1093,7 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 
 - [Source Onboarding Playbook](source-onboarding-playbook.md) — step-by-step guide for adding sources
 - [Competitive Analysis](competitive-analysis.md) — Harrier Central analysis and strategic positioning
+- [Facebook User Research](facebook-user-research.md) — HHH Facebook group (16.6K members) pain points and location demand analysis
 - [Kennel Page Redesign Spec](kennel-page-redesign-spec.md) — kennel profile enrichment and page redesign spec
 - [Kennel Research](kennel-research/) — regional research for DC, Chicago, SF Bay, London kennels
 - [Misman Attendance Requirements](misman-attendance-requirements.md) — kennel attendance management tool requirements and decisions

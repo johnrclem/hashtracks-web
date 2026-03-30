@@ -37,8 +37,18 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz"),
   title: "HashTracks",
   description: "Discover runs, track attendance, view stats — the hareline you never knew you needed.",
+  openGraph: {
+    type: "website",
+    siteName: "HashTracks",
+    title: "HashTracks",
+    description: "Discover runs, track attendance, view stats — the hareline you never knew you needed.",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default async function RootLayout({

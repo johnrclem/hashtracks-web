@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 
 export type TimePeriod = "7d" | "30d" | "90d" | "all";
@@ -21,7 +22,7 @@ interface KennelPopularity {
 }
 
 interface RegionActivity {
-  region: string;
+  region: string | null;
   eventCount: number;
   kennelCount: number;
 }
@@ -55,7 +56,7 @@ export async function getCommunityHealthMetrics(
     LEFT JOIN "Region" r ON r.id = k."regionId"
     WHERE e.status != 'CANCELLED'
       AND k."isHidden" = false
-      ${since ? prisma.$queryRaw`AND e.date >= ${since}` : prisma.$queryRaw``}
+      ${since ? Prisma.sql`AND e.date >= ${since}` : Prisma.empty}
     GROUP BY r."name"
     ORDER BY "eventCount" DESC
     LIMIT 20
@@ -74,7 +75,7 @@ export async function getCommunityHealthMetrics(
     JOIN "Kennel" k ON k.id = e."kennelId"
     LEFT JOIN "Region" r ON r.id = k."regionId"
     WHERE a.status = 'CONFIRMED'
-      ${since ? prisma.$queryRaw`AND a."createdAt" >= ${since}` : prisma.$queryRaw``}
+      ${since ? Prisma.sql`AND a."createdAt" >= ${since}` : Prisma.empty}
     GROUP BY k.id, k."shortName", r."name"
     ORDER BY "attendanceCount" DESC
     LIMIT 20
@@ -103,7 +104,7 @@ export async function getCommunityHealthMetrics(
            COUNT(*)::int AS "count"
     FROM "Attendance" a
     WHERE a.status = 'CONFIRMED'
-      ${since ? prisma.$queryRaw`AND a."createdAt" >= ${since}` : prisma.$queryRaw``}
+      ${since ? Prisma.sql`AND a."createdAt" >= ${since}` : Prisma.empty}
     GROUP BY to_char(a."createdAt", 'YYYY-MM')
     ORDER BY "date"
   `;
@@ -262,7 +263,7 @@ export async function getOperationalHealthMetrics(): Promise<OperationalHealthMe
       `,
       prisma.$queryRaw<StaleSource[]>`
         SELECT s.id, s.name, r."name" AS "region",
-               MAX(sl."finishedAt") AS "lastSuccess"
+               MAX(sl."completedAt") AS "lastSuccess"
         FROM "Source" s
         LEFT JOIN "ScrapeLog" sl ON sl."sourceId" = s.id AND sl.status = 'SUCCESS'
         LEFT JOIN "SourceKennel" sk ON sk."sourceId" = s.id
@@ -270,9 +271,9 @@ export async function getOperationalHealthMetrics(): Promise<OperationalHealthMe
         LEFT JOIN "Region" r ON r.id = k."regionId"
         WHERE s.enabled = true
         GROUP BY s.id, s.name, r."name"
-        HAVING MAX(sl."finishedAt") < ${sevenDaysAgo}
-           OR MAX(sl."finishedAt") IS NULL
-        ORDER BY MAX(sl."finishedAt") NULLS FIRST
+        HAVING MAX(sl."completedAt") < ${sevenDaysAgo}
+           OR MAX(sl."completedAt") IS NULL
+        ORDER BY MAX(sl."completedAt") NULLS FIRST
         LIMIT 20
       `,
       prisma.source.count({ where: { enabled: true } }),

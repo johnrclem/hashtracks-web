@@ -331,6 +331,30 @@ export const SOURCES = [
       config: {},
       kennelCodes: ["edinburghh3"],
     },
+    // ===== UK — NORFOLK =====
+    {
+      name: "Norfolk H3 Trails Page",
+      url: "https://norfolkh3.co.uk/trails/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {},
+      kennelCodes: ["norfolkh3"],
+    },
+    // ===== UK — LIVERPOOL =====
+    {
+      name: "Mersey Thirstdays Website",
+      url: "https://www.merseythirstdayshash.com/next-run-s/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 7300,
+      config: {
+        pastRunsUrl: "https://www.merseythirstdayshash.com/past-runs/",
+      },
+      kennelCodes: ["mth3"],
+    },
     // ===== UK — BRISTOL =====
     {
       name: "West of England Hash Run List",
@@ -504,6 +528,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "ah3",
+        titleHarePattern: String.raw`^(.+?)\s+AH3\s+#`,
       },
       kennelCodes: ["ah3"],
     },
@@ -962,11 +987,12 @@ export const SOURCES = [
       scrapeDays: 180,
       config: {
         defaultKennelTag: "cfh3",
-        containerSelector: "table:first-of-type",
+        containerSelector: "figure:first-of-type table",
         rowSelector: "tr",
         columns: { runNumber: "td:nth-child(1)", date: "td:nth-child(2)", hares: "td:nth-child(3)" },
         forwardDate: true,
         maxPastDays: 14,
+        stopWhenRunNumberDecreases: true,
       },
       kennelCodes: ["cfh3"],
     },
@@ -1961,7 +1987,10 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "demon-h3" },
+      config: {
+        defaultKennelTag: "demon-h3",
+        harePatterns: [String.raw`(?:^|\n)\s*WHO\s*\(?(?:hares?)?\)?\s*:?\s*(.+)`],
+      },
       kennelCodes: ["demon-h3"],
     },
     {

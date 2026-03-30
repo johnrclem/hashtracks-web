@@ -155,7 +155,7 @@ function FutureEventButton({
       <Button
         size="sm"
         variant="outline"
-        className="border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
+        className="border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-900/30"
         onClick={() => {
           startTransition(async () => {
             const result = await rsvp(eventId);

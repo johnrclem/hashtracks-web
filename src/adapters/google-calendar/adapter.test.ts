@@ -268,6 +268,35 @@ describe("extractHares", () => {
     expect(extractHares("Pack off at 7:30, hare off at 7:15")).toBeUndefined();
   });
 
+  it("extracts from WHO (hares): pattern (DeMon format)", () => {
+    const desc = "WHO (hares): A Girl Named Steve\nWHAT TIME: 7:00 PM\nSome song lyrics\nHare drop another for the prince";
+    expect(extractHares(desc)).toBe("A Girl Named Steve");
+  });
+
+  it("does not extract song lyric after 'Hare drop' (negative lookahead)", () => {
+    const desc = "Some intro\nHare drop another for the prince of this\nMore lyrics";
+    expect(extractHares(desc)).toBeUndefined();
+  });
+
+  it("extracts WHO (hares): when HTML stripping splits label from colon", () => {
+    // GCal API returns HTML like "<b>WHO (hares)</b>: Name" which after
+    // stripHtmlTags may produce "WHO (hares)\n: Name" (newline before colon)
+    const desc = "WHO (hares)\n: A Girl Named Steve\nWHEN:Monday, March 21st, 2026\nWHAT: song lyrics with Hare drop another";
+    expect(extractHares(desc)).toBe("A Girl Named Steve");
+  });
+
+  it("truncates at *** separator in hare field", () => {
+    expect(extractHares("Hare(s): Denny's Sucks *** could use a co-hare")).toBe("Denny's Sucks");
+  });
+
+  it("strips 'could use a co-hare' commentary", () => {
+    expect(extractHares("Hare(s): Denny's Sucks could use a co-hare")).toBe("Denny's Sucks");
+  });
+
+  it("strips 'need a co-hare' commentary", () => {
+    expect(extractHares("Hare: Trail Blazer need a cohare for this one")).toBe("Trail Blazer");
+  });
+
   it("strips trailing phone number (dashed format)", () => {
     expect(extractHares("Hare: Dr Sh!t Yeah! 719-360-3805")).toBe("Dr Sh!t Yeah!");
   });
@@ -284,6 +313,100 @@ describe("extractHares", () => {
     const description =
       "March Madness!\nRilea's Pub 5672 N Union Blvd\nHare: Dr Sh!t Yeah! 719-360-3805\nBring: whistle";
     expect(extractHares(description)).toBe("Dr Sh!t Yeah!");
+  });
+});
+
+// ── Test helper for buildRawEventFromGCalItem ──
+
+/** Build a minimal GCal event for testing, with sensible defaults. */
+function testGCalEvent(overrides: Record<string, unknown> = {}) {
+  return {
+    summary: "Hash Run",
+    start: { dateTime: "2026-03-29T14:00:00-04:00" },
+    status: "confirmed",
+    ...overrides,
+  };
+}
+
+// ── non-address location fallback ──
+
+describe("non-address location detection", () => {
+  it("rejects instruction text in location and falls back to description", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Palm Sunday",
+        start: { dateTime: "2026-03-29T14:00:00-06:00" },
+        description: "Where: The Rusty Bucket, 123 Main St\nSome details",
+        location: "use the link because there's a Lil parking lot",
+      }),
+      { defaultKennelTag: "dh3-co" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.location).toBe("The Rusty Bucket, 123 Main St");
+  });
+
+  it("rejects 'check the description' location text", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        description: "Where: The Park, Downtown\nDetails here",
+        location: "check the description for details",
+      }),
+      { defaultKennelTag: "test" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.location).toBe("The Park, Downtown");
+  });
+
+  it("preserves normal address in location field", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        description: "Some description",
+        location: "12017 Amherst Dr, Austin, TX 78759",
+      }),
+      { defaultKennelTag: "test" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.location).toBe("12017 Amherst Dr, Austin, TX 78759");
+  });
+});
+
+// ── titleHarePattern (Austin H3 style) ──
+
+describe("titleHarePattern — hare extraction from summary", () => {
+  const titleHareRE = /^(.+?)\s+AH3\s+#/i;
+
+  it("extracts hare names from summary when format is '[Hares] AH3 #N'", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Baba Gagush & Crusty Beaver AH3 #2269",
+        start: { dateTime: "2026-03-29T14:00:00-05:00" },
+        description: "MAP: https://maps.app.goo.gl/bPryrj1CNfrg6kxQ7\nA to B, Dog Friendly",
+        location: "12017 Amherst Dr, Austin, TX 78759, USA",
+      }),
+      { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` },
+      undefined, undefined, undefined,
+      titleHareRE,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Baba Gagush & Crusty Beaver");
+    expect(result!.title).toBe("AH3 #2269");
+  });
+
+  it("description hares take priority over title hares", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Title Name AH3 #2270",
+        start: { dateTime: "2026-04-05T14:00:00-05:00" },
+        description: "Hare: Actual Hare Name\nDetails here",
+      }),
+      { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` },
+      undefined, undefined, undefined,
+      titleHareRE,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Actual Hare Name");
+    // Title should NOT be stripped when hares came from description
+    expect(result!.title).toContain("AH3");
   });
 });
 
@@ -512,6 +635,19 @@ describe("buildRawEventFromGCalItem — title fallback from description", () => 
     expect(event).not.toBeNull();
     expect(event!.title).toBe("OC Hump Trail");
   });
+
+  it("routes Maps URL from description to locationUrl and clears location", () => {
+    const item = {
+      summary: "Hash Run",
+      description: "Location: https://maps.app.goo.gl/zpyewJa4kXbu2pnd9",
+      start: { dateTime: "2026-03-15T14:00:00-04:00" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, { defaultKennelTag: "lah3" });
+    expect(event).not.toBeNull();
+    expect(event!.location).toBeUndefined();
+    expect(event!.locationUrl).toBe("https://maps.app.goo.gl/zpyewJa4kXbu2pnd9");
+  });
 });
 
 // ── extractLocationFromDescription ──
@@ -585,6 +721,15 @@ describe("extractLocationFromDescription", () => {
 
   it("returns undefined for Start: with bare time (no am/pm)", () => {
     expect(extractLocationFromDescription("Start: 7:00")).toBeUndefined();
+  });
+
+  it("returns Maps short URL as-is when it is the entire location value (LAH3 pattern)", () => {
+    expect(extractLocationFromDescription("Location: https://maps.app.goo.gl/zpyewJa4kXbu2pnd9?g_st=a"))
+      .toBe("https://maps.app.goo.gl/zpyewJa4kXbu2pnd9?g_st=a");
+  });
+
+  it("still truncates inline URL when location has text before it", () => {
+    expect(extractLocationFromDescription("WHERE: The Pub https://maps.google.com/foo")).toBe("The Pub");
   });
 });
 

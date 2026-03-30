@@ -16,6 +16,7 @@ import {
   getLabelForUrl,
   stripMarkdown,
   stripUrlsFromText,
+  formatRelativeTime,
 } from "./format";
 
 describe("formatTime", () => {
@@ -265,5 +266,34 @@ describe("stripUrlsFromText", () => {
   });
   it("returns plain text unchanged", () => {
     expect(stripUrlsFromText("The Pub, Boston, MA")).toBe("The Pub, Boston, MA");
+  });
+});
+
+describe("formatRelativeTime", () => {
+  const NOW = new Date("2026-03-27T12:00:00Z").getTime();
+
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NOW); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("returns 'just now' for < 1 minute ago", () => {
+    expect(formatRelativeTime(new Date(NOW - 30_000))).toBe("just now");
+  });
+  it("returns minutes for < 1 hour ago", () => {
+    expect(formatRelativeTime(new Date(NOW - 5 * 60_000))).toBe("5m ago");
+  });
+  it("returns hours for < 24 hours ago", () => {
+    expect(formatRelativeTime(new Date(NOW - 3 * 3_600_000))).toBe("3h ago");
+  });
+  it("returns days for < 7 days ago", () => {
+    expect(formatRelativeTime(new Date(NOW - 2 * 86_400_000))).toBe("2d ago");
+  });
+  it("returns formatted date at exactly 7 days", () => {
+    expect(formatRelativeTime(new Date(NOW - 7 * 86_400_000))).toMatch(/Mar 20/);
+  });
+  it("returns formatted date for >= 7 days ago", () => {
+    expect(formatRelativeTime(new Date("2026-02-18T12:00:00Z"))).toMatch(/Feb 18/);
+  });
+  it("accepts ISO string input", () => {
+    expect(formatRelativeTime(new Date(NOW - 10 * 60_000).toISOString())).toBe("10m ago");
   });
 });

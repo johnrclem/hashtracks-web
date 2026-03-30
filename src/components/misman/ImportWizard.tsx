@@ -78,9 +78,9 @@ function StepIndicator({ currentStep }: { currentStep: Step }) {
               <div
                 className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
                   isCompleted
-                    ? "bg-green-500 text-white"
+                    ? "bg-green-500 text-white dark:bg-green-600"
                     : isCurrent
-                      ? "bg-orange-500 text-white"
+                      ? "bg-orange-500 text-white dark:bg-orange-600"
                       : "border border-border text-muted-foreground"
                 }`}
               >

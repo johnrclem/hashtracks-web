@@ -59,7 +59,7 @@ posthog.init(POSTHOG_KEY, {
   disable_session_recording: true,       // no session replay
   ip: false,                             // anonymize IP after geo lookup
   respect_dnt: true,                     // honor Do Not Track
-  capture_pageview: true,                // automatic page views
+  capture_pageview: false,               // manual via PostHogPageView hook
   capture_pageleave: true,               // time on page
 })
 ```
@@ -225,7 +225,7 @@ All queries against existing Prisma models — no new tables needed.
 
 ### Chart Library
 
-`recharts` — lightweight, React-native, widely used in Next.js apps.
+`recharts` — lightweight, React-based, widely used in Next.js apps.
 
 ### Dashboard Sections
 

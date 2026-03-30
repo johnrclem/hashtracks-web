@@ -292,11 +292,16 @@ export function chronoParseDate(
   referenceDate?: Date,
   options?: { forwardDate?: boolean },
 ): string | null {
+  // Normalize hyphenated M-D dates (e.g., "3-7", "10-31: HALLOWEEN") → "M/D"
+  // before parsing. Chrono can't parse "3-7" but handles "3/7" natively.
+  // Negative lookahead excludes M-D-YY patterns (e.g., "3-7-26").
+  const normalized = text.replace(/^(\d{1,2})-(\d{1,2})(?![\d-])/, "$1/$2");
+
   const parser = locale === "en-GB" ? chrono.en.GB : chrono.en;
   const ref: chrono.ParsingReference | undefined = referenceDate
     ? { instant: referenceDate }
     : undefined;
-  const results = parser.parse(text, ref, {
+  const results = parser.parse(normalized, ref, {
     forwardDate: options?.forwardDate ?? false,
   });
 
@@ -378,7 +383,7 @@ export const HARE_BOILERPLATE_RE = /\s*\b(?:WHAT TIME|WHAT TO WEAR|WHERE|Locatio
 // Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
 // ---------------------------------------------------------------------------
 
-const PLACEHOLDER_RE = /^(?:tbd|tba|tbc|n\/a|needed|required|registration|\?\??)$/i;
+const PLACEHOLDER_RE = /^(?:tbd|tba|tbc|n\/a|needed|required|registration|\?{1,3})$/i;
 
 /**
  * Check if a value is a common placeholder (TBD, TBA, TBC, N/A, ?, ??, needed, required).

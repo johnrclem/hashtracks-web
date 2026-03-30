@@ -185,6 +185,47 @@ describe("reconcileStaleEvents", () => {
     expect(mockRawEventGroupBy).not.toHaveBeenCalled();
   });
 
+  it("scopes reconciliation to scrapedKennelIds subset when provided", async () => {
+    // Source has two linked kennels, but only kennel_1 was scraped
+    mockSourceKennelFind.mockResolvedValueOnce([
+      { kennelId: "kennel_1" },
+      { kennelId: "kennel_2" },
+    ] as never);
+
+    mockResolve.mockResolvedValueOnce({ kennelId: "kennel_1", matched: true });
+
+    const scrapedEvents = [
+      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+    ];
+
+    // DB returns events for both kennels in the window (scoped to kennel_1 only)
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+    ] as never);
+
+    // evt_2 is orphaned and sole-source
+    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
+
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90, ["kennel_1"]);
+
+    // Only kennel_1 events are in scope; evt_2 is cancelled
+    expect(result.cancelled).toBe(1);
+    expect(result.cancelledEventIds).toEqual(["evt_2"]);
+    // kennelsInScope reflects the subset; totalLinkedKennels reflects the full set
+    expect(result.kennelsInScope).toBe(1);
+    expect(result.totalLinkedKennels).toBe(2);
+
+    // Verify the DB query was scoped to kennel_1 only (not kennel_2)
+    expect(mockEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          kennelId: { in: ["kennel_1"] },
+        }),
+      }),
+    );
+  });
+
   it("cancels multiple orphaned events in one batch", async () => {
     const scrapedEvents = [
       buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
@@ -207,5 +248,135 @@ describe("reconcileStaleEvents", () => {
       where: { id: { in: ["evt_2", "evt_3"] } },
       data: { status: "CANCELLED" },
     });
+  });
+
+  it("scopes to scrapedKennelIds when provided — unscraped kennels untouched", async () => {
+    // Two kennels linked to the source
+    mockSourceKennelFind.mockResolvedValueOnce([
+      { kennelId: "kennel_1" },
+      { kennelId: "kennel_2" },
+    ] as never);
+
+    mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
+
+    const scrapedEvents = [
+      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+    ];
+
+    // DB has events for both kennels — kennel_2's event would be orphaned
+    // if we reconciled all linked kennels, but we only scraped kennel_1
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+    ] as never);
+
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90, ["kennel_1"]);
+
+    // Only kennel_1 was in scope, so the query should use { in: ["kennel_1"] }
+    expect(mockEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          kennelId: { in: ["kennel_1"] },
+        }),
+      }),
+    );
+    expect(result.cancelled).toBe(0);
+    expect(result.kennelsInScope).toBe(1);
+    expect(result.totalLinkedKennels).toBe(2);
+  });
+
+  it("falls back to all linked kennels when scrapedKennelIds is undefined", async () => {
+    mockSourceKennelFind.mockResolvedValueOnce([
+      { kennelId: "kennel_1" },
+      { kennelId: "kennel_2" },
+    ] as never);
+
+    mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
+
+    const scrapedEvents = [
+      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+    ];
+
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
+
+    expect(mockEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          kennelId: { in: ["kennel_1", "kennel_2"] },
+        }),
+      }),
+    );
+    expect(result.kennelsInScope).toBe(2);
+    expect(result.totalLinkedKennels).toBe(2);
+  });
+
+  it("ignores scrapedKennelIds not linked to source (intersection)", async () => {
+    mockSourceKennelFind.mockResolvedValueOnce([
+      { kennelId: "kennel_1" },
+    ] as never);
+
+    mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
+
+    const scrapedEvents = [
+      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+    ];
+
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+
+    // Pass kennel_99 which is NOT linked — should be filtered out
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90, ["kennel_1", "kennel_99"]);
+
+    expect(mockEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          kennelId: { in: ["kennel_1"] },
+        }),
+      }),
+    );
+    expect(result.kennelsInScope).toBe(1);
+  });
+
+  it("returns diagnostic fields in result", async () => {
+    mockSourceKennelFind.mockResolvedValueOnce([
+      { kennelId: "kennel_1" },
+      { kennelId: "kennel_2" },
+    ] as never);
+
+    mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
+
+    const scrapedEvents = [
+      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+    ];
+
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      { id: "evt_3", kennelId: "kennel_2", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+    ] as never);
+
+    // evt_3 has another source
+    mockRawEventGroupBy.mockResolvedValueOnce([{ eventId: "evt_3" }] as never);
+
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
+
+    expect(result.candidatesExamined).toBe(3);
+    expect(result.multiSourcePreserved).toBe(1);
+    expect(result.cancelled).toBe(1); // evt_2 only
+    expect(result.kennelsInScope).toBe(2);
+    expect(result.totalLinkedKennels).toBe(2);
+  });
+
+  it("returns empty result when scrapedKennelIds has no overlap with linked kennels", async () => {
+    mockSourceKennelFind.mockResolvedValueOnce([
+      { kennelId: "kennel_1" },
+    ] as never);
+
+    const result = await reconcileStaleEvents("src_1", [buildRawEvent()], 90, ["kennel_99"]);
+
+    expect(result.cancelled).toBe(0);
+    expect(result.kennelsInScope).toBe(0);
+    expect(result.totalLinkedKennels).toBe(1);
+    expect(mockEventFindMany).not.toHaveBeenCalled();
   });
 });

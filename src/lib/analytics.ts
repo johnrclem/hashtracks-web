@@ -125,7 +125,6 @@ interface AnalyticsEventMap {
   location_prompt_action: LocationPromptActionProps;
   map_colocated_popover: MapColocatedPopoverProps;
   map_colocated_kennel_popover: MapColocatedKennelPopoverProps;
-  region_chip_click: { region: string };
 }
 
 /**

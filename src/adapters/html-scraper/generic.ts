@@ -50,6 +50,7 @@ export interface GenericHtmlConfig {
   defaultStartTime?: string;               // "HH:MM" fallback when page doesn't have per-event times
   forwardDate?: boolean;                   // resolve year-less dates to next future occurrence
   maxPastDays?: number;                    // skip events with dates more than N days in the past
+  stopWhenRunNumberDecreases?: boolean;    // stop parsing when run number drops (e.g., Cape Fear receding hareline)
 }
 
 /** Type guard: does this config look like a GenericHtmlConfig? */
@@ -222,12 +223,24 @@ export class GenericHtmlAdapter implements SourceAdapter {
       ? new Date(Date.now() - config.maxPastDays * 86_400_000).toISOString().split("T")[0]
       : undefined;
 
+    let lastRunNumber: number | undefined;
+    let stopParsing = false;
+
     rows.each((i, el) => {
+      if (stopParsing) return;
       try {
         const event = parseEventRow($, $(el), config, sourceUrl);
         if (event) {
           // Skip events too far in the past
           if (pastCutoff && event.date < pastCutoff) return;
+          // Stop when run numbers decrease (e.g., Cape Fear receding hareline)
+          if (config.stopWhenRunNumberDecreases && event.runNumber != null) {
+            if (lastRunNumber != null && event.runNumber < lastRunNumber) {
+              stopParsing = true;
+              return;
+            }
+            lastRunNumber = event.runNumber;
+          }
           events.push(event);
         }
         // Silently skip rows that don't parse (headers, empty rows, etc.)

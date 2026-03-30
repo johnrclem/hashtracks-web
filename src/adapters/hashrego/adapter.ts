@@ -35,7 +35,7 @@ export class HashRegoAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const slugList = options?.kennelSlugs ?? [];
     if (slugList.length === 0) {
-      return { events: [], errors: ["No kennel slugs provided — nothing to scrape"] };
+      return { events: [], errors: ["No kennel slugs provided — check SourceKennel.externalSlug is populated for this source"] };
     }
     const kennelSlugs = new Set(slugList.map((s) => s.toUpperCase()));
 
@@ -43,6 +43,8 @@ export class HashRegoAdapter implements SourceAdapter {
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
     const fetchStart = Date.now();
+    let detailPagesFetched = 0;
+    let detailPagesFailed = 0;
 
     // Step 1: Fetch events index
     let indexHtml: string;
@@ -91,13 +93,23 @@ export class HashRegoAdapter implements SourceAdapter {
         batch.map((entry) => fetchAndParseDetail(entry, errors, errorDetails)),
       );
       for (const result of results) {
+        detailPagesFetched++;
         if (result.status === "fulfilled") {
           events.push(...result.value);
+        } else {
+          detailPagesFailed++;
         }
       }
     }
 
     const hasErrorDetails = hasAnyErrors(errorDetails);
+
+    // Compute unmapped kennel slugs: slugs in the index that weren't in our configured set
+    const allIndexSlugs = [...new Set(allEntries.map((e) => e.kennelSlug.toUpperCase()))];
+    const unmappedKennelSlugs = allIndexSlugs.filter((s) => !kennelSlugs.has(s));
+
+    // Approximate fallback count from detail page errors (each error triggers createFromIndex)
+    const indexOnlyFallbacks = (errorDetails.fetch?.length ?? 0) + (errorDetails.parse?.length ?? 0);
 
     return {
       events,
@@ -110,6 +122,11 @@ export class HashRegoAdapter implements SourceAdapter {
         kennelSlugsConfigured: slugList,
         eventsProduced: events.length,
         fetchDurationMs: Date.now() - fetchStart,
+        detailPagesFetched,
+        detailPagesFailed,
+        indexOnlyFallbacks,
+        uniqueKennelSlugsInIndex: allIndexSlugs,
+        unmappedKennelSlugs,
       },
     };
   }

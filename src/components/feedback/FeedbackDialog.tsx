@@ -4,7 +4,6 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { submitFeedback } from "@/app/feedback/actions";
-import { capture } from "@/lib/analytics";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -37,7 +36,7 @@ export function FeedbackDialog() {
     if (!state) return;
 
     if (state.success) {
-      capture("feedback_submitted", { category: "feedback" });
+      // Analytics captured server-side in submitFeedback action with actual category
       toast.success("Feedback submitted — thank you!");
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(false);

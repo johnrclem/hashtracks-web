@@ -83,7 +83,7 @@ ${description}
     const issue = await res.json();
 
     const { captureServerEvent } = await import("@/lib/analytics-server");
-    captureServerEvent(user.id, "feedback_submitted", { category });
+    await captureServerEvent(user.id, "feedback_submitted", { category });
 
     return { success: true, issueUrl: issue.html_url as string };
   } catch (err) {

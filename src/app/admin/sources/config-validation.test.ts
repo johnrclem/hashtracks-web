@@ -146,6 +146,42 @@ describe("validateSourceConfig", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // titleHarePattern validation (single string, not array)
+  // ---------------------------------------------------------------------------
+
+  describe("titleHarePattern validation", () => {
+    it("accepts valid titleHarePattern", () => {
+      expect(validateSourceConfig("GOOGLE_CALENDAR", {
+        titleHarePattern: String.raw`^(.+?)\s+AH3\s+#`,
+      })).toEqual([]);
+    });
+
+    it("rejects invalid regex titleHarePattern", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        titleHarePattern: "[broken(",
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("invalid regex");
+    });
+
+    it("rejects ReDoS-unsafe titleHarePattern", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        titleHarePattern: "(a+a+)+$",
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("catastrophic backtracking");
+    });
+
+    it("rejects non-string titleHarePattern", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        titleHarePattern: 123,
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("must be a string");
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // harePatterns validation
   // ---------------------------------------------------------------------------
 

@@ -16,9 +16,11 @@ export function getServerPostHog(): PostHog | null {
 }
 
 /**
- * Capture an event server-side. Safe to call even if PostHog is not configured.
+ * Capture an event server-side. Flushes immediately for Vercel serverless
+ * reliability (function freezes after return). Safe to call even if PostHog
+ * is not configured.
  */
-export function captureServerEvent(
+export async function captureServerEvent(
   userId: string,
   event: string,
   properties?: Record<string, unknown>,
@@ -26,16 +28,18 @@ export function captureServerEvent(
   const ph = getServerPostHog();
   if (!ph) return;
   ph.capture({ distinctId: userId, event, properties });
+  await ph.flush();
 }
 
 /**
  * Identify a user server-side with person properties.
  */
-export function identifyServerUser(
+export async function identifyServerUser(
   userId: string,
   properties: Record<string, unknown>,
 ) {
   const ph = getServerPostHog();
   if (!ph) return;
   ph.identify({ distinctId: userId, properties });
+  await ph.flush();
 }

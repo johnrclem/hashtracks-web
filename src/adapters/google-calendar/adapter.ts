@@ -128,6 +128,8 @@ const LOCATION_START_RE = /(?:^|\n)\s*Start\s*:\s*(.+)/im;
 const LOCATION_TIME_ONLY_RE = /^\d{1,2}:\d{2}(\s*(?:am|pm))?\s*$/i;
 const LOCATION_TRUNCATE_RE = new RegExp(`\\s+(?:${LABEL_NAMES})\\s*:.*`, "i");
 const LOCATION_URL_RE = /\s*https?:\/\/\S+.*/i;
+/** Google Maps short/full URL pattern — used to preserve Maps links as locationUrl for geocoding. */
+const MAPS_URL_RE = /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|google\.\w+\/maps)\//i;
 
 // Pre-compiled regex for extractTimeFromDescription
 const TIME_LABEL_RE = /(?:^|\n)\s*(?:Pack\s*Meet|Circle|Time|Start|When|Chalk\s*Talk)\s*:?\s*.*?(\d{1,2}:\d{2}\s*[ap]m)/im;
@@ -173,8 +175,12 @@ export function extractLocationFromDescription(description: string): string | un
 
   let location = match[1].trim();
   location = location.replace(LOCATION_TRUNCATE_RE, "");
-  location = location.replace(LOCATION_URL_RE, "");
-  location = location.split("\n")[0].trim();
+  // If the entire location value is a Maps URL, return it as-is for downstream geocoding
+  const firstLine = location.split("\n")[0].trim();
+  if (MAPS_URL_RE.test(firstLine)) {
+    return firstLine;
+  }
+  location = firstLine.replace(LOCATION_URL_RE, "").trim();
 
   if (location.length < 3) return undefined;
   if (isPlaceholder(location)) return undefined;
@@ -197,8 +203,8 @@ export function extractTimeFromDescription(description: string): string | undefi
 /** Default hare extraction patterns for Google Calendar descriptions. */
 const DEFAULT_HARE_PATTERNS = [
   /(?:^|\n)[ \t]*Hare\(?s?\)?:[ \t]*(.+)/im,  // Hare:, Hares:, Hare(s):
-  /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,     // "Hare C*ck Swap" (no colon, name starts uppercase/special)
-  /(?:^|\n)[ \t]*Who:[ \t]*(.+)/im,
+  /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.+)/im,  // Who:, WHO (hares):, Who(hare):
+  /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon, name starts uppercase/special)
 ];
 
 /**
@@ -207,6 +213,12 @@ const DEFAULT_HARE_PATTERNS = [
  * The adapter fetch() pre-compiles once per scrape for efficiency.
  */
 export function extractHares(description: string, customPatterns?: string[] | RegExp[]): string | undefined {
+  // Pre-normalize: rejoin lines where HTML stripping split a label from its colon
+  // e.g., "<b>WHO (hares)</b>: Name" → after stripHtmlTags → "WHO (hares)\n: Name"
+  const normalized = description.replace(
+    /(\b(?:Who|Hares?)\s*\(?[^)]*\)?)\s*\n\s*:/gim,
+    "$1:",
+  );
   let patterns: RegExp[];
 
   if (customPatterns && customPatterns.length > 0) {
@@ -218,11 +230,15 @@ export function extractHares(description: string, customPatterns?: string[] | Re
   }
 
   for (const pattern of patterns) {
-    const match = pattern.exec(description);
+    const match = pattern.exec(normalized);
     if (match?.[1]) {
       let hares = match[1].trim();
       // Clean up trailing punctuation/whitespace
       hares = hares.split("\n")[0].trim();
+      // Truncate at asterisk separators (e.g., "Denny's Sucks *** could use a co-hare")
+      hares = hares.replace(/\s*\*{2,}\s*.*$/, "").trim();
+      // Strip trailing co-hare commentary (e.g., "could use a co-hare", "need a co-hare")
+      hares = hares.replace(/\s*(?:could|need)\s+.*?co-?hares?\b.*$/i, "").trim();
       // Truncate at boilerplate markers (description text leaking into hares)
       hares = hares.replace(HARE_BOILERPLATE_RE, "").trim();
       // Strip trailing US phone numbers (e.g., "719-360-3805", "(555) 123-4567")
@@ -230,7 +246,7 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       // Skip generic/non-hare "Who:" answers
       if (/^(?:that be you|your|all|everyone)/i.test(hares)) continue;
       // Filter hare strings starting with common prepositions/verbs (description text, not names)
-      if (/^(?:away|at|from)\b/i.test(hares)) continue;
+      if (/^(?:away|at|from|drop|is|was|has|had|can|will|would|should|could|for|and|or|off)\b/i.test(hares)) continue;
       if (hares.length > 0 && hares.length < 200) return hares;
     }
   }
@@ -240,6 +256,14 @@ export function extractHares(description: string, customPatterns?: string[] | Re
 
 const mapsUrl = googleMapsSearchUrl;
 
+/** Instruction phrases that indicate a GCal location field contains directions, not an address. */
+const NON_ADDRESS_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in)/i;
+
+/** Returns true if text starts with instruction phrasing rather than an address. */
+function isNonAddressText(text: string): boolean {
+  return NON_ADDRESS_RE.test(text.trim());
+}
+
 /** Config shape for Google Calendar sources */
 interface CalendarSourceConfig {
   kennelPatterns?: [string, string][];  // [[regex, kennelTag], ...]
@@ -247,6 +271,7 @@ interface CalendarSourceConfig {
   skipPatterns?: string[];              // regex strings — skip events whose summary matches
   harePatterns?: string[];              // regex strings to extract hares from descriptions
   runNumberPatterns?: string[];         // regex strings to extract run numbers from descriptions
+  titleHarePattern?: string;            // regex to extract hare names from summary when description has none
   descriptionSuffix?: string;           // appended to every event description
 }
 
@@ -345,6 +370,7 @@ export function buildRawEventFromGCalItem(
   compiledHarePatterns?: RegExp[],
   compiledRunNumberPatterns?: RegExp[],
   compiledSkipPatterns?: RegExp[],
+  compiledTitleHarePattern?: RegExp,
 ): RawEventData | null {
   if (item.status === "cancelled") return null;
   if (!item.summary) return null;
@@ -363,11 +389,20 @@ export function buildRawEventFromGCalItem(
     }
   }
   const { rawDescription, description } = normalizeGCalDescription(item.description);
-  const hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;
+  let hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;
+  // Fall back to extracting hares from title when description has none
+  let haresFromTitle = false;
+  if (!hares && compiledTitleHarePattern) {
+    const titleMatch = compiledTitleHarePattern.exec(summary);
+    if (titleMatch?.[1]) {
+      hares = titleMatch[1].trim() || undefined;
+      haresFromTitle = !!hares;
+    }
+  }
   const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(summary, sourceConfig);
-  // Location: prefer item.location (unless placeholder), fall back to description extraction
+  // Location: prefer item.location (unless placeholder or instruction text), fall back to description extraction
   let location = item.location ? decodeEntities(item.location).trim() : undefined;
-  if (location && isPlaceholder(location)) location = undefined;
+  if (location && (isPlaceholder(location) || isNonAddressText(location))) location = undefined;
   if (!location && rawDescription) {
     location = extractLocationFromDescription(rawDescription);
   }
@@ -384,6 +419,14 @@ export function buildRawEventFromGCalItem(
     const descTitle = extractTitleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }
+  // Strip only the hare-name capture group from the title, preserving the rest (e.g., "AH3 #2269")
+  if (haresFromTitle && compiledTitleHarePattern) {
+    const titleMatch = compiledTitleHarePattern.exec(title);
+    if (titleMatch?.index === 0 && titleMatch[1]) {
+      const cleaned = title.slice(titleMatch[1].length).trimStart();
+      if (cleaned) title = cleaned;
+    }
+  }
 
   // Start time: prefer dateTime-derived time, fall back to description extraction
   let resolvedStartTime = startTime;
@@ -391,6 +434,9 @@ export function buildRawEventFromGCalItem(
     resolvedStartTime = extractTimeFromDescription(rawDescription);
   }
 
+  // Any URL as location (Maps or otherwise) gets routed to locationUrl for geocoding,
+  // not stored as display location. resolveCoords handles URL → address resolution.
+  const locationIsUrl = location && /^https?:\/\//i.test(location);
   return {
     date: dateISO,
     kennelTag,
@@ -398,8 +444,8 @@ export function buildRawEventFromGCalItem(
     title,
     description: appendDescriptionSuffix(description, sourceConfig?.descriptionSuffix),
     hares,
-    location,
-    locationUrl: location ? mapsUrl(location) : undefined,
+    location: locationIsUrl ? undefined : location,
+    locationUrl: location ? (locationIsUrl ? location : mapsUrl(location)) : undefined,
     startTime: resolvedStartTime,
     sourceUrl: item.htmlLink,
   };
@@ -450,6 +496,9 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     const compiledSkipPatterns = sourceConfig?.skipPatterns?.length
       ? compilePatterns(sourceConfig.skipPatterns, "i")
       : undefined;
+    const compiledTitleHarePattern = sourceConfig?.titleHarePattern
+      ? compilePatterns([sourceConfig.titleHarePattern], "i")[0]
+      : undefined;
 
     do {
       const url = new URL(
@@ -492,7 +541,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
       for (const item of items) {
         try {
-          const event = buildRawEventFromGCalItem(item, sourceConfig, compiledHarePatterns, compiledRunNumberPatterns, compiledSkipPatterns);
+          const event = buildRawEventFromGCalItem(item, sourceConfig, compiledHarePatterns, compiledRunNumberPatterns, compiledSkipPatterns, compiledTitleHarePattern);
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);

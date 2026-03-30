@@ -17,9 +17,16 @@ export async function generateMetadata({
   const params = await searchParams;
   const regions = typeof params.regions === "string" ? params.regions.split("|") : [];
   if (regions.length === 1) {
-    return { title: `${regionAbbrev(regions[0])} Kennels | HashTracks` };
+    const abbrev = regionAbbrev(regions[0]);
+    return {
+      title: `${abbrev} Kennels | HashTracks`,
+      description: `Hash house harrier kennels in the ${abbrev} area.`,
+    };
   }
-  return { title: "Kennels | HashTracks" };
+  return {
+    title: "Kennels | HashTracks",
+    description: "Browse hash house harrier kennels across all regions on HashTracks.",
+  };
 }
 
 export default async function KennelsPage() {

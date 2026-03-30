@@ -2,29 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ eventId: string }>;
-}): Promise<Metadata> {
-  const { eventId } = await params;
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    select: {
-      date: true,
-      kennel: { select: { shortName: true } },
-    },
-  });
-  if (!event) return { title: "Event · HashTracks" };
-  const dateStr = event.date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-  return { title: `${dateStr} · ${event.kennel.shortName} · HashTracks` };
-}
 import { getOrCreateUser, getAdminUser, getMismanUser } from "@/lib/auth";
 import { getStravaConnection } from "@/app/strava/actions";
 import { Badge } from "@/components/ui/badge";
@@ -44,8 +21,52 @@ import { getEventDayWeather } from "@/lib/weather";
 import { REGION_CENTROIDS } from "@/lib/geo";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { RestoreEventButton } from "@/components/admin/RestoreEventButton";
-import { stripMarkdown, stripUrlsFromText } from "@/lib/format";
+import { stripMarkdown, stripUrlsFromText, formatRelativeTime } from "@/lib/format";
 import { getFullLocationDisplay } from "@/lib/event-display";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ eventId: string }>;
+}): Promise<Metadata> {
+  const { eventId } = await params;
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: {
+      kennel: { select: { shortName: true, fullName: true } },
+      hares: { select: { hareName: true }, take: 5 },
+    },
+  });
+  if (!event) return { title: "Event · HashTracks" };
+  const dateStr = event.date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const title = `${dateStr} · ${event.kennel.shortName} · HashTracks`;
+
+  const parts: string[] = [`${event.kennel.fullName ?? event.kennel.shortName} — ${dateStr}`];
+  if (event.runNumber) parts[0] += ` · Run #${event.runNumber}`;
+  if (event.title) parts.push(event.title);
+  if (event.locationName) parts.push(event.locationName);
+  if (event.hares.length > 0) {
+    const names = event.hares.map((h) => h.hareName).join(", ");
+    parts.push(`Hares: ${names}`);
+  } else if (event.haresText) {
+    parts.push(`Hares: ${event.haresText}`);
+  }
+  const raw = parts.join(". ");
+  const description = raw.length > 200
+    ? raw.slice(0, raw.lastIndexOf(" ", 200)) + "..."
+    : raw;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description },
+  };
+}
 
 export default async function EventDetailPage({
   params,
@@ -191,6 +212,12 @@ export default async function EventDetailPage({
           {event.status === "TENTATIVE" && (
             <Badge variant="outline">Tentative</Badge>
           )}
+          {(event.status === "CANCELLED" || event.status === "TENTATIVE") && (
+            <span className="text-xs text-muted-foreground">·</span>
+          )}
+          <span className={`text-xs ${Date.now() - event.updatedAt.getTime() >= 7 * 86_400_000 ? "text-amber-500" : "text-muted-foreground"}`}>
+            Updated {formatRelativeTime(event.updatedAt)}
+          </span>
         </div>
       </div>
 

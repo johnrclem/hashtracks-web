@@ -58,7 +58,7 @@ export function RegionQuickChips({
   if (topRegions.length === 0) return null;
 
   function toggleRegion(regionName: string) {
-    capture("region_chip_click", { region: regionName });
+    capture("filter_applied", { filterType: "region_chip", value: regionName, page: "hareline" });
     onRegionsChange(toggleArrayItem(selectedRegions, regionName));
   }
 

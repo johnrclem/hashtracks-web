@@ -32,6 +32,7 @@ export function SuggestKennelForm({ onSuccess }: Readonly<SuggestKennelFormProps
       // Extract the relationship value from the form before resetting
       const formData = formRef.current ? new FormData(formRef.current) : null;
       const relationship = formData?.get("relationship") as string | null;
+      // Client-side capture covers anonymous users (server-side only fires for authenticated)
       capture("suggest_kennel_submit", { entryPoint: "form", relationship: relationship ?? "unknown" });
       toast.success("Thanks! We'll look into adding this kennel.");
       formRef.current?.reset();

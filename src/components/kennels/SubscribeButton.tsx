@@ -3,7 +3,6 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { subscribeToKennel, unsubscribeFromKennel } from "@/app/kennels/actions";
-import { capture } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -32,11 +31,7 @@ export function SubscribeButton({
 
   function handleClick() {
     startTransition(async () => {
-      if (isSubscribed) {
-        capture("kennel_unsubscribe", { kennelSlug: kennelId });
-      } else {
-        capture("kennel_subscribe", { kennelSlug: kennelId });
-      }
+      // Analytics captured server-side in subscribe/unsubscribe actions
       const action = isSubscribed ? unsubscribeFromKennel : subscribeToKennel;
       const result = await action(kennelId);
       if ("error" in result) {

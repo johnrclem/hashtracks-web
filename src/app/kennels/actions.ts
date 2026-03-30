@@ -18,8 +18,14 @@ export async function subscribeToKennel(kennelId: string) {
     data: { userId: user.id, kennelId, role: "MEMBER" },
   });
 
+  const kennel = await prisma.kennel.findUnique({
+    where: { id: kennelId },
+    select: { slug: true },
+  });
   const { captureServerEvent } = await import("@/lib/analytics-server");
-  captureServerEvent(user.id, "kennel_subscribe", { kennelId });
+  await captureServerEvent(user.id, "kennel_subscribe", {
+    kennelSlug: kennel?.slug ?? kennelId,
+  });
 
   revalidatePath("/kennels");
   revalidatePath("/profile");
@@ -34,8 +40,14 @@ export async function unsubscribeFromKennel(kennelId: string) {
     where: { userId: user.id, kennelId },
   });
 
+  const kennel = await prisma.kennel.findUnique({
+    where: { id: kennelId },
+    select: { slug: true },
+  });
   const { captureServerEvent } = await import("@/lib/analytics-server");
-  captureServerEvent(user.id, "kennel_unsubscribe", { kennelId });
+  await captureServerEvent(user.id, "kennel_unsubscribe", {
+    kennelSlug: kennel?.slug ?? kennelId,
+  });
 
   revalidatePath("/kennels");
   revalidatePath("/profile");

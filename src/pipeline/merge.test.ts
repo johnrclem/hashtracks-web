@@ -24,7 +24,7 @@ vi.mock("./kennel-resolver", () => ({
 import { prisma } from "@/lib/db";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, NON_ENGLISH_GEO_RE } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -138,7 +138,7 @@ describe("processRawEvents", () => {
   it("handles empty events array", async () => {
     const result = await processRawEvents("src_1", []);
     expect(result).toEqual({
-      created: 0, updated: 0, skipped: 0, blocked: 0,
+      created: 0, updated: 0, skipped: 0, blocked: 0, restored: 0,
       unmatched: [], blockedTags: [], eventErrors: 0, eventErrorMessages: [],
       mergeErrorDetails: [], sampleBlocked: [], sampleSkipped: [],
     });
@@ -528,14 +528,18 @@ describe("empty event guard", () => {
     expect(mockRawEventCreate).not.toHaveBeenCalled();
   });
 
-  it("generates default title from kennelTag when title is missing", async () => {
+  it("generates default title using kennel display name (not raw tag)", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({
+      shortName: "DUHHH", fullName: "DUHHH", region: "Dallas-Fort Worth, TX",
+      latitude: null, longitude: null, country: "US", regionRef: null,
+    } as never);
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({
-        kennelTag: "DUHHH",
+        kennelTag: "duhhh",
         title: undefined,
         location: undefined,
         hares: undefined,
@@ -551,14 +555,45 @@ describe("empty event guard", () => {
     );
   });
 
+  it("uses friendlyKennelName for short kennel codes in default title", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({
+      shortName: "H5", fullName: "Harrisburg-Hershey Hash House Harriers", region: "Harrisburg, PA",
+      latitude: null, longitude: null, country: "US", regionRef: null,
+    } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({
+        kennelTag: "h5-hash",
+        title: undefined,
+        location: undefined,
+        hares: undefined,
+        runNumber: 314,
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(mockEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ title: "Harrisburg-Hershey H3 Trail #314" }),
+      }),
+    );
+  });
+
   it("includes run number in default title when available", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({
+      shortName: "Houston H3", fullName: "Houston Hash House Harriers", region: "Houston, TX",
+      latitude: null, longitude: null, country: "US", regionRef: null,
+    } as never);
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({
-        kennelTag: "DH3",
+        kennelTag: "h4-tx",
         title: undefined,
         location: undefined,
         hares: undefined,
@@ -569,7 +604,7 @@ describe("empty event guard", () => {
     expect(result.created).toBe(1);
     expect(mockEventCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ title: "DH3 Trail #42" }),
+        data: expect.objectContaining({ title: "Houston H3 Trail #42" }),
       }),
     );
   });
@@ -737,8 +772,6 @@ describe("sanitizeLocationUrl", () => {
 });
 
 // ── sanitizeTitle + sanitizeHares ──
-
-import { sanitizeTitle, sanitizeLocation, sanitizeHares } from "./merge";
 
 describe("sanitizeTitle", () => {
   it("passes through normal titles", () => {
@@ -997,6 +1030,50 @@ describe("sanitizeHares", () => {
   });
 });
 
+// ── friendlyKennelName ──
+
+describe("friendlyKennelName", () => {
+  it("returns shortName when longer than 4 chars", () => {
+    expect(friendlyKennelName("Houston H3", "Houston Hash House Harriers")).toBe("Houston H3");
+  });
+
+  it("returns shortName when longer than 4 chars (SeaMon)", () => {
+    expect(friendlyKennelName("SeaMon", "Seattle Monday Hash House Harriers")).toBe("SeaMon");
+  });
+
+  it("expands short code using fullName with HHH suffix", () => {
+    expect(friendlyKennelName("H5", "Harrisburg-Hershey Hash House Harriers")).toBe("Harrisburg-Hershey H3");
+  });
+
+  it("expands short code (GAL)", () => {
+    expect(friendlyKennelName("GAL", "Galveston Hash House Harriers")).toBe("Galveston H3");
+  });
+
+  it("expands short code (OCH3)", () => {
+    expect(friendlyKennelName("OCH3", "Old Coulsdon Hash House Harriers")).toBe("Old Coulsdon H3");
+  });
+
+  it("returns fullName as-is when no HHH suffix", () => {
+    expect(friendlyKennelName("SFM", "South Fulton Mob")).toBe("South Fulton Mob");
+  });
+
+  it("returns fullName as-is when no HHH suffix (LBH)", () => {
+    expect(friendlyKennelName("LBH", "Love Bucket Hash")).toBe("Love Bucket Hash");
+  });
+
+  it("returns shortName when fullName equals shortName", () => {
+    expect(friendlyKennelName("H6", "H6")).toBe("H6");
+  });
+
+  it("returns shortName when fullName is null", () => {
+    expect(friendlyKennelName("H5", null)).toBe("H5");
+  });
+
+  it("returns shortName when stripping HHH leaves empty string", () => {
+    expect(friendlyKennelName("HHH", "Hash House Harriers")).toBe("HHH");
+  });
+});
+
 // ── sanitizeLocation ──
 
 describe("sanitizeLocation", () => {
@@ -1182,4 +1259,47 @@ describe("sanitizeLocation", () => {
   it("preserves location with legitimate em-dash (venue name)", () => {
     expect(sanitizeLocation("The Pub — A Fine Establishment")).toBe("The Pub — A Fine Establishment");
   });
+
+  it("deduplicates abbreviated intersection name (LBH3 pattern)", () => {
+    expect(sanitizeLocation("North San Miguel Road & Barcelona Place, N San Miguel Rd & Barcelona Pl, Walnut, CA 91789, USA"))
+      .toBe("North San Miguel Road & Barcelona Place, Walnut, CA 91789, USA");
+  });
+
+  it("does not deduplicate legitimately different address segments", () => {
+    expect(sanitizeLocation("123 Main St, Suite 200, Springfield, IL"))
+      .toBe("123 Main St, Suite 200, Springfield, IL");
+  });
+
+  it("deduplicates when abbreviated form is first", () => {
+    expect(sanitizeLocation("N Main St, North Main Street, Springfield, IL"))
+      .toBe("North Main Street, Springfield, IL");
+  });
+});
+
+// ── NON_ENGLISH_GEO_RE (French locale location normalization) ──
+
+describe("NON_ENGLISH_GEO_RE", () => {
+  it("matches German geographic terms", () => {
+    expect(NON_ENGLISH_GEO_RE.test("Frankfurt, Bundesland Hessen")).toBe(true);
+    expect(NON_ENGLISH_GEO_RE.test("Berliner Straße 42")).toBe(true);
+    expect(NON_ENGLISH_GEO_RE.test("Vereinigte Staaten")).toBe(true);
+  });
+
+  it("matches Spanish geographic terms", () => {
+    expect(NON_ENGLISH_GEO_RE.test("Madrid, Comunidad de Madrid")).toBe(true);
+    expect(NON_ENGLISH_GEO_RE.test("Barcelona, Provincia de Barcelona")).toBe(true);
+  });
+
+  it("matches French Préfecture (ASCII-boundary compatible)", () => {
+    expect(NON_ENGLISH_GEO_RE.test("Préfecture de Paris")).toBe(true);
+  });
+
+  it("does not match English geographic text", () => {
+    expect(NON_ENGLISH_GEO_RE.test("Rochester, NY, USA")).toBe(false);
+    expect(NON_ENGLISH_GEO_RE.test("123 Main St, Springfield, IL")).toBe(false);
+  });
+
+  // Note: French patterns starting with É (État, États-Unis) don't match due to
+  // \b word boundary not firing on non-ASCII characters. This is a known limitation
+  // — the geocoder's language=en param handles French locations at the API level.
 });

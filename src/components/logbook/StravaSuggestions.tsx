@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useMemo } from "react";
+import { useState, useEffect, useTransition, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -77,8 +77,48 @@ export function StravaSuggestions({
   const [showAllLinks, setShowAllLinks] = useState(false);
   const [showBackfill, setShowBackfill] = useState(false);
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
+  const [hasMore, setHasMore] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  // Ref so async callbacks always read the latest values without re-creating closures
+  const skippedIdsRef = useRef(skippedIds);
+  useEffect(() => { skippedIdsRef.current = skippedIds; }, [skippedIds]);
+  const suggestionsRef = useRef(suggestions);
+  useEffect(() => { suggestionsRef.current = suggestions; }, [suggestions]);
+
+  // Request counter: only the latest response is applied (stale responses are dropped)
+  const requestIdRef = useRef(0);
+
+  async function refreshSuggestions() {
+    const thisRequest = ++requestIdRef.current;
+    setIsRefreshing(true);
+    try {
+      // Exclude skipped IDs + currently-visible suggestion IDs to avoid duplicates
+      const excludeIds = [
+        ...skippedIdsRef.current,
+        ...suggestionsRef.current.map((s) => s.stravaActivityDbId),
+      ];
+      const result = await getStravaEventSuggestions({
+        excludeActivityIds: excludeIds.length > 0 ? excludeIds : undefined,
+      });
+      if (thisRequest !== requestIdRef.current) return; // stale response
+      if (result.success) {
+        setSuggestions(result.suggestions);
+        setHasMore(result.hasMore);
+      } else {
+        toast.error(result.error ?? "Failed to load suggestions");
+        setHasMore(false);
+      }
+    } catch {
+      if (thisRequest !== requestIdRef.current) return;
+      toast.error("Failed to load more suggestions");
+      setHasMore(false);
+    } finally {
+      if (thisRequest === requestIdRef.current) setIsRefreshing(false);
+    }
+  }
 
   // Load skipped IDs from localStorage on mount
   useEffect(() => {
@@ -111,12 +151,16 @@ export function StravaSuggestions({
     async function fetchData() {
       try {
         const [suggestionsResult, matchesResult] = await Promise.all([
-          getStravaEventSuggestions(),
+          getStravaEventSuggestions({
+            excludeActivityIds: [...skippedIdsRef.current],
+          }),
           getUnmatchedStravaActivities(),
         ]);
         if (cancelled) return;
-        if (suggestionsResult.success)
+        if (suggestionsResult.success) {
           setSuggestions(suggestionsResult.suggestions);
+          setHasMore(suggestionsResult.hasMore);
+        }
         if (matchesResult.success) setLinkMatches(matchesResult.matches);
       } catch (err) {
         console.error("Failed to fetch Strava data:", err);
@@ -129,6 +173,15 @@ export function StravaSuggestions({
       cancelled = true;
     };
   }, [stravaConnected]);
+
+  // Auto-refetch when all suggestions are exhausted but more exist on the server.
+  // refreshSuggestions is intentionally omitted — it reads state via refs and the
+  // reactive deps (filteredSuggestions.length, hasMore) already trigger re-evaluation.
+  useEffect(() => {
+    if (!loaded || !hasMore || isPending || isRefreshing) return;
+    if (filteredSuggestions.length > 0) return;
+    refreshSuggestions();
+  }, [filteredSuggestions.length, hasMore, loaded, isPending, isRefreshing]);
 
   if (!stravaConnected || !loaded || hidden || totalCount === 0) return null;
 
@@ -191,6 +244,7 @@ export function StravaSuggestions({
         return;
       }
       setSuggestions([]);
+      setHasMore(false);
       toast.success("All suggestions dismissed");
     });
   }
@@ -231,12 +285,10 @@ export function StravaSuggestions({
       }
       toast.success(`Synced ${result.syncedCount} activities`);
       // Re-fetch both data sources
-      const [suggestionsResult, matchesResult] = await Promise.all([
-        getStravaEventSuggestions(),
+      const [, matchesResult] = await Promise.all([
+        refreshSuggestions(),
         getUnmatchedStravaActivities(),
       ]);
-      if (suggestionsResult.success)
-        setSuggestions(suggestionsResult.suggestions);
       if (matchesResult.success) setLinkMatches(matchesResult.matches);
       router.refresh();
     });
@@ -251,8 +303,8 @@ export function StravaSuggestions({
             className="mr-2 inline-block h-2 w-2 rounded-full bg-strava animate-pulse"
             aria-hidden="true"
           />
-          <span className="font-medium">{totalCount}</span> Strava{" "}
-          {totalCount === 1 ? "match" : "matches"} for your recent activities
+          <span className="font-medium">{totalCount}{hasMore ? "+" : ""}</span> Strava{" "}
+          {totalCount === 1 && !hasMore ? "match" : "matches"} for your recent activities
         </p>
         <div className="flex items-center gap-2">
           <Button
@@ -292,7 +344,7 @@ export function StravaSuggestions({
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold">Strava Matches</h3>
             <span className="rounded-full bg-strava/10 px-2 py-0.5 text-[10px] font-semibold text-strava">
-              {filteredSuggestions.length}
+              {filteredSuggestions.length}{hasMore ? "+" : ""}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -354,6 +406,25 @@ export function StravaSuggestions({
             Show all {filteredSuggestions.length} suggestions
           </Button>
         )}
+
+        {hasMore && filteredSuggestions.length <= SUGGESTION_CAP && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-strava"
+            onClick={refreshSuggestions}
+            disabled={isPending || isRefreshing}
+          >
+            {isRefreshing ? (
+              <>
+                <RefreshCw size={12} className="animate-spin mr-1" />
+                Loading...
+              </>
+            ) : (
+              "Load more matches"
+            )}
+          </Button>
+        )}
       </div>
 
       {/* Section B: "Link Strava to check-ins" */}
@@ -364,7 +435,7 @@ export function StravaSuggestions({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">Link Strava to check-ins</h3>
-                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400">
                   {linkGroups.length}
                 </span>
               </div>
@@ -434,7 +505,7 @@ function EventInfoLine({ eventId, kennelShortName, kennelFullName, kennelRegion,
         <TooltipTrigger asChild>
           <a
             href={`/hareline/${eventId}`}
-            className="font-semibold text-sm text-blue-500 hover:underline"
+            className="font-semibold text-sm text-blue-500 dark:text-blue-400 hover:underline"
           >
             {kennelShortName}
           </a>
@@ -519,7 +590,7 @@ function SuggestionCard({
                 key={reason}
                 className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                   reason.startsWith("Same") || reason.startsWith("Within")
-                    ? "bg-emerald-50 text-emerald-700"
+                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
                     : "bg-muted text-muted-foreground"
                 }`}
               >
@@ -544,7 +615,7 @@ function SuggestionCard({
       <div className="flex flex-col gap-1 items-end shrink-0">
         <Button
           size="sm"
-          className="bg-emerald-500 hover:bg-emerald-600 text-white h-7 text-xs font-semibold"
+          className="bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white h-7 text-xs font-semibold"
           onClick={onCheckIn}
           disabled={isPending}
         >
