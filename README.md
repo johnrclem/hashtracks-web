@@ -10,7 +10,8 @@ A community platform where hashers discover upcoming runs, track attendance, and
 - **Database:** PostgreSQL (Railway) via Prisma 7
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS v4 + shadcn/ui
-- **Testing:** Vitest (109 test files, 2516 tests)
+- **Analytics:** PostHog (event tracking, privacy-first), Sentry (error tracking), Vercel Speed Insights
+- **Testing:** Vitest (129 test files, 3200+ tests)
 - **Deployment:** Vercel (auto-deploy from `main`, daily cron scrapes)
 
 ## Local Development
@@ -177,7 +178,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - **BFM + Philly H3 scrapers:** benfranklinmob.com and hashphilly.com HTML adapters
 - **User feedback:** In-app dialog auto-filing GitHub issues with category labels
 - **Timezone preferences:** User-selectable timezone display with header dropdown
-- **Vercel Analytics:** Web Analytics + Speed Insights integration
+- **Analytics:** PostHog (client + server event tracking, privacy-first, `/ingest` reverse proxy), Sentry error tracking, Vercel Speed Insights, admin analytics dashboard at `/admin/analytics`
 - **Config validation:** Server-side validation with ReDoS protection for all source types
 - **Map-based discovery (PR #95):** Interactive Map tab on Hareline with Google Maps JS, region-colored pins, EventLocationMap static image, coordinate extraction from Maps URLs
 - **Weather forecast + units toggle (PR #97):** Google Weather API forecast on upcoming events, °F/°C toggle, text-address fallback

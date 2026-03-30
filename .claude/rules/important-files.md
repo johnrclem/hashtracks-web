@@ -153,6 +153,18 @@ globs:
 - `src/components/hareline/EventWeatherCard.tsx` — Weather forecast display (condition emoji, °F/°C, precip ≥20%)
 - `src/components/providers/units-preference-provider.tsx` — °F/°C preference context (localStorage-based, useUnitsPreference hook)
 
+## Analytics & Error Tracking
+- `src/lib/analytics.ts` — Typed client-side PostHog event capture (`capture()`, `identifyUser()`)
+- `src/lib/analytics-server.ts` — Server-side PostHog client (`captureServerEvent()` with flush for Vercel serverless)
+- `src/components/providers/posthog-provider.tsx` — PostHog client init, privacy-first config, custom pageview hook, `/ingest` reverse proxy
+- `src/components/providers/posthog-identify.tsx` — PostHog + Sentry user identification on Clerk login
+- `sentry.client.config.ts` — Sentry client-side initialization
+- `sentry.server.config.ts` — Sentry server-side initialization
+- `src/instrumentation.ts` — Next.js instrumentation hook (Sentry server/edge init + request error capture)
+- `src/app/admin/analytics/actions.ts` — Server actions for community health, user engagement, operational metrics
+- `src/app/admin/analytics/page.tsx` — Admin analytics dashboard
+- `src/components/admin/AnalyticsDashboard.tsx` — Dashboard UI with recharts (charts, stat cards, tables)
+
 ## Infrastructure & CI
 - `vercel.json` — Vercel Cron config (triggers QStash dispatch at 6:00 AM UTC)
 - `src/lib/qstash.ts` — QStash Client + Receiver singletons (Upstash fan-out queue)

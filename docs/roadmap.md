@@ -335,7 +335,10 @@ See [kennel-page-redesign-spec.md](kennel-page-redesign-spec.md) for full spec.
 - [x] Vercel Cron daily scrapes (6:00 AM UTC) with CRON_SECRET auth
 - [x] Per-source `scrapeFreq` with interval-based skip logic
 - [x] Shared `scrapeSource()` for cron + admin routes
-- [x] Vercel Web Analytics + Speed Insights integration
+- [x] Vercel Speed Insights integration (Core Web Vitals)
+- [x] **PostHog analytics** — client + server event tracking, privacy-first config, reverse proxy via `/ingest`, typed event capture, user identification
+- [x] **Sentry error tracking** — client + server + edge error capture, Next.js instrumentation, global error boundary, source map upload
+- [x] **Admin analytics dashboard** — `/admin/analytics` with recharts: community health, user engagement, operational health metrics
 - [x] **Residential proxy relay** — NAS-based forward proxy for WAF-blocked scrape targets
   - Synology DS423+ NAS, Cloudflare Tunnel (`proxy.hashtracks.xyz`), zero-dep Node.js server
   - Opt-in via `useResidentialProxy: true` in safeFetch (currently Enfield Hash only)
