@@ -62,8 +62,11 @@ export function finding(
 
 const TITLE_CTA_PATTERN =
   /\b(?:wanna\s+hare|available\s+dates|check\s+out\s+our|sign\s*up)\b/i;
-const TITLE_SCHEDULE_PATTERN =
-  /\b(?:runs?\s+on\s+the\s+(?:first|second|third|fourth|last)|meets?\s+every|hashes?\s+on\s+the|runs?\s+every)\b/i;
+const TITLE_SCHEDULE_PATTERNS = [
+  /\b(?:runs?\s+on\s+the\s+(?:first|second|third|fourth|last))\b/i,
+  /\b(?:meets?\s+every|runs?\s+every)\b/i,
+  /\b(?:hashes?\s+on\s+the\s+(?:first|second|third|fourth|last))\b/i,
+];
 const TITLE_HTML_ENTITIES_PATTERN =
   /&(?:amp|lt|gt|quot|apos|#\d+|#x[\da-f]+);/i;
 const TITLE_TIME_ONLY_PATTERN =
@@ -89,9 +92,9 @@ export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
 
   // 1. title-raw-kennel-code (error): title starts with `{kennelCode} Trail` but NOT with `{kennelShortName}`
   // Dynamic regex is necessary here — kennelCode varies per event. Input is escaped.
-  const escapedCode = kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escapedCode = kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
   const kennelCodeTrailPattern = new RegExp(
-    `^${escapedCode}\\s+Trail`,
+    String.raw`^${escapedCode}\s+Trail`,
     "i"
   );
   if (
@@ -124,7 +127,7 @@ export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
   }
 
   // 3. title-schedule-description (warning)
-  if (TITLE_SCHEDULE_PATTERN.test(title)) {
+  if (TITLE_SCHEDULE_PATTERNS.some(p => p.test(title))) {
     return [
       finding(event, {
         category: "title",
@@ -197,6 +200,23 @@ function normalizeSegment(s: string): string {
     .trim();
 }
 
+const REGION_APPENDED_RE = /,\s*[A-Z]{2}(?:\s+\d{5})?$/;
+
+/** Check if a location has a region city appended that doesn't match the address city. */
+function checkRegionAppended(event: LocationEventRow, locationName: string, locationCity: string | null): AuditFinding | null {
+  if (!locationCity || !REGION_APPENDED_RE.test(locationName)) return null;
+  const cityName = locationCity.split(",")[0].trim();
+  if (locationName.includes(cityName)) return null;
+  return finding(event, {
+    category: "location",
+    field: "locationName+locationCity",
+    currentValue: `${locationName}, ${locationCity}`,
+    rule: "location-region-appended",
+    severity: "warning",
+    expectedValue: locationName,
+  });
+}
+
 export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[] {
   const findings: AuditFinding[] = [];
 
@@ -238,24 +258,11 @@ export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[]
       }
     }
 
-    // 3. location-region-appended: ends with `, XX` or `, XX NNNNN`, locationCity exists,
-    //    and locationCity's city name is NOT found in locationName
-    const regionAppendedPattern = /,\s*[A-Z]{2}(?:\s+\d{5})?$/;
-    if (regionAppendedPattern.test(locationName) && locationCity) {
-      const cityName = locationCity.split(",")[0].trim();
-      if (!locationName.includes(cityName)) {
-        findings.push(
-          finding(event, {
-            category: "location",
-            field: "locationName+locationCity",
-            currentValue: `${locationName}, ${locationCity}`,
-            rule: "location-region-appended",
-            severity: "warning",
-            expectedValue: locationName,
-          })
-        );
-        continue;
-      }
+    // 3. location-region-appended
+    const regionFinding = checkRegionAppended(event, locationName, locationCity);
+    if (regionFinding) {
+      findings.push(regionFinding);
+      continue;
     }
   }
 

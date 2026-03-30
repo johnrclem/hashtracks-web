@@ -25,6 +25,34 @@ import { formatIssueTitle, formatIssueBody } from "./audit-format";
 
 const postIssue = process.argv.includes("--post-issue");
 
+function postGitHubIssue(findings: AuditFinding[]): void {
+  const today = new Date().toISOString().split("T")[0];
+  const title = formatIssueTitle(findings, today);
+  const body = formatIssueBody(findings);
+
+  console.log(`\nCreating GitHub issue: ${title}`);
+  const bodyFile = path.join(os.tmpdir(), `audit-issue-${Date.now()}.md`);
+  try {
+    fs.writeFileSync(bodyFile, body);
+    const result = spawnSync("gh", [
+      "issue", "create",
+      "--repo", "johnrclem/hashtracks-web",
+      "--title", title,
+      "--label", "audit",
+      "--label", "claude-fix",
+      "--label", "alert",
+      "--body-file", bodyFile,
+    ], { encoding: "utf8" });
+    if (result.status === 0) {
+      console.log(`Issue created: ${result.stdout.trim()}`);
+    } else {
+      console.error("Failed to create GitHub issue:", result.stderr);
+    }
+  } finally {
+    try { fs.unlinkSync(bodyFile); } catch { /* ignore cleanup errors */ }
+  }
+}
+
 async function main() {
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
   const adapter = new PrismaPg(pool);
@@ -90,12 +118,13 @@ async function main() {
   // Run all checks — hare/title take single events, location/event/description take arrays
   const findings: AuditFinding[] = [];
   for (const row of rows) {
-    findings.push(...checkHareQuality(row));
-    findings.push(...checkTitleQuality(row));
+    findings.push(...checkHareQuality(row), ...checkTitleQuality(row));
   }
-  findings.push(...checkLocationQuality(rows));
-  findings.push(...checkEventQuality(rows));
-  findings.push(...checkDescriptionQuality(rows));
+  findings.push(
+    ...checkLocationQuality(rows),
+    ...checkEventQuality(rows),
+    ...checkDescriptionQuality(rows),
+  );
 
   // Print summary
   const byCategory = new Map<string, number>();
@@ -117,31 +146,7 @@ async function main() {
     }
 
     if (postIssue) {
-      const today = new Date().toISOString().split("T")[0];
-      const title = formatIssueTitle(findings, today);
-      const body = formatIssueBody(findings);
-
-      console.log(`\nCreating GitHub issue: ${title}`);
-      const bodyFile = path.join(os.tmpdir(), `audit-issue-${Date.now()}.md`);
-      try {
-        fs.writeFileSync(bodyFile, body);
-        const result = spawnSync("gh", [
-          "issue", "create",
-          "--repo", "johnrclem/hashtracks-web",
-          "--title", title,
-          "--label", "audit",
-          "--label", "claude-fix",
-          "--label", "alert",
-          "--body-file", bodyFile,
-        ], { encoding: "utf8" });
-        if (result.status === 0) {
-          console.log(`Issue created: ${result.stdout.trim()}`);
-        } else {
-          console.error("Failed to create GitHub issue:", result.stderr);
-        }
-      } finally {
-        try { fs.unlinkSync(bodyFile); } catch { /* ignore cleanup errors */ }
-      }
+      postGitHubIssue(findings);
     }
   }
 
