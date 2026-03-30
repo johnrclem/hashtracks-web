@@ -154,7 +154,7 @@ describe("parseHarelineRow", () => {
     });
   });
 
-  it("keeps TBD hares (provides schedule visibility)", () => {
+  it("converts TBD hares to undefined but keeps the event", () => {
     const result = parseHarelineRow(["516", "4-4", "TBD"], 2026, SOURCE_URL);
     expect(result).not.toBeNull();
     expect(result!.hares).toBeUndefined();
