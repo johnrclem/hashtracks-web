@@ -292,11 +292,16 @@ export function chronoParseDate(
   referenceDate?: Date,
   options?: { forwardDate?: boolean },
 ): string | null {
+  // Normalize hyphenated M-D dates (e.g., "3-7", "10-31: HALLOWEEN") → "M/D"
+  // before parsing. Chrono can't parse "3-7" but handles "3/7" natively.
+  // Negative lookahead excludes M-D-YY patterns (e.g., "3-7-26").
+  const normalized = text.replace(/^(\d{1,2})-(\d{1,2})(?![\d-])/, "$1/$2");
+
   const parser = locale === "en-GB" ? chrono.en.GB : chrono.en;
   const ref: chrono.ParsingReference | undefined = referenceDate
     ? { instant: referenceDate }
     : undefined;
-  const results = parser.parse(text, ref, {
+  const results = parser.parse(normalized, ref, {
     forwardDate: options?.forwardDate ?? false,
   });
 
