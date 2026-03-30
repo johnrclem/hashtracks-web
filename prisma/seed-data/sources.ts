@@ -355,6 +355,20 @@ export const SOURCES = [
       },
       kennelCodes: ["mth3"],
     },
+    // ===== UK — BIRMINGHAM =====
+    {
+      name: "Bull Moon Upcoming Runs",
+      url: "https://www.bullmoonh3.co.uk/upcoming-runs",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 3650,
+      config: {
+        browserRender: true,
+        recedingHarelineUrl: "https://www.bullmoonh3.co.uk/receding-hareline",
+      },
+      kennelCodes: ["bullmoon"],
+    },
     // ===== UK — BRISTOL =====
     {
       name: "West of England Hash Run List",
