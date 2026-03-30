@@ -31,6 +31,7 @@ export function SubscribeButton({
 
   function handleClick() {
     startTransition(async () => {
+      // Analytics captured server-side in subscribe/unsubscribe actions
       const action = isSubscribed ? unsubscribeFromKennel : subscribeToKennel;
       const result = await action(kennelId);
       if ("error" in result) {

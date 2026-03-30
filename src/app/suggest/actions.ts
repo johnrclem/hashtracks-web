@@ -164,6 +164,14 @@ export async function submitKennelSuggestion(
     },
   });
 
+  if (userId) {
+    const { captureServerEvent } = await import("@/lib/analytics-server");
+    await captureServerEvent(userId, "suggest_kennel_submit", {
+      entryPoint: "form",
+      relationship,
+    });
+  }
+
   return { success: true };
 }
 

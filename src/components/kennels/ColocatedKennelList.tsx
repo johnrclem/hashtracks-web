@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { ChevronRight, X } from "lucide-react";
-import { track } from "@vercel/analytics";
+import { capture } from "@/lib/analytics";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   Sheet,
@@ -97,7 +97,7 @@ export function ColocatedKennelList({
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    track("map_colocated_kennel_popover", { kennelCount: pins.length });
+    capture("map_colocated_kennel_popover", { kennelCount: pins.length });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const allSameRegion = pins.every((p) => p.region === pins[0]?.region);

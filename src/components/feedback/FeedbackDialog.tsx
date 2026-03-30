@@ -36,6 +36,7 @@ export function FeedbackDialog() {
     if (!state) return;
 
     if (state.success) {
+      // Analytics captured server-side in submitFeedback action with actual category
       toast.success("Feedback submitted — thank you!");
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(false);

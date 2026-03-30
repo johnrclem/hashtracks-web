@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { track } from "@vercel/analytics";
+import { capture } from "@/lib/analytics";
 import { MapPinOff, SearchX, CalendarOff, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -76,7 +76,7 @@ export function EmptyState(props: Readonly<EmptyStateProps>) {
   const { icon: Icon, message, subtext } = getConfig(props);
 
   useEffect(() => {
-    track("empty_state_shown", { context });
+    capture("empty_state_shown", { context });
   }, [context]);
 
   return (
@@ -94,7 +94,7 @@ export function EmptyState(props: Readonly<EmptyStateProps>) {
         {(context === "near_me" || context === "region") && (
           <>
             <Button variant="default" size="sm" asChild>
-              <Link href="/suggest" onClick={() => track("suggest_kennel_entry", { entryPoint: "empty_state" })}>Suggest a kennel</Link>
+              <Link href="/suggest" onClick={() => capture("suggest_kennel", { entryPoint: "empty_state" })}>Suggest a kennel</Link>
             </Button>
             <Button variant="outline" size="sm" onClick={onClearFilters}>
               Browse all events

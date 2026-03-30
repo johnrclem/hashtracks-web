@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Outfit, Sora, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { PostHogProvider } from "@/components/providers/posthog-provider";
+import { PostHogIdentify } from "@/components/providers/posthog-identify";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
@@ -70,6 +71,8 @@ export default async function RootLayout({
           >
             Skip to main content
           </a>
+          <PostHogProvider>
+          <PostHogIdentify />
           <TooltipProvider>
             <TimePreferenceProvider initialPreference={timeDisplayPref}>
               <UnitsPreferenceProvider>
@@ -85,8 +88,8 @@ export default async function RootLayout({
               </UnitsPreferenceProvider>
             </TimePreferenceProvider>
           </TooltipProvider>
-          <Analytics />
           <SpeedInsights />
+          </PostHogProvider>
         </body>
       </html>
     </ClerkProvider>

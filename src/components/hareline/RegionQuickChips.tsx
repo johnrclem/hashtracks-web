@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { X } from "lucide-react";
-import { track } from "@vercel/analytics";
+import { capture } from "@/lib/analytics";
 import { regionAbbrev } from "@/lib/region";
 import { getRegionColor } from "@/lib/geo";
 import { toggleArrayItem } from "@/lib/format";
@@ -58,7 +58,7 @@ export function RegionQuickChips({
   if (topRegions.length === 0) return null;
 
   function toggleRegion(regionName: string) {
-    track("region_chip_click", { region: regionName });
+    capture("filter_applied", { filterType: "region_chip", value: regionName, page: "hareline" });
     onRegionsChange(toggleArrayItem(selectedRegions, regionName));
   }
 

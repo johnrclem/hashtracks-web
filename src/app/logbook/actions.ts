@@ -71,6 +71,17 @@ export async function checkIn(
   const result = await ensureCheckIn(user.id, eventId, participationLevel);
   if ("error" in result) return { error: result.error };
 
+  // Server-side analytics capture
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { kennel: { select: { slug: true } } },
+  });
+  const { captureServerEvent } = await import("@/lib/analytics-server");
+  await captureServerEvent(user.id, "check_in", {
+    kennelSlug: event?.kennel?.slug ?? "unknown",
+    status: "confirmed",
+  });
+
   revalidatePath("/hareline");
   revalidatePath("/logbook");
   return { success: true, attendanceId: result.attendanceId };

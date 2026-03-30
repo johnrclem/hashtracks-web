@@ -6,9 +6,13 @@ vi.mock("@/lib/auth", () => ({ getOrCreateUser: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     userKennel: { findUnique: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
+    kennel: { findUnique: vi.fn() },
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/analytics-server", () => ({
+  captureServerEvent: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -19,9 +23,12 @@ const mockUKFind = vi.mocked(prisma.userKennel.findUnique);
 const mockUKCreate = vi.mocked(prisma.userKennel.create);
 const mockUKDeleteMany = vi.mocked(prisma.userKennel.deleteMany);
 
+const mockKennelFind = vi.mocked(prisma.kennel.findUnique);
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuth.mockResolvedValue(mockUser as never);
+  mockKennelFind.mockResolvedValue({ slug: "test-kennel" } as never);
 });
 
 describe("subscribeToKennel", () => {
