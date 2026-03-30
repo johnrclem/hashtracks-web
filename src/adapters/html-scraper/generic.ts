@@ -104,6 +104,47 @@ const CTA_HARES_RE = /^(?:tbd|tba|tbc|n\/a|sign[\s\u00A0]*up!?|volunteer|needed|
 /** UK postcode pattern for location truncation. */
 const UK_POSTCODE_RE = /([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})/i;
 
+const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Fix year-resolution errors caused by `forwardDate: true` on year-less dates.
+ * Uses run-number ordering as a monotonicity constraint: if ascending run numbers
+ * have a backward date jump >6 months, the earlier date's year is decremented.
+ * Exported for unit testing.
+ */
+export function fixYearMonotonicity(events: RawEventData[]): RawEventData[] {
+  // Need at least 2 events with run numbers
+  const withRun = events.filter(e => e.runNumber != null && e.date);
+  if (withRun.length < 2) return events;
+
+  // Check run numbers are monotonically non-decreasing
+  for (let i = 1; i < withRun.length; i++) {
+    if (withRun[i].runNumber! < withRun[i - 1].runNumber!) return events;
+  }
+
+  // Build index of events with run numbers for backward walk
+  const runIndices = events
+    .map((e, i) => (e.runNumber != null && e.date ? i : -1))
+    .filter(i => i >= 0);
+
+  const result = events.map(e => ({ ...e }));
+
+  // Walk backward: trust last event, fix earlier ones
+  for (let ri = runIndices.length - 2; ri >= 0; ri--) {
+    const cur = runIndices[ri];
+    const next = runIndices[ri + 1];
+    const curDate = new Date(result[cur].date + "T12:00:00Z");
+    const nextDate = new Date(result[next].date + "T12:00:00Z");
+
+    if (curDate.getTime() - nextDate.getTime() > SIX_MONTHS_MS) {
+      curDate.setUTCFullYear(curDate.getUTCFullYear() - 1);
+      result[cur].date = curDate.toISOString().slice(0, 10);
+    }
+  }
+
+  return result;
+}
+
 /**
  * Parse a single row element into RawEventData using the column config.
  * Exported for unit testing.
@@ -208,7 +249,7 @@ export class GenericHtmlAdapter implements SourceAdapter {
     if (!page.ok) return page.result;
     const { $, structureHash, fetchDurationMs } = page;
 
-    const events: RawEventData[] = [];
+    let events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
@@ -257,6 +298,14 @@ export class GenericHtmlAdapter implements SourceAdapter {
         ];
       }
     });
+
+    // Fix year-resolution errors from forwardDate before returning
+    if (config.forwardDate) {
+      events = fixYearMonotonicity(events);
+      if (pastCutoff) {
+        events = events.filter(e => e.date >= pastCutoff);
+      }
+    }
 
     const hasErrors = hasAnyErrors(errorDetails);
 
