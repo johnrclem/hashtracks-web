@@ -49,6 +49,9 @@ export function sanitizeHares(hares: string | undefined | null): string | null {
   if (!h) return null;
   if (isPlaceholder(h)) return null;
 
+  // Filter CTA/volunteer placeholders that aren't real hare names
+  if (/^(?:sign[\s\u00A0]*up!?|volunteer)$/i.test(h)) return null;
+
   // Reject bare URLs (e.g., Google Maps links extracted as hare names)
   if (/^https?:\/\//i.test(h)) return null;
 
@@ -89,7 +92,7 @@ export function sanitizeHares(hares: string | undefined | null): string | null {
 export function friendlyKennelName(shortName: string, fullName: string | null): string {
   if (shortName.length > 4) return shortName;
   if (!fullName) return shortName;
-  const friendly = fullName.replace(/\s*Hash House Harriers?\s*$/i, "").trim();
+  const friendly = fullName.replace(/\s*Hash House Harriers?(?:\s+and\s+Harriettes?)?\s*$/i, "").trim();
   if (!friendly || friendly === shortName) return shortName;
   const hadHHH = /Hash House Harriers?/i.test(fullName);
   return hadHHH ? `${friendly} H3` : friendly;
@@ -143,7 +146,7 @@ interface MergeContext {
   /** Kennel IDs linked to this source via SourceKennel (for the guard check). */
   linkedKennelIds: Set<string>;
   /** Per-batch cache of kennelId → kennel data to avoid N+1 queries. */
-  kennelCache: Map<string, { shortName: string; fullName: string | null; region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }>;
+  kennelCache: Map<string, { kennelCode: string; shortName: string; fullName: string | null; region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }>;
   /** Per-batch cache of short Maps URL → resolved full URL (avoids repeated HTTP calls). */
   shortUrlCache: Map<string, string | null>;
   /** Per-batch tracking: which canonical Event IDs have been matched for each kennel+date.
@@ -154,14 +157,15 @@ interface MergeContext {
 }
 
 /** Resolve kennel data (name + region + coords + country + region centroid), using the per-batch cache to avoid N+1 queries. */
-async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<{ shortName: string; fullName: string | null; region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }> {
+async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<{ kennelCode: string; shortName: string; fullName: string | null; region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }> {
   let cached = ctx.kennelCache.get(kennelId);
   if (cached === undefined) {
     const kennel = await prisma.kennel.findUnique({
       where: { id: kennelId },
-      select: { shortName: true, fullName: true, region: true, latitude: true, longitude: true, country: true, regionRef: { select: { centroidLat: true, centroidLng: true } } },
+      select: { kennelCode: true, shortName: true, fullName: true, region: true, latitude: true, longitude: true, country: true, regionRef: { select: { centroidLat: true, centroidLng: true } } },
     });
     cached = {
+      kennelCode: kennel?.kennelCode ?? "",
       shortName: kennel?.shortName ?? "",
       fullName: kennel?.fullName ?? null,
       region: kennel?.region ?? "",
@@ -501,6 +505,18 @@ export function sanitizeLocation(location: string | undefined): string | null {
   return cleaned;
 }
 
+/**
+ * Suppress reverse-geocoded locationCity when locationName already contains a full
+ * address with state code and the city doesn't match (avoids "Hartville, OH, Akron, OH").
+ */
+export function suppressRedundantCity(locationName: string | null, city: string | null): string | null {
+  if (!city || !locationName) return city;
+  if (!/,\s*[A-Z]{2}(?:\s+\d{5})?$/.test(locationName)) return city;
+  const cityName = city.split(",")[0].trim();
+  if (cityName && !locationName.includes(cityName)) return null;
+  return city;
+}
+
 /** Filter non-place location URLs (My Maps viewers, etc). Returns null for unusable URLs. */
 function sanitizeLocationUrl(url: string | undefined): string | null {
   if (!url) return null;
@@ -666,7 +682,9 @@ async function upsertCanonicalEvent(
         const coordsChanged =
           coords.latitude !== existingEvent.latitude || coords.longitude !== existingEvent.longitude;
         if (coordsChanged || !existingEvent.locationCity) {
-          locationCity = await reverseGeocode(coords.latitude, coords.longitude);
+          const rawCity = await reverseGeocode(coords.latitude, coords.longitude);
+          const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
+          locationCity = suppressRedundantCity(locName, rawCity);
         }
       } else if (event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) {
         // Coords cleared — also clear city
@@ -735,9 +753,10 @@ async function upsertCanonicalEvent(
   } else {
     // Create new canonical Event
     const coords = await resolveCoords(event, undefined, ctx.shortUrlCache, kennelData, countryToRegionBias(kennelData.country));
-    // Reverse-geocode city when coords are available
+    // Reverse-geocode city when coords are available (suppress when address already has state)
+    const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
     const locationCity = (coords.latitude != null && coords.longitude != null)
-      ? await reverseGeocode(coords.latitude, coords.longitude)
+      ? suppressRedundantCity(locName, await reverseGeocode(coords.latitude, coords.longitude))
       : null;
     const newEvent = await prisma.event.create({
       data: {
@@ -851,14 +870,30 @@ async function processNewRawEvent(
   const kennelId = await resolveAndGuardKennel(event, ctx);
   if (!kennelId) return null;
 
-  // Generate a default title using the kennel's display name (not the raw adapter tag).
+  // Generate or fix the event title using the kennel's display name (not the raw adapter tag).
   // Must happen AFTER kennel resolution so we have access to shortName/fullName.
-  if (!sanitizeTitle(event.title) && kennelId) {
-    const kennelData = await resolveKennelData(kennelId, ctx);
-    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || event.kennelTag;
-    event.title = event.runNumber
-      ? `${displayName} Trail #${event.runNumber}`
-      : `${displayName} Trail`;
+  if (kennelId) {
+    const sanitized = sanitizeTitle(event.title);
+    if (!sanitized) {
+      // No valid title — generate a default from the kennel's friendly name
+      const kennelData = await resolveKennelData(kennelId, ctx);
+      const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || event.kennelTag;
+      event.title = event.runNumber
+        ? `${displayName} Trail #${event.runNumber}`
+        : `${displayName} Trail`;
+    } else {
+      // Valid title — check if it uses raw kennelCode instead of friendly name
+      const kennelData = await resolveKennelData(kennelId, ctx);
+      const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName);
+      if (displayName && displayName.toLowerCase() !== kennelData.kennelCode.toLowerCase()) {
+        const escaped = kennelData.kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+        const codePattern = new RegExp(String.raw`^${escaped}(\s+Trail.*)`, "i");
+        const match = sanitized.match(codePattern);
+        if (match) {
+          event.title = `${displayName}${match[1]}`;
+        }
+      }
+    }
   }
 
   const targetEventId = await upsertCanonicalEvent(event, kennelId, rawEvent.id, ctx);
@@ -934,7 +969,7 @@ export async function processRawEvents(
 
   clearResolverCache();
 
-  const kennelCache = new Map<string, { shortName: string; fullName: string | null; region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }>();
+  const kennelCache = new Map<string, { kennelCode: string; shortName: string; fullName: string | null; region: string; latitude: number | null; longitude: number | null; country: string; regionCentroidLat: number | null; regionCentroidLng: number | null }>();
   const shortUrlCache = new Map<string, string | null>();
   const batchMatchedEvents = new Map<string, Set<string>>();
   const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, kennelCache, shortUrlCache, batchMatchedEvents, result };
