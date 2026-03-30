@@ -145,6 +145,7 @@ model Kennel {
   dogFriendly        Boolean?  // null = unknown
   walkersWelcome     Boolean?  // null = unknown
   isHidden           Boolean   @default(false) // Hide from public directory/hareline
+  lastEventDate      DateTime? // Cached: MAX(event.date) for activity status computation
 
   aliases     KennelAlias[]
   sources     SourceKennel[]
