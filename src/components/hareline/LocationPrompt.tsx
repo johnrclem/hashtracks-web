@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { track } from "@vercel/analytics";
+import { capture } from "@/lib/analytics";
 import { MapPin, Loader2, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,7 +94,7 @@ export function LocationPrompt({
     }
 
     setVisible(true);
-    track("location_prompt_shown", { page });
+    capture("location_prompt_shown", { page });
   }, [hasUrlFilters, page]);
 
   // When geolocation is granted after user clicks "Use my location", apply the filter
@@ -137,7 +137,7 @@ export function LocationPrompt({
       // Best-effort
     }
     setVisible(false);
-    track("location_prompt_action", { action: "dismiss" });
+    capture("location_prompt_action", { action: "dismiss" });
   }
 
   function handleReturnBannerDismiss() {
@@ -152,28 +152,28 @@ export function LocationPrompt({
       // Best-effort
     }
     setReturnBannerDismissed(true);
-    track("location_prompt_action", { action: "dismiss_return_banner" });
+    capture("location_prompt_action", { action: "dismiss_return_banner" });
   }
 
   function handleShowAll() {
-    track("location_prompt_action", { action: "show_all" });
+    capture("location_prompt_action", { action: "show_all" });
     onClearRegion?.();
     clearLocationPref();
     setReturnBannerDismissed(true);
   }
 
   function handleChangeRegion() {
-    track("location_prompt_action", { action: "change_region" });
+    capture("location_prompt_action", { action: "change_region" });
     setRegionOpen(true);
   }
 
   function handleUseLocation() {
-    track("location_prompt_action", { action: "geolocation" });
+    capture("location_prompt_action", { action: "geolocation" });
     requestLocation();
   }
 
   function handleSelectRegion(region: string) {
-    track("location_prompt_action", { action: "region" });
+    capture("location_prompt_action", { action: "region" });
     setLocationPref({ type: "region", name: region });
     onSetRegion(region);
     setRegionOpen(false);

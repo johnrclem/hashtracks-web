@@ -18,6 +18,9 @@ export async function subscribeToKennel(kennelId: string) {
     data: { userId: user.id, kennelId, role: "MEMBER" },
   });
 
+  const { captureServerEvent } = await import("@/lib/analytics-server");
+  captureServerEvent(user.id, "kennel_subscribe", { kennelId });
+
   revalidatePath("/kennels");
   revalidatePath("/profile");
   return { success: true };
@@ -30,6 +33,9 @@ export async function unsubscribeFromKennel(kennelId: string) {
   await prisma.userKennel.deleteMany({
     where: { userId: user.id, kennelId },
   });
+
+  const { captureServerEvent } = await import("@/lib/analytics-server");
+  captureServerEvent(user.id, "kennel_unsubscribe", { kennelId });
 
   revalidatePath("/kennels");
   revalidatePath("/profile");

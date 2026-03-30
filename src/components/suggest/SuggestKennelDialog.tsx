@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { track } from "@vercel/analytics";
+import { capture } from "@/lib/analytics";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   Dialog,
@@ -24,14 +24,14 @@ export function SuggestKennelDialog({ trigger }: Readonly<SuggestKennelDialogPro
 
   useEffect(() => {
     if (open) {
-      track("suggest_kennel_entry", { entryPoint: "dialog" });
+      capture("suggest_kennel", { entryPoint: "dialog" });
     }
   }, [open]);
 
   // On mobile, navigate to the full-page suggest form instead of opening a dialog
   if (isMobile) {
     return (
-      <Link href="/suggest" onClick={() => track("suggest_kennel_entry", { entryPoint: "dialog" })}>
+      <Link href="/suggest" onClick={() => capture("suggest_kennel", { entryPoint: "dialog" })}>
         {trigger}
       </Link>
     );

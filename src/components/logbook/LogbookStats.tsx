@@ -1,8 +1,10 @@
 "use client";
 /* eslint-disable react-hooks/refs */
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { Calendar, CheckCircle2, Flame, Target, Users } from "lucide-react";
+import { capture } from "@/lib/analytics";
 import { levelColor, participationLevelLabel } from "@/lib/format";
 import { getRegionColor } from "@/lib/region";
 import { useInView } from "@/hooks/useInView";
@@ -56,6 +58,10 @@ export function LogbookStats({
   byYear,
   milestones,
 }: LogbookStatsProps) {
+  useEffect(() => {
+    capture("logbook_stats_view", { totalRuns });
+  }, [totalRuns]);
+
   const statValues: Record<string, number> = {
     runs: totalRuns,
     hares: totalHares,

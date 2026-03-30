@@ -35,7 +35,7 @@ export async function getOrCreateUser(): Promise<User | null> {
 
   // Step 3: create new user
   try {
-    return await prisma.user.create({
+    const newUser = await prisma.user.create({
       data: {
         clerkId: clerkUser.id,
         email,
@@ -43,6 +43,15 @@ export async function getOrCreateUser(): Promise<User | null> {
         nerdName,
       },
     });
+
+    // Server-side analytics: track new signup
+    const { captureServerEvent, identifyServerUser } = await import("@/lib/analytics-server");
+    captureServerEvent(newUser.id, "signup_completed", {
+      method: clerkUser.externalAccounts?.length ? "google" : "email",
+    });
+    identifyServerUser(newUser.id, { email });
+
+    return newUser;
   } catch (err: unknown) {
     // Step 4: race-condition guard — another request may have created the
     // record between our lookups and this create. P2002 could be on clerkId

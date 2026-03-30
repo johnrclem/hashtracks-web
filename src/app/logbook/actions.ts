@@ -71,6 +71,13 @@ export async function checkIn(
   const result = await ensureCheckIn(user.id, eventId, participationLevel);
   if ("error" in result) return { error: result.error };
 
+  // Server-side analytics capture
+  const { captureServerEvent } = await import("@/lib/analytics-server");
+  captureServerEvent(user.id, "check_in", {
+    kennelSlug: eventId,
+    status: "confirmed",
+  });
+
   revalidatePath("/hareline");
   revalidatePath("/logbook");
   return { success: true, attendanceId: result.attendanceId };

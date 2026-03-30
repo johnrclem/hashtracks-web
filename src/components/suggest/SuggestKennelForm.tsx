@@ -5,7 +5,7 @@ import {
   submitKennelSuggestion,
   type SuggestionState,
 } from "@/app/suggest/actions";
-import { track } from "@vercel/analytics";
+import { capture } from "@/lib/analytics";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,7 +32,7 @@ export function SuggestKennelForm({ onSuccess }: Readonly<SuggestKennelFormProps
       // Extract the relationship value from the form before resetting
       const formData = formRef.current ? new FormData(formRef.current) : null;
       const relationship = formData?.get("relationship") as string | null;
-      track("suggest_kennel_submit", { relationship: relationship ?? "unknown" });
+      capture("suggest_kennel_submit", { entryPoint: "form", relationship: relationship ?? "unknown" });
       toast.success("Thanks! We'll look into adding this kennel.");
       formRef.current?.reset();
       onSuccess?.();

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { ChevronRight, Clock, X } from "lucide-react";
-import { track } from "@vercel/analytics";
+import { capture } from "@/lib/analytics";
 import { formatTime, formatDateShort } from "@/lib/format";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
@@ -107,7 +107,7 @@ export function ColocatedEventList({
 
   // Analytics: track popover open
   useEffect(() => {
-    track("map_colocated_popover", { eventCount: events.length });
+    capture("map_colocated_popover", { eventCount: events.length });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derive location label from the first event that has one
