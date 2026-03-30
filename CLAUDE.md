@@ -29,7 +29,7 @@ logbook + kennel directory.
 - **UI:** Tailwind CSS + shadcn/ui components
 - **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()` (supports `frameUrl` for cross-origin iframe content extraction, e.g., Wix Table Master widgets); Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup); STATIC_SCHEDULE adapter for RRULE-based event generation (no external fetch); Meetup public REST API adapter (5 live sources)
 - **Residential Proxy:** Optional NAS-based forward proxy for WAF-blocked targets (Cloudflare Tunnel, see `docs/residential-proxy-spec.md`)
-- **NAS Infrastructure:** Synology DS423+ at `nas-tailscale` (Tailscale IP `100.122.201.59`). Hosts browser render service (Playwright/Chromium) and residential proxy relay, both behind Cloudflare Tunnel (`proxy.hashtracks.xyz`). Deploy via `scp -O` + Docker Compose.
+- **NAS Infrastructure:** Synology DS423+ at `nas-tailscale` (via Tailscale). Hosts browser render service (Playwright/Chromium) and residential proxy relay, both behind Cloudflare Tunnel (`proxy.hashtracks.xyz`). Deploy via `scp -O` + Docker Compose.
 - **AI:** Gemini 2.0 Flash for complex HTML parsing (low temp, cached results), parse error recovery, column auto-detection, kennel pattern suggestions, HTML structure analysis with few-shot learning from existing adapter patterns
 - **Kennel geocoding:** lat/lng on Kennel model, backfill via Google Geocoding API, Near Me distance filter (client-side Haversine)
 - **Region hierarchy:** RegionLevel enum (COUNTRY/STATE_PROVINCE/METRO), parent-child linking

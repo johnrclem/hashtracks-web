@@ -366,6 +366,8 @@ export const SOURCES = [
       config: {
         browserRender: true,
         recedingHarelineUrl: "https://www.bullmoonh3.co.uk/receding-hareline",
+        upcomingCompId: "comp-ksnfhbg7",
+        recedingCompId: "comp-kuzuw71n5",
       },
       kennelCodes: ["bullmoon"],
     },

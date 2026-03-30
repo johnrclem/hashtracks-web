@@ -82,6 +82,10 @@ describe("BullMoonAdapter", () => {
       expect(parseBmDate("Thu 2 Apr 26")).toBe("2026-04-02");
     });
 
+    it("rejects invalid day for month", () => {
+      expect(parseBmDate("Thu, 31 Apr 26")).toBeNull();
+    });
+
     it("returns null for invalid text", () => {
       expect(parseBmDate("not a date")).toBeNull();
     });
@@ -157,7 +161,7 @@ describe("BullMoonAdapter", () => {
       expect(run!.startTime).toBe("12:00");
       expect(run!.hares).toBe("Mr Sheep & Fill My Cavity");
       expect(run!.location).toContain("Duke Inn");
-      expect(run!.nearestStation).toBeUndefined(); // "n/a" stripped
+      expect(run!.nearestStation).toBeUndefined();
     });
 
     it("handles TBC time with series default", () => {
@@ -171,9 +175,9 @@ describe("BullMoonAdapter", () => {
       ];
       const run = parseBullMoonRow(cells, upcomingColumns);
       expect(run).not.toBeNull();
-      expect(run!.startTime).toBe("12:00"); // Bull Moon default
-      expect(run!.hares).toBeUndefined(); // TBC stripped
-      expect(run!.location).toBeUndefined(); // TBC stripped
+      expect(run!.startTime).toBe("12:00");
+      expect(run!.hares).toBeUndefined();
+      expect(run!.location).toBeUndefined();
     });
 
     it("strips emojis and CAZ from venue", () => {
@@ -204,7 +208,7 @@ describe("BullMoonAdapter", () => {
       expect(run).not.toBeNull();
       expect(run!.date).toBe("2026-03-26");
       expect(run!.series).toBe("t3");
-      expect(run!.startTime).toBe("18:45"); // T3 default (no Time column)
+      expect(run!.startTime).toBe("18:45");
       expect(run!.hares).toBe("Clueless & Dangerless");
     });
   });
@@ -215,7 +219,7 @@ describe("BullMoonAdapter", () => {
       expect(adapter.type).toBe("HTML_SCRAPER");
     });
 
-    it("parses mock table HTML", async () => {
+    it("parses mock table HTML with correct kennelTag", async () => {
       const mockHtml = `<!DOCTYPE html><html><body>
         <table>
           <thead>
@@ -262,7 +266,6 @@ describe("BullMoonAdapter", () => {
 
       const result = await adapter.fetch(source, { days: 365 });
 
-      // Verify events were parsed from mock HTML
       expect(result.events.length).toBe(3);
 
       const t3Run = result.events.find((e) => e.runNumber === 201);
@@ -270,15 +273,41 @@ describe("BullMoonAdapter", () => {
       expect(t3Run!.date).toBe("2026-04-02");
       expect(t3Run!.startTime).toBe("18:45");
       expect(t3Run!.title).toBe("T3 #201");
-      expect(t3Run!.kennelTag).toBe("Bull Moon");
+      expect(t3Run!.kennelTag).toBe("bullmoon");
 
       const bmRun = result.events.find((e) => e.runNumber === 124);
       expect(bmRun).toBeDefined();
       expect(bmRun!.startTime).toBe("12:00");
       expect(bmRun!.title).toBe("Bull Moon #124");
+      expect(bmRun!.kennelTag).toBe("bullmoon");
 
       const social = result.events.find((e) => !e.runNumber);
       expect(social).toBeDefined();
+      expect(social!.kennelTag).toBe("bullmoon");
+    });
+
+    it("verifies browserRender is called with frameUrl option", async () => {
+      const { browserRender } = await import("@/lib/browser-render");
+      vi.mocked(browserRender).mockResolvedValue("<html><body></body></html>");
+
+      const adapter = new BullMoonAdapter();
+      const source = {
+        id: "test",
+        url: "https://www.bullmoonh3.co.uk/upcoming-runs",
+        config: {
+          upcomingCompId: "comp-abc123",
+        },
+      } as unknown as Source;
+
+      await adapter.fetch(source, { days: 30 });
+
+      expect(browserRender).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://www.bullmoonh3.co.uk/upcoming-runs",
+          frameUrl: "comp-abc123",
+          waitFor: "iframe[title='Table Master']",
+        }),
+      );
     });
   });
 });

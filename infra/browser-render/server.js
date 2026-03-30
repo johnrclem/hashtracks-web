@@ -206,6 +206,7 @@ const server = http.createServer(async (req, res) => {
     );
     const waitForSelector = typeof waitFor === "string" ? waitFor : "body";
 
+    const renderStart = Date.now();
     console.log(
       `[${new Date().toISOString()}] Rendering ${url} (waitFor: ${waitForSelector}, timeout: ${pageTimeout}ms)`,
     );
@@ -253,13 +254,13 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      // Wait for frame content to render — try multiple strategies
+      // Wait for frame content to render, capped to remaining page timeout
+      const frameTimeout = Math.max(pageTimeout - (Date.now() - renderStart), 5000);
       try {
-        await frame.waitForSelector("table tr td, table tbody tr", { timeout: 15000 });
+        await frame.waitForSelector("table tr td, table tbody tr", { timeout: Math.min(frameTimeout, 15000) });
       } catch {
-        // Table rows may not appear — try waiting for any content
         try {
-          await frame.waitForLoadState("networkidle", { timeout: 10000 });
+          await frame.waitForLoadState("networkidle", { timeout: Math.min(frameTimeout, 10000) });
         } catch {
           // Frame may not reach networkidle — continue with whatever loaded
         }
