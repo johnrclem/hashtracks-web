@@ -32,6 +32,8 @@ globs:
 - `src/adapters/hashrego/adapter.ts` — Hash Rego adapter (hashrego.com events, multi-kennel)
 - `src/adapters/hashrego/parser.ts` — Hash Rego HTML parsing (index table, detail page, multi-day splitting)
 - `src/adapters/meetup/adapter.ts` — Meetup.com public API adapter (event scraping, groupUrlname auto-detection)
+- `src/adapters/harrier-central/adapter.ts` — Harrier Central public API adapter (hashruns.org, config-driven, 69+ kennels)
+- `src/adapters/harrier-central/token.ts` — Time-based SHA-256 token generation for Harrier Central API
 - `src/adapters/wordpress-api.ts` — WordPress REST API utility (shared by EWH3, DCH4 — bypasses HTML scraping blocks)
 - `src/adapters/html-scraper/bfm.ts` — BFM (Ben Franklin Mob) website scraper
 - `src/adapters/html-scraper/hashphilly.ts` — Philly H3 website scraper

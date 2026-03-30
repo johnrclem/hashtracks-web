@@ -1,6 +1,6 @@
 # Source Onboarding Playbook
 
-How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 138 sources across 7 adapter types.
+How to add a new data source to HashTracks. This playbook captures patterns learned from onboarding 138 sources across 8 adapter types.
 
 > **See also:** [`docs/regional-research-prompt.md`](regional-research-prompt.md) — Chrome-assisted 3-stage workflow for discovering and onboarding entire regions at once.
 
@@ -118,6 +118,7 @@ Existing adapter types:
 - `ICAL_FEED` — For standard iCal (.ics) feeds via `node-ical`. Config-driven kennelPatterns + skipPatterns. Currently: SFH3 MultiHash aggregator, CCH3, BAH3.
 - `MEETUP` — For public Meetup.com groups. Single shared adapter, config-driven (no code changes needed). Config requires `groupUrlname` (extracted from URL) and `kennelTag` (single kennel shortName). Currently: 5 live sources (Miami, Savannah, VT, CT, Charleston). **No API key required** — uses Meetup's public REST API.
 - `HASHREGO` — For kennels listed on hashrego.com. Config-driven with `kennelSlugs` array (multi-kennel). Currently: 8 kennels (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3, FCH3).
+- `HARRIER_CENTRAL` — For kennels listed on hashruns.org (Harrier Central). Config-driven with `cityNames`, `kennelUniqueShortName`, `publicKennelId`, `defaultKennelTag`, or `kennelPatterns`. Returns rich data: event name, run number, date/time, lat/lng coordinates, hares, location descriptions. Currently: Tokyo H3. Known kennels on platform: Tokyo H3, SeaMon H3, Glasgow H3, City Hash, London H3, WLH3, Puget Sound H3, Rain City H3, Seattle H3, Morgantown H3, New Town H3, East End London H3.
 - `STATIC_SCHEDULE` — For kennels without scrapeable web sources (Facebook-only). Generates placeholder events from RRULE recurrence rules — no external fetch. Config-driven with `rrule`, `defaultTitle`, `defaultLocation`, `startTime`, `kennelTag`. Currently: 28 sources across FL, GA, SC, MA, NJ, RI, TX. **Cannot express lunar recurrence** (full/new moon schedules). **Cannot express seasonal schedule switching** (e.g., summer Friday / winter Sunday) — add kennel record with `scheduleNotes` but no source until seasonal RRULE support is implemented.
 
 If none fit, create a new adapter implementing `SourceAdapter` from `src/adapters/types.ts`.

@@ -37,7 +37,9 @@ Check these aggregator sources FIRST — they often cover multiple kennels at on
    - Extract all `src=` parameters from the iframe URL — shared calendars often embed multiple calendar IDs in one iframe. Use `new URL(f.src).searchParams.getAll('src')` to get all of them.
    - Note which kennels share this calendar
 
-5. **JS-Rendered Calendar Aggregators**: The iframe check in #4 only finds embedded Google Calendar iframes. Some sites use custom JavaScript frontends that call the Google Calendar API directly (no iframes). For any regional kennel website, also check subpages like `/calendar/`, `/socal/`, `/events/`, `/schedule/`:
+6. **Harrier Central**: Open `https://www.hashruns.org` in Chrome. The Flutter app shows upcoming runs from all registered kennels. Note any kennels in or near [REGION]. These can be scraped with zero new code using the HARRIER_CENTRAL adapter. The API at harriercentralpublicapi.azurewebsites.net returns run numbers, coordinates, hares, and locations.
+
+7. **JS-Rendered Calendar Aggregators**: The iframe check in #4 only finds embedded Google Calendar iframes. Some sites use custom JavaScript frontends that call the Google Calendar API directly (no iframes). For any regional kennel website, also check subpages like `/calendar/`, `/socal/`, `/events/`, `/schedule/`:
    - Run via `javascript_tool`:
      ```javascript
      // Check for external JS files that might contain calendar config
@@ -76,13 +78,14 @@ For each discovered kennel, visit their website (if found) in Chrome and check:
      meetupLinks: Array.from(document.querySelectorAll('a[href*="meetup.com"]')).map(a => a.href),
      sheetsLinks: Array.from(document.querySelectorAll('a[href*="docs.google.com/spreadsheets"]')).map(a => a.href),
      hashRegoLinks: Array.from(document.querySelectorAll('a[href*="hashrego.com"]')).map(a => a.href),
+     harrierCentralLinks: Array.from(document.querySelectorAll('a[href*="hashruns.org"], a[href*="harriercentral"]')).map(a => a.href),
    };
    JSON.stringify(results, null, 2);
    ```
-   **CRITICAL**: Do NOT recommend HTML_SCRAPER if any of the above returns results. Always prefer structured sources. The `googleCalendarApi` check catches JS-rendered calendar pages that don't use iframes (e.g., lbh3.org/socal). The `googleSheets`/`googleSheetsInPage` checks catch embedded Google Sheets harelines — some sites use double-iframe chains (page → iframe → Google Sheet) where only the intermediate iframe reveals the Sheet ID (e.g., wh3.org/harelines/).
+   **CRITICAL**: Do NOT recommend HTML_SCRAPER if any of the above returns results. Always prefer structured sources. The `googleCalendarApi` check catches JS-rendered calendar pages that don't use iframes (e.g., lbh3.org/socal). The `googleSheets`/`googleSheetsInPage` checks catch embedded Google Sheets harelines — some sites use double-iframe chains (page → iframe → Google Sheet) where only the intermediate iframe reveals the Sheet ID (e.g., wh3.org/harelines/). The `harrierCentralLinks` check catches kennels that link to their hashruns.org profile — these can use the HARRIER_CENTRAL adapter with zero code.
 
 3. **Tier classification**:
-   - **Tier 1**: Structured source found (Calendar, Meetup, iCal, Sheets, HashRego) — config-only onboarding
+   - **Tier 1**: Structured source found (Calendar, Meetup, iCal, Sheets, HashRego, Harrier Central) — config-only onboarding
    - **Tier 2**: HTML event table/list found, no structured source — needs adapter config or code
    - **Tier 3**: Facebook-only with known schedule pattern — STATIC_SCHEDULE
    - **Skip**: Inactive, dormant, or no verifiable web presence
@@ -356,12 +359,13 @@ This step catches kennels that don't appear on aggregators, Meetup, or web searc
 | `ICAL_FEED` | .ics feed URL | `{ kennelPatterns?, defaultKennelTag?, skipPatterns? }` | No |
 | `GOOGLE_SHEETS` | Published Google Sheet | `{ sheetId, columns: {...}, kennelTagRules: {...} }` | No |
 | `HASHREGO` | Listed on hashrego.com | `{ kennelSlugs: ["SLUG1", "SLUG2"] }` | No |
+| `HARRIER_CENTRAL` | Kennel listed on hashruns.org / Harrier Central | `{ cityNames, defaultKennelTag }` or `{ cityNames, kennelPatterns }` | No |
 | `STATIC_SCHEDULE` | Facebook-only, predictable schedule | `{ rrule, kennelTag, defaultTitle, startTime, defaultLocation }` | No |
 | `HTML_SCRAPER` | Website with event table/list | Varies — may use GenericHtmlAdapter config or need custom adapter | Maybe |
 
 **Source priority** (always prefer higher):
 1. GOOGLE_CALENDAR — cleanest API, richest data
-2. GOOGLE_SHEETS / HASHREGO / MEETUP — native structure
+2. GOOGLE_SHEETS / HASHREGO / MEETUP / HARRIER_CENTRAL — native structured APIs
 3. ICAL_FEED — standardized format
 4. HTML_SCRAPER (GenericHtmlAdapter) — config-driven CSS selectors
 5. HTML_SCRAPER (custom adapter) — requires new code

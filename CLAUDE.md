@@ -27,7 +27,7 @@ logbook + kennel directory.
 - **Database:** PostgreSQL via Prisma ORM (Railway hosted)
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS + shadcn/ui components
-- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()` (supports `frameUrl` for cross-origin iframe content extraction, e.g., Wix Table Master widgets); Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup); STATIC_SCHEDULE adapter for RRULE-based event generation (no external fetch); Meetup public REST API adapter (5 live sources)
+- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()` (supports `frameUrl` for cross-origin iframe content extraction, e.g., Wix Table Master widgets); Blogger API v3 for Blogspot-hosted sites (direct HTML scraping blocked by Google); GenericHtmlAdapter for config-driven CSS selector scraping (AI-assisted setup); STATIC_SCHEDULE adapter for RRULE-based event generation (no external fetch); Meetup public REST API adapter (5 live sources); Harrier Central public REST API adapter (hashruns.org, config-driven)
 - **Residential Proxy:** Optional NAS-based forward proxy for WAF-blocked targets (Cloudflare Tunnel, see `docs/residential-proxy-spec.md`)
 - **NAS Infrastructure:** Synology DS423+ at `nas-tailscale` (via Tailscale). Hosts browser render service (Playwright/Chromium) and residential proxy relay, both behind Cloudflare Tunnel (`proxy.hashtracks.xyz`). Deploy via `scp -O` + Docker Compose.
 - **AI:** Gemini 2.0 Flash for complex HTML parsing (low temp, cached results), parse error recovery, column auto-detection, kennel pattern suggestions, HTML structure analysis with few-shot learning from existing adapter patterns
@@ -113,6 +113,8 @@ logbook + kennel directory.
 - `src/adapters/hashrego/adapter.ts` — Hash Rego adapter (hashrego.com events, multi-kennel)
 - `src/adapters/hashrego/parser.ts` — Hash Rego HTML parsing (index table, detail page, multi-day splitting)
 - `src/adapters/meetup/adapter.ts` — Meetup.com public API adapter (event scraping, groupUrlname auto-detection)
+- `src/adapters/harrier-central/adapter.ts` — Harrier Central public API adapter (hashruns.org, config-driven)
+- `src/adapters/harrier-central/token.ts` — Time-based SHA-256 token generation for HC API
 - `src/adapters/wordpress-api.ts` — WordPress REST API utility (shared by EWH3, DCH4 — bypasses HTML scraping blocks)
 - `src/adapters/html-scraper/bfm.ts` — BFM (Ben Franklin Mob) website scraper
 - `src/adapters/html-scraper/hashphilly.ts` — Philly H3 website scraper
@@ -267,7 +269,7 @@ logbook + kennel directory.
 - `infra/browser-render/` — NAS-hosted Playwright rendering service (Dockerfile + server.js). Part of proxy-relay Docker Compose stack.
 - `docs/residential-proxy-spec.md` — Architecture and deployment guide for residential proxy
 
-## Active Sources (150)
+## Active Sources (154)
 
 ### NYC / NJ / Philly (8 sources)
 - **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
@@ -379,6 +381,12 @@ logbook + kennel directory.
 - **Stuttgart H3 Google Calendar** → GOOGLE_CALENDAR → SH3, DST, FM, SUPER (4 Stuttgart kennels)
 - **Munich H3 Hareline Sheet** → GOOGLE_SHEETS → MH3 (Munich)
 - **Frankfurt H3 Hareline** → HTML_SCRAPER → FH3, FFMH3, SHITS, DOM, Bike Hash (5 Frankfurt kennels)
+
+### Japan (4 sources)
+- **Tokyo H3 Harrier Central** → HARRIER_CENTRAL → Tokyo H3
+- **KFMH3 Google Calendar** → GOOGLE_CALENDAR → KFMH3
+- **Kyoto H3 Google Calendar** → GOOGLE_CALENDAR → Kyoto H3
+- **Osaka H3 Google Calendar** → GOOGLE_CALENDAR → Osaka H3
 
 ### Florida (8 sources)
 - **Miami H3 Meetup** → MEETUP → MH3

@@ -49,6 +49,7 @@ import { HashRegoAdapter } from "./hashrego/adapter";
 import { MeetupAdapter } from "./meetup/adapter";
 import { RssAdapter } from "./rss/adapter";
 import { StaticScheduleAdapter } from "./static-schedule/adapter";
+import { HarrierCentralAdapter } from "./harrier-central/adapter";
 
 const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
   HTML_SCRAPER: () => new HashNYCAdapter(), // default HTML scraper
@@ -59,6 +60,7 @@ const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
   MEETUP: () => new MeetupAdapter(),
   RSS_FEED: () => new RssAdapter(),
   STATIC_SCHEDULE: () => new StaticScheduleAdapter(),
+  HARRIER_CENTRAL: () => new HarrierCentralAdapter(),
 };
 
 /** Single source of truth for URL-routed HTML scrapers: pattern, adapter name, factory. */

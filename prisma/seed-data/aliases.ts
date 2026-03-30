@@ -324,5 +324,22 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "shits-fra": ["SHITS Hash", "SHITS H3", "S.H.I.T.S."],
     "dom-fra": ["DOM Hash", "D.O.M. Hash", "DOM H3"],
     "bikeh3-fra": ["Frankfurt Bike Hash", "Bike Bash Frankfurt"],
+
+    // ===== JAPAN =====
+    // Tokyo
+    "tokyo-h3": ["Tokyo Hash", "TH3", "Tokyo HHH", "Tokyo Hash House Harriers", "東京ハッシュ"],
+    "f3h3": ["F3H3", "F3H3*", "Finally Friday Fukov", "Friday Fukov Hash", "F3 Hash"],
+    "sumo-h3": ["Sumo Hash", "Sumo HHH", "Sumo H3"],
+    "samurai-h3": ["Samurai Hash", "Samurai HHH", "SH3 Samurai"],
+    "yoko-yoko-h3": ["Yoko Yoko Hash", "Y2H3", "Yoko Yoko H3", "YY H3"],
+    "new-tokyo-katch": ["New Tokyo Katch", "NTKH4", "K2H4", "Katch the Hare", "New Tokyo Katch Hash"],
+    "hayama-4h": ["Hayama Hash", "Hayama H4", "Hayama 4H", "H4 Hayama"],
+    // Kansai
+    "kfmh3": ["Kinky Fully Mooned", "KFMH3", "Kinky Hash", "Kinky Full Moon"],
+    "kyoto-h3": ["Kyoto Hash", "Kyoto HHH", "Kyoto H3"],
+    "osaka-h3": ["Osaka Hash", "Osaka HHH", "Osaka H3"],
+    "kobe-h3": ["Kobe Hash", "Kobe HHH", "Kobe Harriers"],
+    // Okinawa
+    "okinawa-h3": ["Okinawa Hash", "Okinawa HHH", "Okinawa H3"],
   };
 
