@@ -166,7 +166,7 @@ const server = http.createServer(async (req, res) => {
       return jsonResponse(res, 400, { error: "Invalid JSON body" });
     }
 
-    const { url, waitFor, selector, timeout } = parsed;
+    const { url, waitFor, selector, frameUrl, timeout } = parsed;
     if (!url || typeof url !== "string") {
       busy = false;
       return jsonResponse(res, 400, {
@@ -224,7 +224,27 @@ const server = http.createServer(async (req, res) => {
     });
 
     let html;
-    if (typeof selector === "string") {
+    if (typeof frameUrl === "string") {
+      // Extract content from a child iframe matching the URL pattern.
+      // Used for cross-origin iframes (e.g., Wix Table Master widgets)
+      // that return "unauthorized" when rendered standalone.
+      const frame = page.frames().find((f) => f.url().includes(frameUrl));
+      if (!frame) {
+        await page.close();
+        page = null;
+        busy = false;
+        return jsonResponse(res, 422, {
+          error: `No frame matching "${frameUrl}" found (${page.frames().length} frames total)`,
+        });
+      }
+      // Wait for frame content to render (table data may load async)
+      try {
+        await frame.waitForLoadState("networkidle", { timeout: 10000 });
+      } catch {
+        // Frame may not reach networkidle — continue with whatever loaded
+      }
+      html = await frame.content();
+    } else if (typeof selector === "string") {
       const element = await page.$(selector);
       if (!element) {
         await page.close();

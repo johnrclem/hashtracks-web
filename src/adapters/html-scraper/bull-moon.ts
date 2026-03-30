@@ -269,55 +269,13 @@ function buildRawEvent(
   };
 }
 
-/**
- * Two-step iframe rendering for Wix Table Master widgets.
- * Step 1: Render the main Wix page to find Table Master iframe src URLs.
- * Step 2: Render the iframe URL directly to get the table content.
- * Falls back to main page content if tables are found directly.
- */
-async function fetchTableMasterPage(
-  pageUrl: string,
-  targetCompId?: string,
-): Promise<ReturnType<typeof fetchBrowserRenderedPage>> {
-  const mainPage = await fetchBrowserRenderedPage(pageUrl, {
-    waitFor: "iframe, table",
+/** Render a Wix page and extract Table Master iframe content by compId. */
+function fetchTableMasterPage(pageUrl: string, compId: string) {
+  return fetchBrowserRenderedPage(pageUrl, {
+    waitFor: "iframe[title='Table Master']",
+    frameUrl: compId,
     timeout: 25000,
   });
-
-  if (!mainPage.ok) return mainPage;
-
-  const { $ } = mainPage;
-
-  if ($("table").length > 0) return mainPage;
-
-  // Find Table Master iframe src for direct rendering
-  let iframeSrc: string | null = null;
-  for (const iframe of $("iframe").toArray()) {
-    const src = $(iframe).attr("src") || "";
-    const title = $(iframe).attr("title") || "";
-    const compId = $(iframe).attr("data-comp-id") || "";
-
-    if (src.includes("wix-visual-data") || title.includes("Table Master")) {
-      if (!targetCompId || src.includes(targetCompId) || compId === targetCompId) {
-        iframeSrc = src;
-        break;
-      }
-    }
-  }
-
-  if (!iframeSrc) return mainPage;
-
-  const iframePage = await fetchBrowserRenderedPage(iframeSrc, {
-    waitFor: "table, tr, .tableRow",
-    timeout: 25000,
-  });
-
-  if (!iframePage.ok) return iframePage;
-
-  return {
-    ...iframePage,
-    fetchDurationMs: mainPage.fetchDurationMs + iframePage.fetchDurationMs,
-  };
 }
 
 export class BullMoonAdapter implements SourceAdapter {
