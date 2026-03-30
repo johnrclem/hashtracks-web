@@ -13,6 +13,7 @@ import {
   isPlaceholder,
   stripPlaceholder,
   extractAddressWithAi,
+  stripNonEnglishCountry,
 } from "./utils";
 
 vi.mock("@/lib/ai/gemini", () => ({
@@ -552,5 +553,33 @@ describe("extractAddressWithAi", () => {
       "A long paragraph with no actual address information in it at all whatsoever",
     );
     expect(result).toBeNull();
+  });
+});
+
+// ── stripNonEnglishCountry ──
+
+describe("stripNonEnglishCountry", () => {
+  it("strips French 'États-Unis' suffix", () => {
+    expect(stripNonEnglishCountry("Rochester, NY 14609, États-Unis")).toBe("Rochester, NY 14609");
+  });
+
+  it("strips German 'Vereinigte Staaten' suffix", () => {
+    expect(stripNonEnglishCountry("123 Main St, Springfield, IL, Vereinigte Staaten")).toBe("123 Main St, Springfield, IL");
+  });
+
+  it("strips Spanish 'Estados Unidos' suffix", () => {
+    expect(stripNonEnglishCountry("Miami, FL, Estados Unidos")).toBe("Miami, FL");
+  });
+
+  it("strips 'Etats-Unis' (no accent) suffix", () => {
+    expect(stripNonEnglishCountry("Boston, MA, Etats-Unis")).toBe("Boston, MA");
+  });
+
+  it("does not modify English locations", () => {
+    expect(stripNonEnglishCountry("Rochester, NY 14609, USA")).toBe("Rochester, NY 14609, USA");
+  });
+
+  it("does not modify locations without country suffix", () => {
+    expect(stripNonEnglishCountry("Lucien Morin Park, Rochester, NY")).toBe("Lucien Morin Park, Rochester, NY");
   });
 });
