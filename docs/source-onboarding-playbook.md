@@ -100,6 +100,11 @@ curl -s "https://example.com/calendar.ics" | head -100
 - What kennels does this source cover?
 - Do they already exist in our DB? (check `prisma/seed.ts`)
 - One source can feed multiple kennels (aggregator pattern)
+- **CRITICAL: Check for kennelCode collisions** before choosing codes. Many kennels share abbreviations across regions (e.g., "SAH3" is both San Antonio and Stockholm Absolut, "CH3" is both Chicago and Copenhagen). Run this check:
+  ```bash
+  grep -i '"your-proposed-code"' prisma/seed-data/kennels.ts prisma/seed-data/aliases.ts
+  ```
+  If a collision exists, add a region suffix: `sah3-se`, `ch3-dk`, `oh3-no`, `ah3-nl`, etc. This must be done *before* writing any seed data — catching collisions in PR review wastes time.
 
 ### 3. Pre-research metadata harvest (for new kennels)
 

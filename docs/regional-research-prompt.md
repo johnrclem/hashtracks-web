@@ -234,6 +234,13 @@ Present per-kennel detail cards:
 
 Produce copy-paste-ready blocks for both `src/lib/region.ts` (regions) and `prisma/seed.ts` (kennels, aliases, sources). Follow the exact patterns used in those files.
 
+**CRITICAL — Check for kennelCode collisions BEFORE generating seed data:**
+```bash
+# For each proposed kennelCode, check if it already exists:
+grep -i '"proposed-code"' prisma/seed-data/kennels.ts prisma/seed-data/aliases.ts
+```
+Many kennels share common abbreviations across regions (e.g., "SAH3" = San Antonio AND Stockholm Absolut, "CH3" = Chicago AND Copenhagen, "AH3" = Austin AND Amsterdam). If a collision exists, add a region suffix: `-se`, `-dk`, `-no`, `-nl`, `-be`, etc. This prevents TypeScript duplicate key errors and alias routing conflicts.
+
 #### Regions (`src/lib/region.ts` `REGION_SEED_DATA`, if new regions needed)
 ```typescript
 // New regions for [REGION] — add to REGION_SEED_DATA in src/lib/region.ts
