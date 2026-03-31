@@ -258,14 +258,13 @@ export class BruH3Adapter implements SourceAdapter {
     const allErrors: string[] = [];
     const errorDetails: ErrorDetails = {};
     const seenRunNumbers = new Set<number>();
-    let structureHash: string | undefined;
     let totalFetchMs = 0;
 
     // ── 1. Fetch upcoming page ──
     const upcoming = await fetchHTMLPage(upcomingUrl);
     if (!upcoming.ok) return upcoming.result;
 
-    structureHash = upcoming.structureHash;
+    const structureHash = upcoming.structureHash;
     totalFetchMs += upcoming.fetchDurationMs;
 
     // Replace <br> with newlines before .text() so line-based regexes work
