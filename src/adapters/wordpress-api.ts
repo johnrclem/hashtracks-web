@@ -70,15 +70,10 @@ export async function fetchWordPressPosts(
       });
 
       if (response.ok) {
-        // Some WordPress sites embed literal control characters in JSON string
-        // values (e.g., Voodoo H3 has literal newlines inside content fields).
-        // Strip non-whitespace control chars and escape whitespace ones.
+        // Some WordPress sites embed control characters in post content
+        // (e.g., Voodoo H3). Strip them before JSON.parse to avoid SyntaxError.
         const raw = await response.text();
-        const sanitized = raw
-          .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "")
-          .replace(/\t/g, "\\t")
-          .replace(/\n/g, "\\n")
-          .replace(/\r/g, "\\r");
+        const sanitized = raw.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "");
         const data = JSON.parse(sanitized) as {
           title?: { rendered?: string };
           content?: { rendered?: string };
