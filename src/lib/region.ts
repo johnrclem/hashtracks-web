@@ -1636,6 +1636,29 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 4.35,
     aliases: ["Brussels, Belgium", "Bruxelles"],
   },
+  // ── Louisiana ──
+  {
+    name: "Louisiana",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Chicago",
+    abbrev: "LA",
+    colorClasses: "bg-purple-100 text-purple-700",
+    pinColor: "#9333ea",
+    centroidLat: 30.98,
+    centroidLng: -91.96,
+  },
+  {
+    name: "New Orleans, LA",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "NOLA",
+    colorClasses: "bg-purple-100 text-purple-700",
+    pinColor: "#a855f7",
+    centroidLat: 29.95,
+    centroidLng: -90.07,
+    aliases: ["New Orleans", "NOLA"],
+  },
   // ── Netherlands ──
   {
     name: "Netherlands",
@@ -2101,6 +2124,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Okinawa": "Japan",
   // Belgium
   "Brussels": "Belgium",
+  // Louisiana
+  "New Orleans, LA": "Louisiana",
   // Netherlands
   "Amsterdam": "Netherlands",
   "The Hague": "Netherlands",

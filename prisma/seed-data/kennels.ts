@@ -2244,6 +2244,26 @@ export const KENNELS: KennelSeed[] = [
       latitude: 50.85, longitude: 4.35,
     },
 
+    // ── Louisiana: New Orleans ──
+    {
+      kennelCode: "noh3", shortName: "NOH3", fullName: "New Orleans Hash House Harriers", region: "New Orleans, LA",
+      website: "https://www.noh3.com",
+      facebookUrl: "https://www.facebook.com/groups/NewOrleansHash",
+      contactEmail: "nolahash@gmail.com",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Monday/Tuesday evenings at 6pm",
+      description: "New Orleans' original hash kennel. Weekly 3-5 mile trails through the city's streets, alleys, and parks. Home of the annual Red Dress Run.",
+      latitude: 29.95, longitude: -90.07,
+    },
+    {
+      kennelCode: "voodoo-h3", shortName: "Voodoo H3", fullName: "Voodoo Hash House Harriers", region: "New Orleans, LA",
+      website: "https://www.voodoohash.com",
+      contactEmail: "voodoohash@gmail.com",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "New Orleans' Thursday evening hash. Rain or shine through the city and surrounding areas.",
+      latitude: 29.95, longitude: -90.07,
+    },
+
     // ── Netherlands: Amsterdam ──
     {
       kennelCode: "ah3-nl", shortName: "AH3", fullName: "Amsterdam Hash House Harriers", region: "Amsterdam", country: "Netherlands",
