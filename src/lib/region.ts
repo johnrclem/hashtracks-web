@@ -1636,6 +1636,41 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 4.35,
     aliases: ["Brussels, Belgium", "Bruxelles"],
   },
+  // ── Netherlands ──
+  {
+    name: "Netherlands",
+    country: "Netherlands",
+    level: "COUNTRY",
+    timezone: "Europe/Amsterdam",
+    abbrev: "NL",
+    colorClasses: "bg-orange-200 text-orange-800",
+    pinColor: "#ea580c",
+    centroidLat: 52.13,
+    centroidLng: 5.29,
+    aliases: ["NL", "Holland", "Nederland"],
+  },
+  {
+    name: "Amsterdam",
+    country: "Netherlands",
+    timezone: "Europe/Amsterdam",
+    abbrev: "AMS",
+    colorClasses: "bg-orange-100 text-orange-700",
+    pinColor: "#f97316",
+    centroidLat: 52.37,
+    centroidLng: 4.90,
+    aliases: ["Amsterdam, Netherlands"],
+  },
+  {
+    name: "The Hague",
+    country: "Netherlands",
+    timezone: "Europe/Amsterdam",
+    abbrev: "DH",
+    colorClasses: "bg-orange-100 text-orange-700",
+    pinColor: "#f97316",
+    centroidLat: 52.08,
+    centroidLng: 4.30,
+    aliases: ["The Hague, Netherlands", "Den Haag"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -1827,6 +1862,7 @@ export function inferCountry(name: string): string {
   if (/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt)\b/.test(lower)) return "Germany";
   if (/\b(japan|tokyo|osaka)\b/.test(lower)) return "Japan";
   if (/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/.test(lower)) return "Belgium";
+  if (/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/.test(lower)) return "Netherlands";
   return "USA";
 }
 
@@ -1990,6 +2026,9 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Okinawa": "Japan",
   // Belgium
   "Brussels": "Belgium",
+  // Netherlands
+  "Amsterdam": "Netherlands",
+  "The Hague": "Netherlands",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */
