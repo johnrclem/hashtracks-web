@@ -11,6 +11,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getOrCreateUser } from "@/lib/auth";
 import { clerkAppearance } from "@/lib/clerk-appearance";
+import { buildWebSiteJsonLd } from "@/lib/seo";
 import { TimePreferenceProvider } from "@/components/providers/time-preference-provider";
 import { UnitsPreferenceProvider } from "@/components/providers/units-preference-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
@@ -58,10 +59,18 @@ export default async function RootLayout({
 }>) {
   const user = await getOrCreateUser();
   const timeDisplayPref = user?.timeDisplayPref ?? "EVENT_LOCAL";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz";
+  const websiteJsonLd = buildWebSiteJsonLd(baseUrl);
 
   return (
     <ClerkProvider appearance={clerkAppearance}>
       <html lang="en" suppressHydrationWarning>
+        <head>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+          />
+        </head>
         <body
           className={`${outfit.variable} ${sora.variable} ${jetbrainsMono.variable} antialiased`}
         >
