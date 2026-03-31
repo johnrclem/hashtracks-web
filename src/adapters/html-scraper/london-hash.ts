@@ -12,6 +12,9 @@ import { chronoParseDate, isPlaceholder, parse12HourTime, fetchHTMLPage } from "
 /** Max detail pages to fetch per scrape (only first N events). */
 const MAX_DETAIL_FETCHES = 3;
 
+/** Boilerplate text that concatenates with hare names in .text() output. */
+const LH3_HARE_BOILERPLATE_RE = /\s*(?:Unlike hashes|open in Google Maps|There is no need).*$/i;
+
 /** London center coords used as placeholder on TBA pages. */
 const LONDON_CENTER_LAT = 51.508;
 const LONDON_CENTER_LNG = -0.128;
@@ -126,9 +129,11 @@ export function parseHaresFromBlock(text: string): string | null {
     let hares = haredByMatch[1].trim();
     // Skip placeholder text
     if (/required|volunteer|tba|tbd|tbc/i.test(hares)) return null;
+    // Truncate at known boilerplate text that concatenates with hare names in .text() output
+    hares = hares.replace(LH3_HARE_BOILERPLATE_RE, "").trim();
     // Normalize multiple consecutive spaces (from inline element spacing) to single space
     hares = hares.replace(/\s{2,}/g, " ");
-    return hares;
+    return hares || null;
   }
 
   // "Hare: Name"
@@ -136,8 +141,9 @@ export function parseHaresFromBlock(text: string): string | null {
   if (hareColonMatch) {
     let hares = hareColonMatch[1].trim();
     if (/required|volunteer|tba|tbd|tbc/i.test(hares)) return null;
+    hares = hares.replace(LH3_HARE_BOILERPLATE_RE, "").trim();
     hares = hares.replace(/\s{2,}/g, " ");
-    return hares;
+    return hares || null;
   }
 
   return null;

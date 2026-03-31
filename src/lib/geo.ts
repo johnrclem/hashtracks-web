@@ -8,7 +8,16 @@ export function extractCoordsFromMapsUrl(url: string): { lat: number; lng: numbe
   if (!url) return null;
 
   try {
-    // Pattern 1: @lat,lng,zoom path segment (most common Google Maps share link)
+    // Pattern 1a: !3d...!4d... place coordinates (precise pin location in Google Maps data segment)
+    // e.g. ...!3d40.7103089!4d-74.0165895... — always prefer over @lat,lng which is viewport center
+    const placeMatch = url.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
+    if (placeMatch) {
+      const lat = Number.parseFloat(placeMatch[1]);
+      const lng = Number.parseFloat(placeMatch[2]);
+      if (isValidCoords(lat, lng)) return { lat, lng };
+    }
+
+    // Pattern 1b: @lat,lng,zoom path segment (viewport center — less precise than !3d/!4d)
     // e.g. https://www.google.com/maps/place/Name/@40.748,-73.985,17z
     const atMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
     if (atMatch) {

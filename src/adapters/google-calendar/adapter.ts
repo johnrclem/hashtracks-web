@@ -143,6 +143,16 @@ const INSTRUCTIONAL_PAREN_RE = /\b(?:posted|website|email|check|details|usually|
 const NON_NAME_PAREN_RE = /\b(?:to|from|no|not|only|all|free|via|and back)\b/i;
 const MAX_HARE_PAREN_LENGTH = 40;
 
+// Pre-compiled regexes for dash-separated title cleanup
+/** " - Hare(s): Name" or " - Hare: Name" suffix in title */
+const TITLE_DASH_HARE_RE = /\s+-\s+Hares?:\s*(.+)$/i;
+/** " - Location TBD/TBA/TBC" suffix — strip and optionally extract preceding hare names */
+const TITLE_DASH_LOCATION_TBD_RE = /^(.+?)\s+-\s+Location\s+(?:TBD|TBA|TBC)$/i;
+/** Detect address-like titles (street number + road type + city) */
+const ADDRESS_AS_TITLE_RE = /^\d+\s+\w+.+(?:Road|Rd|Street|St|Avenue|Ave|Drive|Dr|Boulevard|Blvd|Way|Lane|Ln|Court|Ct|Place|Pl|Parkway|Pkwy|Highway|Hwy),/i;
+/** Detect email addresses in titles (recruitment/placeholder summaries) */
+const EMAIL_IN_TITLE_RE = /(?:<[^@]+@[^>]+>|\S+@\S+\.\S+)/;
+
 /**
  * Extract a meaningful event title from the description when the calendar event
  * title is just the kennel abbreviation (e.g., "C2H3").
@@ -467,6 +477,38 @@ export function buildRawEventFromGCalItem(
     } else if (isInstructional) {
       title = title.slice(0, parenMatch.index).trim();
     }
+  }
+
+  // Dash-separated hare suffix: "Title - Hare(s): Name" (H5, OCHHH)
+  const dashHareMatch = TITLE_DASH_HARE_RE.exec(title);
+  if (dashHareMatch) {
+    if (!hares) hares = dashHareMatch[1].trim();
+    title = title.slice(0, dashHareMatch.index).trim();
+  }
+
+  // " - Location TBD" suffix: "HareName - Location TBD" (EWH3 placeholder events)
+  const locTbdMatch = TITLE_DASH_LOCATION_TBD_RE.exec(title);
+  if (locTbdMatch) {
+    const beforeDash = locTbdMatch[1].trim();
+    // The text before " - Location TBD" is likely hare name(s) for future events
+    if (!hares && beforeDash) hares = beforeDash;
+    title = kennelTag;
+  }
+
+  // Strip " - LocationName" from title when location was already extracted
+  if (location && title.toLowerCase().endsWith(` - ${location.toLowerCase()}`)) {
+    title = title.slice(0, -(` - ${location}`).length).trim();
+  }
+
+  // Address-as-title: move to location, use kennel tag as title
+  if (ADDRESS_AS_TITLE_RE.test(title)) {
+    if (!location) location = title;
+    title = kennelTag;
+  }
+
+  // Email-as-title: placeholder/recruitment summary — use kennel tag
+  if (EMAIL_IN_TITLE_RE.test(title)) {
+    title = kennelTag;
   }
 
   // Start time: prefer dateTime-derived time, fall back to description extraction

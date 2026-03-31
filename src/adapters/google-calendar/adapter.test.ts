@@ -1033,6 +1033,89 @@ describe("buildRawEventFromGCalItem — w/ hare-location extraction", () => {
   });
 });
 
+// ── Dash-separated title cleanup ──
+
+describe("buildRawEventFromGCalItem — dash-separated hare/location extraction", () => {
+  it("extracts hares from ' - Hare: Name' suffix", () => {
+    const item = {
+      summary: "H5 Hash Run#2297 - Makiki District Park - Hare: Double Dipped Tip",
+      location: "Makiki District Park",
+      start: { dateTime: "2026-03-31T17:00:00-10:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "H5" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Double Dipped Tip");
+    expect(event!.title).toBe("H5 Hash Run#2297");
+  });
+
+  it("extracts hares from ' - Hares: Names' suffix (OCHHH)", () => {
+    const item = {
+      summary: "OCHHH - Hares: Some Really Cool Peeps",
+      start: { dateTime: "2026-04-05T17:00:00-07:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "OCHHH" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Some Really Cool Peeps");
+    expect(event!.title).toBe("OCHHH");
+  });
+
+  it("extracts hares from 'Name - Location TBD' (EWH3 placeholder)", () => {
+    const item = {
+      summary: "Captain Jack Swallows - Location TBD",
+      start: { dateTime: "2026-04-09T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "EWH3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Captain Jack Swallows");
+    expect(event!.title).toBe("EWH3");
+  });
+
+  it("replaces address-as-title with kennel tag", () => {
+    const item = {
+      summary: "11385 Pioneer Road, Tustin, CA",
+      start: { dateTime: "2026-04-08T18:30:00-07:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "OC Hump" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("OC Hump");
+    expect(event!.location).toBe("11385 Pioneer Road, Tustin, CA");
+  });
+
+  it("replaces email-in-title with kennel tag", () => {
+    const item = {
+      summary: "Hares needed! Email the Hare Razor <ewh3harerazor@gmail.com>!",
+      start: { dateTime: "2026-04-23T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "EWH3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("EWH3");
+  });
+
+  it("strips known location suffix from title", () => {
+    const item = {
+      summary: "Hash Run #100 - Central Park",
+      location: "Central Park",
+      start: { dateTime: "2026-04-01T18:30:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "TEST" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Hash Run #100");
+    expect(event!.location).toBe("Central Park");
+  });
+});
+
 describe("buildRawEventFromGCalItem — non-English country name stripping", () => {
   it("strips French country suffix from location", () => {
     const item = {

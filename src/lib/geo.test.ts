@@ -15,6 +15,14 @@ describe("extractCoordsFromMapsUrl", () => {
     expect(result).toEqual({ lat: 51.5074, lng: -0.1278 });
   });
 
+  it("prefers !3d/!4d place coords over @lat,lng viewport center", () => {
+    // Real Treadwell Park URL: @coords are viewport center (NJ), !3d/!4d are actual place pin (Manhattan)
+    const result = extractCoordsFromMapsUrl(
+      "https://www.google.com/maps/place/Treadwell+Park/@40.7103089,-74.3214601,11z/data=!3m1!5s0x89c25a1aa1867d57:0x95d67044228766f4!4m7!3m6!1s0x89c25a1075bc2e41:0x8975b784309ad2a1!8m2!3d40.7103089!4d-74.0165895",
+    );
+    expect(result).toEqual({ lat: 40.7103089, lng: -74.0165895 });
+  });
+
   it("parses ?q=lat,lng query param with raw coords", () => {
     const result = extractCoordsFromMapsUrl(
       "https://maps.google.com/?q=40.748,-73.985",

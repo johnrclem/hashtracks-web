@@ -89,6 +89,16 @@ describe("parseHaresFromBlock", () => {
     // When inline elements produce extra spaces via .after(" ")
     expect(parseHaresFromBlock("Hared by Alice  Bob")).toBe("Alice Bob");
   });
+
+  it("truncates boilerplate text concatenated with hare name", () => {
+    expect(parseHaresFromBlock(
+      "Hared by MouthwashUnlike hashes in other parts of the world, there is no need to pre-register for trails. Just turn up at the pub.open in Google Maps",
+    )).toBe("Mouthwash");
+  });
+
+  it("truncates 'open in Google Maps' suffix", () => {
+    expect(parseHaresFromBlock("Hared by Tuna Melt open in Google Maps")).toBe("Tuna Melt");
+  });
 });
 
 describe("parseLocationFromBlock", () => {
