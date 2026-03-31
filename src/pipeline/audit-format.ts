@@ -12,10 +12,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   description: "Description Quality",
 };
 
-/** Format a single audit group as a focused GitHub issue for autofix. */
+/** Format a single audit group as a focused GitHub issue title with stable rule key for dedup. */
 export function formatGroupIssueTitle(group: AuditGroup, date: string): string {
   const label = CATEGORY_LABELS[group.category] ?? group.category;
-  return `[Audit] ${group.kennelShortName} — ${label} (${group.count} events) — ${date}`;
+  return `[Audit] ${group.kennelShortName} — ${label} [${group.rule}] (${group.count} events) — ${date}`;
 }
 
 export function formatGroupIssueBody(group: AuditGroup): string {

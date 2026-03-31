@@ -6,8 +6,8 @@ import { fileAuditIssues } from "@/pipeline/audit-issue";
 /**
  * Daily data quality audit endpoint.
  * Triggered by Vercel Cron (GET) or QStash (POST) or manually with Bearer CRON_SECRET.
- * Queries upcoming events for known bad patterns, picks the top 3 issue groups,
- * and files individual GitHub issues for autofix.
+ * Queries upcoming events for known bad patterns, ranks issue groups,
+ * and files up to 3 individual GitHub issues for the top findings.
  */
 export async function POST(request: Request) {
   const auth = await verifyCronAuth(request);
@@ -28,14 +28,15 @@ export async function POST(request: Request) {
       });
     }
 
-    const issueUrls = await fileAuditIssues(result.topGroups);
+    // Pass all ranked groups — fileAuditIssues caps at 3 internally after dedup
+    const issueUrls = await fileAuditIssues(result.groups);
 
     return NextResponse.json({
       data: {
         eventsScanned: result.eventsScanned,
         findingsCount: result.findings.length,
         groupsFound: result.groups.length,
-        topGroupsFiled: result.topGroups.length,
+        issuesFiled: issueUrls.length,
         issueUrls,
         summary: result.summary,
       },

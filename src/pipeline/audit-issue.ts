@@ -19,13 +19,16 @@ const DATA_REMEDIATION_RULES = new Set([
 
 const FETCH_TIMEOUT_MS = 10_000;
 const DEFAULT_REPO = "johnrclem/hashtracks-web";
+const MAX_ISSUES_PER_RUN = 3;
 
+/** Get the GitHub repository slug from env or fall back to default. */
 function getRepo(): string {
   return process.env.GITHUB_REPOSITORY ?? DEFAULT_REPO;
 }
 
 /**
- * File individual GitHub issues for the top audit groups.
+ * File individual GitHub issues for the top audit groups (up to MAX_ISSUES_PER_RUN).
+ * Skips groups that already have open issues (dedup by exact title match).
  * Returns array of created issue URLs.
  */
 export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
@@ -36,17 +39,17 @@ export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
   }
 
   const today = new Date().toISOString().split("T")[0];
-
-  // Check which groups already have issues filed today (dedup by kennel+rule in title)
-  const existingTitles = await getExistingAuditIssueTitles(token, today);
+  const existingTitles = await getExistingAuditIssueTitles(token);
 
   const urls: string[] = [];
   for (const group of groups) {
+    if (urls.length >= MAX_ISSUES_PER_RUN) break;
+
     const title = formatGroupIssueTitle(group, today);
 
-    // Skip if an issue with this title already exists
-    if (existingTitles.some(t => t.includes(group.kennelShortName) && t.includes(today))) {
-      console.log(`[audit-issue] Skipping ${group.kennelShortName}/${group.rule} — issue already exists`);
+    // Exact title match dedup — covers kennel+rule+date
+    if (existingTitles.includes(title)) {
+      console.log(`[audit-issue] Skipping "${title}" — issue already exists`);
       continue;
     }
 
@@ -57,8 +60,14 @@ export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
   return urls;
 }
 
+/** Create a GitHub issue for one audit group with appropriate labels. */
 async function createIssueForGroup(token: string, title: string, group: AuditGroup): Promise<string | null> {
   const body = formatGroupIssueBody(group);
+  const isCodeFix = !DATA_REMEDIATION_RULES.has(group.rule);
+  const labels = isCodeFix
+    ? ["audit", "alert", "claude-autofix"]
+    : ["audit", "alert"];
+
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
@@ -71,11 +80,7 @@ async function createIssueForGroup(token: string, title: string, group: AuditGro
       {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          title,
-          body,
-          labels: ["audit", "alert"],
-        }),
+        body: JSON.stringify({ title, body, labels }),
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       },
     );
@@ -86,30 +91,8 @@ async function createIssueForGroup(token: string, title: string, group: AuditGro
     }
 
     const issue = (await res.json()) as { html_url: string; number: number };
-
-    // Only trigger autofix for code-fix rules; data remediation issues are human-reviewed
-    const isCodeFix = !DATA_REMEDIATION_RULES.has(group.rule);
-    if (isCodeFix) {
-      try {
-        const labelRes = await fetch(
-          `https://api.github.com/repos/${getRepo()}/issues/${issue.number}/labels`,
-          {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ labels: ["claude-autofix"] }),
-            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-          },
-        );
-        if (!labelRes.ok) {
-          console.error(`[audit-issue] Failed to add claude-autofix label to #${issue.number}: ${labelRes.status}`);
-        }
-      } catch (err) {
-        console.error(`[audit-issue] Failed to add claude-autofix label to #${issue.number}:`, err);
-      }
-    }
-
-    const label = isCodeFix ? "claude-autofix" : "audit-only (data remediation)";
-    console.log(`[audit-issue] Created issue #${issue.number} [${label}]: ${issue.html_url}`);
+    const tag = isCodeFix ? "claude-autofix" : "data remediation";
+    console.log(`[audit-issue] Created issue #${issue.number} [${tag}]: ${issue.html_url}`);
     return issue.html_url;
   } catch (err) {
     console.error("[audit-issue] Failed to create GitHub issue:", err);
@@ -117,8 +100,8 @@ async function createIssueForGroup(token: string, title: string, group: AuditGro
   }
 }
 
-/** Get titles of existing open audit issues to avoid duplicates. */
-async function getExistingAuditIssueTitles(token: string, _date: string): Promise<string[]> {
+/** Fetch titles of all open audit issues for deduplication. */
+async function getExistingAuditIssueTitles(token: string): Promise<string[]> {
   try {
     const res = await fetch(
       `https://api.github.com/repos/${getRepo()}/issues?state=open&labels=audit&per_page=100`,
