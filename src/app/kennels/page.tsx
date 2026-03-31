@@ -3,7 +3,9 @@ import { Suspense } from "react";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
-import { getStateGroup, regionAbbrev } from "@/lib/region";
+import Link from "next/link";
+import { getStateGroup, regionAbbrev, regionSlug as toRegionSlug } from "@/lib/region";
+import { buildRegionItemListJsonLd } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FadeInSection } from "@/components/home/HeroAnimations";
@@ -24,8 +26,8 @@ export async function generateMetadata({
     };
   }
   return {
-    title: "Kennels | HashTracks",
-    description: "Browse hash house harrier kennels across all regions on HashTracks.",
+    title: "Kennel Directory | HashTracks",
+    description: "Browse hash house harrier kennels across all regions on HashTracks. Find runs near you.",
   };
 }
 
@@ -80,8 +82,22 @@ export default async function KennelsPage() {
     };
   });
 
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz";
+  const directoryJsonLd = buildRegionItemListJsonLd(
+    "All Regions",
+    kennels.slice(0, 100).map((k) => ({ slug: k.slug })),
+    baseUrl,
+  );
+
+  const uniqueRegions = Array.from(new Set(kennels.map((k) => k.region))).sort();
+
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(directoryJsonLd) }}
+      />
+
       <FadeInSection>
         <PageHeader
           title="Kennel Directory"
@@ -104,6 +120,24 @@ export default async function KennelsPage() {
         <Suspense>
           <KennelDirectory kennels={kennelsWithNext} />
         </Suspense>
+      </FadeInSection>
+
+      {/* SEO: Crawlable links to region pages */}
+      <FadeInSection delay={200}>
+        <div className="mt-8 border-t pt-6">
+          <h2 className="text-sm font-semibold text-muted-foreground mb-3">Browse by Region</h2>
+          <div className="flex flex-wrap gap-2">
+            {uniqueRegions.map((region) => (
+              <Link
+                key={region}
+                href={`/kennels/region/${toRegionSlug(region)}`}
+                className="rounded-md border px-3 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+              >
+                {region}
+              </Link>
+            ))}
+          </div>
+        </div>
       </FadeInSection>
     </div>
   );
