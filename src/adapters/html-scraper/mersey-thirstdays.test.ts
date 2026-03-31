@@ -104,6 +104,11 @@ describe("MerseyThirstdaysAdapter", () => {
     it("returns null for block with no date", () => {
       expect(parseMerseyNextRunBlock("Some random text without dates")).toBeNull();
     });
+
+    it("returns null for instruction header with bare time", () => {
+      const block = "Instructions: meet at the On Inn location at 7pm (unless stated otherwise)";
+      expect(parseMerseyNextRunBlock(block)).toBeNull();
+    });
   });
 
   describe("parseMerseyNextRuns", () => {
@@ -126,20 +131,34 @@ describe("MerseyThirstdaysAdapter", () => {
       expect(runs[1].runNumber).toBe(600);
     });
 
+    it("skips instruction header before first dash separator", () => {
+      const text = [
+        "Instructions: meet at the On Inn location at 7pm (unless stated otherwise)",
+        "-------------------------------------------------",
+        "2nd April",
+        "Run 598",
+        "Hare: FCUK",
+      ].join("\n");
+
+      const runs = parseMerseyNextRuns(text);
+      expect(runs.length).toBe(1);
+      expect(runs[0].runNumber).toBe(598);
+    });
+
     it("returns empty for text with no dash separators and no dates", () => {
       expect(parseMerseyNextRuns("Just some random text")).toEqual([]);
     });
   });
 
   describe("splitByYearMarkers", () => {
-    it("splits text by year markers", () => {
+    it("splits text by footer-style year markers", () => {
       const text = [
         "597 19th March Hare 10 Seconds. Ring O' Bells, West Kirby",
         "596 5th March Hares Wigan Pier. The Royal Alfred",
-        " ▲  2025  ▲",
+        " ▲  2026  ▲",
         "590 11th December Hare PJ. The Bouverie, Chester",
         "589 27th November Hare FCUK. The George, Liverpool",
-        " ▲  2024  ▲",
+        " ▲  2025  ▲",
         "546 7 March Hare ET, The Aigburth Arms, Liverpool",
       ].join("\n");
 
@@ -148,20 +167,26 @@ describe("MerseyThirstdaysAdapter", () => {
       expect(sections.has(2025)).toBe(true);
       expect(sections.has(2024)).toBe(true);
 
-      // Entries before first ▲ 2025 ▲ belong to 2026
+      // Entries before ▲ 2026 ▲ belong to 2026 (footer-style)
       const y2026 = sections.get(2026)!;
       expect(y2026.length).toBe(2);
       expect(y2026[0]).toContain("597");
 
+      // Entries between ▲ 2026 ▲ and ▲ 2025 ▲ belong to 2025
       const y2025 = sections.get(2025)!;
       expect(y2025.length).toBe(2);
       expect(y2025[0]).toContain("590");
+
+      // Entries after ▲ 2025 ▲ belong to 2024
+      const y2024 = sections.get(2024)!;
+      expect(y2024.length).toBe(1);
+      expect(y2024[0]).toContain("546");
     });
 
     it("handles variable whitespace in markers", () => {
       const text = [
         "100 1st Jan Hare Test. Pub, City",
-        "▲ 2024 ▲",
+        "▲ 2025 ▲",
         "99 15 Dec Hare Test2. Pub2, City2",
       ].join("\n");
 
@@ -337,7 +362,7 @@ describe("MerseyThirstdaysAdapter", () => {
       const mockPastHtml = `<html><body>
         <div class="n module-type-text diyfeLiveArea">
           <div>600 16th April Hare Snoozeanne. The Augustus John, Liverpool</div>
-          <div>▲  2025  ▲</div>
+          <div>▲  2026  ▲</div>
           <div>580 11 December Hare FCUK. The Bouverie, Chester</div>
         </div>
       </body></html>`;
