@@ -26,24 +26,21 @@ export async function generateMetadata({
 
   // Count active kennels for description
   const todayMeta = new Date(getTodayUtcNoon());
-  const [kennels, metaUpcoming] = await Promise.all([
-    prisma.kennel.findMany({
-      where: { region: region.name, isHidden: false },
-      select: { id: true, lastEventDate: true, scheduleDayOfWeek: true },
-    }),
-    prisma.event.findMany({
-      where: {
-        date: { gte: todayMeta },
-        status: "CONFIRMED",
-        kennel: { region: region.name, isHidden: false },
+  const kennels = await prisma.kennel.findMany({
+    where: { region: region.name, isHidden: false },
+    select: {
+      id: true,
+      lastEventDate: true,
+      scheduleDayOfWeek: true,
+      _count: {
+        select: {
+          events: { where: { date: { gte: todayMeta }, status: "CONFIRMED" } },
+        },
       },
-      select: { kennelId: true },
-      distinct: ["kennelId"],
-    }),
-  ]);
-  const kennelsWithUpcoming = new Set(metaUpcoming.map((e) => e.kennelId));
+    },
+  });
   const activeCount = kennels.filter(
-    (k) => getActivityStatus(k.lastEventDate, kennelsWithUpcoming.has(k.id)) === "active",
+    (k) => getActivityStatus(k.lastEventDate, k._count.events > 0) === "active",
   ).length;
   const days = kennels.map((k) => k.scheduleDayOfWeek).filter(Boolean) as string[];
   const intro = generateRegionIntro(region.name, activeCount, days);
