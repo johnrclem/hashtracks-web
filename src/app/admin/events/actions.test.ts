@@ -10,13 +10,18 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       count: vi.fn(),
       delete: vi.fn(),
-      deleteMany: vi.fn(),
+      deleteMany: vi.fn().mockImplementation((args: { where: { id: { in: string[] } } }) =>
+        Promise.resolve({ count: args?.where?.id?.in?.length ?? 0 })
+      ),
+      updateMany: vi.fn(),
     },
     rawEvent: { updateMany: vi.fn() },
     eventHare: { deleteMany: vi.fn() },
     attendance: { deleteMany: vi.fn() },
     kennelAttendance: { deleteMany: vi.fn() },
-    $transaction: vi.fn((arr: unknown[]) => Promise.all(arr)),
+    $transaction: vi.fn((arr: Promise<unknown>[]) =>
+      Promise.all(arr).then((results) => results.map((r) => r ?? { count: 0 }))
+    ),
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -80,7 +85,7 @@ describe("deleteEvent", () => {
     // Verify transaction was called
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     const txArgs = vi.mocked(prisma.$transaction).mock.calls[0][0] as unknown as unknown[];
-    expect(txArgs).toHaveLength(5); // unlink rawEvents, delete hares, delete attendance, delete kennelAttendance, delete event
+    expect(txArgs).toHaveLength(6); // unlink rawEvents, null parentEventId, delete hares, delete attendance, delete kennelAttendance, delete event
   });
 });
 
@@ -179,6 +184,35 @@ describe("bulkDeleteEvents", () => {
     expect(result).toEqual({ success: true, deletedCount: 2 });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
+
+  it("batches large deletes into chunks of 100", async () => {
+    const events = Array.from({ length: 250 }, (_, i) => ({ id: `evt_${i}` }));
+    mockEventFindMany.mockResolvedValueOnce(events as never);
+
+    const result = await bulkDeleteEvents({ kennelId: "k1" });
+    expect(result).toEqual({ success: true, deletedCount: 250 });
+    // 250 events / 100 per batch = 3 transaction calls
+    expect(prisma.$transaction).toHaveBeenCalledTimes(3);
+  });
+
+  it("returns error when too many events to delete", async () => {
+    const events = Array.from({ length: 5001 }, (_, i) => ({ id: `evt_${i}` }));
+    mockEventFindMany.mockResolvedValueOnce(events as never);
+
+    const result = await bulkDeleteEvents({ kennelId: "k1" });
+    expect(result).toEqual({ error: "Too many events to delete (5001). Max 5000 per bulk operation." });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("returns error with message on transaction failure", async () => {
+    mockEventFindMany.mockResolvedValueOnce([{ id: "evt_1" }] as never);
+    vi.mocked(prisma.$transaction).mockRejectedValueOnce(new Error("connection timeout"));
+
+    const result = await bulkDeleteEvents({ kennelId: "k1" });
+    expect(result.success).toBeUndefined();
+    expect((result as { error: string }).error).toContain("Delete failed");
+    expect((result as { error: string }).error).toContain("connection timeout");
+  });
 });
 
 describe("deleteSelectedEvents", () => {
@@ -194,10 +228,10 @@ describe("deleteSelectedEvents", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("returns error when more than 500 IDs provided", async () => {
-    const ids = Array.from({ length: 501 }, (_, i) => `evt_${i}`);
+  it("returns error when more than 1000 IDs provided", async () => {
+    const ids = Array.from({ length: 1001 }, (_, i) => `evt_${i}`);
     const result = await deleteSelectedEvents(ids);
-    expect(result).toEqual({ error: "Too many events selected (max 500)" });
+    expect(result).toEqual({ error: "Too many events selected (max 1000)" });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -206,15 +240,19 @@ describe("deleteSelectedEvents", () => {
     expect(result).toEqual({ success: true, deletedCount: 3 });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     const txArgs = vi.mocked(prisma.$transaction).mock.calls[0][0] as unknown as unknown[];
-    expect(txArgs).toHaveLength(5); // unlink rawEvents, delete hares, delete attendance, delete kennelAttendance, delete events
+    expect(txArgs).toHaveLength(6); // unlink rawEvents, null parentEventId, delete hares, delete attendance, delete kennelAttendance, delete events
   });
 
-  it("unlinks raw events and deletes dependents before events", async () => {
+  it("unlinks raw events, nulls parentEventId, and deletes dependents before events", async () => {
     await deleteSelectedEvents(["evt_1"]);
 
     expect(prisma.rawEvent.updateMany).toHaveBeenCalledWith({
       where: { eventId: { in: ["evt_1"] } },
       data: { eventId: null, processed: false },
+    });
+    expect(prisma.event.updateMany).toHaveBeenCalledWith({
+      where: { parentEventId: { in: ["evt_1"] } },
+      data: { parentEventId: null },
     });
     expect(prisma.eventHare.deleteMany).toHaveBeenCalledWith({
       where: { eventId: { in: ["evt_1"] } },
