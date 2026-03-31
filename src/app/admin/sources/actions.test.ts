@@ -90,8 +90,9 @@ describe("deleteSource", () => {
     const result = await deleteSource("s1");
     expect(result).toEqual({ success: true });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-    const txArgs = vi.mocked(prisma.$transaction).mock.calls[0][0] as unknown[];
-    expect(txArgs).toHaveLength(3); // rawEvent.deleteMany, sourceKennel.deleteMany, source.delete
+    const txArg = vi.mocked(prisma.$transaction).mock.calls[0][0];
+    expect(Array.isArray(txArg)).toBe(true);
+    expect(txArg).toHaveLength(3); // rawEvent.deleteMany, sourceKennel.deleteMany, source.delete
     expect(prisma.rawEvent.deleteMany).toHaveBeenCalledWith({ where: { sourceId: "s1" } });
   });
 });
