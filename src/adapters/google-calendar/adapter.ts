@@ -149,7 +149,7 @@ const TITLE_DASH_HARE_RE = /\s+-\s+Hares?:\s*(.+)$/i;
 /** " - Location TBD/TBA/TBC" suffix — strip and optionally extract preceding hare names */
 const TITLE_DASH_LOCATION_TBD_RE = /^(.+?)\s+-\s+Location\s+(?:TBD|TBA|TBC)$/i;
 /** Detect address-like titles (street number + road type + city) */
-const ADDRESS_AS_TITLE_RE = /^\d+\s+\w+.+(?:Road|Rd|Street|St|Avenue|Ave|Drive|Dr|Boulevard|Blvd|Way|Lane|Ln|Court|Ct|Place|Pl|Parkway|Pkwy|Highway|Hwy),/i;
+const ADDRESS_AS_TITLE_RE = /^\d+\s+\w+.+?(?:Road|Rd|Street|St|Avenue|Ave|Drive|Dr|Boulevard|Blvd|Way|Lane|Ln|Court|Ct|Place|Pl|Parkway|Pkwy|Highway|Hwy),/i;
 /** Detect email addresses in titles (recruitment/placeholder summaries) */
 const EMAIL_IN_TITLE_RE = /(?:<[^@]+@[^>]+>|\S+@\S+\.\S+)/;
 
