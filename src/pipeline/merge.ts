@@ -139,7 +139,7 @@ async function createEventLinks(
 // ── Helper types for internal decomposition ──
 
 /** Cached kennel data shape used by the per-batch cache and resolveKennelData. */
-type KennelCacheEntry = {
+interface KennelCacheEntry {
   kennelCode: string;
   shortName: string;
   fullName: string | null;
@@ -149,7 +149,7 @@ type KennelCacheEntry = {
   country: string;
   regionCentroidLat: number | null;
   regionCentroidLng: number | null;
-};
+}
 
 /** Per-batch state threaded through all merge helper functions. */
 interface MergeContext {
@@ -525,6 +525,8 @@ export function sanitizeLocation(location: string | undefined): string | null {
 export function suppressRedundantCity(locationName: string | null, city: string | null): string | null {
   if (!city || !locationName) return city;
   if (!/,\s*[A-Z]{2}(?:\s+\d{5})?$/.test(locationName)) return city;
+  // Require at least 3 segments (e.g., "Street, City, ST") — fewer suggests incomplete address
+  if (locationName.split(",").length < 3) return city;
   const cityName = city.split(",")[0].trim();
   if (cityName && !locationName.includes(cityName)) return null;
   return city;
@@ -895,7 +897,7 @@ async function processNewRawEvent(
       : `${displayName} Trail`;
   } else {
     const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName);
-    if (displayName && displayName.toLowerCase() !== kennelData.kennelCode.toLowerCase()) {
+    if (displayName && kennelData.kennelCode && displayName.toLowerCase() !== kennelData.kennelCode.toLowerCase()) {
       const escaped = kennelData.kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
       const codePattern = new RegExp(String.raw`^${escaped}(\s+Trail.*)`, "i");
       const match = sanitized.match(codePattern);

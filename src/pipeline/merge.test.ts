@@ -1344,7 +1344,15 @@ describe("suppressRedundantCity", () => {
   });
 
   it("suppresses city when locationName has state + zip and city differs", () => {
-    expect(suppressRedundantCity("Palm Beach County, FL 33414", "Wellington, FL")).toBeNull();
+    expect(suppressRedundantCity("1234 Main St, Palm Beach County, FL 33414", "Wellington, FL")).toBeNull();
+  });
+
+  it("preserves city when locationName has only street + state (no city segment)", () => {
+    expect(suppressRedundantCity("123 Main St, OH", "Akron, OH")).toBe("Akron, OH");
+  });
+
+  it("preserves city when locationName is county + state (2 segments)", () => {
+    expect(suppressRedundantCity("Palm Beach County, FL", "Wellington, FL")).toBe("Wellington, FL");
   });
 
   it("returns null when city is null", () => {

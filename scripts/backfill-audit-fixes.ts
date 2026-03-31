@@ -15,7 +15,7 @@ import { sanitizeHares, sanitizeLocation, suppressRedundantCity } from "../src/p
 const dryRun = !process.argv.includes("--apply");
 
 async function main() {
-  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined });
   const adapter = new PrismaPg(pool);
   const prisma = new PrismaClient({ adapter } as never);
 
