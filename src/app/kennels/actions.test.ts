@@ -10,9 +10,6 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/analytics-server", () => ({
-  captureServerEvent: vi.fn().mockResolvedValue(undefined),
-}));
 
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
