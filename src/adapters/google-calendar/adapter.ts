@@ -292,6 +292,7 @@ interface CalendarSourceConfig {
   runNumberPatterns?: string[];         // regex strings to extract run numbers from descriptions
   titleHarePattern?: string;            // regex to extract hare names from summary when description has none
   descriptionSuffix?: string;           // appended to every event description
+  includeAllDayEvents?: boolean;        // if true, don't skip all-day events (some calendars use them for real runs)
 }
 
 /**
@@ -394,8 +395,8 @@ export function buildRawEventFromGCalItem(
   if (item.status === "cancelled") return null;
   if (!item.summary) return null;
   if (!item.start?.dateTime && !item.start?.date) return null;
-  // Skip all-day events — travel blocks, holidays, multi-day markers, not trail runs
-  if (item.start?.date && !item.start?.dateTime) return null;
+  // Skip all-day events unless config opts in (some calendars use all-day for real runs)
+  if (item.start?.date && !item.start?.dateTime && !sourceConfig?.includeAllDayEvents) return null;
 
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start);
   if (!dateISO) return null;

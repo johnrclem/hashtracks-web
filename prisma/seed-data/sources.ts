@@ -2645,6 +2645,7 @@ export const SOURCES = [
       config: {
         calendarId: "nolahash@gmail.com",
         defaultKennelTag: "noh3",
+        includeAllDayEvents: true,
       },
       kennelCodes: ["noh3"],
     },
