@@ -2572,5 +2572,28 @@ export const SOURCES = [
       },
       kennelCodes: ["bruh3"],
     },
+
+    // ===== NETHERLANDS =====
+    {
+      name: "Amsterdam H3 Website",
+      url: "https://ah3.nl/nextruns/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        previousUrl: "https://ah3.nl/previous/",
+      },
+      kennelCodes: ["ah3-nl"],
+    },
+    {
+      name: "The Hague H3 Website",
+      url: "https://haguehash.nl/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["hagueh3"],
+    },
   ];
 

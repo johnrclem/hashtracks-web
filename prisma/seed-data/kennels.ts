@@ -2243,5 +2243,27 @@ export const KENNELS: KennelSeed[] = [
       description: "Brussels' original Saturday hash, running weekly at 15:00 from different locations in and around Brussels since the 1980s.",
       latitude: 50.85, longitude: 4.35,
     },
+
+    // ── Netherlands: Amsterdam ──
+    {
+      kennelCode: "ah3-nl", shortName: "AH3", fullName: "Amsterdam Hash House Harriers", region: "Amsterdam", country: "Netherlands",
+      website: "https://ah3.nl",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:45 PM", scheduleFrequency: "Weekly",
+      hashCash: "€5",
+      description: "Amsterdam's weekly hash, usually Sundays at 14:45. Trails through parks, streets, and hidden gems, 6-10 km. Annual Canal Hash on boats through UNESCO canals.",
+      latitude: 52.37, longitude: 4.90,
+    },
+
+    // ── Netherlands: The Hague ──
+    {
+      kennelCode: "hagueh3", shortName: "Hague H3", fullName: "The Hague Hash House Harriers", region: "The Hague", country: "Netherlands",
+      website: "https://haguehash.nl",
+      contactEmail: "mismanagement@haguehash.nl",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Winter: Sunday 14:00, Summer: Wednesday 19:00",
+      hashCash: "€7",
+      description: "The Hague's weekly hash — Sundays at 14:00 in winter, Wednesdays at 19:00 in summer. Run fee includes beer and snacks.",
+      latitude: 52.08, longitude: 4.30,
+    },
   ];
 
