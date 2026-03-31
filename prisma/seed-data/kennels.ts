@@ -2301,7 +2301,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 59.33, longitude: 18.07,
     },
     {
-      kennelCode: "sah3", shortName: "SAH3", fullName: "Stockholm Absolut Hash House Harriers", region: "Stockholm", country: "Sweden",
+      kennelCode: "sah3-se", shortName: "SAH3", fullName: "Stockholm Absolut Hash House Harriers", region: "Stockholm", country: "Sweden",
       website: "https://www.hash.se",
       scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
       description: "Stockholm's biweekly Saturday afternoon hash — the original Stockholm kennel.",

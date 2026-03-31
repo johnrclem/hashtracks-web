@@ -2607,9 +2607,9 @@ export const SOURCES = [
       config: {
         calendarId: "ch3.archive@gmail.com",
         kennelPatterns: [
-          ["CH3", "ch3-dk"],
-          ["CH4", "ch4-dk"],
-          ["RDH3", "rdh3"],
+          ["^CH3\\b|Copenhagen", "ch3-dk"],
+          ["^CH4\\b|Howling|Full Moon", "ch4-dk"],
+          ["RDH3|Rabid", "rdh3"],
         ],
         defaultKennelTag: "ch3-dk",
       },
@@ -2627,11 +2627,11 @@ export const SOURCES = [
       config: {
         kennelPatterns: [
           ["SUH3", "suh3"],
-          ["SAH3", "sah3"],
+          ["SAH3", "sah3-se"],
         ],
         defaultKennelTag: "suh3",
       },
-      kennelCodes: ["suh3", "sah3"],
+      kennelCodes: ["suh3", "sah3-se"],
     },
 
     // ===== NORWAY =====
