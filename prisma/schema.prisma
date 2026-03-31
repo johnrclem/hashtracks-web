@@ -207,8 +207,9 @@ enum SourceType {
   JSON_API        // Generic JSON API
   HASHREGO        // hashrego.com event pages
   MEETUP          // meetup.com group events
-  STATIC_SCHEDULE // Auto-generated events from schedule rules (Facebook-only kennels)
-  MANUAL          // User-submitted events
+  STATIC_SCHEDULE    // Auto-generated events from schedule rules (Facebook-only kennels)
+  HARRIER_CENTRAL    // harriercentralpublicapi.azurewebsites.net REST API
+  MANUAL             // User-submitted events
 }
 
 model ScrapeLog {
