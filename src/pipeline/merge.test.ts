@@ -24,7 +24,7 @@ vi.mock("./kennel-resolver", () => ({
 import { prisma } from "@/lib/db";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, NON_ENGLISH_GEO_RE } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, suppressRedundantCity, NON_ENGLISH_GEO_RE } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -1028,6 +1028,21 @@ describe("sanitizeHares", () => {
   it("passes through two-character hare name", () => {
     expect(sanitizeHares("Al")).toBe("Al");
   });
+
+  it("returns null for 'Sign up!' CTA text", () => {
+    expect(sanitizeHares("Sign up!")).toBeNull();
+    expect(sanitizeHares("sign up")).toBeNull();
+    expect(sanitizeHares("Sign Up")).toBeNull();
+  });
+
+  it("returns null for 'volunteer' CTA text", () => {
+    expect(sanitizeHares("Volunteer")).toBeNull();
+    expect(sanitizeHares("volunteer")).toBeNull();
+  });
+
+  it("does not filter names containing 'sign' as substring", () => {
+    expect(sanitizeHares("Stop Sign Steve")).toBe("Stop Sign Steve");
+  });
 });
 
 // ── friendlyKennelName ──
@@ -1071,6 +1086,15 @@ describe("friendlyKennelName", () => {
 
   it("returns shortName when stripping HHH leaves empty string", () => {
     expect(friendlyKennelName("HHH", "Hash House Harriers")).toBe("HHH");
+  });
+
+  it("handles 'Hash House Harriers and Harriettes' suffix (DH4)", () => {
+    expect(friendlyKennelName("DH4", "Dayton Hash House Harriers and Harriettes")).toBe("Dayton H3");
+  });
+
+  it("returns fullName when only 'Hash House Harriettes' (no Harriers)", () => {
+    // "Hash House Harriettes" alone (without "Harriers") is not the standard HHH suffix
+    expect(friendlyKennelName("XH3", "Example Hash House Harriettes")).toBe("Example Hash House Harriettes");
   });
 });
 
@@ -1302,4 +1326,40 @@ describe("NON_ENGLISH_GEO_RE", () => {
   // Note: French patterns starting with É (État, États-Unis) don't match due to
   // \b word boundary not firing on non-ASCII characters. This is a known limitation
   // — the geocoder's language=en param handles French locations at the API level.
+});
+
+// ── suppressRedundantCity ──
+
+describe("suppressRedundantCity", () => {
+  it("returns city when locationName has no state code", () => {
+    expect(suppressRedundantCity("The Pub", "Akron, OH")).toBe("Akron, OH");
+  });
+
+  it("returns city when city is already in locationName", () => {
+    expect(suppressRedundantCity("123 Main St, Akron, OH", "Akron, OH")).toBe("Akron, OH");
+  });
+
+  it("suppresses city when locationName has state code and city differs", () => {
+    expect(suppressRedundantCity("13480 Congress Lake Avenue, Hartville, OH", "Akron, OH")).toBeNull();
+  });
+
+  it("suppresses city when locationName has state + zip and city differs", () => {
+    expect(suppressRedundantCity("1234 Main St, Palm Beach County, FL 33414", "Wellington, FL")).toBeNull();
+  });
+
+  it("preserves city when locationName has only street + state (no city segment)", () => {
+    expect(suppressRedundantCity("123 Main St, OH", "Akron, OH")).toBe("Akron, OH");
+  });
+
+  it("preserves city when locationName is county + state (2 segments)", () => {
+    expect(suppressRedundantCity("Palm Beach County, FL", "Wellington, FL")).toBe("Wellington, FL");
+  });
+
+  it("returns null when city is null", () => {
+    expect(suppressRedundantCity("Some Location, NY", null)).toBeNull();
+  });
+
+  it("returns city when locationName is null", () => {
+    expect(suppressRedundantCity(null, "Akron, OH")).toBe("Akron, OH");
+  });
 });
