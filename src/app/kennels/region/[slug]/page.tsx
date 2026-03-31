@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { regionBySlug, getStateGroup } from "@/lib/region";
 import { getActivityStatus } from "@/lib/activity-status";
+import { getTodayUtcNoon } from "@/lib/date";
 import { generateRegionIntro, buildRegionItemListJsonLd, safeJsonLd } from "@/lib/seo";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -24,12 +25,22 @@ export async function generateMetadata({
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz";
 
   // Count active kennels for description
+  const todayMeta = new Date(getTodayUtcNoon());
   const kennels = await prisma.kennel.findMany({
     where: { region: region.name, isHidden: false },
-    select: { lastEventDate: true, scheduleDayOfWeek: true },
+    select: {
+      id: true,
+      lastEventDate: true,
+      scheduleDayOfWeek: true,
+      _count: {
+        select: {
+          events: { where: { date: { gte: todayMeta }, status: "CONFIRMED" } },
+        },
+      },
+    },
   });
   const activeCount = kennels.filter(
-    (k) => getActivityStatus(k.lastEventDate) === "active",
+    (k) => getActivityStatus(k.lastEventDate, k._count.events > 0) === "active",
   ).length;
   const days = kennels.map((k) => k.scheduleDayOfWeek).filter(Boolean) as string[];
   const intro = generateRegionIntro(region.name, activeCount, days);
@@ -118,7 +129,7 @@ export default async function RegionPage({
 
   // Compute intro
   const activeCount = kennels.filter(
-    (k) => getActivityStatus(k.lastEventDate) === "active",
+    (k) => getActivityStatus(k.lastEventDate, nextEventMap.has(k.id)) === "active",
   ).length;
   const days = kennels.map((k) => k.scheduleDayOfWeek).filter(Boolean) as string[];
   const intro = generateRegionIntro(region.name, activeCount, days);

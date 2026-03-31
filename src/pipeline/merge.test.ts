@@ -9,6 +9,7 @@ vi.mock("@/lib/db", () => ({
     event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
     eventLink: { upsert: vi.fn() },
     kennel: { findUnique: vi.fn() },
+    $executeRaw: vi.fn().mockResolvedValue(0),
   },
 }));
 

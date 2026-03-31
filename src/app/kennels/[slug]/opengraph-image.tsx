@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { prisma } from "@/lib/db";
 import { getActivityStatus } from "@/lib/activity-status";
+import { getTodayUtcNoon } from "@/lib/date";
 
 // Must use nodejs runtime (not edge) because Prisma requires Node.js
 export const runtime = "nodejs";
@@ -10,6 +11,7 @@ export const contentType = "image/png";
 
 export default async function OgImage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const todayUtc = new Date(getTodayUtcNoon());
   const kennel = await prisma.kennel.findUnique({
     where: { slug },
     select: {
@@ -20,6 +22,11 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
       scheduleDayOfWeek: true,
       scheduleFrequency: true,
       isHidden: true,
+      _count: {
+        select: {
+          events: { where: { date: { gte: todayUtc }, status: "CONFIRMED" } },
+        },
+      },
     },
   });
 
@@ -32,7 +39,7 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
     );
   }
 
-  const status = getActivityStatus(kennel.lastEventDate);
+  const status = getActivityStatus(kennel.lastEventDate, kennel._count.events > 0);
   const statusText = status === "active" ? "Active" : status === "possibly-inactive" ? "Possibly Inactive" : status === "inactive" ? "Inactive" : "";
   const statusColor = status === "active" ? "#4ade80" : status === "possibly-inactive" ? "#facc15" : status === "inactive" ? "#f87171" : "#71717a";
   const schedule = [kennel.scheduleFrequency, kennel.scheduleDayOfWeek].filter(Boolean).join(" · ");
