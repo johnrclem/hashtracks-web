@@ -185,6 +185,11 @@ export function parseMerseyNextRunBlock(block: string): ParsedMerseyRun | null {
   }
   if (descParts.length > 0) result.description = descParts.join(". ");
 
+  // Require at least one event-identifying field beyond a bare date.
+  // Blocks with only an implied date (e.g., from "7pm" in instruction text)
+  // are not real events.
+  if (!result.runNumber && !result.hares && !result.location) return null;
+
   return result;
 }
 
@@ -222,15 +227,14 @@ export function splitByYearMarkers(text: string): Map<number, string[]> {
   const parts = text.split(/▲\s*(\d{4})\s*▲/);
   // parts: [before_first_marker, year1, section1_text, year2, section2_text, ...]
 
-  // Runs before the first ▲ marker belong to the year AFTER that marker.
-  // E.g., text before ▲ 2025 ▲ is 2026 runs. This assumes the site never
-  // adds a ▲ CURRENT_YEAR ▲ header at the top — if they do, the +1 logic
-  // would mis-date the first section. The page has been stable since 2006.
+  // Year markers are footer-style: ▲ YYYY ▲ marks the END of year YYYY.
+  // Content before ▲ YYYY ▲ belongs to year YYYY.
+  // Content after ▲ YYYY ▲ belongs to year YYYY - 1.
   let currentYear: number | null = null;
   if (parts.length >= 2) {
     currentYear = parseInt(parts[1], 10);
     if (parts[0].trim()) {
-      sections.set(currentYear + 1, splitIntoRunLines(parts[0]));
+      sections.set(currentYear, splitIntoRunLines(parts[0]));
     }
   }
 
@@ -239,7 +243,7 @@ export function splitByYearMarkers(text: string): Map<number, string[]> {
     const year = parseInt(parts[i], 10);
     const sectionText = parts[i + 1] || "";
     if (!isNaN(year) && sectionText.trim()) {
-      sections.set(year, splitIntoRunLines(sectionText));
+      sections.set(year - 1, splitIntoRunLines(sectionText));
     }
   }
 
