@@ -12,8 +12,10 @@ function toUtcNoon(date: Date): number {
  * Compute activity status from a kennel's most recent event date.
  * Thresholds: <90 days = active, 90-365 = possibly-inactive, 365+ = inactive, null = unknown.
  * Both dates normalized to UTC noon per project convention.
+ * A kennel with upcoming events is always considered active.
  */
-export function getActivityStatus(lastEventDate: Date | null): ActivityStatus {
+export function getActivityStatus(lastEventDate: Date | null, hasUpcomingEvent?: boolean): ActivityStatus {
+  if (hasUpcomingEvent) return "active";
   if (!lastEventDate) return "unknown";
 
   const nowNoon = toUtcNoon(new Date());

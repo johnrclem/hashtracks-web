@@ -25,12 +25,13 @@ const STATUS_CONFIG: Record<Exclude<ActivityStatus, "active">, { label: string; 
 
 interface ActivityStatusBadgeProps {
   lastEventDate: Date | string | null;
+  hasUpcomingEvent?: boolean;
   size?: "sm" | "md";
 }
 
-export function ActivityStatusBadge({ lastEventDate, size = "sm" }: ActivityStatusBadgeProps) {
+export function ActivityStatusBadge({ lastEventDate, hasUpcomingEvent, size = "sm" }: ActivityStatusBadgeProps) {
   const date = lastEventDate ? new Date(lastEventDate) : null;
-  const status = getActivityStatus(date);
+  const status = getActivityStatus(date, hasUpcomingEvent);
 
   // Active kennels don't get a badge
   if (status === "active") return null;

@@ -253,7 +253,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       }
       // Active only
       if (showActiveOnly) {
-        const status = getActivityStatus(k.lastEventDate ? new Date(k.lastEventDate) : null);
+        const status = getActivityStatus(k.lastEventDate ? new Date(k.lastEventDate) : null, !!k.nextEvent);
         if (status !== "active") return false;
       }
       // Country

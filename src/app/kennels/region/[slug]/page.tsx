@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { regionBySlug, getStateGroup } from "@/lib/region";
 import { getActivityStatus } from "@/lib/activity-status";
+import { getTodayUtcNoon } from "@/lib/date";
 import { generateRegionIntro, buildRegionItemListJsonLd, safeJsonLd } from "@/lib/seo";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -24,12 +25,25 @@ export async function generateMetadata({
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz";
 
   // Count active kennels for description
-  const kennels = await prisma.kennel.findMany({
-    where: { region: region.name, isHidden: false },
-    select: { lastEventDate: true, scheduleDayOfWeek: true },
-  });
+  const todayMeta = new Date(getTodayUtcNoon());
+  const [kennels, metaUpcoming] = await Promise.all([
+    prisma.kennel.findMany({
+      where: { region: region.name, isHidden: false },
+      select: { id: true, lastEventDate: true, scheduleDayOfWeek: true },
+    }),
+    prisma.event.findMany({
+      where: {
+        date: { gte: todayMeta },
+        status: "CONFIRMED",
+        kennel: { region: region.name, isHidden: false },
+      },
+      select: { kennelId: true },
+      distinct: ["kennelId"],
+    }),
+  ]);
+  const kennelsWithUpcoming = new Set(metaUpcoming.map((e) => e.kennelId));
   const activeCount = kennels.filter(
-    (k) => getActivityStatus(k.lastEventDate) === "active",
+    (k) => getActivityStatus(k.lastEventDate, kennelsWithUpcoming.has(k.id)) === "active",
   ).length;
   const days = kennels.map((k) => k.scheduleDayOfWeek).filter(Boolean) as string[];
   const intro = generateRegionIntro(region.name, activeCount, days);
@@ -118,7 +132,7 @@ export default async function RegionPage({
 
   // Compute intro
   const activeCount = kennels.filter(
-    (k) => getActivityStatus(k.lastEventDate) === "active",
+    (k) => getActivityStatus(k.lastEventDate, nextEventMap.has(k.id)) === "active",
   ).length;
   const days = kennels.map((k) => k.scheduleDayOfWeek).filter(Boolean) as string[];
   const intro = generateRegionIntro(region.name, activeCount, days);

@@ -50,7 +50,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <ActivityStatusBadge lastEventDate={kennel.lastEventDate} />
+            <ActivityStatusBadge lastEventDate={kennel.lastEventDate} hasUpcomingEvent={!!kennel.nextEvent} />
             <RegionBadge region={kennel.region} size="sm" />
           </div>
         </div>

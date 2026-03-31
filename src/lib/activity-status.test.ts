@@ -45,4 +45,24 @@ describe("getActivityStatus", () => {
     future.setUTCDate(future.getUTCDate() + 30);
     expect(getActivityStatus(future)).toBe("active");
   });
+
+  describe("hasUpcomingEvent override", () => {
+    it("returns 'active' when hasUpcomingEvent is true and lastEventDate is null", () => {
+      expect(getActivityStatus(null, true)).toBe("active");
+    });
+
+    it("returns 'active' when hasUpcomingEvent is true and lastEventDate is stale", () => {
+      expect(getActivityStatus(daysAgo(400), true)).toBe("active");
+    });
+
+    it("preserves existing behavior when hasUpcomingEvent is false", () => {
+      expect(getActivityStatus(null, false)).toBe("unknown");
+      expect(getActivityStatus(daysAgo(400), false)).toBe("inactive");
+    });
+
+    it("preserves existing behavior when hasUpcomingEvent is omitted", () => {
+      expect(getActivityStatus(null)).toBe("unknown");
+      expect(getActivityStatus(daysAgo(400))).toBe("inactive");
+    });
+  });
 });
