@@ -2634,6 +2634,30 @@ export const SOURCES = [
       kennelCodes: ["suh3", "sah3-se"],
     },
 
+    // ===== LOUISIANA =====
+    {
+      name: "NOH3 Google Calendar",
+      url: "nolahash@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "nolahash@gmail.com",
+        defaultKennelTag: "noh3",
+      },
+      kennelCodes: ["noh3"],
+    },
+    {
+      name: "Voodoo H3 Website",
+      url: "https://www.voodoohash.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["voodoo-h3"],
+    },
+
     // ===== NORWAY =====
     {
       name: "Oslo H3 iCal Feed",

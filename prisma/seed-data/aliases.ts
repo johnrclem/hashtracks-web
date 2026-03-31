@@ -344,6 +344,10 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "bbmh3": ["BBMH3", "Brussels Blue Moon", "Blue Moon Hash", "Brussels Blue Moon H3"],
     "bruh3": ["BruH3", "Brussels Hash", "Brussels HHH", "Brussels Hash House Harriers", "BH3 Brussels"],
 
+    // ===== LOUISIANA =====
+    "noh3": ["NOH3", "New Orleans Hash", "New Orleans HHH", "New Orleans H3", "NOLA Hash"],
+    "voodoo-h3": ["Voodoo Hash", "Voodoo H3", "Voodoo HHH", "VoodooH3"],
+
     // ===== NETHERLANDS =====
     "ah3-nl": ["AH3", "Amsterdam Hash", "Amsterdam HHH", "Amsterdam H3"],
     "hagueh3": ["Hague H3", "The Hague Hash", "The Hague HHH", "Den Haag Hash", "HHH Den Haag"],
