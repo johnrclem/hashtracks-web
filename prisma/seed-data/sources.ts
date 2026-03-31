@@ -2650,12 +2650,16 @@ export const SOURCES = [
       kennelCodes: ["noh3"],
     },
     {
-      name: "Voodoo H3 Website",
-      url: "https://www.voodoohash.com/",
-      type: "HTML_SCRAPER" as const,
+      name: "Voodoo H3 Google Calendar",
+      url: "voodoohash@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      config: {
+        calendarId: "voodoohash@gmail.com",
+        defaultKennelTag: "voodoo-h3",
+      },
       kennelCodes: ["voodoo-h3"],
     },
 
