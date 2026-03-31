@@ -1,9 +1,21 @@
 /**
  * File GitHub issues from audit findings using the GitHub REST API.
- * Files up to 3 individual issues (one per top audit group) for autofix.
+ * Files up to 3 individual issues (one per top audit group).
+ * Code-fix issues get claude-autofix; data-remediation issues are audit-only.
  */
 import type { AuditGroup } from "./audit-runner";
 import { formatGroupIssueTitle, formatGroupIssueBody } from "./audit-format";
+
+/**
+ * Rules where the fix is running a backfill/re-scrape, not a code change.
+ * These get filed as audit issues for human review but don't trigger autofix.
+ */
+const DATA_REMEDIATION_RULES = new Set([
+  "title-raw-kennel-code",    // run backfill-event-titles.ts
+  "hare-cta-text",            // stale data, re-scrape filters it
+  "location-duplicate-segments", // pipeline fix deployed, needs re-scrape
+  "location-region-appended",   // display-time fix deployed, data correct
+]);
 
 const FETCH_TIMEOUT_MS = 10_000;
 const DEFAULT_REPO = "johnrclem/hashtracks-web";
@@ -75,25 +87,29 @@ async function createIssueForGroup(token: string, title: string, group: AuditGro
 
     const issue = (await res.json()) as { html_url: string; number: number };
 
-    // Add claude-autofix directly — audit issues skip triage
-    try {
-      const labelRes = await fetch(
-        `https://api.github.com/repos/${getRepo()}/issues/${issue.number}/labels`,
-        {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ labels: ["claude-autofix"] }),
-          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        },
-      );
-      if (!labelRes.ok) {
-        console.error(`[audit-issue] Failed to add claude-autofix label to #${issue.number}: ${labelRes.status}`);
+    // Only trigger autofix for code-fix rules; data remediation issues are human-reviewed
+    const isCodeFix = !DATA_REMEDIATION_RULES.has(group.rule);
+    if (isCodeFix) {
+      try {
+        const labelRes = await fetch(
+          `https://api.github.com/repos/${getRepo()}/issues/${issue.number}/labels`,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ labels: ["claude-autofix"] }),
+            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+          },
+        );
+        if (!labelRes.ok) {
+          console.error(`[audit-issue] Failed to add claude-autofix label to #${issue.number}: ${labelRes.status}`);
+        }
+      } catch (err) {
+        console.error(`[audit-issue] Failed to add claude-autofix label to #${issue.number}:`, err);
       }
-    } catch (err) {
-      console.error(`[audit-issue] Failed to add claude-autofix label to #${issue.number}:`, err);
     }
 
-    console.log(`[audit-issue] Created issue #${issue.number}: ${issue.html_url}`);
+    const label = isCodeFix ? "claude-autofix" : "audit-only (data remediation)";
+    console.log(`[audit-issue] Created issue #${issue.number} [${label}]: ${issue.html_url}`);
     return issue.html_url;
   } catch (err) {
     console.error("[audit-issue] Failed to create GitHub issue:", err);
