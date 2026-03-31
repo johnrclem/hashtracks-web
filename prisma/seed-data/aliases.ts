@@ -338,8 +338,10 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "kfmh3": ["Kinky Fully Mooned", "KFMH3", "Kinky Hash", "Kinky Full Moon"],
     "kyoto-h3": ["Kyoto Hash", "Kyoto HHH", "Kyoto H3"],
     "osaka-h3": ["Osaka Hash", "Osaka HHH", "Osaka H3"],
-    "kobe-h3": ["Kobe Hash", "Kobe HHH", "Kobe Harriers"],
-    // Okinawa
-    "okinawa-h3": ["Okinawa Hash", "Okinawa HHH", "Okinawa H3"],
+
+    // ===== BELGIUM =====
+    "bmph3-be": ["BMPH3", "Brussels Manneke Piss", "Manneke Piss Hash", "BMP H3"],
+    "bbmh3": ["BBMH3", "Brussels Blue Moon", "Blue Moon Hash", "Brussels Blue Moon H3"],
+    "bruh3": ["BruH3", "Brussels Hash", "Brussels HHH", "Brussels Hash House Harriers", "BH3 Brussels"],
   };
 

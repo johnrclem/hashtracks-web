@@ -2532,5 +2532,45 @@ export const SOURCES = [
       },
       kennelCodes: ["new-tokyo-katch"],
     },
+    // ===== BELGIUM =====
+    {
+      name: "BMPH3 Google Calendar",
+      url: "bmph3.onon@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "bmph3.onon@gmail.com",
+        defaultKennelTag: "bmph3-be",
+      },
+      kennelCodes: ["bmph3-be"],
+    },
+    {
+      name: "Brussels Blue Moon Google Calendar",
+      url: "go81bpr3vj0v4n60dnotpkbo3c@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "go81bpr3vj0v4n60dnotpkbo3c@group.calendar.google.com",
+        defaultKennelTag: "bbmh3",
+      },
+      kennelCodes: ["bbmh3"],
+    },
+    // BruH3 Website (Brussels — upcoming + write-ups)
+    {
+      name: "BruH3 Website",
+      url: "http://www.bruh3.eu/blog/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        writeUpsUrl: "http://www.bruh3.eu/blog-2/",
+      },
+      kennelCodes: ["bruh3"],
+    },
   ];
 

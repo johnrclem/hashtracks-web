@@ -1612,6 +1612,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 127.77,
     aliases: ["Okinawa, Japan", "沖縄"],
   },
+  // ── Belgium ──
+  {
+    name: "Belgium",
+    country: "Belgium",
+    level: "COUNTRY",
+    timezone: "Europe/Brussels",
+    abbrev: "BE",
+    colorClasses: "bg-amber-200 text-amber-800",
+    pinColor: "#d97706",
+    centroidLat: 50.85,
+    centroidLng: 4.35,
+    aliases: ["BE", "Belgique", "België"],
+  },
+  {
+    name: "Brussels",
+    country: "Belgium",
+    timezone: "Europe/Brussels",
+    abbrev: "BRU",
+    colorClasses: "bg-amber-100 text-amber-700",
+    pinColor: "#f59e0b",
+    centroidLat: 50.85,
+    centroidLng: 4.35,
+    aliases: ["Brussels, Belgium", "Bruxelles"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -1802,6 +1826,7 @@ export function inferCountry(name: string): string {
   if (/\b(canada|toronto|vancouver|montreal|calgary)\b/.test(lower)) return "Canada";
   if (/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt)\b/.test(lower)) return "Germany";
   if (/\b(japan|tokyo|osaka)\b/.test(lower)) return "Japan";
+  if (/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/.test(lower)) return "Belgium";
   return "USA";
 }
 
@@ -1963,6 +1988,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Tokyo": "Japan",
   "Kansai": "Japan",
   "Okinawa": "Japan",
+  // Belgium
+  "Brussels": "Belgium",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */
