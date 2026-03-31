@@ -16,10 +16,10 @@ export function parseVoodooTitle(title: string): {
   runNumber?: number;
   trailName?: string;
 } | null {
-  const match = title.match(/Trail\s*#(\d+)(?::\s*(.+))?/i);
+  const match = /Trail\s*#(\d+)(?::\s*(.+))?/i.exec(title);
   if (match) {
     return {
-      runNumber: parseInt(match[1], 10),
+      runNumber: Number.parseInt(match[1], 10),
       trailName: match[2]?.trim() || undefined,
     };
   }
@@ -46,14 +46,14 @@ export function parseVoodooBody(text: string): {
   theme?: string;
   dogFriendly?: string;
 } {
-  const dateMatch = text.match(/Date:\s*(.+?)(?=\n|$)/i);
-  const timeMatch = text.match(/Time:\s*(.+?)(?=\n|$)/i);
-  const addressMatch = text.match(/(?:Start\s*)?Address:\s*(.+?)(?=\n|$)/i);
-  const hareMatch = text.match(/Hare(?:s?)?\s*(?:&\s*Co-Hares?)?\s*:\s*(.+?)(?=\n|$)/i);
-  const onAfterMatch = text.match(/On[- ]?After:\s*(.+?)(?=\n|$)/i);
-  const prelubeMatch = text.match(/Pre[- ]?Lube:\s*(.+?)(?=\n|$)/i);
-  const themeMatch = text.match(/Theme:\s*(.+?)(?=\n|$)/i);
-  const dogMatch = text.match(/Dog\s*Friendly[?:]?\s*(.+?)(?=\n|$)/i);
+  const dateMatch = /Date:\s*(.+?)(?=\n|$)/i.exec(text);
+  const timeMatch = /Time:\s*(.+?)(?=\n|$)/i.exec(text);
+  const addressMatch = /(?:Start\s*)?Address:\s*(.+?)(?=\n|$)/i.exec(text);
+  const hareMatch = /Hares?\s*(?:&\s*Co-Hares?)?\s*:\s*(.+?)(?=\n|$)/i.exec(text);
+  const onAfterMatch = /On[- ]?After:\s*(.+?)(?=\n|$)/i.exec(text);
+  const prelubeMatch = /Pre[- ]?Lube:\s*(.+?)(?=\n|$)/i.exec(text);
+  const themeMatch = /Theme:\s*(.+?)(?=\n|$)/i.exec(text);
+  const dogMatch = /Dog\s*Friendly[?:]?\s*(.+?)(?=\n|$)/i.exec(text);
 
   return {
     date: dateMatch ? dateMatch[1].trim() : undefined,
@@ -75,12 +75,12 @@ export function parseVoodooBody(text: string): {
 export function parseVoodooTime(timeStr?: string): string {
   if (!timeStr) return "18:30";
 
-  // Match first time in the string (e.g., "6:30pm" or "5:30pm")
-  const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
+  // Match first time in the string (e.g., "6:30pm", "5:30pm", "6pm", "7pm")
+  const match = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i.exec(timeStr);
   if (!match) return "18:30";
 
-  let hours = parseInt(match[1], 10);
-  const minutes = match[2];
+  let hours = Number.parseInt(match[1], 10);
+  const minutes = match[2] || "00";
   const ampm = match[3].toLowerCase();
 
   if (ampm === "pm" && hours !== 12) hours += 12;
@@ -103,14 +103,13 @@ export function processVoodooPost(
 
   const body = parseVoodooBody(bodyText);
 
-  // Parse date from body "Date:" field, falling back to post title context
-  const dateStr = body.date ? chronoParseDate(body.date) : null;
+  // Parse date from body "Date:" field — forwardDate avoids wrong year near boundaries
+  const dateStr = body.date ? chronoParseDate(body.date, "en-US", undefined, { forwardDate: true }) : null;
   if (!dateStr) return null;
 
   const startTime = parseVoodooTime(body.time);
 
   const descParts: string[] = [];
-  if (parsed.trailName) descParts.push(parsed.trailName);
   if (body.theme) descParts.push(`Theme: ${body.theme}`);
   if (body.preLube) descParts.push(`Pre-Lube: ${body.preLube}`);
   if (body.onAfter) descParts.push(`On-After: ${body.onAfter}`);
@@ -124,7 +123,7 @@ export function processVoodooPost(
     location: body.location,
     startTime,
     sourceUrl: postUrl,
-    description: descParts.length > 1 ? descParts.join(" | ") : undefined,
+    description: descParts.length > 0 ? descParts.join(" | ") : undefined,
   };
 }
 

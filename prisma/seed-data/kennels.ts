@@ -2249,6 +2249,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "noh3", shortName: "NOH3", fullName: "New Orleans Hash House Harriers", region: "New Orleans, LA",
       website: "https://www.noh3.com",
       facebookUrl: "https://www.facebook.com/groups/NewOrleansHash",
+      contactEmail: "nolahash@gmail.com",
       scheduleFrequency: "Weekly",
       scheduleNotes: "Monday/Tuesday evenings at 6pm",
       description: "New Orleans' original hash kennel. Weekly 3-5 mile trails through the city's streets, alleys, and parks. Home of the annual Red Dress Run.",

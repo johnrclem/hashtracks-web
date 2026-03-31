@@ -19,7 +19,7 @@ describe("parseVoodooTitle", () => {
     });
   });
 
-  it("parses title without colon separator", () => {
+  it("parses title with colon separator", () => {
     const result = parseVoodooTitle("Trail #1031: Suburban Jungle");
     expect(result).toEqual({
       runNumber: 1031,
@@ -148,8 +148,8 @@ describe("parseVoodooTime", () => {
     expect(parseVoodooTime("5:30pm show, 6:00pm GO! This time is SHARP.")).toBe("17:30");
   });
 
-  it("defaults to 18:30 when undefined", () => {
-    expect(parseVoodooTime(undefined)).toBe("18:30");
+  it("defaults to 18:30 when no argument", () => {
+    expect(parseVoodooTime()).toBe("18:30");
   });
 
   it("defaults to 18:30 for unparseable string", () => {
