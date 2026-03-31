@@ -17,7 +17,12 @@ async function deleteEventsCascade(eventIds: string[]): Promise<number> {
   let deleted = 0;
   for (let i = 0; i < eventIds.length; i += DELETE_BATCH_SIZE) {
     const batch = eventIds.slice(i, i + DELETE_BATCH_SIZE);
-    const results = await prisma.$transaction([
+    const [
+      ,, // rawEvent unlink, parentEventId nulling
+      ,, // eventHare, attendance deletes
+      , // kennelAttendance delete
+      eventDeleteResult,
+    ] = await prisma.$transaction([
       // Unlink RawEvents (preserve immutable audit trail)
       prisma.rawEvent.updateMany({
         where: { eventId: { in: batch } },
@@ -35,7 +40,7 @@ async function deleteEventsCascade(eventIds: string[]): Promise<number> {
       // Delete events (EventLink cascades via onDelete: Cascade in schema)
       prisma.event.deleteMany({ where: { id: { in: batch } } }),
     ]);
-    deleted += results[5].count;
+    deleted += eventDeleteResult.count;
   }
   return deleted;
 }
