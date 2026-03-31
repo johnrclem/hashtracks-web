@@ -1,5 +1,13 @@
 const CONTEXT = "https://schema.org";
 
+/**
+ * Safely serialize JSON-LD for injection into a <script> tag.
+ * Escapes </script> sequences to prevent stored XSS from DB values.
+ */
+export function safeJsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/<\/script/gi, "<\\/script");
+}
+
 // ── JSON-LD Builders ──
 
 interface KennelJsonLdInput {
@@ -21,7 +29,7 @@ export function buildKennelJsonLd(kennel: KennelJsonLdInput, baseUrl: string) {
     url: `${baseUrl}/kennels/${kennel.slug}`,
     sport: "Hash House Harriers",
     location: {
-      "@type": "City" as const,
+      "@type": "Place" as const,
       name: kennel.region,
     },
     ...(kennel.foundedYear ? { foundingDate: String(kennel.foundedYear) } : {}),

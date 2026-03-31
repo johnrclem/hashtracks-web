@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { regionBySlug, getStateGroup } from "@/lib/region";
 import { getActivityStatus } from "@/lib/activity-status";
-import { generateRegionIntro, buildRegionItemListJsonLd } from "@/lib/seo";
+import { generateRegionIntro, buildRegionItemListJsonLd, safeJsonLd } from "@/lib/seo";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FadeInSection } from "@/components/home/HeroAnimations";
@@ -134,7 +134,7 @@ export default async function RegionPage({
     <div>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
 
       <FadeInSection>

@@ -3,9 +3,24 @@ import {
   buildRegionItemListJsonLd,
   buildWebSiteJsonLd,
   generateRegionIntro,
+  safeJsonLd,
 } from "@/lib/seo";
 
 const BASE_URL = "https://hashtracks.xyz";
+
+describe("safeJsonLd", () => {
+  it("escapes </script> sequences to prevent XSS", () => {
+    const data = { description: 'Hello</script><script>alert("xss")</script>' };
+    const result = safeJsonLd(data);
+    expect(result).not.toContain("</script>");
+    expect(result).toContain("<\\/script");
+  });
+
+  it("handles normal data without modification", () => {
+    const data = { name: "Test H3", region: "NYC" };
+    expect(safeJsonLd(data)).toBe(JSON.stringify(data));
+  });
+});
 
 describe("buildKennelJsonLd", () => {
   it("builds SportsTeam schema with all fields", () => {
@@ -24,7 +39,7 @@ describe("buildKennelJsonLd", () => {
     expect(result.alternateName).toBe("NYCH3");
     expect(result.url).toBe("https://hashtracks.xyz/kennels/nych3");
     expect(result.foundingDate).toBe("1978");
-    expect(result.location["@type"]).toBe("City");
+    expect(result.location["@type"]).toBe("Place");
     expect(result.location.name).toBe("New York City, NY");
     expect(result.sameAs).toBe("https://hashnyc.com");
   });

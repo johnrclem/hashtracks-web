@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
-import { regionSlug } from "@/lib/region";
+import { regionNameToSlug } from "@/lib/region";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz";
@@ -42,11 +42,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     _count: true,
   });
 
-  const regionPages: MetadataRoute.Sitemap = regionsWithKennels.map((r) => ({
-    url: `${baseUrl}/kennels/region/${regionSlug(r.region)}`,
-    changeFrequency: "weekly",
-    priority: 0.7,
-  }));
+  // Deduplicate and filter to regions with valid landing page slugs
+  const seenSlugs = new Set<string>();
+  const regionPages: MetadataRoute.Sitemap = [];
+  for (const r of regionsWithKennels) {
+    const slug = regionNameToSlug(r.region);
+    if (slug && !seenSlugs.has(slug)) {
+      seenSlugs.add(slug);
+      regionPages.push({
+        url: `${baseUrl}/kennels/region/${slug}`,
+        changeFrequency: "weekly",
+        priority: 0.7,
+      });
+    }
+  }
 
   return [...staticPages, ...kennelPages, ...regionPages];
 }

@@ -19,10 +19,11 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
       lastEventDate: true,
       scheduleDayOfWeek: true,
       scheduleFrequency: true,
+      isHidden: true,
     },
   });
 
-  if (!kennel) {
+  if (!kennel || kennel.isHidden) {
     return new ImageResponse(
       <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#141417", color: "#ffffff", fontSize: 48 }}>
         HashTracks
@@ -69,7 +70,7 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
         {/* Footer */}
         <div style={{ position: "absolute", bottom: "40px", display: "flex", alignItems: "center", gap: "12px", fontSize: 18, color: "#71717a" }}>
           <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#f97316" }} />
-          hashtracks.xyz
+          {(process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz").replace(/^https?:\/\//, "")}
         </div>
       </div>
     ),
