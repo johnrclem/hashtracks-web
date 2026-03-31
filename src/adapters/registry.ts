@@ -42,6 +42,7 @@ import { BullMoonAdapter } from "./html-scraper/bull-moon";
 import { GlasgowH3Adapter } from "./html-scraper/glasgow-h3";
 import { FrankfurtHashAdapter } from "./html-scraper/frankfurt-hash";
 import { CapeFearH3Adapter } from "./html-scraper/cape-fear-h3";
+import { BruH3Adapter } from "./html-scraper/bruh3";
 import { F3H3Adapter } from "./html-scraper/f3h3";
 import { SumoH3Adapter } from "./html-scraper/sumo-h3";
 import { YokoYokoH3Adapter } from "./html-scraper/yoko-yoko-h3";
@@ -117,6 +118,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /glasgowh3\.co\.uk/i, name: "GlasgowH3Adapter",        factory: () => new GlasgowH3Adapter() },
   { pattern: /frankfurt-hash\.de/i, name: "FrankfurtHashAdapter",    factory: () => new FrankfurtHashAdapter() },
   { pattern: /capefearh3\.com/i,   name: "CapeFearH3Adapter",      factory: () => new CapeFearH3Adapter() },
+  { pattern: /bruh3\.eu/i,          name: "BruH3Adapter",            factory: () => new BruH3Adapter() },
   { pattern: /f3h3\.net/i,         name: "F3H3Adapter",            factory: () => new F3H3Adapter() },
   { pattern: /sumoh3\.gotothehash/i, name: "SumoH3Adapter",        factory: () => new SumoH3Adapter() },
   { pattern: /y2h3\.net/i,          name: "YokoYokoH3Adapter",     factory: () => new YokoYokoH3Adapter() },

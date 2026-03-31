@@ -2218,5 +2218,30 @@ export const KENNELS: KennelSeed[] = [
       description: "Osaka hash kennel running in Japan's second-largest city and the Kansai region.",
       latitude: 34.69, longitude: 135.50,
     },
+
+    // ── Belgium: Brussels ──
+    {
+      kennelCode: "bmph3-be", shortName: "BMPH3", fullName: "Brussels Manneke Piss Hash House Harriers", region: "Brussels", country: "Belgium",
+      website: "https://www.bmph3.com",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "14:00 winter / 15:00 summer",
+      foundedYear: 1980,
+      description: "Brussels' weekly Sunday hash. Meets year-round at 14:00 (winter) or 15:00 (summer) for pre-laid trails in and around Brussels.",
+      latitude: 50.85, longitude: 4.35,
+    },
+    {
+      kennelCode: "bbmh3", shortName: "BBMH3", fullName: "Brussels Blue Moon Hash House Harriers", region: "Brussels", country: "Belgium",
+      website: "https://sites.google.com/site/brusselsbluemoonh3",
+      scheduleFrequency: "Monthly",
+      description: "Brussels monthly running hash — the 'proper running arm' of BMPH3 with longer distances.",
+      latitude: 50.85, longitude: 4.35,
+    },
+    {
+      kennelCode: "bruh3", shortName: "BruH3", fullName: "Brussels Hash House Harriers", region: "Brussels", country: "Belgium",
+      website: "http://www.bruh3.eu",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
+      description: "Brussels' original Saturday hash, running weekly at 15:00 from different locations in and around Brussels since the 1980s.",
+      latitude: 50.85, longitude: 4.35,
+    },
   ];
 
