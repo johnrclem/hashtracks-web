@@ -70,7 +70,11 @@ export async function fetchWordPressPosts(
       });
 
       if (response.ok) {
-        const data = (await response.json()) as {
+        // Some WordPress sites embed control characters in post content
+        // (e.g., Voodoo H3). Strip them before JSON.parse to avoid SyntaxError.
+        const raw = await response.text();
+        const sanitized = raw.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "");
+        const data = JSON.parse(sanitized) as {
           title?: { rendered?: string };
           content?: { rendered?: string };
           link?: string;
