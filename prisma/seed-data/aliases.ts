@@ -347,5 +347,17 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== NETHERLANDS =====
     "ah3-nl": ["AH3", "Amsterdam Hash", "Amsterdam HHH", "Amsterdam H3"],
     "hagueh3": ["Hague H3", "The Hague Hash", "The Hague HHH", "Den Haag Hash", "HHH Den Haag"],
+
+    // ===== DENMARK =====
+    "ch3-dk": ["CH3", "Copenhagen Hash", "Copenhagen HHH", "Copenhagen H3", "CH3 Copenhagen"],
+    "ch4-dk": ["CH4", "Copenhagen Howling", "Copenhagen Full Moon"],
+    "rdh3": ["RDH3", "Rabid Danes", "Rabid Danes Hash"],
+
+    // ===== SWEDEN =====
+    "suh3": ["SUH3", "Stockholm Underground", "Stockholm Underground Hash"],
+    "sah3": ["SAH3", "Stockholm Absolut", "Absolut Hash", "Stockholm Absolut H3"],
+
+    // ===== NORWAY =====
+    "oh3-no": ["OH3", "Oslo Hash", "Oslo HHH", "Oslo H3"],
   };
 

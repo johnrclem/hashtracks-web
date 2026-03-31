@@ -2265,5 +2265,56 @@ export const KENNELS: KennelSeed[] = [
       description: "The Hague's weekly hash — Sundays at 14:00 in winter, Wednesdays at 19:00 in summer. Run fee includes beer and snacks.",
       latitude: 52.08, longitude: 4.30,
     },
+
+    // ── Denmark: Copenhagen ──
+    {
+      kennelCode: "ch3-dk", shortName: "CH3", fullName: "Copenhagen Hash House Harriers", region: "Copenhagen", country: "Denmark",
+      website: "https://ch3.dk",
+      instagramHandle: "copenhagenh3",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Monday evenings (Apr-Sep), Saturday afternoons (Oct-Mar)",
+      description: "Copenhagen's weekly hash — Monday evenings in summer, Saturday afternoons in winter. Runs from S-Tog stations around the city.",
+      latitude: 55.68, longitude: 12.57,
+    },
+    {
+      kennelCode: "ch4-dk", shortName: "CH4", fullName: "Copenhagen Howling Hash House Harriers", region: "Copenhagen", country: "Denmark",
+      website: "https://ch3.dk",
+      scheduleFrequency: "Monthly",
+      scheduleNotes: "Full moon Fridays",
+      description: "Copenhagen's full-moon Friday night hash.",
+      latitude: 55.68, longitude: 12.57,
+    },
+    {
+      kennelCode: "rdh3", shortName: "RDH3", fullName: "Rabid Danes Hash House Harriers", region: "Copenhagen", country: "Denmark",
+      scheduleFrequency: "Monthly",
+      scheduleNotes: "Sunday mornings, 15+ km",
+      description: "Long-distance monthly Sunday hash from the Copenhagen area. 15+ km trails for those who want more.",
+      latitude: 55.68, longitude: 12.57,
+    },
+
+    // ── Sweden: Stockholm ──
+    {
+      kennelCode: "suh3", shortName: "SUH3", fullName: "Stockholm Underground Hash House Harriers", region: "Stockholm", country: "Sweden",
+      website: "https://www.hash.se",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Stockholm's weekly Wednesday evening hash. 6-8 km trails with shorter walker option.",
+      latitude: 59.33, longitude: 18.07,
+    },
+    {
+      kennelCode: "sah3", shortName: "SAH3", fullName: "Stockholm Absolut Hash House Harriers", region: "Stockholm", country: "Sweden",
+      website: "https://www.hash.se",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+      description: "Stockholm's biweekly Saturday afternoon hash — the original Stockholm kennel.",
+      latitude: 59.33, longitude: 18.07,
+    },
+
+    // ── Norway: Oslo ──
+    {
+      kennelCode: "oh3-no", shortName: "OH3", fullName: "Oslo Hash House Harriers", region: "Oslo", country: "Norway",
+      website: "https://www.oh3.no",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      description: "Oslo's weekly Monday evening hash. Run #1992+.",
+      latitude: 59.91, longitude: 10.75,
+    },
   ];
 

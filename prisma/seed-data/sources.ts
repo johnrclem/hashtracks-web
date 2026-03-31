@@ -2595,5 +2595,57 @@ export const SOURCES = [
       scrapeDays: 365,
       kennelCodes: ["hagueh3"],
     },
+
+    // ===== DENMARK =====
+    {
+      name: "Copenhagen H3 Google Calendar",
+      url: "ch3.archive@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "ch3.archive@gmail.com",
+        kennelPatterns: [
+          ["CH3", "ch3-dk"],
+          ["CH4", "ch4-dk"],
+          ["RDH3", "rdh3"],
+        ],
+        defaultKennelTag: "ch3-dk",
+      },
+      kennelCodes: ["ch3-dk", "ch4-dk", "rdh3"],
+    },
+
+    // ===== SWEDEN =====
+    {
+      name: "Stockholm HHH iCal Feed",
+      url: "https://www.hash.se/calendar.ics",
+      type: "ICAL_FEED" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        kennelPatterns: [
+          ["SUH3", "suh3"],
+          ["SAH3", "sah3"],
+        ],
+        defaultKennelTag: "suh3",
+      },
+      kennelCodes: ["suh3", "sah3"],
+    },
+
+    // ===== NORWAY =====
+    {
+      name: "Oslo H3 iCal Feed",
+      url: "https://www.oh3.no/calendar.ics",
+      type: "ICAL_FEED" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "oh3-no",
+      },
+      kennelCodes: ["oh3-no"],
+    },
   ];
 

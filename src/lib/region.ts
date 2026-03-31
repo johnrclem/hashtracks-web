@@ -1671,6 +1671,78 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 4.30,
     aliases: ["The Hague, Netherlands", "Den Haag"],
   },
+  // ── Denmark ──
+  {
+    name: "Denmark",
+    country: "Denmark",
+    level: "COUNTRY",
+    timezone: "Europe/Copenhagen",
+    abbrev: "DK",
+    colorClasses: "bg-rose-200 text-rose-800",
+    pinColor: "#e11d48",
+    centroidLat: 56.26,
+    centroidLng: 9.50,
+    aliases: ["DK", "Danmark"],
+  },
+  {
+    name: "Copenhagen",
+    country: "Denmark",
+    timezone: "Europe/Copenhagen",
+    abbrev: "CPH",
+    colorClasses: "bg-rose-100 text-rose-700",
+    pinColor: "#fb7185",
+    centroidLat: 55.68,
+    centroidLng: 12.57,
+    aliases: ["Copenhagen, Denmark", "København"],
+  },
+  // ── Sweden ──
+  {
+    name: "Sweden",
+    country: "Sweden",
+    level: "COUNTRY",
+    timezone: "Europe/Stockholm",
+    abbrev: "SE",
+    colorClasses: "bg-sky-200 text-sky-800",
+    pinColor: "#0284c7",
+    centroidLat: 60.13,
+    centroidLng: 18.64,
+    aliases: ["SE", "Sverige"],
+  },
+  {
+    name: "Stockholm",
+    country: "Sweden",
+    timezone: "Europe/Stockholm",
+    abbrev: "STO",
+    colorClasses: "bg-sky-100 text-sky-700",
+    pinColor: "#38bdf8",
+    centroidLat: 59.33,
+    centroidLng: 18.07,
+    aliases: ["Stockholm, Sweden"],
+  },
+  // ── Norway ──
+  {
+    name: "Norway",
+    country: "Norway",
+    level: "COUNTRY",
+    timezone: "Europe/Oslo",
+    abbrev: "NO",
+    colorClasses: "bg-blue-200 text-blue-800",
+    pinColor: "#1d4ed8",
+    centroidLat: 60.47,
+    centroidLng: 8.47,
+    aliases: ["NO", "Norge"],
+  },
+  {
+    name: "Oslo",
+    country: "Norway",
+    timezone: "Europe/Oslo",
+    abbrev: "OSL",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#60a5fa",
+    centroidLat: 59.91,
+    centroidLng: 10.75,
+    aliases: ["Oslo, Norway"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -1863,6 +1935,9 @@ export function inferCountry(name: string): string {
   if (/\b(japan|tokyo|osaka)\b/.test(lower)) return "Japan";
   if (/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/.test(lower)) return "Belgium";
   if (/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/.test(lower)) return "Netherlands";
+  if (/\b(denmark|copenhagen|københavn|aarhus)\b/.test(lower)) return "Denmark";
+  if (/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/.test(lower)) return "Sweden";
+  if (/\b(norway|oslo|bergen|stavanger)\b/.test(lower)) return "Norway";
   return "USA";
 }
 
@@ -2029,6 +2104,12 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Netherlands
   "Amsterdam": "Netherlands",
   "The Hague": "Netherlands",
+  // Denmark
+  "Copenhagen": "Denmark",
+  // Sweden
+  "Stockholm": "Sweden",
+  // Norway
+  "Oslo": "Norway",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */
