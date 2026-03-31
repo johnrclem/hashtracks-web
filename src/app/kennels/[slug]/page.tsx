@@ -16,6 +16,7 @@ import { EventTabs } from "@/components/kennels/EventTabs";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { getRegionColor } from "@/lib/region";
 import { FadeInSection } from "@/components/home/HeroAnimations";
+import { buildKennelJsonLd } from "@/lib/seo";
 
 export async function generateMetadata({
   params,
@@ -74,6 +75,17 @@ export default async function KennelDetailPage({
   });
 
   if (!kennel || kennel.isHidden) notFound();
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz";
+  const kennelJsonLd = buildKennelJsonLd({
+    fullName: kennel.fullName,
+    shortName: kennel.shortName,
+    slug: kennel.slug,
+    region: kennel.region,
+    foundedYear: kennel.foundedYear,
+    description: kennel.description,
+    website: kennel.website,
+  }, baseUrl);
 
   const [user, events] = await Promise.all([
     getOrCreateUser(),
@@ -164,6 +176,10 @@ export default async function KennelDetailPage({
 
   return (
     <div className="space-y-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(kennelJsonLd) }}
+      />
       {/* ── Breadcrumb ── */}
       <FadeInSection>
         <nav className="flex items-center gap-2 text-sm text-muted-foreground">
