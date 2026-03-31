@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@clerk/nextjs/server", () => ({ currentUser: vi.fn() }));
-vi.mock("@/lib/analytics-server", () => ({
-  captureServerEvent: vi.fn(),
-  identifyServerUser: vi.fn(),
-}));
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },

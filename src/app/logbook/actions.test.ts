@@ -31,10 +31,6 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
-vi.mock("@/lib/analytics-server", () => ({
-  captureServerEvent: vi.fn(),
-}));
-
 import { Prisma } from "@/generated/prisma/client";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
