@@ -2663,6 +2663,38 @@ export const SOURCES = [
       kennelCodes: ["voodoo-h3"],
     },
 
+    // ===== TENNESSEE =====
+    {
+      name: "Memphis H3 Google Calendar",
+      url: "memphish3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "memphish3@gmail.com",
+        kennelPatterns: [
+          ["^MH3|Memphis", "mh3-tn"],
+          ["GyNO", "gynoh3"],
+        ],
+        defaultKennelTag: "mh3-tn",
+      },
+      kennelCodes: ["mh3-tn", "gynoh3"],
+    },
+    {
+      name: "Bushwhackers H3 Google Calendar",
+      url: "bushwhackersh3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "bushwhackersh3@gmail.com",
+        defaultKennelTag: "bushwhackersh3",
+      },
+      kennelCodes: ["bushwhackersh3"],
+    },
+
     // ===== NORWAY =====
     {
       name: "Oslo H3 iCal Feed",

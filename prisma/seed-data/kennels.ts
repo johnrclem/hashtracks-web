@@ -2264,6 +2264,34 @@ export const KENNELS: KennelSeed[] = [
       latitude: 29.95, longitude: -90.07,
     },
 
+    // ── Tennessee: Memphis ──
+    {
+      kennelCode: "mh3-tn", shortName: "Memphis H3", fullName: "Memphis Hash House Harriers", region: "Memphis, TN",
+      website: "https://memphish3.com",
+      facebookUrl: "https://www.facebook.com/MemphisH3",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Saturday trails + Thursday drinking practice + monthly Moonlight trail",
+      hashCash: "$5",
+      description: "Memphis' primary hash kennel. Saturday afternoon trails, Thursday drinking practice, and first-Friday moonlight trails. Home of the annual Dead Elvis celebration.",
+      latitude: 35.15, longitude: -90.05,
+    },
+    {
+      kennelCode: "gynoh3", shortName: "GyNO H3", fullName: "GyNO Hash House Harriers", region: "Memphis, TN",
+      scheduleFrequency: "Monthly",
+      description: "Memphis harriette kennel. Monthly events appearing on the Memphis H3 calendar.",
+      latitude: 35.15, longitude: -90.05,
+    },
+
+    // ── Tennessee: Nashville ──
+    {
+      kennelCode: "bushwhackersh3", shortName: "Bushwhackers H3", fullName: "Bushwhackers Hash House Harriers", region: "Nashville, TN",
+      website: "https://bushwhackersh3.com",
+      scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Biweekly",
+      foundedYear: 2021,
+      description: "Nashville's biweekly Wednesday evening hash. Founded 2021.",
+      latitude: 36.16, longitude: -86.78,
+    },
+
     // ── Netherlands: Amsterdam ──
     {
       kennelCode: "ah3-nl", shortName: "AH3", fullName: "Amsterdam Hash House Harriers", region: "Amsterdam", country: "Netherlands",

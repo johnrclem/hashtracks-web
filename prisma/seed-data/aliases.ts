@@ -363,5 +363,10 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
 
     // ===== NORWAY =====
     "oh3-no": ["OH3", "Oslo Hash", "Oslo HHH", "Oslo H3"],
+
+    // ===== TENNESSEE =====
+    "mh3-tn": ["Memphis Hash", "Memphis H3", "Memphis HHH", "MH3 Memphis"],
+    "gynoh3": ["GyNO H3", "GyNO Hash", "GyNO HHH"],
+    "bushwhackersh3": ["Bushwhackers", "Bushwhackers H3", "Bushwhackers HHH", "BH3 Nashville"],
   };
 
