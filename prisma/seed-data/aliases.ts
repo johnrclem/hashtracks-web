@@ -377,6 +377,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
 
     // ===== KANSAS =====
     "tah3": ["TAH3", "Tornado Alley", "Tornado Alley Hash", "Tornado Alley HHH"],
+    "lh3-ks": ["Larryville", "Larryville H3", "Larryville Hash", "Larryville HHH", "Larryville Hash House Harriers"],
 
     // ===== WISCONSIN =====
     "madisonh3": ["Madison Hash", "Madison H3", "Madison HHH", "MadH3"],

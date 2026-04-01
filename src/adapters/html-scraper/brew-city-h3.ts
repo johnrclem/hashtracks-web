@@ -111,13 +111,13 @@ export function parseDetails(text: string): {
       continue;
     }
 
-    // Skip TBD-only fields
-    if (/^(Shiggy level|Dog friendly|Bathroom on trail|Booze plan):\s*TBD$/i.test(cleaned)) {
+    // Skip fields with TBD/placeholder values
+    if (/:\s*TBD\s*$/i.test(cleaned) || /:\s*No no no\s*$/i.test(cleaned)) {
       continue;
     }
 
-    // Keep non-trivial detail lines
-    if (cleaned && !(/^(Shiggy level|Dog friendly|Bathroom on trail|Booze plan):/i.test(cleaned))) {
+    // Keep any remaining non-empty detail lines
+    if (cleaned) {
       descParts.push(cleaned);
     }
   }
@@ -151,7 +151,7 @@ export class BrewCityH3Adapter implements SourceAdapter {
     const calendarUrl = source.url || "https://www.brewcityh3.com/calendar";
 
     const page = await fetchBrowserRenderedPage(calendarUrl, {
-      waitFor: "h2",
+      waitFor: '[role="listitem"]',
       timeout: 20000,
     });
 
@@ -194,7 +194,7 @@ export class BrewCityH3Adapter implements SourceAdapter {
           const h6Text = $(h6El).text().trim();
           if (/^Location:/i.test(h6Text)) {
             // Location value is in a sibling or the text after "Location:"
-            const afterColon = h6Text.replace(/^Location:\s*/i, "").replace(/\u00A0/g, " ").trim();
+            const afterColon = stripPlaceholder(h6Text.replace(/^Location:\s*/i, "").replace(/\u00A0/g, " ").trim());
             if (afterColon) {
               locationFromLabel = afterColon;
             }
@@ -207,15 +207,16 @@ export class BrewCityH3Adapter implements SourceAdapter {
             /^Location:/i.test($(el).text().trim())
           ).closest("[data-testid='richTextElement']").next("[data-testid='richTextElement']");
           const locVal = locationValueEl.text().trim().replace(/\u200B/g, "").replace(/\u00A0/g, " ").trim();
-          if (locVal && locVal.length > 1) { // >1 filters zero-width space artifacts from empty Wix fields
-            locationFromLabel = locVal;
+          const strippedLoc = stripPlaceholder(locVal);
+          if (strippedLoc && strippedLoc.length > 1) { // >1 filters zero-width space artifacts from empty Wix fields
+            locationFromLabel = strippedLoc;
           }
         }
 
         // 4. Facebook event link
         const fbLink = $item.find('a[href*="facebook.com/events"]').attr("href");
         const externalLinks: Array<{ label: string; url: string }> = [];
-        if (fbLink) {
+        if (fbLink && /^https?:\/\//i.test(fbLink)) {
           externalLinks.push({ label: "Facebook Event", url: fbLink });
         }
 
@@ -259,12 +260,16 @@ export class BrewCityH3Adapter implements SourceAdapter {
       return d >= minDate && d <= maxDate;
     });
 
-    // Deduplicate by run number (Wix repeater can duplicate content)
-    const seen = new Set<number>();
+    // Deduplicate by run number or title+date (Wix repeater can duplicate content)
+    const seenRuns = new Set<number>();
+    const seenKeys = new Set<string>();
     const dedupedEvents: RawEventData[] = [];
     for (const event of windowFiltered) {
-      if (event.runNumber && seen.has(event.runNumber)) continue;
-      if (event.runNumber) seen.add(event.runNumber);
+      if (event.runNumber !== undefined && seenRuns.has(event.runNumber)) continue;
+      const titleKey = `${event.date}|${event.title}`;
+      if (event.runNumber === undefined && seenKeys.has(titleKey)) continue;
+      if (event.runNumber !== undefined) seenRuns.add(event.runNumber);
+      seenKeys.add(titleKey);
       dedupedEvents.push(event);
     }
 
