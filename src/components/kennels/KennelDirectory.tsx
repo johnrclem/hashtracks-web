@@ -91,7 +91,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         if (val == null) {
           str = "";
         } else if (typeof val === "boolean") {
-          str = val ? "true" : "";
+          str = val ? "true" : "false";
         } else if (typeof val === "number") {
           str = String(val);
         } else if (Array.isArray(val)) {
@@ -181,7 +181,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     setShowActiveOnlyState(true);
     setNearMeDistanceState(null);
     setMapBounds(null);
-    syncUrl({ q: "", regions: [], days: [], freq: "", upcoming: false, active: null, distance: null });
+    syncUrl({ q: "", regions: [], days: [], freq: "", upcoming: false, active: true, distance: null });
   }
 
   // Compute distances for each kennel (when geolocation is available)
