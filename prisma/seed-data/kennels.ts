@@ -31,7 +31,7 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/nychash",
     },
     {
-      kennelCode: "brh3", shortName: "BrH3", fullName: "Brooklyn Hash House Harriers", region: "New York City, NY",
+      kennelCode: "brh3", shortName: "Brooklyn H3", fullName: "Brooklyn Hash House Harriers", region: "New York City, NY",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
     },
     {
@@ -43,7 +43,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "lil", shortName: "LIL", fullName: "Long Island Lunatics Hash House Harriers", region: "Long Island, NY",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly",
     },
-    { kennelCode: "qbk", shortName: "QBK", fullName: "Queens Black Knights Hash House Harriers", region: "New York City, NY" },
+    { kennelCode: "qbk", shortName: "Queens", fullName: "Queens Black Knights Hash House Harriers", region: "New York City, NY" },
     { kennelCode: "si", shortName: "SI", fullName: "Staten Island Hash House Harriers", region: "New York City, NY" },
     { kennelCode: "columbia", shortName: "Columbia", fullName: "Columbia Hash House Harriers", region: "New York City, NY" },
     { kennelCode: "harriettes-nyc", shortName: "Harriettes", fullName: "Harriettes Hash House Harriers", region: "New York City, NY" },
@@ -69,7 +69,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Capital District ---
     {
-      kennelCode: "halvemein", shortName: "HMHHH", fullName: "Halve Mein Hash House Harriers", region: "Capital District, NY",
+      kennelCode: "halvemein", shortName: "Halve Mein", fullName: "Halve Mein Hash House Harriers", region: "Capital District, NY",
       website: "https://www.hmhhh.com/",
       facebookUrl: "https://www.facebook.com/AHHHinc/",
       contactEmail: "halvemeinhash@gmail.com",
@@ -81,7 +81,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Ithaca ---
     {
-      kennelCode: "ih3", shortName: "IH3", fullName: "Ithaca Hash House Harriers", region: "Ithaca, NY",
+      kennelCode: "ih3", shortName: "Ithaca H3", fullName: "Ithaca Hash House Harriers", region: "Ithaca, NY",
       website: "http://ithacah3.org/hare-line/",
       contactEmail: "ih3goddess@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
@@ -92,7 +92,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Rochester ---
     {
-      kennelCode: "flour-city", shortName: "Flour City H3", fullName: "Flour City Hash House Harriers", region: "Rochester, NY",
+      kennelCode: "flour-city", shortName: "FCH3", fullName: "Flour City Hash House Harriers", region: "Rochester, NY",
       website: "http://flourcityhhh.com/",
       contactEmail: "flourcitymismanagement@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "1:09 PM",
@@ -115,7 +115,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Hudson Valley ---
     {
-      kennelCode: "hvh3-ny", shortName: "Hudson Valley H3", fullName: "Hudson Valley Hash House Harriers", region: "New York",
+      kennelCode: "hvh3-ny", shortName: "HVH3", fullName: "Hudson Valley Hash House Harriers", region: "New York",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly", scheduleTime: "1:00 PM",
       scheduleNotes: "Monthly when active. Very sporadic -- runs may have months-long gaps.",
       hashCash: "$5", foundedYear: 2015,
@@ -124,19 +124,19 @@ export const KENNELS: KennelSeed[] = [
     },
     // Boston area (Google Calendar source)
     {
-      kennelCode: "boh3", shortName: "BoH3", fullName: "Boston Hash House Harriers", region: "Boston, MA",
+      kennelCode: "boh3", shortName: "Boston H3", fullName: "Boston Hash House Harriers", region: "Boston, MA",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:30 PM", scheduleFrequency: "Weekly",
     },
     {
-      kennelCode: "bobbh3", shortName: "BoBBH3", fullName: "Boston Ballbuster Hardcore Hash House Harriers", region: "Boston, MA",
+      kennelCode: "bobbh3", shortName: "B3H4", fullName: "Boston Ballbuster Hardcore Hash House Harriers", region: "Boston, MA",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
     },
     { kennelCode: "beantown", shortName: "Beantown", fullName: "Beantown City Hash House Harriers", region: "Boston, MA" },
     {
-      kennelCode: "bos-moon", shortName: "Bos Moon", fullName: "Boston Moon Hash House Harriers", region: "Boston, MA",
+      kennelCode: "bos-moon", shortName: "Boston Moon", fullName: "Boston Moon Hash House Harriers", region: "Boston, MA",
       scheduleFrequency: "Full Moon",
     },
-    { kennelCode: "pink-taco", shortName: "Pink Taco", fullName: "Pink Taco Hash House Harriers", region: "Boston, MA" },
+    { kennelCode: "pink-taco", shortName: "Pink Taco Trotters", fullName: "Pink Taco Hash House Harriers", region: "Boston, MA" },
     // Massachusetts (non-Boston)
     {
       kennelCode: "hvh3", shortName: "HVH3", fullName: "Happy Valley Hash House Harriers", region: "Pioneer Valley, MA",
@@ -174,7 +174,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // Vermont
     {
-      kennelCode: "vth3", shortName: "VTH3", fullName: "Von Tramp Hash House Harriers", region: "Vermont",
+      kennelCode: "vth3", shortName: "Von Tramp H3", fullName: "Von Tramp Hash House Harriers", region: "Vermont",
       website: "https://www.vontramph3.com/",
       facebookUrl: "https://www.facebook.com/vontramph3",
       instagramHandle: "vontramph3",
@@ -211,7 +211,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 41.308, longitude: -72.928,
     },
     {
-      kennelCode: "rgh3", shortName: "RGH3", fullName: "Rotten Groton Hash House Harriers", region: "Connecticut",
+      kennelCode: "rgh3", shortName: "Rotton Grotton H3", fullName: "Rotten Groton Hash House Harriers", region: "Connecticut",
       facebookUrl: "https://www.facebook.com/rottengrotonh3/",
       contactEmail: "rottengrotonh3@gmail.com",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
@@ -220,7 +220,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // Rhode Island
     {
-      kennelCode: "rih3", shortName: "RIH3", fullName: "Rhode Island Hash House Harriers", region: "Rhode Island",
+      kennelCode: "rih3", shortName: "Rhode Island H3", fullName: "Rhode Island Hash House Harriers", region: "Rhode Island",
       website: "https://rih3.com/",
       facebookUrl: "https://www.facebook.com/groups/120140164667510/",
       contactEmail: "basket@rih3.com",
@@ -235,7 +235,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleNotes: "Summer: Mondays 7pm. Winter: Saturdays 3pm.",
     },
     {
-      kennelCode: "sfm", shortName: "SFM", fullName: "Summit Full Moon H3", region: "North NJ",
+      kennelCode: "sfm", shortName: "Summit Full Moon", fullName: "Summit Full Moon H3", region: "North NJ",
       scheduleFrequency: "Full Moon",
     },
     { kennelCode: "asssh3", shortName: "ASSSH3", fullName: "All Seasons Summit Shiggy H3", region: "North NJ" },
@@ -284,7 +284,7 @@ export const KENNELS: KennelSeed[] = [
       description: "Monthly hash near the new moon. Sister kennel to Chicago Full Moon H3.",
     },
     {
-      kennelCode: "bdh3", shortName: "BDH3", fullName: "Big Dogs Hash House Harriers", region: "Chicago, IL",
+      kennelCode: "bdh3", shortName: "Big Dogs H3", fullName: "Big Dogs Hash House Harriers", region: "Chicago, IL",
       facebookUrl: "https://www.facebook.com/groups/137255643022023/",
       scheduleFrequency: "Monthly", scheduleNotes: "2nd Saturday afternoon",
       description: "Monthly 2nd Saturday afternoon hash. Off-the-beaten-path trails.",
@@ -302,7 +302,7 @@ export const KENNELS: KennelSeed[] = [
       description: "Runs on an as-desired basis. Trails typically further from city center.",
     },
     {
-      kennelCode: "wwh3", shortName: "WWH3", fullName: "Whiskey Wednesday Hash House Harriers", region: "Chicago, IL",
+      kennelCode: "wwh3", shortName: "Whiskey Wed H3", fullName: "Whiskey Wednesday Hash House Harriers", region: "Chicago, IL",
       website: "http://www.whiskeywednesdayhash.org",
       facebookUrl: "https://www.facebook.com/groups/wwwhhh",
       scheduleFrequency: "Monthly", scheduleNotes: "Last Wednesday evening, 7:00 PM.",
@@ -318,7 +318,7 @@ export const KENNELS: KennelSeed[] = [
       description: "Monthly 1st Tuesday evening hash. $2 hash cash, ~4 mile trail, 2 beers, brief circle.",
     },
     {
-      kennelCode: "rth3", shortName: "RTH3", fullName: "Ragtime Hash House Harriers", region: "Chicago, IL",
+      kennelCode: "rth3", shortName: "Ragtime H3", fullName: "Ragtime Hash House Harriers", region: "Chicago, IL",
       facebookUrl: "https://www.facebook.com/groups/213336255431069/",
       scheduleFrequency: "Irregular", scheduleNotes: "Brunch hash, various Saturdays",
       description: "Brunch hash on various Saturdays, late morning.",
@@ -368,7 +368,7 @@ export const KENNELS: KennelSeed[] = [
       description: "Weekly Saturday afternoon hash. First co-ed kennel in DC (est. 1978). 2299+ trails.",
     },
     {
-      kennelCode: "wh4", shortName: "WH4", fullName: "White House Hash House Harriers", region: "Washington, DC",
+      kennelCode: "wh4", shortName: "White House H3", fullName: "White House Hash House Harriers", region: "Washington, DC",
       website: "https://whitehousehash.com", foundedYear: 1987,
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
       scheduleNotes: "3:00 PM Labor Day–Memorial Day, 5:00 PM Memorial Day–Labor Day",
@@ -457,7 +457,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // San Francisco Bay Area (sfh3.com MultiHash platform)
     {
-      kennelCode: "sfh3", shortName: "SFH3", fullName: "San Francisco Hash House Harriers", region: "San Francisco, CA",
+      kennelCode: "sfh3", shortName: "SF H3", fullName: "San Francisco Hash House Harriers", region: "San Francisco, CA",
       website: "https://www.sfh3.com", foundedYear: 1982,
       facebookUrl: "https://www.facebook.com/sfhash",
       twitterHandle: "@sfh3",
@@ -473,7 +473,7 @@ export const KENNELS: KennelSeed[] = [
       description: "Traditional Thursday night hash in San Francisco. Run #1696+.",
     },
     {
-      kennelCode: "ebh3", shortName: "EBH3", fullName: "East Bay Hash House Harriers", region: "Oakland, CA",
+      kennelCode: "ebh3", shortName: "East Bay H3", fullName: "East Bay Hash House Harriers", region: "Oakland, CA",
       website: "https://www.ebh3.com",
       facebookUrl: "https://www.facebook.com/groups/Ebhhh/",
       scheduleDayOfWeek: "Sunday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly",
@@ -517,7 +517,7 @@ export const KENNELS: KennelSeed[] = [
       description: "Monthly Saturday afternoon hash in Marin County. Run #290+. No dedicated website.",
     },
     {
-      kennelCode: "fch3", shortName: "FCH3", fullName: "Fog City Hash House Harriers", region: "San Francisco, CA",
+      kennelCode: "fch3", shortName: "Fog City H3", fullName: "Fog City Hash House Harriers", region: "San Francisco, CA",
       website: "https://www.fogcityh3.com",
       scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "LGBTQ-friendly kennel, special events",
@@ -546,7 +546,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // Santa Cruz
     {
-      kennelCode: "sch3-ca", shortName: "SCH3", fullName: "Surf City Hash House Harriers",
+      kennelCode: "sch3-ca", shortName: "Surf City H3", fullName: "Surf City Hash House Harriers",
       region: "Santa Cruz, CA",
       website: "https://www.sch3.net", foundedYear: 2000,
       facebookUrl: "https://www.facebook.com/groups/SurfCityH3/",
@@ -563,7 +563,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 34.05, longitude: -118.24,
     },
     {
-      kennelCode: "lbh3", shortName: "LBH3", fullName: "Long Beach Hash House Harriers", region: "Long Beach, CA",
+      kennelCode: "lbh3", shortName: "Long Beach H3", fullName: "Long Beach Hash House Harriers", region: "Long Beach, CA",
       website: "https://www.lbh3.org",
       scheduleDayOfWeek: "Sunday", scheduleTime: "10:00 AM", scheduleFrequency: "Weekly",
       hashCash: "$5", description: "Long Beach weekly Sunday morning hash. Also hosts the SoCal calendar aggregator at lbh3.org/socal.",
@@ -607,7 +607,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // San Diego Area
     {
-      kennelCode: "sdh3", shortName: "SDH3", fullName: "San Diego Hash House Harriers", region: "San Diego, CA",
+      kennelCode: "sdh3", shortName: "San Diego H3", fullName: "San Diego Hash House Harriers", region: "San Diego, CA",
       website: "https://sdh3.com",
       scheduleDayOfWeek: "Friday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Also biweekly Sunday 10am",
@@ -621,7 +621,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 32.72, longitude: -117.16,
     },
     {
-      kennelCode: "ljh3", shortName: "LJH3", fullName: "La Jolla Hash House Harriers", region: "San Diego, CA",
+      kennelCode: "ljh3", shortName: "La Jolla H3", fullName: "La Jolla Hash House Harriers", region: "San Diego, CA",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
       hashCash: "$8", description: "La Jolla weekly Monday evening hash.",
       latitude: 32.84, longitude: -117.28,
@@ -657,7 +657,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 32.72, longitude: -117.16,
     },
     {
-      kennelCode: "mh4-sd", shortName: "MH4", fullName: "Mission Harriettes", region: "San Diego, CA",
+      kennelCode: "mh4-sd", shortName: "Mission H4", fullName: "Mission Harriettes", region: "San Diego, CA",
       scheduleFrequency: "Monthly", scheduleNotes: "Monthly Wednesday evening",
       description: "Monthly women's hash in San Diego.",
       latitude: 32.72, longitude: -117.16,
@@ -697,13 +697,13 @@ export const KENNELS: KennelSeed[] = [
       instagramHandle: "@london_hash_house_harriers",
     },
     {
-      kennelCode: "cityh3", shortName: "CityH3", fullName: "City Hash House Harriers", region: "London", country: "UK",
+      kennelCode: "cityh3", shortName: "City H3", fullName: "City Hash House Harriers", region: "London", country: "UK",
       website: "https://cityhash.org.uk",
       scheduleDayOfWeek: "Tuesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
       instagramHandle: "@cityhashhouseharriers",
     },
     {
-      kennelCode: "wlh3", shortName: "WLH3", fullName: "West London Hash House Harriers", region: "London", country: "UK",
+      kennelCode: "wlh3", shortName: "West London H3", fullName: "West London Hash House Harriers", region: "London", country: "UK",
       website: "https://westlondonhash.com",
       scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
     },
@@ -832,7 +832,7 @@ export const KENNELS: KennelSeed[] = [
     // ===== GERMANY =====
     // Berlin
     {
-      kennelCode: "berlinh3", shortName: "BH3", fullName: "Berlin Hash House Harriers", region: "Berlin", country: "Germany",
+      kennelCode: "berlinh3", shortName: "Berlin H3", fullName: "Berlin Hash House Harriers", region: "Berlin", country: "Germany",
       website: "https://www.berlin-h3.eu",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "13:45 meet, 14:00/14:45 start depending on season",
@@ -841,7 +841,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 52.52, longitude: 13.41,
     },
     {
-      kennelCode: "bh3fm", shortName: "BH3FM", fullName: "Berlin Full Moon Hash House Harriers", region: "Berlin", country: "Germany",
+      kennelCode: "bh3fm", shortName: "Berlin Full Moon", fullName: "Berlin Full Moon Hash House Harriers", region: "Berlin", country: "Germany",
       website: "https://www.berlin-h3.eu",
       scheduleFrequency: "Monthly", scheduleNotes: "Full moon evening",
       description: "Berlin monthly full moon hash.",
@@ -849,7 +849,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // Stuttgart
     {
-      kennelCode: "sh3-de", shortName: "SH3", fullName: "Stuttgart Hash House Harriers", region: "Stuttgart", country: "Germany",
+      kennelCode: "sh3-de", shortName: "Stuttgart H3", fullName: "Stuttgart Hash House Harriers", region: "Stuttgart", country: "Germany",
       website: "https://www.stuttgarthash.de",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
       description: "Stuttgart's biweekly Sunday afternoon hash.",
@@ -863,7 +863,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 48.78, longitude: 9.18,
     },
     {
-      kennelCode: "fm-stgt", shortName: "FM", fullName: "Stuttgart Full Moon Hash House Harriers", region: "Stuttgart", country: "Germany",
+      kennelCode: "fm-stgt", shortName: "Stuttgart FM", fullName: "Stuttgart Full Moon Hash House Harriers", region: "Stuttgart", country: "Germany",
       website: "https://www.stuttgarthash.de",
       scheduleFrequency: "Monthly", scheduleTime: "7:00 PM",
       description: "Stuttgart monthly full moon hash.",
@@ -973,7 +973,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Hampton Roads ---
     {
-      kennelCode: "feh3", shortName: "FEH3", fullName: "Fort Eustis Hash House Harriers", region: "Hampton Roads, VA",
+      kennelCode: "feh3", shortName: "Fort Eustis H3", fullName: "Fort Eustis Hash House Harriers", region: "Hampton Roads, VA",
       website: "https://sites.google.com/view/ft-eustis-h3/",
       facebookUrl: "https://www.facebook.com/groups/forteustish3/",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
@@ -1052,7 +1052,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Asheville ---
     {
-      kennelCode: "avlh3", shortName: "AVLH3", fullName: "Asheville Hash House Harriers", region: "Asheville, NC",
+      kennelCode: "avlh3", shortName: "Asheville H3", fullName: "Asheville Hash House Harriers", region: "Asheville, NC",
       website: "https://avlh3.wordpress.com/",
       facebookUrl: "https://www.facebook.com/groups/avlh3/",
       contactEmail: "avlh3.mm@gmail.com",
@@ -1063,7 +1063,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Wilmington ---
     {
-      kennelCode: "cfh3", shortName: "CFH3", fullName: "Cape Fear Hash House Harriers", region: "Wilmington, NC",
+      kennelCode: "cfh3", shortName: "Cape Fear H3", fullName: "Cape Fear Hash House Harriers", region: "Wilmington, NC",
       website: "https://capefearh3.com/",
       facebookUrl: "https://www.facebook.com/CapeFearH3/",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "2:00 PM",
@@ -1084,7 +1084,7 @@ export const KENNELS: KennelSeed[] = [
     // ===== TEXAS =====
     // --- Austin ---
     {
-      kennelCode: "ah3", shortName: "AH3", fullName: "Austin Hash House Harriers", region: "Austin, TX",
+      kennelCode: "ah3", shortName: "Austin H3", fullName: "Austin Hash House Harriers", region: "Austin, TX",
       website: "https://austinh3.org",
       facebookUrl: "https://www.facebook.com/groups/austinh3/",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
@@ -1162,7 +1162,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 33.02, longitude: -96.70,
     },
     {
-      kennelCode: "fwh3", shortName: "FWH3", fullName: "Fort Worth Hash House Harriers", region: "Dallas-Fort Worth, TX",
+      kennelCode: "fwh3", shortName: "Fort Worth H3", fullName: "Fort Worth Hash House Harriers", region: "Dallas-Fort Worth, TX",
       website: "http://www.dfwhhh.org",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
       description: "Biweekly Saturday runs in Fort Worth.",
@@ -1170,7 +1170,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- San Antonio ---
     {
-      kennelCode: "sah3", shortName: "SAH3", fullName: "San Antonio Hash House Harriers", region: "San Antonio, TX",
+      kennelCode: "sah3", shortName: "San Antonio H3", fullName: "San Antonio Hash House Harriers", region: "San Antonio, TX",
       website: "https://www.sah3.com/",
       facebookUrl: "https://www.facebook.com/groups/355324508352374",
       scheduleFrequency: "Weekly",
@@ -1190,7 +1190,7 @@ export const KENNELS: KennelSeed[] = [
     // ===== FLORIDA =====
     // --- Miami / South Florida ---
     {
-      kennelCode: "mia-h3", shortName: "MIA H3", fullName: "Miami Hash House Harriers", region: "Miami, FL",
+      kennelCode: "mia-h3", shortName: "Miami H3", fullName: "Miami Hash House Harriers", region: "Miami, FL",
       website: "https://miamih3.com",
       facebookUrl: "https://www.facebook.com/groups/miami.hash.house.harriers",
       instagramHandle: "@miami_h3",
@@ -1206,14 +1206,14 @@ export const KENNELS: KennelSeed[] = [
       description: "Weekly Monday evening runs in the Fort Lauderdale area.",
     },
     {
-      kennelCode: "h6", shortName: "H6", fullName: "Hollyweird Hash House Harriers Happy Hour", region: "Miami, FL",
+      kennelCode: "h6", shortName: "Hollyweird", fullName: "Hollyweird Hash House Harriers Happy Hour", region: "Miami, FL",
       facebookUrl: "https://www.facebook.com/HollyweirdH6/",
       scheduleDayOfWeek: "Friday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       hashCash: "Free",
       description: "Weekly Friday evening runs in the Hollywood/Dania Beach/Hallandale area. BYOB.",
     },
     {
-      kennelCode: "pbh3", shortName: "PBH3", fullName: "Palm Beach Hash House Harriers", region: "Miami, FL",
+      kennelCode: "pbh3", shortName: "Palm Beach H3", fullName: "Palm Beach Hash House Harriers", region: "Miami, FL",
       website: "http://www.pbh3.org",
       facebookUrl: "https://www.facebook.com/groups/pbhhh/",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly",
@@ -1230,7 +1230,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Florida Keys ---
     {
-      kennelCode: "kwh3", shortName: "KWH3", fullName: "Key West Hash House Harriers", region: "Florida Keys",
+      kennelCode: "kwh3", shortName: "Key West H3", fullName: "Key West Hash House Harriers", region: "Florida Keys",
       website: "https://keywesthash.com",
       contactEmail: "keywesthash@gmail.com",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Biweekly",
@@ -1239,14 +1239,14 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Tampa Bay ---
     {
-      kennelCode: "tbh3-fl", shortName: "TBH3", fullName: "Tampa Bay Hash House Harriers", region: "Tampa Bay, FL",
+      kennelCode: "tbh3-fl", shortName: "Tampa Bay H3", fullName: "Tampa Bay Hash House Harriers", region: "Tampa Bay, FL",
       facebookUrl: "https://www.facebook.com/groups/908538665893063/",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
       foundedYear: 1988,
       description: "The original Tampa Bay Hash. Biweekly Saturday/Sunday runs.",
     },
     {
-      kennelCode: "jrh3", shortName: "JRH3", fullName: "Tampa Bay Jolly Roger Hash House Harriers", region: "Tampa Bay, FL",
+      kennelCode: "jrh3", shortName: "Jolly Roger H3", fullName: "Tampa Bay Jolly Roger Hash House Harriers", region: "Tampa Bay, FL",
       website: "https://www.jollyrogerh3.com",
       facebookUrl: "https://www.facebook.com/groups/139148932829915/",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
@@ -1256,7 +1256,7 @@ export const KENNELS: KennelSeed[] = [
       description: "Weekly Wednesday evening runs in the Tampa area.",
     },
     {
-      kennelCode: "sph3-fl", shortName: "SPH3", fullName: "St Pete Hash House Harriers", region: "Tampa Bay, FL",
+      kennelCode: "sph3-fl", shortName: "St Pete H3", fullName: "St Pete Hash House Harriers", region: "Tampa Bay, FL",
       website: "https://sph3.com",
       facebookUrl: "https://www.facebook.com/groups/stpetehashhouseharriers/",
       scheduleDayOfWeek: "Friday", scheduleFrequency: "Biweekly",
@@ -1311,7 +1311,7 @@ export const KENNELS: KennelSeed[] = [
       description: "Biweekly Saturday runs in the Tampa Bay area.",
     },
     {
-      kennelCode: "tth3-fl", shortName: "TTH3", fullName: "Taco Tuesday Hash House Harriers", region: "Tampa Bay, FL",
+      kennelCode: "tth3-fl", shortName: "Taco Tuesday H3", fullName: "Taco Tuesday Hash House Harriers", region: "Tampa Bay, FL",
       facebookUrl: "https://www.facebook.com/groups/tacotuesdayh3private/",
       scheduleDayOfWeek: "Tuesday", scheduleFrequency: "Monthly",
       scheduleNotes: "4th Tuesday evening of each month.",
@@ -1344,7 +1344,7 @@ export const KENNELS: KennelSeed[] = [
       description: "Hashing in the Melbourne / Palm Bay / Brevard County area.",
     },
     {
-      kennelCode: "h3sc", shortName: "H3SC", fullName: "Space Coast Hash House Harriers", region: "Orlando, FL",
+      kennelCode: "h3sc", shortName: "Space Coast H3", fullName: "Space Coast Hash House Harriers", region: "Orlando, FL",
       website: "http://h3sc.com",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly",
       description: "Weekly Wednesday runs in Brevard County (Mims to Malabar). 21+ only.",
@@ -1409,7 +1409,7 @@ export const KENNELS: KennelSeed[] = [
     // ===== GEORGIA =====
     // --- Atlanta Metro ---
     {
-      kennelCode: "ah4", shortName: "AH4", fullName: "Atlanta Hash House Harriers & Harriettes", region: "Atlanta, GA",
+      kennelCode: "ah4", shortName: "Atlanta H4", fullName: "Atlanta Hash House Harriers & Harriettes", region: "Atlanta, GA",
       website: "https://board.atlantahash.com",
       facebookUrl: "https://www.facebook.com/groups/atlantahash",
       scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Weekly",
@@ -1417,12 +1417,12 @@ export const KENNELS: KennelSeed[] = [
       description: "Atlanta's original hash. Weekly Saturday runs since 1978.",
     },
     {
-      kennelCode: "ph3-atl", shortName: "PH3", fullName: "Pinelake Hash House Harriers", region: "Atlanta, GA",
+      kennelCode: "ph3-atl", shortName: "Pinelake H3", fullName: "Pinelake Hash House Harriers", region: "Atlanta, GA",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
       description: "Alternate Saturday runs in the Atlanta metro area.",
     },
     {
-      kennelCode: "bsh3", shortName: "BSH3", fullName: "Black Sheep Hash House Harriers", region: "Atlanta, GA",
+      kennelCode: "bsh3", shortName: "Black Sheep", fullName: "Black Sheep Hash House Harriers", region: "Atlanta, GA",
       scheduleDayOfWeek: "Sunday", scheduleTime: "1:30 PM", scheduleFrequency: "Biweekly",
       description: "Alternate Sunday runs in Atlanta.",
     },
@@ -1472,13 +1472,13 @@ export const KENNELS: KennelSeed[] = [
       description: "Monthly Tuesday evening trail in Atlanta.",
     },
     {
-      kennelCode: "dsh3-atl", shortName: "DSH3", fullName: "Dark Side Hash House Harriers", region: "Atlanta, GA",
+      kennelCode: "dsh3-atl", shortName: "Dark Side H3", fullName: "Dark Side Hash House Harriers", region: "Atlanta, GA",
       scheduleNotes: "New moon schedule — check Facebook for dates.",
       description: "New moon trail runs in Atlanta. Schedule follows lunar calendar.",
     },
     // --- Savannah (update existing SavH3 — region fix + profile enrichment) ---
     {
-      kennelCode: "savh3", shortName: "SavH3", fullName: "Savannah Hash House Harriers", region: "Savannah, GA",
+      kennelCode: "savh3", shortName: "Savannah H3", fullName: "Savannah Hash House Harriers", region: "Savannah, GA",
       website: "https://www.meetup.com/savannah-hash-house-harriers/",
       facebookUrl: "https://www.facebook.com/groups/savh3",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
@@ -1487,7 +1487,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Augusta ---
     {
-      kennelCode: "pfh3", shortName: "PFH3", fullName: "Peach Fuzz Hash House Harriers", region: "Augusta, GA",
+      kennelCode: "pfh3", shortName: "Peach Fuzz H3", fullName: "Peach Fuzz Hash House Harriers", region: "Augusta, GA",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
       description: "Alternate Wednesday evening runs in Augusta.",
     },
@@ -1503,7 +1503,7 @@ export const KENNELS: KennelSeed[] = [
       description: "Alternate Saturday runs in the Macon area.",
     },
     {
-      kennelCode: "w3h3-ga", shortName: "Wed Wed Wed H3", fullName: "Wednesday Wednesday Wednesday H3", region: "Macon, GA",
+      kennelCode: "w3h3-ga", shortName: "W3H3", fullName: "Wednesday Wednesday Wednesday H3", region: "Macon, GA",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       description: "Weekly Wednesday evening runs in Macon.",
     },
@@ -1565,7 +1565,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Greenville ---
     {
-      kennelCode: "uh3", shortName: "UH3", fullName: "Upstate Hash House Harriers", region: "Greenville, SC",
+      kennelCode: "uh3", shortName: "Upstate H3", fullName: "Upstate Hash House Harriers", region: "Greenville, SC",
       scheduleFrequency: "Biweekly", scheduleNotes: "Alternating Sundays & Saturdays (~4x/month).",
       website: "https://www.upstatehashers.com/",
       facebookUrl: "https://www.facebook.com/p/Upstate-Hash-House-Harriers-100087329174970/",
@@ -1638,7 +1638,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 45.52, longitude: -122.68,
     },
     {
-      kennelCode: "oh3", shortName: "OH3", fullName: "Oregon Hash House Harriers",
+      kennelCode: "oh3", shortName: "Oregon H3", fullName: "Oregon Hash House Harriers",
       region: "Portland, OR",
       website: "https://www.oregonhhh.org/",
       scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly",
@@ -1647,7 +1647,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 45.52, longitude: -122.68,
     },
     {
-      kennelCode: "swh3-or", shortName: "Portland SWH3", fullName: "SWH3 Hash House Harriers",
+      kennelCode: "swh3-or", shortName: "SWH3", fullName: "SWH3 Hash House Harriers",
       region: "Portland, OR",
       scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
       hashCash: "$5",
@@ -1702,7 +1702,7 @@ export const KENNELS: KennelSeed[] = [
     // ===== WASHINGTON =====
     // --- Seattle ---
     {
-      kennelCode: "sh3-wa", shortName: "SH3", fullName: "Seattle Hash House Harriers", region: "Seattle, WA",
+      kennelCode: "sh3-wa", shortName: "Seattle H3", fullName: "Seattle Hash House Harriers", region: "Seattle, WA",
       website: "https://wh3.org", foundedYear: 1983,
       facebookUrl: "https://www.facebook.com/groups/25456554474/",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
@@ -1978,7 +1978,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 21.31, longitude: -157.86,
     },
     {
-      kennelCode: "h5-hi", shortName: "Honolulu H5", fullName: "Honolulu Hash House Harriers", region: "Honolulu, HI",
+      kennelCode: "h5-hi", shortName: "H5", fullName: "Honolulu Hash House Harriers", region: "Honolulu, HI",
       website: "https://hawaii.gotothehash.net",
       scheduleDayOfWeek: "Tuesday", scheduleTime: "5:45 PM", scheduleFrequency: "Weekly",
       description: "Honolulu weekly Tuesday evening hash.",
@@ -1987,7 +1987,7 @@ export const KENNELS: KennelSeed[] = [
     // ===== OHIO =====
     // --- Dayton ---
     {
-      kennelCode: "dh4", shortName: "DH4", fullName: "Dayton Hash House Harriers and Harriettes", region: "Dayton, OH",
+      kennelCode: "dh4", shortName: "Dayton H4", fullName: "Dayton Hash House Harriers and Harriettes", region: "Dayton, OH",
       website: "https://daytonhhh.org/",
       facebookUrl: "https://www.facebook.com/DaytonHash",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
@@ -1996,7 +1996,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 39.76, longitude: -84.19,
     },
     {
-      kennelCode: "mvh3-day", shortName: "Miami Valley H3", fullName: "Miami Valley Hash House Harriers", region: "Dayton, OH",
+      kennelCode: "mvh3-day", shortName: "MVH3", fullName: "Miami Valley Hash House Harriers", region: "Dayton, OH",
       facebookUrl: "https://www.facebook.com/groups/1703366143261426",
       description: "Dayton-area kennel spawned from DH3.",
       latitude: 39.76, longitude: -84.19,
@@ -2010,7 +2010,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Cincinnati ---
     {
-      kennelCode: "sch4", shortName: "SCH4", fullName: "Sin City Hash House Harriers and Harriettes", region: "Cincinnati, OH",
+      kennelCode: "sch4", shortName: "Sin City H4", fullName: "Sin City Hash House Harriers and Harriettes", region: "Cincinnati, OH",
       website: "https://sincityhash.wordpress.com/",
       facebookUrl: "https://www.facebook.com/groups/114560698574609/",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
@@ -2019,14 +2019,14 @@ export const KENNELS: KennelSeed[] = [
       latitude: 39.10, longitude: -84.51,
     },
     {
-      kennelCode: "qch4", shortName: "QCH4", fullName: "Queen City Hash House Harriers and Harriettes", region: "Cincinnati, OH",
+      kennelCode: "qch4", shortName: "Queen City H4", fullName: "Queen City Hash House Harriers and Harriettes", region: "Cincinnati, OH",
       facebookUrl: "https://www.facebook.com/groups/795791177265728/",
       scheduleDayOfWeek: "Tuesday", scheduleFrequency: "Biweekly", scheduleTime: "7:00 PM",
       description: "Cincinnati secondary kennel. Biweekly Tuesday evening runs.",
       latitude: 39.10, longitude: -84.51,
     },
     {
-      kennelCode: "lvh3-cin", shortName: "Licking Valley H3", fullName: "Licking Valley Hash House Harriers", region: "Cincinnati, OH",
+      kennelCode: "lvh3-cin", shortName: "LVH3", fullName: "Licking Valley Hash House Harriers", region: "Cincinnati, OH",
       facebookUrl: "https://www.facebook.com/Licking-Valley-Hash-House-Harriers-841860922532429/",
       scheduleFrequency: "Monthly",
       hashCash: "$8",
@@ -2035,7 +2035,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Cleveland ---
     {
-      kennelCode: "cleh4", shortName: "CleH4", fullName: "Cleveland Hash House Harriers and Harriettes", region: "Cleveland, OH",
+      kennelCode: "cleh4", shortName: "Cleveland H4", fullName: "Cleveland Hash House Harriers and Harriettes", region: "Cleveland, OH",
       facebookUrl: "https://www.facebook.com/clevelandhash",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
       scheduleNotes: "1st and 3rd Saturday 3 PM + Full Moon 6:30 PM.",
@@ -2045,7 +2045,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Akron ---
     {
-      kennelCode: "rch3", shortName: "RCH3", fullName: "Rubber City Hash House Harriers", region: "Akron, OH",
+      kennelCode: "rch3", shortName: "Rubber City H3", fullName: "Rubber City Hash House Harriers", region: "Akron, OH",
       website: "https://akronhash.weebly.com/",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
       scheduleNotes: "2nd & 4th Saturday 3 PM + 1st & 3rd Thursday 6:30 PM (summer).",

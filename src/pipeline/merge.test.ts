@@ -38,7 +38,7 @@ vi.mock("@/lib/geo", async (importOriginal) => {
 import { prisma } from "@/lib/db";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, suppressRedundantCity, NON_ENGLISH_GEO_RE } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -1109,6 +1109,40 @@ describe("friendlyKennelName", () => {
   it("returns fullName when only 'Hash House Harriettes' (no Harriers)", () => {
     // "Hash House Harriettes" alone (without "Harriers") is not the standard HHH suffix
     expect(friendlyKennelName("XH3", "Example Hash House Harriettes")).toBe("Example Hash House Harriettes");
+  });
+});
+
+// ── rewriteStaleDefaultTitle ──
+
+describe("rewriteStaleDefaultTitle", () => {
+  it("rewrites kennelCode-based title to display name (case-insensitive)", () => {
+    expect(rewriteStaleDefaultTitle("KWH3 Trail", "kwh3", "Key West H3", "Key West Hash House Harriers"))
+      .toBe("Key West H3 Trail");
+  });
+
+  it("rewrites kennelCode-based title with run number", () => {
+    expect(rewriteStaleDefaultTitle("kwh3 Trail #42", "kwh3", "Key West H3", "Key West Hash House Harriers"))
+      .toBe("Key West H3 Trail #42");
+  });
+
+  it("rewrites FEH3 to Fort Eustis H3", () => {
+    expect(rewriteStaleDefaultTitle("FEH3 Trail", "feh3", "Fort Eustis H3", "Fort Eustis Hash House Harriers"))
+      .toBe("Fort Eustis H3 Trail");
+  });
+
+  it("does not rewrite non-default titles", () => {
+    expect(rewriteStaleDefaultTitle("Halloween Hash Bash", "kwh3", "Key West H3", "Key West Hash House Harriers"))
+      .toBe("Halloween Hash Bash");
+  });
+
+  it("does not rewrite when display name matches kennelCode", () => {
+    expect(rewriteStaleDefaultTitle("nych3 Trail", "nych3", "NYCH3", "New York City Hash House Harriers"))
+      .toBe("nych3 Trail");
+  });
+
+  it("returns original title when no match", () => {
+    expect(rewriteStaleDefaultTitle("Something Else", "kwh3", "Key West H3", null))
+      .toBe("Something Else");
   });
 });
 

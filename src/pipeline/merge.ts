@@ -98,6 +98,31 @@ export function friendlyKennelName(shortName: string, fullName: string | null): 
   return hadHHH ? `${friendly} H3` : friendly;
 }
 
+/**
+ * Rewrite stale default titles that use a raw kennelCode/old shortName instead of
+ * the current display name. Returns the corrected title or the original if no rewrite needed.
+ */
+export function rewriteStaleDefaultTitle(
+  title: string,
+  kennelCode: string,
+  shortName: string,
+  fullName: string | null,
+): string {
+  const displayName = friendlyKennelName(shortName, fullName);
+  if (!displayName || displayName.toLowerCase() === kennelCode.toLowerCase()) return title;
+  // Match titles like "{kennelCode} Trail" or "{kennelCode} Trail #NNN" (case-insensitive)
+  const escaped = kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+  const match = title.match(new RegExp(String.raw`^${escaped}(\s+Trail.*)`, "i"));
+  if (match) return `${displayName}${match[1]}`;
+  // Also match titles using old shortName (e.g., "KWH3 Trail" when shortName was renamed to "Key West H3")
+  if (shortName.toLowerCase() !== kennelCode.toLowerCase()) {
+    const escapedShort = shortName.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+    const shortMatch = title.match(new RegExp(String.raw`^${escapedShort}(\s+Trail.*)`, "i"));
+    if (shortMatch) return `${displayName}${shortMatch[1]}`;
+  }
+  return title;
+}
+
 /** Compiled once — matches admin/meta content in event titles (split to keep regex complexity low). */
 const ADMIN_TITLE_PATTERNS = [
   /hares?\s+needed/i,
@@ -712,7 +737,10 @@ async function upsertCanonicalEvent(
         data: {
           ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
           runNumber: event.runNumber ?? existingEvent.runNumber,
-          title: sanitizeTitle(event.title) ?? existingEvent.title,
+          title: rewriteStaleDefaultTitle(
+            sanitizeTitle(event.title) ?? existingEvent.title,
+            kennelData.kennelCode, kennelData.shortName, kennelData.fullName,
+          ),
           // Preserve existing fields when source doesn't provide them (undefined)
           ...(event.description !== undefined
             ? { description: event.description ?? null }
@@ -896,15 +924,7 @@ async function processNewRawEvent(
       ? `${displayName} Trail #${event.runNumber}`
       : `${displayName} Trail`;
   } else {
-    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName);
-    if (displayName && kennelData.kennelCode && displayName.toLowerCase() !== kennelData.kennelCode.toLowerCase()) {
-      const escaped = kennelData.kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-      const codePattern = new RegExp(String.raw`^${escaped}(\s+Trail.*)`, "i");
-      const match = sanitized.match(codePattern);
-      if (match) {
-        event.title = `${displayName}${match[1]}`;
-      }
-    }
+    event.title = rewriteStaleDefaultTitle(sanitized, kennelData.kennelCode, kennelData.shortName, kennelData.fullName);
   }
 
   const targetEventId = await upsertCanonicalEvent(event, kennelId, rawEvent.id, ctx);
