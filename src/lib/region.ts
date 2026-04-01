@@ -2239,6 +2239,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "St. Louis, MO": "Missouri",
   // Kansas
   "Wichita, KS": "Kansas",
+  "Lawrence, KS": "Kansas",
   // Netherlands
   "Amsterdam": "Netherlands",
   "The Hague": "Netherlands",

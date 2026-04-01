@@ -2344,7 +2344,7 @@ export const KENNELS: KennelSeed[] = [
 
     // ── Kansas: Lawrence ──
     {
-      kennelCode: "lh3-ks", shortName: "LH3", fullName: "Larryville Hash House Harriers", region: "Lawrence, KS",
+      kennelCode: "lh3-ks", shortName: "Larryville H3", fullName: "Larryville Hash House Harriers", region: "Lawrence, KS",
       website: "https://lh3.run/",
       facebookUrl: "https://www.facebook.com/LarryvilleH3",
       contactEmail: "larryvilleh3@gmail.com",
