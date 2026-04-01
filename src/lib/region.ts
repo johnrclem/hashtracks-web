@@ -1799,6 +1799,113 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -87.91,
     aliases: ["Milwaukee"],
   },
+  // ── Canada ──
+  {
+    name: "Canada",
+    country: "Canada",
+    level: "COUNTRY",
+    timezone: "America/Toronto",
+    abbrev: "CA",
+    colorClasses: "bg-red-200 text-red-800",
+    pinColor: "#dc2626",
+    centroidLat: 56.13,
+    centroidLng: -106.35,
+    aliases: ["CA"],
+  },
+  // Quebec
+  {
+    name: "Quebec",
+    country: "Canada",
+    level: "STATE_PROVINCE",
+    timezone: "America/Montreal",
+    abbrev: "QC",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#3b82f6",
+    centroidLat: 46.81,
+    centroidLng: -71.21,
+    aliases: ["QC", "Québec"],
+  },
+  {
+    name: "Montreal, QC",
+    country: "Canada",
+    timezone: "America/Montreal",
+    abbrev: "MTL",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#60a5fa",
+    centroidLat: 45.50,
+    centroidLng: -73.57,
+    aliases: ["Montreal", "Montréal"],
+  },
+  // Ontario
+  {
+    name: "Ontario",
+    country: "Canada",
+    level: "STATE_PROVINCE",
+    timezone: "America/Toronto",
+    abbrev: "ON",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 51.25,
+    centroidLng: -85.32,
+    aliases: ["ON"],
+  },
+  {
+    name: "Ottawa, ON",
+    country: "Canada",
+    timezone: "America/Toronto",
+    abbrev: "OTT",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#f87171",
+    centroidLat: 45.42,
+    centroidLng: -75.70,
+    aliases: ["Ottawa"],
+  },
+  {
+    name: "Toronto, ON",
+    country: "Canada",
+    timezone: "America/Toronto",
+    abbrev: "TOR",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#f87171",
+    centroidLat: 43.65,
+    centroidLng: -79.38,
+    aliases: ["Toronto"],
+  },
+  // Alberta
+  {
+    name: "Alberta",
+    country: "Canada",
+    level: "STATE_PROVINCE",
+    timezone: "America/Edmonton",
+    abbrev: "AB",
+    colorClasses: "bg-blue-200 text-blue-800",
+    pinColor: "#1d4ed8",
+    centroidLat: 53.93,
+    centroidLng: -116.58,
+    aliases: ["AB"],
+  },
+  {
+    name: "Calgary, AB",
+    country: "Canada",
+    timezone: "America/Edmonton",
+    abbrev: "YYC",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#60a5fa",
+    centroidLat: 51.04,
+    centroidLng: -114.07,
+    aliases: ["Calgary"],
+  },
+  {
+    name: "Edmonton, AB",
+    country: "Canada",
+    timezone: "America/Edmonton",
+    abbrev: "YEG",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#60a5fa",
+    centroidLat: 53.55,
+    centroidLng: -113.49,
+    aliases: ["Edmonton"],
+  },
   // ── Netherlands ──
   {
     name: "Netherlands",
@@ -2093,7 +2200,7 @@ export function inferCountry(name: string): string {
   if (/\b(ireland|dublin|cork|galway|limerick)\b/.test(lower)) return "IE";
   if (/\b(uk|england|scotland|wales|london|surrey|sussex)\b/.test(lower)) return "UK";
   if (/\b(australia|sydney|melbourne|brisbane|perth)\b/.test(lower)) return "Australia";
-  if (/\b(canada|toronto|vancouver|montreal|calgary)\b/.test(lower)) return "Canada";
+  if (/\b(canada|toronto|vancouver|montreal|calgary|edmonton|ottawa|winnipeg)\b/.test(lower)) return "Canada";
   if (/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt)\b/.test(lower)) return "Germany";
   if (/\b(japan|tokyo|osaka)\b/.test(lower)) return "Japan";
   if (/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/.test(lower)) return "Belgium";
@@ -2278,6 +2385,12 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Wisconsin
   "Madison, WI": "Wisconsin",
   "Milwaukee, WI": "Wisconsin",
+  // Canada
+  "Montreal, QC": "Quebec",
+  "Ottawa, ON": "Ontario",
+  "Toronto, ON": "Ontario",
+  "Calgary, AB": "Alberta",
+  "Edmonton, AB": "Alberta",
   // Netherlands
   "Amsterdam": "Netherlands",
   "The Hague": "Netherlands",

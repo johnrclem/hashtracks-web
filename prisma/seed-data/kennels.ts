@@ -2441,6 +2441,126 @@ export const KENNELS: KennelSeed[] = [
       latitude: 43.04, longitude: -87.91,
     },
 
+    // ── Canada: Quebec — Montreal ──
+    {
+      kennelCode: "mh3-ca", shortName: "MH3", fullName: "Montreal Hash House Harriers", region: "Montreal, QC", country: "Canada",
+      website: "https://www.mhhh.ca",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "1:00 PM", scheduleFrequency: "Weekly",
+      foundedYear: 1995,
+      description: "Montreal's weekly Sunday hash since 1995.",
+      latitude: 45.50, longitude: -73.57,
+    },
+
+    // ── Canada: Ontario — Ottawa ──
+    {
+      kennelCode: "oh3-ca", shortName: "OH3", fullName: "Ottawa Hash House Harriers", region: "Ottawa, ON", country: "Canada",
+      website: "https://www.oh3.info",
+      contactEmail: "oh3hareraiser@gmail.com",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:45 PM", scheduleFrequency: "Weekly",
+      hashCash: "$5",
+      description: "Ottawa's weekly Monday evening hash. Runs year-round in rain, snow, sun, or the dark of night.",
+      latitude: 45.42, longitude: -75.70,
+    },
+
+    // ── Canada: Ontario — Toronto ──
+    {
+      kennelCode: "hogtownh3", shortName: "Hogtown H3", fullName: "Hogtown Hash House Harriers", region: "Toronto, ON", country: "Canada",
+      website: "https://www.hogtownh3.com",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Biweekly Saturday + TWAT Thursday + Hogans Friday",
+      hashCash: "$10",
+      description: "Toronto's hash kennel. Biweekly Saturday trails plus Thursday (TWAT) and Friday (Hogans) events.",
+      latitude: 43.65, longitude: -79.38,
+    },
+
+    // ── Canada: Alberta — Calgary ──
+    {
+      kennelCode: "ch3-ab", shortName: "Calgary H3", fullName: "Calgary Hash House Harriers", region: "Calgary, AB", country: "Canada",
+      website: "https://home.onon.org",
+      facebookUrl: "https://www.facebook.com/groups/CalgaryHHH",
+      scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      foundedYear: 1983,
+      description: "Canada's oldest hash. Weekly Monday evening trails in Calgary since 1983.",
+      latitude: 51.04, longitude: -114.07,
+    },
+
+    // ── Canada: Alberta — Edmonton (9 kennels) ──
+    {
+      kennelCode: "eh3-ab", shortName: "EH3", fullName: "Edmonton Hash House Harriers", region: "Edmonton, AB", country: "Canada",
+      website: "https://www.eh3.org",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Monday 6:30pm (Apr-Sep), Saturday 2:00pm (Oct-Mar)",
+      foundedYear: 1991,
+      description: "Edmonton's flagship hash. Seasonal schedule: Monday evenings in summer, Saturday afternoons in winter.",
+      latitude: 53.55, longitude: -113.49,
+    },
+    {
+      kennelCode: "osh3-ab", shortName: "OSH3", fullName: "Old Strathcona Hash House Harriers", region: "Edmonton, AB", country: "Canada",
+      website: "https://www.eh3.org/osh3/",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Monthly",
+      foundedYear: 1994,
+      description: "Monthly Sunday afternoon hash in the Edmonton area.",
+      latitude: 53.52, longitude: -113.50,
+    },
+    {
+      kennelCode: "efmh3", shortName: "EFMH3", fullName: "Edmonton Full Moon Hash House Harriers", region: "Edmonton, AB", country: "Canada",
+      website: "https://www.eh3.org/efmh3/",
+      scheduleDayOfWeek: "Friday", scheduleFrequency: "Monthly",
+      scheduleNotes: "Friday closest to full moon",
+      foundedYear: 1993,
+      description: "Edmonton's monthly full-moon hash. Friday closest to the full moon at 7pm. Also runs eclipse events.",
+      latitude: 53.55, longitude: -113.49,
+    },
+    {
+      kennelCode: "bash-eh3", shortName: "BASH", fullName: "Edmonton Bicycle Hash House Harriers", region: "Edmonton, AB", country: "Canada",
+      website: "https://www.eh3.org/bash/",
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Summer only (approx May-Oct)",
+      foundedYear: 1993,
+      description: "Edmonton's bicycle hash. Tuesday evenings in summer.",
+      latitude: 53.55, longitude: -113.49,
+    },
+    {
+      kennelCode: "snash-eh3", shortName: "SNASH", fullName: "Edmonton Snowshoe & Fat Bike Hash House Harriers", region: "Edmonton, AB", country: "Canada",
+      website: "https://www.eh3.org/snash/",
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Winter only (approx Nov-Apr)",
+      description: "Edmonton's winter hash — snowshoe and fat bike. Tuesday evenings.",
+      latitude: 53.55, longitude: -113.49,
+    },
+    {
+      kennelCode: "divah3-eh3", shortName: "DivaH3", fullName: "Diva Hash House Harriers", region: "Edmonton, AB", country: "Canada",
+      website: "https://www.eh3.org/divah3/",
+      scheduleFrequency: "Irregular",
+      scheduleNotes: "Friday the 13th + whenever",
+      description: "Edmonton women-only hash. Friday the 13th events and whenever they feel like it.",
+      latitude: 53.55, longitude: -113.49,
+    },
+    {
+      kennelCode: "rash-eh3", shortName: "RASH", fullName: "Edmonton Road Bike Hash House Harriers", region: "Edmonton, AB", country: "Canada",
+      website: "https://www.eh3.org/rash/",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "1:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Seasonal — Sundays at 1pm",
+      description: "Edmonton's road bike hash. Sundays at 1pm (seasonal).",
+      latitude: 53.55, longitude: -113.49,
+    },
+    {
+      kennelCode: "saintlyh3", shortName: "SaintlyH3", fullName: "Saintly Hash House Harriers", region: "Edmonton, AB", country: "Canada",
+      facebookUrl: "https://www.facebook.com/groups/444202485756219",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      foundedYear: 2015,
+      description: "Walking hash in St. Albert, AB. Weekly Wednesdays at 6:30pm.",
+      latitude: 53.63, longitude: -113.63,
+    },
+    {
+      kennelCode: "tth3-ab", shortName: "TTH3", fullName: "True Trail Hash House Harriers", region: "Edmonton, AB", country: "Canada",
+      website: "https://truetrailh3.com",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      hashCash: "$8",
+      description: "Edmonton's biweekly Thursday hash. Pack gathers 6:30, hare off 6:45, on out 7:00.",
+      latitude: 53.55, longitude: -113.49,
+    },
+
     // ── Norway: Oslo ──
     {
       kennelCode: "oh3-no", shortName: "OH3", fullName: "Oslo Hash House Harriers", region: "Oslo", country: "Norway",

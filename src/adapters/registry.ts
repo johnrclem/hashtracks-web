@@ -49,6 +49,8 @@ import { StlH3Adapter } from "./html-scraper/stlh3";
 import { BrewCityH3Adapter } from "./html-scraper/brew-city-h3";
 import { BruH3Adapter } from "./html-scraper/bruh3";
 import { AH3Adapter } from "./html-scraper/ah3";
+import { Eh3EdmontonAdapter } from "./html-scraper/eh3-edmonton";
+import { TrueTrailH3Adapter } from "./html-scraper/true-trail-h3";
 import { HagueH3Adapter } from "./html-scraper/hague-h3";
 import { F3H3Adapter } from "./html-scraper/f3h3";
 import { SumoH3Adapter } from "./html-scraper/sumo-h3";
@@ -56,6 +58,9 @@ import { YokoYokoH3Adapter } from "./html-scraper/yoko-yoko-h3";
 import { SamuraiH3Adapter } from "./html-scraper/samurai-h3";
 import { NewTokyoKatchAdapter } from "./html-scraper/new-tokyo-katch";
 import { Hayama4HAdapter } from "./html-scraper/hayama-4h";
+import { Oh3OttawaAdapter } from "./html-scraper/oh3-ottawa";
+import { CalgaryH3HomeAdapter } from "./html-scraper/calgary-h3-home";
+import { CalgaryH3ScribeAdapter } from "./html-scraper/calgary-h3-scribe";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -139,6 +144,11 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /big-hump\.com/i, name: "BigHumpAdapter", factory: () => new BigHumpAdapter() },
   { pattern: /stlh3\.com/i, name: "StlH3Adapter", factory: () => new StlH3Adapter() },
   { pattern: /brewcityh3\.com/i, name: "BrewCityH3Adapter", factory: () => new BrewCityH3Adapter() },
+  { pattern: /eh3\.org/i, name: "Eh3EdmontonAdapter", factory: () => new Eh3EdmontonAdapter() },
+  { pattern: /truetrailh3\.com/i, name: "TrueTrailH3Adapter", factory: () => new TrueTrailH3Adapter() },
+  { pattern: /docs\.google\.com\/document\/d\/1jGyBUKxOYkxrZg8WVfpBYDP84fbacanoX_TJuyCmtAI/i, name: "Oh3OttawaAdapter", factory: () => new Oh3OttawaAdapter() },
+  { pattern: /home\.onon\.org/i, name: "CalgaryH3HomeAdapter", factory: () => new CalgaryH3HomeAdapter() },
+  { pattern: /scribe\.onon\.org/i, name: "CalgaryH3ScribeAdapter", factory: () => new CalgaryH3ScribeAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */
