@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { isMissingCoords } from "@/lib/kennel-helpers";
+import { regionBgClass } from "@/lib/region";
 import { KennelForm } from "./KennelForm";
 import type { RegionOption } from "./RegionCombobox";
 import { toast } from "sonner";
@@ -217,7 +218,7 @@ function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[
   }
 
   return (
-    <TableRow className={kennel.isHidden ? "opacity-50" : undefined}>
+    <TableRow className={`transition-colors hover:bg-muted/50 ${kennel.isHidden ? "opacity-50" : ""}`}>
       <TableCell className="font-medium sticky left-0 bg-background z-10">
         <span className="flex items-center gap-1.5">
           {kennel.shortName}
@@ -231,7 +232,10 @@ function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[
       </TableCell>
       <TableCell className="hidden sm:table-cell">{kennel.fullName}</TableCell>
       <TableCell>
-        <Badge variant="outline">{kennel.region}</Badge>
+        <span className="inline-flex items-center gap-1.5">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${regionBgClass(kennel.region)}`} />
+          <span className="text-sm">{kennel.region}</span>
+        </span>
       </TableCell>
       <TableCell className="hidden sm:table-cell text-center">{kennel._count.aliases}</TableCell>
       <TableCell className="text-right">
