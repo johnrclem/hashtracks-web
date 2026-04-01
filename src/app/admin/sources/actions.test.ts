@@ -7,7 +7,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     source: { create: vi.fn(), update: vi.fn(), delete: vi.fn(), findUnique: vi.fn() },
     sourceKennel: { create: vi.fn(), deleteMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), delete: vi.fn() },
-    rawEvent: { count: vi.fn() },
+    rawEvent: { count: vi.fn(), deleteMany: vi.fn() },
     alert: { findMany: vi.fn(), update: vi.fn() },
     kennel: { findFirst: vi.fn() },
     kennelAlias: { findFirst: vi.fn() },
@@ -37,7 +37,7 @@ import { createSource, updateSource, deleteSource, linkKennelToSourceDirect, cre
 const mockAdminAuth = vi.mocked(getAdminUser);
 const mockSourceCreate = vi.mocked(prisma.source.create);
 const mockSKCreate = vi.mocked(prisma.sourceKennel.create);
-const mockRawEventCount = vi.mocked(prisma.rawEvent.count);
+
 const mockResolveKennelTag = vi.mocked(resolveKennelTag);
 const mockSourceFindUnique = vi.mocked(prisma.source.findUnique);
 const mockSKUpdate = vi.mocked(prisma.sourceKennel.update);
@@ -86,16 +86,14 @@ describe("deleteSource", () => {
     expect(await deleteSource("s1")).toEqual({ error: "Not authorized" });
   });
 
-  it("returns error when source has raw events", async () => {
-    mockRawEventCount.mockResolvedValueOnce(10 as never);
-    const result = await deleteSource("s1");
-    expect(result.error).toContain("10 raw event(s)");
-  });
-
-  it("deletes source when no raw events", async () => {
-    mockRawEventCount.mockResolvedValueOnce(0 as never);
+  it("deletes source and cascades raw events", async () => {
     const result = await deleteSource("s1");
     expect(result).toEqual({ success: true });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    const txArg = vi.mocked(prisma.$transaction).mock.calls[0][0];
+    expect(Array.isArray(txArg)).toBe(true);
+    expect(txArg).toHaveLength(3); // rawEvent.deleteMany, sourceKennel.deleteMany, source.delete
+    expect(prisma.rawEvent.deleteMany).toHaveBeenCalledWith({ where: { sourceId: "s1" } });
   });
 });
 

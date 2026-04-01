@@ -169,18 +169,8 @@ export async function deleteSource(sourceId: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  // Check for raw events
-  const rawEventCount = await prisma.rawEvent.count({
-    where: { sourceId },
-  });
-
-  if (rawEventCount > 0) {
-    return {
-      error: `Cannot delete: source has ${rawEventCount} raw event(s). Remove them first.`,
-    };
-  }
-
   await prisma.$transaction([
+    prisma.rawEvent.deleteMany({ where: { sourceId } }),
     prisma.sourceKennel.deleteMany({ where: { sourceId } }),
     prisma.source.delete({ where: { id: sourceId } }),
   ]);

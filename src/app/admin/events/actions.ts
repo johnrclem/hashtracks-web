@@ -5,24 +5,44 @@ import { getAdminUser } from "@/lib/auth";
 import type { ActionResult } from "@/lib/actions";
 import { revalidatePath } from "next/cache";
 
+const DELETE_BATCH_SIZE = 100;
+
 /**
  * Cascade-delete events: unlink RawEvents, remove dependents, delete events.
  * RawEvents are preserved (immutable audit trail) but unlinked.
+ * Processes in batches to avoid timeouts with large sets (590+ events).
+ * Returns the number of events deleted.
  */
-async function deleteEventsCascade(eventIds: string[]) {
-  await prisma.$transaction([
-    // Unlink RawEvents (preserve immutable audit trail)
-    prisma.rawEvent.updateMany({
-      where: { eventId: { in: eventIds } },
-      data: { eventId: null, processed: false },
-    }),
-    // Delete dependent records
-    prisma.eventHare.deleteMany({ where: { eventId: { in: eventIds } } }),
-    prisma.attendance.deleteMany({ where: { eventId: { in: eventIds } } }),
-    prisma.kennelAttendance.deleteMany({ where: { eventId: { in: eventIds } } }),
-    // Delete events
-    prisma.event.deleteMany({ where: { id: { in: eventIds } } }),
-  ]);
+async function deleteEventsCascade(eventIds: string[]): Promise<number> {
+  let deleted = 0;
+  for (let i = 0; i < eventIds.length; i += DELETE_BATCH_SIZE) {
+    const batch = eventIds.slice(i, i + DELETE_BATCH_SIZE);
+    const [
+      ,, // rawEvent unlink, parentEventId nulling
+      ,, // eventHare, attendance deletes
+      , // kennelAttendance delete
+      eventDeleteResult,
+    ] = await prisma.$transaction([
+      // Unlink RawEvents (preserve immutable audit trail)
+      prisma.rawEvent.updateMany({
+        where: { eventId: { in: batch } },
+        data: { eventId: null, processed: false },
+      }),
+      // Null out self-referential parentEventId (avoids FK violation on delete)
+      prisma.event.updateMany({
+        where: { parentEventId: { in: batch } },
+        data: { parentEventId: null },
+      }),
+      // Delete dependent records
+      prisma.eventHare.deleteMany({ where: { eventId: { in: batch } } }),
+      prisma.attendance.deleteMany({ where: { eventId: { in: batch } } }),
+      prisma.kennelAttendance.deleteMany({ where: { eventId: { in: batch } } }),
+      // Delete events (EventLink cascades via onDelete: Cascade in schema)
+      prisma.event.deleteMany({ where: { id: { in: batch } } }),
+    ]);
+    deleted += eventDeleteResult.count;
+  }
+  return deleted;
 }
 
 /**
@@ -39,7 +59,13 @@ export async function deleteEvent(eventId: string): Promise<ActionResult<{ kenne
   });
   if (!event) return { error: "Event not found" };
 
-  await deleteEventsCascade([eventId]);
+  try {
+    await deleteEventsCascade([eventId]);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[admin-audit] deleteEvent failed", { eventId, error: err });
+    return { error: `Delete failed: ${msg}` };
+  }
 
   console.log("[admin-audit] deleteEvent", JSON.stringify({
     adminId: admin.id,
@@ -127,22 +153,29 @@ export async function bulkDeleteEvents(filters: {
   });
 
   if (events.length === 0) return { success: true, deletedCount: 0 };
+  if (events.length > 5000) return { error: `Too many events to delete (${events.length}). Max 5000 per bulk operation.` };
 
   const eventIds = events.map((e) => e.id);
 
-  await deleteEventsCascade(eventIds);
+  let deletedCount: number;
+  try {
+    deletedCount = await deleteEventsCascade(eventIds);
+  } catch (err) {
+    console.error("[admin-audit] bulkDeleteEvents failed", { filters, error: err });
+    return { error: `Delete failed: ${err instanceof Error ? err.message : "Unknown error"}. Some events may have been deleted — re-run to clean up remaining.` };
+  }
 
   console.log("[admin-audit] bulkDeleteEvents", JSON.stringify({
     adminId: admin.id,
     action: "bulk_delete_events",
-    count: eventIds.length,
+    count: deletedCount,
     filters,
     timestamp: new Date().toISOString(),
   }));
 
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
-  return { success: true, deletedCount: eventIds.length };
+  return { success: true, deletedCount };
 }
 
 /**
@@ -153,20 +186,26 @@ export async function deleteSelectedEvents(eventIds: string[]): Promise<ActionRe
   if (!admin) return { error: "Not authorized" };
 
   if (eventIds.length === 0) return { success: true, deletedCount: 0 };
-  if (eventIds.length > 500) return { error: "Too many events selected (max 500)" };
+  if (eventIds.length > 1000) return { error: "Too many events selected (max 1000)" };
 
-  await deleteEventsCascade(eventIds);
+  let deletedCount: number;
+  try {
+    deletedCount = await deleteEventsCascade(eventIds);
+  } catch (err) {
+    console.error("[admin-audit] deleteSelectedEvents failed", { count: eventIds.length, error: err });
+    return { error: `Delete failed: ${err instanceof Error ? err.message : "Unknown error"}. Some events may have been deleted — re-run to clean up remaining.` };
+  }
 
   console.log("[admin-audit] deleteSelectedEvents", JSON.stringify({
     adminId: admin.id,
     action: "delete_selected_events",
-    count: eventIds.length,
+    count: deletedCount,
     timestamp: new Date().toISOString(),
   }));
 
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
-  return { success: true, deletedCount: eventIds.length };
+  return { success: true, deletedCount };
 }
 
 /**
