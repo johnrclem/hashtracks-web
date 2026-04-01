@@ -107,8 +107,6 @@ export function ClusteredMarkers({
   const refCallbacksRef = useRef<Map<string, (marker: Marker | null) => void>>(new Map());
   // Reverse lookup: marker element → events at that marker's coordinate group
   const markerToEventsRef = useRef<Map<Marker, EventWithCoords[]>>(new Map());
-  // Track event count per group to detect single↔multi transitions that require ref invalidation
-  const refEventCountsRef = useRef<Map<string, number>>(new Map());
 
   // Stable ref for the onShowColocated callback so the cluster click handler can access it
   const onShowColocatedRef = useRef(onShowColocated);
@@ -202,7 +200,6 @@ export function ClusteredMarkers({
       markers.clear();
       refCallbacks.clear();
       markerToEvents.clear();
-      refEventCountsRef.current.clear();
     };
   }, [map, handleClusterClick]);
 
@@ -221,19 +218,13 @@ export function ClusteredMarkers({
   // Reads from groupDataRef so the reverse lookup always has the latest data even if
   // the callback fires after a re-render (fixes stale closure).
   const getRefCallback = useCallback((groupKey: string) => {
-    // Detect single↔multi transitions. When AdvancedMarker switches between
-    // single-event and multi-event content, the underlying marker element may be
-    // replaced. Invalidate the cached callback so React re-fires the ref.
     const latestEvents = groupDataRef.current.get(groupKey) ?? [];
-    const prevCount = refEventCountsRef.current.get(groupKey) ?? 0;
-    const newCount = latestEvents.length;
-    const compositionChanged = (prevCount <= 1) !== (newCount <= 1);
-    refEventCountsRef.current.set(groupKey, newCount);
-    if (compositionChanged) {
-      refCallbacksRef.current.delete(groupKey);
-    }
+    // Composite cache key includes single/multi state. When a group crosses
+    // the boundary, the key changes → new callback identity → React re-fires ref.
+    const isMulti = latestEvents.length > 1;
+    const cacheKey = `${groupKey}-${isMulti}`;
 
-    let cb = refCallbacksRef.current.get(groupKey);
+    let cb = refCallbacksRef.current.get(cacheKey);
     if (cb) {
       // Existing callback — eagerly update the marker→events mapping with latest data
       const existingMarker = markersRef.current.get(groupKey);
@@ -263,7 +254,7 @@ export function ClusteredMarkers({
           markerToEventsRef.current.delete(prev);
         }
       };
-      refCallbacksRef.current.set(groupKey, cb);
+      refCallbacksRef.current.set(cacheKey, cb);
     }
     return cb;
   }, []);

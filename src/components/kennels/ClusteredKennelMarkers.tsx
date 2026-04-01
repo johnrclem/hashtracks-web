@@ -45,8 +45,6 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
   const refCallbacksRef = useRef<Map<string, (marker: google.maps.marker.AdvancedMarkerElement | null) => void>>(new Map());
   // Maps marker elements to their pin groups for cluster click handling
   const markerToPinsRef = useRef<Map<google.maps.marker.AdvancedMarkerElement, KennelPin[]>>(new Map());
-  // Track pin count per group to detect single↔multi transitions that require ref invalidation
-  const refPinCountsRef = useRef<Map<string, number>>(new Map());
 
   // Stable refs for callbacks so the cluster click handler can access them without re-creating
   const onShowColocatedRef = useRef(onShowColocated);
@@ -121,7 +119,6 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
       markers.clear();
       refCallbacks.clear();
       markerToPins.clear();
-      refPinCountsRef.current.clear();
     };
   }, [map, handleClusterClick]);
 
@@ -140,20 +137,15 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
   // Reads from groupDataRef so the reverse lookup always has the latest data even if
   // the callback fires after a re-render (fixes stale closure).
   const getRefCallback = useCallback((groupKey: string) => {
-    // Detect single↔multi transitions. When AdvancedMarker switches between
-    // single-pin and multi-pin content, the underlying marker element may be
-    // replaced. Invalidate the cached callback so React re-fires the ref with
-    // the new element, allowing the clusterer to track it.
     const latestPins = groupDataRef.current.get(groupKey) ?? [];
-    const prevCount = refPinCountsRef.current.get(groupKey) ?? 0;
-    const newCount = latestPins.length;
-    const compositionChanged = (prevCount <= 1) !== (newCount <= 1);
-    refPinCountsRef.current.set(groupKey, newCount);
-    if (compositionChanged) {
-      refCallbacksRef.current.delete(groupKey);
-    }
+    // Use a composite cache key that includes the single/multi state.
+    // When a group crosses the single↔multi boundary, the cache key changes,
+    // producing a new callback identity. React sees the new ref and fires
+    // null (cleanup) then the new marker element — no render-phase side effects.
+    const isMulti = latestPins.length > 1;
+    const cacheKey = `${groupKey}-${isMulti}`;
 
-    let cb = refCallbacksRef.current.get(groupKey);
+    let cb = refCallbacksRef.current.get(cacheKey);
     if (cb) {
       // Existing callback — eagerly update the marker→pins mapping with latest data
       const existingMarker = markersRef.current.get(groupKey);
@@ -183,7 +175,7 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
           markerToPinsRef.current.delete(prev);
         }
       };
-      refCallbacksRef.current.set(groupKey, cb);
+      refCallbacksRef.current.set(cacheKey, cb);
     }
     return cb;
   }, []);
