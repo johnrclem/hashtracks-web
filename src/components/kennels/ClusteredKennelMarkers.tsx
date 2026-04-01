@@ -45,6 +45,8 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
   const refCallbacksRef = useRef<Map<string, (marker: google.maps.marker.AdvancedMarkerElement | null) => void>>(new Map());
   // Maps marker elements to their pin groups for cluster click handling
   const markerToPinsRef = useRef<Map<google.maps.marker.AdvancedMarkerElement, KennelPin[]>>(new Map());
+  // Track pin count per group to detect single↔multi transitions that require ref invalidation
+  const refPinCountsRef = useRef<Map<string, number>>(new Map());
 
   // Stable refs for callbacks so the cluster click handler can access them without re-creating
   const onShowColocatedRef = useRef(onShowColocated);
@@ -119,6 +121,7 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
       markers.clear();
       refCallbacks.clear();
       markerToPins.clear();
+      refPinCountsRef.current.clear();
     };
   }, [map, handleClusterClick]);
 
@@ -134,12 +137,24 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
   // Reads from groupDataRef so the reverse lookup always has the latest data even if
   // the callback fires after a re-render (fixes stale closure).
   const getRefCallback = useCallback((groupKey: string) => {
+    // Detect single↔multi transitions. When AdvancedMarker switches between
+    // single-pin and multi-pin content, the underlying marker element may be
+    // replaced. Invalidate the cached callback so React re-fires the ref with
+    // the new element, allowing the clusterer to track it.
+    const latestPins = groupDataRef.current.get(groupKey) ?? [];
+    const prevCount = refPinCountsRef.current.get(groupKey) ?? 0;
+    const newCount = latestPins.length;
+    const compositionChanged = (prevCount <= 1) !== (newCount <= 1);
+    refPinCountsRef.current.set(groupKey, newCount);
+    if (compositionChanged) {
+      refCallbacksRef.current.delete(groupKey);
+    }
+
     let cb = refCallbacksRef.current.get(groupKey);
     if (cb) {
       // Existing callback — eagerly update the marker→pins mapping with latest data
       const existingMarker = markersRef.current.get(groupKey);
       if (existingMarker) {
-        const latestPins = groupDataRef.current.get(groupKey) ?? [];
         markerToPinsRef.current.set(existingMarker, latestPins);
       }
     } else {
