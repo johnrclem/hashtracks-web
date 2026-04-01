@@ -122,6 +122,19 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
     };
   }, [map, handleClusterClick]);
 
+  // Batch re-sync clusterer when pin groups change.
+  // Ref callbacks handle incremental add/remove, but when bulk changes cause
+  // coordinate keys to shift, some markers get orphaned from the clusterer.
+  // This effect runs after React has processed all ref callbacks for the new
+  // groups, then does a full batch sync to ensure consistency.
+  useEffect(() => {
+    const clusterer = clustererRef.current;
+    if (!clusterer) return;
+    const currentMarkers = Array.from(markersRef.current.values());
+    clusterer.clearMarkers();
+    clusterer.addMarkers(currentMarkers);
+  }, [pinGroups]);
+
   // Stable per-group ref callback factory — avoids new function identity on every render.
   // Reads from groupDataRef so the reverse lookup always has the latest data even if
   // the callback fires after a re-render (fixes stale closure).
