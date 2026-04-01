@@ -741,10 +741,10 @@ async function upsertCanonicalEvent(
         data: {
           ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
           runNumber: event.runNumber ?? existingEvent.runNumber,
-          title: rewriteStaleDefaultTitle(
-            sanitizeTitle(event.title) ?? existingEvent.title,
-            kennelData.kennelCode, kennelData.shortName, kennelData.fullName,
-          ),
+          title: (() => {
+            const nextTitle = sanitizeTitle(event.title) ?? existingEvent.title;
+            return nextTitle ? rewriteStaleDefaultTitle(nextTitle, kennelData.kennelCode, kennelData.shortName, kennelData.fullName) : nextTitle;
+          })(),
           // Preserve existing fields when source doesn't provide them (undefined)
           ...(event.description !== undefined
             ? { description: event.description ?? null }

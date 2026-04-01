@@ -92,7 +92,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // --- Rochester ---
     {
-      kennelCode: "flour-city", shortName: "FCH3", fullName: "Flour City Hash House Harriers", region: "Rochester, NY",
+      kennelCode: "flour-city", shortName: "Flour City H3", fullName: "Flour City Hash House Harriers", region: "Rochester, NY",
       website: "http://flourcityhhh.com/",
       contactEmail: "flourcitymismanagement@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "1:09 PM",
@@ -211,7 +211,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 41.308, longitude: -72.928,
     },
     {
-      kennelCode: "rgh3", shortName: "Rotton Grotton H3", fullName: "Rotten Groton Hash House Harriers", region: "Connecticut",
+      kennelCode: "rgh3", shortName: "Rotten Groton H3", fullName: "Rotten Groton Hash House Harriers", region: "Connecticut",
       facebookUrl: "https://www.facebook.com/rottengrotonh3/",
       contactEmail: "rottengrotonh3@gmail.com",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
