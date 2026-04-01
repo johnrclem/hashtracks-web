@@ -3,7 +3,7 @@ import * as chrono from "chrono-node";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { decodeEntities, stripPlaceholder, parse12HourTime, buildDateWindow } from "../utils";
+import { decodeEntities, stripHtmlTags, stripPlaceholder, parse12HourTime, buildDateWindow } from "../utils";
 
 /**
  * Page→kennel mapping for EH3 WordPress site.
@@ -113,7 +113,7 @@ export function parseEh3EventBlock(
     for (const pat of patterns) {
       const m = pat.exec(headerLine);
       if (m) {
-        runNumber = parseInt(m[1], 10);
+        runNumber = Number.parseInt(m[1], 10);
         // The date part is in group 2, title (if present) in group 3
         const datePart = m[2].trim();
         title = m[3]?.trim() || undefined;
@@ -131,7 +131,7 @@ export function parseEh3EventBlock(
         const titlePart = m[2].trim();
         const numPart = m[3];
         if (numPart) {
-          runNumber = parseInt(numPart, 10);
+          runNumber = Number.parseInt(numPart, 10);
           title = titlePart + " " + numPart;
         } else {
           title = titlePart;
@@ -156,7 +156,7 @@ export function parseEh3EventBlock(
     for (const pat of patterns) {
       const m = pat.exec(headerLine);
       if (m) {
-        runNumber = parseInt(m[1], 10);
+        runNumber = Number.parseInt(m[1], 10);
         title = m[2]?.trim() || undefined;
         matched = true;
         break;
@@ -328,43 +328,51 @@ export class Eh3EdmontonAdapter implements SourceAdapter {
         let pageEventCount = 0;
 
         for (let pIdx = 0; pIdx < paragraphs.length; pIdx++) {
-          const pEl = $(paragraphs[pIdx]);
-          // Convert <br> to newlines for field parsing
-          const rawHtml = pEl.html() || "";
-          const decoded = decodeEntities(
-            rawHtml.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, " "),
-          )
-            .replace(/\s*\n\s*/g, "\n")
-            .trim();
+          try {
+            const pEl = $(paragraphs[pIdx]);
+            // Convert <br> to newlines for field parsing
+            const rawHtml = pEl.html() || "";
+            const decoded = decodeEntities(
+              stripHtmlTags(rawHtml, "\n"),
+            )
+              .replace(/\s*\n\s*/g, "\n")
+              .trim();
 
-          if (!decoded) continue;
+            if (!decoded) continue;
 
-          const lines = decoded.split("\n").map((l) => l.trim()).filter(Boolean);
-          if (lines.length === 0) continue;
+            const lines = decoded.split("\n").map((l) => l.trim()).filter(Boolean);
+            if (lines.length === 0) continue;
 
-          // Check if this paragraph starts with a header pattern
-          const parsed = parseEh3EventBlock(lines, kennelTag, defaultStartTime);
-          if (!parsed || !parsed.date) continue;
+            // Check if this paragraph starts with a header pattern
+            const parsed = parseEh3EventBlock(lines, kennelTag, defaultStartTime);
+            if (!parsed || !parsed.date) continue;
 
-          // Date window filter
-          const eventDate = new Date(parsed.date + "T12:00:00Z");
-          if (eventDate < minDate || eventDate > maxDate) continue;
+            // Date window filter
+            const eventDate = new Date(parsed.date + "T12:00:00Z");
+            if (eventDate < minDate || eventDate > maxDate) continue;
 
-          const event: RawEventData = {
-            date: parsed.date,
-            kennelTag,
-            runNumber: parsed.runNumber,
-            title: parsed.title,
-            hares: parsed.hares,
-            location: parsed.location,
-            locationUrl: parsed.locationUrl,
-            startTime: parsed.startTime,
-            description: parsed.description,
-            sourceUrl: `https://www.eh3.org/?page_id=${pageId}`,
-          };
+            const event: RawEventData = {
+              date: parsed.date,
+              kennelTag,
+              runNumber: parsed.runNumber,
+              title: parsed.title,
+              hares: parsed.hares,
+              location: parsed.location,
+              locationUrl: parsed.locationUrl,
+              startTime: parsed.startTime,
+              description: parsed.description,
+              sourceUrl: `https://www.eh3.org/?page_id=${pageId}`,
+            };
 
-          events.push(event);
-          pageEventCount++;
+            events.push(event);
+            pageEventCount++;
+          } catch (pErr) {
+            parseErrors.push({
+              row: pIdx,
+              field: "block",
+              error: `Parse error in paragraph ${pIdx} (${kennelTag}): ${pErr}`,
+            });
+          }
         }
 
         diagnosticContext[`page_${pageId}_${kennelTag}`] = pageEventCount;

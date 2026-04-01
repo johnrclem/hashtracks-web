@@ -14,7 +14,7 @@ export function parseTrueTrailHeading(text: string): { runNumber?: number; title
   const m = /^#(\d+)\s*[–—-]\s*(.+)$/i.exec(text.trim());
   if (!m) return null;
   return {
-    runNumber: parseInt(m[1], 10),
+    runNumber: Number.parseInt(m[1], 10),
     title: m[2].trim(),
   };
 }

@@ -250,7 +250,7 @@ describe("Eh3EdmontonAdapter", () => {
     const { safeFetch } = await import("../safe-fetch");
     vi.mocked(safeFetch).mockImplementation((url: string) => {
       const pageMatch = /pages\/(\d+)/.exec(url);
-      const pageId = pageMatch ? parseInt(pageMatch[1], 10) : 0;
+      const pageId = pageMatch ? Number.parseInt(pageMatch[1], 10) : 0;
       if (pageId === 423) {
         return Promise.resolve({
           ok: true,

@@ -13,7 +13,6 @@
  * kennelTag: "oh3-ca"
  */
 
-import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import {
@@ -77,6 +76,7 @@ export function parseDetailedBlock(text: string): RawEventData | null {
   const descParts: string[] = [];
   if (noteMatch) descParts.push(noteMatch[1].trim());
   if (onInMatch) descParts.push(`ON IN: ${onInMatch[1].trim()}`);
+  if (hashCashMatch) descParts.push(`Hash cash: ${hashCashMatch[1].trim()}`);
 
   return {
     date: dateStr,
@@ -167,7 +167,7 @@ export class Oh3OttawaAdapter implements SourceAdapter {
 
     const { $, structureHash, fetchDurationMs } = page;
 
-    const days = _options?.days ?? (source as Record<string, unknown>).scrapeDays as number ?? 365;
+    const days = _options?.days ?? source.scrapeDays ?? 365;
     const { minDate, maxDate } = buildDateWindow(days);
 
     const events: RawEventData[] = [];
@@ -187,7 +187,7 @@ export class Oh3OttawaAdapter implements SourceAdapter {
     const contentHtml = contentDiv.html() || "";
 
     // Split on <hr> to get sections
-    const sections = contentHtml.split(/<hr\s*\/?>/i);
+    const sections = contentHtml.split(/<hr\b[^>]*\/?>/gi);
 
     let planningMode = false;
 
