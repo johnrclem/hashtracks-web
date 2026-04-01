@@ -1,12 +1,12 @@
 ---
-description: Active data sources catalog — 150 sources across 26+ regions
+description: Active data sources catalog — 155 sources across 26+ regions
 globs:
   - src/adapters/**
   - prisma/seed.ts
   - src/pipeline/**
 ---
 
-# Active Sources (150)
+# Active Sources (155)
 
 ## NYC / NJ / Philly (8 sources)
 - **hashnyc.com** -> HTML_SCRAPER -> 11 NYC-area kennels
@@ -74,6 +74,10 @@ globs:
 - **Colorado H3 Aggregator Calendar** -> GOOGLE_CALENDAR -> BH3 (Boulder), MiHiHuHa (secondary)
 - **Fort Collins H3 Google Calendar** -> GOOGLE_CALENDAR -> FCH3
 - **Colorado Springs H3 Calendar** -> GOOGLE_CALENDAR -> PPH4, Kimchi, DIM (3 CS kennels)
+
+## Kansas (2 sources)
+- **Tornado Alley H3 Google Calendar** -> GOOGLE_CALENDAR -> TAH3 (Wichita)
+- **Larryville H3 Google Calendar** -> GOOGLE_CALENDAR -> LH3 (Lawrence)
 
 ## Minnesota (1 source)
 - **Minneapolis H3 Calendar** -> GOOGLE_CALENDAR -> MH3, T3H3

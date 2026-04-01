@@ -1753,6 +1753,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -97.34,
     aliases: ["Wichita"],
   },
+  {
+    name: "Lawrence, KS",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "LWR",
+    colorClasses: "bg-lime-100 text-lime-700",
+    pinColor: "#84cc16",
+    centroidLat: 38.97,
+    centroidLng: -95.24,
+    aliases: ["Lawrence"],
+  },
   // ── Netherlands ──
   {
     name: "Netherlands",
@@ -2228,6 +2239,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "St. Louis, MO": "Missouri",
   // Kansas
   "Wichita, KS": "Kansas",
+  "Lawrence, KS": "Kansas",
   // Netherlands
   "Amsterdam": "Netherlands",
   "The Hague": "Netherlands",
