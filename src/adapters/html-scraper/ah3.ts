@@ -95,17 +95,15 @@ export function parseEventBlock(
   const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   const startTime = `${hours.padStart(2, "0")}:${minutes}`;
 
-  // Extract title: look for text before "Run №" — typically the first line
+  // Title is the line immediately before "Run №" — searching backwards avoids
+  // picking up leftover good_to_know instruction text from the previous block.
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   let title: string | undefined;
-  for (const line of lines) {
-    // Skip empty and short lines
-    if (line.length < 2) continue;
-    // Stop at the run number line
-    if (/Run\s*[№#]\s*\d/i.test(line)) break;
-    // Use the first substantive line as the title
-    if (!title && line.length > 1 && !/^[_\-=]+$/.test(line)) {
-      title = line;
+  const runLineIdx = lines.findIndex((l) => RUN_NUMBER_RE.test(l));
+  if (runLineIdx > 0) {
+    const candidate = lines[runLineIdx - 1];
+    if (candidate.length > 1 && !/^[_\-=]+$/.test(candidate)) {
+      title = candidate;
     }
   }
 
@@ -201,6 +199,8 @@ export function extractEvents(
 export function htmlToText($: cheerio.CheerioAPI): string {
   const content = $(".entry-content");
   if (content.length === 0) return "";
+
+  content.find("style").remove();
 
   // Replace <br> with newlines
   content.find("br").replaceWith("\n");

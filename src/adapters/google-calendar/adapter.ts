@@ -276,7 +276,7 @@ export function extractHares(description: string, customPatterns?: string[] | Re
 const mapsUrl = googleMapsSearchUrl;
 
 /** Instruction phrases that indicate a GCal location field contains directions, not an address. */
-const NON_ADDRESS_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in)/i;
+const NON_ADDRESS_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in|when:|why:|hare:|what:|who:|cost:)/i;
 
 /** Returns true if text starts with instruction phrasing rather than an address. */
 function isNonAddressText(text: string): boolean {
@@ -293,6 +293,7 @@ interface CalendarSourceConfig {
   titleHarePattern?: string;            // regex to extract hare names from summary when description has none
   descriptionSuffix?: string;           // appended to every event description
   includeAllDayEvents?: boolean;        // if true, don't skip all-day events (some calendars use them for real runs)
+  defaultTitle?: string;                // human-readable fallback title when event summary is just a kennel slug
 }
 
 /**
@@ -438,6 +439,9 @@ export function buildRawEventFromGCalItem(
   if (/^[A-Za-z0-9]{2,10}$/.test(title) && rawDescription) {
     const descTitle = extractTitleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
+  }
+  if (title.toLowerCase() === kennelTag.toLowerCase() && sourceConfig?.defaultTitle) {
+    title = sourceConfig.defaultTitle;
   }
   // Strip only the hare-name capture group from the title, preserving the rest (e.g., "AH3 #2269")
   if (haresFromTitle && compiledTitleHarePattern) {

@@ -192,6 +192,16 @@ export function resolveVenue(
 
   if (resolved.address) {
     let addr = resolved.address;
+    // Detect self-concatenated addresses: "410 E 35th Street410 E 35th St"
+    // where Meetup joins address_1 + address_2 without a separator
+    const streetNumMatch = /^(\d+\s+)/.exec(addr);
+    if (streetNumMatch) {
+      const num = streetNumMatch[1];
+      const secondIdx = addr.indexOf(num, num.length);
+      if (secondIdx > 0) {
+        addr = addr.substring(0, secondIdx).replace(/,?\s*$/, "");
+      }
+    }
     if (resolved.state) {
       const stripped = stripTrailingState(addr, resolved.state);
       // Only deduplicate words when state-stripping detected corruption (state was embedded in address)

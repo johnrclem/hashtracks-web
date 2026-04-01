@@ -205,6 +205,18 @@ describe("resolveVenue", () => {
     expect(result.location).toBe("13480 Congress Lake Avenue, Hartville, OH");
   });
 
+  it("deduplicates self-concatenated address fields", () => {
+    const result = resolveVenue({}, {
+      name: "410 E 35th Street Parking Lot",
+      address: "410 E 35th Street410 E 35th St",
+      city: "Charlotte",
+      state: "NC",
+    } as never);
+    expect(result.location).not.toContain("Street410");
+    expect(result.location).toContain("410 E 35th Street");
+    expect(result.location).toContain("Charlotte");
+  });
+
   it("keeps real venue name when it differs from address", () => {
     const result = resolveVenue({}, {
       name: "Quail Hollow Park",

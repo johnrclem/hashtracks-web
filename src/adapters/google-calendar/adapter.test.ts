@@ -357,6 +357,30 @@ describe("non-address location detection", () => {
     expect(result!.location).toBe("The Park, Downtown");
   });
 
+  it("rejects template-field text in location (e.g. 'When: 5:69')", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        description: "Hare: Someone\nWhere: TBD",
+        location: "When: 5:69",
+      }),
+      { defaultKennelTag: "test" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.location).not.toBe("When: 5:69");
+  });
+
+  it("rejects 'Hare:' text in location field", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        description: "Some description",
+        location: "Hare: Bob McHash",
+      }),
+      { defaultKennelTag: "test" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.location).not.toBe("Hare: Bob McHash");
+  });
+
   it("preserves normal address in location field", () => {
     const result = buildRawEventFromGCalItem(
       testGCalEvent({
@@ -610,7 +634,7 @@ describe("buildRawEventFromGCalItem — title fallback from description", () => 
     expect(event!.title).toBe("Special Green Dress Run");
   });
 
-  it("keeps kennel tag as title when description has no usable title", () => {
+  it("keeps kennel tag as title when description has no usable title and no defaultTitle", () => {
     const item = {
       summary: "C2H3",
       description: "Hare: Bob\nWhere: The Park",
@@ -621,6 +645,19 @@ describe("buildRawEventFromGCalItem — title fallback from description", () => 
     const event = buildRawEventFromGCalItem(item, config);
     expect(event).not.toBeNull();
     expect(event!.title).toBe("C2H3");
+  });
+
+  it("uses defaultTitle when summary is just the kennel slug and description has no title", () => {
+    const item = {
+      summary: "ochump",
+      description: "Cost: $5.00\nHare: Howdy Do Me\nDirections: 5 fwy to Tustin Ranch Road East",
+      start: { dateTime: "2026-04-01T18:30:00-07:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "ochump", defaultTitle: "OC Hump" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("OC Hump");
   });
 
   it("falls back to description title when summary is a bare kennel code different from assigned tag", () => {

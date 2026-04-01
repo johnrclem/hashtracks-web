@@ -4,6 +4,9 @@ import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, validateSourceConfig, stripPlaceholder } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
+/** Titles starting with these verbs are instructions/notes, not event names. */
+const INSTRUCTION_TITLE_RE = /^(?:bring|check|don[''\u2019]t|remember|note|pack|wear)\b/i;
+
 /** Config stored in Source.config JSON for Google Sheets sources */
 export interface GoogleSheetsConfig {
   sheetId: string;
@@ -280,6 +283,10 @@ export function buildEventFromSheetRow(
   const hares = stripPlaceholder(row[config.columns.hares]);
   const location = stripPlaceholder(row[config.columns.location]);
   let title = config.columns.title != null ? stripPlaceholder(row[config.columns.title]) : undefined;
+
+  if (title && INSTRUCTION_TITLE_RE.test(title)) {
+    title = undefined;
+  }
 
   // Apply defaultTitle fallback when title is empty
   if (!title && config.defaultTitle) {

@@ -85,7 +85,7 @@ export function parseEventTitle(h4Text: string): {
 
   // The hare part is typically "HareName's Trail Name" or just "HareName"
   // Use it as the title; the hare is the portion before "'s" if present
-  const possessiveMatch = /^(.+?)(?:'s?\s+.+)$/i.exec(harePart);
+  const possessiveMatch = /^(.+?)(?:['\u2018\u2019\u201B]s?\s+.+)$/i.exec(harePart);
   const hares = possessiveMatch ? possessiveMatch[1].trim() : harePart;
 
   // Location: "???" means TBD
