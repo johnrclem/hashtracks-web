@@ -36,7 +36,7 @@ export function KennelFilterPopover({ kennels, selectedKennels, onToggle }: Kenn
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start">
+      <PopoverContent className="w-80 max-w-[calc(100vw-2rem)] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search kennels..." />
           <CommandList>
