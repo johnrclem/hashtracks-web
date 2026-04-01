@@ -15,13 +15,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { RegionFilterPopover } from "@/components/shared/RegionFilterPopover";
+import { groupRegionsByState, expandRegionSelections } from "@/lib/region";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,7 +79,7 @@ interface KennelTableProps {
 
 export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
   const [search, setSearch] = useState("");
-  const [regionFilter, setRegionFilter] = useState("all");
+  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [showMissingOnly, setShowMissingOnly] = useState(false);
 
   const missingCount = useMemo(
@@ -97,10 +92,17 @@ export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [kennels]);
 
+  const regionsByState = useMemo(() => groupRegionsByState(regionNames), [regionNames]);
+
+  const expandedRegions = useMemo(
+    () => (selectedRegions.length > 0 ? expandRegionSelections(selectedRegions, regionsByState) : null),
+    [selectedRegions, regionsByState],
+  );
+
   const filtered = useMemo(() => {
     let result = kennels;
-    if (regionFilter !== "all") {
-      result = result.filter((k) => k.region === regionFilter);
+    if (expandedRegions) {
+      result = result.filter((k) => expandedRegions.has(k.region));
     }
     if (showMissingOnly) {
       result = result.filter(isMissingCoords);
@@ -115,7 +117,7 @@ export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
       );
     }
     return result;
-  }, [kennels, regionFilter, showMissingOnly, search]);
+  }, [kennels, expandedRegions, showMissingOnly, search]);
 
   if (kennels.length === 0) {
     return <p className="text-sm text-muted-foreground">No kennels yet.</p>;
@@ -130,17 +132,12 @@ export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 w-full sm:w-64 text-xs"
         />
-        <Select value={regionFilter} onValueChange={setRegionFilter}>
-          <SelectTrigger className="h-8 w-full sm:w-[200px] text-xs">
-            <SelectValue placeholder="All regions" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All regions</SelectItem>
-            {regionNames.map((r) => (
-              <SelectItem key={r} value={r}>{r}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <RegionFilterPopover
+          regions={regionNames}
+          selectedRegions={selectedRegions}
+          onRegionsChange={setSelectedRegions}
+          enableCountryGrouping
+        />
         {missingCount > 0 && (
           <Button
             size="sm"
@@ -152,7 +149,7 @@ export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
             {missingCount} missing coords
           </Button>
         )}
-        {(search || regionFilter !== "all" || showMissingOnly) && (
+        {(search || selectedRegions.length > 0 || showMissingOnly) && (
           <span className="text-xs text-muted-foreground">
             {filtered.length} of {kennels.length}
           </span>
