@@ -122,24 +122,34 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
     };
   }, [map, handleClusterClick]);
 
-  // Safety-net render after pin groups change. Ref callbacks handle incremental
-  // add/remove, but the clusterer may not re-render after all changes settle
-  // (e.g. AdvancedMarker elements mount asynchronously). This forces one final
-  // cluster recalculation without clearing — markers stay registered.
+  // Deferred cluster render after pin groups change. Ref callbacks use noDraw
+  // to avoid triggering N expensive re-clusters during mount. This effect waits
+  // one animation frame for all async AdvancedMarker element creation to settle,
+  // then triggers a single cluster recalculation.
   useEffect(() => {
-    clustererRef.current?.render();
+    const rafId = requestAnimationFrame(() => {
+      clustererRef.current?.render();
+    });
+    return () => cancelAnimationFrame(rafId);
   }, [pinGroups, map]);
 
   // Stable per-group ref callback factory — avoids new function identity on every render.
   // Reads from groupDataRef so the reverse lookup always has the latest data even if
   // the callback fires after a re-render (fixes stale closure).
   const getRefCallback = useCallback((groupKey: string) => {
-    let cb = refCallbacksRef.current.get(groupKey);
+    const latestPins = groupDataRef.current.get(groupKey) ?? [];
+    // Use a composite cache key that includes the single/multi state.
+    // When a group crosses the single↔multi boundary, the cache key changes,
+    // producing a new callback identity. React sees the new ref and fires
+    // null (cleanup) then the new marker element — no render-phase side effects.
+    const isMulti = latestPins.length > 1;
+    const cacheKey = `${groupKey}-${isMulti}`;
+
+    let cb = refCallbacksRef.current.get(cacheKey);
     if (cb) {
       // Existing callback — eagerly update the marker→pins mapping with latest data
       const existingMarker = markersRef.current.get(groupKey);
       if (existingMarker) {
-        const latestPins = groupDataRef.current.get(groupKey) ?? [];
         markerToPinsRef.current.set(existingMarker, latestPins);
       }
     } else {
@@ -149,23 +159,23 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
         if (marker) {
           if (prev !== marker) {
             if (prev) {
-              clustererRef.current?.removeMarker(prev);
+              clustererRef.current?.removeMarker(prev, true); // noDraw — deferred effect renders
               markerToPinsRef.current.delete(prev);
             }
             markersRef.current.set(groupKey, marker);
             markerToPinsRef.current.set(marker, latestPins);
-            clustererRef.current?.addMarker(marker);
+            clustererRef.current?.addMarker(marker, true); // noDraw — deferred effect renders
           } else {
             // Same marker element, but pins may have changed — update mapping
             markerToPinsRef.current.set(marker, latestPins);
           }
         } else if (prev) {
-          clustererRef.current?.removeMarker(prev);
+          clustererRef.current?.removeMarker(prev, true); // noDraw — deferred effect renders
           markersRef.current.delete(groupKey);
           markerToPinsRef.current.delete(prev);
         }
       };
-      refCallbacksRef.current.set(groupKey, cb);
+      refCallbacksRef.current.set(cacheKey, cb);
     }
     return cb;
   }, []);

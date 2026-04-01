@@ -203,23 +203,32 @@ export function ClusteredMarkers({
     };
   }, [map, handleClusterClick]);
 
-  // Safety-net render after coordinate groups change. Ref callbacks handle
-  // incremental add/remove, but the clusterer may not re-render after all
-  // changes settle (e.g. AdvancedMarker elements mount asynchronously).
+  // Deferred cluster render after coordinate groups change. Ref callbacks use
+  // noDraw to avoid triggering N expensive re-clusters during mount. This effect
+  // waits one animation frame for async AdvancedMarker creation to settle, then
+  // triggers a single cluster recalculation.
   useEffect(() => {
-    clustererRef.current?.render();
+    const rafId = requestAnimationFrame(() => {
+      clustererRef.current?.render();
+    });
+    return () => cancelAnimationFrame(rafId);
   }, [groups, map]);
 
   // Stable per-group ref callback factory — avoids new function identity on every render.
   // Reads from groupDataRef so the reverse lookup always has the latest data even if
   // the callback fires after a re-render (fixes stale closure).
   const getRefCallback = useCallback((groupKey: string) => {
-    let cb = refCallbacksRef.current.get(groupKey);
+    const latestEvents = groupDataRef.current.get(groupKey) ?? [];
+    // Composite cache key includes single/multi state. When a group crosses
+    // the boundary, the key changes → new callback identity → React re-fires ref.
+    const isMulti = latestEvents.length > 1;
+    const cacheKey = `${groupKey}-${isMulti}`;
+
+    let cb = refCallbacksRef.current.get(cacheKey);
     if (cb) {
       // Existing callback — eagerly update the marker→events mapping with latest data
       const existingMarker = markersRef.current.get(groupKey);
       if (existingMarker) {
-        const latestEvents = groupDataRef.current.get(groupKey) ?? [];
         markerToEventsRef.current.set(existingMarker, latestEvents);
       }
     } else {
@@ -229,23 +238,23 @@ export function ClusteredMarkers({
         if (marker) {
           if (prev !== marker) {
             if (prev) {
-              clustererRef.current?.removeMarker(prev);
+              clustererRef.current?.removeMarker(prev, true); // noDraw — deferred effect renders
               markerToEventsRef.current.delete(prev);
             }
             markersRef.current.set(groupKey, marker);
             markerToEventsRef.current.set(marker, latestEvents);
-            clustererRef.current?.addMarker(marker);
+            clustererRef.current?.addMarker(marker, true); // noDraw — deferred effect renders
           } else {
             // Same marker element, just update the events mapping
             markerToEventsRef.current.set(marker, latestEvents);
           }
         } else if (prev) {
-          clustererRef.current?.removeMarker(prev);
+          clustererRef.current?.removeMarker(prev, true); // noDraw — deferred effect renders
           markersRef.current.delete(groupKey);
           markerToEventsRef.current.delete(prev);
         }
       };
-      refCallbacksRef.current.set(groupKey, cb);
+      refCallbacksRef.current.set(cacheKey, cb);
     }
     return cb;
   }, []);
