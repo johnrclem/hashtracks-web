@@ -7,6 +7,10 @@ export async function backfillLastEventDatesAction(): Promise<{ error?: string; 
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  const updated = await backfillLastEventDates();
-  return { updated };
+  try {
+    const updated = await backfillLastEventDates();
+    return { updated };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
 }
