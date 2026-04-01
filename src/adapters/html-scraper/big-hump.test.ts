@@ -90,6 +90,12 @@ describe("parseEventTitle", () => {
     expect(result.hares).toBe("Locknut Monster");
   });
 
+  it("handles high-reversed-9 quote (U+201B) in possessive names", () => {
+    const result = parseEventTitle("Foo\u201Bs Bar @ Baz");
+    expect(result.hares).toBe("Foo");
+    expect(result.location).toBe("Baz");
+  });
+
   it("handles Bungle in the Jungle @ location", () => {
     const result = parseEventTitle(
       "Bungle in the Jungle  @ Steelville-the Cancun of Missouri",

@@ -357,28 +357,17 @@ describe("non-address location detection", () => {
     expect(result!.location).toBe("The Park, Downtown");
   });
 
-  it("rejects template-field text in location (e.g. 'When: 5:69')", () => {
+  it.each([
+    ["When: 5:69", "template-field text"],
+    ["Hare: Bob McHash", "field label in location"],
+    ["Cost: $5.00", "cost label in location"],
+  ])("rejects non-address location %s (%s)", (location) => {
     const result = buildRawEventFromGCalItem(
-      testGCalEvent({
-        description: "Hare: Someone\nWhere: TBD",
-        location: "When: 5:69",
-      }),
+      testGCalEvent({ description: "Some description", location }),
       { defaultKennelTag: "test" },
     );
     expect(result).not.toBeNull();
-    expect(result!.location).not.toBe("When: 5:69");
-  });
-
-  it("rejects 'Hare:' text in location field", () => {
-    const result = buildRawEventFromGCalItem(
-      testGCalEvent({
-        description: "Some description",
-        location: "Hare: Bob McHash",
-      }),
-      { defaultKennelTag: "test" },
-    );
-    expect(result).not.toBeNull();
-    expect(result!.location).not.toBe("Hare: Bob McHash");
+    expect(result!.location).toBeUndefined();
   });
 
   it("preserves normal address in location field", () => {

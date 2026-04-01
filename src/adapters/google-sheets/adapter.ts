@@ -5,7 +5,7 @@ import { googleMapsSearchUrl, validateSourceConfig, stripPlaceholder } from "../
 import { safeFetch } from "../safe-fetch";
 
 /** Titles starting with these verbs are instructions/notes, not event names. */
-const INSTRUCTION_TITLE_RE = /^(?:bring|check|don[''\u2019]t|remember|note|pack|wear)\b/i;
+const INSTRUCTION_TITLE_RE = /^(?:bring|check|don['\u2019]t|remember|note|pack|wear)\b/i;
 
 /** Config stored in Source.config JSON for Google Sheets sources */
 export interface GoogleSheetsConfig {

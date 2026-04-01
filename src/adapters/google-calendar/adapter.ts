@@ -440,9 +440,6 @@ export function buildRawEventFromGCalItem(
     const descTitle = extractTitleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }
-  if (title.toLowerCase() === kennelTag.toLowerCase() && sourceConfig?.defaultTitle) {
-    title = sourceConfig.defaultTitle;
-  }
   // Strip only the hare-name capture group from the title, preserving the rest (e.g., "AH3 #2269")
   if (haresFromTitle && compiledTitleHarePattern) {
     const titleMatch = compiledTitleHarePattern.exec(title);
@@ -514,6 +511,11 @@ export function buildRawEventFromGCalItem(
   // Email-as-title: placeholder/recruitment summary — use kennel tag
   if (EMAIL_IN_TITLE_RE.test(title)) {
     title = kennelTag;
+  }
+
+  // defaultTitle fallback runs last, after all branches that may reset title to kennelTag
+  if (title.toLowerCase() === kennelTag.toLowerCase() && sourceConfig?.defaultTitle) {
+    title = sourceConfig.defaultTitle;
   }
 
   // Start time: prefer dateTime-derived time, fall back to description extraction
