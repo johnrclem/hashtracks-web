@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { runAudit } from "@/pipeline/audit-runner";
 import { fileAuditIssues } from "@/pipeline/audit-issue";
+import { backfillLastEventDates } from "@/pipeline/backfill-last-event";
 
 /**
  * Daily data quality audit endpoint.
@@ -16,6 +17,14 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Refresh lastEventDate cache — non-blocking; failures logged but don't block audit
+    try {
+      const backfilled = await backfillLastEventDates();
+      if (backfilled > 0) console.log(`[audit] lastEventDate backfill: ${backfilled} kennels updated`);
+    } catch (err) {
+      console.error("[audit] lastEventDate backfill failed:", err instanceof Error ? err.message : err);
+    }
+
     const result = await runAudit();
 
     if (result.findings.length === 0) {
