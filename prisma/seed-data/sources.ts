@@ -2674,8 +2674,8 @@ export const SOURCES = [
       config: {
         calendarId: "memphish3@gmail.com",
         kennelPatterns: [
-          ["^MH3|Memphis", "mh3-tn"],
           ["GyNO", "gynoh3"],
+          ["^MH3\\b|Memphis", "mh3-tn"],
         ],
         defaultKennelTag: "mh3-tn",
       },

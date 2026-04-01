@@ -1670,6 +1670,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     pinColor: "#7c3aed",
     centroidLat: 35.52,
     centroidLng: -86.58,
+    aliases: ["TN"],
   },
   {
     name: "Nashville, TN",
