@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { runAudit } from "@/pipeline/audit-runner";
 import { fileAuditIssues } from "@/pipeline/audit-issue";
+import { backfillLastEventDates } from "@/pipeline/backfill-last-event";
 
 /**
  * Daily data quality audit endpoint.
@@ -16,6 +17,9 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Refresh lastEventDate cache before audit so activity status is current
+    await backfillLastEventDates();
+
     const result = await runAudit();
 
     if (result.findings.length === 0) {
