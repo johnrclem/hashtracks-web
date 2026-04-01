@@ -2292,6 +2292,56 @@ export const KENNELS: KennelSeed[] = [
       latitude: 36.16, longitude: -86.78,
     },
 
+    // ── Missouri: Kansas City ──
+    {
+      kennelCode: "kch3", shortName: "KCH3", fullName: "Kansas City Hash House Harriers", region: "Kansas City, MO",
+      website: "https://kansascityh3.com",
+      facebookUrl: "https://www.facebook.com/KansasCityH3",
+      scheduleFrequency: "Weekly",
+      description: "Kansas City's primary hash kennel. Trails in and around KC.",
+      latitude: 39.10, longitude: -94.58,
+    },
+    {
+      kennelCode: "pnh3", shortName: "PNH3", fullName: "Pearl Necklace Hash House Harriettes", region: "Kansas City, MO",
+      website: "https://kansascityh3.com/pnh3/",
+      scheduleFrequency: "Monthly",
+      description: "Kansas City's femme-only sister kennel of KCH3. Events appear on the KCH3 hareline.",
+      latitude: 39.10, longitude: -94.58,
+    },
+
+    // ── Missouri: St. Louis ──
+    {
+      kennelCode: "bh4", shortName: "BH4", fullName: "Big Hump Hash House Harriers", region: "St. Louis, MO",
+      website: "http://www.big-hump.com",
+      scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly",
+      scheduleNotes: "Wednesdays weekly + Saturdays approximately biweekly",
+      foundedYear: 1999,
+      description: "St. Louis' primary hash kennel since 1999. Weekly Wednesday + biweekly Saturday trails. ~1,990 runs and counting.",
+      latitude: 38.63, longitude: -90.20,
+    },
+    {
+      kennelCode: "stlh3", shortName: "STLH3", fullName: "St. Louis Hash House Harriers", region: "St. Louis, MO",
+      website: "https://www.stlh3.com",
+      facebookUrl: "https://www.facebook.com/groups/1665303950422211",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
+      scheduleNotes: "3 PM winter, 5 PM summer",
+      hashCash: "$5",
+      foundedYear: 1983,
+      description: "St. Louis' original hash kennel since 1983. Weekly Sunday trails, 3-7 miles. Seasonal time switching.",
+      latitude: 38.63, longitude: -90.20,
+    },
+
+    // ── Kansas: Wichita ──
+    {
+      kennelCode: "tah3", shortName: "TAH3", fullName: "Tornado Alley Hash House Harriers", region: "Wichita, KS",
+      website: "https://www.tah3.com",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Wednesdays and Saturdays",
+      foundedYear: 1997,
+      description: "Wichita's hash kennel since 1997. Trail #2277+.",
+      latitude: 37.69, longitude: -97.34,
+    },
+
     // ── Netherlands: Amsterdam ──
     {
       kennelCode: "ah3-nl", shortName: "AH3", fullName: "Amsterdam Hash House Harriers", region: "Amsterdam", country: "Netherlands",

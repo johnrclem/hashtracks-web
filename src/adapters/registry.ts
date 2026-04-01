@@ -43,6 +43,9 @@ import { GlasgowH3Adapter } from "./html-scraper/glasgow-h3";
 import { FrankfurtHashAdapter } from "./html-scraper/frankfurt-hash";
 import { VoodooH3Adapter } from "./html-scraper/voodoo-h3";
 import { CapeFearH3Adapter } from "./html-scraper/cape-fear-h3";
+import { KCH3Adapter } from "./html-scraper/kch3";
+import { BigHumpAdapter } from "./html-scraper/big-hump";
+import { StlH3Adapter } from "./html-scraper/stlh3";
 import { BruH3Adapter } from "./html-scraper/bruh3";
 import { AH3Adapter } from "./html-scraper/ah3";
 import { HagueH3Adapter } from "./html-scraper/hague-h3";
@@ -131,6 +134,9 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /samuraihash.*wixsite/i, name: "SamuraiH3Adapter",    factory: () => new SamuraiH3Adapter() },
   { pattern: /newtokyohash.*wixsite/i, name: "NewTokyoKatchAdapter", factory: () => new NewTokyoKatchAdapter() },
   { pattern: /sites\.google\.com\/site\/hayama4h/i, name: "Hayama4HAdapter", factory: () => new Hayama4HAdapter() },
+  { pattern: /kansascityh3\.com/i, name: "KCH3Adapter", factory: () => new KCH3Adapter() },
+  { pattern: /big-hump\.com/i, name: "BigHumpAdapter", factory: () => new BigHumpAdapter() },
+  { pattern: /stlh3\.com/i, name: "StlH3Adapter", factory: () => new StlH3Adapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

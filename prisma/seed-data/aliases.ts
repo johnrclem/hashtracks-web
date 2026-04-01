@@ -368,5 +368,14 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "mh3-tn": ["Memphis Hash", "Memphis H3", "Memphis HHH", "MH3 Memphis"],
     "gynoh3": ["GyNO H3", "GyNO Hash", "GyNO HHH"],
     "bushwhackersh3": ["Bushwhackers", "Bushwhackers H3", "Bushwhackers HHH", "BH3 Nashville"],
+
+    // ===== MISSOURI =====
+    "kch3": ["KCH3", "Kansas City Hash", "Kansas City HHH", "Kansas City H3", "KC Hash"],
+    "pnh3": ["PNH3", "Pearl Necklace", "Pearl Necklace H3", "Pearl Necklace HHH"],
+    "bh4": ["BH4", "Big Hump", "Big Hump H3", "Big Hump HHH", "Big Hump H4", "BHHH"],
+    "stlh3": ["STLH3", "St Louis Hash", "STL Hash", "St. Louis HHH", "STL H3"],
+
+    // ===== KANSAS =====
+    "tah3": ["TAH3", "Tornado Alley", "Tornado Alley Hash", "Tornado Alley HHH"],
   };
 
