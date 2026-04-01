@@ -1659,6 +1659,41 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -90.07,
     aliases: ["New Orleans", "NOLA"],
   },
+  // ── Tennessee ──
+  {
+    name: "Tennessee",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Chicago",
+    abbrev: "TN",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#7c3aed",
+    centroidLat: 35.52,
+    centroidLng: -86.58,
+    aliases: ["TN"],
+  },
+  {
+    name: "Nashville, TN",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "NASH",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 36.16,
+    centroidLng: -86.78,
+    aliases: ["Nashville"],
+  },
+  {
+    name: "Memphis, TN",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "MEM",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 35.15,
+    centroidLng: -90.05,
+    aliases: ["Memphis"],
+  },
   // ── Netherlands ──
   {
     name: "Netherlands",
@@ -2126,6 +2161,9 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Brussels": "Belgium",
   // Louisiana
   "New Orleans, LA": "Louisiana",
+  // Tennessee
+  "Nashville, TN": "Tennessee",
+  "Memphis, TN": "Tennessee",
   // Netherlands
   "Amsterdam": "Netherlands",
   "The Hague": "Netherlands",
