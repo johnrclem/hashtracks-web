@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import * as cheerio from "cheerio";
 import {
   decodeHtmlEntities,
@@ -483,21 +483,19 @@ describe("parseRows", () => {
 // ── Adapter-level deduplication ──
 
 describe("HashNYCAdapter deduplication", () => {
-  it("deduplicates overlapping events from past and future tables by kennelTag+date+runNumber", async () => {
-    // Use a date ~5 days from now to avoid the future-table year-rollover logic
-    // (adapter bumps year+1 when event month < current month).
-    const target = new Date(Date.now() + 5 * 86_400_000);
-    const monthName = target.toLocaleString("en-US", { month: "long" });
-    const day = target.getDate();
-    const year = target.getFullYear();
-    const monthAbbr = monthName.slice(0, 3).toLowerCase();
-    const dayPadded = String(day).padStart(2, "0");
-    const expectedDate = `${year}-${String(target.getMonth() + 1).padStart(2, "0")}-${dayPadded}`;
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
-    // Simulate events that appear in both past and future tables
+  it("deduplicates overlapping events from past and future tables by kennelTag+date+runNumber", async () => {
+    // Pin clock so adapter's internal new Date() calls are deterministic
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
+
+    // June 20 is 5 days after pinned clock — same month, no year-rollover
     const pastHtml = `<html><body><table class="past_hashes">
-      <tr id="${year}${monthAbbr}${dayPadded}">
-        <td>${monthName} ${day} 2:00 pm</td>
+      <tr id="2026jun20">
+        <td>June 20 2:00 pm</td>
         <td>NYCH3 Run #2100 Trail Name Start: Central Park</td>
         <td>Mudflap</td>
       </tr>
@@ -505,7 +503,7 @@ describe("HashNYCAdapter deduplication", () => {
 
     const futureHtml = `<html><body><table class="future_hashes">
       <tr>
-        <td>${monthName} ${day} 2:00 pm</td>
+        <td>June 20 2:00 pm</td>
         <td>NYCH3 Run #2100 Trail Name Start: Central Park</td>
         <td>Updated Hare</td>
       </tr>
@@ -522,7 +520,7 @@ describe("HashNYCAdapter deduplication", () => {
     const result = await adapter.fetch({ url: "https://hashnyc.com" } as never);
 
     // Should be deduplicated: only 1 event, not 2
-    const nychEvents = result.events.filter(e => e.kennelTag === "nych3" && e.date === expectedDate);
+    const nychEvents = result.events.filter(e => e.kennelTag === "nych3" && e.date === "2026-06-20");
     expect(nychEvents.length).toBe(1);
     // Future table entry should win (later overwrites)
     expect(nychEvents[0].hares).toBe("Updated Hare");
