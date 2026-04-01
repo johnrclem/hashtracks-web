@@ -36,6 +36,7 @@ import { RegionFilterPopover } from "@/components/shared/RegionFilterPopover";
 import { KennelFilterPopover } from "@/components/shared/KennelFilterPopover";
 import { toast } from "sonner";
 import type { RegionOption } from "./RegionCombobox";
+import { toggleArrayItem } from "@/lib/format";
 import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 
 type SourceData = {
@@ -157,7 +158,6 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
     [sources, kennelRegionMap],
   );
 
-  // Group metro regions by state for expand logic used in filtering
   const regionsByState = useMemo(() => groupRegionsByState(availableRegions), [availableRegions]);
 
   // Only show types that exist in sources
@@ -242,24 +242,8 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
   const activeFilterCount =
     selectedKennels.length + selectedRegions.length + selectedTypes.length + selectedHealth.length;
 
-  function toggleKennel(id: string) {
-    setSelectedKennels((prev) =>
-      prev.includes(id) ? prev.filter((k) => k !== id) : [...prev, id],
-    );
-  }
-
-  function toggleType(type: string) {
-    setSelectedTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
-    );
-  }
-
-  function toggleHealth(status: string) {
-    setSelectedHealth((prev) =>
-      prev.includes(status)
-        ? prev.filter((h) => h !== status)
-        : [...prev, status],
-    );
+  function toggleItem(setter: React.Dispatch<React.SetStateAction<string[]>>, value: string) {
+    setter((prev) => toggleArrayItem(prev, value));
   }
 
   return (
@@ -270,7 +254,7 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
         <KennelFilterPopover
           kennels={allKennels}
           selectedKennels={selectedKennels}
-          onToggle={toggleKennel}
+          onToggle={(id) => toggleItem(setSelectedKennels, id)}
         />
 
         {/* Region filter */}
@@ -300,7 +284,7 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
                   {availableTypes.map((type) => (
                     <CommandItem
                       key={type}
-                      onSelect={() => toggleType(type)}
+                      onSelect={() => toggleItem(setSelectedTypes, type)}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
@@ -339,7 +323,7 @@ export function SourceTable({ sources, allKennels, allRegions, geminiAvailable }
                   {HEALTH_OPTIONS.map((status) => (
                     <CommandItem
                       key={status}
-                      onSelect={() => toggleHealth(status)}
+                      onSelect={() => toggleItem(setSelectedHealth, status)}
                     >
                       <span
                         className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
