@@ -427,7 +427,8 @@ describe("BigHumpAdapter", () => {
 
     vi.mocked(utils.fetchHTMLPage).mockImplementation(mockFetchHTMLPage);
 
-    const result = await adapter.fetch(mockSource);
+    // Use large days window to ensure fixture dates fall within the window
+    const result = await adapter.fetch(mockSource, { days: 36500 });
 
     expect(result.events).toHaveLength(2);
     expect(result.events[0].date).toBe("2026-04-01");
@@ -448,7 +449,7 @@ describe("BigHumpAdapter", () => {
 
     vi.mocked(utils.fetchHTMLPage).mockImplementation(mockFetchHTMLPage);
 
-    const result = await adapter.fetch(mockSource);
+    const result = await adapter.fetch(mockSource, { days: 36500 });
 
     // Should have fetched hareline + 1 year page
     expect(utils.fetchHTMLPage).toHaveBeenCalledTimes(2);
@@ -470,7 +471,7 @@ describe("BigHumpAdapter", () => {
 
     vi.mocked(utils.fetchHTMLPage).mockImplementation(mockFetchHTMLPage);
 
-    const result = await adapter.fetch(mockSource);
+    const result = await adapter.fetch(mockSource, { days: 36500 });
 
     // Run #1991 appears in both hareline and history — hareline should win
     const run1991Events = result.events.filter((e) => e.runNumber === 1991);
@@ -503,5 +504,46 @@ describe("BigHumpAdapter", () => {
     const result = await adapter.fetch(mockSource);
     expect(result.events).toHaveLength(0);
     expect(result.errors).toContain("HTTP 500");
+  });
+});
+
+// ─── Live integration test (run manually with `vitest run --testNamePattern live`) ──
+
+describe.skip("BigHumpAdapter live", () => {
+  it("live: scrapes hareline from production site", async () => {
+    const { BigHumpAdapter: LiveAdapter } = await import("./big-hump");
+    const adapter = new LiveAdapter();
+    const source = {
+      id: "live-bh4",
+      url: "http://www.big-hump.com/hareline.php",
+      config: null,
+    } as never;
+
+    const result = await adapter.fetch(source, { days: 365 });
+
+    expect(result.events.length).toBeGreaterThan(0);
+    expect(result.errors).toHaveLength(0);
+
+    const sample = result.events[0];
+    expect(sample.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(sample.kennelTag).toBe("bh4");
+    expect(sample.runNumber).toBeGreaterThan(0);
+  });
+
+  it("live: scrapes history page from production site", async () => {
+    const { parseHistoryPage: liveParse } = await import("./big-hump");
+    const currentYear = new Date().getFullYear();
+    const res = await fetch(`http://www.big-hump.com/hashresults.php?year=${currentYear}`);
+    const html = await res.text();
+
+    const events = liveParse(html, "http://www.big-hump.com");
+
+    expect(events.length).toBeGreaterThan(0);
+
+    const sample = events[0];
+    expect(sample.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(sample.kennelTag).toBe("bh4");
+    expect(sample.runNumber).toBeGreaterThan(0);
+    expect(sample.sourceUrl).toContain("runinfo.php?num=");
   });
 });

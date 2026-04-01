@@ -163,7 +163,7 @@ export function parseAttendanceHares(
     // Check for hare marker: <strong> containing "hare" text or <i class="fa-carrot">
     const hasHareMarker =
       $li.find("i.fa-carrot").length > 0 ||
-      $li.find("strong").text().includes("hare");
+      /\bhare\b/i.test($li.find("strong").text());
     if (hasHareMarker) {
       const name = $li.find("a").first().text().trim();
       if (name) hares.push(name);
@@ -202,10 +202,10 @@ export function parseHistoryCard(
   // Extract hares from attendance list (more authoritative than title)
   const { hares: attendanceHares, attendeeCount } = parseAttendanceHares($card, $);
 
-  // Build sourceUrl from detail page link
+  // Build sourceUrl from detail page link (use URL constructor for safe resolution)
   const detailLink = $card.find("a[href*='runinfo.php']").attr("href");
   const sourceUrl = detailLink
-    ? `${baseUrl}/${detailLink.replace(/^\//, "")}`
+    ? new URL(detailLink, baseUrl).toString()
     : `${baseUrl}/hashresults.php`;
 
   // Attendance hares override title hares when available
@@ -266,11 +266,11 @@ async function fetchHistoryYears(
 
   for (let i = 0; i < years.length; i++) {
     const year = years[i];
-    const url = `${baseUrl}/hashresults.php?year=${year}`;
+    const url = new URL(`/hashresults.php?year=${year}`, baseUrl).toString();
 
-    // Rate limit: 300ms delay between requests (skip first)
+    // Rate limit: 500ms delay between requests to be polite to small PHP site
     if (i > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     const page = await fetchHTMLPage(url);
@@ -312,6 +312,29 @@ function computeYearsInWindow(
 }
 
 /**
+ * Safely parse and validate BigHumpConfig from source.config JSON.
+ * Returns safe defaults for missing or malformed values.
+ */
+function parseBigHumpConfig(raw: unknown): BigHumpConfig {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const obj = raw as Record<string, unknown>;
+
+  const includeHistory = obj.includeHistory === true;
+
+  let historyYearRange: [number, number] | undefined;
+  if (
+    Array.isArray(obj.historyYearRange) &&
+    obj.historyYearRange.length === 2 &&
+    typeof obj.historyYearRange[0] === "number" &&
+    typeof obj.historyYearRange[1] === "number"
+  ) {
+    historyYearRange = [obj.historyYearRange[0], obj.historyYearRange[1]];
+  }
+
+  return { includeHistory, historyYearRange };
+}
+
+/**
  * Big Hump H3 Scraper
  *
  * Scrapes big-hump.com/hareline.php for upcoming events, and optionally
@@ -325,7 +348,7 @@ export class BigHumpAdapter implements SourceAdapter {
     source: Source,
     options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const config = (source.config as BigHumpConfig | null) ?? {};
+    const config = parseBigHumpConfig(source.config);
     const harelineUrl =
       source.url || "http://www.big-hump.com/hareline.php";
     const baseUrl = new URL(harelineUrl).origin;
