@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import * as cheerio from "cheerio";
 import {
   decodeHtmlEntities,
@@ -15,6 +15,11 @@ import {
   parseRows,
   HashNYCAdapter,
 } from "./hashnyc";
+
+// Module-level mock so Vitest hoists it before module resolution
+vi.mock("../safe-fetch", () => ({
+  safeFetch: vi.fn(),
+}));
 
 // ── decodeHtmlEntities ──
 
@@ -479,10 +484,24 @@ describe("parseRows", () => {
 
 describe("HashNYCAdapter deduplication", () => {
   it("deduplicates overlapping events from past and future tables by kennelTag+date+runNumber", async () => {
+    // Use a date in the current or future month to avoid the year-rollover logic
+    // (future table bumps year+1 when event month < current month).
+    // We compute a date ~5 days from now so it's valid in both past and future tables.
+    const now = new Date();
+    const target = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"];
+    const monthName = monthNames[target.getMonth()];
+    const day = target.getDate();
+    const year = target.getFullYear();
+    const monthAbbr = monthName.slice(0, 3).toLowerCase();
+    const dayPadded = String(day).padStart(2, "0");
+    const expectedDate = `${year}-${String(target.getMonth() + 1).padStart(2, "0")}-${dayPadded}`;
+
     // Simulate events that appear in both past and future tables
     const pastHtml = `<html><body><table class="past_hashes">
-      <tr id="2026mar10">
-        <td>March 10 2:00 pm</td>
+      <tr id="${year}${monthAbbr}${dayPadded}">
+        <td>${monthName} ${day} 2:00 pm</td>
         <td>NYCH3 Run #2100 Trail Name Start: Central Park</td>
         <td>Mudflap</td>
       </tr>
@@ -490,17 +509,14 @@ describe("HashNYCAdapter deduplication", () => {
 
     const futureHtml = `<html><body><table class="future_hashes">
       <tr>
-        <td>March 10 2:00 pm</td>
+        <td>${monthName} ${day} 2:00 pm</td>
         <td>NYCH3 Run #2100 Trail Name Start: Central Park</td>
         <td>Updated Hare</td>
       </tr>
     </table></body></html>`;
 
-    // Mock safeFetch to return both tables
+    // Get the hoisted mock
     const { safeFetch } = await import("../safe-fetch");
-    vi.mock("../safe-fetch", () => ({
-      safeFetch: vi.fn(),
-    }));
     const mockFetch = vi.mocked(safeFetch);
     mockFetch
       .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve(pastHtml) } as Response)
@@ -510,7 +526,7 @@ describe("HashNYCAdapter deduplication", () => {
     const result = await adapter.fetch({ url: "https://hashnyc.com" } as never);
 
     // Should be deduplicated: only 1 event, not 2
-    const nychEvents = result.events.filter(e => e.kennelTag === "nych3" && e.date === "2026-03-10");
+    const nychEvents = result.events.filter(e => e.kennelTag === "nych3" && e.date === expectedDate);
     expect(nychEvents.length).toBe(1);
     // Future table entry should win (later overwrites)
     expect(nychEvents[0].hares).toBe("Updated Hare");
