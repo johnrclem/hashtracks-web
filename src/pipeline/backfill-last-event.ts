@@ -13,13 +13,14 @@ export async function backfillLastEventDates(): Promise<number> {
     UPDATE "Kennel" k
     SET "lastEventDate" = sub."maxDate", "updatedAt" = NOW()
     FROM (
-      SELECT "kennelId", MAX(date) as "maxDate"
-      FROM "Event"
-      WHERE status != 'CANCELLED'
-      AND "isManualEntry" != true
-      GROUP BY "kennelId"
+      SELECT k2.id AS "kennelId", MAX(e.date) AS "maxDate"
+      FROM "Kennel" k2
+      LEFT JOIN "Event" e ON e."kennelId" = k2.id
+        AND e.status != 'CANCELLED'
+        AND e."isManualEntry" != true
+      GROUP BY k2.id
     ) sub
     WHERE k.id = sub."kennelId"
-    AND (k."lastEventDate" IS NULL OR k."lastEventDate" != sub."maxDate")
+    AND k."lastEventDate" IS DISTINCT FROM sub."maxDate"
   `;
 }

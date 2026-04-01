@@ -17,8 +17,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Refresh lastEventDate cache before audit so activity status is current
-    await backfillLastEventDates();
+    // Refresh lastEventDate cache — non-blocking; failures logged but don't block audit
+    try {
+      const backfilled = await backfillLastEventDates();
+      if (backfilled > 0) console.log(`[audit] lastEventDate backfill: ${backfilled} kennels updated`);
+    } catch (err) {
+      console.error("[audit] lastEventDate backfill failed:", err instanceof Error ? err.message : err);
+    }
 
     const result = await runAudit();
 
