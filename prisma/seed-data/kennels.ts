@@ -2419,6 +2419,28 @@ export const KENNELS: KennelSeed[] = [
       latitude: 59.33, longitude: 18.07,
     },
 
+    // ── Wisconsin: Madison ──
+    {
+      kennelCode: "madisonh3", shortName: "Madison H3", fullName: "Madison Hash House Harriers", region: "Madison, WI",
+      website: "https://madisonh3.com",
+      facebookUrl: "https://www.facebook.com/madisonHHH",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly",
+      scheduleNotes: "5 PM summer (DST), 3 PM winter",
+      foundedYear: 1977,
+      description: "Madison's weekly Saturday hash since 1977. Run #2540+.",
+      latitude: 43.07, longitude: -89.40,
+    },
+    // ── Wisconsin: Milwaukee ──
+    {
+      kennelCode: "bch3", shortName: "BCH3", fullName: "Brew City Hash House Harriers", region: "Milwaukee, WI",
+      website: "https://www.brewcityh3.com",
+      facebookUrl: "https://www.facebook.com/brewcityh3",
+      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Biweekly",
+      hashCash: "$7-8",
+      description: "Milwaukee's biweekly Thursday evening hash. Trail #359+.",
+      latitude: 43.04, longitude: -87.91,
+    },
+
     // ── Norway: Oslo ──
     {
       kennelCode: "oh3-no", shortName: "OH3", fullName: "Oslo Hash House Harriers", region: "Oslo", country: "Norway",
