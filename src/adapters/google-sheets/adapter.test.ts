@@ -268,7 +268,7 @@ describe("buildEventFromSheetRow", () => {
     ["Bring a dry bag", undefined, "rejects instruction verb 'bring'"],
     ["Check the website for details", undefined, "rejects instruction verb 'check'"],
     ["Halloween Hash", "Halloween Hash", "keeps legitimate title"],
-  ])("instruction-title guard: %s → %s (%s)", (titleInput, expected) => {
+  ])("instruction-title guard: %s → %s (%s)", (titleInput, expected, _desc) => {
     const row = ["100", "3/11/26", "Alice", "Park", titleInput];
     const event = buildEventFromSheetRow(row, baseConfig, "https://example.com", "2026-03-11");
     expect(event).not.toBeNull();
