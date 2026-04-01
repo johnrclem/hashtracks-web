@@ -122,6 +122,14 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
     };
   }, [map, handleClusterClick]);
 
+  // Safety-net render after pin groups change. Ref callbacks handle incremental
+  // add/remove, but the clusterer may not re-render after all changes settle
+  // (e.g. AdvancedMarker elements mount asynchronously). This forces one final
+  // cluster recalculation without clearing — markers stay registered.
+  useEffect(() => {
+    clustererRef.current?.render();
+  }, [pinGroups, map]);
+
   // Stable per-group ref callback factory — avoids new function identity on every render.
   // Reads from groupDataRef so the reverse lookup always has the latest data even if
   // the callback fires after a re-render (fixes stale closure).
