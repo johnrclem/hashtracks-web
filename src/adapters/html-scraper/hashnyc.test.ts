@@ -484,14 +484,10 @@ describe("parseRows", () => {
 
 describe("HashNYCAdapter deduplication", () => {
   it("deduplicates overlapping events from past and future tables by kennelTag+date+runNumber", async () => {
-    // Use a date in the current or future month to avoid the year-rollover logic
-    // (future table bumps year+1 when event month < current month).
-    // We compute a date ~5 days from now so it's valid in both past and future tables.
-    const now = new Date();
-    const target = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
-    const monthNames = ["January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"];
-    const monthName = monthNames[target.getMonth()];
+    // Use a date ~5 days from now to avoid the future-table year-rollover logic
+    // (adapter bumps year+1 when event month < current month).
+    const target = new Date(Date.now() + 5 * 86_400_000);
+    const monthName = target.toLocaleString("en-US", { month: "long" });
     const day = target.getDate();
     const year = target.getFullYear();
     const monthAbbr = monthName.slice(0, 3).toLowerCase();
