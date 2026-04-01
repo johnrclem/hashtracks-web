@@ -382,5 +382,24 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== WISCONSIN =====
     "madisonh3": ["Madison Hash", "Madison H3", "Madison HHH", "MadH3"],
     "bch3": ["BCH3", "Brew City Hash", "Brew City H3", "Brew City HHH"],
+
+    // ===== CANADA =====
+    // Quebec
+    "mh3-ca": ["MH3", "Montreal Hash", "Montreal HHH", "Montreal H3", "MHHH"],
+    // Ontario
+    "oh3-ca": ["OH3 Ottawa", "Ottawa Hash", "Ottawa HHH", "Ottawa H3"],
+    "hogtownh3": ["Hogtown H3", "Hogtown Hash", "Hogtown HHH", "Toronto Hash"],
+    // Alberta — Calgary
+    "ch3-ab": ["Calgary Hash", "Calgary H3", "Calgary HHH", "CH3 Calgary"],
+    // Alberta — Edmonton
+    "eh3-ab": ["Edmonton H3", "Edmonton HHH", "Edmonton Hash", "EdmONtON Hash House Harriers"],
+    "osh3-ab": ["Old Strathcona H3", "Old Strathcona HHH", "OSH3"],
+    "efmh3": ["Edmonton Full Moon H3", "Edmonton FM H3", "EFMH3", "Full Moon HHH"],
+    "bash-eh3": ["Bicycle HHH", "EH3 Bicycle BASH", "Edmonton BASH", "BASH"],
+    "snash-eh3": ["Snowshoe and Fat Bike HHH", "SNASH", "Edmonton Snowshoe H3"],
+    "divah3-eh3": ["Diva HHH", "DivaH3", "Edmonton Diva Hash"],
+    "rash-eh3": ["Road Bike HHH", "RASH", "Edmonton RASH"],
+    "saintlyh3": ["Saintly H3", "Saintly Hash House Harriers", "St Albert Hash"],
+    "tth3-ab": ["True Trail H3", "True Trail HHH", "True Trail Hash House Harriers", "TTH3"],
   };
 

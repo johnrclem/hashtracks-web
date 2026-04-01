@@ -2797,5 +2797,113 @@ export const SOURCES = [
       scrapeDays: 365,
       kennelCodes: ["bch3"],
     },
+
+    // ===== CANADA =====
+    // --- Montreal ---
+    {
+      name: "Montreal H3 Meetup",
+      url: "https://www.meetup.com/montreal-hash-house-harriers/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        groupUrlname: "montreal-hash-house-harriers",
+        kennelTag: "mh3-ca",
+      },
+      kennelCodes: ["mh3-ca"],
+    },
+    // --- Toronto ---
+    {
+      name: "Hogtown H3 Meetup",
+      url: "https://www.meetup.com/meetup-group-pyrddkbc/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        groupUrlname: "meetup-group-pyrddkbc",
+        kennelTag: "hogtownh3",
+      },
+      kennelCodes: ["hogtownh3"],
+    },
+    // --- Edmonton: EH3 multi-kennel (7 kennels) ---
+    {
+      name: "EH3 Edmonton Area Harelines",
+      url: "https://www.eh3.org/wp-json/wp/v2/pages/423",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        pageIds: {
+          "423": { kennelTag: "eh3-ab", defaultStartTime: "18:30" },
+          "425": { kennelTag: "osh3-ab", defaultStartTime: "14:00" },
+          "429": { kennelTag: "efmh3", defaultStartTime: "19:00" },
+          "431": { kennelTag: "bash-eh3", defaultStartTime: "18:30" },
+          "433": { kennelTag: "snash-eh3", defaultStartTime: "18:30" },
+          "437": { kennelTag: "divah3-eh3", defaultStartTime: "19:00" },
+          "439": { kennelTag: "rash-eh3", defaultStartTime: "13:00" },
+        },
+      },
+      kennelCodes: ["eh3-ab", "osh3-ab", "efmh3", "bash-eh3", "snash-eh3", "divah3-eh3", "rash-eh3"],
+    },
+    // --- Edmonton: True Trail H3 ---
+    {
+      name: "True Trail H3 Hareline",
+      url: "https://truetrailh3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["tth3-ab"],
+    },
+    // --- Edmonton: Saintly H3 ---
+    {
+      name: "Saintly H3 Static Schedule",
+      url: "https://www.facebook.com/groups/444202485756219/",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 365,
+      config: {
+        rrule: "FREQ=WEEKLY;BYDAY=WE",
+        kennelTag: "saintlyh3",
+        defaultTitle: "Saintly H3 Weekly Walk",
+        startTime: "18:30",
+        defaultLocation: "St. Albert, AB — check Facebook group",
+      },
+      kennelCodes: ["saintlyh3"],
+    },
+    // --- Ottawa: OH3 ---
+    {
+      name: "OH3 Ottawa Receding Hare Line",
+      url: "https://docs.google.com/document/d/1jGyBUKxOYkxrZg8WVfpBYDP84fbacanoX_TJuyCmtAI/pub",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["oh3-ca"],
+    },
+    // --- Calgary: CH3 Upcoming Runs ---
+    {
+      name: "Calgary H3 Upcoming Runs",
+      url: "https://home.onon.org/upcumming-runs",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["ch3-ab"],
+    },
+    // --- Calgary: CH3 Scribe ---
+    {
+      name: "Calgary H3 Scribe",
+      url: "https://scribe.onon.org/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["ch3-ab"],
+    },
   ];
 
