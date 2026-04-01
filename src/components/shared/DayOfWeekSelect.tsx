@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/command";
 import { SCHEDULE_DAYS } from "@/lib/days";
 import { toggleArrayItem } from "@/lib/format";
-import { ClearFilterButton } from "@/components/shared/FilterBar";
+import { ClearFilterButton } from "@/components/shared/ClearFilterButton";
 
 interface DayOfWeekSelectProps {
   readonly selectedDays: string[];

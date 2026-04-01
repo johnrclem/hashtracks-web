@@ -2271,7 +2271,11 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
 
 /** Get the country for a state group name (for 3-level region hierarchy). */
 export function getCountryGroup(stateGroup: string): string {
-  return COUNTRY_GROUP_MAP[stateGroup] ?? "United States";
+  const country = COUNTRY_GROUP_MAP[stateGroup];
+  if (!country && typeof console !== "undefined") {
+    console.warn(`[region] Unmapped state group "${stateGroup}" — defaulting to "United States". Add it to COUNTRY_GROUP_MAP.`);
+  }
+  return country ?? "United States";
 }
 
 /** Group metro region names into a 3-level hierarchy: country → state → metros. */
@@ -2297,17 +2301,30 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   USA: "United States",
   US: "United States",
   UK: "United Kingdom",
+  GB: "United Kingdom",
   IE: "Ireland",
-  Germany: "Germany",
-  Japan: "Japan",
-  Belgium: "Belgium",
-  Netherlands: "Netherlands",
-  Denmark: "Denmark",
-  Sweden: "Sweden",
-  Norway: "Norway",
+  DE: "Germany",
+  JP: "Japan",
+  BE: "Belgium",
+  NL: "Netherlands",
+  DK: "Denmark",
+  SE: "Sweden",
+  NO: "Norway",
+  AU: "Australia",
+  CA: "Canada",
 };
+
+/** All canonical country names used in COUNTRY_GROUP_MAP values. */
+const KNOWN_COUNTRY_NAMES = new Set(Object.values(COUNTRY_GROUP_MAP));
 
 /** Convert a country code or name to the canonical country name used in region selections. */
 export function resolveCountryName(codeOrName: string): string | null {
-  return COUNTRY_CODE_TO_NAME[codeOrName] ?? COUNTRY_CODE_TO_NAME[codeOrName.toUpperCase()] ?? null;
+  // Try exact code match first
+  const byCode = COUNTRY_CODE_TO_NAME[codeOrName] ?? COUNTRY_CODE_TO_NAME[codeOrName.toUpperCase()];
+  if (byCode) return byCode;
+  // Fallback: try matching as a full country name (case-insensitive)
+  for (const name of KNOWN_COUNTRY_NAMES) {
+    if (name.toLowerCase() === codeOrName.toLowerCase()) return name;
+  }
+  return null;
 }

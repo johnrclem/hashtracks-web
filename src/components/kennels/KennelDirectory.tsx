@@ -350,7 +350,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
 
   // Determine if URL has any filter params (for LocationPrompt)
   const hasUrlFilters = useMemo(() => {
-    const filterParams = ["regions", "distance", "days", "q", "freq", "upcoming"];
+    const filterParams = ["regions", "distance", "days", "q", "freq", "upcoming", "country"];
     return filterParams.some((p) => searchParams.has(p));
   }, [searchParams]);
 

@@ -166,44 +166,52 @@ export function RegionFilterPopover({
     }
   }
 
-  function renderStateGroup(state: string, metros: string[], indentMetros: boolean) {
+  function renderMetroItems(metros: string[], valuePrefix: string, indent?: string) {
+    return metros.map((region) => (
+      <CommandItem
+        key={region}
+        value={`${valuePrefix} ${region}`}
+        onSelect={() => toggleRegion(region)}
+      >
+        <span
+          className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+            isMetroSelected(region)
+              ? "bg-primary border-primary text-primary-foreground"
+              : "opacity-50"
+          }`}
+        >
+          {isMetroSelected(region) && "✓"}
+        </span>
+        <span className={indent}>{region}</span>
+      </CommandItem>
+    ));
+  }
+
+  function renderStateAllItem(state: string, valuePrefix: string, indent?: string) {
+    return (
+      <CommandItem
+        value={`${valuePrefix} all`}
+        onSelect={() => toggleStateGroup(state)}
+      >
+        <span
+          className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
+            isStateSelected(state)
+              ? "bg-primary border-primary text-primary-foreground"
+              : "opacity-50"
+          }`}
+        >
+          {isStateSelected(state) && "✓"}
+        </span>
+        <span className={`font-medium ${indent ?? ""}`}>All {state}</span>
+      </CommandItem>
+    );
+  }
+
+  function renderStateGroup(state: string, metros: string[]) {
     return (
       <CommandGroup key={state} heading={state}>
-        {metros.length > 1 && (
-          <CommandItem
-            value={`${state} all`}
-            onSelect={() => toggleStateGroup(state)}
-          >
-            <span
-              className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                isStateSelected(state)
-                  ? "bg-primary border-primary text-primary-foreground"
-                  : "opacity-50"
-              }`}
-            >
-              {isStateSelected(state) && "✓"}
-            </span>
-            <span className="font-medium">All {state}</span>
-          </CommandItem>
-        )}
-        {metros.map((region) => (
-          <CommandItem
-            key={region}
-            value={`${state} ${region}`}
-            onSelect={() => toggleRegion(region)}
-          >
-            <span
-              className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                isMetroSelected(region)
-                  ? "bg-primary border-primary text-primary-foreground"
-                  : "opacity-50"
-              }`}
-            >
-              {isMetroSelected(region) && "✓"}
-            </span>
-            <span className={indentMetros && metros.length > 1 ? "pl-2" : ""}>{region}</span>
-          </CommandItem>
-        ))}
+        {metros.length > 1 && renderStateAllItem(state, state)}
+        {renderMetroItems(metros, state, metros.length > 1 ? "pl-2" : undefined)}
       </CommandGroup>
     );
   }
@@ -257,65 +265,14 @@ export function RegionFilterPopover({
                     {/* State sub-groups */}
                     {sortedStates.map((state) => {
                       const metros = stateMap.get(state) ?? [];
-                      // For single-state countries, skip the state heading
+                      const prefix = `${country} ${state}`;
                       if (totalStates === 1) {
-                        return metros.map((region) => (
-                          <CommandItem
-                            key={region}
-                            value={`${country} ${state} ${region}`}
-                            onSelect={() => toggleRegion(region)}
-                          >
-                            <span
-                              className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                                isMetroSelected(region)
-                                  ? "bg-primary border-primary text-primary-foreground"
-                                  : "opacity-50"
-                              }`}
-                            >
-                              {isMetroSelected(region) && "✓"}
-                            </span>
-                            {region}
-                          </CommandItem>
-                        ));
+                        return renderMetroItems(metros, prefix);
                       }
-                      // Multi-state countries: show state sub-heading
                       return (
                         <div key={state}>
-                          {metros.length > 1 && (
-                            <CommandItem
-                              value={`${country} ${state} all`}
-                              onSelect={() => toggleStateGroup(state)}
-                            >
-                              <span
-                                className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                                  isStateSelected(state)
-                                    ? "bg-primary border-primary text-primary-foreground"
-                                    : "opacity-50"
-                                }`}
-                              >
-                                {isStateSelected(state) && "✓"}
-                              </span>
-                              <span className="font-medium pl-1">All {state}</span>
-                            </CommandItem>
-                          )}
-                          {metros.map((region) => (
-                            <CommandItem
-                              key={region}
-                              value={`${country} ${state} ${region}`}
-                              onSelect={() => toggleRegion(region)}
-                            >
-                              <span
-                                className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
-                                  isMetroSelected(region)
-                                    ? "bg-primary border-primary text-primary-foreground"
-                                    : "opacity-50"
-                                }`}
-                              >
-                                {isMetroSelected(region) && "✓"}
-                              </span>
-                              <span className="pl-3">{region}</span>
-                            </CommandItem>
-                          ))}
+                          {metros.length > 1 && renderStateAllItem(state, prefix, "pl-1")}
+                          {renderMetroItems(metros, prefix, "pl-3")}
                         </div>
                       );
                     })}
@@ -326,7 +283,7 @@ export function RegionFilterPopover({
               // 2-level: state → metro (backwards compatible)
               stateKeys.map((state) => {
                 const metros = regionsByState.get(state) ?? [];
-                return renderStateGroup(state, metros, true);
+                return renderStateGroup(state, metros);
               })
             )}
           </CommandList>

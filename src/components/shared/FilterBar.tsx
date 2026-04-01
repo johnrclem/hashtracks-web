@@ -22,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { NearMeFilter } from "@/components/shared/NearMeFilter";
 import { RegionFilterPopover } from "@/components/shared/RegionFilterPopover";
 import { DayOfWeekSelect } from "@/components/shared/DayOfWeekSelect";
+import { ClearFilterButton } from "@/components/shared/ClearFilterButton";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 import { toggleArrayItem } from "@/lib/format";
 import { regionDisplayName } from "@/lib/region";
@@ -67,20 +68,6 @@ interface FilterBarProps {
 
   /** Placeholder text for search input. Default: "Search..." */
   readonly searchPlaceholder?: string;
-}
-
-/** Small inline clear button used inside filter trigger buttons. */
-export function ClearFilterButton({ onClick, label }: Readonly<{ onClick: () => void; label: string }>) {
-  return (
-    <span
-      className="ml-1 rounded-full p-0.5 hover:bg-muted"
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      onMouseDown={(e) => { e.preventDefault(); }}
-      aria-label={label}
-    >
-      <X className="h-3 w-3" />
-    </span>
-  );
 }
 
 export function FilterBar({
@@ -142,7 +129,7 @@ export function FilterBar({
     (selectedFrequency ? 1 : 0) +
     (selectedKennels?.length ?? 0) +
     (showUpcomingOnly ? 1 : 0) +
-    (onActiveOnlyChange && !showActiveOnly ? 1 : 0); // "active only off" is the non-default
+    (onActiveOnlyChange && showActiveOnly === false ? 1 : 0); // "active only off" is the non-default
 
   // Total active filter count (for clear all)
   const totalActiveCount =
@@ -151,25 +138,26 @@ export function FilterBar({
     tier2Count;
 
   // Build active filter chips for collapsed state
-  const activeChips: { label: string; onClear: () => void }[] = [];
+  const activeChips: { key: string; label: string; onClear: () => void }[] = [];
   if (selectedDays.length > 0) {
-    activeChips.push({ label: selectedDays.join(", "), onClear: () => onDaysChange([]) });
+    activeChips.push({ key: "days", label: selectedDays.join(", "), onClear: () => onDaysChange([]) });
   }
   if (selectedFrequency && onFrequencyChange) {
-    activeChips.push({ label: selectedFrequency, onClear: () => onFrequencyChange("") });
+    activeChips.push({ key: "frequency", label: selectedFrequency, onClear: () => onFrequencyChange?.("") });
   }
   if (selectedKennels && selectedKennels.length > 0 && onKennelsChange) {
     const count = selectedKennels.length;
     activeChips.push({
+      key: "kennels",
       label: `${count} kennel${count > 1 ? "s" : ""}`,
-      onClear: () => onKennelsChange([]),
+      onClear: () => onKennelsChange?.([]),
     });
   }
   if (showUpcomingOnly && onUpcomingOnlyChange) {
-    activeChips.push({ label: "Has upcoming", onClear: () => onUpcomingOnlyChange(false) });
+    activeChips.push({ key: "upcoming", label: "Has upcoming", onClear: () => onUpcomingOnlyChange?.(false) });
   }
-  if (onActiveOnlyChange && !showActiveOnly) {
-    activeChips.push({ label: "Including inactive", onClear: () => onActiveOnlyChange(true) });
+  if (onActiveOnlyChange && showActiveOnly === false) {
+    activeChips.push({ key: "inactive", label: "Including inactive", onClear: () => onActiveOnlyChange?.(true) });
   }
 
   return (
@@ -187,7 +175,7 @@ export function FilterBar({
           />
           {localSearch && (
             <button
-              onClick={() => { setLocalSearch(""); onSearchChange(""); }}
+              onClick={() => { clearTimeout(debounceRef.current); setLocalSearch(""); onSearchChange(""); }}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               aria-label="Clear search"
             >
@@ -280,7 +268,7 @@ export function FilterBar({
                   >
                     {selectedFrequency || "Frequency"}
                     {selectedFrequency && (
-                      <ClearFilterButton onClick={() => onFrequencyChange("")} label="Clear frequency filter" />
+                      <ClearFilterButton onClick={() => onFrequencyChange?.("")} label="Clear frequency filter" />
                     )}
                   </Button>
                 </PopoverTrigger>
@@ -288,7 +276,7 @@ export function FilterBar({
                   <Command>
                     <CommandList>
                       <CommandGroup>
-                        <CommandItem onSelect={() => onFrequencyChange("")}>
+                        <CommandItem onSelect={() => onFrequencyChange?.("")}>
                           <span
                             className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
                               !selectedFrequency
@@ -303,7 +291,7 @@ export function FilterBar({
                         {frequencies.map((freq) => (
                           <CommandItem
                             key={freq}
-                            onSelect={() => onFrequencyChange(freq)}
+                            onSelect={() => onFrequencyChange?.(freq)}
                           >
                             <span
                               className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border ${
@@ -343,7 +331,7 @@ export function FilterBar({
                       </Badge>
                     )}
                     {selectedKennels && selectedKennels.length > 0 && (
-                      <ClearFilterButton onClick={() => onKennelsChange([])} label="Clear kennel filter" />
+                      <ClearFilterButton onClick={() => onKennelsChange?.([])} label="Clear kennel filter" />
                     )}
                   </Button>
                 </PopoverTrigger>
@@ -357,7 +345,7 @@ export function FilterBar({
                           <CommandItem
                             key={kennel.id}
                             value={`${kennel.shortName} ${kennel.fullName} ${kennel.region}`}
-                            onSelect={() => onKennelsChange(toggleArrayItem(selectedKennels ?? [], kennel.id))}
+                            onSelect={() => onKennelsChange?.(toggleArrayItem(selectedKennels ?? [], kennel.id))}
                             role="option"
                             aria-selected={selectedKennels?.includes(kennel.id)}
                           >
@@ -417,7 +405,7 @@ export function FilterBar({
         <div className="flex flex-wrap items-center gap-1.5">
           {activeChips.map((chip) => (
             <span
-              key={chip.label}
+              key={chip.key}
               className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs"
             >
               {chip.label}
