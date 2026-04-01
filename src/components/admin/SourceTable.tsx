@@ -685,7 +685,7 @@ function SourceRow({
     : null;
 
   return (
-    <TableRow className={!source.enabled ? "opacity-50" : undefined}>
+    <TableRow className={`transition-colors hover:bg-muted/50 ${!source.enabled ? "opacity-50" : ""}`}>
       <TableCell>
         <div className="max-w-[200px] sm:max-w-[280px]">
           <div className="flex items-center gap-1.5">

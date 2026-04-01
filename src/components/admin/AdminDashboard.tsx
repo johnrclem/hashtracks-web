@@ -10,6 +10,7 @@ import {
   Database,
   HeartPulse,
   Bell,
+  ArrowRight,
 } from "lucide-react";
 import { AnimatedCounter } from "@/components/home/HeroAnimations";
 import { TAB_ROUTES } from "./AdminNavTabs";
@@ -34,6 +35,8 @@ interface StatCard {
   icon: LucideIcon;
   color: string;
   bgColor: string;
+  href: string;
+  suffix?: string;
 }
 
 export function AdminDashboard({ stats }: AdminDashboardProps) {
@@ -43,14 +46,14 @@ export function AdminDashboard({ stats }: AdminDashboardProps) {
       : 0;
 
   const statCards: StatCard[] = [
-    { label: "Users", value: stats.totalUsers, icon: Users, color: "text-blue-500", bgColor: "bg-blue-500/[0.08]" },
-    { label: "Active 30d", value: stats.activeUsers, icon: UserCheck, color: "text-green-500", bgColor: "bg-green-500/[0.08]" },
-    { label: "Check-ins", value: stats.totalCheckins, icon: CheckSquare, color: "text-orange-500", bgColor: "bg-orange-500/[0.08]" },
-    { label: "Upcoming", value: stats.upcomingEvents, icon: Calendar, color: "text-purple-500", bgColor: "bg-purple-500/[0.08]" },
-    { label: "Kennels", value: stats.visibleKennels, icon: Hash, color: "text-amber-500", bgColor: "bg-amber-500/[0.08]" },
-    { label: "Sources", value: stats.enabledSources, icon: Database, color: "text-teal-500", bgColor: "bg-teal-500/[0.08]" },
-    { label: "Health %", value: healthPct, icon: HeartPulse, color: healthPct >= 80 ? "text-emerald-500" : "text-red-500", bgColor: healthPct >= 80 ? "bg-emerald-500/[0.08]" : "bg-red-500/[0.08]" },
-    { label: "Alerts", value: stats.activeAlerts, icon: Bell, color: "text-red-500", bgColor: "bg-red-500/[0.08]" },
+    { label: "Users", value: stats.totalUsers, icon: Users, color: "text-blue-600", bgColor: "bg-blue-100 dark:bg-blue-500/20", href: "/admin/analytics" },
+    { label: "Active 30d", value: stats.activeUsers, icon: UserCheck, color: "text-green-600", bgColor: "bg-green-100 dark:bg-green-500/20", href: "/admin/analytics" },
+    { label: "Check-ins", value: stats.totalCheckins, icon: CheckSquare, color: "text-orange-600", bgColor: "bg-orange-100 dark:bg-orange-500/20", href: "/admin/analytics" },
+    { label: "Upcoming", value: stats.upcomingEvents, icon: Calendar, color: "text-purple-600", bgColor: "bg-purple-100 dark:bg-purple-500/20", href: "/admin/events" },
+    { label: "Kennels", value: stats.visibleKennels, icon: Hash, color: "text-amber-600", bgColor: "bg-amber-100 dark:bg-amber-500/20", href: "/admin/kennels" },
+    { label: "Sources", value: stats.enabledSources, icon: Database, color: "text-teal-600", bgColor: "bg-teal-100 dark:bg-teal-500/20", href: "/admin/sources" },
+    { label: "Health", value: healthPct, icon: HeartPulse, color: healthPct >= 80 ? "text-emerald-600" : "text-red-600", bgColor: healthPct >= 80 ? "bg-emerald-100 dark:bg-emerald-500/20" : "bg-red-100 dark:bg-red-500/20", href: "/admin/sources", suffix: "%" },
+    { label: "Alerts", value: stats.activeAlerts, icon: Bell, color: stats.activeAlerts > 0 ? "text-red-600" : "text-emerald-600", bgColor: stats.activeAlerts > 0 ? "bg-red-100 dark:bg-red-500/20" : "bg-emerald-100 dark:bg-emerald-500/20", href: "/admin/alerts" },
   ];
 
   // Derive section guide from shared TAB_ROUTES (skip dashboard — that's this page)
@@ -58,60 +61,73 @@ export function AdminDashboard({ stats }: AdminDashboardProps) {
 
   return (
     <div className="space-y-8">
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {/* Page header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Platform overview and quick links.
+        </p>
+      </div>
+
+      {/* Stats grid — bold, colored, clickable */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((card) => (
-          <div
+          <Link
             key={card.label}
-            className="rounded-xl border border-border/50 bg-card p-4 text-center"
+            href={card.href}
+            className="group rounded-xl border border-border/50 bg-card p-4 transition-all hover:border-border hover:shadow-sm"
           >
-            <div className={`mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg ${card.bgColor}`}>
-              <card.icon className={`h-5 w-5 ${card.color}`} />
+            <div className="flex items-center justify-between">
+              <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${card.bgColor}`}>
+                <card.icon className={`h-[18px] w-[18px] ${card.color}`} />
+              </div>
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/0 transition-all group-hover:text-muted-foreground group-hover:translate-x-0.5" />
             </div>
-            <div className="text-2xl font-bold tracking-tight">
+            <div className={`mt-3 text-2xl font-bold tracking-tight ${card.color}`}>
               <AnimatedCounter target={card.value} />
-              {card.label === "Health %" && <span className="text-lg">%</span>}
+              {card.suffix && <span className="text-lg">{card.suffix}</span>}
             </div>
-            <div className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <div className="mt-0.5 text-xs font-medium text-muted-foreground">
               {card.label}
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
       {/* Section guide */}
       <div>
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Admin Sections
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Quick Links
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {sections.map((section) => {
-            const badge = section.value === "alerts" ? stats.activeAlerts : undefined;
+            const badge =
+              section.value === "alerts"
+                ? stats.activeAlerts
+                : undefined;
             return (
               <Link
                 key={section.href}
                 href={section.href}
-                className="group rounded-xl border border-border/50 bg-card p-4 transition-colors hover:border-border hover:bg-accent/50"
+                className="group flex items-start gap-3 rounded-xl border border-border/50 bg-card p-3.5 transition-all hover:border-border hover:shadow-sm"
               >
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/50">
-                    <section.icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold group-hover:text-foreground">
-                        {section.label}
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/60">
+                  <section.icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold group-hover:text-foreground">
+                      {section.label}
+                    </span>
+                    {badge != null && badge > 0 && (
+                      <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-red-500">
+                        {badge}
                       </span>
-                      {badge != null && badge > 0 && (
-                        <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-500">
-                          {badge} open
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                      {section.description}
-                    </p>
+                    )}
                   </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                    {section.description}
+                  </p>
                 </div>
               </Link>
             );
