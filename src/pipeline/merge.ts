@@ -98,9 +98,12 @@ export function friendlyKennelName(shortName: string, fullName: string | null): 
   return hadHHH ? `${friendly} H3` : friendly;
 }
 
+/** Cache of kennelCode → compiled Trail pattern for rewriteStaleDefaultTitle. */
+const staleTrailPatternCache = new Map<string, RegExp>();
+
 /**
- * Rewrite stale default titles that use a raw kennelCode/old shortName instead of
- * the current display name. Returns the corrected title or the original if no rewrite needed.
+ * Rewrite stale default titles that use a raw kennelCode instead of the current
+ * display name. Returns the corrected title or the original if no rewrite needed.
  */
 export function rewriteStaleDefaultTitle(
   title: string,
@@ -110,17 +113,14 @@ export function rewriteStaleDefaultTitle(
 ): string {
   const displayName = friendlyKennelName(shortName, fullName);
   if (!displayName || displayName.toLowerCase() === kennelCode.toLowerCase()) return title;
-  // Match titles like "{kennelCode} Trail" or "{kennelCode} Trail #NNN" (case-insensitive)
-  const escaped = kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-  const match = title.match(new RegExp(String.raw`^${escaped}(\s+Trail.*)`, "i"));
-  if (match) return `${displayName}${match[1]}`;
-  // Also match titles using old shortName (e.g., "KWH3 Trail" when shortName was renamed to "Key West H3")
-  if (shortName.toLowerCase() !== kennelCode.toLowerCase()) {
-    const escapedShort = shortName.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-    const shortMatch = title.match(new RegExp(String.raw`^${escapedShort}(\s+Trail.*)`, "i"));
-    if (shortMatch) return `${displayName}${shortMatch[1]}`;
+  let pattern = staleTrailPatternCache.get(kennelCode);
+  if (!pattern) {
+    const escaped = kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+    pattern = new RegExp(String.raw`^${escaped}(\s+Trail.*)`, "i");
+    staleTrailPatternCache.set(kennelCode, pattern);
   }
-  return title;
+  const match = title.match(pattern);
+  return match ? `${displayName}${match[1]}` : title;
 }
 
 /** Compiled once — matches admin/meta content in event titles (split to keep regex complexity low). */
@@ -453,18 +453,22 @@ export function sanitizeTitle(title: string | undefined): string | null {
 }
 
 /** Abbreviation map for address normalization (used by deduplicateAddressPrefix). */
-const ADDR_ABBREVIATIONS: Record<string, string> = {
+/** Pre-compiled address abbreviation patterns (avoids RegExp allocation per call). */
+const ADDR_PATTERNS = Object.entries({
   north: "n", south: "s", east: "e", west: "w",
   road: "rd", street: "st", avenue: "ave",
   boulevard: "blvd", place: "pl", drive: "dr",
   lane: "ln", court: "ct", circle: "cir", highway: "hwy",
-};
+} as Record<string, string>).map(([word, abbr]) => ({
+  pattern: new RegExp(`\\b${word}\\b`, "gi"),
+  abbr,
+}));
 
-/** Normalize an address segment for comparison: lowercase + expand common abbreviations. */
+/** Normalize an address segment for comparison: lowercase + apply abbreviations. */
 function normalizeAddr(s: string): string {
   let normalized = s.toLowerCase();
-  for (const [word, abbr] of Object.entries(ADDR_ABBREVIATIONS)) {
-    normalized = normalized.replaceAll(new RegExp(`\\b${word}\\b`, "g"), abbr);
+  for (const { pattern, abbr } of ADDR_PATTERNS) {
+    normalized = normalized.replace(pattern, abbr);
   }
   return normalized.replaceAll(/[.\s]+/g, " ").trim();
 }
