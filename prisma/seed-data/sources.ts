@@ -2712,6 +2712,20 @@ export const SOURCES = [
       kennelCodes: ["tah3"],
     },
 
+    // --- Lawrence ---
+    {
+      name: "Larryville H3 Google Calendar",
+      url: "larryvilleh3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "lh3-ks",
+      },
+      kennelCodes: ["lh3-ks"],
+    },
+
     // ===== NORWAY =====
     {
       name: "Oslo H3 iCal Feed",

@@ -2342,6 +2342,19 @@ export const KENNELS: KennelSeed[] = [
       latitude: 37.69, longitude: -97.34,
     },
 
+    // ── Kansas: Lawrence ──
+    {
+      kennelCode: "lh3-ks", shortName: "LH3", fullName: "Larryville Hash House Harriers", region: "Lawrence, KS",
+      website: "https://lh3.run/",
+      facebookUrl: "https://www.facebook.com/LarryvilleH3",
+      contactEmail: "larryvilleh3@gmail.com",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Every Thursday 6:30pm year-round. Last Friday of month 6:30pm. 2nd Saturday of month 2:00pm during winter (per CST).",
+      foundedYear: 2012,
+      description: "Lawrence, Kansas' drinking club with a running problem. Weekly Thursday evening trails since 2012. Virgin-friendly, A-to-A hash.",
+      latitude: 38.97, longitude: -95.24,
+    },
+
     // ── Netherlands: Amsterdam ──
     {
       kennelCode: "ah3-nl", shortName: "AH3", fullName: "Amsterdam Hash House Harriers", region: "Amsterdam", country: "Netherlands",
