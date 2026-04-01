@@ -2509,6 +2509,10 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Hawaii": "United States",
   "Louisiana": "United States",
   "Tennessee": "United States",
+  "Missouri": "United States",
+  "Kansas": "United States",
+  "Wisconsin": "United States",
+  "New Mexico": "United States",
   // Canada
   "Alberta": "Canada",
   "Ontario": "Canada",
