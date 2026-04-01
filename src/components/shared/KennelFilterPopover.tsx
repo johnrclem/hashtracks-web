@@ -18,7 +18,7 @@ import {
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
 
 interface KennelFilterPopoverProps {
-  readonly kennels: readonly { id: string; shortName: string; fullName: string; regionName: string }[];
+  readonly kennels: readonly { id: string; shortName: string; fullName: string; regionName?: string; region?: string }[];
   readonly selectedKennels: readonly string[];
   readonly onToggle: (kennelId: string) => void;
 }
@@ -36,7 +36,7 @@ export function KennelFilterPopover({ kennels, selectedKennels, onToggle }: Kenn
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start">
+      <PopoverContent className="w-80 max-w-[calc(100vw-2rem)] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search kennels..." />
           <CommandList>
@@ -45,7 +45,7 @@ export function KennelFilterPopover({ kennels, selectedKennels, onToggle }: Kenn
               {kennels.map((kennel) => (
                 <CommandItem
                   key={kennel.id}
-                  value={`${kennel.shortName} ${kennel.fullName} ${kennel.regionName}`}
+                  value={`${kennel.shortName} ${kennel.fullName} ${kennel.regionName ?? kennel.region ?? ""}`}
                   onSelect={() => { onToggle(kennel.id); }}
                 >
                   <span
