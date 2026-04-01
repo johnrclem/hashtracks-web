@@ -5,14 +5,14 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { SearchX } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { KennelCard, type KennelCardData } from "@/components/kennels/KennelCard";
-import { KennelFilters, DAY_FULL } from "@/components/kennels/KennelFilters";
+import { FilterBar } from "@/components/shared/FilterBar";
+import { DAY_FULL } from "@/lib/days";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { getEventCoords, haversineDistance } from "@/lib/geo";
-import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
+import { groupRegionsByState, expandRegionSelections, regionAbbrev, resolveCountryName, regionDisplayName } from "@/lib/region";
 import { LocationPrompt } from "@/components/hareline/LocationPrompt";
 import { RegionQuickChips } from "@/components/hareline/RegionQuickChips";
 import { getLocationPref, resolveLocationDefault, clearLocationPref } from "@/lib/location-pref";
@@ -54,9 +54,6 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   const [showActiveOnly, setShowActiveOnlyState] = useState(
     searchParams.get("active") !== "false",
   );
-  const [selectedCountry, setSelectedCountryState] = useState(
-    searchParams.get("country") ?? "",
-  );
   const [nearMeDistance, setNearMeDistanceState] = useState<number | null>(() => {
     const distParam = searchParams.get("distance");
     if (distParam == null) return null;
@@ -83,7 +80,6 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         freq: selectedFrequency,
         upcoming: showUpcomingOnly,
         active: showActiveOnly,
-        country: selectedCountry,
         distance: nearMeDistance,
         sort,
         view: displayView,
@@ -119,7 +115,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
       window.history.replaceState(window.history.state, "", newUrl);
     },
-    [search, selectedRegions, selectedDays, selectedFrequency, showUpcomingOnly, showActiveOnly, selectedCountry, nearMeDistance, sort, displayView],
+    [search, selectedRegions, selectedDays, selectedFrequency, showUpcomingOnly, showActiveOnly, nearMeDistance, sort, displayView],
   );
 
   // Wrapper setters that sync URL
@@ -147,10 +143,6 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   function setShowActiveOnly(v: boolean) {
     setShowActiveOnlyState(v);
     syncUrl({ active: v });
-  }
-  function setSelectedCountry(v: string) {
-    setSelectedCountryState(v);
-    syncUrl({ country: v });
   }
   function setNearMeDistance(v: number | null) {
     setNearMeDistanceState(v);
@@ -187,10 +179,9 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
     setSelectedFrequencyState("");
     setShowUpcomingOnlyState(false);
     setShowActiveOnlyState(true);
-    setSelectedCountryState("");
     setNearMeDistanceState(null);
     setMapBounds(null);
-    syncUrl({ q: "", regions: [], days: [], freq: "", upcoming: false, active: null, country: "", distance: null });
+    syncUrl({ q: "", regions: [], days: [], freq: "", upcoming: false, active: null, distance: null });
   }
 
   // Compute distances for each kennel (when geolocation is available)
@@ -219,6 +210,9 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   // Filter pipeline
   const filtered = useMemo(() => {
     const query = search.toLowerCase();
+    const fullDaySet = selectedDays.length > 0
+      ? new Set(selectedDays.map((d) => DAY_FULL[d]))
+      : null;
     return kennels.filter((k) => {
       // Text search
       if (
@@ -237,9 +231,8 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         return false;
       }
       // Run day (match on scheduleDayOfWeek)
-      if (selectedDays.length > 0) {
-        const fullDays = selectedDays.map((d) => DAY_FULL[d]);
-        if (!k.scheduleDayOfWeek || !fullDays.includes(k.scheduleDayOfWeek)) {
+      if (fullDaySet) {
+        if (!k.scheduleDayOfWeek || !fullDaySet.has(k.scheduleDayOfWeek)) {
           return false;
         }
       }
@@ -256,10 +249,6 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         const status = getActivityStatus(k.lastEventDate ? new Date(k.lastEventDate) : null, !!k.nextEvent);
         if (status !== "active") return false;
       }
-      // Country
-      if (selectedCountry && k.country !== selectedCountry) {
-        return false;
-      }
       // Near me distance filter
       if (nearMeDistance != null && geoState.status === "granted") {
         const dist = kennelDistances.get(k.id);
@@ -274,7 +263,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       }
       return true;
     });
-  }, [kennels, search, selectedRegions, expandedRegions, selectedDays, selectedFrequency, showUpcomingOnly, showActiveOnly, selectedCountry, nearMeDistance, geoState, kennelDistances, mapBounds]);
+  }, [kennels, search, selectedRegions, expandedRegions, selectedDays, selectedFrequency, showUpcomingOnly, showActiveOnly, nearMeDistance, geoState, kennelDistances, mapBounds]);
 
   // Sort
   const sorted = useMemo(() => {
@@ -329,10 +318,21 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   const [prefApplied, setPrefApplied] = useState<{ region?: string } | null>(null);
 
   // On mount: apply stored location preference if no URL filters are present
+  // Also handle backwards compat for ?country= URL param
   const locationPrefApplied = useRef(false);
   useEffect(() => {
     if (locationPrefApplied.current) return;
     locationPrefApplied.current = true;
+
+    // Backwards compat: convert ?country=UK to region selection
+    const countryParam = searchParams.get("country");
+    if (countryParam) {
+      const countryName = resolveCountryName(countryParam);
+      if (countryName) {
+        setSelectedRegions([`country:${countryName}`]);
+        return;
+      }
+    }
 
     const pref = getLocationPref();
     const result = resolveLocationDefault(searchParams, pref);
@@ -350,7 +350,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
 
   // Determine if URL has any filter params (for LocationPrompt)
   const hasUrlFilters = useMemo(() => {
-    const filterParams = ["regions", "distance", "days", "q", "country", "freq", "upcoming"];
+    const filterParams = ["regions", "distance", "days", "q", "freq", "upcoming"];
     return filterParams.some((p) => searchParams.has(p));
   }, [searchParams]);
 
@@ -419,74 +419,65 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         label="kennels"
       />
 
-      {/* Search + sort row */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Input
-          placeholder="Search kennels..."
-          aria-label="Search kennels"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
-        />
-
-        <div className="flex items-center gap-2">
-          {displayView === "grid" && (
-            <ToggleGroup
-              type="single"
-              value={sort}
-              onValueChange={(v) => v && setSort(v as "alpha" | "active" | "nearest")}
-              variant="outline"
-              size="sm"
-            >
-              <ToggleGroupItem value="alpha">A–Z</ToggleGroupItem>
-              <ToggleGroupItem value="active">Recently Active</ToggleGroupItem>
-              {showNearestSort && (
-                <ToggleGroupItem value="nearest">Nearest</ToggleGroupItem>
-              )}
-            </ToggleGroup>
-          )}
-
-          <ToggleGroup
-            type="single"
-            value={displayView}
-            onValueChange={(v) => v && setDisplayView(v as "grid" | "map")}
-            variant="outline"
-            size="sm"
-          >
-            <ToggleGroupItem value="grid">Grid</ToggleGroupItem>
-            <ToggleGroupItem value="map">Map</ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <KennelFilters
-        kennels={kennels}
+      {/* Unified filter bar */}
+      <FilterBar
+        items={kennels}
+        search={search}
+        onSearchChange={setSearch}
         selectedRegions={selectedRegions}
         onRegionsChange={setSelectedRegions}
         selectedDays={selectedDays}
         onDaysChange={setSelectedDays}
+        nearMeDistance={nearMeDistance}
+        onNearMeDistanceChange={setNearMeDistance}
+        geoState={geoState}
+        onRequestLocation={requestLocation}
         selectedFrequency={selectedFrequency}
         onFrequencyChange={setSelectedFrequency}
         showUpcomingOnly={showUpcomingOnly}
         onUpcomingOnlyChange={setShowUpcomingOnly}
         showActiveOnly={showActiveOnly}
         onActiveOnlyChange={setShowActiveOnly}
-        selectedCountry={selectedCountry}
-        onCountryChange={setSelectedCountry}
-        nearMeDistance={nearMeDistance}
-        onNearMeDistanceChange={setNearMeDistance}
-        geoState={geoState}
-        onRequestLocation={requestLocation}
+        onClearAll={clearAllFilters}
+        searchPlaceholder="Search kennels..."
       />
 
-      {/* Dynamic scoping header when a single region is selected */}
-      {selectedRegions.length === 1 && (() => {
-        const displayRegion = selectedRegions[0].startsWith("state:")
-          ? selectedRegions[0].slice(6)
-          : selectedRegions[0];
-        return <h2 className="text-lg font-semibold">Kennels in {displayRegion}</h2>;
-      })()}
+      {/* Sort + view toggles */}
+      <div className="flex items-center gap-2">
+        {displayView === "grid" && (
+          <ToggleGroup
+            type="single"
+            value={sort}
+            onValueChange={(v) => v && setSort(v as "alpha" | "active" | "nearest")}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="alpha">A-Z</ToggleGroupItem>
+            <ToggleGroupItem value="active">Recently Active</ToggleGroupItem>
+            {showNearestSort && (
+              <ToggleGroupItem value="nearest">Nearest</ToggleGroupItem>
+            )}
+          </ToggleGroup>
+        )}
+
+        <ToggleGroup
+          type="single"
+          value={displayView}
+          onValueChange={(v) => v && setDisplayView(v as "grid" | "map")}
+          variant="outline"
+          size="sm"
+        >
+          <ToggleGroupItem value="grid">Grid</ToggleGroupItem>
+          <ToggleGroupItem value="map">Map</ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      {/* Dynamic scoping header + cross-link when a single region is selected */}
+      {selectedRegions.length === 1 && (
+        <>
+          <h2 className="text-lg font-semibold">Kennels in {regionDisplayName(selectedRegions[0])}</h2>
+        </>
+      )}
 
       {/* Results count */}
       <p className="text-sm text-muted-foreground">
@@ -505,20 +496,14 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
         )}
       </p>
 
-      {/* Cross-link to hareline when a single region is selected */}
-      {selectedRegions.length === 1 && (() => {
-        const displayRegion = selectedRegions[0].startsWith("state:")
-          ? selectedRegions[0].slice(6)
-          : selectedRegions[0];
-        return (
-          <Link
-            href={`/hareline?regions=${encodeURIComponent(selectedRegions[0])}`}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            View upcoming events in {displayRegion} &rarr;
-          </Link>
-        );
-      })()}
+      {selectedRegions.length === 1 && (
+        <Link
+          href={`/hareline?regions=${encodeURIComponent(selectedRegions[0])}`}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          View upcoming events in {regionDisplayName(selectedRegions[0])} &rarr;
+        </Link>
+      )}
 
       {/* Map or Grid */}
       {displayView === "map" ? (

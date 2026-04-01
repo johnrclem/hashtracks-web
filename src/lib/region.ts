@@ -2192,14 +2192,22 @@ export function groupRegionsByState(regions: string[]): Map<string, string[]> {
   return map;
 }
 
-/** Expand state-level selections (prefixed "state:") to metro region names. */
+/** Expand state-level and country-level selections to metro region names. */
 export function expandRegionSelections(
   selectedRegions: string[],
   regionsByState: Map<string, string[]>,
 ): Set<string> {
   const expanded = new Set<string>();
   for (const r of selectedRegions) {
-    if (r.startsWith("state:")) {
+    if (r.startsWith("country:")) {
+      const countryName = r.slice(8);
+      // Expand to all metros in all states belonging to this country
+      for (const [state, metros] of regionsByState) {
+        if (getCountryGroup(state) === countryName) {
+          for (const m of metros) expanded.add(m);
+        }
+      }
+    } else if (r.startsWith("state:")) {
       const metros = regionsByState.get(r.slice(6)) ?? [];
       for (const m of metros) expanded.add(m);
     } else {
@@ -2207,4 +2215,99 @@ export function expandRegionSelections(
     }
   }
   return expanded;
+}
+
+/** Strip "state:" or "country:" prefix from a region selection key for display. */
+export function regionDisplayName(regionKey: string): string {
+  if (regionKey.startsWith("state:")) return regionKey.slice(6);
+  if (regionKey.startsWith("country:")) return regionKey.slice(8);
+  return regionKey;
+}
+
+// ── Country group mapping (state group → country for 3-level region hierarchy) ──
+
+const COUNTRY_GROUP_MAP: Record<string, string> = {
+  // US states
+  "D.C. Metro": "United States",
+  "New York": "United States",
+  "New Jersey": "United States",
+  "Pennsylvania": "United States",
+  "Delaware": "United States",
+  "Massachusetts": "United States",
+  "Vermont": "United States",
+  "Connecticut": "United States",
+  "Rhode Island": "United States",
+  "Maine": "United States",
+  "Virginia": "United States",
+  "Georgia": "United States",
+  "North Carolina": "United States",
+  "South Carolina": "United States",
+  "Florida": "United States",
+  "Texas": "United States",
+  "Illinois + NW Indiana": "United States",
+  "California": "United States",
+  "Ohio": "United States",
+  "Washington": "United States",
+  "Oregon": "United States",
+  "Colorado": "United States",
+  "Minnesota": "United States",
+  "Michigan": "United States",
+  "Arizona": "United States",
+  "Hawaii": "United States",
+  "Louisiana": "United States",
+  "Tennessee": "United States",
+  // International (state group name = country name)
+  "United Kingdom": "United Kingdom",
+  "Scotland": "United Kingdom",
+  "Ireland": "Ireland",
+  "Germany": "Germany",
+  "Japan": "Japan",
+  "Belgium": "Belgium",
+  "Netherlands": "Netherlands",
+  "Denmark": "Denmark",
+  "Sweden": "Sweden",
+  "Norway": "Norway",
+};
+
+/** Get the country for a state group name (for 3-level region hierarchy). */
+export function getCountryGroup(stateGroup: string): string {
+  return COUNTRY_GROUP_MAP[stateGroup] ?? "United States";
+}
+
+/** Group metro region names into a 3-level hierarchy: country → state → metros. */
+export function groupRegionsByCountry(
+  regions: string[],
+): Map<string, Map<string, string[]>> {
+  const byState = groupRegionsByState(regions);
+  const result = new Map<string, Map<string, string[]>>();
+  for (const [state, metros] of byState) {
+    const country = getCountryGroup(state);
+    let stateMap = result.get(country);
+    if (!stateMap) {
+      stateMap = new Map<string, string[]>();
+      result.set(country, stateMap);
+    }
+    stateMap.set(state, metros);
+  }
+  return result;
+}
+
+/** Map country short codes (from URL params) to full country names. */
+const COUNTRY_CODE_TO_NAME: Record<string, string> = {
+  USA: "United States",
+  US: "United States",
+  UK: "United Kingdom",
+  IE: "Ireland",
+  Germany: "Germany",
+  Japan: "Japan",
+  Belgium: "Belgium",
+  Netherlands: "Netherlands",
+  Denmark: "Denmark",
+  Sweden: "Sweden",
+  Norway: "Norway",
+};
+
+/** Convert a country code or name to the canonical country name used in region selections. */
+export function resolveCountryName(codeOrName: string): string | null {
+  return COUNTRY_CODE_TO_NAME[codeOrName] ?? COUNTRY_CODE_TO_NAME[codeOrName.toUpperCase()] ?? null;
 }

@@ -20,7 +20,8 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { EventCard, type HarelineEvent } from "./EventCard";
 import { getDayOfWeek, formatDateLong, parseList } from "@/lib/format";
-import { EventFilters } from "./EventFilters";
+import { FilterBar } from "@/components/shared/FilterBar";
+import { resolveCountryName } from "@/lib/region";
 import { EmptyState } from "./EmptyState";
 import { RegionQuickChips } from "./RegionQuickChips";
 import { CalendarView } from "./CalendarView";
@@ -88,7 +89,6 @@ interface FilterCriteria {
   expandedRegions: Set<string>;
   selectedKennels: string[];
   selectedDays: string[];
-  selectedCountry: string;
   searchText: string;
   todayUtc: number;
   nearMeDistance: number | null;
@@ -133,7 +133,6 @@ function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
   if (f.selectedRegions.length > 0 && !f.expandedRegions.has(event.kennel?.region ?? "")) return false;
   if (f.selectedKennels.length > 0 && !f.selectedKennels.includes(event.kennel?.id ?? "")) return false;
   if (f.selectedDays.length > 0 && !f.selectedDays.includes(getDayOfWeek(event.date))) return false;
-  if (f.selectedCountry && event.kennel?.country !== f.selectedCountry) return false;
   if (f.searchText && !matchesSearchText(event, f.searchText)) return false;
 
   // Near-me distance filter — only applies when geolocation is granted
@@ -227,9 +226,6 @@ export function HarelineView({
   const [selectedDays, setSelectedDaysState] = useState<string[]>(
     parseList(searchParams.get("days")),
   );
-  const [selectedCountry, setSelectedCountryState] = useState<string>(
-    searchParams.get("country") ?? "",
-  );
   const [searchText, setSearchTextState] = useState<string>(
     searchParams.get("q") ?? "",
   );
@@ -287,7 +283,6 @@ export function HarelineView({
         regions: selectedRegions,
         kennels: selectedKennels,
         days: selectedDays,
-        country: selectedCountry,
         q: searchText,
         dist: nearMeDistance != null ? String(nearMeDistance) : "",
         ...overrides,
@@ -301,7 +296,6 @@ export function HarelineView({
           (key === "view" && str === "list") ||
           (key === "density" && str === "medium") ||
           (key === "scope" && str === defaultScope) ||
-          (key === "country" && str === "") ||
           str === "";
         if (!isDefault) {
           params.set(key, str);
@@ -312,7 +306,7 @@ export function HarelineView({
       const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
       window.history.replaceState(window.history.state, "", newUrl);
     },
-    [timeFilter, view, density, scope, selectedRegions, selectedKennels, selectedDays, selectedCountry, searchText, nearMeDistance, defaultScope],
+    [timeFilter, view, density, scope, selectedRegions, selectedKennels, selectedDays, searchText, nearMeDistance, defaultScope],
   );
 
   // Wrapper setters that sync to URL
@@ -362,11 +356,6 @@ export function HarelineView({
     resetListState();
     syncUrl({ days: v });
   }
-  function setSelectedCountry(v: string) {
-    setSelectedCountryState(v);
-    resetListState();
-    syncUrl({ country: v });
-  }
   function setNearMeDistance(v: number | null) {
     setNearMeDistanceState(v);
     resetListState();
@@ -412,12 +401,12 @@ export function HarelineView({
     return events.filter((event) => {
       return passesAllFilters(event, {
         timeFilter: "all", scope, subscribedKennelIds,
-        selectedRegions, expandedRegions, selectedKennels, selectedDays, selectedCountry, searchText,
+        selectedRegions, expandedRegions, selectedKennels, selectedDays, searchText,
         todayUtc: filterContext.todayUtc, nearMeDistance,
         userLat: filterContext.userLat, userLng: filterContext.userLng,
       });
     });
-  }, [events, scope, subscribedKennelIds, selectedRegions, expandedRegions, selectedKennels, selectedDays, selectedCountry, searchText, nearMeDistance, filterContext]);
+  }, [events, scope, subscribedKennelIds, selectedRegions, expandedRegions, selectedKennels, selectedDays, searchText, nearMeDistance, filterContext]);
 
   // List/map events — derived from calendarEvents by applying time filter + optional map bounds
   const filteredEvents = useMemo(() => {
@@ -464,19 +453,15 @@ export function HarelineView({
   const hasMore = visibleCount < sortedEvents.length;
   const remaining = sortedEvents.length - visibleCount;
 
-  const activeFilterCount =
-    selectedRegions.length + selectedKennels.length + selectedDays.length + (selectedCountry ? 1 : 0) + (nearMeDistance == null ? 0 : 1) + (searchText ? 1 : 0) + (mapBounds ? 1 : 0);
-
   function clearAllFilters() {
     setSelectedRegionsState([]);
     setSelectedKennelsState([]);
     setSelectedDaysState([]);
-    setSelectedCountryState("");
     setNearMeDistanceState(null);
     setSearchTextState("");
     setMapBounds(null);
     resetListState();
-    syncUrl({ regions: [], kennels: [], days: [], country: "", dist: "", q: "" });
+    syncUrl({ regions: [], kennels: [], days: [], dist: "", q: "" });
   }
 
   // Handle region filter from map cluster click — does NOT clear prefApplied
@@ -495,10 +480,21 @@ export function HarelineView({
   const [prefApplied, setPrefApplied] = useState<{ region?: string } | null>(null);
 
   // On mount: apply stored location preference if no URL filters are present
+  // Also handle backwards compat for ?country= URL param
   const locationPrefApplied = useRef(false);
   useEffect(() => {
     if (locationPrefApplied.current) return;
     locationPrefApplied.current = true;
+
+    // Backwards compat: convert ?country=UK to region selection
+    const countryParam = searchParams.get("country");
+    if (countryParam) {
+      const countryName = resolveCountryName(countryParam);
+      if (countryName) {
+        setSelectedRegions([`country:${countryName}`]);
+        return;
+      }
+    }
 
     const pref = getLocationPref();
     const result = resolveLocationDefault(searchParams, pref);
@@ -526,6 +522,34 @@ export function HarelineView({
       if (e.kennel?.region) set.add(e.kennel.region);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [events]);
+
+  // Derive kennel options for FilterBar (filtered by selected regions)
+  const kennelOptions = useMemo(() => {
+    const kennelMap = new Map<string, { id: string; shortName: string; fullName: string; region: string }>();
+    for (const e of events) {
+      if (e.kennel && !kennelMap.has(e.kennel.id)) {
+        kennelMap.set(e.kennel.id, {
+          id: e.kennel.id,
+          shortName: e.kennel.shortName,
+          fullName: e.kennel.fullName,
+          region: e.kennel.region,
+        });
+      }
+    }
+    const all = Array.from(kennelMap.values());
+    if (selectedRegions.length > 0) {
+      return all.filter((k) => expandedRegions.has(k.region));
+    }
+    return all.sort((a, b) => a.shortName.localeCompare(b.shortName));
+  }, [events, selectedRegions, expandedRegions]);
+
+  // Build items array for FilterBar (derives available filter options)
+  const filterBarItems = useMemo(() => {
+    return events.map((e) => ({
+      id: e.id,
+      region: e.kennel?.region ?? "",
+    }));
   }, [events]);
 
   // Persist location preference when user manually changes Near Me or region filters
@@ -720,29 +744,52 @@ export function HarelineView({
         onRegionsChange={setSelectedRegions}
       />
 
-      {/* Filters */}
-      <EventFilters
-        events={events}
-        isAuthenticated={isAuthenticated}
-        hasSubscriptions={hasSubscriptions}
-        scope={scope}
-        onScopeChange={setScope}
+      {/* Scope toggle (My Kennels / All) */}
+      {isAuthenticated && hasSubscriptions && (
+        <fieldset className="flex rounded-md border w-fit" aria-label="Kennel scope">
+          <button
+            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+              scope === "my"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            } rounded-l-md`}
+            onClick={() => setScope("my")}
+            aria-pressed={scope === "my"}
+          >
+            My Kennels
+          </button>
+          <button
+            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+              scope === "all"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            } rounded-r-md`}
+            onClick={() => setScope("all")}
+            aria-pressed={scope === "all"}
+          >
+            All Kennels
+          </button>
+        </fieldset>
+      )}
+
+      {/* Unified filter bar */}
+      <FilterBar
+        items={filterBarItems}
+        search={searchText}
+        onSearchChange={setSearchText}
         selectedRegions={selectedRegions}
         onRegionsChange={setSelectedRegions}
-        selectedKennels={selectedKennels}
-        onKennelsChange={setSelectedKennels}
         selectedDays={selectedDays}
         onDaysChange={setSelectedDays}
-        selectedCountry={selectedCountry}
-        onCountryChange={setSelectedCountry}
         nearMeDistance={nearMeDistance}
         onNearMeDistanceChange={setNearMeDistance}
         geoState={geoState}
         onRequestLocation={requestLocation}
-        searchText={searchText}
-        onSearchChange={setSearchText}
-        activeFilterCount={activeFilterCount}
+        selectedKennels={selectedKennels}
+        onKennelsChange={setSelectedKennels}
+        kennelOptions={kennelOptions}
         onClearAll={clearAllFilters}
+        searchPlaceholder="Search events..."
       />
 
       {/* Dynamic scoping header when a single region is selected */}
