@@ -98,6 +98,31 @@ export function friendlyKennelName(shortName: string, fullName: string | null): 
   return hadHHH ? `${friendly} H3` : friendly;
 }
 
+/** Cache of kennelCode → compiled Trail pattern for rewriteStaleDefaultTitle. */
+const staleTrailPatternCache = new Map<string, RegExp>();
+
+/**
+ * Rewrite stale default titles that use a raw kennelCode instead of the current
+ * display name. Returns the corrected title or the original if no rewrite needed.
+ */
+export function rewriteStaleDefaultTitle(
+  title: string,
+  kennelCode: string,
+  shortName: string,
+  fullName: string | null,
+): string {
+  const displayName = friendlyKennelName(shortName, fullName);
+  if (!displayName || displayName.toLowerCase() === kennelCode.toLowerCase()) return title;
+  let pattern = staleTrailPatternCache.get(kennelCode);
+  if (!pattern) {
+    const escaped = kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+    pattern = new RegExp(String.raw`^${escaped}(\s+Trail.*)`, "i");
+    staleTrailPatternCache.set(kennelCode, pattern);
+  }
+  const match = title.match(pattern);
+  return match ? `${displayName}${match[1]}` : title;
+}
+
 /** Compiled once — matches admin/meta content in event titles (split to keep regex complexity low). */
 const ADMIN_TITLE_PATTERNS = [
   /hares?\s+needed/i,
@@ -428,18 +453,22 @@ export function sanitizeTitle(title: string | undefined): string | null {
 }
 
 /** Abbreviation map for address normalization (used by deduplicateAddressPrefix). */
-const ADDR_ABBREVIATIONS: Record<string, string> = {
+/** Pre-compiled address abbreviation patterns (avoids RegExp allocation per call). */
+const ADDR_PATTERNS = Object.entries({
   north: "n", south: "s", east: "e", west: "w",
   road: "rd", street: "st", avenue: "ave",
   boulevard: "blvd", place: "pl", drive: "dr",
   lane: "ln", court: "ct", circle: "cir", highway: "hwy",
-};
+} as Record<string, string>).map(([word, abbr]) => ({
+  pattern: new RegExp(`\\b${word}\\b`, "gi"),
+  abbr,
+}));
 
-/** Normalize an address segment for comparison: lowercase + expand common abbreviations. */
+/** Normalize an address segment for comparison: lowercase + apply abbreviations. */
 function normalizeAddr(s: string): string {
   let normalized = s.toLowerCase();
-  for (const [word, abbr] of Object.entries(ADDR_ABBREVIATIONS)) {
-    normalized = normalized.replaceAll(new RegExp(`\\b${word}\\b`, "g"), abbr);
+  for (const { pattern, abbr } of ADDR_PATTERNS) {
+    normalized = normalized.replace(pattern, abbr);
   }
   return normalized.replaceAll(/[.\s]+/g, " ").trim();
 }
@@ -712,7 +741,10 @@ async function upsertCanonicalEvent(
         data: {
           ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
           runNumber: event.runNumber ?? existingEvent.runNumber,
-          title: sanitizeTitle(event.title) ?? existingEvent.title,
+          title: (() => {
+            const nextTitle = sanitizeTitle(event.title) ?? existingEvent.title;
+            return nextTitle ? rewriteStaleDefaultTitle(nextTitle, kennelData.kennelCode, kennelData.shortName, kennelData.fullName) : nextTitle;
+          })(),
           // Preserve existing fields when source doesn't provide them (undefined)
           ...(event.description !== undefined
             ? { description: event.description ?? null }
@@ -896,15 +928,7 @@ async function processNewRawEvent(
       ? `${displayName} Trail #${event.runNumber}`
       : `${displayName} Trail`;
   } else {
-    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName);
-    if (displayName && kennelData.kennelCode && displayName.toLowerCase() !== kennelData.kennelCode.toLowerCase()) {
-      const escaped = kennelData.kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-      const codePattern = new RegExp(String.raw`^${escaped}(\s+Trail.*)`, "i");
-      const match = sanitized.match(codePattern);
-      if (match) {
-        event.title = `${displayName}${match[1]}`;
-      }
-    }
+    event.title = rewriteStaleDefaultTitle(sanitized, kennelData.kennelCode, kennelData.shortName, kennelData.fullName);
   }
 
   const targetEventId = await upsertCanonicalEvent(event, kennelId, rawEvent.id, ctx);
