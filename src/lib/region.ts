@@ -1799,6 +1799,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -87.91,
     aliases: ["Milwaukee"],
   },
+  // ── New Mexico ──
+  {
+    name: "New Mexico",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Denver",
+    abbrev: "NM",
+    colorClasses: "bg-amber-100 text-amber-700",
+    pinColor: "#d97706",
+    centroidLat: 34.52,
+    centroidLng: -105.87,
+    aliases: ["NM"],
+  },
+  {
+    name: "Albuquerque, NM",
+    country: "USA",
+    timezone: "America/Denver",
+    abbrev: "ABQ",
+    colorClasses: "bg-amber-100 text-amber-700",
+    pinColor: "#f59e0b",
+    centroidLat: 35.08,
+    centroidLng: -106.65,
+    aliases: ["Albuquerque"],
+  },
   // ── Canada ──
   {
     name: "Canada",
@@ -2385,6 +2409,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Wisconsin
   "Madison, WI": "Wisconsin",
   "Milwaukee, WI": "Wisconsin",
+  // New Mexico
+  "Albuquerque, NM": "New Mexico",
   // Canada
   "Montreal, QC": "Quebec",
   "Ottawa, ON": "Ontario",

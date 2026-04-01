@@ -2569,5 +2569,16 @@ export const KENNELS: KennelSeed[] = [
       description: "Oslo's weekly Monday evening hash. Run #1992+.",
       latitude: 59.91, longitude: 10.75,
     },
+
+    // ── New Mexico: Albuquerque ──
+    {
+      kennelCode: "abqh3", shortName: "ABQ H3", fullName: "Albuquerque Hash House Harriers", region: "Albuquerque, NM",
+      website: "https://www.abqh3.com",
+      facebookUrl: "https://www.facebook.com/groups/abqhhh",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Saturday in summer, biweekly in winter",
+      description: "Albuquerque's hash kennel. Trail #1144+.",
+      latitude: 35.08, longitude: -106.65,
+    },
   ];
 
