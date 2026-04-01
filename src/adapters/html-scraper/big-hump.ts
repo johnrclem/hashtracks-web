@@ -1,19 +1,25 @@
 /**
- * Big Hump Hash House Harriers (BH4) Hareline Scraper — St. Louis, MO
+ * Big Hump Hash House Harriers (BH4) Scraper — St. Louis, MO
  *
- * Scrapes big-hump.com/hareline.php — a PHP site using W3.CSS framework.
+ * Scrapes big-hump.com for hash events from two pages:
  *
- * Each event is a w3-card with:
- *   - Header: `<header class="w3-container w3-green"><h3>Wednesday 04/01/2026
- *     <span class="w3-text-amber">#1991</span></h3></header>`
- *   - Body h4: "Locknut Monster's April Fools' Trail @ Lemay"
- *   - Body span.w3-small: description text with circle-up time, address, hare info
+ * 1. **Hareline** (`hareline.php`) — future events with W3.CSS cards:
+ *    - Header: `<header class="w3-container w3-green"><h3>Wednesday 04/01/2026
+ *      <span class="w3-text-amber">#1991</span></h3></header>`
+ *    - Body h4: "Locknut Monster's April Fools' Trail @ Lemay"
+ *    - Body span.w3-small: description text with circle-up time, address, hare info
+ *
+ * 2. **Past Hashes** (`hashresults.php?year=YYYY`) — historical events with
+ *    attendance lists, hare tagging, and detail page links. Enabled via
+ *    `source.config.includeHistory`.
  *
  * Date is MM/DD/YYYY in the header h3.
  * Run number is #NNNN in span.w3-text-amber or span.w3-text-red.
  * Title h4 text is split on last " @ " for hare(s)/location.
  */
 
+import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
@@ -22,7 +28,14 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage } from "../utils";
+import { fetchHTMLPage, buildDateWindow } from "../utils";
+
+/** Config stored in source.config JSON */
+interface BigHumpConfig {
+  includeHistory?: boolean;
+  /** Override year range for full backfill; default: computed from date window */
+  historyYearRange?: [number, number];
+}
 
 /**
  * Parse date and run number from a header h3 text.
@@ -126,94 +139,317 @@ function parseHaresFromDescription(text: string): string | undefined {
   return name || undefined;
 }
 
+// ─── History page parsing ───────────────────────────────────────────────────
+
 /**
- * Big Hump H3 Hareline Scraper
+ * Extract hare names from a history card's attendance `<ul>`.
  *
- * Scrapes big-hump.com/hareline.php for upcoming events. Each event is a
- * w3-card with date, run number, hare @ location title, and description.
+ * Hares are marked with `<strong> (<i class='fa fa-carrot'> hare</i>)</strong>`
+ * after their `<a>` name link.
+ */
+export function parseAttendanceHares(
+  $card: cheerio.Cheerio<AnyNode>,
+  $: cheerio.CheerioAPI,
+): { hares: string[]; attendeeCount: number } {
+  const hares: string[] = [];
+  let attendeeCount = 0;
+
+  const $ul = $card.find("ul");
+  if (!$ul.length) return { hares, attendeeCount };
+
+  $ul.find("li").each((_, li) => {
+    attendeeCount++;
+    const $li = $(li);
+    // Check for hare marker: <strong> containing "hare" text or <i class="fa-carrot">
+    const hasHareMarker =
+      $li.find("i.fa-carrot").length > 0 ||
+      $li.find("strong").text().includes("hare");
+    if (hasHareMarker) {
+      const name = $li.find("a").first().text().trim();
+      if (name) hares.push(name);
+    }
+  });
+
+  return { hares, attendeeCount };
+}
+
+/**
+ * Parse a single history card (div.w3-card) from hashresults.php.
+ *
+ * Reuses parseEventHeader and parseEventTitle, plus extracts hares from
+ * the attendance list and builds a sourceUrl from the detail page link.
+ */
+export function parseHistoryCard(
+  $card: cheerio.Cheerio<AnyNode>,
+  $: cheerio.CheerioAPI,
+  baseUrl: string,
+): RawEventData | null {
+  const header = $card.find("header h3");
+  if (!header.length) return null;
+
+  const { date, runNumber } = parseEventHeader(header.text().trim());
+  if (!date) return null;
+
+  // Find the title h4 in the content column (skip "Attendance:" h4 in sidebar)
+  const contentH4 = $card.find("div.w3-col.m7 h4, div.w3-col.l7 h4").first();
+  const titleText = contentH4.length
+    ? contentH4.text().trim()
+    : $card.find("h4").first().text().trim();
+  if (!titleText || titleText === "Attendance:") return null;
+
+  const { title, hares: titleHares, location } = parseEventTitle(titleText);
+
+  // Extract hares from attendance list (more authoritative than title)
+  const { hares: attendanceHares, attendeeCount } = parseAttendanceHares($card, $);
+
+  // Build sourceUrl from detail page link
+  const detailLink = $card.find("a[href*='runinfo.php']").attr("href");
+  const sourceUrl = detailLink
+    ? `${baseUrl}/${detailLink.replace(/^\//, "")}`
+    : `${baseUrl}/hashresults.php`;
+
+  // Attendance hares override title hares when available
+  const hares = attendanceHares.length > 0
+    ? attendanceHares.join(", ")
+    : titleHares;
+
+  const event: RawEventData = {
+    date,
+    kennelTag: "bh4",
+    runNumber,
+    title,
+    hares,
+    location,
+    sourceUrl,
+  };
+
+  if (attendeeCount > 0) {
+    event.description = `Attendance: ${attendeeCount} hashers`;
+  }
+
+  return event;
+}
+
+/**
+ * Parse all event cards from a history page HTML string.
+ */
+export function parseHistoryPage(
+  html: string,
+  baseUrl: string,
+): RawEventData[] {
+  const $ = cheerio.load(html);
+  const events: RawEventData[] = [];
+
+  $("div.w3-card").each((_, el) => {
+    const event = parseHistoryCard($(el), $, baseUrl);
+    if (event) events.push(event);
+  });
+
+  return events;
+}
+
+/**
+ * Fetch multiple year pages sequentially with rate limiting.
+ * Returns aggregated events and errors.
+ */
+async function fetchHistoryYears(
+  baseUrl: string,
+  years: number[],
+): Promise<{
+  events: RawEventData[];
+  errors: string[];
+  fetchErrors: NonNullable<ErrorDetails["fetch"]>;
+}> {
+  const events: RawEventData[] = [];
+  const errors: string[] = [];
+  const fetchErrors: NonNullable<ErrorDetails["fetch"]> = [];
+
+  for (let i = 0; i < years.length; i++) {
+    const year = years[i];
+    const url = `${baseUrl}/hashresults.php?year=${year}`;
+
+    // Rate limit: 300ms delay between requests (skip first)
+    if (i > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    const page = await fetchHTMLPage(url);
+    if (page.ok) {
+      const yearEvents = parseHistoryPage(page.html, baseUrl);
+      events.push(...yearEvents);
+    } else {
+      errors.push(`Failed to fetch year ${year}: ${page.result.errors.join(", ")}`);
+      if (page.result.errorDetails?.fetch) {
+        fetchErrors.push(...page.result.errorDetails.fetch);
+      }
+    }
+  }
+
+  return { events, errors, fetchErrors };
+}
+
+/**
+ * Compute which years overlap with the date window.
+ * Returns array of years to fetch, e.g. [2025, 2026].
+ */
+function computeYearsInWindow(
+  minDate: Date,
+  maxDate: Date,
+  config: BigHumpConfig,
+): number[] {
+  if (config.historyYearRange) {
+    const [startYear, endYear] = config.historyYearRange;
+    const years: number[] = [];
+    for (let y = startYear; y <= endYear; y++) years.push(y);
+    return years;
+  }
+
+  const startYear = Math.max(1999, minDate.getFullYear());
+  const endYear = Math.min(new Date().getFullYear(), maxDate.getFullYear());
+  const years: number[] = [];
+  for (let y = startYear; y <= endYear; y++) years.push(y);
+  return years;
+}
+
+/**
+ * Big Hump H3 Scraper
+ *
+ * Scrapes big-hump.com/hareline.php for upcoming events, and optionally
+ * big-hump.com/hashresults.php?year=YYYY for historical events when
+ * source.config.includeHistory is true.
  */
 export class BigHumpAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
+    const config = (source.config as BigHumpConfig | null) ?? {};
     const harelineUrl =
       source.url || "http://www.big-hump.com/hareline.php";
+    const baseUrl = new URL(harelineUrl).origin;
 
-    const page = await fetchHTMLPage(harelineUrl);
-    if (!page.ok) return page.result;
+    const { minDate, maxDate } = buildDateWindow(options?.days);
+    const isInWindow = (e: RawEventData) => {
+      const eventDate = new Date(e.date + "T12:00:00Z");
+      return eventDate >= minDate && eventDate <= maxDate;
+    };
 
-    const { $, structureHash, fetchDurationMs } = page;
-
-    const events: RawEventData[] = [];
-    const errors: string[] = [];
+    const allErrors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
-    // Each event is a w3-card div containing header + body
-    const cards = $("div.w3-card");
+    // ── Step 1: Fetch hareline (always) ──
+    const page = await fetchHTMLPage(harelineUrl);
 
-    cards.each((i, el) => {
-      try {
-        const $card = $(el);
-        const header = $card.find("header h3");
-        if (!header.length) return;
+    const harelineEvents: RawEventData[] = [];
+    let structureHash: string | undefined;
+    let fetchDurationMs: number | undefined;
 
-        // Parse date + run number from header
-        const headerText = header.text().trim();
-        const { date, runNumber } = parseEventHeader(headerText);
-        if (!date) return;
+    if (page.ok) {
+      structureHash = page.structureHash;
+      fetchDurationMs = page.fetchDurationMs;
+      const { $ } = page;
 
-        // Parse title (h4 inside the card body)
-        const h4 = $card.find("h4").first();
-        const h4Text = h4.text().trim();
-        if (!h4Text) return;
+      $("div.w3-card").each((i, el) => {
+        try {
+          const $card = $(el);
+          const header = $card.find("header h3");
+          if (!header.length) return;
 
-        const { title, hares: titleHares, location: titleLocation } =
-          parseEventTitle(h4Text);
+          const headerText = header.text().trim();
+          const { date, runNumber } = parseEventHeader(headerText);
+          if (!date) return;
 
-        // Parse description from span.w3-small
-        const descSpan = $card.find("span.w3-small");
-        const descText = descSpan.text().trim();
+          const h4 = $card.find("h4").first();
+          const h4Text = h4.text().trim();
+          if (!h4Text) return;
 
-        // Extract time, location, and hares from description (overrides title-based values)
-        const descTime = parseTimeFromDescription(descText);
-        const descLocation = parseLocationFromDescription(descText);
-        const descHares = parseHaresFromDescription(descText);
+          const { title, hares: titleHares, location: titleLocation } =
+            parseEventTitle(h4Text);
 
-        const event: RawEventData = {
-          date,
-          kennelTag: "bh4",
-          runNumber,
-          title,
-          hares: descHares || titleHares,
-          location: descLocation || titleLocation,
-          startTime: descTime,
-          sourceUrl: harelineUrl,
-          description: descText || undefined,
-        };
+          const descSpan = $card.find("span.w3-small");
+          const descText = descSpan.text().trim();
 
-        events.push(event);
-      } catch (err) {
-        errors.push(`Error parsing card ${i}: ${err}`);
-        (errorDetails.parse ??= []).push({
-          row: i,
-          error: String(err),
-        });
+          const descTime = parseTimeFromDescription(descText);
+          const descLocation = parseLocationFromDescription(descText);
+          const descHares = parseHaresFromDescription(descText);
+
+          harelineEvents.push({
+            date,
+            kennelTag: "bh4",
+            runNumber,
+            title,
+            hares: descHares || titleHares,
+            location: descLocation || titleLocation,
+            startTime: descTime,
+            sourceUrl: harelineUrl,
+            description: descText || undefined,
+          });
+        } catch (err) {
+          allErrors.push(`Error parsing hareline card ${i}: ${err}`);
+          (errorDetails.parse ??= []).push({
+            row: i,
+            error: String(err),
+          });
+        }
+      });
+    } else {
+      allErrors.push(...page.result.errors);
+      if (page.result.errorDetails?.fetch) {
+        errorDetails.fetch = [...(errorDetails.fetch ?? []), ...page.result.errorDetails.fetch];
       }
-    });
+    }
+
+    // ── Step 2: Fetch history (when enabled) ──
+    let historyEvents: RawEventData[] = [];
+    let historyYearsFetched = 0;
+
+    if (config.includeHistory) {
+      const years = computeYearsInWindow(minDate, maxDate, config);
+      historyYearsFetched = years.length;
+
+      if (years.length > 0) {
+        const historyResult = await fetchHistoryYears(baseUrl, years);
+        historyEvents = historyResult.events;
+
+        if (historyResult.errors.length > 0) {
+          allErrors.push(...historyResult.errors);
+        }
+        if (historyResult.fetchErrors.length > 0) {
+          errorDetails.fetch = [...(errorDetails.fetch ?? []), ...historyResult.fetchErrors];
+        }
+      }
+    }
+
+    // ── Step 3: Combine and dedup (hareline wins) ──
+    const harelineKeys = new Set(
+      harelineEvents.map((e) => `${e.date}|${e.runNumber ?? ""}`),
+    );
+    const dedupedHistory = historyEvents.filter(
+      (e) => !harelineKeys.has(`${e.date}|${e.runNumber ?? ""}`),
+    );
+    const historyDeduped = historyEvents.length - dedupedHistory.length;
+
+    const allEvents = [...harelineEvents, ...dedupedHistory];
+
+    // ── Step 4: Filter by date window ──
+    const filteredEvents = allEvents.filter(isInWindow);
 
     const hasErrors = hasAnyErrors(errorDetails);
 
     return {
-      events,
-      errors,
+      events: filteredEvents,
+      errors: allErrors,
       structureHash,
       errorDetails: hasErrors ? errorDetails : undefined,
       diagnosticContext: {
-        cardsFound: cards.length,
-        eventsParsed: events.length,
+        harelineEventsParsed: harelineEvents.length,
+        historyEventsParsed: historyEvents.length,
+        historyYearsFetched,
+        historyDeduped,
+        eventsAfterWindow: filteredEvents.length,
+        includeHistory: !!config.includeHistory,
         fetchDurationMs,
       },
     };

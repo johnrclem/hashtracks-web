@@ -2,8 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   parseEventHeader,
   parseEventTitle,
+  parseAttendanceHares,
+  parseHistoryCard,
+  parseHistoryPage,
   BigHumpAdapter,
 } from "./big-hump";
+import * as cheerio from "cheerio";
 import * as utils from "../utils";
 
 vi.mock("../utils", async () => {
@@ -83,77 +87,410 @@ describe("parseEventTitle", () => {
   });
 });
 
-describe("BigHumpAdapter", () => {
-  const adapter = new BigHumpAdapter();
-  const mockSource = {
-    id: "test-bh4",
-    url: "http://www.big-hump.com/hareline.php",
-  } as never;
+// ─── History page parsing ───────────────────────────────────────────────────
 
-  beforeEach(() => {
-    vi.resetAllMocks();
+describe("parseAttendanceHares", () => {
+  it("extracts hares marked with fa-carrot icon", () => {
+    const html = `
+      <div class="w3-card">
+        <ul>
+          <h4>Attendance:</h4>
+          <form><li><a>Dabadoo</a></li></form>
+          <form><li><a>Lock Nut Monster</a><strong> (<i class='fa fa-carrot'> hare</i>)</strong> </li></form>
+          <form><li><a>Whiney Bitch</a><strong> (<i class='fa fa-carrot'> hare</i>)</strong> </li></form>
+          <form><li><a>Numb Buns</a></li></form>
+        </ul>
+      </div>
+    `;
+    const $ = cheerio.load(html);
+    const $card = $("div.w3-card");
+    const result = parseAttendanceHares($card, $);
+
+    expect(result.hares).toEqual(["Lock Nut Monster", "Whiney Bitch"]);
+    expect(result.attendeeCount).toBe(4);
   });
 
-  it("parses events from hareline page", async () => {
+  it("handles visitors and alumni markers", () => {
+    const html = `
+      <div class="w3-card">
+        <ul>
+          <form><li><a>Dicksmith</a><span title='Visitor/Virgin'><strong> (V)</strong></span></li></form>
+          <form><li><a>Duzzy Cum</a><strong> (<i class='fa fa-carrot'> hare</i>)</strong> </li></form>
+          <form><li><a>Norman Bates</a></li></form>
+        </ul>
+      </div>
+    `;
+    const $ = cheerio.load(html);
+    const $card = $("div.w3-card");
+    const result = parseAttendanceHares($card, $);
+
+    expect(result.hares).toEqual(["Duzzy Cum"]);
+    expect(result.attendeeCount).toBe(3);
+  });
+
+  it("returns empty when no attendance list", () => {
+    const html = `<div class="w3-card"><h4>Some title</h4></div>`;
+    const $ = cheerio.load(html);
+    const $card = $("div.w3-card");
+    const result = parseAttendanceHares($card, $);
+
+    expect(result.hares).toEqual([]);
+    expect(result.attendeeCount).toBe(0);
+  });
+
+  it("handles multiple hares on same event", () => {
+    const html = `
+      <div class="w3-card">
+        <ul>
+          <form><li><a>KFC</a><strong> (<i class='fa fa-carrot'> hare</i>)</strong> </li></form>
+          <form><li><a>Numb Buns</a><strong> (<i class='fa fa-carrot'> hare</i>)</strong> </li></form>
+        </ul>
+      </div>
+    `;
+    const $ = cheerio.load(html);
+    const $card = $("div.w3-card");
+    const result = parseAttendanceHares($card, $);
+
+    expect(result.hares).toEqual(["KFC", "Numb Buns"]);
+    expect(result.attendeeCount).toBe(2);
+  });
+});
+
+describe("parseHistoryCard", () => {
+  it("parses a complete history card", () => {
+    const html = `
+      <div class='w3-card'>
+        <header class='w3-container w3-grey'>
+          <h3>Wednesday 03/25/2026 <span class='w3-text-amber'>#1989</span></h3>
+        </header>
+        <div class='w3-row'>
+          <div class='w3-col m1 l1'>
+            <a href='runinfo.php?num=1989'><img src='logos/Big-Humplogo.gif' /></a>
+          </div>
+          <div class='w3-col m7 l7'>
+            <h4>Whiney The Beer Bitch's Birthday/LockNut Got Laid  @ Ladue</h4>
+            <p class='w3-text-red'>Nobody has written the Hash Trash yet...</p>
+          </div>
+          <div class='w3-col w3-container m4 l4 w3-light-grey'>
+            <span class='w3-small'><ul style='list-style-type:none;'>
+              <h4 class='w3-text-indigo'>Attendance:</h4>
+              <form><li><a class='w3-text-black' href="hasherinfo.php?num=858">2 Fuck Canuck</a></li></form>
+              <form><li><a class='w3-text-black' href="hasherinfo.php?num=44">Lock Nut Monster</a><strong> (<i class='fa fa-carrot'> hare</i>)</strong> </li></form>
+              <form><li><a class='w3-text-black' href="hasherinfo.php?num=99">Whiney Bitch</a><strong> (<i class='fa fa-carrot'> hare</i>)</strong> </li></form>
+            </ul></span>
+          </div>
+        </div>
+      </div>
+    `;
+    const $ = cheerio.load(html);
+    const $card = $("div.w3-card");
+    const event = parseHistoryCard($card, $, "http://www.big-hump.com");
+
+    expect(event).not.toBeNull();
+    expect(event!.date).toBe("2026-03-25");
+    expect(event!.runNumber).toBe(1989);
+    expect(event!.kennelTag).toBe("bh4");
+    expect(event!.title).toContain("Whiney The Beer Bitch");
+    expect(event!.location).toBe("Ladue");
+    // Attendance hares override title hares
+    expect(event!.hares).toBe("Lock Nut Monster, Whiney Bitch");
+    expect(event!.sourceUrl).toBe("http://www.big-hump.com/runinfo.php?num=1989");
+    expect(event!.description).toBe("Attendance: 3 hashers");
+  });
+
+  it("falls back to title hares when no attendance list", () => {
+    const html = `
+      <div class='w3-card'>
+        <header class='w3-container w3-grey'>
+          <h3>Wednesday 03/17/1999 <span class='w3-text-amber'>#1</span></h3>
+        </header>
+        <div class='w3-row'>
+          <div class='w3-col m1 l1'>
+            <a href='runinfo.php?num=1'><img src='logos/Big-Humplogo.gif' /></a>
+          </div>
+          <div class='w3-col m7 l7'>
+            <h4>Whistle @ Forest Park</h4>
+          </div>
+        </div>
+      </div>
+    `;
+    const $ = cheerio.load(html);
+    const $card = $("div.w3-card");
+    const event = parseHistoryCard($card, $, "http://www.big-hump.com");
+
+    expect(event).not.toBeNull();
+    expect(event!.date).toBe("1999-03-17");
+    expect(event!.runNumber).toBe(1);
+    expect(event!.hares).toBe("Whistle");
+    expect(event!.location).toBe("Forest Park");
+    expect(event!.description).toBeUndefined();
+  });
+
+  it("handles Open @ ??? events", () => {
+    const html = `
+      <div class='w3-card'>
+        <header class='w3-container w3-grey'>
+          <h3>Friday 12/31/1999 <span class='w3-text-amber'>#49</span></h3>
+        </header>
+        <div class='w3-row'>
+          <div class='w3-col m1 l1'>
+            <a href='runinfo.php?num=49'><img /></a>
+          </div>
+          <div class='w3-col m7 l7'>
+            <h4>Open @ ???</h4>
+          </div>
+          <div class='w3-col m4 l4 w3-light-grey'>
+            <span class='w3-small'><ul>
+              <h4>Attendance:</h4>
+              <form><li><a>Dabadoo</a></li></form>
+              <form><li><a>Dicksmith</a></li></form>
+            </ul></span>
+          </div>
+        </div>
+      </div>
+    `;
+    const $ = cheerio.load(html);
+    const $card = $("div.w3-card");
+    const event = parseHistoryCard($card, $, "http://www.big-hump.com");
+
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Open");
+    expect(event!.location).toBeUndefined();
+    expect(event!.description).toBe("Attendance: 2 hashers");
+  });
+
+  it("returns null for cards without headers", () => {
+    const html = `<div class='w3-card'><p>No header here</p></div>`;
+    const $ = cheerio.load(html);
+    const $card = $("div.w3-card");
+    expect(parseHistoryCard($card, $, "http://www.big-hump.com")).toBeNull();
+  });
+});
+
+describe("parseHistoryPage", () => {
+  it("parses multiple cards from a full page", () => {
     const html = `
       <html><body>
-        <div class="w3-card">
-          <header class="w3-container w3-green">
-            <h3>Wednesday 04/01/2026 <span class="w3-text-amber">#1991</span></h3>
+        <div class='w3-card'>
+          <header class='w3-container w3-grey'>
+            <h3>Saturday 03/28/2026 <span class='w3-text-amber'>#1990</span></h3>
           </header>
-          <div class="w3-row">
-            <div class="w3-col w3-container m9 l10">
-              <h4>Locknut Monster's April Fools' Trail @ Lemay</h4>
-              <span class="w3-small">Circle up: 6:45 p.m., 3661 Reavis Barracks Rd, St Louis, MO 63125</span>
+          <div class='w3-row'>
+            <div class='w3-col m1 l1'>
+              <a href='runinfo.php?num=1990'><img /></a>
+            </div>
+            <div class='w3-col m7 l7'>
+              <h4>Whistle  @ Not the zoo but close</h4>
+            </div>
+            <div class='w3-col m4 l4 w3-light-grey'>
+              <span class='w3-small'><ul>
+                <h4>Attendance:</h4>
+                <form><li><a>Whistle While You Poop</a><strong> (<i class='fa fa-carrot'> hare</i>)</strong> </li></form>
+                <form><li><a>Dapper Sapper</a></li></form>
+              </ul></span>
             </div>
           </div>
         </div>
-        <div class="w3-card">
-          <header class="w3-container w3-green">
-            <h3>Wednesday 04/08/2026 <span class="w3-text-amber">#1992</span></h3>
+        <div class='w3-card'>
+          <header class='w3-container w3-grey'>
+            <h3>Wednesday 03/25/2026 <span class='w3-text-amber'>#1989</span></h3>
           </header>
-          <div class="w3-row">
-            <div class="w3-col w3-container m9 l10">
-              <h4>2FC @ ???</h4>
-              <span class="w3-small"></span>
+          <div class='w3-row'>
+            <div class='w3-col m1 l1'>
+              <a href='runinfo.php?num=1989'><img /></a>
+            </div>
+            <div class='w3-col m7 l7'>
+              <h4>Lock Nut Monster @ Ladue</h4>
+            </div>
+            <div class='w3-col m4 l4 w3-light-grey'>
+              <span class='w3-small'><ul>
+                <h4>Attendance:</h4>
+                <form><li><a>Lock Nut Monster</a><strong> (<i class='fa fa-carrot'> hare</i>)</strong> </li></form>
+              </ul></span>
             </div>
           </div>
         </div>
       </body></html>
     `;
 
-    vi.mocked(utils.fetchHTMLPage).mockResolvedValue({
+    const events = parseHistoryPage(html, "http://www.big-hump.com");
+
+    expect(events).toHaveLength(2);
+    expect(events[0].date).toBe("2026-03-28");
+    expect(events[0].runNumber).toBe(1990);
+    expect(events[0].hares).toBe("Whistle While You Poop");
+    expect(events[1].date).toBe("2026-03-25");
+    expect(events[1].runNumber).toBe(1989);
+    expect(events[1].hares).toBe("Lock Nut Monster");
+    expect(events[1].location).toBe("Ladue");
+  });
+});
+
+// ─── BigHumpAdapter integration tests ───────────────────────────────────────
+
+describe("BigHumpAdapter", () => {
+  const adapter = new BigHumpAdapter();
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  const harelineHtml = `
+    <html><body>
+      <div class="w3-card">
+        <header class="w3-container w3-green">
+          <h3>Wednesday 04/01/2026 <span class="w3-text-amber">#1991</span></h3>
+        </header>
+        <div class="w3-row">
+          <div class="w3-col w3-container m9 l10">
+            <h4>Locknut Monster's April Fools' Trail @ Lemay</h4>
+            <span class="w3-small">Circle up: 6:45 p.m., 3661 Reavis Barracks Rd, St Louis, MO 63125</span>
+          </div>
+        </div>
+      </div>
+      <div class="w3-card">
+        <header class="w3-container w3-green">
+          <h3>Wednesday 04/08/2026 <span class="w3-text-amber">#1992</span></h3>
+        </header>
+        <div class="w3-row">
+          <div class="w3-col w3-container m9 l10">
+            <h4>2FC @ ???</h4>
+            <span class="w3-small"></span>
+          </div>
+        </div>
+      </div>
+    </body></html>
+  `;
+
+  const historyHtml = `
+    <html><body>
+      <div class='w3-card'>
+        <header class='w3-container w3-grey'>
+          <h3>Wednesday 03/25/2026 <span class='w3-text-amber'>#1989</span></h3>
+        </header>
+        <div class='w3-row'>
+          <div class='w3-col m1 l1'>
+            <a href='runinfo.php?num=1989'><img /></a>
+          </div>
+          <div class='w3-col m7 l7'>
+            <h4>Lock Nut Monster @ Ladue</h4>
+          </div>
+          <div class='w3-col m4 l4 w3-light-grey'>
+            <span class='w3-small'><ul>
+              <h4>Attendance:</h4>
+              <form><li><a>Lock Nut Monster</a><strong> (<i class='fa fa-carrot'> hare</i>)</strong> </li></form>
+              <form><li><a>Whiney Bitch</a></li></form>
+            </ul></span>
+          </div>
+        </div>
+      </div>
+      <div class='w3-card'>
+        <header class='w3-container w3-grey'>
+          <h3>Wednesday 04/01/2026 <span class='w3-text-amber'>#1991</span></h3>
+        </header>
+        <div class='w3-row'>
+          <div class='w3-col m1 l1'>
+            <a href='runinfo.php?num=1991'><img /></a>
+          </div>
+          <div class='w3-col m7 l7'>
+            <h4>Locknut Monster @ Lemay</h4>
+          </div>
+          <div class='w3-col m4 l4 w3-light-grey'>
+            <span class='w3-small'><ul>
+              <h4>Attendance:</h4>
+              <form><li><a>Locknut Monster</a><strong> (<i class='fa fa-carrot'> hare</i>)</strong> </li></form>
+            </ul></span>
+          </div>
+        </div>
+      </div>
+    </body></html>
+  `;
+
+  async function mockFetchHTMLPage(url: string) {
+    const isHistory = url.includes("hashresults.php");
+    const html = isHistory ? historyHtml : harelineHtml;
+    return {
       ok: true as const,
       html,
-      $: (await import("cheerio")).load(html),
+      $: cheerio.load(html),
       structureHash: "abc123",
       fetchDurationMs: 100,
-    });
+    };
+  }
+
+  it("parses events from hareline page (no history)", async () => {
+    const mockSource = {
+      id: "test-bh4",
+      url: "http://www.big-hump.com/hareline.php",
+      config: null,
+    } as never;
+
+    vi.mocked(utils.fetchHTMLPage).mockImplementation(mockFetchHTMLPage);
 
     const result = await adapter.fetch(mockSource);
 
     expect(result.events).toHaveLength(2);
-
-    // First event — fully detailed
     expect(result.events[0].date).toBe("2026-04-01");
     expect(result.events[0].runNumber).toBe(1991);
     expect(result.events[0].kennelTag).toBe("bh4");
-    expect(result.events[0].title).toBe(
-      "Locknut Monster's April Fools' Trail @ Lemay",
-    );
     expect(result.events[0].startTime).toBe("18:45");
-    expect(result.events[0].location).toBe(
-      "3661 Reavis Barracks Rd, St Louis, MO 63125",
-    );
+    expect((result.diagnosticContext as Record<string, unknown>).includeHistory).toBe(false);
+    // Should not have fetched history pages
+    expect(utils.fetchHTMLPage).toHaveBeenCalledTimes(1);
+  });
 
-    // Second event — minimal info
-    expect(result.events[1].date).toBe("2026-04-08");
-    expect(result.events[1].runNumber).toBe(1992);
-    expect(result.events[1].hares).toBe("2FC");
-    expect(result.events[1].location).toBeUndefined();
+  it("fetches history when includeHistory is true", async () => {
+    const mockSource = {
+      id: "test-bh4",
+      url: "http://www.big-hump.com/hareline.php",
+      config: { includeHistory: true, historyYearRange: [2026, 2026] },
+    } as never;
+
+    vi.mocked(utils.fetchHTMLPage).mockImplementation(mockFetchHTMLPage);
+
+    const result = await adapter.fetch(mockSource);
+
+    // Should have fetched hareline + 1 year page
+    expect(utils.fetchHTMLPage).toHaveBeenCalledTimes(2);
+    expect(utils.fetchHTMLPage).toHaveBeenCalledWith("http://www.big-hump.com/hareline.php");
+    expect(utils.fetchHTMLPage).toHaveBeenCalledWith("http://www.big-hump.com/hashresults.php?year=2026");
+
+    const diag = result.diagnosticContext as Record<string, unknown>;
+    expect(diag.includeHistory).toBe(true);
+    expect(diag.historyYearsFetched).toBe(1);
+    expect((diag.historyEventsParsed as number)).toBeGreaterThan(0);
+  });
+
+  it("deduplicates: hareline events win over history", async () => {
+    const mockSource = {
+      id: "test-bh4",
+      url: "http://www.big-hump.com/hareline.php",
+      config: { includeHistory: true, historyYearRange: [2026, 2026] },
+    } as never;
+
+    vi.mocked(utils.fetchHTMLPage).mockImplementation(mockFetchHTMLPage);
+
+    const result = await adapter.fetch(mockSource);
+
+    // Run #1991 appears in both hareline and history — hareline should win
+    const run1991Events = result.events.filter((e) => e.runNumber === 1991);
+    expect(run1991Events).toHaveLength(1);
+
+    // Hareline's richer data (startTime) should be preserved
+    expect(run1991Events[0].startTime).toBe("18:45");
+    expect(run1991Events[0].sourceUrl).toBe("http://www.big-hump.com/hareline.php");
+
+    const diag = result.diagnosticContext as Record<string, unknown>;
+    expect(diag.historyDeduped).toBe(1);
   });
 
   it("returns error on fetch failure", async () => {
+    const mockSource = {
+      id: "test-bh4",
+      url: "http://www.big-hump.com/hareline.php",
+      config: null,
+    } as never;
+
     vi.mocked(utils.fetchHTMLPage).mockResolvedValue({
       ok: false as const,
       result: {

@@ -2745,6 +2745,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      config: { includeHistory: true },
       kennelCodes: ["bh4"],
     },
     {
