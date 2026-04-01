@@ -203,15 +203,11 @@ export function ClusteredMarkers({
     };
   }, [map, handleClusterClick]);
 
-  // Batch re-sync clusterer when coordinate groups change.
-  // Ref callbacks handle incremental add/remove, but when bulk changes cause
-  // coordinate keys to shift, some markers get orphaned from the clusterer.
+  // Safety-net render after coordinate groups change. Ref callbacks handle
+  // incremental add/remove, but the clusterer may not re-render after all
+  // changes settle (e.g. AdvancedMarker elements mount asynchronously).
   useEffect(() => {
-    const clusterer = clustererRef.current;
-    if (!clusterer) return;
-    const currentMarkers = Array.from(markersRef.current.values());
-    clusterer.clearMarkers(true); // noDraw — suppress intermediate render
-    clusterer.addMarkers(currentMarkers); // single render pass
+    clustererRef.current?.render();
   }, [groups, map]);
 
   // Stable per-group ref callback factory — avoids new function identity on every render.
@@ -233,18 +229,18 @@ export function ClusteredMarkers({
         if (marker) {
           if (prev !== marker) {
             if (prev) {
-              clustererRef.current?.removeMarker(prev, true); // noDraw — batch effect handles render
+              clustererRef.current?.removeMarker(prev);
               markerToEventsRef.current.delete(prev);
             }
             markersRef.current.set(groupKey, marker);
             markerToEventsRef.current.set(marker, latestEvents);
-            clustererRef.current?.addMarker(marker, true); // noDraw — batch effect handles render
+            clustererRef.current?.addMarker(marker);
           } else {
             // Same marker element, just update the events mapping
             markerToEventsRef.current.set(marker, latestEvents);
           }
         } else if (prev) {
-          clustererRef.current?.removeMarker(prev, true); // noDraw — batch effect handles render
+          clustererRef.current?.removeMarker(prev);
           markersRef.current.delete(groupKey);
           markerToEventsRef.current.delete(prev);
         }

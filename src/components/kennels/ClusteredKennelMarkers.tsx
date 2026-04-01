@@ -122,17 +122,12 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
     };
   }, [map, handleClusterClick]);
 
-  // Batch re-sync clusterer when pin groups change.
-  // Ref callbacks handle incremental add/remove, but when bulk changes cause
-  // coordinate keys to shift, some markers get orphaned from the clusterer.
-  // This effect runs after React has processed all ref callbacks for the new
-  // groups, then does a full batch sync to ensure consistency.
+  // Safety-net render after pin groups change. Ref callbacks handle incremental
+  // add/remove, but the clusterer may not re-render after all changes settle
+  // (e.g. AdvancedMarker elements mount asynchronously). This forces one final
+  // cluster recalculation without clearing — markers stay registered.
   useEffect(() => {
-    const clusterer = clustererRef.current;
-    if (!clusterer) return;
-    const currentMarkers = Array.from(markersRef.current.values());
-    clusterer.clearMarkers(true); // noDraw — suppress intermediate render
-    clusterer.addMarkers(currentMarkers); // single render pass
+    clustererRef.current?.render();
   }, [pinGroups, map]);
 
   // Stable per-group ref callback factory — avoids new function identity on every render.
@@ -154,18 +149,18 @@ export function ClusteredKennelMarkers({ pins, selectedPinId, onSelectPin, onSho
         if (marker) {
           if (prev !== marker) {
             if (prev) {
-              clustererRef.current?.removeMarker(prev, true); // noDraw — batch effect handles render
+              clustererRef.current?.removeMarker(prev);
               markerToPinsRef.current.delete(prev);
             }
             markersRef.current.set(groupKey, marker);
             markerToPinsRef.current.set(marker, latestPins);
-            clustererRef.current?.addMarker(marker, true); // noDraw — batch effect handles render
+            clustererRef.current?.addMarker(marker);
           } else {
             // Same marker element, but pins may have changed — update mapping
             markerToPinsRef.current.set(marker, latestPins);
           }
         } else if (prev) {
-          clustererRef.current?.removeMarker(prev, true); // noDraw — batch effect handles render
+          clustererRef.current?.removeMarker(prev);
           markersRef.current.delete(groupKey);
           markerToPinsRef.current.delete(prev);
         }
