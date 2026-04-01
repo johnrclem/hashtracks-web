@@ -26,6 +26,8 @@ const NAV_GROUPS = [
   },
 ];
 
+const tabMap = Object.fromEntries(TAB_ROUTES.map((t) => [t.value, t]));
+
 export function AdminSidebar({
   badgeCounts,
 }: Readonly<{ badgeCounts: BadgeCounts }>) {
@@ -37,8 +39,6 @@ export function AdminSidebar({
       if (t.value === "dashboard") return pathname === "/admin";
       return pathname === t.href || pathname.startsWith(t.href + "/");
     })?.value ?? "dashboard";
-
-  const tabMap = Object.fromEntries(TAB_ROUTES.map((t) => [t.value, t]));
 
   return (
     <aside
@@ -123,7 +123,7 @@ export function AdminSidebar({
                       </>
                     )}
                     {collapsed && count > 0 && (
-                      <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500" />
+                      <span className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ${isUrgent ? "bg-red-500" : "bg-muted-foreground/40"}`} />
                     )}
                   </Link>
                 );
