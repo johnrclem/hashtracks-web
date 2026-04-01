@@ -1753,6 +1753,41 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -97.34,
     aliases: ["Wichita"],
   },
+  // ── Wisconsin ──
+  {
+    name: "Wisconsin",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Chicago",
+    abbrev: "WI",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#dc2626",
+    centroidLat: 44.50,
+    centroidLng: -89.50,
+    aliases: ["WI"],
+  },
+  {
+    name: "Madison, WI",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "MSN",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 43.07,
+    centroidLng: -89.40,
+    aliases: ["Madison"],
+  },
+  {
+    name: "Milwaukee, WI",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "MKE",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 43.04,
+    centroidLng: -87.91,
+    aliases: ["Milwaukee"],
+  },
   // ── Netherlands ──
   {
     name: "Netherlands",
@@ -2228,6 +2263,9 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "St. Louis, MO": "Missouri",
   // Kansas
   "Wichita, KS": "Kansas",
+  // Wisconsin
+  "Madison, WI": "Wisconsin",
+  "Milwaukee, WI": "Wisconsin",
   // Netherlands
   "Amsterdam": "Netherlands",
   "The Hague": "Netherlands",

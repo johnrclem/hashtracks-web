@@ -2756,5 +2756,31 @@ export const SOURCES = [
       scrapeDays: 365,
       kennelCodes: ["stlh3"],
     },
+
+    // ===== WISCONSIN =====
+    // --- Madison ---
+    {
+      name: "Madison H3 Google Calendar",
+      url: "q206h4gbp4cfg5m13ip95vch88@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "q206h4gbp4cfg5m13ip95vch88@group.calendar.google.com",
+        defaultKennelTag: "madisonh3",
+      },
+      kennelCodes: ["madisonh3"],
+    },
+    // --- Milwaukee ---
+    {
+      name: "Brew City H3 Website",
+      url: "https://www.brewcityh3.com/calendar",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["bch3"],
+    },
   ];
 

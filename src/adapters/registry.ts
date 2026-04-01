@@ -46,6 +46,7 @@ import { CapeFearH3Adapter } from "./html-scraper/cape-fear-h3";
 import { KCH3Adapter } from "./html-scraper/kch3";
 import { BigHumpAdapter } from "./html-scraper/big-hump";
 import { StlH3Adapter } from "./html-scraper/stlh3";
+import { BrewCityH3Adapter } from "./html-scraper/brew-city-h3";
 import { BruH3Adapter } from "./html-scraper/bruh3";
 import { AH3Adapter } from "./html-scraper/ah3";
 import { HagueH3Adapter } from "./html-scraper/hague-h3";
@@ -137,6 +138,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /kansascityh3\.com/i, name: "KCH3Adapter", factory: () => new KCH3Adapter() },
   { pattern: /big-hump\.com/i, name: "BigHumpAdapter", factory: () => new BigHumpAdapter() },
   { pattern: /stlh3\.com/i, name: "StlH3Adapter", factory: () => new StlH3Adapter() },
+  { pattern: /brewcityh3\.com/i, name: "BrewCityH3Adapter", factory: () => new BrewCityH3Adapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */
