@@ -383,6 +383,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "madisonh3": ["Madison Hash", "Madison H3", "Madison HHH", "MadH3"],
     "bch3": ["BCH3", "Brew City Hash", "Brew City H3", "Brew City HHH"],
 
+    // ===== NEW MEXICO =====
+    "abqh3": ["ABQ H3", "ABQ Hash", "Albuquerque Hash", "Albuquerque HHH", "ABQHHH"],
+
     // ===== CANADA =====
     // Quebec
     "mh3-ca": ["MH3", "Montreal Hash", "Montreal HHH", "Montreal H3", "MHHH"],

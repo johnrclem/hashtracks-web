@@ -2906,5 +2906,20 @@ export const SOURCES = [
       scrapeDays: 90,
       kennelCodes: ["ch3-ab"],
     },
+
+    // ===== NEW MEXICO =====
+    {
+      name: "ABQ H3 Google Calendar",
+      url: "j19gg5vekabk94i8sn3pe892gk@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "j19gg5vekabk94i8sn3pe892gk@group.calendar.google.com",
+        defaultKennelTag: "abqh3",
+      },
+      kennelCodes: ["abqh3"],
+    },
   ];
 
