@@ -212,7 +212,7 @@ export function ClusteredMarkers({
     const currentMarkers = Array.from(markersRef.current.values());
     clusterer.clearMarkers(true); // noDraw — suppress intermediate render
     clusterer.addMarkers(currentMarkers); // single render pass
-  }, [groups]);
+  }, [groups, map]);
 
   // Stable per-group ref callback factory — avoids new function identity on every render.
   // Reads from groupDataRef so the reverse lookup always has the latest data even if
