@@ -100,11 +100,20 @@ curl -s "https://example.com/calendar.ics" | head -100
 - What kennels does this source cover?
 - Do they already exist in our DB? (check `prisma/seed.ts`)
 - One source can feed multiple kennels (aggregator pattern)
-- **CRITICAL: Check for kennelCode collisions** before choosing codes. Many kennels share abbreviations across regions (e.g., "SAH3" is both San Antonio and Stockholm Absolut, "CH3" is both Chicago and Copenhagen). Run this check:
+- **CRITICAL: Check for kennelCode collisions** before choosing codes. Many kennels share abbreviations across regions. Run this check for EVERY proposed code:
   ```bash
   grep -i '"your-proposed-code"' prisma/seed-data/kennels.ts prisma/seed-data/aliases.ts
   ```
-  If a collision exists, add a region suffix: `sah3-se`, `ch3-dk`, `oh3-no`, `ah3-nl`, etc. This must be done *before* writing any seed data — catching collisions in PR review wastes time.
+  If a collision exists, add a region suffix: `sah3-se`, `ch3-dk`, `oh3-no`, `ah3-nl`, `mh3-tn`, etc. This must be done *before* writing any seed data — catching collisions in PR review wastes time.
+
+  **Known collision-prone abbreviations** (check these especially carefully):
+  - `ah3` (Austin, Amsterdam, Aloha), `bh3` (Berlin, Boulder, Bristol, Buffalo)
+  - `ch3` (Chicago, Copenhagen, Charlotte, Charleston), `dh3` (Denver, Dublin, Dallas)
+  - `eh3` (Enfield, Edinburgh, Eugene), `fch3` (Flour City, Fort Collins)
+  - `lh3` (London, Lakeland), `mh3` (Minneapolis, Munich, Memphis, Miami)
+  - `oh3` (Oregon, Oslo, Ohio), `rh3` (Reading, Richmond, Renegade, Rhode Island, Rumson)
+  - `sh3` (Stuttgart, Seattle, Summit), `sah3` (San Antonio, Stockholm Absolut)
+  - `swh3` (Sir Walter, Portland SW), `th3` (Tidewater, Thirstday, Tokyo)
 
 ### 3. Pre-research metadata harvest (for new kennels)
 
@@ -143,12 +152,14 @@ In `prisma/seed.ts`:
 Existing adapter types:
 - `HTML_SCRAPER` — For websites with event tables/lists (Cheerio parsing). Each site gets its own adapter class, routed by URL pattern in `htmlScrapersByUrl`. Currently: hashnyc, bfm, hashphilly, cityhash (Makesweat), westlondonhash, londonhash, barneshash, och3, slash-hash, chicago, thirstday, sfh3, ewh3, dch4, ofh3, hangover, shith3, enfieldhash, northboro (browser-rendered). Also includes `GenericHtmlAdapter` for config-driven CSS selector scraping.
 - `HTML_SCRAPER` (Blogger API) — For Blogger/Blogspot-hosted sites. Uses Blogger API v3 as primary fetch method with HTML scraping fallback. The adapter is still registered as `HTML_SCRAPER` and routed via `htmlScrapersByUrl`, but internally calls `fetchBloggerPosts()` from `src/adapters/blogger-api.ts`. Currently: enfieldhash.org (EH3), ofh3.com (OFH3). **Prerequisite**: Enable the Blogger API in GCP Console and use the same `GOOGLE_CALENDAR_API_KEY`.
-- `GOOGLE_CALENDAR` — For Google Calendar API v3 feeds. Single shared adapter, configured via `Source.config` JSON (kennelPatterns, defaultKennelTag). Currently: Boston, BFM, Philly, Chicagoland, EWH3, SHITH3.
+- `GOOGLE_CALENDAR` — For Google Calendar API v3 feeds. Single shared adapter, configured via `Source.config` JSON (kennelPatterns, defaultKennelTag). **Note**: By default, all-day events are skipped (holidays/travel blocks). If a calendar uses all-day events for real runs (e.g., NOH3), add `includeAllDayEvents: true` to the source config. Currently: 50+ sources across US, Europe, Japan.
 - `GOOGLE_SHEETS` — For published Google Sheets (config-driven, reusable without code changes). Column mappings, kennel tag rules, start time rules in `Source.config`. Currently: Summit H3, W3H3.
 - `ICAL_FEED` — For standard iCal (.ics) feeds via `node-ical`. Config-driven kennelPatterns + skipPatterns. Currently: SFH3 MultiHash aggregator, CCH3, BAH3.
 - `MEETUP` — For public Meetup.com groups. Single shared adapter, config-driven (no code changes needed). Config requires `groupUrlname` (extracted from URL) and `kennelTag` (single kennel shortName). Currently: 5 live sources (Miami, Savannah, VT, CT, Charleston). **No API key required** — uses Meetup's public REST API.
 - `HASHREGO` — For kennels listed on hashrego.com. Config-driven with `kennelSlugs` array (multi-kennel). Currently: 8 kennels (BFM, EWH3, WH4, GFH3, CH3, DCH4, DCFMH3, FCH3).
-- `HARRIER_CENTRAL` — For kennels listed on hashruns.org (Harrier Central). Config-driven with `cityNames`, `kennelUniqueShortName`, `publicKennelId`, `defaultKennelTag`, or `kennelPatterns`. Returns rich data: event name, run number, date/time, lat/lng coordinates, hares, location descriptions. Currently: Tokyo H3. Known kennels on platform: Tokyo H3, SeaMon H3, Glasgow H3, City Hash, London H3, WLH3, Puget Sound H3, Rain City H3, Seattle H3, Morgantown H3, New Town H3, East End London H3.
+- `HARRIER_CENTRAL` — For kennels listed on hashruns.org (Harrier Central). Config-driven with `cityNames`, `kennelUniqueShortName`, `publicKennelId`, `defaultKennelTag`, or `kennelPatterns`. Returns rich data: event name, run number, date/time, lat/lng coordinates, hares, location descriptions. Currently: Tokyo H3. Known kennels on platform: Tokyo H3, SeaMon H3, Glasgow H3, City Hash, London H3, WLH3, Puget Sound H3, Rain City H3, Seattle H3, Morgantown H3, New Town H3, East End London H3, Brussels Manneke Piss H3, Amsterdam H3, Lisbon H3, Nairobi H3, Taiwan H3.
+- `HTML_SCRAPER` (WordPress REST API) — For WordPress-hosted sites with public REST API. Uses shared `fetchWordPressPosts()` from `src/adapters/wordpress-api.ts`. Title contains event name/date, body contains labeled fields (Hare, Location, Date, Time). Currently: EWH3, DCH4, Voodoo H3, KCH3, BruH3. **Check first**: `curl -s "https://site.com/wp-json/wp/v2/posts?per_page=3" | python3 -m json.tool` — if it returns JSON posts, use this pattern.
+- `HTML_SCRAPER` (Substack API) — For Substack-hosted newsletters. Public API at `{domain}/api/v1/archive` (listing) + `{domain}/api/v1/posts/{slug}` (detail with body_html). No auth required. Parse event date from title, time from subtitle, location from Google Maps links in body. Currently: STLH3. **Check**: `curl -s "https://site.com/api/v1/archive?limit=3"` — if it returns JSON array of posts, use this pattern.
 - `STATIC_SCHEDULE` — For kennels without scrapeable web sources (Facebook-only). Generates placeholder events from RRULE recurrence rules — no external fetch. Config-driven with `rrule`, `defaultTitle`, `defaultLocation`, `startTime`, `kennelTag`. Currently: 28 sources across FL, GA, SC, MA, NJ, RI, TX. **Cannot express lunar recurrence** (full/new moon schedules). **Cannot express seasonal schedule switching** (e.g., summer Friday / winter Sunday) — add kennel record with `scheduleNotes` but no source until seasonal RRULE support is implemented.
 
 If none fit, create a new adapter implementing `SourceAdapter` from `src/adapters/types.ts`.

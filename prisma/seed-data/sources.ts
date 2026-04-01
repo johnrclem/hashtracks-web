@@ -2695,6 +2695,23 @@ export const SOURCES = [
       kennelCodes: ["bushwhackersh3"],
     },
 
+    // ===== MISSOURI =====
+
+    // ===== KANSAS =====
+    {
+      name: "Tornado Alley H3 Google Calendar",
+      url: "tornadoalleyhashers@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "tornadoalleyhashers@gmail.com",
+        defaultKennelTag: "tah3",
+      },
+      kennelCodes: ["tah3"],
+    },
+
     // ===== NORWAY =====
     {
       name: "Oslo H3 iCal Feed",
@@ -2707,6 +2724,37 @@ export const SOURCES = [
         defaultKennelTag: "oh3-no",
       },
       kennelCodes: ["oh3-no"],
+    },
+
+    // ===== MISSOURI =====
+    // --- Kansas City ---
+    {
+      name: "Kansas City H3 Website",
+      url: "https://kansascityh3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["kch3", "pnh3"],
+    },
+    // --- St. Louis ---
+    {
+      name: "Big Hump H3 Hareline",
+      url: "http://www.big-hump.com/hareline.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["bh4"],
+    },
+    {
+      name: "STL H3 Substack",
+      url: "https://www.stlh3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["stlh3"],
     },
   ];
 

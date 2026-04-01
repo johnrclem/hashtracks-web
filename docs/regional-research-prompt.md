@@ -57,7 +57,11 @@ Check these aggregator sources FIRST — they often cover multiple kennels at on
 
 6. **Harrier Central**: Open `https://www.hashruns.org` in Chrome. The Flutter app shows upcoming runs from all registered kennels. Note any kennels in or near [REGION]. These can be scraped with zero new code using the HARRIER_CENTRAL adapter. The API at harriercentralpublicapi.azurewebsites.net returns run numbers, coordinates, hares, and locations.
 
-7. **JS-Rendered Calendar Aggregators**: The iframe check in #4 only finds embedded Google Calendar iframes. Some sites use custom JavaScript frontends that call the Google Calendar API directly (no iframes). For any regional kennel website, also check subpages like `/calendar/`, `/socal/`, `/events/`, `/schedule/`:
+7. **GoToTheHash Lineage Pages** (for international regions): `https://gotothehash.net/{country}.html` often has comprehensive kennel listings with websites, founding dates, and activity status. Example: `gotothehash.net/japan.html` led us to the Japan lineage page with 20 kennels and activity dates (updated Feb 2026). The main site has DNS issues but country/lineage subpages often work.
+
+8. **hashhouseharriers.nl** (for European regions): `https://www.hashhouseharriers.nl/eu-chapters` lists ~100 European kennels by country. Useful for initial discovery before visiting individual sites.
+
+9. **JS-Rendered Calendar Aggregators**: The iframe check in #4 only finds embedded Google Calendar iframes. Some sites use custom JavaScript frontends that call the Google Calendar API directly (no iframes). For any regional kennel website, also check subpages like `/calendar/`, `/socal/`, `/events/`, `/schedule/`:
    - Run via `javascript_tool`:
      ```javascript
      // Check for external JS files that might contain calendar config
@@ -440,3 +444,9 @@ This step catches kennels that don't appear on aggregators, Meetup, or web searc
 **CAUTION on STATIC_SCHEDULE**: Before defaulting to STATIC_SCHEDULE, check whether a regional calendar aggregator covers the kennel. In California, 4 kennels initially planned as STATIC_SCHEDULE turned out to have real Google Calendar data via a regional aggregator (lbh3.org/socal). STATIC_SCHEDULE should be a true last resort — only use it when no calendar, Meetup, iCal, or aggregator source exists.
 
 **CRITICAL RULE**: Before recommending HTML_SCRAPER for ANY kennel, you MUST have already checked for embedded Google Calendar, iCal links, Meetup links, and Google Sheets links using the JavaScript snippet in Stage 1. Only recommend HTML_SCRAPER if none were found.
+
+**ALSO CHECK these API-based sources** before writing a custom HTML scraper:
+- **WordPress REST API**: `curl -s "https://site.com/wp-json/wp/v2/posts?per_page=3"` — if it returns JSON posts, use the WordPress API pattern (like EWH3, Voodoo H3, KCH3, BruH3). Much simpler than HTML scraping.
+- **Substack API**: `curl -s "https://site.com/api/v1/archive?limit=3"` — if it returns JSON, use the Substack API pattern (like STLH3). Check if the domain redirects to `*.substack.com` or the page source mentions Substack.
+- **Google Calendar behind the site**: Some sites embed a Google Calendar but the calendar email is also usable directly via the GOOGLE_CALENDAR adapter — always check if `{kennelname}@gmail.com` works as a calendar ID before building an HTML scraper. Example: Voodoo H3 had both a WordPress blog AND a Google Calendar — the calendar was the better source.
+- **iCal feeds on custom platforms**: Sites using LenloLabs/Multihash (hash.se, oh3.no) may have `/calendar.ics` feeds that work with the ICAL_FEED adapter — check before building an HTML scraper.

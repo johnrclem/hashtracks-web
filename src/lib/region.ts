@@ -1694,6 +1694,65 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -90.05,
     aliases: ["Memphis"],
   },
+  // ── Missouri ──
+  {
+    name: "Missouri",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Chicago",
+    abbrev: "MO",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#059669",
+    centroidLat: 38.57,
+    centroidLng: -92.60,
+    aliases: ["MO"],
+  },
+  {
+    name: "Kansas City, MO",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "KC",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#10b981",
+    centroidLat: 39.10,
+    centroidLng: -94.58,
+    aliases: ["Kansas City"],
+  },
+  {
+    name: "St. Louis, MO",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "STL",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#10b981",
+    centroidLat: 38.63,
+    centroidLng: -90.20,
+    aliases: ["St. Louis", "Saint Louis"],
+  },
+  // ── Kansas ──
+  {
+    name: "Kansas",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Chicago",
+    abbrev: "KS",
+    colorClasses: "bg-lime-100 text-lime-700",
+    pinColor: "#65a30d",
+    centroidLat: 38.50,
+    centroidLng: -98.00,
+    aliases: ["KS"],
+  },
+  {
+    name: "Wichita, KS",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "ICT",
+    colorClasses: "bg-lime-100 text-lime-700",
+    pinColor: "#84cc16",
+    centroidLat: 37.69,
+    centroidLng: -97.34,
+    aliases: ["Wichita"],
+  },
   // ── Netherlands ──
   {
     name: "Netherlands",
@@ -2164,6 +2223,11 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Tennessee
   "Nashville, TN": "Tennessee",
   "Memphis, TN": "Tennessee",
+  // Missouri
+  "Kansas City, MO": "Missouri",
+  "St. Louis, MO": "Missouri",
+  // Kansas
+  "Wichita, KS": "Kansas",
   // Netherlands
   "Amsterdam": "Netherlands",
   "The Hague": "Netherlands",
