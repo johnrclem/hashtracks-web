@@ -203,6 +203,17 @@ export function ClusteredMarkers({
     };
   }, [map, handleClusterClick]);
 
+  // Batch re-sync clusterer when coordinate groups change.
+  // Ref callbacks handle incremental add/remove, but when bulk changes cause
+  // coordinate keys to shift, some markers get orphaned from the clusterer.
+  useEffect(() => {
+    const clusterer = clustererRef.current;
+    if (!clusterer) return;
+    const currentMarkers = Array.from(markersRef.current.values());
+    clusterer.clearMarkers(true); // noDraw — suppress intermediate render
+    clusterer.addMarkers(currentMarkers); // single render pass
+  }, [groups]);
+
   // Stable per-group ref callback factory — avoids new function identity on every render.
   // Reads from groupDataRef so the reverse lookup always has the latest data even if
   // the callback fires after a re-render (fixes stale closure).
@@ -222,18 +233,18 @@ export function ClusteredMarkers({
         if (marker) {
           if (prev !== marker) {
             if (prev) {
-              clustererRef.current?.removeMarker(prev);
+              clustererRef.current?.removeMarker(prev, true); // noDraw — batch effect handles render
               markerToEventsRef.current.delete(prev);
             }
             markersRef.current.set(groupKey, marker);
             markerToEventsRef.current.set(marker, latestEvents);
-            clustererRef.current?.addMarker(marker);
+            clustererRef.current?.addMarker(marker, true); // noDraw — batch effect handles render
           } else {
             // Same marker element, just update the events mapping
             markerToEventsRef.current.set(marker, latestEvents);
           }
         } else if (prev) {
-          clustererRef.current?.removeMarker(prev);
+          clustererRef.current?.removeMarker(prev, true); // noDraw — batch effect handles render
           markersRef.current.delete(groupKey);
           markerToEventsRef.current.delete(prev);
         }
