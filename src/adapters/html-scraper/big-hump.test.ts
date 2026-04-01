@@ -79,6 +79,23 @@ describe("parseEventTitle", () => {
     expect(result.location).toBeUndefined();
   });
 
+  it("handles curly apostrophes in possessive names", () => {
+    const result = parseEventTitle("Locknut Monster\u2019s April Fools\u2019 Trail @ Lemay");
+    expect(result.hares).toBe("Locknut Monster");
+    expect(result.location).toBe("Lemay");
+  });
+
+  it("handles left single quote in possessive names", () => {
+    const result = parseEventTitle("Locknut Monster\u2018s Trail @ Lemay");
+    expect(result.hares).toBe("Locknut Monster");
+  });
+
+  it("handles high-reversed-9 quote (U+201B) in possessive names", () => {
+    const result = parseEventTitle("Foo\u201Bs Bar @ Baz");
+    expect(result.hares).toBe("Foo");
+    expect(result.location).toBe("Baz");
+  });
+
   it("handles Bungle in the Jungle @ location", () => {
     const result = parseEventTitle(
       "Bungle in the Jungle  @ Steelville-the Cancun of Missouri",

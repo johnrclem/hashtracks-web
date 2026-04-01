@@ -276,7 +276,7 @@ export function extractHares(description: string, customPatterns?: string[] | Re
 const mapsUrl = googleMapsSearchUrl;
 
 /** Instruction phrases that indicate a GCal location field contains directions, not an address. */
-const NON_ADDRESS_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in)/i;
+const NON_ADDRESS_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in|when:|why:|hare:|what:|who:|cost:)/i;
 
 /** Returns true if text starts with instruction phrasing rather than an address. */
 function isNonAddressText(text: string): boolean {
@@ -293,6 +293,7 @@ interface CalendarSourceConfig {
   titleHarePattern?: string;            // regex to extract hare names from summary when description has none
   descriptionSuffix?: string;           // appended to every event description
   includeAllDayEvents?: boolean;        // if true, don't skip all-day events (some calendars use them for real runs)
+  defaultTitle?: string;                // human-readable fallback title when event summary is just a kennel slug
 }
 
 /**
@@ -510,6 +511,11 @@ export function buildRawEventFromGCalItem(
   // Email-as-title: placeholder/recruitment summary — use kennel tag
   if (EMAIL_IN_TITLE_RE.test(title)) {
     title = kennelTag;
+  }
+
+  // defaultTitle fallback runs last, after all branches that may reset title to kennelTag
+  if (title.toLowerCase() === kennelTag.toLowerCase() && sourceConfig?.defaultTitle) {
+    title = sourceConfig.defaultTitle;
   }
 
   // Start time: prefer dateTime-derived time, fall back to description extraction

@@ -58,7 +58,8 @@ export const SOURCES = [
       scrapeDays: 9999,
       config: {
         sheetId: "1wG-BNb5ekMHM5euiPJT1nxQXZ3UxNqFZMdQtCBbYaMk",
-        columns: { runNumber: 0, specialRun: 1, date: 2, hares: 3, location: 4, title: 6, description: 9 },
+        columns: { runNumber: 0, specialRun: 1, date: 2, hares: 3, location: 4, description: 9 },
+        defaultTitle: "Summit",
         kennelTagRules: { default: "summit", specialRunMap: { "ASSSH3": "asssh3" }, numericSpecialTag: "sfm" },
         startTimeRules: { byDayOfWeek: { "Mon": "19:00", "Sat": "15:00", "Fri": "19:00" }, default: "15:00" },
       },
@@ -2218,7 +2219,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "ochump" },
+      config: { defaultKennelTag: "ochump", defaultTitle: "OC Hump" },
       kennelCodes: ["ochump"],
     },
     // --- Central Coast (Google Calendar) ---

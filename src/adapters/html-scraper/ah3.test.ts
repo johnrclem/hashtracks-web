@@ -123,6 +123,19 @@ No date here, just text.`;
     expect(parseEventBlock(text, SOURCE_URL)).toBeNull();
   });
 
+  it("skips leftover good_to_know instructions and picks correct title", () => {
+    const text = `Bag Drop – NO ( but lockers inside the station )
+The A to Birthday Run
+Run № 1476 by War 'n Piece & MiaB
+Saturday 04 April, 2026 at 14:45 hrs
+Haarlem Railway Station`;
+
+    const event = parseEventBlock(text, SOURCE_URL);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("AH3 #1476 — The A to Birthday Run");
+    expect(event!.title).not.toContain("Bag Drop");
+  });
+
   it("parses title-less event (just run number)", () => {
     const text = `Run № 1481 by Slippery Edge
 Sunday 10 May, 2026 at 14:45 hrs
@@ -193,6 +206,16 @@ describe("htmlToText", () => {
   it("returns empty string when .entry-content is missing", async () => {
     const $ = (await import("cheerio")).load(`<div>No entry content</div>`);
     expect(htmlToText($)).toBe("");
+  });
+
+  it("strips <style> tags so CSS rules don't appear as text", async () => {
+    const $ = (await import("cheerio")).load(
+      `<div class="entry-content"><style>mark { background-color: lightgrey; color: black; }</style><p>The A to Birthday Run</p></div>`,
+    );
+    const text = htmlToText($);
+    expect(text).not.toContain("background-color");
+    expect(text).not.toContain("mark {");
+    expect(text).toContain("The A to Birthday Run");
   });
 });
 

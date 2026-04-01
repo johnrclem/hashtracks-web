@@ -264,6 +264,29 @@ describe("buildEventFromSheetRow", () => {
     expect(result).toBeNull();
   });
 
+  it.each([
+    ["Bring a dry bag", undefined, "rejects instruction verb 'bring'"],
+    ["Check the website for details", undefined, "rejects instruction verb 'check'"],
+    ["Halloween Hash", "Halloween Hash", "keeps legitimate title"],
+  ])("instruction-title guard: %s → %s (%s)", (titleInput, expected, _desc) => {
+    const row = ["100", "3/11/26", "Alice", "Park", titleInput];
+    const event = buildEventFromSheetRow(row, baseConfig, "https://example.com", "2026-03-11");
+    expect(event).not.toBeNull();
+    if (expected === undefined) {
+      expect(event!.title).toBeUndefined();
+    } else {
+      expect(event!.title).toBe(expected);
+    }
+  });
+
+  it("falls back to defaultTitle when instruction-like title is rejected", () => {
+    const config = { ...baseConfig, defaultTitle: "Summit" };
+    const row = ["2413", "3/11/26", "Alice", "Liberty Tavern", "Bring a dry bag"];
+    const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-03-11");
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Summit #2413");
+  });
+
   it("title is undefined when column not configured and no defaultTitle", () => {
     const config = {
       sheetId: "test",
