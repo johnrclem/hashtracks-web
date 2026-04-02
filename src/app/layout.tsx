@@ -12,6 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { getOrCreateUser } from "@/lib/auth";
 import { clerkAppearance } from "@/lib/clerk-appearance";
 import { buildWebSiteJsonLd, safeJsonLd } from "@/lib/seo";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { TimePreferenceProvider } from "@/components/providers/time-preference-provider";
 import { UnitsPreferenceProvider } from "@/components/providers/units-preference-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
@@ -38,7 +39,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz"),
+  metadataBase: new URL(getCanonicalSiteUrl()),
   title: "HashTracks",
   description: "Discover runs, track attendance, view stats — the hareline you never knew you needed.",
   openGraph: {
@@ -59,7 +60,7 @@ export default async function RootLayout({
 }>) {
   const user = await getOrCreateUser();
   const timeDisplayPref = user?.timeDisplayPref ?? "EVENT_LOCAL";
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz";
+  const baseUrl = getCanonicalSiteUrl();
   const websiteJsonLd = buildWebSiteJsonLd(baseUrl);
 
   return (
