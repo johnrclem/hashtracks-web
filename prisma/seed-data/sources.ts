@@ -1114,8 +1114,8 @@ export const SOURCES = [
         rrule: "FREQ=WEEKLY;BYDAY=WE",
         anchorDate: "2026-03-04",
         startTime: "18:30",
-        defaultTitle: "PBH3 Weekly Run",
-        defaultLocation: "Palm Beach County, FL",
+        defaultTitle: "Palm Beach H3 Weekly Run",
+        defaultLocation: "Wellington, FL",
         defaultDescription: "Weekly Wednesday trail. Check Facebook for start location.",
       },
       kennelCodes: ["pbh3"],
@@ -2290,7 +2290,7 @@ export const SOURCES = [
     // --- Dayton (Google Calendar) ---
     {
       name: "DH4 Google Calendar",
-      url: "daytonhash@gmail.com",
+      url: "dh3calendar@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "daily",

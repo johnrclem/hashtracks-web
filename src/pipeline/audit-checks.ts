@@ -207,7 +207,10 @@ const REGION_APPENDED_RE = /,\s*[A-Z]{2}(?:\s+\d{5})?$/;
 
 /** Check if a location has a region city appended that doesn't match the address city. */
 function checkRegionAppended(event: LocationEventRow, locationName: string, locationCity: string | null): AuditFinding | null {
-  if (!locationCity || !REGION_APPENDED_RE.test(locationName)) return null;
+  if (!locationCity) return null;
+  // Skip when location ends with state abbreviation — getLocationDisplay() already guards against
+  // appending city in this case, so the display is correct even if locationCity differs
+  if (/,\s*[A-Za-z]{2}(?:\s+\d{5}(?:-\d{4})?)?\s*$/.test(locationName)) return null;
   const cityName = locationCity.split(",")[0].trim();
   if (locationName.includes(cityName)) return null;
   return finding(event, {
@@ -348,7 +351,10 @@ export function checkHareQuality(event: AuditEventRow): AuditFinding[] {
   }
 
   // 2. hare-cta-text (warning): matches CTA pattern
-  if (CTA_PATTERN.test(haresText)) {
+  // Skip for events >14 days out — "TBD" is legitimately unknown, not a scraping bug
+  const eventDate = new Date(event.date + "T12:00:00Z");
+  const daysOut = (eventDate.getTime() - Date.now()) / 86_400_000;
+  if (CTA_PATTERN.test(haresText) && daysOut <= 14) {
     return [
       finding(event, {
         category: "hares",
