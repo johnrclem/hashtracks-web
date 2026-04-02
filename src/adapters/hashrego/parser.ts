@@ -398,6 +398,58 @@ function cleanDescription(text: string): string | undefined {
   return cleaned;
 }
 
+/**
+ * Parse a kennel-specific events page at hashrego.com/kennels/{SLUG}/events.
+ * Different table structure than the global index:
+ * - No #eventListTable ID — uses table.table-striped
+ * - 5 columns: Start Date | Type | Event Name | Cost | Cumming
+ * - Date format: "MM/DD HH:MM AM/PM" in a single cell (no year)
+ */
+export function parseKennelEventsPage(html: string, kennelSlug: string, referenceYear?: number): IndexEntry[] {
+  const $ = cheerio.load(html);
+  const entries: IndexEntry[] = [];
+  const year = referenceYear ?? new Date().getFullYear();
+
+  $("table.table-striped tbody tr").each((_i, row) => {
+    const cells = $(row).find("td");
+    if (cells.length < 5) return;
+
+    // Col 0: Start Date — "MM/DD HH:MM AM/PM" (no year on kennel pages)
+    const dateText = $(cells[0]).text().trim();
+    const dateMatch = dateText.match(/^(\d{1,2}\/\d{1,2})\s*(.*)/);
+    // Append reference year so dates work with parseHashRegoDate (expects MM/DD/YY)
+    const rawDate = dateMatch ? dateMatch[1] : dateText;
+    const startDate = dateMatch ? `${rawDate}/${String(year).slice(-2)}` : rawDate;
+    const startTime = dateMatch?.[2]?.trim() || "";
+
+    // Col 1: Type
+    const type = $(cells[1]).text().trim();
+
+    // Col 2: Event Name with link to /events/{slug}
+    const eventLink = $(cells[2]).find("a");
+    const href = eventLink.attr("href") || "";
+    const slugMatch = href.match(/^\/events\/([^/]+)/);
+    if (!slugMatch) return;
+    const slug = slugMatch[1];
+    const title = eventLink.text().trim();
+
+    // Col 3: Cost
+    const cost = $(cells[3]).text().trim();
+
+    entries.push({
+      slug,
+      kennelSlug: kennelSlug.toUpperCase(),
+      title,
+      startDate,
+      startTime,
+      type,
+      cost,
+    });
+  });
+
+  return entries;
+}
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

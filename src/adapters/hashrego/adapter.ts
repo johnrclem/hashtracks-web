@@ -5,6 +5,7 @@ import { safeFetch } from "../safe-fetch";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import {
   parseEventsIndex,
+  parseKennelEventsPage,
   parseEventDetail,
   splitToRawEvents,
   parseHashRegoDate,
@@ -75,13 +76,60 @@ export class HashRegoAdapter implements SourceAdapter {
     const cutoffDate = new Date(now);
     cutoffDate.setDate(cutoffDate.getDate() + days);
 
-    const matchingEntries = allEntries.filter((e) => {
-      if (!kennelSlugs.has(e.kennelSlug.toUpperCase())) return false;
-      const date = parseHashRegoDate(e.startDate);
+    const isInDateWindow = (dateStr: string) => {
+      const date = parseHashRegoDate(dateStr);
       if (!date) return true; // Keep unparseable dates (let detail page try)
       const eventDate = new Date(date + "T12:00:00Z");
       return eventDate >= lookbackDate && eventDate <= cutoffDate;
-    });
+    };
+
+    const matchingEntries = allEntries.filter((e) =>
+      kennelSlugs.has(e.kennelSlug.toUpperCase()) && isInDateWindow(e.startDate),
+    );
+
+    // Step 2b: Fetch kennel-specific event pages for slugs absent from the global index entirely
+    const globalIndexSlugs = new Set(allEntries.map((e) => e.kennelSlug.toUpperCase()));
+    const missingSlugs = [...kennelSlugs].filter((s) => !globalIndexSlugs.has(s));
+    const kennelPagesChecked: string[] = [];
+    let kennelPageEventsFound = 0;
+    const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
+    const currentYear = now.getFullYear();
+
+    for (let i = 0; i < missingSlugs.length; i++) {
+      if (i > 0) {
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+      }
+      const slug = missingSlugs[i];
+      kennelPagesChecked.push(slug);
+      try {
+        const kennelUrl = `https://hashrego.com/kennels/${slug}/events`;
+        const res = await safeFetch(kennelUrl, {
+          headers: { "User-Agent": USER_AGENT },
+        });
+        if (!res.ok) {
+          (errorDetails.fetch ??= []).push(
+            { url: kennelUrl, status: res.status, message: `Kennel page HTTP ${res.status}` },
+          );
+          continue;
+        }
+        const html = await res.text();
+        const kennelEntries = parseKennelEventsPage(html, slug, currentYear);
+
+        const filtered = kennelEntries.filter((e) =>
+          !existingSlugs.has(e.slug) && isInDateWindow(e.startDate),
+        );
+
+        for (const entry of filtered) {
+          existingSlugs.add(entry.slug);
+          matchingEntries.push(entry);
+        }
+        kennelPageEventsFound += filtered.length;
+      } catch (err) {
+        (errorDetails.fetch ??= []).push(
+          { url: `https://hashrego.com/kennels/${slug}/events`, message: `Kennel page error: ${err}` },
+        );
+      }
+    }
 
     // Step 3: Fetch detail pages in parallel batches
     for (let i = 0; i < matchingEntries.length; i += BATCH_SIZE) {
@@ -105,7 +153,7 @@ export class HashRegoAdapter implements SourceAdapter {
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
     // Compute unmapped kennel slugs: slugs in the index that weren't in our configured set
-    const allIndexSlugs = [...new Set(allEntries.map((e) => e.kennelSlug.toUpperCase()))];
+    const allIndexSlugs = [...globalIndexSlugs];
     const unmappedKennelSlugs = allIndexSlugs.filter((s) => !kennelSlugs.has(s));
 
     // Approximate fallback count from detail page errors (each error triggers createFromIndex)
@@ -127,6 +175,8 @@ export class HashRegoAdapter implements SourceAdapter {
         indexOnlyFallbacks,
         uniqueKennelSlugsInIndex: allIndexSlugs,
         unmappedKennelSlugs,
+        kennelPagesChecked,
+        kennelPageEventsFound,
       },
     };
   }
