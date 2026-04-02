@@ -2,9 +2,11 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
+import { browserRender } from "@/lib/browser-render";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import {
   parseEventsIndex,
+  parseKennelEventsPage,
   parseEventDetail,
   splitToRawEvents,
   parseHashRegoDate,
@@ -75,13 +77,60 @@ export class HashRegoAdapter implements SourceAdapter {
     const cutoffDate = new Date(now);
     cutoffDate.setDate(cutoffDate.getDate() + days);
 
-    const matchingEntries = allEntries.filter((e) => {
-      if (!kennelSlugs.has(e.kennelSlug.toUpperCase())) return false;
-      const date = parseHashRegoDate(e.startDate);
+    const isInDateWindow = (dateStr: string) => {
+      const date = parseHashRegoDate(dateStr);
       if (!date) return true; // Keep unparseable dates (let detail page try)
       const eventDate = new Date(date + "T12:00:00Z");
       return eventDate >= lookbackDate && eventDate <= cutoffDate;
-    });
+    };
+
+    const matchingEntries = allEntries.filter((e) =>
+      kennelSlugs.has(e.kennelSlug.toUpperCase()) && isInDateWindow(e.startDate),
+    );
+
+    // Step 2b: Fetch kennel-specific event pages for slugs absent from the global index entirely
+    const globalIndexSlugs = new Set(allEntries.map((e) => e.kennelSlug.toUpperCase()));
+    const missingSlugs = [...kennelSlugs].filter((s) => !globalIndexSlugs.has(s));
+    const kennelPagesChecked: string[] = [];
+    let kennelPageEventsFound = 0;
+    const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
+    const currentYear = now.getUTCFullYear();
+    let kennelPageFetchErrors = 0;
+
+    for (let i = 0; i < missingSlugs.length; i++) {
+      if (i > 0) {
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+      }
+      const slug = missingSlugs[i];
+      kennelPagesChecked.push(slug);
+      const kennelUrl = `https://hashrego.com/kennels/${slug}/events`;
+      try {
+        // Kennel pages are Angular SPAs — need browser rendering to get the table
+        const html = await browserRender({
+          url: kennelUrl,
+          waitFor: "table.table-striped tbody tr",
+          timeout: 15000,
+        });
+        const kennelEntries = parseKennelEventsPage(html, slug, currentYear);
+
+        const filtered = kennelEntries.filter((e) =>
+          !existingSlugs.has(e.slug) && isInDateWindow(e.startDate),
+        );
+
+        for (const entry of filtered) {
+          existingSlugs.add(entry.slug);
+          matchingEntries.push(entry);
+        }
+        kennelPageEventsFound += filtered.length;
+      } catch (err) {
+        const msg = `Kennel page error for ${slug}: ${err}`;
+        errors.push(msg);
+        (errorDetails.fetch ??= []).push(
+          { url: kennelUrl, message: msg },
+        );
+        kennelPageFetchErrors++;
+      }
+    }
 
     // Step 3: Fetch detail pages in parallel batches
     for (let i = 0; i < matchingEntries.length; i += BATCH_SIZE) {
@@ -105,11 +154,12 @@ export class HashRegoAdapter implements SourceAdapter {
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
     // Compute unmapped kennel slugs: slugs in the index that weren't in our configured set
-    const allIndexSlugs = [...new Set(allEntries.map((e) => e.kennelSlug.toUpperCase()))];
+    const allIndexSlugs = [...globalIndexSlugs];
     const unmappedKennelSlugs = allIndexSlugs.filter((s) => !kennelSlugs.has(s));
 
     // Approximate fallback count from detail page errors (each error triggers createFromIndex)
-    const indexOnlyFallbacks = (errorDetails.fetch?.length ?? 0) + (errorDetails.parse?.length ?? 0);
+    // Exclude kennel page fetch errors since those don't produce createFromIndex fallbacks
+    const indexOnlyFallbacks = (errorDetails.fetch?.length ?? 0) - kennelPageFetchErrors + (errorDetails.parse?.length ?? 0);
 
     return {
       events,
@@ -127,6 +177,8 @@ export class HashRegoAdapter implements SourceAdapter {
         indexOnlyFallbacks,
         uniqueKennelSlugsInIndex: allIndexSlugs,
         unmappedKennelSlugs,
+        kennelPagesChecked,
+        kennelPageEventsFound,
       },
     };
   }
