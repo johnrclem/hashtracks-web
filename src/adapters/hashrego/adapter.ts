@@ -2,6 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
+import { browserRender } from "@/lib/browser-render";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import {
   parseEventsIndex,
@@ -93,7 +94,8 @@ export class HashRegoAdapter implements SourceAdapter {
     const kennelPagesChecked: string[] = [];
     let kennelPageEventsFound = 0;
     const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
-    const currentYear = now.getFullYear();
+    const currentYear = now.getUTCFullYear();
+    let kennelPageFetchErrors = 0;
 
     for (let i = 0; i < missingSlugs.length; i++) {
       if (i > 0) {
@@ -101,18 +103,14 @@ export class HashRegoAdapter implements SourceAdapter {
       }
       const slug = missingSlugs[i];
       kennelPagesChecked.push(slug);
+      const kennelUrl = `https://hashrego.com/kennels/${slug}/events`;
       try {
-        const kennelUrl = `https://hashrego.com/kennels/${slug}/events`;
-        const res = await safeFetch(kennelUrl, {
-          headers: { "User-Agent": USER_AGENT },
+        // Kennel pages are Angular SPAs — need browser rendering to get the table
+        const html = await browserRender({
+          url: kennelUrl,
+          waitFor: "table.table-striped tbody tr",
+          timeout: 15000,
         });
-        if (!res.ok) {
-          (errorDetails.fetch ??= []).push(
-            { url: kennelUrl, status: res.status, message: `Kennel page HTTP ${res.status}` },
-          );
-          continue;
-        }
-        const html = await res.text();
         const kennelEntries = parseKennelEventsPage(html, slug, currentYear);
 
         const filtered = kennelEntries.filter((e) =>
@@ -125,9 +123,12 @@ export class HashRegoAdapter implements SourceAdapter {
         }
         kennelPageEventsFound += filtered.length;
       } catch (err) {
+        const msg = `Kennel page error for ${slug}: ${err}`;
+        errors.push(msg);
         (errorDetails.fetch ??= []).push(
-          { url: `https://hashrego.com/kennels/${slug}/events`, message: `Kennel page error: ${err}` },
+          { url: kennelUrl, message: msg },
         );
+        kennelPageFetchErrors++;
       }
     }
 
@@ -157,7 +158,8 @@ export class HashRegoAdapter implements SourceAdapter {
     const unmappedKennelSlugs = allIndexSlugs.filter((s) => !kennelSlugs.has(s));
 
     // Approximate fallback count from detail page errors (each error triggers createFromIndex)
-    const indexOnlyFallbacks = (errorDetails.fetch?.length ?? 0) + (errorDetails.parse?.length ?? 0);
+    // Exclude kennel page fetch errors since those don't produce createFromIndex fallbacks
+    const indexOnlyFallbacks = (errorDetails.fetch?.length ?? 0) - kennelPageFetchErrors + (errorDetails.parse?.length ?? 0);
 
     return {
       events,

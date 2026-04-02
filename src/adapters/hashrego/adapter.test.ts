@@ -9,6 +9,12 @@ import {
 } from "./parser";
 import { HashRegoAdapter } from "./adapter";
 
+vi.mock("@/lib/browser-render", () => ({
+  browserRender: vi.fn(),
+}));
+
+import { browserRender } from "@/lib/browser-render";
+
 // ── parseHashRegoDate ──
 
 describe("parseHashRegoDate", () => {
@@ -190,18 +196,18 @@ const KENNEL_PAGE_HTML = `
   </thead>
   <tbody>
     <tr>
-      <td>06/27 12:30 PM</td>
-      <td>Hash Weekend</td>
-      <td><a href="/events/nych3-5-boro-pub-crawl-2026">5-boro Pub Crawl</a></td>
-      <td>$0</td>
-      <td>1</td>
+      <td class="ng-binding">06/27 4:30 PM</td>
+      <td class="text-center ng-binding"></td>
+      <td class="text-center"><a href="//hashrego.com/events/nych3-5-boro-pub-crawl-2026" class="ng-binding">5-boro Pub Crawl</a></td>
+      <td class="text-center ng-binding">$0</td>
+      <td class="text-center"><a href="//hashrego.com/events/nych3-5-boro-pub-crawl-2026/cumming" class="ng-binding">1</a></td>
     </tr>
     <tr>
-      <td>09/15 07:00 PM</td>
-      <td>Trail</td>
-      <td><a href="/events/nych3-run-42">NYCH3 Run #42</a></td>
-      <td>$10</td>
-      <td>5</td>
+      <td class="ng-binding">09/15 07:00 PM</td>
+      <td class="text-center ng-binding">Trail</td>
+      <td class="text-center"><a href="//hashrego.com/events/nych3-run-42" class="ng-binding">NYCH3 Run #42</a></td>
+      <td class="text-center ng-binding">$10</td>
+      <td class="text-center"><a href="//hashrego.com/events/nych3-run-42/cumming" class="ng-binding">5</a></td>
     </tr>
   </tbody>
 </table>
@@ -230,25 +236,55 @@ describe("parseKennelEventsPage", () => {
 
   it("extracts time from date cell", () => {
     const entries = parseKennelEventsPage(KENNEL_PAGE_HTML, "NYCH3", 2026);
-    expect(entries[0].startTime).toBe("12:30 PM");
+    expect(entries[0].startTime).toBe("4:30 PM");
   });
 
   it("extracts type and cost", () => {
     const entries = parseKennelEventsPage(KENNEL_PAGE_HTML, "NYCH3", 2026);
-    expect(entries[0].type).toBe("Hash Weekend");
+    expect(entries[0].type).toBe(""); // empty on live site for this event
     expect(entries[0].cost).toBe("$0");
+    expect(entries[1].type).toBe("Trail");
+    expect(entries[1].cost).toBe("$10");
   });
 
   it("returns empty array for empty table", () => {
-    const html = `<html><body><table class="table table-striped"><tbody></tbody></table></body></html>`;
+    const html = `<html><body><table class="table table-striped"><thead><tr><th>Start Date</th></tr></thead><tbody></tbody></table></body></html>`;
     expect(parseKennelEventsPage(html, "NYCH3", 2026)).toHaveLength(0);
   });
 
   it("skips rows without event links", () => {
-    const html = `<html><body><table class="table table-striped"><tbody>
+    const html = `<html><body><table class="table table-striped"><thead><tr><th>Start Date</th></tr></thead><tbody>
       <tr><td>06/27</td><td>Trail</td><td>No link here</td><td>$0</td><td>0</td></tr>
     </tbody></table></body></html>`;
     expect(parseKennelEventsPage(html, "NYCH3", 2026)).toHaveLength(0);
+  });
+
+  it("infers next year for Jan events when scraping in December", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-12-15T12:00:00Z"));
+    const html = `<html><body><table class="table table-striped ng-scope">
+      <thead><tr><th>Start Date</th><th>Type</th><th>Event Name</th><th>Cost</th><th>Cumming</th></tr></thead>
+      <tbody><tr>
+        <td>01/10 07:00 PM</td><td>Trail</td>
+        <td><a href="//hashrego.com/events/test-jan">Jan Event</a></td><td>$5</td><td>0</td>
+      </tr></tbody></table></body></html>`;
+    const entries = parseKennelEventsPage(html, "TEST");
+    expect(entries[0].startDate).toBe("01/10/27");
+    vi.useRealTimers();
+  });
+
+  it("infers previous year for Dec events when scraping in January", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2027-01-05T12:00:00Z"));
+    const html = `<html><body><table class="table table-striped ng-scope">
+      <thead><tr><th>Start Date</th><th>Type</th><th>Event Name</th><th>Cost</th><th>Cumming</th></tr></thead>
+      <tbody><tr>
+        <td>12/28 07:00 PM</td><td>Trail</td>
+        <td><a href="//hashrego.com/events/test-dec">Dec Event</a></td><td>$5</td><td>0</td>
+      </tr></tbody></table></body></html>`;
+    const entries = parseKennelEventsPage(html, "TEST");
+    expect(entries[0].startDate).toBe("12/28/26");
+    vi.useRealTimers();
   });
 });
 
@@ -472,6 +508,7 @@ function buildSource(configOverrides?: { kennelSlugs?: string[] }) {
 describe("HashRegoAdapter", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(browserRender).mockReset();
     // Freeze time to before all fixture dates so they fall within the forward window
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
@@ -557,6 +594,8 @@ describe("HashRegoAdapter", () => {
   it("includes diagnostic context with slug source", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    // NONEXISTENT is not in global index — browserRender will be called for kennel page
+    vi.mocked(browserRender).mockRejectedValueOnce(new Error("not found"));
 
     const adapter = new HashRegoAdapter();
     const source = buildSource();
@@ -579,20 +618,20 @@ describe("HashRegoAdapter", () => {
       <meta property="og:description" content="A fun event" />
     </head><body><a href="/kennels/NYCH3/">NYCH3</a></body></html>`;
 
-    let callCount = 0;
-    fetchSpy.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) return new Response(INDEX_HTML, { status: 200 });
-      if (callCount === 2) return new Response(KENNEL_PAGE_HTML, { status: 200 });
-      return new Response(detailHtml, { status: 200 });
-    });
+    // Global index (no NYCH3)
+    fetchSpy.mockImplementation(async () => new Response(detailHtml, { status: 200 }));
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+
+    // browserRender returns the kennel page HTML
+    vi.mocked(browserRender).mockResolvedValueOnce(KENNEL_PAGE_HTML);
 
     const adapter = new HashRegoAdapter();
     const source = buildSource();
     const result = await adapter.fetch(source, { days: 365, kennelSlugs: ["NYCH3"] });
 
-    // Should have fetched: index + kennel page + detail pages
-    expect(fetchSpy.mock.calls[1][0]).toBe("https://hashrego.com/kennels/NYCH3/events");
+    expect(browserRender).toHaveBeenCalledWith(
+      expect.objectContaining({ url: "https://hashrego.com/kennels/NYCH3/events" }),
+    );
     expect(result.diagnosticContext?.kennelPagesChecked).toEqual(["NYCH3"]);
     expect((result.diagnosticContext?.kennelPageEventsFound as number)).toBeGreaterThan(0);
     expect(result.events.length).toBeGreaterThan(0);
@@ -611,16 +650,16 @@ describe("HashRegoAdapter", () => {
     const source = buildSource();
     const result = await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
 
-    // Should NOT have fetched a kennel page
-    expect(fetchSpy.mock.calls.every((c) => !String(c[0]).includes("/kennels/"))).toBe(true);
+    // Should NOT have called browserRender (slug is in global index)
+    expect(browserRender).not.toHaveBeenCalled();
     expect(result.diagnosticContext?.kennelPagesChecked).toEqual([]);
   });
 
-  it("handles kennel page fetch failure gracefully", async () => {
+  it("handles kennel page render failure gracefully", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
-    fetchSpy.mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
+    vi.mocked(browserRender).mockRejectedValueOnce(new Error("Render timeout"));
 
     const adapter = new HashRegoAdapter();
     const source = buildSource();
@@ -629,19 +668,19 @@ describe("HashRegoAdapter", () => {
     expect(result.diagnosticContext?.kennelPagesChecked).toEqual(["NYCH3"]);
     expect(result.diagnosticContext?.kennelPageEventsFound).toBe(0);
     expect(result.events).toHaveLength(0);
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0]).toContain("Kennel page error");
   });
 
   it("filters events by days window", async () => {
     vi.setSystemTime(new Date("2026-02-15T12:00:00Z"));
 
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    let callCount = 0;
-    fetchSpy.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) return new Response(INDEX_HTML, { status: 200 });
-      // All subsequent calls: kennel pages + detail pages get empty HTML
-      return new Response("<html><body></body></html>", { status: 200 });
-    });
+    fetchSpy
+      .mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }))
+      // Detail page fetch for the 1 matching entry (EWH3)
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+    // No kennel page fallback needed: all 4 slugs appear in global index (just outside date window)
 
     const adapter = new HashRegoAdapter();
     const source = buildSource();
@@ -650,7 +689,8 @@ describe("HashRegoAdapter", () => {
     // CH3 12/12/25 ✗ (way before), RANDOMH3 03/01/26 ✗ (after Feb 25)
     const result = await adapter.fetch(source, { days: 10, kennelSlugs: ["EWH3", "BFMH3", "CH3", "RANDOMH3"] });
 
-    // matchingEntries: 1 from global (EWH3) + 0 from kennel pages (empty HTML)
+    // matchingEntries: 1 from global (EWH3) — no kennel page fallback since all slugs exist in index
     expect(result.diagnosticContext?.matchingEntries).toBe(1);
+    expect(browserRender).not.toHaveBeenCalled();
   });
 });

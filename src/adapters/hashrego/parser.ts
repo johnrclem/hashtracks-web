@@ -408,27 +408,42 @@ function cleanDescription(text: string): string | undefined {
 export function parseKennelEventsPage(html: string, kennelSlug: string, referenceYear?: number): IndexEntry[] {
   const $ = cheerio.load(html);
   const entries: IndexEntry[] = [];
-  const year = referenceYear ?? new Date().getFullYear();
+  const year = referenceYear ?? new Date().getUTCFullYear();
+  const currentMonth = new Date().getUTCMonth() + 1;
 
-  $("table.table-striped tbody tr").each((_i, row) => {
+  // Target the events table specifically — verify header contains "Start Date"
+  const table = $("table.table-striped").filter((_i, el) =>
+    $(el).find("thead th").first().text().trim().toLowerCase().includes("start date"),
+  ).first();
+
+  table.find("tbody tr").each((_i, row) => {
     const cells = $(row).find("td");
     if (cells.length < 5) return;
 
     // Col 0: Start Date — "MM/DD HH:MM AM/PM" (no year on kennel pages)
     const dateText = $(cells[0]).text().trim();
     const dateMatch = dateText.match(/^(\d{1,2}\/\d{1,2})\s*(.*)/);
-    // Append reference year so dates work with parseHashRegoDate (expects MM/DD/YY)
-    const rawDate = dateMatch ? dateMatch[1] : dateText;
-    const startDate = dateMatch ? `${rawDate}/${String(year).slice(-2)}` : rawDate;
-    const startTime = dateMatch?.[2]?.trim() || "";
+    if (!dateMatch) return;
+
+    // Infer year: if scraping in late months (Oct–Dec) and event is in early months (Jan–Mar),
+    // assume next year. If scraping in early months (Jan–Mar) and event is in late months (Oct–Dec),
+    // assume previous year.
+    const eventMonth = parseInt(dateMatch[1].split("/")[0], 10);
+    let inferredYear = year;
+    if (currentMonth >= 10 && eventMonth <= 3) inferredYear = year + 1;
+    else if (currentMonth <= 3 && eventMonth >= 10) inferredYear = year - 1;
+
+    const rawDate = dateMatch[1];
+    const startDate = `${rawDate}/${String(inferredYear).slice(-2)}`;
+    const startTime = dateMatch[2]?.trim() || "";
 
     // Col 1: Type
     const type = $(cells[1]).text().trim();
 
-    // Col 2: Event Name with link to /events/{slug}
+    // Col 2: Event Name with link to /events/{slug} or //hashrego.com/events/{slug}
     const eventLink = $(cells[2]).find("a");
     const href = eventLink.attr("href") || "";
-    const slugMatch = href.match(/^\/events\/([^/]+)/);
+    const slugMatch = href.match(/(?:^\/|\/\/hashrego\.com\/)events\/([^/]+)/);
     if (!slugMatch) return;
     const slug = slugMatch[1];
     const title = eventLink.text().trim();
