@@ -214,7 +214,10 @@ export function resolveVenue(
       addr = stripped !== addr ? deduplicateWords(stripped) : stripped;
     }
     const nameMatch = parts[0] && addr.toLowerCase() === parts[0].toLowerCase();
-    if (!nameMatch && addr) parts.push(addr);
+    // Skip address if the venue name already contains it (e.g., "410 E 35th Street Parking Lot" contains "410 E 35th Street")
+    const nameContainsAddr = !nameMatch && parts[0] && addr &&
+      parts[0].toLowerCase().includes(addr.toLowerCase());
+    if (!nameMatch && !nameContainsAddr && addr) parts.push(addr);
   }
 
   const joined = () => parts.join(", ");

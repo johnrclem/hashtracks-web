@@ -260,6 +260,18 @@ describe("parseEventFields", () => {
     expect(result.locationStreet).toBeUndefined();
   });
 
+  it("strips trail-type prefix from address", () => {
+    const text = 'Address: "A": 5100 Diane Ave (Intersection of Diane ave and Lehrer Drive)';
+    const result = parseEventFields(text);
+    expect(result.location).toBe("5100 Diane Ave (Intersection of Diane ave and Lehrer Drive)");
+  });
+
+  it("strips A Prime prefix from address", () => {
+    const text = 'Address: "A Prime": 4800 Arlene St';
+    const result = parseEventFields(text);
+    expect(result.location).toBe("4800 Arlene St");
+  });
+
   it("extracts On After field into description", () => {
     const text = "Hare(s): Test\nOn after: The Pub on 5th";
     const result = parseEventFields(text);
@@ -308,6 +320,26 @@ describe("parseHarelineEvents", () => {
     });
     expect(irh3Event?.location).toBeUndefined();
     expect(irh3Event?.locationUrl).toBeUndefined();
+  });
+
+  it("extracts run title from first non-labeled line in div", () => {
+    const htmlWithTitle = `<html><body><dl>
+      <dt class="hashEvent NCH3">
+        <span style="float:right"><a href="/e/event-20260404100000.shtml"><img src="/site_images/event.png"></a></span>
+        <strong>North County Hash</strong>
+        <span style="white-space:nowrap">Saturday, April 4, 2026 10:00am</span>
+        <div><span>
+          Don't Let it Go To Your Head Run<br>
+          <strong>Hare(s):</strong> Fkn Ready<br>
+          <strong>Address:</strong> "A": 5100 Diane Ave<br>
+        </span></div>
+      </dt>
+    </dl></body></html>`;
+    const nchConfig = { ...config, kennelCodeMap: { ...config.kennelCodeMap, NCH3: "nch3" } };
+    const events = parseHarelineEvents(htmlWithTitle, nchConfig);
+    expect(events).toHaveLength(1);
+    expect(events[0].title).toBe("Don't Let it Go To Your Head Run");
+    expect(events[0].location).toBe("5100 Diane Ave");
   });
 
   it("extracts kennel code from CSS class", () => {

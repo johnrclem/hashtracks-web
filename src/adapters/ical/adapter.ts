@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix } from "../utils";
+import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix, isPlaceholder } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { sync as icalSync } from "node-ical";
 import type { VEvent, ParameterValue, DateWithTimeZone } from "node-ical";
@@ -367,6 +367,9 @@ function buildRawEventFromVEvent(
   }
 
   let location = paramValue(vevent.location);
+  if (location && isPlaceholder(location)) {
+    location = undefined;
+  }
 
   if (!location && description) {
     location = extractLocationFromDescription(description, compiledLocationPatterns);

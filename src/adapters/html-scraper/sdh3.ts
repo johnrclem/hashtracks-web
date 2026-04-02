@@ -148,9 +148,10 @@ export function parseEventFields(fieldsText: string): {
         hares = value;
         break;
       case "address": {
-        location = value;
+        // Strip trail-type prefixes: "A": ..., "B": ..., "A Prime": ...
+        location = value.replace(/^"[A-Za-z](?:\s+[A-Za-z]+)*"\s*:\s*/, "");
         // Collect continuation lines (street, city/state/zip) — lines without a label
-        const addressLines = [value];
+        const addressLines = [location];
         for (let k = i + 1; k < lines.length; k++) {
           const nextLine = lines[k].trim();
           if (!nextLine || /^(.+?):/.test(nextLine)) break;
@@ -265,14 +266,17 @@ export function parseHarelineEvents(
 
     const locationUrl = extractMapLink(fieldsDiv, $);
     const sourceUrl = extractEventPageUrl($dt, $, baseUrl);
+    // Extract title: first non-labeled line in the div text is the run title
+    // (the <strong> element contains the kennel display name, not the trail name)
     let title: string | undefined;
-
-    // Extract title from first <strong> (kennel-specific trail name if present)
-    const firstStrong = $dt.find("> strong, > a > strong").first();
-    const strongText = decodeEntities(firstStrong.text()).trim();
-    // Only use as title if it doesn't look like just a kennel name
-    if (strongText && strongText !== kennelCode) {
-      title = strongText;
+    const titleLines = fieldsText.split("\n");
+    for (const line of titleLines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      // Stop at labeled fields (e.g., "Hare(s): ...")
+      if (/^.+?:\s/.test(trimmed)) break;
+      title = trimmed;
+      break;
     }
 
     events.push({

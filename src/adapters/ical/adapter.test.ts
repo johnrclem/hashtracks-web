@@ -673,6 +673,41 @@ END:VCALENDAR`;
     expect(result.events[0].kennelTag).toBe("CCH3");
   });
 
+  it("treats literal 'None' location as empty and falls back to description", async () => {
+    const icsWithNoneLocation = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:com.test.bh3fm-1
+DTSTART;TZID=Europe/Berlin:20260403T184500
+DTEND;TZID=Europe/Berlin:20260403T214500
+SUMMARY:BH3FM Full Moon Run 148
+DESCRIPTION:Hares: Symphomaniac\\nStart: S Julius Leber Brücke
+LOCATION:None
+DTSTAMP:20260201T000000Z
+END:VEVENT
+END:VCALENDAR`;
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(icsWithNoneLocation, { status: 200 }),
+    );
+
+    const source = buildMockSource({
+      config: {
+        kennelPatterns: [["Full Moon Run", "bh3fm"]],
+        defaultKennelTag: "berlinh3",
+        locationPatterns: ["Start:\\s*(.+)"],
+      },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    expect(result.events).toHaveLength(1);
+    // "None" should be filtered out, falling back to description extraction
+    expect(result.events[0].location).not.toBe("None");
+    expect(result.events[0].location).toBe("S Julius Leber Brücke");
+    expect(result.events[0].date).toBe("2026-04-03");
+  });
+
   it("works without config (defaultKennelTag fallback)", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(SAMPLE_ICS, { status: 200 }),
