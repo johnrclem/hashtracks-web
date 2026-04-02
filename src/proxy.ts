@@ -4,6 +4,8 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/sitemap.xml",
+  "/robots.txt",
   "/api/health(.*)",
   "/api/cron(.*)",
   "/api/auth/strava(.*)",
