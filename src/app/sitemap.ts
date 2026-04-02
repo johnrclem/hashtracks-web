@@ -28,7 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const isActive = daysSinceEvent < activeDays;
 
     return {
-      url: `${baseUrl}/kennels/${kennel.slug}`,
+      url: `${baseUrl}/kennels/${encodeURIComponent(kennel.slug)}`,
       lastModified: kennel.updatedAt,
       changeFrequency: isActive ? "weekly" : "monthly",
       priority: isActive ? 0.8 : 0.5,
