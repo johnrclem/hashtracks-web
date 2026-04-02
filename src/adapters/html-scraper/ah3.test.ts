@@ -217,6 +217,16 @@ describe("htmlToText", () => {
     expect(text).not.toContain("mark {");
     expect(text).toContain("The A to Birthday Run");
   });
+
+  it("strips CSS rules that leak outside <style> tags (malformed HTML)", async () => {
+    const $ = (await import("cheerio")).load(
+      `<div class="entry-content">mark { background-color: lightgrey; color: black; }<p>The A to Birthday Run</p></div>`,
+    );
+    const text = htmlToText($);
+    expect(text).not.toContain("background-color");
+    expect(text).not.toContain("mark {");
+    expect(text).toContain("The A to Birthday Run");
+  });
 });
 
 // ── Integration tests: AH3Adapter.fetch ──

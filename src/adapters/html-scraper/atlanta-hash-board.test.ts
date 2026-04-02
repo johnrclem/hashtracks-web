@@ -183,6 +183,16 @@ describe("extractEventFields", () => {
     expect(fields.description).toContain("Hash Cash: $10");
   });
 
+  it("strips embedded time from location", () => {
+    const fields = extractEventFields("Start: bankhead station at 1:30<br>Time: 1:30 PM");
+    expect(fields.location).toBe("bankhead station");
+  });
+
+  it("strips embedded time with AM/PM from location", () => {
+    const fields = extractEventFields("Meet: Midtown Park at 2:00 PM<br>");
+    expect(fields.location).toBe("Midtown Park");
+  });
+
   it("handles content with no structured fields", () => {
     const fields = extractEventFields("Just some random text about hashing");
     expect(fields.hares).toBeUndefined();

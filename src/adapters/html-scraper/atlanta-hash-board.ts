@@ -152,6 +152,8 @@ export function extractEventFields(
   const locMatch = /(?:Start|Where|Location|Meeting|Meet)\s*:\s*([^\n]*)(?:\n|$)/i.exec(text);
   if (locMatch) {
     let loc = locMatch[1].trim();
+    // Strip embedded time patterns: "bankhead station at 1:30" → "bankhead station"
+    loc = loc.replace(/\s+at\s+\d{1,2}:\d{2}(?:\s*[AP]M)?/i, "").trim();
     // Insert comma between venue name and street number when concatenated:
     // "Constitution Lakes 1305 S River Industrial Blvd" → "Constitution Lakes, 1305 S River Industrial Blvd"
     loc = loc.replace(/^([A-Z][A-Za-z\s']+?)\s+(\d{2,5}\s+\w)/, "$1, $2");

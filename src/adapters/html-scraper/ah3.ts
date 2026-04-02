@@ -209,7 +209,11 @@ export function htmlToText($: cheerio.CheerioAPI): string {
     $(this).replaceWith("\n" + $(this).text() + "\n");
   });
 
-  return decodeEntities(content.text());
+  let text = decodeEntities(content.text());
+  // Strip leaked CSS rules (e.g. "mark { background-color: lightgrey; color: black; }")
+  // that may survive style-tag removal due to malformed HTML
+  text = text.replace(/[a-z-]+\s*\{[^{}]*:[^{}]*\}/gi, "");
+  return text;
 }
 
 // ── Adapter class ──

@@ -119,7 +119,7 @@ const TITLE_PURE_TIME_RE = /^\d{1,2}:\d{2}\s*[ap]m$/i;
 const TITLE_SCHEDULE_LINE_RE = /:\s*\d{1,2}:\d{2}\s*(?:am|pm)/i;
 
 // Pre-compiled regexes for extractLocationFromDescription
-const LOCATION_LABEL_RE = /(?:^|\n)\s*(?:WHERE|Location|Address|Meet(?:ing)?\s*(?:spot|point|at)?)\s*:\s*(.+)/im;
+const LOCATION_LABEL_RE = /(?:^|\n)\s*(?:WHERE|Location|Start\s+Address|Address|Meet(?:ing)?\s*(?:spot|point|at)?)\s*:\s*(.+)/im;
 // Fallback: bare label (no colon) with value on subsequent line, optionally after a URL line
 const LOCATION_BARE_LABEL_RE = /(?:^|\n)\s*(?:WHERE|LOCATION)\s*\n(?:\s*https?:\/\/\S+\s*\n)?\s*(.+)/im;
 // Secondary fallback: "Start:" as location label (lower priority — often contains time, not location)
@@ -148,6 +148,8 @@ const MAX_HARE_PAREN_LENGTH = 40;
 const TITLE_DASH_HARE_RE = /\s+-\s+Hares?:\s*(.+)$/i;
 /** " - Location TBD/TBA/TBC" suffix — strip and optionally extract preceding hare names */
 const TITLE_DASH_LOCATION_TBD_RE = /^(.+?)\s+-\s+Location\s+(?:TBD|TBA|TBC)$/i;
+/** "hared by Name" suffix in title (Voodoo H3 format) */
+const TITLE_HARED_BY_RE = /\s+hared by\s+(.+)$/i;
 /** Detect address-like titles (street number + road type + city) */
 const ADDRESS_AS_TITLE_RE = /^\d+\s+\w+.+?(?:Road|Rd|Street|St|Avenue|Ave|Drive|Dr|Boulevard|Blvd|Way|Lane|Ln|Court|Ct|Place|Pl|Parkway|Pkwy|Highway|Hwy),/i;
 /** Detect email addresses in titles (recruitment/placeholder summaries) */
@@ -221,7 +223,7 @@ export function extractTimeFromDescription(description: string): string | undefi
 
 /** Default hare extraction patterns for Google Calendar descriptions. */
 const DEFAULT_HARE_PATTERNS = [
-  /(?:^|\n)[ \t]*Hare\(?s?\)?:[ \t]*(.+)/im,  // Hare:, Hares:, Hare(s):
+  /(?:^|\n)[ \t]*Hare(?:\s*&\s*Co-Hares?)?\(?s?\)?:[ \t]*(.+)/im,  // Hare:, Hares:, Hare(s):, Hare & Co-Hares:
   /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.+)/im,  // Who:, WHO (hares):, Who(hare):
   /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon, name starts uppercase/special)
 ];
@@ -486,6 +488,13 @@ export function buildRawEventFromGCalItem(
   if (dashHareMatch) {
     if (!hares) hares = dashHareMatch[1].trim();
     title = title.slice(0, dashHareMatch.index).trim();
+  }
+
+  // "hared by Name" suffix: "Voodoo Trail #1032 hared by The Iceman" (Voodoo H3)
+  const haredByMatch = TITLE_HARED_BY_RE.exec(title);
+  if (haredByMatch) {
+    if (!hares) hares = haredByMatch[1].trim();
+    title = title.slice(0, haredByMatch.index).trim();
   }
 
   // " - Location TBD" suffix: "HareName - Location TBD" (EWH3 placeholder events)

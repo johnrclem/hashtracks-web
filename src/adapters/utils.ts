@@ -403,7 +403,7 @@ export function stripNonEnglishCountry(location: string): string {
 // Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
 // ---------------------------------------------------------------------------
 
-const PLACEHOLDER_RE = /^(?:tbd|tba|tbc|n\/a|needed|required|registration|\?{1,3})$/i;
+const PLACEHOLDER_RE = /^(?:tbd|tba|tbc|n\/a|none|null|needed|required|registration|\?{1,3})$/i;
 
 /**
  * Check if a value is a common placeholder (TBD, TBA, TBC, N/A, ?, ??, needed, required).

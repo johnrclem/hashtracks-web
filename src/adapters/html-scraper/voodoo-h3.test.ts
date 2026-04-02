@@ -165,7 +165,7 @@ describe("processVoodooPost", () => {
   it("processes a complete post into a RawEventData", () => {
     const title = "Trail #1035: The Egg-Stra Dirty Spring Scramble";
     const body = `
-Date: Thursday, April 2nd
+Date: Thursday, April 2nd, 2026
 Time: 6:30pm show, 7:00pm GO!
 Start Address: The park across from JB's. 128 S Roadway St., New Orleans, LA 70124
 Hare & Co-Hares: Steven with a D and Surprise Co Hare.
@@ -249,7 +249,7 @@ describe("VoodooH3Adapter", () => {
       posts: [
         {
           title: "Trail #1035: The Egg-Stra Dirty Spring Scramble",
-          content: `<p>Date: Thursday, April 2nd<br />
+          content: `<p>Date: Thursday, April 2nd, 2026<br />
 Time: 6:30pm show, 7:00pm GO!<br />
 Start Address: 128 S Roadway St., New Orleans, LA 70124<br />
 Hare &amp; Co-Hares: Steven with a D</p>`,

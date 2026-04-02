@@ -205,7 +205,7 @@ describe("resolveVenue", () => {
     expect(result.location).toBe("13480 Congress Lake Avenue, Hartville, OH");
   });
 
-  it("deduplicates self-concatenated address fields", () => {
+  it("deduplicates self-concatenated address fields and skips redundant address in name", () => {
     const result = resolveVenue({}, {
       name: "410 E 35th Street Parking Lot",
       address: "410 E 35th Street410 E 35th St",
@@ -213,8 +213,8 @@ describe("resolveVenue", () => {
       state: "NC",
     } as never);
     expect(result.location).not.toContain("Street410");
-    expect(result.location).toContain("410 E 35th Street");
-    expect(result.location).toContain("Charlotte");
+    // Address should be dropped since name already contains the street
+    expect(result.location).toBe("410 E 35th Street Parking Lot, Charlotte, NC");
   });
 
   it("keeps real venue name when it differs from address", () => {

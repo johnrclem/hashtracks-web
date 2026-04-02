@@ -148,6 +148,14 @@ describe("extractHares", () => {
     expect(extractHares("Hares: Alice & Bob")).toBe("Alice & Bob");
   });
 
+  it("extracts from 'Hare & Co-Hares:' line (Voodoo H3 format)", () => {
+    expect(extractHares("Hare & Co-Hares: Steven with a D\nStart Address: 123 Main")).toBe("Steven with a D");
+  });
+
+  it("extracts from 'Hare & Co-Hares:' with multiple names", () => {
+    expect(extractHares("Hare & Co-Hares: Whordini & Mudflap")).toBe("Whordini & Mudflap");
+  });
+
   it("extracts from Who: line", () => {
     expect(extractHares("Who: Charlie")).toBe("Charlie");
   });
@@ -757,6 +765,16 @@ describe("extractLocationFromDescription", () => {
   it("still truncates inline URL when location has text before it", () => {
     expect(extractLocationFromDescription("WHERE: The Pub https://maps.google.com/foo")).toBe("The Pub");
   });
+
+  it("extracts 'Start Address:' label (Voodoo H3 format)", () => {
+    const desc = "Hare & Co-Hares: Steven with a D\nStart Address: 128 S Roadway St., New Orleans, LA 70124\nHash Cash: $7";
+    expect(extractLocationFromDescription(desc)).toBe("128 S Roadway St., New Orleans, LA 70124");
+  });
+
+  it("extracts 'Start Address:' with venue name prefix", () => {
+    const desc = "Start Address: St. Patrick Playground - meet at the corner by 501 S Bernadotte St. New Orleans, LA 70119";
+    expect(extractLocationFromDescription(desc)).toBe("St. Patrick Playground - meet at the corner by 501 S Bernadotte St. New Orleans, LA 70119");
+  });
 });
 
 // ── extractTimeFromDescription ──
@@ -1100,6 +1118,19 @@ describe("buildRawEventFromGCalItem — dash-separated hare/location extraction"
     expect(event).not.toBeNull();
     expect(event!.hares).toBe("Captain Jack Swallows");
     expect(event!.title).toBe("EWH3");
+  });
+
+  it("extracts hares from 'hared by Name' suffix (Voodoo H3)", () => {
+    const item = {
+      summary: "Voodoo Trail #1032 hared by The Iceman Thumbeth",
+      start: { dateTime: "2026-03-12T23:30:00Z" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "VOO" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("The Iceman Thumbeth");
+    expect(event!.title).toBe("Voodoo Trail #1032");
   });
 
   it("replaces address-as-title with kennel tag", () => {
