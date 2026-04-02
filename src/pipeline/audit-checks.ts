@@ -203,14 +203,15 @@ function normalizeSegment(s: string): string {
     .trim();
 }
 
-const REGION_APPENDED_RE = /,\s*[A-Z]{2}(?:\s+\d{5})?$/;
+/** Matches getLocationDisplay() state-abbreviation guard exactly — keeps audit in sync with display logic. */
+const STATE_GUARD_RE = /, [A-Za-z]{2}(?:\s+\d{5}(?:-\d{4})?)?\s*$/;
 
 /** Check if a location has a region city appended that doesn't match the address city. */
 function checkRegionAppended(event: LocationEventRow, locationName: string, locationCity: string | null): AuditFinding | null {
   if (!locationCity) return null;
   // Skip when location ends with state abbreviation — getLocationDisplay() already guards against
   // appending city in this case, so the display is correct even if locationCity differs
-  if (/,\s*[A-Za-z]{2}(?:\s+\d{5}(?:-\d{4})?)?\s*$/.test(locationName)) return null;
+  if (STATE_GUARD_RE.test(locationName)) return null;
   const cityName = locationCity.split(",")[0].trim();
   if (locationName.includes(cityName)) return null;
   return finding(event, {
