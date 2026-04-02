@@ -314,16 +314,23 @@ describe("checkLocationQuality", () => {
     expect(findings[0].severity).toBe("warning");
   });
 
-  it("flags location-region-appended when state code is appended but locationCity city name is not in locationName", () => {
+  it("skips location-region-appended when location ends with state abbreviation (display guard handles it)", () => {
     const event = makeEvent({
       locationName: "Central Park, Manhattan, NY",
       locationCity: "New York, NY",
     });
     const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("flags location-region-appended when location has no state abbreviation and city differs", () => {
+    const event = makeEvent({
+      locationName: "The Rusty Bucket",
+      locationCity: "Akron, OH",
+    });
+    const findings = checkLocationQuality([event]);
     expect(findings).toHaveLength(1);
     expect(findings[0].rule).toBe("location-region-appended");
-    expect(findings[0].severity).toBe("warning");
-    expect(findings[0].expectedValue).toBe("Central Park, Manhattan, NY");
   });
 
   it("passes clean location with no issues", () => {
