@@ -30,7 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     return {
       url: `${baseUrl}/kennels/${encodeURIComponent(kennel.slug)}`,
-      lastModified: kennel.updatedAt,
+      lastModified: kennel.updatedAt.toISOString().split("T")[0],
       changeFrequency: isActive ? "weekly" : "monthly",
       priority: isActive ? 0.8 : 0.5,
     };
