@@ -323,9 +323,18 @@ describe("checkLocationQuality", () => {
     expect(findings).toHaveLength(0);
   });
 
-  it("flags location-region-appended when location has no state abbreviation and city differs", () => {
+  it("skips location-region-appended for venue-name-only locations (city context is desirable)", () => {
     const event = makeEvent({
       locationName: "The Rusty Bucket",
+      locationCity: "Akron, OH",
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("flags location-region-appended for structured address with mismatched city", () => {
+    const event = makeEvent({
+      locationName: "123 Main St, Hartville",
       locationCity: "Akron, OH",
     });
     const findings = checkLocationQuality([event]);
