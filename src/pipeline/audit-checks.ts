@@ -208,7 +208,7 @@ export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[]
   const findings: AuditFinding[] = [];
 
   for (const event of events) {
-    const { locationName, locationCity } = event;
+    const { locationName } = event;
 
     if (locationName === null) continue;
 
