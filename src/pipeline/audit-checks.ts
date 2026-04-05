@@ -203,28 +203,6 @@ function normalizeSegment(s: string): string {
     .trim();
 }
 
-/** Matches getLocationDisplay() state-abbreviation guard exactly — keeps audit in sync with display logic. */
-const STATE_GUARD_RE = /, [A-Za-z]{2}(?:\s+\d{5}(?:-\d{4})?)?\s*$/;
-
-/** Check if a location has a mismatched region city appended to a structured address. */
-function checkRegionAppended(event: LocationEventRow, locationName: string, locationCity: string | null): AuditFinding | null {
-  if (!locationCity) return null;
-  // Skip when location ends with state abbreviation — getLocationDisplay() already guards this
-  if (STATE_GUARD_RE.test(locationName)) return null;
-  // Skip venue-name-only locations (no comma = no structured address parts).
-  // Appending city context to "Marina Green" → "Marina Green, San Francisco, CA" is desirable.
-  if (!locationName.includes(",")) return null;
-  const cityName = locationCity.split(",")[0].trim();
-  if (locationName.includes(cityName)) return null;
-  return finding(event, {
-    category: "location",
-    field: "locationName+locationCity",
-    currentValue: `${locationName}, ${locationCity}`,
-    rule: "location-region-appended",
-    severity: "warning",
-    expectedValue: locationName,
-  });
-}
 
 export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[] {
   const findings: AuditFinding[] = [];
@@ -267,12 +245,6 @@ export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[]
       }
     }
 
-    // 3. location-region-appended
-    const regionFinding = checkRegionAppended(event, locationName, locationCity);
-    if (regionFinding) {
-      findings.push(regionFinding);
-      continue;
-    }
   }
 
   return findings;
