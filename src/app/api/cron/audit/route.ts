@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
-import { runAudit } from "@/pipeline/audit-runner";
+import { runAudit, persistAuditLog } from "@/pipeline/audit-runner";
 import { fileAuditIssues } from "@/pipeline/audit-issue";
 import { backfillLastEventDates } from "@/pipeline/backfill-last-event";
 
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
     const result = await runAudit();
 
     if (result.findings.length === 0) {
+      await persistAuditLog(result, 0);
       return NextResponse.json({
         data: {
           eventsScanned: result.eventsScanned,
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
 
     // Pass all ranked groups — fileAuditIssues caps at 3 internally after dedup
     const issueUrls = await fileAuditIssues(result.groups);
+    await persistAuditLog(result, issueUrls.length);
 
     return NextResponse.json({
       data: {

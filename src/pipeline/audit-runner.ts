@@ -3,6 +3,7 @@
  * Used by both the API route (Vercel) and the local script.
  */
 import { prisma } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
 import {
   checkHareQuality,
   checkTitleQuality,
@@ -142,4 +143,26 @@ export async function runAudit(): Promise<AuditResult> {
   }));
 
   return { eventsScanned: events.length, ...runChecks(rows) };
+}
+
+/** Persist audit results to the AuditLog table for trend tracking. */
+export async function persistAuditLog(
+  result: AuditResult,
+  issuesFiled: number,
+  type: "HARELINE" | "KENNEL_DEEP_DIVE" = "HARELINE",
+  kennelCode?: string,
+): Promise<string> {
+  const log = await prisma.auditLog.create({
+    data: {
+      type,
+      eventsScanned: result.eventsScanned,
+      findingsCount: result.findings.length,
+      groupsCount: result.groups.length,
+      issuesFiled,
+      findings: result.findings as unknown as Prisma.InputJsonValue,
+      summary: result.summary as unknown as Prisma.InputJsonValue,
+      kennelCode: kennelCode ?? null,
+    },
+  });
+  return log.id;
 }
