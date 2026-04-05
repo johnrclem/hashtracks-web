@@ -68,6 +68,24 @@ function groupAndRank(findings: AuditFinding[]): { groups: AuditGroup[]; topGrou
   return { groups, topGroups: groups.slice(0, MAX_TOP_GROUPS) };
 }
 
+/** Load active suppressions from the database. */
+async function loadSuppressions(): Promise<Set<string>> {
+  const rows = await prisma.auditSuppression.findMany({
+    select: { kennelCode: true, rule: true },
+  });
+  const keys = new Set<string>();
+  for (const r of rows) {
+    // "kennelCode::rule" for kennel-specific, "::rule" for global
+    keys.add(`${r.kennelCode ?? ""}::${r.rule}`);
+  }
+  return keys;
+}
+
+/** Check if a finding is suppressed by a kennel-specific or global suppression. */
+function isSuppressed(f: AuditFinding, suppressions: Set<string>): boolean {
+  return suppressions.has(`${f.kennelShortName}::${f.rule}`) || suppressions.has(`::${f.rule}`);
+}
+
 /** Run all audit checks on pre-queried rows. Usable by both API route and standalone script. */
 export function runChecks(rows: AuditEventRow[]): Omit<AuditResult, "eventsScanned"> {
   const findings: AuditFinding[] = [];
@@ -142,7 +160,20 @@ export async function runAudit(): Promise<AuditResult> {
     rawDescription: (e.rawEvents[0]?.rawData as Record<string, unknown>)?.description as string | null ?? null,
   }));
 
-  return { eventsScanned: events.length, ...runChecks(rows) };
+  const checksResult = runChecks(rows);
+
+  // Filter out suppressed findings
+  const suppressions = await loadSuppressions();
+  const filtered = checksResult.findings.filter(f => !isSuppressed(f, suppressions));
+
+  // Re-group after filtering
+  const summary: Record<string, number> = {};
+  for (const f of filtered) {
+    summary[f.category] = (summary[f.category] ?? 0) + 1;
+  }
+  const { groups, topGroups } = groupAndRank(filtered);
+
+  return { eventsScanned: events.length, findings: filtered, groups, topGroups, summary };
 }
 
 /** Persist audit results to the AuditLog table for trend tracking. */
