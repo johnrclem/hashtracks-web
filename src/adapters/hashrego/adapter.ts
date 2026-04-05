@@ -17,7 +17,10 @@ import {
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 500;
 const LOOKBACK_DAYS = 7;
-const USER_AGENT = "Mozilla/5.0 (compatible; HashTracks-Scraper)";
+const INDEX_FETCH_RETRIES = 2;
+const MAX_KENNEL_PAGES = 5;
+const STEP2B_BUDGET_MS = 45_000;
+import { USER_AGENT } from "./constants";
 
 /**
  * Hash Rego adapter — scrapes hashrego.com event listings.
@@ -48,28 +51,43 @@ export class HashRegoAdapter implements SourceAdapter {
     let detailPagesFetched = 0;
     let detailPagesFailed = 0;
 
-    // Step 1: Fetch events index
-    let indexHtml: string;
-    try {
-      const res = await safeFetch("https://hashrego.com/events", {
-        headers: { "User-Agent": USER_AGENT },
-      });
-      if (!res.ok) {
-        const msg = `Index fetch failed: HTTP ${res.status}`;
+    // Step 1: Fetch events index (with retry for transient failures)
+    let indexHtml: string | undefined;
+    const maxAttempts = 1 + INDEX_FETCH_RETRIES;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const res = await safeFetch("https://hashrego.com/events", {
+          headers: { "User-Agent": USER_AGENT },
+          useResidentialProxy: true,
+          signal: AbortSignal.timeout(30_000),
+        });
+        if (res.ok) {
+          indexHtml = await res.text();
+          break;
+        }
+        await res.body?.cancel();
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+          continue;
+        }
+        const msg = `Index fetch failed: HTTP ${res.status} (after ${maxAttempts} attempts)`;
         errorDetails.fetch = [{ url: "https://hashrego.com/events", status: res.status, message: msg }];
         return { events: [], errors: [msg], errorDetails };
+      } catch (err) {
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+          continue;
+        }
+        const msg = `Index fetch error: ${err}`;
+        errorDetails.fetch = [{ url: "https://hashrego.com/events", message: msg }];
+        return { events: [], errors: [msg], errorDetails };
       }
-      indexHtml = await res.text();
-    } catch (err) {
-      const msg = `Index fetch error: ${err}`;
-      errorDetails.fetch = [{ url: "https://hashrego.com/events", message: msg }];
-      return { events: [], errors: [msg], errorDetails };
     }
 
-    const structureHash = generateStructureHash(indexHtml);
+    const structureHash = generateStructureHash(indexHtml!);
 
     // Step 2: Parse index, filter by kennel slugs + date range
-    const allEntries = parseEventsIndex(indexHtml);
+    const allEntries = parseEventsIndex(indexHtml!);
     const days = options?.days ?? 90;
     const now = new Date();
     const lookbackDate = new Date(now);
@@ -98,6 +116,11 @@ export class HashRegoAdapter implements SourceAdapter {
     let kennelPageFetchErrors = 0;
 
     for (let i = 0; i < missingSlugs.length; i++) {
+      if (i >= MAX_KENNEL_PAGES) break;
+      if (Date.now() - fetchStart > STEP2B_BUDGET_MS) {
+        errors.push(`Kennel page budget exhausted after ${i} of ${missingSlugs.length} pages`);
+        break;
+      }
       if (i > 0) {
         await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
       }
@@ -179,6 +202,7 @@ export class HashRegoAdapter implements SourceAdapter {
         unmappedKennelSlugs,
         kennelPagesChecked,
         kennelPageEventsFound,
+        kennelPagesSkipped: Math.max(0, missingSlugs.length - kennelPagesChecked.length),
       },
     };
   }

@@ -294,6 +294,30 @@ export async function scrapeSource(
     },
   });
 
+  // Guard: mark any stale RUNNING logs for this source as FAILED.
+  // Handles the case where a previous invocation was hard-killed
+  // (Vercel timeout, OOM, deploy) before its catch block could run.
+  try {
+    const staleCleanup = await prisma.scrapeLog.updateMany({
+      where: {
+        sourceId,
+        status: "RUNNING",
+        id: { not: scrapeLog.id },
+        startedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) },
+      },
+      data: {
+        status: "FAILED",
+        completedAt: new Date(),
+        errors: ["Marked FAILED by stale-log cleanup (previous process likely timed out)"],
+      },
+    });
+    if (staleCleanup.count > 0) {
+      console.warn(`[scrape] Cleaned up ${staleCleanup.count} stale RUNNING log(s) for source ${sourceId}`);
+    }
+  } catch (cleanupErr) {
+    console.error("[scrape] Stale-log cleanup failed:", cleanupErr);
+  }
+
   try {
     // SSRF prevention: validate source URL before any destructive operations.
     // GOOGLE_CALENDAR stores a calendar ID (not a URL) — the adapter constructs

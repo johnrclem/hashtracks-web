@@ -65,7 +65,7 @@ export async function safeFetch(
           method: init.method || "GET",
           headers: headerRecord,
         }),
-        signal: AbortSignal.timeout(45_000), // 30s proxy timeout + 15s tunnel buffer
+        signal: init.signal ?? AbortSignal.timeout(45_000), // caller can override; default = 30s proxy + 15s tunnel
       });
 
       if (!proxyResponse.ok) {

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyCronAuth } from "@/lib/cron-auth";
-import { scrapeSource } from "@/pipeline/scrape";
+import { scrapeSource, type ScrapeSourceResult } from "@/pipeline/scrape";
+
+export const maxDuration = 120; // seconds — needed for browser-rendered adapters (Hash Rego, Wix, etc.)
 
 /**
  * Per-source scrape handler invoked by QStash. Validates the source exists and is enabled,
@@ -53,7 +55,17 @@ export async function POST(
 
   console.log(`[cron/source] Scraping ${source.name} (${sourceId}), days=${days}, auth=${auth.method}`);
 
-  const result = await scrapeSource(sourceId, { days });
+  let result: ScrapeSourceResult;
+  try {
+    result = await scrapeSource(sourceId, { days });
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[cron/source] Unhandled error scraping ${source.name}: ${errorMsg}`);
+    return NextResponse.json(
+      { data: null, error: `Scrape crashed: ${errorMsg}` },
+      { status: 500 },
+    );
+  }
 
   if (!result.success) {
     // Return 500 so QStash retries this source

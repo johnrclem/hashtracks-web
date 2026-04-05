@@ -1,4 +1,4 @@
-import { POST } from "./route";
+import { POST, maxDuration } from "./route";
 import { prisma } from "@/lib/db";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { scrapeSource } from "@/pipeline/scrape";
@@ -108,6 +108,22 @@ describe("POST /api/cron/scrape/[sourceId]", () => {
     const data = await res.json();
     expect(data.data.success).toBe(false);
     expect(data.data.errors).toContain("Connection timeout");
+  });
+
+  it("exports maxDuration of 120 for Vercel function timeout", () => {
+    expect(maxDuration).toBe(120);
+  });
+
+  it("returns 500 when scrapeSource throws an unhandled error", async () => {
+    vi.mocked(prisma.source.findUnique).mockResolvedValue(mockSource as never);
+    vi.mocked(scrapeSource).mockRejectedValue(new Error("Unexpected crash"));
+
+    const res = await POST(makeRequest(), { params: mockParams });
+    expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.data).toBeNull();
+    expect(data.error).toContain("Scrape crashed");
+    expect(data.error).toContain("Unexpected crash");
   });
 
   it("uses days override from request body", async () => {

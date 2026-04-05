@@ -506,9 +506,15 @@ function buildSource(configOverrides?: { kennelSlugs?: string[] }) {
 }
 
 describe("HashRegoAdapter", () => {
+  const savedProxyUrl = process.env.RESIDENTIAL_PROXY_URL;
+  const savedProxyKey = process.env.RESIDENTIAL_PROXY_KEY;
+
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(browserRender).mockReset();
+    // Ensure tests use direct fetch path regardless of env
+    delete process.env.RESIDENTIAL_PROXY_URL;
+    delete process.env.RESIDENTIAL_PROXY_KEY;
     // Freeze time to before all fixture dates so they fall within the forward window
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
@@ -516,6 +522,8 @@ describe("HashRegoAdapter", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    if (savedProxyUrl !== undefined) process.env.RESIDENTIAL_PROXY_URL = savedProxyUrl;
+    if (savedProxyKey !== undefined) process.env.RESIDENTIAL_PROXY_KEY = savedProxyKey;
   });
 
   it("returns empty events when no kennelSlugs provided", async () => {
@@ -692,5 +700,110 @@ describe("HashRegoAdapter", () => {
     // matchingEntries: 1 from global (EWH3) — no kennel page fallback since all slugs exist in index
     expect(result.diagnosticContext?.matchingEntries).toBe(1);
     expect(browserRender).not.toHaveBeenCalled();
+  });
+
+  it("retries index fetch on transient 500 then succeeds", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    // First call: 500, second: 200 (index), third: 200 (detail page for EWH3)
+    fetchSpy
+      .mockResolvedValueOnce(new Response("Server Error", { status: 500 }))
+      .mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(SINGLE_DAY_HTML.replace(/BFMH3/g, "EWH3"), { status: 200 }),
+      );
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    const promise = adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
+
+    // Advance timers to process the 1s retry delay + any batch delays
+    await vi.advanceTimersByTimeAsync(5000);
+
+    const result = await promise;
+    expect(result.events.length).toBeGreaterThan(0);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("returns error after all index fetch retries fail", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    // All 3 attempts return 500
+    fetchSpy
+      .mockResolvedValueOnce(new Response("Error", { status: 500 }))
+      .mockResolvedValueOnce(new Response("Error", { status: 500 }))
+      .mockResolvedValueOnce(new Response("Error", { status: 500 }));
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    const promise = adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
+
+    // Advance past all retry delays (1s + 2s)
+    await vi.advanceTimersByTimeAsync(5000);
+
+    const result = await promise;
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toContain("HTTP 500");
+    expect(result.errors[0]).toContain("after 3 attempts");
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("caps kennel page fetches at MAX_KENNEL_PAGES", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+
+    // Provide 10 missing slugs (not in the global index) — only 5 should be checked
+    const missingSlugs = Array.from({ length: 10 }, (_, i) => `MISS${i}`);
+    vi.mocked(browserRender).mockRejectedValue(new Error("timeout"));
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    const promise = adapter.fetch(source, { days: 365, kennelSlugs: missingSlugs });
+
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    const result = await promise;
+    // Should have checked at most 5 kennel pages (MAX_KENNEL_PAGES)
+    expect(result.diagnosticContext?.kennelPagesChecked).toHaveLength(5);
+    expect(result.diagnosticContext?.kennelPagesSkipped).toBe(5);
+    expect(browserRender).toHaveBeenCalledTimes(5);
+  });
+
+  it("falls back to direct fetch when proxy env vars not set", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy
+      .mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(SINGLE_DAY_HTML.replace(/BFMH3/g, "EWH3"), { status: 200 }),
+      );
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
+
+    // Without RESIDENTIAL_PROXY_URL/KEY, safeFetch falls back to direct fetch
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses realistic User-Agent header", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy
+      .mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(SINGLE_DAY_HTML.replace(/BFMH3/g, "EWH3"), { status: 200 }),
+      );
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
+
+    // Both calls should have a Chrome-like UA, not the old bot-identifying one
+    for (const call of fetchSpy.mock.calls) {
+      const init = call[1] as RequestInit | undefined;
+      const headers = init?.headers as Record<string, string> | undefined;
+      const ua = headers?.["User-Agent"] ?? "";
+      expect(ua).not.toContain("HashTracks-Scraper");
+      expect(ua).toContain("Chrome");
+    }
   });
 });
