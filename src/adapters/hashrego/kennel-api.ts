@@ -31,8 +31,9 @@ export interface HashRegoKennelProfile {
   is_active: boolean;
 }
 
+import { USER_AGENT } from "./adapter";
+
 const BASE_URL = "https://hashrego.com";
-const USER_AGENT = "Mozilla/5.0 (compatible; HashTracks-Scraper)";
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 500;
 
