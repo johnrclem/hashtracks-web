@@ -506,9 +506,15 @@ function buildSource(configOverrides?: { kennelSlugs?: string[] }) {
 }
 
 describe("HashRegoAdapter", () => {
+  const savedProxyUrl = process.env.RESIDENTIAL_PROXY_URL;
+  const savedProxyKey = process.env.RESIDENTIAL_PROXY_KEY;
+
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(browserRender).mockReset();
+    // Ensure tests use direct fetch path regardless of env
+    delete process.env.RESIDENTIAL_PROXY_URL;
+    delete process.env.RESIDENTIAL_PROXY_KEY;
     // Freeze time to before all fixture dates so they fall within the forward window
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
@@ -516,6 +522,8 @@ describe("HashRegoAdapter", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    if (savedProxyUrl !== undefined) process.env.RESIDENTIAL_PROXY_URL = savedProxyUrl;
+    if (savedProxyKey !== undefined) process.env.RESIDENTIAL_PROXY_KEY = savedProxyKey;
   });
 
   it("returns empty events when no kennelSlugs provided", async () => {
@@ -761,7 +769,7 @@ describe("HashRegoAdapter", () => {
     expect(browserRender).toHaveBeenCalledTimes(5);
   });
 
-  it("uses residential proxy for index fetch", async () => {
+  it("falls back to direct fetch when proxy env vars not set", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy
       .mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }))
@@ -773,8 +781,7 @@ describe("HashRegoAdapter", () => {
     const source = buildSource();
     await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
 
-    // safeFetch falls back to direct fetch when proxy env vars aren't set,
-    // but the adapter should be passing useResidentialProxy: true for the index.
+    // Without RESIDENTIAL_PROXY_URL/KEY, safeFetch falls back to direct fetch
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 

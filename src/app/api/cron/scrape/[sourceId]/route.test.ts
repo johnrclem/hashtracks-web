@@ -121,8 +121,9 @@ describe("POST /api/cron/scrape/[sourceId]", () => {
     const res = await POST(makeRequest(), { params: mockParams });
     expect(res.status).toBe(500);
     const data = await res.json();
-    expect(data.error).toBe("Scrape crashed");
-    expect(data.data.error).toContain("Unexpected crash");
+    expect(data.data).toBeNull();
+    expect(data.error).toContain("Scrape crashed");
+    expect(data.error).toContain("Unexpected crash");
   });
 
   it("uses days override from request body", async () => {

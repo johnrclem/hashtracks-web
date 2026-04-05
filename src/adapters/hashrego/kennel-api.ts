@@ -31,7 +31,7 @@ export interface HashRegoKennelProfile {
   is_active: boolean;
 }
 
-import { USER_AGENT } from "./adapter";
+import { USER_AGENT } from "./constants";
 
 const BASE_URL = "https://hashrego.com";
 const BATCH_SIZE = 10;

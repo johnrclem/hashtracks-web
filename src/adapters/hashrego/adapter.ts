@@ -20,8 +20,7 @@ const LOOKBACK_DAYS = 7;
 const INDEX_FETCH_RETRIES = 2;
 const MAX_KENNEL_PAGES = 5;
 const STEP2B_BUDGET_MS = 45_000;
-export const USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+import { USER_AGENT } from "./constants";
 
 /**
  * Hash Rego adapter — scrapes hashrego.com event listings.
@@ -60,6 +59,7 @@ export class HashRegoAdapter implements SourceAdapter {
         const res = await safeFetch("https://hashrego.com/events", {
           headers: { "User-Agent": USER_AGENT },
           useResidentialProxy: true,
+          signal: AbortSignal.timeout(30_000),
         });
         if (res.ok) {
           indexHtml = await res.text();
