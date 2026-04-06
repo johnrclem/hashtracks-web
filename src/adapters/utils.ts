@@ -403,7 +403,24 @@ export function stripNonEnglishCountry(location: string): string {
 // Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
 // ---------------------------------------------------------------------------
 
-const PLACEHOLDER_RE = /^(?:tbd|tba|tbc|n\/a|none|null|needed|required|registration|\?{1,3})$/i;
+const PLACEHOLDER_RE =
+  /^(?:tbd|tba|tbc|n\/a|none|null|needed|required|registration|sign[\s\-_]*up!?|volunteer|\?{1,3})$/i;
+
+/**
+ * Field labels that frequently appear next to a colon in event descriptions
+ * (Hash Cash, Where, When, What, etc.). Used to truncate hare extraction when
+ * HTML stripping has collapsed multiple fields onto one line.
+ *
+ * The regex is intentionally case-sensitive (no /i flag): labels must be capitalized.
+ * This matches the collapsed-field case "AmazonWhat:" (capital W is the boundary signal)
+ * while avoiding false positives on words like "Somewhere:" (lowercase w would match an
+ * insensitive regex). A `\b` word-boundary doesn't help here because "AmazonWhat" has
+ * no word break — both characters are word chars.
+ *
+ * Single source of truth used by both google-calendar and html-scraper adapters.
+ */
+export const EVENT_FIELD_LABEL_RE =
+  /(?:What|Where|When|Why|How|Time|Start|Location|Hash\s*Cash|Cost|Price|Registration|On[\s-]After|Directions|Pack\s*Meet|Circle|Chalk\s*Talk)\s*:.*$/;
 
 /**
  * Check if a value is a common placeholder (TBD, TBA, TBC, N/A, ?, ??, needed, required).

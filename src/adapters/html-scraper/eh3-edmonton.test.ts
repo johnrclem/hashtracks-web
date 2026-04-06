@@ -137,6 +137,16 @@ describe("parseEh3EventBlock", () => {
       const result = parseEh3EventBlock(lines, "eh3-ab", "18:30");
       expect(result!.locationUrl).toBe("https://maps.app.goo.gl/75xjKmVABnt42zin6");
     });
+
+    it("strips trailing '(URL)' from location text (#464)", () => {
+      const lines = [
+        "EH3 Run # 1845 \u2013 Monday April 6 \u2013 Test Run",
+        "Location: Gold Bar Elementary School 10524 46 St NW (https://maps.app.goo.gl/75xjKmVABnt42zin6)",
+      ];
+      const result = parseEh3EventBlock(lines, "eh3-ab", "18:30");
+      expect(result!.location).toBe("Gold Bar Elementary School 10524 46 St NW");
+      expect(result!.locationUrl).toBe("https://maps.app.goo.gl/75xjKmVABnt42zin6");
+    });
   });
 
   describe("OSH3 (osh3-ab)", () => {

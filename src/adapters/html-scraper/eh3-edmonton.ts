@@ -196,8 +196,13 @@ export function parseEh3EventBlock(
 
     const loc = extractField(line, "Location", "Start");
     if (loc) {
-      location = loc;
       locationUrl = extractMapUrl(line);
+      // Strip trailing "(<map url>)" or stray "(" left after the URL was extracted
+      // (e.g. "Gold Bar … NW (https://maps.app.goo.gl/…)" → "Gold Bar … NW")
+      location = loc
+        .replace(/\s*\(\s*https?:\/\/\S+\)?\s*$/i, "")
+        .replace(/\s*\(\s*$/, "")
+        .trim();
       continue;
     }
 

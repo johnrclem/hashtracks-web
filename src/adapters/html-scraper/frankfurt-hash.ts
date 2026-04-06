@@ -29,6 +29,7 @@ import {
   compilePatterns,
   type FetchHTMLResult,
 } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 // ── Config shape ──
 
@@ -102,6 +103,9 @@ export function parseJEMEvent(
   // Resolve kennel tag from title using compiled patterns
   const kennelTag = matchKennelTag(title, compiledPatterns, defaultKennelTag);
 
+  // Some JEM templates inline event details inside the <li>; scan for "Hares: …"
+  const hares = extractHaresFromText($li.text());
+
   return {
     date: datePart,
     kennelTag,
@@ -110,7 +114,71 @@ export function parseJEMEvent(
     location,
     startTime,
     sourceUrl,
+    hares,
   };
+}
+
+/** Find a "Hares:" line anywhere in a chunk of HTML/text. Returns undefined if not present. */
+export function extractHaresFromText(text: string): string | undefined {
+  // Strip HTML tags first so detail-page HTML like "<h3>Hares: DOMs</h3>" parses cleanly.
+  const cleaned = decodeEntities(text)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  // Match "Hares: <names>" or "Hare: <names>" up to a sentence/line break or "by".
+  const m = /\bHares?\s*:\s*([^\n.|]+?)(?=\s*(?:[.|]|\bby\b|$))/i.exec(cleaned);
+  if (!m) return undefined;
+  const value = m[1].trim();
+  return value || undefined;
+}
+
+/** Cap the number of detail-page fetches per scrape so a long upcoming list can't fan out. */
+const MAX_ENRICH_PER_SCRAPE = 30;
+
+/**
+ * Fetch the event detail page for events missing hares and enrich them in place.
+ * JEM detail pages render hares in an h1/h2/h3 like "Hares: DOMs".
+ * Only call this for upcoming events to keep the request count bounded.
+ */
+export async function enrichFrankfurtHares(
+  events: RawEventData[],
+): Promise<{ enriched: number; errors: string[] }> {
+  const errors: string[] = [];
+  let enriched = 0;
+
+  const toEnrich = events.filter((e) => e.sourceUrl && !e.hares).slice(0, MAX_ENRICH_PER_SCRAPE);
+  if (toEnrich.length === 0) return { enriched: 0, errors: [] };
+
+  const BATCH_SIZE = 5;
+  for (let b = 0; b < toEnrich.length; b += BATCH_SIZE) {
+    const batch = toEnrich.slice(b, b + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(async (event) => {
+        const response = await safeFetch(event.sourceUrl!, {
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} for ${event.sourceUrl}`);
+        }
+        return { html: await response.text(), event };
+      }),
+    );
+
+    for (const result of results) {
+      if (result.status === "rejected") {
+        errors.push(String(result.reason));
+        continue;
+      }
+      const { html, event } = result.value;
+      const hares = extractHaresFromText(html);
+      if (hares) {
+        event.hares = hares;
+        enriched++;
+      }
+    }
+  }
+
+  return { enriched, errors };
 }
 
 /**
@@ -231,6 +299,19 @@ export class FrankfurtHashAdapter implements SourceAdapter {
 
     // Filter by date window
     const filteredEvents = allEvents.filter(isInWindow);
+
+    // Enrich upcoming events with hares from their detail pages. Best-effort — failures
+    // are logged but never block the scrape, and the call is capped at MAX_ENRICH_PER_SCRAPE.
+    const upcomingUrls = new Set(
+      upcoming.events.map((e) => e.sourceUrl).filter((u): u is string => !!u),
+    );
+    const upcomingInWindow = filteredEvents.filter((e) => e.sourceUrl && upcomingUrls.has(e.sourceUrl));
+    if (upcomingInWindow.length > 0) {
+      const enrichResult = await enrichFrankfurtHares(upcomingInWindow);
+      if (enrichResult.errors.length > 0) {
+        console.warn("[frankfurt-hash] enrichment errors:", enrichResult.errors.slice(0, 3));
+      }
+    }
 
     if (parseErrors.length > 0) {
       errorDetails.parse = parseErrors;

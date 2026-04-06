@@ -348,20 +348,39 @@ export function parseHistoryEvents(
 }
 
 /**
- * Enrich history events by fetching individual event detail pages.
- * History events only have date/title/kennel; the event pages have
- * hares, location, description in the same <strong>Label:</strong> format.
+ * Whether an event needs detail-page enrichment. Fetches if it has a sourceUrl AND
+ * either has no title OR is missing both hares and location. Events with partial
+ * structured data (e.g. location but no hares) are left alone to bound fetch volume.
  */
-export async function enrichHistoryEvents(
+function shouldEnrichEvent(event: RawEventData): boolean {
+  if (!event.sourceUrl) return false;
+  if (!event.title) return true;
+  return !event.hares && !event.location;
+}
+
+/** First non-labeled line of event-fields text becomes the trail title (mirrors parseHarelineEvents). */
+function extractTitleFromFieldsText(fieldsText: string): string | undefined {
+  for (const line of fieldsText.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (/^.+?:\s/.test(trimmed)) break; // hit a labeled field
+    return trimmed;
+  }
+  return undefined;
+}
+
+/**
+ * Enrich events by fetching individual event detail pages. Used for both:
+ *  - history entries that only have date/title/kennel from the index page
+ *  - hareline entries that are missing the trail title (some events render only labeled fields)
+ */
+export async function enrichEventsFromDetail(
   events: RawEventData[],
 ): Promise<{ enriched: number; errors: string[] }> {
   const errors: string[] = [];
   let enriched = 0;
 
-  // Only enrich events that have a sourceUrl but are missing hares and location
-  const toEnrich = events.filter(
-    (e) => e.sourceUrl && !e.hares && !e.location,
-  );
+  const toEnrich = events.filter(shouldEnrichEvent);
   if (toEnrich.length === 0) return { enriched: 0, errors: [] };
 
   const BATCH_SIZE = 5;
@@ -396,6 +415,10 @@ export async function enrichHistoryEvents(
       const fields = parseEventFields(fieldsText);
 
       let wasEnriched = false;
+      if (!event.title) {
+        const detailTitle = extractTitleFromFieldsText(fieldsText);
+        if (detailTitle) { event.title = detailTitle; wasEnriched = true; }
+      }
       if (fields.hares) { event.hares = fields.hares; wasEnriched = true; }
       if (fields.location) { event.location = fields.location; wasEnriched = true; }
       if (fields.locationStreet) { event.locationStreet = fields.locationStreet; wasEnriched = true; }
@@ -492,17 +515,29 @@ export class SDH3Adapter implements SourceAdapter {
       }
     }
 
-    // ── Step 2b: Enrich history events with detail page data ──
-    // History events only have date/title/kennel; enrichment fetches individual
-    // event pages to extract hares, location, description.
+    // ── Step 2b: Enrich events from detail pages ──
+    // History events only have date/title/kennel from the index. Hareline events occasionally
+    // ship without a title (some events render only labeled fields). Enrichment fetches the
+    // event detail page and fills in title/hares/location/description.
+    // Enrichment is best-effort; failures are logged but never block the scrape so a
+    // single 500 from a detail page can't mark the source unhealthy.
     let historyEnriched = 0;
     if (historyEvents.length > 0) {
-      // Only enrich events within the date window to avoid unnecessary fetches
       const windowedHistory = historyEvents.filter(isInWindow);
-      const enrichResult = await enrichHistoryEvents(windowedHistory);
+      const enrichResult = await enrichEventsFromDetail(windowedHistory);
       historyEnriched = enrichResult.enriched;
       if (enrichResult.errors.length > 0) {
-        allErrors.push(...enrichResult.errors);
+        console.warn("[sdh3] history enrichment errors:", enrichResult.errors.slice(0, 3));
+      }
+    }
+    // Enrich hareline events that are missing a title
+    const harelineNeedingEnrichment = harelineEvents.filter(
+      (e) => isInWindow(e) && e.sourceUrl && !e.title,
+    );
+    if (harelineNeedingEnrichment.length > 0) {
+      const enrichResult = await enrichEventsFromDetail(harelineNeedingEnrichment);
+      if (enrichResult.errors.length > 0) {
+        console.warn("[sdh3] hareline enrichment errors:", enrichResult.errors.slice(0, 3));
       }
     }
 

@@ -21,6 +21,13 @@ import type {
 import { hasAnyErrors } from "../types";
 import { chronoParseDate, fetchHTMLPage, buildDateWindow } from "../utils";
 
+/** Strip a trailing 1–2 letter postal-code fragment after a comma (e.g. "Dublin, D" → "Dublin"). */
+export function stripTruncatedPostalFragment(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.replace(/,\s*[A-Z]{1,2}$/i, "").trim();
+  return trimmed || undefined;
+}
+
 /**
  * Parse a single table row into a RawEventData.
  * Exported for unit testing.
@@ -62,8 +69,11 @@ export function parseHarelineRow(
   // Build title from hash text, cleaning up whitespace
   const title = hashText.replace(/\s+/g, " ").trim() || undefined;
 
-  // Location text + Google Maps URL
-  const location = cells[4]?.trim() || undefined;
+  // Location text + Google Maps URL.
+  // Some archive rows leak a truncated Dublin postal-code fragment (e.g. ", D")
+  // because the source cell wraps after "Dublin, " — trim trailing 1–2 letter
+  // fragments that follow a comma so we don't store ", D" as part of the location.
+  const location = stripTruncatedPostalFragment(cells[4]?.trim() || undefined);
   const locationUrl = hrefs[4] || undefined;
 
   // Hares
