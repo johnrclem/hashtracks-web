@@ -386,6 +386,11 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== NEW MEXICO =====
     "abqh3": ["ABQ H3", "ABQ Hash", "Albuquerque Hash", "Albuquerque HHH", "ABQHHH"],
 
+    // ===== ALABAMA =====
+    "mrh3": ["MRH3", "Mutha Rucker", "Mutha Rucker H3", "Mutha Rucker Hash", "Mutha Rucker HHH"],
+    "gch3": ["GCH3", "Gulf Coast", "Gulf Coast H3", "Gulf Coast Hash", "Gulf Coast HHH"],
+    "wsh3": ["WSH3", "Wandering Soul", "Wandering Soul H3", "Wandering Soul Hash", "Wandering Soul HHH"],
+
     // ===== CANADA =====
     // Quebec
     "mh3-ca": ["MH3", "Montreal Hash", "Montreal HHH", "Montreal H3", "MHHH"],

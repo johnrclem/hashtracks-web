@@ -528,10 +528,11 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3", "oh3"],
+      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3", "oh3", "wsh3", "mrh3"],
       kennelSlugMap: {
         bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4", gfh3: "GFH3",
         ch3: "CH3", dch4: "DCH4", dcfmh3: "DCFMH3", fch3: "FCH3", oh3: "OregonH3",
+        wsh3: "WSH3", mrh3: "MRH3",
       },
     },
     // ===== TEXAS =====
@@ -2920,6 +2921,34 @@ export const SOURCES = [
         defaultKennelTag: "abqh3",
       },
       kennelCodes: ["abqh3"],
+    },
+
+    // ===== ALABAMA =====
+    {
+      name: "Mutha Rucker H3 Google Calendar",
+      url: "mutharuckerh3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "mutharuckerh3@gmail.com",
+        defaultKennelTag: "mrh3",
+      },
+      kennelCodes: ["mrh3"],
+    },
+    {
+      name: "Gulf Coast H3 Google Calendar",
+      url: "gch3hash@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "gch3hash@gmail.com",
+        defaultKennelTag: "gch3",
+      },
+      kennelCodes: ["gch3"],
     },
   ];
 

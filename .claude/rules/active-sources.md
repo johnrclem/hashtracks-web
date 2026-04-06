@@ -186,6 +186,11 @@ globs:
 ## Delaware (1 source)
 - **Hockessin H3 Website** -> HTML_SCRAPER -> H4 (Wilmington)
 
+## Alabama (3 sources)
+- **Mutha Rucker H3 Google Calendar** -> GOOGLE_CALENDAR -> MRH3 (Enterprise)
+- **Gulf Coast H3 Google Calendar** -> GOOGLE_CALENDAR -> GCH3 (Mobile)
+- **Hash Rego (extended)** -> HASHREGO -> WSH3 (Birmingham, annual SOEX) + MRH3 (secondary)
+
 ## Virginia (outside DC metro) (9 sources)
 - **Richmond H3 Google Calendar** -> GOOGLE_CALENDAR -> RH3 (Richmond)
 - **Richmond H3 Meetup** -> MEETUP -> RH3 (Richmond)

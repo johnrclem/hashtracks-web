@@ -2581,5 +2581,32 @@ export const KENNELS: KennelSeed[] = [
       description: "Albuquerque's hash kennel. Trail #1144+.",
       latitude: 35.08, longitude: -106.65,
     },
+
+    // ── Alabama ──
+    {
+      kennelCode: "mrh3", shortName: "Mutha Rucker H3", fullName: "Mutha Rucker Hash House Harriers", region: "Enterprise, AL",
+      website: "https://mutharuckerh3.org",
+      scheduleDayOfWeek: "Saturday",
+      scheduleFrequency: "Biweekly",
+      scheduleNotes: "Approximately 2 Saturday afternoons per month, plus a full-moon nighttime hash",
+      description: "Wiregrass-area hash based out of Enterprise, AL serving the Fort Rucker / southeast Alabama community.",
+      latitude: 31.32, longitude: -85.86,
+    },
+    {
+      kennelCode: "gch3", shortName: "Gulf Coast H3", fullName: "Gulf Coast Hash House Harriers", region: "Mobile, AL",
+      website: "https://www.gulfcoasth3.com",
+      facebookUrl: "https://www.facebook.com/GulfCoastHashHouseHarriers/",
+      scheduleDayOfWeek: "Saturday",
+      scheduleFrequency: "Monthly",
+      scheduleNotes: "Approximately monthly, typically the 3rd Saturday",
+      description: "Mobile, Alabama's hash kennel, founded 1990. Hash cash $6.",
+      latitude: 30.69, longitude: -88.04,
+    },
+    {
+      kennelCode: "wsh3", shortName: "Wandering Soul H3", fullName: "Wandering Soul Hash House Harriers", region: "Birmingham, AL",
+      scheduleNotes: "Hosts annual SOEX hash campout each June",
+      description: "Birmingham, Alabama hash kennel. Best known for hosting the annual SOEX (Southern Excursion) hash campout.",
+      latitude: 33.52, longitude: -86.81,
+    },
   ];
 
