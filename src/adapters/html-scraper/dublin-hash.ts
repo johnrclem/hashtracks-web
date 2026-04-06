@@ -24,7 +24,7 @@ import { chronoParseDate, fetchHTMLPage, buildDateWindow } from "../utils";
 /** Strip a trailing 1–2 letter postal-code fragment after a comma (e.g. "Dublin, D" → "Dublin"). */
 export function stripTruncatedPostalFragment(value: string | undefined): string | undefined {
   if (!value) return undefined;
-  const trimmed = value.replace(/,\s*[A-Z]{1,2}$/, "").trim();
+  const trimmed = value.replace(/,\s*[A-Z]{1,2}$/i, "").trim();
   return trimmed || undefined;
 }
 

@@ -1,7 +1,7 @@
 /**
  * File GitHub issues from audit findings using the GitHub REST API.
- * Files up to 3 individual issues (one per top audit group).
- * Code-fix issues get claude-autofix; data-remediation issues are audit-only.
+ * Files up to 3 individual issues (one per top audit group). All issues are filed with
+ * just `audit`+`alert`; admins add `claude-autofix` manually after triaging.
  */
 import type { AuditGroup } from "./audit-runner";
 import { formatGroupIssueTitle, formatGroupIssueBody } from "./audit-format";
@@ -60,7 +60,7 @@ export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
 }
 
 /** Create a GitHub issue for one audit group. All audit issues require human review before
- *  any autofix workflow runs — add `claude-fix` manually after triaging. */
+ *  any autofix workflow runs — add `claude-autofix` manually after triaging. */
 async function createIssueForGroup(token: string, title: string, group: AuditGroup): Promise<string | null> {
   const body = formatGroupIssueBody(group);
   const isCodeFix = !DATA_REMEDIATION_RULES.has(group.rule);

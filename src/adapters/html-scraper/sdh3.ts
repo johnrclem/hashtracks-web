@@ -347,6 +347,17 @@ export function parseHistoryEvents(
   return events;
 }
 
+/**
+ * Whether an event needs detail-page enrichment. Fetches if it has a sourceUrl AND
+ * either has no title OR is missing both hares and location. Events with partial
+ * structured data (e.g. location but no hares) are left alone to bound fetch volume.
+ */
+function shouldEnrichEvent(event: RawEventData): boolean {
+  if (!event.sourceUrl) return false;
+  if (!event.title) return true;
+  return !event.hares && !event.location;
+}
+
 /** First non-labeled line of event-fields text becomes the trail title (mirrors parseHarelineEvents). */
 function extractTitleFromFieldsText(fieldsText: string): string | undefined {
   for (const line of fieldsText.split("\n")) {
@@ -369,12 +380,7 @@ export async function enrichEventsFromDetail(
   const errors: string[] = [];
   let enriched = 0;
 
-  // Enrich events that have a sourceUrl and are missing the title OR are missing
-  // BOTH hares and location. Events with partial structured data (e.g. location but
-  // no hares, or vice versa) are left alone — preserves original fetch volume.
-  const toEnrich = events.filter(
-    (e) => e.sourceUrl && (!e.title || (!e.hares && !e.location)),
-  );
+  const toEnrich = events.filter(shouldEnrichEvent);
   if (toEnrich.length === 0) return { enriched: 0, errors: [] };
 
   const BATCH_SIZE = 5;

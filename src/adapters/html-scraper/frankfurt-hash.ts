@@ -120,9 +120,13 @@ export function parseJEMEvent(
 
 /** Find a "Hares:" line anywhere in a chunk of HTML/text. Returns undefined if not present. */
 export function extractHaresFromText(text: string): string | undefined {
-  const cleaned = decodeEntities(text).replace(/\s+/g, " ").trim();
-  // Match "Hares: <names>" or "Hare: <names>" up to a line/sentence break or "by".
-  const m = /\bHares?\s*:\s*([^\n.|]+?)(?=\s*(?:[.|]|<br|\bby\b|$))/i.exec(cleaned);
+  // Strip HTML tags first so detail-page HTML like "<h3>Hares: DOMs</h3>" parses cleanly.
+  const cleaned = decodeEntities(text)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  // Match "Hares: <names>" or "Hare: <names>" up to a sentence/line break or "by".
+  const m = /\bHares?\s*:\s*([^\n.|]+?)(?=\s*(?:[.|]|\bby\b|$))/i.exec(cleaned);
   if (!m) return undefined;
   const value = m[1].trim();
   return value || undefined;
@@ -298,8 +302,10 @@ export class FrankfurtHashAdapter implements SourceAdapter {
 
     // Enrich upcoming events with hares from their detail pages. Best-effort — failures
     // are logged but never block the scrape, and the call is capped at MAX_ENRICH_PER_SCRAPE.
-    const upcomingKeysSet = new Set(upcoming.events.map((e) => `${e.date}|${e.title}`));
-    const upcomingInWindow = filteredEvents.filter((e) => upcomingKeysSet.has(`${e.date}|${e.title}`));
+    const upcomingUrls = new Set(
+      upcoming.events.map((e) => e.sourceUrl).filter((u): u is string => !!u),
+    );
+    const upcomingInWindow = filteredEvents.filter((e) => e.sourceUrl && upcomingUrls.has(e.sourceUrl));
     if (upcomingInWindow.length > 0) {
       const enrichResult = await enrichFrankfurtHares(upcomingInWindow);
       if (enrichResult.errors.length > 0) {
