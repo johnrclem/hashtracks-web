@@ -93,11 +93,10 @@ export const SOURCES = [
       config: {
         kennelPatterns: [
           ["BFM|Ben Franklin|BFMH3", "bfm"],
-          ["Philly Hash|hashphilly|Philly H3", "philly-h3"],
         ],
         defaultKennelTag: "bfm",
       },
-      kennelCodes: ["bfm", "philly-h3"],
+      kennelCodes: ["bfm"],
     },
     {
       name: "Philly H3 Google Calendar",
@@ -108,12 +107,11 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         kennelPatterns: [
-          ["BFM|Ben Franklin|BFMH3", "bfm"],
           ["Philly Hash|hashphilly|Philly H3", "philly-h3"],
         ],
         defaultKennelTag: "philly-h3",
       },
-      kennelCodes: ["bfm", "philly-h3"],
+      kennelCodes: ["philly-h3"],
     },
     {
       name: "BFM Website",

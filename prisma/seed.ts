@@ -319,15 +319,24 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function linkKennelsToSource(prisma: any, sourceId: string, kennelCodes: string[], kennelRecords: Map<string, { id: string }>, slugMap?: Record<string, string>) {
+  const validKennelIds: string[] = [];
   for (const code of kennelCodes) {
     const kennel = kennelRecords.get(code);
     if (!kennel) { console.warn(`  ⚠ Kennel code "${code}" not found, skipping source link`); continue; }
+    validKennelIds.push(kennel.id);
     const externalSlug = slugMap?.[code] ?? null;
     await prisma.sourceKennel.upsert({
       where: { sourceId_kennelId: { sourceId, kennelId: kennel.id } },
       update: slugMap ? { externalSlug } : {},
       create: { sourceId, kennelId: kennel.id, ...(externalSlug ? { externalSlug } : {}) },
     });
+  }
+  // Prune stale links (e.g. when a kennel is removed from a source's kennelCodes)
+  const removed = await prisma.sourceKennel.deleteMany({
+    where: { sourceId, kennelId: { notIn: validKennelIds } },
+  });
+  if (removed.count > 0) {
+    console.log(`  ✓ Pruned ${removed.count} stale SourceKennel row(s) for source ${sourceId}`);
   }
 }
 
