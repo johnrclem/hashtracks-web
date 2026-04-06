@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Shield, ChevronLeft, ChevronRight } from "lucide-react";
-import { TAB_ROUTES, type BadgeCounts } from "./AdminNavTabs";
+import { TAB_ROUTES, URGENT_TABS, type BadgeCounts } from "./AdminNavTabs";
 import { useState } from "react";
 
 /** Group definitions for sidebar sections. Operations sits above Data — the daily admin loop
@@ -26,9 +26,6 @@ const NAV_GROUPS = [
     tabs: ["requests", "misman", "roster-groups"],
   },
 ];
-
-/** Tabs whose badge represents an urgent state (red treatment + colored icon). */
-const URGENT_TABS = new Set(["alerts"]);
 
 const tabMap = Object.fromEntries(TAB_ROUTES.map((t) => [t.value, t]));
 
