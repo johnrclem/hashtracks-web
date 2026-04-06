@@ -114,7 +114,6 @@ export class HashRegoAdapter implements SourceAdapter {
     const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
     const currentYear = now.getUTCFullYear();
     let kennelPageFetchErrors = 0;
-
     let kennelPagesStopReason: string | null = null;
 
     for (let i = 0; i < missingSlugs.length; i++) {
