@@ -342,6 +342,7 @@ export async function scrapeSource(
       const sks = await prisma.sourceKennel.findMany({
         where: { sourceId },
         select: { externalSlug: true, kennelId: true },
+        orderBy: { externalSlug: "asc" },
       });
       const dbSlugs = sks
         .map((sk) => sk.externalSlug)
@@ -398,8 +399,17 @@ export async function scrapeSource(
     // Reconcile stale events (scope to scraped kennels for partial-scrape adapters)
     let cancelledCount = 0;
     let reconcileContext: Record<string, unknown> | undefined;
-    const kennelPageErrors = (scrapeResult.diagnosticContext?.kennelPageFetchErrors as number) ?? 0;
-    if (!force && scrapeResult.events.length > 0 && scrapeResult.errors.length === 0 && kennelPageErrors === 0) {
+    const rawKennelPageErrors = scrapeResult.diagnosticContext?.kennelPageFetchErrors;
+    const kennelPageErrors = typeof rawKennelPageErrors === "number" && Number.isFinite(rawKennelPageErrors) ? rawKennelPageErrors : 0;
+    const kennelPagesStopReason = scrapeResult.diagnosticContext?.kennelPagesStopReason;
+    const kennelPagesIncomplete = typeof kennelPagesStopReason === "string" && kennelPagesStopReason !== "";
+    if (
+      !force &&
+      scrapeResult.events.length > 0 &&
+      scrapeResult.errors.length === 0 &&
+      kennelPageErrors === 0 &&
+      !kennelPagesIncomplete
+    ) {
       const reconciled = await reconcileStaleEvents(sourceId, scrapeResult.events, days, scrapedKennelIds);
       const { cancelledEventIds: _, ...reconDiag } = reconciled;
       cancelledCount = reconciled.cancelled;

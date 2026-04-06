@@ -18,7 +18,7 @@ const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 500;
 const LOOKBACK_DAYS = 7;
 const INDEX_FETCH_RETRIES = 2;
-const MAX_KENNEL_PAGES = 5;
+const MAX_KENNEL_PAGES = 10;
 const STEP2B_BUDGET_MS = 45_000;
 import { USER_AGENT } from "./constants";
 
@@ -114,13 +114,10 @@ export class HashRegoAdapter implements SourceAdapter {
     const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
     const currentYear = now.getUTCFullYear();
     let kennelPageFetchErrors = 0;
-    let kennelPageProxyDown = false;
-
     let kennelPagesStopReason: string | null = null;
 
     for (let i = 0; i < missingSlugs.length; i++) {
       if (i >= MAX_KENNEL_PAGES) { kennelPagesStopReason = "max_pages"; break; }
-      if (kennelPageProxyDown) { kennelPagesStopReason = "proxy_down"; break; }
       if (Date.now() - fetchStart > STEP2B_BUDGET_MS) { kennelPagesStopReason = "budget_exhausted"; break; }
       if (i > 0) {
         await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
@@ -152,10 +149,6 @@ export class HashRegoAdapter implements SourceAdapter {
           { url: kennelUrl, message: msg },
         );
         kennelPageFetchErrors++;
-        const statusMatch = /\((\d{3})\)/.exec(String(err));
-        if (statusMatch && ["502", "503"].includes(statusMatch[1])) {
-          kennelPageProxyDown = true;
-        }
       }
     }
 
