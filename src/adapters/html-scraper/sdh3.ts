@@ -369,9 +369,11 @@ export async function enrichEventsFromDetail(
   const errors: string[] = [];
   let enriched = 0;
 
-  // Enrich events that have a sourceUrl and are missing any of: title, hares, location
+  // Enrich events that have a sourceUrl and are missing the title OR are missing
+  // BOTH hares and location. Events with partial structured data (e.g. location but
+  // no hares, or vice versa) are left alone — preserves original fetch volume.
   const toEnrich = events.filter(
-    (e) => e.sourceUrl && (!e.title || !e.hares || !e.location),
+    (e) => e.sourceUrl && (!e.title || (!e.hares && !e.location)),
   );
   if (toEnrich.length === 0) return { enriched: 0, errors: [] };
 
@@ -424,9 +426,6 @@ export async function enrichEventsFromDetail(
 
   return { enriched, errors };
 }
-
-/** @deprecated Use enrichEventsFromDetail. Kept as a thin alias for backwards compat in tests. */
-export const enrichHistoryEvents = enrichEventsFromDetail;
 
 // ── Adapter class ──
 
@@ -514,12 +513,16 @@ export class SDH3Adapter implements SourceAdapter {
     // History events only have date/title/kennel from the index. Hareline events occasionally
     // ship without a title (some events render only labeled fields). Enrichment fetches the
     // event detail page and fills in title/hares/location/description.
+    // Enrichment is best-effort; failures are logged but never block the scrape so a
+    // single 500 from a detail page can't mark the source unhealthy.
     let historyEnriched = 0;
     if (historyEvents.length > 0) {
       const windowedHistory = historyEvents.filter(isInWindow);
       const enrichResult = await enrichEventsFromDetail(windowedHistory);
       historyEnriched = enrichResult.enriched;
-      if (enrichResult.errors.length > 0) allErrors.push(...enrichResult.errors);
+      if (enrichResult.errors.length > 0) {
+        console.warn("[sdh3] history enrichment errors:", enrichResult.errors.slice(0, 3));
+      }
     }
     // Enrich hareline events that are missing a title
     const harelineNeedingEnrichment = harelineEvents.filter(
@@ -527,7 +530,9 @@ export class SDH3Adapter implements SourceAdapter {
     );
     if (harelineNeedingEnrichment.length > 0) {
       const enrichResult = await enrichEventsFromDetail(harelineNeedingEnrichment);
-      if (enrichResult.errors.length > 0) allErrors.push(...enrichResult.errors);
+      if (enrichResult.errors.length > 0) {
+        console.warn("[sdh3] hareline enrichment errors:", enrichResult.errors.slice(0, 3));
+      }
     }
 
     // ── Step 3: Combine and dedup ──

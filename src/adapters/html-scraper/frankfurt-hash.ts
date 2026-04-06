@@ -104,7 +104,7 @@ export function parseJEMEvent(
   const kennelTag = matchKennelTag(title, compiledPatterns, defaultKennelTag);
 
   // Some JEM templates inline event details inside the <li>; scan for "Hares: …"
-  const hares = extractHaresFromListItem($li);
+  const hares = extractHaresFromText($li.text());
 
   return {
     date: datePart,
@@ -128,10 +128,8 @@ export function extractHaresFromText(text: string): string | undefined {
   return value || undefined;
 }
 
-/** Scan an <li> for inline "Hares:" text (some JEM templates inline the description). */
-function extractHaresFromListItem($li: cheerio.Cheerio<AnyNode>): string | undefined {
-  return extractHaresFromText($li.text());
-}
+/** Cap the number of detail-page fetches per scrape so a long upcoming list can't fan out. */
+const MAX_ENRICH_PER_SCRAPE = 30;
 
 /**
  * Fetch the event detail page for events missing hares and enrich them in place.
@@ -144,7 +142,7 @@ export async function enrichFrankfurtHares(
   const errors: string[] = [];
   let enriched = 0;
 
-  const toEnrich = events.filter((e) => e.sourceUrl && !e.hares);
+  const toEnrich = events.filter((e) => e.sourceUrl && !e.hares).slice(0, MAX_ENRICH_PER_SCRAPE);
   if (toEnrich.length === 0) return { enriched: 0, errors: [] };
 
   const BATCH_SIZE = 5;
@@ -298,20 +296,14 @@ export class FrankfurtHashAdapter implements SourceAdapter {
     // Filter by date window
     const filteredEvents = allEvents.filter(isInWindow);
 
-    // Enrich upcoming events with hares from their detail pages. Best-effort —
-    // failures are logged but never block the scrape (otherwise a single 500 would
-    // mark the whole source unhealthy). Only enrich the upcoming bucket to keep
-    // request volume bounded.
+    // Enrich upcoming events with hares from their detail pages. Best-effort — failures
+    // are logged but never block the scrape, and the call is capped at MAX_ENRICH_PER_SCRAPE.
     const upcomingKeysSet = new Set(upcoming.events.map((e) => `${e.date}|${e.title}`));
     const upcomingInWindow = filteredEvents.filter((e) => upcomingKeysSet.has(`${e.date}|${e.title}`));
     if (upcomingInWindow.length > 0) {
-      try {
-        const enrichResult = await enrichFrankfurtHares(upcomingInWindow);
-        if (enrichResult.errors.length > 0) {
-          console.warn("[frankfurt-hash] enrichment errors:", enrichResult.errors.slice(0, 3));
-        }
-      } catch (err) {
-        console.warn("[frankfurt-hash] enrichment failed:", err);
+      const enrichResult = await enrichFrankfurtHares(upcomingInWindow);
+      if (enrichResult.errors.length > 0) {
+        console.warn("[frankfurt-hash] enrichment errors:", enrichResult.errors.slice(0, 3));
       }
     }
 
