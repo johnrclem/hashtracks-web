@@ -509,7 +509,15 @@ Large reference lists are in `.claude/rules/`. They load automatically when you 
 - `rules/live-verification.md` — Mandatory live adapter verification (loads for adapter work)
 
 ## Schema Changes (Destructive Ops)
-The Vercel build runs `prisma db push` **without** `--accept-data-loss`. This is intentional — it prevents silent data wipes when Prisma decides to recreate a table to satisfy a schema diff. Schema changes that require destructive DB operations (column drops, type narrowing, model renames, non-nullable column additions) must be applied via a `prisma/manual-sql/YYYY-MM-DD-<description>.sql` file run against the live DB **before** merging the PR. Once the live DB and schema are aligned, the merge's deploy succeeds normally. Examples already in the repo: `2026-04-05-audit-suppression-global-unique.sql`, `2026-04-06-bump-gcal-frequency.sql`.
+The Vercel build runs `prisma db push` **without** `--accept-data-loss`. This is intentional — it prevents silent data wipes when Prisma decides to recreate a table to satisfy a schema diff. Most schema changes (including simple column drops) apply cleanly via `ALTER TABLE` and don't trigger the flag. The flag is only needed when Prisma can't compute a safe in-place migration and falls back to recreating the table — typical triggers include certain index changes, `@default` changes on existing columns, `@@unique` constraint changes on populated tables, and some compound model renames.
+
+**Author workflow** before merging any schema-changing PR:
+
+1. Locally run `npx prisma db push --dry-run` against the prod DATABASE_URL. This prints the SQL Prisma would execute without applying it. If the output is clean, you're done.
+2. If the dry run shows it needs `--accept-data-loss`, **stop**. Author a `prisma/manual-sql/YYYY-MM-DD-<description>.sql` file with the equivalent destructive op and run it against the live DB via `npx prisma db execute --file ...` **before** merging. Make sure the SQL is backward-compatible with the current `main` branch (so the gap between SQL apply and PR merge doesn't break prod).
+3. Merge the PR — the now-converged schema/DB lets the Vercel build's plain `prisma db push` proceed normally.
+
+Examples already in the repo: `2026-04-05-audit-suppression-global-unique.sql`, `2026-04-06-bump-gcal-frequency.sql`. Long-term we plan to switch to `prisma migrate deploy` (tracked in #477).
 
 ## What NOT To Do
 - Don't use Playwright **in the app** for scraping — use the NAS browser render service for JS-rendered sites, Cheerio for everything else
