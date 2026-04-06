@@ -1,4 +1,10 @@
+import type { EventStatus } from "@/generated/prisma/client";
+import { composeUtcStart } from "./timezone";
+
 const CONTEXT = "https://schema.org";
+
+/** Default event duration when endTime is unknown — most hash trails run ~90–120 min. */
+const DEFAULT_EVENT_DURATION_MS = 2 * 60 * 60 * 1000;
 
 /**
  * Safely serialize JSON-LD for injection into a <script> tag.
@@ -68,6 +74,93 @@ export function buildWebSiteJsonLd(baseUrl: string) {
       target: `${baseUrl}/kennels?q={search_term_string}`,
       "query-input": "required name=search_term_string",
     },
+  };
+}
+
+interface EventJsonLdInput {
+  id: string;
+  date: Date;
+  startTime: string | null;
+  timezone: string | null;
+  title: string | null;
+  description: string | null;
+  locationName: string | null;
+  locationStreet: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  status: EventStatus;
+}
+
+interface EventJsonLdKennel {
+  shortName: string;
+  fullName: string;
+  slug: string;
+  region: string;
+}
+
+/**
+ * Build schema.org Event JSON-LD for a canonical Event detail page.
+ *
+ * Required by Google for Event rich results: name, startDate, location.
+ * Recommended: endDate, eventStatus, eventAttendanceMode, organizer, description.
+ *
+ * Docs: https://developers.google.com/search/docs/appearance/structured-data/event
+ */
+export function buildEventJsonLd(
+  event: EventJsonLdInput,
+  kennel: EventJsonLdKennel,
+  baseUrl: string,
+) {
+  // Prefer the precise zoned timestamp; fall back to UTC noon (our storage convention)
+  // when startTime/timezone are missing.
+  const baseDate = composeUtcStart(event.date, event.startTime, event.timezone) ?? event.date;
+  const startDate = baseDate.toISOString();
+  const endDate = new Date(baseDate.getTime() + DEFAULT_EVENT_DURATION_MS).toISOString();
+
+  const name = event.title?.trim() || `${kennel.shortName} Trail`;
+  const placeName = event.locationName?.trim() || `${kennel.shortName} start location`;
+
+  const place: {
+    "@type": "Place";
+    name: string;
+    address: string;
+    geo?: { "@type": "GeoCoordinates"; latitude: number; longitude: number };
+  } = {
+    "@type": "Place",
+    name: placeName,
+    address: event.locationStreet ?? kennel.region,
+  };
+  if (typeof event.latitude === "number" && typeof event.longitude === "number") {
+    place.geo = {
+      "@type": "GeoCoordinates",
+      latitude: event.latitude,
+      longitude: event.longitude,
+    };
+  }
+
+  const eventStatus =
+    event.status === "CANCELLED"
+      ? "https://schema.org/EventCancelled"
+      : event.status === "TENTATIVE"
+        ? "https://schema.org/EventPostponed"
+        : "https://schema.org/EventScheduled";
+
+  return {
+    "@context": CONTEXT,
+    "@type": "Event" as const,
+    name,
+    startDate,
+    endDate,
+    eventStatus,
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode" as const,
+    location: place,
+    organizer: {
+      "@type": "SportsOrganization" as const,
+      name: kennel.fullName,
+      url: `${baseUrl}/kennels/${kennel.slug}`,
+    },
+    url: `${baseUrl}/hareline/${event.id}`,
+    ...(event.description ? { description: event.description } : {}),
   };
 }
 

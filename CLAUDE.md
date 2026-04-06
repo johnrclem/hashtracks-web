@@ -85,6 +85,9 @@ logbook + kennel directory.
 - SENTRY_AUTH_TOKEN=     # Sentry auth token (build-time only, source map upload to Vercel)
 - SENTRY_ORG=            # Sentry organization slug (build-time)
 - SENTRY_PROJECT=        # Sentry project slug (build-time)
+- INDEXNOW_KEY=           # IndexNow API key (production only) — also served at /<key>.txt for ownership verification
+- BING_SITE_VERIFICATION= # Bing Webmaster Tools msvalidate.01 token (optional, fallback if not DNS-verified)
+- GOOGLE_SITE_VERIFICATION= # Google Search Console verification token (optional, fallback if not DNS-verified)
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)

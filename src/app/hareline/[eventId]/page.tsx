@@ -23,6 +23,8 @@ import { InfoPopover } from "@/components/ui/info-popover";
 import { RestoreEventButton } from "@/components/admin/RestoreEventButton";
 import { stripMarkdown, stripUrlsFromText, formatRelativeTime } from "@/lib/format";
 import { getFullLocationDisplay } from "@/lib/event-display";
+import { buildEventJsonLd, safeJsonLd } from "@/lib/seo";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 export async function generateMetadata({
   params,
@@ -61,9 +63,11 @@ export async function generateMetadata({
     ? raw.slice(0, raw.lastIndexOf(" ", 200)) + "..."
     : raw;
 
+  const baseUrl = getCanonicalSiteUrl();
   return {
     title,
     description,
+    alternates: { canonical: `${baseUrl}/hareline/${eventId}` },
     openGraph: { title, description },
   };
 }
@@ -176,8 +180,36 @@ export default async function EventDetailPage({
     return "Let others know you plan to attend.";
   }
 
+  const baseUrl = getCanonicalSiteUrl();
+  const eventJsonLd = buildEventJsonLd(
+    {
+      id: event.id,
+      date: event.date,
+      startTime: event.startTime,
+      timezone: event.timezone,
+      title: event.title,
+      description: event.description,
+      locationName: event.locationName,
+      locationStreet: event.locationStreet,
+      latitude: event.latitude,
+      longitude: event.longitude,
+      status: event.status,
+    },
+    {
+      shortName: event.kennel.shortName,
+      fullName: event.kennel.fullName ?? event.kennel.shortName,
+      slug: event.kennel.slug,
+      region: event.kennel.region,
+    },
+    baseUrl,
+  );
+
   return (
     <div className="space-y-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(eventJsonLd) }}
+      />
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-muted-foreground">
         {from === "logbook" ? (

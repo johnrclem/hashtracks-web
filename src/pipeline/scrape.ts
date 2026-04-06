@@ -12,6 +12,9 @@ import { autoFileIssuesForAlerts } from "./auto-issue";
 import { verifyResolvedAutoFixes } from "./verify-fixes";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
 import { validateSourceUrl } from "@/adapters/utils";
+import { after } from "next/server";
+import { pingIndexNow } from "@/lib/indexnow";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 /** Result returned by `scrapeSource()` summarizing the full scrape-merge-reconcile cycle. */
 export interface ScrapeSourceResult {
@@ -450,6 +453,14 @@ export async function scrapeSource(
         : undefined,
       cancelledCount,
     });
+
+    // Run IndexNow ping after the response is sent, so the serverless function
+    // doesn't get killed mid-request. No-op when key is unset or non-prod.
+    if (mergeResult.createdEventIds.length > 0) {
+      const baseUrl = getCanonicalSiteUrl();
+      const urls = mergeResult.createdEventIds.map((id) => `${baseUrl}/hareline/${id}`);
+      after(() => pingIndexNow(urls));
+    }
 
     return {
       success: true,

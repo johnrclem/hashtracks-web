@@ -86,6 +86,8 @@ export interface SourceAdapter {
 /** Result of the merge pipeline processing */
 export interface MergeResult {
   created: number;
+  /** IDs of newly created canonical Events. Used for downstream notifications (e.g. IndexNow). */
+  createdEventIds: string[];
   updated: number;
   skipped: number;
   unmatched: string[]; // kennel tags that couldn't be resolved
