@@ -508,6 +508,9 @@ Large reference lists are in `.claude/rules/`. They load automatically when you 
 - `rules/documentation-index.md` — Docs directory index (loads for `docs/*`)
 - `rules/live-verification.md` — Mandatory live adapter verification (loads for adapter work)
 
+## Schema Changes (Destructive Ops)
+The Vercel build runs `prisma db push` **without** `--accept-data-loss`. This is intentional — it prevents silent data wipes when Prisma decides to recreate a table to satisfy a schema diff. Schema changes that require destructive DB operations (column drops, type narrowing, model renames, non-nullable column additions) must be applied via a `prisma/manual-sql/YYYY-MM-DD-<description>.sql` file run against the live DB **before** merging the PR. Once the live DB and schema are aligned, the merge's deploy succeeds normally. Examples already in the repo: `2026-04-05-audit-suppression-global-unique.sql`, `2026-04-06-bump-gcal-frequency.sql`.
+
 ## What NOT To Do
 - Don't use Playwright **in the app** for scraping — use the NAS browser render service for JS-rendered sites, Cheerio for everything else
 - Don't parse dates through `new Date()` without UTC normalization
