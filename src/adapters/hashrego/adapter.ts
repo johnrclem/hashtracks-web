@@ -114,13 +114,12 @@ export class HashRegoAdapter implements SourceAdapter {
     const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
     const currentYear = now.getUTCFullYear();
     let kennelPageFetchErrors = 0;
+    let kennelPageProxyDown = false;
 
     for (let i = 0; i < missingSlugs.length; i++) {
       if (i >= MAX_KENNEL_PAGES) break;
-      if (Date.now() - fetchStart > STEP2B_BUDGET_MS) {
-        errors.push(`Kennel page budget exhausted after ${i} of ${missingSlugs.length} pages`);
-        break;
-      }
+      if (kennelPageProxyDown) break;
+      if (Date.now() - fetchStart > STEP2B_BUDGET_MS) break;
       if (i > 0) {
         await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
       }
@@ -132,7 +131,7 @@ export class HashRegoAdapter implements SourceAdapter {
         const html = await browserRender({
           url: kennelUrl,
           waitFor: "table.table-striped tbody tr",
-          timeout: 15000,
+          timeout: 8000,
         });
         const kennelEntries = parseKennelEventsPage(html, slug, currentYear);
 
@@ -147,11 +146,13 @@ export class HashRegoAdapter implements SourceAdapter {
         kennelPageEventsFound += filtered.length;
       } catch (err) {
         const msg = `Kennel page error for ${slug}: ${err}`;
-        errors.push(msg);
         (errorDetails.fetch ??= []).push(
           { url: kennelUrl, message: msg },
         );
         kennelPageFetchErrors++;
+        if (String(err).includes("502") || String(err).includes("503")) {
+          kennelPageProxyDown = true;
+        }
       }
     }
 

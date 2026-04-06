@@ -676,8 +676,10 @@ describe("HashRegoAdapter", () => {
     expect(result.diagnosticContext?.kennelPagesChecked).toEqual(["NYCH3"]);
     expect(result.diagnosticContext?.kennelPageEventsFound).toBe(0);
     expect(result.events).toHaveLength(0);
-    expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors[0]).toContain("Kennel page error");
+    // Step 2b errors are non-fatal — tracked in errorDetails, not errors[]
+    expect(result.errors).toHaveLength(0);
+    expect(result.errorDetails?.fetch).toBeDefined();
+    expect(result.errorDetails!.fetch![0].message).toContain("Kennel page error");
   });
 
   it("filters events by days window", async () => {
