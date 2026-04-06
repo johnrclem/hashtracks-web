@@ -4,8 +4,8 @@ import {
   getTopOffenders,
   getRecentRuns,
   getSuppressions,
-  KNOWN_AUDIT_RULES,
 } from "./actions";
+import { KNOWN_AUDIT_RULES } from "@/pipeline/audit-checks";
 import { AuditDashboard } from "@/components/admin/AuditDashboard";
 
 export default async function AuditPage() {

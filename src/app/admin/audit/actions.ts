@@ -2,13 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
-import {
-  KNOWN_AUDIT_RULES,
-  type AuditFinding,
-  type KnownAuditRule,
-} from "@/pipeline/audit-checks";
-
-export { KNOWN_AUDIT_RULES, type KnownAuditRule };
+import { KNOWN_AUDIT_RULES, type AuditFinding } from "@/pipeline/audit-checks";
 
 /** Encoding used for both DB suppression rows and finding lookup keys. */
 function suppressionKey(kennelCode: string | null, rule: string): string {
