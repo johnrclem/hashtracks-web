@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
-import { parseHarelineRow, DublinHashAdapter } from "./dublin-hash";
+import { parseHarelineRow, DublinHashAdapter, stripTruncatedPostalFragment } from "./dublin-hash";
 
 // Mock safeFetch (used by fetchHTMLPage)
 vi.mock("@/adapters/safe-fetch", () => ({
@@ -43,8 +43,46 @@ function mockFetchResponse(html: string) {
   } as Response);
 }
 
+describe("stripTruncatedPostalFragment", () => {
+  it("strips trailing single-letter Dublin postal fragment", () => {
+    expect(stripTruncatedPostalFragment("51 Bar, Haddington Rd, Dublin, D")).toBe(
+      "51 Bar, Haddington Rd, Dublin",
+    );
+  });
+  it("strips trailing two-letter fragment", () => {
+    expect(stripTruncatedPostalFragment("Some Pub, Dublin, DC")).toBe("Some Pub, Dublin");
+  });
+  it("preserves a complete address", () => {
+    expect(stripTruncatedPostalFragment("Dalkey DART Station")).toBe("Dalkey DART Station");
+  });
+  it("preserves an address with a numeric postal code", () => {
+    expect(stripTruncatedPostalFragment("51 Bar, Haddington Rd, Dublin, D02")).toBe(
+      "51 Bar, Haddington Rd, Dublin, D02",
+    );
+  });
+  it("returns undefined for empty input", () => {
+    expect(stripTruncatedPostalFragment(undefined)).toBeUndefined();
+    expect(stripTruncatedPostalFragment("")).toBeUndefined();
+  });
+});
+
 describe("DublinHashAdapter", () => {
   describe("parseHarelineRow", () => {
+    it("strips trailing truncated postal fragment from location (#453)", () => {
+      const cells = [
+        "Monday",
+        "30 March 2026",
+        "19:30",
+        "Dublin H3 #1670",
+        "51 Bar, Haddington Rd, Dublin, D",
+        "Polly",
+        "",
+      ];
+      const event = parseHarelineRow(cells, [undefined, undefined, undefined, undefined, undefined, undefined, undefined], "https://dublinhhh.com/archive");
+      expect(event).not.toBeNull();
+      expect(event!.location).toBe("51 Bar, Haddington Rd, Dublin");
+    });
+
     const sourceUrl = "https://dublinhhh.com/archive";
 
     it("parses a standard Dublin H3 row", () => {

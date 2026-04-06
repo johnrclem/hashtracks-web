@@ -59,13 +59,12 @@ export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
   return urls;
 }
 
-/** Create a GitHub issue for one audit group with appropriate labels. */
+/** Create a GitHub issue for one audit group. All audit issues require human review before
+ *  any autofix workflow runs — add `claude-fix` manually after triaging. */
 async function createIssueForGroup(token: string, title: string, group: AuditGroup): Promise<string | null> {
   const body = formatGroupIssueBody(group);
   const isCodeFix = !DATA_REMEDIATION_RULES.has(group.rule);
-  const labels = isCodeFix
-    ? ["audit", "alert", "claude-autofix"]
-    : ["audit", "alert"];
+  const labels = ["audit", "alert"];
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -90,7 +89,7 @@ async function createIssueForGroup(token: string, title: string, group: AuditGro
     }
 
     const issue = (await res.json()) as { html_url: string; number: number };
-    const tag = isCodeFix ? "claude-autofix" : "data remediation";
+    const tag = isCodeFix ? "code-fix candidate" : "data remediation";
     console.log(`[audit-issue] Created issue #${issue.number} [${tag}]: ${issue.html_url}`);
     return issue.html_url;
   } catch (err) {

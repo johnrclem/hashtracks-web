@@ -353,7 +353,7 @@ describe("buildUrlVariantCandidates", () => {
 });
 
 describe("isPlaceholder", () => {
-  it.each(["tbd", "TBD", "tba", "TBA", "tbc", "TBC", "n/a", "N/A", "?", "??", "needed", "Needed", "NEEDED", "required", "Required", "REQUIRED", "registration", "Registration", "REGISTRATION"])(
+  it.each(["tbd", "TBD", "tba", "TBA", "tbc", "TBC", "n/a", "N/A", "?", "??", "needed", "Needed", "NEEDED", "required", "Required", "REQUIRED", "registration", "Registration", "REGISTRATION", "Sign up!", "sign up", "signup", "Sign-up", "SIGNUP", "Volunteer", "volunteer"])(
     "returns true for '%s'",
     (val) => {
       expect(isPlaceholder(val)).toBe(true);

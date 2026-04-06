@@ -29,6 +29,7 @@ import {
   compilePatterns,
   type FetchHTMLResult,
 } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 // ── Config shape ──
 
@@ -102,6 +103,9 @@ export function parseJEMEvent(
   // Resolve kennel tag from title using compiled patterns
   const kennelTag = matchKennelTag(title, compiledPatterns, defaultKennelTag);
 
+  // Some JEM templates inline event details inside the <li>; scan for "Hares: …"
+  const hares = extractHaresFromListItem($li);
+
   return {
     date: datePart,
     kennelTag,
@@ -110,7 +114,69 @@ export function parseJEMEvent(
     location,
     startTime,
     sourceUrl,
+    hares,
   };
+}
+
+/** Find a "Hares:" line anywhere in a chunk of HTML/text. Returns undefined if not present. */
+export function extractHaresFromText(text: string): string | undefined {
+  const cleaned = decodeEntities(text).replace(/\s+/g, " ").trim();
+  // Match "Hares: <names>" or "Hare: <names>" up to a line/sentence break or "by".
+  const m = /\bHares?\s*:\s*([^\n.|]+?)(?=\s*(?:[.|]|<br|\bby\b|$))/i.exec(cleaned);
+  if (!m) return undefined;
+  const value = m[1].trim();
+  return value || undefined;
+}
+
+/** Scan an <li> for inline "Hares:" text (some JEM templates inline the description). */
+function extractHaresFromListItem($li: cheerio.Cheerio<AnyNode>): string | undefined {
+  return extractHaresFromText($li.text());
+}
+
+/**
+ * Fetch the event detail page for events missing hares and enrich them in place.
+ * JEM detail pages render hares in an h1/h2/h3 like "Hares: DOMs".
+ * Only call this for upcoming events to keep the request count bounded.
+ */
+export async function enrichFrankfurtHares(
+  events: RawEventData[],
+): Promise<{ enriched: number; errors: string[] }> {
+  const errors: string[] = [];
+  let enriched = 0;
+
+  const toEnrich = events.filter((e) => e.sourceUrl && !e.hares);
+  if (toEnrich.length === 0) return { enriched: 0, errors: [] };
+
+  const BATCH_SIZE = 5;
+  for (let b = 0; b < toEnrich.length; b += BATCH_SIZE) {
+    const batch = toEnrich.slice(b, b + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(async (event) => {
+        const response = await safeFetch(event.sourceUrl!, {
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} for ${event.sourceUrl}`);
+        }
+        return { html: await response.text(), event };
+      }),
+    );
+
+    for (const result of results) {
+      if (result.status === "rejected") {
+        errors.push(String(result.reason));
+        continue;
+      }
+      const { html, event } = result.value;
+      const hares = extractHaresFromText(html);
+      if (hares) {
+        event.hares = hares;
+        enriched++;
+      }
+    }
+  }
+
+  return { enriched, errors };
 }
 
 /**
@@ -231,6 +297,23 @@ export class FrankfurtHashAdapter implements SourceAdapter {
 
     // Filter by date window
     const filteredEvents = allEvents.filter(isInWindow);
+
+    // Enrich upcoming events with hares from their detail pages. Best-effort —
+    // failures are logged but never block the scrape (otherwise a single 500 would
+    // mark the whole source unhealthy). Only enrich the upcoming bucket to keep
+    // request volume bounded.
+    const upcomingKeysSet = new Set(upcoming.events.map((e) => `${e.date}|${e.title}`));
+    const upcomingInWindow = filteredEvents.filter((e) => upcomingKeysSet.has(`${e.date}|${e.title}`));
+    if (upcomingInWindow.length > 0) {
+      try {
+        const enrichResult = await enrichFrankfurtHares(upcomingInWindow);
+        if (enrichResult.errors.length > 0) {
+          console.warn("[frankfurt-hash] enrichment errors:", enrichResult.errors.slice(0, 3));
+        }
+      } catch (err) {
+        console.warn("[frankfurt-hash] enrichment failed:", err);
+      }
+    }
 
     if (parseErrors.length > 0) {
       errorDetails.parse = parseErrors;

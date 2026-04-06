@@ -170,6 +170,35 @@ describe("parseJEMEvent", () => {
     expect(event!.sourceUrl).toBe("https://frankfurt-hash.de/coming-runs/event/1234:fh3-run-2114");
   });
 
+  it("extracts hares from inline 'Hares: …' text in the <li> (#466)", () => {
+    const html = `<li class="jem-event">
+      <div class="jem-event-date">
+        <time itemprop="startDate" content="2026-04-06T14:30"></time>
+      </div>
+      <div class="jem-event-title"><h4><a href="/event/1310:fh3-2116">Frankfurt Hash # 2116 — Easter Monday</a></h4></div>
+      <div class="jem-event-venue"><a href="/venues/9">Some Venue</a></div>
+      <div class="jem-event-description">Hares: DOMs. Meet at the venue.</div>
+    </li>`;
+    const $ = cheerio.load(html);
+    const $li = $("li.jem-event").first();
+    const event = parseJEMEvent($li, $, compiled, defaultTag, baseUrl);
+    expect(event!.hares).toBe("DOMs");
+  });
+
+  it("returns hares=undefined when no Hares: line is present", () => {
+    const html = `<li class="jem-event">
+      <div class="jem-event-date">
+        <time itemprop="startDate" content="2026-04-06T14:30"></time>
+      </div>
+      <div class="jem-event-title"><h4><a href="/event/1311">FH3 Run</a></h4></div>
+      <div class="jem-event-venue"><a href="/venues/10">Venue</a></div>
+    </li>`;
+    const $ = cheerio.load(html);
+    const $li = $("li.jem-event").first();
+    const event = parseJEMEvent($li, $, compiled, defaultTag, baseUrl);
+    expect(event!.hares).toBeUndefined();
+  });
+
   it("matches FFMH3 pattern for Full Moon events", () => {
     const html = `<li class="jem-event">
       <div class="jem-event-date">
