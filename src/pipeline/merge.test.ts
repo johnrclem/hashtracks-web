@@ -152,7 +152,7 @@ describe("processRawEvents", () => {
   it("handles empty events array", async () => {
     const result = await processRawEvents("src_1", []);
     expect(result).toEqual({
-      created: 0, updated: 0, skipped: 0, blocked: 0, restored: 0,
+      created: 0, createdEventIds: [], updated: 0, skipped: 0, blocked: 0, restored: 0,
       unmatched: [], blockedTags: [], eventErrors: 0, eventErrorMessages: [],
       mergeErrorDetails: [], sampleBlocked: [], sampleSkipped: [],
     });

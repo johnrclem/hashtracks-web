@@ -837,6 +837,7 @@ async function upsertCanonicalEvent(
     });
 
     ctx.result.created++;
+    ctx.result.createdEventIds.push(newEvent.id);
   }
 
   // Record this match in the per-batch tracker
@@ -986,6 +987,7 @@ export async function processRawEvents(
 ): Promise<MergeResult> {
   const result: MergeResult = {
     created: 0,
+    createdEventIds: [],
     updated: 0,
     skipped: 0,
     unmatched: [],

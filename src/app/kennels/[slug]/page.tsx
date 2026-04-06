@@ -17,6 +17,7 @@ import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { getRegionColor } from "@/lib/region";
 import { FadeInSection } from "@/components/home/HeroAnimations";
 import { buildKennelJsonLd, safeJsonLd } from "@/lib/seo";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 export async function generateMetadata({
   params,
@@ -53,7 +54,7 @@ export async function generateMetadata({
     ? raw.slice(0, raw.lastIndexOf(" ", 200)) + "..."
     : raw;
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz";
+  const baseUrl = getCanonicalSiteUrl();
   return {
     title,
     description,
@@ -78,7 +79,7 @@ export default async function KennelDetailPage({
 
   if (!kennel || kennel.isHidden) notFound();
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz";
+  const baseUrl = getCanonicalSiteUrl();
   const kennelJsonLd = buildKennelJsonLd({
     fullName: kennel.fullName,
     shortName: kennel.shortName,
