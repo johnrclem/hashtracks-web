@@ -11,10 +11,17 @@ export function buildDeepDivePrompt(kennel: DeepDiveCandidate): string {
     .map(s => `- **${s.name}** (${s.type}): ${s.url}`)
     .join("\n");
 
+  // Date may arrive as a Date instance (server) or an ISO string (after props serialization
+  // through a server→client component boundary). Normalize before formatting.
   const lastDived =
     kennel.lastDeepDiveAt === null
       ? "never"
-      : kennel.lastDeepDiveAt.toISOString().split("T")[0];
+      : (kennel.lastDeepDiveAt instanceof Date
+          ? kennel.lastDeepDiveAt
+          : new Date(kennel.lastDeepDiveAt)
+        )
+          .toISOString()
+          .split("T")[0];
 
   return `# HashTracks Kennel Deep Dive — ${kennel.shortName}
 
@@ -61,6 +68,6 @@ https://github.com/johnrclem/hashtracks-web/issues/new?labels=audit,alert&title=
 
 ## When done
 
-Return to https://hashtracks.com/admin/audit and click **Mark deep dive complete** with a count of findings filed and a one-line summary.
+Return to https://hashtracks.xyz/admin/audit and click **Mark deep dive complete** with a count of findings filed and a one-line summary.
 `;
 }

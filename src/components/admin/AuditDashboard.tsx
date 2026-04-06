@@ -38,6 +38,7 @@ import {
 import { buildDeepDivePrompt } from "@/lib/admin/deep-dive-prompt";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -763,16 +764,19 @@ function DeepDiveCard({
     );
   }
 
+  // Capture the narrowed reference so the closure doesn't need a non-null assertion
+  const currentKennel = next;
+
   function handleCopy() {
-    void navigator.clipboard.writeText(buildDeepDivePrompt(next!));
+    void navigator.clipboard.writeText(buildDeepDivePrompt(currentKennel));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
   const lastDived =
-    next.lastDeepDiveAt === null
+    currentKennel.lastDeepDiveAt === null
       ? "never"
-      : new Date(next.lastDeepDiveAt).toISOString().split("T")[0];
+      : new Date(currentKennel.lastDeepDiveAt).toISOString().split("T")[0];
 
   return (
     <>
@@ -874,13 +878,12 @@ function DeepDiveCompleteDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="dd-findings-count">Findings filed</Label>
-            <input
+            <Input
               id="dd-findings-count"
               type="number"
               min={0}
               value={findingsCount}
               onChange={e => setFindingsCount(Math.max(0, Number(e.target.value)))}
-              className="w-full rounded-md border border-border/50 bg-background px-3 py-2 text-sm"
             />
           </div>
           <div className="space-y-1.5">

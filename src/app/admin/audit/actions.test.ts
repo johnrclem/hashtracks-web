@@ -261,7 +261,7 @@ describe("getDeepDiveQueue", () => {
         shortName: "BFM",
         slug: "bfm",
         region: "Philly",
-        sourceKennels: [{ source: { type: "ICAL_FEED", url: "https://x", name: "BFM iCal" } }],
+        sources: [{ source: { type: "ICAL_FEED", url: "https://x", name: "BFM iCal" } }],
         _count: { events: 12 },
       },
       {
@@ -269,7 +269,7 @@ describe("getDeepDiveQueue", () => {
         shortName: "NYCH3",
         slug: "nych3",
         region: "NYC",
-        sourceKennels: [{ source: { type: "HTML_SCRAPER", url: "https://hashnyc.com", name: "hashnyc" } }],
+        sources: [{ source: { type: "HTML_SCRAPER", url: "https://hashnyc.com", name: "hashnyc" } }],
         _count: { events: 47 },
       },
       {
@@ -277,7 +277,7 @@ describe("getDeepDiveQueue", () => {
         shortName: "PSH3",
         slug: "psh3",
         region: "Seattle",
-        sourceKennels: [{ source: { type: "GOOGLE_SHEETS", url: "https://x", name: "PSH3 sheet" } }],
+        sources: [{ source: { type: "GOOGLE_SHEETS", url: "https://x", name: "PSH3 sheet" } }],
         _count: { events: 8 },
       },
     ] as never);
@@ -300,7 +300,7 @@ describe("getDeepDiveQueue", () => {
         shortName: `Kennel ${i}`,
         slug: `k${i}`,
         region: "X",
-        sourceKennels: [],
+        sources: [],
         _count: { events: 1 },
       })) as never,
     );
@@ -312,15 +312,10 @@ describe("getDeepDiveQueue", () => {
 
 describe("getDeepDiveCoverage", () => {
   const mockKennelCount = vi.mocked(prisma.kennel.count);
-  const mockLogGroupBy = vi.mocked(prisma.auditLog.groupBy);
 
   it("computes coverage stats and projected full cycle", async () => {
-    mockKennelCount.mockResolvedValue(100 as never);
-    mockLogGroupBy.mockResolvedValue([
-      { kennelCode: "A" },
-      { kennelCode: "B" },
-      { kennelCode: "C" },
-    ] as never);
+    // Two parallel count() calls: total active, then active+audited
+    mockKennelCount.mockResolvedValueOnce(100 as never).mockResolvedValueOnce(3 as never);
 
     const result = await getDeepDiveCoverage();
     expect(result.audited).toBe(3);
@@ -330,11 +325,16 @@ describe("getDeepDiveCoverage", () => {
   });
 
   it("returns null projection when fully covered", async () => {
-    mockKennelCount.mockResolvedValue(2 as never);
-    mockLogGroupBy.mockResolvedValue([{ kennelCode: "A" }, { kennelCode: "B" }] as never);
+    mockKennelCount.mockResolvedValueOnce(2 as never).mockResolvedValueOnce(2 as never);
     const result = await getDeepDiveCoverage();
     expect(result.percent).toBe(100);
     expect(result.projectedFullCycleDate).toBeNull();
+  });
+
+  it("clamps audited to total even if backend returns inconsistent values", async () => {
+    mockKennelCount.mockResolvedValueOnce(5 as never).mockResolvedValueOnce(5 as never);
+    const result = await getDeepDiveCoverage();
+    expect(result.audited).toBeLessThanOrEqual(result.total);
   });
 });
 

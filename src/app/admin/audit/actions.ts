@@ -304,7 +304,7 @@ export async function getDeepDiveQueue(limit = 20): Promise<DeepDiveCandidate[]>
     prisma.kennel.findMany({
       where: {
         isHidden: false,
-        sourceKennels: { some: { source: { enabled: true } } },
+        sources: { some: { source: { enabled: true } } },
         events: { some: { date: { gte: activeSince } } },
       },
       select: {
@@ -312,7 +312,7 @@ export async function getDeepDiveQueue(limit = 20): Promise<DeepDiveCandidate[]>
         shortName: true,
         slug: true,
         region: true,
-        sourceKennels: {
+        sources: {
           where: { source: { enabled: true } },
           select: {
             source: { select: { type: true, url: true, name: true } },
@@ -342,7 +342,7 @@ export async function getDeepDiveQueue(limit = 20): Promise<DeepDiveCandidate[]>
     region: k.region,
     lastDeepDiveAt: lastDiveByKennel.get(k.kennelCode) ?? null,
     eventCount90d: k._count.events,
-    sources: k.sourceKennels.map(sk => ({
+    sources: k.sources.map(sk => ({
       type: sk.source.type,
       url: sk.source.url,
       name: sk.source.name,
@@ -378,22 +378,22 @@ export interface DeepDiveCoverage {
 export async function getDeepDiveCoverage(): Promise<DeepDiveCoverage> {
   await requireAdmin();
   const activeSince = daysAgo(ACTIVE_EVENT_WINDOW_DAYS);
+  const activeWhere = {
+    isHidden: false,
+    sources: { some: { source: { enabled: true } } },
+    events: { some: { date: { gte: activeSince } } },
+  };
 
-  const [total, dived] = await Promise.all([
+  const [total, audited] = await Promise.all([
+    prisma.kennel.count({ where: activeWhere }),
     prisma.kennel.count({
       where: {
-        isHidden: false,
-        sourceKennels: { some: { source: { enabled: true } } },
-        events: { some: { date: { gte: activeSince } } },
+        ...activeWhere,
+        auditLogs: { some: { type: "KENNEL_DEEP_DIVE" } },
       },
-    }),
-    prisma.auditLog.groupBy({
-      by: ["kennelCode"],
-      where: { type: "KENNEL_DEEP_DIVE", kennelCode: { not: null } },
     }),
   ]);
 
-  const audited = dived.length;
   const percent = total > 0 ? Math.round((audited / total) * 100) : 0;
   const remaining = Math.max(0, total - audited);
   const projectedDate =
