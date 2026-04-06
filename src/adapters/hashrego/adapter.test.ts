@@ -798,6 +798,44 @@ describe("HashRegoAdapter", () => {
     expect(browserRender).toHaveBeenCalledTimes(10);
   });
 
+  it("rotates through missing slugs across days", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    vi.mocked(browserRender).mockRejectedValue(new Error("timeout"));
+
+    // 30 slugs, MAX=10 → 3-day rotation cycle
+    const missingSlugs = Array.from({ length: 30 }, (_, i) => `MISS${String(i).padStart(2, "0")}`);
+
+    // Day 1: offset 0 → checks MISS00..MISS09
+    vi.setSystemTime(new Date("2026-01-02T12:00:00Z"));
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    const day1 = await (async () => {
+      const p = adapter.fetch(source, { days: 365, kennelSlugs: missingSlugs });
+      await vi.advanceTimersByTimeAsync(120_000);
+      return p;
+    })();
+
+    // Day 2: offset 10 → checks MISS10..MISS19
+    vi.setSystemTime(new Date("2026-01-03T12:00:00Z"));
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    const day2 = await (async () => {
+      const p = adapter.fetch(source, { days: 365, kennelSlugs: missingSlugs });
+      await vi.advanceTimersByTimeAsync(120_000);
+      return p;
+    })();
+
+    const day1Checked = day1.diagnosticContext?.kennelPagesChecked as string[];
+    const day2Checked = day2.diagnosticContext?.kennelPagesChecked as string[];
+
+    // Different days should check different slugs (no overlap)
+    expect(day1Checked).toHaveLength(10);
+    expect(day2Checked).toHaveLength(10);
+    expect(day1Checked[0]).not.toBe(day2Checked[0]);
+    const overlap = day1Checked.filter((s) => day2Checked.includes(s));
+    expect(overlap).toHaveLength(0);
+  });
+
   it("falls back to direct fetch when proxy env vars not set", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy

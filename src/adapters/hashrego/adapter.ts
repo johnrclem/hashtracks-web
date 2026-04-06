@@ -109,6 +109,15 @@ export class HashRegoAdapter implements SourceAdapter {
     // Step 2b: Fetch kennel-specific event pages for slugs absent from the global index entirely
     const globalIndexSlugs = new Set(allEntries.map((e) => e.kennelSlug.toUpperCase()));
     const missingSlugs = [...kennelSlugs].filter((s) => !globalIndexSlugs.has(s));
+    // Rotate through missing slugs across runs to ensure full coverage over time.
+    // Day-of-year × MAX_KENNEL_PAGES determines the starting offset; every slug is
+    // checked at least once every ceil(missingSlugs.length / MAX_KENNEL_PAGES) days.
+    const dayOfYear = Math.floor((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86_400_000);
+    const startOffset = missingSlugs.length > 0 ? (dayOfYear * MAX_KENNEL_PAGES) % missingSlugs.length : 0;
+    const rotatedSlugs = [
+      ...missingSlugs.slice(startOffset),
+      ...missingSlugs.slice(0, startOffset),
+    ];
     const kennelPagesChecked: string[] = [];
     let kennelPageEventsFound = 0;
     const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
@@ -116,13 +125,13 @@ export class HashRegoAdapter implements SourceAdapter {
     let kennelPageFetchErrors = 0;
     let kennelPagesStopReason: string | null = null;
 
-    for (let i = 0; i < missingSlugs.length; i++) {
+    for (let i = 0; i < rotatedSlugs.length; i++) {
       if (i >= MAX_KENNEL_PAGES) { kennelPagesStopReason = "max_pages"; break; }
       if (Date.now() - fetchStart > STEP2B_BUDGET_MS) { kennelPagesStopReason = "budget_exhausted"; break; }
       if (i > 0) {
         await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
       }
-      const slug = missingSlugs[i];
+      const slug = rotatedSlugs[i];
       kennelPagesChecked.push(slug);
       const kennelUrl = `https://hashrego.com/kennels/${slug}/events`;
       try {
