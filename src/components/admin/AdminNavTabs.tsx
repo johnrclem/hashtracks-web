@@ -47,6 +47,9 @@ export const TAB_ROUTES: TabRoute[] = [
 /** Map of tab value → badge count. Only tabs with count > 0 show a badge. */
 export type BadgeCounts = Partial<Record<string, number>>;
 
+/** Tabs whose badge represents an urgent state (red treatment). Others get neutral. */
+export const URGENT_TABS = new Set(["alerts"]);
+
 export function AdminNavTabs({ badgeCounts }: Readonly<{ badgeCounts: BadgeCounts }>) {
   const pathname = usePathname();
 
@@ -76,7 +79,13 @@ export function AdminNavTabs({ badgeCounts }: Readonly<{ badgeCounts: BadgeCount
               <Icon className="h-4 w-4 shrink-0" />
               <span className="hidden sm:inline">{tab.label}</span>
               {count > 0 && (
-                <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-500">
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                    URGENT_TABS.has(tab.value)
+                      ? "bg-red-500/15 text-red-500"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
                   {count}
                 </span>
               )}

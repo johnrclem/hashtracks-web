@@ -2,6 +2,7 @@ import { getAdminUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { getLatestAuditFindingsCount } from "@/lib/admin/audit-stats";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function AdminLayout({
   const admin = await getAdminUser();
   if (!admin) redirect("/");
 
-  const [openAlertCount, pendingMismanCount, newDiscoveryCount, pendingProposalCount] = await Promise.all([
+  const [openAlertCount, pendingMismanCount, newDiscoveryCount, pendingProposalCount, auditFindings] = await Promise.all([
     prisma.alert.count({
       where: { status: { in: ["OPEN", "ACKNOWLEDGED"] } },
     }),
@@ -26,6 +27,7 @@ export default async function AdminLayout({
     prisma.sourceProposal.count({
       where: { status: "PENDING" },
     }),
+    getLatestAuditFindingsCount(),
   ]);
 
   return (
@@ -36,6 +38,7 @@ export default async function AdminLayout({
           misman: pendingMismanCount,
           discovery: newDiscoveryCount,
           research: pendingProposalCount,
+          audit: auditFindings,
         }}
       />
 

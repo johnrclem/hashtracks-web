@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
+import { getLatestAuditFindingsCount } from "@/lib/admin/audit-stats";
 
 export default async function AdminPage() {
   // Auth is handled by the admin layout — no need to re-check here.
@@ -17,6 +18,7 @@ export default async function AdminPage() {
     healthySources,
     totalCheckins,
     activeAlerts,
+    auditFindings,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.$queryRaw<[{ count: bigint }]>`
@@ -30,6 +32,7 @@ export default async function AdminPage() {
     prisma.source.count({ where: { healthStatus: "HEALTHY", enabled: true } }),
     prisma.attendance.count({ where: { status: "CONFIRMED" } }),
     prisma.alert.count({ where: { status: { in: ["OPEN", "ACKNOWLEDGED"] } } }),
+    getLatestAuditFindingsCount(),
   ]);
 
   return (
@@ -43,6 +46,7 @@ export default async function AdminPage() {
         healthySources,
         totalCheckins,
         activeAlerts,
+        auditFindings,
       }}
     />
   );

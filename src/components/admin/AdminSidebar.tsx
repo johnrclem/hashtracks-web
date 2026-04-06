@@ -3,22 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Shield, ChevronLeft, ChevronRight } from "lucide-react";
-import { TAB_ROUTES, type BadgeCounts } from "./AdminNavTabs";
+import { TAB_ROUTES, URGENT_TABS, type BadgeCounts } from "./AdminNavTabs";
 import { useState } from "react";
 
-/** Group definitions for sidebar sections */
+/** Group definitions for sidebar sections. Operations sits above Data — the daily admin loop
+ *  (alerts → audit → discovery → research) is the warm path; CRUD is the cold path. */
 const NAV_GROUPS = [
   {
     label: "Overview",
     tabs: ["dashboard", "analytics"],
   },
   {
-    label: "Data",
-    tabs: ["sources", "kennels", "events", "regions"],
+    label: "Operations",
+    tabs: ["alerts", "audit", "discovery", "research"],
   },
   {
-    label: "Operations",
-    tabs: ["alerts", "discovery", "research"],
+    label: "Data",
+    tabs: ["sources", "kennels", "events", "regions"],
   },
   {
     label: "Access",
@@ -27,6 +28,14 @@ const NAV_GROUPS = [
 ];
 
 const tabMap = Object.fromEntries(TAB_ROUTES.map((t) => [t.value, t]));
+
+if (process.env.NODE_ENV !== "production") {
+  const grouped = new Set(NAV_GROUPS.flatMap((g) => g.tabs));
+  const missing = TAB_ROUTES.filter((t) => !grouped.has(t.value)).map((t) => t.value);
+  if (missing.length) {
+    console.warn("[AdminSidebar] tabs missing from NAV_GROUPS:", missing);
+  }
+}
 
 export function AdminSidebar({
   badgeCounts,
@@ -83,8 +92,7 @@ export function AdminSidebar({
                 const count = badgeCounts[tab.value] ?? 0;
                 const isActive = activeTab === tab.value;
                 const Icon = tab.icon;
-                const isUrgent =
-                  tab.value === "alerts" && count > 0;
+                const isUrgent = URGENT_TABS.has(tab.value) && count > 0;
 
                 return (
                   <Link
@@ -93,7 +101,7 @@ export function AdminSidebar({
                     title={collapsed ? tab.label : undefined}
                     className={`group relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-all ${
                       isActive
-                        ? "bg-accent text-foreground shadow-sm"
+                        ? "bg-accent text-foreground"
                         : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                     }`}
                   >
