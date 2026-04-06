@@ -114,13 +114,12 @@ export class HashRegoAdapter implements SourceAdapter {
     const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
     const currentYear = now.getUTCFullYear();
     let kennelPageFetchErrors = 0;
+    let kennelPageProxyDown = false;
 
     for (let i = 0; i < missingSlugs.length; i++) {
       if (i >= MAX_KENNEL_PAGES) break;
-      if (Date.now() - fetchStart > STEP2B_BUDGET_MS) {
-        errors.push(`Kennel page budget exhausted after ${i} of ${missingSlugs.length} pages`);
-        break;
-      }
+      if (kennelPageProxyDown) break;
+      if (Date.now() - fetchStart > STEP2B_BUDGET_MS) break;
       if (i > 0) {
         await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
       }
@@ -132,7 +131,7 @@ export class HashRegoAdapter implements SourceAdapter {
         const html = await browserRender({
           url: kennelUrl,
           waitFor: "table.table-striped tbody tr",
-          timeout: 15000,
+          timeout: 8000,
         });
         const kennelEntries = parseKennelEventsPage(html, slug, currentYear);
 
@@ -147,11 +146,14 @@ export class HashRegoAdapter implements SourceAdapter {
         kennelPageEventsFound += filtered.length;
       } catch (err) {
         const msg = `Kennel page error for ${slug}: ${err}`;
-        errors.push(msg);
         (errorDetails.fetch ??= []).push(
           { url: kennelUrl, message: msg },
         );
         kennelPageFetchErrors++;
+        const statusMatch = String(err).match(/\((\d{3})\)/);
+        if (statusMatch && (statusMatch[1] === "502" || statusMatch[1] === "503")) {
+          kennelPageProxyDown = true;
+        }
       }
     }
 
@@ -182,7 +184,7 @@ export class HashRegoAdapter implements SourceAdapter {
 
     // Approximate fallback count from detail page errors (each error triggers createFromIndex)
     // Exclude kennel page fetch errors since those don't produce createFromIndex fallbacks
-    const indexOnlyFallbacks = (errorDetails.fetch?.length ?? 0) - kennelPageFetchErrors + (errorDetails.parse?.length ?? 0);
+    const indexOnlyFallbacks = Math.max(0, (errorDetails.fetch?.length ?? 0) - kennelPageFetchErrors) + (errorDetails.parse?.length ?? 0);
 
     return {
       events,
