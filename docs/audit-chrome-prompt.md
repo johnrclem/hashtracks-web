@@ -34,7 +34,7 @@ These patterns are caught by the daily automated audit. You may still flag them 
 - Time-only titles (`title-time-only`)
 - URLs as locations (`location-url`)
 - Duplicated address segments (`location-duplicate-segments`)
-- Improbable start times 23:00-04:00 (`event-improbable-time`)
+- Improbable start times 23:00–03:59 (`event-improbable-time`)
 
 ## What to Focus On (Chrome-Only Value)
 
@@ -69,9 +69,9 @@ These kennel+rule combos are accepted behavior — do not flag:
 
 For each issue found, try to file it as a GitHub issue:
 
-**Option 1 (preferred):** Navigate to this URL with the title and body filled in:
-```
-https://github.com/johnrclem/hashtracks-web/issues/new?labels=audit,alert&title=[Chrome Audit] {Kennel} — {Issue Category}&body={formatted body}
+**Option 1 (preferred):** Navigate to this URL with the title and body filled in. Both `title` and `body` MUST be URL-encoded (use `encodeURIComponent`) — raw newlines, `&`, or `#` will break the query string.
+```text
+https://github.com/johnrclem/hashtracks-web/issues/new?labels=audit,alert&title={URL-ENCODED TITLE}&body={URL-ENCODED BODY}
 ```
 
 **Option 2 (fallback):** Output the finding in this format for manual filing:

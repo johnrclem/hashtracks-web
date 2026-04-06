@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
-import { runAudit, persistAuditLog } from "@/pipeline/audit-runner";
+import { runAudit, persistAuditLog, updateAuditLogIssuesFiled } from "@/pipeline/audit-runner";
 import { fileAuditIssues } from "@/pipeline/audit-issue";
 import { backfillLastEventDates } from "@/pipeline/backfill-last-event";
 
@@ -38,9 +38,11 @@ export async function POST(request: Request) {
       });
     }
 
+    // Persist log first so a partial GitHub failure still leaves a record (and prevents retry duplication)
+    const logId = await persistAuditLog(result, 0);
     // Pass all ranked groups — fileAuditIssues caps at 3 internally after dedup
     const issueUrls = await fileAuditIssues(result.groups);
-    await persistAuditLog(result, issueUrls.length);
+    await updateAuditLogIssuesFiled(logId, issueUrls.length);
 
     return NextResponse.json({
       data: {

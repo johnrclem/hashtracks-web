@@ -177,6 +177,7 @@ describe("checkHareQuality", () => {
     const findings = checkHareQuality(event);
     const f = findings[0];
     expect(f.kennelShortName).toBe("NYCH3");
+    expect(f.kennelCode).toBe("NYCH3");
     expect(f.eventId).toBe("evt-1");
     expect(f.eventUrl).toBe("https://www.hashtracks.xyz/hareline/evt-1");
     expect(f.sourceUrl).toBe("https://hashnyc.com/run/42");

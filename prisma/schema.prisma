@@ -842,7 +842,6 @@ enum AuditType {
 
 model AuditLog {
   id            String    @id @default(cuid())
-  date          DateTime  @default(now())
   type          AuditType
   eventsScanned Int
   findingsCount Int

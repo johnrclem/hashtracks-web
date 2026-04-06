@@ -18,6 +18,7 @@ export interface AuditEventRow {
 
 export interface AuditFinding {
   kennelShortName: string;
+  kennelCode: string;
   eventId: string;
   eventUrl: string;
   sourceUrl: string | null;
@@ -33,7 +34,7 @@ export interface AuditFinding {
 const HARELINE_BASE_URL = "https://www.hashtracks.xyz/hareline";
 
 /** Minimal event shape needed by finding() — avoids requiring full AuditEventRow. */
-type FindingEvent = Pick<AuditEventRow, "id" | "kennelShortName" | "sourceUrl" | "sourceType">;
+type FindingEvent = Pick<AuditEventRow, "id" | "kennelShortName" | "kennelCode" | "sourceUrl" | "sourceType">;
 
 export function finding(
   event: FindingEvent,
@@ -48,6 +49,7 @@ export function finding(
 ): AuditFinding {
   return {
     kennelShortName: event.kennelShortName,
+    kennelCode: event.kennelCode,
     eventId: event.id,
     eventUrl: `${HARELINE_BASE_URL}/${event.id}`,
     sourceUrl: event.sourceUrl,
@@ -173,17 +175,17 @@ export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
 
 type LocationEventRow = Pick<
   AuditEventRow,
-  "id" | "kennelShortName" | "locationName" | "locationCity" | "sourceUrl" | "sourceType"
+  "id" | "kennelShortName" | "kennelCode" | "locationName" | "locationCity" | "sourceUrl" | "sourceType"
 >;
 
 type EventQualityRow = Pick<
   AuditEventRow,
-  "id" | "kennelShortName" | "startTime" | "date" | "sourceUrl" | "sourceType" | "scrapeDays"
+  "id" | "kennelShortName" | "kennelCode" | "startTime" | "date" | "sourceUrl" | "sourceType" | "scrapeDays"
 >;
 
 type DescriptionEventRow = Pick<
   AuditEventRow,
-  "id" | "kennelShortName" | "description" | "sourceUrl" | "sourceType"
+  "id" | "kennelShortName" | "kennelCode" | "description" | "sourceUrl" | "sourceType"
 > & { rawDescription: string | null };
 
 function normalizeSegment(s: string): string {

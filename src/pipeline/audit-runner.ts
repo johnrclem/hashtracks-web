@@ -41,7 +41,7 @@ const MAX_SAMPLES_PER_GROUP = 3;
 function groupAndRank(findings: AuditFinding[]): { groups: AuditGroup[]; topGroups: AuditGroup[] } {
   const map = new Map<string, { findings: AuditFinding[] }>();
   for (const f of findings) {
-    const key = `${f.kennelShortName}::${f.rule}`;
+    const key = `${f.kennelCode}::${f.rule}`;
     let entry = map.get(key);
     if (!entry) {
       entry = { findings: [] };
@@ -68,30 +68,25 @@ function groupAndRank(findings: AuditFinding[]): { groups: AuditGroup[]; topGrou
   return { groups, topGroups: groups.slice(0, MAX_TOP_GROUPS) };
 }
 
-/** Load active suppressions from the database, keyed by both kennelCode and shortName for matching. */
-async function loadSuppressions(): Promise<Set<string>> {
+/** Load active suppressions from the database as `${kennelCode}::${rule}` keys (or `::${rule}` for global). */
+export async function loadSuppressions(): Promise<Set<string>> {
   const rows = await prisma.auditSuppression.findMany({
-    select: { kennelCode: true, rule: true, kennel: { select: { shortName: true } } },
+    select: { kennelCode: true, rule: true },
   });
   const keys = new Set<string>();
   for (const r of rows) {
-    if (!r.kennelCode) {
-      keys.add(`::${r.rule}`); // global suppression
-    } else {
-      keys.add(`${r.kennelCode}::${r.rule}`);
-      if (r.kennel?.shortName) keys.add(`${r.kennel.shortName}::${r.rule}`);
-    }
+    keys.add(`${r.kennelCode ?? ""}::${r.rule}`);
   }
   return keys;
 }
 
-/** Check if a finding is suppressed (matches by kennelShortName or global). */
-function isSuppressed(f: AuditFinding, suppressions: Set<string>): boolean {
-  return suppressions.has(`${f.kennelShortName}::${f.rule}`) || suppressions.has(`::${f.rule}`);
+/** Check if a finding is suppressed (matches by kennelCode or global). */
+export function isSuppressed(f: AuditFinding, suppressions: Set<string>): boolean {
+  return suppressions.has(`${f.kennelCode}::${f.rule}`) || suppressions.has(`::${f.rule}`);
 }
 
 /** Compute category summary counts from findings. */
-function computeSummary(findings: AuditFinding[]): Record<string, number> {
+export function computeSummary(findings: AuditFinding[]): Record<string, number> {
   const summary: Record<string, number> = {};
   for (const f of findings) {
     summary[f.category] = (summary[f.category] ?? 0) + 1;
@@ -196,4 +191,13 @@ export async function persistAuditLog(
     },
   });
   return log.id;
+}
+
+/** Update issuesFiled count on an existing audit log row. Failures are logged but not thrown. */
+export async function updateAuditLogIssuesFiled(logId: string, issuesFiled: number): Promise<void> {
+  try {
+    await prisma.auditLog.update({ where: { id: logId }, data: { issuesFiled } });
+  } catch (err) {
+    console.error("[audit-runner] Failed to update AuditLog issuesFiled:", err);
+  }
 }
