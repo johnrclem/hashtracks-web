@@ -11,6 +11,7 @@ export interface RawEventData {
   location?: string;
   locationStreet?: string; // Full street address (multi-line address blocks)
   locationUrl?: string; // Google Maps or other maps URL
+  locationCity?: string | null; // Explicit city override — when set (even null), skips reverse-geocoding
   latitude?: number;
   longitude?: number;
   startTime?: string; // HH:MM (local time)

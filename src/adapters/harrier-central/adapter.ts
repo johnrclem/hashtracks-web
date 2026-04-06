@@ -152,6 +152,9 @@ export class HarrierCentralAdapter implements SourceAdapter {
         hares: hcEvent.hares && hcEvent.hares !== "TBA" ? hcEvent.hares : undefined,
         location: hcEvent.locationOneLineDesc && hcEvent.locationOneLineDesc !== "TBA"
           ? hcEvent.locationOneLineDesc : undefined,
+        // HC provides the canonical location — suppress reverse-geocoded city to avoid
+        // incorrect ward/suburb suffixes (e.g. "Sobu line, West exit, 1, Tokyo")
+        locationCity: null,
         latitude: hcEvent.syncLat != null ? hcEvent.syncLat : undefined,
         longitude: hcEvent.syncLong != null ? hcEvent.syncLong : undefined,
         sourceUrl: `https://www.hashruns.org/#/event/${hcEvent.publicEventId}`,

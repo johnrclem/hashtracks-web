@@ -101,6 +101,7 @@ describe("HarrierCentralAdapter", () => {
       expect(evt.runNumber).toBe(2577);
       expect(evt.hares).toBe("Khuming Rouge");
       expect(evt.location).toBe("Yamanote, Tozai lines. Waseda exit");
+      expect(evt.locationCity).toBeNull();
       expect(evt.latitude).toBeCloseTo(35.713, 2);
       expect(evt.longitude).toBeCloseTo(139.704, 2);
       expect(evt.sourceUrl).toContain(hcEvent.publicEventId);

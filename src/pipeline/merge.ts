@@ -724,7 +724,10 @@ async function upsertCanonicalEvent(
 
       // Reverse-geocode city when we have new coords and locationCity isn't already set
       let locationCity: string | null | undefined;
-      if (coords.latitude != null && coords.longitude != null) {
+      if (event.locationCity !== undefined) {
+        // Adapter explicitly provided locationCity (null = suppress city display)
+        locationCity = event.locationCity;
+      } else if (coords.latitude != null && coords.longitude != null) {
         const coordsChanged =
           coords.latitude !== existingEvent.latitude || coords.longitude !== existingEvent.longitude;
         if (coordsChanged || !existingEvent.locationCity) {
@@ -803,9 +806,11 @@ async function upsertCanonicalEvent(
     const coords = await resolveCoords(event, undefined, ctx.shortUrlCache, kennelData, countryToRegionBias(kennelData.country));
     // Reverse-geocode city when coords are available (suppress when address already has state)
     const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
-    const locationCity = (coords.latitude != null && coords.longitude != null)
-      ? suppressRedundantCity(locName, await reverseGeocode(coords.latitude, coords.longitude))
-      : null;
+    const locationCity = event.locationCity !== undefined
+      ? event.locationCity // Adapter explicitly provided locationCity (null = suppress city display)
+      : (coords.latitude != null && coords.longitude != null)
+        ? suppressRedundantCity(locName, await reverseGeocode(coords.latitude, coords.longitude))
+        : null;
     const newEvent = await prisma.event.create({
       data: {
         kennelId,
