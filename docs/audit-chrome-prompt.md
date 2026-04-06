@@ -46,12 +46,27 @@ These require visual/semantic judgment that the script cannot do:
 4. **Cross-kennel duplicates:** Same physical event appearing under two different kennels.
 5. **Missing data:** Source has hares/location/description but HashTracks doesn't — the adapter is not extracting available fields.
 
+## Mode: Kennel Deep Dive
+
+The hareline scan covers structural issues across all events. The deep dive zooms in on a single kennel end-to-end. The admin pulls today's deep-dive prompt from `/admin/audit` (Kennel Deep Dive section, "Copy prompt" button) — the prompt is self-contained and includes the kennel name + all enabled source URLs.
+
+When asked to deep-dive a kennel, follow these steps:
+
+1. Visit each source URL listed in the prompt
+2. Compare what the source shows to the linked HashTracks kennel page
+3. Look for missing fields the source provides (hares, location, description, start time)
+4. Note historical events on the source that aren't in HashTracks
+5. Note any source pages we don't already track
+6. Check aggregator sites (Harrier Central, Hash Rego) for the same kennel — does the third party have data we're missing?
+7. File findings as GitHub issues using the same format as the hareline scan
+
+Deep dive findings get filed with the same `audit`+`alert` labels as hareline findings. The admin reviews them in `/admin/audit` and either suppresses or files fix PRs. After the dive, the admin clicks "Mark deep dive complete" in the dashboard to record the run and rotate to the next kennel.
+
 ## Active Suppressions
 
-The current list of accepted suppressions is fetched dynamically from:
-`https://hashtracks.xyz/api/audit/suppressions`
+These kennel+rule combos are accepted behavior — do not flag:
 
-Fetch that URL and treat any kennel+rule combo listed there as out-of-scope.
+*(none currently — update this section manually as suppressions are added in /admin/audit)*
 
 ## Recently Fixed (Last 2 Weeks)
 

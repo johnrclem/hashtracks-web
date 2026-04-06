@@ -9,6 +9,9 @@ import {
   Plus,
   ShieldCheck,
   TrendingUp,
+  Telescope,
+  Copy,
+  Check,
 } from "lucide-react";
 import {
   LineChart,
@@ -24,13 +27,18 @@ import {
   createSuppression,
   deleteSuppression,
   getSuppressionImpact,
+  recordDeepDive,
   type TrendPoint,
   type TopOffender,
   type RecentRun,
   type SuppressionRow,
+  type DeepDiveCandidate,
+  type DeepDiveCoverage,
 } from "@/app/admin/audit/actions";
+import { buildDeepDivePrompt } from "@/lib/admin/deep-dive-prompt";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -75,6 +83,8 @@ interface Props {
   suppressions: SuppressionRow[];
   kennels: KennelOption[];
   knownRules: string[];
+  deepDiveQueue: DeepDiveCandidate[];
+  deepDiveCoverage: DeepDiveCoverage;
 }
 
 const CATEGORY_LINES: { key: keyof TrendPoint; label: string; color: string }[] = [
@@ -94,6 +104,8 @@ export function AuditDashboard({
   suppressions,
   kennels,
   knownRules,
+  deepDiveQueue,
+  deepDiveCoverage,
 }: Props) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -284,6 +296,71 @@ export function AuditDashboard({
             </div>
           )}
         </div>
+      </section>
+
+      {/* ── Kennel Deep Dive ───────────────────────────────────── */}
+      <section className="space-y-5">
+        <SectionHeader
+          icon={Telescope}
+          title="Kennel Deep Dive"
+          color="bg-purple-500/10 text-purple-500"
+        />
+        <DeepDiveCard
+          next={deepDiveQueue[0] ?? null}
+          coverage={deepDiveCoverage}
+          onCompleted={() => router.refresh()}
+        />
+        {deepDiveQueue.length > 1 && (
+          <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+            <div className="px-5 py-3 border-b border-border/50">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Next up
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/30">
+                    <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Kennel
+                    </th>
+                    <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Region
+                    </th>
+                    <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Last Dived
+                    </th>
+                    <th className="px-5 py-2.5 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Sources
+                    </th>
+                    <th className="px-5 py-2.5 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Events 90d
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/30">
+                  {deepDiveQueue.slice(1, 11).map(k => (
+                    <tr key={k.kennelCode} className="hover:bg-accent/30 transition-colors">
+                      <td className="px-5 py-2.5 font-medium">{k.shortName}</td>
+                      <td className="px-5 py-2.5 text-muted-foreground">{k.region}</td>
+                      <td className="px-5 py-2.5 text-muted-foreground tabular-nums text-xs">
+                        {k.lastDeepDiveAt
+                          ? new Date(k.lastDeepDiveAt).toISOString().split("T")[0]
+                          : "never"}
+                      </td>
+                      <td className="px-5 py-2.5 text-right tabular-nums font-mono text-xs">
+                        {k.sources.length}
+                      </td>
+                      <td className="px-5 py-2.5 text-right tabular-nums font-mono text-xs">
+                        {k.eventCount90d}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ── Suppressions ───────────────────────────────────────── */}
@@ -654,6 +731,183 @@ function SuppressionDialog({
               disabled={pending || reason.trim().length < 10}
             >
               {pending ? "Saving…" : "Suppress"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Deep Dive Card ──────────────────────────────────────────────────
+
+function DeepDiveCard({
+  next,
+  coverage,
+  onCompleted,
+}: {
+  next: DeepDiveCandidate | null;
+  coverage: DeepDiveCoverage;
+  onCompleted: () => void;
+}) {
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  if (!next) {
+    return (
+      <div className="rounded-xl border border-border/50 bg-card p-6 text-center">
+        <Telescope className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          No active kennels eligible for a deep dive.
+        </p>
+      </div>
+    );
+  }
+
+  // Capture the narrowed reference so the closure doesn't need a non-null assertion
+  const currentKennel = next;
+
+  function handleCopy() {
+    void navigator.clipboard.writeText(buildDeepDivePrompt(currentKennel));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  const lastDived =
+    currentKennel.lastDeepDiveAt === null
+      ? "never"
+      : new Date(currentKennel.lastDeepDiveAt).toISOString().split("T")[0];
+
+  return (
+    <>
+      <div className="rounded-xl border border-border/50 bg-card p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Today&apos;s target
+            </div>
+            <div className="mt-1 text-xl font-bold tracking-tight">
+              {next.shortName}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {next.region} · {next.sources.length} source
+              {next.sources.length === 1 ? "" : "s"} · {next.eventCount90d} events in last
+              90d · last dived {lastDived}
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button variant="outline" size="sm" onClick={handleCopy}>
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? "Copied" : "Copy prompt"}
+            </Button>
+            <Button size="sm" onClick={() => setCompleteOpen(true)}>
+              Mark complete
+            </Button>
+          </div>
+        </div>
+        <div className="mt-4 flex items-center justify-between gap-4 border-t border-border/30 pt-3 text-xs text-muted-foreground">
+          <div>
+            Coverage: <span className="font-mono tabular-nums">{coverage.audited}</span> /{" "}
+            <span className="font-mono tabular-nums">{coverage.total}</span> active kennels (
+            {coverage.percent}%)
+          </div>
+          {coverage.projectedFullCycleDate && (
+            <div>
+              Full cycle by{" "}
+              <span className="font-mono tabular-nums">{coverage.projectedFullCycleDate}</span>
+            </div>
+          )}
+        </div>
+      </div>
+      <DeepDiveCompleteDialog
+        open={completeOpen}
+        onOpenChange={setCompleteOpen}
+        kennel={next}
+        onCompleted={() => {
+          setCompleteOpen(false);
+          onCompleted();
+        }}
+      />
+    </>
+  );
+}
+
+function DeepDiveCompleteDialog({
+  open,
+  onOpenChange,
+  kennel,
+  onCompleted,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  kennel: DeepDiveCandidate;
+  onCompleted: () => void;
+}) {
+  const [findingsCount, setFindingsCount] = useState(0);
+  const [summary, setSummary] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    startTransition(async () => {
+      try {
+        await recordDeepDive({
+          kennelCode: kennel.kennelCode,
+          findingsCount,
+          summary: summary.trim() || "(no notes)",
+        });
+        onCompleted();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to record deep dive");
+      }
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Mark deep dive complete</DialogTitle>
+          <DialogDescription>
+            Record a deep dive run for <strong>{kennel.shortName}</strong>. The next-up
+            queue will rotate to the next-oldest active kennel.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="dd-findings-count">Findings filed</Label>
+            <Input
+              id="dd-findings-count"
+              type="number"
+              min={0}
+              value={findingsCount}
+              onChange={e => setFindingsCount(Math.max(0, Number(e.target.value)))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dd-summary">One-line summary</Label>
+            <Textarea
+              id="dd-summary"
+              value={summary}
+              onChange={e => setSummary(e.target.value)}
+              rows={2}
+              placeholder='e.g. "found 2 stale titles + 1 missing source"'
+            />
+          </div>
+          {error && <div className="text-xs text-destructive">{error}</div>}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" disabled={pending}>
+              {pending ? "Saving…" : "Mark complete"}
             </Button>
           </DialogFooter>
         </form>
