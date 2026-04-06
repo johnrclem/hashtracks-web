@@ -45,7 +45,7 @@ export const SOURCES = [
       url: "bostonhash@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       kennelCodes: ["boh3", "bobbh3", "beantown", "bos-moon", "pink-taco"],
     },
@@ -88,7 +88,7 @@ export const SOURCES = [
       url: "bfmhash@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         kennelPatterns: [
@@ -104,7 +104,7 @@ export const SOURCES = [
       url: "36ed6654c946ca632f71f400c1236c45d1bdd4e38c88c7c4da57619a72bfd7f8@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         kennelPatterns: [
@@ -138,7 +138,7 @@ export const SOURCES = [
       url: "30c33n8c8s46icrd334mm5p3vc@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         kennelPatterns: [
@@ -181,7 +181,7 @@ export const SOURCES = [
       url: "ewh3harerazor@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "ewh3",
@@ -193,7 +193,7 @@ export const SOURCES = [
       url: "jackschitt.shit@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "shith3",
@@ -416,7 +416,7 @@ export const SOURCES = [
       url: "1op2o8a7q9k5gif7m7b4n2ft7g@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: {
         kennelPatterns: [
@@ -541,7 +541,7 @@ export const SOURCES = [
       url: "austin.ah3@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "ah3",
@@ -554,7 +554,7 @@ export const SOURCES = [
       url: "o2v8lpb3bs3kpohpi6hd0g426k@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "kawh3",
@@ -567,7 +567,7 @@ export const SOURCES = [
       url: "hashvoice@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         kennelPatterns: [
@@ -641,7 +641,7 @@ export const SOURCES = [
       url: "c2h3hash@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "c2h3",
@@ -655,7 +655,7 @@ export const SOURCES = [
       url: "flourcitymismanagement@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "flour-city",
@@ -701,7 +701,7 @@ export const SOURCES = [
       url: "hashinthebuff@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "bh3",
@@ -729,7 +729,7 @@ export const SOURCES = [
       url: "pghhashcalendar@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "pgh-h3",
@@ -755,7 +755,7 @@ export const SOURCES = [
       url: "55k6rnam11akkav5vljqlsc6lo@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "nvhhh",
@@ -768,7 +768,7 @@ export const SOURCES = [
       url: "lvh3hashflash@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 5,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "lvh3",
@@ -795,7 +795,7 @@ export const SOURCES = [
       url: "harrisburghersheyh3@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "h5-hash",
@@ -821,7 +821,7 @@ export const SOURCES = [
       url: "979d12b454f944e14bd00e8d0d0c30b1109d6e5f37ec4817542ae35f86f90ae8@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: { defaultKennelTag: "rvah3" },
       kennelCodes: ["rvah3"],
@@ -850,7 +850,7 @@ export const SOURCES = [
       url: "ft.eustish3@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: { defaultKennelTag: "feh3" },
       kennelCodes: ["feh3"],
@@ -949,7 +949,7 @@ export const SOURCES = [
       url: "sirwaltersh3@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: { defaultKennelTag: "swh3" },
       kennelCodes: ["swh3"],
@@ -967,7 +967,7 @@ export const SOURCES = [
       url: "3p2vupffo2qukm6ee8gg9clo3o@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: { defaultKennelTag: "larrikins" },
       kennelCodes: ["larrikins"],
@@ -1036,7 +1036,7 @@ export const SOURCES = [
       url: "264vvpn7002rqbm1f82489fl8c@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "kwh3",
@@ -1048,7 +1048,7 @@ export const SOURCES = [
       url: "hashcalendar@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "o2h3",
@@ -1634,7 +1634,7 @@ export const SOURCES = [
       url: "cae3r4u2uhucmmi9rvq5eu6obg@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "cae3r4u2uhucmmi9rvq5eu6obg@group.calendar.google.com",
@@ -1653,7 +1653,7 @@ export const SOURCES = [
       url: "63h32shgrk48ci0li17lmoijeg@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 8,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "63h32shgrk48ci0li17lmoijeg@group.calendar.google.com",
@@ -1666,7 +1666,7 @@ export const SOURCES = [
       url: "e63ac95062e8cb80b4c470e316701cfba3046903bc6662c456efe87d52250e9e@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 8,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "e63ac95062e8cb80b4c470e316701cfba3046903bc6662c456efe87d52250e9e@group.calendar.google.com",
@@ -1679,7 +1679,7 @@ export const SOURCES = [
       url: "e42428cbbecf52a48618c36aa1654ec0186aa307eb6d608641ef3a9e5c243128@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 8,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "e42428cbbecf52a48618c36aa1654ec0186aa307eb6d608641ef3a9e5c243128@group.calendar.google.com",
@@ -1692,7 +1692,7 @@ export const SOURCES = [
       url: "5e6c1e6bdcb70c74eb924aee3d74f63e13a65c91f86844f50b37f412a768e82c@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 8,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "5e6c1e6bdcb70c74eb924aee3d74f63e13a65c91f86844f50b37f412a768e82c@group.calendar.google.com",
@@ -1705,7 +1705,7 @@ export const SOURCES = [
       url: "e435782c94f98136bde0957e4f791bdd3a0ac0d13970bbfe1ff34f5ddc676990@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 8,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "e435782c94f98136bde0957e4f791bdd3a0ac0d13970bbfe1ff34f5ddc676990@group.calendar.google.com",
@@ -1718,7 +1718,7 @@ export const SOURCES = [
       url: "898ddb527b83d7944c788bfbdb4074be5ee3c5ddf380acbdb206abd2861d6dc2@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 8,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "898ddb527b83d7944c788bfbdb4074be5ee3c5ddf380acbdb206abd2861d6dc2@group.calendar.google.com",
@@ -1731,7 +1731,7 @@ export const SOURCES = [
       url: "0f125fcba18bfeca585fe7d3592c70159df9c97d620dfd68fd65a73fcd063d8c@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 8,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "0f125fcba18bfeca585fe7d3592c70159df9c97d620dfd68fd65a73fcd063d8c@group.calendar.google.com",
@@ -1744,7 +1744,7 @@ export const SOURCES = [
       url: "711a1cfbec0cfbcc26ba28c79d943700e6b7c33c8c11896a86da701fc96291b6@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 8,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "711a1cfbec0cfbcc26ba28c79d943700e6b7c33c8c11896a86da701fc96291b6@group.calendar.google.com",
@@ -1757,7 +1757,7 @@ export const SOURCES = [
       url: "8b593752049f42f9aca8fb04197bfb25d7f4148db8c314991e842bbf6b4ea303@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 8,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "8b593752049f42f9aca8fb04197bfb25d7f4148db8c314991e842bbf6b4ea303@group.calendar.google.com",
@@ -1770,7 +1770,7 @@ export const SOURCES = [
       url: "6ureum96qhgf13kj820i61ovq8@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 8,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "6ureum96qhgf13kj820i61ovq8@group.calendar.google.com",
@@ -1785,7 +1785,7 @@ export const SOURCES = [
       url: "8d65om7lrdq538ksqednh2n648@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: {
         kennelPatterns: [
@@ -1899,7 +1899,7 @@ export const SOURCES = [
       url: "denverkennel@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "dh3-co" },
       kennelCodes: ["dh3-co"],
@@ -1910,7 +1910,7 @@ export const SOURCES = [
       url: "huhahareraiser@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "mihi-huha" },
       kennelCodes: ["mihi-huha"],
@@ -1921,7 +1921,7 @@ export const SOURCES = [
       url: "v94tqngukqr5cdffg9q7rruvl0@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: {
         kennelPatterns: [
@@ -1938,7 +1938,7 @@ export const SOURCES = [
       url: "fc8df0937002479306c3fed0055fb7273cb62a46abe5c7f652e3e318310f9143@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "fch3-co" },
       kennelCodes: ["fch3-co"],
@@ -1949,7 +1949,7 @@ export const SOURCES = [
       url: "cspringsh3@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: {
         kennelPatterns: [
@@ -1967,7 +1967,7 @@ export const SOURCES = [
       url: "minneapolishash@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: {
         kennelPatterns: [
@@ -1984,7 +1984,7 @@ export const SOURCES = [
       url: "ea729ba97f0f3cd030c9e8edab00b19b6b9173f3c582cdfcd240dc461b7cc54e@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "moa2h3" },
       kennelCodes: ["moa2h3"],
@@ -1994,7 +1994,7 @@ export const SOURCES = [
       url: "demonhashhouseharriers@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: {
         defaultKennelTag: "demon-h3",
@@ -2007,7 +2007,7 @@ export const SOURCES = [
       url: "fejshhk8grbkhp9cc3s5blub9o@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "glh3" },
       kennelCodes: ["glh3"],
@@ -2057,7 +2057,7 @@ export const SOURCES = [
       url: "jhavelinahhh@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "jhav-h3" },
       kennelCodes: ["jhav-h3"],
@@ -2067,7 +2067,7 @@ export const SOURCES = [
       url: "mrhappyshhh@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "mrhappy" },
       kennelCodes: ["mrhappy"],
@@ -2077,7 +2077,7 @@ export const SOURCES = [
       url: "tucsonhhh@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "pedalfiles" },
       kennelCodes: ["pedalfiles"],
@@ -2088,7 +2088,7 @@ export const SOURCES = [
       url: "alohahhh@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         kennelPatterns: [
@@ -2103,7 +2103,7 @@ export const SOURCES = [
       url: "jhhk1bllbl4thqk9in5qtffb68@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: { defaultKennelTag: "h5-hi" },
       kennelCodes: ["h5-hi"],
@@ -2115,7 +2115,7 @@ export const SOURCES = [
       url: "SCH3Calendar@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "sch3-ca" },
       kennelCodes: ["sch3-ca"],
@@ -2126,7 +2126,7 @@ export const SOURCES = [
       url: "hash.org_8er4h3q5qct5apu9nl2v7ic4c0@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "lah3" },
       kennelCodes: ["lah3"],
@@ -2136,7 +2136,7 @@ export const SOURCES = [
       url: "hash.org_apdt0s7aam1mdl1ckc4n1rcc4k@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "lbh3" },
       kennelCodes: ["lbh3"],
@@ -2146,7 +2146,7 @@ export const SOURCES = [
       url: "hash.org_efk2ibem9h2lonqgignpcp8uoo@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "tdh3-lb" },
       kennelCodes: ["tdh3-lb"],
@@ -2156,7 +2156,7 @@ export const SOURCES = [
       url: "hash.org_vca9alu5cu5q2hkvip31fma6so@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "gal-h3" },
       kennelCodes: ["gal-h3"],
@@ -2166,7 +2166,7 @@ export const SOURCES = [
       url: "c_95c7557021b96e1c88a6df5a9132ac59082e1bfc2c2ba3eb4dc7f70b84155caa@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "suph3" },
       kennelCodes: ["suph3"],
@@ -2176,7 +2176,7 @@ export const SOURCES = [
       url: "hash.org_6ocimc04ghdh7652dlvnjs5060@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "fth3" },
       kennelCodes: ["fth3"],
@@ -2186,7 +2186,7 @@ export const SOURCES = [
       url: "hash.org_t92ud36ad0jbao70f22d2eptuc@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "elah3" },
       kennelCodes: ["elah3"],
@@ -2196,7 +2196,7 @@ export const SOURCES = [
       url: "hash.org_t8of6q45k4cki650d97m0b80dc@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "sgh3" },
       kennelCodes: ["sgh3"],
@@ -2207,7 +2207,7 @@ export const SOURCES = [
       url: "hash.org_gr8mpprvpgpiihhkfj0dd0ic4k@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "ochhh" },
       kennelCodes: ["ochhh"],
@@ -2217,7 +2217,7 @@ export const SOURCES = [
       url: "hash.org_8jis0j5k0hanmgq2c6inrf93ho@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "ochump", defaultTitle: "OC Hump" },
       kennelCodes: ["ochump"],
@@ -2228,7 +2228,7 @@ export const SOURCES = [
       url: "blj7esp5ns5sbirko1p7amr4ig@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 90,
       config: { defaultKennelTag: "sloh3" },
       kennelCodes: ["sloh3"],
@@ -2293,7 +2293,7 @@ export const SOURCES = [
       url: "dh3calendar@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "dh4",
@@ -2305,7 +2305,7 @@ export const SOURCES = [
       url: "mvh3calendar@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "mvh3-day",
@@ -2317,7 +2317,7 @@ export const SOURCES = [
       url: "swoth3@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "swot-h3",
@@ -2330,7 +2330,7 @@ export const SOURCES = [
       url: "sch4calendar@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "sch4",
@@ -2342,7 +2342,7 @@ export const SOURCES = [
       url: "jjfn26n873ro3qi1ckobikroso@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "qch4",
@@ -2354,7 +2354,7 @@ export const SOURCES = [
       url: "lickingvalleyh3@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "lvh3-cin",
@@ -2431,7 +2431,7 @@ export const SOURCES = [
       url: "595aa2ab39c504c22d8636bb4e99590a2ecfc51c4aadb752ad15bc16e6e40dcf@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "595aa2ab39c504c22d8636bb4e99590a2ecfc51c4aadb752ad15bc16e6e40dcf@group.calendar.google.com",
@@ -2445,7 +2445,7 @@ export const SOURCES = [
       url: "8f856affa4ba7fedce78561cd2553a2ee3deb306fcf8319db7b2ca112b468ca5@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "8f856affa4ba7fedce78561cd2553a2ee3deb306fcf8319db7b2ca112b468ca5@group.calendar.google.com",
@@ -2459,7 +2459,7 @@ export const SOURCES = [
       url: "7675c3154cb07e0769e722e4d95fd69707353d74941b69be0480fc65c0a97fd1@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "7675c3154cb07e0769e722e4d95fd69707353d74941b69be0480fc65c0a97fd1@group.calendar.google.com",
@@ -2539,7 +2539,7 @@ export const SOURCES = [
       url: "bmph3.onon@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "bmph3.onon@gmail.com",
@@ -2552,7 +2552,7 @@ export const SOURCES = [
       url: "go81bpr3vj0v4n60dnotpkbo3c@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "go81bpr3vj0v4n60dnotpkbo3c@group.calendar.google.com",
@@ -2603,7 +2603,7 @@ export const SOURCES = [
       url: "ch3.archive@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "ch3.archive@gmail.com",
@@ -2641,7 +2641,7 @@ export const SOURCES = [
       url: "nolahash@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "nolahash@gmail.com",
@@ -2655,7 +2655,7 @@ export const SOURCES = [
       url: "voodoohash@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "voodoohash@gmail.com",
@@ -2670,7 +2670,7 @@ export const SOURCES = [
       url: "memphish3@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "memphish3@gmail.com",
@@ -2687,7 +2687,7 @@ export const SOURCES = [
       url: "bushwhackersh3@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "bushwhackersh3@gmail.com",
@@ -2704,7 +2704,7 @@ export const SOURCES = [
       url: "tornadoalleyhashers@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "tornadoalleyhashers@gmail.com",
@@ -2719,7 +2719,7 @@ export const SOURCES = [
       url: "larryvilleh3@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         defaultKennelTag: "lh3-ks",
@@ -2780,7 +2780,7 @@ export const SOURCES = [
       url: "q206h4gbp4cfg5m13ip95vch88@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "q206h4gbp4cfg5m13ip95vch88@group.calendar.google.com",
@@ -2913,7 +2913,7 @@ export const SOURCES = [
       url: "j19gg5vekabk94i8sn3pe892gk@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "j19gg5vekabk94i8sn3pe892gk@group.calendar.google.com",

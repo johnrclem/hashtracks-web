@@ -262,6 +262,13 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       hares = hares.replace(/\s*(?:could|need)\s+.*?co-?hares?\b.*$/i, "").trim();
       // Truncate at boilerplate markers (description text leaking into hares)
       hares = hares.replace(HARE_BOILERPLATE_RE, "").trim();
+      // Truncate at next embedded field label when HTML stripping collapsed fields
+      // (e.g., "AmazonWhat: A beautiful trail …" → "Amazon"). Field label must be
+      // followed by a colon to avoid eating real names that contain these words.
+      hares = hares.replace(
+        /(?:What|Where|When|Why|How|Time|Start|Location|Hash\s*Cash|Cost|Price|Registration|On[\s-]After|Directions|Pack\s*Meet|Circle|Chalk\s*Talk)\s*:.*$/i,
+        "",
+      ).trim();
       // Strip trailing US phone numbers (e.g., "719-360-3805", "(555) 123-4567")
       hares = hares.replace(/\s*\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\s*$/, "").trim();
       // Skip generic/non-hare "Who:" answers

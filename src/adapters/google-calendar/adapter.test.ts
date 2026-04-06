@@ -201,6 +201,20 @@ describe("extractHares", () => {
     expect(extractHares("Hare: DefaultMatch", [])).toBe("DefaultMatch");
   });
 
+  it("truncates hares at embedded What: label when HTML stripping collapses fields", () => {
+    expect(
+      extractHares("Who: AmazonWhat: A beautiful trail that doesn't start at the Mad Hanna"),
+    ).toBe("Amazon");
+  });
+
+  it("truncates hares at embedded Where: label", () => {
+    expect(extractHares("Hare: John DoeWhere: Some Bar, 123 Main St")).toBe("John Doe");
+  });
+
+  it("truncates hares at embedded Hash Cash label", () => {
+    expect(extractHares("Hare: AliceHash Cash: $5")).toBe("Alice");
+  });
+
   it("custom patterns replace defaults", () => {
     expect(
       extractHares("Hare: Mudflap", [String.raw`(?:^|\n)\s*Laid by:\s*(.+)`]),
