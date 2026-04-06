@@ -114,13 +114,14 @@ export class HashRegoAdapter implements SourceAdapter {
     const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
     const currentYear = now.getUTCFullYear();
     let kennelPageFetchErrors = 0;
+    let kennelPageProxyDown = false;
+
+    let kennelPagesStopReason: string | null = null;
 
     for (let i = 0; i < missingSlugs.length; i++) {
-      if (i >= MAX_KENNEL_PAGES) break;
-      if (Date.now() - fetchStart > STEP2B_BUDGET_MS) {
-        errors.push(`Kennel page budget exhausted after ${i} of ${missingSlugs.length} pages`);
-        break;
-      }
+      if (i >= MAX_KENNEL_PAGES) { kennelPagesStopReason = "max_pages"; break; }
+      if (kennelPageProxyDown) { kennelPagesStopReason = "proxy_down"; break; }
+      if (Date.now() - fetchStart > STEP2B_BUDGET_MS) { kennelPagesStopReason = "budget_exhausted"; break; }
       if (i > 0) {
         await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
       }
@@ -132,7 +133,7 @@ export class HashRegoAdapter implements SourceAdapter {
         const html = await browserRender({
           url: kennelUrl,
           waitFor: "table.table-striped tbody tr",
-          timeout: 15000,
+          timeout: 8_000,
         });
         const kennelEntries = parseKennelEventsPage(html, slug, currentYear);
 
@@ -147,11 +148,14 @@ export class HashRegoAdapter implements SourceAdapter {
         kennelPageEventsFound += filtered.length;
       } catch (err) {
         const msg = `Kennel page error for ${slug}: ${err}`;
-        errors.push(msg);
         (errorDetails.fetch ??= []).push(
           { url: kennelUrl, message: msg },
         );
         kennelPageFetchErrors++;
+        const statusMatch = /\((\d{3})\)/.exec(String(err));
+        if (statusMatch && ["502", "503"].includes(statusMatch[1])) {
+          kennelPageProxyDown = true;
+        }
       }
     }
 
@@ -182,7 +186,7 @@ export class HashRegoAdapter implements SourceAdapter {
 
     // Approximate fallback count from detail page errors (each error triggers createFromIndex)
     // Exclude kennel page fetch errors since those don't produce createFromIndex fallbacks
-    const indexOnlyFallbacks = (errorDetails.fetch?.length ?? 0) - kennelPageFetchErrors + (errorDetails.parse?.length ?? 0);
+    const indexOnlyFallbacks = Math.max(0, (errorDetails.fetch?.length ?? 0) - kennelPageFetchErrors) + (errorDetails.parse?.length ?? 0);
 
     return {
       events,
@@ -202,7 +206,9 @@ export class HashRegoAdapter implements SourceAdapter {
         unmappedKennelSlugs,
         kennelPagesChecked,
         kennelPageEventsFound,
+        kennelPageFetchErrors,
         kennelPagesSkipped: Math.max(0, missingSlugs.length - kennelPagesChecked.length),
+        kennelPagesStopReason,
       },
     };
   }
