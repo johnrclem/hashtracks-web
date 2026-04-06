@@ -14,7 +14,6 @@ const DATA_REMEDIATION_RULES = new Set([
   "title-raw-kennel-code",    // run backfill-event-titles.ts
   "hare-cta-text",            // stale data, re-scrape filters it
   "location-duplicate-segments", // pipeline fix deployed, needs re-scrape
-  "location-region-appended",   // display-time fix deployed, data correct
 ]);
 
 const FETCH_TIMEOUT_MS = 10_000;

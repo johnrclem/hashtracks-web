@@ -18,6 +18,7 @@ export interface AuditEventRow {
 
 export interface AuditFinding {
   kennelShortName: string;
+  kennelCode: string;
   eventId: string;
   eventUrl: string;
   sourceUrl: string | null;
@@ -33,7 +34,7 @@ export interface AuditFinding {
 const HARELINE_BASE_URL = "https://www.hashtracks.xyz/hareline";
 
 /** Minimal event shape needed by finding() — avoids requiring full AuditEventRow. */
-type FindingEvent = Pick<AuditEventRow, "id" | "kennelShortName" | "sourceUrl" | "sourceType">;
+type FindingEvent = Pick<AuditEventRow, "id" | "kennelShortName" | "kennelCode" | "sourceUrl" | "sourceType">;
 
 export function finding(
   event: FindingEvent,
@@ -48,6 +49,7 @@ export function finding(
 ): AuditFinding {
   return {
     kennelShortName: event.kennelShortName,
+    kennelCode: event.kennelCode,
     eventId: event.id,
     eventUrl: `${HARELINE_BASE_URL}/${event.id}`,
     sourceUrl: event.sourceUrl,
@@ -173,17 +175,17 @@ export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
 
 type LocationEventRow = Pick<
   AuditEventRow,
-  "id" | "kennelShortName" | "locationName" | "locationCity" | "sourceUrl" | "sourceType"
+  "id" | "kennelShortName" | "kennelCode" | "locationName" | "locationCity" | "sourceUrl" | "sourceType"
 >;
 
 type EventQualityRow = Pick<
   AuditEventRow,
-  "id" | "kennelShortName" | "startTime" | "date" | "sourceUrl" | "sourceType" | "scrapeDays"
+  "id" | "kennelShortName" | "kennelCode" | "startTime" | "date" | "sourceUrl" | "sourceType" | "scrapeDays"
 >;
 
 type DescriptionEventRow = Pick<
   AuditEventRow,
-  "id" | "kennelShortName" | "description" | "sourceUrl" | "sourceType"
+  "id" | "kennelShortName" | "kennelCode" | "description" | "sourceUrl" | "sourceType"
 > & { rawDescription: string | null };
 
 function normalizeSegment(s: string): string {
@@ -203,34 +205,12 @@ function normalizeSegment(s: string): string {
     .trim();
 }
 
-/** Matches getLocationDisplay() state-abbreviation guard exactly — keeps audit in sync with display logic. */
-const STATE_GUARD_RE = /, [A-Za-z]{2}(?:\s+\d{5}(?:-\d{4})?)?\s*$/;
-
-/** Check if a location has a mismatched region city appended to a structured address. */
-function checkRegionAppended(event: LocationEventRow, locationName: string, locationCity: string | null): AuditFinding | null {
-  if (!locationCity) return null;
-  // Skip when location ends with state abbreviation — getLocationDisplay() already guards this
-  if (STATE_GUARD_RE.test(locationName)) return null;
-  // Skip venue-name-only locations (no comma = no structured address parts).
-  // Appending city context to "Marina Green" → "Marina Green, San Francisco, CA" is desirable.
-  if (!locationName.includes(",")) return null;
-  const cityName = locationCity.split(",")[0].trim();
-  if (locationName.includes(cityName)) return null;
-  return finding(event, {
-    category: "location",
-    field: "locationName+locationCity",
-    currentValue: `${locationName}, ${locationCity}`,
-    rule: "location-region-appended",
-    severity: "warning",
-    expectedValue: locationName,
-  });
-}
 
 export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[] {
   const findings: AuditFinding[] = [];
 
   for (const event of events) {
-    const { locationName, locationCity } = event;
+    const { locationName } = event;
 
     if (locationName === null) continue;
 
@@ -267,12 +247,6 @@ export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[]
       }
     }
 
-    // 3. location-region-appended
-    const regionFinding = checkRegionAppended(event, locationName, locationCity);
-    if (regionFinding) {
-      findings.push(regionFinding);
-      continue;
-    }
   }
 
   return findings;

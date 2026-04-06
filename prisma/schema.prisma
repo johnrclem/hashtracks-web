@@ -158,6 +158,8 @@ model Kennel {
   rosterGroups   RosterGroupKennel[]
   discoveries       KennelDiscovery[]
   sourceProposals   SourceProposal[]
+  auditLogs         AuditLog[]         @relation("AuditLogKennel")
+  auditSuppressions AuditSuppression[] @relation("AuditSuppressionKennel")
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -829,4 +831,37 @@ model SourceProposal {
 
   @@unique([url, regionId])
   @@index([regionId, status])
+}
+
+// ── AUDIT ──
+
+enum AuditType {
+  HARELINE
+  KENNEL_DEEP_DIVE
+}
+
+model AuditLog {
+  id            String    @id @default(cuid())
+  type          AuditType
+  eventsScanned Int
+  findingsCount Int
+  groupsCount   Int
+  issuesFiled   Int
+  findings      Json      // Full AuditFinding[] array
+  summary       Json      // { [category]: count }
+  kennelCode    String?   // Set for deep dives, null for hareline
+  kennel        Kennel?   @relation("AuditLogKennel", fields: [kennelCode], references: [kennelCode])
+  createdAt     DateTime  @default(now())
+}
+
+model AuditSuppression {
+  id         String   @id @default(cuid())
+  kennelCode String?  // null = global suppression for all kennels
+  kennel     Kennel?  @relation("AuditSuppressionKennel", fields: [kennelCode], references: [kennelCode])
+  rule       String   // e.g., "location-region-appended"
+  reason     String   // Why it's suppressed
+  createdAt  DateTime @default(now())
+  createdBy  String?  // User who created it
+
+  @@unique([kennelCode, rule])
 }

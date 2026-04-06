@@ -15,7 +15,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { AuditFinding } from "../src/pipeline/audit-checks";
-import { runChecks } from "../src/pipeline/audit-runner";
+import { runChecks, loadSuppressions, isSuppressed, computeSummary } from "../src/pipeline/audit-runner";
 import { formatIssueTitle, formatIssueBody } from "../src/pipeline/audit-format";
 
 const postIssue = process.argv.includes("--post-issue");
@@ -87,7 +87,10 @@ async function main() {
     rawDescription: (e.rawEvents[0]?.rawData as Record<string, unknown>)?.description as string | null ?? null,
   }));
 
-  const { findings, summary } = runChecks(rows);
+  const allFindings = runChecks(rows);
+  const suppressions = await loadSuppressions();
+  const findings = allFindings.filter(f => !isSuppressed(f, suppressions));
+  const summary = computeSummary(findings);
 
   if (findings.length === 0) {
     console.log("✅ No issues found!");

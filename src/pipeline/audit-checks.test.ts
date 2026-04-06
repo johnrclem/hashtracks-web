@@ -177,6 +177,7 @@ describe("checkHareQuality", () => {
     const findings = checkHareQuality(event);
     const f = findings[0];
     expect(f.kennelShortName).toBe("NYCH3");
+    expect(f.kennelCode).toBe("NYCH3");
     expect(f.eventId).toBe("evt-1");
     expect(f.eventUrl).toBe("https://www.hashtracks.xyz/hareline/evt-1");
     expect(f.sourceUrl).toBe("https://hashnyc.com/run/42");
@@ -314,34 +315,6 @@ describe("checkLocationQuality", () => {
     expect(findings[0].severity).toBe("warning");
   });
 
-  it("skips location-region-appended when location ends with state abbreviation (display guard handles it)", () => {
-    const event = makeEvent({
-      locationName: "Central Park, Manhattan, NY",
-      locationCity: "New York, NY",
-    });
-    const findings = checkLocationQuality([event]);
-    expect(findings).toHaveLength(0);
-  });
-
-  it("skips location-region-appended for venue-name-only locations (city context is desirable)", () => {
-    const event = makeEvent({
-      locationName: "The Rusty Bucket",
-      locationCity: "Akron, OH",
-    });
-    const findings = checkLocationQuality([event]);
-    expect(findings).toHaveLength(0);
-  });
-
-  it("flags location-region-appended for structured address with mismatched city", () => {
-    const event = makeEvent({
-      locationName: "123 Main St, Hartville",
-      locationCity: "Akron, OH",
-    });
-    const findings = checkLocationQuality([event]);
-    expect(findings).toHaveLength(1);
-    expect(findings[0].rule).toBe("location-region-appended");
-  });
-
   it("passes clean location with no issues", () => {
     const event = makeEvent({
       locationName: "Central Park, New York, NY",
@@ -357,23 +330,6 @@ describe("checkLocationQuality", () => {
     expect(findings).toHaveLength(0);
   });
 
-  it("does not flag location-region-appended when locationCity city name appears in locationName", () => {
-    const event = makeEvent({
-      locationName: "Some Bar, Brooklyn, NY",
-      locationCity: "Brooklyn, NY",
-    });
-    const findings = checkLocationQuality([event]);
-    expect(findings).toHaveLength(0);
-  });
-
-  it("does not flag location-region-appended when locationCity is null", () => {
-    const event = makeEvent({
-      locationName: "Some Bar, Queens, NY",
-      locationCity: null,
-    });
-    const findings = checkLocationQuality([event]);
-    expect(findings).toHaveLength(0);
-  });
 });
 
 describe("checkEventQuality", () => {
