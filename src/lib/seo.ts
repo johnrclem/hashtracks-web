@@ -98,6 +98,13 @@ interface EventJsonLdKennel {
   region: string;
 }
 
+function mapEventStatus(status: EventStatus): string {
+  // TENTATIVE in our model means "not yet confirmed" (not "postponed"), so the
+  // closest schema.org value is EventScheduled.
+  if (status === "CANCELLED") return "https://schema.org/EventCancelled";
+  return "https://schema.org/EventScheduled";
+}
+
 /**
  * Build schema.org Event JSON-LD for a canonical Event detail page.
  *
@@ -138,22 +145,18 @@ export function buildEventJsonLd(
     };
   }
 
-  const eventStatus =
-    event.status === "CANCELLED"
-      ? "https://schema.org/EventCancelled"
-      : event.status === "TENTATIVE"
-        ? "https://schema.org/EventPostponed"
-        : "https://schema.org/EventScheduled";
-
   return {
     "@context": CONTEXT,
     "@type": "Event" as const,
     name,
     startDate,
     endDate,
-    eventStatus,
+    eventStatus: mapEventStatus(event.status),
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode" as const,
     location: place,
+    // Required by Google for Event rich results carousel eligibility. Uses the
+    // site-wide dynamic OG image (src/app/opengraph-image.tsx, 1200x630).
+    image: `${baseUrl}/opengraph-image`,
     organizer: {
       "@type": "SportsOrganization" as const,
       name: kennel.fullName,

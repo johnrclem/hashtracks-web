@@ -25,7 +25,7 @@ export async function pingIndexNow(urls: string[]): Promise<void> {
 
   const key = process.env.INDEXNOW_KEY;
   if (!key) return;
-  if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production") return;
+  if (process.env.VERCEL_ENV !== "production") return;
 
   const baseUrl = getCanonicalSiteUrl();
   const host = new URL(baseUrl).host;

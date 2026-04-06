@@ -64,6 +64,12 @@ describe("pingIndexNow", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("is a no-op when VERCEL_ENV is unset (local dev)", async () => {
+    delete process.env.VERCEL_ENV;
+    await pingIndexNow(["https://www.hashtracks.xyz/hareline/abc"]);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("is a no-op for empty input", async () => {
     await pingIndexNow([]);
     expect(global.fetch).not.toHaveBeenCalled();

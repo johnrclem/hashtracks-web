@@ -122,6 +122,7 @@ describe("buildEventJsonLd", () => {
     expect(result.url).toBe("https://hashtracks.xyz/hareline/evt_abc");
     expect(result.organizer.name).toBe("New York City Hash House Harriers");
     expect(result.organizer.url).toBe("https://hashtracks.xyz/kennels/nych3");
+    expect(result.image).toBe("https://hashtracks.xyz/opengraph-image");
     expect(result.description).toBe("Trail through Central Park.");
     expect(result.location).toMatchObject({
       "@type": "Place",
@@ -134,6 +135,11 @@ describe("buildEventJsonLd", () => {
   it("maps CANCELLED status to schema.org/EventCancelled", () => {
     const result = buildEventJsonLd({ ...baseEvent, status: "CANCELLED" }, kennel, BASE_URL);
     expect(result.eventStatus).toBe("https://schema.org/EventCancelled");
+  });
+
+  it("maps TENTATIVE status to schema.org/EventScheduled", () => {
+    const result = buildEventJsonLd({ ...baseEvent, status: "TENTATIVE" }, kennel, BASE_URL);
+    expect(result.eventStatus).toBe("https://schema.org/EventScheduled");
   });
 
   it("falls back to UTC noon when startTime/timezone are missing", () => {

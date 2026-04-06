@@ -206,6 +206,8 @@ export default async function EventDetailPage({
 
   return (
     <div className="space-y-6">
+      {/* JSON-LD for Google Event rich result. safeJsonLd() escapes </script>
+          sequences to prevent XSS from DB-sourced strings — see src/lib/seo.ts. */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(eventJsonLd) }}
