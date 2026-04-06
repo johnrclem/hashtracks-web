@@ -120,6 +120,55 @@ describe("BFMAdapter.fetch", () => {
     expect(current!.locationUrl).toContain("maps/search");
   });
 
+  it("extracts 'The Fun Part:' section as description and stops at Upcoming Hares", async () => {
+    const html = `
+      <html><body>
+      <h2>Trail #1155: NorWAY's Birthday Trail</h2>
+      <p>When: Thursday, 4/9 at 7:00 PM gather</p>
+      <p>Where: Oslo Pub, 789 Fjord St</p>
+      <p>Hares: NorWAY</p>
+      <p>The Fun Part: Celebrate NorWAY's birthday with Scandinavian alcohol and questionable singing.
+
+      Bring cash for the keg.</p>
+      <h3>Upcoming Hares</h3>
+      <p>April 16 – Someone Else</p>
+      </body></html>
+    `;
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(html, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new BFMAdapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://benfranklinmob.com",
+    } as never);
+
+    const current = result.events.find((e) => e.runNumber === 1155);
+    expect(current).toBeDefined();
+    expect(current!.description).toBeDefined();
+    expect(current!.description).toContain("Scandinavian alcohol");
+    expect(current!.description).toContain("Bring cash");
+    expect(current!.description).not.toMatch(/Upcoming/i);
+  });
+
+  it("leaves description undefined when Fun Part section is absent", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(SAMPLE_HTML, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new BFMAdapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://benfranklinmob.com",
+    } as never);
+
+    const current = result.events.find((e) => e.runNumber === 1500);
+    expect(current).toBeDefined();
+    expect(current!.description).toBeUndefined();
+  });
+
   it("returns error on HTTP error status", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response("Forbidden", { status: 403, statusText: "Forbidden" }),
