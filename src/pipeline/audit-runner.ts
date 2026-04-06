@@ -68,26 +68,39 @@ function groupAndRank(findings: AuditFinding[]): { groups: AuditGroup[]; topGrou
   return { groups, topGroups: groups.slice(0, MAX_TOP_GROUPS) };
 }
 
-/** Load active suppressions from the database. */
+/** Load active suppressions from the database, keyed by both kennelCode and shortName for matching. */
 async function loadSuppressions(): Promise<Set<string>> {
   const rows = await prisma.auditSuppression.findMany({
-    select: { kennelCode: true, rule: true },
+    select: { kennelCode: true, rule: true, kennel: { select: { shortName: true } } },
   });
   const keys = new Set<string>();
   for (const r of rows) {
-    // "kennelCode::rule" for kennel-specific, "::rule" for global
-    keys.add(`${r.kennelCode ?? ""}::${r.rule}`);
+    if (!r.kennelCode) {
+      keys.add(`::${r.rule}`); // global suppression
+    } else {
+      keys.add(`${r.kennelCode}::${r.rule}`);
+      if (r.kennel?.shortName) keys.add(`${r.kennel.shortName}::${r.rule}`);
+    }
   }
   return keys;
 }
 
-/** Check if a finding is suppressed by a kennel-specific or global suppression. */
+/** Check if a finding is suppressed (matches by kennelShortName or global). */
 function isSuppressed(f: AuditFinding, suppressions: Set<string>): boolean {
   return suppressions.has(`${f.kennelShortName}::${f.rule}`) || suppressions.has(`::${f.rule}`);
 }
 
-/** Run all audit checks on pre-queried rows. Usable by both API route and standalone script. */
-export function runChecks(rows: AuditEventRow[]): Omit<AuditResult, "eventsScanned"> {
+/** Compute category summary counts from findings. */
+function computeSummary(findings: AuditFinding[]): Record<string, number> {
+  const summary: Record<string, number> = {};
+  for (const f of findings) {
+    summary[f.category] = (summary[f.category] ?? 0) + 1;
+  }
+  return summary;
+}
+
+/** Run all audit checks on pre-queried rows. Returns raw findings (no grouping — caller groups after filtering). */
+export function runChecks(rows: AuditEventRow[]): AuditFinding[] {
   const findings: AuditFinding[] = [];
   for (const row of rows) {
     findings.push(...checkHareQuality(row), ...checkTitleQuality(row));
@@ -97,15 +110,7 @@ export function runChecks(rows: AuditEventRow[]): Omit<AuditResult, "eventsScann
     ...checkEventQuality(rows),
     ...checkDescriptionQuality(rows),
   );
-
-  const summary: Record<string, number> = {};
-  for (const f of findings) {
-    summary[f.category] = (summary[f.category] ?? 0) + 1;
-  }
-
-  const { groups, topGroups } = groupAndRank(findings);
-
-  return { findings, groups, topGroups, summary };
+  return findings;
 }
 
 export async function runAudit(): Promise<AuditResult> {
@@ -160,20 +165,15 @@ export async function runAudit(): Promise<AuditResult> {
     rawDescription: (e.rawEvents[0]?.rawData as Record<string, unknown>)?.description as string | null ?? null,
   }));
 
-  const checksResult = runChecks(rows);
+  const allFindings = runChecks(rows);
 
-  // Filter out suppressed findings
+  // Filter out suppressed findings, then group and rank once
   const suppressions = await loadSuppressions();
-  const filtered = checksResult.findings.filter(f => !isSuppressed(f, suppressions));
+  const findings = allFindings.filter(f => !isSuppressed(f, suppressions));
+  const summary = computeSummary(findings);
+  const { groups, topGroups } = groupAndRank(findings);
 
-  // Re-group after filtering
-  const summary: Record<string, number> = {};
-  for (const f of filtered) {
-    summary[f.category] = (summary[f.category] ?? 0) + 1;
-  }
-  const { groups, topGroups } = groupAndRank(filtered);
-
-  return { eventsScanned: events.length, findings: filtered, groups, topGroups, summary };
+  return { eventsScanned: events.length, findings, groups, topGroups, summary };
 }
 
 /** Persist audit results to the AuditLog table for trend tracking. */

@@ -87,7 +87,9 @@ async function main() {
     rawDescription: (e.rawEvents[0]?.rawData as Record<string, unknown>)?.description as string | null ?? null,
   }));
 
-  const { findings, summary } = runChecks(rows);
+  const findings = runChecks(rows);
+  const summary: Record<string, number> = {};
+  for (const f of findings) summary[f.category] = (summary[f.category] ?? 0) + 1;
 
   if (findings.length === 0) {
     console.log("✅ No issues found!");
