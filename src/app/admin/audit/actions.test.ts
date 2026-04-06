@@ -3,12 +3,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
-    auditLog: { findMany: vi.fn() },
+    auditLog: {
+      findMany: vi.fn(),
+      groupBy: vi.fn(),
+      create: vi.fn(),
+    },
     auditSuppression: {
       findMany: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
       deleteMany: vi.fn(),
+    },
+    kennel: {
+      findMany: vi.fn(),
+      count: vi.fn(),
     },
   },
 }));
@@ -35,6 +43,9 @@ import {
   createSuppression,
   deleteSuppression,
   getSuppressionImpact,
+  getDeepDiveQueue,
+  getDeepDiveCoverage,
+  recordDeepDive,
 } from "./actions";
 
 const mockAdmin = vi.mocked(getAdminUser);
@@ -231,5 +242,141 @@ describe("getSuppressionImpact", () => {
     ] as never);
     const result = await getSuppressionImpact(null, "hare-url");
     expect(result.totalFindings).toBe(2);
+  });
+});
+
+describe("getDeepDiveQueue", () => {
+  const mockKennelFind = vi.mocked(prisma.kennel.findMany);
+  const mockLogGroupBy = vi.mocked(prisma.auditLog.groupBy);
+
+  it("requires admin", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(getDeepDiveQueue()).rejects.toThrow("Unauthorized");
+  });
+
+  it("ranks never-dived kennels first, then by oldest dive date", async () => {
+    mockKennelFind.mockResolvedValue([
+      {
+        kennelCode: "BFM",
+        shortName: "BFM",
+        slug: "bfm",
+        region: "Philly",
+        sourceKennels: [{ source: { type: "ICAL_FEED", url: "https://x", name: "BFM iCal" } }],
+        _count: { events: 12 },
+      },
+      {
+        kennelCode: "NYCH3",
+        shortName: "NYCH3",
+        slug: "nych3",
+        region: "NYC",
+        sourceKennels: [{ source: { type: "HTML_SCRAPER", url: "https://hashnyc.com", name: "hashnyc" } }],
+        _count: { events: 47 },
+      },
+      {
+        kennelCode: "PSH3",
+        shortName: "PSH3",
+        slug: "psh3",
+        region: "Seattle",
+        sourceKennels: [{ source: { type: "GOOGLE_SHEETS", url: "https://x", name: "PSH3 sheet" } }],
+        _count: { events: 8 },
+      },
+    ] as never);
+    mockLogGroupBy.mockResolvedValue([
+      { kennelCode: "BFM", _max: { createdAt: new Date("2026-04-01") } },
+      { kennelCode: "NYCH3", _max: { createdAt: new Date("2026-03-15") } },
+      // PSH3 has no entry → never dived
+    ] as never);
+
+    const result = await getDeepDiveQueue(10);
+    expect(result.map(k => k.kennelCode)).toEqual(["PSH3", "NYCH3", "BFM"]);
+    expect(result[0].lastDeepDiveAt).toBeNull();
+    expect(result[2].lastDeepDiveAt).toEqual(new Date("2026-04-01"));
+  });
+
+  it("limits the result", async () => {
+    mockKennelFind.mockResolvedValue(
+      Array.from({ length: 5 }, (_, i) => ({
+        kennelCode: `K${i}`,
+        shortName: `Kennel ${i}`,
+        slug: `k${i}`,
+        region: "X",
+        sourceKennels: [],
+        _count: { events: 1 },
+      })) as never,
+    );
+    mockLogGroupBy.mockResolvedValue([] as never);
+    const result = await getDeepDiveQueue(2);
+    expect(result).toHaveLength(2);
+  });
+});
+
+describe("getDeepDiveCoverage", () => {
+  const mockKennelCount = vi.mocked(prisma.kennel.count);
+  const mockLogGroupBy = vi.mocked(prisma.auditLog.groupBy);
+
+  it("computes coverage stats and projected full cycle", async () => {
+    mockKennelCount.mockResolvedValue(100 as never);
+    mockLogGroupBy.mockResolvedValue([
+      { kennelCode: "A" },
+      { kennelCode: "B" },
+      { kennelCode: "C" },
+    ] as never);
+
+    const result = await getDeepDiveCoverage();
+    expect(result.audited).toBe(3);
+    expect(result.total).toBe(100);
+    expect(result.percent).toBe(3);
+    expect(result.projectedFullCycleDate).not.toBeNull();
+  });
+
+  it("returns null projection when fully covered", async () => {
+    mockKennelCount.mockResolvedValue(2 as never);
+    mockLogGroupBy.mockResolvedValue([{ kennelCode: "A" }, { kennelCode: "B" }] as never);
+    const result = await getDeepDiveCoverage();
+    expect(result.percent).toBe(100);
+    expect(result.projectedFullCycleDate).toBeNull();
+  });
+});
+
+describe("recordDeepDive", () => {
+  const mockLogCreate = vi.mocked(prisma.auditLog.create);
+
+  it("requires admin", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(
+      recordDeepDive({ kennelCode: "X", findingsCount: 1, summary: "test" }),
+    ).rejects.toThrow("Unauthorized");
+  });
+
+  it("rejects empty kennelCode", async () => {
+    await expect(
+      recordDeepDive({ kennelCode: "", findingsCount: 1, summary: "test" }),
+    ).rejects.toThrow("kennelCode is required");
+  });
+
+  it("rejects negative findings count", async () => {
+    await expect(
+      recordDeepDive({ kennelCode: "X", findingsCount: -1, summary: "test" }),
+    ).rejects.toThrow("findingsCount must be ≥ 0");
+  });
+
+  it("creates an AuditLog row with type=KENNEL_DEEP_DIVE", async () => {
+    mockLogCreate.mockResolvedValue({ id: "log_1" } as never);
+    const result = await recordDeepDive({
+      kennelCode: "NYCH3",
+      findingsCount: 2,
+      summary: "found 2 stale titles",
+    });
+    expect(result.id).toBe("log_1");
+    expect(mockLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          type: "KENNEL_DEEP_DIVE",
+          kennelCode: "NYCH3",
+          findingsCount: 2,
+          summary: { note: "found 2 stale titles" },
+        }),
+      }),
+    );
   });
 });

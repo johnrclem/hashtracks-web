@@ -273,3 +273,159 @@ export async function getSuppressionImpact(
   }
   return { totalFindings: total, perDay: Math.round((total / OFFENDER_DAYS) * 10) / 10 };
 }
+
+// ── Deep Dive ────────────────────────────────────────────────────────
+
+const ACTIVE_EVENT_WINDOW_DAYS = 90;
+
+export interface DeepDiveSource {
+  type: string;
+  url: string;
+  name: string;
+}
+
+export interface DeepDiveCandidate {
+  kennelCode: string;
+  shortName: string;
+  slug: string;
+  region: string;
+  lastDeepDiveAt: Date | null;
+  eventCount90d: number;
+  sources: DeepDiveSource[];
+}
+
+/** Active kennels ranked oldest-deep-dive-first (nulls first). Active = ≥1 source + ≥1 event in last 90d. */
+export async function getDeepDiveQueue(limit = 20): Promise<DeepDiveCandidate[]> {
+  await requireAdmin();
+
+  const activeSince = daysAgo(ACTIVE_EVENT_WINDOW_DAYS);
+
+  const [kennels, lastDives] = await Promise.all([
+    prisma.kennel.findMany({
+      where: {
+        isHidden: false,
+        sourceKennels: { some: { source: { enabled: true } } },
+        events: { some: { date: { gte: activeSince } } },
+      },
+      select: {
+        kennelCode: true,
+        shortName: true,
+        slug: true,
+        region: true,
+        sourceKennels: {
+          where: { source: { enabled: true } },
+          select: {
+            source: { select: { type: true, url: true, name: true } },
+          },
+        },
+        _count: { select: { events: { where: { date: { gte: activeSince } } } } },
+      },
+    }),
+    prisma.auditLog.groupBy({
+      by: ["kennelCode"],
+      where: { type: "KENNEL_DEEP_DIVE", kennelCode: { not: null } },
+      _max: { createdAt: true },
+    }),
+  ]);
+
+  const lastDiveByKennel = new Map<string, Date>();
+  for (const row of lastDives) {
+    if (row.kennelCode && row._max.createdAt) {
+      lastDiveByKennel.set(row.kennelCode, row._max.createdAt);
+    }
+  }
+
+  const candidates: DeepDiveCandidate[] = kennels.map(k => ({
+    kennelCode: k.kennelCode,
+    shortName: k.shortName,
+    slug: k.slug,
+    region: k.region,
+    lastDeepDiveAt: lastDiveByKennel.get(k.kennelCode) ?? null,
+    eventCount90d: k._count.events,
+    sources: k.sourceKennels.map(sk => ({
+      type: sk.source.type,
+      url: sk.source.url,
+      name: sk.source.name,
+    })),
+  }));
+
+  // Sort: never-dived first, then oldest dive first
+  candidates.sort((a, b) => {
+    if (a.lastDeepDiveAt === null && b.lastDeepDiveAt === null) {
+      return a.shortName.localeCompare(b.shortName);
+    }
+    if (a.lastDeepDiveAt === null) return -1;
+    if (b.lastDeepDiveAt === null) return 1;
+    return a.lastDeepDiveAt.getTime() - b.lastDeepDiveAt.getTime();
+  });
+
+  return candidates.slice(0, limit);
+}
+
+export async function getNextDeepDiveKennel(): Promise<DeepDiveCandidate | null> {
+  const queue = await getDeepDiveQueue(1);
+  return queue[0] ?? null;
+}
+
+export interface DeepDiveCoverage {
+  audited: number;
+  total: number;
+  percent: number;
+  projectedFullCycleDate: string | null;
+}
+
+/** Counts how many active kennels have at least one deep dive on record. */
+export async function getDeepDiveCoverage(): Promise<DeepDiveCoverage> {
+  await requireAdmin();
+  const activeSince = daysAgo(ACTIVE_EVENT_WINDOW_DAYS);
+
+  const [total, dived] = await Promise.all([
+    prisma.kennel.count({
+      where: {
+        isHidden: false,
+        sourceKennels: { some: { source: { enabled: true } } },
+        events: { some: { date: { gte: activeSince } } },
+      },
+    }),
+    prisma.auditLog.groupBy({
+      by: ["kennelCode"],
+      where: { type: "KENNEL_DEEP_DIVE", kennelCode: { not: null } },
+    }),
+  ]);
+
+  const audited = dived.length;
+  const percent = total > 0 ? Math.round((audited / total) * 100) : 0;
+  const remaining = Math.max(0, total - audited);
+  const projectedDate =
+    remaining > 0
+      ? new Date(Date.now() + remaining * 86_400_000).toISOString().split("T")[0]
+      : null;
+
+  return { audited, total, percent, projectedFullCycleDate: projectedDate };
+}
+
+/** Record that a deep dive has been completed for a kennel. */
+export async function recordDeepDive(input: {
+  kennelCode: string;
+  findingsCount: number;
+  summary: string;
+}): Promise<{ id: string }> {
+  await requireAdmin();
+  if (!input.kennelCode) throw new Error("kennelCode is required");
+  if (input.findingsCount < 0) throw new Error("findingsCount must be ≥ 0");
+
+  const log = await prisma.auditLog.create({
+    data: {
+      type: "KENNEL_DEEP_DIVE",
+      kennelCode: input.kennelCode,
+      eventsScanned: 0,
+      findingsCount: input.findingsCount,
+      groupsCount: 0,
+      issuesFiled: input.findingsCount,
+      findings: [],
+      summary: { note: input.summary },
+    },
+    select: { id: true },
+  });
+  return log;
+}
