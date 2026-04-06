@@ -682,6 +682,27 @@ describe("HashRegoAdapter", () => {
     expect(result.errorDetails!.fetch![0].message).toContain("Kennel page error");
   });
 
+  it("bails out of kennel page loop on 502 proxy error", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+
+    // Two missing slugs — only the first should be attempted before bailout
+    vi.mocked(browserRender).mockRejectedValueOnce(
+      new Error("Browser render error (502): Bad Gateway"),
+    );
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    const promise = adapter.fetch(source, { days: 365, kennelSlugs: ["MISS1", "MISS2"] });
+    await vi.advanceTimersByTimeAsync(120_000);
+    const result = await promise;
+
+    expect(browserRender).toHaveBeenCalledTimes(1);
+    expect(result.errors).toHaveLength(0);
+    expect(result.diagnosticContext?.kennelPagesChecked).toEqual(["MISS1"]);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBe("proxy_down");
+  });
+
   it("filters events by days window", async () => {
     vi.setSystemTime(new Date("2026-02-15T12:00:00Z"));
 

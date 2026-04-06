@@ -116,10 +116,12 @@ export class HashRegoAdapter implements SourceAdapter {
     let kennelPageFetchErrors = 0;
     let kennelPageProxyDown = false;
 
+    let kennelPagesStopReason: string | null = null;
+
     for (let i = 0; i < missingSlugs.length; i++) {
-      if (i >= MAX_KENNEL_PAGES) break;
-      if (kennelPageProxyDown) break;
-      if (Date.now() - fetchStart > STEP2B_BUDGET_MS) break;
+      if (i >= MAX_KENNEL_PAGES) { kennelPagesStopReason = "max_pages"; break; }
+      if (kennelPageProxyDown) { kennelPagesStopReason = "proxy_down"; break; }
+      if (Date.now() - fetchStart > STEP2B_BUDGET_MS) { kennelPagesStopReason = "budget_exhausted"; break; }
       if (i > 0) {
         await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
       }
@@ -131,7 +133,7 @@ export class HashRegoAdapter implements SourceAdapter {
         const html = await browserRender({
           url: kennelUrl,
           waitFor: "table.table-striped tbody tr",
-          timeout: 8000,
+          timeout: 8_000,
         });
         const kennelEntries = parseKennelEventsPage(html, slug, currentYear);
 
@@ -150,8 +152,8 @@ export class HashRegoAdapter implements SourceAdapter {
           { url: kennelUrl, message: msg },
         );
         kennelPageFetchErrors++;
-        const statusMatch = String(err).match(/\((\d{3})\)/);
-        if (statusMatch && (statusMatch[1] === "502" || statusMatch[1] === "503")) {
+        const statusMatch = /\((\d{3})\)/.exec(String(err));
+        if (statusMatch && ["502", "503"].includes(statusMatch[1])) {
           kennelPageProxyDown = true;
         }
       }
@@ -204,7 +206,9 @@ export class HashRegoAdapter implements SourceAdapter {
         unmappedKennelSlugs,
         kennelPagesChecked,
         kennelPageEventsFound,
+        kennelPageFetchErrors,
         kennelPagesSkipped: Math.max(0, missingSlugs.length - kennelPagesChecked.length),
+        kennelPagesStopReason,
       },
     };
   }
