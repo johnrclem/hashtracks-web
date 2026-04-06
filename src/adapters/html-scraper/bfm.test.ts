@@ -1,4 +1,4 @@
-import { parseBfmDate, BFMAdapter } from "./bfm";
+import { parseBfmDate, BFMAdapter, extractFunPart } from "./bfm";
 
 describe("parseBfmDate", () => {
   it("parses M/D format with reference year", () => {
@@ -167,6 +167,18 @@ describe("BFMAdapter.fetch", () => {
     const current = result.events.find((e) => e.runNumber === 1500);
     expect(current).toBeDefined();
     expect(current!.description).toBeUndefined();
+  });
+
+  it("extractFunPart stops at the 'Upcumming Hashes' spelling variant", () => {
+    const text = `The Fun Part: Prose body with details.\n\nUpcumming Hashes:\nApril 16 – Someone`;
+    const result = extractFunPart(text);
+    expect(result).toBe("Prose body with details.");
+  });
+
+  it("extractFunPart preserves 'New?' in prose (no longer a terminator)", () => {
+    const text = `The Fun Part: New? Come join us, first timers welcome!\n\nUpcoming Hares`;
+    const result = extractFunPart(text);
+    expect(result).toContain("New? Come join us");
   });
 
   it("returns error on HTTP error status", async () => {

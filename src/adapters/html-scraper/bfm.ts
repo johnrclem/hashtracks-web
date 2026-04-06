@@ -44,14 +44,14 @@ function extractBfmField(bodyText: string, labelPattern: RegExp): string | null 
  * Captures prose across newlines, stopping at the next known section header
  * or footer boilerplate. extractBfmField can't be reused since it stops at \n.
  */
-function extractFunPart(bodyText: string): string | undefined {
+export function extractFunPart(bodyText: string): string | undefined {
   const m = /The Fun Part:\s*/i.exec(bodyText);
   if (!m) return undefined;
   const rest = bodyText.slice(m.index + m[0].length);
   // Terminators: BFM site uses "Upcumming Hashes:" (pun) for the upcoming hares
   // section; also stop at special events, mayor blurb, or site footer boilerplate.
   const endIdx = rest.search(
-    /Upcoming\s+Ha|Upcumming\s+Ha|Special\s+Events|Mayor[’']s\s+Cup|New\?|Keep in touch|Sign up for our email|Follow us on|\{"prefetch"/i,
+    /Upcoming\s+Ha|Upcumming\s+Ha|Special\s+Events|Mayor[’']s\s+Cup|Keep in touch|Sign up for our email|Follow us on|\{"prefetch"/i,
   );
   const body = (endIdx >= 0 ? rest.slice(0, endIdx) : rest).trim();
   if (!body) return undefined;
@@ -119,7 +119,7 @@ function scrapeCurrentTrail(
 
   const location = whereText ?? undefined;
   const hares = hareText ?? undefined;
-  const description = extractFunPart(bodyText);
+  const description = extractFunPart(bodyText.slice(trailMatch.index));
 
   let locationUrl: string | undefined;
   $("a[href]").each((_i, el) => {
