@@ -18,7 +18,7 @@ const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 500;
 const LOOKBACK_DAYS = 7;
 const INDEX_FETCH_RETRIES = 2;
-const MAX_KENNEL_PAGES = 5;
+const MAX_KENNEL_PAGES = 10;
 const STEP2B_BUDGET_MS = 45_000;
 import { USER_AGENT } from "./constants";
 
@@ -114,12 +114,12 @@ export class HashRegoAdapter implements SourceAdapter {
     const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
     const currentYear = now.getUTCFullYear();
     let kennelPageFetchErrors = 0;
-    let kennelPageProxyDown = false;
+
+    let kennelPagesStopReason: string | null = null;
 
     for (let i = 0; i < missingSlugs.length; i++) {
-      if (i >= MAX_KENNEL_PAGES) break;
-      if (kennelPageProxyDown) break;
-      if (Date.now() - fetchStart > STEP2B_BUDGET_MS) break;
+      if (i >= MAX_KENNEL_PAGES) { kennelPagesStopReason = "max_pages"; break; }
+      if (Date.now() - fetchStart > STEP2B_BUDGET_MS) { kennelPagesStopReason = "budget_exhausted"; break; }
       if (i > 0) {
         await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
       }
@@ -131,7 +131,7 @@ export class HashRegoAdapter implements SourceAdapter {
         const html = await browserRender({
           url: kennelUrl,
           waitFor: "table.table-striped tbody tr",
-          timeout: 8000,
+          timeout: 8_000,
         });
         const kennelEntries = parseKennelEventsPage(html, slug, currentYear);
 
@@ -150,10 +150,6 @@ export class HashRegoAdapter implements SourceAdapter {
           { url: kennelUrl, message: msg },
         );
         kennelPageFetchErrors++;
-        const statusMatch = String(err).match(/\((\d{3})\)/);
-        if (statusMatch && (statusMatch[1] === "502" || statusMatch[1] === "503")) {
-          kennelPageProxyDown = true;
-        }
       }
     }
 
@@ -204,7 +200,9 @@ export class HashRegoAdapter implements SourceAdapter {
         unmappedKennelSlugs,
         kennelPagesChecked,
         kennelPageEventsFound,
+        kennelPageFetchErrors,
         kennelPagesSkipped: Math.max(0, missingSlugs.length - kennelPagesChecked.length),
+        kennelPagesStopReason,
       },
     };
   }

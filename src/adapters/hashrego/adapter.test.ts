@@ -682,6 +682,33 @@ describe("HashRegoAdapter", () => {
     expect(result.errorDetails!.fetch![0].message).toContain("Kennel page error");
   });
 
+  it("continues past 502 render errors to reach pages with events", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    // Detail page for any events found via kennel pages
+    fetchSpy.mockImplementation(async () => new Response("<html></html>", { status: 200 }));
+
+    // First slug: 502 (empty kennel page timeout), second: success with events
+    vi.mocked(browserRender)
+      .mockRejectedValueOnce(new Error("Browser render error (502): Render failed"))
+      .mockResolvedValueOnce(KENNEL_PAGE_HTML);
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    const promise = adapter.fetch(source, { days: 365, kennelSlugs: ["MISS1", "NYCH3"] });
+    await vi.advanceTimersByTimeAsync(120_000);
+    const result = await promise;
+
+    // Should have checked both slugs — 502s are non-fatal
+    expect(browserRender).toHaveBeenCalledTimes(2);
+    expect(result.errors).toHaveLength(0);
+    expect(result.diagnosticContext?.kennelPagesChecked).toEqual(["MISS1", "NYCH3"]);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
+    expect((result.diagnosticContext?.kennelPageEventsFound as number)).toBeGreaterThan(0);
+  });
+
   it("filters events by days window", async () => {
     vi.setSystemTime(new Date("2026-02-15T12:00:00Z"));
 
@@ -754,8 +781,8 @@ describe("HashRegoAdapter", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
 
-    // Provide 10 missing slugs (not in the global index) — only 5 should be checked
-    const missingSlugs = Array.from({ length: 10 }, (_, i) => `MISS${i}`);
+    // Provide 15 missing slugs (not in the global index) — only 10 should be checked
+    const missingSlugs = Array.from({ length: 15 }, (_, i) => `MISS${i}`);
     vi.mocked(browserRender).mockRejectedValue(new Error("timeout"));
 
     const adapter = new HashRegoAdapter();
@@ -765,10 +792,10 @@ describe("HashRegoAdapter", () => {
     await vi.advanceTimersByTimeAsync(120_000);
 
     const result = await promise;
-    // Should have checked at most 5 kennel pages (MAX_KENNEL_PAGES)
-    expect(result.diagnosticContext?.kennelPagesChecked).toHaveLength(5);
+    // Should have checked at most 10 kennel pages (MAX_KENNEL_PAGES)
+    expect(result.diagnosticContext?.kennelPagesChecked).toHaveLength(10);
     expect(result.diagnosticContext?.kennelPagesSkipped).toBe(5);
-    expect(browserRender).toHaveBeenCalledTimes(5);
+    expect(browserRender).toHaveBeenCalledTimes(10);
   });
 
   it("falls back to direct fetch when proxy env vars not set", async () => {
