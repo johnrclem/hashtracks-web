@@ -1,7 +1,6 @@
 # HashTracks Data Quality Audit — Chrome Prompt
 
-> **How to use:** Copy this prompt into Claude in Chrome, or have it fetch from:
-> `https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/docs/audit-chrome-prompt.md`
+> **How to use:** Copy this entire file's contents and paste it into Claude in Chrome as the prompt. Claude in Chrome (correctly) refuses to fetch external instruction documents, so this prompt must be pasted directly. Update it manually as suppressions and focus areas change — the rendered version at https://hashtracks.xyz/api/audit/suppressions is a convenient reference for the current suppression list when editing this doc.
 
 ## Instructions
 
@@ -48,10 +47,9 @@ These require visual/semantic judgment that the script cannot do:
 
 ## Active Suppressions
 
-The current list of accepted suppressions is fetched dynamically from:
-`https://hashtracks.xyz/api/audit/suppressions`
+These kennel+rule combos are accepted behavior — do not flag:
 
-Fetch that URL and treat any kennel+rule combo listed there as out-of-scope.
+*(none currently — update this section manually as suppressions are added in /admin/audit)*
 
 ## Recently Fixed (Last 2 Weeks)
 

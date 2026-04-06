@@ -10,6 +10,7 @@ import {
   Database,
   HeartPulse,
   Bell,
+  ShieldCheck,
   ArrowRight,
 } from "lucide-react";
 import { AnimatedCounter } from "@/components/home/HeroAnimations";
@@ -26,6 +27,7 @@ interface AdminDashboardProps {
     healthySources: number;
     totalCheckins: number;
     activeAlerts: number;
+    auditFindings: number;
   };
 }
 
@@ -54,6 +56,7 @@ export function AdminDashboard({ stats }: AdminDashboardProps) {
     { label: "Sources", value: stats.enabledSources, icon: Database, color: "text-teal-600", bgColor: "bg-teal-100 dark:bg-teal-500/20", href: "/admin/sources" },
     { label: "Health", value: healthPct, icon: HeartPulse, color: healthPct >= 80 ? "text-emerald-600" : "text-red-600", bgColor: healthPct >= 80 ? "bg-emerald-100 dark:bg-emerald-500/20" : "bg-red-100 dark:bg-red-500/20", href: "/admin/sources", suffix: "%" },
     { label: "Alerts", value: stats.activeAlerts, icon: Bell, color: stats.activeAlerts > 0 ? "text-red-600" : "text-emerald-600", bgColor: stats.activeAlerts > 0 ? "bg-red-100 dark:bg-red-500/20" : "bg-emerald-100 dark:bg-emerald-500/20", href: "/admin/alerts" },
+    { label: "Audit", value: stats.auditFindings, icon: ShieldCheck, color: stats.auditFindings > 0 ? "text-orange-600" : "text-emerald-600", bgColor: stats.auditFindings > 0 ? "bg-orange-100 dark:bg-orange-500/20" : "bg-emerald-100 dark:bg-emerald-500/20", href: "/admin/audit" },
   ];
 
   // Derive section guide from shared TAB_ROUTES (skip dashboard — that's this page)
@@ -70,7 +73,7 @@ export function AdminDashboard({ stats }: AdminDashboardProps) {
       </div>
 
       {/* Stats grid — bold, colored, clickable */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3">
         {statCards.map((card) => (
           <Link
             key={card.label}

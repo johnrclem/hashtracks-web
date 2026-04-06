@@ -13,7 +13,7 @@ export default async function AdminLayout({
   const admin = await getAdminUser();
   if (!admin) redirect("/");
 
-  const [openAlertCount, pendingMismanCount, newDiscoveryCount, pendingProposalCount] = await Promise.all([
+  const [openAlertCount, pendingMismanCount, newDiscoveryCount, pendingProposalCount, latestAudit] = await Promise.all([
     prisma.alert.count({
       where: { status: { in: ["OPEN", "ACKNOWLEDGED"] } },
     }),
@@ -26,6 +26,11 @@ export default async function AdminLayout({
     prisma.sourceProposal.count({
       where: { status: "PENDING" },
     }),
+    prisma.auditLog.findFirst({
+      where: { type: "HARELINE" },
+      orderBy: { createdAt: "desc" },
+      select: { findingsCount: true },
+    }),
   ]);
 
   return (
@@ -36,6 +41,7 @@ export default async function AdminLayout({
           misman: pendingMismanCount,
           discovery: newDiscoveryCount,
           research: pendingProposalCount,
+          audit: latestAudit?.findingsCount ?? 0,
         }}
       />
 

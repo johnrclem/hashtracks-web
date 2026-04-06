@@ -17,6 +17,7 @@ export default async function AdminPage() {
     healthySources,
     totalCheckins,
     activeAlerts,
+    latestAudit,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.$queryRaw<[{ count: bigint }]>`
@@ -30,6 +31,11 @@ export default async function AdminPage() {
     prisma.source.count({ where: { healthStatus: "HEALTHY", enabled: true } }),
     prisma.attendance.count({ where: { status: "CONFIRMED" } }),
     prisma.alert.count({ where: { status: { in: ["OPEN", "ACKNOWLEDGED"] } } }),
+    prisma.auditLog.findFirst({
+      where: { type: "HARELINE" },
+      orderBy: { createdAt: "desc" },
+      select: { findingsCount: true },
+    }),
   ]);
 
   return (
@@ -43,6 +49,7 @@ export default async function AdminPage() {
         healthySources,
         totalCheckins,
         activeAlerts,
+        auditFindings: latestAudit?.findingsCount ?? 0,
       }}
     />
   );
