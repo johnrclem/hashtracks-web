@@ -48,9 +48,10 @@ These require visual/semantic judgment that the script cannot do:
 
 ## Active Suppressions
 
-These kennel+rule combos are accepted behavior — do not flag:
+The current list of accepted suppressions is fetched dynamically from:
+`https://hashtracks.xyz/api/audit/suppressions`
 
-*(none currently — update this section as suppressions are added in admin)*
+Fetch that URL and treat any kennel+rule combo listed there as out-of-scope.
 
 ## Recently Fixed (Last 2 Weeks)
 

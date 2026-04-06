@@ -33,6 +33,27 @@ export interface AuditFinding {
 
 const HARELINE_BASE_URL = "https://www.hashtracks.xyz/hareline";
 
+/** All audit rule keys. Single source of truth — used by suppression UI to populate dropdowns. */
+export const KNOWN_AUDIT_RULES = [
+  "hare-single-char",
+  "hare-cta-text",
+  "hare-url",
+  "hare-description-leak",
+  "hare-phone-number",
+  "hare-boilerplate-leak",
+  "title-raw-kennel-code",
+  "title-cta-text",
+  "title-schedule-description",
+  "title-html-entities",
+  "title-time-only",
+  "location-url",
+  "location-duplicate-segments",
+  "event-improbable-time",
+  "description-dropped",
+] as const;
+
+export type KnownAuditRule = (typeof KNOWN_AUDIT_RULES)[number];
+
 /** Minimal event shape needed by finding() — avoids requiring full AuditEventRow. */
 type FindingEvent = Pick<AuditEventRow, "id" | "kennelShortName" | "kennelCode" | "sourceUrl" | "sourceType">;
 

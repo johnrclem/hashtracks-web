@@ -15,6 +15,7 @@ import {
   Calendar,
   Bell,
   BarChart3,
+  ShieldCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -39,6 +40,7 @@ export const TAB_ROUTES: TabRoute[] = [
   { value: "roster-groups", href: "/admin/roster-groups", label: "Roster Groups", icon: Users, description: "Create and manage shared roster groups across kennels." },
   { value: "events", href: "/admin/events", label: "Events", icon: Calendar, description: "Browse, filter, and manage canonical events." },
   { value: "alerts", href: "/admin/alerts", label: "Alerts", icon: Bell, description: "Monitor source health alerts and take repair actions." },
+  { value: "audit", href: "/admin/audit", label: "Audit", icon: ShieldCheck, description: "Daily data quality audit trends, top offenders, and suppressions." },
   { value: "analytics", href: "/admin/analytics", label: "Analytics", icon: BarChart3, description: "Community health, user engagement, and operational metrics." },
 ];
 
