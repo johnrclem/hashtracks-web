@@ -437,13 +437,19 @@ function SuppressionRowView({
   onChanged: () => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const isGlobal = row.kennelCode === null;
   const scopeLabel = isGlobal ? "Global" : (row.kennelShortName ?? row.kennelCode);
 
   function handleDelete() {
+    setDeleteError(null);
     startTransition(async () => {
-      await deleteSuppression(row.id);
-      onChanged();
+      try {
+        await deleteSuppression(row.id);
+        onChanged();
+      } catch (err) {
+        setDeleteError(err instanceof Error ? err.message : "Failed to remove suppression");
+      }
     });
   }
 
@@ -462,6 +468,9 @@ function SuppressionRowView({
         {row.createdBy ?? "—"}
       </td>
       <td className="px-5 py-2.5 text-right">
+        {deleteError && (
+          <div className="mb-1 text-[10px] text-destructive">{deleteError}</div>
+        )}
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button

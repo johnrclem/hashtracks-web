@@ -1,3 +1,5 @@
+import { HARE_BOILERPLATE_RE } from "@/adapters/utils";
+
 export interface AuditEventRow {
   id: string;
   kennelShortName: string;
@@ -110,8 +112,6 @@ const TITLE_TIME_ONLY_PATTERN =
 
 const CTA_PATTERN =
   /^(?:tbd|tba|tbc|n\/a|sign[\s\u00A0]*up!?|volunteer|needed|required)$/i;
-// Reuse the shared boilerplate regex from adapter utils
-import { HARE_BOILERPLATE_RE } from "@/adapters/utils";
 
 export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
   const { title, kennelCode, kennelShortName } = event;

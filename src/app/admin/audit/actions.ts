@@ -1,8 +1,15 @@
 "use server";
 
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { KNOWN_AUDIT_RULES, type AuditFinding } from "@/pipeline/audit-checks";
+
+/** All audit dashboard actions are admin-only — server actions are POST endpoints anyone can hit. */
+async function requireAdmin(): Promise<void> {
+  const admin = await getAdminUser();
+  if (!admin) throw new Error("Unauthorized");
+}
 
 /** Encoding used for both DB suppression rows and finding lookup keys. */
 function suppressionKey(kennelCode: string | null, rule: string): string {
@@ -37,6 +44,7 @@ export interface TrendPoint {
 }
 
 export async function getAuditTrends(days = TREND_DAYS): Promise<TrendPoint[]> {
+  await requireAdmin();
   const rows = await prisma.auditLog.findMany({
     where: { type: "HARELINE", createdAt: { gte: daysAgo(days) } },
     select: { createdAt: true, summary: true },
@@ -80,6 +88,10 @@ export interface TopOffender {
 }
 
 export async function getTopOffenders(days = OFFENDER_DAYS): Promise<TopOffender[]> {
+  await requireAdmin();
+  // Rows are ordered desc, so the first encounter for a (kennelCode, rule) key is the most
+  // recent date — used for `lastSeen` below. `count` is per-finding occurrence across runs,
+  // which inflates for events that persist day-to-day; that's intentional for ranking impact.
   const [rows, suppressions] = await Promise.all([
     prisma.auditLog.findMany({
       where: { type: "HARELINE", createdAt: { gte: daysAgo(days) } },
@@ -131,6 +143,7 @@ export interface RecentRun {
 }
 
 export async function getRecentRuns(days = RECENT_RUNS_DAYS): Promise<RecentRun[]> {
+  await requireAdmin();
   return prisma.auditLog.findMany({
     where: { type: "HARELINE", createdAt: { gte: daysAgo(days) } },
     select: {
@@ -159,6 +172,7 @@ export interface SuppressionRow {
 }
 
 export async function getSuppressions(): Promise<SuppressionRow[]> {
+  await requireAdmin();
   const rows = await prisma.auditSuppression.findMany({
     select: {
       id: true,
@@ -197,23 +211,31 @@ export async function createSuppression(input: {
     throw new Error("Reason must be at least 10 characters");
   }
 
-  const created = await prisma.auditSuppression.create({
-    data: {
-      kennelCode: input.kennelCode,
-      rule: input.rule,
-      reason: input.reason.trim(),
-      createdBy: admin.email ?? admin.id,
-    },
-    select: {
-      id: true,
-      kennelCode: true,
-      rule: true,
-      reason: true,
-      createdBy: true,
-      createdAt: true,
-      kennel: { select: { shortName: true } },
-    },
-  });
+  let created;
+  try {
+    created = await prisma.auditSuppression.create({
+      data: {
+        kennelCode: input.kennelCode,
+        rule: input.rule,
+        reason: input.reason.trim(),
+        createdBy: admin.email ?? admin.id,
+      },
+      select: {
+        id: true,
+        kennelCode: true,
+        rule: true,
+        reason: true,
+        createdBy: true,
+        createdAt: true,
+        kennel: { select: { shortName: true } },
+      },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      throw new Error("A suppression for this kennel and rule already exists");
+    }
+    throw err;
+  }
   return {
     id: created.id,
     kennelCode: created.kennelCode,
@@ -226,15 +248,17 @@ export async function createSuppression(input: {
 }
 
 export async function deleteSuppression(id: string): Promise<void> {
-  const admin = await getAdminUser();
-  if (!admin) throw new Error("Unauthorized");
-  await prisma.auditSuppression.delete({ where: { id } });
+  await requireAdmin();
+  // deleteMany is idempotent — tolerates double-clicks and already-removed rows.
+  await prisma.auditSuppression.deleteMany({ where: { id } });
 }
 
+// TODO(phase3): replace JSON-blob scan with materialized aggregate (same target as getTopOffenders).
 export async function getSuppressionImpact(
   kennelCode: string | null,
   rule: string,
 ): Promise<{ totalFindings: number; perDay: number }> {
+  await requireAdmin();
   const rows = await prisma.auditLog.findMany({
     where: { type: "HARELINE", createdAt: { gte: daysAgo(OFFENDER_DAYS) } },
     select: { findings: true },

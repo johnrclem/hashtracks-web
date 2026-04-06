@@ -8,15 +8,30 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+  },
+}));
+vi.mock("@/generated/prisma/client", () => ({
+  Prisma: {
+    PrismaClientKnownRequestError: class PrismaClientKnownRequestError extends Error {
+      code: string;
+      constructor(message: string, opts: { code: string }) {
+        super(message);
+        this.code = opts.code;
+      }
     },
   },
 }));
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
 import {
   getAuditTrends,
   getTopOffenders,
+  getRecentRuns,
+  getSuppressions,
   createSuppression,
   deleteSuppression,
   getSuppressionImpact,
@@ -26,10 +41,35 @@ const mockAdmin = vi.mocked(getAdminUser);
 const mockLogFind = vi.mocked(prisma.auditLog.findMany);
 const mockSupFind = vi.mocked(prisma.auditSuppression.findMany);
 const mockSupCreate = vi.mocked(prisma.auditSuppression.create);
-const mockSupDelete = vi.mocked(prisma.auditSuppression.delete);
+const mockSupDeleteMany = vi.mocked(prisma.auditSuppression.deleteMany);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default to authenticated admin for read tests; individual tests override.
+  mockAdmin.mockResolvedValue({ id: "u_1", email: "a@b.com" } as never);
+});
+
+describe("auth guards on read actions", () => {
+  it("getAuditTrends rejects unauthenticated callers", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(getAuditTrends()).rejects.toThrow("Unauthorized");
+  });
+  it("getTopOffenders rejects unauthenticated callers", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(getTopOffenders()).rejects.toThrow("Unauthorized");
+  });
+  it("getRecentRuns rejects unauthenticated callers", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(getRecentRuns()).rejects.toThrow("Unauthorized");
+  });
+  it("getSuppressions rejects unauthenticated callers", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(getSuppressions()).rejects.toThrow("Unauthorized");
+  });
+  it("getSuppressionImpact rejects unauthenticated callers", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(getSuppressionImpact("X", "hare-url")).rejects.toThrow("Unauthorized");
+  });
 });
 
 describe("getAuditTrends", () => {
@@ -111,6 +151,24 @@ describe("createSuppression", () => {
     ).rejects.toThrow("at least 10 characters");
   });
 
+  it("surfaces P2002 with friendly message", async () => {
+    mockAdmin.mockResolvedValue({ id: "u_1", email: "a@b.com" } as never);
+    mockSupCreate.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002" } as never),
+    );
+    await expect(
+      createSuppression({ kennelCode: "X", rule: "hare-url", reason: "long enough reason" }),
+    ).rejects.toThrow("already exists");
+  });
+
+  it("re-throws non-P2002 errors as-is", async () => {
+    mockAdmin.mockResolvedValue({ id: "u_1", email: "a@b.com" } as never);
+    mockSupCreate.mockRejectedValue(new Error("boom"));
+    await expect(
+      createSuppression({ kennelCode: "X", rule: "hare-url", reason: "long enough reason" }),
+    ).rejects.toThrow("boom");
+  });
+
   it("inserts and stores creator email", async () => {
     mockAdmin.mockResolvedValue({ id: "u_1", email: "a@b.com" } as never);
     mockSupCreate.mockResolvedValue({
@@ -138,11 +196,10 @@ describe("deleteSuppression", () => {
     await expect(deleteSuppression("sup_1")).rejects.toThrow("Unauthorized");
   });
 
-  it("calls prisma.delete with the id", async () => {
-    mockAdmin.mockResolvedValue({ id: "u_1" } as never);
-    mockSupDelete.mockResolvedValue({} as never);
-    await deleteSuppression("sup_1");
-    expect(mockSupDelete).toHaveBeenCalledWith({ where: { id: "sup_1" } });
+  it("uses deleteMany so missing rows don't throw", async () => {
+    mockSupDeleteMany.mockResolvedValue({ count: 0 } as never);
+    await expect(deleteSuppression("sup_missing")).resolves.toBeUndefined();
+    expect(mockSupDeleteMany).toHaveBeenCalledWith({ where: { id: "sup_missing" } });
   });
 });
 

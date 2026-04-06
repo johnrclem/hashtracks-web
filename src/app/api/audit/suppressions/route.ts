@@ -39,7 +39,7 @@ export async function GET() {
   return new Response(lines.join("\n"), {
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",
-      "Cache-Control": "public, max-age=300, s-maxage=300, stale-while-revalidate=60",
+      "Cache-Control": "private, max-age=300",
     },
   });
 }
