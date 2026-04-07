@@ -2671,5 +2671,17 @@ export const KENNELS: KennelSeed[] = [
       description: "Indianapolis' cheeky monthly hash. Shares the Indy scene's late-night energy and occasionally crosses trails with IndyScent.",
       latitude: 39.77, longitude: -86.15,
     },
+
+    // ── West Virginia: Morgantown ──
+    {
+      kennelCode: "mh3-wv", shortName: "Morgantown H3", fullName: "Morgantown Hash House Harriers",
+      region: "Morgantown, WV",
+      website: "https://morgantownh3.wordpress.com",
+      scheduleDayOfWeek: "Saturday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Multiple trails most weeks — daytime Saturdays plus weeknight full-moon and themed runs. Watch the calendar for what's next.",
+      description: "Mountaineer country's main hash. Trails run year-round through Morgantown, the New River Gorge, and any patch of West Virginia woods that needs a beer-soaked visit.",
+      latitude: 39.63, longitude: -79.96,
+    },
   ];
 

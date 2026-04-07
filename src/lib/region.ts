@@ -1915,6 +1915,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -86.53,
     aliases: ["Bloomington"],
   },
+  // ── West Virginia ──
+  {
+    name: "West Virginia",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/New_York",
+    abbrev: "WV",
+    colorClasses: "bg-lime-100 text-lime-700",
+    pinColor: "#84cc16",
+    centroidLat: 38.60,
+    centroidLng: -80.45,
+    aliases: ["WV"],
+  },
+  {
+    name: "Morgantown, WV",
+    country: "USA",
+    timezone: "America/New_York",
+    abbrev: "MGW",
+    colorClasses: "bg-lime-100 text-lime-700",
+    pinColor: "#a3e635",
+    centroidLat: 39.63,
+    centroidLng: -79.96,
+    aliases: ["Morgantown"],
+  },
   // ── Canada ──
   {
     name: "Canada",
@@ -2511,6 +2535,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Indiana
   "Indianapolis, IN": "Indiana",
   "Bloomington, IN": "Indiana",
+  // West Virginia
+  "Morgantown, WV": "West Virginia",
   // Canada
   "Montreal, QC": "Quebec",
   "Ottawa, ON": "Ontario",
@@ -2615,6 +2641,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "New Mexico": "United States",
   "Alabama": "United States",
   "Indiana": "United States",
+  "West Virginia": "United States",
   // Canada
   "Alberta": "Canada",
   "Ontario": "Canada",
