@@ -1,7 +1,7 @@
 # New Hampshire Kennel Research
 
 **Researched:** 2026-04-07
-**Result:** 0 kennels shippable (all Facebook-only, dead aggregator sites)
+**Result:** 0 kennels shippable (all Facebook-only, dead kennel websites)
 
 ## Existing Coverage
 None. DB probe for regions containing Hampshire / NH / Concord / Seacoast / Enfield returned zero NH matches.
