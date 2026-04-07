@@ -114,7 +114,7 @@ export function parseHarelineRows(html: string): HarelineRow[] {
 
       rows.push({
         kennelTag,
-        runNumber: runNumber && !isNaN(runNumber) ? runNumber : undefined,
+        runNumber: Number.isFinite(runNumber) ? runNumber : undefined,
         dateText,
         hare,
         locationText,
@@ -150,14 +150,17 @@ export function parseHarelineRows(html: string): HarelineRow[] {
 
     // Legacy layout: Run# | When | Hare | Where | What
     const runCell = cells.eq(0);
-    const runNumText = runCell.text().trim();
-    const runNumber = runNumText ? parseInt(runNumText, 10) : undefined;
+    const runText = runCell.text().trim();
+    const runMatch = runText && !/\(No\s*#\)/i.test(runText)
+      ? runText.match(/#?(\d+)/)
+      : null;
+    const runNumber = runMatch ? parseInt(runMatch[1], 10) : undefined;
     const detailLink = runCell.find("a").attr("href") || undefined;
 
-    const dateText = cells.eq(1).text().trim();
-    const hare = cells.eq(2).text().trim() || undefined;
+    const dateText = cells.eq(1).text().replaceAll(/\s+/g, " ").trim();
+    const hare = cells.eq(2).text().replaceAll(/\s+/g, " ").trim() || undefined;
     const locationCell = cells.eq(3);
-    const title = cells.eq(4).text().trim();
+    const title = cells.eq(4).text().replaceAll(/\s+/g, " ").trim();
 
     const locationText = locationCell.text().trim() || undefined;
     const locationUrl = extractLocationUrl(locationCell.html() || "");
@@ -166,7 +169,7 @@ export function parseHarelineRows(html: string): HarelineRow[] {
 
     rows.push({
       kennelTag: undefined,
-      runNumber: runNumber && !isNaN(runNumber) ? runNumber : undefined,
+      runNumber: Number.isFinite(runNumber) ? runNumber : undefined,
       dateText,
       hare,
       locationText,
@@ -217,10 +220,10 @@ export class SFH3Adapter implements SourceAdapter {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
-        // Skip rows matching skipPatterns (e.g., "Hand Pump", "Workday")
-        const fullTitle = row.kennelTag && row.title
-          ? `${row.kennelTag}: ${row.title}`
-          : row.title;
+        // Skip rows matching skipPatterns (e.g., "Hand Pump", "Workday").
+        // Some workday rows have an empty title — fall back to whichever field is present
+        // so the pattern still matches "Hand Pump Workday" stored in the kennel cell.
+        const fullTitle = [row.kennelTag, row.title].filter(Boolean).join(": ");
         if (skipPatterns?.some((p) => p.test(fullTitle))) {
           skippedPattern++;
           continue;

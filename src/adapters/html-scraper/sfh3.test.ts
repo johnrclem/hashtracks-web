@@ -380,6 +380,58 @@ describe("SFH3Adapter.fetch", () => {
     vi.restoreAllMocks();
   });
 
+  it("applies skipPatterns to class-based rows with empty title cells", async () => {
+    // Live workday rows carry "Hand Pump Workday" in td.kennel and an empty
+    // td.name. The old fullTitle logic required both fields, so these slipped
+    // past skipPatterns entirely.
+    const html = `
+      <table><tbody><tr><td>
+        <table><tbody>
+          <tr>
+            <td class="kennel">SFH3</td>
+            <td class="number"><a href="/runs/1">#2302</a></td>
+            <td class="time">Sat, Mar 3, 10:00 am</td>
+            <td class="hare">Trail Blazer</td>
+            <td class="location">Golden Gate Park</td>
+            <td class="name">A Very Heated Rivalry</td>
+          </tr>
+          <tr>
+            <td class="kennel">Hand Pump Workday</td>
+            <td class="number">(No #)</td>
+            <td class="time">Sat, May 2, 9:30 am</td>
+            <td class="hare">None yet</td>
+            <td class="location">McLaren Park</td>
+            <td class="name"></td>
+          </tr>
+        </tbody></table>
+      </td></tr></tbody></table>
+    `;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(html, { status: 200 }),
+    );
+
+    const adapter = new SFH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://www.sfh3.com/runs?kennels=all",
+      config: {
+        kennelPatterns: KENNEL_PATTERNS,
+        defaultKennelTag: "sfh3",
+        skipPatterns: ["^Hand Pump"],
+      },
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].kennelTag).toBe("SFH3");
+    expect(result.diagnosticContext).toMatchObject({
+      rowsFound: 2,
+      eventsParsed: 1,
+      skippedPattern: 1,
+    });
+
+    vi.restoreAllMocks();
+  });
+
   it("emits all rows when no skipPatterns configured", async () => {
     const html = `
       <table><tbody>
