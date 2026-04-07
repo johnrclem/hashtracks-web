@@ -708,6 +708,64 @@ END:VCALENDAR`;
     expect(result.events[0].date).toBe("2026-04-03");
   });
 
+  it("enriches SFH3 events with detail-page title + Comment when enrichSFH3Details=true", async () => {
+    // Pin before SAMPLE_ICS event dates so the enrichment "future-only" filter
+    // doesn't drop them.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-02-01T00:00:00Z"));
+    const detailHtml = `
+      <html><head>
+        <title>SFH3 - 26.2H3 Run #7</title>
+        <script type="application/ld+json">
+          {"@context":"https://schema.org","@type":"Event","name":"26.2H3 Run #7","startDate":"2026-08-15T10:00:00-07:00"}
+        </script>
+      </head><body>
+        <div class="run-key run_label"><label for="run_comment">Comment</label>:</div>
+        <div class="run_content">You do not want to miss this event.</div>
+      </body></html>
+    `;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (/\/runs\/\d+/.test(url)) {
+        return new Response(detailHtml, { status: 200 });
+      }
+      return new Response(SAMPLE_ICS, { status: 200 });
+    });
+
+    const source = buildMockSource({
+      config: {
+        kennelPatterns: [
+          ["^SFH3", "SFH3"],
+          ["^GPH3", "GPH3"],
+          ["^FHAC-U", "FHAC-U"],
+          ["^Marin H3", "MARINH3"],
+        ],
+        defaultKennelTag: "SFH3",
+        skipPatterns: ["^Hand Pump"],
+        enrichSFH3Details: true,
+      },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    const sfh3 = result.events.find((e) => e.sourceUrl === "https://www.sfh3.com/runs/1");
+    expect(sfh3).toBeDefined();
+    expect(sfh3!.title).toBe("26.2H3 Run #7");
+    expect(sfh3!.description).toContain("Comment: You do not want to miss this event.");
+    vi.useRealTimers();
+  });
+
+  it("skips SFH3 enrichment when flag is off", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_ICS, { status: 200 }),
+    );
+
+    const source = buildMockSource();
+    await adapter.fetch(source, { days: 9999 });
+
+    // Only the initial .ics fetch — no detail-page enrichment requests
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("works without config (defaultKennelTag fallback)", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(SAMPLE_ICS, { status: 200 }),

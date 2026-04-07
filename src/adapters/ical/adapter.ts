@@ -3,6 +3,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseErro
 import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix, isPlaceholder } from "../utils";
 import { safeFetch } from "../safe-fetch";
+import { enrichSFH3Events } from "../html-scraper/sfh3-detail-enrichment";
 import { sync as icalSync } from "node-ical";
 import type { VEvent, ParameterValue, DateWithTimeZone } from "node-ical";
 
@@ -16,6 +17,7 @@ export interface ICalSourceConfig {
   locationPatterns?: string[];         // regex strings to extract location from descriptions (overrides default LOCATION_PATTERNS)
   titleHarePattern?: string;           // regex to extract hare names from SUMMARY when description has none
   descriptionSuffix?: string;          // static text appended to every event description
+  enrichSFH3Details?: boolean;         // fetch sfh3.com/runs/{id} detail pages for canonical title + Comment field
 }
 
 /**
@@ -517,6 +519,27 @@ export class ICalAdapter implements SourceAdapter {
       errorDetails.parse = parseErrors;
     }
 
+    // SFH3-specific enrichment: the .ics SUMMARY omits "Run" and has no Comment
+    // field. Pull the canonical title + Comment from /runs/{id} so the merge
+    // pipeline has enriched values on both the iCal and HTML_SCRAPER RawEvents
+    // and whichever source wins ends up correct.
+    let enrichmentEnriched: number | undefined;
+    let enrichmentFailures: number | undefined;
+    if (config?.enrichSFH3Details) {
+      const enrichResult = await enrichSFH3Events(events, { now: new Date(fetchStart) });
+      enrichmentEnriched = enrichResult.enriched;
+      enrichmentFailures = enrichResult.failures.length;
+      if (enrichResult.failures.length > 0) {
+        errorDetails.fetch ??= [];
+        for (const failure of enrichResult.failures) {
+          errorDetails.fetch.push({ url: failure.url, message: failure.message });
+        }
+        // Single summary line in `errors` — per-fetch details live in errorDetails.fetch
+        // and the count is in diagnosticContext.enrichmentFailures.
+        errors.push(`enrichment: ${enrichResult.failures.length} detail-page fetch(es) failed`);
+      }
+    }
+
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
@@ -532,6 +555,8 @@ export class ICalAdapter implements SourceAdapter {
         fetchDurationMs,
         icsBytes: icsText.length,
         contentType,
+        ...(enrichmentEnriched !== undefined && { enrichmentEnriched }),
+        ...(enrichmentFailures !== undefined && { enrichmentFailures }),
       },
     };
   }

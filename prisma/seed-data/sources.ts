@@ -23,6 +23,15 @@ const sfh3Config = {
   skipPatterns: ["^Hand Pump", "^Workday"],
 };
 
+// The iCal feed omits "Run" from SUMMARY and has no Comment field. Fetch
+// /runs/{id} detail pages so the iCal RawEvents land in the merge pipeline
+// with the same enriched title + Comment as the HTML_SCRAPER RawEvents
+// (the HTML adapter enriches unconditionally).
+const sfh3IcalConfig = {
+  ...sfh3Config,
+  enrichSFH3Details: true,
+};
+
 const sfh3KennelCodes = [
   "sfh3", "gph3", "ebh3", "svh3", "fhac-u", "agnews",
   "barh3", "marinh3", "fch3", "sffmh3", "vmh3", "mwh3", "262h3",
@@ -434,7 +443,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: sfh3Config,
+      config: sfh3IcalConfig,
       kennelCodes: sfh3KennelCodes,
     },
     // Bay Area HTML scraper (sfh3.com hareline — enrichment/fallback)
