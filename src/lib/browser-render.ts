@@ -36,7 +36,14 @@ export async function browserRender(options: RenderOptions): Promise<string> {
     );
   }
 
-  const maxAttempts = 3;
+  // Retry budget: the cron scrape route has maxDuration=120s. Each fetch below
+  // can take up to 45s. We allow at most one retry on 429 and bound the backoff
+  // so the worst-case wall time is ~100s (45 + 10 + 45), leaving ~20s for the
+  // rest of the scrape pipeline to run and record its result.
+  const maxAttempts = 2;
+  const backoffMs = 10_000;
+  const fetchTimeoutMs = 45_000;
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const response = await fetch(`${renderUrl}/render`, {
       method: "POST",
@@ -51,11 +58,11 @@ export async function browserRender(options: RenderOptions): Promise<string> {
         frameUrl: options.frameUrl,
         timeout: options.timeout,
       }),
-      signal: AbortSignal.timeout(45_000), // 30s render timeout + 15s tunnel buffer
+      signal: AbortSignal.timeout(fetchTimeoutMs), // 30s render timeout + 15s tunnel buffer
     });
 
     if (response.status === 429 && attempt < maxAttempts) {
-      await new Promise((r) => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, backoffMs));
       continue;
     }
 
@@ -69,5 +76,7 @@ export async function browserRender(options: RenderOptions): Promise<string> {
     return response.text();
   }
 
-  throw new Error("Browser render: max retries exceeded (429)");
+  // Unreachable: the loop's final iteration always exits via the !response.ok
+  // throw above. Kept as a defensive assertion for TypeScript control flow.
+  throw new Error("Browser render: unexpected exit from retry loop");
 }

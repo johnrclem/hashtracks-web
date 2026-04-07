@@ -46,7 +46,9 @@ export async function POST(
   let days = source.scrapeDays;
   try {
     const body = await request.clone().json();
-    if (typeof body?.days === "number" && body.days >= 1 && body.days <= 365) {
+    // Cap at 1825 (5 years) so sources with long lookback windows (e.g. Leap Year hashes
+    // running every 4 years, scrapeDays=800+) can override from the dispatch body.
+    if (typeof body?.days === "number" && body.days >= 1 && body.days <= 1825) {
       days = body.days;
     }
   } catch {

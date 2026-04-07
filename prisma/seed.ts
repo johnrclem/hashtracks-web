@@ -308,6 +308,17 @@ async function ensureAliases(prisma: any, kennelAliases: Record<string, string[]
 async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<string, { id: string }>) {
   console.log("Seeding sources...");
   let created = 0;
+  // Track which (name+type) pairs are still in the seed so we can soft-disable
+  // any DB rows that were removed from SOURCES (e.g. retired dead-upstream sources).
+  // Soft-disable (not delete) preserves RawEvents / ScrapeLogs for audit; operators
+  // can manually delete stale rows after confirming nothing depends on them.
+  // Caveat: renaming a seed entry (same type, new name) will make the old row
+  // appear stale for one reconciliation pass, even though the name gets updated
+  // via the url/name OR-match above. Operators can safely skip reconcile during
+  // rename seeds, or rename via a two-step: alias first, then seed.
+  const seededKeys = new Set<string>(
+    sources.map((s) => `${s.name}::${s.type}`),
+  );
   for (const source of sources) {
     const { kennelCodes, kennelSlugMap, ...sourceData } = source;
 
@@ -341,8 +352,11 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
         if (sourceData.config !== undefined && stableStringify(sourceData.config) !== stableStringify(existingSource.config)) {
           updates.config = sourceData.config;
         }
-        if (sourceData.url && sourceData.url !== existingSource.url) {
-          updates.url = sourceData.url;
+        // Sync simple scalar fields when the seed sets a truthy value that differs from the DB.
+        for (const field of ["url", "scrapeDays", "scrapeFreq"] as const) {
+          if (sourceData[field] && sourceData[field] !== existingSource[field]) {
+            updates[field] = sourceData[field];
+          }
         }
         if (Object.keys(updates).length > 0) {
           await prisma.source.update({
@@ -363,6 +377,33 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
     }
   }
   console.log(`  ✓ ${sources.length} sources checked (${created} created)`);
+
+  // Reconcile: disable any enabled DB sources that are no longer in SOURCES.
+  // Admin-created sources (never present in the seed) would also be caught here,
+  // so we only act on sources whose (name,type) pair previously matched a seed
+  // entry — we can't tell those apart today, so log candidates and disable only
+  // when the operator opts in via SEED_RECONCILE_DISABLE=true.
+  const allEnabled = await prisma.source.findMany({
+    where: { enabled: true },
+    select: { id: true, name: true, type: true },
+  });
+  const stale = allEnabled.filter(
+    (s: { name: string; type: string }) => !seededKeys.has(`${s.name}::${s.type}`),
+  );
+  if (stale.length > 0) {
+    console.log(`  ⚠ ${stale.length} enabled source(s) not present in SOURCES:`);
+    for (const s of stale) console.log(`    - ${s.name} (${s.type}) [${s.id}]`);
+    if (process.env.SEED_RECONCILE_DISABLE === "true") {
+      await prisma.source.updateMany({
+        where: { id: { in: stale.map((s: { id: string }) => s.id) } },
+        data: { enabled: false },
+      });
+      const names = stale.map((s: { name: string }) => s.name).join(", ");
+      console.log(`  ✓ Disabled ${stale.length} stale source(s): ${names} (SEED_RECONCILE_DISABLE=true)`);
+    } else {
+      console.log(`    (set SEED_RECONCILE_DISABLE=true to auto-disable)`);
+    }
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

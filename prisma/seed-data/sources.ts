@@ -466,21 +466,7 @@ export const SOURCES = [
       },
       kennelCodes: ["cch3"],
     },
-    {
-      name: "BAH3 iCal Feed",
-      url: "https://www.bah3.org/?plugin=all-in-one-event-calendar&controller=ai1ec_exporter_controller&action=export_events&no_html=true",
-      type: "ICAL_FEED" as const,
-      trustLevel: 7,
-      scrapeFreq: "daily",
-      scrapeDays: 180,
-      config: {
-        defaultKennelTag: "bah3",
-        // BAH3 uses emoji-prefixed labels: "🎯 Hares (loud and clear):" and "Where:addr"
-        harePatterns: [String.raw`(?:^|\n)\s*[^\n]*Hares?[^:]*:\s*(.+?)(?:\n|$)`],
-        locationPatterns: [String.raw`(?:^|\n)\s*Where\s*:?\s*(.+?)(?:\n|$)`],
-      },
-      kennelCodes: ["bah3"],
-    },
+    // BAH3 iCal Feed — REMOVED: all-in-one-event-calendar plugin gone, endpoint returns HTML. Never successfully scraped.
     // DC / DMV area — HTML scraper sources
     {
       name: "EWH3 WordPress Trail News",
@@ -761,20 +747,7 @@ export const SOURCES = [
       },
       kennelCodes: ["nvhhh"],
     },
-    // --- Lehigh Valley (Google Calendar — FB is primary, calendar may be sparse) ---
-    {
-      name: "LVH3 Hareline Calendar",
-      url: "lvh3hashflash@group.calendar.google.com",
-      type: "GOOGLE_CALENDAR" as const,
-      trustLevel: 5,
-      scrapeFreq: "every_6h",
-      scrapeDays: 365,
-      config: {
-        defaultKennelTag: "lvh3",
-        descriptionSuffix: "Check the LVH3 Facebook page for the latest event details and updates: https://www.facebook.com/groups/lvh3/",
-      },
-      kennelCodes: ["lvh3"],
-    },
+    // LVH3 Hareline Calendar — REMOVED: calendar ID returns 404, has never successfully scraped. FB is primary for LVH3.
     // --- Reading (Localendar iCal feed) ---
     {
       name: "Reading H3 Localendar",
@@ -1815,8 +1788,10 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // `gid: 0` used to work via /export?format=csv, but the endpoint began returning
+        // 400 "Sorry, unable to open the file" on 2026-04-03. The gviz/tq endpoint (used
+        // when gid is absent and tabs are named) still works, so we drop gid here.
         sheetId: "1rTa69Z12V4EAdlRGToOiMIIiFiTbqZFN653hs5DwALk",
-        gid: 0,
         skipRows: 0,
         tabs: ["Sheet1"],
         columns: { runNumber: 0, date: 1, hares: 2, title: 3, location: 4, description: 5 },
@@ -2502,7 +2477,8 @@ export const SOURCES = [
       url: "https://sites.google.com/site/hayama4h/hashes",
       type: "HTML_SCRAPER" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      // Low-change Google Sites page; weekly cadence avoids sharing a browser-render 429 timeslot with New Tokyo Katch.
+      scrapeFreq: "weekly",
       scrapeDays: 365,
       kennelCodes: ["hayama-4h"],
     },
