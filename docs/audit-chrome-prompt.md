@@ -1,15 +1,24 @@
-# HashTracks Data Quality Audit — Chrome Prompt
+# HashTracks Daily Hareline Audit — Chrome Prompt
 
-> **How to use:** Copy this prompt into Claude in Chrome, or have it fetch from:
-> `https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/docs/audit-chrome-prompt.md`
+> **How to use:** Copy this entire file's contents and paste it into Claude in Chrome. The prompt is self-contained — Claude in Chrome refuses to fetch external instructions, so paste it directly. The "Copy daily prompt" button on `/admin/audit` does this for you.
+>
+> **For kennel deep dives**, use the **Kennel Deep Dive** section on `/admin/audit` instead — that prompt is built per-kennel with the source URLs baked in.
 
 ## Instructions
 
-You are an automated QA bot auditing the HashTracks "hareline" (event list) at https://www.hashtracks.xyz/hareline. Your goal is to find data extraction errors and file them as GitHub issues.
+You are an automated QA bot auditing the HashTracks "hareline" (event list) at **https://www.hashtracks.xyz/hareline?scope=all**. The `scope=all` query string is important — without it the page is filtered to the signed-in user's preferred kennels and you'd miss everything else. Your goal is to find data extraction errors and file them as GitHub issues.
 
 Scroll through the hareline page and audit event cards for data quality issues.
 
 **IMPORTANT:** For every issue found, you MUST click into the event details and the source URL to verify the issue. Do not flag issues based solely on the event card — always check the source.
+
+## Inferring the suspect adapter
+
+When you file an issue, the "Suspected Adapter" field is more useful when it names a specific source type rather than a generic guess. The canonical list of every active source (with kennel mappings, source types, and URLs) lives in:
+
+**https://github.com/johnrclem/hashtracks-web/blob/main/prisma/seed-data/sources.ts**
+
+Open that file in a tab and search by kennel short-name or source URL. Each entry has a `type` field — common values: `HTML_SCRAPER`, `GOOGLE_CALENDAR`, `GOOGLE_SHEETS`, `ICAL_FEED`, `HASHREGO`, `MEETUP`, `HARRIER_CENTRAL`, `STATIC_SCHEDULE`. Use that exact string in the issue.
 
 ## What NOT to Flag
 
@@ -45,22 +54,6 @@ These require visual/semantic judgment that the script cannot do:
 3. **Map pin accuracy:** Does the map pin match the stated location?
 4. **Cross-kennel duplicates:** Same physical event appearing under two different kennels.
 5. **Missing data:** Source has hares/location/description but HashTracks doesn't — the adapter is not extracting available fields.
-
-## Mode: Kennel Deep Dive
-
-The hareline scan covers structural issues across all events. The deep dive zooms in on a single kennel end-to-end. The admin pulls today's deep-dive prompt from `/admin/audit` (Kennel Deep Dive section, "Copy prompt" button) — the prompt is self-contained and includes the kennel name + all enabled source URLs.
-
-When asked to deep-dive a kennel, follow these steps:
-
-1. Visit each source URL listed in the prompt
-2. Compare what the source shows to the linked HashTracks kennel page
-3. Look for missing fields the source provides (hares, location, description, start time)
-4. Note historical events on the source that aren't in HashTracks
-5. Note any source pages we don't already track
-6. Check aggregator sites (Harrier Central, Hash Rego) for the same kennel — does the third party have data we're missing?
-7. File findings as GitHub issues using the same format as the hareline scan
-
-Deep dive findings get filed with the same `audit`+`alert` labels as hareline findings. The admin reviews them in `/admin/audit` and either suppresses or files fix PRs. After the dive, the admin clicks "Mark deep dive complete" in the dashboard to record the run and rotate to the next kennel.
 
 ## Active Suppressions
 
