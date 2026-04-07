@@ -183,6 +183,72 @@ describe("parseHarelineRows", () => {
     expect(rows).toHaveLength(0);
   });
 
+  it("parses class-tagged rows from the live MultiHash layout", () => {
+    // Mirrors the real sfh3.com/runs?kennels=all structure: a wrapper layout
+    // table containing a nested data table whose cells are class-tagged.
+    // Also asserts we skip the "(No #)" sentinel, handle empty title cells
+    // (enrichment fills these later), and ignore the wrapper table entirely.
+    const html = `
+      <table><tbody><tr id="main"><td>wrapper layout table</td></tr>
+        <tr><td>
+          <table>
+            <thead><tr>
+              <th class="kennel">Kennel</th><th class="number">R*n</th>
+              <th class="day">When</th><th class="hare">Hare</th>
+              <th class="day">Where</th><th class="day">What</th>
+            </tr></thead>
+            <tbody>
+              <tr>
+                <td class="kennel">GPH3</td>
+                <td class="number"><a href="/runs/6495">#1702</a></td>
+                <td class="time">Thu, Apr 9, 6:15 pm</td>
+                <td class="hare"><a href="/users/336">Pastel Gazelle</a></td>
+                <td class="location"><a href="https://maps.google.com/?q=37.77,-122.51">301 Great Hwy</a></td>
+                <td class="name">Bitchin' on the Beach</td>
+              </tr>
+              <tr>
+                <td class="kennel">26.2H3</td>
+                <td class="number"><a href="/runs/6478">#7</a></td>
+                <td class="time">Sat, Aug 15, 10:00 am</td>
+                <td class="hare">Lost in Fourskin, Who's Your Daddy, 30-Grit</td>
+                <td class="location"><a href="https://maps.google.com/?q=37.79,-122.39">Sue Bierman Park</a></td>
+                <td class="name"></td>
+              </tr>
+              <tr>
+                <td class="kennel">Hand Pump Workday</td>
+                <td class="number">(No #)</td>
+                <td class="time">Sat, May 2, 9:30 am</td>
+                <td class="hare">None yet</td>
+                <td class="location">McLaren Park</td>
+                <td class="name"></td>
+              </tr>
+            </tbody>
+          </table>
+        </td></tr>
+      </tbody></table>
+    `;
+    const rows = parseHarelineRows(html);
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toMatchObject({
+      kennelTag: "GPH3",
+      runNumber: 1702,
+      dateText: "Thu, Apr 9, 6:15 pm",
+      hare: "Pastel Gazelle",
+      locationText: "301 Great Hwy",
+      title: "Bitchin' on the Beach",
+      detailUrl: "/runs/6495",
+    });
+    expect(rows[1]).toMatchObject({
+      kennelTag: "26.2H3",
+      runNumber: 7,
+      title: "",
+      detailUrl: "/runs/6478",
+    });
+    // "(No #)" sentinel → runNumber absent
+    expect(rows[2].runNumber).toBeUndefined();
+    expect(rows[2].kennelTag).toBe("Hand Pump Workday");
+  });
+
   it("skips rows with fewer than 5 cells", () => {
     const html = `
       <table>
@@ -309,6 +375,58 @@ describe("SFH3Adapter.fetch", () => {
       rowsFound: 4,
       eventsParsed: 2,
       skippedPattern: 2,
+    });
+
+    vi.restoreAllMocks();
+  });
+
+  it("applies skipPatterns to class-based rows with empty title cells", async () => {
+    // Live workday rows carry "Hand Pump Workday" in td.kennel and an empty
+    // td.name. The old fullTitle logic required both fields, so these slipped
+    // past skipPatterns entirely.
+    const html = `
+      <table><tbody><tr><td>
+        <table><tbody>
+          <tr>
+            <td class="kennel">SFH3</td>
+            <td class="number"><a href="/runs/1">#2302</a></td>
+            <td class="time">Sat, Mar 3, 10:00 am</td>
+            <td class="hare">Trail Blazer</td>
+            <td class="location">Golden Gate Park</td>
+            <td class="name">A Very Heated Rivalry</td>
+          </tr>
+          <tr>
+            <td class="kennel">Hand Pump Workday</td>
+            <td class="number">(No #)</td>
+            <td class="time">Sat, May 2, 9:30 am</td>
+            <td class="hare">None yet</td>
+            <td class="location">McLaren Park</td>
+            <td class="name"></td>
+          </tr>
+        </tbody></table>
+      </td></tr></tbody></table>
+    `;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(html, { status: 200 }),
+    );
+
+    const adapter = new SFH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://www.sfh3.com/runs?kennels=all",
+      config: {
+        kennelPatterns: KENNEL_PATTERNS,
+        defaultKennelTag: "sfh3",
+        skipPatterns: ["^Hand Pump"],
+      },
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].kennelTag).toBe("SFH3");
+    expect(result.diagnosticContext).toMatchObject({
+      rowsFound: 2,
+      eventsParsed: 1,
+      skippedPattern: 1,
     });
 
     vi.restoreAllMocks();
