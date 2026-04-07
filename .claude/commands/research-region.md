@@ -16,27 +16,29 @@ grep -i "REGION_KEYWORDS" prisma/seed-data/kennels.ts prisma/seed-data/aliases.t
 ```
 
 ```bash
-# 2. Live DB — any kennel attached to a region whose name matches the target
+# 2. Live DB — any kennel attached to a region whose name matches the target.
+# NOTE: script must live in the project root so @/ path aliases and the
+# generated Prisma client resolve correctly.
 set -a; source .env.local 2>/dev/null || source .env; set +a
-cat > /tmp/check-region.ts <<'EOF'
-import { PrismaClient } from './src/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
-async function main(){
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }});
+cat > check-region-tmp.ts <<'EOF'
+import { PrismaClient } from "@/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
+async function main() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
   const p = new PrismaClient({ adapter: new PrismaPg(pool) });
   // Replace REGION_KEYWORDS with all relevant terms (state name, abbrev, major cities)
   const terms = ["REGION_KEYWORDS"];
-  const regions = await p.region.findMany({ where: { OR: terms.map(t => ({ name: { contains: t, mode: "insensitive" as const }})) }});
+  const regions = await p.region.findMany({ where: { OR: terms.map((t) => ({ name: { contains: t, mode: "insensitive" as const } })) } });
   for (const r of regions) {
-    const ks = await p.kennel.findMany({ where: { regionId: r.id }, select:{kennelCode:true, shortName:true, fullName:true}});
-    console.log(`${r.name} (${r.level}): ${ks.length} kennels`, ks.map(k=>k.kennelCode).join(", "));
+    const ks = await p.kennel.findMany({ where: { regionId: r.id }, select: { kennelCode: true, shortName: true, fullName: true } });
+    console.log(`${r.name} (${r.level}): ${ks.length} kennels`, ks.map((k) => k.kennelCode).join(", "));
   }
   await p.$disconnect();
 }
 main();
 EOF
-npx tsx /tmp/check-region.ts && rm /tmp/check-region.ts
+npx tsx check-region-tmp.ts; rm -f check-region-tmp.ts
 ```
 
 Any kennel returned here is already onboarded and MUST NOT be re-researched. If any DB kennel is missing from seed files, flag it — that's a backfill candidate (the seed files should be the source of truth).
