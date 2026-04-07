@@ -1823,6 +1823,52 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -106.65,
     aliases: ["Albuquerque"],
   },
+  // ── Alabama ──
+  {
+    name: "Alabama",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Chicago",
+    abbrev: "AL",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#dc2626",
+    centroidLat: 32.81,
+    centroidLng: -86.79,
+    aliases: ["AL"],
+  },
+  {
+    name: "Mobile, AL",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "MOB",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 30.69,
+    centroidLng: -88.04,
+    aliases: ["Mobile"],
+  },
+  {
+    name: "Birmingham, AL",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "BHAM",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 33.52,
+    centroidLng: -86.81,
+    aliases: ["Birmingham"],
+  },
+  {
+    name: "Enterprise, AL",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "ENT",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 31.32,
+    centroidLng: -85.86,
+    aliases: ["Enterprise"],
+  },
   // ── Canada ──
   {
     name: "Canada",
@@ -2411,6 +2457,10 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Milwaukee, WI": "Wisconsin",
   // New Mexico
   "Albuquerque, NM": "New Mexico",
+  // Alabama
+  "Mobile, AL": "Alabama",
+  "Birmingham, AL": "Alabama",
+  "Enterprise, AL": "Alabama",
   // Canada
   "Montreal, QC": "Quebec",
   "Ottawa, ON": "Ontario",
@@ -2513,6 +2563,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Kansas": "United States",
   "Wisconsin": "United States",
   "New Mexico": "United States",
+  "Alabama": "United States",
   // Canada
   "Alberta": "Canada",
   "Ontario": "Canada",

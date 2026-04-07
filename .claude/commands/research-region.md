@@ -16,7 +16,7 @@ grep -i "REGION_KEYWORDS" prisma/seed-data/kennels.ts prisma/seed-data/aliases.t
 
 Check these BEFORE visiting individual kennel websites:
 1. **Harrier Central API** — check all cities in region via POST to `harriercentralpublicapi.azurewebsites.net/api/PortalApi/`
-2. **HashRego** — check `hashrego.com/events` for region kennels
+2. **HashRego** — fetch `hashrego.com/events` with `curl -L` and grep for region kennel slugs. CRITICAL: This is the live registration index and is the ONLY surface our HashRego adapter can scrape. Do NOT rely on `hashrego.com/kennels_legacy/{SLUG}` profile pages — those are historical archives our scraper cannot reach. A kennel with "76 trails on its legacy page" yields 0 events from our adapter unless it also appears in the live `/events` index. HashRego is dominated by registration-required campouts/RDRs, not weekly trails — only add a HASHREGO source if the kennel actually appears in the live index.
 3. **Meetup** — search `meetup.com/find/?keywords=hash+house+harriers&location=[REGION]`
 4. **Regional Google Calendar** — search for "[REGION] hash house harriers calendar"
 5. **gotothehash.net lineage pages** — `gotothehash.net/{country}.html` (international)
@@ -32,10 +32,11 @@ For EVERY kennel found, run the FULL enhanced checklist. A persistent problem is
 
 1. **Homepage** — run the source-type detection JS snippet from `docs/regional-research-prompt.md` Step 1.4
 2. **Navigate to subpages** — `/events`, `/calendar`, `/hareline`, `/runs`, `/upcoming`, `/schedule` — repeat detection on each
-3. **Try `{kennelname}@gmail.com` as Google Calendar ID** — verify via:
+3. **Try multiple Google Calendar ID variants** — `{kennelname}@gmail.com` is only ONE pattern. Also try `{shortcode}@gmail.com`, `{shortcode}hash@gmail.com`, `{kennelname}hash@gmail.com`. Verify each via:
    ```bash
    curl -s "https://www.googleapis.com/calendar/v3/calendars/{id}/events?key=$API_KEY&maxResults=3&timeMin=2025-01-01T00:00:00Z&singleEvents=true&orderBy=startTime"
    ```
+   (Gulf Coast H3 was hiding behind `gch3hash@gmail.com`, NOT `gulfcoasth3@gmail.com` which exists but is empty.)
 4. **Try WordPress REST API** — BOTH endpoints:
    ```bash
    curl -s "https://site.com/wp-json/wp/v2/posts?per_page=1"
