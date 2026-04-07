@@ -1,4 +1,3 @@
-import { describe, it, expect } from "vitest";
 import { normalizeTribeEvent } from "./tribe-events";
 
 describe("normalizeTribeEvent", () => {
@@ -63,5 +62,15 @@ describe("normalizeTribeEvent", () => {
     });
     expect(out?.venue).toBe("Somewhere");
     expect(out?.location).toBe("Chattanooga");
+  });
+
+  it("preserves the allDay flag", () => {
+    const out = normalizeTribeEvent({
+      title: "All-day event",
+      start_date_details: { year: "2026", month: "06", day: "15", hour: "00", minutes: "00" },
+      all_day: true,
+    });
+    expect(out?.allDay).toBe(true);
+    expect(out?.date).toBe("2026-06-15");
   });
 });

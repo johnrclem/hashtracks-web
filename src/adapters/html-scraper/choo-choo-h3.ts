@@ -48,9 +48,12 @@ export class ChooChooH3Adapter implements SourceAdapter {
       if (asDate < minDate || asDate > maxDate) continue;
       events.push({
         date: e.date,
-        startTime: e.startTime,
+        // All-day events carry a meaningless 00:00 from the API; omit so the
+        // canonical record doesn't show "midnight".
+        startTime: e.allDay ? undefined : e.startTime,
         kennelTag: KENNEL_TAG,
         title: e.title,
+        description: e.description,
         location: e.location || e.venue,
         sourceUrl: e.url ?? baseUrl,
       });
@@ -74,6 +77,7 @@ export class ChooChooH3Adapter implements SourceAdapter {
         eventsNormalized: result.events.length,
         eventsInWindow: events.length,
         skippedCount: result.skippedCount,
+        categoryFilteredCount: result.categoryFilteredCount,
         fetchDurationMs: result.fetchDurationMs,
       },
     };

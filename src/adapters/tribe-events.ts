@@ -14,9 +14,7 @@
 
 import { safeFetch } from "./safe-fetch";
 import { decodeEntities, stripHtmlTags } from "./utils";
-
-const USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+import { USER_AGENT } from "./constants";
 
 /** Raw event shape returned by /wp-json/tribe/events/v1/events (only the fields we use). */
 interface TribeEventCategoryRaw {
@@ -80,6 +78,8 @@ export interface FetchTribeEventsOptions {
   maxEvents?: number;
   /** Filter to events whose category slugs intersect this list. */
   categorySlugs?: string[];
+  /** Earliest event date to fetch, "YYYY-MM-DD". Defaults to today UTC. */
+  startDate?: string;
 }
 
 export interface FetchTribeEventsResult {
@@ -90,26 +90,42 @@ export interface FetchTribeEventsResult {
   skippedCount: number;
   /** Count of raw events fetched from the API before normalization + filtering. */
   rawCount: number;
+  /** Count of normalized events excluded by `categorySlugs` filter. */
+  categoryFilteredCount: number;
+}
+
+/**
+ * Parse the start-date / start-time pair from a raw tribe event, preferring
+ * the structured `start_date_details` object and falling back to the
+ * `start_date` string. Returns null when no date can be derived.
+ */
+export function parseTribeStartDate(
+  raw: TribeEventRaw,
+): { date: string; startTime?: string } | null {
+  const details = raw.start_date_details;
+  if (details?.year && details.month && details.day) {
+    const date = `${details.year}-${details.month.padStart(2, "0")}-${details.day.padStart(2, "0")}`;
+    const startTime =
+      details.hour && details.minutes
+        ? `${details.hour.padStart(2, "0")}:${details.minutes.padStart(2, "0")}`
+        : undefined;
+    return { date, startTime };
+  }
+  if (raw.start_date) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/.exec(raw.start_date);
+    if (m) {
+      const date = `${m[1]}-${m[2]}-${m[3]}`;
+      const startTime = m[4] && m[5] ? `${m[4]}:${m[5]}` : undefined;
+      return { date, startTime };
+    }
+  }
+  return null;
 }
 
 /** Normalize a single raw tribe event into our shape. Returns null if required fields are missing. */
 export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
-  const details = raw.start_date_details;
-  let date: string | undefined;
-  let startTime: string | undefined;
-  if (details?.year && details.month && details.day) {
-    date = `${details.year}-${details.month.padStart(2, "0")}-${details.day.padStart(2, "0")}`;
-    if (details.hour && details.minutes) {
-      startTime = `${details.hour.padStart(2, "0")}:${details.minutes.padStart(2, "0")}`;
-    }
-  } else if (raw.start_date) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/.exec(raw.start_date);
-    if (m) {
-      date = `${m[1]}-${m[2]}-${m[3]}`;
-      if (m[4] && m[5]) startTime = `${m[4]}:${m[5]}`;
-    }
-  }
-  if (!date) return null;
+  const parsed = parseTribeStartDate(raw);
+  if (!parsed) return null;
 
   const title = decodeEntities(raw.title ?? "").trim();
   if (!title) return null;
@@ -128,8 +144,8 @@ export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
     title,
     description: raw.description ? stripHtmlTags(decodeEntities(raw.description)) : undefined,
     url: raw.url,
-    date,
-    startTime,
+    date: parsed.date,
+    startTime: parsed.startTime,
     timezone: raw.timezone,
     categorySlugs,
     venue,
@@ -137,6 +153,11 @@ export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
     cost: raw.cost?.trim() || undefined,
     allDay: Boolean(raw.all_day),
   };
+}
+
+/** Today's date as YYYY-MM-DD in UTC, used as the default `start_date` filter. */
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 /**
@@ -153,6 +174,7 @@ export async function fetchTribeEvents(
   const base = siteUrl.replace(/\/+$/, "");
   const perPage = Math.min(options.perPage ?? 50, 50);
   const maxEvents = options.maxEvents ?? 200;
+  const startDate = options.startDate ?? todayUtc();
   const categoryFilter = options.categorySlugs?.length
     ? new Set(options.categorySlugs.map((s) => s.toLowerCase()))
     : undefined;
@@ -160,13 +182,19 @@ export async function fetchTribeEvents(
   const collected: TribeEvent[] = [];
   let rawCount = 0;
   let skippedCount = 0;
+  let categoryFilteredCount = 0;
   let page = 1;
 
   while (true) {
-    const url = `${base}/wp-json/tribe/events/v1/events?per_page=${perPage}&page=${page}`;
+    const url = new URL(`${base}/wp-json/tribe/events/v1/events`);
+    url.searchParams.set("per_page", perPage.toString());
+    url.searchParams.set("page", page.toString());
+    url.searchParams.set("start_date", startDate);
+    const urlString = url.toString();
+
     let res: Response;
     try {
-      res = await safeFetch(url, {
+      res = await safeFetch(urlString, {
         headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
       });
     } catch (err) {
@@ -174,6 +202,7 @@ export async function fetchTribeEvents(
         events: collected,
         rawCount,
         skippedCount,
+        categoryFilteredCount,
         error: { message: `Fetch error: ${err instanceof Error ? err.message : String(err)}` },
         fetchDurationMs: Date.now() - fetchStart,
       };
@@ -186,12 +215,28 @@ export async function fetchTribeEvents(
         events: collected,
         rawCount,
         skippedCount,
-        error: { message: `HTTP ${res.status} from ${url}`, status: res.status },
+        categoryFilteredCount,
+        error: { message: `HTTP ${res.status} from ${urlString}`, status: res.status },
         fetchDurationMs: Date.now() - fetchStart,
       };
     }
 
-    const json = (await res.json()) as TribeEventsResponse;
+    let json: TribeEventsResponse;
+    try {
+      json = (await res.json()) as TribeEventsResponse;
+    } catch (err) {
+      return {
+        events: collected,
+        rawCount,
+        skippedCount,
+        categoryFilteredCount,
+        error: {
+          message: `Invalid JSON from ${urlString}: ${err instanceof Error ? err.message : String(err)}`,
+        },
+        fetchDurationMs: Date.now() - fetchStart,
+      };
+    }
+
     const rawEvents = json.events ?? [];
     if (rawEvents.length === 0) break;
     rawCount += rawEvents.length;
@@ -204,6 +249,7 @@ export async function fetchTribeEvents(
         continue;
       }
       if (categoryFilter && !normalized.categorySlugs.some((s) => categoryFilter.has(s.toLowerCase()))) {
+        categoryFilteredCount++;
         continue;
       }
       collected.push(normalized);
@@ -220,5 +266,11 @@ export async function fetchTribeEvents(
     page++;
   }
 
-  return { events: collected, rawCount, skippedCount, fetchDurationMs: Date.now() - fetchStart };
+  return {
+    events: collected,
+    rawCount,
+    skippedCount,
+    categoryFilteredCount,
+    fetchDurationMs: Date.now() - fetchStart,
+  };
 }
