@@ -469,7 +469,7 @@ describe("SFH3Adapter.fetch", () => {
     expect(result.errors.some((e) => e.startsWith("enrichment:"))).toBe(true);
     expect(result.errorDetails?.fetch?.length).toBeGreaterThan(0);
     // The fetch entry has the real per-event detail URL, not a sentinel string
-    const fetchEntry = result.errorDetails?.fetch?.find((f) => f.url.includes("/runs/"));
+    const fetchEntry = result.errorDetails?.fetch?.find((f) => f.url?.includes("/runs/"));
     expect(fetchEntry).toBeDefined();
     expect(fetchEntry?.message).toContain("HTTP 500");
     // Diagnostic counters are populated

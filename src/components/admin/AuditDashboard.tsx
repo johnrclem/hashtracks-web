@@ -746,19 +746,32 @@ function SuppressionDialog({
 
 // ── Hareline Prompt Copy Button ─────────────────────────────────────
 
-function CopyHarelinePromptButton({ prompt }: { prompt: string }) {
+function CopyHarelinePromptButton({ prompt }: Readonly<{ prompt: string }>) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
-  function handleCopy() {
-    void navigator.clipboard.writeText(prompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopied(true);
+      setCopyError(false);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API rejects when the document isn't focused or the page isn't HTTPS;
+      // surface a brief error state instead of silently failing.
+      setCopyError(true);
+      setTimeout(() => setCopyError(false), 2000);
+    }
   }
+
+  let label = "Copy daily prompt";
+  if (copied) label = "Copied";
+  else if (copyError) label = "Copy failed";
 
   return (
     <Button variant="outline" size="sm" onClick={handleCopy}>
       {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-      {copied ? "Copied" : "Copy daily prompt"}
+      {label}
     </Button>
   );
 }

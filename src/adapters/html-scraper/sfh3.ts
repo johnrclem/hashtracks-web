@@ -305,9 +305,14 @@ export function parseSFH3DetailPage(html: string): SFH3Detail {
     }
   });
   if (!title) {
-    const tagText = $("title").first().text().replace(/\s+/g, " ").trim();
-    const match = /^SFH3\s*-\s*(.+)$/i.exec(tagText);
-    if (match) title = match[1].trim();
+    // Fallback: <title> tag, format "SFH3 - 26.2H3 Run #7" → strip the "SFH3 - " prefix.
+    // Use indexOf instead of a regex to avoid the greedy-capture ReDoS pattern flagged
+    // by static analysis (and to make the intent obvious).
+    const tagText = $("title").first().text().replaceAll(/\s+/g, " ").trim();
+    const dashIdx = tagText.indexOf(" - ");
+    if (dashIdx >= 0 && tagText.slice(0, dashIdx).trim().toUpperCase() === "SFH3") {
+      title = tagText.slice(dashIdx + 3).trim();
+    }
   }
 
   // Comment is in a div following the run_comment label.
@@ -316,7 +321,7 @@ export function parseSFH3DetailPage(html: string): SFH3Detail {
   const commentLabel = $('label[for="run_comment"]').first();
   if (commentLabel.length > 0) {
     const contentDiv = commentLabel.closest(".run-key, .run_label").nextAll(".run_content").first();
-    const text = decodeEntities(stripHtmlTags(contentDiv.html() ?? "")).replace(/\s+/g, " ").trim();
+    const text = decodeEntities(stripHtmlTags(contentDiv.html() ?? "")).replaceAll(/\s+/g, " ").trim();
     if (text) comment = text;
   }
 
@@ -342,18 +347,43 @@ export interface SFH3EnrichFailure {
   message: string;
 }
 
+type EnrichableEvent = RawEventData & { sourceUrl: string };
+
+/** Apply detail-page extracted fields to an event in place. Returns true if anything changed. */
+function applyDetailToEvent(event: EnrichableEvent, detail: SFH3Detail): boolean {
+  let touched = false;
+  if (detail.title && detail.title !== event.title) {
+    event.title = detail.title;
+    touched = true;
+  }
+  if (detail.comment && !/\bComment\s*:/i.test(event.description ?? "")) {
+    event.description = appendDescriptionSuffix(event.description, `Comment: ${detail.comment}`);
+    touched = true;
+  }
+  return touched;
+}
+
+/** Fetch one detail page; throws on non-2xx so Promise.allSettled records it as a failure. */
+async function fetchSFH3DetailPage(event: EnrichableEvent): Promise<{ html: string; event: EnrichableEvent }> {
+  const response = await safeFetch(event.sourceUrl, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} for ${event.sourceUrl}`);
+  }
+  return { html: await response.text(), event };
+}
+
 export async function enrichSFH3Events(
   events: RawEventData[],
 ): Promise<{ enriched: number; failures: SFH3EnrichFailure[] }> {
-  const failures: SFH3EnrichFailure[] = [];
-  let enriched = 0;
-
   // sfh3NeedsEnrichment guarantees a non-null sourceUrl; the type predicate carries that
   // through the .filter() so we can use event.sourceUrl below without a non-null assertion.
-  const isEnrichable = (e: RawEventData): e is RawEventData & { sourceUrl: string } =>
-    sfh3NeedsEnrichment(e);
+  const isEnrichable = (e: RawEventData): e is EnrichableEvent => sfh3NeedsEnrichment(e);
 
-  const todayIso = new Date().toISOString().split("T")[0];
+  // Use a 24h buffer so events still happening "today" in any local timezone aren't dropped
+  // when UTC has already rolled over to tomorrow.
+  const todayIso = new Date(Date.now() - 86_400_000).toISOString().split("T")[0];
   const toEnrich = events
     .filter((e) => e.date >= todayIso)
     .filter(isEnrichable)
@@ -362,41 +392,23 @@ export async function enrichSFH3Events(
     .slice(0, MAX_ENRICH_PER_SCRAPE);
   if (toEnrich.length === 0) return { enriched: 0, failures: [] };
 
+  const failures: SFH3EnrichFailure[] = [];
+  let enriched = 0;
+
   const BATCH_SIZE = 5;
   for (let b = 0; b < toEnrich.length; b += BATCH_SIZE) {
     const batch = toEnrich.slice(b, b + BATCH_SIZE);
-    const results = await Promise.allSettled(
-      batch.map(async (event) => {
-        const response = await safeFetch(event.sourceUrl, {
-          headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status} for ${event.sourceUrl}`);
-        }
-        return { html: await response.text(), event };
-      }),
-    );
+    const results = await Promise.allSettled(batch.map(fetchSFH3DetailPage));
 
-    // Iterate by index so rejected promises can be paired with their originating event URL
-    // for structured error reporting (errorDetails.fetch needs the per-URL signal).
-    results.forEach((result, i) => {
+    // Pair rejected promises with their originating event URL for structured error reporting
+    for (const [i, result] of results.entries()) {
       if (result.status === "rejected") {
         failures.push({ url: batch[i].sourceUrl, message: String(result.reason) });
-        return;
+        continue;
       }
       const { html, event } = result.value;
-      const detail = parseSFH3DetailPage(html);
-      let touched = false;
-      if (detail.title && detail.title !== event.title) {
-        event.title = detail.title;
-        touched = true;
-      }
-      if (detail.comment && !/\bComment\s*:/i.test(event.description ?? "")) {
-        event.description = appendDescriptionSuffix(event.description, `Comment: ${detail.comment}`);
-        touched = true;
-      }
-      if (touched) enriched++;
-    });
+      if (applyDetailToEvent(event, parseSFH3DetailPage(html))) enriched++;
+    }
   }
 
   return { enriched, failures };

@@ -819,11 +819,10 @@ async function upsertCanonicalEvent(
     // Reverse-geocode city when coords are available (suppress when address already has state).
     // Canonical-location sources skip this entirely — see shouldSkipReverseGeocode.
     const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
-    const locationCity = shouldSkipReverseGeocode(ctx.sourceType)
-      ? null
-      : (coords.latitude != null && coords.longitude != null
-          ? suppressRedundantCity(locName, await reverseGeocode(coords.latitude, coords.longitude))
-          : null);
+    let locationCity: string | null = null;
+    if (!shouldSkipReverseGeocode(ctx.sourceType) && coords.latitude != null && coords.longitude != null) {
+      locationCity = suppressRedundantCity(locName, await reverseGeocode(coords.latitude, coords.longitude));
+    }
     const newEvent = await prisma.event.create({
       data: {
         kennelId,

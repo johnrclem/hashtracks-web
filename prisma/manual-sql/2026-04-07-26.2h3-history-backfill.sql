@@ -4,6 +4,17 @@
 -- this is a one-shot historical import. Run numbers preserved where present;
 -- titles for unnumbered events derived from the source's directions text
 -- ("World Premiere" / "World Finale"). Cost is dropped (no field on Event yet — see #491).
+--
+-- Notes:
+--   - Use ::timestamptz so the trailing Z literal is honored as UTC (not server-local).
+--   - Fail loudly if the kennel doesn't exist — a silent zero-row insert is worse than an error.
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM "Kennel" WHERE "kennelCode" = '262h3') THEN
+    RAISE EXCEPTION 'Kennel 262h3 not found — refusing to backfill historical events';
+  END IF;
+END $$;
 
 -- Use a CTE to resolve the kennelId once and inline it in each insert.
 WITH k AS (SELECT id FROM "Kennel" WHERE "kennelCode" = '262h3')
@@ -18,7 +29,7 @@ INSERT INTO "Event" (
 SELECT
   -- ── 2025-06-14 — Run #6 ──
   'cmp262h3hist01' || k.id, k.id,
-  '2025-06-14T12:00:00Z'::timestamp, '2025-06-14T17:00:00Z'::timestamp, 'America/Los_Angeles',
+  '2025-06-14T12:00:00Z'::timestamptz, '2025-06-14T17:00:00Z'::timestamptz, 'America/Los_Angeles',
   6,
   '26.2H3 Run #6',
   E'You will hate yourself if you miss this one. Also, you will hate yourself if you don''t. The Hares already hate themselves. Zero sum.\n\nDirections: NEW INFORMATION: the wee folk that prefer the half-serving of this event, please make your way to the end of the N-Judah line, and await further instructions. Beer will be provided. Do not expect service until 1pm. Bring your courage. And get your living trust notarized.',
@@ -31,7 +42,7 @@ UNION ALL
 SELECT
   -- ── 2023-07-22 — Run #5 ──
   'cmp262h3hist02' || k.id, k.id,
-  '2023-07-22T12:00:00Z'::timestamp, '2023-07-22T17:00:00Z'::timestamp, 'America/Los_Angeles',
+  '2023-07-22T12:00:00Z'::timestamptz, '2023-07-22T17:00:00Z'::timestamptz, 'America/Los_Angeles',
   5,
   '26.2H3 Run #5',
   E'This surely will be the last of its kind. Do not miss this event.\n\nDirections: Take public transit. Or hire a limo. Rent an electric wheelchair. We''re saying: there''s no reason to drive to this thing.',
@@ -44,7 +55,7 @@ UNION ALL
 SELECT
   -- ── 2020-10-17 — Run #4.0 ──
   'cmp262h3hist03' || k.id, k.id,
-  '2020-10-17T12:00:00Z'::timestamp, '2020-10-17T17:00:00Z'::timestamp, 'America/Los_Angeles',
+  '2020-10-17T12:00:00Z'::timestamptz, '2020-10-17T17:00:00Z'::timestamptz, 'America/Los_Angeles',
   4,
   '26.2H3 Run #4.0',
   E'This is the last ever. Really. It''s so dumb. No one wants to do this any more.\n\nDirections: There will be support personnel, sag wagon, and more beer checks than anyone wants or deserves. $10 gets you a Sag Wagon and Beer Checks. Another $10 gets you a lovely and useful commemorative bandana ($15/a pair ..you''re sweaty and really need two). This is not a Facebook event. Look here for updates.',
@@ -57,7 +68,7 @@ UNION ALL
 SELECT
   -- ── 2018-06-09 — Run #3 ──
   'cmp262h3hist04' || k.id, k.id,
-  '2018-06-09T12:00:00Z'::timestamp, '2018-06-09T17:00:00Z'::timestamp, 'America/Los_Angeles',
+  '2018-06-09T12:00:00Z'::timestamptz, '2018-06-09T17:00:00Z'::timestamptz, 'America/Los_Angeles',
   3,
   '26.2H3 Run #3',
   E'Directions: This is the absolute Final Final for the 26.2 Hash House Harriers. Following the whole trail qualifies you for membership emeritus and commemorative shirt. There will be a minimum of 6 Beer Checks, fully staffed and supplied. Bag wagon available. Those of you who wish to do a Half-Marathon Hash, it''ll start @12:30ish, so take the L, K, or M out to Forest Hill Muni and look for either a) hares, or b) hounds, or c) marks.. if you find none of the these, you''re too early and gotta wait for them. There will be a Bag Wagon there by 12:30 or so, so have a cold one and chill.',
@@ -70,7 +81,7 @@ UNION ALL
 SELECT
   -- ── 2016-07-16 — World Finale (no run #) ──
   'cmp262h3hist05' || k.id, k.id,
-  '2016-07-16T12:00:00Z'::timestamp, '2016-07-16T17:00:00Z'::timestamp, 'America/Los_Angeles',
+  '2016-07-16T12:00:00Z'::timestamptz, '2016-07-16T17:00:00Z'::timestamptz, 'America/Los_Angeles',
   NULL,
   '26.2H3 World Finale',
   E'Directions: This is the World Finale of the 26.2 Hash House Harriers. Following the whole trail qualifies you for membership emeritus and commemorative shirt. There will be a minimum of 6 Beer Checks, fully staffed and supplied. Bag wagon available. Those of you who wish to do a Half-Marathon Hash, it''ll start @12:30ish, so take the N-Judah outbound to La Playa and look for either a) hares, or b) hounds, or c) marks.. if you find none of the these, you''re too early and gotta wait for them. Have a beer at Pittsburgh''s Pub on Judah. Maybe the hares will drop in for a quick one. On on.',
@@ -83,7 +94,7 @@ UNION ALL
 SELECT
   -- ── 2014-05-31 — World Premiere (no run #) ──
   'cmp262h3hist06' || k.id, k.id,
-  '2014-05-31T12:00:00Z'::timestamp, '2014-05-31T17:00:00Z'::timestamp, 'America/Los_Angeles',
+  '2014-05-31T12:00:00Z'::timestamptz, '2014-05-31T17:00:00Z'::timestamptz, 'America/Los_Angeles',
   NULL,
   '26.2H3 World Premiere',
   E'Directions: This is the World Premiere of the 26.2 Hash House Harriers. Following the whole trail qualifies you for membership and commemorative shirt. There will be a minimum of 3 Beer Checks, fully staffed and supplied. Bag wagon available. Those of you who wish to do a Half-Marathon Hash, it''ll start @12:30ish, so take the N-Judah outbound to La Playa and look for either a) hares, or b) hounds, or c) marks.. if you find none of the these, you''re too early and gotta wait for them. Have a beer at Pittsburgh''s Pub on Judah. Maybe the hares will drop in for a quick one. On on.',
