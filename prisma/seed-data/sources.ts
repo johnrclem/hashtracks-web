@@ -2694,6 +2694,15 @@ export const SOURCES = [
       },
       kennelCodes: ["bushwhackersh3"],
     },
+    {
+      name: "Choo-Choo H3 Website",
+      url: "https://choochooh3.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      kennelCodes: ["choochooh3"],
+    },
 
     // ===== MISSOURI =====
 

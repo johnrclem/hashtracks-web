@@ -2292,6 +2292,18 @@ export const KENNELS: KennelSeed[] = [
       latitude: 36.16, longitude: -86.78,
     },
 
+    // ── Tennessee: Chattanooga ──
+    {
+      kennelCode: "choochooh3", shortName: "Choo-Choo H3", fullName: "Chattanooga Choo Choo Hash House Harriers",
+      region: "Chattanooga, TN",
+      website: "https://choochooh3.com",
+      scheduleDayOfWeek: "Sunday",
+      scheduleFrequency: "Monthly",
+      scheduleNotes: "Monthly hash (usually Sundays) plus a fourth-Tuesday Drinking Practice. Check the events page for the current trail.",
+      description: "The Scenic City's favorite drinking club with a running (and walking) problem.",
+      latitude: 35.05, longitude: -85.31,
+    },
+
     // ── Missouri: Kansas City ──
     {
       kennelCode: "kch3", shortName: "KCH3", fullName: "Kansas City Hash House Harriers", region: "Kansas City, MO",
