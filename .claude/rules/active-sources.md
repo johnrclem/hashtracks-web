@@ -195,6 +195,9 @@ globs:
 - **Blooming Fools H3 Website** -> HTML_SCRAPER -> BFH3 (Bloomington, ~year of trails from inline `<script type="text/plain">`)
 - **IndyScent H3 Upcumming Hashes** -> HTML_SCRAPER -> IndyH3 (Indianapolis) + THICC H3 (kennelPatterns routing, WordPress Pages API)
 
+## Tennessee (Chattanooga add) (1 source)
+- **Choo-Choo H3 Website** -> HTML_SCRAPER (via new fetchTribeEvents utility, The Events Calendar REST API) -> choochooh3 (Chattanooga)
+
 ## Virginia (outside DC metro) (9 sources)
 - **Richmond H3 Google Calendar** -> GOOGLE_CALENDAR -> RH3 (Richmond)
 - **Richmond H3 Meetup** -> MEETUP -> RH3 (Richmond)

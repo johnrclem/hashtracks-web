@@ -1694,6 +1694,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -90.05,
     aliases: ["Memphis"],
   },
+  {
+    name: "Chattanooga, TN",
+    country: "USA",
+    timezone: "America/New_York",
+    abbrev: "CHA",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 35.05,
+    centroidLng: -85.31,
+    aliases: ["Chattanooga"],
+  },
   // ── Missouri ──
   {
     name: "Missouri",
@@ -2481,6 +2492,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Tennessee
   "Nashville, TN": "Tennessee",
   "Memphis, TN": "Tennessee",
+  "Chattanooga, TN": "Tennessee",
   // Missouri
   "Kansas City, MO": "Missouri",
   "St. Louis, MO": "Missouri",
