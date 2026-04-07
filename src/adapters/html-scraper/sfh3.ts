@@ -84,56 +84,80 @@ export function parseHarelineRows(html: string): HarelineRow[] {
   const $ = cheerio.load(html);
   const rows: HarelineRow[] = [];
 
-  // Find the main runs table
-  const table = $("table").first();
-  if (!table.length) return rows;
+  // Preferred path: the live MultiHash platform tags each cell with a class
+  // (td.kennel, td.number, td.time, td.hare, td.location, td.name). This is
+  // robust against the surrounding layout-table wrapper and column reorderings.
+  const classRows = $("tr").filter((_i, el) => $(el).find("> td.kennel").length > 0);
 
-  // Detect column layout from header row
-  const headerCells = table.find("th");
-  const is7Col = headerCells.length >= 7 ||
-    headerCells.toArray().some((th) => $(th).text().trim().toLowerCase() === "kennel");
+  if (classRows.length > 0) {
+    classRows.each((_i, el) => {
+      const $row = $(el);
+      const kennelTag = $row.find("> td.kennel").text().trim() || undefined;
+
+      const runCell = $row.find("> td.number");
+      const runText = runCell.text().trim();
+      // "(No #)" is a sentinel meaning no run number assigned — treat as absent.
+      const runMatch = runText && !/\(No\s*#\)/i.test(runText)
+        ? runText.match(/#?(\d+)/)
+        : null;
+      const runNumber = runMatch ? parseInt(runMatch[1], 10) : undefined;
+      const detailLink = runCell.find("a").attr("href") || undefined;
+
+      const dateText = $row.find("> td.time").text().replaceAll(/\s+/g, " ").trim();
+      const hare = $row.find("> td.hare").text().replaceAll(/\s+/g, " ").trim() || undefined;
+      const locationCell = $row.find("> td.location");
+      const locationText = locationCell.text().replaceAll(/\s+/g, " ").trim() || undefined;
+      const locationUrl = extractLocationUrl(locationCell.html() || "");
+      const title = $row.find("> td.name").text().replaceAll(/\s+/g, " ").trim();
+
+      if (!dateText) return;
+
+      rows.push({
+        kennelTag,
+        runNumber: runNumber && !isNaN(runNumber) ? runNumber : undefined,
+        dateText,
+        hare,
+        locationText,
+        locationUrl,
+        title,
+        detailUrl: detailLink,
+      });
+    });
+    return rows;
+  }
+
+  // Fallback: ordinal-cell parsing for test fixtures and older HTML that
+  // doesn't carry the class hints. Find the first table that has ≥5-cell rows.
+  const candidateTables = $("table").toArray();
+  let table: Cheerio<AnyNode> | undefined;
+  for (const t of candidateTables) {
+    const $t = $(t);
+    const sampleRow = $t.find("tr").filter((_i, tr) => $(tr).find("> td").length >= 5).first();
+    if (sampleRow.length > 0) {
+      table = $t;
+      break;
+    }
+  }
+  if (!table) return rows;
 
   const bodyRows = table.find("tbody tr");
   const targetRows = bodyRows.length > 0 ? bodyRows : table.find("tr").slice(1);
 
   targetRows.each((_i, el) => {
     const $row = $(el);
-    const cells = $row.find("td");
+    const cells = $row.find("> td");
     if (cells.length < 5) return;
 
-    let kennelTag: string | undefined;
-    let runNumber: number | undefined;
-    let detailLink: string | undefined;
-    let dateText: string;
-    let hare: string | undefined;
-    let locationCell: Cheerio<AnyNode>;
-    let title: string;
+    // Legacy layout: Run# | When | Hare | Where | What
+    const runCell = cells.eq(0);
+    const runNumText = runCell.text().trim();
+    const runNumber = runNumText ? parseInt(runNumText, 10) : undefined;
+    const detailLink = runCell.find("a").attr("href") || undefined;
 
-    if (is7Col && cells.length >= 7) {
-      // New layout: Kennel | R*n | When | Hare | Where | What | Misinformation
-      kennelTag = cells.eq(0).text().trim() || undefined;
-
-      const runCell = cells.eq(1);
-      const runText = runCell.text().trim().replace(/^#/, "");
-      runNumber = runText ? parseInt(runText, 10) : undefined;
-      detailLink = runCell.find("a").attr("href") || undefined;
-
-      dateText = cells.eq(2).text().trim();
-      hare = cells.eq(3).text().trim() || undefined;
-      locationCell = cells.eq(4);
-      title = cells.eq(5).text().trim();
-    } else {
-      // Old layout: Run# | When | Hare | Where | What
-      const runCell = cells.eq(0);
-      const runNumText = runCell.text().trim();
-      runNumber = runNumText ? parseInt(runNumText, 10) : undefined;
-      detailLink = runCell.find("a").attr("href") || undefined;
-
-      dateText = cells.eq(1).text().trim();
-      hare = cells.eq(2).text().trim() || undefined;
-      locationCell = cells.eq(3);
-      title = cells.eq(4).text().trim();
-    }
+    const dateText = cells.eq(1).text().trim();
+    const hare = cells.eq(2).text().trim() || undefined;
+    const locationCell = cells.eq(3);
+    const title = cells.eq(4).text().trim();
 
     const locationText = locationCell.text().trim() || undefined;
     const locationUrl = extractLocationUrl(locationCell.html() || "");
@@ -141,7 +165,7 @@ export function parseHarelineRows(html: string): HarelineRow[] {
     if (!dateText) return;
 
     rows.push({
-      kennelTag,
+      kennelTag: undefined,
       runNumber: runNumber && !isNaN(runNumber) ? runNumber : undefined,
       dateText,
       hare,
