@@ -438,6 +438,46 @@ describe("SFH3Adapter.fetch", () => {
 
     vi.restoreAllMocks();
   });
+
+  it("propagates detail-page enrichment failures into errors + errorDetails (#502 codex review)", async () => {
+    // SAMPLE_HTML rows are dated 2026-03-03..2026-03-13; pin "now" before those dates so
+    // the enrichment "future-only" filter doesn't drop them.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-01T00:00:00Z"));
+
+    // Hareline fetch returns valid HTML; detail-page fetches all 500.
+    // Events should still be returned (best-effort enrichment), but failures must
+    // surface through ScrapeResult so health monitoring can alert.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (/\/runs\/\d+/.test(url)) {
+        return new Response("Server error", { status: 500, statusText: "Internal Server Error" });
+      }
+      return new Response(SAMPLE_HTML, { status: 200 });
+    });
+
+    const adapter = new SFH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://www.sfh3.com/runs?kennels=all",
+      config: { kennelPatterns: KENNEL_PATTERNS, defaultKennelTag: "sfh3" },
+    } as never);
+
+    // Hareline parse succeeded — enrichment is best-effort
+    expect(result.events.length).toBeGreaterThan(0);
+    // Enrichment failures surfaced through structured error channels
+    expect(result.errors.some((e) => e.startsWith("enrichment:"))).toBe(true);
+    expect(result.errorDetails?.fetch?.length).toBeGreaterThan(0);
+    // The fetch entry has the real per-event detail URL, not a sentinel string
+    const fetchEntry = result.errorDetails?.fetch?.find((f) => f.url.includes("/runs/"));
+    expect(fetchEntry).toBeDefined();
+    expect(fetchEntry?.message).toContain("HTTP 500");
+    // Diagnostic counters are populated
+    expect(result.diagnosticContext?.enrichmentFailures).toBeGreaterThan(0);
+
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
 });
 
 describe("parseSFH3DetailPage", () => {

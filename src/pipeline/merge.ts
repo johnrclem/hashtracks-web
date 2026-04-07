@@ -732,12 +732,13 @@ async function upsertCanonicalEvent(
       const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
 
       // Reverse-geocode city when we have new coords and locationCity isn't already set.
-      // Skipped for HARRIER_CENTRAL: the source provides a canonical location string and
-      // reverse-geocoding the per-station coords often yields garbage like "1, Tokyo".
+      // Canonical-location sources (HARRIER_CENTRAL) skip the reverse-geocode entirely on
+      // CREATE — but on UPDATE we leave locationCity alone, never clearing it. If a non-HC
+      // source previously populated city for this canonical event (cross-source merge),
+      // we must not wipe it. The CREATE branch handles fresh HC-only events correctly.
       let locationCity: string | null | undefined;
       if (shouldSkipReverseGeocode(ctx.sourceType)) {
-        // Always clear locationCity for canonical-location sources so the display doesn't append.
-        locationCity = null;
+        // No-op: preserve existingEvent.locationCity
       } else if (coords.latitude != null && coords.longitude != null) {
         const coordsChanged =
           coords.latitude !== existingEvent.latitude || coords.longitude !== existingEvent.longitude;

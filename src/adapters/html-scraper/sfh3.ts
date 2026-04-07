@@ -247,10 +247,15 @@ export class SFH3Adapter implements SourceAdapter {
     }
 
     // Enrich upcoming events with detail-page Comment field and "Run #N" title format (#492/#493).
-    // Best-effort — internal Promise.allSettled handles per-fetch failures.
+    // Best-effort — Promise.allSettled handles per-fetch failures internally, but we still
+    // surface the failures through the structured ScrapeResult so health monitoring can alert.
     const enrichResult = await enrichSFH3Events(events);
-    if (enrichResult.errors.length > 0) {
-      console.warn("[sfh3] enrichment errors:", enrichResult.errors.slice(0, 3));
+    if (enrichResult.failures.length > 0) {
+      errorDetails.fetch ??= [];
+      for (const failure of enrichResult.failures) {
+        errors.push(`enrichment: ${failure.message}`);
+        errorDetails.fetch.push({ url: failure.url, message: failure.message });
+      }
     }
 
     const hasErrorDetails = hasAnyErrors(errorDetails);
@@ -264,6 +269,8 @@ export class SFH3Adapter implements SourceAdapter {
         rowsFound: rows.length,
         eventsParsed: events.length,
         skippedPattern,
+        enrichmentEnriched: enrichResult.enriched,
+        enrichmentFailures: enrichResult.failures.length,
         fetchDurationMs,
       },
     };
@@ -330,10 +337,15 @@ function sfh3NeedsEnrichment(event: RawEventData): boolean {
  * Skips events that are already enriched (steady state → 0 fetches). Mirrors the SDH3/Frankfurt
  * detail-page enrichment pattern.
  */
+export interface SFH3EnrichFailure {
+  url: string;
+  message: string;
+}
+
 export async function enrichSFH3Events(
   events: RawEventData[],
-): Promise<{ enriched: number; errors: string[] }> {
-  const errors: string[] = [];
+): Promise<{ enriched: number; failures: SFH3EnrichFailure[] }> {
+  const failures: SFH3EnrichFailure[] = [];
   let enriched = 0;
 
   // sfh3NeedsEnrichment guarantees a non-null sourceUrl; the type predicate carries that
@@ -348,7 +360,7 @@ export async function enrichSFH3Events(
     // Sort by date ascending so the per-scrape cap always favors the soonest events
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, MAX_ENRICH_PER_SCRAPE);
-  if (toEnrich.length === 0) return { enriched: 0, errors: [] };
+  if (toEnrich.length === 0) return { enriched: 0, failures: [] };
 
   const BATCH_SIZE = 5;
   for (let b = 0; b < toEnrich.length; b += BATCH_SIZE) {
@@ -365,10 +377,12 @@ export async function enrichSFH3Events(
       }),
     );
 
-    for (const result of results) {
+    // Iterate by index so rejected promises can be paired with their originating event URL
+    // for structured error reporting (errorDetails.fetch needs the per-URL signal).
+    results.forEach((result, i) => {
       if (result.status === "rejected") {
-        errors.push(String(result.reason));
-        continue;
+        failures.push({ url: batch[i].sourceUrl, message: String(result.reason) });
+        return;
       }
       const { html, event } = result.value;
       const detail = parseSFH3DetailPage(html);
@@ -382,8 +396,8 @@ export async function enrichSFH3Events(
         touched = true;
       }
       if (touched) enriched++;
-    }
+    });
   }
 
-  return { enriched, errors };
+  return { enriched, failures };
 }

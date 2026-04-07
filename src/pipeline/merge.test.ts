@@ -202,11 +202,14 @@ describe("processRawEvents", () => {
     );
   });
 
-  it("clears locationCity for HARRIER_CENTRAL sources on update (#471)", async () => {
+  it("preserves existing locationCity for HARRIER_CENTRAL sources on update (#471)", async () => {
+    // On UPDATE we never touch locationCity for canonical-location sources. If a non-HC
+    // source previously populated city for this canonical event (cross-source merge),
+    // an HC scrape must not wipe it.
     mockSourceFind.mockResolvedValue({ trustLevel: 5, type: "HARRIER_CENTRAL" } as never);
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_existing", trustLevel: 5, locationCity: "1, Tokyo" },
+      { id: "evt_existing", trustLevel: 5, locationCity: "Tokyo" },
     ] as never);
     mockEventUpdate.mockResolvedValueOnce({} as never);
 
@@ -214,11 +217,9 @@ describe("processRawEvents", () => {
       buildRawEvent({ location: "Sobu line, West exit", kennelTag: "tokyo-h3" }),
     ]);
 
-    expect(mockEventUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ locationCity: null }),
-      }),
-    );
+    const updateCall = mockEventUpdate.mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(updateCall).toBeDefined();
+    expect(updateCall.data).not.toHaveProperty("locationCity");
   });
 });
 
