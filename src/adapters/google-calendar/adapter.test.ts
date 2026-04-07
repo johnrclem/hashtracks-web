@@ -1223,12 +1223,18 @@ describe("extractWhatFieldFromDescription", () => {
     expect(extractWhatFieldFromDescription("What: \nWhere: Park")).toBeUndefined();
   });
 
-  it("returns undefined for a too-short value", () => {
-    expect(extractWhatFieldFromDescription("What: ab")).toBeUndefined();
-  });
-
   it("does not match `What` embedded mid-line", () => {
     expect(extractWhatFieldFromDescription("Look at What: this looks like")).toBeUndefined();
+  });
+
+  it("does not match a word that ends in `What` (e.g. `SoWhat:`)", () => {
+    // \b before `What` rejects mid-word matches even when the line otherwise
+    // looks label-shaped — the value here is on its own line.
+    expect(extractWhatFieldFromDescription("foo\nSoWhat: trail")).toBeUndefined();
+  });
+
+  it("does not match a word that starts with `What` (e.g. `WhatNot:`)", () => {
+    expect(extractWhatFieldFromDescription("WhatNot: trail")).toBeUndefined();
   });
 });
 
