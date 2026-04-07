@@ -8,9 +8,38 @@ Discover kennels, identify the best data source for each, and write a research f
 
 ## Stage 1: Check Existing Coverage
 
+Check BOTH seed data AND the live production database. Seed files alone are not authoritative — kennels can be added directly via the admin UI and exist only in the DB until backfilled. Skipping this check has caused duplicate research passes on already-onboarded kennels.
+
 ```bash
+# 1. Seed data
 grep -i "REGION_KEYWORDS" prisma/seed-data/kennels.ts prisma/seed-data/aliases.ts
 ```
+
+```bash
+# 2. Live DB — any kennel attached to a region whose name matches the target
+set -a; source .env.local 2>/dev/null || source .env; set +a
+cat > /tmp/check-region.ts <<'EOF'
+import { PrismaClient } from './src/generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
+async function main(){
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }});
+  const p = new PrismaClient({ adapter: new PrismaPg(pool) });
+  // Replace REGION_KEYWORDS with all relevant terms (state name, abbrev, major cities)
+  const terms = ["REGION_KEYWORDS"];
+  const regions = await p.region.findMany({ where: { OR: terms.map(t => ({ name: { contains: t, mode: "insensitive" as const }})) }});
+  for (const r of regions) {
+    const ks = await p.kennel.findMany({ where: { regionId: r.id }, select:{kennelCode:true, shortName:true, fullName:true}});
+    console.log(`${r.name} (${r.level}): ${ks.length} kennels`, ks.map(k=>k.kennelCode).join(", "));
+  }
+  await p.$disconnect();
+}
+main();
+EOF
+npx tsx /tmp/check-region.ts && rm /tmp/check-region.ts
+```
+
+Any kennel returned here is already onboarded and MUST NOT be re-researched. If any DB kennel is missing from seed files, flag it — that's a backfill candidate (the seed files should be the source of truth).
 
 ## Stage 2: Aggregator-First Discovery
 

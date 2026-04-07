@@ -2948,5 +2948,26 @@ export const SOURCES = [
       },
       kennelCodes: ["gch3"],
     },
+
+    // ===== MAINE =====
+    // Aggregator calendar for both Portland, ME kennels. Events titled
+    // "Knightvillain"/"KV" route to knightvillian; everything else defaults to pormeh3.
+    {
+      name: "PorMe H3 Google Calendar",
+      url: "pormeh3hashcash@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        calendarId: "pormeh3hashcash@gmail.com",
+        defaultKennelTag: "pormeh3",
+        kennelPatterns: [
+          ["Knightvillain", "knightvillian"],
+          ["KV", "knightvillian"],
+        ],
+      },
+      kennelCodes: ["pormeh3", "knightvillian"],
+    },
   ];
 
