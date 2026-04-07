@@ -336,15 +336,17 @@ export async function enrichSFH3Events(
   const errors: string[] = [];
   let enriched = 0;
 
-  const todayIso = new Date().toISOString().split("T")[0];
-  const candidates = events
-    .filter((e) => e.date >= todayIso && sfh3NeedsEnrichment(e))
-    // Sort by date ascending so the per-scrape cap always favors the soonest events
-    .sort((a, b) => a.date.localeCompare(b.date));
+  // sfh3NeedsEnrichment guarantees a non-null sourceUrl; the type predicate carries that
+  // through the .filter() so we can use event.sourceUrl below without a non-null assertion.
+  const isEnrichable = (e: RawEventData): e is RawEventData & { sourceUrl: string } =>
+    sfh3NeedsEnrichment(e);
 
-  // Pair each event with its (now-known-non-null) URL so we don't need a non-null assertion below
-  const toEnrich = candidates
-    .map((e) => ({ event: e, url: e.sourceUrl as string }))
+  const todayIso = new Date().toISOString().split("T")[0];
+  const toEnrich = events
+    .filter((e) => e.date >= todayIso)
+    .filter(isEnrichable)
+    // Sort by date ascending so the per-scrape cap always favors the soonest events
+    .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, MAX_ENRICH_PER_SCRAPE);
   if (toEnrich.length === 0) return { enriched: 0, errors: [] };
 
@@ -352,12 +354,12 @@ export async function enrichSFH3Events(
   for (let b = 0; b < toEnrich.length; b += BATCH_SIZE) {
     const batch = toEnrich.slice(b, b + BATCH_SIZE);
     const results = await Promise.allSettled(
-      batch.map(async ({ event, url }) => {
-        const response = await safeFetch(url, {
+      batch.map(async (event) => {
+        const response = await safeFetch(event.sourceUrl, {
           headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
         });
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status} for ${url}`);
+          throw new Error(`HTTP ${response.status} for ${event.sourceUrl}`);
         }
         return { html: await response.text(), event };
       }),

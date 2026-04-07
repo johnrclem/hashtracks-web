@@ -185,7 +185,7 @@ describe("processRawEvents", () => {
     );
   });
 
-  it("never writes locationCity for HARRIER_CENTRAL sources (issue #471)", async () => {
+  it("never writes locationCity for HARRIER_CENTRAL sources on create (#471)", async () => {
     mockSourceFind.mockResolvedValue({ trustLevel: 5, type: "HARRIER_CENTRAL" } as never);
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
@@ -196,6 +196,25 @@ describe("processRawEvents", () => {
     ]);
 
     expect(mockEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ locationCity: null }),
+      }),
+    );
+  });
+
+  it("clears locationCity for HARRIER_CENTRAL sources on update (#471)", async () => {
+    mockSourceFind.mockResolvedValue({ trustLevel: 5, type: "HARRIER_CENTRAL" } as never);
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_existing", trustLevel: 5, locationCity: "1, Tokyo" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ location: "Sobu line, West exit", kennelTag: "tokyo-h3" }),
+    ]);
+
+    expect(mockEventUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ locationCity: null }),
       }),

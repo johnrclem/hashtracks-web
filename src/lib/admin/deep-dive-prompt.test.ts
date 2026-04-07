@@ -52,6 +52,20 @@ describe("buildDeepDivePrompt", () => {
     expect(prompt).toContain("audit,alert");
   });
 
+  it("calls out kennel-page improvements (founded year, social links, etc.)", () => {
+    const prompt = buildDeepDivePrompt(FIXTURE);
+    expect(prompt).toContain("Kennel page completeness");
+    expect(prompt).toContain("Founded year");
+    expect(prompt).toContain("Facebook");
+    expect(prompt).toContain("Hash Cash");
+  });
+
+  it("calls out historical events available for one-shot DB import", () => {
+    const prompt = buildDeepDivePrompt(FIXTURE);
+    expect(prompt).toContain("Historical events available for one-shot import");
+    expect(prompt).toContain("one-shot DB insert");
+  });
+
   it("ends with the 'mark deep dive complete' instruction", () => {
     const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toMatch(/Mark deep dive complete/);

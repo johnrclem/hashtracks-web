@@ -176,20 +176,20 @@ interface KennelCacheEntry {
   regionCentroidLng: number | null;
 }
 
-/** Per-batch state threaded through all merge helper functions. */
 /** Source types whose location field is canonical and should not be enriched with a
  *  reverse-geocoded city. The display layer would otherwise append garbage like "1, Tokyo". */
-function shouldSkipReverseGeocode(sourceType: SourceType | "UNKNOWN"): boolean {
+function shouldSkipReverseGeocode(sourceType: SourceType | null): boolean {
   return sourceType === "HARRIER_CENTRAL";
 }
 
+/** Per-batch state threaded through all merge helper functions. */
 interface MergeContext {
   sourceId: string;
   /** Source trust level (1–10); higher-trust sources overwrite lower-trust data. */
   trustLevel: number;
   /** Source adapter type — used to skip reverse-geocoded city enrichment for sources
    *  that already provide a canonical location (e.g. HARRIER_CENTRAL). */
-  sourceType: SourceType | "UNKNOWN";
+  sourceType: SourceType | null;
   /** Kennel IDs linked to this source via SourceKennel (for the guard check). */
   linkedKennelIds: Set<string>;
   /** Per-batch cache of kennelId → kennel data to avoid N+1 queries. */
@@ -737,7 +737,7 @@ async function upsertCanonicalEvent(
       let locationCity: string | null | undefined;
       if (shouldSkipReverseGeocode(ctx.sourceType)) {
         // Always clear locationCity for canonical-location sources so the display doesn't append.
-        if (existingEvent.locationCity !== null) locationCity = null;
+        locationCity = null;
       } else if (coords.latitude != null && coords.longitude != null) {
         const coordsChanged =
           coords.latitude !== existingEvent.latitude || coords.longitude !== existingEvent.longitude;
@@ -816,7 +816,7 @@ async function upsertCanonicalEvent(
     // Create new canonical Event
     const coords = await resolveCoords(event, undefined, ctx.shortUrlCache, kennelData, countryToRegionBias(kennelData.country));
     // Reverse-geocode city when coords are available (suppress when address already has state).
-    // HARRIER_CENTRAL sources skip this — see same-named branch in the update path above.
+    // Canonical-location sources skip this entirely — see shouldSkipReverseGeocode.
     const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
     const locationCity = shouldSkipReverseGeocode(ctx.sourceType)
       ? null
@@ -1023,7 +1023,7 @@ export async function processRawEvents(
     select: { trustLevel: true, type: true },
   });
   const trustLevel = source?.trustLevel ?? 5;
-  const sourceType: SourceType | "UNKNOWN" = source?.type ?? "UNKNOWN";
+  const sourceType: SourceType | null = source?.type ?? null;
 
   const sourceKennels = await prisma.sourceKennel.findMany({
     where: { sourceId },

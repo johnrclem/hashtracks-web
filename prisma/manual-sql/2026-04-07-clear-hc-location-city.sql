@@ -5,12 +5,10 @@
 
 UPDATE "Event"
 SET "locationCity" = NULL
-WHERE "sourceUrl" LIKE 'https://www.hashruns.org%'
-   OR "sourceUrl" LIKE 'https://hashruns.org%'
-   OR "id" IN (
-     SELECT e.id
-     FROM "Event" e
-     JOIN "RawEvent" re ON re."eventId" = e.id
-     JOIN "Source" s ON s.id = re."sourceId"
-     WHERE s.type = 'HARRIER_CENTRAL'
-   );
+WHERE id IN (
+  SELECT e.id
+  FROM "Event" e
+  JOIN "RawEvent" re ON re."eventId" = e.id
+  JOIN "Source" s ON s.id = re."sourceId"
+  WHERE s.type = 'HARRIER_CENTRAL'
+);

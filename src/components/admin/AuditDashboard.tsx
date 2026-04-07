@@ -85,6 +85,7 @@ interface Props {
   knownRules: string[];
   deepDiveQueue: DeepDiveCandidate[];
   deepDiveCoverage: DeepDiveCoverage;
+  harelinePrompt: string | null;
 }
 
 const CATEGORY_LINES: { key: keyof TrendPoint; label: string; color: string }[] = [
@@ -106,6 +107,7 @@ export function AuditDashboard({
   knownRules,
   deepDiveQueue,
   deepDiveCoverage,
+  harelinePrompt,
 }: Props) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -141,11 +143,14 @@ export function AuditDashboard({
     <div className="space-y-10">
       {/* ── Overview ───────────────────────────────────────────── */}
       <section className="space-y-5">
-        <SectionHeader
-          icon={ShieldCheck}
-          title="Data Quality Audit"
-          color="bg-blue-500/10 text-blue-500"
-        />
+        <div className="flex items-center justify-between gap-4">
+          <SectionHeader
+            icon={ShieldCheck}
+            title="Data Quality Audit"
+            color="bg-blue-500/10 text-blue-500"
+          />
+          {harelinePrompt && <CopyHarelinePromptButton prompt={harelinePrompt} />}
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard
@@ -736,6 +741,25 @@ function SuppressionDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── Hareline Prompt Copy Button ─────────────────────────────────────
+
+function CopyHarelinePromptButton({ prompt }: { prompt: string }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    void navigator.clipboard.writeText(prompt);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={handleCopy}>
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? "Copied" : "Copy daily prompt"}
+    </Button>
   );
 }
 
