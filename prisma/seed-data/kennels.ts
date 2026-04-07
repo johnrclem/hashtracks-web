@@ -2604,7 +2604,8 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "wsh3", shortName: "Wandering Soul H3", fullName: "Wandering Soul Hash House Harriers", region: "Birmingham, AL",
-      scheduleNotes: "Hosts annual SOEX hash campout each June",
+      scheduleFrequency: "Annually",
+      scheduleNotes: "Annual hash campout (SOEX) held each June. No regular weekly trail schedule.",
       description: "Birmingham, Alabama hash kennel. Best known for hosting the annual SOEX (Southern Excursion) hash campout.",
       latitude: 33.52, longitude: -86.81,
     },

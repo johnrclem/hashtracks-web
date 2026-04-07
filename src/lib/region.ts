@@ -1851,7 +1851,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     name: "Birmingham, AL",
     country: "USA",
     timezone: "America/Chicago",
-    abbrev: "BHM",
+    abbrev: "BHAM",
     colorClasses: "bg-red-100 text-red-700",
     pinColor: "#ef4444",
     centroidLat: 33.52,

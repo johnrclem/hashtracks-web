@@ -16,7 +16,7 @@ grep -i "REGION_KEYWORDS" prisma/seed-data/kennels.ts prisma/seed-data/aliases.t
 
 Check these BEFORE visiting individual kennel websites:
 1. **Harrier Central API** — check all cities in region via POST to `harriercentralpublicapi.azurewebsites.net/api/PortalApi/`
-2. **HashRego** — fetch `hashrego.com/events` (FOLLOW REDIRECT, `curl -L`) and grep for region kennel slugs. CRITICAL: This is the live registration index and is the ONLY surface our HashRego adapter can scrape. Do NOT rely on `hashrego.com/kennels_legacy/{SLUG}` profile pages — those are historical archives our scraper cannot reach. A kennel with "76 trails on its legacy page" yields 0 events from our adapter unless it also appears in the live `/events` index. HashRego is dominated by registration-required campouts/RDRs, not weekly trails — only add a HASHREGO source if the kennel actually appears in the live index.
+2. **HashRego** — fetch `hashrego.com/events` with `curl -L` and grep for region kennel slugs. CRITICAL: This is the live registration index and is the ONLY surface our HashRego adapter can scrape. Do NOT rely on `hashrego.com/kennels_legacy/{SLUG}` profile pages — those are historical archives our scraper cannot reach. A kennel with "76 trails on its legacy page" yields 0 events from our adapter unless it also appears in the live `/events` index. HashRego is dominated by registration-required campouts/RDRs, not weekly trails — only add a HASHREGO source if the kennel actually appears in the live index.
 3. **Meetup** — search `meetup.com/find/?keywords=hash+house+harriers&location=[REGION]`
 4. **Regional Google Calendar** — search for "[REGION] hash house harriers calendar"
 5. **gotothehash.net lineage pages** — `gotothehash.net/{country}.html` (international)
