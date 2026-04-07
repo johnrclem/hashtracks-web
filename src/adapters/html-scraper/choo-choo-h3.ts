@@ -7,10 +7,8 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { buildDateWindow } from "../utils";
-import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchTribeEvents } from "../tribe-events";
 
-const DEFAULT_BASE = "https://choochooh3.com";
 const KENNEL_TAG = "choochooh3";
 
 /**
@@ -26,7 +24,7 @@ export class ChooChooH3Adapter implements SourceAdapter {
     source: Source,
     options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const baseUrl = source.url || DEFAULT_BASE;
+    const baseUrl = source.url;
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
@@ -58,16 +56,24 @@ export class ChooChooH3Adapter implements SourceAdapter {
       });
     }
 
-    const structureHash = generateStructureHash(JSON.stringify(result.events.map((e) => e.id)));
+    // Surface soft signals so health monitoring can catch silent schema drift
+    // (e.g. a plugin upgrade that renames fields → all events skipped).
+    if (result.skippedCount > 0) {
+      errors.push(
+        `Skipped ${result.skippedCount}/${result.rawCount} tribe events (missing title or date — possible schema change)`,
+      );
+    }
+
     const hasErrors = hasAnyErrors(errorDetails);
     return {
       events,
       errors,
-      structureHash,
       errorDetails: hasErrors ? errorDetails : undefined,
       diagnosticContext: {
-        tribeEventsFetched: result.events.length,
-        eventsParsed: events.length,
+        rawEventsFetched: result.rawCount,
+        eventsNormalized: result.events.length,
+        eventsInWindow: events.length,
+        skippedCount: result.skippedCount,
         fetchDurationMs: result.fetchDurationMs,
       },
     };

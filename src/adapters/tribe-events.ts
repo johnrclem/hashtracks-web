@@ -13,6 +13,7 @@
  */
 
 import { safeFetch } from "./safe-fetch";
+import { decodeEntities, stripHtmlTags } from "./utils";
 
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -54,7 +55,6 @@ interface TribeEventsResponse {
   events?: TribeEventRaw[];
   total?: number;
   total_pages?: number;
-  next_rest_url?: string;
 }
 
 /** Normalized event shape emitted by `fetchTribeEvents`. */
@@ -86,25 +86,10 @@ export interface FetchTribeEventsResult {
   events: TribeEvent[];
   error?: { message: string; status?: number };
   fetchDurationMs?: number;
-}
-
-function decodeHtmlEntities(s: string): string {
-  return s
-    .replaceAll("&#8211;", "–")
-    .replaceAll("&#8212;", "—")
-    .replaceAll("&#8217;", "'")
-    .replaceAll("&#8216;", "'")
-    .replaceAll("&#8220;", "\"")
-    .replaceAll("&#8221;", "\"")
-    .replaceAll("&amp;", "&")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", "\"")
-    .replaceAll("&#039;", "'");
-}
-
-function stripHtml(s: string): string {
-  return s.replace(/<[^>]+>/g, " ").replaceAll(/\s+/g, " ").trim();
+  /** Count of raw events that failed to normalize (missing title or date). */
+  skippedCount: number;
+  /** Count of raw events fetched from the API before normalization + filtering. */
+  rawCount: number;
 }
 
 /** Normalize a single raw tribe event into our shape. Returns null if required fields are missing. */
@@ -126,7 +111,7 @@ export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
   }
   if (!date) return null;
 
-  const title = decodeHtmlEntities(raw.title ?? "").trim();
+  const title = decodeEntities(raw.title ?? "").trim();
   if (!title) return null;
 
   const categorySlugs = (raw.categories ?? [])
@@ -141,7 +126,7 @@ export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
   return {
     id: raw.id,
     title,
-    description: raw.description ? stripHtml(decodeHtmlEntities(raw.description)) : undefined,
+    description: raw.description ? stripHtmlTags(decodeEntities(raw.description)) : undefined,
     url: raw.url,
     date,
     startTime,
@@ -173,9 +158,11 @@ export async function fetchTribeEvents(
     : undefined;
 
   const collected: TribeEvent[] = [];
+  let rawCount = 0;
+  let skippedCount = 0;
   let page = 1;
 
-  while (collected.length < maxEvents) {
+  while (true) {
     const url = `${base}/wp-json/tribe/events/v1/events?per_page=${perPage}&page=${page}`;
     let res: Response;
     try {
@@ -185,6 +172,8 @@ export async function fetchTribeEvents(
     } catch (err) {
       return {
         events: collected,
+        rawCount,
+        skippedCount,
         error: { message: `Fetch error: ${err instanceof Error ? err.message : String(err)}` },
         fetchDurationMs: Date.now() - fetchStart,
       };
@@ -195,6 +184,8 @@ export async function fetchTribeEvents(
       if (res.status === 404 && page > 1) break;
       return {
         events: collected,
+        rawCount,
+        skippedCount,
         error: { message: `HTTP ${res.status} from ${url}`, status: res.status },
         fetchDurationMs: Date.now() - fetchStart,
       };
@@ -203,21 +194,31 @@ export async function fetchTribeEvents(
     const json = (await res.json()) as TribeEventsResponse;
     const rawEvents = json.events ?? [];
     if (rawEvents.length === 0) break;
+    rawCount += rawEvents.length;
 
+    let reachedCap = false;
     for (const raw of rawEvents) {
       const normalized = normalizeTribeEvent(raw);
-      if (!normalized) continue;
+      if (!normalized) {
+        skippedCount++;
+        continue;
+      }
       if (categoryFilter && !normalized.categorySlugs.some((s) => categoryFilter.has(s.toLowerCase()))) {
         continue;
       }
       collected.push(normalized);
-      if (collected.length >= maxEvents) break;
+      if (collected.length >= maxEvents) {
+        reachedCap = true;
+        break;
+      }
     }
+    if (reachedCap) break;
 
-    const totalPages = json.total_pages ?? 1;
-    if (page >= totalPages) break;
+    // Keep paging until we get a short/empty response or a 404 — don't trust
+    // total_pages to bound us (some plugin versions omit it).
+    if (rawEvents.length < perPage) break;
     page++;
   }
 
-  return { events: collected, fetchDurationMs: Date.now() - fetchStart };
+  return { events: collected, rawCount, skippedCount, fetchDurationMs: Date.now() - fetchStart };
 }
