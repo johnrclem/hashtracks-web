@@ -76,5 +76,7 @@ export async function browserRender(options: RenderOptions): Promise<string> {
     return response.text();
   }
 
-  throw new Error("Browser render: max retries exceeded (429)");
+  // Unreachable: the loop's final iteration always exits via the !response.ok
+  // throw above. Kept as a defensive assertion for TypeScript control flow.
+  throw new Error("Browser render: unexpected exit from retry loop");
 }

@@ -264,6 +264,10 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
   // any DB rows that were removed from SOURCES (e.g. retired dead-upstream sources).
   // Soft-disable (not delete) preserves RawEvents / ScrapeLogs for audit; operators
   // can manually delete stale rows after confirming nothing depends on them.
+  // Caveat: renaming a seed entry (same type, new name) will make the old row
+  // appear stale for one reconciliation pass, even though the name gets updated
+  // via the url/name OR-match above. Operators can safely skip reconcile during
+  // rename seeds, or rename via a two-step: alias first, then seed.
   const seededKeys = new Set<string>(
     sources.map((s) => `${s.name}::${s.type}`),
   );
@@ -300,14 +304,11 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
         if (sourceData.config !== undefined && stableStringify(sourceData.config) !== stableStringify(existingSource.config)) {
           updates.config = sourceData.config;
         }
-        if (sourceData.url && sourceData.url !== existingSource.url) {
-          updates.url = sourceData.url;
-        }
-        if (sourceData.scrapeDays && sourceData.scrapeDays !== existingSource.scrapeDays) {
-          updates.scrapeDays = sourceData.scrapeDays;
-        }
-        if (sourceData.scrapeFreq && sourceData.scrapeFreq !== existingSource.scrapeFreq) {
-          updates.scrapeFreq = sourceData.scrapeFreq;
+        // Sync simple scalar fields when the seed sets a truthy value that differs from the DB.
+        for (const field of ["url", "scrapeDays", "scrapeFreq"] as const) {
+          if (sourceData[field] && sourceData[field] !== existingSource[field]) {
+            updates[field] = sourceData[field];
+          }
         }
         if (Object.keys(updates).length > 0) {
           await prisma.source.update({
@@ -349,7 +350,8 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
         where: { id: { in: stale.map((s: { id: string }) => s.id) } },
         data: { enabled: false },
       });
-      console.log(`  ✓ Disabled ${stale.length} stale source(s) (SEED_RECONCILE_DISABLE=true)`);
+      const names = stale.map((s: { name: string }) => s.name).join(", ");
+      console.log(`  ✓ Disabled ${stale.length} stale source(s): ${names} (SEED_RECONCILE_DISABLE=true)`);
     } else {
       console.log(`    (set SEED_RECONCILE_DISABLE=true to auto-disable)`);
     }
