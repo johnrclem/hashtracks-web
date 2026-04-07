@@ -2609,5 +2609,25 @@ export const KENNELS: KennelSeed[] = [
       description: "Birmingham, Alabama hash kennel. Best known for hosting the annual SOEX (Southern Excursion) hash campout.",
       latitude: 33.52, longitude: -86.81,
     },
+
+    // ── Maine: Portland ──
+    {
+      kennelCode: "pormeh3", shortName: "PorMEH3", fullName: "Portland Maine Hash House Harriers",
+      region: "Portland, ME",
+      scheduleDayOfWeek: "Saturday",
+      scheduleFrequency: "Biweekly",
+      scheduleNotes: "Saturday trails — usually around noon, sometimes later. Check the calendar, show up thirsty.",
+      description: "Portland, Maine's flagship hash. Beer, trail, and a whole lot of bad decisions along the rocky coast.",
+      latitude: 43.66, longitude: -70.26,
+    },
+    {
+      kennelCode: "knightvillian", shortName: "Knightvillian", fullName: "Knightvillian Hash House Harriers",
+      region: "Portland, ME",
+      scheduleDayOfWeek: "Thursday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Thursdays at 6:30 PM. Rain, shine, or nor'easter.",
+      description: "Portland's weekly Thursday-night hash out of the Knightville neighborhood in South Portland. If the night's long enough and the beer's cold enough, the name starts looking like 'Knightvillain' — and nobody's arguing.",
+      latitude: 43.64, longitude: -70.24,
+    },
   ];
 

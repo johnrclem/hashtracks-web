@@ -391,6 +391,10 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "gch3": ["GCH3", "Gulf Coast", "Gulf Coast H3", "Gulf Coast Hash", "Gulf Coast HHH"],
     "wsh3": ["WSH3", "Wandering Soul", "Wandering Soul H3", "Wandering Soul Hash", "Wandering Soul HHH"],
 
+    // ===== MAINE =====
+    "pormeh3": ["PorMEH3", "PorMe H3", "PorMe Hash", "Portland Maine Hash", "Portland Maine H3", "Portland ME H3"],
+    "knightvillian": ["Knightvillian H3", "Knightvillain", "Knightvillain H3", "KV", "KV H3", "Knightvillian Hash", "Knightville H3"],
+
     // ===== CANADA =====
     // Quebec
     "mh3-ca": ["MH3", "Montreal Hash", "Montreal HHH", "Montreal H3", "MHHH"],
