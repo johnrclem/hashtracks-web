@@ -523,16 +523,20 @@ export class ICalAdapter implements SourceAdapter {
     // field. Pull the canonical title + Comment from /runs/{id} so the merge
     // pipeline has enriched values on both the iCal and HTML_SCRAPER RawEvents
     // and whichever source wins ends up correct.
-    let enrichmentFailures = 0;
+    let enrichmentEnriched: number | undefined;
+    let enrichmentFailures: number | undefined;
     if (config?.enrichSFH3Details) {
-      const enrichResult = await enrichSFH3Events(events);
+      const enrichResult = await enrichSFH3Events(events, { now: new Date(fetchStart) });
+      enrichmentEnriched = enrichResult.enriched;
       enrichmentFailures = enrichResult.failures.length;
       if (enrichResult.failures.length > 0) {
         errorDetails.fetch ??= [];
         for (const failure of enrichResult.failures) {
-          errors.push(`enrichment: ${failure.message}`);
           errorDetails.fetch.push({ url: failure.url, message: failure.message });
         }
+        // Single summary line in `errors` — per-fetch details live in errorDetails.fetch
+        // and the count is in diagnosticContext.enrichmentFailures.
+        errors.push(`enrichment: ${enrichResult.failures.length} detail-page fetch(es) failed`);
       }
     }
 
@@ -551,7 +555,8 @@ export class ICalAdapter implements SourceAdapter {
         fetchDurationMs,
         icsBytes: icsText.length,
         contentType,
-        enrichmentFailures,
+        ...(enrichmentEnriched !== undefined && { enrichmentEnriched }),
+        ...(enrichmentFailures !== undefined && { enrichmentFailures }),
       },
     };
   }

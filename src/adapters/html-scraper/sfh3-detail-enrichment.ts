@@ -106,17 +106,24 @@ async function fetchSFH3DetailPage(event: EnrichableEvent): Promise<{ html: stri
  * title + description in place. Best-effort, capped at MAX_ENRICH_PER_SCRAPE per scrape.
  * Skips events that are already enriched (steady state → 0 fetches). Mirrors the SDH3/Frankfurt
  * detail-page enrichment pattern.
+ *
+ * @param events - Events to consider for enrichment (filtered in place).
+ * @param options.now - Reference "now" for the "future events only" filter. Defaults to
+ *   the current wall clock. Callers should pass the scrape start time to keep filtering
+ *   consistent across a long-running scrape and to make tests deterministic.
  */
 export async function enrichSFH3Events(
   events: RawEventData[],
+  options: { now?: Date } = {},
 ): Promise<{ enriched: number; failures: SFH3EnrichFailure[] }> {
   // sfh3NeedsEnrichment guarantees a non-null sourceUrl; the type predicate carries that
   // through the .filter() so we can use event.sourceUrl below without a non-null assertion.
   const isEnrichable = (e: RawEventData): e is EnrichableEvent => sfh3NeedsEnrichment(e);
 
-  // Use a 24h buffer so events still happening "today" in any local timezone aren't dropped
+  // 24h buffer so events still happening "today" in any local timezone aren't dropped
   // when UTC has already rolled over to tomorrow.
-  const todayIso = new Date(Date.now() - 86_400_000).toISOString().split("T")[0];
+  const referenceTime = options.now?.getTime() ?? Date.now();
+  const todayIso = new Date(referenceTime - 86_400_000).toISOString().split("T")[0];
   const toEnrich = events
     .filter((e) => e.date >= todayIso)
     .filter(isEnrichable)
