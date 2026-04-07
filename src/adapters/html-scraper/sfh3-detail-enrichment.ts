@@ -18,10 +18,19 @@ import { safeFetch } from "../safe-fetch";
 // RawEvents that all pass sfh3NeedsEnrichment() — a lower cap permanently starves
 // events beyond the window (the Aug 15 `26.2H3 Run #7` event, #492/#493, was
 // stuck because the first 30 by date were always the earliest upcoming ones).
-// Batched 5-parallel, 200 fetches ≈ 40 batches ≈ ~12s added to a scrape under
-// the 120s maxDuration ceiling.
+//
+// Wall-time budget under the 120s scrape maxDuration:
+//   200 fetches ÷ BATCH_SIZE 10 = 20 batches
+//   Per-batch latency on a healthy origin is ~300-500ms; under sustained slow
+//   conditions (1-2s/batch) we still finish in 20-40s, leaving room for the
+//   .ics fetch + merge pipeline. Enrichment failures are non-fatal so the
+//   scrape degrades gracefully if sfh3.com gets slower.
+//
+// TODO(future): make sfh3NeedsEnrichment() consult the stored DB RawEvent so
+// already-enriched events skip the fetch entirely. That would drop steady-state
+// cost from ~140 fetches/scrape to ~0 and let us shrink BATCH_SIZE back down.
 const MAX_ENRICH_PER_SCRAPE = 200;
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 10;
 
 export interface SFH3Detail {
   title?: string;
