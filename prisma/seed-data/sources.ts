@@ -526,11 +526,11 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3", "oh3", "wsh3", "mrh3"],
+      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3", "oh3", "wsh3", "mrh3", "bfh3"],
       kennelSlugMap: {
         bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4", gfh3: "GFH3",
         ch3: "CH3", dch4: "DCH4", dcfmh3: "DCFMH3", fch3: "FCH3", oh3: "OregonH3",
-        wsh3: "WSH3", mrh3: "MRH3",
+        wsh3: "WSH3", mrh3: "MRH3", bfh3: "BFH3",
       },
     },
     // ===== TEXAS =====
@@ -2947,6 +2947,37 @@ export const SOURCES = [
         defaultKennelTag: "gch3",
       },
       kennelCodes: ["gch3"],
+    },
+
+    // ===== INDIANA =====
+    {
+      name: "Blooming Fools H3 Website",
+      url: "https://bfh3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["bfh3"],
+    },
+    // IndyScent's Upcumming Hashes page aggregates both IndyScent and THICC
+    // events. Route titles containing "THICC" to thicch3; everything else
+    // defaults to indyh3.
+    {
+      name: "IndyScent H3 Upcumming Hashes",
+      url: "https://indyhhh.com/upcumming-hashes/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        baseUrl: "https://indyhhh.com",
+        pageId: 1792,
+        defaultKennelTag: "indyh3",
+        kennelPatterns: [
+          ["THICC", "thicch3"],
+        ],
+      },
+      kennelCodes: ["indyh3", "thicch3"],
     },
 
     // ===== MAINE =====

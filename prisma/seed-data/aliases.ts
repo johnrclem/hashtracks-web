@@ -395,6 +395,11 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "pormeh3": ["PorMEH3", "PorMe H3", "PorMe Hash", "Portland Maine Hash", "Portland Maine H3", "Portland ME H3"],
     "knightvillian": ["Knightvillian H3", "Knightvillain", "Knightvillain H3", "KV", "KV H3", "Knightvillian Hash", "Knightville H3"],
 
+    // ===== INDIANA =====
+    "bfh3": ["BFH3", "Blooming Fools", "Blooming Fools H3", "Blooming Fools Hash", "Blooming Fools HHH", "Bloomington Hash", "Bloomington H3"],
+    "indyh3": ["IndyScent", "IndyScent H3", "IndyScent Hash", "IndyScent HHH", "Indy H3", "Indyhhh", "Indianapolis H3", "Indianapolis Hash"],
+    "thicch3": ["THICC", "THICC H3", "THICC Hash", "THICC HHH"],
+
     // ===== CANADA =====
     // Quebec
     "mh3-ca": ["MH3", "Montreal Hash", "Montreal HHH", "Montreal H3", "MHHH"],

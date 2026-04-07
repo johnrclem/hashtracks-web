@@ -191,6 +191,10 @@ globs:
 - **Gulf Coast H3 Google Calendar** -> GOOGLE_CALENDAR -> GCH3 (Mobile)
 - **Hash Rego (extended)** -> HASHREGO -> WSH3 (Birmingham, annual SOEX) + MRH3 (secondary)
 
+## Indiana (2 sources)
+- **Blooming Fools H3 Website** -> HTML_SCRAPER -> BFH3 (Bloomington, ~year of trails from inline `<script type="text/plain">`)
+- **IndyScent H3 Upcumming Hashes** -> HTML_SCRAPER -> IndyH3 (Indianapolis) + THICC H3 (kennelPatterns routing, WordPress Pages API)
+
 ## Virginia (outside DC metro) (9 sources)
 - **Richmond H3 Google Calendar** -> GOOGLE_CALENDAR -> RH3 (Richmond)
 - **Richmond H3 Meetup** -> MEETUP -> RH3 (Richmond)
