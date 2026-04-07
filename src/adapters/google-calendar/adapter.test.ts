@@ -6,6 +6,7 @@ import {
   stripDatePrefix,
   extractHares,
   extractTitleFromDescription,
+  extractWhatFieldFromDescription,
   extractLocationFromDescription,
   extractTimeFromDescription,
   buildRawEventFromGCalItem,
@@ -1199,5 +1200,87 @@ describe("buildRawEventFromGCalItem — non-English country name stripping", () 
     const event = buildRawEventFromGCalItem(item, config);
     expect(event).not.toBeNull();
     expect(event!.location).toBe("Lucien Morin Park, 1135 Empire Blvd, Rochester, NY 14609");
+  });
+});
+
+// ── extractWhatFieldFromDescription + 4X2H4 / Chicagoland title fix (#496) ──
+
+describe("extractWhatFieldFromDescription", () => {
+  it("captures the value of a `What:` line", () => {
+    expect(extractWhatFieldFromDescription("What: 4x2 H4 No. 124\nWhen: Tuesday 4/7"))
+      .toBe("4x2 H4 No. 124");
+  });
+
+  it("is case-insensitive", () => {
+    expect(extractWhatFieldFromDescription("WHAT: Some Trail Name")).toBe("Some Trail Name");
+  });
+
+  it("returns undefined when no What: line is present", () => {
+    expect(extractWhatFieldFromDescription("Hare: Bob\nWhere: Park")).toBeUndefined();
+  });
+
+  it("returns undefined for an empty value", () => {
+    expect(extractWhatFieldFromDescription("What: \nWhere: Park")).toBeUndefined();
+  });
+
+  it("returns undefined for a too-short value", () => {
+    expect(extractWhatFieldFromDescription("What: ab")).toBeUndefined();
+  });
+
+  it("does not match `What` embedded mid-line", () => {
+    expect(extractWhatFieldFromDescription("Look at What: this looks like")).toBeUndefined();
+  });
+});
+
+describe("buildRawEventFromGCalItem — 4X2H4 stale-default title fix (#496/#497)", () => {
+  // Mirrors the live Chicagoland calendar 4X2H4 event shape:
+  //   SUMMARY = "4X2 H4" (the kennel slug, not a real title)
+  //   DESCRIPTION carries the canonical name in `What:` and the run number too
+  // The kennelPatterns map "4X2|4x2" → "4x2h4", so kennelTag = "4x2h4" and the
+  // SUMMARY-vs-tag equality used to fail (whitespace mismatch), leaving every
+  // event titled "4X2 H4". The fix relaxes that comparison and prefers
+  // `What:` over the generic first-non-label heuristic.
+  const item = {
+    summary: "4X2 H4",
+    description: "What: 4x2 H4 No. 124\nWhen: Tuesday 4/7, 6:30 pm, on-out at 7:00 sharp!\nWhere: Life on Marz Community Club\nHare: Lifa",
+    location: "Life on Marz Community Club",
+    start: { dateTime: "2026-04-07T18:30:00-05:00" },
+    status: "confirmed",
+  };
+  const config = {
+    kennelPatterns: [["4X2|4x2", "4x2h4"]] as [string, string][],
+    defaultKennelTag: "ch3",
+    runNumberPatterns: ["What:\\s*4x2\\s*H4\\s*No\\.?\\s*(\\d+)"],
+  };
+
+  it("extracts the title from the `What:` line", () => {
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("4x2 H4 No. 124");
+  });
+
+  it("extracts the run number from the description via runNumberPatterns", () => {
+    // Caller (the adapter) pre-compiles patterns once per scrape and threads them in.
+    const compiledRunNumberPatterns = [/What:\s*4x2\s*H4\s*No\.?\s*(\d+)/i];
+    const event = buildRawEventFromGCalItem(item, config, undefined, compiledRunNumberPatterns);
+    expect(event!.runNumber).toBe(124);
+  });
+
+  it("still extracts hares from the existing Hare: line", () => {
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event!.hares).toBe("Lifa");
+  });
+
+  it("falls back to defaultTitle when description has no What: line", () => {
+    const noWhat = { ...item, description: "When: Tuesday 4/7\nHare: Lifa" };
+    const event = buildRawEventFromGCalItem(noWhat, { ...config, defaultTitle: "4x2 H4 Trail" });
+    expect(event!.title).toBe("4x2 H4 Trail");
+  });
+
+  it("leaves the title as the SUMMARY when no fallback is configured and no What: line exists", () => {
+    const noWhat = { ...item, description: "When: Tuesday 4/7" };
+    const event = buildRawEventFromGCalItem(noWhat, config);
+    // No What:, no defaultTitle → title stays as the SUMMARY
+    expect(event!.title).toBe("4X2 H4");
   });
 });
