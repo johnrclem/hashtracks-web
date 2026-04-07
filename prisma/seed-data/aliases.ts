@@ -404,6 +404,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== WEST VIRGINIA =====
     "mh3-wv": ["MH3-US", "Morgantown H3", "Morgantown Hash", "Morgantown HHH", "MH3 Morgantown", "Mountaineer H3", "Morgantown Full Moon H3", "Morgantown Full Moon"],
 
+    // ===== ARKANSAS =====
+    "lrh3": ["LRH3", "LRHHH", "Little Rock Hash", "Little Rock H3", "Little Rock HHH", "Little Rock Hash House Harriers"],
+
     // ===== CANADA =====
     // Quebec
     "mh3-ca": ["MH3", "Montreal Hash", "Montreal HHH", "Montreal H3", "MHHH"],

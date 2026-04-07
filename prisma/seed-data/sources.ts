@@ -2717,6 +2717,48 @@ export const SOURCES = [
       kennelCodes: ["mh3-wv"],
     },
 
+    // ===== ARKANSAS =====
+    // Little Rock H3 — historic kennel (3rd US kennel, founded 1974), FB-only for
+    // weekly trails. Shipped via STATIC_SCHEDULE per the historic-kennel exception
+    // in feedback_sourceless_kennels memory. Description fields link to their FB
+    // page so users can check the actual trail location day-of.
+    {
+      name: "Little Rock H3 Static Schedule (Sunday)",
+      url: "https://www.facebook.com/littlerockhashhouseharriers",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "lrh3",
+        rrule: "FREQ=WEEKLY;BYDAY=SU",
+        anchorDate: "2026-01-04",
+        startTime: "15:00",
+        defaultTitle: "Little Rock H3 Sunday Run",
+        defaultLocation: "Little Rock, AR",
+        defaultDescription: "Weekly Sunday afternoon trail, ~3-4 PM. Trail location is posted on the Little Rock H3 Facebook page (https://www.facebook.com/littlerockhashhouseharriers) the day of each run, or call the hotline 501-666-HASH at noon on Sundays.",
+      },
+      kennelCodes: ["lrh3"],
+    },
+    {
+      name: "Little Rock H3 Static Schedule (Wednesday)",
+      url: "https://www.facebook.com/littlerockhashhouseharriers",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "lrh3",
+        rrule: "FREQ=WEEKLY;BYDAY=WE",
+        anchorDate: "2026-01-07",
+        startTime: "19:00",
+        defaultTitle: "Little Rock H3 Wednesday Run",
+        defaultLocation: "Little Rock, AR",
+        defaultDescription: "Weekly Wednesday evening trail, 7 PM. Trail location is posted on the Little Rock H3 Facebook page (https://www.facebook.com/littlerockhashhouseharriers) the day of each run.",
+      },
+      kennelCodes: ["lrh3"],
+    },
+
     // ===== MISSOURI =====
 
     // ===== KANSAS =====

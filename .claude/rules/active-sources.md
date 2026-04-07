@@ -202,6 +202,10 @@ globs:
 - **Morgantown H3 Google Calendar** -> GOOGLE_CALENDAR -> mh3-wv (Morgantown)
 - **Morgantown H3 Harrier Central** -> HARRIER_CENTRAL -> mh3-wv (Morgantown)
 
+## Arkansas (2 sources)
+- **Little Rock H3 Static Schedule (Sunday)** -> STATIC_SCHEDULE -> lrh3 (weekly Sunday 15:00, historic exception, FB-posted locations)
+- **Little Rock H3 Static Schedule (Wednesday)** -> STATIC_SCHEDULE -> lrh3 (weekly Wednesday 19:00, historic exception, FB-posted locations)
+
 ## Virginia (outside DC metro) (9 sources)
 - **Richmond H3 Google Calendar** -> GOOGLE_CALENDAR -> RH3 (Richmond)
 - **Richmond H3 Meetup** -> MEETUP -> RH3 (Richmond)
