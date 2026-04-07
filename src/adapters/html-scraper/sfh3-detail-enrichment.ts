@@ -13,7 +13,14 @@ import { safeFetch } from "../safe-fetch";
  * pipeline picks as canonical still has the enriched values.
  */
 
-const MAX_ENRICH_PER_SCRAPE = 30;
+// Cap sized to cover SFH3's full upcoming-event window (~110-140 events across
+// 13 kennels). The iCal SUMMARY never carries "Run #N", so every scrape rebuilds
+// RawEvents that all pass sfh3NeedsEnrichment() — a lower cap permanently starves
+// events beyond the window (the Aug 15 `26.2H3 Run #7` event, #492/#493, was
+// stuck because the first 30 by date were always the earliest upcoming ones).
+// Batched 5-parallel, 200 fetches ≈ 40 batches ≈ ~12s added to a scrape under
+// the 120s maxDuration ceiling.
+const MAX_ENRICH_PER_SCRAPE = 200;
 const BATCH_SIZE = 5;
 
 export interface SFH3Detail {
