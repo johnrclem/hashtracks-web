@@ -32,7 +32,7 @@ None. DB probe for regions matching Kentucky / KY / Louisville / Lexington / Bow
 - [x] HashRego `/events` live index grep — 0 KY slug matches
 - [x] Meetup — Louisville group 404
 - [x] Harrier Central — no KY kennels
-- [x] Chrome probe of all 4 alive-kennel websites (`lexingtonhah3.org`, `louisvillehashers.com`, `hellhoundh3.com`, `lickingvalleyh3.com`) — 2 live, 2 dead
+- [x] Chrome probe of all 4 discovered websites (lexingtonhah3.org, louisvillehashers.com, hellhoundh3.com, lickingvalleyh3.com) — 2 live, 2 dead
 - [x] Extracted HAH3 calendar ID from iframe, verified empty via Calendar API
 - [x] Louisville WordPress REST API probed — `/wp/v2/posts` has 1 post from 2021, `/wp/v2/pages` has only "Mismanagement" + "Regional Kennels"
 - [x] 15 Google Calendar ID variants tried across all 4 alive kennels — all HTTP 404 or 0 events
