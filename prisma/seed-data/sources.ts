@@ -2957,14 +2957,17 @@ export const SOURCES = [
       url: "pormeh3hashcash@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
-      scrapeFreq: "daily",
+      scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
         calendarId: "pormeh3hashcash@gmail.com",
         defaultKennelTag: "pormeh3",
         kennelPatterns: [
-          ["Knightvillain", "knightvillian"],
-          ["KV", "knightvillian"],
+          // Handles both spellings: correct "Knightvillian" (ian) and common misspelling "Knightvillain" (ain)
+          ["Knightvill(ian|ain)", "knightvillian"],
+          // Matches "KV", "KV484", "KV 478" but NOT "KVR", "Kevin", etc.
+          // (\bKV not followed by another letter)
+          ["\\bKV(?![A-Za-z])", "knightvillian"],
         ],
       },
       kennelCodes: ["pormeh3", "knightvillian"],
