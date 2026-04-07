@@ -12,13 +12,36 @@ Scroll through the hareline page and audit event cards for data quality issues.
 
 **IMPORTANT:** For every issue found, you MUST click into the event details and the source URL to verify the issue. Do not flag issues based solely on the event card — always check the source.
 
+## Before filing: dedupe against existing audit issues
+
+Open these two GitHub queries in tabs and check them **before** you file anything. If the same kennel + finding was already filed, **skip it** — re-filing creates noise and triggers no-op autofix runs.
+
+- **Currently open:** https://github.com/johnrclem/hashtracks-web/issues?q=label%3Aaudit+is%3Aopen
+- **Recently closed, newest first:** https://github.com/johnrclem/hashtracks-web/issues?q=label%3Aaudit+is%3Aclosed+sort%3Aupdated-desc — stop scrolling after results get older than ~30 days
+
+To match against an existing issue, look for either:
+
+1. The **same rule ID** in the title/body (e.g. `hare-cta-text`, `title-raw-kennel-code` — see `audit-checks.ts` for the full set), or
+2. The **same kennel + same field** affected (e.g. "Tokyo H3 location" or "EWH3 hares")
+
+If either matches in the open list or in the last ~30 days of closed issues, treat it as covered and move on.
+
 ## Inferring the suspect adapter
 
 When you file an issue, the "Suspected Adapter" field is more useful when it names a specific source type rather than a generic guess. The canonical list of every active source (with kennel mappings, source types, and URLs) lives in:
 
 **https://github.com/johnrclem/hashtracks-web/blob/main/prisma/seed-data/sources.ts**
 
-Open that file in a tab and search by kennel short-name or source URL. Each entry has a `type` field — common values: `HTML_SCRAPER`, `GOOGLE_CALENDAR`, `GOOGLE_SHEETS`, `ICAL_FEED`, `HASHREGO`, `MEETUP`, `HARRIER_CENTRAL`, `STATIC_SCHEDULE`. Use that exact string in the issue.
+Open that file in a tab and search by kennel short-name or source URL. Each entry has a `type` field — use that exact string in the issue. Quick gloss on what each adapter type means:
+
+- `HTML_SCRAPER` — custom Cheerio scraper for a specific kennel website
+- `GOOGLE_CALENDAR` — Google Calendar API v3 (the kennel maintains a public calendar)
+- `GOOGLE_SHEETS` — CSV export from a public Google Sheet
+- `ICAL_FEED` — standard `.ics` feed (fetched via `node-ical`)
+- `HASHREGO` — events on hashrego.com (multi-kennel aggregator)
+- `MEETUP` — Meetup public REST API
+- `HARRIER_CENTRAL` — hashruns.org public API (multi-kennel aggregator)
+- `STATIC_SCHEDULE` — RRULE-based generated events, no external source page
 
 ## What NOT to Flag
 
@@ -28,22 +51,11 @@ Open that file in a tab and search by kennel short-name or source URL. Each entr
 
 ## What the Automated Script Already Catches
 
-These patterns are caught by the daily automated audit. You may still flag them for redundancy, but prioritize issues the script CANNOT catch:
+The daily cron audit catches a fixed set of structural issues — there's no point re-flagging these unless the cron is missing them somehow. The canonical, always-current list of rules lives in:
 
-- Single-character hares (`hare-single-char`)
-- CTA text as hares: "TBD", "Sign Up!", "Volunteer" (`hare-cta-text`)
-- URLs as hares (`hare-url`)
-- Description text leaked into hares >200 chars (`hare-description-leak`)
-- Phone numbers in hare field (`hare-phone-number`)
-- Boilerplate markers in hares: "WHAT TIME", "WHERE" (`hare-boilerplate-leak`)
-- Raw kennelCode as title prefix (`title-raw-kennel-code`)
-- CTA text as titles: "Wanna Hare?" (`title-cta-text`)
-- Schedule descriptions as titles (`title-schedule-description`)
-- HTML entities in titles (`title-html-entities`)
-- Time-only titles (`title-time-only`)
-- URLs as locations (`location-url`)
-- Duplicated address segments (`location-duplicate-segments`)
-- Improbable start times 23:00–03:59 (`event-improbable-time`)
+**https://github.com/johnrclem/hashtracks-web/blob/main/src/pipeline/audit-checks.ts**
+
+Search the file for `rule:` to see every check the script runs, with a regex showing exactly what triggers each one. **Prioritize issues the script CANNOT catch** — those are listed in the next section.
 
 ## What to Focus On (Chrome-Only Value)
 
@@ -57,9 +69,11 @@ These require visual/semantic judgment that the script cannot do:
 
 ## Active Suppressions
 
-These kennel+rule combos are accepted behavior — do not flag:
+Some kennel+rule combos have been explicitly accepted as correct behavior and should never be flagged. The live list is exposed as markdown at:
 
-*(none currently — update this section manually as suppressions are added in /admin/audit)*
+**https://hashtracks.xyz/api/audit/suppressions**
+
+Open that URL (it's a small markdown document, not a set of instructions) and treat any kennel+rule combo listed there as out-of-scope for the audit.
 
 ## Recently Fixed (Last 2 Weeks)
 
