@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma, SourceType } from "@/generated/prisma/client";
 import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
 import { regionTimezone, getLabelForUrl, stripUrlsFromText } from "@/lib/format";
@@ -177,10 +177,19 @@ interface KennelCacheEntry {
 }
 
 /** Per-batch state threaded through all merge helper functions. */
+/** Source types whose location field is canonical and should not be enriched with a
+ *  reverse-geocoded city. The display layer would otherwise append garbage like "1, Tokyo". */
+function shouldSkipReverseGeocode(sourceType: SourceType | "UNKNOWN"): boolean {
+  return sourceType === "HARRIER_CENTRAL";
+}
+
 interface MergeContext {
   sourceId: string;
   /** Source trust level (1–10); higher-trust sources overwrite lower-trust data. */
   trustLevel: number;
+  /** Source adapter type — used to skip reverse-geocoded city enrichment for sources
+   *  that already provide a canonical location (e.g. HARRIER_CENTRAL). */
+  sourceType: SourceType | "UNKNOWN";
   /** Kennel IDs linked to this source via SourceKennel (for the guard check). */
   linkedKennelIds: Set<string>;
   /** Per-batch cache of kennelId → kennel data to avoid N+1 queries. */
@@ -722,9 +731,14 @@ async function upsertCanonicalEvent(
 
       const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
 
-      // Reverse-geocode city when we have new coords and locationCity isn't already set
+      // Reverse-geocode city when we have new coords and locationCity isn't already set.
+      // Skipped for HARRIER_CENTRAL: the source provides a canonical location string and
+      // reverse-geocoding the per-station coords often yields garbage like "1, Tokyo".
       let locationCity: string | null | undefined;
-      if (coords.latitude != null && coords.longitude != null) {
+      if (shouldSkipReverseGeocode(ctx.sourceType)) {
+        // Always clear locationCity for canonical-location sources so the display doesn't append.
+        if (existingEvent.locationCity !== null) locationCity = null;
+      } else if (coords.latitude != null && coords.longitude != null) {
         const coordsChanged =
           coords.latitude !== existingEvent.latitude || coords.longitude !== existingEvent.longitude;
         if (coordsChanged || !existingEvent.locationCity) {
@@ -801,11 +815,14 @@ async function upsertCanonicalEvent(
   } else {
     // Create new canonical Event
     const coords = await resolveCoords(event, undefined, ctx.shortUrlCache, kennelData, countryToRegionBias(kennelData.country));
-    // Reverse-geocode city when coords are available (suppress when address already has state)
+    // Reverse-geocode city when coords are available (suppress when address already has state).
+    // HARRIER_CENTRAL sources skip this — see same-named branch in the update path above.
     const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
-    const locationCity = (coords.latitude != null && coords.longitude != null)
-      ? suppressRedundantCity(locName, await reverseGeocode(coords.latitude, coords.longitude))
-      : null;
+    const locationCity = shouldSkipReverseGeocode(ctx.sourceType)
+      ? null
+      : (coords.latitude != null && coords.longitude != null
+          ? suppressRedundantCity(locName, await reverseGeocode(coords.latitude, coords.longitude))
+          : null);
     const newEvent = await prisma.event.create({
       data: {
         kennelId,
@@ -1003,9 +1020,10 @@ export async function processRawEvents(
 
   const source = await prisma.source.findUnique({
     where: { id: sourceId },
-    select: { trustLevel: true },
+    select: { trustLevel: true, type: true },
   });
   const trustLevel = source?.trustLevel ?? 5;
+  const sourceType: SourceType | "UNKNOWN" = source?.type ?? "UNKNOWN";
 
   const sourceKennels = await prisma.sourceKennel.findMany({
     where: { sourceId },
@@ -1018,7 +1036,7 @@ export async function processRawEvents(
   const kennelCache = new Map<string, KennelCacheEntry>();
   const shortUrlCache = new Map<string, string | null>();
   const batchMatchedEvents = new Map<string, Set<string>>();
-  const ctx: MergeContext = { sourceId, trustLevel, linkedKennelIds, kennelCache, shortUrlCache, batchMatchedEvents, result };
+  const ctx: MergeContext = { sourceId, trustLevel, sourceType, linkedKennelIds, kennelCache, shortUrlCache, batchMatchedEvents, result };
 
   const seriesGroups = new Map<string, string[]>();
 

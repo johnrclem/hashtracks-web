@@ -54,7 +54,7 @@ const mockFingerprint = vi.mocked(generateFingerprint);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockSourceFind.mockResolvedValue({ trustLevel: 5 } as never);
+  mockSourceFind.mockResolvedValue({ trustLevel: 5, type: "HTML_SCRAPER" } as never);
   mockSourceKennelFind.mockResolvedValue([{ kennelId: "kennel_1" }] as never);
   mockRawEventCreate.mockResolvedValue({ id: "raw_1" } as never);
   mockRawEventUpdate.mockResolvedValue({} as never);
@@ -181,6 +181,23 @@ describe("processRawEvents", () => {
     expect(mockRawEventUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ processed: true, eventId: "evt_existing" }),
+      }),
+    );
+  });
+
+  it("never writes locationCity for HARRIER_CENTRAL sources (issue #471)", async () => {
+    mockSourceFind.mockResolvedValue({ trustLevel: 5, type: "HARRIER_CENTRAL" } as never);
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ location: "Sobu line, West exit", kennelTag: "tokyo-h3" }),
+    ]);
+
+    expect(mockEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ locationCity: null }),
       }),
     );
   });
