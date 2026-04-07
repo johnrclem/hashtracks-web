@@ -9,7 +9,6 @@ import type {
 import { hasAnyErrors } from "../types";
 import {
   buildDateWindow,
-  compilePatterns,
   decodeEntities,
   MONTHS,
   stripPlaceholder,
@@ -51,7 +50,7 @@ function matchKennelTag(
  * Returns null on unknown formats.
  */
 export function parseIndyDate(raw: string): string | null {
-  const cleaned = raw.replace(/\u00a0/g, " ").trim();
+  const cleaned = raw.replaceAll("\u00a0", " ").trim();
   // Pattern: "Friday, April 10, 2026" — day-of-week optional
   const m = /([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})/.exec(cleaned);
   if (!m) return null;
@@ -103,7 +102,10 @@ export function parseIndyCard(
     $card.find("div").each((_i, el) => {
       const text = $(el).text().trim();
       const match = labelRegex.exec(text);
-      if (match?.[1]) value = match[1].trim();
+      if (match?.[1]) {
+        value = match[1].trim();
+        return false; // stop on first match
+      }
     });
     return value;
   };
@@ -182,7 +184,7 @@ export class IndyH3Adapter implements SourceAdapter {
       return { events: [], errors: [msg], errorDetails };
     }
 
-    const html = json?.content?.rendered ?? "";
+    const html = json.content?.rendered ?? "";
     if (!html) {
       errors.push("Empty content.rendered from WordPress page");
       return { events: [], errors };
@@ -191,9 +193,18 @@ export class IndyH3Adapter implements SourceAdapter {
     const structureHash = generateStructureHash(html);
     const $ = cheerio.load(html);
 
-    const compiled: [RegExp, string][] = compilePatterns(
-      (config.kennelPatterns ?? []).map(([p]) => p),
-    ).map((re, i) => [re, config.kennelPatterns![i][1]]);
+    // Zip-safe compile: keep each pattern paired with its tag even if some
+    // regexes are malformed. Using compilePatterns() + index mapping risks
+    // desync when a pattern fails to compile.
+    const compiled: [RegExp, string][] = (config.kennelPatterns ?? []).flatMap(
+      ([pattern, tag]) => {
+        try {
+          return [[new RegExp(pattern, "im"), tag] as [RegExp, string]];
+        } catch {
+          return [];
+        }
+      },
+    );
 
     const { minDate, maxDate } = buildDateWindow(options?.days ?? 180);
 
