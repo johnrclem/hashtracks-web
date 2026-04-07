@@ -2720,7 +2720,7 @@ export const SOURCES = [
     },
     {
       name: "Morgantown H3 Harrier Central",
-      url: "https://www.hashruns.org/#/kennels/MH3-US",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
       type: "HARRIER_CENTRAL" as const,
       trustLevel: 8,
       scrapeFreq: "daily",

@@ -199,8 +199,8 @@ globs:
 - **Choo-Choo H3 Website** -> HTML_SCRAPER (via fetchTribeEvents utility, The Events Calendar REST API) -> choochooh3 (Chattanooga)
 
 ## West Virginia (2 sources)
-- **Morgantown H3 Google Calendar** -> GOOGLE_CALENDAR -> mh3-wv (Morgantown, primary, ~17 events)
-- **Morgantown H3 Harrier Central** -> HARRIER_CENTRAL -> mh3-wv (secondary, registration-required events)
+- **Morgantown H3 Google Calendar** -> GOOGLE_CALENDAR -> mh3-wv (Morgantown)
+- **Morgantown H3 Harrier Central** -> HARRIER_CENTRAL -> mh3-wv (Morgantown)
 
 ## Virginia (outside DC metro) (9 sources)
 - **Richmond H3 Google Calendar** -> GOOGLE_CALENDAR -> RH3 (Richmond)

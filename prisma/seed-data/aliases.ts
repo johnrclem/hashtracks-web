@@ -402,7 +402,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "thicch3": ["THICC", "THICC H3", "THICC Hash", "THICC HHH"],
 
     // ===== WEST VIRGINIA =====
-    "mh3-wv": ["MH3-US", "Morgantown H3", "Morgantown Hash", "Morgantown HHH", "MH3 Morgantown", "Mountaineer H3"],
+    "mh3-wv": ["MH3-US", "Morgantown H3", "Morgantown Hash", "Morgantown HHH", "MH3 Morgantown", "Mountaineer H3", "Morgantown Full Moon H3", "Morgantown Full Moon"],
 
     // ===== CANADA =====
     // Quebec
