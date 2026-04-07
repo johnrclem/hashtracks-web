@@ -1869,6 +1869,41 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -85.86,
     aliases: ["Enterprise"],
   },
+  // ── Indiana ──
+  {
+    name: "Indiana",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Indiana/Indianapolis",
+    abbrev: "IN",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#eab308",
+    centroidLat: 39.77,
+    centroidLng: -86.15,
+    aliases: ["IN"],
+  },
+  {
+    name: "Indianapolis, IN",
+    country: "USA",
+    timezone: "America/Indiana/Indianapolis",
+    abbrev: "IND",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#facc15",
+    centroidLat: 39.77,
+    centroidLng: -86.15,
+    aliases: ["Indianapolis", "Indy"],
+  },
+  {
+    name: "Bloomington, IN",
+    country: "USA",
+    timezone: "America/Indiana/Indianapolis",
+    abbrev: "BTN",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#facc15",
+    centroidLat: 39.17,
+    centroidLng: -86.53,
+    aliases: ["Bloomington"],
+  },
   // ── Canada ──
   {
     name: "Canada",
@@ -2461,6 +2496,9 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Mobile, AL": "Alabama",
   "Birmingham, AL": "Alabama",
   "Enterprise, AL": "Alabama",
+  // Indiana
+  "Indianapolis, IN": "Indiana",
+  "Bloomington, IN": "Indiana",
   // Canada
   "Montreal, QC": "Quebec",
   "Ottawa, ON": "Ontario",
@@ -2564,6 +2602,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Wisconsin": "United States",
   "New Mexico": "United States",
   "Alabama": "United States",
+  "Indiana": "United States",
   // Canada
   "Alberta": "Canada",
   "Ontario": "Canada",

@@ -61,6 +61,8 @@ import { Hayama4HAdapter } from "./html-scraper/hayama-4h";
 import { Oh3OttawaAdapter } from "./html-scraper/oh3-ottawa";
 import { CalgaryH3HomeAdapter } from "./html-scraper/calgary-h3-home";
 import { CalgaryH3ScribeAdapter } from "./html-scraper/calgary-h3-scribe";
+import { Bfh3Adapter } from "./html-scraper/bfh3";
+import { IndyH3Adapter } from "./html-scraper/indyh3";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -149,6 +151,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /docs\.google\.com\/document\/d\/1jGyBUKxOYkxrZg8WVfpBYDP84fbacanoX_TJuyCmtAI/i, name: "Oh3OttawaAdapter", factory: () => new Oh3OttawaAdapter() },
   { pattern: /home\.onon\.org/i, name: "CalgaryH3HomeAdapter", factory: () => new CalgaryH3HomeAdapter() },
   { pattern: /scribe\.onon\.org/i, name: "CalgaryH3ScribeAdapter", factory: () => new CalgaryH3ScribeAdapter() },
+  { pattern: /bfh3\.com/i, name: "Bfh3Adapter", factory: () => new Bfh3Adapter() },
+  { pattern: /indyhhh\.com/i, name: "IndyH3Adapter", factory: () => new IndyH3Adapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

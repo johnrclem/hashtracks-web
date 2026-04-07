@@ -2629,5 +2629,36 @@ export const KENNELS: KennelSeed[] = [
       description: "Portland's weekly Thursday-night hash out of the Knightville neighborhood in South Portland. If the night's long enough and the beer's cold enough, the name starts looking like 'Knightvillain' — and nobody's arguing.",
       latitude: 43.64, longitude: -70.24,
     },
+
+    // ── Indiana ──
+    {
+      kennelCode: "bfh3", shortName: "Blooming Fools H3", fullName: "Blooming Fools Hash House Harriers",
+      region: "Bloomington, IN",
+      website: "https://bfh3.com",
+      scheduleDayOfWeek: "Saturday",
+      scheduleFrequency: "Biweekly",
+      scheduleNotes: "Every other Saturday at 4 PM in summer / 3 PM in winter, plus full moon evenings at 7 PM. First hash is free; $7 after (or $20 for 3).",
+      description: "Bloomington, Indiana's walker-and-runner friendly kennel. 2-to-5 mile trails with beer at the end. Adults 21+ only.",
+      latitude: 39.17, longitude: -86.53,
+    },
+    {
+      kennelCode: "indyh3", shortName: "IndyScent H3", fullName: "IndyScent Hash House Harriers",
+      region: "Indianapolis, IN",
+      website: "https://indyhhh.com",
+      scheduleDayOfWeek: "Saturday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "1st Wednesday 7 PM, 2nd Friday 7 PM, 4th Saturday 3 PM. Watch the Upcumming Hashes page for the current trail.",
+      description: "Indianapolis' main hash kennel. Multiple trails a month across the city, plus the annual IndyScent Camp Out.",
+      latitude: 39.77, longitude: -86.15,
+    },
+    {
+      kennelCode: "thicch3", shortName: "THICC H3", fullName: "THICC Hash House Harriers",
+      region: "Indianapolis, IN",
+      scheduleDayOfWeek: "Tuesday",
+      scheduleFrequency: "Monthly",
+      scheduleNotes: "3rd Tuesday at 7 PM. Monthly full-moon-adjacent trails, often co-listed on the IndyScent Upcumming Hashes page.",
+      description: "Indianapolis' cheeky monthly hash. Shares the Indy scene's late-night energy and occasionally crosses trails with IndyScent.",
+      latitude: 39.77, longitude: -86.15,
+    },
   ];
 
