@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { prisma } from "@/lib/db";
 import {
   getAuditTrends,
@@ -10,6 +12,19 @@ import {
 import { KNOWN_AUDIT_RULES } from "@/pipeline/audit-checks";
 import { AuditDashboard } from "@/components/admin/AuditDashboard";
 
+/** Load the daily hareline audit prompt from the markdown file at the repo root.
+ *  Read at request time so edits to the doc reflect on next refresh without a redeploy.
+ *  Returns null on failure (file missing, permissions) so the dashboard can hide the
+ *  copy button rather than render an empty string. Errors are logged for visibility. */
+async function loadHarelinePrompt(): Promise<string | null> {
+  try {
+    return await readFile(path.join(process.cwd(), "docs/audit-chrome-prompt.md"), "utf-8");
+  } catch (err) {
+    console.warn("[admin/audit] failed to load hareline prompt:", err);
+    return null;
+  }
+}
+
 const EMPTY_COVERAGE = { audited: 0, total: 0, percent: 0, projectedFullCycleDate: null };
 
 export default async function AuditPage() {
@@ -21,6 +36,7 @@ export default async function AuditPage() {
     kennels,
     deepDiveQueueResult,
     deepDiveCoverageResult,
+    harelinePrompt,
   ] = await Promise.all([
     getAuditTrends().catch(() => []),
     getTopOffenders().catch(() => []),
@@ -32,6 +48,7 @@ export default async function AuditPage() {
     }),
     getDeepDiveQueue().catch(() => []),
     getDeepDiveCoverage().catch(() => EMPTY_COVERAGE),
+    loadHarelinePrompt(),
   ]);
 
   return (
@@ -44,6 +61,7 @@ export default async function AuditPage() {
       knownRules={[...KNOWN_AUDIT_RULES]}
       deepDiveQueue={deepDiveQueueResult}
       deepDiveCoverage={deepDiveCoverageResult}
+      harelinePrompt={harelinePrompt}
     />
   );
 }

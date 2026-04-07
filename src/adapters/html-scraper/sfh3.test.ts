@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { parseSFH3Date, extractLocationUrl, parseHarelineRows } from "./sfh3";
+import { parseSFH3Date, extractLocationUrl, parseHarelineRows, parseSFH3DetailPage } from "./sfh3";
 import { SFH3Adapter } from "./sfh3";
 
 describe("parseSFH3Date", () => {
@@ -205,9 +205,15 @@ describe("SFH3Adapter.fetch", () => {
   ];
 
   it("parses sample HTML and returns events", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(SAMPLE_HTML, { status: 200 }),
-    );
+    // Mock the hareline fetch + the detail-page enrichment fetches (empty body so
+    // parseSFH3DetailPage returns nothing and event titles aren't overridden).
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/runs/")) {
+        return new Response("<html></html>", { status: 200 });
+      }
+      return new Response(SAMPLE_HTML, { status: 200 });
+    });
 
     const adapter = new SFH3Adapter();
     const result = await adapter.fetch({
@@ -431,5 +437,94 @@ describe("SFH3Adapter.fetch", () => {
     expect(result.errorDetails?.fetch?.[0].status).toBe(404);
 
     vi.restoreAllMocks();
+  });
+
+  it("propagates detail-page enrichment failures into errors + errorDetails (#502 codex review)", async () => {
+    // SAMPLE_HTML rows are dated 2026-03-03..2026-03-13; pin "now" before those dates so
+    // the enrichment "future-only" filter doesn't drop them.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-01T00:00:00Z"));
+
+    // Hareline fetch returns valid HTML; detail-page fetches all 500.
+    // Events should still be returned (best-effort enrichment), but failures must
+    // surface through ScrapeResult so health monitoring can alert.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (/\/runs\/\d+/.test(url)) {
+        return new Response("Server error", { status: 500, statusText: "Internal Server Error" });
+      }
+      return new Response(SAMPLE_HTML, { status: 200 });
+    });
+
+    const adapter = new SFH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://www.sfh3.com/runs?kennels=all",
+      config: { kennelPatterns: KENNEL_PATTERNS, defaultKennelTag: "sfh3" },
+    } as never);
+
+    // Hareline parse succeeded — enrichment is best-effort
+    expect(result.events.length).toBeGreaterThan(0);
+    // Enrichment failures surfaced through structured error channels
+    expect(result.errors.some((e) => e.startsWith("enrichment:"))).toBe(true);
+    expect(result.errorDetails?.fetch?.length).toBeGreaterThan(0);
+    // The fetch entry has the real per-event detail URL, not a sentinel string
+    const fetchEntry = result.errorDetails?.fetch?.find((f) => f.url?.includes("/runs/"));
+    expect(fetchEntry).toBeDefined();
+    expect(fetchEntry?.message).toContain("HTTP 500");
+    // Diagnostic counters are populated
+    expect(result.diagnosticContext?.enrichmentFailures).toBeGreaterThan(0);
+
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+});
+
+describe("parseSFH3DetailPage", () => {
+  it("extracts title from JSON-LD Event block (#493)", () => {
+    const html = `
+      <html><head>
+        <title>SFH3 - 26.2H3 Run #7</title>
+        <script type="application/ld+json">
+          {"@context":"https://schema.org","@type":"Event","name":"26.2H3 Run #7","startDate":"2026-08-15T10:00:00-07:00"}
+        </script>
+      </head><body></body></html>
+    `;
+    const result = parseSFH3DetailPage(html);
+    expect(result.title).toBe("26.2H3 Run #7");
+  });
+
+  it("falls back to <title> tag when JSON-LD is missing", () => {
+    const html = `<html><head><title>SFH3\n\t- 26.2H3 Run #7</title></head></html>`;
+    const result = parseSFH3DetailPage(html);
+    expect(result.title).toBe("26.2H3 Run #7");
+  });
+
+  it("extracts Comment field text (#492)", () => {
+    const html = `
+      <html><body>
+        <div class="run-key run_label"><label for="run_comment">Comment</label>:</div>
+        <div class="run_content">You do not want to miss this event.&nbsp; A guaranteed life-changing experience.</div>
+      </body></html>
+    `;
+    const result = parseSFH3DetailPage(html);
+    expect(result.comment).toBe("You do not want to miss this event. A guaranteed life-changing experience.");
+  });
+
+  it("returns undefined comment when not present", () => {
+    const html = `<html><body><h1>Other content</h1></body></html>`;
+    const result = parseSFH3DetailPage(html);
+    expect(result.comment).toBeUndefined();
+  });
+
+  it("ignores malformed JSON-LD blocks gracefully", () => {
+    const html = `
+      <html><head>
+        <title>SFH3 - 26.2H3 Run #8</title>
+        <script type="application/ld+json">{not valid json</script>
+      </head></html>
+    `;
+    const result = parseSFH3DetailPage(html);
+    expect(result.title).toBe("26.2H3 Run #8");
   });
 });

@@ -9,7 +9,8 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, chronoParseDate, parse12HourTime } from "../utils";
+import { fetchHTMLPage, chronoParseDate, parse12HourTime, decodeEntities, stripHtmlTags, appendDescriptionSuffix } from "../utils";
+import { safeFetch } from "../safe-fetch";
 import { parseICalSummary } from "../ical/adapter";
 
 /** Config shape — reuses same kennelPatterns/skipPatterns as iCal adapter */
@@ -245,6 +246,18 @@ export class SFH3Adapter implements SourceAdapter {
       }
     }
 
+    // Enrich upcoming events with detail-page Comment field and "Run #N" title format (#492/#493).
+    // Best-effort — Promise.allSettled handles per-fetch failures internally, but we still
+    // surface the failures through the structured ScrapeResult so health monitoring can alert.
+    const enrichResult = await enrichSFH3Events(events);
+    if (enrichResult.failures.length > 0) {
+      errorDetails.fetch ??= [];
+      for (const failure of enrichResult.failures) {
+        errors.push(`enrichment: ${failure.message}`);
+        errorDetails.fetch.push({ url: failure.url, message: failure.message });
+      }
+    }
+
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
     return {
@@ -256,8 +269,147 @@ export class SFH3Adapter implements SourceAdapter {
         rowsFound: rows.length,
         eventsParsed: events.length,
         skippedPattern,
+        enrichmentEnriched: enrichResult.enriched,
+        enrichmentFailures: enrichResult.failures.length,
         fetchDurationMs,
       },
     };
   }
+}
+
+// ── Detail-page enrichment ──────────────────────────────────────────
+
+const MAX_ENRICH_PER_SCRAPE = 30;
+
+interface SFH3Detail {
+  title?: string;
+  comment?: string;
+}
+
+/** Parse a SFH3 run detail page. Returns the canonical run name and Comment text if present. */
+export function parseSFH3DetailPage(html: string): SFH3Detail {
+  const $ = cheerio.load(html);
+
+  // Title comes from the JSON-LD Event block (structured, includes "Run #N").
+  // Fallback: <title> tag, format "SFH3\n\t- 26.2H3 Run #7" → strip the "SFH3 -" prefix.
+  let title: string | undefined;
+  $('script[type="application/ld+json"]').each((_i, el) => {
+    if (title) return;
+    try {
+      const data = JSON.parse($(el).text()) as { "@type"?: string; name?: string };
+      if (data["@type"] === "Event" && typeof data.name === "string" && data.name.trim()) {
+        title = data.name.trim();
+      }
+    } catch {
+      // Ignore malformed JSON-LD blocks
+    }
+  });
+  if (!title) {
+    // Fallback: <title> tag, format "SFH3 - 26.2H3 Run #7" → strip the "SFH3 - " prefix.
+    // Use indexOf instead of a regex to avoid the greedy-capture ReDoS pattern flagged
+    // by static analysis (and to make the intent obvious).
+    const tagText = $("title").first().text().replaceAll(/\s+/g, " ").trim();
+    const dashIdx = tagText.indexOf(" - ");
+    if (dashIdx >= 0 && tagText.slice(0, dashIdx).trim().toUpperCase() === "SFH3") {
+      title = tagText.slice(dashIdx + 3).trim();
+    }
+  }
+
+  // Comment is in a div following the run_comment label.
+  // Structure: <label for="run_comment">Comment</label>: … <div class="run_content">Value</div>
+  let comment: string | undefined;
+  const commentLabel = $('label[for="run_comment"]').first();
+  if (commentLabel.length > 0) {
+    const contentDiv = commentLabel.closest(".run-key, .run_label").nextAll(".run_content").first();
+    const text = decodeEntities(stripHtmlTags(contentDiv.html() ?? "")).replaceAll(/\s+/g, " ").trim();
+    if (text) comment = text;
+  }
+
+  return { title, comment };
+}
+
+/** True if the event still needs detail-page enrichment (missing Comment or "Run #N" title). */
+function sfh3NeedsEnrichment(event: RawEventData): boolean {
+  if (!event.sourceUrl || !/sfh3\.com\/runs\/\d+/.test(event.sourceUrl)) return false;
+  const titleHasRun = !!event.title && /\bRun\s*#\d+/i.test(event.title);
+  const descHasComment = !!event.description && /\bComment\s*:/i.test(event.description);
+  return !titleHasRun || !descHasComment;
+}
+
+/**
+ * Fetch the run detail page for upcoming events that still need enrichment, and update
+ * title + description in place. Best-effort, capped at MAX_ENRICH_PER_SCRAPE per scrape.
+ * Skips events that are already enriched (steady state → 0 fetches). Mirrors the SDH3/Frankfurt
+ * detail-page enrichment pattern.
+ */
+export interface SFH3EnrichFailure {
+  url: string;
+  message: string;
+}
+
+type EnrichableEvent = RawEventData & { sourceUrl: string };
+
+/** Apply detail-page extracted fields to an event in place. Returns true if anything changed. */
+function applyDetailToEvent(event: EnrichableEvent, detail: SFH3Detail): boolean {
+  let touched = false;
+  if (detail.title && detail.title !== event.title) {
+    event.title = detail.title;
+    touched = true;
+  }
+  if (detail.comment && !/\bComment\s*:/i.test(event.description ?? "")) {
+    event.description = appendDescriptionSuffix(event.description, `Comment: ${detail.comment}`);
+    touched = true;
+  }
+  return touched;
+}
+
+/** Fetch one detail page; throws on non-2xx so Promise.allSettled records it as a failure. */
+async function fetchSFH3DetailPage(event: EnrichableEvent): Promise<{ html: string; event: EnrichableEvent }> {
+  const response = await safeFetch(event.sourceUrl, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} for ${event.sourceUrl}`);
+  }
+  return { html: await response.text(), event };
+}
+
+export async function enrichSFH3Events(
+  events: RawEventData[],
+): Promise<{ enriched: number; failures: SFH3EnrichFailure[] }> {
+  // sfh3NeedsEnrichment guarantees a non-null sourceUrl; the type predicate carries that
+  // through the .filter() so we can use event.sourceUrl below without a non-null assertion.
+  const isEnrichable = (e: RawEventData): e is EnrichableEvent => sfh3NeedsEnrichment(e);
+
+  // Use a 24h buffer so events still happening "today" in any local timezone aren't dropped
+  // when UTC has already rolled over to tomorrow.
+  const todayIso = new Date(Date.now() - 86_400_000).toISOString().split("T")[0];
+  const toEnrich = events
+    .filter((e) => e.date >= todayIso)
+    .filter(isEnrichable)
+    // Sort by date ascending so the per-scrape cap always favors the soonest events
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, MAX_ENRICH_PER_SCRAPE);
+  if (toEnrich.length === 0) return { enriched: 0, failures: [] };
+
+  const failures: SFH3EnrichFailure[] = [];
+  let enriched = 0;
+
+  const BATCH_SIZE = 5;
+  for (let b = 0; b < toEnrich.length; b += BATCH_SIZE) {
+    const batch = toEnrich.slice(b, b + BATCH_SIZE);
+    const results = await Promise.allSettled(batch.map(fetchSFH3DetailPage));
+
+    // Pair rejected promises with their originating event URL for structured error reporting
+    for (const [i, result] of results.entries()) {
+      if (result.status === "rejected") {
+        failures.push({ url: batch[i].sourceUrl, message: String(result.reason) });
+        continue;
+      }
+      const { html, event } = result.value;
+      if (applyDetailToEvent(event, parseSFH3DetailPage(html))) enriched++;
+    }
+  }
+
+  return { enriched, failures };
 }
