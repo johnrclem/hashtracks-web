@@ -2704,6 +2704,34 @@ export const SOURCES = [
       kennelCodes: ["choochooh3"],
     },
 
+    // ===== WEST VIRGINIA =====
+    {
+      name: "Morgantown H3 Google Calendar",
+      url: "morgantownh3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "every_6h",
+      scrapeDays: 365,
+      config: {
+        calendarId: "morgantownh3@gmail.com",
+        defaultKennelTag: "mh3-wv",
+      },
+      kennelCodes: ["mh3-wv"],
+    },
+    {
+      name: "Morgantown H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        kennelUniqueShortName: "MH3-US",
+        defaultKennelTag: "mh3-wv",
+      },
+      kennelCodes: ["mh3-wv"],
+    },
+
     // ===== MISSOURI =====
 
     // ===== KANSAS =====

@@ -86,8 +86,14 @@ async function ensureRegionRecords(prisma: any) {
     console.log(`  ✓ ${parentLinked} regions linked to parent countries`);
   }
 
-  // Set state-level parent relationships: metros under their state-province
+  // Set state-level parent relationships: metros under their state-province.
+  // Every STATE_PROVINCE region with metros should be listed here so the DB
+  // tree (admin region browser, hierarchical queries) reflects geography.
+  // Note: STATE_GROUP_MAP in src/lib/region.ts is a separate UI grouping for
+  // the kennel directory and is allowed to differ (e.g. Northern Virginia is
+  // a "D.C. Metro" group entry but lives under Virginia in the DB tree).
   const stateMetroLinks: Record<string, string[]> = {
+    // ── US East Coast ──
     "New York": [
       "New York City, NY", "Long Island, NY", "Syracuse, NY",
       "Capital District, NY", "Ithaca, NY", "Rochester, NY", "Buffalo, NY",
@@ -97,26 +103,68 @@ async function ensureRegionRecords(prisma: any) {
       "Lehigh Valley, PA", "Reading, PA", "Harrisburg, PA",
     ],
     "Delaware": ["Wilmington, DE"],
+    "Maryland": ["Baltimore, MD", "Frederick, MD", "Southern Maryland"],
     "Virginia": [
       "Northern Virginia", "Fredericksburg, VA", "Richmond, VA",
       "Hampton Roads, VA", "Charlottesville, VA", "Lynchburg, VA",
     ],
+    "West Virginia": ["Jefferson County, WV", "Morgantown, WV"],
     "North Carolina": [
       "Raleigh, NC", "Charlotte, NC", "Asheville, NC",
       "Wilmington, NC", "Fayetteville, NC",
     ],
+    "South Carolina": [
+      "Charleston, SC", "Columbia, SC", "Greenville, SC", "Myrtle Beach, SC",
+    ],
+    // ── New England ──
+    "Massachusetts": ["Boston, MA", "Pioneer Valley, MA"],
+    "Maine": ["Portland, ME"],
+    // ── US Southeast ──
+    "Florida": [
+      "Miami, FL", "Tampa Bay, FL", "Orlando, FL", "Jacksonville, FL",
+      "Daytona Beach, FL", "Tallahassee, FL", "Florida Keys", "Florida Panhandle",
+    ],
+    "Georgia": [
+      "Atlanta, GA", "Savannah, GA", "Augusta, GA", "Macon, GA",
+      "Columbus, GA", "Rome, GA",
+    ],
+    "Alabama": ["Mobile, AL", "Birmingham, AL", "Enterprise, AL"],
+    "Tennessee": ["Nashville, TN", "Memphis, TN", "Chattanooga, TN"],
+    "Louisiana": ["New Orleans, LA"],
+    // ── US Midwest ──
     "Ohio": [
       "Columbus, OH", "Cincinnati, OH", "Dayton, OH",
       "Cleveland, OH", "Akron, OH",
     ],
-    "Washington": ["Seattle, WA", "Tacoma, WA", "Olympia, WA", "Bremerton, WA"],
-    "Colorado": ["Denver, CO", "Boulder, CO", "Fort Collins, CO", "Colorado Springs, CO"],
-    "Minnesota": ["Minneapolis, MN"],
+    "Illinois": ["Chicago, IL"],
+    "Indiana": ["South Shore, IN", "Indianapolis, IN", "Bloomington, IN"],
     "Michigan": ["Detroit, MI", "Lansing, MI"],
+    "Minnesota": ["Minneapolis, MN"],
+    "Wisconsin": ["Madison, WI", "Milwaukee, WI"],
+    "Missouri": ["Kansas City, MO", "St. Louis, MO"],
+    "Kansas": ["Wichita, KS", "Lawrence, KS"],
+    // ── US South Central / West ──
+    "Texas": [
+      "Austin, TX", "Houston, TX", "Dallas-Fort Worth, TX",
+      "San Antonio, TX", "Corpus Christi, TX", "El Paso",
+    ],
+    "New Mexico": ["Albuquerque, NM"],
     "Arizona": ["Phoenix, AZ", "Tucson, AZ"],
-    "Hawaii": ["Honolulu, HI"],
+    "Colorado": ["Denver, CO", "Boulder, CO", "Fort Collins, CO", "Colorado Springs, CO"],
+    // ── US West Coast ──
+    "Washington": ["Seattle, WA", "Tacoma, WA", "Olympia, WA", "Bremerton, WA"],
     "Oregon": ["Portland, OR", "Salem, OR", "Eugene, OR", "Bend, OR"],
-    "California": ["San Francisco, CA", "Oakland, CA", "San Jose, CA", "Marin County, CA", "San Diego, CA", "Santa Cruz, CA", "Los Angeles, CA", "Long Beach, CA", "Orange County, CA", "San Luis Obispo, CA"],
+    "California": [
+      "San Francisco, CA", "Oakland, CA", "San Jose, CA", "Marin County, CA",
+      "San Diego, CA", "Santa Cruz, CA", "Los Angeles, CA", "Long Beach, CA",
+      "Orange County, CA", "San Luis Obispo, CA",
+    ],
+    "Hawaii": ["Honolulu, HI"],
+    // ── Canada ──
+    "Quebec": ["Montreal, QC"],
+    "Ontario": ["Ottawa, ON", "Toronto, ON"],
+    "Alberta": ["Calgary, AB", "Edmonton, AB"],
+    // ── UK ──
     "Scotland": ["Edinburgh", "Glasgow"],
   };
 
