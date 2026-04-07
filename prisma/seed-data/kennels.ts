@@ -311,7 +311,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "4x2h4", shortName: "4X2H4", fullName: "4x2 Hash House Harriers and Harriettes", region: "Chicago, IL",
-      website: "https://www.4x2h4.org",
+      // website: 4x2h4.org is dead (curl exit 28). FB group is the active channel.
       facebookUrl: "https://www.facebook.com/groups/833761823403207",
       scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "1st Tuesday. $2 hash cash, 4 miles, 2 beers.", hashCash: "$2",
