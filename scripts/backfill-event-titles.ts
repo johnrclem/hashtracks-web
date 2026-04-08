@@ -9,13 +9,13 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
-import pg from "pg";
 import { friendlyKennelName } from "../src/pipeline/merge";
+import { createScriptPool } from "./lib/db-pool";
 
 const dryRun = !process.argv.includes("--apply");
 
 async function main() {
-  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  const pool = createScriptPool();
   const adapter = new PrismaPg(pool);
   const prisma = new PrismaClient({ adapter } as never);
 

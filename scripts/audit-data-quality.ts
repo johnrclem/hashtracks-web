@@ -9,8 +9,8 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
-import pg from "pg";
 import { spawnSync } from "node:child_process";
+import { createScriptPool } from "./lib/db-pool";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -49,7 +49,7 @@ function postGitHubIssue(findings: AuditFinding[]): void {
 }
 
 async function main() {
-  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  const pool = createScriptPool();
   const adapter = new PrismaPg(pool);
   const prisma = new PrismaClient({ adapter } as never);
 

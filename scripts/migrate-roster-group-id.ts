@@ -14,12 +14,9 @@
  * Usage: npx tsx scripts/migrate-roster-group-id.ts
  */
 import "dotenv/config";
-import pg from "pg";
+import { createScriptPool } from "./lib/db-pool";
 
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
+const pool = createScriptPool();
 
 function cuid(): string {
   // Simple cuid-like ID generator for migration purposes

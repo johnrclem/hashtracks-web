@@ -21,7 +21,7 @@
 
 import { PrismaClient, type Prisma } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
+import { createScriptPool } from "./lib/db-pool";
 import {
   fetchSeletarRows,
   groupSeletarRows,
@@ -71,16 +71,7 @@ async function main() {
     return;
   }
 
-  // Default to strict TLS validation. Railway's public PG proxy uses a
-  // self-signed cert during local dev, so operators can set
-  // BACKFILL_ALLOW_SELF_SIGNED_CERT=1 to opt into the relaxed check —
-  // explicit opt-in rather than a silent NODE_ENV branch so the insecure
-  // mode is never accidentally active in production.
-  const allowSelfSigned = process.env.BACKFILL_ALLOW_SELF_SIGNED_CERT === "1";
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: !allowSelfSigned },
-  });
+  const pool = createScriptPool();
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   const kennel = await prisma.kennel.findUnique({ where: { kennelCode: KENNEL_CODE } });
