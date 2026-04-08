@@ -3112,6 +3112,13 @@ export const SOURCES = [
       config: {
         calendarId: "j19gg5vekabk94i8sn3pe892gk@group.calendar.google.com",
         defaultKennelTag: "abqh3",
+        // ABQ enters their Tuesday "CLiT" events as all-day calendar entries,
+        // not as 6pm timed events. Opt into all-day ingestion AND set a
+        // defaultStartTime so those events render as 6pm runs instead of
+        // all-day/noon blocks. Saturday + Full Moon Wed events already carry
+        // a proper `dateTime` and bypass this fallback. See #536.
+        includeAllDayEvents: true,
+        defaultStartTime: "18:00",
       },
       kennelCodes: ["abqh3"],
     },

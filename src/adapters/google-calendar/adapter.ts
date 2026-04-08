@@ -371,6 +371,7 @@ interface CalendarSourceConfig {
   titleHarePattern?: string;            // regex to extract hare names from summary when description has none
   descriptionSuffix?: string;           // appended to every event description
   includeAllDayEvents?: boolean;        // if true, don't skip all-day events (some calendars use them for real runs)
+  defaultStartTime?: string;            // "HH:MM" fallback when neither the calendar item nor the description yields a start time (paired with includeAllDayEvents)
   defaultTitle?: string;                // human-readable fallback title when event summary is just a kennel slug
   // Some calendars only populate the soonest-upcoming event's description, which
   // carries an inline schedule listing future dates and hares. After the scrape
@@ -614,10 +615,17 @@ export function buildRawEventFromGCalItem(
     title = sourceConfig.defaultTitle;
   }
 
-  // Start time: prefer dateTime-derived time, fall back to description extraction
+  // Start time: prefer dateTime-derived time, then description extraction,
+  // then a configured default. The default is the only path that fires for
+  // all-day calendar entries whose description doesn't carry a recognizable
+  // time label (e.g. ABQ H3's Tuesday CLiT trails), and keeps them from
+  // rendering as all-day/noon events downstream.
   let resolvedStartTime = startTime;
   if (!resolvedStartTime && rawDescription) {
     resolvedStartTime = extractTimeFromDescription(rawDescription);
+  }
+  if (!resolvedStartTime && sourceConfig?.defaultStartTime) {
+    resolvedStartTime = sourceConfig.defaultStartTime;
   }
 
   // Any URL as location (Maps or otherwise) gets routed to locationUrl for geocoding,

@@ -2590,10 +2590,13 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "abqh3", shortName: "ABQ H3", fullName: "Albuquerque Hash House Harriers", region: "Albuquerque, NM",
       website: "https://www.abqh3.com",
       facebookUrl: "https://www.facebook.com/groups/abqhhh",
+      contactEmail: "abqh3misman@gmail.com",
+      // Google Sites og:image from abqh3.com.
+      logoUrl: "https://lh3.googleusercontent.com/sitesv/APaQ0SSjKwv9mC3ob6B7mYIrUIwvBcfgbcTnjs2H_OULVsQODFJgoy1zQ5v5bVZenvwBALsnG59DLUcK2T6oZKIHxoN-xssA0NATeoZF4OALdhbuVlBYZKoDkzP8-l4LgjOmm8-2uh3tde4vdSTBFJvnyEJ2bdWhntJZXs3evluFi3cw-tsBOqLKEnYT=w16383",
       scheduleDayOfWeek: "Saturday",
       scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly in summer, biweekly in winter",
-      description: "Albuquerque's hash kennel. Trail #1144+.",
+      scheduleNotes: "Saturdays at 2pm (1pm in winter). Tuesdays at 6pm year-round (CLiT). Full Moon trails on Wednesdays March-October at 6pm.",
+      description: "Albuquerque's hash kennel. Saturday trails + Tuesday CLiT + monthly Full Moon Wednesdays.",
       latitude: 35.08, longitude: -106.65,
     },
 
