@@ -2760,6 +2760,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Denmark": "Denmark",
   "Sweden": "Sweden",
   "Norway": "Norway",
+  "Singapore": "Singapore",
 };
 
 /** Get the country for a state group name (for 3-level region hierarchy). */
@@ -2805,6 +2806,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   NO: "Norway",
   AU: "Australia",
   CA: "Canada",
+  SG: "Singapore",
 };
 
 /** All canonical country names used in COUNTRY_GROUP_MAP values. */
