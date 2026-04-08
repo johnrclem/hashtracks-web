@@ -14,15 +14,9 @@
  * Usage: npx tsx scripts/migrate-roster-group-id.ts
  */
 import "dotenv/config";
-import pg from "pg";
+import { createScriptPool } from "./lib/db-pool";
 
-// Default to strict TLS validation; set BACKFILL_ALLOW_SELF_SIGNED_CERT=1
-// for local Railway proxy dev.
-const allowSelfSigned = process.env.BACKFILL_ALLOW_SELF_SIGNED_CERT === "1";
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: !allowSelfSigned },
-});
+const pool = createScriptPool();
 
 function cuid(): string {
   // Simple cuid-like ID generator for migration purposes
