@@ -66,12 +66,26 @@ describe("parseHashRegoTime", () => {
     expect(parseHashRegoTime("12:00 PM")).toBe("12:00");
   });
 
-  it("handles 12:00 AM (midnight)", () => {
-    expect(parseHashRegoTime("12:00 AM")).toBe("00:00");
+  it("returns null for 11:59 PM (original Hash Rego placeholder)", () => {
+    expect(parseHashRegoTime("11:59 PM")).toBeNull();
   });
 
-  it("returns null for 11:59 PM (Hash Rego placeholder for no time)", () => {
-    expect(parseHashRegoTime("11:59 PM")).toBeNull();
+  it("returns null for 11:45 PM (#487 EWH3 1355 variant)", () => {
+    // Some kennels use 11:45 PM instead of 11:59 PM as their "no time set"
+    // placeholder. Everything from 11 PM through 4 AM is now treated as
+    // placeholder because real hash runs don't start in that window on
+    // this platform.
+    expect(parseHashRegoTime("11:45 PM")).toBeNull();
+  });
+
+  it("returns null for 11:00 PM and 3:59 AM (late-night band endpoints)", () => {
+    expect(parseHashRegoTime("11:00 PM")).toBeNull();
+    expect(parseHashRegoTime("03:59 AM")).toBeNull();
+  });
+
+  it("accepts 10:59 PM and 4:00 AM (just outside the placeholder band)", () => {
+    expect(parseHashRegoTime("10:59 PM")).toBe("22:59");
+    expect(parseHashRegoTime("04:00 AM")).toBe("04:00");
   });
 
   it("returns null for invalid time", () => {

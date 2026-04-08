@@ -111,6 +111,13 @@ export function parseHashRegoDate(
 
 /**
  * Parse Hash Rego time "HH:MM AM/PM" into 24h "HH:MM".
+ *
+ * Hash Rego stores times as literal strings entered by kennel mismanagement,
+ * and anything between 11:00 PM and 4:00 AM is in practice a placeholder for
+ * "no start time set" — kennels pick different variants ("11:59 PM" was the
+ * original, but "11:45 PM" and others show up in the wild. See issue #487
+ * for the EWH3 1355 case.). Real hash runs don't start in that window on
+ * this platform, so the whole band is treated as absent.
  */
 export function parseHashRegoTime(text: string): string | null {
   const match = text.trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
@@ -123,8 +130,7 @@ export function parseHashRegoTime(text: string): string | null {
   if (ampm === "PM" && hours !== 12) hours += 12;
   if (ampm === "AM" && hours === 12) hours = 0;
 
-  // 11:59 PM is Hash Rego's "no time set" placeholder
-  if (hours === 23 && minutes === 59) return null;
+  if (hours >= 23 || hours < 4) return null;
 
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
