@@ -65,7 +65,9 @@ export function parseGlasgowRow(
   // malformed tail like "Venue What 3 Words=" (missing code) leaves the text
   // alone so we don't silently drop location data on a degraded source render.
   const rawLocation = cells[2] ?? "";
-  const w3wMatch = /What\s*3\s*Words\s*=\s*([\w.-]+)/i.exec(rawLocation);
+  // Require three dot-separated words so "walks" or "walks." don't match —
+  // a real W3W code is always exactly word.word.word.
+  const w3wMatch = /What\s*3\s*Words\s*=\s*(\w+\.\w+\.\w+)/i.exec(rawLocation);
   const location = (w3wMatch
     ? rawLocation.replace(/\s*What\s*3\s*Words\s*=.*$/i, "").trim()
     : rawLocation.trim()) || undefined;

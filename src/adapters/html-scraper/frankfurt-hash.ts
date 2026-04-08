@@ -134,8 +134,10 @@ export function parseJEMEvent(
  */
 export function extractHaresFromText(text: string): string | undefined {
   const looksLikeHtml = /<[a-z][\s\S]*?>/i.test(text);
+  // stripHtmlTags already decodes entities via cheerio; only the plain-text
+  // branch still needs an explicit decode.
   const cleaned = looksLikeHtml
-    ? stripHtmlTags(decodeEntities(text), "\n")
+    ? stripHtmlTags(text, "\n")
     : decodeEntities(text).trim();
   // Match "Hares: <names>" or "Hare: <names>" up to newline/sentence/line break or "by".
   const m = /\bHares?\s*:\s*([^\n.|]+?)(?=\s*(?:[.|\n]|\bby\b|$))/i.exec(cleaned);

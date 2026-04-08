@@ -99,6 +99,24 @@ describe("parseGlasgowRow", () => {
     expect(event!.location).toBe("Venue Name What 3 Words=");
     expect(event!.description).toBeUndefined();
   });
+
+  it("rejects partial W3W codes that aren't exactly word.word.word", () => {
+    // Single word or missing segments shouldn't trip the matcher — a real
+    // W3W code is always three dot-separated words. Without the stricter
+    // regex, "walks" would have been captured as the "W3W code" and the
+    // location would have been silently truncated. (CodeRabbit + Claude
+    // code review on PR #557.)
+    const cells = [
+      "2213",
+      "Sunday 11 May",
+      "Venue Name What 3 Words= walks",
+      "Someone",
+    ];
+    const event = parseGlasgowRow(cells, [], sourceUrl);
+    // Match failed → location preserved intact, no description write-back
+    expect(event!.location).toBe("Venue Name What 3 Words= walks");
+    expect(event!.description).toBeUndefined();
+  });
 });
 
 describe("GlasgowH3Adapter", () => {
