@@ -28,7 +28,7 @@ const PROFILE_FIELDS = new Set([
   "website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency",
   "scheduleNotes", "hashCash", "facebookUrl", "instagramHandle",
   "twitterHandle", "discordUrl", "contactEmail", "foundedYear", "description",
-  "latitude", "longitude",
+  "logoUrl", "latitude", "longitude",
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
