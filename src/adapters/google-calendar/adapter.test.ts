@@ -1256,7 +1256,7 @@ describe("buildRawEventFromGCalItem — 4X2H4 stale-default title fix (#496/#497
   const config = {
     kennelPatterns: [["4X2|4x2", "4x2h4"]] as [string, string][],
     defaultKennelTag: "ch3",
-    runNumberPatterns: ["What:\\s*4x2\\s*H4\\s*No\\.?\\s*(\\d+)"],
+    runNumberPatterns: [String.raw`What:\s*4x2\s*H4\s*No\.?\s*(\d+)`],
   };
 
   it("extracts the title from the `What:` line", () => {
