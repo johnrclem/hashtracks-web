@@ -1,14 +1,28 @@
 #!/usr/bin/env node
-import "dotenv/config";
+import dotenv from "dotenv";
 import { spawnSync } from "node:child_process";
+
+// Skip env-file loading when running under tests so they're deterministic on
+// dev machines that already have a populated `.env.local`.
+if (process.env.SAFE_PRISMA_SKIP_DOTENV !== "1") {
+  // No `override:` — both calls leave already-set vars (incl. shell env) alone.
+  // `.env.local` is loaded first so it wins over `.env` when both define a key.
+  // Matches Next.js semantics: shell > .env.local > .env.
+  dotenv.config({ path: ".env.local" });
+  dotenv.config();
+}
 
 const args = process.argv.slice(2);
 
 function isDestructive(argv) {
-  if (argv[0] === "migrate" && (argv[1] === "dev" || argv[1] === "reset")) {
-    return true;
-  }
-  if (argv[0] === "db" && argv[1] === "push") return true;
+  // Strip flags so "--schema=foo migrate dev" and "migrate --schema=foo dev"
+  // both reduce to ["migrate", "dev"]. Prisma's CLI accepts intermixed flags,
+  // so the guard has to as well.
+  const positional = argv.filter((a) => !a.startsWith("-"));
+  const [cmd, sub] = positional;
+  if (cmd === "migrate" && (sub === "dev" || sub === "reset")) return true;
+  // `db execute` runs arbitrary SQL via --file/--stdin against the datasource.
+  if (cmd === "db" && (sub === "push" || sub === "execute")) return true;
   return false;
 }
 

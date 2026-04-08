@@ -10,16 +10,24 @@ const COMPOSE_URL = "postgres://u:p@postgres:5432/dev";
 const IPV6_URL = "postgres://u:p@[::1]:5432/dev";
 const RANDOM_REMOTE_URL = "postgres://u:p@db.somewhere.example.com:5432/x";
 
-// dotenv/config does not override values already present in process.env, so
-// the explicit DATABASE_URL passed via `env` below wins over the repo's .env.
+// SAFE_PRISMA_SKIP_DOTENV=1 prevents the wrapper from loading .env / .env.local,
+// so tests aren't sensitive to whatever DATABASE_URL the dev machine has set.
 function run(args: string[], env: Record<string, string | undefined> = {}) {
+  // Pass `DATABASE_URL: undefined` to delete the key (so the child sees it
+  // truly unset); spawnSync would otherwise serialize it as the string
+  // "undefined".
+  const merged: Record<string, string | undefined> = {
+    ...process.env,
+    SAFE_PRISMA_DRY_RUN: "1",
+    SAFE_PRISMA_SKIP_DOTENV: "1",
+  };
+  for (const [k, v] of Object.entries(env)) {
+    if (v === undefined) delete merged[k];
+    else merged[k] = v;
+  }
   return spawnSync("node", [SCRIPT, ...args], {
     encoding: "utf-8",
-    env: {
-      ...process.env,
-      SAFE_PRISMA_DRY_RUN: "1",
-      ...env,
-    },
+    env: merged as NodeJS.ProcessEnv,
   });
 }
 
@@ -60,6 +68,29 @@ describe("safe-prisma wrapper", () => {
       const r = run(["migrate", "dev"], { DATABASE_URL: "not-a-url" });
       expect(r.status).toBe(1);
       expect(r.stderr).toMatch(/not a parseable URL/);
+    });
+
+    it("blocks destructive commands when DATABASE_URL is fully unset (no key)", () => {
+      const r = run(["migrate", "dev"], { DATABASE_URL: undefined });
+      expect(r.status).toBe(1);
+      expect(r.stderr).toMatch(/not set/);
+    });
+
+    it("blocks `migrate dev` when --schema flag precedes the subcommand", () => {
+      const r = run(
+        ["--schema=./prisma/schema.prisma", "migrate", "dev"],
+        { DATABASE_URL: PROD_URL },
+      );
+      expect(r.status).toBe(1);
+      expect(r.stderr).toMatch(/Refusing/);
+    });
+
+    it("blocks `db execute` against prod host", () => {
+      const r = run(["db", "execute", "--file", "./drop.sql"], {
+        DATABASE_URL: PROD_URL,
+      });
+      expect(r.status).toBe(1);
+      expect(r.stderr).toMatch(/Refusing/);
     });
   });
 
@@ -105,6 +136,14 @@ describe("safe-prisma wrapper", () => {
     it("allows `migrate dev` against IPv6 loopback", () => {
       const r = run(["migrate", "dev"], { DATABASE_URL: IPV6_URL });
       expect(r.status).toBe(0);
+    });
+
+    it("allows `db execute` against localhost", () => {
+      const r = run(["db", "execute", "--file", "./seed.sql"], {
+        DATABASE_URL: LOCAL_URL,
+      });
+      expect(r.status).toBe(0);
+      expect(r.stdout).toMatch(/DRY RUN/);
     });
   });
 });
