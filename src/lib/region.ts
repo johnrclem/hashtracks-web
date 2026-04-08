@@ -2806,6 +2806,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   NO: "Norway",
   AU: "Australia",
   CA: "Canada",
+  SG: "Singapore",
 };
 
 /** All canonical country names used in COUNTRY_GROUP_MAP values. */

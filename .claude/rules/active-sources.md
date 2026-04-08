@@ -1,12 +1,12 @@
 ---
-description: Active data sources catalog — 155 sources across 26+ regions
+description: Active data sources catalog — 169 sources across 26+ regions
 globs:
   - src/adapters/**
   - prisma/seed.ts
   - src/pipeline/**
 ---
 
-# Active Sources (155)
+# Active Sources (169)
 
 ## NYC / NJ / Philly (8 sources)
 - **hashnyc.com** -> HTML_SCRAPER -> 11 NYC-area kennels

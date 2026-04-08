@@ -2,7 +2,7 @@
 
 **Researched:** 2026-04-08
 **Chrome-verified:** 2026-04-08 (see `chrome-verification/singapore-2026-04-08.md`)
-**Shipped:** 5 kennels via 4 source patterns. 2 deferred for follow-up. 2 confirmed dead/skipped.
+**Shipped:** 7 kennels via 6 source patterns (Part One + Part Two). 2 confirmed dead/skipped.
 
 ## Why Singapore matters
 Singapore is the second-oldest hashing scene in the world. The original Mother Hash was founded in **Kuala Lumpur, Malaysia in 1938**; the Singapore "Father Hash" (HHHS) was founded in **1962** — the **second hash kennel ever**. Singapore's foot-hash scene now spans 7+ active kennels covering every weekday plus Sundays.
@@ -93,6 +93,5 @@ Per `feedback_sourceless_kennels` memory criteria — both HHHS and Harriets mee
 - **HHHS is the most historically significant kennel we've ever onboarded** — the 2nd hash kennel in the world. Even shipping it via STATIC_SCHEDULE (no per-run data) is meaningful coverage.
 
 ## Future Opportunities (not in scope)
-- **WordPress.com Public API utility** — `fetchWordPressComPosts(siteDomain)` to enable Hash Horrors and any other WordPress.com hosted hash blog
 - **Wix Visual Data iframe scraper** — if we encounter more Wix-built hash sites with hareline tables in `wix-visual-data.appspot.com` iframes
-- **Seletar PWA scraper or HashController.php API client** — would unlock 14+ future runs from Singapore's Tuesday hash
+- **Generalize HashController.php pattern** — Seletar's PHP/SQL REST wrapper could be lifted into a shared utility if other kennels are built on the same `sh3app`-style backend
