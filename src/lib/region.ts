@@ -2237,6 +2237,19 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 10.75,
     aliases: ["Oslo, Norway"],
   },
+  // ── Singapore ──
+  {
+    name: "Singapore",
+    country: "Singapore",
+    level: "COUNTRY",
+    timezone: "Asia/Singapore",
+    abbrev: "SG",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#dc2626",
+    centroidLat: 1.35,
+    centroidLng: 103.82,
+    aliases: ["SG", "Republic of Singapore"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -2432,6 +2445,7 @@ export function inferCountry(name: string): string {
   if (/\b(denmark|copenhagen|københavn|aarhus)\b/.test(lower)) return "Denmark";
   if (/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/.test(lower)) return "Sweden";
   if (/\b(norway|oslo|bergen|stavanger)\b/.test(lower)) return "Norway";
+  if (/\b(singapore)\b/.test(lower)) return "Singapore";
   return "USA";
 }
 

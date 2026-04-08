@@ -165,6 +165,11 @@ export const SOURCES = [
         // 4X2H4 events put the run number in `What: 4x2 H4 No. 124`. The pattern
         // is specific enough that other Chicagoland kennels can't accidentally match.
         runNumberPatterns: [String.raw`What:\s*4x2\s*H4\s*No\.?\s*(\d+)`],
+        // Only the soonest-upcoming 4X2H4 event has a populated description; it
+        // carries an inline hareline block listing future dates → hares.
+        // Back-fill matching events at scrape-post-pass time so each event
+        // ends up with its own hare name.
+        inlineHarelinePattern: { kennelTag: "4x2h4", blockHeader: "4x2 H4 Hareline:" },
       },
       kennelCodes: ["ch3", "th3", "cfmh3", "fcmh3", "bdh3", "bmh3", "2ch3", "wwh3", "4x2h4", "rth3", "dlh3"],
     },
@@ -2762,6 +2767,91 @@ export const SOURCES = [
         defaultDescription: "Weekly Wednesday evening trail, 7 PM. Trail location is posted on the Little Rock H3 Facebook page (https://www.facebook.com/littlerockhashhouseharriers) the day of each run.",
       },
       kennelCodes: ["lrh3"],
+    },
+
+    // ===== SINGAPORE =====
+    // Singapore is the second-oldest hash scene in the world (after Mother Hash KL).
+    // Five active kennels shipped here across four source patterns.
+
+    // 1. Singapore Sunday H3 — Harrier Central (zero new code)
+    {
+      name: "Singapore Sunday H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        kennelUniqueShortName: "SH3-SG",
+        defaultKennelTag: "sh3-sg",
+      },
+      kennelCodes: ["sh3-sg"],
+    },
+
+    // 2. Lion City H3 — WordPress posts (custom adapter, reuses fetchWordPressPosts)
+    {
+      name: "Lion City H3 Website",
+      url: "https://lioncityhhh.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["lch3"],
+    },
+
+    // 3. Kampong H3 — simple HTML "Next Run" block scraper
+    {
+      name: "Kampong H3 Website",
+      url: "https://kampong.hash.org.sg",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["kampong-h3"],
+    },
+
+    // 4. HHHS (Father Hash) — STATIC_SCHEDULE under historic-kennel exception
+    // (per feedback_sourceless_kennels memory). Founded 1962, the 2nd hash kennel
+    // in the world ever. The Wix hareline iframe is richer but out of scope for
+    // this PR; STATIC_SCHEDULE covers the weekly Monday recurrence.
+    {
+      name: "HHHS Father Hash Static Schedule",
+      url: "https://www.hhhs.org.sg/hareline",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "hhhs",
+        rrule: "FREQ=WEEKLY;BYDAY=MO",
+        startTime: "18:00",
+        defaultTitle: "HHHS Monday Run",
+        defaultLocation: "Singapore",
+        defaultDescription: "Weekly Monday evening run for the Father Hash (founded 1962, the 2nd hash kennel in the world). Run number, hares, and exact location are published on the HHHS hareline at https://www.hhhs.org.sg/hareline. Men only.",
+      },
+      kennelCodes: ["hhhs"],
+    },
+
+    // 5. Singapore Hash House Harriets — STATIC_SCHEDULE under historic-kennel
+    // exception. Founded 1973, oldest women's hash in Asia. Website
+    // (singaporeharriets.com) is DNS-dead; the public 374-member FB group is
+    // their actual coordination channel.
+    {
+      name: "Singapore Harriets Static Schedule",
+      url: "https://www.facebook.com/groups/49667691372/",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "sgharriets",
+        rrule: "FREQ=WEEKLY;BYDAY=WE",
+        startTime: "18:00",
+        defaultTitle: "Singapore Harriets Wednesday Run",
+        defaultLocation: "Singapore",
+        defaultDescription: "Weekly Wednesday evening run for Singapore Hash House Harriets (founded 1973, oldest women's hash in Asia). Trail location is posted in the public Facebook group (https://www.facebook.com/groups/49667691372/) the day of each run. Mixed welcome.",
+      },
+      kennelCodes: ["sgharriets"],
     },
 
     // ===== MISSOURI =====

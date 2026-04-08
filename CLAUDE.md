@@ -10,8 +10,8 @@ logbook + kennel directory.
 - `npm run build` — Production build
 - `npm test` — Run test suite (Vitest, 115 test files)
 - `npx prisma studio` — Visual database browser
-- `npx prisma db push` — Push schema changes to dev DB (**local only** — never used for prod; Vercel runs `migrate deploy`)
-- `npx prisma migrate dev --name <change>` — Author a new versioned migration (review SQL before committing)
+- `npm run prisma -- db push` — Push schema changes to dev DB (**local only** — wrapper refuses to run against non-local hosts; Vercel runs `migrate deploy`)
+- `npm run prisma -- migrate dev --name <change>` — Author a new versioned migration (wrapper refuses to run against prod `DATABASE_URL`; review SQL before committing)
 - `npx prisma migrate deploy` — Apply pending migrations (runs automatically in Vercel build)
 - `npx prisma db seed` — Seed launch kennels and aliases
 
@@ -512,7 +512,7 @@ Large reference lists are in `.claude/rules/`. They load automatically when you 
 ## Schema Changes (Versioned Migrations)
 Vercel builds run `prisma migrate deploy` — only committed, checksummed migration files under `prisma/migrations/` ever touch prod. Workflow:
 1. Edit `prisma/schema.prisma`
-2. `npx prisma migrate dev --name <descriptive_name>` — generates `prisma/migrations/<ts>_<name>/migration.sql`
+2. `npm run prisma -- migrate dev --name <descriptive_name>` — generates `prisma/migrations/<ts>_<name>/migration.sql`. **Always go through `npm run prisma`** for `migrate dev` / `migrate reset` / `db push`; the wrapper (`scripts/safe-prisma.mjs`) refuses to invoke them when `DATABASE_URL` points at the Railway prod host.
 3. Review the generated SQL in the PR diff alongside the schema change
 4. Commit the migration dir + schema together
 5. Merge → Vercel runs `migrate deploy` automatically
@@ -523,7 +523,7 @@ Vercel builds run `prisma migrate deploy` — only committed, checksummed migrat
 
 **Rollback:**
 - *Baseline / no-op migrations:* `npx prisma migrate resolve --rolled-back <name>` + revert the PR. Safe only because no schema changes were actually applied.
-- *Migrations that altered schema:* author a forward revert migration (`npx prisma migrate dev --name revert_<change>`), deploy it, then revert the PR. **Do not** use `resolve --rolled-back` on a migration that changed the DB — it only updates the `_prisma_migrations` history table, not the schema itself.
+- *Migrations that altered schema:* author a forward revert migration (`npm run prisma -- migrate dev --name revert_<change>`), deploy it, then revert the PR. **Do not** use `resolve --rolled-back` on a migration that changed the DB — it only updates the `_prisma_migrations` history table, not the schema itself.
 
 ## What NOT To Do
 - Don't use Playwright **in the app** for scraping — use the NAS browser render service for JS-rendered sites, Cheerio for everything else
