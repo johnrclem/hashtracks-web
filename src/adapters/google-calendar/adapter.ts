@@ -156,6 +156,42 @@ const ADDRESS_AS_TITLE_RE = /^\d+\s+\w+.+?(?:Road|Rd|Street|St|Avenue|Ave|Drive|
 const EMAIL_IN_TITLE_RE = /(?:<[^@]+@[^>]+>|\S+@\S+\.\S+)/;
 
 /**
+ * Capture the value of a `What:` line. The leading `\b` rejects mid-word
+ * matches like `SoWhat:` and `WhatNot:` that would otherwise slip through
+ * because the value sits on a labeled line of its own.
+ */
+const WHAT_FIELD_RE = /(?:^|\n)[ \t]*\bWhat\s*:[ \t]*([^\n]+)/i;
+
+/**
+ * Extract the value of a `What:` line from a calendar event description.
+ * Some calendar owners use this label as the canonical event name and leave
+ * the SUMMARY as the bare kennel slug. Returns the trimmed value or undefined.
+ */
+export function extractWhatFieldFromDescription(description: string): string | undefined {
+  const match = WHAT_FIELD_RE.exec(description);
+  const value = match?.[1]?.trim();
+  return value || undefined;
+}
+
+/** Collapse whitespace + lowercase, used for stale-default title detection. */
+const normalizeForCompare = (s: string) => s.replaceAll(/\s+/g, "").toLowerCase();
+
+/** Whitespace + case insensitive: `"4X2 H4"` matches `"4x2h4"`. */
+function titleMatchesKennelTag(title: string, kennelTag: string): boolean {
+  return normalizeForCompare(title) === normalizeForCompare(kennelTag);
+}
+
+/**
+ * Try description-based title sources in priority order: a labeled `What:`
+ * value first (canonical for some calendars), then the generic
+ * first-non-label heuristic.
+ */
+function titleFromDescription(rawDescription: string): string | undefined {
+  return extractWhatFieldFromDescription(rawDescription)
+    ?? extractTitleFromDescription(rawDescription);
+}
+
+/**
  * Extract a meaningful event title from the description when the calendar event
  * title is just the kennel abbreviation (e.g., "C2H3").
  *
@@ -437,13 +473,15 @@ export function buildRawEventFromGCalItem(
   // Determine title: if title matches kennel tag, try description fallback
   let title = useFullTitle ? summary : extractTitle(summary);
   title = stripDatePrefix(title);
-  if (title.toLowerCase() === kennelTag.toLowerCase() && rawDescription) {
-    title = extractTitleFromDescription(rawDescription) ?? title;
+  // Stale-default detection: equality is whitespace-insensitive so a SUMMARY
+  // of "4X2 H4" still matches kennelTag "4x2h4".
+  if (titleMatchesKennelTag(title, kennelTag) && rawDescription) {
+    title = titleFromDescription(rawDescription) ?? title;
   }
   // If title looks like a bare kennel code (2-10 alphanumeric chars, no spaces),
   // try extracting a better title from the description
   if (/^[A-Za-z0-9]{2,10}$/.test(title) && rawDescription) {
-    const descTitle = extractTitleFromDescription(rawDescription);
+    const descTitle = titleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }
   // Strip only the hare-name capture group from the title, preserving the rest (e.g., "AH3 #2269")
@@ -527,7 +565,7 @@ export function buildRawEventFromGCalItem(
   }
 
   // defaultTitle fallback runs last, after all branches that may reset title to kennelTag
-  if (title.toLowerCase() === kennelTag.toLowerCase() && sourceConfig?.defaultTitle) {
+  if (titleMatchesKennelTag(title, kennelTag) && sourceConfig?.defaultTitle) {
     title = sourceConfig.defaultTitle;
   }
 

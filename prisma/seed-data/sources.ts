@@ -162,6 +162,9 @@ export const SOURCES = [
           ["DLH3|Duneland|South Shore", "dlh3"],
         ],
         defaultKennelTag: "ch3",
+        // 4X2H4 events put the run number in `What: 4x2 H4 No. 124`. The pattern
+        // is specific enough that other Chicagoland kennels can't accidentally match.
+        runNumberPatterns: [String.raw`What:\s*4x2\s*H4\s*No\.?\s*(\d+)`],
       },
       kennelCodes: ["ch3", "th3", "cfmh3", "fcmh3", "bdh3", "bmh3", "2ch3", "wwh3", "4x2h4", "rth3", "dlh3"],
     },
