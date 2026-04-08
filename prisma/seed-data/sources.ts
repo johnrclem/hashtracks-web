@@ -165,6 +165,11 @@ export const SOURCES = [
         // 4X2H4 events put the run number in `What: 4x2 H4 No. 124`. The pattern
         // is specific enough that other Chicagoland kennels can't accidentally match.
         runNumberPatterns: [String.raw`What:\s*4x2\s*H4\s*No\.?\s*(\d+)`],
+        // Only the soonest-upcoming 4X2H4 event has a populated description; it
+        // carries an inline hareline block listing future dates → hares.
+        // Back-fill matching events at scrape-post-pass time so each event
+        // ends up with its own hare name.
+        inlineHarelinePattern: { kennelTag: "4x2h4", blockHeader: "4x2 H4 Hareline:" },
       },
       kennelCodes: ["ch3", "th3", "cfmh3", "fcmh3", "bdh3", "bmh3", "2ch3", "wwh3", "4x2h4", "rth3", "dlh3"],
     },

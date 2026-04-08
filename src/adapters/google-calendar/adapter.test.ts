@@ -7,10 +7,13 @@ import {
   extractHares,
   extractTitleFromDescription,
   extractWhatFieldFromDescription,
+  parseInlineHareline,
+  applyInlineHarelineBackfill,
   extractLocationFromDescription,
   extractTimeFromDescription,
   buildRawEventFromGCalItem,
 } from "./adapter";
+import type { RawEventData } from "../types";
 
 // ── extractKennelTag ──
 
@@ -1288,5 +1291,245 @@ describe("buildRawEventFromGCalItem — 4X2H4 stale-default title fix (#496/#497
     const event = buildRawEventFromGCalItem(noWhat, config);
     // No What:, no defaultTitle → title stays as the SUMMARY
     expect(event!.title).toBe("4X2 H4");
+  });
+});
+
+// ── parseInlineHareline (#498) ──
+//
+// Live Chicagoland calendar only populates the soonest-upcoming 4X2H4 event's
+// description. That one description contains a `4x2 H4 Hareline:` block
+// listing future dates and their hares. Parse it into a map that a scrape
+// post-pass can use to back-fill hares onto events whose own descriptions
+// came back empty.
+
+describe("parseInlineHareline", () => {
+  const SAMPLE = [
+    "What: 4x2 H4 No. 124",
+    "Hare: Lifa",
+    "",
+    "4x2 H4 Hareline:",
+    "Tue 5/5: Oh Die Mark!",
+    "Tue 6/2:",
+    "Tue 7/7:",
+    "Tue 8/3: Bert's Special Friend & Meat Inside Her",
+    "Tue 9/1:",
+    "",
+    "Find us on Facebook:",
+    "https://www.facebook.com/groups/833761823403207",
+  ].join("\n");
+
+  it("captures populated dates and skips empty ones", () => {
+    const map = parseInlineHareline(SAMPLE, "4x2 H4 Hareline:");
+    expect(map).toEqual({
+      "5/5": "Oh Die Mark!",
+      "8/3": "Bert's Special Friend & Meat Inside Her",
+    });
+  });
+
+  it("returns an empty map when the header is missing", () => {
+    const map = parseInlineHareline("Hare: Lifa\nWhere: Park", "4x2 H4 Hareline:");
+    expect(map).toEqual({});
+  });
+
+  it("returns an empty map when every entry is empty", () => {
+    const onlyEmpty = "4x2 H4 Hareline:\nTue 5/5:\nTue 6/2:\nTue 7/7:";
+    expect(parseInlineHareline(onlyEmpty, "4x2 H4 Hareline:")).toEqual({});
+  });
+
+  it("tolerates blank lines within the block", () => {
+    // Earlier behavior stopped parsing at the first blank line, which was
+    // fragile to accidental double-newlines in calendar descriptions. The
+    // loop now runs until end-of-input; blank lines are simply skipped.
+    const withBlank = [
+      "4x2 H4 Hareline:",
+      "Tue 5/5: Hare A",
+      "",
+      "Tue 6/2: Hare B",
+    ].join("\n");
+    expect(parseInlineHareline(withBlank, "4x2 H4 Hareline:")).toEqual({
+      "5/5": "Hare A",
+      "6/2": "Hare B",
+    });
+  });
+
+  it("treats placeholder hare values like TBD / Pending / None as empty", () => {
+    const withPlaceholders = [
+      "4x2 H4 Hareline:",
+      "Tue 5/5: TBD",
+      "Tue 6/2: Needed",
+      "Tue 7/7: tba",
+      "Tue 8/3: None",
+      "Tue 9/1: Pending",
+      "Tue 10/6: Real Hare",
+    ].join("\n");
+    expect(parseInlineHareline(withPlaceholders, "4x2 H4 Hareline:")).toEqual({
+      "10/6": "Real Hare",
+    });
+  });
+
+  it("skips non-hareline lines between entries without terminating the block", () => {
+    // `Find us on Facebook:` and URLs don't match HARELINE_LINE_RE so they're
+    // silently skipped; the block only terminates on a blank line after entries.
+    const withJunk = [
+      "4x2 H4 Hareline:",
+      "Tue 5/5: Hare A",
+      "Find us on Facebook:",  // not a hareline line → skip, don't terminate
+      "Tue 6/2: Hare B",
+    ].join("\n");
+    expect(parseInlineHareline(withJunk, "4x2 H4 Hareline:")).toEqual({
+      "5/5": "Hare A",
+      "6/2": "Hare B",
+    });
+  });
+
+  it("ignores leading blank lines before any entries", () => {
+    const leadingBlank = "4x2 H4 Hareline:\n\nTue 5/5: Hare A";
+    expect(parseInlineHareline(leadingBlank, "4x2 H4 Hareline:")).toEqual({ "5/5": "Hare A" });
+  });
+
+  it("zero-pads dates only when the input does (keys match `M/D` not `MM/DD`)", () => {
+    // Single-digit months and days are stored without padding so they match
+    // event dates after we parseInt them, not string-prefix them.
+    const padded = "4x2 H4 Hareline:\nTue 05/05: Hare A\nTue 12/31: Hare B";
+    expect(parseInlineHareline(padded, "4x2 H4 Hareline:")).toEqual({
+      "5/5": "Hare A",
+      "12/31": "Hare B",
+    });
+  });
+});
+
+describe("applyInlineHarelineBackfill (#498)", () => {
+  const donorDescription = [
+    "What: 4x2 H4 No. 124",
+    "Hare: Lifa",
+    "",
+    "4x2 H4 Hareline:",
+    "Tue 5/5: Oh Die Mark!",
+    "Tue 8/3: Bert's Special Friend & Meat Inside Her",
+  ].join("\n");
+
+  function makeEvent(overrides: Partial<RawEventData>): RawEventData {
+    return {
+      date: "2026-04-07",
+      kennelTag: "4x2h4",
+      title: "4x2 H4 No. 124",
+      ...overrides,
+    };
+  }
+
+  const pattern = { kennelTag: "4x2h4", blockHeader: "4x2 H4 Hareline:" };
+  // Pin the reference `now` so donor selection is deterministic across all tests
+  // (we filter on `e.date >= today`).
+  const now = new Date("2026-04-07T00:00:00Z");
+
+  it("back-fills hares on matching-date events with empty hares", () => {
+    const events = [
+      makeEvent({ date: "2026-04-07", hares: "Lifa", description: donorDescription }),
+      makeEvent({ date: "2026-05-05" }),
+      makeEvent({ date: "2026-08-03" }),
+    ];
+    const count = applyInlineHarelineBackfill(events, pattern, { now });
+    expect(count).toBe(2);
+    expect(events[0].hares).toBe("Lifa"); // donor unchanged
+    expect(events[1].hares).toBe("Oh Die Mark!");
+    expect(events[2].hares).toBe("Bert's Special Friend & Meat Inside Her");
+  });
+
+  it("never overwrites events that already have hares", () => {
+    const events = [
+      makeEvent({ date: "2026-04-07", hares: "Lifa", description: donorDescription }),
+      makeEvent({ date: "2026-05-05", hares: "Existing Hare" }),
+    ];
+    applyInlineHarelineBackfill(events, pattern, { now });
+    expect(events[1].hares).toBe("Existing Hare");
+  });
+
+  it("ignores events for other kennels", () => {
+    const events = [
+      makeEvent({ date: "2026-04-07", hares: "Lifa", description: donorDescription }),
+      makeEvent({ date: "2026-05-05", kennelTag: "ch3" }),
+    ];
+    applyInlineHarelineBackfill(events, pattern, { now });
+    expect(events[1].hares).toBeUndefined();
+  });
+
+  it("returns 0 when no donor event exists", () => {
+    const events = [
+      makeEvent({ date: "2026-05-05" }),
+      makeEvent({ date: "2026-08-03" }),
+    ];
+    expect(applyInlineHarelineBackfill(events, pattern, { now })).toBe(0);
+    expect(events[0].hares).toBeUndefined();
+  });
+
+  it("returns 0 when the pattern is null or undefined", () => {
+    const events = [makeEvent({ description: donorDescription })];
+    expect(applyInlineHarelineBackfill(events, null, { now })).toBe(0);
+    expect(applyInlineHarelineBackfill(events, undefined, { now })).toBe(0);
+  });
+
+  // ── Regressions for Codex adversarial review findings ──
+
+  it("prefers the soonest-upcoming donor over a past stale donor", () => {
+    // Past event still carries a hareline block that lists STALE hares — if
+    // we naively pick the first matching donor, the stale block wins and
+    // upcoming events get wrong hares. The correct donor is the soonest
+    // upcoming event for the target kennel.
+    const staleDonor = [
+      "4x2 H4 Hareline:",
+      "Tue 5/5: STALE HARE (wrong)",
+      "Tue 8/3: STALE HARE (wrong)",
+    ].join("\n");
+    const events = [
+      makeEvent({ date: "2026-01-06", hares: "Old Hasher", description: staleDonor }),
+      makeEvent({ date: "2026-04-07", hares: "Lifa", description: donorDescription }),
+      makeEvent({ date: "2026-05-05" }),
+      makeEvent({ date: "2026-08-03" }),
+    ];
+    applyInlineHarelineBackfill(events, pattern, { now });
+    // Events pulled from the current (April) donor, not the stale January one
+    expect(events[2].hares).toBe("Oh Die Mark!");
+    expect(events[3].hares).toBe("Bert's Special Friend & Meat Inside Her");
+  });
+
+  it("year-scopes back-fill so multi-year scrape windows don't collide", () => {
+    // A ±365-day scrape window can contain both 2026-05-05 and 2027-05-05.
+    // The hareline's 5/5 entry belongs to the donor's year only; the next
+    // year's same-date event must NOT receive those hares.
+    const events = [
+      makeEvent({ date: "2026-04-07", hares: "Lifa", description: donorDescription }),
+      makeEvent({ date: "2026-05-05" }), // should get hares
+      makeEvent({ date: "2027-05-05" }), // must NOT get hares
+    ];
+    applyInlineHarelineBackfill(events, pattern, { now });
+    expect(events[1].hares).toBe("Oh Die Mark!");
+    expect(events[2].hares).toBeUndefined();
+  });
+
+  it("rolls entries into the next year when donor is late-year", () => {
+    // Donor is 2026-11-01 and the hareline lists an entry for 1/7 — that
+    // must resolve to 2027-01-07 (first occurrence at or after the donor),
+    // not 2026-01-07 (which would be in the past).
+    const lateDonor = [
+      "4x2 H4 Hareline:",
+      "Tue 1/7: New Year Hare",
+    ].join("\n");
+    const events = [
+      makeEvent({ date: "2026-01-07" }), // in the past relative to donor → NO match
+      makeEvent({ date: "2026-11-01", hares: "Late Year Hare", description: lateDonor }),
+      makeEvent({ date: "2027-01-07" }), // the correct target
+    ];
+    applyInlineHarelineBackfill(events, pattern, { now: new Date("2026-10-01T00:00:00Z") });
+    expect(events[0].hares).toBeUndefined();
+    expect(events[2].hares).toBe("New Year Hare");
+  });
+
+  it("returns 0 when no target events match by date", () => {
+    const events = [
+      makeEvent({ date: "2026-04-07", hares: "Lifa", description: donorDescription }),
+      makeEvent({ date: "2026-06-02" }), // empty in the hareline block
+      makeEvent({ date: "2026-09-01" }), // empty too
+    ];
+    expect(applyInlineHarelineBackfill(events, pattern, { now })).toBe(0);
   });
 });

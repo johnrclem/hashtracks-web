@@ -191,6 +191,42 @@ function titleFromDescription(rawDescription: string): string | undefined {
     ?? extractTitleFromDescription(rawDescription);
 }
 
+/** Match a hareline line like "Tue 5/5: Oh Die Mark!". Day abbrev + M/D + hares. */
+// [^\n]+ instead of .+ closes a SonarQube ReDoS hotspot. The lines are
+// pre-split on \n so the two are semantically identical for this input.
+const HARELINE_LINE_RE = /^[A-Za-z]{3}\s+(\d{1,2})\/(\d{1,2})\s*:\s*([^\n]+)$/;
+
+/** Placeholder hare values that mean "no hare assigned yet" and should be skipped. */
+const HARELINE_PLACEHOLDER_RE = /^(?:tbd|tba|needed|none|pending)$/i;
+
+/** Unpadded `M/D` key used as the intermediate shape for parsed hareline blocks. */
+function toMonthDayKey(month: string, day: string): string {
+  return `${parseInt(month, 10)}/${parseInt(day, 10)}`;
+}
+
+/**
+ * Parse an inline hareline block from an event description. Returns a map
+ * from `"M/D"` to the hare name(s) listed for that date. Non-matching and
+ * empty lines are silently skipped, and the loop runs until end-of-description
+ * so accidental blank lines inside the block don't truncate parsing.
+ * Placeholder values like "TBD" / "Pending" are treated as empty.
+ */
+export function parseInlineHareline(description: string, blockHeader: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  const headerIdx = description.indexOf(blockHeader);
+  if (headerIdx === -1) return result;
+  const afterHeader = description.slice(headerIdx + blockHeader.length);
+  for (const rawLine of afterHeader.split("\n")) {
+    const match = HARELINE_LINE_RE.exec(rawLine.trim());
+    if (!match) continue;
+    const [, monthStr, dayStr, hares] = match;
+    const cleanHares = hares.trim();
+    if (!cleanHares || HARELINE_PLACEHOLDER_RE.test(cleanHares)) continue;
+    result[toMonthDayKey(monthStr, dayStr)] = cleanHares;
+  }
+  return result;
+}
+
 /**
  * Extract a meaningful event title from the description when the calendar event
  * title is just the kennel abbreviation (e.g., "C2H3").
@@ -336,6 +372,14 @@ interface CalendarSourceConfig {
   descriptionSuffix?: string;           // appended to every event description
   includeAllDayEvents?: boolean;        // if true, don't skip all-day events (some calendars use them for real runs)
   defaultTitle?: string;                // human-readable fallback title when event summary is just a kennel slug
+  // Some calendars only populate the soonest-upcoming event's description, which
+  // carries an inline schedule listing future dates and hares. After the scrape
+  // finishes, back-fill `hares` on other events for the same kennelTag by
+  // matching on M/D. Non-destructive: never overwrites existing hares.
+  inlineHarelinePattern?: {
+    kennelTag: string;       // which kennel's events to back-fill
+    blockHeader: string;     // e.g. "4x2 H4 Hareline:"
+  };
 }
 
 /**
@@ -701,6 +745,15 @@ export class GoogleCalendarAdapter implements SourceAdapter {
       pageToken = data.nextPageToken;
     } while (pageToken);
 
+    // Some calendars (e.g. Chicagoland's 4X2H4 routing) only populate the
+    // soonest-upcoming event's description; its hareline block carries the
+    // future dates → hare mappings used to back-fill the rest.
+    const backfillCount = applyInlineHarelineBackfill(
+      events,
+      sourceConfig?.inlineHarelinePattern,
+      { now },
+    );
+
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
     // Dedup events with identical date+kennelTag+startTime+title from the same calendar
@@ -721,7 +774,93 @@ export class GoogleCalendarAdapter implements SourceAdapter {
         calendarId: decodeURIComponent(calendarId),
         pagesProcessed,
         itemsReturned: totalItemsReturned,
+        ...(backfillCount > 0 && { inlineHarelineBackfilled: backfillCount }),
       },
     };
   }
+}
+
+/**
+ * Scan events for a hareline block belonging to the configured kennelTag and
+ * back-fill matching dates. Returns the number of events updated. Non-
+ * destructive: never overwrites an event that already has hares.
+ *
+ * Donor selection + year scoping protect against two silent-corruption paths:
+ * 1. `orderBy=startTime` returns past events first, so a naive `.find()` would
+ *    pick the oldest event whose description still carries a stale hareline.
+ *    We instead pick the soonest-upcoming donor for the target kennel.
+ * 2. The scrape window is typically ±365 days, so two events with the same
+ *    month/day but different years can coexist. The parsed hareline is
+ *    resolved against the donor's date into absolute `YYYY-MM-DD` keys before
+ *    lookup, so entries never leak into neighboring years.
+ *
+ * Exported for testing — called internally by `GoogleCalendarAdapter.fetch()`.
+ */
+export function applyInlineHarelineBackfill(
+  events: RawEventData[],
+  pattern: CalendarSourceConfig["inlineHarelinePattern"] | null | undefined,
+  options: { now?: Date } = {},
+): number {
+  if (!pattern || events.length === 0) return 0;
+  const { kennelTag: targetKennel, blockHeader } = pattern;
+
+  // 24h buffer mirrors src/adapters/html-scraper/sfh3-detail-enrichment.ts —
+  // `event.date` is a local calendar date, but toISOString() is UTC, so without
+  // the buffer an evening scrape (UTC past midnight) would drop the donor
+  // event that's still happening "today" in the kennel's local timezone.
+  const referenceTime = (options.now ?? new Date()).getTime();
+  const todayIso = new Date(referenceTime - 86_400_000).toISOString().split("T")[0];
+  const donor = events
+    .filter((e) =>
+      e.kennelTag === targetKennel
+      && e.date >= todayIso
+      && !!e.description?.includes(blockHeader),
+    )
+    .sort((a, b) => a.date.localeCompare(b.date))[0];
+  if (!donor?.description) return 0;
+
+  const mdMap = parseInlineHareline(donor.description, blockHeader);
+  if (Object.keys(mdMap).length === 0) return 0;
+
+  const absoluteMap = resolveHarelineAgainstAnchorDate(mdMap, donor.date);
+
+  let backfilled = 0;
+  for (const event of events) {
+    if (event.kennelTag !== targetKennel) continue;
+    if (event.hares) continue;
+    const hares = absoluteMap[event.date];
+    if (hares) {
+      event.hares = hares;
+      backfilled++;
+    }
+  }
+  return backfilled;
+}
+
+/**
+ * Resolve a `{ "M/D": hares }` map into `{ "YYYY-MM-DD": hares }` using the
+ * donor's date as the anchor. Each M/D gets the first absolute date at or
+ * after the anchor — if the anchor is late in the year, entries with earlier
+ * months roll forward into the next year.
+ *
+ * Note: this is a string-level resolver, not a real calendar. A `2/29` entry
+ * in a non-leap year will produce an invalid `YYYY-02-29` key that simply
+ * won't match any event (back-fill no-op). Acceptable — 4X2H4 won't schedule
+ * a trail on a date that doesn't exist.
+ */
+function resolveHarelineAgainstAnchorDate(
+  mdMap: Record<string, string>,
+  anchorDate: string,
+): Record<string, string> {
+  const anchorYear = parseInt(anchorDate.slice(0, 4), 10);
+  const result: Record<string, string> = {};
+  for (const [mdKey, hares] of Object.entries(mdMap)) {
+    const [monthStr, dayStr] = mdKey.split("/");
+    const mm = monthStr.padStart(2, "0");
+    const dd = dayStr.padStart(2, "0");
+    const sameYear = `${anchorYear}-${mm}-${dd}`;
+    const absolute = sameYear >= anchorDate ? sameYear : `${anchorYear + 1}-${mm}-${dd}`;
+    result[absolute] = hares;
+  }
+  return result;
 }
