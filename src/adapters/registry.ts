@@ -58,6 +58,7 @@ import { YokoYokoH3Adapter } from "./html-scraper/yoko-yoko-h3";
 import { SamuraiH3Adapter } from "./html-scraper/samurai-h3";
 import { NewTokyoKatchAdapter } from "./html-scraper/new-tokyo-katch";
 import { Hayama4HAdapter } from "./html-scraper/hayama-4h";
+import { SevenHillsH3Adapter } from "./html-scraper/seven-hills-h3";
 import { Oh3OttawaAdapter } from "./html-scraper/oh3-ottawa";
 import { CalgaryH3HomeAdapter } from "./html-scraper/calgary-h3-home";
 import { CalgaryH3ScribeAdapter } from "./html-scraper/calgary-h3-scribe";
@@ -143,6 +144,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /samuraihash.*wixsite/i, name: "SamuraiH3Adapter",    factory: () => new SamuraiH3Adapter() },
   { pattern: /newtokyohash.*wixsite/i, name: "NewTokyoKatchAdapter", factory: () => new NewTokyoKatchAdapter() },
   { pattern: /sites\.google\.com\/site\/hayama4h/i, name: "Hayama4HAdapter", factory: () => new Hayama4HAdapter() },
+  { pattern: /sites\.google\.com\/view\/7h4/i, name: "SevenHillsH3Adapter", factory: () => new SevenHillsH3Adapter() },
   { pattern: /kansascityh3\.com/i, name: "KCH3Adapter", factory: () => new KCH3Adapter() },
   { pattern: /big-hump\.com/i, name: "BigHumpAdapter", factory: () => new BigHumpAdapter() },
   { pattern: /stlh3\.com/i, name: "StlH3Adapter", factory: () => new StlH3Adapter() },
