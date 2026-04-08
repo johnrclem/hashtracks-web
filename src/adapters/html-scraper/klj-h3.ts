@@ -7,6 +7,7 @@ import {
   chronoParseDate,
   decodeEntities,
   isPlaceholder,
+  normalizeHaresField,
   parse12HourTime,
   stripHtmlTags,
 } from "../utils";
@@ -182,12 +183,19 @@ export class KljH3Adapter implements SourceAdapter {
         ? `Registration: ${body.registration}`
         : undefined;
 
+      // Merge hares + coHares into a single normalized field so the
+      // fingerprint is stable across scrapes regardless of WP post-body
+      // ordering. body.coHares is a secondary list in the post body.
+      const mergedHares = [body.hares, body.coHares]
+        .filter((s): s is string => !!s && s.length > 0)
+        .join(", ");
+
       events.push({
         date,
         kennelTag: KENNEL_TAG,
         runNumber,
         title,
-        hares: body.hares,
+        hares: normalizeHaresField(mergedHares),
         location:
           body.runSite && !isPlaceholder(body.runSite) ? body.runSite : undefined,
         startTime: body.startTime ?? DEFAULT_START_TIME,

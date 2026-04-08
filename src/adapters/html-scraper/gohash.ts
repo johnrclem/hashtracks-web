@@ -1,6 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { ErrorDetails, RawEventData, ScrapeResult, SourceAdapter } from "../types";
-import { applyDateWindow, fetchHTMLPage, validateSourceConfig } from "../utils";
+import { applyDateWindow, fetchHTMLPage, normalizeHaresField, validateSourceConfig } from "../utils";
 
 /**
  * Shared adapter for goHash.app-hosted kennel sites.
@@ -143,15 +143,7 @@ export function parseGoHashRun(
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate);
   if (!m) return null;
 
-  const hareRaw = run.hare?.trim() ?? "";
-  // hare may be comma-separated — sort for stable fingerprint
-  const hares = hareRaw
-    ? hareRaw
-        .split(/\s*,\s*/)
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b))
-        .join(", ")
-    : undefined;
+  const hares = normalizeHaresField(run.hare);
 
   const location = run.runsite?.trim() || undefined;
   const locationUrl = run.runsite_url?.trim() || undefined;

@@ -168,7 +168,11 @@ async function ensureRegionRecords(prisma: any) {
     // ── UK ──
     "Scotland": ["Edinburgh", "Glasgow"],
     // ── Malaysia (Phase 1: KL + Penang founder pack) ──
-    "Selangor": ["Kuala Lumpur, MY"],
+    // Kuala Lumpur is a Federal Territory, NOT part of Selangor — KL is
+    // administratively state-equivalent. Selangor surrounds KL but KL
+    // itself is its own top-level region. Kennels in KL proper attach
+    // to the Kuala Lumpur state region; suburb kennels (Petaling Jaya,
+    // Kelana Jaya, etc.) attach to Selangor.
     "Penang": ["Penang Island, MY"],
   };
 

@@ -2288,15 +2288,19 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["Penang, MY", "Pulau Pinang"],
   },
   {
+    // Kuala Lumpur is a Federal Territory — state-equivalent, NOT a
+    // metro under Selangor. Selangor surrounds KL but KL itself is
+    // administratively separate (like Washington, DC vs Maryland).
     name: "Kuala Lumpur, MY",
     country: "Malaysia",
+    level: "STATE_PROVINCE",
     timezone: "Asia/Kuala_Lumpur",
     abbrev: "KL",
     colorClasses: "bg-green-200 text-green-800",
     pinColor: "#166534",
     centroidLat: 3.1390,
     centroidLng: 101.6869,
-    aliases: ["Kuala Lumpur", "KL", "Kuala Lumpur, Malaysia"],
+    aliases: ["Kuala Lumpur", "KL", "Kuala Lumpur, Malaysia", "Federal Territory of Kuala Lumpur"],
   },
   {
     name: "Penang Island, MY",
@@ -2712,9 +2716,9 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Stockholm": "Sweden",
   // Norway
   "Oslo": "Norway",
-  // Malaysia — both states and metros map to their Malaysia "state group"
-  // (which is then mapped to the Malaysia country via COUNTRY_GROUP_MAP).
-  "Kuala Lumpur, MY": "Selangor",
+  // Malaysia — Kuala Lumpur is a Federal Territory (state-equivalent),
+  // NOT part of Selangor. Penang Island is a metro under Penang state.
+  "Kuala Lumpur, MY": "Kuala Lumpur, MY",
   "Penang Island, MY": "Penang",
   "Selangor": "Selangor",
   "Penang": "Penang",

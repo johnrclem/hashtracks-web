@@ -281,6 +281,27 @@ export function buildDateWindow(days = 90): { minDate: Date; maxDate: Date } {
 }
 
 /**
+ * Normalize a hares field for stable RawEvent fingerprints. Splits
+ * comma-separated names, trims, dedupes, sorts alphabetically, and
+ * rejoins. When a source API returns participants in nondeterministic
+ * order, unsorted joins produce fresh fingerprints on every scrape and
+ * break idempotency — see `feedback_fingerprint_stability` memory and
+ * `seletar-h3.ts` for the precedent. Returns `undefined` if the input
+ * is nullish/empty.
+ */
+export function normalizeHaresField(hares: string | null | undefined): string | undefined {
+  if (!hares) return undefined;
+  const parts = hares
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (parts.length === 0) return undefined;
+  const unique = Array.from(new Set(parts));
+  unique.sort((a, b) => a.localeCompare(b));
+  return unique.join(", ");
+}
+
+/**
  * Filter events to those within `±days` of now. Honors the adapter
  * contract that fetch() should respect `options.days` (which is itself
  * sourced from `source.scrapeDays`). Events are keyed by their

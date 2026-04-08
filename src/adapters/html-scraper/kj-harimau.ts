@@ -5,6 +5,7 @@ import { fetchBloggerPosts } from "../blogger-api";
 import {
   applyDateWindow,
   decodeEntities,
+  normalizeHaresField,
   parse12HourTime,
   stripHtmlTags,
 } from "../utils";
@@ -204,7 +205,7 @@ export class KjHarimauAdapter implements SourceAdapter {
       }
 
       const runNumber = body.runNumber ?? titleFields.runNumber;
-      const hares = body.hare ?? titleFields.hare;
+      const hares = normalizeHaresField(body.hare ?? titleFields.hare);
       const location = body.runsite ?? titleFields.runsite;
 
       const externalLinks: { url: string; label: string }[] = [];
