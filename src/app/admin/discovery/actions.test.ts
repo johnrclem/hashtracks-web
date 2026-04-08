@@ -31,9 +31,13 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/pipeline/kennel-resolver", () => ({ clearResolverCache: vi.fn() }));
-vi.mock("@/pipeline/kennel-discovery", () => ({
-  syncKennelDiscovery: vi.fn(),
-}));
+vi.mock("@/pipeline/kennel-discovery", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/pipeline/kennel-discovery")>();
+  return {
+    ...actual,
+    syncKennelDiscovery: vi.fn(),
+  };
+});
 vi.mock("@/lib/kennel-utils", () => ({
   toSlug: vi.fn((s: string) => s.toLowerCase()),
   toKennelCode: vi.fn((s: string) => s.toUpperCase()),
