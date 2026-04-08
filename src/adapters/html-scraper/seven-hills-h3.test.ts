@@ -63,7 +63,7 @@ describe("SevenHillsH3Adapter.fetch", () => {
     id: "test",
     url: "https://sites.google.com/view/7h4/home",
     config: null,
-  } as never;
+  } as unknown as Parameters<typeof adapter.fetch>[0];
 
   it("emits one event when the page has a parseable trail block", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(

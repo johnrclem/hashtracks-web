@@ -30,9 +30,9 @@ import { fetchHTMLPage, chronoParseDate, parse12HourTime, decodeEntities } from 
 /** "TRAIL #2005" */
 const TRAIL_NUMBER_RE = /TRAIL\s*#\s*(\d+)/i;
 /** Day names used for injecting a split before the date phrase. */
-const DATE_SPLIT_RE = /(?<!\n)(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/g;
+const DATE_SPLIT_RE = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/g;
 /** Known field labels on the 7H4 page that need a preceding newline so value regexes don't run past them. */
-const FIELD_LABEL_SPLIT_RE = /(?<!\n)(Start:|Hares?:|Beer\s*Meister:|Cost:|Shiggy\s*Level:|Special\s*Instructions:|On[\s-]*On)/g;
+const FIELD_LABEL_SPLIT_RE = /(Start:|Hares?:|Beer\s*Meister:|Cost:|Shiggy\s*Level:|Special\s*Instructions:|On[\s-]*On)/g;
 /** "Saturday April 4, 2026 @ 2pm" — captures the leading date phrase. */
 const DATE_PHRASE_RE = /((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})/i;
 /** "@ 2pm" / "@ 2:30 PM" — minutes optional. Captured time is normalized into `HH:MM am/pm` before parsing. */
@@ -58,9 +58,8 @@ interface ParsedTrail {
  */
 export function parseSevenHillsPage(html: string): ParsedTrail | null {
   const $ = cheerio.load(html);
-  // Collapse the whole body to a single space-normalized string, then inject
-  // newlines before known field labels and day-of-week tokens so field values
-  // don't run into each other (the live page glues them with no separator).
+  // Live page glues labeled fields together with no whitespace. Inject
+  // newlines before known labels so single-line value regexes terminate.
   const bodyText = decodeEntities($("body").text())
     .replaceAll(/\s+/g, " ")
     .replaceAll(FIELD_LABEL_SPLIT_RE, "\n$1")
@@ -69,15 +68,14 @@ export function parseSevenHillsPage(html: string): ParsedTrail | null {
 
   const trailMatch = TRAIL_NUMBER_RE.exec(bodyText);
   if (!trailMatch) return null;
-  const runNumber = parseInt(trailMatch[1], 10);
+  const runNumber = Number.parseInt(trailMatch[1], 10);
 
   const dateMatch = DATE_PHRASE_RE.exec(bodyText);
   if (!dateMatch) return null;
   const date = chronoParseDate(dateMatch[1], "en-US", new Date(), { forwardDate: true });
   if (!date) return null;
 
-  // Normalize @-time captures into "H:MM am/pm" form so parse12HourTime's
-  // stricter colon-required regex accepts them ("2pm" → "2:00pm").
+  // parse12HourTime requires explicit minutes, so synthesize ":00" for the "2pm" short form.
   const timeMatch = TIME_AT_RE.exec(bodyText);
   let startTime: string | undefined;
   if (timeMatch) {
@@ -93,9 +91,8 @@ export function parseSevenHillsPage(html: string): ParsedTrail | null {
   const startMatch = START_RE.exec(bodyText);
   const location = startMatch?.[1]?.trim() || undefined;
 
-  // Trail name lives between "TRAIL #N" and the date phrase. It's decorated
-  // with emoji on the live page (e.g., "🍻 ~🌷 🐰 Peter CottonTrail 🐰") and
-  // we strip those along with any leading/trailing punctuation.
+  // Trail name sits between "TRAIL #N" and the date phrase, decorated with emoji
+  // and stray punctuation that we strip for display.
   let title: string | undefined;
   const nameStart = trailMatch.index + trailMatch[0].length;
   const nameEnd = dateMatch.index;
