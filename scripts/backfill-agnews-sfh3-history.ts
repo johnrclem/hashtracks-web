@@ -12,11 +12,17 @@
 
 import { backfillSfh3Kennel } from "./lib/sfh3-backfill";
 
-backfillSfh3Kennel({
-  sfh3KennelId: 13,
-  kennelCode: "agnews",
-  sourceName: "SFH3 MultiHash HTML Hareline",
-}).catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+async function main(): Promise<void> {
+  try {
+    await backfillSfh3Kennel({
+      sfh3KennelId: 13,
+      kennelCode: "agnews",
+      sourceName: "SFH3 MultiHash HTML Hareline",
+    });
+  } catch (err) {
+    console.error(err);
+    process.exitCode = 1;
+  }
+}
+
+void main();

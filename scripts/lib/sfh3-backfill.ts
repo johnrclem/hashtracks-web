@@ -61,6 +61,7 @@ export interface Sfh3BackfillParams {
   enrichDetailPages?: boolean;
 }
 
+/** Build the SFH3 hareline URL for a given kennel + period bucket. */
 function buildUrl(sfh3KennelId: number, period: string): string {
   return `https://www.sfh3.com/runs?kennel=${sfh3KennelId}&period=${encodeURIComponent(period)}`;
 }
@@ -83,8 +84,10 @@ function assertKennelFilterApplied(html: string, sfh3KennelId: number, url: stri
   // the kennel <select>. If SFH3 ever stops honoring `kennel=<id>`, the
   // selected value will be "*" (All kennels) and we'd silently import other
   // kennels' history under our target — direct data corruption. Fail closed.
-  const re = new RegExp(`<option\\s+selected="selected"\\s+value="${sfh3KennelId}"`);
-  if (!re.test(html)) {
+  // String match (no dynamic RegExp) — Codacy flags template-literal RegExp
+  // construction as a security smell even though sfh3KennelId is typed number.
+  const marker = `<option selected="selected" value="${sfh3KennelId}"`;
+  if (!html.includes(marker)) {
     throw new Error(
       `SFH3 kennel filter not applied at ${url} — expected selected kennel id ${sfh3KennelId}. ` +
         `Refusing to backfill to avoid cross-kennel data corruption.`,
@@ -92,6 +95,27 @@ function assertKennelFilterApplied(html: string, sfh3KennelId: number, url: stri
   }
 }
 
+/** Format a single event as a one-line sample for dry-run/apply logs. */
+function formatEventSample(event: RawEventData): string {
+  const descPreview = event.description ? `${event.description.slice(0, 60)}…` : "-";
+  return `  ${event.date} #${event.runNumber ?? "?"} | ${event.title ?? "-"} | hares=${event.hares ?? "-"} | desc=${descPreview}`;
+}
+
+/** Log the first 3 + last 3 events (or just all of them if ≤ 3). */
+function logEventSamples(events: readonly RawEventData[]): void {
+  console.log("\nFirst 3:");
+  events.slice(0, 3).forEach((e) => console.log(formatEventSample(e)));
+  if (events.length > 3) {
+    console.log("Last 3:");
+    events.slice(-3).forEach((e) => console.log(formatEventSample(e)));
+  }
+}
+
+/**
+ * Fetch one period bucket, validate the kennel filter was honored, then
+ * map each parsed hareline row into a `RawEventData`. Skips rows with
+ * unparseable dates.
+ */
 async function fetchPeriodRows(
   sfh3KennelId: number,
   period: string,
@@ -209,14 +233,7 @@ export async function backfillSfh3Kennel(params: Sfh3BackfillParams): Promise<vo
 
   // Sort by date for readable sample output.
   unique.sort((a, b) => a.date.localeCompare(b.date));
-  console.log("\nFirst 3:");
-  for (const event of unique.slice(0, 3)) {
-    console.log(`  ${event.date} #${event.runNumber ?? "?"} | ${event.title ?? "-"} | hares=${event.hares ?? "-"} | desc=${event.description ? `${event.description.slice(0, 60)}…` : "-"}`);
-  }
-  console.log("Last 3:");
-  for (const event of unique.slice(-3)) {
-    console.log(`  ${event.date} #${event.runNumber ?? "?"} | ${event.title ?? "-"} | hares=${event.hares ?? "-"} | desc=${event.description ? `${event.description.slice(0, 60)}…` : "-"}`);
-  }
+  logEventSamples(unique);
 
   if (!apply) {
     console.log("\nDry run complete. Re-run with BACKFILL_APPLY=1 to write to DB.");
@@ -224,9 +241,12 @@ export async function backfillSfh3Kennel(params: Sfh3BackfillParams): Promise<vo
   }
 
   try {
-    const kennel = await prisma.kennel.findUnique({ where: { kennelCode: params.kennelCode } });
+    // Kennel + source existence are independent — look them up in parallel.
+    const [kennel, source] = await Promise.all([
+      prisma.kennel.findUnique({ where: { kennelCode: params.kennelCode } }),
+      prisma.source.findFirst({ where: { name: params.sourceName } }),
+    ]);
     if (!kennel) throw new Error(`Kennel ${params.kennelCode} not found. Run prisma db seed first.`);
-    const source = await prisma.source.findFirst({ where: { name: params.sourceName } });
     if (!source) throw new Error(`Source "${params.sourceName}" not found. Run prisma db seed first.`);
 
     // Preflight: the target kennel MUST be linked to the source via
@@ -254,18 +274,22 @@ export async function backfillSfh3Kennel(params: Sfh3BackfillParams): Promise<vo
     console.log(
       `\nDone. created=${mergeResult.created} updated=${mergeResult.updated} skipped=${mergeResult.skipped} unmatched=${mergeResult.unmatched.length} blocked=${mergeResult.blocked}`,
     );
-    if (mergeResult.unmatched.length > 0) {
-      console.log(`Unmatched tags: ${mergeResult.unmatched.join(", ")}`);
-    }
+    // One-shot backfill: any partial failure is fatal. A silent exit 0 with
+    // missing history is worse than a loud abort we can retry.
     if (mergeResult.blocked > 0) {
       throw new Error(
         `${mergeResult.blocked} events were BLOCKED by source-kennel guard — aborting. ` +
           `This should have been caught by the preflight link check above.`,
       );
     }
+    if (mergeResult.unmatched.length > 0) {
+      throw new Error(`Unexpected unmatched tags: ${mergeResult.unmatched.join(", ")}`);
+    }
     if (mergeResult.eventErrors > 0) {
-      console.log(`Event errors (${mergeResult.eventErrors}):`);
-      for (const msg of mergeResult.eventErrorMessages.slice(0, 10)) console.log(`  ${msg}`);
+      const sampleErrors = mergeResult.eventErrorMessages.slice(0, 10).join("\n  ");
+      throw new Error(
+        `Merge pipeline reported ${mergeResult.eventErrors} event errors:\n  ${sampleErrors}`,
+      );
     }
   } finally {
     await prisma.$disconnect();
