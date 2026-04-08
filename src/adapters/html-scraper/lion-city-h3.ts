@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { fetchWordPressPosts } from "../wordpress-api";
-import { MONTHS, decodeEntities } from "../utils";
+import { MONTHS, decodeEntities, formatAmPmTime } from "../utils";
 
 const DEFAULT_URL = "https://lioncityhhh.com";
 const KENNEL_TAG = "lch3";
@@ -23,8 +23,6 @@ const KENNEL_TAG = "lch3";
  *           🍻 Map – On On: Red Lantern, opposite
  *
  * The body date has no year — we use the post's publish date to anchor it.
- * Lion City is a Friday hash so the run date is always the Friday in the
- * same publish week (or the following week).
  */
 
 interface ParsedTitle {
@@ -37,7 +35,7 @@ export function parseLionCityTitle(rawTitle: string): ParsedTitle {
   const decoded = decodeEntities(rawTitle).trim();
   const m = /Hash\s*Run\s*#?\s*([\d,]+)/i.exec(decoded);
   if (!m) return { title: decoded };
-  const runNumber = Number.parseInt(m[1].replace(/,/g, ""), 10);
+  const runNumber = Number.parseInt(m[1].replaceAll(",", ""), 10);
   return {
     runNumber: Number.isFinite(runNumber) ? runNumber : undefined,
     title: `Hash Run #${runNumber}`,
@@ -53,38 +51,41 @@ interface ParsedBody {
 }
 
 /**
+ * Parse the "Date: Friday, 03 April, 6 pm sharp" line into a date string and
+ * (optional) startTime, anchored to the post's publish year.
+ */
+export function parseLionCityDateLine(
+  text: string,
+  referenceDate: Date,
+): { date?: string; startTime?: string } {
+  const dateMatch = /Date:\s*(?:[a-z]+,\s*)?(\d{1,2})\s+([a-z]+)(?:,?\s*(\d{1,2})(?::(\d{2}))?\s*([ap]m))?/i.exec(text);
+  if (!dateMatch) return {};
+
+  const day = Number.parseInt(dateMatch[1], 10);
+  const monthIdx = MONTHS[dateMatch[2].toLowerCase()];
+  if (!monthIdx) return {};
+
+  const year = inferYear(monthIdx, day, referenceDate);
+  const date = `${year}-${String(monthIdx).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+  if (!dateMatch[3]) return { date };
+
+  const hour = Number.parseInt(dateMatch[3], 10);
+  const minute = dateMatch[4] ? Number.parseInt(dateMatch[4], 10) : 0;
+  const startTime = formatAmPmTime(hour, minute, dateMatch[5]);
+  return { date, startTime };
+}
+
+/**
  * Parse Lion City post body (HTML or plain text). Anchored to a reference
- * year so the body date "Friday, 03 April" gets resolved correctly.
+ * date so the body date "Friday, 03 April" gets resolved to the right year.
  */
 export function parseLionCityBody(html: string, referenceDate: Date): ParsedBody {
   const $ = cheerio.load(html);
-  // Use innerText with line breaks preserved so emoji-prefixed labels stay on
-  // their own lines.
-  const text = $("body").length
-    ? $("body").text()
-    : $.text();
-  const cleaned = text.replace(/\u00a0/g, " ");
+  const text = $("body").length ? $("body").text() : $.text();
+  const cleaned = text.replaceAll("\u00a0", " ");
 
-  const result: ParsedBody = {};
-
-  // Date line:  "Date: Friday, 03 April, 6 pm sharp." (year is missing)
-  const dateMatch = /Date:\s*(?:[A-Za-z]+,\s*)?(\d{1,2})\s+([A-Za-z]+)(?:,?\s*(\d{1,2})(?::(\d{2}))?\s*([ap]m))?/i.exec(cleaned);
-  if (dateMatch) {
-    const day = Number.parseInt(dateMatch[1], 10);
-    const monthIdx = MONTHS[dateMatch[2].toLowerCase()];
-    if (monthIdx) {
-      const year = inferYear(monthIdx, day, referenceDate);
-      result.date = `${year}-${String(monthIdx).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-    if (dateMatch[3]) {
-      let hour = Number.parseInt(dateMatch[3], 10);
-      const minute = dateMatch[4] ? Number.parseInt(dateMatch[4], 10) : 0;
-      const ampm = dateMatch[5].toLowerCase();
-      if (ampm === "pm" && hour !== 12) hour += 12;
-      if (ampm === "am" && hour === 12) hour = 0;
-      result.startTime = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-    }
-  }
+  const result: ParsedBody = parseLionCityDateLine(cleaned, referenceDate);
 
   // Hare(s): emoji optional. The "🐰" prefix may not survive HTML rendering.
   const hareMatch = /Hare\(?s\)?:\s*([^\n]+?)(?:\n|$)/i.exec(cleaned);
@@ -94,7 +95,8 @@ export function parseLionCityBody(html: string, referenceDate: Date): ParsedBody
   const locMatch = /(?:Map\s*[–-]\s*)?Run\s*Location:\s*([^\n]+?)(?:\n|$)/i.exec(cleaned);
   if (locMatch) result.location = locMatch[1].trim();
 
-  // On On: handles "Map – O n On:" (spaces), "Map - On On:", "On On:", "On-On:"
+  // On On: handles "Map – O n On:" (spaces, common WordPress artifact),
+  // "Map - On On:", "On On:", "On-On:"
   const onOnMatch = /(?:Map\s*[–-]\s*)?O\s*n\s*[-–]?\s*On:\s*([^\n]+?)(?:\n|$)/i.exec(cleaned);
   if (onOnMatch) result.onAfter = onOnMatch[1].trim();
 
@@ -105,12 +107,13 @@ export function parseLionCityBody(html: string, referenceDate: Date): ParsedBody
  * Infer the year for a body date that has no year, using the post's publish
  * date as a reference. Lion City posts are always pre-trail, so the run is
  * within ~2 weeks after the publish date.
+ *
+ * 60-day cutoff: covers any Dec→Jan post published up to ~2 months before the
+ * actual run (e.g. an early-November post for a January trail).
  */
 function inferYear(month: number, day: number, referenceDate: Date): number {
   const refYear = referenceDate.getUTCFullYear();
   const candidate = new Date(Date.UTC(refYear, month - 1, day, 12));
-  // If the candidate is more than 60 days behind the reference, the body date
-  // probably refers to the next year (December → January wraparound).
   const diffDays = (candidate.getTime() - referenceDate.getTime()) / (1000 * 60 * 60 * 24);
   if (diffDays < -60) return refYear + 1;
   return refYear;

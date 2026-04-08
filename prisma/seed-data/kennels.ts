@@ -2732,7 +2732,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleTime: "6:00 PM",
       scheduleNotes: "Weekly Friday evenings at 6 PM, mixed. Run details (hare, location, MRT, on-on venue) posted as a 'Hash Run #N' WordPress post each week.",
       description: "Singapore's Friday hash. Mixed kennel that runs 50+ weeks a year, with weekly trail announcements on lioncityhhh.com — including hare, run location, nearest MRT, bus routes, and the on-on venue.",
-      latitude: 1.30, longitude: 103.83,
+      latitude: 1.3, longitude: 103.83,
     },
     {
       kennelCode: "kampong-h3", shortName: "Kampong H3", fullName: "Kampong Hash House Harriers",
@@ -2757,7 +2757,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleNotes: "Alternate Sundays at 5 PM, mixed. Founded February 1994. Trail registration and details posted on Harrier Central (kennel ID SH3-SG).",
       foundedYear: 1994,
       description: "Singapore's alternate-Sunday mixed hash, running since February 1994. The newest of Singapore's foot-hash chapters, and the only one that publishes events through Harrier Central.",
-      latitude: 1.30, longitude: 103.83,
+      latitude: 1.3, longitude: 103.83,
     },
   ];
 

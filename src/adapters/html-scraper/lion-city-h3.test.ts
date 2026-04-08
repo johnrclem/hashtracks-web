@@ -88,4 +88,17 @@ Map – On On: A bar</p>`;
     const event = buildLionCityEvent("Hash Run #999", "<p>No date here</p>", "https://x", new Date());
     expect(event).toBeNull();
   });
+
+  it("leaves description undefined when there is no on-on block", () => {
+    const html = `<p>Date: Friday, 03 April, 6 pm sharp.
+Hare(s): Lap Dog
+Map – Run Location: Somewhere</p>`;
+    const event = buildLionCityEvent(
+      "Hash Run #2,193",
+      html,
+      "https://x",
+      new Date("2026-03-31T00:00:00Z"),
+    );
+    expect(event?.description).toBeUndefined();
+  });
 });

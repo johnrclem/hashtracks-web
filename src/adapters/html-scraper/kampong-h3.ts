@@ -1,7 +1,6 @@
-import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
-import { fetchHTMLPage, MONTHS } from "../utils";
+import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
+import { fetchHTMLPage, MONTHS, formatAmPmTime } from "../utils";
 
 const DEFAULT_URL = "https://kampong.hash.org.sg";
 const KENNEL_TAG = "kampong-h3";
@@ -34,15 +33,15 @@ export interface KampongFields {
 /** Parse the "Next Run" text block from kampong.hash.org.sg. */
 export function parseKampongNextRun(rawText: string): KampongFields {
   // Collapse non-breaking spaces and normalize whitespace.
-  const text = rawText.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  const text = rawText.replaceAll("\u00a0", " ").replaceAll(/\s+/g, " ").trim();
   const result: KampongFields = {};
 
   const runMatch = /Run\s+(\d{1,4})/i.exec(text);
   if (runMatch) result.runNumber = Number.parseInt(runMatch[1], 10);
 
-  // Date format: "Saturday, 18 th April 2026" — note the "th"/"st"/"nd"/"rd" suffix
-  const dateMatch =
-    /Date:\s*(?:[A-Za-z]+,?\s*)?(\d{1,2})(?:\s*(?:st|nd|rd|th))?\s+([A-Za-z]+)\s+(\d{4})/i.exec(text);
+  // Date format: "Saturday, 18 th April 2026" — note the optional "th"/"st"/"nd"/"rd"
+  // Match any trailing letter cluster after the day to absorb the ordinal suffix.
+  const dateMatch = /Date:\s*(?:[a-z]+,?\s*)?(\d{1,2})\s*[a-z]*\s+([a-z]+)\s+(\d{4})/i.exec(text);
   if (dateMatch) {
     const day = Number.parseInt(dateMatch[1], 10);
     const monthIdx = MONTHS[dateMatch[2].toLowerCase()];
@@ -52,15 +51,12 @@ export function parseKampongNextRun(rawText: string): KampongFields {
     }
   }
 
-  // Time: "Run starts 5:30PM" or "5:30 PM"
+  // Time: "Run starts 5:30PM" or "5:30 PM" or "5PM"
   const timeMatch = /(?:Run\s*starts\s*)?(\d{1,2})(?::(\d{2}))?\s*([ap]m)/i.exec(text);
   if (timeMatch) {
-    let hour = Number.parseInt(timeMatch[1], 10);
+    const hour = Number.parseInt(timeMatch[1], 10);
     const minute = timeMatch[2] ? Number.parseInt(timeMatch[2], 10) : 0;
-    const ampm = timeMatch[3].toLowerCase();
-    if (ampm === "pm" && hour !== 12) hour += 12;
-    if (ampm === "am" && hour === 12) hour = 0;
-    result.startTime = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    result.startTime = formatAmPmTime(hour, minute, timeMatch[3]);
   }
 
   // Hare: "Hare: Fawlty Towers" — stop at "Run site" or end
@@ -77,6 +73,44 @@ export function parseKampongNextRun(rawText: string): KampongFields {
   return result;
 }
 
+/**
+ * Locate the "Next Run" block in the page text and parse it. Extracted from
+ * the adapter fetch() method to keep the cognitive complexity in check.
+ */
+function buildEventFromPageText(pageText: string, sourceUrl: string): {
+  event?: RawEventData;
+  error?: string;
+  fields?: KampongFields;
+} {
+  const nextRunIdx = pageText.search(/next\s*run/i);
+  if (nextRunIdx < 0) {
+    return { error: "No 'Next Run' block found on page" };
+  }
+
+  // Take the text from "Next Run" forward — the parser stops at field
+  // boundaries so a fixed-length slice is unnecessary and fragile.
+  const slice = pageText.substring(nextRunIdx);
+  const fields = parseKampongNextRun(slice);
+
+  if (!fields.date) {
+    return { error: "Could not parse date from Next Run block", fields };
+  }
+
+  const event: RawEventData = {
+    date: fields.date,
+    startTime: fields.startTime,
+    kennelTag: KENNEL_TAG,
+    runNumber: fields.runNumber,
+    title: fields.runNumber
+      ? `Kampong H3 Run ${fields.runNumber}`
+      : "Kampong H3 Monthly Run",
+    hares: fields.hares,
+    location: fields.location,
+    sourceUrl,
+  };
+  return { event, fields };
+}
+
 export class KampongH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -89,52 +123,24 @@ export class KampongH3Adapter implements SourceAdapter {
     if (!page.ok) return page.result;
 
     const { $, structureHash } = page;
-    const errors: string[] = [];
-    const errorDetails: ErrorDetails = {};
+    const pageText = $.root().text();
 
-    // Locate the "Next Run" block. The page is hand-coded HTML so we can't
-    // rely on a specific class — find the text node containing "Next Run"
-    // and grab a slice of surrounding text.
-    const bodyText = $.root().text();
-    const nextRunIdx = bodyText.search(/next\s*run/i);
-    if (nextRunIdx < 0) {
-      errors.push("No 'Next Run' block found on page");
-      return { events: [], errors, structureHash };
-    }
-    const slice = bodyText.slice(nextRunIdx, nextRunIdx + 600);
-    const fields = parseKampongNextRun(slice);
-
-    if (!fields.date) {
-      errors.push("Could not parse date from Next Run block");
+    const parsed = buildEventFromPageText(pageText, url);
+    if (parsed.error || !parsed.event) {
       return {
         events: [],
-        errors,
+        errors: [parsed.error ?? "Failed to build event"],
         structureHash,
-        diagnosticContext: { sliceSample: slice.replace(/\s+/g, " ").trim().slice(0, 300) },
       };
     }
 
-    const event: RawEventData = {
-      date: fields.date,
-      startTime: fields.startTime,
-      kennelTag: KENNEL_TAG,
-      runNumber: fields.runNumber,
-      title: fields.runNumber
-        ? `Kampong H3 Run ${fields.runNumber}`
-        : "Kampong H3 Monthly Run",
-      hares: fields.hares,
-      location: fields.location,
-      sourceUrl: url,
-    };
-
     return {
-      events: [event],
-      errors,
+      events: [parsed.event],
+      errors: [],
       structureHash,
-      errorDetails: errorDetails.fetch ? errorDetails : undefined,
       diagnosticContext: {
         eventsParsed: 1,
-        runNumber: fields.runNumber,
+        runNumber: parsed.fields?.runNumber,
       },
     };
   }
