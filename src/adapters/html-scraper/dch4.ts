@@ -3,6 +3,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchWordPressPosts } from "../wordpress-api";
+import { filterEventsByWindow } from "../utils";
 
 /**
  * Parse a DCH4 post title into structured fields.
@@ -147,16 +148,20 @@ export class DCH4Adapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://dch4.org/";
 
+    // Honor source.scrapeDays via options.days (default 365)
+    const days = options?.days ?? source.scrapeDays ?? 365;
+
     // Try WordPress REST API first
     const apiResult = await this.fetchViaWordPressApi(baseUrl);
-    if (apiResult) return apiResult;
+    if (apiResult) return { ...apiResult, events: filterEventsByWindow(apiResult.events, days) };
 
     // Fall back to HTML scraping
-    return this.fetchViaHtmlScrape(baseUrl);
+    const htmlResult = await this.fetchViaHtmlScrape(baseUrl);
+    return { ...htmlResult, events: filterEventsByWindow(htmlResult.events, days) };
   }
 
   private async fetchViaWordPressApi(baseUrl: string): Promise<ScrapeResult | null> {

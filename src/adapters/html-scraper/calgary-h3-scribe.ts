@@ -15,7 +15,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { fetchWordPressPosts } from "../wordpress-api";
-import { chronoParseDate, stripPlaceholder } from "../utils";
+import { chronoParseDate, filterEventsByWindow, stripPlaceholder } from "../utils";
 
 const KENNEL_TAG = "ch3-ab";
 
@@ -125,9 +125,11 @@ export class CalgaryH3ScribeAdapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://scribe.onon.org/";
+    // Honor source.scrapeDays via options.days (default 365)
+    const days = options?.days ?? source.scrapeDays ?? 365;
 
     const wpResult = await fetchWordPressPosts(baseUrl, 20);
 
@@ -154,7 +156,7 @@ export class CalgaryH3ScribeAdapter implements SourceAdapter {
     }
 
     return {
-      events,
+      events: filterEventsByWindow(events, days),
       errors: [],
       diagnosticContext: {
         fetchMethod: "wordpress-api",
