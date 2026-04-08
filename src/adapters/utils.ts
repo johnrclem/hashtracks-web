@@ -184,6 +184,20 @@ export { buildUrlVariantCandidates };
  * Matches: "4:00 pm", "7:15 PM", "12:00 am"
  * Returns undefined if no match found.
  */
+/**
+ * Convert an already-extracted (hour, minute, am/pm) tuple into a 24-hour
+ * "HH:MM" string. Used by adapters that match their own surrounding-context
+ * regex (e.g. "Run starts 5:30PM" or "Friday, 03 April, 6 pm sharp") and just
+ * need the conversion + zero-padding.
+ */
+export function formatAmPmTime(hour: number, minute: number, ampm: string): string {
+  let h = hour;
+  const lower = ampm.toLowerCase();
+  if (lower === "pm" && h !== 12) h += 12;
+  if (lower === "am" && h === 12) h = 0;
+  return `${String(h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
 export function parse12HourTime(text: string): string | undefined {
   const match = /(\d{1,2}):(\d{2,3})\s*(am|pm)/i.exec(text);
   if (!match) return undefined;

@@ -64,6 +64,8 @@ import { CalgaryH3ScribeAdapter } from "./html-scraper/calgary-h3-scribe";
 import { Bfh3Adapter } from "./html-scraper/bfh3";
 import { IndyH3Adapter } from "./html-scraper/indyh3";
 import { ChooChooH3Adapter } from "./html-scraper/choo-choo-h3";
+import { LionCityH3Adapter } from "./html-scraper/lion-city-h3";
+import { KampongH3Adapter } from "./html-scraper/kampong-h3";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -155,6 +157,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /bfh3\.com/i, name: "Bfh3Adapter", factory: () => new Bfh3Adapter() },
   { pattern: /indyhhh\.com/i, name: "IndyH3Adapter", factory: () => new IndyH3Adapter() },
   { pattern: /choochooh3\.com/i, name: "ChooChooH3Adapter", factory: () => new ChooChooH3Adapter() },
+  { pattern: /lioncityhhh\.com/i, name: "LionCityH3Adapter", factory: () => new LionCityH3Adapter() },
+  { pattern: /kampong\.hash\.org\.sg/i, name: "KampongH3Adapter", factory: () => new KampongH3Adapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */
