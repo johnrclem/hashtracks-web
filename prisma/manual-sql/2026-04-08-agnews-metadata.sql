@@ -29,7 +29,18 @@ SET "facebookUrl" = COALESCE("facebookUrl", 'https://www.facebook.com/SIliconeVa
       ELSE description
     END,
     "updatedAt" = NOW()
-WHERE "kennelCode" = 'agnews';
+WHERE "kennelCode" = 'agnews'
+  -- Skip the write entirely on re-runs against a row that's already been
+  -- enriched — keeps `updatedAt` stable instead of churning it on every
+  -- deploy. The DO block below still verifies the row is in the desired
+  -- state regardless.
+  AND (
+    NULLIF(BTRIM("facebookUrl"), '') IS NULL
+    OR NULLIF(BTRIM("twitterHandle"), '') IS NULL
+    OR NULLIF(BTRIM("contactEmail"), '') IS NULL
+    OR NULLIF(BTRIM("hashCash"), '') IS NULL
+    OR description = 'Biweekly Thursday evening hash in the South Bay. Longer trails, more family-friendly. Alternates with FHAC-U. Run #1510+.'
+  );
 
 DO $$
 DECLARE

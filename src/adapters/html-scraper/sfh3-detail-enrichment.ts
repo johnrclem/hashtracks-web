@@ -114,7 +114,10 @@ export function isGenericSFH3Title(title: string | undefined, kennelTag?: string
   // After stripping the tag, only a bare "run"/"trail" connective and an
   // optional `#N` run number should remain.
   const tail = normTitle.slice(normTag.length);
-  return /^(?:run|trail)?#?\d*$/.test(tail);
+  // Require at least one digit — a bare "agnews" or "agnews run" without a
+  // run number shouldn't be classified as generic, or we'd let a detail-page
+  // JSON-LD title clobber it (CodeRabbit review on PR #568).
+  return /^(?:run|trail)?#?\d+$/.test(tail);
 }
 
 /** True if the event still needs detail-page enrichment (missing Comment or still has a generic title). */
