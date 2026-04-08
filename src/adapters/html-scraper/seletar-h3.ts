@@ -2,6 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { safeFetch } from "../safe-fetch";
 import { USER_AGENT } from "../constants";
+import { buildDateWindow } from "../utils";
 
 /**
  * Default API endpoint — only used as a fallback when a Source has no `url`
@@ -176,16 +177,32 @@ export function groupSeletarRows(rows: SeletarRow[]): GroupSeletarRowsResult {
   return { events, skippedRows };
 }
 
+/**
+ * Build a PII-safe sample of a malformed row for diagnostics. The raw API
+ * response contains member names, emails, phone numbers, etc.; we whitelist
+ * only the non-PII `hl_*` / `hs_type` fields here so they can't leak into
+ * error logs, GitHub issues, or Sentry breadcrumbs.
+ */
+function safeRowSample(row: SeletarRow): Record<string, unknown> {
+  return {
+    hl_runno: row.hl_runno,
+    hl_datetime: row.hl_datetime,
+    hl_runsite: row.hl_runsite,
+    hl_gps: row.hl_gps,
+    hl_comment: row.hl_comment,
+    hl_guestfee: row.hl_guestfee,
+    hs_type: row.hs_type,
+  };
+}
+
 function buildSkippedRowsError(
   skippedRows: number,
   rows: SeletarRow[],
 ): { message: string; detail: NonNullable<ErrorDetails["parse"]> } {
   const message = `Seletar API returned ${skippedRows} row(s) with missing hl_runno or hl_datetime — possible schema drift`;
-  const sample = rows.find((r) => !Number.isFinite(Number(r.hl_runno)) || !r.hl_datetime) ?? {};
-  return {
-    message,
-    detail: [{ row: 0, error: message, rawText: JSON.stringify(sample).slice(0, 500) }],
-  };
+  const bad = rows.find((r) => !Number.isFinite(Number(r.hl_runno)) || !r.hl_datetime);
+  const rawText = JSON.stringify(bad ? safeRowSample(bad) : {}).slice(0, 500);
+  return { message, detail: [{ row: 0, error: message, rawText }] };
 }
 
 export class SeletarH3Adapter implements SourceAdapter {
@@ -193,7 +210,7 @@ export class SeletarH3Adapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const apiUrl = source.url || SELETAR_API_URL_DEFAULT;
     const errorDetails: ErrorDetails = {};
@@ -203,7 +220,23 @@ export class SeletarH3Adapter implements SourceAdapter {
       return { events: [], errors: [result.error.message], errorDetails };
     }
 
-    const { events, skippedRows } = groupSeletarRows(result.rows);
+    // Runtime payload shape check — a 200 with a malformed body (e.g. HTML
+    // error page, {status:"1"}, non-array data) must not silently succeed,
+    // because an empty rows list would trigger the reconciler to cancel
+    // live events. Treat any non-array `data` as a fetch error.
+    if (!Array.isArray(result.rows)) {
+      const message = "Seletar HashController API returned a non-array payload";
+      errorDetails.fetch = [{ url: apiUrl, message }];
+      return { events: [], errors: [message], errorDetails };
+    }
+
+    const allGrouped = groupSeletarRows(result.rows);
+    const skippedRows = allGrouped.skippedRows;
+    const { minDate, maxDate } = buildDateWindow(options?.days ?? 365);
+    const events = allGrouped.events.filter((e) => {
+      const d = new Date(`${e.date}T12:00:00Z`);
+      return d >= minDate && d <= maxDate;
+    });
     const errors: string[] = [];
 
     // Surface dropped rows as scrape errors so the reconciler doesn't cancel
