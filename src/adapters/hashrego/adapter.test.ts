@@ -78,8 +78,15 @@ describe("parseHashRegoTime", () => {
     expect(parseHashRegoTime("11:45 PM")).toBeNull();
   });
 
-  it("returns null for 11:00 PM and 3:59 AM (late-night band endpoints)", () => {
+  it("returns null for 11:00 PM (late-night band PM endpoint)", () => {
     expect(parseHashRegoTime("11:00 PM")).toBeNull();
+  });
+
+  it("returns null for 1:00 AM (mid-band AM time)", () => {
+    expect(parseHashRegoTime("01:00 AM")).toBeNull();
+  });
+
+  it("returns null for 3:59 AM (late-night band AM endpoint)", () => {
     expect(parseHashRegoTime("03:59 AM")).toBeNull();
   });
 
