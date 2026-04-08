@@ -165,7 +165,10 @@ export function groupSeletarRows(rows: SeletarRow[]): GroupSeletarRowsResult {
       kennelTag: KENNEL_TAG,
       runNumber,
       title,
-      hares: hareNames.length > 0 ? hareNames.join(", ") : undefined,
+      // Sort alphabetically so the fingerprint is stable — the API returns
+      // hare rows in nondeterministic order, which would otherwise cause
+      // re-scrapes and the one-shot backfill to insert duplicate RawEvents.
+      hares: hareNames.length > 0 ? [...hareNames].sort((a, b) => a.localeCompare(b)).join(", ") : undefined,
       location: head.hl_runsite?.trim() || undefined,
       latitude,
       longitude,
