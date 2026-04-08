@@ -501,9 +501,13 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "agnews", shortName: "Agnews", fullName: "Agnews State Hash House Harriers", region: "San Jose, CA",
       website: "https://svh3.com",
+      facebookUrl: "https://www.facebook.com/SIliconeValleyHash",
+      twitterHandle: "@SiliconValleyH3",
+      contactEmail: "hareraiser@svh3.com",
+      hashCash: "$6.00",
       scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "Alternates Thursdays with FHAC-U",
-      description: "Biweekly Thursday evening hash in the South Bay. Longer trails, more family-friendly. Alternates with FHAC-U. Run #1510+.",
+      description: "Biweekly Thursday evening hash in the South Bay. Longer trails, more family-friendly. Alternates with FHAC-U.",
     },
     {
       kennelCode: "barh3", shortName: "BARH3", fullName: "Bay Area Rabble Hash", region: "San Francisco, CA",

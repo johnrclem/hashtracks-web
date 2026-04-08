@@ -736,16 +736,16 @@ END:VCALENDAR`;
     expect(result.events[0].date).toBe("2026-04-03");
   });
 
-  it("enriches SFH3 events with detail-page title + Comment when enrichSFH3Details=true", async () => {
+  it("enriches SFH3 events: preserves descriptive titles, appends Comment when enrichSFH3Details=true", async () => {
     // Pin before SAMPLE_ICS event dates so the enrichment "future-only" filter
     // doesn't drop them.
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-02-01T00:00:00Z"));
     const detailHtml = `
       <html><head>
-        <title>SFH3 - 26.2H3 Run #7</title>
+        <title>SFH3 - SFH3 Run #2300</title>
         <script type="application/ld+json">
-          {"@context":"https://schema.org","@type":"Event","name":"26.2H3 Run #7","startDate":"2026-08-15T10:00:00-07:00"}
+          {"@context":"https://schema.org","@type":"Event","name":"SFH3 Run #2300","startDate":"2026-03-01T18:15:00-08:00"}
         </script>
       </head><body>
         <div class="run-key run_label"><label for="run_comment">Comment</label>:</div>
@@ -777,7 +777,10 @@ END:VCALENDAR`;
 
     const sfh3 = result.events.find((e) => e.sourceUrl === "https://www.sfh3.com/runs/1");
     expect(sfh3).toBeDefined();
-    expect(sfh3!.title).toBe("26.2H3 Run #7");
+    // The descriptive iCal-extracted title "Test Trail" must NOT be overridden
+    // by the detail page's generic "SFH3 Run #2300" — see #545.
+    expect(sfh3!.title).toBe("Test Trail");
+    // …but the Comment field still gets appended to description regardless.
     expect(sfh3!.description).toContain("Comment: You do not want to miss this event.");
     vi.useRealTimers();
   });
