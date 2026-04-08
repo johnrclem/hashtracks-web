@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { scrapeSource } from "@/pipeline/scrape";
-import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
+import { resolveKennelTag, clearResolverCache, mapKennelTag } from "@/pipeline/kennel-resolver";
 import { buildKennelIdentifiers, createKennelRecord } from "@/lib/kennel-utils";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -55,12 +55,42 @@ async function autoResolveIfAllTagsMatched(
   const ctx = alertContext as { tags?: string[] } | null;
   if (!ctx?.tags) return;
 
-  clearResolverCache();
-  const remaining: string[] = [];
-  for (const t of ctx.tags) {
-    const result = await resolveKennelTag(t);
-    if (!result.matched) remaining.push(t);
+  const normalizedTags = Array.from(new Set(
+    ctx.tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean),
+  ));
+  if (normalizedTags.length === 0) return;
+
+  const [kennels, aliases] = await Promise.all([
+    prisma.kennel.findMany({
+      select: { id: true, kennelCode: true, shortName: true },
+    }),
+    prisma.kennelAlias.findMany({
+      select: { alias: true, kennelId: true },
+    }),
+  ]);
+
+  const byKennelCode = new Map<string, string>();
+  const byShortName = new Map<string, string>();
+  const byAlias = new Map<string, string>();
+
+  for (const kennel of kennels) {
+    byKennelCode.set(kennel.kennelCode.trim().toLowerCase(), kennel.id);
+    byShortName.set(kennel.shortName.trim().toLowerCase(), kennel.id);
   }
+  for (const alias of aliases) {
+    byAlias.set(alias.alias.trim().toLowerCase(), alias.kennelId);
+  }
+
+  const remaining = normalizedTags.filter((tag) => {
+    if (byKennelCode.has(tag) || byShortName.has(tag) || byAlias.has(tag)) return false;
+    const mappedTag = mapKennelTag(tag);
+    if (!mappedTag) return true;
+    const mappedNormalized = mappedTag.trim().toLowerCase();
+    return !(byKennelCode.has(mappedNormalized)
+      || byShortName.has(mappedNormalized)
+      || byAlias.has(mappedNormalized));
+  });
+
   if (remaining.length === 0) {
     await prisma.alert.update({
       where: { id: alertId },

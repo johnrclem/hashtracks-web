@@ -15,11 +15,13 @@ vi.mock("@/lib/db", () => ({
     },
     kennelAlias: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
     },
     kennel: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
     },
     region: {
@@ -42,6 +44,7 @@ vi.mock("@/pipeline/scrape", () => ({
 vi.mock("@/pipeline/kennel-resolver", () => ({
   resolveKennelTag: vi.fn(),
   clearResolverCache: vi.fn(),
+  mapKennelTag: vi.fn((tag: string) => tag),
 }));
 
 vi.mock("next/cache", () => ({
@@ -69,9 +72,11 @@ const mockAlertFind = vi.mocked(prisma.alert.findUnique);
 const mockAlertUpdate = vi.mocked(prisma.alert.update);
 const mockAlertUpdateMany = vi.mocked(prisma.alert.updateMany);
 const mockAliasFind = vi.mocked(prisma.kennelAlias.findFirst);
+const mockAliasFindMany = vi.mocked(prisma.kennelAlias.findMany);
 const mockAliasCreate = vi.mocked(prisma.kennelAlias.create);
 const mockKennelFind = vi.mocked(prisma.kennel.findUnique);
 const mockKennelFindFirst = vi.mocked(prisma.kennel.findFirst);
+const mockKennelFindMany = vi.mocked(prisma.kennel.findMany);
 const mockKennelCreate = vi.mocked(prisma.kennel.create);
 const mockSourceKennelFind = vi.mocked(prisma.sourceKennel.findUnique);
 const mockSourceKennelFindMany = vi.mocked(prisma.sourceKennel.findMany);
@@ -98,6 +103,9 @@ function baseAlert(overrides = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuth.mockResolvedValue(mockAdmin as never);
+  mockKennelFindMany.mockResolvedValue([] as never);
+  mockAliasFindMany.mockResolvedValue([] as never);
+  mockSourceKennelFindMany.mockResolvedValue([] as never);
 });
 
 // ── acknowledgeAlert ──
@@ -351,8 +359,8 @@ describe("createAliasFromAlert", () => {
     mockAliasFind.mockResolvedValueOnce(null as never);
     mockAliasCreate.mockResolvedValueOnce({} as never);
     mockKennelFind.mockResolvedValueOnce({ shortName: "NYCH3" } as never);
+    mockAliasFindMany.mockResolvedValueOnce([{ alias: "NewKennel", kennelId: "kennel_1" }] as never);
     mockAlertUpdate.mockResolvedValueOnce({} as never); // repair log update
-    mockResolve.mockResolvedValueOnce({ matched: true, kennelId: "kennel_1" } as never);
     mockAlertUpdate.mockResolvedValueOnce({} as never); // auto-resolve update
 
     const result = await createAliasFromAlert("alert_1", "NewKennel", "kennel_1", false);
@@ -424,9 +432,11 @@ describe("createKennelFromAlert", () => {
     );
     mockKennelFindFirst.mockResolvedValueOnce(null as never); // uniqueness check
     mockKennelCreate.mockResolvedValueOnce({ id: "new_kennel_1" } as never);
+    mockKennelFindMany.mockResolvedValueOnce([
+      { id: "new_kennel_1", kennelCode: "testtag", shortName: "TestH3" },
+    ] as never);
     mockSourceKennelCreate.mockResolvedValueOnce({} as never);
     mockAlertUpdate.mockResolvedValueOnce({} as never); // repair log
-    mockResolve.mockResolvedValueOnce({ matched: true, kennelId: "new_kennel_1" } as never);
     mockAlertUpdate.mockResolvedValueOnce({} as never); // auto-resolve
 
     const result = await createKennelFromAlert("alert_1", "TestTag", kennelData, false);
