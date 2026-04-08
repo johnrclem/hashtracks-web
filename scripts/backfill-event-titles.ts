@@ -15,7 +15,13 @@ import { friendlyKennelName } from "../src/pipeline/merge";
 const dryRun = !process.argv.includes("--apply");
 
 async function main() {
-  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  // Default to strict TLS validation; set BACKFILL_ALLOW_SELF_SIGNED_CERT=1
+  // for local Railway proxy dev.
+  const allowSelfSigned = process.env.BACKFILL_ALLOW_SELF_SIGNED_CERT === "1";
+  const pool = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: !allowSelfSigned },
+  });
   const adapter = new PrismaPg(pool);
   const prisma = new PrismaClient({ adapter } as never);
 

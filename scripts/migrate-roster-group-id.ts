@@ -16,9 +16,12 @@
 import "dotenv/config";
 import pg from "pg";
 
+// Default to strict TLS validation; set BACKFILL_ALLOW_SELF_SIGNED_CERT=1
+// for local Railway proxy dev.
+const allowSelfSigned = process.env.BACKFILL_ALLOW_SELF_SIGNED_CERT === "1";
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: !allowSelfSigned },
 });
 
 function cuid(): string {
