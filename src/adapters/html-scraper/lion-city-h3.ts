@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { fetchWordPressPosts } from "../wordpress-api";
-import { MONTHS, decodeEntities, formatAmPmTime } from "../utils";
+import { MONTHS, applyDateWindow, decodeEntities, formatAmPmTime } from "../utils";
 
 const DEFAULT_URL = "https://lioncityhhh.com";
 const KENNEL_TAG = "lch3";
@@ -149,9 +149,11 @@ export class LionCityH3Adapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || DEFAULT_URL;
+    // Honor source.scrapeDays via options.days (default 365)
+    const days = options?.days ?? source.scrapeDays ?? 365;
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
@@ -176,16 +178,15 @@ export class LionCityH3Adapter implements SourceAdapter {
       else skippedCount++;
     }
 
-    return {
+    return applyDateWindow({
       events,
       errors,
       diagnosticContext: {
         postsFound: wpResult.posts.length,
         hashRunPosts: wpResult.posts.length - skippedCount,
-        eventsParsed: events.length,
         skippedCount,
         fetchDurationMs: wpResult.fetchDurationMs,
       },
-    };
+    }, days);
   }
 }

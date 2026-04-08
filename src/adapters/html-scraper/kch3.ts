@@ -16,7 +16,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { fetchWordPressPosts } from "../wordpress-api";
-import { chronoParseDate } from "../utils";
+import { applyDateWindow, chronoParseDate } from "../utils";
 
 /**
  * Parse a time string from KCH3 post body.
@@ -133,9 +133,11 @@ export class KCH3Adapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://kansascityh3.com/";
+    // Honor source.scrapeDays via options.days (default 365)
+    const days = options?.days ?? source.scrapeDays ?? 365;
 
     const wpResult = await fetchWordPressPosts(baseUrl);
 
@@ -167,15 +169,14 @@ export class KCH3Adapter implements SourceAdapter {
       if (event) events.push(event);
     }
 
-    return {
+    return applyDateWindow({
       events,
       errors: [],
       diagnosticContext: {
         fetchMethod: "wordpress-api",
         postsFound: wpResult.posts.length,
-        eventsParsed: events.length,
         fetchDurationMs: wpResult.fetchDurationMs,
       },
-    };
+    }, days);
   }
 }

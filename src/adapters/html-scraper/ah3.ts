@@ -31,7 +31,7 @@ import type {
   ParseError,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, buildDateWindow, decodeEntities } from "../utils";
+import { fetchHTMLPage, decodeEntities, filterEventsByWindow } from "../utils";
 
 // ── Constants ──
 
@@ -223,9 +223,11 @@ export class AH3Adapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const upcomingUrl = source.url || "https://ah3.nl/nextruns/";
+    // Honor source.scrapeDays via options.days (default 365)
+    const days = options?.days ?? source.scrapeDays ?? 365;
     const config = (source.config ?? {}) as Record<string, unknown>;
     const previousUrl =
       (config.previousUrl as string) ??
@@ -288,11 +290,7 @@ export class AH3Adapter implements SourceAdapter {
     }
 
     // ── 3. Filter by date window ──
-    const { minDate, maxDate } = buildDateWindow(source.scrapeDays ?? 365);
-    const filtered = allEvents.filter((ev) => {
-      const d = new Date(ev.date + "T12:00:00Z");
-      return d >= minDate && d <= maxDate;
-    });
+    const filtered = filterEventsByWindow(allEvents, days);
 
     const hasErrors = hasAnyErrors(errorDetails);
 

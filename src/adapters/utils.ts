@@ -281,6 +281,47 @@ export function buildDateWindow(days = 90): { minDate: Date; maxDate: Date } {
 }
 
 /**
+ * Filter events to those within `±days` of now. Honors the adapter
+ * contract that fetch() should respect `options.days` (which is itself
+ * sourced from `source.scrapeDays`). Events are keyed by their
+ * `"YYYY-MM-DD"` date string; the window is inclusive at both ends.
+ */
+export function filterEventsByWindow<T extends { date: string }>(
+  events: T[],
+  days: number,
+): T[] {
+  const { minDate, maxDate } = buildDateWindow(days);
+  return events.filter((e) => {
+    const d = new Date(`${e.date}T12:00:00Z`);
+    return d >= minDate && d <= maxDate;
+  });
+}
+
+/**
+ * Apply the date window to a ScrapeResult-shaped object, replacing
+ * `events` with the filtered array and updating diagnosticContext so
+ * `eventsParsed` reflects the post-filter count and `totalBeforeFilter`
+ * captures the pre-filter total. Use this instead of spreading +
+ * overriding `events` alone — otherwise the diagnostic counts lie about
+ * what the merge pipeline actually receives.
+ */
+export function applyDateWindow<
+  R extends { events: { date: string }[]; diagnosticContext?: Record<string, unknown> },
+>(result: R, days: number): R {
+  const before = result.events.length;
+  const filtered = filterEventsByWindow(result.events, days);
+  return {
+    ...result,
+    events: filtered,
+    diagnosticContext: {
+      ...(result.diagnosticContext ?? {}),
+      eventsParsed: filtered.length,
+      totalBeforeFilter: before,
+    },
+  } as R;
+}
+
+/**
  * Extract UK postcode from a text string.
  * UK postcodes: "SE11 5JA", "SW18 2SS", "N1 9AA", "EC1A 1BB"
  */

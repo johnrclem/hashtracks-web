@@ -2,7 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { fetchBloggerPosts } from "../blogger-api";
-import { chronoParseDate, decodeEntities, fetchHTMLPage, googleMapsSearchUrl, isPlaceholder, MONTHS, parse12HourTime, stripHtmlTags } from "../utils";
+import { applyDateWindow, chronoParseDate, decodeEntities, fetchHTMLPage, googleMapsSearchUrl, isPlaceholder, MONTHS, parse12HourTime, stripHtmlTags } from "../utils";
 
 const ORDINALS: Record<string, number> = {
   first: 1, second: 2, third: 3, fourth: 4, fifth: 5,
@@ -195,16 +195,20 @@ export class BrassMonkeyAdapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://teambrassmonkey.blogspot.com/";
 
+    // Honor source.scrapeDays via options.days (default 365)
+    const days = options?.days ?? source.scrapeDays ?? 365;
+
     // Try Blogger API first
     const apiResult = await this.fetchViaBloggerApi(baseUrl);
-    if (apiResult) return apiResult;
+    if (apiResult) return applyDateWindow(apiResult, days);
 
     // Fall back to HTML scraping
-    return this.fetchViaHtmlScrape(baseUrl);
+    const htmlResult = await this.fetchViaHtmlScrape(baseUrl);
+    return applyDateWindow(htmlResult, days);
   }
 
   private async fetchViaBloggerApi(baseUrl: string): Promise<ScrapeResult | null> {

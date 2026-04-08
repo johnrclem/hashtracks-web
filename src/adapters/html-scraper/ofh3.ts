@@ -4,7 +4,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchBloggerPosts } from "../blogger-api";
-import { chronoParseDate, decodeEntities, isPlaceholder, stripHtmlTags } from "../utils";
+import { applyDateWindow, chronoParseDate, decodeEntities, isPlaceholder, stripHtmlTags } from "../utils";
 
 /**
  * Parse a date string from OFH3 content.
@@ -191,16 +191,20 @@ export class OFH3Adapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://www.ofh3.com/";
 
+    // Honor source.scrapeDays via options.days (default 365)
+    const days = options?.days ?? source.scrapeDays ?? 365;
+
     // Try Blogger API first
     const apiResult = await this.fetchViaBloggerApi(baseUrl);
-    if (apiResult) return apiResult;
+    if (apiResult) return applyDateWindow(apiResult, days);
 
     // Fall back to HTML scraping
-    return this.fetchViaHtmlScrape(baseUrl);
+    const htmlResult = await this.fetchViaHtmlScrape(baseUrl);
+    return applyDateWindow(htmlResult, days);
   }
 
   private async fetchViaBloggerApi(baseUrl: string): Promise<ScrapeResult | null> {
