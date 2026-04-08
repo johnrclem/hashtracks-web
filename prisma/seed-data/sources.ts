@@ -2866,6 +2866,30 @@ export const SOURCES = [
       kennelCodes: ["sgharriets"],
     },
 
+    // 6. Hash House Horrors — children's hash, WordPress.com Public API hareline page
+    {
+      name: "Hash House Horrors Hareline",
+      url: "https://hashhousehorrors.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["hhhorrors"],
+    },
+
+    // 7. Seletar H3 — PWA backend JSON API at HashController.php.
+    // The url is the actual fetch target (the PHP endpoint), not the PWA
+    // homepage, so logs/errors/audits and the adapter all agree on the URL.
+    {
+      name: "Seletar H3 PWA",
+      url: "https://sh3app.hash.org.sg/php/util/HashController.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["seletar-h3"],
+    },
+
     // ===== MISSOURI =====
 
     // ===== KANSAS =====

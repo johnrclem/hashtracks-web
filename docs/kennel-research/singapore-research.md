@@ -37,22 +37,24 @@ Per `feedback_sourceless_kennels` memory criteria — both HHHS and Harriets mee
 - `src/adapters/html-scraper/kampong-h3.ts` (~120 lines) — uses `fetchHTMLPage()` + Cheerio. Locates the "Next Run" text block by string search and parses run number / date (with ordinal suffix support) / time / hares / location.
 - 14 unit tests across both adapters, all passing.
 
-## Deferred Kennels (2 — follow-up PRs)
+## Deferred Kennels — SHIPPED in Part Two PR
 
-### Singapore Hash House Horrors
-- WordPress.com hosted blog (NOT self-hosted) — `/wp-json/` returns 404
-- **WordPress.com Public API** at `public-api.wordpress.com/rest/v1.1/sites/hashhousehorrors.com/posts/` returns 94 structured posts
-- `/hareline/` page has explicit upcoming runs: Hash 1016 (May 17), 1015 (May 3), 1014 (Apr 19), etc.
-- Children's hash, biweekly Sundays 16:30
-- **Why deferred:** Building a new shared utility for WordPress.com Public API is meaningful infrastructure (different surface than the self-hosted REST API in `wordpress-api.ts`). Worth a dedicated PR with proper test coverage and reuse-friendly design.
+### Singapore Hash House Horrors ✅
+- Shipped via new `fetchWordPressComPage()` utility added to `wordpress-api.ts`
+- Adapter: `src/adapters/html-scraper/hash-horrors.ts`
+- Source: WordPress.com Public API → `/sites/hashhousehorrors.com/posts/slug:hareline`
+- Live verification: 137 historical runs parsed, 24 in the 365-day window, dates back to ~2024
+- Format quirk: hareline page uses year-section anchors (`2026`, `2025`, ...) followed by run lines `<runNumber> – <month> <day> – <hares>[ – <location>]`
+- "Hares Needed" sentinel correctly mapped to undefined hares
 
-### Seletar Hash House Harriers (SH3, Singapore)
-- Founded 1980, men only, weekly Tuesdays 18:00
-- Best source: PWA at `sh3app.hash.org.sg` with 14+ future runs
-- Backend: `HashController.php` POST endpoint (Ionic/Angular SPA, would need browser-render or POST API reverse-engineering)
-- Static homepage at `seletar.hash.org.sg` has only 1 upcoming run in a simple HTML table — too low-value to justify a small adapter
-- Historical archive at `/hareline.html` covers 1980–2000 only
-- **Why deferred:** PWA scraping is more involved than the patterns in this PR. Worth a dedicated investigation.
+### Seletar Hash House Harriers (SH3, Singapore) ✅
+- Shipped via custom JSON API client targeting the PWA's PHP backend
+- Adapter: `src/adapters/html-scraper/seletar-h3.ts`
+- Source: `POST https://sh3app.hash.org.sg/php/util/HashController.php` with `vw_hareline` SELECT body — open API, no auth, server-side bypasses CORS
+- Chrome reverse-engineered the API call signature; verified live during the part-two PR
+- Live verification: 14 unique upcoming runs (#2374–#2387, Apr 14 – Jul 14 2026), hares grouped from `hs_type === "H"` rows, GPS coordinates surfaced for runs that have them
+- **PII filter:** the raw API response includes member real names, emails, birth dates, phone numbers, photo paths. The adapter intentionally only reads `hl_*` fields plus `mb_hashname` (the hash nickname) and `hs_type`
+- **Historical backfill:** `scripts/backfill-seletar-h3-history.ts` pulls the same endpoint without the date filter and inserts every Seletar trail since 1980-06-24 (~2,076 unique runs across 46 years). Run separately as a one-shot per `feedback_historical_backfill` workflow.
 
 ## Skipped Kennels (2 — confirmed unshippable)
 
