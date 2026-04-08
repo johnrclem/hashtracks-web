@@ -2722,9 +2722,13 @@ export const SOURCES = [
     // weekly trails. Shipped via STATIC_SCHEDULE per the historic-kennel exception
     // in feedback_sourceless_kennels memory. Description fields link to their FB
     // page so users can check the actual trail location day-of.
+    //
+    // The two records below share the same Facebook page but use distinct URL
+    // fragments (#sunday / #wednesday) so the OR(url+type, name+type) match in
+    // prisma/seed.ts treats them as separate sources rather than overwriting.
     {
       name: "Little Rock H3 Static Schedule (Sunday)",
-      url: "https://www.facebook.com/littlerockhashhouseharriers",
+      url: "https://www.facebook.com/littlerockhashhouseharriers#sunday",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
@@ -2732,7 +2736,6 @@ export const SOURCES = [
       config: {
         kennelTag: "lrh3",
         rrule: "FREQ=WEEKLY;BYDAY=SU",
-        anchorDate: "2026-01-04",
         startTime: "15:00",
         defaultTitle: "Little Rock H3 Sunday Run",
         defaultLocation: "Little Rock, AR",
@@ -2742,7 +2745,7 @@ export const SOURCES = [
     },
     {
       name: "Little Rock H3 Static Schedule (Wednesday)",
-      url: "https://www.facebook.com/littlerockhashhouseharriers",
+      url: "https://www.facebook.com/littlerockhashhouseharriers#wednesday",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
@@ -2750,7 +2753,6 @@ export const SOURCES = [
       config: {
         kennelTag: "lrh3",
         rrule: "FREQ=WEEKLY;BYDAY=WE",
-        anchorDate: "2026-01-07",
         startTime: "19:00",
         defaultTitle: "Little Rock H3 Wednesday Run",
         defaultLocation: "Little Rock, AR",
