@@ -41,7 +41,7 @@ BEGIN
   IF flag IS NOT TRUE THEN
     RAISE EXCEPTION 'includeAllDayEvents did not land: %', COALESCE(flag::text, 'NULL');
   END IF;
-  IF default_time <> '18:00' THEN
+  IF default_time IS DISTINCT FROM '18:00' THEN
     RAISE EXCEPTION 'defaultStartTime did not land: %', COALESCE(default_time, 'NULL');
   END IF;
 END $$;

@@ -36,7 +36,7 @@ BEGIN
   IF NULLIF(BTRIM(stored_logo), '') IS NULL OR BTRIM(stored_logo) NOT LIKE 'https://%' THEN
     RAISE EXCEPTION 'abqh3 logoUrl did not land: %', COALESCE(stored_logo, 'NULL');
   END IF;
-  IF stored_email <> 'abqh3misman@gmail.com' THEN
+  IF stored_email IS DISTINCT FROM 'abqh3misman@gmail.com' THEN
     RAISE EXCEPTION 'abqh3 contactEmail did not land: %', COALESCE(stored_email, 'NULL');
   END IF;
 END $$;

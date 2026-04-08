@@ -589,6 +589,23 @@ describe("buildRawEventFromGCalItem — all-day events", () => {
     );
     expect(result!.startTime).toBe("14:00");
   });
+
+  it("ignores a malformed defaultStartTime rather than injecting garbage", () => {
+    // Config typo (e.g. "6pm" or "18h00" instead of "18:00") must NOT silently
+    // become the event's startTime — a HH:MM format guard rejects it and the
+    // event falls through to undefined.
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Celebrate Loudly It's Tuesday",
+        start: { date: "2026-04-14" },
+        end: { date: "2026-04-15" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "abqh3", includeAllDayEvents: true, defaultStartTime: "6pm" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.startTime).toBeUndefined();
+  });
 });
 
 // ── buildRawEventFromGCalItem — skipPatterns ──
