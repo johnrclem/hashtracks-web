@@ -20,6 +20,48 @@ import { Prisma } from "@/generated/prisma/client";
 import type { DiscoveredKennel } from "@/adapters/hashrego/kennel-directory-parser";
 
 const EXTERNAL_SOURCE = "HASHREGO";
+
+/**
+ * Link a Hash Rego discovery to its matched kennel.
+ *   - When `createAlias` is true: create a KennelAlias so the merge pipeline
+ *     resolves the external slug to this kennel across all sources. Only use
+ *     from admin-confirmed paths — aliases are a global namespace.
+ *   - Always: upsert a SourceKennel row carrying `externalSlug` so the HASHREGO
+ *     scraper picks up the slug. SourceKennel is source-scoped and reversible.
+ *
+ * Callers writing aliases should call `clearResolverCache()` from
+ * `@/pipeline/kennel-resolver` after a batch. SourceKennel-only writes do not
+ * affect the resolver cache.
+ * Returns true if a SourceKennel row was written (source exists).
+ */
+export async function linkDiscoveryKennelToHashRego(
+  kennelId: string,
+  externalSlug: string,
+  hashRegoSourceId: string | null,
+  { createAlias = true }: { createAlias?: boolean } = {},
+): Promise<boolean> {
+  if (createAlias) {
+    const kennel = await prisma.kennel.findUnique({
+      where: { id: kennelId },
+      select: { shortName: true },
+    });
+    if (kennel && externalSlug.toLowerCase() !== kennel.shortName.toLowerCase()) {
+      try {
+        await prisma.kennelAlias.create({ data: { kennelId, alias: externalSlug } });
+      } catch (e: unknown) {
+        // P2002 = unique constraint violation — alias already exists, safe to ignore
+        if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+      }
+    }
+  }
+  if (!hashRegoSourceId) return false;
+  await prisma.sourceKennel.upsert({
+    where: { sourceId_kennelId: { sourceId: hashRegoSourceId, kennelId } },
+    update: { externalSlug },
+    create: { sourceId: hashRegoSourceId, kennelId, externalSlug },
+  });
+  return true;
+}
 const AUTO_MATCH_THRESHOLD = 0.95;
 const CANDIDATE_THRESHOLD = 0.6;
 
@@ -183,20 +225,25 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
     };
   }
 
-  // Step 2: Load existing discoveries to identify terminal slugs
+  // Step 2: Load existing discoveries to identify terminal slugs. We also
+  // track the previous matchedKennelId so auto-match downgrades/retargets
+  // can delete the stale SourceKennel row below.
   const existingDiscoveries = await prisma.kennelDiscovery.findMany({
     where: { externalSource: EXTERNAL_SOURCE },
-    select: { externalSlug: true, status: true },
+    select: { externalSlug: true, status: true, matchedKennelId: true },
   });
 
-  const discoveryStatusMap = new Map(
-    existingDiscoveries.map((d) => [d.externalSlug, d.status]),
+  const discoveryPrevMap = new Map(
+    existingDiscoveries.map((d) => [
+      d.externalSlug,
+      { status: d.status, matchedKennelId: d.matchedKennelId },
+    ]),
   );
 
   // Step 3: Split slugs — only fetch API profiles for non-terminal discoveries
   const terminalStatuses = new Set(["ADDED", "LINKED", "DISMISSED"]);
   const activeSlugs = discovered
-    .filter((k) => !terminalStatuses.has(discoveryStatusMap.get(k.slug) ?? ""))
+    .filter((k) => !terminalStatuses.has(discoveryPrevMap.get(k.slug)?.status ?? ""))
     .map((k) => k.slug);
 
   // Step 4: Fetch API profiles (active only) + load kennels/aliases in parallel
@@ -242,12 +289,20 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
     });
   }
 
+  // Look up HASHREGO source once so auto-matches can create SourceKennel rows.
+  const hashRegoSource = await prisma.source.findFirst({
+    where: { type: "HASHREGO" },
+    select: { id: true },
+  });
+  const hashRegoSourceId = hashRegoSource?.id ?? null;
+
   // Step 5: Process each discovered kennel
   const syncTimestamp = new Date();
   for (const kennel of discovered) {
     try {
       const profile = profiles.get(kennel.slug);
-      const existingStatus = discoveryStatusMap.get(kennel.slug);
+      const prev = discoveryPrevMap.get(kennel.slug);
+      const existingStatus = prev?.status;
       const isTerminal = existingStatus === "ADDED" ||
         existingStatus === "LINKED" || existingStatus === "DISMISSED";
 
@@ -300,6 +355,43 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
       } else {
         newKennels++;
         if (match.status === "MATCHED") autoMatched++;
+      }
+
+      // Clean up stale SourceKennel rows when an auto-match is downgraded
+      // (re-scored below threshold) or retargeted to a different kennel. We
+      // only clean up rows whose *previous* status was MATCHED — LINKED /
+      // ADDED are admin-confirmed and never get clobbered by sync. The
+      // isTerminal early-return above already skips those from this branch,
+      // but this predicate makes the invariant explicit.
+      const wasAutoLinked = prev?.status === "MATCHED" && prev.matchedKennelId !== null;
+      const newMatchedId = match.status === "MATCHED" ? match.matchedKennelId : null;
+      if (
+        hashRegoSourceId &&
+        wasAutoLinked &&
+        prev!.matchedKennelId !== newMatchedId
+      ) {
+        try {
+          await prisma.sourceKennel.deleteMany({
+            where: { sourceId: hashRegoSourceId, kennelId: prev!.matchedKennelId! },
+          });
+        } catch (err) {
+          errors.push(`Error clearing stale link for ${kennel.slug}: ${err}`);
+        }
+      }
+
+      if (match.status === "MATCHED" && match.matchedKennelId) {
+        try {
+          // Auto-match: SourceKennel only (source-scoped). Aliases are global
+          // and must wait for explicit admin confirmation via confirmMatch.
+          await linkDiscoveryKennelToHashRego(
+            match.matchedKennelId,
+            kennel.slug,
+            hashRegoSourceId,
+            { createAlias: false },
+          );
+        } catch (err) {
+          errors.push(`Error linking ${kennel.slug} to HASHREGO source: ${err}`);
+        }
       }
     } catch (err) {
       errors.push(`Error processing ${kennel.slug}: ${err}`);

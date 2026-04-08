@@ -2,51 +2,22 @@
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
-import { syncKennelDiscovery } from "@/pipeline/kennel-discovery";
+import {
+  syncKennelDiscovery,
+  linkDiscoveryKennelToHashRego,
+} from "@/pipeline/kennel-discovery";
 import { clearResolverCache } from "@/pipeline/kennel-resolver";
 import { normalizeTrailDay } from "@/adapters/hashrego/kennel-api";
 import { createKennelFromDiscovery } from "@/app/admin/shared/kennel-creation";
 
-/**
- * Create an alias for a kennel if it doesn't already exist.
- * Uses create-with-catch to handle concurrent requests safely (P2002 = unique violation).
- * Clears the resolver cache so the merge pipeline recognizes new aliases immediately.
- */
-async function ensureAlias(kennelId: string, alias: string): Promise<void> {
-  try {
-    await prisma.kennelAlias.create({
-      data: { kennelId, alias },
-    });
-    clearResolverCache();
-  } catch (e: unknown) {
-    // P2002 = unique constraint violation — alias already exists, safe to ignore
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return;
-    throw e;
-  }
-}
-
-/**
- * Link a kennel to the Hash Rego event source so its events flow into the hareline.
- * Creates a SourceKennel join record with the externalSlug for kennel routing.
- * No-op if no HASHREGO source exists. Idempotent (upsert handles duplicates).
- */
-async function linkKennelToHashRegoSource(
-  kennelId: string,
-  externalSlug: string,
-): Promise<void> {
+/** Look up the HASHREGO source id (null if none configured). */
+async function getHashRegoSourceId(): Promise<string | null> {
   const source = await prisma.source.findFirst({
     where: { type: "HASHREGO" },
     select: { id: true },
   });
-  if (!source) return;
-
-  await prisma.sourceKennel.upsert({
-    where: { sourceId_kennelId: { sourceId: source.id, kennelId } },
-    update: { externalSlug },
-    create: { sourceId: source.id, kennelId, externalSlug },
-  });
+  return source?.id ?? null;
 }
 
 /** Run a full discovery sync: parse directory → enrich via API → fuzzy match → upsert. */
@@ -83,12 +54,9 @@ export async function linkDiscoveryToKennel(discoveryId: string, kennelId: strin
   });
   if (!kennel) return { error: "Kennel not found" };
 
-  // Create alias if the Hash Rego slug differs from the kennel's shortName
-  if (discovery.externalSlug.toLowerCase() !== kennel.shortName.toLowerCase()) {
-    await ensureAlias(kennelId, discovery.externalSlug);
-  }
-
-  await linkKennelToHashRegoSource(kennelId, discovery.externalSlug);
+  const hashRegoSourceId = await getHashRegoSourceId();
+  await linkDiscoveryKennelToHashRego(kennelId, discovery.externalSlug, hashRegoSourceId);
+  clearResolverCache();
 
   await prisma.kennelDiscovery.update({
     where: { id: discoveryId },
@@ -139,13 +107,13 @@ export async function addKennelFromDiscovery(
   const result = await createKennelFromDiscovery(discoveryId, admin.id, data, extraAliases);
   if ("error" in result) return result;
 
-  clearResolverCache();
-
   try {
-    await linkKennelToHashRegoSource(result.kennelId, discovery.externalSlug);
+    const hashRegoSourceId = await getHashRegoSourceId();
+    await linkDiscoveryKennelToHashRego(result.kennelId, discovery.externalSlug, hashRegoSourceId);
   } catch (err) {
     console.error("[discovery] Failed to link kennel to Hash Rego source:", err);
   }
+  clearResolverCache();
 
   revalidatePath("/admin/discovery");
   revalidatePath("/admin/kennels");
@@ -158,6 +126,22 @@ export async function addKennelFromDiscovery(
 export async function dismissDiscovery(id: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
+
+  // If this discovery was auto-linked (previous status MATCHED), drop the
+  // stale SourceKennel row so the scraper stops routing to that kennel.
+  // LINKED / ADDED rows are admin-confirmed and intentionally untouched.
+  const existing = await prisma.kennelDiscovery.findUnique({
+    where: { id },
+    select: { status: true, matchedKennelId: true },
+  });
+  if (existing?.status === "MATCHED" && existing.matchedKennelId) {
+    const hashRegoSourceId = await getHashRegoSourceId();
+    if (hashRegoSourceId) {
+      await prisma.sourceKennel.deleteMany({
+        where: { sourceId: hashRegoSourceId, kennelId: existing.matchedKennelId },
+      });
+    }
+  }
 
   await prisma.kennelDiscovery.update({
     where: { id },
@@ -176,6 +160,24 @@ export async function dismissDiscovery(id: string) {
 export async function bulkDismissDiscoveries(ids: string[]) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
+
+  // Same guardrail as dismissDiscovery — only strip auto-link SourceKennel
+  // rows for rows whose previous status was MATCHED.
+  const existing = await prisma.kennelDiscovery.findMany({
+    where: { id: { in: ids } },
+    select: { status: true, matchedKennelId: true },
+  });
+  const autoLinkedKennelIds = existing
+    .filter((d) => d.status === "MATCHED" && d.matchedKennelId !== null)
+    .map((d) => d.matchedKennelId as string);
+  if (autoLinkedKennelIds.length > 0) {
+    const hashRegoSourceId = await getHashRegoSourceId();
+    if (hashRegoSourceId) {
+      await prisma.sourceKennel.deleteMany({
+        where: { sourceId: hashRegoSourceId, kennelId: { in: autoLinkedKennelIds } },
+      });
+    }
+  }
 
   await prisma.kennelDiscovery.updateMany({
     where: { id: { in: ids } },
@@ -227,16 +229,13 @@ export async function confirmMatch(id: string) {
   if (discovery.status !== "MATCHED") return { error: "Can only confirm MATCHED discoveries" };
   if (!discovery.matchedKennelId) return { error: "No matched kennel" };
 
-  // Create alias if slug differs
-  const kennel = await prisma.kennel.findUnique({
-    where: { id: discovery.matchedKennelId },
-    select: { shortName: true },
-  });
-  if (kennel && discovery.externalSlug.toLowerCase() !== kennel.shortName.toLowerCase()) {
-    await ensureAlias(discovery.matchedKennelId, discovery.externalSlug);
-  }
-
-  await linkKennelToHashRegoSource(discovery.matchedKennelId, discovery.externalSlug);
+  const hashRegoSourceId = await getHashRegoSourceId();
+  await linkDiscoveryKennelToHashRego(
+    discovery.matchedKennelId,
+    discovery.externalSlug,
+    hashRegoSourceId,
+  );
+  clearResolverCache();
 
   await prisma.kennelDiscovery.update({
     where: { id },
