@@ -316,6 +316,7 @@ Hare &amp; Co-Hares: Steven with a D</p>`,
       fetchMethod: "wordpress-api",
       postsFound: 0,
       eventsParsed: 0,
+      totalBeforeFilter: 0,
       fetchDurationMs: 50,
     });
   });

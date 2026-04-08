@@ -2,7 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { fetchBloggerPosts } from "../blogger-api";
-import { chronoParseDate, decodeEntities, fetchHTMLPage, filterEventsByWindow, googleMapsSearchUrl, isPlaceholder, MONTHS, parse12HourTime, stripHtmlTags } from "../utils";
+import { applyDateWindow, chronoParseDate, decodeEntities, fetchHTMLPage, googleMapsSearchUrl, isPlaceholder, MONTHS, parse12HourTime, stripHtmlTags } from "../utils";
 
 const ORDINALS: Record<string, number> = {
   first: 1, second: 2, third: 3, fourth: 4, fifth: 5,
@@ -204,11 +204,11 @@ export class BrassMonkeyAdapter implements SourceAdapter {
 
     // Try Blogger API first
     const apiResult = await this.fetchViaBloggerApi(baseUrl);
-    if (apiResult) return { ...apiResult, events: filterEventsByWindow(apiResult.events, days) };
+    if (apiResult) return applyDateWindow(apiResult, days);
 
     // Fall back to HTML scraping
     const htmlResult = await this.fetchViaHtmlScrape(baseUrl);
-    return { ...htmlResult, events: filterEventsByWindow(htmlResult.events, days) };
+    return applyDateWindow(htmlResult, days);
   }
 
   private async fetchViaBloggerApi(baseUrl: string): Promise<ScrapeResult | null> {

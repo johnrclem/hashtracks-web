@@ -256,6 +256,7 @@ Attendance: 35</p>`,
       fetchMethod: "wordpress-api",
       postsFound: 0,
       eventsParsed: 0,
+      totalBeforeFilter: 0,
       fetchDurationMs: 50,
     });
   });

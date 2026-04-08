@@ -15,7 +15,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { fetchWordPressPosts } from "../wordpress-api";
-import { chronoParseDate, filterEventsByWindow, stripPlaceholder } from "../utils";
+import { applyDateWindow, chronoParseDate, stripPlaceholder } from "../utils";
 
 const KENNEL_TAG = "ch3-ab";
 
@@ -155,15 +155,14 @@ export class CalgaryH3ScribeAdapter implements SourceAdapter {
       if (event) events.push(event);
     }
 
-    return {
-      events: filterEventsByWindow(events, days),
+    return applyDateWindow({
+      events,
       errors: [],
       diagnosticContext: {
         fetchMethod: "wordpress-api",
         postsFound: wpResult.posts.length,
-        eventsParsed: events.length,
         fetchDurationMs: wpResult.fetchDurationMs,
       },
-    };
+    }, days);
   }
 }

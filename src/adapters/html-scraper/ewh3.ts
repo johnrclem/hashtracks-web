@@ -3,7 +3,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchWordPressPosts } from "../wordpress-api";
-import { chronoParseDate, filterEventsByWindow } from "../utils";
+import { applyDateWindow, chronoParseDate } from "../utils";
 
 /**
  * Parse a date string using chrono-node.
@@ -151,11 +151,11 @@ export class EWH3Adapter implements SourceAdapter {
 
     // Try WordPress REST API first
     const apiResult = await this.fetchViaWordPressApi(baseUrl);
-    if (apiResult) return { ...apiResult, events: filterEventsByWindow(apiResult.events, days) };
+    if (apiResult) return applyDateWindow(apiResult, days);
 
     // Fall back to HTML scraping
     const htmlResult = await this.fetchViaHtmlScrape(baseUrl);
-    return { ...htmlResult, events: filterEventsByWindow(htmlResult.events, days) };
+    return applyDateWindow(htmlResult, days);
   }
 
   private async fetchViaWordPressApi(baseUrl: string): Promise<ScrapeResult | null> {

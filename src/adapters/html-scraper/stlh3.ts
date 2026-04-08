@@ -19,7 +19,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { chronoParseDate, filterEventsByWindow } from "../utils";
+import { applyDateWindow, chronoParseDate } from "../utils";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
 /** Shape of a post from the Substack archive API listing */
@@ -241,8 +241,8 @@ export class StlH3Adapter implements SourceAdapter {
       .join("\n");
     const structureHash = generateStructureHash(structureInput);
 
-    return {
-      events: filterEventsByWindow(events, days),
+    return applyDateWindow({
+      events,
       errors,
       structureHash,
       diagnosticContext: {
@@ -250,9 +250,8 @@ export class StlH3Adapter implements SourceAdapter {
         archivePostsFound: archivePosts.length,
         eventPostsFiltered: eventPosts.length,
         detailsFetched,
-        eventsParsed: events.length,
         fetchDurationMs: Date.now() - fetchStart,
       },
-    };
+    }, days);
   }
 }

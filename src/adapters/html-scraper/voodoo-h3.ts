@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { fetchWordPressPosts } from "../wordpress-api";
-import { chronoParseDate, filterEventsByWindow } from "../utils";
+import { applyDateWindow, chronoParseDate } from "../utils";
 
 /**
  * Parse a Voodoo H3 post title into run number and trail name.
@@ -171,15 +171,14 @@ export class VoodooH3Adapter implements SourceAdapter {
       if (event) events.push(event);
     }
 
-    return {
-      events: filterEventsByWindow(events, days),
+    return applyDateWindow({
+      events,
       errors: [],
       diagnosticContext: {
         fetchMethod: "wordpress-api",
         postsFound: wpResult.posts.length,
-        eventsParsed: events.length,
         fetchDurationMs: wpResult.fetchDurationMs,
       },
-    };
+    }, days);
   }
 }
