@@ -17,6 +17,7 @@ export interface KennelSeed {
   contactEmail?: string;
   foundedYear?: number;
   description?: string;
+  logoUrl?: string;
   latitude?: number;
   longitude?: number;
 }
@@ -1013,6 +1014,8 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "7h4", shortName: "7H4", fullName: "Seven Hills Hash House Harriers", region: "Lynchburg, VA",
       website: "https://sites.google.com/view/7h4/home",
+      // Google Sites og:image — signed CDN URL.
+      logoUrl: "https://lh3.googleusercontent.com/sitesv/APaQ0SRByve9d3YT-Sw3vn93RVKJUM909Mk0BfuVcfTG7gRlU7wUPH3_EdUMB5zfxujssaRdDVm3MC-o0_d9ePAdX-Z_kWi8G_qIyWkYmKg3ZNR7DdoEwiZjtBo4RkqcHyjvcZ5csUeqUIA3WRsXgojEFQznHMNTP2tYkng=w16383",
       facebookUrl: "https://www.facebook.com/groups/41511405734/",
       contactEmail: "7h4hash@googlegroups.com",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly", scheduleTime: "6:30 PM",
