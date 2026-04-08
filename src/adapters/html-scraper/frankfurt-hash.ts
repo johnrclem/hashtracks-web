@@ -25,6 +25,7 @@ import {
   fetchHTMLPage,
   buildDateWindow,
   decodeEntities,
+  stripHtmlTags,
   validateSourceConfig,
   compilePatterns,
   type FetchHTMLResult,
@@ -104,7 +105,8 @@ export function parseJEMEvent(
   const kennelTag = matchKennelTag(title, compiledPatterns, defaultKennelTag);
 
   // Some JEM templates inline event details inside the <li>; scan for "Hares: …"
-  const hares = extractHaresFromText($li.text());
+  // Pass the raw HTML so block-level boundaries survive as newlines (#550).
+  const hares = extractHaresFromText($li.html() ?? "");
 
   return {
     date: datePart,
@@ -118,15 +120,27 @@ export function parseJEMEvent(
   };
 }
 
-/** Find a "Hares:" line anywhere in a chunk of HTML/text. Returns undefined if not present. */
+/**
+ * Find a "Hares:" line anywhere in a chunk of HTML or plain text.
+ *
+ * The input can be either raw HTML (from a detail page) or already-stripped
+ * text (from `$li.text()`). For raw HTML we use `stripHtmlTags(.., "\n")`
+ * so block-level tag boundaries survive as newlines — without that step,
+ * `<h3>HARE: Cummical Nerd</h3><p>Not exactely full moon…</p>` flattens to
+ * a single line and the regex's `[^\n.|]` stop no longer stops at the
+ * paragraph boundary, capturing the description body as the hare name. #550.
+ * Callers that pass plain text should also pre-join with `\n` between what
+ * were originally block-level siblings (use the helper below).
+ */
 export function extractHaresFromText(text: string): string | undefined {
-  // Strip HTML tags first so detail-page HTML like "<h3>Hares: DOMs</h3>" parses cleanly.
-  const cleaned = decodeEntities(text)
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  // Match "Hares: <names>" or "Hare: <names>" up to a sentence/line break or "by".
-  const m = /\bHares?\s*:\s*([^\n.|]+?)(?=\s*(?:[.|]|\bby\b|$))/i.exec(cleaned);
+  const looksLikeHtml = /<[a-z][\s\S]*?>/i.test(text);
+  // stripHtmlTags already decodes entities via cheerio; only the plain-text
+  // branch still needs an explicit decode.
+  const cleaned = looksLikeHtml
+    ? stripHtmlTags(text, "\n")
+    : decodeEntities(text).trim();
+  // Match "Hares: <names>" or "Hare: <names>" up to newline/sentence/line break or "by".
+  const m = /\bHares?\s*:\s*([^\n.|]+?)(?=\s*(?:[.|\n]|\bby\b|$))/i.exec(cleaned);
   if (!m) return undefined;
   const value = m[1].trim();
   return value || undefined;

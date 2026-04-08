@@ -55,9 +55,24 @@ export function parseGlasgowRow(
     date = parsed.toISOString().slice(0, 10);
   }
 
-  // Column 2: Location
-  const location = cells[2]?.trim() || undefined;
+  // Column 2: Location. glasgowh3.co.uk appends a What3Words helper to the
+  // same cell ("… What 3 Words= walks.intent.social"). Split it off so the
+  // display location is the venue/address only, and preserve the W3W code
+  // as a labeled line in `description` — it's a precise geocoding fallback
+  // that a future geocoder can parse back out with a one-line regex. See #544.
+  //
+  // Only strip the suffix when a valid W3W code is actually captured. A
+  // malformed tail like "Venue What 3 Words=" (missing code) leaves the text
+  // alone so we don't silently drop location data on a degraded source render.
+  const rawLocation = cells[2] ?? "";
+  // Require three dot-separated words so "walks" or "walks." don't match —
+  // a real W3W code is always exactly word.word.word.
+  const w3wMatch = /What\s*3\s*Words\s*=\s*(\w+\.\w+\.\w+)/i.exec(rawLocation);
+  const location = (w3wMatch
+    ? rawLocation.replace(/\s*What\s*3\s*Words\s*=.*$/i, "").trim()
+    : rawLocation.trim()) || undefined;
   const locationUrl = hrefs[2] || undefined;
+  const description = w3wMatch ? `What3Words: ${w3wMatch[1]}` : undefined;
 
   // Column 3: Hares
   const haresText = cells[3]?.trim();
@@ -73,6 +88,7 @@ export function parseGlasgowRow(
     hares,
     location,
     locationUrl,
+    description,
     startTime: "19:00", // "All runs start at 7pm unless stated"
     runNumber,
     sourceUrl,
