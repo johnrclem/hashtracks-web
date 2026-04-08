@@ -48,8 +48,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run build` | Production build |
 | `npm test` | Run test suite |
 | `npx prisma studio` | Visual database browser |
-| `npx prisma db push` | Push schema changes to **local dev** DB only (prod uses versioned migrations) |
-| `npx prisma migrate dev --name <change>` | Author a new versioned migration for a schema change |
+| `npm run prisma -- db push` | Push schema changes to **local dev** DB only (wrapper refuses non-local hosts; prod uses versioned migrations) |
+| `npm run prisma -- migrate dev --name <change>` | Author a new versioned migration for a schema change (wrapper refuses non-local hosts) |
 | `npx prisma migrate deploy` | Apply pending migrations (runs automatically in Vercel build) |
 | `npx prisma db seed` | Seed kennels, aliases, and sources |
 
