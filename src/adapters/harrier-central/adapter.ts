@@ -143,15 +143,30 @@ export class HarrierCentralAdapter implements SourceAdapter {
       const timeMatch = hcEvent.eventStartDatetime.match(/T(\d{2}:\d{2})/);
       const startTime = timeMatch ? timeMatch[1] : undefined;
 
+      let hares = hcEvent.hares && hcEvent.hares !== "TBA" ? hcEvent.hares : undefined;
+      const location = hcEvent.locationOneLineDesc && hcEvent.locationOneLineDesc !== "TBA"
+        ? hcEvent.locationOneLineDesc
+        : undefined;
+
+      // Data-entry safety net: when a kennel user pastes the same text into
+      // both the hare and location slots (observed on Tokyo H3 #2578, where
+      // both fields came back as "JR Keihintohoku line"), the hare slot is
+      // almost certainly the wrong one — you don't name a hare after a
+      // subway line. Null the hare but keep location; if the location text
+      // is also bad, the separate location-quality audit rules will flag
+      // it without this adapter erasing a potentially-valid value. See #521.
+      if (hares && location && hares.trim() === location.trim()) {
+        hares = undefined;
+      }
+
       const raw: RawEventData = {
         date: dateStr,
         kennelTag,
         title: hcEvent.eventName || undefined,
         runNumber: hcEvent.eventNumber != null ? hcEvent.eventNumber : undefined,
         startTime,
-        hares: hcEvent.hares && hcEvent.hares !== "TBA" ? hcEvent.hares : undefined,
-        location: hcEvent.locationOneLineDesc && hcEvent.locationOneLineDesc !== "TBA"
-          ? hcEvent.locationOneLineDesc : undefined,
+        hares,
+        location,
         latitude: hcEvent.syncLat != null ? hcEvent.syncLat : undefined,
         longitude: hcEvent.syncLong != null ? hcEvent.syncLong : undefined,
         sourceUrl: `https://www.hashruns.org/#/event/${hcEvent.publicEventId}`,

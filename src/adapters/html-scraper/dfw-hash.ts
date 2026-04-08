@@ -24,7 +24,7 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { parse12HourTime } from "../utils";
+import { parse12HourTime, stripHtmlTags } from "../utils";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import * as cheerio from "cheerio";
 import type { CheerioAPI, Cheerio } from "cheerio";
@@ -310,13 +310,21 @@ export function parseDFWDetailPage($: CheerioAPI): {
     runNumber?: number;
   } = {};
 
-  // Extract fields from <h5><em>Label:</em> Value</h5> pattern
+  // Extract fields from <h5><em>Label:</em> Value</h5> pattern. Multi-line
+  // addresses use <br/> for separators; stripHtmlTags replaces those with
+  // ", " so the value reads "Venue, Street, City, ST ZIP" instead of the
+  // concatenated run-on "VenueStreetCity ST ZIP" (#520).
   $("h5").each((_i, h5) => {
     const $h5 = $(h5);
     const label = $h5.find("em").first().text().trim().toLowerCase();
     const $h5Clone = $h5.clone();
     $h5Clone.find("em").first().remove();
-    const value = $h5Clone.text().replace(/^[\s:]+/, "").trim();
+    const rawValue = stripHtmlTags($h5Clone.html() ?? "", ", ");
+    // Also collapse any duplicate separators introduced by empty-line <br/><br/>.
+    const value = rawValue
+      .replace(/^[\s:,]+/, "")
+      .replace(/(?:,\s*){2,}/g, ", ")
+      .trim();
 
     if (!value || value.toLowerCase() === "nothing yet") return;
 
@@ -335,11 +343,18 @@ export function parseDFWDetailPage($: CheerioAPI): {
     result.runNumber = parseInt(runMatch[1], 10);
   }
 
-  // Extract venue name from <h2> heading and prepend to location
+  // Extract venue name from <h2> heading and prepend to location, but
+  // skip when the location already begins with the same venue string —
+  // DUHHH-style addresses often repeat the venue on their first <br/>
+  // line, and now that <br/> is preserved as ", " (#520), naively
+  // prepending would produce "Venue, Venue, 123 Street, ...".
   if (result.location) {
     const venueName = extractVenueName($);
     if (venueName) {
-      result.location = `${venueName}, ${result.location}`;
+      const firstSegment = result.location.split(",", 1)[0].trim().toLowerCase();
+      if (firstSegment !== venueName.toLowerCase()) {
+        result.location = `${venueName}, ${result.location}`;
+      }
     }
   }
 

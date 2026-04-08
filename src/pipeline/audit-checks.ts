@@ -112,6 +112,13 @@ const TITLE_TIME_ONLY_PATTERN =
 
 const CTA_PATTERN =
   /^(?:tbd|tba|tbc|n\/a|sign[\s\u00A0]*up!?|volunteer|needed|required)$/i;
+/**
+ * Embedded CTA phrases inside a longer sentence. Catches cases like
+ * "Hares needed for Friday evening." that the exact-match CTA_PATTERN misses
+ * because the whole-string anchor rejects anything with extra words. See #522.
+ */
+const CTA_EMBEDDED_PATTERN =
+  /\b(?:hares?\s+(?:needed|wanted|required|volunteer\w*)|need(?:ed)?\s+hares?|looking\s+for\s+(?:a\s+)?hares?)\b/i;
 
 export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
   const { title, kennelCode, kennelShortName } = event;
@@ -348,11 +355,11 @@ export function checkHareQuality(event: AuditEventRow): AuditFinding[] {
     ];
   }
 
-  // 2. hare-cta-text (warning): matches CTA pattern
-  // Skip for events >14 days out — "TBD" is legitimately unknown, not a scraping bug
+  // 2. hare-cta-text (warning): matches CTA pattern (exact or embedded).
+  // Skip for events >14 days out — "TBD" is legitimately unknown, not a scraping bug.
   const eventDate = new Date(event.date + "T12:00:00Z");
   const daysOut = (eventDate.getTime() - Date.now()) / 86_400_000;
-  if (CTA_PATTERN.test(haresText) && daysOut <= 14) {
+  if ((CTA_PATTERN.test(haresText) || CTA_EMBEDDED_PATTERN.test(haresText)) && daysOut <= 14) {
     return [
       finding(event, {
         category: "hares",

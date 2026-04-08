@@ -28,7 +28,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, buildDateWindow } from "../utils";
+import { fetchHTMLPage, buildDateWindow, stripHtmlTags } from "../utils";
 
 /** Config stored in source.config JSON */
 interface BigHumpConfig {
@@ -128,13 +128,19 @@ function parseLocationFromDescription(text: string): string | undefined {
 
 /**
  * Parse hare name(s) from description text.
- * Looks for "Hare(s): Name" or "Hare(s) away:" patterns.
+ *
+ * Requires the hare label to be at start of a line with a mandatory colon.
+ * Without the anchor + required colon, the loose `Hares?` prefix used to
+ * match the word "hares" mid-sentence (e.g., "the shiggyfest hares had us
+ * in Fenton…"), pulling in half a paragraph as the hare name. See #519.
+ * The caller must preserve paragraph newlines — cheerio's `.text()` strips
+ * them, which defeats the `\n` anchor here; use `stripHtmlTags(.., "\n")`.
  */
 function parseHaresFromDescription(text: string): string | undefined {
-  const match = /Hares?\s*(?:\([^)]*\))?\s*:?\s*(.+?)(?=\n|$)/i.exec(text);
+  const match = /(?:^|\n)\s*Hares?\s*(?:\([^)]*\))?\s*:\s*(.+?)(?=\n|$)/im.exec(text);
   if (!match) return undefined;
   const name = match[1].trim();
-  // Filter out "away:" which is departure time, not hare name
+  // "away: …" is departure time, not a hare name
   if (/^away/i.test(name)) return undefined;
   return name || undefined;
 }
@@ -391,8 +397,10 @@ export class BigHumpAdapter implements SourceAdapter {
           const { title, hares: titleHares, location: titleLocation } =
             parseEventTitle(h4Text);
 
+          // Preserve paragraph breaks so the labeled-field regexes below can
+          // anchor against `\n`; cheerio's `.text()` strips them (#519).
           const descSpan = $card.find("span.w3-small");
-          const descText = descSpan.text().trim();
+          const descText = stripHtmlTags(descSpan.html() ?? "", "\n");
 
           const descTime = parseTimeFromDescription(descText);
           const descLocation = parseLocationFromDescription(descText);

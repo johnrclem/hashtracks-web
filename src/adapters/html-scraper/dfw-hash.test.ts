@@ -433,6 +433,39 @@ describe("parseDFWDetailPage", () => {
     expect(detail.runNumber).toBe(250);
   });
 
+  it("inserts comma separators for multi-line <br/> addresses (#520)", () => {
+    // DUHHH Run #847 case: the address uses <br/> between venue, street, and
+    // city/ZIP. Cheerio's .text() strips <br/> without replacement, producing
+    // a concatenated run-on like "VenueStreetCity, ST ZIP". stripHtmlTags
+    // replaces each <br/> with ", " so the value reads correctly.
+    const html = `
+      <html><body>
+        <h3>Hash Run No 847</h3>
+        <h5><em>Start address:</em> UT Dallas Silver Line Station<br />3416 Waterview Parkway<br />Richardson, TX 75080</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+    expect(detail.location).toBe("UT Dallas Silver Line Station, 3416 Waterview Parkway, Richardson, TX 75080");
+  });
+
+  it("does not duplicate the venue when the <h2> heading matches the first address line", () => {
+    // Regression for the combination introduced by #520's br-separator fix:
+    // when both the <h2> venue heading AND the first <br/> segment of the
+    // Start address hold the same venue name, the old prepend would double it
+    // ("Twin Peaks, Twin Peaks, 5260 Belt Line…").
+    const html = `
+      <html><body>
+        <h2>Twin Peaks</h2>
+        <h3>Hash Run No 251</h3>
+        <h5><em>Start address:</em> Twin Peaks<br />5260 Belt Line Rd<br />Dallas, TX 75254</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+    expect(detail.location).toBe("Twin Peaks, 5260 Belt Line Rd, Dallas, TX 75254");
+  });
+
   it("prepends venue name from <h2> to address", () => {
     const html = `
       <html><body>

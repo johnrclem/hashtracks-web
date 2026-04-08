@@ -522,6 +522,50 @@ describe("BigHumpAdapter", () => {
     expect(result.events).toHaveLength(0);
     expect(result.errors).toContain("HTTP 500");
   });
+
+  it("does not leak description text into hares when 'hares' appears mid-sentence (#519)", async () => {
+    // Reproduces Run #1992: the description body has no labeled Hare: line,
+    // but mentions "hares" in the middle of a sentence. The old regex matched
+    // that mid-sentence "hares" and captured half a paragraph as the hare
+    // name. The fix anchors the label to the start of a line and requires a
+    // mandatory colon.
+    const html = `
+      <html><body>
+        <div class="w3-card">
+          <header class="w3-container w3-green">
+            <h3>Wednesday 04/08/2026 <span class="w3-text-amber">#1992</span></h3>
+          </header>
+          <div class="w3-row"><div class="w3-col w3-container m9 l10">
+            <h4>2FC Takes Fenton @ Fenton</h4>
+            <span class="w3-small">It's been a few months since the shiggyfest hares had us in Fenton. Don't expect a repeat of that experience but the runners will be off the sidewalks for some of this trail.<p>Circle up: 6:45 p.m.<p>Hare(s) away: 7 p.m.</span>
+          </div></div>
+        </div>
+      </body></html>
+    `;
+    vi.mocked(utils.fetchHTMLPage).mockResolvedValueOnce({
+      ok: true as const,
+      html,
+      $: cheerio.load(html),
+      structureHash: "leak-test",
+      fetchDurationMs: 50,
+    });
+
+    const mockSource = {
+      id: "test-bh4",
+      url: "http://www.big-hump.com/hareline.php",
+      config: null,
+    } as never;
+    const result = await adapter.fetch(mockSource, { days: 36500 });
+
+    expect(result.events).toHaveLength(1);
+    const hares = result.events[0].hares ?? "";
+    // The old bug captured the description sentence as hares
+    expect(hares).not.toMatch(/had us in Fenton/i);
+    expect(hares).not.toMatch(/cranium lamps/i);
+    // The description is preserved for the event body
+    expect(result.events[0].description).toMatch(/shiggyfest hares/i);
+    expect(result.events[0].startTime).toBe("18:45");
+  });
 });
 
 // ─── Live integration test (run manually with `vitest run --testNamePattern live`) ──

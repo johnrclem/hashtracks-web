@@ -120,6 +120,35 @@ describe("HarrierCentralAdapter", () => {
       expect(result.events[0].location).toBeUndefined();
     });
 
+    it("nulls hares (but keeps location) when the source pasted the same value into both slots (#521)", async () => {
+      // Tokyo H3 #2578 reproduction: the kennel owner typed the train line
+      // name into both the "hares" and "location" form fields. Null the
+      // hare (it's almost certainly wrong); leave location alone — the
+      // separate location-quality audit will catch it if it's also bad,
+      // and erasing it unconditionally could drop valid data on other HC
+      // kennels where the strings happen to match.
+      mockApiResponse([
+        buildHCEvent({
+          hares: "JR Keihintohoku line",
+          locationOneLineDesc: "JR Keihintohoku line",
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].hares).toBeUndefined();
+      expect(result.events[0].location).toBe("JR Keihintohoku line");
+    });
+
+    it("keeps distinct hares and location values unchanged", async () => {
+      // Sanity check that the duplicate-field filter doesn't bite the happy path.
+      mockApiResponse([
+        buildHCEvent({ hares: "Blue Job", locationOneLineDesc: "Nishiogikubo" }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events[0].hares).toBe("Blue Job");
+      expect(result.events[0].location).toBe("Nishiogikubo");
+    });
+
     it("uses kennelPatterns to resolve kennel tag", async () => {
       const seattleEvents = [
         buildHCEvent({ kennelName: "SeaMon H3", kennelShortName: "SeaMon", kennelUniqueShortName: "SeaMon" }),

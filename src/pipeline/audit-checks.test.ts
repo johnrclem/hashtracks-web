@@ -88,6 +88,31 @@ describe("checkHareQuality", () => {
     expect(findings[0].rule).toBe("hare-cta-text");
   });
 
+  it("flags hare-cta-text for embedded 'Hares needed …' sentence (#522)", () => {
+    // The exact-match CTA_PATTERN required the whole string to be one of
+    // tbd/tba/needed/…, so "Hares needed for Friday evening." slipped past.
+    // The embedded-pattern catches CTA phrases inside a longer sentence.
+    const event = makeEvent({ haresText: "Hares needed for Friday evening." });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-cta-text");
+  });
+
+  it("flags hare-cta-text for 'Looking for a hare'", () => {
+    const event = makeEvent({ haresText: "Looking for a hare willing to lay next week" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-cta-text");
+  });
+
+  it("does not flag a real hare name that happens to contain 'needed'", () => {
+    // Guard against false positives — the embedded pattern requires the
+    // word "needed" next to "hare(s)", not in isolation.
+    const event = makeEvent({ haresText: "Needed a Beer" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(0);
+  });
+
   it("flags hare-url as warning when haresText starts with https://", () => {
     const event = makeEvent({ haresText: "https://example.com/signup" });
     const findings = checkHareQuality(event);
