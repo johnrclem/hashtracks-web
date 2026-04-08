@@ -407,6 +407,13 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== ARKANSAS =====
     "lrh3": ["LRH3", "LRHHH", "Little Rock Hash", "Little Rock H3", "Little Rock HHH", "Little Rock Hash House Harriers"],
 
+    // ===== SINGAPORE =====
+    "hhhs": ["HHHS", "Father Hash", "Hash House Harriers Singapore", "Singapore H3", "SGH3"],
+    "sgharriets": ["SG Harriets", "Singapore Harriets", "Singapore Hash House Harriets", "SHHH", "SHH3"],
+    "lch3": ["LCH3", "Lion City H3", "Lion City Hash", "Lion City Hash House Harriers"],
+    "kampong-h3": ["Kampong H3", "Kampong Hash", "Kampong HHH", "KHHH", "The Kampong HHH", "Kampong Hash House Harriers"],
+    "sh3-sg": ["SH3-SG", "Singapore Sunday H3", "Singapore Sunday Hash", "Singapore Sunday Hash House Harriers", "SundayHash"],
+
     // ===== CANADA =====
     // Quebec
     "mh3-ca": ["MH3", "Montreal Hash", "Montreal HHH", "Montreal H3", "MHHH"],
