@@ -67,6 +67,8 @@ import { IndyH3Adapter } from "./html-scraper/indyh3";
 import { ChooChooH3Adapter } from "./html-scraper/choo-choo-h3";
 import { LionCityH3Adapter } from "./html-scraper/lion-city-h3";
 import { KampongH3Adapter } from "./html-scraper/kampong-h3";
+import { HashHorrorsAdapter } from "./html-scraper/hash-horrors";
+import { SeletarH3Adapter } from "./html-scraper/seletar-h3";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -161,6 +163,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /choochooh3\.com/i, name: "ChooChooH3Adapter", factory: () => new ChooChooH3Adapter() },
   { pattern: /lioncityhhh\.com/i, name: "LionCityH3Adapter", factory: () => new LionCityH3Adapter() },
   { pattern: /kampong\.hash\.org\.sg/i, name: "KampongH3Adapter", factory: () => new KampongH3Adapter() },
+  { pattern: /hashhousehorrors\.com/i, name: "HashHorrorsAdapter", factory: () => new HashHorrorsAdapter() },
+  { pattern: /sh3app\.hash\.org\.sg/i, name: "SeletarH3Adapter", factory: () => new SeletarH3Adapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

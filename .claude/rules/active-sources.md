@@ -206,12 +206,14 @@ globs:
 - **Little Rock H3 Static Schedule (Sunday)** -> STATIC_SCHEDULE -> lrh3 (weekly Sunday 15:00, historic exception, FB-posted locations)
 - **Little Rock H3 Static Schedule (Wednesday)** -> STATIC_SCHEDULE -> lrh3 (weekly Wednesday 19:00, historic exception, FB-posted locations)
 
-## Singapore (5 sources)
+## Singapore (7 sources)
 - **Singapore Sunday H3 Harrier Central** -> HARRIER_CENTRAL -> sh3-sg (alternate Sundays, kennel ID SH3-SG)
 - **Lion City H3 Website** -> HTML_SCRAPER (custom, WordPress posts via fetchWordPressPosts) -> lch3 (weekly Friday)
 - **Kampong H3 Website** -> HTML_SCRAPER (custom, "Next Run" block) -> kampong-h3 (monthly 3rd Saturday)
 - **HHHS Father Hash Static Schedule** -> STATIC_SCHEDULE -> hhhs (weekly Monday 18:00, historic exception, 2nd hash kennel in the world founded 1962)
 - **Singapore Harriets Static Schedule** -> STATIC_SCHEDULE -> sgharriets (weekly Wednesday 18:00, historic exception, oldest women's hash in Asia founded 1973, FB-coordinated)
+- **Hash House Horrors Hareline** -> HTML_SCRAPER (custom, WordPress.com Public API via fetchWordPressComPage) -> hhhorrors (alt Sundays 16:30, children's hash)
+- **Seletar H3 PWA** -> HTML_SCRAPER (custom, JSON API to HashController.php) -> seletar-h3 (weekly Tuesday 18:00, founded 1980, men only, 14+ future runs visible)
 
 ## Virginia (outside DC metro) (9 sources)
 - **Richmond H3 Google Calendar** -> GOOGLE_CALENDAR -> RH3 (Richmond)

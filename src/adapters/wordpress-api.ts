@@ -15,6 +15,171 @@
 
 import he from "he";
 import { buildUrlVariantCandidates } from "@/adapters/url-variants";
+import { safeFetch } from "./safe-fetch";
+
+const WP_USER_AGENT = "HashTracks/1.0 (event aggregator; +https://hashtracks.com)";
+
+// ── WordPress.com Public REST API ──────────────────────────────────────────
+//
+// WordPress.com hosted blogs (NOT self-hosted) don't expose `/wp-json/` on
+// the free tier. Their public REST API at `public-api.wordpress.com/rest/v1.1`
+// has a different shape — title/content are already plain strings (no
+// {rendered} wrapper), URL is `URL` (capitalized), and posts/pages share the
+// `/posts/` endpoint with a `type` filter.
+
+/** A page or post returned by the WordPress.com Public REST API. */
+export interface WordPressComPage {
+  ID: number;
+  title: string;
+  content: string;
+  URL: string;
+  date: string;
+  modified: string;
+  type: string;
+  slug: string;
+}
+
+interface WordPressComPostsRaw {
+  found?: number;
+  posts?: Array<{
+    ID?: number;
+    title?: string;
+    content?: string;
+    URL?: string;
+    date?: string;
+    modified?: string;
+    type?: string;
+    slug?: string;
+  }>;
+}
+
+interface WordPressComPageRaw {
+  ID?: number;
+  title?: string;
+  content?: string;
+  URL?: string;
+  date?: string;
+  modified?: string;
+  type?: string;
+  slug?: string;
+  error?: string;
+  message?: string;
+}
+
+function normalizeWpComPage(raw: WordPressComPageRaw | NonNullable<WordPressComPostsRaw["posts"]>[number]): WordPressComPage {
+  return {
+    ID: raw.ID ?? 0,
+    title: he.decode(raw.title ?? ""),
+    content: raw.content ?? "",
+    URL: raw.URL ?? "",
+    date: raw.date ?? "",
+    modified: raw.modified ?? "",
+    type: raw.type ?? "post",
+    slug: raw.slug ?? "",
+  };
+}
+
+/**
+ * Fetch a single WordPress.com page or post by its slug.
+ *
+ * @param siteDomain - Bare domain (e.g. "hashhousehorrors.com"), no protocol
+ * @param slug - Page or post slug (e.g. "hareline")
+ */
+export async function fetchWordPressComPage(
+  siteDomain: string,
+  slug: string,
+): Promise<{
+  page?: WordPressComPage;
+  error?: { message: string; status?: number };
+  fetchDurationMs: number;
+}> {
+  const fetchStart = Date.now();
+  const url = `https://public-api.wordpress.com/rest/v1.1/sites/${encodeURIComponent(siteDomain)}/posts/slug:${encodeURIComponent(slug)}`;
+
+  try {
+    const res = await safeFetch(url, {
+      headers: { "User-Agent": WP_USER_AGENT, Accept: "application/json" },
+    });
+    if (!res.ok) {
+      return {
+        error: { message: `WordPress.com API HTTP ${res.status}`, status: res.status },
+        fetchDurationMs: Date.now() - fetchStart,
+      };
+    }
+    const raw = (await res.json()) as WordPressComPageRaw;
+    if (raw.error) {
+      return {
+        error: { message: raw.message ?? raw.error },
+        fetchDurationMs: Date.now() - fetchStart,
+      };
+    }
+    return { page: normalizeWpComPage(raw), fetchDurationMs: Date.now() - fetchStart };
+  } catch (err) {
+    return {
+      error: { message: `WordPress.com API fetch error: ${err instanceof Error ? err.message : String(err)}` },
+      fetchDurationMs: Date.now() - fetchStart,
+    };
+  }
+}
+
+export interface FetchWordPressComPostsOptions {
+  /** Maximum number of items to return (default 20). */
+  number?: number;
+  /** "post" (default) or "page". */
+  type?: "post" | "page";
+  /** Free-text search filter. */
+  search?: string;
+}
+
+/**
+ * List posts (or pages) from a WordPress.com hosted site via the v1.1 API.
+ */
+export async function fetchWordPressComPosts(
+  siteDomain: string,
+  options: FetchWordPressComPostsOptions = {},
+): Promise<{
+  posts: WordPressComPage[];
+  found: number;
+  error?: { message: string; status?: number };
+  fetchDurationMs: number;
+}> {
+  const fetchStart = Date.now();
+  const params = new URLSearchParams({
+    number: String(options.number ?? 20),
+  });
+  if (options.type) params.set("type", options.type);
+  if (options.search) params.set("search", options.search);
+  const url = `https://public-api.wordpress.com/rest/v1.1/sites/${encodeURIComponent(siteDomain)}/posts/?${params.toString()}`;
+
+  try {
+    const res = await safeFetch(url, {
+      headers: { "User-Agent": WP_USER_AGENT, Accept: "application/json" },
+    });
+    if (!res.ok) {
+      return {
+        posts: [],
+        found: 0,
+        error: { message: `WordPress.com API HTTP ${res.status}`, status: res.status },
+        fetchDurationMs: Date.now() - fetchStart,
+      };
+    }
+    const raw = (await res.json()) as WordPressComPostsRaw;
+    return {
+      posts: (raw.posts ?? []).map(normalizeWpComPage),
+      found: raw.found ?? 0,
+      fetchDurationMs: Date.now() - fetchStart,
+    };
+  } catch (err) {
+    return {
+      posts: [],
+      found: 0,
+      error: { message: `WordPress.com API fetch error: ${err instanceof Error ? err.message : String(err)}` },
+      fetchDurationMs: Date.now() - fetchStart,
+    };
+  }
+}
+
+// ── Self-hosted WordPress REST API ─────────────────────────────────────────
 
 /** A single post returned by the WordPress REST API */
 export interface WordPressPost {
