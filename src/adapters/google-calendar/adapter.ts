@@ -92,6 +92,9 @@ export function extractTitle(summary: string): string {
 const DATE_PREFIX_FULL_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*[,\s]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*[,\s]+\d{1,2}(?:st|nd|rd|th)?[,\s]+/i;
 const DATE_PREFIX_NUMERIC_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*[,\s]+\d{1,2}\/\d{1,2}[,\s]+/i;
 
+/** Strict "HH:MM" 24-hour format — guards `CalendarSourceConfig.defaultStartTime` against typos. */
+const VALID_HHMM_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+
 /** Strip leading day/date prefixes like "Wed April 1st", "Sat 3/28" from titles. */
 export function stripDatePrefix(text: string): string {
   const stripped = text
@@ -371,6 +374,7 @@ interface CalendarSourceConfig {
   titleHarePattern?: string;            // regex to extract hare names from summary when description has none
   descriptionSuffix?: string;           // appended to every event description
   includeAllDayEvents?: boolean;        // if true, don't skip all-day events (some calendars use them for real runs)
+  defaultStartTime?: string;            // "HH:MM" fallback when neither the calendar item nor the description yields a start time (paired with includeAllDayEvents)
   defaultTitle?: string;                // human-readable fallback title when event summary is just a kennel slug
   // Some calendars only populate the soonest-upcoming event's description, which
   // carries an inline schedule listing future dates and hares. After the scrape
@@ -614,10 +618,18 @@ export function buildRawEventFromGCalItem(
     title = sourceConfig.defaultTitle;
   }
 
-  // Start time: prefer dateTime-derived time, fall back to description extraction
+  // Start time: prefer dateTime-derived time, then description extraction,
+  // then a configured default. The default is the only path that fires for
+  // all-day calendar entries whose description doesn't carry a recognizable
+  // time label (e.g. ABQ H3's Tuesday CLiT trails), and keeps them from
+  // rendering as all-day/noon events downstream. Format-guard the default
+  // so a config typo can't silently inject a bad startTime string.
   let resolvedStartTime = startTime;
   if (!resolvedStartTime && rawDescription) {
     resolvedStartTime = extractTimeFromDescription(rawDescription);
+  }
+  if (!resolvedStartTime && sourceConfig?.defaultStartTime && VALID_HHMM_RE.test(sourceConfig.defaultStartTime)) {
+    resolvedStartTime = sourceConfig.defaultStartTime;
   }
 
   // Any URL as location (Maps or otherwise) gets routed to locationUrl for geocoding,

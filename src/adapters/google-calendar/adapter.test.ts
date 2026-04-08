@@ -539,6 +539,73 @@ describe("buildRawEventFromGCalItem — all-day events", () => {
     );
     expect(result).not.toBeNull();
   });
+
+  it("applies defaultStartTime when an all-day event has no recoverable time (#536)", () => {
+    // ABQ H3's Tuesday CLiT trails are entered as all-day calendar items
+    // with no "Circle up" / "Time:" label in the description, so
+    // extractTimeFromDescription returns nothing. defaultStartTime is the
+    // final fallback so those events render as 6pm runs rather than
+    // all-day/noon blocks downstream.
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Celebrate Loudly It's Tuesday",
+        start: { date: "2026-04-14" },
+        end: { date: "2026-04-15" },
+        description: "Hares: DOT\nWhat: CLiT trail",
+        status: "confirmed",
+      },
+      { defaultKennelTag: "abqh3", includeAllDayEvents: true, defaultStartTime: "18:00" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.startTime).toBe("18:00");
+    expect(result!.date).toBe("2026-04-14");
+  });
+
+  it("prefers description-extracted time over defaultStartTime when both exist", () => {
+    // defaultStartTime is the last fallback — any labeled time in the
+    // description body still wins, so Saturday events with "Circle up: 2:00 PM"
+    // would not get overwritten by the Tuesday default.
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Saturday Trail",
+        start: { date: "2026-04-11" },
+        description: "Circle up: 2:00 PM\nHares: Blue",
+        status: "confirmed",
+      },
+      { defaultKennelTag: "abqh3", includeAllDayEvents: true, defaultStartTime: "18:00" },
+    );
+    expect(result!.startTime).toBe("14:00");
+  });
+
+  it("prefers dateTime-derived time over defaultStartTime", () => {
+    // And timed events (the common case) always win.
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Saturday Trail",
+        start: { dateTime: "2026-04-11T14:00:00-06:00" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "abqh3", defaultStartTime: "18:00" },
+    );
+    expect(result!.startTime).toBe("14:00");
+  });
+
+  it("ignores a malformed defaultStartTime rather than injecting garbage", () => {
+    // Config typo (e.g. "6pm" or "18h00" instead of "18:00") must NOT silently
+    // become the event's startTime — a HH:MM format guard rejects it and the
+    // event falls through to undefined.
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Celebrate Loudly It's Tuesday",
+        start: { date: "2026-04-14" },
+        end: { date: "2026-04-15" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "abqh3", includeAllDayEvents: true, defaultStartTime: "6pm" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.startTime).toBeUndefined();
+  });
 });
 
 // ── buildRawEventFromGCalItem — skipPatterns ──
