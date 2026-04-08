@@ -372,24 +372,54 @@ export async function linkKennelToSource(
   // Auto-resolve if all blocked tags are now linked
   const ctx = alert.context as { tags?: string[] } | null;
   if (ctx?.tags) {
-    clearResolverCache();
-    const sourceKennels = await prisma.sourceKennel.findMany({
-      where: { sourceId: alert.sourceId },
-      select: { kennelId: true },
-    });
-    const linkedIds = new Set(sourceKennels.map(sk => sk.kennelId));
-    const remaining: string[] = [];
-    for (const t of ctx.tags) {
-      const result = await resolveKennelTag(t);
-      if (!result.matched || !result.kennelId || !linkedIds.has(result.kennelId)) {
-        remaining.push(t);
+    const normalizedTags = Array.from(new Set(
+      ctx.tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean),
+    ));
+    if (normalizedTags.length > 0) {
+      const [kennels, aliases, sourceKennels] = await Promise.all([
+        prisma.kennel.findMany({
+          select: { id: true, kennelCode: true, shortName: true },
+        }),
+        prisma.kennelAlias.findMany({
+          select: { alias: true, kennelId: true },
+        }),
+        prisma.sourceKennel.findMany({
+          where: { sourceId: alert.sourceId },
+          select: { kennelId: true },
+        }),
+      ]);
+
+      const byKennelCode = new Map<string, string>();
+      const byShortName = new Map<string, string>();
+      const byAlias = new Map<string, string>();
+
+      for (const k of kennels) {
+        byKennelCode.set(k.kennelCode.trim().toLowerCase(), k.id);
+        byShortName.set(k.shortName.trim().toLowerCase(), k.id);
       }
-    }
-    if (remaining.length === 0) {
-      await prisma.alert.update({
-        where: { id: alertId },
-        data: { status: "RESOLVED", resolvedAt: new Date(), resolvedBy: admin.id },
+      for (const a of aliases) {
+        byAlias.set(a.alias.trim().toLowerCase(), a.kennelId);
+      }
+      const linkedIds = new Set(sourceKennels.map((sk) => sk.kennelId));
+
+      const lookup = (tag: string): string | undefined =>
+        byKennelCode.get(tag) ?? byShortName.get(tag) ?? byAlias.get(tag);
+
+      const remaining = normalizedTags.filter((tag) => {
+        const direct = lookup(tag);
+        if (direct) return !linkedIds.has(direct);
+        const mapped = mapKennelTag(tag);
+        if (!mapped) return true;
+        const mappedResolved = lookup(mapped.trim().toLowerCase());
+        return !mappedResolved || !linkedIds.has(mappedResolved);
       });
+
+      if (remaining.length === 0) {
+        await prisma.alert.update({
+          where: { id: alertId },
+          data: { status: "RESOLVED", resolvedAt: new Date(), resolvedBy: admin.id },
+        });
+      }
     }
   }
 
