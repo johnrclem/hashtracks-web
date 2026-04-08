@@ -225,20 +225,25 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
     };
   }
 
-  // Step 2: Load existing discoveries to identify terminal slugs
+  // Step 2: Load existing discoveries to identify terminal slugs. We also
+  // track the previous matchedKennelId so auto-match downgrades/retargets
+  // can delete the stale SourceKennel row below.
   const existingDiscoveries = await prisma.kennelDiscovery.findMany({
     where: { externalSource: EXTERNAL_SOURCE },
-    select: { externalSlug: true, status: true },
+    select: { externalSlug: true, status: true, matchedKennelId: true },
   });
 
-  const discoveryStatusMap = new Map(
-    existingDiscoveries.map((d) => [d.externalSlug, d.status]),
+  const discoveryPrevMap = new Map(
+    existingDiscoveries.map((d) => [
+      d.externalSlug,
+      { status: d.status, matchedKennelId: d.matchedKennelId },
+    ]),
   );
 
   // Step 3: Split slugs — only fetch API profiles for non-terminal discoveries
   const terminalStatuses = new Set(["ADDED", "LINKED", "DISMISSED"]);
   const activeSlugs = discovered
-    .filter((k) => !terminalStatuses.has(discoveryStatusMap.get(k.slug) ?? ""))
+    .filter((k) => !terminalStatuses.has(discoveryPrevMap.get(k.slug)?.status ?? ""))
     .map((k) => k.slug);
 
   // Step 4: Fetch API profiles (active only) + load kennels/aliases in parallel
@@ -296,7 +301,8 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
   for (const kennel of discovered) {
     try {
       const profile = profiles.get(kennel.slug);
-      const existingStatus = discoveryStatusMap.get(kennel.slug);
+      const prev = discoveryPrevMap.get(kennel.slug);
+      const existingStatus = prev?.status;
       const isTerminal = existingStatus === "ADDED" ||
         existingStatus === "LINKED" || existingStatus === "DISMISSED";
 
@@ -349,6 +355,28 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
       } else {
         newKennels++;
         if (match.status === "MATCHED") autoMatched++;
+      }
+
+      // Clean up stale SourceKennel rows when an auto-match is downgraded
+      // (re-scored below threshold) or retargeted to a different kennel. We
+      // only clean up rows whose *previous* status was MATCHED — LINKED /
+      // ADDED are admin-confirmed and never get clobbered by sync. The
+      // isTerminal early-return above already skips those from this branch,
+      // but this predicate makes the invariant explicit.
+      const wasAutoLinked = prev?.status === "MATCHED" && prev.matchedKennelId !== null;
+      const newMatchedId = match.status === "MATCHED" ? match.matchedKennelId : null;
+      if (
+        hashRegoSourceId &&
+        wasAutoLinked &&
+        prev!.matchedKennelId !== newMatchedId
+      ) {
+        try {
+          await prisma.sourceKennel.deleteMany({
+            where: { sourceId: hashRegoSourceId, kennelId: prev!.matchedKennelId! },
+          });
+        } catch (err) {
+          errors.push(`Error clearing stale link for ${kennel.slug}: ${err}`);
+        }
       }
 
       if (match.status === "MATCHED" && match.matchedKennelId) {

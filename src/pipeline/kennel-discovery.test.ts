@@ -4,7 +4,7 @@ vi.mock("@/lib/db", () => ({
     kennelAlias: { findMany: vi.fn(), create: vi.fn() },
     kennelDiscovery: { findMany: vi.fn(), upsert: vi.fn(), update: vi.fn() },
     source: { findFirst: vi.fn() },
-    sourceKennel: { upsert: vi.fn() },
+    sourceKennel: { upsert: vi.fn(), deleteMany: vi.fn() },
   },
 }));
 vi.mock("@/adapters/hashrego/kennel-directory-parser");
@@ -103,6 +103,7 @@ beforeEach(() => {
   vi.mocked(prisma.kennelDiscovery.update).mockResolvedValue({} as never);
   vi.mocked(prisma.source.findFirst).mockResolvedValue({ id: "src-hashrego" } as never);
   vi.mocked(prisma.sourceKennel.upsert).mockResolvedValue({} as never);
+  vi.mocked(prisma.sourceKennel.deleteMany).mockResolvedValue({ count: 0 } as never);
 });
 
 describe("syncKennelDiscovery", () => {
@@ -181,6 +182,68 @@ describe("syncKennelDiscovery", () => {
     // Auto-match must NOT create a global KennelAlias — that write is a
     // cross-source trust boundary reserved for admin-confirmed links.
     expect(prisma.kennelAlias.create).not.toHaveBeenCalled();
+  });
+
+  it("downgrade: previously MATCHED that now re-scores below threshold deletes stale SourceKennel", async () => {
+    // Previous state: MATCHED → k1
+    vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue([
+      { externalSlug: "EWH3", status: "MATCHED", matchedKennelId: "k1" },
+    ] as never);
+    // Current scrape: same slug, but candidate pool is empty so no match
+    vi.mocked(parseKennelDirectory).mockReturnValue([
+      buildDiscovered({ slug: "EWH3", name: "Nothing matches this" }),
+    ]);
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([] as never);
+
+    await syncKennelDiscovery();
+
+    expect(prisma.sourceKennel.deleteMany).toHaveBeenCalledWith({
+      where: { sourceId: "src-hashrego", kennelId: "k1" },
+    });
+    expect(prisma.sourceKennel.upsert).not.toHaveBeenCalled();
+  });
+
+  it("retarget: previously MATCHED to k1 now MATCHED to k2 deletes k1 and upserts k2", async () => {
+    vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue([
+      { externalSlug: "EWH3", status: "MATCHED", matchedKennelId: "k1" },
+    ] as never);
+    vi.mocked(parseKennelDirectory).mockReturnValue([
+      buildDiscovered({ slug: "EWH3", name: "Everyday Is Wednesday H3", latitude: 38.9, longitude: -77.04 }),
+    ]);
+    // Candidate is k2, not k1
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([
+      { id: "k2", shortName: "EWH3", fullName: "Everyday Is Wednesday H3", country: "USA", regionRef: { centroidLat: 38.9, centroidLng: -77.04 } },
+    ] as never);
+
+    await syncKennelDiscovery();
+
+    expect(prisma.sourceKennel.deleteMany).toHaveBeenCalledWith({
+      where: { sourceId: "src-hashrego", kennelId: "k1" },
+    });
+    expect(prisma.sourceKennel.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { sourceId_kennelId: { sourceId: "src-hashrego", kennelId: "k2" } },
+      }),
+    );
+  });
+
+  it("LINKED preserved: previously LINKED discovery is never touched by sync", async () => {
+    vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue([
+      { externalSlug: "EWH3", status: "LINKED", matchedKennelId: "k1" },
+    ] as never);
+    vi.mocked(parseKennelDirectory).mockReturnValue([
+      buildDiscovered({ slug: "EWH3", name: "Everyday Is Wednesday H3" }),
+    ]);
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([
+      { id: "k1", shortName: "EWH3", fullName: "Everyday Is Wednesday H3", country: "USA", regionRef: { centroidLat: 38.9, centroidLng: -77.04 } },
+    ] as never);
+
+    await syncKennelDiscovery();
+
+    // Terminal LINKED rows take the updateTerminalDiscovery branch; neither
+    // the cleanup deleteMany nor the auto-match upsert should fire.
+    expect(prisma.sourceKennel.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.sourceKennel.upsert).not.toHaveBeenCalled();
   });
 
   it("auto-match skips SourceKennel upsert when no HASHREGO source exists", async () => {

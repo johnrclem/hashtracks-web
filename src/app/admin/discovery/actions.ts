@@ -127,6 +127,22 @@ export async function dismissDiscovery(id: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
+  // If this discovery was auto-linked (previous status MATCHED), drop the
+  // stale SourceKennel row so the scraper stops routing to that kennel.
+  // LINKED / ADDED rows are admin-confirmed and intentionally untouched.
+  const existing = await prisma.kennelDiscovery.findUnique({
+    where: { id },
+    select: { status: true, matchedKennelId: true },
+  });
+  if (existing?.status === "MATCHED" && existing.matchedKennelId) {
+    const hashRegoSourceId = await getHashRegoSourceId();
+    if (hashRegoSourceId) {
+      await prisma.sourceKennel.deleteMany({
+        where: { sourceId: hashRegoSourceId, kennelId: existing.matchedKennelId },
+      });
+    }
+  }
+
   await prisma.kennelDiscovery.update({
     where: { id },
     data: {
@@ -144,6 +160,24 @@ export async function dismissDiscovery(id: string) {
 export async function bulkDismissDiscoveries(ids: string[]) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
+
+  // Same guardrail as dismissDiscovery — only strip auto-link SourceKennel
+  // rows for rows whose previous status was MATCHED.
+  const existing = await prisma.kennelDiscovery.findMany({
+    where: { id: { in: ids } },
+    select: { status: true, matchedKennelId: true },
+  });
+  const autoLinkedKennelIds = existing
+    .filter((d) => d.status === "MATCHED" && d.matchedKennelId !== null)
+    .map((d) => d.matchedKennelId as string);
+  if (autoLinkedKennelIds.length > 0) {
+    const hashRegoSourceId = await getHashRegoSourceId();
+    if (hashRegoSourceId) {
+      await prisma.sourceKennel.deleteMany({
+        where: { sourceId: hashRegoSourceId, kennelId: { in: autoLinkedKennelIds } },
+      });
+    }
+  }
 
   await prisma.kennelDiscovery.updateMany({
     where: { id: { in: ids } },
