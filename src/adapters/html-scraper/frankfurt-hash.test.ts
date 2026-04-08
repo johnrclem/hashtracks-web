@@ -185,6 +185,30 @@ describe("parseJEMEvent", () => {
     expect(event!.hares).toBe("DOMs");
   });
 
+  it("stops hare extraction at block-level paragraph boundaries (#550)", () => {
+    // FFMH3 Run #16 (Frankfurt Full Moon Hash) had `<h3>HARE: Cummical Nerd</h3>`
+    // followed by a separate `<p>Not exactely full moon… celebrate Cummical
+    // Nerd's birthday!</p>`. Cheerio's .text() flattened both into one line, and
+    // the old regex (which only stopped at `.`, `|`, or `by`) captured the
+    // description as part of the hare name. Passing the raw HTML preserves the
+    // block-level boundary as a newline, which the regex's `\n` stop respects.
+    const html = `<li class="jem-event">
+      <div class="jem-event-date">
+        <time itemprop="startDate" content="2026-04-10T19:00"></time>
+      </div>
+      <div class="jem-event-title"><h4><a href="/event/1312:frankfurt-full-moon-hash-re-reloaded-16">FFMH3 Run #16</a></h4></div>
+      <div class="jem-event-venue"><a href="/venues/11">Venue</a></div>
+      <div class="jem-event-description">
+        <h3>HARE: Cummical Nerd</h3>
+        <p>Not exactely full moon but we will still celebrate Cummical Nerd's birthday!</p>
+      </div>
+    </li>`;
+    const $ = cheerio.load(html);
+    const $li = $("li.jem-event").first();
+    const event = parseJEMEvent($li, $, compiled, defaultTag, baseUrl);
+    expect(event!.hares).toBe("Cummical Nerd");
+  });
+
   it("returns hares=undefined when no Hares: line is present", () => {
     const html = `<li class="jem-event">
       <div class="jem-event-date">

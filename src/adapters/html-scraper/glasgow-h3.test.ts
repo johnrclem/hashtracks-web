@@ -60,6 +60,45 @@ describe("parseGlasgowRow", () => {
     const event = parseGlasgowRow(cells, [], sourceUrl);
     expect(event!.hares).toBeUndefined();
   });
+
+  it("strips `What 3 Words=` suffix from location and preserves it in description (#544)", () => {
+    // Live Glasgow hareline renders the W3W code inline with the venue text:
+    // "Anchor at the Abbey, 23 Gauze Street, Paisley What 3 Words= walks.intent.social"
+    // The display `location` drops the W3W tail; the code survives in
+    // `description` as a labeled line so a future geocoder can recover it.
+    const cells = [
+      "2209",
+      "Sunday 13 April",
+      "Anchor at the Abbey, 23 Gauze Street, Paisley What 3 Words= walks.intent.social",
+      "Yer Maw",
+    ];
+    const event = parseGlasgowRow(cells, [], sourceUrl);
+    expect(event!.location).toBe("Anchor at the Abbey, 23 Gauze Street, Paisley");
+    expect(event!.description).toBe("What3Words: walks.intent.social");
+  });
+
+  it("leaves description undefined when the location cell has no W3W suffix", () => {
+    const cells = ["2210", "Sunday 20 April", "Simple Venue", "Someone"];
+    const event = parseGlasgowRow(cells, [], sourceUrl);
+    expect(event!.location).toBe("Simple Venue");
+    expect(event!.description).toBeUndefined();
+  });
+
+  it("preserves the full location string when the W3W suffix is malformed", () => {
+    // Degraded source render: "What 3 Words=" with no code following. The
+    // match regex fails, so neither the location strip nor the description
+    // write-back fires. We leave the raw text intact rather than silently
+    // shortening it to a partial venue. (Codex review on PR batch 1.)
+    const cells = [
+      "2212",
+      "Sunday 4 May",
+      "Venue Name What 3 Words=",
+      "Someone",
+    ];
+    const event = parseGlasgowRow(cells, [], sourceUrl);
+    expect(event!.location).toBe("Venue Name What 3 Words=");
+    expect(event!.description).toBeUndefined();
+  });
 });
 
 describe("GlasgowH3Adapter", () => {
