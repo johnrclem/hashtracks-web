@@ -53,7 +53,12 @@ async function fetchPage(pageNum: number): Promise<RawEventData[]> {
   }
   const html = await res.text();
   const $ = cheerio.load(html);
-  return parseYiiHarelinePage($, CONFIG, url);
+  // Pass the canonical base URL (not the per-page URL) so fingerprints
+  // stay stable across backfill and recurring scrapes — the recurring
+  // adapter always uses the canonical URL. `generateFingerprint()` hashes
+  // `sourceUrl`, so a `?page=N` mismatch would produce a different
+  // fingerprint for the same event.
+  return parseYiiHarelinePage($, CONFIG, BASE_URL);
 }
 
 async function main() {

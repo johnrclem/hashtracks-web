@@ -70,9 +70,44 @@ interface GoHashInitialState {
 }
 
 /**
+ * Scan forward from `start` (which must point at an opening `{`) until the
+ * matching closing `}` is found. String literals are tracked so braces
+ * inside double-quoted strings are ignored. Returns the index AFTER the
+ * closing brace, or -1 if the braces never balance before end-of-input.
+ */
+function findMatchingBrace(html: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < html.length; i++) {
+    const c = html[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (inString) {
+      if (c === "\\") escape = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+    } else if (c === "{") {
+      depth++;
+    } else if (c === "}") {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return -1;
+}
+
+/**
  * Extract the `__INITIAL_STATE__` JSON blob from an SSR HTML page using a
  * brace-matching scan. Returns null if the marker is missing or the JSON
- * is not balanced.
+ * is not balanced. Only double-quoted strings are tracked — goHash's SSR
+ * output is JSON-shaped (no single-quoted strings, template literals, or
+ * comments) so a full JS parser is overkill.
  *
  * Exported for unit testing.
  */
@@ -88,34 +123,7 @@ export function extractInitialState(html: string): GoHashInitialState | null {
   while (start < html.length && html[start] !== "{") start++;
   if (start >= html.length) return null;
 
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-  let end = -1;
-  for (let i = start; i < html.length; i++) {
-    const c = html[i];
-    if (escape) {
-      escape = false;
-      continue;
-    }
-    if (c === "\\" && inString) {
-      escape = true;
-      continue;
-    }
-    if (c === '"') {
-      inString = !inString;
-      continue;
-    }
-    if (inString) continue;
-    if (c === "{") depth++;
-    else if (c === "}") {
-      depth--;
-      if (depth === 0) {
-        end = i + 1;
-        break;
-      }
-    }
-  }
+  const end = findMatchingBrace(html, start);
   if (end === -1) return null;
 
   try {

@@ -2509,7 +2509,7 @@ export function inferCountry(name: string): string {
   if (/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/.test(lower)) return "Sweden";
   if (/\b(norway|oslo|bergen|stavanger)\b/.test(lower)) return "Norway";
   if (/\b(singapore)\b/.test(lower)) return "Singapore";
-  if (/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|selangor|johor|sabah|sarawak)\b/.test(lower)) return "Malaysia";
+  if (/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|pulau pinang|george town|selangor|johor|sabah|sarawak|melaka|malacca|ipoh|kuching|kota kinabalu|miri|kelana jaya)\b/.test(lower)) return "Malaysia";
   return "USA";
 }
 

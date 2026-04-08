@@ -219,7 +219,15 @@ export class YiiHarelineAdapter implements SourceAdapter {
     if (!page1.ok) return page1.result;
 
     const maxPage = extractMaxYiiPage(page1.html);
-    const pagesFromEnd = config.pagesFromEnd ?? 2;
+    // Scale pages-to-fetch with the configured window. Yii GridView
+    // pages default to 13 rows; weekly kennels produce ~1 run/week
+    // so 180 days ≈ 26 runs ≈ 2 pages and 365 days ≈ 52 runs ≈ 4 pages.
+    // Use a ×1.5 safety multiplier so biweekly/monthly kennels and
+    // mid-scrape additions still land inside the window. Config override
+    // lets a source explicitly widen this if needed.
+    const days = options?.days ?? source.scrapeDays ?? 180;
+    const autoPagesFromEnd = Math.max(2, Math.ceil((days / 7) * 1.5 / 13));
+    const pagesFromEnd = config.pagesFromEnd ?? autoPagesFromEnd;
     const pagesToFetch = new Set<number>();
     for (let i = 0; i < pagesFromEnd && maxPage - i >= 1; i++) {
       pagesToFetch.add(maxPage - i);
@@ -264,7 +272,6 @@ export class YiiHarelineAdapter implements SourceAdapter {
       deduped.push(e);
     }
 
-    const days = options?.days ?? source.scrapeDays ?? 180;
     return applyDateWindow(
       {
         events: deduped,

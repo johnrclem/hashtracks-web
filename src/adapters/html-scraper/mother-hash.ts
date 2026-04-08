@@ -1,5 +1,5 @@
 import type { Source } from "@/generated/prisma/client";
-import type { RawEventData, ScrapeResult, SourceAdapter } from "../types";
+import type { ErrorDetails, RawEventData, ScrapeResult, SourceAdapter } from "../types";
 import { applyDateWindow, fetchHTMLPage, MONTHS, parse12HourTime, stripHtmlTags } from "../utils";
 
 /**
@@ -197,11 +197,25 @@ export class MotherHashAdapter implements SourceAdapter {
       if (event) events.push(event);
     }
 
+    // Surface zero-result scrapes as scrape errors so the reconciler
+    // doesn't cancel existing events when the Google Sites markup
+    // drifts. Mother Hash always has at least the "next run" block
+    // visible, so zero means the parser broke, not that the kennel
+    // stopped running.
+    const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
+    if (events.length === 0) {
+      const message = "Mother Hash scraper parsed 0 runs — possible Google Sites format drift";
+      errors.push(message);
+      errorDetails.parse = [{ row: 0, error: message }];
+    }
+
     const days = options?.days ?? source.scrapeDays ?? 180;
     return applyDateWindow(
       {
         events,
-        errors: [],
+        errors,
+        errorDetails: errors.length > 0 ? errorDetails : undefined,
         structureHash: page.structureHash,
         diagnosticContext: {
           fetchMethod: "html-scrape",
