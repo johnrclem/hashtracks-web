@@ -14,7 +14,7 @@ import { parseICalSummary } from "../ical/adapter";
 import { enrichSFH3Events } from "./sfh3-detail-enrichment";
 
 // Re-export for existing test imports.
-export { parseSFH3DetailPage, enrichSFH3Events } from "./sfh3-detail-enrichment";
+export { parseSFH3DetailPage, enrichSFH3Events, isGenericSFH3Title } from "./sfh3-detail-enrichment";
 export type { SFH3Detail, SFH3EnrichFailure } from "./sfh3-detail-enrichment";
 
 /** Config shape — reuses same kennelPatterns/skipPatterns as iCal adapter */

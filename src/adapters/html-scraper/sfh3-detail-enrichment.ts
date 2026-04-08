@@ -84,18 +84,63 @@ export function parseSFH3DetailPage(html: string): SFH3Detail {
   return { title, comment };
 }
 
-/** True if the event still needs detail-page enrichment (missing Comment or "Run #N" title). */
-function sfh3NeedsEnrichment(event: RawEventData): boolean {
-  if (!event.sourceUrl || !/sfh3\.com\/runs\/\d+/.test(event.sourceUrl)) return false;
-  const titleHasRun = !!event.title && /\bRun\s*#\d+/i.test(event.title);
-  const descHasComment = !!event.description && /\bComment\s*:/i.test(event.description);
-  return !titleHasRun || !descHasComment;
+/**
+ * True when the title is the generic "{kennel slug} [Run|Trail] #N" form
+ * that sfh3.com's detail-page JSON-LD serves for every event. Used as the
+ * guard before letting a detail-page title OVERRIDE the current title —
+ * if the hareline's `td.name` column already gave us something descriptive
+ * (e.g. "420 Opening Day Trail, 2026 Edition!"), the generic detail-page
+ * title would be a regression.
+ *
+ * The check is anchored on the event's own `kennelTag`: the title must
+ * actually begin with that tag (space- and dot-normalized) before we'll
+ * accept it as generic. That way a descriptive single-word-prefix title
+ * like "Campout #5" is NOT treated as generic for an Agnews event — its
+ * normalized prefix ("campout") isn't the kennel tag. An empty/missing
+ * title is always generic.
+ */
+export function isGenericSFH3Title(title: string | undefined, kennelTag?: string): boolean {
+  if (!title) return true;
+  const trimmed = title.trim();
+  if (trimmed === "") return true;
+  // Without the event's kennelTag we can't distinguish "Agnews #1512" from
+  // "Campout #5", so fail conservatively and let the caller preserve the
+  // existing title.
+  if (!kennelTag) return false;
+  const normalize = (s: string) => s.replace(/[\s.]+/g, "").toLowerCase();
+  const normTitle = normalize(trimmed);
+  const normTag = normalize(kennelTag);
+  if (!normTag || !normTitle.startsWith(normTag)) return false;
+  // After stripping the tag, only a bare "run"/"trail" connective and an
+  // optional `#N` run number should remain.
+  const tail = normTitle.slice(normTag.length);
+  return /^(?:run|trail)?#?\d*$/.test(tail);
 }
 
-/** Apply detail-page extracted fields to an event in place. Returns true if anything changed. */
+/** True if the event still needs detail-page enrichment (missing Comment or still has a generic title). */
+function sfh3NeedsEnrichment(event: RawEventData): boolean {
+  if (!event.sourceUrl || !/sfh3\.com\/runs\/\d+/.test(event.sourceUrl)) return false;
+  const descHasComment = !!event.description && /\bComment\s*:/i.test(event.description);
+  // Skip the fetch entirely when both sides are already good — the detail
+  // page can't improve on a descriptive hareline title + an existing Comment.
+  if (descHasComment && !isGenericSFH3Title(event.title, event.kennelTag)) return false;
+  return true;
+}
+
+/**
+ * Apply detail-page extracted fields to an event in place. Returns true if
+ * anything changed. The title override is GATED on the current title being
+ * generic (#545): SFH3 kennels whose hareline `td.name` column carries a
+ * descriptive event name (e.g. "420 Opening Day Trail, 2026 Edition!") must
+ * not be clobbered by the detail page's generic JSON-LD title.
+ */
 function applyDetailToEvent(event: EnrichableEvent, detail: SFH3Detail): boolean {
   let touched = false;
-  if (detail.title && detail.title !== event.title) {
+  if (
+    detail.title
+    && detail.title !== event.title
+    && isGenericSFH3Title(event.title, event.kennelTag)
+  ) {
     event.title = detail.title;
     touched = true;
   }

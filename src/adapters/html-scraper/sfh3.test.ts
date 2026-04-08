@@ -1,6 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
-import { parseSFH3Date, extractLocationUrl, parseHarelineRows, parseSFH3DetailPage } from "./sfh3";
+import {
+  parseSFH3Date,
+  extractLocationUrl,
+  parseHarelineRows,
+  parseSFH3DetailPage,
+  isGenericSFH3Title,
+  enrichSFH3Events,
+} from "./sfh3";
 import { SFH3Adapter } from "./sfh3";
+import type { RawEventData } from "../types";
 
 describe("parseSFH3Date", () => {
   it("parses M/D/YYYY format", () => {
@@ -644,5 +652,141 @@ describe("parseSFH3DetailPage", () => {
     `;
     const result = parseSFH3DetailPage(html);
     expect(result.title).toBe("26.2H3 Run #8");
+  });
+});
+
+// ── isGenericSFH3Title + enrichSFH3Events title-override gating (#545) ──
+//
+// Live Agnews events on SFH3 have two sources of title: the HTML hareline's
+// `td.name` column (which carries descriptive event names like "420 Opening
+// Day Trail, 2026 Edition!") and the detail-page JSON-LD Event.name (which
+// is the generic "Agnews Run #1512" form). Before this fix, detail-page
+// enrichment unconditionally overrode the title, clobbering the good one.
+
+describe("isGenericSFH3Title", () => {
+  it("treats missing/empty titles as generic", () => {
+    expect(isGenericSFH3Title(undefined, "agnews")).toBe(true);
+    expect(isGenericSFH3Title("", "agnews")).toBe(true);
+  });
+
+  it("classifies `{slug} #N` / `{slug} Run #N` / `{slug} Trail #N` as generic", () => {
+    expect(isGenericSFH3Title("Agnews #1512", "agnews")).toBe(true);
+    expect(isGenericSFH3Title("Agnews Run #1512", "agnews")).toBe(true);
+    expect(isGenericSFH3Title("Agnews Trail #1512", "agnews")).toBe(true);
+    expect(isGenericSFH3Title("SFH3 Run #2302", "sfh3")).toBe(true);
+    // 26.2H3 — the tag carries a dot; normalization strips it so "26.2H3" matches "262h3"
+    expect(isGenericSFH3Title("26.2H3 #7", "262h3")).toBe(true);
+  });
+
+  it("classifies descriptive titles as non-generic", () => {
+    expect(isGenericSFH3Title("420 Opening Day Trail, 2026 Edition!", "agnews")).toBe(false);
+    expect(isGenericSFH3Title("The 420 Recovery Hash", "agnews")).toBe(false);
+    expect(isGenericSFH3Title("A Very Heated Rivalry", "sfh3")).toBe(false);
+    expect(isGenericSFH3Title("Beware the IPAs of March!", "agnews")).toBe(false);
+  });
+
+  it("does not classify `Campout #5` or other descriptive `{word} #N` titles as generic (Codex PR #557 review)", () => {
+    // Without the kennelTag anchor, the earlier heuristic classified any
+    // "{single-word} #N" shape as generic. The fix ties the check to the
+    // event's own kennelTag: only titles that literally begin with the tag
+    // are candidates for override. "Campout" is a descriptive noun, not
+    // the Agnews kennel slug, so its title must survive enrichment.
+    expect(isGenericSFH3Title("Campout #5", "agnews")).toBe(false);
+    expect(isGenericSFH3Title("Summit #2413", "agnews")).toBe(false);
+    expect(isGenericSFH3Title("Red Dress #420", "sfh3")).toBe(false);
+  });
+
+  it("is conservative when no kennelTag is provided — returns non-generic", () => {
+    // Without context we can't distinguish kennel slug from descriptive word;
+    // preserving the current title is the safe default.
+    expect(isGenericSFH3Title("Agnews #1512")).toBe(false);
+    expect(isGenericSFH3Title("Campout #5")).toBe(false);
+  });
+});
+
+describe("enrichSFH3Events — preserves descriptive titles (#545)", () => {
+  const now = new Date("2026-04-01T00:00:00Z");
+
+  const agnewsDetailHtml = `
+    <html><head>
+      <script type="application/ld+json">
+        {"@context":"https://schema.org","@type":"Event","name":"Agnews Run #1512","startDate":"2026-04-09T18:30:00-07:00"}
+      </script>
+    </head><body>
+      <div class="run-key run_label"><label for="run_comment">Comment</label>:</div>
+      <div class="run_content">Bring headlamps.</div>
+    </body></html>
+  `;
+
+  const run262DetailHtml = `
+    <html><head>
+      <script type="application/ld+json">
+        {"@context":"https://schema.org","@type":"Event","name":"26.2H3 Run #7","startDate":"2026-08-15T10:00:00-07:00"}
+      </script>
+    </head><body></body></html>
+  `;
+
+  function buildEvent(overrides: Partial<RawEventData>): RawEventData {
+    return {
+      date: "2026-04-09",
+      kennelTag: "agnews",
+      sourceUrl: "https://www.sfh3.com/runs/6495",
+      ...overrides,
+    };
+  }
+
+  it("does not override a descriptive hareline title with the generic detail-page title", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(agnewsDetailHtml, { status: 200 }),
+    );
+    const events = [
+      buildEvent({
+        title: "420 Opening Day Trail, 2026 Edition!",
+        runNumber: 1512,
+      }),
+    ];
+    const result = await enrichSFH3Events(events, { now });
+    expect(result.failures).toHaveLength(0);
+    // Title preserved, Comment still enriched in description
+    expect(events[0].title).toBe("420 Opening Day Trail, 2026 Edition!");
+    expect(events[0].description).toContain("Comment: Bring headlamps.");
+    vi.restoreAllMocks();
+  });
+
+  it("still overrides a generic title with the detail-page title (26.2H3 case)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(run262DetailHtml, { status: 200 }),
+    );
+    const events = [
+      buildEvent({
+        date: "2026-08-15",
+        kennelTag: "262h3",
+        title: "26.2H3 #7",
+        runNumber: 7,
+        sourceUrl: "https://www.sfh3.com/runs/6478",
+      }),
+    ];
+    const result = await enrichSFH3Events(events, { now });
+    expect(result.failures).toHaveLength(0);
+    // Generic title replaced with the detail-page canonical form
+    expect(events[0].title).toBe("26.2H3 Run #7");
+    vi.restoreAllMocks();
+  });
+
+  it("skips the fetch entirely when title is descriptive AND description already has Comment", async () => {
+    // Steady-state check — no detail page fetch, no changes.
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const events = [
+      buildEvent({
+        title: "420 Opening Day Trail, 2026 Edition!",
+        runNumber: 1512,
+        description: "Hares: Today is Monday\n\nComment: Bring headlamps.",
+      }),
+    ];
+    const result = await enrichSFH3Events(events, { now });
+    expect(result.enriched).toBe(0);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(events[0].title).toBe("420 Opening Day Trail, 2026 Edition!");
+    vi.restoreAllMocks();
   });
 });
