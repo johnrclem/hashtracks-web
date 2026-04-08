@@ -1336,14 +1336,35 @@ describe("parseInlineHareline", () => {
     expect(parseInlineHareline(onlyEmpty, "4x2 H4 Hareline:")).toEqual({});
   });
 
-  it("stops at the first blank line after collecting entries", () => {
-    const withTail = [
+  it("tolerates blank lines within the block", () => {
+    // Earlier behavior stopped parsing at the first blank line, which was
+    // fragile to accidental double-newlines in calendar descriptions. The
+    // loop now runs until end-of-input; blank lines are simply skipped.
+    const withBlank = [
       "4x2 H4 Hareline:",
       "Tue 5/5: Hare A",
       "",
-      "Tue 6/2: Should Not Match",  // after the terminating blank
+      "Tue 6/2: Hare B",
     ].join("\n");
-    expect(parseInlineHareline(withTail, "4x2 H4 Hareline:")).toEqual({ "5/5": "Hare A" });
+    expect(parseInlineHareline(withBlank, "4x2 H4 Hareline:")).toEqual({
+      "5/5": "Hare A",
+      "6/2": "Hare B",
+    });
+  });
+
+  it("treats placeholder hare values like TBD / Pending / None as empty", () => {
+    const withPlaceholders = [
+      "4x2 H4 Hareline:",
+      "Tue 5/5: TBD",
+      "Tue 6/2: Needed",
+      "Tue 7/7: tba",
+      "Tue 8/3: None",
+      "Tue 9/1: Pending",
+      "Tue 10/6: Real Hare",
+    ].join("\n");
+    expect(parseInlineHareline(withPlaceholders, "4x2 H4 Hareline:")).toEqual({
+      "10/6": "Real Hare",
+    });
   });
 
   it("skips non-hareline lines between entries without terminating the block", () => {

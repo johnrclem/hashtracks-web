@@ -192,7 +192,12 @@ function titleFromDescription(rawDescription: string): string | undefined {
 }
 
 /** Match a hareline line like "Tue 5/5: Oh Die Mark!". Day abbrev + M/D + hares. */
-const HARELINE_LINE_RE = /^[A-Za-z]{3}\s+(\d{1,2})\/(\d{1,2})\s*:\s*(.+)$/;
+// [^\n]+ instead of .+ closes a SonarQube ReDoS hotspot. The lines are
+// pre-split on \n so the two are semantically identical for this input.
+const HARELINE_LINE_RE = /^[A-Za-z]{3}\s+(\d{1,2})\/(\d{1,2})\s*:\s*([^\n]+)$/;
+
+/** Placeholder hare values that mean "no hare assigned yet" and should be skipped. */
+const HARELINE_PLACEHOLDER_RE = /^(?:tbd|tba|needed|none|pending)$/i;
 
 /** Unpadded `M/D` key used as the intermediate shape for parsed hareline blocks. */
 function toMonthDayKey(month: string, day: string): string {
@@ -201,29 +206,23 @@ function toMonthDayKey(month: string, day: string): string {
 
 /**
  * Parse an inline hareline block from an event description. Returns a map
- * from `"M/D"` to the hare name(s) listed for that date. Lines with empty
- * values are skipped. The block ends at the first blank line after any
- * entries have been collected, or end-of-description.
+ * from `"M/D"` to the hare name(s) listed for that date. Non-matching and
+ * empty lines are silently skipped, and the loop runs until end-of-description
+ * so accidental blank lines inside the block don't truncate parsing.
+ * Placeholder values like "TBD" / "Pending" are treated as empty.
  */
 export function parseInlineHareline(description: string, blockHeader: string): Record<string, string> {
   const result: Record<string, string> = {};
   const headerIdx = description.indexOf(blockHeader);
   if (headerIdx === -1) return result;
   const afterHeader = description.slice(headerIdx + blockHeader.length);
-  let started = false;
   for (const rawLine of afterHeader.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) {
-      if (started) break;
-      continue;
-    }
-    const match = HARELINE_LINE_RE.exec(line);
+    const match = HARELINE_LINE_RE.exec(rawLine.trim());
     if (!match) continue;
     const [, monthStr, dayStr, hares] = match;
     const cleanHares = hares.trim();
-    if (!cleanHares) continue;
+    if (!cleanHares || HARELINE_PLACEHOLDER_RE.test(cleanHares)) continue;
     result[toMonthDayKey(monthStr, dayStr)] = cleanHares;
-    started = true;
   }
   return result;
 }
@@ -805,7 +804,12 @@ export function applyInlineHarelineBackfill(
   if (!pattern || events.length === 0) return 0;
   const { kennelTag: targetKennel, blockHeader } = pattern;
 
-  const todayIso = (options.now ?? new Date()).toISOString().split("T")[0];
+  // 24h buffer mirrors src/adapters/html-scraper/sfh3-detail-enrichment.ts —
+  // `event.date` is a local calendar date, but toISOString() is UTC, so without
+  // the buffer an evening scrape (UTC past midnight) would drop the donor
+  // event that's still happening "today" in the kennel's local timezone.
+  const referenceTime = (options.now ?? new Date()).getTime();
+  const todayIso = new Date(referenceTime - 86_400_000).toISOString().split("T")[0];
   const donor = events
     .filter((e) =>
       e.kennelTag === targetKennel
@@ -838,6 +842,11 @@ export function applyInlineHarelineBackfill(
  * donor's date as the anchor. Each M/D gets the first absolute date at or
  * after the anchor — if the anchor is late in the year, entries with earlier
  * months roll forward into the next year.
+ *
+ * Note: this is a string-level resolver, not a real calendar. A `2/29` entry
+ * in a non-leap year will produce an invalid `YYYY-02-29` key that simply
+ * won't match any event (back-fill no-op). Acceptable — 4X2H4 won't schedule
+ * a trail on a date that doesn't exist.
  */
 function resolveHarelineAgainstAnchorDate(
   mdMap: Record<string, string>,
