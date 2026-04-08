@@ -931,6 +931,18 @@ export const SOURCES = [
       },
       kennelCodes: ["7h4"],
     },
+    // Per-trail enrichment from the kennel's Google Sites homepage. Emits one
+    // event per scrape (the current/upcoming trail) with real title, hares,
+    // start address, and time — overrides the synthetic static-schedule values.
+    {
+      name: "Seven Hills H3 Google Sites",
+      url: "https://sites.google.com/view/7h4/home",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 30,
+      kennelCodes: ["7h4"],
+    },
     // ===== NORTH CAROLINA =====
     // --- Raleigh / Triangle ---
     {
