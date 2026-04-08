@@ -102,7 +102,18 @@ export async function fetchSeletarRows(
       };
     }
     const json = (await res.json()) as SeletarApiResponse;
-    return { rows: json.data ?? [], fetchDurationMs: Date.now() - fetchStart };
+    // Validate payload shape up front — a 200 with `{status:"1"}`, an HTML
+    // error page, or a missing/non-array `data` field must be a hard
+    // failure, NOT a silent "empty success" (which would let the merge
+    // pipeline's reconciler cancel live events).
+    if (!Array.isArray(json.data)) {
+      return {
+        rows: [],
+        error: { message: "Seletar HashController API returned a non-array payload" },
+        fetchDurationMs: Date.now() - fetchStart,
+      };
+    }
+    return { rows: json.data, fetchDurationMs: Date.now() - fetchStart };
   } catch (err) {
     return {
       rows: [],
@@ -126,14 +137,27 @@ export interface GroupSeletarRowsResult {
   skippedRows: number;
 }
 
+/**
+ * Parse a `hl_runno` field defensively. PHP/MySQL drivers sometimes return
+ * integers as strings, but `Number(null)`, `Number(undefined)`, and
+ * `Number("")` all coerce to `0`, which would silently pass
+ * `Number.isFinite` and group malformed rows under run `0`. Reject
+ * nullish/blank values explicitly before coercion.
+ */
+function parseRunNumber(raw: unknown): number | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === "string" && raw.trim() === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 /** Group SeletarRow[] by run number, returning one RawEventData per run. */
 export function groupSeletarRows(rows: SeletarRow[]): GroupSeletarRowsResult {
   const byRun = new Map<number, SeletarRow[]>();
   let skippedRows = 0;
   for (const row of rows) {
-    // PHP/MySQL drivers sometimes return integers as strings; coerce defensively.
-    const runNum = Number(row.hl_runno);
-    if (!Number.isFinite(runNum) || !row.hl_datetime) {
+    const runNum = parseRunNumber(row.hl_runno);
+    if (runNum === null || !row.hl_datetime) {
       skippedRows++;
       continue;
     }
@@ -203,7 +227,7 @@ function buildSkippedRowsError(
   rows: SeletarRow[],
 ): { message: string; detail: NonNullable<ErrorDetails["parse"]> } {
   const message = `Seletar API returned ${skippedRows} row(s) with missing hl_runno or hl_datetime — possible schema drift`;
-  const bad = rows.find((r) => !Number.isFinite(Number(r.hl_runno)) || !r.hl_datetime);
+  const bad = rows.find((r) => parseRunNumber(r.hl_runno) === null || !r.hl_datetime);
   const rawText = JSON.stringify(bad ? safeRowSample(bad) : {}).slice(0, 500);
   return { message, detail: [{ row: 0, error: message, rawText }] };
 }
@@ -221,16 +245,6 @@ export class SeletarH3Adapter implements SourceAdapter {
     if (result.error) {
       errorDetails.fetch = [{ url: apiUrl, message: result.error.message, status: result.error.status }];
       return { events: [], errors: [result.error.message], errorDetails };
-    }
-
-    // Runtime payload shape check — a 200 with a malformed body (e.g. HTML
-    // error page, {status:"1"}, non-array data) must not silently succeed,
-    // because an empty rows list would trigger the reconciler to cancel
-    // live events. Treat any non-array `data` as a fetch error.
-    if (!Array.isArray(result.rows)) {
-      const message = "Seletar HashController API returned a non-array payload";
-      errorDetails.fetch = [{ url: apiUrl, message }];
-      return { events: [], errors: [message], errorDetails };
     }
 
     const allGrouped = groupSeletarRows(result.rows);
