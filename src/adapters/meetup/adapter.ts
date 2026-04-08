@@ -297,6 +297,9 @@ export function buildRawEventFromApollo(
   const { date, startTime } = ev.dateTime
     ? extractDateTime(ev.dateTime)
     : { date: "", startTime: undefined };
+  // endTime is HH:MM only, so cross-date end timestamps (overnight runs) are dropped.
+  const endParts = ev.endTime ? extractDateTime(ev.endTime) : undefined;
+  const endTime = endParts && endParts.date === date ? endParts.startTime : undefined;
 
   const venueInfo = resolveVenue(state, ev.venue);
 
@@ -328,6 +331,7 @@ export function buildRawEventFromApollo(
     latitude: venueInfo.latitude,
     longitude: venueInfo.longitude,
     startTime,
+    endTime,
     sourceUrl: ev.eventUrl || undefined,
   };
 }

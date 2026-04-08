@@ -357,6 +357,9 @@ function buildRawEventFromVEvent(
 
   const dateStr = formatDate(vevent.start);
   const startTime = formatTime(vevent.start);
+  // endTime is HH:MM only, so cross-date DTEND values (overnight runs) are dropped.
+  const endDt = vevent.end as DateWithTimeZone | undefined;
+  const endTime = endDt && formatDate(endDt) === dateStr ? formatTime(endDt) : undefined;
   const description = paramValue(vevent.description);
   let hares = description ? extractHaresFromDescription(description, compiledHarePatterns) : undefined;
 
@@ -395,6 +398,7 @@ function buildRawEventFromVEvent(
     location,
     locationUrl,
     startTime,
+    endTime,
     sourceUrl: paramValue(vevent.url) ?? undefined,
   };
 }

@@ -778,6 +778,8 @@ async function upsertCanonicalEvent(
             ? { locationAddress: sanitizeLocationUrl(event.locationUrl) }
             : {}),
           startTime: event.startTime ?? existingEvent.startTime,
+          endTime: event.endTime ?? existingEvent.endTime,
+          cost: event.cost ?? existingEvent.cost,
           dateUtc,
           timezone,
           // Preserve first source's URL; subsequent sources get EventLinks
@@ -837,6 +839,8 @@ async function upsertCanonicalEvent(
         locationStreet: event.locationStreet ?? null,
         locationAddress: sanitizeLocationUrl(event.locationUrl),
         startTime: event.startTime,
+        endTime: event.endTime,
+        cost: event.cost,
         sourceUrl: event.sourceUrl,
         trustLevel: ctx.trustLevel,
         latitude: coords.latitude,

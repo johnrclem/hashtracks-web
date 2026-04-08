@@ -443,6 +443,7 @@ export function buildRawEventFromGCalItem(
 
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start);
   if (!dateISO) return null;
+  const endParts = item.end ? extractDateTimeFromGCalItem(item.end) : undefined;
   const summary = decodeEntities(item.summary);
 
   // Skip events whose summary matches any configured skip pattern (e.g., cross-kennel posts)
@@ -588,6 +589,8 @@ export function buildRawEventFromGCalItem(
     location: locationIsUrl ? undefined : location,
     locationUrl: location ? (locationIsUrl ? location : mapsUrl(location)) : undefined,
     startTime: resolvedStartTime,
+    // endTime is HH:MM only, so cross-date end timestamps (overnight runs) are dropped.
+    endTime: endParts && endParts.dateISO === dateISO ? endParts.startTime : undefined,
     sourceUrl: item.htmlLink,
   };
 }

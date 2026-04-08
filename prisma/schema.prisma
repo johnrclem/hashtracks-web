@@ -309,6 +309,8 @@ model Event {
   latitude        Float?
   longitude       Float?
   startTime       String?     // Local time string "HH:MM" — NOT a timestamp
+  endTime         String?     // Local time string "HH:MM" — same convention as startTime
+  cost            String?     // Free-form: "$10", "$5 cash / $10 card", "Free for virgins"
   sourceUrl       String?     // Link to original event page
   trustLevel      Int         @default(5)
   isSeriesParent  Boolean     @default(false)

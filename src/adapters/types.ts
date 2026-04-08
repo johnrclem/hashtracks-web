@@ -14,6 +14,8 @@ export interface RawEventData {
   latitude?: number;
   longitude?: number;
   startTime?: string; // HH:MM (local time)
+  endTime?: string; // HH:MM (local time) — present when source provides a real end
+  cost?: string; // Free-form cost text (currency, qualifiers, etc.)
   sourceUrl?: string;
   externalLinks?: { url: string; label: string }[]; // Additional links (creates EventLink records)
   seriesId?: string; // Groups multi-day events (e.g., Hash Rego event slug)
