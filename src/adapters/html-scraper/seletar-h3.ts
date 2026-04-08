@@ -2,6 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { safeFetch } from "../safe-fetch";
 import { USER_AGENT } from "../constants";
+import { buildDateWindow } from "../utils";
 
 /**
  * Default API endpoint — only used as a fallback when a Source has no `url`
@@ -101,7 +102,18 @@ export async function fetchSeletarRows(
       };
     }
     const json = (await res.json()) as SeletarApiResponse;
-    return { rows: json.data ?? [], fetchDurationMs: Date.now() - fetchStart };
+    // Validate payload shape up front — a 200 with `{status:"1"}`, an HTML
+    // error page, or a missing/non-array `data` field must be a hard
+    // failure, NOT a silent "empty success" (which would let the merge
+    // pipeline's reconciler cancel live events).
+    if (!Array.isArray(json.data)) {
+      return {
+        rows: [],
+        error: { message: "Seletar HashController API returned a non-array payload" },
+        fetchDurationMs: Date.now() - fetchStart,
+      };
+    }
+    return { rows: json.data, fetchDurationMs: Date.now() - fetchStart };
   } catch (err) {
     return {
       rows: [],
@@ -125,14 +137,27 @@ export interface GroupSeletarRowsResult {
   skippedRows: number;
 }
 
+/**
+ * Parse a `hl_runno` field defensively. PHP/MySQL drivers sometimes return
+ * integers as strings, but `Number(null)`, `Number(undefined)`, and
+ * `Number("")` all coerce to `0`, which would silently pass
+ * `Number.isFinite` and group malformed rows under run `0`. Reject
+ * nullish/blank values explicitly before coercion.
+ */
+function parseRunNumber(raw: unknown): number | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === "string" && raw.trim() === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 /** Group SeletarRow[] by run number, returning one RawEventData per run. */
 export function groupSeletarRows(rows: SeletarRow[]): GroupSeletarRowsResult {
   const byRun = new Map<number, SeletarRow[]>();
   let skippedRows = 0;
   for (const row of rows) {
-    // PHP/MySQL drivers sometimes return integers as strings; coerce defensively.
-    const runNum = Number(row.hl_runno);
-    if (!Number.isFinite(runNum) || !row.hl_datetime) {
+    const runNum = parseRunNumber(row.hl_runno);
+    if (runNum === null || !row.hl_datetime) {
       skippedRows++;
       continue;
     }
@@ -179,16 +204,32 @@ export function groupSeletarRows(rows: SeletarRow[]): GroupSeletarRowsResult {
   return { events, skippedRows };
 }
 
+/**
+ * Build a PII-safe sample of a malformed row for diagnostics. The raw API
+ * response contains member names, emails, phone numbers, etc.; we whitelist
+ * only the non-PII `hl_*` / `hs_type` fields here so they can't leak into
+ * error logs, GitHub issues, or Sentry breadcrumbs.
+ */
+function safeRowSample(row: SeletarRow): Record<string, unknown> {
+  return {
+    hl_runno: row.hl_runno,
+    hl_datetime: row.hl_datetime,
+    hl_runsite: row.hl_runsite,
+    hl_gps: row.hl_gps,
+    hl_comment: row.hl_comment,
+    hl_guestfee: row.hl_guestfee,
+    hs_type: row.hs_type,
+  };
+}
+
 function buildSkippedRowsError(
   skippedRows: number,
   rows: SeletarRow[],
 ): { message: string; detail: NonNullable<ErrorDetails["parse"]> } {
   const message = `Seletar API returned ${skippedRows} row(s) with missing hl_runno or hl_datetime — possible schema drift`;
-  const sample = rows.find((r) => !Number.isFinite(Number(r.hl_runno)) || !r.hl_datetime) ?? {};
-  return {
-    message,
-    detail: [{ row: 0, error: message, rawText: JSON.stringify(sample).slice(0, 500) }],
-  };
+  const bad = rows.find((r) => parseRunNumber(r.hl_runno) === null || !r.hl_datetime);
+  const rawText = JSON.stringify(bad ? safeRowSample(bad) : {}).slice(0, 500);
+  return { message, detail: [{ row: 0, error: message, rawText }] };
 }
 
 export class SeletarH3Adapter implements SourceAdapter {
@@ -196,7 +237,7 @@ export class SeletarH3Adapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const apiUrl = source.url || SELETAR_API_URL_DEFAULT;
     const errorDetails: ErrorDetails = {};
@@ -206,7 +247,13 @@ export class SeletarH3Adapter implements SourceAdapter {
       return { events: [], errors: [result.error.message], errorDetails };
     }
 
-    const { events, skippedRows } = groupSeletarRows(result.rows);
+    const allGrouped = groupSeletarRows(result.rows);
+    const skippedRows = allGrouped.skippedRows;
+    const { minDate, maxDate } = buildDateWindow(options?.days ?? 365);
+    const events = allGrouped.events.filter((e) => {
+      const d = new Date(`${e.date}T12:00:00Z`);
+      return d >= minDate && d <= maxDate;
+    });
     const errors: string[] = [];
 
     // Surface dropped rows as scrape errors so the reconciler doesn't cancel

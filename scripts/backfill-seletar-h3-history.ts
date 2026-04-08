@@ -71,9 +71,15 @@ async function main() {
     return;
   }
 
+  // Default to strict TLS validation. Railway's public PG proxy uses a
+  // self-signed cert during local dev, so operators can set
+  // BACKFILL_ALLOW_SELF_SIGNED_CERT=1 to opt into the relaxed check —
+  // explicit opt-in rather than a silent NODE_ENV branch so the insecure
+  // mode is never accidentally active in production.
+  const allowSelfSigned = process.env.BACKFILL_ALLOW_SELF_SIGNED_CERT === "1";
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
+    ssl: { rejectUnauthorized: !allowSelfSigned },
   });
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
