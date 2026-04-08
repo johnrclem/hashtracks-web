@@ -495,13 +495,15 @@ describe("linkKennelToSource", () => {
     mockAlertFind.mockResolvedValueOnce(
       baseAlert({ type: "SOURCE_KENNEL_MISMATCH", context: { tags: ["NYCH3"] } }) as never,
     );
-    mockResolve
-      .mockResolvedValueOnce({ matched: true, kennelId: "kennel_1" } as never) // initial resolve
-      .mockResolvedValueOnce({ matched: true, kennelId: "kennel_1" } as never); // auto-resolve check
+    mockResolve.mockResolvedValueOnce({ matched: true, kennelId: "kennel_1" } as never); // initial resolve
     mockSourceKennelFind.mockResolvedValueOnce(null as never);
     mockSourceKennelCreate.mockResolvedValueOnce({} as never);
     mockKennelFind.mockResolvedValueOnce({ shortName: "NYCH3" } as never);
     mockAlertUpdate.mockResolvedValueOnce({} as never); // repair log
+    // Batched auto-resolve reads kennels/aliases/sourceKennels via findMany.
+    mockKennelFindMany.mockResolvedValueOnce([
+      { id: "kennel_1", kennelCode: "nych3", shortName: "NYCH3" },
+    ] as never);
     mockSourceKennelFindMany.mockResolvedValueOnce([{ kennelId: "kennel_1" }] as never);
     mockAlertUpdate.mockResolvedValueOnce({} as never); // auto-resolve
 
@@ -512,6 +514,9 @@ describe("linkKennelToSource", () => {
     expect(mockAlertUpdate.mock.calls[1][0].data).toEqual(
       expect.objectContaining({ status: "RESOLVED" }),
     );
+    // Only the initial tag resolution should hit resolveKennelTag;
+    // the per-tag loop has been replaced with batched findMany lookups.
+    expect(mockResolve).toHaveBeenCalledTimes(1);
   });
 });
 
