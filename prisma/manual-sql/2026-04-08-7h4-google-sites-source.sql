@@ -1,5 +1,5 @@
 -- Add the 7H4 Google Sites scraper as a new source and link it to the
--- existing 4x2h4 kennel. Closes #510 (source coverage gap) and enables
+-- existing 7h4 kennel. Closes #510 (source coverage gap) and enables
 -- #508 / #509 / #511 to be addressed via the enriched data this adapter
 -- emits.
 --

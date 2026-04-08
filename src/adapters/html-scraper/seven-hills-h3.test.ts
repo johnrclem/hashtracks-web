@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { parseSevenHillsPage, SevenHillsH3Adapter } from "./seven-hills-h3";
 
 // Live Google Sites body text (post-HTML-strip, collapsed to single line)
@@ -55,9 +55,20 @@ describe("parseSevenHillsPage", () => {
     const result = parseSevenHillsPage(`<html><body>${body}</body></html>`);
     expect(result?.title).toBe("Fall Classic");
   });
+
+  it("accepts dotted `p.m.` / `a.m.` ampm forms", () => {
+    // `parse12HourTime` rejects dotted ampm, so without the dot-strip the
+    // synthesized "2:00 p.m." would silently yield undefined.
+    const bodyPm = "TRAIL #2013 Dotted PMFriday May 1, 2026 @ 2 p.m.Start: X, VA";
+    expect(parseSevenHillsPage(`<html><body>${bodyPm}</body></html>`)?.startTime).toBe("14:00");
+    const bodyAm = "TRAIL #2014 Dotted AMSaturday May 2, 2026 @ 7:30 a.m.Start: X, VA";
+    expect(parseSevenHillsPage(`<html><body>${bodyAm}</body></html>`)?.startTime).toBe("07:30");
+  });
 });
 
 describe("SevenHillsH3Adapter.fetch", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   const adapter = new SevenHillsH3Adapter();
   const source = {
     id: "test",
@@ -81,7 +92,6 @@ describe("SevenHillsH3Adapter.fetch", () => {
       startTime: "14:00",
     });
     expect(result.errors).toHaveLength(0);
-    vi.restoreAllMocks();
   });
 
   it("records a parse error when the page has no trail block", async () => {
@@ -93,7 +103,6 @@ describe("SevenHillsH3Adapter.fetch", () => {
     expect(result.events).toHaveLength(0);
     expect(result.errorDetails?.parse).toHaveLength(1);
     expect(result.errorDetails!.parse![0].error).toContain("No TRAIL");
-    vi.restoreAllMocks();
   });
 
   it("surfaces fetch errors on network failure", async () => {
@@ -101,6 +110,5 @@ describe("SevenHillsH3Adapter.fetch", () => {
     const result = await adapter.fetch(source);
     expect(result.events).toHaveLength(0);
     expect(result.errorDetails?.fetch).toHaveLength(1);
-    vi.restoreAllMocks();
   });
 });

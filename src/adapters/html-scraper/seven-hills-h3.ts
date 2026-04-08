@@ -81,7 +81,9 @@ export function parseSevenHillsPage(html: string): ParsedTrail | null {
   if (timeMatch) {
     const hour = timeMatch[1];
     const minutes = timeMatch[2] ?? "00";
-    const ampm = timeMatch[3];
+    // Strip dots so a source-side `@ 2 p.m.` still parses — parse12HourTime's
+    // ampm group doesn't accept the dotted form.
+    const ampm = timeMatch[3].replace(/\./g, "");
     startTime = parse12HourTime(`${hour}:${minutes} ${ampm}`);
   }
 
