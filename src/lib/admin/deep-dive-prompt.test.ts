@@ -71,12 +71,20 @@ describe("buildDeepDivePrompt", () => {
   it("routes historical backfill by source type (wide-window scrape vs one-shot insert)", () => {
     // Wide-window scrapes trigger the reconcile step, which cancels sole-source
     // events the adapter didn't return. That's safe for complete-enumeration
-    // APIs (Google Calendar, iCal, Meetup) but unsafe for partial-enumeration
-    // sources (HTML scrapers, Sheets). The prompt must distinguish.
+    // APIs but unsafe for partial-enumeration sources — the prompt must
+    // distinguish by listing the actual source-type identifiers.
     const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("Historical events");
-    expect(prompt).toContain("Google Calendar, iCal, and Meetup");
-    expect(prompt).toContain("HTML scrapers, Google Sheets");
+    // Complete-enumeration bucket — named by SourceType identifier so the
+    // auditor can match against prisma/seed-data/sources.ts entries
+    expect(prompt).toContain("`GOOGLE_CALENDAR`");
+    expect(prompt).toContain("`ICAL_FEED`");
+    expect(prompt).toContain("`MEETUP`");
+    expect(prompt).toContain("`HARRIER_CENTRAL`");
+    expect(prompt).toContain("`HASHREGO`");
+    // Partial-enumeration bucket
+    expect(prompt).toContain("`HTML_SCRAPER`");
+    expect(prompt).toContain("`GOOGLE_SHEETS`");
     expect(prompt).toContain("wider scrape window is **unsafe**");
     // The "one-shot DB insert" phrase still appears as the partial-enumeration fallback
     expect(prompt).toContain("one-shot DB insert");
@@ -102,6 +110,9 @@ describe("buildDeepDivePrompt", () => {
     const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("verbatim text from the source");
     expect(prompt).toContain("not** a synthesized cleanup");
+    // Also guard the Current Extracted Value line — it shares the verbatim
+    // contract so both halves of the diff are symmetric.
+    expect(prompt).toContain("exact text from the HashTracks page, verbatim");
   });
 
   it("ends with the 'mark deep dive complete' instruction", () => {
