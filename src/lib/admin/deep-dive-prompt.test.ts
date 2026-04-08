@@ -60,10 +60,48 @@ describe("buildDeepDivePrompt", () => {
     expect(prompt).toContain("Hash Cash");
   });
 
-  it("calls out historical events available for one-shot DB import", () => {
+  it("tells the auditor to verify current HashTracks state before filing", () => {
+    // Guards against false-positive "missing data" findings where the auditor
+    // inspected only the source and never checked the HashTracks side.
     const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toContain("Historical events available for one-shot import");
+    expect(prompt).toContain("Verify current state before flagging");
+    expect(prompt).toContain("spot-check 2-3 of the highest run-numbered events");
+  });
+
+  it("routes historical backfill by source type (wide-window scrape vs one-shot insert)", () => {
+    // Wide-window scrapes trigger the reconcile step, which cancels sole-source
+    // events the adapter didn't return. That's safe for complete-enumeration
+    // APIs (Google Calendar, iCal, Meetup) but unsafe for partial-enumeration
+    // sources (HTML scrapers, Sheets). The prompt must distinguish.
+    const prompt = buildDeepDivePrompt(FIXTURE);
+    expect(prompt).toContain("Historical events");
+    expect(prompt).toContain("Google Calendar, iCal, and Meetup");
+    expect(prompt).toContain("HTML scrapers, Google Sheets");
+    expect(prompt).toContain("wider scrape window is **unsafe**");
+    // The "one-shot DB insert" phrase still appears as the partial-enumeration fallback
     expect(prompt).toContain("one-shot DB insert");
+    // The prompt must not instruct the auditor to hit the cron endpoint directly —
+    // it's auth-protected and an admin-initiated operation.
+    expect(prompt).toContain("auth-protected");
+  });
+
+  it("tags schema-gap fields using event-card visibility, not a hardcoded column list", () => {
+    // Prevents filing "missing extraction" issues for fields like shiggy
+    // level, trail type, beer meister that have no user-visible slot.
+    // Uses visible-evidence anchoring instead of a schema list that would
+    // drift when the Event model changes (e.g. haresText vs hares).
+    const prompt = buildDeepDivePrompt(FIXTURE);
+    expect(prompt).toContain("schema gap");
+    expect(prompt).toContain("visible home on a HashTracks event card");
+    expect(prompt).toContain("shiggy level");
+  });
+
+  it("requires verbatim source text in the Expected Value filing line", () => {
+    // Earlier audits synthesized expected values ("2FC" from "2FC Takes Fenton",
+    // "1992-06-21" from "1992") that the adapter couldn't realistically emit.
+    const prompt = buildDeepDivePrompt(FIXTURE);
+    expect(prompt).toContain("verbatim text from the source");
+    expect(prompt).toContain("not** a synthesized cleanup");
   });
 
   it("ends with the 'mark deep dive complete' instruction", () => {

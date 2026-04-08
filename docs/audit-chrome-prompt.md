@@ -66,6 +66,8 @@ These require visual/semantic judgment that the script cannot do:
 3. **Map pin accuracy:** Does the map pin match the stated location?
 4. **Cross-kennel duplicates:** Same physical event appearing under two different kennels.
 5. **Missing data:** Source has hares/location/description but HashTracks doesn't — the adapter is not extracting available fields.
+6. **Duplicate values across fields (source data entry, not adapter bug):** If the same text appears in both `hares` and `location` (or in any two semantically-distinct fields), that's almost always a kennel data-entry mistake — the user pasted the same value into two form slots on the source. **Check the source form directly** before hypothesizing adapter fallback logic. File the issue, but frame it as "source data entry" rather than "adapter extraction" so it isn't routed to an adapter fix.
+7. **Schema gap vs extraction gap:** Only flag fields that have a visible home on a HashTracks event card. Look at an event page to see what's displayed — date, start time, hares, location, description, run number, cost are all user-visible today. If the source has structured fields that don't map to any user-visible slot (`trail type`, `shiggy level`, `beer meister`, `on-after venue`, etc.), flag them as **schema gap** findings so they route to a PRD decision instead of an adapter fix.
 
 ## Active Suppressions
 
@@ -104,6 +106,6 @@ https://github.com/johnrclem/hashtracks-web/issues/new?labels=audit,alert&title=
 * **Source URL:** [original source URL]
 * **Suspected Adapter:** [source type]
 * **Field(s) Affected:** [field name]
-* **Current Extracted Value:** "[exact text]"
-* **Expected Value:** "[what it should be]"
+* **Current Extracted Value:** "[exact text from the HashTracks page, verbatim]"
+* **Expected Value:** "[verbatim text from the source — **not** a synthesized cleanup or inference. Paste exactly what the source shows.]"
 * **CLI Fix Hypothesis:** [brief guess on root cause]
