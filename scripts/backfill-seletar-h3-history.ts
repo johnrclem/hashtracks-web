@@ -38,11 +38,11 @@ async function main() {
   const apply = process.env.BACKFILL_APPLY === "1";
   console.log(`Mode: ${apply ? "APPLY (will write to DB)" : "DRY RUN (no writes)"}`);
 
-  // One-shot script uses the default API endpoint. The recurring adapter
-  // reads source.url from the DB, but that requires opening a DB connection
-  // before the dry-run fetch — not worth the extra round trip for a URL
-  // that hasn't changed since the kennel was founded. If the endpoint ever
-  // moves, update SELETAR_API_URL_DEFAULT in the adapter.
+  // Resolve the API URL from the source record so the script and the
+  // recurring adapter agree on which endpoint they're hitting. We don't
+  // open the DB connection until needed, so do a lightweight upfront fetch
+  // against the configured source if available — otherwise fall back to
+  // the default constant for first-run / dry-run scenarios.
   const apiUrl = SELETAR_API_URL_DEFAULT;
   const result = await fetchSeletarRows(apiUrl, HISTORICAL_SQL);
   if (result.error) throw new Error(`HashController API failed: ${result.error.message}`);

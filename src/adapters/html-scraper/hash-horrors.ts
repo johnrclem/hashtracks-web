@@ -4,7 +4,7 @@ import { fetchWordPressComPage } from "../wordpress-api";
 import { MONTHS, decodeEntities, buildDateWindow, stripHtmlTags } from "../utils";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
-const DEFAULT_SITE_DOMAIN = "hashhousehorrors.com";
+const SITE_DOMAIN = "hashhousehorrors.com";
 const HARELINE_SLUG = "hareline";
 const KENNEL_TAG = "hhhorrors";
 const DEFAULT_START_TIME = "16:30";
@@ -67,19 +67,14 @@ export function parseHashHorrorsRunLine(line: string): ParsedRunLine | null {
   let hares: string | undefined;
   let location: string | undefined;
   if (tail) {
-    // Split on any dash variant (en/em/hyphen) surrounded by spaces. The last
-    // match separates hares from location; earlier dashes are part of a
-    // multi-family hare list.
-    const dashRe = /\s+[–—-]\s+/g;
-    let lastIdx = -1;
-    let lastLen = 0;
-    for (const dm of tail.matchAll(dashRe)) {
-      lastIdx = dm.index ?? -1;
-      lastLen = dm[0].length;
-    }
-    if (lastIdx > 0) {
-      hares = tail.slice(0, lastIdx).trim();
-      location = tail.slice(lastIdx + lastLen).trim();
+    const lastDash = Math.max(
+      tail.lastIndexOf(" – "),
+      tail.lastIndexOf(" — "),
+      tail.lastIndexOf(" - "),
+    );
+    if (lastDash > 0) {
+      hares = tail.slice(0, lastDash).trim();
+      location = tail.slice(lastDash + 3).trim();
     } else {
       hares = tail;
     }
@@ -101,54 +96,41 @@ export interface ParseHarelineResult {
  * Walk the rendered hareline text and emit events. Years act as parser
  * anchors — each `2026` / `2025` / etc. token resets the active year.
  */
-/** Find all standalone 4-digit year headings (1900-2099) with their positions. */
-function findYearHeadings(text: string): Array<{ year: number; start: number; end: number }> {
-  const headings: Array<{ year: number; start: number; end: number }> = [];
-  for (const m of text.matchAll(/\b((?:19|20)\d{2})\b/g)) {
-    const start = m.index ?? 0;
-    headings.push({ year: Number.parseInt(m[1], 10), start, end: start + m[0].length });
-  }
-  return headings;
-}
-
-/** Find run-line start positions (`1016 – May`) within a year section. */
-function findRunLineStarts(section: string): number[] {
-  const starts: number[] = [];
-  for (const m of section.matchAll(/\d{3,4}\s*[–—-]\s*[a-z]+/gi)) {
-    if (m.index !== undefined) starts.push(m.index);
-  }
-  return starts;
-}
-
 export function parseHashHorrorsHareline(text: string): ParseHarelineResult {
   const events: RawEventData[] = [];
   let skippedLines = 0;
-  const headings = findYearHeadings(text);
+  // Tokenize: each match is either a 4-digit year heading (group 1) OR a
+  // run line (group 2). The lookahead stops the run capture at the next
+  // run number or year boundary so multi-family hare lists with internal
+  // dashes survive.
+  const tokens = text.matchAll(
+    /((?:19|20)\d{2})\s+|(\d{3,4}\s*[–—-]\s*[a-z]+\s+\d{1,2}(?:\s*[–—-]\s*[^]+?)?)(?=\s+\d{3,4}\s*[–—-]|\s+(?:19|20)\d{2}\s|$)/gi,
+  );
 
-  for (let i = 0; i < headings.length; i++) {
-    const { year, end } = headings[i];
-    const sectionEnd = headings[i + 1]?.start ?? text.length;
-    const section = text.slice(end, sectionEnd);
-    const starts = findRunLineStarts(section);
-    for (let j = 0; j < starts.length; j++) {
-      const lineEnd = starts[j + 1] ?? section.length;
-      const line = section.slice(starts[j], lineEnd).trim();
-      const parsed = parseHashHorrorsRunLine(line);
-      if (!parsed) {
-        skippedLines++;
-        continue;
-      }
-      const date = `${year}-${String(parsed.monthIdx).padStart(2, "0")}-${String(parsed.day).padStart(2, "0")}`;
-      events.push({
-        date,
-        startTime: DEFAULT_START_TIME,
-        kennelTag: KENNEL_TAG,
-        runNumber: parsed.runNumber,
-        title: `Hash Horrors ${parsed.runNumber}`,
-        hares: parsed.hares,
-        location: parsed.location,
-      });
+  let activeYear: number | undefined;
+  for (const tok of tokens) {
+    const yearStr = tok[1];
+    const runStr = tok[2];
+    if (yearStr) {
+      activeYear = Number.parseInt(yearStr, 10);
+      continue;
     }
+    if (!runStr || !activeYear) continue;
+    const parsed = parseHashHorrorsRunLine(runStr.trim());
+    if (!parsed) {
+      skippedLines++;
+      continue;
+    }
+    const date = `${activeYear}-${String(parsed.monthIdx).padStart(2, "0")}-${String(parsed.day).padStart(2, "0")}`;
+    events.push({
+      date,
+      startTime: DEFAULT_START_TIME,
+      kennelTag: KENNEL_TAG,
+      runNumber: parsed.runNumber,
+      title: `Hash Horrors ${parsed.runNumber}`,
+      hares: parsed.hares,
+      location: parsed.location,
+    });
   }
   return { events, skippedLines };
 }
@@ -157,30 +139,19 @@ export class HashHorrorsAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
   async fetch(
-    source: Source,
+    _source: Source,
     options?: { days?: number },
   ): Promise<ScrapeResult> {
     const errorDetails: ErrorDetails = {};
 
-    // Derive the WP.com site domain from source.url so the configured URL
-    // is the single source of truth (matches the Seletar adapter pattern).
-    let siteDomain = DEFAULT_SITE_DOMAIN;
-    if (source.url) {
-      try {
-        siteDomain = new URL(source.url).hostname;
-      } catch {
-        // Fall back to the default if source.url is malformed.
-      }
-    }
-
-    const result = await fetchWordPressComPage(siteDomain, HARELINE_SLUG);
+    const result = await fetchWordPressComPage(SITE_DOMAIN, HARELINE_SLUG);
     if (result.error || !result.page) {
       const message = result.error?.message ?? "WordPress.com API returned no page";
-      errorDetails.fetch = [{ url: `https://${siteDomain}/${HARELINE_SLUG}/`, message, status: result.error?.status }];
+      errorDetails.fetch = [{ url: `https://${SITE_DOMAIN}/${HARELINE_SLUG}/`, message, status: result.error?.status }];
       return { events: [], errors: [message], errorDetails };
     }
 
-    const pageUrl = result.page.URL || `https://${siteDomain}/${HARELINE_SLUG}/`;
+    const pageUrl = result.page.URL || `https://${SITE_DOMAIN}/${HARELINE_SLUG}/`;
     // Collapse whitespace so the year/run-line tokenizer works on a flat string.
     const text = decodeEntities(stripHtmlTags(result.page.content)).replaceAll(/\s+/g, " ").trim();
 

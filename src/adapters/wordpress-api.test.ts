@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fetchWordPressPosts, fetchWordPressComPosts } from "./wordpress-api";
+import { fetchWordPressPosts } from "./wordpress-api";
 
 describe("fetchWordPressPosts", () => {
   beforeEach(() => {
@@ -235,68 +235,5 @@ describe("fetchWordPressPosts", () => {
 
     const calledUrl = vi.mocked(fetch).mock.calls[0][0] as string;
     expect(calledUrl).toContain("per_page=5");
-  });
-});
-
-describe("fetchWordPressComPosts", () => {
-  beforeEach(() => {
-    vi.stubGlobal("fetch", vi.fn());
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("fetches posts from the WordPress.com Public API and normalizes them", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          found: 2,
-          posts: [
-            {
-              ID: 1,
-              title: "Hash 1016 &#8211; May 17",
-              content: "<p>body</p>",
-              URL: "https://hashhousehorrors.com/hash-1016/",
-              date: "2026-05-17T00:00:00",
-              modified: "2026-05-17T00:00:00",
-              type: "post",
-              slug: "hash-1016",
-            },
-          ],
-        }),
-        { status: 200 },
-      ) as never,
-    );
-
-    const result = await fetchWordPressComPosts("hashhousehorrors.com", {
-      number: 5,
-      type: "post",
-      search: "hash",
-    });
-
-    expect(result.error).toBeUndefined();
-    expect(result.found).toBe(2);
-    expect(result.posts).toHaveLength(1);
-    expect(result.posts[0].title).toBe("Hash 1016 – May 17"); // entity decoded
-    expect(result.posts[0].slug).toBe("hash-1016");
-
-    const calledUrl = vi.mocked(fetch).mock.calls[0][0] as string;
-    expect(calledUrl).toContain("public-api.wordpress.com/rest/v1.1/sites/hashhousehorrors.com/posts/");
-    expect(calledUrl).toContain("number=5");
-    expect(calledUrl).toContain("type=post");
-    expect(calledUrl).toContain("search=hash");
-  });
-
-  it("returns an error shape on non-200 responses", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      new Response("", { status: 404 }) as never,
-    );
-
-    const result = await fetchWordPressComPosts("missing.example.com");
-
-    expect(result.posts).toEqual([]);
-    expect(result.found).toBe(0);
-    expect(result.error?.status).toBe(404);
   });
 });
