@@ -1294,6 +1294,48 @@ describe("buildRawEventFromGCalItem — 4X2H4 stale-default title fix (#496/#497
   });
 });
 
+describe("endTime extraction (#504)", () => {
+  it("extracts local HH:MM from end.dateTime", () => {
+    const event = buildRawEventFromGCalItem(
+      testGCalEvent({
+        start: { dateTime: "2026-08-15T10:00:00-07:00" },
+        end: { dateTime: "2026-08-15T13:00:00-07:00" },
+      }),
+      { defaultKennelTag: "test" },
+    );
+    expect(event!.startTime).toBe("10:00");
+    expect(event!.endTime).toBe("13:00");
+  });
+
+  it("leaves endTime undefined for all-day events", () => {
+    const event = buildRawEventFromGCalItem(
+      testGCalEvent({
+        start: { date: "2026-08-15" },
+        end: { date: "2026-08-16" },
+      }),
+      { defaultKennelTag: "test", includeAllDayEvents: true },
+    );
+    expect(event!.endTime).toBeUndefined();
+  });
+
+  it("leaves endTime undefined when end is missing", () => {
+    const event = buildRawEventFromGCalItem(testGCalEvent(), { defaultKennelTag: "test" });
+    expect(event!.endTime).toBeUndefined();
+  });
+
+  it("suppresses endTime when end is on a different calendar day (overnight run)", () => {
+    const event = buildRawEventFromGCalItem(
+      testGCalEvent({
+        start: { dateTime: "2026-08-15T22:00:00-07:00" },
+        end: { dateTime: "2026-08-16T02:00:00-07:00" },
+      }),
+      { defaultKennelTag: "test" },
+    );
+    expect(event!.startTime).toBe("22:00");
+    expect(event!.endTime).toBeUndefined();
+  });
+});
+
 // ── parseInlineHareline (#498) ──
 //
 // Live Chicagoland calendar only populates the soonest-upcoming 4X2H4 event's

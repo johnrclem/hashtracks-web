@@ -371,6 +371,7 @@ describe("MeetupAdapter", () => {
     expect(result.events[0].title).toBe("Trail #42 — Central Park");
     expect(result.events[0].date).toBe("2026-03-15");
     expect(result.events[0].startTime).toBe("18:00");
+    expect(result.events[0].endTime).toBe("21:00");
   });
 
   it("builds location from venue ref", async () => {
@@ -1000,6 +1001,19 @@ describe("dedupByDate", () => {
 
 describe("buildRawEventFromApollo — kennelPatterns", () => {
   const emptyState = {} as Record<string, Record<string, unknown>>;
+
+  it("suppresses endTime when end is on a different calendar day (overnight run)", () => {
+    const ev = {
+      __typename: "Event",
+      id: "ovn",
+      title: "Full Moon Hash",
+      dateTime: "2026-04-01T22:00:00-04:00",
+      endTime: "2026-04-02T02:00:00-04:00",
+    };
+    const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3");
+    expect(event.startTime).toBe("22:00");
+    expect(event.endTime).toBeUndefined();
+  });
 
   it("routes event to matched kennel pattern", () => {
     const ev = {

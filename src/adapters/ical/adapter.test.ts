@@ -410,6 +410,7 @@ describe("ICalAdapter", () => {
     expect(sfh3!.title).toBe("Test Trail");
     expect(sfh3!.date).toBe("2026-03-01");
     expect(sfh3!.startTime).toBe("18:15");
+    expect(sfh3!.endTime).toBe("21:15");
     expect(sfh3!.hares).toBe("Test Hasher");
     expect(sfh3!.location).toBe("Golden Gate Park");
     expect(sfh3!.locationUrl).toContain("37.7694");
@@ -671,6 +672,33 @@ END:VCALENDAR`;
     expect(result.events).toHaveLength(1);
     expect(result.events[0].hares).toBe("Captain Hash");
     expect(result.events[0].kennelTag).toBe("CCH3");
+  });
+
+  it("suppresses endTime when DTEND is on a different calendar day (overnight run)", async () => {
+    const icsOvernight = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:com.test.overnight-1
+DTSTART;TZID=America/New_York:20260314T220000
+DTEND;TZID=America/New_York:20260315T020000
+SUMMARY:OVNH3 Full Moon Trail
+DTSTAMP:20260201T000000Z
+END:VEVENT
+END:VCALENDAR`;
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(icsOvernight, { status: 200 }),
+    );
+
+    const source = buildMockSource({
+      config: { defaultKennelTag: "OVNH3" },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].startTime).toBe("22:00");
+    expect(result.events[0].endTime).toBeUndefined();
   });
 
   it("treats literal 'None' location as empty and falls back to description", async () => {
