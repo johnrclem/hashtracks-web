@@ -155,7 +155,7 @@ export class HarrierCentralAdapter implements SourceAdapter {
       // subway line. Null the hare but keep location; if the location text
       // is also bad, the separate location-quality audit rules will flag
       // it without this adapter erasing a potentially-valid value. See #521.
-      if (hares && location && hares.trim() === location.trim()) {
+      if (hares && location && hares.trim().toLowerCase() === location.trim().toLowerCase()) {
         hares = undefined;
       }
 

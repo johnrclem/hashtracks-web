@@ -449,6 +449,22 @@ describe("parseDFWDetailPage", () => {
     expect(detail.location).toBe("UT Dallas Silver Line Station, 3416 Waterview Parkway, Richardson, TX 75080");
   });
 
+  it("does not duplicate the venue when the first address segment extends the venue name", () => {
+    // Edge case for the dedup: venue "Twin Peaks" vs first segment "Twin Peaks Restaurant".
+    // An exact-match dedup would still prepend, producing "Twin Peaks, Twin Peaks Restaurant".
+    // startsWith handles this correctly.
+    const html = `
+      <html><body>
+        <h2>Twin Peaks</h2>
+        <h3>Hash Run No 252</h3>
+        <h5><em>Start address:</em> Twin Peaks Restaurant<br />5260 Belt Line Rd<br />Dallas, TX 75254</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+    expect(detail.location).toBe("Twin Peaks Restaurant, 5260 Belt Line Rd, Dallas, TX 75254");
+  });
+
   it("does not duplicate the venue when the <h2> heading matches the first address line", () => {
     // Regression for the combination introduced by #520's br-separator fix:
     // when both the <h2> venue heading AND the first <br/> segment of the

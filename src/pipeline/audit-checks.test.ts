@@ -105,6 +105,18 @@ describe("checkHareQuality", () => {
     expect(findings[0].rule).toBe("hare-cta-text");
   });
 
+  it("flags hare-cta-text for 'need a hare' and 'needed a hare' variants", () => {
+    for (const haresText of [
+      "We need a hare for this one!",
+      "Needed a hare for this trail — step up!",
+    ]) {
+      const event = makeEvent({ haresText });
+      const findings = checkHareQuality(event);
+      expect(findings, haresText).toHaveLength(1);
+      expect(findings[0].rule).toBe("hare-cta-text");
+    }
+  });
+
   it("does not flag a real hare name that happens to contain 'needed'", () => {
     // Guard against false positives — the embedded pattern requires the
     // word "needed" next to "hare(s)", not in isolation.

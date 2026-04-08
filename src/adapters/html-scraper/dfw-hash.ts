@@ -351,8 +351,12 @@ export function parseDFWDetailPage($: CheerioAPI): {
   if (result.location) {
     const venueName = extractVenueName($);
     if (venueName) {
-      const firstSegment = result.location.split(",", 1)[0].trim().toLowerCase();
-      if (firstSegment !== venueName.toLowerCase()) {
+      // startsWith (not exact match) covers the case where the first address
+      // segment extends the venue name, e.g. venue "Twin Peaks" and first
+      // line "Twin Peaks Restaurant" — we still don't want to prepend.
+      const loweredLocation = result.location.toLowerCase();
+      const loweredVenue = venueName.toLowerCase();
+      if (!loweredLocation.startsWith(loweredVenue)) {
         result.location = `${venueName}, ${result.location}`;
       }
     }

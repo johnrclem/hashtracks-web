@@ -137,7 +137,7 @@ function parseLocationFromDescription(text: string): string | undefined {
  * them, which defeats the `\n` anchor here; use `stripHtmlTags(.., "\n")`.
  */
 function parseHaresFromDescription(text: string): string | undefined {
-  const match = /(?:^|\n)\s*Hares?\s*(?:\([^)]*\))?\s*:\s*(.+?)(?=\n|$)/im.exec(text);
+  const match = /^\s*Hares?\s*(?:\([^)]*\))?\s*:\s*(.+?)$/im.exec(text);
   if (!match) return undefined;
   const name = match[1].trim();
   // "away: …" is departure time, not a hare name
