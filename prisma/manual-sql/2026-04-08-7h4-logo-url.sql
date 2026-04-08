@@ -6,7 +6,7 @@
 UPDATE "Kennel"
 SET "logoUrl" = 'https://lh3.googleusercontent.com/sitesv/APaQ0SRByve9d3YT-Sw3vn93RVKJUM909Mk0BfuVcfTG7gRlU7wUPH3_EdUMB5zfxujssaRdDVm3MC-o0_d9ePAdX-Z_kWi8G_qIyWkYmKg3ZNR7DdoEwiZjtBo4RkqcHyjvcZ5csUeqUIA3WRsXgojEFQznHMNTP2tYkng=w16383'
 WHERE "kennelCode" = '7h4'
-  AND ("logoUrl" IS NULL OR "logoUrl" = '');
+  AND NULLIF(BTRIM("logoUrl"), '') IS NULL;
 
 DO $$
 DECLARE
@@ -16,7 +16,7 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION '7h4 kennel row not found — refusing to silently no-op';
   END IF;
-  IF stored IS NULL OR stored NOT LIKE 'https://%' THEN
+  IF NULLIF(BTRIM(stored), '') IS NULL OR BTRIM(stored) NOT LIKE 'https://%' THEN
     RAISE EXCEPTION '7h4 logoUrl did not land: %', COALESCE(stored, 'NULL');
   END IF;
 END $$;

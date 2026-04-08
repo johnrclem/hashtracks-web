@@ -45,7 +45,7 @@ ${sourceLines || "_(no enabled sources — flag this as a finding)_"}
    - **Schedule details** — recurring day/time, frequency (weekly/monthly/full-moon)
    - **Hash Cash / payment info** — typical run fee, payment methods, cash-only flag
    - **Contact info** — kennel email, hare-line contact
-   - **Logo / branding** — does the source page expose a direct logo URL we can embed? Look for a \`<meta property="og:image">\` tag, the favicon in \`<link rel="icon">\`, any \`<img>\` in the site header, or a Facebook group cover image. Paste the **full URL** (not a description of what the logo looks like) so we can set \`Kennel.logoUrl\` without a round-trip.
+   - **Logo / branding** — does the source page expose a direct logo URL we can embed? Look for a \`<meta property="og:image">\` tag, the favicon in \`<link rel="icon">\`, or any \`<img>\` in the site header. Paste the **full URL** (not a description of what the logo looks like) so we can set \`Kennel.logoUrl\` without a round-trip. Prefer stable, publicly fetchable URLs. **Avoid Facebook CDN links** (\`fbcdn.net\`) and other URLs that contain expiring session tokens — they'll 404 within hours.
    - **Description / "about us"** — short paragraph capturing the kennel's vibe
 2. **Source accuracy** — visit each source URL and compare what it shows to the HashTracks kennel page. Are all visible events also on HashTracks? Are dates/times/locations correct?
 3. **Missing event fields** — does the source provide hares, location, description, or start time that HashTracks isn't capturing?
