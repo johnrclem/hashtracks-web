@@ -130,13 +130,15 @@ export function groupSeletarRows(rows: SeletarRow[]): GroupSeletarRowsResult {
   const byRun = new Map<number, SeletarRow[]>();
   let skippedRows = 0;
   for (const row of rows) {
-    if (typeof row.hl_runno !== "number" || !row.hl_datetime) {
+    // PHP/MySQL drivers sometimes return integers as strings; coerce defensively.
+    const runNum = Number(row.hl_runno);
+    if (!Number.isFinite(runNum) || !row.hl_datetime) {
       skippedRows++;
       continue;
     }
-    const arr = byRun.get(row.hl_runno) ?? [];
+    const arr = byRun.get(runNum) ?? [];
     arr.push(row);
-    byRun.set(row.hl_runno, arr);
+    byRun.set(runNum, arr);
   }
 
   const events: RawEventData[] = [];
@@ -174,6 +176,18 @@ export function groupSeletarRows(rows: SeletarRow[]): GroupSeletarRowsResult {
   return { events, skippedRows };
 }
 
+function buildSkippedRowsError(
+  skippedRows: number,
+  rows: SeletarRow[],
+): { message: string; detail: NonNullable<ErrorDetails["parse"]> } {
+  const message = `Seletar API returned ${skippedRows} row(s) with missing hl_runno or hl_datetime — possible schema drift`;
+  const sample = rows.find((r) => !Number.isFinite(Number(r.hl_runno)) || !r.hl_datetime) ?? {};
+  return {
+    message,
+    detail: [{ row: 0, error: message, rawText: JSON.stringify(sample).slice(0, 500) }],
+  };
+}
+
 export class SeletarH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -195,15 +209,9 @@ export class SeletarH3Adapter implements SourceAdapter {
     // Surface dropped rows as scrape errors so the reconciler doesn't cancel
     // events on a partially-parsed scrape (it only runs when errors.length === 0).
     if (skippedRows > 0) {
-      const message = `Seletar API returned ${skippedRows} row(s) with missing hl_runno or hl_datetime — possible schema drift`;
+      const { message, detail } = buildSkippedRowsError(skippedRows, result.rows);
       errors.push(message);
-      errorDetails.parse = [
-        {
-          row: 0,
-          error: message,
-          rawText: JSON.stringify(result.rows.find((r) => typeof r.hl_runno !== "number" || !r.hl_datetime) ?? {}).slice(0, 500),
-        },
-      ];
+      errorDetails.parse = detail;
     }
 
     return {
