@@ -185,7 +185,10 @@ export class HashHorrorsAdapter implements SourceAdapter {
     const text = decodeEntities(stripHtmlTags(result.page.content)).replaceAll(/\s+/g, " ").trim();
 
     const { events: allEvents, skippedLines } = parseHashHorrorsHareline(text);
-    const { minDate, maxDate } = buildDateWindow(options?.days ?? 365);
+    // The hareline page is the ONLY feed for Hash Horrors and contains the
+    // full archive back to Hash 1. Default to a 20-year window so the
+    // recurring scrape ingests historical runs, not just the rolling year.
+    const { minDate, maxDate } = buildDateWindow(options?.days ?? 365 * 20);
     const events = allEvents
       .map((e) => ({ ...e, sourceUrl: pageUrl }))
       .filter((e) => {

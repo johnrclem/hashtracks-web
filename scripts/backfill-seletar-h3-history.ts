@@ -71,9 +71,15 @@ async function main() {
     return;
   }
 
+  // Railway's PG proxy uses a self-signed cert, so local dev runs need
+  // rejectUnauthorized: false. In production (CI/Vercel) require proper
+  // CA validation so a MitM on the DB connection can't silently succeed.
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
+    ssl:
+      process.env.NODE_ENV === "production"
+        ? { rejectUnauthorized: true }
+        : { rejectUnauthorized: false },
   });
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
