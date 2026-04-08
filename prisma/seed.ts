@@ -109,6 +109,7 @@ async function ensureRegionRecords(prisma: any) {
       "Hampton Roads, VA", "Charlottesville, VA", "Lynchburg, VA",
     ],
     "West Virginia": ["Jefferson County, WV", "Morgantown, WV"],
+    "Arkansas": ["Little Rock, AR"],
     "North Carolina": [
       "Raleigh, NC", "Charlotte, NC", "Asheville, NC",
       "Wilmington, NC", "Fayetteville, NC",

@@ -1999,6 +1999,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -79.96,
     aliases: ["Morgantown"],
   },
+  // ── Arkansas ──
+  {
+    name: "Arkansas",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Chicago",
+    abbrev: "AR",
+    colorClasses: "bg-rose-100 text-rose-700",
+    pinColor: "#e11d48",
+    centroidLat: 34.97,
+    centroidLng: -92.37,
+    aliases: ["AR"],
+  },
+  {
+    name: "Little Rock, AR",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "LR",
+    colorClasses: "bg-rose-100 text-rose-700",
+    pinColor: "#f43f5e",
+    centroidLat: 34.75,
+    centroidLng: -92.29,
+    aliases: ["Little Rock"],
+  },
   // ── Canada ──
   {
     name: "Canada",
@@ -2597,6 +2621,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Bloomington, IN": "Indiana",
   // West Virginia
   "Morgantown, WV": "West Virginia",
+  // Arkansas
+  "Little Rock, AR": "Arkansas",
   // Canada
   "Montreal, QC": "Quebec",
   "Ottawa, ON": "Ontario",
@@ -2704,6 +2730,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Alabama": "United States",
   "Indiana": "United States",
   "West Virginia": "United States",
+  "Arkansas": "United States",
   // Canada
   "Alberta": "Canada",
   "Ontario": "Canada",

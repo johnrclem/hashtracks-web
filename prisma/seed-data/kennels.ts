@@ -2683,5 +2683,19 @@ export const KENNELS: KennelSeed[] = [
       description: "Mountaineer country's main hash. Trails run year-round through Morgantown, the New River Gorge, and any patch of West Virginia woods that needs a beer-soaked visit.",
       latitude: 39.63, longitude: -79.96,
     },
+
+    // ── Arkansas: Little Rock ──
+    {
+      kennelCode: "lrh3", shortName: "Little Rock H3", fullName: "Little Rock Hash House Harriers",
+      region: "Little Rock, AR",
+      website: "https://lrhash.com",
+      facebookUrl: "https://www.facebook.com/littlerockhashhouseharriers",
+      scheduleDayOfWeek: "Sunday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Sunday afternoons around 3–4 PM and weekly Wednesday evenings at 7 PM. Trail locations are posted on Facebook the day of each run — or call the hotline 501-666-HASH at noon on Sundays.",
+      foundedYear: 1974,
+      description: "One of the oldest hashes in the United States — the 3rd US kennel, founded August 1974 by Bob 'Hazardous Waste' Rooke out of the Seoul H3 lineage. Still running twice a week, every week, 50+ years later.",
+      latitude: 34.75, longitude: -92.29,
+    },
   ];
 
