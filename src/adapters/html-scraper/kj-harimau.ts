@@ -175,6 +175,13 @@ export class KjHarimauAdapter implements SourceAdapter {
     }
 
     const events: RawEventData[] = [];
+    // KJ Harimau occasionally publishes the same run as two nearly
+    // identical Blogger posts (e.g. Run 1548 with and without a URL
+    // suffix). Dedupe by (date, runNumber), keeping the first post
+    // encountered — Blogger returns posts newest-first, so the first
+    // hit is the most recent edit and the canonical version.
+    const seenRuns = new Set<string>();
+    let duplicatesSkipped = 0;
     let filteredOut = 0;
     for (let i = 0; i < bloggerResult.posts.length; i++) {
       const post = bloggerResult.posts[i];
@@ -205,6 +212,14 @@ export class KjHarimauAdapter implements SourceAdapter {
       }
 
       const runNumber = body.runNumber ?? titleFields.runNumber;
+
+      const dedupKey = `${date}|${runNumber ?? ""}`;
+      if (seenRuns.has(dedupKey)) {
+        duplicatesSkipped++;
+        continue;
+      }
+      seenRuns.add(dedupKey);
+
       const hares = normalizeHaresField(body.hare ?? titleFields.hare);
       const location = body.runsite ?? titleFields.runsite;
 
@@ -240,6 +255,7 @@ export class KjHarimauAdapter implements SourceAdapter {
           blogId: bloggerResult.blogId,
           postsFound: bloggerResult.posts.length,
           postsFilteredOut: filteredOut,
+          duplicatesSkipped,
           eventsParsed: events.length,
           fetchDurationMs: bloggerResult.fetchDurationMs,
         },
