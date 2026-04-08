@@ -9,9 +9,22 @@ import pg from "pg";
  * env-var toggle so it can never be silently active in production.
  */
 export function createScriptPool(): pg.Pool {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error("DATABASE_URL environment variable is required");
+  }
+
   const allowSelfSigned = process.env.BACKFILL_ALLOW_SELF_SIGNED_CERT === "1";
+  
+  // Default to strict TLS. If the connection string explicitly disables SSL
+  // (e.g. for local dev), we respect that. Otherwise, we enforce TLS with
+  // configurable certificate validation.
+  const ssl = url.includes("sslmode=disable")
+    ? false
+    : { rejectUnauthorized: !allowSelfSigned };
+
   return new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: !allowSelfSigned },
+    connectionString: url,
+    ssl,
   });
 }
