@@ -2250,6 +2250,65 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 103.82,
     aliases: ["SG", "Republic of Singapore"],
   },
+  // ── Malaysia — the birthplace of hashing (Mother Hash, KL, 1938) ──
+  {
+    name: "Malaysia",
+    country: "Malaysia",
+    level: "COUNTRY",
+    timezone: "Asia/Kuala_Lumpur",
+    abbrev: "MY",
+    colorClasses: "bg-green-100 text-green-700",
+    pinColor: "#16a34a",
+    centroidLat: 3.14,
+    centroidLng: 101.69,
+    aliases: ["MY", "Malaysian"],
+  },
+  {
+    name: "Selangor",
+    country: "Malaysia",
+    level: "STATE_PROVINCE",
+    timezone: "Asia/Kuala_Lumpur",
+    abbrev: "SGR",
+    colorClasses: "bg-green-100 text-green-700",
+    pinColor: "#15803d",
+    centroidLat: 3.0,
+    centroidLng: 101.5,
+    aliases: ["Selangor, MY"],
+  },
+  {
+    name: "Penang",
+    country: "Malaysia",
+    level: "STATE_PROVINCE",
+    timezone: "Asia/Kuala_Lumpur",
+    abbrev: "PNG",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#047857",
+    centroidLat: 5.42,
+    centroidLng: 100.33,
+    aliases: ["Penang, MY", "Pulau Pinang"],
+  },
+  {
+    name: "Kuala Lumpur, MY",
+    country: "Malaysia",
+    timezone: "Asia/Kuala_Lumpur",
+    abbrev: "KL",
+    colorClasses: "bg-green-200 text-green-800",
+    pinColor: "#166534",
+    centroidLat: 3.1390,
+    centroidLng: 101.6869,
+    aliases: ["Kuala Lumpur", "KL", "Kuala Lumpur, Malaysia"],
+  },
+  {
+    name: "Penang Island, MY",
+    country: "Malaysia",
+    timezone: "Asia/Kuala_Lumpur",
+    abbrev: "PEN",
+    colorClasses: "bg-emerald-200 text-emerald-800",
+    pinColor: "#065f46",
+    centroidLat: 5.4164,
+    centroidLng: 100.3327,
+    aliases: ["Penang Island", "Penang, Malaysia", "George Town"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -2446,6 +2505,7 @@ export function inferCountry(name: string): string {
   if (/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/.test(lower)) return "Sweden";
   if (/\b(norway|oslo|bergen|stavanger)\b/.test(lower)) return "Norway";
   if (/\b(singapore)\b/.test(lower)) return "Singapore";
+  if (/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|selangor|johor|sabah|sarawak)\b/.test(lower)) return "Malaysia";
   return "USA";
 }
 
@@ -2652,6 +2712,12 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Stockholm": "Sweden",
   // Norway
   "Oslo": "Norway",
+  // Malaysia — both states and metros map to their Malaysia "state group"
+  // (which is then mapped to the Malaysia country via COUNTRY_GROUP_MAP).
+  "Kuala Lumpur, MY": "Selangor",
+  "Penang Island, MY": "Penang",
+  "Selangor": "Selangor",
+  "Penang": "Penang",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */
@@ -2761,6 +2827,12 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Sweden": "Sweden",
   "Norway": "Norway",
   "Singapore": "Singapore",
+  // Malaysia — state groups (per feedback_country_group_map memory: both
+  // state names AND metro names need explicit entries).
+  "Selangor": "Malaysia",
+  "Penang": "Malaysia",
+  "Kuala Lumpur, MY": "Malaysia",
+  "Penang Island, MY": "Malaysia",
 };
 
 /** Get the country for a state group name (for 3-level region hierarchy). */
@@ -2807,6 +2879,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   AU: "Australia",
   CA: "Canada",
   SG: "Singapore",
+  MY: "Malaysia",
 };
 
 /** All canonical country names used in COUNTRY_GROUP_MAP values. */

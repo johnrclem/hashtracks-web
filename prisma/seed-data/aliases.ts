@@ -434,5 +434,13 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "rash-eh3": ["Road Bike HHH", "RASH", "Edmonton RASH"],
     "saintlyh3": ["Saintly H3", "Saintly Hash House Harriers", "St Albert Hash"],
     "tth3-ab": ["True Trail H3", "True Trail HHH", "True Trail Hash House Harriers", "TTH3"],
+    // Malaysia (Phase 1 — KL + Penang founder pack)
+    "motherh3": ["KLH3", "KL H3", "Mother Hash", "Kuala Lumpur Hash", "The Mother Hash", "Kuala Lumpur H3", "Kuala Lumpur HHH"],
+    "ph3-my": ["PH3", "Petaling Hash", "Petaling HHH", "Petaling H3", "Petaling Jaya Hash", "PHHH"],
+    "klfmh3": ["KLFMH3", "KLFM", "KL Full Moon", "KL Full Moon H3", "Full Moon H3 KL", "KL Full Moon Hash"],
+    "kljhhh": ["KLJ H3", "KLJH3", "KL Junior", "KL Junior H3", "KLJHHH", "KL Junior Hash"],
+    "penangh3": ["PenangH3", "Penang Hash", "Penang H3", "PH3 Penang", "Penang HHH", "Penang Hash House Harriers"],
+    "hhhpenang": ["Harriets Penang", "HHHPenang", "Penang Harriets", "Hash House Harriets Penang", "HHH Penang"],
+    "kj-harimau": ["KJH3", "Kelana Jaya H3", "Harimau H3", "KJ Harimau", "Kelana Jaya Harimau", "KHHHKJ", "KHHH KJ"],
   };
 

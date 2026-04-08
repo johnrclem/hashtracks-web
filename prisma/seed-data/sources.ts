@@ -2877,6 +2877,109 @@ export const SOURCES = [
       kennelCodes: ["hhhorrors"],
     },
 
+    // ===== MALAYSIA (Phase 1 — KL + Penang founder pack) =====
+    // Malaysia is the birthplace of hashing. Mother Hash (1938) is the first
+    // hash kennel in the world, 24 years older than HHHS. Seven kennels
+    // shipped here across six adapters (Yii + goHash are shared).
+    // KL Harriettes was researched but the Strapi API requires auth — defer
+    // to Phase 2 when the kennel can expose a public feed.
+
+    // 1. Mother Hash (Kuala Lumpur H3) — Google Sites static HTML, 2 runs visible
+    {
+      name: "Mother Hash (KL H3) Website",
+      url: "https://www.motherhash.org",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 9,
+      scrapeFreq: "daily",
+      // Only 2 upcoming runs shown; use a generous window so both always land.
+      scrapeDays: 180,
+      kennelCodes: ["motherh3"],
+    },
+
+    // 2. Petaling H3 — Yii Framework hareline, 1,160+ runs back to 2003
+    {
+      name: "Petaling H3 Hareline",
+      url: "https://ph3.org/index.php?r=site/hareline",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        kennelTag: "ph3-my",
+        startTime: "16:00",
+      },
+      kennelCodes: ["ph3-my"],
+    },
+
+    // 3. KL Full Moon H3 — Yii Framework hareline (same shape as PH3)
+    {
+      name: "KL Full Moon H3 Hareline",
+      url: "https://klfullmoonhash.com/index.php?r=site/hareline",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        kennelTag: "klfmh3",
+        startTime: "18:00",
+      },
+      kennelCodes: ["klfmh3"],
+    },
+
+    // 4. KL Junior H3 — self-hosted WordPress REST API
+    {
+      name: "KL Junior H3 Website",
+      url: "https://www.kljhhh.org",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["kljhhh"],
+    },
+
+    // 5. Penang H3 — goHash.app SSR with __INITIAL_STATE__
+    {
+      name: "Penang H3 Hareline",
+      url: "https://www.penanghash3.org",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 9,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        kennelTag: "penangh3",
+        startTime: "17:30",
+        harelinePath: "/hareline/upcoming",
+      },
+      kennelCodes: ["penangh3"],
+    },
+
+    // 6. Hash House Harriets Penang — shared goHash adapter
+    {
+      name: "Hash House Harriets Penang Hareline",
+      url: "https://www.hashhouseharrietspenang.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 9,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        kennelTag: "hhhpenang",
+        startTime: "17:30",
+        harelinePath: "/hareline/upcoming",
+      },
+      kennelCodes: ["hhhpenang"],
+    },
+
+    // 7. Kelana Jaya Harimau H3 — Blogger/Blogspot with Run#:NNNN title filter
+    {
+      name: "KJ Harimau H3 Blog",
+      url: "https://khhhkj.blogspot.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      kennelCodes: ["kj-harimau"],
+    },
+
     // 7. Seletar H3 — PWA backend JSON API at HashController.php.
     // The url is the actual fetch target (the PHP endpoint), not the PWA
     // homepage, so logs/errors/audits and the adapter all agree on the URL.

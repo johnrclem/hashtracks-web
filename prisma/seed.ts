@@ -167,6 +167,9 @@ async function ensureRegionRecords(prisma: any) {
     "Alberta": ["Calgary, AB", "Edmonton, AB"],
     // ── UK ──
     "Scotland": ["Edinburgh", "Glasgow"],
+    // ── Malaysia (Phase 1: KL + Penang founder pack) ──
+    "Selangor": ["Kuala Lumpur, MY"],
+    "Penang": ["Penang Island, MY"],
   };
 
   let stateLinked = 0;
