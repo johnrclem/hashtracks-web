@@ -371,60 +371,28 @@ describe("validateSourceUrlWithDns", () => {
     expect(mockLookup).toHaveBeenCalledWith("example.com", { all: true });
   });
 
-  it("rejects when DNS resolves to an IPv4 private range", async () => {
-    mockLookup.mockResolvedValueOnce([
-      { address: "10.0.0.1", family: 4 },
-    ] as never);
-    await expect(
-      validateSourceUrlWithDns("https://evil.example"),
-    ).rejects.toThrow("DNS resolved to private/reserved IP");
-  });
-
-  it("rejects when DNS resolves to loopback", async () => {
-    mockLookup.mockResolvedValueOnce([
-      { address: "127.0.0.1", family: 4 },
-    ] as never);
-    await expect(
-      validateSourceUrlWithDns("https://rebind.example"),
-    ).rejects.toThrow("DNS resolved to private/reserved IP");
-  });
-
-  it("rejects when DNS resolves to the AWS/GCP metadata IP", async () => {
-    mockLookup.mockResolvedValueOnce([
-      { address: "169.254.169.254", family: 4 },
-    ] as never);
-    await expect(
-      validateSourceUrlWithDns("https://metadata.example"),
-    ).rejects.toThrow("DNS resolved to private/reserved IP");
-  });
-
-  it("rejects when DNS resolves to an IPv4-mapped IPv6 loopback", async () => {
-    mockLookup.mockResolvedValueOnce([
-      { address: "::ffff:127.0.0.1", family: 6 },
-    ] as never);
-    await expect(
-      validateSourceUrlWithDns("https://mapped.example"),
-    ).rejects.toThrow("DNS resolved to private/reserved IP");
-  });
-
-  it("rejects when DNS resolves to an IPv6 unique-local address", async () => {
-    mockLookup.mockResolvedValueOnce([
-      { address: "fd00::1", family: 6 },
-    ] as never);
-    await expect(
-      validateSourceUrlWithDns("https://v6.example"),
-    ).rejects.toThrow("DNS resolved to private/reserved IP");
-  });
-
-  it("rejects when any resolved IP in a multi-record response is private", async () => {
-    mockLookup.mockResolvedValueOnce([
-      { address: "93.184.216.34", family: 4 },
-      { address: "192.168.1.1", family: 4 },
-    ] as never);
-    await expect(
-      validateSourceUrlWithDns("https://mixed.example"),
-    ).rejects.toThrow("DNS resolved to private/reserved IP");
-  });
+  it.each([
+    ["IPv4 private range", [{ address: "10.0.0.1", family: 4 }]],
+    ["loopback", [{ address: "127.0.0.1", family: 4 }]],
+    ["AWS/GCP metadata IP", [{ address: "169.254.169.254", family: 4 }]],
+    ["IPv4-mapped IPv6 loopback", [{ address: "::ffff:127.0.0.1", family: 6 }]],
+    ["IPv6 unique-local address", [{ address: "fd00::1", family: 6 }]],
+    [
+      "any private IP in a multi-record response",
+      [
+        { address: "93.184.216.34", family: 4 },
+        { address: "192.168.1.1", family: 4 },
+      ],
+    ],
+  ])(
+    "rejects when DNS resolves to %s",
+    async (_label, addresses) => {
+      mockLookup.mockResolvedValueOnce(addresses as never);
+      await expect(
+        validateSourceUrlWithDns("https://resolver-test.example"),
+      ).rejects.toThrow("DNS resolved to private/reserved IP");
+    },
+  );
 
   it("skips DNS lookup when the hostname is already a literal IP", async () => {
     // Sync check blocks private IP literals directly — no lookup should happen.
