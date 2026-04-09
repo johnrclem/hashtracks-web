@@ -30,22 +30,11 @@ import {
   parseStreamLabel,
   parseKennelLabel,
 } from "@/lib/audit-labels";
+import { getValidatedRepo } from "@/lib/github-repo";
 
 const FETCH_TIMEOUT_MS = 15_000;
-const DEFAULT_REPO = "johnrclem/hashtracks-web";
 const PAGE_SIZE = 100;
 const MAX_PAGES = 20; // safety cap; ~2000 issues
-const REPO_PATTERN = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
-
-/** Validated repo slug, frozen at module load — kills the Codacy taint flow
- *  from `process.env.GITHUB_REPOSITORY` into the fetch URL. */
-function getRepo(): string {
-  const value = process.env.GITHUB_REPOSITORY ?? DEFAULT_REPO;
-  if (!REPO_PATTERN.test(value)) {
-    throw new Error(`Invalid GITHUB_REPOSITORY format: ${value}`);
-  }
-  return value;
-}
 
 /** Shape of a GitHub issue from the REST API (only the fields we use). */
 export interface GitHubIssue {
@@ -121,7 +110,7 @@ export function resolveKennel(
  * Filters out pull requests (the issues endpoint returns both).
  */
 export async function fetchAllAuditIssues(token: string): Promise<GitHubIssue[]> {
-  const repo = getRepo();
+  const repo = getValidatedRepo();
   const issues: GitHubIssue[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
     const url = `https://api.github.com/repos/${repo}/issues?labels=${AUDIT_LABEL}&state=all&per_page=${PAGE_SIZE}&page=${page}`;
