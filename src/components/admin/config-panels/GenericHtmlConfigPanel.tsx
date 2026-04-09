@@ -17,7 +17,7 @@ import {
   refineHtmlAnalysis,
   type HtmlAnalysisResult,
 } from "@/app/admin/sources/analyze-html-action";
-import type { GenericHtmlConfig, GenericHtmlColumns } from "@/adapters/html-scraper/generic";
+import type { GenericHtmlConfig, GenericHtmlColumns } from "@/adapters/html-scraper/generic-types";
 import type { KennelOption } from "./KennelTagInput";
 
 // ─── Column field definitions ───────────────────────────────────────────────

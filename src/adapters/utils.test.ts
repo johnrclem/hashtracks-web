@@ -1,3 +1,4 @@
+import * as dnsPromises from "node:dns/promises";
 import {
   MONTHS,
   MONTHS_ZERO,
@@ -15,6 +16,12 @@ import {
   extractAddressWithAi,
   stripNonEnglishCountry,
 } from "./utils";
+import { validateSourceUrlWithDns } from "./ssrf-dns";
+
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn(),
+}));
+const mockLookup = vi.mocked(dnsPromises.lookup);
 
 vi.mock("@/lib/ai/gemini", () => ({
   callGemini: vi.fn(),
@@ -325,6 +332,88 @@ describe("validateSourceUrl", () => {
 
   it("rejects IPv6 link-local (fe80::)", () => {
     expect(() => validateSourceUrl("http://[fe80::1]")).toThrow("private/reserved IP");
+  });
+
+  it("blocks octal-notation IPv4 (e.g. 0177.0.0.1 = 127.0.0.1)", () => {
+    // Node's URL parser normalizes `0177.0.0.1` to `127.0.0.1` before the
+    // hostname reaches our validator, so it ends up in the private-IPv4
+    // branch. The important invariant is that the URL is blocked.
+    expect(() => validateSourceUrl("http://0177.0.0.1")).toThrow(/private\/reserved IP/);
+  });
+
+  it("blocks integer-form IPv4 (2130706433 = 127.0.0.1)", () => {
+    expect(() => validateSourceUrl("http://2130706433")).toThrow(/private\/reserved IP/);
+  });
+
+  it("rejects malformed dotted-quad (octet > 255)", () => {
+    // Node's URL parser rejects `1234.0.0.1` outright.
+    expect(() => validateSourceUrl("http://1234.0.0.1")).toThrow();
+  });
+
+  it("accepts normal dotted-quad with single-zero octets", () => {
+    expect(() => validateSourceUrl("http://192.0.2.1")).not.toThrow();
+    expect(() => validateSourceUrl("http://203.0.113.5")).not.toThrow();
+  });
+});
+
+describe("validateSourceUrlWithDns", () => {
+  beforeEach(() => {
+    mockLookup.mockReset();
+  });
+
+  it("passes through when all resolved IPs are public", async () => {
+    mockLookup.mockResolvedValueOnce([
+      { address: "93.184.216.34", family: 4 },
+    ] as never);
+    await expect(
+      validateSourceUrlWithDns("https://example.com"),
+    ).resolves.toBeUndefined();
+    expect(mockLookup).toHaveBeenCalledWith("example.com", { all: true });
+  });
+
+  it.each([
+    ["IPv4 private range", [{ address: "10.0.0.1", family: 4 }]],
+    ["loopback", [{ address: "127.0.0.1", family: 4 }]],
+    ["AWS/GCP metadata IP", [{ address: "169.254.169.254", family: 4 }]],
+    ["IPv4-mapped IPv6 loopback", [{ address: "::ffff:127.0.0.1", family: 6 }]],
+    ["IPv6 unique-local address", [{ address: "fd00::1", family: 6 }]],
+    [
+      "any private IP in a multi-record response",
+      [
+        { address: "93.184.216.34", family: 4 },
+        { address: "192.168.1.1", family: 4 },
+      ],
+    ],
+  ])(
+    "rejects when DNS resolves to %s",
+    async (_label, addresses) => {
+      mockLookup.mockResolvedValueOnce(addresses as never);
+      await expect(
+        validateSourceUrlWithDns("https://resolver-test.example"),
+      ).rejects.toThrow("DNS resolved to private/reserved IP");
+    },
+  );
+
+  it("skips DNS lookup when the hostname is already a literal IP", async () => {
+    // Sync check blocks private IP literals directly — no lookup should happen.
+    await expect(
+      validateSourceUrlWithDns("http://10.0.0.1"),
+    ).rejects.toThrow("private/reserved IP");
+    expect(mockLookup).not.toHaveBeenCalled();
+  });
+
+  it("propagates the sync check rejection before lookup", async () => {
+    await expect(
+      validateSourceUrlWithDns("ftp://example.com"),
+    ).rejects.toThrow("non-HTTP protocol");
+    expect(mockLookup).not.toHaveBeenCalled();
+  });
+
+  it("rejects when DNS lookup itself fails", async () => {
+    mockLookup.mockRejectedValueOnce(new Error("ENOTFOUND"));
+    await expect(
+      validateSourceUrlWithDns("https://nonexistent.example"),
+    ).rejects.toThrow("DNS resolution failed");
   });
 });
 

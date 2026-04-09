@@ -7,21 +7,33 @@ vi.mock("@/lib/auth", () => ({
   getOrCreateUser: vi.fn(),
   getMismanUser: vi.fn(),
 }));
-vi.mock("@/lib/db", () => ({
-  prisma: {
+vi.mock("@/lib/db", () => {
+  const prismaMock = {
     mismanInvite: {
       count: vi.fn(),
       create: vi.fn(),
       findUnique: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     userKennel: {
       upsert: vi.fn(),
       findMany: vi.fn(),
     },
-  },
-}));
+    $transaction: vi.fn(),
+  };
+  // Make $transaction accept both the array and callback forms. In the
+  // callback form we pass the same prisma mock as the tx client so test
+  // mocks for `prismaMock.mismanInvite.updateMany` etc. are seen.
+  prismaMock.$transaction.mockImplementation(async (arg: unknown) => {
+    if (typeof arg === "function") {
+      return (arg as (tx: typeof prismaMock) => Promise<unknown>)(prismaMock);
+    }
+    return Promise.all(arg as Promise<unknown>[]);
+  });
+  return { prisma: prismaMock };
+});
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/invite", () => ({
   generateInviteToken: vi.fn().mockReturnValue("test-token-abc123"),
@@ -290,8 +302,10 @@ describe("redeemMismanInvite", () => {
       expiresAt: new Date("2099-01-01"),
       kennel: { slug: "nych3" },
     } as never);
+    vi.mocked(prisma.mismanInvite.updateMany).mockResolvedValueOnce({
+      count: 1,
+    } as never);
     vi.mocked(prisma.userKennel.upsert).mockResolvedValueOnce({} as never);
-    vi.mocked(prisma.mismanInvite.update).mockResolvedValueOnce({} as never);
 
     const result = await redeemMismanInvite("valid-token");
     expect(result).toEqual({ success: true, kennelSlug: "nych3" });
@@ -304,15 +318,39 @@ describe("redeemMismanInvite", () => {
       }),
     );
 
-    expect(prisma.mismanInvite.update).toHaveBeenCalledWith(
+    expect(prisma.mismanInvite.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "mi_1" },
+        where: expect.objectContaining({
+          id: "mi_1",
+          status: "PENDING",
+          expiresAt: expect.objectContaining({ gt: expect.any(Date) }),
+        }),
         data: expect.objectContaining({
           status: "ACCEPTED",
           acceptedBy: "user_1",
         }),
       }),
     );
+  });
+
+  it("returns error when a concurrent redeem wins the race", async () => {
+    vi.mocked(prisma.mismanInvite.findUnique).mockResolvedValueOnce({
+      id: "mi_1",
+      kennelId: "kennel_1",
+      status: "PENDING",
+      expiresAt: new Date("2099-01-01"),
+      kennel: { slug: "nych3" },
+    } as never);
+    // The conditional updateMany finds zero rows because another redeem
+    // already moved the invite out of PENDING.
+    vi.mocked(prisma.mismanInvite.updateMany).mockResolvedValueOnce({
+      count: 0,
+    } as never);
+
+    expect(await redeemMismanInvite("valid-token")).toEqual({
+      error: "This invite has already been used",
+    });
+    expect(prisma.userKennel.upsert).not.toHaveBeenCalled();
   });
 });
 

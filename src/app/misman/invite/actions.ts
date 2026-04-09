@@ -153,6 +153,12 @@ export async function listMismanInvites(kennelId: string) {
 
 /**
  * Redeem an invite token. Grants MISMAN role to the authenticated user.
+ *
+ * Runs inside a transaction with a conditional `updateMany` that requires
+ * `status = PENDING` AND `expiresAt > now` at commit time. A concurrent
+ * redeemer — or a request that crosses the expiry boundary between the
+ * pre-check and the transaction — returns `count = 0`, the transaction
+ * returns `{ raced: true }`, and we report the invite as already used.
  */
 export async function redeemMismanInvite(token: string) {
   const user = await getOrCreateUser();
@@ -173,28 +179,39 @@ export async function redeemMismanInvite(token: string) {
     return { error: "This invite has expired" };
   }
 
-  // Upsert UserKennel with MISMAN role (same pattern as approveMismanRequest)
-  await prisma.userKennel.upsert({
-    where: {
-      userId_kennelId: { userId: user.id, kennelId: invite.kennelId },
-    },
-    update: { role: "MISMAN" },
-    create: {
-      userId: user.id,
-      kennelId: invite.kennelId,
-      role: "MISMAN",
-    },
+  const result = await prisma.$transaction(async (tx) => {
+    const now = new Date();
+    const flipped = await tx.mismanInvite.updateMany({
+      where: {
+        id: invite.id,
+        status: "PENDING",
+        expiresAt: { gt: now },
+      },
+      data: {
+        status: "ACCEPTED",
+        acceptedBy: user.id,
+        acceptedAt: now,
+      },
+    });
+    if (flipped.count === 0) return { raced: true as const };
+
+    await tx.userKennel.upsert({
+      where: {
+        userId_kennelId: { userId: user.id, kennelId: invite.kennelId },
+      },
+      update: { role: "MISMAN" },
+      create: {
+        userId: user.id,
+        kennelId: invite.kennelId,
+        role: "MISMAN",
+      },
+    });
+    return { raced: false as const };
   });
 
-  // Mark invite as accepted
-  await prisma.mismanInvite.update({
-    where: { id: invite.id },
-    data: {
-      status: "ACCEPTED",
-      acceptedBy: user.id,
-      acceptedAt: new Date(),
-    },
-  });
+  if (result.raced) {
+    return { error: "This invite has already been used" };
+  }
 
   revalidatePath("/misman");
   revalidatePath(`/kennels/${invite.kennel.slug}`);

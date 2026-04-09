@@ -3,8 +3,14 @@
  * Validates URLs against private/reserved ranges before making requests.
  * Follows redirects manually to re-validate each target URL.
  * All adapter fetches should use this instead of raw `fetch()`.
+ *
+ * DNS-rebinding protection: `validateSourceUrlWithDns` resolves each
+ * hostname and re-validates every A/AAAA record against private ranges.
  */
-import { validateSourceUrl } from "./utils";
+import { validateSourceUrlWithDns } from "./ssrf-dns";
+
+// Re-export the sync variant for callers that imported it here historically.
+export { validateSourceUrl } from "./utils";
 
 const MAX_REDIRECTS = 5;
 
@@ -43,7 +49,7 @@ export async function safeFetch(
 ): Promise<Response> {
   // Residential proxy path
   if (init?.useResidentialProxy) {
-    validateSourceUrl(url); // Defense-in-depth: validate even when proxying
+    await validateSourceUrlWithDns(url); // Defense-in-depth: validate even when proxying
 
     const proxyUrl = process.env.RESIDENTIAL_PROXY_URL;
     const proxyKey = process.env.RESIDENTIAL_PROXY_KEY;
@@ -80,7 +86,7 @@ export async function safeFetch(
   }
 
   // Direct fetch path (default)
-  validateSourceUrl(url);
+  await validateSourceUrlWithDns(url);
   let currentUrl = url;
   let redirectCount = 0;
 
@@ -90,7 +96,7 @@ export async function safeFetch(
       const location = response.headers.get("location");
       if (!location) return response;
       currentUrl = new URL(location, currentUrl).toString();
-      validateSourceUrl(currentUrl);
+      await validateSourceUrlWithDns(currentUrl);
       redirectCount++;
       continue;
     }

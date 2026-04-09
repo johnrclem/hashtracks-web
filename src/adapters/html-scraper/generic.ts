@@ -21,52 +21,20 @@ import {
   fetchHTMLPage,
   parse12HourTime,
   validateSourceConfig,
-  type DateLocale,
 } from "../utils";
 import type { CheerioAPI, Cheerio } from "cheerio";
 import type { AnyNode } from "domhandler";
 
-/** Column selectors for extracting event fields from each row. */
-export interface GenericHtmlColumns {
-  date: string;             // required — CSS selector (e.g., "td:nth-child(2)")
-  kennelTag?: string;
-  title?: string;
-  hares?: string;
-  location?: string;
-  locationUrl?: string;     // extracts href from <a>
-  startTime?: string;
-  runNumber?: string;
-  sourceUrl?: string;       // extracts href from <a>
-}
-
-/** Config shape stored in Source.config for generic HTML sources. */
-export interface GenericHtmlConfig {
-  containerSelector: string;  // CSS selector for the event container
-  rowSelector: string;        // CSS selector for each row within container
-  columns: GenericHtmlColumns;
-  defaultKennelTag: string;
-  dateLocale?: DateLocale;    // "en-US" | "en-GB" — defaults to "en-US"
-  locationTruncateAfter?: "uk-postcode";  // truncate location at first UK postcode match
-  defaultStartTime?: string;               // "HH:MM" fallback when page doesn't have per-event times
-  forwardDate?: boolean;                   // resolve year-less dates to next future occurrence
-  maxPastDays?: number;                    // skip events with dates more than N days in the past
-  stopWhenRunNumberDecreases?: boolean;    // stop parsing when run number drops (e.g., Cape Fear receding hareline)
-}
-
-/** Type guard: does this config look like a GenericHtmlConfig? */
-export function isGenericHtmlConfig(
-  config: unknown,
-): boolean {
-  if (!config || typeof config !== "object") return false;
-  const obj = config as Record<string, unknown>;
-  return (
-    typeof obj.containerSelector === "string" &&
-    typeof obj.rowSelector === "string" &&
-    typeof obj.columns === "object" &&
-    obj.columns !== null &&
-    !Array.isArray(obj.columns)
-  );
-}
+// Re-export client-safe types + guard so existing importers of this file
+// still resolve them from here. Client components should import directly
+// from `./generic-types` to avoid pulling in the server-side fetch stack.
+export {
+  isGenericHtmlConfig,
+  type DateLocale,
+  type GenericHtmlColumns,
+  type GenericHtmlConfig,
+} from "./generic-types";
+import type { GenericHtmlConfig } from "./generic-types";
 
 /**
  * Extract text content from a row element using a CSS selector.

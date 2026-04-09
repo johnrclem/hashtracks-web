@@ -6,6 +6,7 @@ import {
   getAppUrl,
   StravaAthleteLimitError,
 } from "@/lib/strava/client";
+import { encryptToken } from "@/lib/strava/crypto";
 import type { Prisma } from "@/generated/prisma/client";
 
 const STATE_COOKIE = "strava_oauth_state";
@@ -83,11 +84,12 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    // Upsert StravaConnection (handles reconnect case)
+    // Upsert StravaConnection (handles reconnect case).
+    // Tokens are encrypted at rest via AES-256-GCM; see src/lib/strava/crypto.ts.
     const connectionData = {
       athleteId,
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
+      accessToken: encryptToken(tokenData.access_token),
+      refreshToken: encryptToken(tokenData.refresh_token),
       expiresAt: new Date(tokenData.expires_at * 1000),
       athleteData: {
         firstname: tokenData.athlete.firstname,

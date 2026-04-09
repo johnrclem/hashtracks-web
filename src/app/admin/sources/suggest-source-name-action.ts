@@ -2,37 +2,35 @@
 
 import he from "he";
 import { getAdminUser } from "@/lib/auth";
+import { validateSourceUrlWithDns } from "@/adapters/ssrf-dns";
 
 export type SuggestNameResult =
   | { suggestedName: string; source: "api" | "page-meta" | "heuristic" }
   | { error: string };
 
 /**
- * SSRF guard for external fetches.
- * Returns the validated URL object (breaking the taint chain) or an error string.
+ * SSRF guard for external fetches. Delegates to `validateSourceUrlWithDns`
+ * in adapters/utils — same DNS-rebinding-aware validator used by safeFetch
+ * and browserRender (blocks metadata IPs, 0.0.0.0, IPv4 alternate
+ * notations, IPv4-mapped IPv6, private ranges, and re-resolves A/AAAA
+ * records).
  */
-function validateFetchUrl(
+async function validateFetchUrl(
   url: string,
-): { ok: true; url: URL } | { ok: false; error: string } {
+): Promise<{ ok: true; url: URL } | { ok: false; error: string }> {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
     return { ok: false, error: "Invalid URL" };
   }
-  if (!["http:", "https:"].includes(parsed.protocol)) {
-    return { ok: false, error: "Only http/https allowed" };
-  }
-  const h = parsed.hostname;
-  if (h === "localhost" || h === "127.0.0.1" || h === "::1") {
-    return { ok: false, error: "Localhost not allowed" };
-  }
-  const ipv4 = /^(\d+)\.(\d+)\./.exec(h);
-  if (ipv4) {
-    const [, a, b] = ipv4.map(Number);
-    if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
-      return { ok: false, error: "Private IP not allowed" };
-    }
+  try {
+    await validateSourceUrlWithDns(url);
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "URL blocked",
+    };
   }
   return { ok: true, url: parsed };
 }
@@ -78,7 +76,7 @@ async function suggestFromCalendarApi(calendarId: string): Promise<SuggestNameRe
   if (!apiKey) return { error: "GOOGLE_CALENDAR_API_KEY not configured" };
 
   const rawUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}`;
-  const guard = validateFetchUrl(rawUrl);
+  const guard = await validateFetchUrl(rawUrl);
   // Hostname assertion: encodeURIComponent cannot inject a different host
   if (!guard.ok || guard.url.hostname !== "www.googleapis.com") return { error: "SSRF guard" };
   guard.url.searchParams.set("key", apiKey);
@@ -107,7 +105,7 @@ async function suggestFromSheetsApi(
   if (!sheetId) return { error: "No sheet ID found" };
 
   const rawUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}`;
-  const guard = validateFetchUrl(rawUrl);
+  const guard = await validateFetchUrl(rawUrl);
   // Hostname assertion: encodeURIComponent cannot inject a different host
   if (!guard.ok || guard.url.hostname !== "sheets.googleapis.com") return { error: "SSRF guard" };
   guard.url.searchParams.set("fields", "properties.title");
@@ -146,7 +144,7 @@ function suggestFromMeetupSlug(
 
 /** iCal feed — fetch first 2 KB, scan for X-WR-CALNAME: */
 async function suggestFromIcalHeader(url: string): Promise<SuggestNameResult> {
-  const guard = validateFetchUrl(url);
+  const guard = await validateFetchUrl(url);
   if (!guard.ok) return { error: guard.error };
 
   const controller = new AbortController();
@@ -173,7 +171,7 @@ async function suggestFromIcalHeader(url: string): Promise<SuggestNameResult> {
 
 /** HTML page — extract og:title or <title> */
 async function suggestFromPageMeta(url: string): Promise<SuggestNameResult> {
-  const guard = validateFetchUrl(url);
+  const guard = await validateFetchUrl(url);
   if (!guard.ok) return { error: guard.error };
 
   const controller = new AbortController();

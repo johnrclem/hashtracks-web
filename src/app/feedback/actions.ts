@@ -22,6 +22,61 @@ const CATEGORY_HEADINGS: Record<string, string> = {
   other: "Feedback",
 };
 
+// ── Rate limiting ─────────────────────────────────────────────────────
+// Per-user, in-memory sliding window. Prevents a single user from flooding
+// the GitHub issue tracker via the feedback form (the action creates a
+// public issue + burns the server's GITHUB_TOKEN rate limit quota).
+//
+// Limits are intentionally generous for legitimate bug-reporting bursts
+// but block automated spam. For multi-instance deployments, this Map is
+// per-instance — that's an accepted defense-in-depth trade-off for now
+// since each instance still enforces the limit independently.
+const HOURLY_LIMIT = 5;
+const DAILY_LIMIT = 20;
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const ONE_DAY_MS = 24 * ONE_HOUR_MS;
+const PRUNE_INTERVAL = 100; // prune stale map entries every N calls
+
+const feedbackTimestamps = new Map<string, number[]>();
+let callsSincePrune = 0;
+
+function pruneStaleEntries(now: number): void {
+  for (const [userId, timestamps] of feedbackTimestamps) {
+    const recent = timestamps.filter((t) => now - t < ONE_DAY_MS);
+    if (recent.length === 0) feedbackTimestamps.delete(userId);
+    else if (recent.length !== timestamps.length) {
+      feedbackTimestamps.set(userId, recent);
+    }
+  }
+}
+
+function checkFeedbackRateLimit(
+  userId: string,
+): { allowed: true } | { allowed: false; retryAfterMs: number } {
+  const now = Date.now();
+  if (++callsSincePrune >= PRUNE_INTERVAL) {
+    callsSincePrune = 0;
+    pruneStaleEntries(now);
+  }
+
+  const existing = feedbackTimestamps.get(userId) ?? [];
+  const recent = existing.filter((t) => now - t < ONE_DAY_MS);
+
+  const lastHour = recent.filter((t) => now - t < ONE_HOUR_MS);
+  if (lastHour.length >= HOURLY_LIMIT) {
+    const oldest = Math.min(...lastHour);
+    return { allowed: false, retryAfterMs: ONE_HOUR_MS - (now - oldest) };
+  }
+  if (recent.length >= DAILY_LIMIT) {
+    const oldest = Math.min(...recent);
+    return { allowed: false, retryAfterMs: ONE_DAY_MS - (now - oldest) };
+  }
+
+  recent.push(now);
+  feedbackTimestamps.set(userId, recent);
+  return { allowed: true };
+}
+
 export async function submitFeedback(
   _prevState: FeedbackState,
   formData: FormData,
@@ -41,6 +96,16 @@ export async function submitFeedback(
   if (title.length > 200) return { error: "Title is too long (max 200 characters)" };
   if (!description) return { error: "Description is required" };
   if (description.length > 5000) return { error: "Description is too long (max 5,000 characters)" };
+
+  // Rate-limit only after the request has passed basic validation so that
+  // user typos and misconfiguration don't consume the hourly/daily quota.
+  const rate = checkFeedbackRateLimit(user.id);
+  if (!rate.allowed) {
+    const minutes = Math.max(1, Math.ceil(rate.retryAfterMs / 60_000));
+    return {
+      error: `Too many feedback submissions. Please try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+    };
+  }
 
   // Sanitize @claude mentions to prevent accidental workflow triggering (matches auto-issue.ts pattern)
   const sanitize = (s: string) => s.replaceAll("@claude", "@\u200Bclaude");
@@ -75,8 +140,9 @@ ${description}
     );
 
     if (!res.ok) {
-      const errBody = await res.text();
-      console.error("GitHub API error:", res.status, errBody.slice(0, 200));
+      // Log only the status — GitHub error bodies can contain token scope
+      // hints or other details we don't want captured by Sentry/PostHog.
+      console.error("GitHub API error:", res.status);
       return { error: "Failed to submit feedback. Please try again." };
     }
 

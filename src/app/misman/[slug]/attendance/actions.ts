@@ -18,6 +18,30 @@ import { syncEventHares } from "@/lib/misman/hare-sync";
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 /**
+ * Load a `KennelAttendance` record by ID, together with its parent
+ * event's kennelId, and verify that kennel is in the caller's roster
+ * scope. Returns `null` for both missing and out-of-scope IDs so
+ * callers can collapse them into a single 404-style response
+ * (IDOR prevention — foreign record existence must not be leaked).
+ */
+async function loadAttendanceForMisman(
+  attendanceId: string,
+  kennelId: string,
+) {
+  const [record, rosterKennelIds] = await Promise.all([
+    prisma.kennelAttendance.findUnique({
+      where: { id: attendanceId },
+      include: { event: { select: { kennelId: true } } },
+    }),
+    getRosterKennelIds(kennelId),
+  ]);
+  if (!record || !rosterKennelIds.includes(record.event.kennelId)) {
+    return null;
+  }
+  return record;
+}
+
+/**
  * Validate that the event belongs to a kennel in the roster scope
  * and is within the 1-year lookback window.
  */
@@ -135,17 +159,11 @@ export async function removeAttendance(kennelId: string, attendanceId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const record = await prisma.kennelAttendance.findUnique({
-    where: { id: attendanceId },
-  });
+  const record = await loadAttendanceForMisman(attendanceId, kennelId);
   if (!record) return { error: "Attendance record not found" };
 
-  const { eventId: removedEventId } = record;
   await prisma.kennelAttendance.delete({ where: { id: attendanceId } });
-
-  // Sync EventHare records (removed hare will be cleaned up)
-  await syncEventHares(removedEventId);
-
+  await syncEventHares(record.eventId);
   return { success: true };
 }
 
@@ -199,9 +217,7 @@ export async function updateAttendance(
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const record = await prisma.kennelAttendance.findUnique({
-    where: { id: attendanceId },
-  });
+  const record = await loadAttendanceForMisman(attendanceId, kennelId);
   if (!record) return { error: "Attendance record not found" };
 
   const before: Record<string, unknown> = {};
@@ -240,6 +256,19 @@ export async function updateAttendance(
 export async function clearEventAttendance(kennelId: string, eventId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
+
+  // Roster-scope check (IDOR prevention). Collapse scope miss + missing
+  // event into a single not-found response.
+  const [event, rosterKennelIds] = await Promise.all([
+    prisma.event.findUnique({
+      where: { id: eventId },
+      select: { kennelId: true },
+    }),
+    getRosterKennelIds(kennelId),
+  ]);
+  if (!event || !rosterKennelIds.includes(event.kennelId)) {
+    return { error: "Event not found" };
+  }
 
   const result = await prisma.kennelAttendance.deleteMany({
     where: { eventId },
@@ -494,20 +523,30 @@ export async function getHasherForEdit(kennelId: string, hasherId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const hasher = await prisma.kennelHasher.findUnique({
-    where: { id: hasherId },
-    select: {
-      id: true,
-      hashName: true,
-      nerdName: true,
-      email: true,
-      phone: true,
-      notes: true,
-    },
-  });
-  if (!hasher) return { error: "Hasher not found" };
+  const [rosterGroupId, hasher] = await Promise.all([
+    getRosterGroupId(kennelId),
+    prisma.kennelHasher.findUnique({
+      where: { id: hasherId },
+      select: {
+        id: true,
+        hashName: true,
+        nerdName: true,
+        email: true,
+        phone: true,
+        notes: true,
+        rosterGroupId: true,
+      },
+    }),
+  ]);
 
-  return { data: hasher };
+  // Roster-scope check (IDOR prevention): return 404 on mismatch to avoid
+  // leaking the existence of hashers in other kennels.
+  if (!hasher || hasher.rosterGroupId !== rosterGroupId) {
+    return { error: "Hasher not found" };
+  }
+
+  const { rosterGroupId: _rosterGroupId, ...data } = hasher;
+  return { data };
 }
 
 /**

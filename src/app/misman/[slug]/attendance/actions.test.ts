@@ -175,9 +175,22 @@ describe("removeAttendance", () => {
     });
   });
 
+  it("returns error when attendance belongs to a kennel outside the roster scope", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
+      eventId: "event_foreign",
+      event: { kennelId: "kennel_foreign" },
+    } as never);
+
+    expect(await removeAttendance("kennel_1", "ka_1")).toEqual({
+      error: "Attendance record not found",
+    });
+    expect(prisma.kennelAttendance.delete).not.toHaveBeenCalled();
+  });
+
   it("removes attendance successfully", async () => {
     vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
+      eventId: "event_1",
+      event: { kennelId: "kennel_1" },
     } as never);
     vi.mocked(prisma.kennelAttendance.delete).mockResolvedValueOnce({} as never);
 
@@ -202,9 +215,22 @@ describe("updateAttendance", () => {
     );
   });
 
+  it("returns error when attendance belongs to a kennel outside the roster scope", async () => {
+    vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
+      id: "ka_1",
+      eventId: "event_foreign",
+      event: { kennelId: "kennel_foreign" },
+    } as never);
+
+    const result = await updateAttendance("kennel_1", "ka_1", { paid: true });
+    expect(result).toEqual({ error: "Attendance record not found" });
+  });
+
   it("updates specific fields", async () => {
     vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
       id: "ka_1",
+      eventId: "event_1",
+      event: { kennelId: "kennel_1" },
     } as never);
 
     // Need to mock the update - import the actual function
@@ -227,7 +253,20 @@ describe("clearEventAttendance", () => {
     });
   });
 
+  it("returns error when event belongs to a kennel outside the roster scope", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      kennelId: "kennel_foreign",
+    } as never);
+
+    const result = await clearEventAttendance("kennel_1", "event_foreign");
+    expect(result).toEqual({ error: "Event not found" });
+    expect(prisma.kennelAttendance.deleteMany).not.toHaveBeenCalled();
+  });
+
   it("deletes all attendance for event", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      kennelId: "kennel_1",
+    } as never);
     vi.mocked(prisma.kennelAttendance.deleteMany).mockResolvedValueOnce({
       count: 15,
     } as never);
@@ -462,6 +501,21 @@ describe("getHasherForEdit", () => {
     });
   });
 
+  it("returns error when hasher belongs to a different roster group", async () => {
+    vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
+      id: "kh_foreign",
+      hashName: "Other",
+      nerdName: null,
+      email: null,
+      phone: null,
+      notes: null,
+      rosterGroupId: "rg_other",
+    } as never);
+
+    const result = await getHasherForEdit("kennel_1", "kh_foreign");
+    expect(result).toEqual({ error: "Hasher not found" });
+  });
+
   it("returns full hasher data for editing", async () => {
     vi.mocked(prisma.kennelHasher.findUnique).mockResolvedValueOnce({
       id: "kh_1",
@@ -470,6 +524,7 @@ describe("getHasherForEdit", () => {
       email: "john@test.com",
       phone: "555-1234",
       notes: "Original runner",
+      rosterGroupId: "rg_1",
     } as never);
 
     const result = await getHasherForEdit("kennel_1", "kh_1");

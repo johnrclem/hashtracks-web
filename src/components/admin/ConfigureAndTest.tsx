@@ -50,7 +50,7 @@ import {
   type StaticScheduleConfig,
 } from "./config-panels/StaticScheduleConfigPanel";
 import { GenericHtmlConfigPanel } from "./config-panels/GenericHtmlConfigPanel";
-import { isGenericHtmlConfig, type GenericHtmlConfig } from "@/adapters/html-scraper/generic";
+import { isGenericHtmlConfig, type GenericHtmlConfig } from "@/adapters/html-scraper/generic-types";
 import type { KennelOption } from "./config-panels/KennelTagInput";
 
 /** Types that use the config JSON field */
