@@ -415,10 +415,22 @@ describe("dismissUserLink", () => {
     });
   });
 
+  it("returns error when link belongs to a different roster group", async () => {
+    vi.mocked(prisma.kennelHasherLink.findUnique).mockResolvedValueOnce({
+      id: "link_foreign",
+      kennelHasher: { rosterGroupId: "rg_other", kennel: { slug: "otherh3" } },
+    } as never);
+
+    expect(await dismissUserLink("kennel_1", "link_foreign")).toEqual({
+      error: "Not authorized",
+    });
+    expect(prisma.kennelHasherLink.update).not.toHaveBeenCalled();
+  });
+
   it("updates link status to DISMISSED", async () => {
     vi.mocked(prisma.kennelHasherLink.findUnique).mockResolvedValueOnce({
       id: "link_1",
-      kennelHasher: { kennel: { slug: "nych3" } },
+      kennelHasher: { rosterGroupId: "rg_1", kennel: { slug: "nych3" } },
     } as never);
     vi.mocked(prisma.kennelHasherLink.update).mockResolvedValueOnce({} as never);
 
@@ -446,11 +458,24 @@ describe("revokeUserLink", () => {
     });
   });
 
+  it("returns error when link belongs to a different roster group", async () => {
+    vi.mocked(prisma.kennelHasherLink.findUnique).mockResolvedValueOnce({
+      id: "link_foreign",
+      status: "CONFIRMED",
+      kennelHasher: { rosterGroupId: "rg_other", kennel: { slug: "otherh3" } },
+    } as never);
+
+    expect(await revokeUserLink("kennel_1", "link_foreign")).toEqual({
+      error: "Not authorized",
+    });
+    expect(prisma.kennelHasherLink.update).not.toHaveBeenCalled();
+  });
+
   it("returns error when link is not CONFIRMED", async () => {
     vi.mocked(prisma.kennelHasherLink.findUnique).mockResolvedValueOnce({
       id: "link_1",
       status: "SUGGESTED",
-      kennelHasher: { kennel: { slug: "nych3" } },
+      kennelHasher: { rosterGroupId: "rg_1", kennel: { slug: "nych3" } },
     } as never);
 
     expect(await revokeUserLink("kennel_1", "link_1")).toEqual({
@@ -462,7 +487,7 @@ describe("revokeUserLink", () => {
     vi.mocked(prisma.kennelHasherLink.findUnique).mockResolvedValueOnce({
       id: "link_1",
       status: "CONFIRMED",
-      kennelHasher: { kennel: { slug: "nych3" } },
+      kennelHasher: { rosterGroupId: "rg_1", kennel: { slug: "nych3" } },
     } as never);
     vi.mocked(prisma.kennelHasherLink.update).mockResolvedValueOnce({} as never);
 

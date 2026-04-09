@@ -6,6 +6,8 @@
  * Follows the same pattern as safeFetch() residential proxy integration.
  */
 
+import { validateSourceUrlWithDns } from "@/adapters/utils";
+
 export interface RenderOptions {
   /** URL of the page to render */
   url: string;
@@ -27,6 +29,15 @@ export interface RenderOptions {
  * Requires BROWSER_RENDER_URL and BROWSER_RENDER_KEY env vars.
  */
 export async function browserRender(options: RenderOptions): Promise<string> {
+  // Defense-in-depth: validate the target URL before forwarding to the NAS
+  // render service. The NAS service has its own SSRF check but we want to
+  // block alternate IP notations, IPv4-mapped IPv6, and DNS rebinding here
+  // too.
+  // (frameUrl is a URL substring for iframe matching, not a full URL, so
+  // it is not validated here — the NAS service only matches it against
+  // frames already loaded by the primary URL.)
+  await validateSourceUrlWithDns(options.url);
+
   const renderUrl = process.env.BROWSER_RENDER_URL;
   const renderKey = process.env.BROWSER_RENDER_KEY;
 

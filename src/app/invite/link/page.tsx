@@ -132,39 +132,55 @@ export default async function ProfileLinkInvitePage({ searchParams }: Props) {
       );
     }
 
-    // Create or update the link
-    if (hasher.userLink) {
-      // Update existing (dismissed) link
-      await prisma.kennelHasherLink.update({
-        where: { id: hasher.userLink.id },
+    // Atomically consume the invite token AND create the link in a single
+    // transaction. The updateMany filter on profileInviteToken = token
+    // means a concurrent redeem of the same token returns count = 0 and
+    // we roll back without creating a duplicate link.
+    const tokenRaceHappened = { flag: false };
+    await prisma.$transaction(async (tx) => {
+      const cleared = await tx.kennelHasher.updateMany({
+        where: { id: hasher.id, profileInviteToken: token },
         data: {
-          userId: user.id,
-          status: "CONFIRMED",
-          confirmedBy: user.id,
-          dismissedBy: null,
+          profileInviteToken: null,
+          profileInviteExpiresAt: null,
+          profileInvitedBy: null,
         },
       });
-    } else {
-      await prisma.kennelHasherLink.create({
-        data: {
-          kennelHasherId: hasher.id,
-          userId: user.id,
-          status: "CONFIRMED",
-          suggestedBy: hasher.profileInvitedBy,
-          confirmedBy: user.id,
-        },
-      });
-    }
 
-    // Clear the invite token (one-time use)
-    await prisma.kennelHasher.update({
-      where: { id: hasher.id },
-      data: {
-        profileInviteToken: null,
-        profileInviteExpiresAt: null,
-        profileInvitedBy: null,
-      },
+      if (cleared.count === 0) {
+        tokenRaceHappened.flag = true;
+        throw new Error("__concurrent_link_redeem__");
+      }
+
+      if (hasher.userLink) {
+        await tx.kennelHasherLink.update({
+          where: { id: hasher.userLink.id },
+          data: {
+            userId: user.id,
+            status: "CONFIRMED",
+            confirmedBy: user.id,
+            dismissedBy: null,
+          },
+        });
+      } else {
+        await tx.kennelHasherLink.create({
+          data: {
+            kennelHasherId: hasher.id,
+            userId: user.id,
+            status: "CONFIRMED",
+            suggestedBy: hasher.profileInvitedBy,
+            confirmedBy: user.id,
+          },
+        });
+      }
+    }).catch((err) => {
+      if (tokenRaceHappened.flag) return; // swallowed: user sees "not found" below
+      throw err;
     });
+
+    if (tokenRaceHappened.flag) {
+      redirect("/profile?linked=already");
+    }
 
     // Show success and redirect
     const kennelSlug = hasher.kennel?.slug;

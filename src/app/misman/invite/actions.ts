@@ -153,6 +153,11 @@ export async function listMismanInvites(kennelId: string) {
 
 /**
  * Redeem an invite token. Grants MISMAN role to the authenticated user.
+ *
+ * Runs inside a transaction with a conditional update on status = PENDING
+ * so that two concurrent redemptions of the same token cannot both succeed:
+ * the second writer raises P2025 ("record not found") and the whole
+ * transaction rolls back.
  */
 export async function redeemMismanInvite(token: string) {
   const user = await getOrCreateUser();
@@ -173,28 +178,45 @@ export async function redeemMismanInvite(token: string) {
     return { error: "This invite has expired" };
   }
 
-  // Upsert UserKennel with MISMAN role (same pattern as approveMismanRequest)
-  await prisma.userKennel.upsert({
-    where: {
-      userId_kennelId: { userId: user.id, kennelId: invite.kennelId },
-    },
-    update: { role: "MISMAN" },
-    create: {
-      userId: user.id,
-      kennelId: invite.kennelId,
-      role: "MISMAN",
-    },
+  const raceError = { alreadyUsed: false };
+  await prisma.$transaction(async (tx) => {
+    // Atomic status flip: updateMany filters by both id AND status = PENDING.
+    // A concurrent redeem that already moved the row to ACCEPTED will cause
+    // this to return count = 0, and we roll back without granting a role.
+    const flipped = await tx.mismanInvite.updateMany({
+      where: { id: invite.id, status: "PENDING" },
+      data: {
+        status: "ACCEPTED",
+        acceptedBy: user.id,
+        acceptedAt: new Date(),
+      },
+    });
+
+    if (flipped.count === 0) {
+      raceError.alreadyUsed = true;
+      // Throw to roll back the transaction — Prisma has no abort primitive.
+      throw new Error("__concurrent_redeem__");
+    }
+
+    await tx.userKennel.upsert({
+      where: {
+        userId_kennelId: { userId: user.id, kennelId: invite.kennelId },
+      },
+      update: { role: "MISMAN" },
+      create: {
+        userId: user.id,
+        kennelId: invite.kennelId,
+        role: "MISMAN",
+      },
+    });
+  }).catch((err) => {
+    if (raceError.alreadyUsed) return; // handled below
+    throw err;
   });
 
-  // Mark invite as accepted
-  await prisma.mismanInvite.update({
-    where: { id: invite.id },
-    data: {
-      status: "ACCEPTED",
-      acceptedBy: user.id,
-      acceptedAt: new Date(),
-    },
-  });
+  if (raceError.alreadyUsed) {
+    return { error: "This invite has already been used" };
+  }
 
   revalidatePath("/misman");
   revalidatePath(`/kennels/${invite.kennel.slug}`);

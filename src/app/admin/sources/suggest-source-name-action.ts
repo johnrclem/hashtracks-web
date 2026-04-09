@@ -2,14 +2,17 @@
 
 import he from "he";
 import { getAdminUser } from "@/lib/auth";
+import { validateSourceUrl } from "@/adapters/utils";
 
 export type SuggestNameResult =
   | { suggestedName: string; source: "api" | "page-meta" | "heuristic" }
   | { error: string };
 
 /**
- * SSRF guard for external fetches.
- * Returns the validated URL object (breaking the taint chain) or an error string.
+ * SSRF guard for external fetches. Delegates to the comprehensive
+ * `validateSourceUrl` in adapters/utils (blocks metadata IPs, 0.0.0.0,
+ * IPv4 alternate notations, IPv4-mapped IPv6, all private ranges).
+ * Returns the validated URL object or an error string.
  */
 function validateFetchUrl(
   url: string,
@@ -20,19 +23,13 @@ function validateFetchUrl(
   } catch {
     return { ok: false, error: "Invalid URL" };
   }
-  if (!["http:", "https:"].includes(parsed.protocol)) {
-    return { ok: false, error: "Only http/https allowed" };
-  }
-  const h = parsed.hostname;
-  if (h === "localhost" || h === "127.0.0.1" || h === "::1") {
-    return { ok: false, error: "Localhost not allowed" };
-  }
-  const ipv4 = /^(\d+)\.(\d+)\./.exec(h);
-  if (ipv4) {
-    const [, a, b] = ipv4.map(Number);
-    if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
-      return { ok: false, error: "Private IP not allowed" };
-    }
+  try {
+    validateSourceUrl(url);
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "URL blocked",
+    };
   }
   return { ok: true, url: parsed };
 }

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { decryptToken, encryptToken } from "./crypto";
 import type {
   StravaTokenResponse,
   StravaApiActivity,
@@ -111,6 +112,10 @@ export async function refreshStravaToken(
 /**
  * Get a valid access token, auto-refreshing if within 30 min of expiry.
  * Updates the DB row when refresh occurs.
+ *
+ * Handles at-rest encryption transparently: stored tokens are decrypted
+ * for use and re-encrypted on refresh. Legacy plaintext rows pass through
+ * `decryptToken()` unchanged until they are next refreshed.
  */
 export async function getValidAccessToken(connection: {
   id: string;
@@ -122,17 +127,22 @@ export async function getValidAccessToken(connection: {
   const thirtyMinFromNow = new Date(now.getTime() + 30 * 60 * 1000);
 
   if (connection.expiresAt > thirtyMinFromNow) {
-    return { accessToken: connection.accessToken, refreshed: false };
+    return {
+      accessToken: decryptToken(connection.accessToken),
+      refreshed: false,
+    };
   }
 
   // Token is expired or expiring soon — refresh
-  const tokenData = await refreshStravaToken(connection.refreshToken);
+  const tokenData = await refreshStravaToken(
+    decryptToken(connection.refreshToken),
+  );
 
   await prisma.stravaConnection.update({
     where: { id: connection.id },
     data: {
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
+      accessToken: encryptToken(tokenData.access_token),
+      refreshToken: encryptToken(tokenData.refresh_token),
       expiresAt: new Date(tokenData.expires_at * 1000),
     },
   });

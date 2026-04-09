@@ -3,8 +3,11 @@
  * Validates URLs against private/reserved ranges before making requests.
  * Follows redirects manually to re-validate each target URL.
  * All adapter fetches should use this instead of raw `fetch()`.
+ *
+ * DNS-rebinding protection: `validateSourceUrlWithDns` resolves each
+ * hostname and re-validates every A/AAAA record against private ranges.
  */
-import { validateSourceUrl } from "./utils";
+import { validateSourceUrl, validateSourceUrlWithDns } from "./utils";
 
 const MAX_REDIRECTS = 5;
 
@@ -43,7 +46,7 @@ export async function safeFetch(
 ): Promise<Response> {
   // Residential proxy path
   if (init?.useResidentialProxy) {
-    validateSourceUrl(url); // Defense-in-depth: validate even when proxying
+    await validateSourceUrlWithDns(url); // Defense-in-depth: validate even when proxying
 
     const proxyUrl = process.env.RESIDENTIAL_PROXY_URL;
     const proxyKey = process.env.RESIDENTIAL_PROXY_KEY;
@@ -80,7 +83,7 @@ export async function safeFetch(
   }
 
   // Direct fetch path (default)
-  validateSourceUrl(url);
+  await validateSourceUrlWithDns(url);
   let currentUrl = url;
   let redirectCount = 0;
 
@@ -90,7 +93,7 @@ export async function safeFetch(
       const location = response.headers.get("location");
       if (!location) return response;
       currentUrl = new URL(location, currentUrl).toString();
-      validateSourceUrl(currentUrl);
+      await validateSourceUrlWithDns(currentUrl);
       redirectCount++;
       continue;
     }
@@ -98,3 +101,7 @@ export async function safeFetch(
   }
   throw new Error(`Too many redirects (>${MAX_REDIRECTS})`);
 }
+
+// Keep the sync re-export so callers that imported it here still resolve
+// during the transition. Prefer importing from `./utils` directly.
+export { validateSourceUrl };
