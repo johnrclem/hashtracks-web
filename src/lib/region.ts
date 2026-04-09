@@ -2250,6 +2250,88 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 103.82,
     aliases: ["SG", "Republic of Singapore"],
   },
+  // ── Australia (Phase 1a: Perth + Darwin + Canberra) ──
+  {
+    name: "Australia",
+    country: "Australia",
+    level: "COUNTRY",
+    timezone: "Australia/Sydney", // default — per-state timezones override below
+    abbrev: "AU",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#ca8a04",
+    centroidLat: -25.27,
+    centroidLng: 133.77,
+    aliases: ["AU", "Commonwealth of Australia"],
+  },
+  {
+    // NOTE: abbrev is "W.Aus" not "WA" — the "WA" alias is already
+    // claimed by Washington State in the US, and the alias map
+    // overwrites on collision. Keep aliases disjoint so US-WA
+    // lookups still work.
+    name: "Western Australia",
+    country: "Australia",
+    level: "STATE_PROVINCE",
+    timezone: "Australia/Perth",
+    abbrev: "W.Aus",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#b45309",
+    centroidLat: -27.67,
+    centroidLng: 121.63,
+    aliases: ["Western Australia, Australia"],
+  },
+  {
+    name: "Northern Territory",
+    country: "Australia",
+    level: "STATE_PROVINCE",
+    timezone: "Australia/Darwin",
+    abbrev: "NT",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#92400e",
+    centroidLat: -19.49,
+    centroidLng: 132.55,
+    aliases: ["NT"],
+  },
+  {
+    // ACT is a Federal Territory — state-equivalent like DC vs Maryland
+    // or Kuala Lumpur vs Selangor. It's its own top-level region, NOT
+    // parented under New South Wales. See `reference_kl_federal_territory`.
+    name: "Australian Capital Territory",
+    country: "Australia",
+    level: "STATE_PROVINCE",
+    timezone: "Australia/Sydney",
+    abbrev: "ACT",
+    colorClasses: "bg-yellow-200 text-yellow-800",
+    pinColor: "#78350f",
+    centroidLat: -35.47,
+    centroidLng: 149.01,
+    aliases: ["ACT", "Federal Capital Territory"],
+  },
+  {
+    name: "Perth, WA",
+    country: "Australia",
+    timezone: "Australia/Perth",
+    abbrev: "PER",
+    colorClasses: "bg-yellow-200 text-yellow-800",
+    pinColor: "#a16207",
+    centroidLat: -31.9523,
+    centroidLng: 115.8613,
+    aliases: ["Perth", "Perth, Australia"],
+  },
+  {
+    name: "Darwin, NT",
+    country: "Australia",
+    timezone: "Australia/Darwin",
+    abbrev: "DAR",
+    colorClasses: "bg-yellow-200 text-yellow-800",
+    pinColor: "#854d0e",
+    centroidLat: -12.4634,
+    centroidLng: 130.8456,
+    aliases: ["Darwin", "Darwin, Australia"],
+  },
+  // NOTE: No separate "Canberra" metro — ACT is a Federal Territory
+  // (state-equivalent), and Canberra is effectively the entire
+  // territory. Kennels in Canberra attach to "Australian Capital
+  // Territory" directly. Same pattern as "Kuala Lumpur, MY".
   // ── Malaysia — the birthplace of hashing (Mother Hash, KL, 1938) ──
   {
     name: "Malaysia",
@@ -2499,7 +2581,11 @@ export function inferCountry(name: string): string {
   const lower = name.toLowerCase();
   if (/\b(ireland|dublin|cork|galway|limerick)\b/.test(lower)) return "IE";
   if (/\b(uk|england|scotland|wales|london|surrey|sussex)\b/.test(lower)) return "UK";
-  if (/\b(australia|sydney|melbourne|brisbane|perth)\b/.test(lower)) return "Australia";
+  // NOTE: avoid short abbreviations that collide with US state codes —
+  // \bwa\b collides with Washington, \bsa\b with South America-related
+  // strings, \bnt\b is ambiguous. Stick to full names and city names so
+  // "Seattle, WA" still resolves to USA, not Australia.
+  if (/\b(australia|sydney|melbourne|brisbane|perth|adelaide|canberra|darwin|hobart|gold coast|newcastle|wollongong|geelong|tasmania|queensland|victoria|western australia|northern territory|australian capital territory|new south wales)\b/.test(lower)) return "Australia";
   if (/\b(canada|toronto|vancouver|montreal|calgary|edmonton|ottawa|winnipeg)\b/.test(lower)) return "Canada";
   if (/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt)\b/.test(lower)) return "Germany";
   if (/\b(japan|tokyo|osaka)\b/.test(lower)) return "Japan";
@@ -2722,6 +2808,14 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Penang Island, MY": "Penang",
   "Selangor": "Selangor",
   "Penang": "Penang",
+  // Australia — ACT is a Federal Territory (state-equivalent), NOT part
+  // of NSW. WA and NT each own one metro (Perth / Darwin). ACT has no
+  // separate metro — kennels attach directly to the state.
+  "Western Australia": "Western Australia",
+  "Northern Territory": "Northern Territory",
+  "Australian Capital Territory": "Australian Capital Territory",
+  "Perth, WA": "Western Australia",
+  "Darwin, NT": "Northern Territory",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */
@@ -2837,6 +2931,13 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Penang": "Malaysia",
   "Kuala Lumpur, MY": "Malaysia",
   "Penang Island, MY": "Malaysia",
+  // Australia — both states and metros need entries (per
+  // feedback_country_group_map memory). ACT has no separate metro.
+  "Western Australia": "Australia",
+  "Northern Territory": "Australia",
+  "Australian Capital Territory": "Australia",
+  "Perth, WA": "Australia",
+  "Darwin, NT": "Australia",
 };
 
 /** Get the country for a state group name (for 3-level region hierarchy). */

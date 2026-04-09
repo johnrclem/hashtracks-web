@@ -167,6 +167,13 @@ async function ensureRegionRecords(prisma: any) {
     "Alberta": ["Calgary, AB", "Edmonton, AB"],
     // ── UK ──
     "Scotland": ["Edinburgh", "Glasgow"],
+    // ── Australia (Phase 1a: Perth + Darwin + Canberra) ──
+    // Note: Australian Capital Territory is a Federal Territory
+    // (state-equivalent like Kuala Lumpur). Canberra is its own
+    // top-level state region, NOT parented under NSW. Same pattern as
+    // KL vs Selangor — see reference_kl_federal_territory memory.
+    "Western Australia": ["Perth, WA"],
+    "Northern Territory": ["Darwin, NT"],
     // ── Malaysia (Phase 1: KL + Penang founder pack) ──
     // Kuala Lumpur is a Federal Territory, NOT part of Selangor — KL is
     // administratively state-equivalent. Selangor surrounds KL but KL
