@@ -160,6 +160,7 @@ model Kennel {
   sourceProposals   SourceProposal[]
   auditLogs         AuditLog[]         @relation("AuditLogKennel")
   auditSuppressions AuditSuppression[] @relation("AuditSuppressionKennel")
+  auditIssues       AuditIssue[]       @relation("AuditIssueKennel")
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -866,4 +867,65 @@ model AuditSuppression {
   createdBy  String?  // User who created it
 
   @@unique([kennelCode, rule])
+}
+
+// ── AUDIT ISSUE MIRROR ──
+//
+// Mirror of GitHub `audit`-labeled issues, populated by the
+// /api/cron/sync-audit-issues cron. Two tables:
+//
+//   AuditIssue       — current-state snapshot, one row per github issue
+//   AuditIssueEvent  — append-only log of OPENED/CLOSED/REOPENED/RELABELED
+//                      transitions, source of truth for trend math
+//
+// The dashboard's "Findings by stream" panel reads AuditIssueEvent for
+// trends (so reopen cycles + relabels are represented honestly) and the
+// snapshot for "currently open" stat cards.
+
+enum AuditStream {
+  AUTOMATED
+  CHROME_EVENT
+  CHROME_KENNEL
+  UNKNOWN          // pre-cutover history that the backfill couldn't classify
+}
+
+enum AuditIssueEventType {
+  OPENED
+  CLOSED
+  REOPENED
+  RELABELED        // stream changed (manual operator relabel)
+}
+
+model AuditIssue {
+  id              String      @id @default(cuid())
+  githubNumber    Int         @unique
+  stream          AuditStream
+  state           String      // "open" | "closed"
+  title           String
+  htmlUrl         String
+  kennelCode      String?
+  kennel          Kennel?     @relation("AuditIssueKennel", fields: [kennelCode], references: [kennelCode])
+  githubCreatedAt DateTime    // GitHub issue.created_at
+  githubClosedAt  DateTime?   // GitHub issue.closed_at — current closure only
+  syncedAt        DateTime    @updatedAt
+  events          AuditIssueEvent[]
+
+  @@index([stream, state])
+  @@index([kennelCode])
+}
+
+model AuditIssueEvent {
+  id          String              @id @default(cuid())
+  issueId     String
+  issue       AuditIssue          @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  type        AuditIssueEventType
+  stream      AuditStream         // stream at the moment the event fired
+  occurredAt  DateTime            // wall-clock time of the underlying transition
+  observedAt  DateTime            @default(now()) // when the sync detected it
+  fromStream  AuditStream?        // for RELABELED events
+  createdAt   DateTime            @default(now())
+
+  @@index([type, occurredAt])
+  @@index([stream, occurredAt])
+  @@index([issueId, occurredAt])
 }
