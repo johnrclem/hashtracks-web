@@ -1,12 +1,12 @@
 ---
-description: Active data sources catalog — 169 sources across 26+ regions
+description: Active data sources catalog — 176 sources across 26+ regions
 globs:
   - src/adapters/**
   - prisma/seed.ts
   - src/pipeline/**
 ---
 
-# Active Sources (169)
+# Active Sources (176)
 
 ## NYC / NJ / Philly (8 sources)
 - **hashnyc.com** -> HTML_SCRAPER -> 11 NYC-area kennels
@@ -205,6 +205,15 @@ globs:
 ## Arkansas (2 sources)
 - **Little Rock H3 Static Schedule (Sunday)** -> STATIC_SCHEDULE -> lrh3 (weekly Sunday 15:00, historic exception, FB-posted locations)
 - **Little Rock H3 Static Schedule (Wednesday)** -> STATIC_SCHEDULE -> lrh3 (weekly Wednesday 19:00, historic exception, FB-posted locations)
+
+## Malaysia (7 sources — Phase 1: KL + Penang founder pack)
+- **Mother Hash Website** -> HTML_SCRAPER (Google Sites, labeled-field parse) -> motherh3 (weekly Monday 18:00, **1938 — first hash kennel in the world**)
+- **Petaling H3 Hareline** -> HTML_SCRAPER (Yii GridView, shared adapter) -> ph3-my (weekly Saturday, 1977, 1160+ runs) — **gated `enabled:false` pending live verify post-merge**
+- **KL Full Moon H3 Hareline** -> HTML_SCRAPER (Yii GridView, shared adapter) -> klfmh3 (monthly full moon, 1992) — **gated `enabled:false` pending live verify post-merge**
+- **KL Junior H3 Website** -> HTML_SCRAPER (WordPress REST API, body regex) -> kljhhh (monthly 1st Sunday, 1982) — **gated `enabled:false` pending live verify post-merge**
+- **Penang H3 Hareline** -> HTML_SCRAPER (goHash.app SSR, shared adapter) -> penangh3 (weekly Monday 17:30, 1965 — 3rd-oldest kennel ever)
+- **HHH Penang Hareline** -> HTML_SCRAPER (goHash.app SSR, shared adapter) -> hhhpenang (weekly Thursday 17:30, 1972)
+- **Kelana Jaya Harimau Blog** -> HTML_SCRAPER (Blogger API with Run#: title filter + dedup) -> kj-harimau (weekly Tuesday 18:00, 1996)
 
 ## Singapore (7 sources)
 - **Singapore Sunday H3 Harrier Central** -> HARRIER_CENTRAL -> sh3-sg (alternate Sundays, kennel ID SH3-SG)
