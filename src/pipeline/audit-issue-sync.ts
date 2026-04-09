@@ -54,6 +54,7 @@ export interface SyncResult {
   closed: number;
   reopened: number;
   relabeled: number;
+  delisted: number;
   errors: string[];
 }
 
@@ -252,6 +253,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
     closed: 0,
     reopened: 0,
     relabeled: 0,
+    delisted: 0,
     errors: [],
   };
 
@@ -281,9 +283,13 @@ export async function syncAuditIssues(): Promise<SyncResult> {
     const kennelRows = await tx.kennel.findMany({ select: { kennelCode: true } });
     const knownKennelCodes = new Set(kennelRows.map((k) => k.kennelCode));
 
-    const allMirrored = await tx.auditIssue.findMany({ select: { id: true, githubNumber: true } });
+    const allMirrored = await tx.auditIssue.findMany({
+      select: { id: true, githubNumber: true, delistedAt: true },
+    });
     const fetchedNumbers = new Set(githubNumbers);
-    const staleIds = allMirrored.filter((m) => !fetchedNumbers.has(m.githubNumber)).map((m) => m.id);
+    const staleIds = allMirrored
+      .filter((m) => !fetchedNumbers.has(m.githubNumber) && m.delistedAt === null)
+      .map((m) => m.id);
 
     const now = new Date();
     const eventsToAppend: EventToAppend[] = [];
@@ -292,17 +298,26 @@ export async function syncAuditIssues(): Promise<SyncResult> {
       try {
         const labelNames = extractLabelNames(issue.labels);
         const streamResolution = resolveStream(labelNames);
-        const { stream } = streamResolution;
-        if (streamResolution.conflict) {
-          result.errors.push(
-            `#${issue.number}: multi-stream label conflict — bucketed as UNKNOWN`,
-          );
-        }
         const kennelCode = resolveKennel(labelNames, knownKennelCodes);
         const githubCreatedAt = new Date(issue.created_at);
         const githubClosedAt = issue.closed_at ? new Date(issue.closed_at) : null;
 
         const prior = priorByNumber.get(issue.number) ?? null;
+
+        // Multi-stream conflict: preserve the prior stream in the snapshot
+        // (never overwrite known-good attribution with UNKNOWN) and skip
+        // RELABELED emission so the event log isn't polluted with synthetic
+        // transitions. The issue still surfaces as an error in the cron
+        // summary so operators know manual repair is needed.
+        let stream: AuditStream;
+        if (streamResolution.conflict) {
+          stream = prior?.stream ?? AuditStream.UNKNOWN;
+          result.errors.push(
+            `#${issue.number}: multi-stream label conflict — preserving prior stream=${stream}`,
+          );
+        } else {
+          stream = streamResolution.stream;
+        }
 
         const newEvents = diffIssue(
           prior
@@ -317,7 +332,9 @@ export async function syncAuditIssues(): Promise<SyncResult> {
         );
 
         // Upsert the snapshot. We need the row id to attach events; doing the
-        // upsert first lets us batch the events afterwards.
+        // upsert first lets us batch the events afterwards. `delistedAt` is
+        // cleared on every update so a re-listed issue (operator re-added
+        // the `audit` label) automatically comes back into the dashboard.
         const upserted = await tx.auditIssue.upsert({
           where: { githubNumber: issue.number },
           create: {
@@ -337,6 +354,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             htmlUrl: issue.html_url,
             kennelCode: kennelCode ?? null,
             githubClosedAt: githubClosedAt ?? null,
+            delistedAt: null,
           },
         });
 
@@ -364,18 +382,24 @@ export async function syncAuditIssues(): Promise<SyncResult> {
       });
     }
 
-    // Stale-row reconciliation. Cascading FK delete on AuditIssueEvent keeps
-    // the historical event log only when the snapshot is preserved — when
-    // the snapshot row is deleted (operator removed the `audit` label), the
-    // associated events go with it. That's the right semantics for "this
-    // issue was never an audit issue after all".
+    // Soft-delete reconciliation. Rows that fell out of the audit corpus
+    // get `delistedAt` set but the snapshot + AuditIssueEvent history are
+    // preserved. The prior code hard-deleted the snapshot, which cascaded
+    // through the FK and permanently wiped historical trend data every
+    // time an operator temporarily relabeled an issue. Dashboard queries
+    // filter on `delistedAt IS NULL` for current-state counts but the
+    // event log stays untouched for trend math.
     if (staleIds.length > 0) {
-      await tx.auditIssue.deleteMany({ where: { id: { in: staleIds } } });
+      await tx.auditIssue.updateMany({
+        where: { id: { in: staleIds } },
+        data: { delistedAt: now },
+      });
+      result.delisted = staleIds.length;
     }
   });
 
   console.log(
-    `[audit-sync] scanned=${result.scanned} opened=${result.opened} closed=${result.closed} reopened=${result.reopened} relabeled=${result.relabeled} errors=${result.errors.length}`,
+    `[audit-sync] scanned=${result.scanned} opened=${result.opened} closed=${result.closed} reopened=${result.reopened} relabeled=${result.relabeled} delisted=${result.delisted} errors=${result.errors.length}`,
   );
   return result;
 }

@@ -537,7 +537,7 @@ export async function getOpenIssueCountsByStream(): Promise<StreamOpenCounts[]> 
   const [snapshot, recentEvents] = await Promise.all([
     prisma.auditIssue.groupBy({
       by: ["stream"],
-      where: { state: "open" },
+      where: { state: "open", delistedAt: null },
       _count: { _all: true },
     }),
     prisma.auditIssueEvent.findMany({
@@ -590,7 +590,7 @@ export interface RecentOpenIssue {
 export async function getRecentOpenIssues(limit = 30): Promise<RecentOpenIssue[]> {
   await requireAdmin();
   return prisma.auditIssue.findMany({
-    where: { state: "open" },
+    where: { state: "open", delistedAt: null },
     select: {
       githubNumber: true,
       title: true,

@@ -32,7 +32,17 @@ export async function POST(request: Request) {
 
   try {
     const issueSync = await syncAuditIssues();
-    return NextResponse.json({ data: { labelSync: labelSyncSummary, issueSync } });
+    // Per-issue failures are collected in `issueSync.errors[]` rather than
+    // thrown, so the sync always completes as much work as possible. But
+    // returning 200 on a partially-stale mirror would hide the problem from
+    // cron monitoring and the dashboard would silently drift. Surface any
+    // partial failure as a 207 (Multi-Status) so Vercel's cron health check
+    // fails loudly and operators notice.
+    const status = issueSync.errors.length > 0 ? 207 : 200;
+    return NextResponse.json(
+      { data: { labelSync: labelSyncSummary, issueSync } },
+      { status },
+    );
   } catch (err) {
     console.error("[sync-audit-issues] Fatal error:", err);
     return NextResponse.json(
