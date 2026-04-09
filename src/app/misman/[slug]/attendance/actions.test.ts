@@ -182,7 +182,7 @@ describe("removeAttendance", () => {
     } as never);
 
     expect(await removeAttendance("kennel_1", "ka_1")).toEqual({
-      error: "Not authorized",
+      error: "Attendance record not found",
     });
     expect(prisma.kennelAttendance.delete).not.toHaveBeenCalled();
   });
@@ -223,7 +223,7 @@ describe("updateAttendance", () => {
     } as never);
 
     const result = await updateAttendance("kennel_1", "ka_1", { paid: true });
-    expect(result).toEqual({ error: "Not authorized" });
+    expect(result).toEqual({ error: "Attendance record not found" });
   });
 
   it("updates specific fields", async () => {
@@ -259,7 +259,7 @@ describe("clearEventAttendance", () => {
     } as never);
 
     const result = await clearEventAttendance("kennel_1", "event_foreign");
-    expect(result).toEqual({ error: "Not authorized" });
+    expect(result).toEqual({ error: "Event not found" });
     expect(prisma.kennelAttendance.deleteMany).not.toHaveBeenCalled();
   });
 

@@ -422,7 +422,7 @@ describe("dismissUserLink", () => {
     } as never);
 
     expect(await dismissUserLink("kennel_1", "link_foreign")).toEqual({
-      error: "Not authorized",
+      error: "Link not found",
     });
     expect(prisma.kennelHasherLink.update).not.toHaveBeenCalled();
   });
@@ -466,7 +466,7 @@ describe("revokeUserLink", () => {
     } as never);
 
     expect(await revokeUserLink("kennel_1", "link_foreign")).toEqual({
-      error: "Not authorized",
+      error: "Link not found",
     });
     expect(prisma.kennelHasherLink.update).not.toHaveBeenCalled();
   });

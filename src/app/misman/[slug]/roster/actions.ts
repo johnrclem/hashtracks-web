@@ -461,11 +461,10 @@ export async function dismissUserLink(kennelId: string, linkId: string) {
       },
     }),
   ]);
-  if (!link) return { error: "Link not found" };
-
-  // Roster-scope check (IDOR prevention).
-  if (link.kennelHasher.rosterGroupId !== rosterGroupId) {
-    return { error: "Not authorized" };
+  // Roster-scope check (IDOR prevention): collapse scope miss + missing
+  // link into a single 404 so foreign link IDs aren't distinguishable.
+  if (!link || link.kennelHasher.rosterGroupId !== rosterGroupId) {
+    return { error: "Link not found" };
   }
 
   await prisma.kennelHasherLink.update({
@@ -498,11 +497,10 @@ export async function revokeUserLink(kennelId: string, linkId: string) {
       },
     }),
   ]);
-  if (!link) return { error: "Link not found" };
-
-  // Roster-scope check (IDOR prevention).
-  if (link.kennelHasher.rosterGroupId !== rosterGroupId) {
-    return { error: "Not authorized" };
+  // Roster-scope check (IDOR prevention): same 404 for missing and
+  // out-of-scope link IDs.
+  if (!link || link.kennelHasher.rosterGroupId !== rosterGroupId) {
+    return { error: "Link not found" };
   }
 
   if (link.status !== "CONFIRMED") {

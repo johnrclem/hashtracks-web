@@ -7,7 +7,10 @@
  * DNS-rebinding protection: `validateSourceUrlWithDns` resolves each
  * hostname and re-validates every A/AAAA record against private ranges.
  */
-import { validateSourceUrl, validateSourceUrlWithDns } from "./utils";
+import { validateSourceUrlWithDns } from "./utils";
+
+// Re-export the sync variant for callers that imported it here historically.
+export { validateSourceUrl } from "./utils";
 
 const MAX_REDIRECTS = 5;
 
@@ -101,7 +104,3 @@ export async function safeFetch(
   }
   throw new Error(`Too many redirects (>${MAX_REDIRECTS})`);
 }
-
-// Keep the sync re-export so callers that imported it here still resolve
-// during the transition. Prefer importing from `./utils` directly.
-export { validateSourceUrl };

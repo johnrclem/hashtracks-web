@@ -84,14 +84,6 @@ export async function submitFeedback(
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
 
-  const rate = checkFeedbackRateLimit(user.id);
-  if (!rate.allowed) {
-    const minutes = Math.max(1, Math.ceil(rate.retryAfterMs / 60_000));
-    return {
-      error: `Too many feedback submissions. Please try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.`,
-    };
-  }
-
   const token = process.env.GITHUB_TOKEN;
   if (!token) return { error: "Feedback system not configured" };
 
@@ -104,6 +96,16 @@ export async function submitFeedback(
   if (title.length > 200) return { error: "Title is too long (max 200 characters)" };
   if (!description) return { error: "Description is required" };
   if (description.length > 5000) return { error: "Description is too long (max 5,000 characters)" };
+
+  // Rate-limit only after the request has passed basic validation so that
+  // user typos and misconfiguration don't consume the hourly/daily quota.
+  const rate = checkFeedbackRateLimit(user.id);
+  if (!rate.allowed) {
+    const minutes = Math.max(1, Math.ceil(rate.retryAfterMs / 60_000));
+    return {
+      error: `Too many feedback submissions. Please try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+    };
+  }
 
   // Sanitize @claude mentions to prevent accidental workflow triggering (matches auto-issue.ts pattern)
   const sanitize = (s: string) => s.replaceAll("@claude", "@\u200Bclaude");

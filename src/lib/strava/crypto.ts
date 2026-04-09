@@ -11,10 +11,11 @@
  * continue to work during the rollover window. A one-off re-encryption
  * script (or a lazy re-encrypt on refresh) can migrate them over time.
  *
- * Key-not-set fallback: if `STRAVA_TOKEN_KEY` is not configured (local dev
- * without the env var, or CI), encryption is a no-op and the plaintext is
- * stored as-is. `decryptToken()` will still pass it through. This keeps the
- * module import-safe and tests green without secrets.
+ * Production vs development: in `NODE_ENV=production` the module fails
+ * closed if `STRAVA_TOKEN_KEY` is missing — `encryptToken()` throws instead
+ * of silently storing plaintext. In local dev / CI the key can be unset
+ * and encryption degrades to a no-op so tests and `npm run dev` keep
+ * working without the secret.
  */
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
@@ -26,18 +27,28 @@ const PREFIX = "enc:v1:";
 function loadKey(): Buffer | null {
   const keyHex = process.env.STRAVA_TOKEN_KEY;
   if (!keyHex) return null;
-  if (keyHex.length !== 64) {
+  if (!/^[0-9a-fA-F]{64}$/.test(keyHex)) {
     throw new Error(
-      "STRAVA_TOKEN_KEY must be 32 bytes encoded as 64 hex characters",
+      "STRAVA_TOKEN_KEY must be exactly 64 hex characters (32 bytes)",
     );
   }
   return Buffer.from(keyHex, "hex");
 }
 
-/** Encrypt a Strava OAuth token for storage. No-op if STRAVA_TOKEN_KEY is unset. */
+/**
+ * Encrypt a Strava OAuth token for storage. Throws in production if
+ * `STRAVA_TOKEN_KEY` is not configured; no-ops to plaintext in dev/CI.
+ */
 export function encryptToken(plaintext: string): string {
   const key = loadKey();
-  if (!key) return plaintext;
+  if (!key) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "STRAVA_TOKEN_KEY is required in production for at-rest token encryption",
+      );
+    }
+    return plaintext;
+  }
 
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv(ALGORITHM, key, iv);

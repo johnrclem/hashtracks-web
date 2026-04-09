@@ -333,6 +333,27 @@ describe("validateSourceUrl", () => {
   it("rejects IPv6 link-local (fe80::)", () => {
     expect(() => validateSourceUrl("http://[fe80::1]")).toThrow("private/reserved IP");
   });
+
+  it("blocks octal-notation IPv4 (e.g. 0177.0.0.1 = 127.0.0.1)", () => {
+    // Node's URL parser normalizes `0177.0.0.1` to `127.0.0.1` before the
+    // hostname reaches our validator, so it ends up in the private-IPv4
+    // branch. The important invariant is that the URL is blocked.
+    expect(() => validateSourceUrl("http://0177.0.0.1")).toThrow(/private\/reserved IP/);
+  });
+
+  it("blocks integer-form IPv4 (2130706433 = 127.0.0.1)", () => {
+    expect(() => validateSourceUrl("http://2130706433")).toThrow(/private\/reserved IP/);
+  });
+
+  it("rejects malformed dotted-quad (octet > 255)", () => {
+    // Node's URL parser rejects `1234.0.0.1` outright.
+    expect(() => validateSourceUrl("http://1234.0.0.1")).toThrow();
+  });
+
+  it("accepts normal dotted-quad with single-zero octets", () => {
+    expect(() => validateSourceUrl("http://192.0.2.1")).not.toThrow();
+    expect(() => validateSourceUrl("http://203.0.113.5")).not.toThrow();
+  });
 });
 
 describe("validateSourceUrlWithDns", () => {

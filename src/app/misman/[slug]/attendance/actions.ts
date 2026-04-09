@@ -137,6 +137,8 @@ export async function removeAttendance(kennelId: string, attendanceId: string) {
 
   // Roster-scope check (IDOR prevention): fetch the attendance together
   // with its event.kennelId and compare against the caller's roster group.
+  // Returns the same 404-style error for both "not found" and "out of
+  // scope" so the existence of foreign records isn't leaked.
   const [record, rosterKennelIds] = await Promise.all([
     prisma.kennelAttendance.findUnique({
       where: { id: attendanceId },
@@ -144,9 +146,8 @@ export async function removeAttendance(kennelId: string, attendanceId: string) {
     }),
     getRosterKennelIds(kennelId),
   ]);
-  if (!record) return { error: "Attendance record not found" };
-  if (!rosterKennelIds.includes(record.event.kennelId)) {
-    return { error: "Not authorized" };
+  if (!record || !rosterKennelIds.includes(record.event.kennelId)) {
+    return { error: "Attendance record not found" };
   }
 
   await prisma.kennelAttendance.delete({ where: { id: attendanceId } });
@@ -207,7 +208,8 @@ export async function updateAttendance(
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  // Roster-scope check (IDOR prevention).
+  // Roster-scope check (IDOR prevention). Mirrors removeAttendance —
+  // scope misses return the same 404 as nonexistent IDs.
   const [record, rosterKennelIds] = await Promise.all([
     prisma.kennelAttendance.findUnique({
       where: { id: attendanceId },
@@ -215,9 +217,8 @@ export async function updateAttendance(
     }),
     getRosterKennelIds(kennelId),
   ]);
-  if (!record) return { error: "Attendance record not found" };
-  if (!rosterKennelIds.includes(record.event.kennelId)) {
-    return { error: "Not authorized" };
+  if (!record || !rosterKennelIds.includes(record.event.kennelId)) {
+    return { error: "Attendance record not found" };
   }
 
   const before: Record<string, unknown> = {};
@@ -257,7 +258,8 @@ export async function clearEventAttendance(kennelId: string, eventId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  // Roster-scope check (IDOR prevention).
+  // Roster-scope check (IDOR prevention). Collapse scope miss + missing
+  // event into a single not-found response.
   const [event, rosterKennelIds] = await Promise.all([
     prisma.event.findUnique({
       where: { id: eventId },
@@ -266,7 +268,7 @@ export async function clearEventAttendance(kennelId: string, eventId: string) {
     getRosterKennelIds(kennelId),
   ]);
   if (!event || !rosterKennelIds.includes(event.kennelId)) {
-    return { error: "Not authorized" };
+    return { error: "Event not found" };
   }
 
   const result = await prisma.kennelAttendance.deleteMany({

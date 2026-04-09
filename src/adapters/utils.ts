@@ -145,6 +145,46 @@ function checkIPv6Private(bare: string): void {
 }
 
 /**
+ * Block ambiguous dotted-IPv4 notations that bypass the standard
+ * `(\d{1,3}).(\d{1,3}).(\d{1,3}).(\d{1,3})` regex. Specifically: octets
+ * with leading zeros (interpreted as octal by `getaddrinfo`) and octets
+ * longer than 3 digits. `getaddrinfo` — and therefore Node's
+ * `dns.lookup` — will silently interpret `0177.0.0.1` as `127.0.0.1`,
+ * so we reject these forms outright before any DNS is involved.
+ */
+function checkAmbiguousDottedQuad(ip: string): void {
+  const parts = ip.split(".");
+  if (parts.length !== 4) return;
+  if (!parts.every((p) => /^[0-9a-f]+$/i.test(p))) return;
+  if (parts.some((p) => /^0\d/.test(p) || p.length > 3)) {
+    throw new Error("Blocked URL: ambiguous IPv4 notation");
+  }
+}
+
+/**
+ * Return true if a DNS-resolved address is in a private/reserved range.
+ * Handles both IPv4 and IPv4-mapped IPv6 answers plus IPv6 loopback /
+ * unique-local / link-local ranges.
+ */
+function isDnsResolvedPrivate(address: string, family: number): boolean {
+  const lower = address.toLowerCase();
+  const candidate = family === 6 ? resolveIPv4Mapped(lower) : lower;
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(candidate);
+  if (v4) {
+    const [, a, b, c, d] = v4.map(Number);
+    return isPrivateIPv4(a, b, c, d);
+  }
+  if (family === 6) {
+    try {
+      checkIPv6Private(lower);
+    } catch {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Validate a source URL is safe for server-side fetching (SSRF prevention).
  * Blocks non-HTTP protocols, localhost, private IPs (including alternate
  * representations like decimal, hex, octal, IPv4-mapped IPv6), and cloud
@@ -170,6 +210,9 @@ export function validateSourceUrl(url: string): void {
 
   const bare = hostname.replace(/^\[/, "").replace(/\]$/, "");
   const ipToCheck = resolveIPv4Mapped(bare);
+
+  // Reject ambiguous dotted-quad (octal / padded) before the strict regex.
+  checkAmbiguousDottedQuad(ipToCheck);
 
   // Check dotted IPv4 (standard notation)
   const ipv4Match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ipToCheck);
@@ -218,30 +261,8 @@ export async function validateSourceUrlWithDns(url: string): Promise<void> {
   }
 
   for (const { address, family } of addresses) {
-    if (family === 4) {
-      const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(address);
-      if (m) {
-        const [, a, b, c, d] = m.map(Number);
-        if (isPrivateIPv4(a, b, c, d)) {
-          throw new Error("Blocked URL: DNS resolved to private/reserved IP");
-        }
-      }
-    } else if (family === 6) {
-      // Reuse the v4-mapped resolver to catch ::ffff:127.0.0.1 style answers.
-      const resolved = resolveIPv4Mapped(address.toLowerCase());
-      const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(resolved);
-      if (v4) {
-        const [, a, b, c, d] = v4.map(Number);
-        if (isPrivateIPv4(a, b, c, d)) {
-          throw new Error("Blocked URL: DNS resolved to private/reserved IP");
-        }
-      } else {
-        try {
-          checkIPv6Private(address.toLowerCase());
-        } catch {
-          throw new Error("Blocked URL: DNS resolved to private/reserved IP");
-        }
-      }
+    if (isDnsResolvedPrivate(address, family)) {
+      throw new Error("Blocked URL: DNS resolved to private/reserved IP");
     }
   }
 }

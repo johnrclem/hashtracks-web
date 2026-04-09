@@ -34,16 +34,39 @@ describe("strava token crypto", () => {
     expect(decryptToken(legacy)).toBe(legacy);
   });
 
-  it("is a no-op when STRAVA_TOKEN_KEY is unset", () => {
+  it("is a no-op when STRAVA_TOKEN_KEY is unset in non-production", () => {
     delete process.env.STRAVA_TOKEN_KEY;
+    // vitest sets NODE_ENV=test by default; keep it that way
     const plaintext = "token";
     expect(encryptToken(plaintext)).toBe(plaintext);
     expect(decryptToken(plaintext)).toBe(plaintext);
   });
 
-  it("rejects a non-32-byte key", () => {
+  it("fails closed in production when STRAVA_TOKEN_KEY is unset", () => {
+    delete process.env.STRAVA_TOKEN_KEY;
+    const originalEnv = process.env.NODE_ENV;
+    // @types/node marks NODE_ENV as readonly; cast through `unknown` to
+    // a mutable record to override it for this single test.
+    const mutableEnv = process.env as unknown as Record<string, string>;
+    mutableEnv.NODE_ENV = "production";
+    try {
+      expect(() => encryptToken("token")).toThrow(
+        /STRAVA_TOKEN_KEY is required in production/,
+      );
+    } finally {
+      if (originalEnv === undefined) delete mutableEnv.NODE_ENV;
+      else mutableEnv.NODE_ENV = originalEnv;
+    }
+  });
+
+  it("rejects a too-short key", () => {
     process.env.STRAVA_TOKEN_KEY = "deadbeef";
-    expect(() => encryptToken("token")).toThrow(/32 bytes/);
+    expect(() => encryptToken("token")).toThrow(/64 hex characters/);
+  });
+
+  it("rejects a non-hex key even with correct length", () => {
+    process.env.STRAVA_TOKEN_KEY = "z".repeat(64);
+    expect(() => encryptToken("token")).toThrow(/64 hex characters/);
   });
 
   it("throws when asked to decrypt enc:v1: payload without a key", () => {

@@ -320,7 +320,11 @@ describe("redeemMismanInvite", () => {
 
     expect(prisma.mismanInvite.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "mi_1", status: "PENDING" },
+        where: expect.objectContaining({
+          id: "mi_1",
+          status: "PENDING",
+          expiresAt: expect.objectContaining({ gt: expect.any(Date) }),
+        }),
         data: expect.objectContaining({
           status: "ACCEPTED",
           acceptedBy: "user_1",

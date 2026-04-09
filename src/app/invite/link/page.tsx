@@ -103,49 +103,50 @@ export default async function ProfileLinkInvitePage({ searchParams }: Props) {
   const user = await getOrCreateUser();
 
   if (user) {
-    // Authenticated: redeem invite
-    // Check if user is already linked to another hasher in the same roster group
-    const existingLink = await prisma.kennelHasherLink.findFirst({
-      where: {
-        userId: user.id,
-        status: "CONFIRMED",
-        kennelHasher: { rosterGroupId: hasher.rosterGroupId },
-      },
-      include: { kennelHasher: { select: { hashName: true } } },
-    });
+    // Atomically: (1) re-check same-roster conflict, (2) consume the invite
+    // token (still valid + not expired), (3) create/update the link. All
+    // three steps run in one transaction so two concurrent redeems of the
+    // same token, or two different tokens for the same roster group, can't
+    // both succeed — the loser sees updateMany/findFirst behaviour that
+    // rolls the transaction back.
+    type RedeemResult =
+      | { outcome: "ok" }
+      | { outcome: "raced" }
+      | { outcome: "already-linked"; hashName: string | null };
 
-    if (existingLink) {
-      return (
-        <div className="mx-auto max-w-md space-y-6 py-12">
-          <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center">
-            <h1 className="text-xl font-bold">Already Connected</h1>
-            <p className="mt-2 text-muted-foreground">
-              Your account is already linked to{" "}
-              <strong>{existingLink.kennelHasher.hashName}</strong> in this
-              roster group. Contact the kennel manager if this is incorrect.
-            </p>
-            <Button asChild className="mt-4" variant="outline">
-              <Link href="/profile">Go to Profile</Link>
-            </Button>
-          </div>
-        </div>
-      );
-    }
+    const result = await prisma.$transaction(async (tx): Promise<RedeemResult> => {
+      const existingLink = await tx.kennelHasherLink.findFirst({
+        where: {
+          userId: user.id,
+          status: "CONFIRMED",
+          kennelHasher: { rosterGroupId: hasher.rosterGroupId },
+        },
+        include: { kennelHasher: { select: { hashName: true } } },
+      });
+      if (existingLink) {
+        return {
+          outcome: "already-linked",
+          hashName: existingLink.kennelHasher.hashName,
+        };
+      }
 
-    // Atomically consume the invite token AND create the link. The
-    // updateMany filter on profileInviteToken = token makes a concurrent
-    // redeem of the same token return count = 0, rolling the transaction
-    // back without creating a duplicate link.
-    const result = await prisma.$transaction(async (tx) => {
+      const now = new Date();
       const cleared = await tx.kennelHasher.updateMany({
-        where: { id: hasher.id, profileInviteToken: token },
+        where: {
+          id: hasher.id,
+          profileInviteToken: token,
+          OR: [
+            { profileInviteExpiresAt: null },
+            { profileInviteExpiresAt: { gt: now } },
+          ],
+        },
         data: {
           profileInviteToken: null,
           profileInviteExpiresAt: null,
           profileInvitedBy: null,
         },
       });
-      if (cleared.count === 0) return { raced: true as const };
+      if (cleared.count === 0) return { outcome: "raced" };
 
       if (hasher.userLink) {
         await tx.kennelHasherLink.update({
@@ -168,10 +169,28 @@ export default async function ProfileLinkInvitePage({ searchParams }: Props) {
           },
         });
       }
-      return { raced: false as const };
+      return { outcome: "ok" };
     });
 
-    if (result.raced) {
+    if (result.outcome === "already-linked") {
+      return (
+        <div className="mx-auto max-w-md space-y-6 py-12">
+          <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center">
+            <h1 className="text-xl font-bold">Already Connected</h1>
+            <p className="mt-2 text-muted-foreground">
+              Your account is already linked to{" "}
+              <strong>{result.hashName}</strong> in this roster group. Contact
+              the kennel manager if this is incorrect.
+            </p>
+            <Button asChild className="mt-4" variant="outline">
+              <Link href="/profile">Go to Profile</Link>
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    if (result.outcome === "raced") {
       redirect("/profile?linked=already");
     }
 
