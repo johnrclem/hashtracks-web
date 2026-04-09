@@ -442,5 +442,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "penangh3": ["PenangH3", "Penang Hash", "Penang H3", "PH3 Penang", "Penang HHH", "Penang Hash House Harriers"],
     "hhhpenang": ["Harriets Penang", "HHHPenang", "Penang Harriets", "Hash House Harriets Penang", "HHH Penang"],
     "kj-harimau": ["KJH3", "Kelana Jaya H3", "Harimau H3", "KJ Harimau", "Kelana Jaya Harimau", "KHHHKJ", "KHHH KJ"],
+    // Australia (Phase 1a — Perth + Darwin + Canberra)
+    "perth-h3": ["Perth H3", "PerthH3", "Perth Hash", "Perth HHH", "Perth Hash House Harriers", "PH3 Perth"],
+    "top-end-h3": ["Top End H3", "Top End Hash", "Darwin H3", "Darwin Hash", "Top End Hash House Harriers", "Darwin HHH", "TEH3", "TopEndHash"],
+    "capital-h3-au": ["Capital H3", "Capital Hash", "Canberra H3", "Canberra Hash", "Capital Hash House Harriers", "Canberra HHH", "ACT Hash", "CapitalHash"],
   };
 

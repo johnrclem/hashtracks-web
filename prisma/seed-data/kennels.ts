@@ -2867,5 +2867,33 @@ export const KENNELS: KennelSeed[] = [
       description: "Founded 20 August 1996 in Kelana Jaya, Selangor. A men-only (batang) hash kennel that runs every Tuesday evening. Now on Run #1548+. 'Harimau' means tiger in Malay.",
       latitude: 3.105, longitude: 101.596,
     },
+    // ─── Australia Phase 1a: Perth + Darwin + Canberra ───
+    {
+      kennelCode: "perth-h3", shortName: "Perth H3", fullName: "Perth Hash House Harriers",
+      region: "Perth, WA", country: "Australia",
+      website: "https://www.perthhash.com",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Monday hash around Perth metro. Events published via The Events Calendar (Tribe) plugin at perthhash.com. 30+ upcoming runs visible.",
+      description: "Perth's senior mixed hash kennel in Western Australia. Runs every Monday evening around the greater Perth metro area.",
+      latitude: -31.9523, longitude: 115.8613,
+    },
+    {
+      kennelCode: "top-end-h3", shortName: "Top End H3", fullName: "Top End Hash House Harriers (Darwin)",
+      region: "Darwin, NT", country: "Australia",
+      website: "https://topendhash.com",
+      scheduleDayOfWeek: "Friday", scheduleTime: "5:45 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Friday hash in the Top End (Darwin, NT). Events managed via WordPress Events Manager plugin at topendhash.com. 50+ runs in the archive.",
+      description: "Darwin's mixed hash kennel covering the Top End of the Northern Territory. Weekly Friday runs.",
+      latitude: -12.4634, longitude: 130.8456,
+    },
+    {
+      kennelCode: "capital-h3-au", shortName: "Capital H3", fullName: "Capital Hash House Harriers (Canberra)",
+      region: "Australian Capital Territory", country: "Australia",
+      website: "https://www.capitalhash.com",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Canberra's main hash kennel. Schedule published via an embedded Google Calendar on capitalhash.com.",
+      description: "Canberra's senior hash kennel, meeting in and around the national capital and the Australian Capital Territory. Mixed kennel with weekly Monday evening runs.",
+      latitude: -35.2809, longitude: 149.1300,
+    },
   ];
 

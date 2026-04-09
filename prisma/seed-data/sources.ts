@@ -3317,5 +3317,57 @@ export const SOURCES = [
       },
       kennelCodes: ["pormeh3", "knightvillian"],
     },
+
+    // ─── Australia Phase 1a: Perth + Darwin + Canberra (zero new code) ───
+
+    // 1. Perth H3 — WordPress + The Events Calendar (Tribe) plugin.
+    // Tribe exposes iCal at /?post_type=tribe_events&ical=1&eventDisplay=list.
+    // Feed has 30+ VEVENTs with structured SUMMARY "Run NNNN - Hare".
+    {
+      name: "Perth H3 Hareline",
+      url: "https://www.perthhash.com/?post_type=tribe_events&ical=1&eventDisplay=list",
+      type: "ICAL_FEED" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        defaultKennelTag: "perth-h3",
+      },
+      kennelCodes: ["perth-h3"],
+    },
+
+    // 2. Top End Hash (Darwin) — WordPress + Events Manager plugin.
+    // Events Manager exposes iCal at /?post_type=event&ical=1&limit=50.
+    // Feed mixes past + future events; the iCal adapter window-filters.
+    {
+      name: "Top End Hash Hareline",
+      url: "https://topendhash.com/?post_type=event&ical=1&limit=50",
+      type: "ICAL_FEED" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        defaultKennelTag: "top-end-h3",
+      },
+      kennelCodes: ["top-end-h3"],
+    },
+
+    // 3. Capital Hash (Canberra) — Google Calendar embed on the Joomla
+    // homepage at capitalhash.com. The iframe src= param is
+    // base64-encoded; decoded ID verified via Chrome in round-2. The
+    // GOOGLE_CALENDAR adapter reads the calendar ID from `url`, NOT
+    // from `config.calendarId`.
+    {
+      name: "Capital Hash Calendar",
+      url: "i5joq71itadqf41njhm1iv0vec@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "every_6h",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "capital-h3-au",
+      },
+      kennelCodes: ["capital-h3-au"],
+    },
   ];
 
