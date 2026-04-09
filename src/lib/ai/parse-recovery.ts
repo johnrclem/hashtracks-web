@@ -160,9 +160,13 @@ async function recoverSingleError(
   const parsed = parseGeminiResponse(geminiResponse.text, parseError);
   if (!parsed) return null;
 
-  // Merge: partialData (deterministic) + AI-extracted fields
+  // Merge: partialData (deterministic) + AI-extracted fields. Prefer the
+  // per-error kennelTag over the scrape-wide default so multi-kennel sources
+  // (HASHREGO, SFH3, Phoenix, etc.) don't recover events under the wrong
+  // kennel — `kennelTag` arg is a fallback for adapters that haven't started
+  // populating partialData.kennelTag yet.
   const merged: RawEventData = {
-    kennelTag,
+    kennelTag: parseError.partialData?.kennelTag ?? kennelTag,
     date: parseError.partialData?.date ?? parsed.event.date ?? "",
     title: parseError.partialData?.title ?? parsed.event.title,
     hares: parseError.partialData?.hares ?? parsed.event.hares,

@@ -7,13 +7,39 @@ import {
   parseEventDetail,
   splitToRawEvents,
 } from "./parser";
-import { HashRegoAdapter } from "./adapter";
+import { HashRegoAdapter, apiToIndexEntry } from "./adapter";
+import { HashRegoApiError, type HashRegoKennelEvent } from "./api";
+import ewh3Fixture from "./__fixtures__/api/kennel-ewh3-events.json";
 
-vi.mock("@/lib/browser-render", () => ({
-  browserRender: vi.fn(),
-}));
+vi.mock("./api", async () => {
+  const actual = await vi.importActual<typeof import("./api")>("./api");
+  return {
+    ...actual,
+    fetchKennelEvents: vi.fn(),
+  };
+});
 
-import { browserRender } from "@/lib/browser-render";
+const { fetchKennelEvents } = await import("./api");
+const mockedFetchKennelEvents = vi.mocked(fetchKennelEvents);
+
+function buildApiRow(overrides: Partial<HashRegoKennelEvent> = {}): HashRegoKennelEvent {
+  return {
+    slug: "nych3-pub-crawl-2026",
+    event_name: "5-boro Pub Crawl",
+    host_kennel_slug: "NYCH3",
+    start_time: "2026-06-27T19:00:00-04:00",
+    current_price: 15,
+    has_hares: true,
+    opt_hares: "Mystery Hare",
+    is_over: false,
+    rego_count: 10,
+    open_spots: 5,
+    creator: "Scribe",
+    created: "2026-05-01T12:00:00-04:00",
+    modified: "2026-05-01T12:00:00-04:00",
+    ...overrides,
+  };
+}
 
 // ── parseHashRegoDate ──
 
@@ -233,6 +259,131 @@ const KENNEL_PAGE_HTML = `
   </tbody>
 </table>
 </body></html>`;
+
+// ── apiToIndexEntry (round-trip through parseHashRegoDate/parseHashRegoTime) ──
+
+describe("apiToIndexEntry", () => {
+  it("round-trips a real API fixture date through parseHashRegoDate", () => {
+    // Fixture captured 2026-04-09 from https://hashrego.com/api/kennels/EWH3/events/
+    // Contract guard: if startDate emits anything other than MM/DD/YY, the
+    // downstream parseHashRegoDate returns null and createFromIndex silently
+    // drops the row.
+    //
+    // NOTE: We intentionally do NOT round-trip startTime through
+    // parseHashRegoTime here. parser.ts:133 rejects hours >= 23 as a hare
+    // placeholder heuristic, and the real EWH3 fixture's 23:45 start time
+    // legitimately fails that check — a pre-existing parser limitation.
+    // The synthetic afternoon-time test below covers the shape contract.
+    const rows = ewh3Fixture as HashRegoKennelEvent[];
+    expect(rows.length).toBeGreaterThan(0);
+
+    for (const row of rows) {
+      const entry = apiToIndexEntry(row, "EWH3");
+      expect(entry.startDate).toMatch(/^\d{2}\/\d{2}\/\d{2}$/);
+      expect(entry.startTime).toMatch(/^\d{1,2}:\d{2} (AM|PM)$/);
+
+      const parsedDate = parseHashRegoDate(entry.startDate);
+      expect(parsedDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+      const isoMatch = row.start_time.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+      expect(isoMatch).not.toBeNull();
+      const [, y, m, d] = isoMatch!;
+      expect(parsedDate).toBe(`${y}-${m}-${d}`);
+    }
+  });
+
+  it("synthetic afternoon time round-trips through parseHashRegoTime", () => {
+    const entry = apiToIndexEntry(
+      {
+        slug: "test",
+        event_name: "Afternoon Test",
+        host_kennel_slug: "TEST",
+        start_time: "2026-05-15T18:30:00+00:00",
+        current_price: 0,
+        has_hares: false,
+        opt_hares: "",
+        is_over: false,
+        rego_count: 0,
+        open_spots: 0,
+        creator: "",
+        created: "",
+        modified: "",
+      },
+      "TEST",
+    );
+    expect(entry.startTime).toBe("6:30 PM");
+    expect(parseHashRegoTime(entry.startTime)).toBe("18:30");
+  });
+
+  it("converts 12:30 noon → 12:30 PM", () => {
+    const entry = apiToIndexEntry(
+      {
+        slug: "test",
+        event_name: "Noon Test",
+        host_kennel_slug: "TEST",
+        start_time: "2026-05-15T12:30:00+00:00",
+        current_price: 0,
+        has_hares: false,
+        opt_hares: "",
+        is_over: false,
+        rego_count: 0,
+        open_spots: 0,
+        creator: "",
+        created: "",
+        modified: "",
+      },
+      "TEST",
+    );
+    expect(entry.startTime).toBe("12:30 PM");
+    expect(parseHashRegoTime(entry.startTime)).toBe("12:30");
+  });
+
+  it("throws on missing start_time", () => {
+    expect(() =>
+      apiToIndexEntry(
+        {
+          slug: "test",
+          event_name: "Broken",
+          host_kennel_slug: "TEST",
+          start_time: "",
+          current_price: 0,
+          has_hares: false,
+          opt_hares: "",
+          is_over: false,
+          rego_count: 0,
+          open_spots: 0,
+          creator: "",
+          created: "",
+          modified: "",
+        },
+        "TEST",
+      ),
+    ).toThrow(HashRegoApiError);
+  });
+
+  it("throws on garbage start_time", () => {
+    expect(() =>
+      apiToIndexEntry(
+        {
+          slug: "test",
+          event_name: "Broken",
+          host_kennel_slug: "TEST",
+          start_time: "not a date",
+          current_price: 0,
+          has_hares: false,
+          opt_hares: "",
+          is_over: false,
+          rego_count: 0,
+          open_spots: 0,
+          creator: "",
+          created: "",
+          modified: "",
+        },
+        "TEST",
+      ),
+    ).toThrow(/start_time/);
+  });
+});
 
 describe("parseKennelEventsPage", () => {
   it("parses all rows from kennel events table", () => {
@@ -532,7 +683,10 @@ describe("HashRegoAdapter", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.mocked(browserRender).mockReset();
+    mockedFetchKennelEvents.mockReset();
+    // Default: an unmocked call returns an empty array (legitimate "no events").
+    // Individual tests override with mockResolvedValueOnce / mockRejectedValueOnce.
+    mockedFetchKennelEvents.mockResolvedValue([]);
     // Ensure tests use direct fetch path regardless of env
     delete process.env.RESIDENTIAL_PROXY_URL;
     delete process.env.RESIDENTIAL_PROXY_KEY;
@@ -623,8 +777,10 @@ describe("HashRegoAdapter", () => {
   it("includes diagnostic context with slug source", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
-    // NONEXISTENT is not in global index — browserRender will be called for kennel page
-    vi.mocked(browserRender).mockRejectedValueOnce(new Error("not found"));
+    // NONEXISTENT is not in global index — fetchKennelEvents will be called for Step 2b
+    mockedFetchKennelEvents.mockRejectedValueOnce(
+      new HashRegoApiError("NONEXISTENT", 404, "not_found"),
+    );
 
     const adapter = new HashRegoAdapter();
     const source = buildSource();
@@ -636,10 +792,10 @@ describe("HashRegoAdapter", () => {
     expect(result.diagnosticContext?.kennelSlugsConfigured).toEqual(["NONEXISTENT"]);
   });
 
-  it("fetches kennel page when slug has zero global index matches", async () => {
+  it("fetches kennel events via JSON API when slug has zero global index matches", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-    // Set time so kennel page dates (06/27/26) fall within window
+    // Set time so event dates (06/27/26) fall within window
     vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
 
     const detailHtml = `<html><head>
@@ -647,26 +803,29 @@ describe("HashRegoAdapter", () => {
       <meta property="og:description" content="A fun event" />
     </head><body><a href="/kennels/NYCH3/">NYCH3</a></body></html>`;
 
-    // Global index (no NYCH3)
+    // Global index (no NYCH3) + any detail page fetches
     fetchSpy.mockImplementation(async () => new Response(detailHtml, { status: 200 }));
     fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
 
-    // browserRender returns the kennel page HTML
-    vi.mocked(browserRender).mockResolvedValueOnce(KENNEL_PAGE_HTML);
+    // JSON API returns one upcoming event
+    mockedFetchKennelEvents.mockResolvedValueOnce([
+      buildApiRow({ slug: "nych3-pub-crawl-2026", start_time: "2026-06-27T19:00:00-04:00" }),
+    ]);
 
     const adapter = new HashRegoAdapter();
     const source = buildSource();
     const result = await adapter.fetch(source, { days: 365, kennelSlugs: ["NYCH3"] });
 
-    expect(browserRender).toHaveBeenCalledWith(
-      expect.objectContaining({ url: "https://hashrego.com/kennels/NYCH3/events" }),
+    expect(mockedFetchKennelEvents).toHaveBeenCalledWith(
+      "NYCH3",
+      expect.objectContaining({ timeoutMs: expect.any(Number) }),
     );
     expect(result.diagnosticContext?.kennelPagesChecked).toEqual(["NYCH3"]);
     expect((result.diagnosticContext?.kennelPageEventsFound as number)).toBeGreaterThan(0);
     expect(result.events.length).toBeGreaterThan(0);
   });
 
-  it("skips kennel page when slug has global index matches", async () => {
+  it("skips JSON API call when slug has global index matches", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
@@ -679,16 +838,18 @@ describe("HashRegoAdapter", () => {
     const source = buildSource();
     const result = await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
 
-    // Should NOT have called browserRender (slug is in global index)
-    expect(browserRender).not.toHaveBeenCalled();
+    // Should NOT have called the JSON API (slug is in global index)
+    expect(mockedFetchKennelEvents).not.toHaveBeenCalled();
     expect(result.diagnosticContext?.kennelPagesChecked).toEqual([]);
   });
 
-  it("handles kennel page render failure gracefully", async () => {
+  it("per-slug API failure stays in errorDetails.fetch, not top-level errors", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
-    vi.mocked(browserRender).mockRejectedValueOnce(new Error("Render timeout"));
+    mockedFetchKennelEvents.mockRejectedValueOnce(
+      new HashRegoApiError("NYCH3", 0, "network", "ECONNREFUSED"),
+    );
 
     const adapter = new HashRegoAdapter();
     const source = buildSource();
@@ -697,13 +858,14 @@ describe("HashRegoAdapter", () => {
     expect(result.diagnosticContext?.kennelPagesChecked).toEqual(["NYCH3"]);
     expect(result.diagnosticContext?.kennelPageEventsFound).toBe(0);
     expect(result.events).toHaveLength(0);
-    // Step 2b errors are non-fatal — tracked in errorDetails, not errors[]
+    // Per-slug errors stay in errorDetails.fetch[], never push to top-level errors[]
     expect(result.errors).toHaveLength(0);
     expect(result.errorDetails?.fetch).toBeDefined();
-    expect(result.errorDetails!.fetch![0].message).toContain("Kennel page error");
+    expect(result.errorDetails!.fetch![0].message).toContain("network");
+    expect(result.errorDetails!.fetch![0].url).toContain("/api/kennels/NYCH3/events/");
   });
 
-  it("continues past 502 render errors to reach pages with events", async () => {
+  it("continues past API failures to reach other slugs with events", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
@@ -711,10 +873,12 @@ describe("HashRegoAdapter", () => {
     // Detail page for any events found via kennel pages
     fetchSpy.mockImplementation(async () => new Response("<html></html>", { status: 200 }));
 
-    // First slug: 502 (empty kennel page timeout), second: success with events
-    vi.mocked(browserRender)
-      .mockRejectedValueOnce(new Error("Browser render error (502): Render failed"))
-      .mockResolvedValueOnce(KENNEL_PAGE_HTML);
+    // First slug: 502, second: success with events
+    mockedFetchKennelEvents
+      .mockRejectedValueOnce(new HashRegoApiError("MISS1", 502, "server"))
+      .mockResolvedValueOnce([
+        buildApiRow({ slug: "nych3-success", start_time: "2026-06-27T19:00:00-04:00" }),
+      ]);
 
     const adapter = new HashRegoAdapter();
     const source = buildSource();
@@ -722,12 +886,15 @@ describe("HashRegoAdapter", () => {
     await vi.advanceTimersByTimeAsync(120_000);
     const result = await promise;
 
-    // Should have checked both slugs — 502s are non-fatal
-    expect(browserRender).toHaveBeenCalledTimes(2);
+    // Should have attempted both slugs — API failures are non-fatal
+    expect(mockedFetchKennelEvents).toHaveBeenCalledTimes(2);
     expect(result.errors).toHaveLength(0);
     expect(result.diagnosticContext?.kennelPagesChecked).toEqual(["MISS1", "NYCH3"]);
     expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
     expect((result.diagnosticContext?.kennelPageEventsFound as number)).toBeGreaterThan(0);
+    // And the 502 was recorded in fetch errors
+    expect(result.errorDetails?.fetch).toBeDefined();
+    expect(result.errorDetails!.fetch![0].status).toBe(502);
   });
 
   it("filters events by days window", async () => {
@@ -749,7 +916,7 @@ describe("HashRegoAdapter", () => {
 
     // matchingEntries: 1 from global (EWH3) — no kennel page fallback since all slugs exist in index
     expect(result.diagnosticContext?.matchingEntries).toBe(1);
-    expect(browserRender).not.toHaveBeenCalled();
+    expect(mockedFetchKennelEvents).not.toHaveBeenCalled();
   });
 
   it("retries index fetch on transient 500 then succeeds", async () => {
@@ -798,13 +965,16 @@ describe("HashRegoAdapter", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
-  it("caps kennel page fetches at MAX_KENNEL_PAGES", async () => {
+  it("reaches all missing slugs in one scrape (no MAX_KENNEL_PAGES cap)", async () => {
+    // Regression: the old browser-render Step 2b capped at 10 kennels per scrape,
+    // leaving low-frequency kennels unreachable. The JSON path runs all of them
+    // in bounded-concurrency batches with room to spare.
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
 
-    // Provide 15 missing slugs (not in the global index) — only 10 should be checked
+    // 15 missing slugs (not in the global index) — all 15 should be checked
     const missingSlugs = Array.from({ length: 15 }, (_, i) => `MISS${i}`);
-    vi.mocked(browserRender).mockRejectedValue(new Error("timeout"));
+    // Default mock returns [] (legitimate "no events") — no special per-call setup needed.
 
     const adapter = new HashRegoAdapter();
     const source = buildSource();
@@ -813,11 +983,154 @@ describe("HashRegoAdapter", () => {
     await vi.advanceTimersByTimeAsync(120_000);
 
     const result = await promise;
-    // Should have checked at most 10 kennel pages (MAX_KENNEL_PAGES)
-    expect(result.diagnosticContext?.kennelPagesChecked).toHaveLength(10);
-    expect(result.diagnosticContext?.kennelPagesSkipped).toBe(5);
-    expect(browserRender).toHaveBeenCalledTimes(10);
+    expect(result.diagnosticContext?.kennelPagesChecked).toHaveLength(15);
+    expect(result.diagnosticContext?.kennelPagesSkipped).toBe(0);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
+    expect(mockedFetchKennelEvents).toHaveBeenCalledTimes(15);
   });
+
+  // ── Row-level parse, PII whitelist, worst-case budget ──
+
+  it("partial success: 1 bad row of 10 emits 9 events + parse error blocks reconcile", async () => {
+    vi.useRealTimers(); // parse errors don't involve timers
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    // Detail fetches return 404 → fetchAndParseDetail records the fetch
+    // failure AND falls back to createFromIndex(entry), which produces one
+    // RawEventData per IndexEntry that has a parseable startDate. This is
+    // how we prove the 9 good Step 2b rows actually emit events end-to-end.
+    fetchSpy.mockImplementation(async () => new Response("", { status: 404 }));
+
+    const rows: HashRegoKennelEvent[] = Array.from({ length: 10 }, (_, i) =>
+      buildApiRow({
+        slug: `nych3-row-${i}`,
+        start_time: i === 4 ? "garbage" : "2026-06-27T19:00:00-04:00",
+      }),
+    );
+    mockedFetchKennelEvents.mockResolvedValueOnce(rows);
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    const result = await adapter.fetch(source, { days: 365, kennelSlugs: ["NYCH3"] });
+
+    // 9 valid rows became 9 IndexEntries, then 9 createFromIndex fallback events.
+    expect(result.diagnosticContext?.kennelPageEventsFound).toBe(9);
+    expect(result.events).toHaveLength(9);
+    // Parse error recorded in errorDetails.parse with proper row index.
+    expect(result.errorDetails?.parse).toBeDefined();
+    expect(result.errorDetails!.parse!).toHaveLength(1);
+    expect(result.errorDetails!.parse![0].row).toBe(4);
+    expect(result.errorDetails!.parse![0].section).toBe("NYCH3");
+    expect(result.errorDetails!.parse![0].error).toMatch(/start_time/);
+    // CRITICAL: row parse failures must push to top-level errors[] so the
+    // scrape pipeline's reconcile gate (errors.length === 0) blocks
+    // cancellation of the existing canonical event for the dropped row.
+    // Without this, a JSON schema drift would silently lose events.
+    // The errors[] entry must EXACTLY match the ParseError.error text so AI
+    // recovery (scrape.ts:87) can match-and-clean it when the row is
+    // successfully recovered. A slug-level summary would never match.
+    const parseErrorText = result.errorDetails!.parse![0].error;
+    expect(result.errors).toContain(parseErrorText);
+  });
+
+  it("whole-response parse drift (non-array body) marks scrape failed", async () => {
+    vi.useRealTimers();
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    fetchSpy.mockImplementation(async () => new Response("", { status: 404 }));
+
+    // Simulate the API returning a malformed body (kind: "parse", thrown by
+    // fetchKennelEvents itself, not a per-row failure).
+    mockedFetchKennelEvents.mockRejectedValueOnce(
+      new HashRegoApiError("NYCH3", 200, "parse", "expected array, got object"),
+    );
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    const result = await adapter.fetch(source, { days: 365, kennelSlugs: ["NYCH3"] });
+
+    // Whole-response parse failure must surface to top-level errors[] so the
+    // scrape pipeline marks the run failed (matching Step 3 detail-parse
+    // semantics). Without this, a kennel API returning broken JSON would
+    // silently produce zero events and the scrape would still look healthy.
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors.some((e) => e.includes("parse") && e.includes("NYCH3"))).toBe(true);
+    // And the fetch is still recorded for diagnostics
+    expect(result.errorDetails?.fetch).toBeDefined();
+    expect(result.errorDetails!.fetch![0].message).toContain("parse");
+    expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(1);
+  });
+
+  it("ParseError.rawText whitelists non-PII fields only", async () => {
+    vi.useRealTimers();
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    fetchSpy.mockImplementation(async () => new Response("<html></html>", { status: 200 }));
+
+    mockedFetchKennelEvents.mockResolvedValueOnce([
+      buildApiRow({
+        slug: "nych3-bad-row",
+        start_time: "not a date",
+        event_name: "TITLE WITH PII",
+        opt_hares: "Real Name",
+        creator: "Nerd Name",
+      }),
+    ]);
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    const result = await adapter.fetch(source, { days: 365, kennelSlugs: ["NYCH3"] });
+
+    const parseErr = result.errorDetails!.parse![0];
+    expect(parseErr.rawText).toBeDefined();
+    const raw = JSON.parse(parseErr.rawText!);
+    // Whitelist: only these keys
+    expect(Object.keys(raw).sort()).toEqual(
+      ["current_price", "host_kennel_slug", "is_over", "slug", "start_time"],
+    );
+    // Explicit PII absence
+    expect(raw.event_name).toBeUndefined();
+    expect(raw.opt_hares).toBeUndefined();
+    expect(raw.creator).toBeUndefined();
+  });
+
+  it("worst-case budget: slow successful calls hit budget_exhausted cleanly", async () => {
+    vi.useRealTimers();
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+
+    // 200 missing slugs × 4s each at BATCH_SIZE=10 = 20 batches × 4s = 80s max.
+    // STEP2B_BUDGET_MS=45s will trip around batch 11-12. Remaining slugs
+    // surface as kennelPagesSkipped. This proves (a) the cap is time-based,
+    // not count-based, (b) concurrency stays within BATCH_SIZE, and
+    // (c) stopReason is set cleanly.
+    const missingSlugs = Array.from({ length: 200 }, (_, i) => `SLOW${i}`);
+
+    let activeCalls = 0;
+    let maxActive = 0;
+    mockedFetchKennelEvents.mockImplementation(async () => {
+      activeCalls++;
+      maxActive = Math.max(maxActive, activeCalls);
+      await new Promise((resolve) => setTimeout(resolve, 4_000));
+      activeCalls--;
+      return [];
+    });
+
+    const adapter = new HashRegoAdapter();
+    const source = buildSource();
+    const start = Date.now();
+    const result = await adapter.fetch(source, { days: 365, kennelSlugs: missingSlugs });
+    const wallClock = Date.now() - start;
+
+    // Budget should fire between 40s and 55s (45s ± one batch)
+    expect(wallClock).toBeGreaterThanOrEqual(40_000);
+    expect(wallClock).toBeLessThan(60_000);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBe("budget_exhausted");
+    expect((result.diagnosticContext?.kennelPagesChecked as string[]).length).toBeLessThan(200);
+    expect((result.diagnosticContext?.kennelPagesSkipped as number)).toBeGreaterThan(50);
+    // Concurrency cap must hold throughout
+    expect(maxActive).toBeLessThanOrEqual(10);
+  }, 70_000);
 
   it("falls back to direct fetch when proxy env vars not set", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");

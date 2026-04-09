@@ -74,10 +74,20 @@ async function runAiRecovery(
       scrapeResult.events.push(result.recovered);
     }
 
-    const recoveredRows = new Set(aiRecovery.results.map((r) => r.parseError.row));
+    // Key cleanup by (section, row) tuple, not bare row. Multi-kennel
+    // adapters (HASHREGO Step 2b, SFH3, Phoenix) emit per-section row
+    // indexes that start at 0 in each section, so two unrelated parse errors
+    // can share `row: 0` while belonging to different kennels. Removing by
+    // bare `row` would silently drop unrecovered parse errors from other
+    // sections.
+    const sectionRowKey = (e: { section?: string; row: number }): string =>
+      `${e.section ?? ""}:${e.row}`;
+    const recoveredKeys = new Set(
+      aiRecovery.results.map((r) => sectionRowKey(r.parseError)),
+    );
     if (scrapeResult.errorDetails?.parse) {
       scrapeResult.errorDetails.parse = scrapeResult.errorDetails.parse.filter(
-        (e) => !recoveredRows.has(e.row),
+        (e) => !recoveredKeys.has(sectionRowKey(e)),
       );
     }
     const recoveredErrorPrefixes = aiRecovery.results.map(

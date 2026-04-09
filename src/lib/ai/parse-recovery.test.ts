@@ -92,6 +92,74 @@ describe("attemptAiRecovery", () => {
     expect(result.results[0].fieldsRecovered).toContain("location");
   });
 
+  it("prefers partialData.kennelTag over the scrape-wide default", async () => {
+    // Multi-kennel sources (HASHREGO, SFH3) have parse errors that belong to
+    // different kennels in the same scrape. The function-arg `kennelTag` is a
+    // single scrape-wide fallback; per-error identity must come from
+    // partialData.kennelTag, otherwise recovered events get attached to
+    // whichever kennel happened to scrape first.
+    mockCallGemini.mockResolvedValue({
+      text: JSON.stringify({ date: "2026-04-09", confidence: "high" }),
+      durationMs: 100,
+    });
+
+    const errors: ParseError[] = [
+      {
+        row: 0,
+        section: "NYCH3",
+        error: "bad start_time",
+        rawText: "Some raw text",
+        partialData: { kennelTag: "NYCH3" },
+      },
+      {
+        row: 0,
+        section: "BFMH3",
+        error: "bad start_time",
+        rawText: "Some raw text",
+        partialData: { kennelTag: "BFMH3" },
+      },
+    ];
+
+    // Pass a misleading default — recovery must IGNORE it because each
+    // ParseError has its own partialData.kennelTag.
+    const result = await attemptAiRecovery(errors, "WRONG_KENNEL");
+    expect(result.succeeded).toBe(2);
+    const tags = result.results.map((r) => r.recovered.kennelTag).sort();
+    expect(tags).toEqual(["BFMH3", "NYCH3"]);
+  });
+
+  it("preserves partialData.sourceUrl on recovered events (reconcile key)", async () => {
+    // Reconcile (src/pipeline/reconcile.ts:52) keys events on
+    // (kennelId, date, sourceUrl). If a recovered event drops sourceUrl, it
+    // won't match the existing canonical event and the next reconcile pass
+    // will cancel that canonical record as stale. Adapters that emit parse
+    // errors with a known sourceUrl MUST set partialData.sourceUrl so the
+    // recovered event keeps the same reconcile key.
+    mockCallGemini.mockResolvedValue({
+      text: JSON.stringify({ date: "2026-04-09", confidence: "high" }),
+      durationMs: 100,
+    });
+
+    const errors: ParseError[] = [
+      {
+        row: 0,
+        section: "NYCH3",
+        error: "bad start_time",
+        rawText: "Some raw text",
+        partialData: {
+          kennelTag: "NYCH3",
+          sourceUrl: "https://hashrego.com/events/nych3-pub-crawl-2026",
+        },
+      },
+    ];
+
+    const result = await attemptAiRecovery(errors, "NYCH3");
+    expect(result.succeeded).toBe(1);
+    expect(result.results[0].recovered.sourceUrl).toBe(
+      "https://hashrego.com/events/nych3-pub-crawl-2026",
+    );
+  });
+
   it("uses partialData over AI-extracted fields (deterministic takes priority)", async () => {
     mockCallGemini.mockResolvedValue({
       text: JSON.stringify({
