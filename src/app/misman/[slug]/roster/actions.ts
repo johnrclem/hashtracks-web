@@ -277,6 +277,31 @@ export async function searchRoster(
 // ── USER LINKING ──
 
 /**
+ * Load a `KennelHasherLink` by ID together with its hasher's roster
+ * group + kennel slug, and verify the roster group matches the caller's
+ * scope. Returns `null` for both missing and out-of-scope IDs so callers
+ * can collapse them into a single 404-style "Link not found" response
+ * (IDOR prevention).
+ */
+async function loadLinkForMisman(linkId: string, kennelId: string) {
+  const [rosterGroupId, link] = await Promise.all([
+    getRosterGroupId(kennelId),
+    prisma.kennelHasherLink.findUnique({
+      where: { id: linkId },
+      include: {
+        kennelHasher: {
+          select: { rosterGroupId: true, kennel: { select: { slug: true } } },
+        },
+      },
+    }),
+  ]);
+  if (!link || link.kennelHasher.rosterGroupId !== rosterGroupId) {
+    return null;
+  }
+  return link;
+}
+
+/**
  * Find potential user matches for unlinked KennelHashers.
  * Fuzzy matches hashName/nerdName against User records.
  */
@@ -450,22 +475,8 @@ export async function dismissUserLink(kennelId: string, linkId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const [rosterGroupId, link] = await Promise.all([
-    getRosterGroupId(kennelId),
-    prisma.kennelHasherLink.findUnique({
-      where: { id: linkId },
-      include: {
-        kennelHasher: {
-          select: { rosterGroupId: true, kennel: { select: { slug: true } } },
-        },
-      },
-    }),
-  ]);
-  // Roster-scope check (IDOR prevention): collapse scope miss + missing
-  // link into a single 404 so foreign link IDs aren't distinguishable.
-  if (!link || link.kennelHasher.rosterGroupId !== rosterGroupId) {
-    return { error: "Link not found" };
-  }
+  const link = await loadLinkForMisman(linkId, kennelId);
+  if (!link) return { error: "Link not found" };
 
   await prisma.kennelHasherLink.update({
     where: { id: linkId },
@@ -486,22 +497,8 @@ export async function revokeUserLink(kennelId: string, linkId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const [rosterGroupId, link] = await Promise.all([
-    getRosterGroupId(kennelId),
-    prisma.kennelHasherLink.findUnique({
-      where: { id: linkId },
-      include: {
-        kennelHasher: {
-          select: { rosterGroupId: true, kennel: { select: { slug: true } } },
-        },
-      },
-    }),
-  ]);
-  // Roster-scope check (IDOR prevention): same 404 for missing and
-  // out-of-scope link IDs.
-  if (!link || link.kennelHasher.rosterGroupId !== rosterGroupId) {
-    return { error: "Link not found" };
-  }
+  const link = await loadLinkForMisman(linkId, kennelId);
+  if (!link) return { error: "Link not found" };
 
   if (link.status !== "CONFIRMED") {
     return { error: "Can only revoke confirmed links" };

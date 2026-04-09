@@ -18,6 +18,30 @@ import { syncEventHares } from "@/lib/misman/hare-sync";
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 /**
+ * Load a `KennelAttendance` record by ID, together with its parent
+ * event's kennelId, and verify that kennel is in the caller's roster
+ * scope. Returns `null` for both missing and out-of-scope IDs so
+ * callers can collapse them into a single 404-style response
+ * (IDOR prevention — foreign record existence must not be leaked).
+ */
+async function loadAttendanceForMisman(
+  attendanceId: string,
+  kennelId: string,
+) {
+  const [record, rosterKennelIds] = await Promise.all([
+    prisma.kennelAttendance.findUnique({
+      where: { id: attendanceId },
+      include: { event: { select: { kennelId: true } } },
+    }),
+    getRosterKennelIds(kennelId),
+  ]);
+  if (!record || !rosterKennelIds.includes(record.event.kennelId)) {
+    return null;
+  }
+  return record;
+}
+
+/**
  * Validate that the event belongs to a kennel in the roster scope
  * and is within the 1-year lookback window.
  */
@@ -135,26 +159,11 @@ export async function removeAttendance(kennelId: string, attendanceId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  // Roster-scope check (IDOR prevention): fetch the attendance together
-  // with its event.kennelId and compare against the caller's roster group.
-  // Returns the same 404-style error for both "not found" and "out of
-  // scope" so the existence of foreign records isn't leaked.
-  const [record, rosterKennelIds] = await Promise.all([
-    prisma.kennelAttendance.findUnique({
-      where: { id: attendanceId },
-      select: { eventId: true, event: { select: { kennelId: true } } },
-    }),
-    getRosterKennelIds(kennelId),
-  ]);
-  if (!record || !rosterKennelIds.includes(record.event.kennelId)) {
-    return { error: "Attendance record not found" };
-  }
+  const record = await loadAttendanceForMisman(attendanceId, kennelId);
+  if (!record) return { error: "Attendance record not found" };
 
   await prisma.kennelAttendance.delete({ where: { id: attendanceId } });
-
-  // Sync EventHare records (removed hare will be cleaned up)
   await syncEventHares(record.eventId);
-
   return { success: true };
 }
 
@@ -208,18 +217,8 @@ export async function updateAttendance(
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  // Roster-scope check (IDOR prevention). Mirrors removeAttendance —
-  // scope misses return the same 404 as nonexistent IDs.
-  const [record, rosterKennelIds] = await Promise.all([
-    prisma.kennelAttendance.findUnique({
-      where: { id: attendanceId },
-      include: { event: { select: { kennelId: true } } },
-    }),
-    getRosterKennelIds(kennelId),
-  ]);
-  if (!record || !rosterKennelIds.includes(record.event.kennelId)) {
-    return { error: "Attendance record not found" };
-  }
+  const record = await loadAttendanceForMisman(attendanceId, kennelId);
+  if (!record) return { error: "Attendance record not found" };
 
   const before: Record<string, unknown> = {};
   for (const field of TRACKED_ATTENDANCE_FIELDS) {
