@@ -31,22 +31,12 @@ import {
   ALL_STREAM_LABELS,
   kennelLabel,
 } from "@/lib/audit-labels";
+import { getValidatedRepo } from "@/lib/github-repo";
 import { fetchAllAuditIssues, type GitHubIssue, extractLabelNames } from "@/pipeline/audit-issue-sync";
 
-const DEFAULT_REPO = "johnrclem/hashtracks-web";
 const FETCH_TIMEOUT_MS = 15_000;
 const POLITE_DELAY_MS = 100;
-const REPO_PATTERN = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
-
-/** Validated repo slug, frozen at module load — kills the Codacy taint flow
- *  from `process.env.GITHUB_REPOSITORY` into the fetch URL. */
-const REPO: string = (() => {
-  const value = process.env.GITHUB_REPOSITORY ?? DEFAULT_REPO;
-  if (!REPO_PATTERN.test(value)) {
-    throw new Error(`Invalid GITHUB_REPOSITORY format: ${value}`);
-  }
-  return value;
-})();
+const REPO: string = getValidatedRepo();
 
 /** Number-only path segment for the labels endpoint — refuses non-finite ids. */
 function labelsPath(issueNumber: number): string {

@@ -24,27 +24,54 @@ describe("audit-issue-sync — pure helpers", () => {
       ["audit:chrome-event", AuditStream.CHROME_EVENT],
       ["audit:chrome-kennel", AuditStream.CHROME_KENNEL],
     ])("maps %s → %s", (label, expected) => {
-      expect(resolveStream(["audit", "alert", label])).toBe(expected);
+      expect(resolveStream(["audit", "alert", label])).toEqual({
+        stream: expected,
+        conflict: false,
+      });
     });
 
     it("falls back to UNKNOWN when no sub-label is present", () => {
-      expect(resolveStream(["audit", "alert"])).toBe(AuditStream.UNKNOWN);
+      expect(resolveStream(["audit", "alert"])).toEqual({
+        stream: AuditStream.UNKNOWN,
+        conflict: false,
+      });
     });
 
-    it("ignores label order — first sub-label wins, others are no-ops", () => {
-      expect(resolveStream(["audit:chrome-kennel", "audit", "audit:automated"])).toBe(
-        AuditStream.CHROME_KENNEL,
-      );
+    it("reports conflict + UNKNOWN when two stream labels are present", () => {
+      // Previously the first match won (order-dependent); now we refuse to
+      // guess and surface the misconfiguration to the sync caller.
+      expect(
+        resolveStream(["audit:chrome-kennel", "audit", "audit:automated"]),
+      ).toEqual({ stream: AuditStream.UNKNOWN, conflict: true });
+    });
+
+    it("does not flag conflict when only one stream sub-label is present", () => {
+      expect(resolveStream(["audit", "audit:chrome-event"])).toEqual({
+        stream: AuditStream.CHROME_EVENT,
+        conflict: false,
+      });
     });
   });
 
   describe("resolveKennel", () => {
-    it("extracts the kennelCode from a 'kennel:CODE' label", () => {
-      expect(resolveKennel(["audit", "kennel:agnews"])).toBe("agnews");
+    const KNOWN = new Set(["agnews", "nych3", "philly-h3"]);
+
+    it("returns the kennelCode when the label maps to a known kennel", () => {
+      expect(resolveKennel(["audit", "kennel:agnews"], KNOWN)).toBe("agnews");
     });
 
     it("returns null when no kennel label is present", () => {
-      expect(resolveKennel(["audit", "alert"])).toBeNull();
+      expect(resolveKennel(["audit", "alert"], KNOWN)).toBeNull();
+    });
+
+    it("returns null when the label references an unknown kennel", () => {
+      // Typo guard — previously this would be written into AuditIssue.kennelCode
+      // as a broken FK and drop the issue from the mirror.
+      expect(resolveKennel(["kennel:agnws"], KNOWN)).toBeNull();
+    });
+
+    it("returns null when the label is well-formed but the kennel was deleted", () => {
+      expect(resolveKennel(["kennel:deleted-kennel"], KNOWN)).toBeNull();
     });
   });
 

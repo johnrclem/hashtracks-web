@@ -907,11 +907,16 @@ model AuditIssue {
   kennel          Kennel?     @relation("AuditIssueKennel", fields: [kennelCode], references: [kennelCode])
   githubCreatedAt DateTime    // GitHub issue.created_at
   githubClosedAt  DateTime?   // GitHub issue.closed_at — current closure only
+  delistedAt      DateTime?   // non-null when the issue has fallen out of the audit corpus
+                              // (operator removed the `audit` label, issue deleted, etc.)
+                              // Preserves the AuditIssueEvent trail for historical trends
+                              // instead of the cascade-delete codex flagged as a data-loss risk.
   syncedAt        DateTime    @updatedAt
   events          AuditIssueEvent[]
 
   @@index([stream, state])
   @@index([kennelCode])
+  @@index([delistedAt])
 }
 
 model AuditIssueEvent {

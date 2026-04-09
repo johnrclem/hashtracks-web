@@ -30,22 +30,11 @@ import {
   parseStreamLabel,
   parseKennelLabel,
 } from "@/lib/audit-labels";
+import { getValidatedRepo } from "@/lib/github-repo";
 
 const FETCH_TIMEOUT_MS = 15_000;
-const DEFAULT_REPO = "johnrclem/hashtracks-web";
 const PAGE_SIZE = 100;
 const MAX_PAGES = 20; // safety cap; ~2000 issues
-const REPO_PATTERN = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
-
-/** Validated repo slug, frozen at module load — kills the Codacy taint flow
- *  from `process.env.GITHUB_REPOSITORY` into the fetch URL. */
-function getRepo(): string {
-  const value = process.env.GITHUB_REPOSITORY ?? DEFAULT_REPO;
-  if (!REPO_PATTERN.test(value)) {
-    throw new Error(`Invalid GITHUB_REPOSITORY format: ${value}`);
-  }
-  return value;
-}
 
 /** Shape of a GitHub issue from the REST API (only the fields we use). */
 export interface GitHubIssue {
@@ -65,6 +54,7 @@ export interface SyncResult {
   closed: number;
   reopened: number;
   relabeled: number;
+  delisted: number;
   errors: string[];
 }
 
@@ -73,23 +63,45 @@ export function extractLabelNames(labels: GitHubIssue["labels"]): string[] {
   return labels.map((l) => (typeof l === "string" ? l : l.name));
 }
 
-/**
- * Resolve an issue's stream from its label set. The first matching stream
- * sub-label wins; missing → UNKNOWN.
- */
-export function resolveStream(labelNames: readonly string[]): AuditStream {
-  for (const name of labelNames) {
-    const key = parseStreamLabel(name);
-    if (key) return AuditStream[key];
-  }
-  return AuditStream.UNKNOWN;
+export interface StreamResolution {
+  stream: AuditStream;
+  /** True when the label set carried more than one stream sub-label. */
+  conflict: boolean;
 }
 
-/** Resolve an issue's kennelCode from its `kennel:<code>` label, or null. */
-export function resolveKennel(labelNames: readonly string[]): string | null {
+/**
+ * Resolve an issue's stream from its label set. Exactly one stream sub-label
+ * → that stream. Zero sub-labels → UNKNOWN. **More than one** sub-label →
+ * UNKNOWN + `conflict: true` so the caller can surface the misconfiguration
+ * in sync logs instead of silently bucketing the issue based on GitHub's
+ * (undefined) label order.
+ */
+export function resolveStream(labelNames: readonly string[]): StreamResolution {
+  const matches: AuditStream[] = [];
+  for (const name of labelNames) {
+    const key = parseStreamLabel(name);
+    if (key) matches.push(AuditStream[key]);
+  }
+  if (matches.length === 0) return { stream: AuditStream.UNKNOWN, conflict: false };
+  if (matches.length === 1) return { stream: matches[0], conflict: false };
+  return { stream: AuditStream.UNKNOWN, conflict: true };
+}
+
+/**
+ * Resolve an issue's kennelCode from its `kennel:<code>` label. Returns null
+ * when no label is present OR when the label's code does not correspond to a
+ * real kennel. The caller passes in a set of known codes from a single
+ * Kennel.findMany() round trip; unknown codes return null rather than being
+ * blindly written to `AuditIssue.kennelCode` (which is a FK — blind writes
+ * fail with a constraint violation and drop the issue from the mirror).
+ */
+export function resolveKennel(
+  labelNames: readonly string[],
+  knownKennelCodes: ReadonlySet<string>,
+): string | null {
   for (const name of labelNames) {
     const code = parseKennelLabel(name);
-    if (code) return code;
+    if (code && knownKennelCodes.has(code)) return code;
   }
   return null;
 }
@@ -99,7 +111,7 @@ export function resolveKennel(labelNames: readonly string[]): string | null {
  * Filters out pull requests (the issues endpoint returns both).
  */
 export async function fetchAllAuditIssues(token: string): Promise<GitHubIssue[]> {
-  const repo = getRepo();
+  const repo = getValidatedRepo();
   const issues: GitHubIssue[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
     const url = `https://api.github.com/repos/${repo}/issues?labels=${AUDIT_LABEL}&state=all&per_page=${PAGE_SIZE}&page=${page}`;
@@ -241,6 +253,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
     closed: 0,
     reopened: 0,
     relabeled: 0,
+    delisted: 0,
     errors: [],
   };
 
@@ -263,9 +276,20 @@ export async function syncAuditIssues(): Promise<SyncResult> {
     });
     const priorByNumber = new Map(priors.map((p) => [p.githubNumber, p]));
 
-    const allMirrored = await tx.auditIssue.findMany({ select: { id: true, githubNumber: true } });
+    // Known-kennel set for the kennel-label resolver. Loaded once so the
+    // per-issue loop can reject unknown codes in O(1) and never write a
+    // broken FK into AuditIssue.kennelCode. See codex review on the label-
+    // sync plan for the underlying failure mode.
+    const kennelRows = await tx.kennel.findMany({ select: { kennelCode: true } });
+    const knownKennelCodes = new Set(kennelRows.map((k) => k.kennelCode));
+
+    const allMirrored = await tx.auditIssue.findMany({
+      select: { id: true, githubNumber: true, delistedAt: true },
+    });
     const fetchedNumbers = new Set(githubNumbers);
-    const staleIds = allMirrored.filter((m) => !fetchedNumbers.has(m.githubNumber)).map((m) => m.id);
+    const staleIds = allMirrored
+      .filter((m) => !fetchedNumbers.has(m.githubNumber) && m.delistedAt === null)
+      .map((m) => m.id);
 
     const now = new Date();
     const eventsToAppend: EventToAppend[] = [];
@@ -273,12 +297,27 @@ export async function syncAuditIssues(): Promise<SyncResult> {
     for (const issue of issues) {
       try {
         const labelNames = extractLabelNames(issue.labels);
-        const stream = resolveStream(labelNames);
-        const kennelCode = resolveKennel(labelNames);
+        const streamResolution = resolveStream(labelNames);
+        const kennelCode = resolveKennel(labelNames, knownKennelCodes);
         const githubCreatedAt = new Date(issue.created_at);
         const githubClosedAt = issue.closed_at ? new Date(issue.closed_at) : null;
 
         const prior = priorByNumber.get(issue.number) ?? null;
+
+        // Multi-stream conflict: preserve the prior stream in the snapshot
+        // (never overwrite known-good attribution with UNKNOWN) and skip
+        // RELABELED emission so the event log isn't polluted with synthetic
+        // transitions. The issue still surfaces as an error in the cron
+        // summary so operators know manual repair is needed.
+        let stream: AuditStream;
+        if (streamResolution.conflict) {
+          stream = prior?.stream ?? AuditStream.UNKNOWN;
+          result.errors.push(
+            `#${issue.number}: multi-stream label conflict — preserving prior stream=${stream}`,
+          );
+        } else {
+          stream = streamResolution.stream;
+        }
 
         const newEvents = diffIssue(
           prior
@@ -293,7 +332,9 @@ export async function syncAuditIssues(): Promise<SyncResult> {
         );
 
         // Upsert the snapshot. We need the row id to attach events; doing the
-        // upsert first lets us batch the events afterwards.
+        // upsert first lets us batch the events afterwards. `delistedAt` is
+        // cleared on every update so a re-listed issue (operator re-added
+        // the `audit` label) automatically comes back into the dashboard.
         const upserted = await tx.auditIssue.upsert({
           where: { githubNumber: issue.number },
           create: {
@@ -313,6 +354,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             htmlUrl: issue.html_url,
             kennelCode: kennelCode ?? null,
             githubClosedAt: githubClosedAt ?? null,
+            delistedAt: null,
           },
         });
 
@@ -340,18 +382,24 @@ export async function syncAuditIssues(): Promise<SyncResult> {
       });
     }
 
-    // Stale-row reconciliation. Cascading FK delete on AuditIssueEvent keeps
-    // the historical event log only when the snapshot is preserved — when
-    // the snapshot row is deleted (operator removed the `audit` label), the
-    // associated events go with it. That's the right semantics for "this
-    // issue was never an audit issue after all".
+    // Soft-delete reconciliation. Rows that fell out of the audit corpus
+    // get `delistedAt` set but the snapshot + AuditIssueEvent history are
+    // preserved. The prior code hard-deleted the snapshot, which cascaded
+    // through the FK and permanently wiped historical trend data every
+    // time an operator temporarily relabeled an issue. Dashboard queries
+    // filter on `delistedAt IS NULL` for current-state counts but the
+    // event log stays untouched for trend math.
     if (staleIds.length > 0) {
-      await tx.auditIssue.deleteMany({ where: { id: { in: staleIds } } });
+      await tx.auditIssue.updateMany({
+        where: { id: { in: staleIds } },
+        data: { delistedAt: now },
+      });
+      result.delisted = staleIds.length;
     }
   });
 
   console.log(
-    `[audit-sync] scanned=${result.scanned} opened=${result.opened} closed=${result.closed} reopened=${result.reopened} relabeled=${result.relabeled} errors=${result.errors.length}`,
+    `[audit-sync] scanned=${result.scanned} opened=${result.opened} closed=${result.closed} reopened=${result.reopened} relabeled=${result.relabeled} delisted=${result.delisted} errors=${result.errors.length}`,
   );
   return result;
 }

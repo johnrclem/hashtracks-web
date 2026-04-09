@@ -23,6 +23,7 @@ export const STREAM_LABELS = {
 } as const;
 
 export type AuditStreamKey = keyof typeof STREAM_LABELS;
+export type StreamLabelName = (typeof STREAM_LABELS)[AuditStreamKey];
 
 /** All stream sub-labels as a flat array for `.includes()` checks during sync. */
 export const ALL_STREAM_LABELS: readonly string[] = Object.values(STREAM_LABELS);
@@ -46,3 +47,43 @@ export function parseStreamLabel(label: string): AuditStreamKey | null {
   }
   return null;
 }
+
+// ── Canonical label style (shared by the label sync cron) ──
+
+/** GitHub default label color; used as an ownership-claim grandfather for
+ *  auto-created labels. */
+export const GRAY_DEFAULT_COLOR = "ededed";
+
+/** Pale blue — canonical color for `kennel:<code>` labels. */
+export const KENNEL_LABEL_COLOR = "d0e8ff";
+
+/** Description prefix that marks a label as owned by the audit pipeline. */
+export const KENNEL_DESCRIPTION_PREFIX = "Audit kennel attribution";
+export const STREAM_DESCRIPTION_PREFIX = "Audit stream attribution";
+
+/** kennelCode must be URL-safe + GitHub-label-safe (no comma, semicolon, space). */
+const KENNEL_CODE_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+
+/** True when a kennelCode is safe to use as a GitHub label suffix. */
+export function isValidKennelCode(code: string): boolean {
+  return KENNEL_CODE_PATTERN.test(code);
+}
+
+/** Canonical color + description for each stream label. */
+export const STREAM_LABEL_META: Record<
+  StreamLabelName,
+  { color: string; description: string }
+> = {
+  [STREAM_LABELS.AUTOMATED]: {
+    color: "3b82f6",
+    description: `${STREAM_DESCRIPTION_PREFIX} — automated audit script`,
+  },
+  [STREAM_LABELS.CHROME_EVENT]: {
+    color: "22c55e",
+    description: `${STREAM_DESCRIPTION_PREFIX} — chrome daily hareline audit`,
+  },
+  [STREAM_LABELS.CHROME_KENNEL]: {
+    color: "a855f7",
+    description: `${STREAM_DESCRIPTION_PREFIX} — chrome per-kennel deep dive`,
+  },
+};
