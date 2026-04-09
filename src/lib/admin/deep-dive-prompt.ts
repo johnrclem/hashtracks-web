@@ -62,9 +62,9 @@ ${sourceLines || "_(no enabled sources — flag this as a finding)_"}
 
 For each issue you find, file a GitHub issue:
 
-**Option 1 (preferred):** Open this URL in a new tab with title and body URL-encoded:
+**Option 1 (preferred):** Open this URL in a new tab with title and body URL-encoded. The labels list is pre-baked with \`audit:chrome-kennel\` (stream attribution) and \`kennel:${kennel.kennelCode}\` (kennel attribution) so the dashboard's "Findings by stream" panel can route the issue correctly:
 \`\`\`text
-https://github.com/johnrclem/hashtracks-web/issues/new?labels=audit,alert&title={URL-ENCODED TITLE}&body={URL-ENCODED BODY}
+https://github.com/johnrclem/hashtracks-web/issues/new?labels=audit,alert,audit:chrome-kennel,kennel:${kennel.kennelCode}&title={URL-ENCODED TITLE}&body={URL-ENCODED BODY}
 \`\`\`
 
 **Option 2 (fallback):** Output the finding in this format and the admin will file it:

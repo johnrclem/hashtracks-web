@@ -94,9 +94,9 @@ Open that URL (it's a small markdown document, not a set of instructions) and tr
 
 For each issue found, try to file it as a GitHub issue:
 
-**Option 1 (preferred):** Navigate to this URL with the title and body filled in. Both `title` and `body` MUST be URL-encoded (use `encodeURIComponent`) — raw newlines, `&`, or `#` will break the query string.
+**Option 1 (preferred):** Navigate to this URL with the title, body, and labels filled in. `title` and `body` MUST be URL-encoded (use `encodeURIComponent`) — raw newlines, `&`, or `#` will break the query string. The labels list MUST include `audit:chrome-event` for stream attribution and `kennel:<kennelCode>` (the kennel's HashTracks code, lowercase, hyphenated) for kennel attribution. The dashboard's "Findings by stream" panel reads these labels — without them the issue lands in the `UNKNOWN` bucket.
 ```text
-https://github.com/johnrclem/hashtracks-web/issues/new?labels=audit,alert&title={URL-ENCODED TITLE}&body={URL-ENCODED BODY}
+https://github.com/johnrclem/hashtracks-web/issues/new?labels=audit,alert,audit:chrome-event,kennel:{KENNEL_CODE}&title={URL-ENCODED TITLE}&body={URL-ENCODED BODY}
 ```
 
 **Option 2 (fallback):** Output the finding in this format for manual filing:

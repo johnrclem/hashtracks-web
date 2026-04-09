@@ -52,6 +52,15 @@ describe("buildDeepDivePrompt", () => {
     expect(prompt).toContain("audit,alert");
   });
 
+  it("bakes the stream + kennel labels into the pre-filled new-issue URL", () => {
+    // The dashboard's "Findings by stream" panel reads these labels to attribute
+    // each issue to the chrome-kennel stream and the right kennel — without
+    // them, every deep-dive issue lands in the UNKNOWN bucket.
+    const prompt = buildDeepDivePrompt(FIXTURE);
+    expect(prompt).toContain("audit:chrome-kennel");
+    expect(prompt).toContain("kennel:nych3");
+  });
+
   it("calls out kennel-page improvements (founded year, social links, etc.)", () => {
     const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("Kennel page completeness");

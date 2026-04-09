@@ -17,6 +17,7 @@ import {
 /** A group of related findings (same kennel + same rule). */
 export interface AuditGroup {
   kennelShortName: string;
+  kennelCode: string;
   rule: string;
   category: AuditFinding["category"];
   severity: AuditFinding["severity"];
@@ -52,6 +53,7 @@ function groupAndRank(findings: AuditFinding[]): { groups: AuditGroup[]; topGrou
 
   const groups: AuditGroup[] = [...map.values()].map(({ findings: fs }) => ({
     kennelShortName: fs[0].kennelShortName,
+    kennelCode: fs[0].kennelCode,
     rule: fs[0].rule,
     category: fs[0].category,
     severity: fs[0].severity,
