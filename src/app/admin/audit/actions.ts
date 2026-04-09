@@ -429,3 +429,150 @@ export async function recordDeepDive(input: {
   });
   return log;
 }
+
+// ── Stream Trends (audit-issue mirror) ──────────────────────────────
+
+import { AuditStream, AuditIssueEventType } from "@/generated/prisma/client";
+
+const STREAM_TREND_DAYS = 30;
+
+/** Display order matches the dashboard panel — most-meaningful streams first. */
+export const DASHBOARD_STREAMS: AuditStream[] = [
+  AuditStream.AUTOMATED,
+  AuditStream.CHROME_EVENT,
+  AuditStream.CHROME_KENNEL,
+  AuditStream.UNKNOWN,
+];
+
+export interface StreamDayBucket {
+  opened: number;
+  closed: number;
+  reopened: number;
+  /** Net change in open count: opened - closed + reopened. */
+  net: number;
+}
+
+export type StreamTrendPoint = {
+  date: string;
+} & Record<AuditStream, StreamDayBucket>;
+
+function emptyBucket(): StreamDayBucket {
+  return { opened: 0, closed: 0, reopened: 0, net: 0 };
+}
+
+function emptyStreamPoint(date: string): StreamTrendPoint {
+  return {
+    date,
+    [AuditStream.AUTOMATED]: emptyBucket(),
+    [AuditStream.CHROME_EVENT]: emptyBucket(),
+    [AuditStream.CHROME_KENNEL]: emptyBucket(),
+    [AuditStream.UNKNOWN]: emptyBucket(),
+  } as StreamTrendPoint;
+}
+
+/**
+ * Daily opened/closed/reopened counts per stream over the trailing window.
+ * Source of truth is AuditIssueEvent (append-only) so reopen cycles and
+ * manual relabels are reflected truthfully.
+ */
+export async function getStreamTrends(days = STREAM_TREND_DAYS): Promise<StreamTrendPoint[]> {
+  await requireAdmin();
+  const events = await prisma.auditIssueEvent.findMany({
+    where: { occurredAt: { gte: daysAgo(days) } },
+    select: { type: true, stream: true, occurredAt: true },
+  });
+
+  const byDate = new Map<string, StreamTrendPoint>();
+  for (const ev of events) {
+    const date = easternDate(ev.occurredAt);
+    let point = byDate.get(date);
+    if (!point) {
+      point = emptyStreamPoint(date);
+      byDate.set(date, point);
+    }
+    const bucket = point[ev.stream];
+    if (ev.type === AuditIssueEventType.OPENED) bucket.opened++;
+    if (ev.type === AuditIssueEventType.CLOSED) bucket.closed++;
+    if (ev.type === AuditIssueEventType.REOPENED) bucket.reopened++;
+    bucket.net = bucket.opened - bucket.closed + bucket.reopened;
+  }
+
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export interface StreamOpenCounts {
+  stream: AuditStream;
+  /** Currently-open issue count from the AuditIssue snapshot. */
+  open: number;
+  /** Open count 7 days ago, computed by replaying events older than the cutoff. */
+  openWeekAgo: number;
+}
+
+/**
+ * Currently-open count per stream + the equivalent count from 7 days ago,
+ * for the dashboard's stat-card delta arrows. Past count is computed by
+ * subtracting any net-positive activity in the last 7 days from current
+ * open: `openWeekAgo = open - (opened - closed + reopened) over last 7d`.
+ */
+export async function getOpenIssueCountsByStream(): Promise<StreamOpenCounts[]> {
+  await requireAdmin();
+
+  const [snapshot, recentEvents] = await Promise.all([
+    prisma.auditIssue.groupBy({
+      by: ["stream"],
+      where: { state: "open" },
+      _count: { _all: true },
+    }),
+    prisma.auditIssueEvent.findMany({
+      where: { occurredAt: { gte: daysAgo(7) } },
+      select: { type: true, stream: true },
+    }),
+  ]);
+
+  const recentDelta = new Map<AuditStream, number>();
+  for (const stream of DASHBOARD_STREAMS) recentDelta.set(stream, 0);
+  for (const ev of recentEvents) {
+    const cur = recentDelta.get(ev.stream) ?? 0;
+    if (ev.type === AuditIssueEventType.OPENED || ev.type === AuditIssueEventType.REOPENED) {
+      recentDelta.set(ev.stream, cur + 1);
+    } else if (ev.type === AuditIssueEventType.CLOSED) {
+      recentDelta.set(ev.stream, cur - 1);
+    }
+  }
+
+  const openByStream = new Map<AuditStream, number>();
+  for (const row of snapshot) openByStream.set(row.stream, row._count._all);
+
+  return DASHBOARD_STREAMS.map((stream) => {
+    const open = openByStream.get(stream) ?? 0;
+    const delta = recentDelta.get(stream) ?? 0;
+    return { stream, open, openWeekAgo: open - delta };
+  });
+}
+
+export interface RecentOpenIssue {
+  githubNumber: number;
+  title: string;
+  htmlUrl: string;
+  stream: AuditStream;
+  kennelCode: string | null;
+  githubCreatedAt: Date;
+}
+
+/** Most-recently-opened still-open issues, grouped by stream in the panel. */
+export async function getRecentOpenIssues(limit = 30): Promise<RecentOpenIssue[]> {
+  await requireAdmin();
+  return prisma.auditIssue.findMany({
+    where: { state: "open" },
+    select: {
+      githubNumber: true,
+      title: true,
+      htmlUrl: true,
+      stream: true,
+      kennelCode: true,
+      githubCreatedAt: true,
+    },
+    orderBy: { githubCreatedAt: "desc" },
+    take: limit,
+  });
+}

@@ -8,6 +8,9 @@ import {
   getSuppressions,
   getDeepDiveQueue,
   getDeepDiveCoverage,
+  getStreamTrends,
+  getOpenIssueCountsByStream,
+  getRecentOpenIssues,
 } from "./actions";
 import { KNOWN_AUDIT_RULES } from "@/pipeline/audit-checks";
 import { AuditDashboard } from "@/components/admin/AuditDashboard";
@@ -37,6 +40,9 @@ export default async function AuditPage() {
     deepDiveQueueResult,
     deepDiveCoverageResult,
     harelinePrompt,
+    streamTrendsResult,
+    streamOpenCountsResult,
+    recentOpenIssuesResult,
   ] = await Promise.all([
     getAuditTrends().catch(() => []),
     getTopOffenders().catch(() => []),
@@ -49,6 +55,9 @@ export default async function AuditPage() {
     getDeepDiveQueue().catch(() => []),
     getDeepDiveCoverage().catch(() => EMPTY_COVERAGE),
     loadHarelinePrompt(),
+    getStreamTrends().catch(() => []),
+    getOpenIssueCountsByStream().catch(() => []),
+    getRecentOpenIssues().catch(() => []),
   ]);
 
   return (
@@ -62,6 +71,9 @@ export default async function AuditPage() {
       deepDiveQueue={deepDiveQueueResult}
       deepDiveCoverage={deepDiveCoverageResult}
       harelinePrompt={harelinePrompt}
+      streamTrends={streamTrendsResult}
+      streamOpenCounts={streamOpenCountsResult}
+      recentOpenIssues={recentOpenIssuesResult}
     />
   );
 }
