@@ -39,7 +39,7 @@ describe("audit-issue-sync — pure helpers", () => {
   });
 
   describe("resolveKennel", () => {
-    it("extracts the kennelCode from a kennel:<code> label", () => {
+    it("extracts the kennelCode from a 'kennel:CODE' label", () => {
       expect(resolveKennel(["audit", "kennel:agnews"])).toBe("agnews");
     });
 

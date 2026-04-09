@@ -1,9 +1,10 @@
 "use server";
 
-import { Prisma } from "@/generated/prisma/client";
+import { Prisma, AuditStream, AuditIssueEventType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { KNOWN_AUDIT_RULES, type AuditFinding } from "@/pipeline/audit-checks";
+import { DASHBOARD_STREAMS } from "@/lib/audit-stream-meta";
 
 /** All audit dashboard actions are admin-only — server actions are POST endpoints anyone can hit. */
 async function requireAdmin(): Promise<void> {
@@ -432,17 +433,7 @@ export async function recordDeepDive(input: {
 
 // ── Stream Trends (audit-issue mirror) ──────────────────────────────
 
-import { AuditStream, AuditIssueEventType } from "@/generated/prisma/client";
-
 const STREAM_TREND_DAYS = 30;
-
-/** Display order matches the dashboard panel — most-meaningful streams first. */
-export const DASHBOARD_STREAMS: AuditStream[] = [
-  AuditStream.AUTOMATED,
-  AuditStream.CHROME_EVENT,
-  AuditStream.CHROME_KENNEL,
-  AuditStream.UNKNOWN,
-];
 
 export interface StreamDayBucket {
   opened: number;
@@ -473,28 +464,54 @@ function emptyStreamPoint(date: string): StreamTrendPoint {
 /**
  * Daily opened/closed/reopened counts per stream over the trailing window.
  * Source of truth is AuditIssueEvent (append-only) so reopen cycles and
- * manual relabels are reflected truthfully.
+ * manual relabels are reflected truthfully. Returns a continuous timeline
+ * (one point per calendar day) so the dashboard chart doesn't gap on
+ * activity-free days.
  */
 export async function getStreamTrends(days = STREAM_TREND_DAYS): Promise<StreamTrendPoint[]> {
   await requireAdmin();
   const events = await prisma.auditIssueEvent.findMany({
     where: { occurredAt: { gte: daysAgo(days) } },
-    select: { type: true, stream: true, occurredAt: true },
+    select: { type: true, stream: true, fromStream: true, occurredAt: true },
   });
 
   const byDate = new Map<string, StreamTrendPoint>();
+  // Pre-seed every calendar day in the window so the chart has a continuous
+  // x-axis even when nothing happened on a given day.
+  for (let offset = days; offset >= 0; offset--) {
+    const date = easternDate(daysAgo(offset));
+    if (!byDate.has(date)) byDate.set(date, emptyStreamPoint(date));
+  }
+
   for (const ev of events) {
     const date = easternDate(ev.occurredAt);
-    let point = byDate.get(date);
-    if (!point) {
-      point = emptyStreamPoint(date);
-      byDate.set(date, point);
+    const point = byDate.get(date) ?? emptyStreamPoint(date);
+    if (!byDate.has(date)) byDate.set(date, point);
+
+    if (ev.type === AuditIssueEventType.OPENED) {
+      point[ev.stream].opened++;
+    } else if (ev.type === AuditIssueEventType.CLOSED) {
+      point[ev.stream].closed++;
+    } else if (ev.type === AuditIssueEventType.REOPENED) {
+      point[ev.stream].reopened++;
+    } else if (ev.type === AuditIssueEventType.RELABELED) {
+      // A relabel is a net transfer from fromStream to stream. The target
+      // stream gains an "opened-equivalent" count; the source stream loses
+      // one. We represent this as a synthetic +1 opened on the destination
+      // and a −1 (via closed++) on the source so net math stays consistent
+      // without introducing a fourth bucket field.
+      point[ev.stream].opened++;
+      if (ev.fromStream) point[ev.fromStream].closed++;
     }
-    const bucket = point[ev.stream];
-    if (ev.type === AuditIssueEventType.OPENED) bucket.opened++;
-    if (ev.type === AuditIssueEventType.CLOSED) bucket.closed++;
-    if (ev.type === AuditIssueEventType.REOPENED) bucket.reopened++;
-    bucket.net = bucket.opened - bucket.closed + bucket.reopened;
+  }
+
+  // Recompute net per (date, stream) once per point at the end so we don't
+  // do it in the hot loop.
+  for (const point of byDate.values()) {
+    for (const stream of DASHBOARD_STREAMS) {
+      const bucket = point[stream];
+      bucket.net = bucket.opened - bucket.closed + bucket.reopened;
+    }
   }
 
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
@@ -525,18 +542,28 @@ export async function getOpenIssueCountsByStream(): Promise<StreamOpenCounts[]> 
     }),
     prisma.auditIssueEvent.findMany({
       where: { occurredAt: { gte: daysAgo(7) } },
-      select: { type: true, stream: true },
+      select: { type: true, stream: true, fromStream: true },
     }),
   ]);
 
+  // Compute the 7-day net delta per stream so we can subtract it from the
+  // current snapshot to get "open count 7 days ago". OPENED/REOPENED add to
+  // the destination stream; CLOSED removes from it; RELABELED both adds to
+  // the destination AND removes from the source so cross-stream transfers
+  // are accounted for on both sides.
   const recentDelta = new Map<AuditStream, number>();
   for (const stream of DASHBOARD_STREAMS) recentDelta.set(stream, 0);
+  const bump = (stream: AuditStream, by: number) => {
+    recentDelta.set(stream, (recentDelta.get(stream) ?? 0) + by);
+  };
   for (const ev of recentEvents) {
-    const cur = recentDelta.get(ev.stream) ?? 0;
     if (ev.type === AuditIssueEventType.OPENED || ev.type === AuditIssueEventType.REOPENED) {
-      recentDelta.set(ev.stream, cur + 1);
+      bump(ev.stream, +1);
     } else if (ev.type === AuditIssueEventType.CLOSED) {
-      recentDelta.set(ev.stream, cur - 1);
+      bump(ev.stream, -1);
+    } else if (ev.type === AuditIssueEventType.RELABELED) {
+      bump(ev.stream, +1);
+      if (ev.fromStream) bump(ev.fromStream, -1);
     }
   }
 

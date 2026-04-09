@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import {
-  AreaChart,
   Area,
   XAxis,
   YAxis,
@@ -14,12 +13,16 @@ import {
   ComposedChart,
 } from "recharts";
 import { ArrowDown, ArrowUp, Minus, Bot, Eye, Microscope, HelpCircle } from "lucide-react";
-import { AuditStream } from "@/generated/prisma/client";
 import {
-  type StreamTrendPoint,
-  type StreamOpenCounts,
-  type RecentOpenIssue,
-  DASHBOARD_STREAMS,
+  AUDIT_STREAM,
+  PRIMARY_STREAMS,
+  type AuditStream,
+} from "@/lib/audit-stream-meta";
+import type {
+  StreamTrendPoint,
+  StreamOpenCounts,
+  RecentOpenIssue,
+  StreamDayBucket,
 } from "@/app/admin/audit/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,22 +33,50 @@ interface Props {
   recentOpenIssues: RecentOpenIssue[];
 }
 
-const STREAM_META: Record<AuditStream, { label: string; color: string; icon: typeof Bot }> = {
-  AUTOMATED: { label: "Automated", color: "#3b82f6", icon: Bot },
-  CHROME_EVENT: { label: "Chrome — Daily", color: "#22c55e", icon: Eye },
-  CHROME_KENNEL: { label: "Chrome — Deep Dive", color: "#a855f7", icon: Microscope },
-  UNKNOWN: { label: "Unknown / Pre-cutover", color: "#94a3b8", icon: HelpCircle },
-};
+interface StreamMeta {
+  label: string;
+  color: string;
+  icon: typeof Bot;
+}
 
-const PRIMARY_STREAMS: AuditStream[] = [
-  AuditStream.AUTOMATED,
-  AuditStream.CHROME_EVENT,
-  AuditStream.CHROME_KENNEL,
+/**
+ * Stream metadata as a Map to satisfy eslint-plugin-security's object-
+ * injection rule. The keys are typed AuditStream literals so dynamic
+ * lookups remain type-safe even though the runtime value is data-driven.
+ */
+const STREAM_META: ReadonlyMap<AuditStream, StreamMeta> = new Map([
+  [AUDIT_STREAM.AUTOMATED, { label: "Automated", color: "#3b82f6", icon: Bot }],
+  [AUDIT_STREAM.CHROME_EVENT, { label: "Chrome — Daily", color: "#22c55e", icon: Eye }],
+  [AUDIT_STREAM.CHROME_KENNEL, { label: "Chrome — Deep Dive", color: "#a855f7", icon: Microscope }],
+  [AUDIT_STREAM.UNKNOWN, { label: "Unknown / Pre-cutover", color: "#94a3b8", icon: HelpCircle }],
+]);
+
+function metaFor(stream: AuditStream): StreamMeta {
+  // Map.get() can return undefined per its type signature, but our key set
+  // exhaustively covers AuditStream so this fallback only fires if someone
+  // adds a new enum value without updating STREAM_META.
+  return (
+    STREAM_META.get(stream) ?? { label: stream, color: "#94a3b8", icon: HelpCircle }
+  );
+}
+
+function bucketFor(point: StreamTrendPoint, stream: AuditStream): StreamDayBucket {
+  // Same exhaustive-coverage rationale as metaFor — every emptyStreamPoint
+  // creates a bucket per stream so this fallback is dead code at runtime,
+  // but it tells eslint-plugin-security the access is bounded.
+  return point[stream] ?? { opened: 0, closed: 0, reopened: 0, net: 0 };
+}
+
+const ALL_STREAMS: readonly AuditStream[] = [
+  AUDIT_STREAM.AUTOMATED,
+  AUDIT_STREAM.CHROME_EVENT,
+  AUDIT_STREAM.CHROME_KENNEL,
+  AUDIT_STREAM.UNKNOWN,
 ];
 
 export function AuditStreamPanel({ streamTrends, openCounts, recentOpenIssues }: Props) {
   const [showUnknown, setShowUnknown] = useState(false);
-  const visibleStreams = showUnknown ? DASHBOARD_STREAMS : PRIMARY_STREAMS;
+  const visibleStreams = showUnknown ? ALL_STREAMS : PRIMARY_STREAMS;
 
   // Flatten the trend data for recharts: one row per date with opened/closed
   // numeric fields per stream prefix.
@@ -54,8 +85,9 @@ export function AuditStreamPanel({ streamTrends, openCounts, recentOpenIssues }:
       streamTrends.map((point) => {
         const row: Record<string, string | number> = { date: point.date };
         for (const stream of visibleStreams) {
-          row[`${stream}_opened`] = point[stream].opened;
-          row[`${stream}_closed`] = point[stream].closed;
+          const bucket = bucketFor(point, stream);
+          row[`${stream}_opened`] = bucket.opened;
+          row[`${stream}_closed`] = bucket.closed;
         }
         return row;
       }),
@@ -65,7 +97,7 @@ export function AuditStreamPanel({ streamTrends, openCounts, recentOpenIssues }:
   const reopensThisWeek = useMemo(() => {
     let total = 0;
     for (const point of streamTrends) {
-      for (const stream of visibleStreams) total += point[stream].reopened;
+      for (const stream of visibleStreams) total += bucketFor(point, stream).reopened;
     }
     return total;
   }, [streamTrends, visibleStreams]);
@@ -84,21 +116,24 @@ export function AuditStreamPanel({ streamTrends, openCounts, recentOpenIssues }:
             variant="ghost"
             size="sm"
             className="text-xs"
-            onClick={() => setShowUnknown((v) => !v)}
+            onClick={() => {
+              setShowUnknown((v) => !v);
+            }}
           >
             {showUnknown ? "Hide" : "Show"} pre-cutover history
           </Button>
         </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {PRIMARY_STREAMS.map((stream) => {
-          const meta = STREAM_META[stream];
+      {/* Stat cards — extends to 4 columns when UNKNOWN is visible. */}
+      <div
+        className={`grid grid-cols-1 gap-4 ${showUnknown ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}
+      >
+        {visibleStreams.map((stream) => {
           const counts = openCounts.find((c) => c.stream === stream);
           const open = counts?.open ?? 0;
           const delta = open - (counts?.openWeekAgo ?? 0);
-          return <StreamStatCard key={stream} meta={meta} open={open} delta={delta} />;
+          return <StreamStatCard key={stream} meta={metaFor(stream)} open={open} delta={delta} />;
         })}
       </div>
 
@@ -132,30 +167,36 @@ export function AuditStreamPanel({ streamTrends, openCounts, recentOpenIssues }:
                 }}
               />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              {visibleStreams.map((stream) => (
-                <Area
-                  key={`${stream}_opened`}
-                  type="monotone"
-                  dataKey={`${stream}_opened`}
-                  name={`${STREAM_META[stream].label} opened`}
-                  stackId="opened"
-                  stroke={STREAM_META[stream].color}
-                  fill={STREAM_META[stream].color}
-                  fillOpacity={0.35}
-                />
-              ))}
-              {visibleStreams.map((stream) => (
-                <Line
-                  key={`${stream}_closed`}
-                  type="monotone"
-                  dataKey={`${stream}_closed`}
-                  name={`${STREAM_META[stream].label} closed`}
-                  stroke={STREAM_META[stream].color}
-                  strokeWidth={2}
-                  strokeDasharray="4 4"
-                  dot={false}
-                />
-              ))}
+              {visibleStreams.map((stream) => {
+                const meta = metaFor(stream);
+                return (
+                  <Area
+                    key={`${stream}_opened`}
+                    type="monotone"
+                    dataKey={`${stream}_opened`}
+                    name={`${meta.label} opened`}
+                    stackId="opened"
+                    stroke={meta.color}
+                    fill={meta.color}
+                    fillOpacity={0.35}
+                  />
+                );
+              })}
+              {visibleStreams.map((stream) => {
+                const meta = metaFor(stream);
+                return (
+                  <Line
+                    key={`${stream}_closed`}
+                    type="monotone"
+                    dataKey={`${stream}_closed`}
+                    name={`${meta.label} closed`}
+                    stroke={meta.color}
+                    strokeWidth={2}
+                    strokeDasharray="4 4"
+                    dot={false}
+                  />
+                );
+              })}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -168,8 +209,8 @@ export function AuditStreamPanel({ streamTrends, openCounts, recentOpenIssues }:
             Recent open issues
           </h3>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {PRIMARY_STREAMS.map((stream) => {
-              const meta = STREAM_META[stream];
+            {visibleStreams.map((stream) => {
+              const meta = metaFor(stream);
               const Icon = meta.icon;
               const issues = recentOpenIssues.filter((i) => i.stream === stream).slice(0, 5);
               return (

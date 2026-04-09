@@ -29,7 +29,6 @@ CREATE TABLE "AuditIssueEvent" (
     "occurredAt" TIMESTAMP(3) NOT NULL,
     "observedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "fromStream" "AuditStream",
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AuditIssueEvent_pkey" PRIMARY KEY ("id")
 );

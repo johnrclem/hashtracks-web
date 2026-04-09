@@ -921,9 +921,8 @@ model AuditIssueEvent {
   type        AuditIssueEventType
   stream      AuditStream         // stream at the moment the event fired
   occurredAt  DateTime            // wall-clock time of the underlying transition
-  observedAt  DateTime            @default(now()) // when the sync detected it
+  observedAt  DateTime            @default(now()) // when the sync detected it (also serves as the row's created-at audit field)
   fromStream  AuditStream?        // for RELABELED events
-  createdAt   DateTime            @default(now())
 
   @@index([type, occurredAt])
   @@index([stream, occurredAt])

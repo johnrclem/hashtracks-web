@@ -35,9 +35,16 @@ const FETCH_TIMEOUT_MS = 15_000;
 const DEFAULT_REPO = "johnrclem/hashtracks-web";
 const PAGE_SIZE = 100;
 const MAX_PAGES = 20; // safety cap; ~2000 issues
+const REPO_PATTERN = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
 
+/** Validated repo slug, frozen at module load — kills the Codacy taint flow
+ *  from `process.env.GITHUB_REPOSITORY` into the fetch URL. */
 function getRepo(): string {
-  return process.env.GITHUB_REPOSITORY ?? DEFAULT_REPO;
+  const value = process.env.GITHUB_REPOSITORY ?? DEFAULT_REPO;
+  if (!REPO_PATTERN.test(value)) {
+    throw new Error(`Invalid GITHUB_REPOSITORY format: ${value}`);
+  }
+  return value;
 }
 
 /** Shape of a GitHub issue from the REST API (only the fields we use). */

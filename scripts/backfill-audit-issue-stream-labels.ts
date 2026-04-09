@@ -36,15 +36,40 @@ import { fetchAllAuditIssues, type GitHubIssue, extractLabelNames } from "@/pipe
 const DEFAULT_REPO = "johnrclem/hashtracks-web";
 const FETCH_TIMEOUT_MS = 15_000;
 const POLITE_DELAY_MS = 100;
+const REPO_PATTERN = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
 
-function getRepo(): string {
-  return process.env.GITHUB_REPOSITORY ?? DEFAULT_REPO;
+/** Validated repo slug, frozen at module load — kills the Codacy taint flow
+ *  from `process.env.GITHUB_REPOSITORY` into the fetch URL. */
+const REPO: string = (() => {
+  const value = process.env.GITHUB_REPOSITORY ?? DEFAULT_REPO;
+  if (!REPO_PATTERN.test(value)) {
+    throw new Error(`Invalid GITHUB_REPOSITORY format: ${value}`);
+  }
+  return value;
+})();
+
+/** Number-only path segment for the labels endpoint — refuses non-finite ids. */
+function labelsPath(issueNumber: number): string {
+  if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+    throw new Error(`Invalid GitHub issue number: ${issueNumber}`);
+  }
+  return `https://api.github.com/repos/${REPO}/issues/${issueNumber}/labels`;
+}
+
+/** Number-only path segment for the issue body fetch. */
+function issuePath(issueNumber: number): string {
+  if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+    throw new Error(`Invalid GitHub issue number: ${issueNumber}`);
+  }
+  return `https://api.github.com/repos/${REPO}/issues/${issueNumber}`;
 }
 
 /** True iff the issue is identifiably from the automated audit script. */
 function isAutomatedIssue(issue: GitHubIssue, body: string | null): boolean {
   const titleMatch = issue.title.startsWith("[Audit] ");
-  const bodyMatch = !!body && body.startsWith("Automated audit found") || (body?.startsWith("Automated daily audit found") ?? false);
+  const bodyMatch =
+    (!!body && body.startsWith("Automated audit found"))
+    || (body?.startsWith("Automated daily audit found") ?? false);
   return titleMatch && bodyMatch;
 }
 
@@ -101,7 +126,7 @@ function resolveKennelFromTitle(title: string, lookup: KennelLookup): string | n
 
 /** Fetch a single issue's body — needed for the automated-stream classifier. */
 async function fetchIssueBody(token: string, number: number): Promise<string | null> {
-  const url = `https://api.github.com/repos/${getRepo()}/issues/${number}`;
+  const url = issuePath(number);
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -112,7 +137,7 @@ async function fetchIssueBody(token: string, number: number): Promise<string | n
 }
 
 async function postLabels(token: string, number: number, labels: string[]): Promise<void> {
-  const url = `https://api.github.com/repos/${getRepo()}/issues/${number}/labels`;
+  const url = labelsPath(number);
   const res = await fetch(url, {
     method: "POST",
     headers: {
