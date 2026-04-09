@@ -34,6 +34,11 @@ describe("extractMaxYiiPage", () => {
   it("returns 1 when no pagination links", () => {
     expect(extractMaxYiiPage("<html></html>")).toBe(1);
   });
+  it("handles HTML-entity-encoded ampersands (e.g. KL Full Moon)", () => {
+    const html = `<a href="?r=site%2Fhareline&amp;page=14">14</a>
+      <a href="?r=site%2Fhareline&amp;page=2">2</a>`;
+    expect(extractMaxYiiPage(html)).toBe(14);
+  });
 });
 
 describe("parseYiiHarelineRow", () => {
