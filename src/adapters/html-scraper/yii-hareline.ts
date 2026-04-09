@@ -40,7 +40,7 @@ import {
  * ```
  *
  * **Historical backfill:** this adapter parses *one page* at a time. A
- * separate script (`scripts/backfill-ph3-history.ts`) re-uses
+ * separate script (`scripts/backfill-yii-history.ts`) re-uses
  * `parseYiiHarelinePage()` to iterate every page for one-shot historical
  * ingestion, keyed by strict `date < cutoff` partitioning so it never
  * overlaps the recurring adapter's upcoming window.

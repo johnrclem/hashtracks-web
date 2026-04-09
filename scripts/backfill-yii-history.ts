@@ -69,8 +69,14 @@ if (!presetKey || !PRESETS[presetKey]) {
 }
 const { baseUrl: BASE_URL, sourceName: SOURCE_NAME, config: CONFIG } = PRESETS[presetKey];
 
-/** Fetch a single Yii hareline page and return parsed events. */
-async function fetchPage(pageNum: number): Promise<RawEventData[]> {
+/**
+ * Fetch a single Yii hareline page and return both the parsed events AND
+ * the raw HTML — the caller needs the HTML of page 1 to extract the
+ * pagination max.
+ */
+async function fetchPage(
+  pageNum: number,
+): Promise<{ events: RawEventData[]; html: string }> {
   const url = buildYiiPageUrl(BASE_URL, pageNum);
   const res = await safeFetch(url, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Backfill)" },
@@ -85,7 +91,7 @@ async function fetchPage(pageNum: number): Promise<RawEventData[]> {
   // adapter always uses the canonical URL. `generateFingerprint()` hashes
   // `sourceUrl`, so a `?page=N` mismatch would produce a different
   // fingerprint for the same event.
-  return parseYiiHarelinePage($, CONFIG, BASE_URL);
+  return { events: parseYiiHarelinePage($, CONFIG, BASE_URL), html };
 }
 
 async function main() {
@@ -93,18 +99,13 @@ async function main() {
   console.log(`Mode: ${apply ? "APPLY (will write to DB)" : "DRY RUN (no writes)"}`);
   console.log(`Fetching ${BASE_URL} page 1 to discover pagination …`);
 
-  const page1Events = await fetchPage(1);
-  const page1Html = await (
-    await safeFetch(BASE_URL, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Backfill)" },
-    })
-  ).text();
+  const { events: page1Events, html: page1Html } = await fetchPage(1);
   const maxPage = extractMaxYiiPage(page1Html);
   console.log(`Discovered maxPage = ${maxPage} (page 1 has ${page1Events.length} events)`);
 
   const allEvents: RawEventData[] = [...page1Events];
   for (let p = 2; p <= maxPage; p++) {
-    const events = await fetchPage(p);
+    const { events } = await fetchPage(p);
     allEvents.push(...events);
     if (p % 10 === 0 || p === maxPage) {
       console.log(`  page ${p}/${maxPage}: +${events.length} events (total ${allEvents.length})`);
@@ -155,42 +156,44 @@ async function main() {
   const pool = createScriptPool();
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
-  const source = await prisma.source.findFirst({ where: { name: SOURCE_NAME } });
-  if (!source) {
-    throw new Error(`Source "${SOURCE_NAME}" not found in DB. Run prisma db seed first.`);
-  }
+  try {
+    const source = await prisma.source.findFirst({ where: { name: SOURCE_NAME } });
+    if (!source) {
+      throw new Error(`Source "${SOURCE_NAME}" not found in DB. Run prisma db seed first.`);
+    }
 
-  const fingerprinted = historical.map((event) => ({
-    event,
-    fingerprint: generateFingerprint(event),
-  }));
-  const fingerprints = fingerprinted.map((x) => x.fingerprint);
+    const fingerprinted = historical.map((event) => ({
+      event,
+      fingerprint: generateFingerprint(event),
+    }));
+    const fingerprints = fingerprinted.map((x) => x.fingerprint);
 
-  const existing = await prisma.rawEvent.findMany({
-    where: { sourceId: source.id, fingerprint: { in: fingerprints } },
-    select: { fingerprint: true },
-  });
-  const existingSet = new Set(existing.map((r) => r.fingerprint));
-  const toInsert = fingerprinted.filter(({ fingerprint }) => !existingSet.has(fingerprint));
-  console.log(`\nPre-existing rows: ${existingSet.size}. New rows to insert: ${toInsert.length}.`);
+    const existing = await prisma.rawEvent.findMany({
+      where: { sourceId: source.id, fingerprint: { in: fingerprints } },
+      select: { fingerprint: true },
+    });
+    const existingSet = new Set(existing.map((r) => r.fingerprint));
+    const toInsert = fingerprinted.filter(({ fingerprint }) => !existingSet.has(fingerprint));
+    console.log(`\nPre-existing rows: ${existingSet.size}. New rows to insert: ${toInsert.length}.`);
 
-  if (toInsert.length === 0) {
-    console.log("Nothing new to insert. Exiting.");
+    if (toInsert.length === 0) {
+      console.log("Nothing new to insert. Exiting.");
+      return;
+    }
+
+    await prisma.rawEvent.createMany({
+      data: toInsert.map(({ event, fingerprint }) => ({
+        sourceId: source.id,
+        rawData: event as unknown as Prisma.InputJsonValue,
+        fingerprint,
+        processed: false,
+      })),
+    });
+
+    console.log(`\nDone. Inserted ${toInsert.length} new RawEvents from ${BASE_URL}.`);
+  } finally {
     await prisma.$disconnect();
-    return;
   }
-
-  await prisma.rawEvent.createMany({
-    data: toInsert.map(({ event, fingerprint }) => ({
-      sourceId: source.id,
-      rawData: event as unknown as Prisma.InputJsonValue,
-      fingerprint,
-      processed: false,
-    })),
-  });
-
-  console.log(`\nDone. Inserted ${toInsert.length} new RawEvents from ${BASE_URL}.`);
-  await prisma.$disconnect();
 }
 
 main().catch((err) => {
