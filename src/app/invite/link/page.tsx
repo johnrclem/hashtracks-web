@@ -132,12 +132,11 @@ export default async function ProfileLinkInvitePage({ searchParams }: Props) {
       );
     }
 
-    // Atomically consume the invite token AND create the link in a single
-    // transaction. The updateMany filter on profileInviteToken = token
-    // means a concurrent redeem of the same token returns count = 0 and
-    // we roll back without creating a duplicate link.
-    const tokenRaceHappened = { flag: false };
-    await prisma.$transaction(async (tx) => {
+    // Atomically consume the invite token AND create the link. The
+    // updateMany filter on profileInviteToken = token makes a concurrent
+    // redeem of the same token return count = 0, rolling the transaction
+    // back without creating a duplicate link.
+    const result = await prisma.$transaction(async (tx) => {
       const cleared = await tx.kennelHasher.updateMany({
         where: { id: hasher.id, profileInviteToken: token },
         data: {
@@ -146,11 +145,7 @@ export default async function ProfileLinkInvitePage({ searchParams }: Props) {
           profileInvitedBy: null,
         },
       });
-
-      if (cleared.count === 0) {
-        tokenRaceHappened.flag = true;
-        throw new Error("__concurrent_link_redeem__");
-      }
+      if (cleared.count === 0) return { raced: true as const };
 
       if (hasher.userLink) {
         await tx.kennelHasherLink.update({
@@ -173,12 +168,10 @@ export default async function ProfileLinkInvitePage({ searchParams }: Props) {
           },
         });
       }
-    }).catch((err) => {
-      if (tokenRaceHappened.flag) return; // swallowed: user sees "not found" below
-      throw err;
+      return { raced: false as const };
     });
 
-    if (tokenRaceHappened.flag) {
+    if (result.raced) {
       redirect("/profile?linked=already");
     }
 

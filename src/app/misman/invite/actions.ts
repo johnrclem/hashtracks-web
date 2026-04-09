@@ -178,11 +178,10 @@ export async function redeemMismanInvite(token: string) {
     return { error: "This invite has expired" };
   }
 
-  const raceError = { alreadyUsed: false };
-  await prisma.$transaction(async (tx) => {
-    // Atomic status flip: updateMany filters by both id AND status = PENDING.
-    // A concurrent redeem that already moved the row to ACCEPTED will cause
-    // this to return count = 0, and we roll back without granting a role.
+  // Atomic status flip via conditional updateMany (id + status = PENDING).
+  // A concurrent redeemer returns count = 0 and the transaction rolls back
+  // without granting a role.
+  const result = await prisma.$transaction(async (tx) => {
     const flipped = await tx.mismanInvite.updateMany({
       where: { id: invite.id, status: "PENDING" },
       data: {
@@ -191,12 +190,7 @@ export async function redeemMismanInvite(token: string) {
         acceptedAt: new Date(),
       },
     });
-
-    if (flipped.count === 0) {
-      raceError.alreadyUsed = true;
-      // Throw to roll back the transaction — Prisma has no abort primitive.
-      throw new Error("__concurrent_redeem__");
-    }
+    if (flipped.count === 0) return { raced: true as const };
 
     await tx.userKennel.upsert({
       where: {
@@ -209,12 +203,10 @@ export async function redeemMismanInvite(token: string) {
         role: "MISMAN",
       },
     });
-  }).catch((err) => {
-    if (raceError.alreadyUsed) return; // handled below
-    throw err;
+    return { raced: false as const };
   });
 
-  if (raceError.alreadyUsed) {
+  if (result.raced) {
     return { error: "This invite has already been used" };
   }
 

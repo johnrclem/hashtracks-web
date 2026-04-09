@@ -450,21 +450,20 @@ export async function dismissUserLink(kennelId: string, linkId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const rosterGroupId = await getRosterGroupId(kennelId);
-
-  const link = await prisma.kennelHasherLink.findUnique({
-    where: { id: linkId },
-    include: {
-      kennelHasher: {
-        select: { rosterGroupId: true, kennel: { select: { slug: true } } },
+  const [rosterGroupId, link] = await Promise.all([
+    getRosterGroupId(kennelId),
+    prisma.kennelHasherLink.findUnique({
+      where: { id: linkId },
+      include: {
+        kennelHasher: {
+          select: { rosterGroupId: true, kennel: { select: { slug: true } } },
+        },
       },
-    },
-  });
+    }),
+  ]);
   if (!link) return { error: "Link not found" };
 
-  // Verify the link's hasher belongs to the caller's roster group. Without
-  // this check, a misman of any kennel could dismiss user-links belonging
-  // to any other kennel's hashers by passing a foreign linkId.
+  // Roster-scope check (IDOR prevention).
   if (link.kennelHasher.rosterGroupId !== rosterGroupId) {
     return { error: "Not authorized" };
   }
@@ -488,21 +487,20 @@ export async function revokeUserLink(kennelId: string, linkId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const rosterGroupId = await getRosterGroupId(kennelId);
-
-  const link = await prisma.kennelHasherLink.findUnique({
-    where: { id: linkId },
-    include: {
-      kennelHasher: {
-        select: { rosterGroupId: true, kennel: { select: { slug: true } } },
+  const [rosterGroupId, link] = await Promise.all([
+    getRosterGroupId(kennelId),
+    prisma.kennelHasherLink.findUnique({
+      where: { id: linkId },
+      include: {
+        kennelHasher: {
+          select: { rosterGroupId: true, kennel: { select: { slug: true } } },
+        },
       },
-    },
-  });
+    }),
+  ]);
   if (!link) return { error: "Link not found" };
 
-  // Verify the link's hasher belongs to the caller's roster group. Without
-  // this check, a misman of any kennel could revoke confirmed user-links
-  // belonging to any other kennel's hashers by passing a foreign linkId.
+  // Roster-scope check (IDOR prevention).
   if (link.kennelHasher.rosterGroupId !== rosterGroupId) {
     return { error: "Not authorized" };
   }

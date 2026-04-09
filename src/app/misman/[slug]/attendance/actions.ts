@@ -18,25 +18,6 @@ import { syncEventHares } from "@/lib/misman/hare-sync";
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 /**
- * Verify an event belongs to a kennel in the caller's roster scope.
- * Returns true if in scope, false otherwise. Used by edit/delete actions
- * that must allow operating on historical records regardless of age.
- */
-async function isEventInRosterScope(
-  eventId: string,
-  kennelId: string,
-): Promise<boolean> {
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    select: { kennelId: true },
-  });
-  if (!event) return false;
-
-  const rosterKennelIds = await getRosterKennelIds(kennelId);
-  return rosterKennelIds.includes(event.kennelId);
-}
-
-/**
  * Validate that the event belongs to a kennel in the roster scope
  * and is within the 1-year lookback window.
  */
@@ -154,24 +135,24 @@ export async function removeAttendance(kennelId: string, attendanceId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const record = await prisma.kennelAttendance.findUnique({
-    where: { id: attendanceId },
-    select: { eventId: true },
-  });
+  // Roster-scope check (IDOR prevention): fetch the attendance together
+  // with its event.kennelId and compare against the caller's roster group.
+  const [record, rosterKennelIds] = await Promise.all([
+    prisma.kennelAttendance.findUnique({
+      where: { id: attendanceId },
+      select: { eventId: true, event: { select: { kennelId: true } } },
+    }),
+    getRosterKennelIds(kennelId),
+  ]);
   if (!record) return { error: "Attendance record not found" };
-
-  // Verify the attendance record's event belongs to this user's roster scope.
-  // Without this check, a misman of any kennel could delete attendance records
-  // belonging to any other kennel by passing a foreign attendanceId.
-  if (!(await isEventInRosterScope(record.eventId, kennelId))) {
+  if (!rosterKennelIds.includes(record.event.kennelId)) {
     return { error: "Not authorized" };
   }
 
-  const { eventId: removedEventId } = record;
   await prisma.kennelAttendance.delete({ where: { id: attendanceId } });
 
   // Sync EventHare records (removed hare will be cleaned up)
-  await syncEventHares(removedEventId);
+  await syncEventHares(record.eventId);
 
   return { success: true };
 }
@@ -226,15 +207,16 @@ export async function updateAttendance(
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const record = await prisma.kennelAttendance.findUnique({
-    where: { id: attendanceId },
-  });
+  // Roster-scope check (IDOR prevention).
+  const [record, rosterKennelIds] = await Promise.all([
+    prisma.kennelAttendance.findUnique({
+      where: { id: attendanceId },
+      include: { event: { select: { kennelId: true } } },
+    }),
+    getRosterKennelIds(kennelId),
+  ]);
   if (!record) return { error: "Attendance record not found" };
-
-  // Verify the attendance record's event belongs to this user's roster scope.
-  // Without this check, a misman of any kennel could modify attendance records
-  // belonging to any other kennel by passing a foreign attendanceId.
-  if (!(await isEventInRosterScope(record.eventId, kennelId))) {
+  if (!rosterKennelIds.includes(record.event.kennelId)) {
     return { error: "Not authorized" };
   }
 
@@ -275,10 +257,15 @@ export async function clearEventAttendance(kennelId: string, eventId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  // Verify the event belongs to this user's roster scope. Without this check,
-  // a misman of any kennel could bulk-delete attendance on any other kennel's
-  // events by passing a foreign eventId.
-  if (!(await isEventInRosterScope(eventId, kennelId))) {
+  // Roster-scope check (IDOR prevention).
+  const [event, rosterKennelIds] = await Promise.all([
+    prisma.event.findUnique({
+      where: { id: eventId },
+      select: { kennelId: true },
+    }),
+    getRosterKennelIds(kennelId),
+  ]);
+  if (!event || !rosterKennelIds.includes(event.kennelId)) {
     return { error: "Not authorized" };
   }
 
@@ -535,26 +522,25 @@ export async function getHasherForEdit(kennelId: string, hasherId: string) {
   const user = await getMismanUser(kennelId);
   if (!user) return { error: "Not authorized" };
 
-  const rosterGroupId = await getRosterGroupId(kennelId);
+  const [rosterGroupId, hasher] = await Promise.all([
+    getRosterGroupId(kennelId),
+    prisma.kennelHasher.findUnique({
+      where: { id: hasherId },
+      select: {
+        id: true,
+        hashName: true,
+        nerdName: true,
+        email: true,
+        phone: true,
+        notes: true,
+        rosterGroupId: true,
+      },
+    }),
+  ]);
 
-  const hasher = await prisma.kennelHasher.findUnique({
-    where: { id: hasherId },
-    select: {
-      id: true,
-      hashName: true,
-      nerdName: true,
-      email: true,
-      phone: true,
-      notes: true,
-      rosterGroupId: true,
-    },
-  });
-  if (!hasher) return { error: "Hasher not found" };
-
-  // Verify the hasher is in the caller's roster group. Without this check,
-  // a misman of any kennel could read PII (email, phone, real name) for any
-  // hasher in the system by passing a foreign hasherId.
-  if (hasher.rosterGroupId !== rosterGroupId) {
+  // Roster-scope check (IDOR prevention): return 404 on mismatch to avoid
+  // leaking the existence of hashers in other kennels.
+  if (!hasher || hasher.rosterGroupId !== rosterGroupId) {
     return { error: "Hasher not found" };
   }
 

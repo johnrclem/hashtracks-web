@@ -35,15 +35,31 @@ const HOURLY_LIMIT = 5;
 const DAILY_LIMIT = 20;
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
+const PRUNE_INTERVAL = 100; // prune stale map entries every N calls
 
 const feedbackTimestamps = new Map<string, number[]>();
+let callsSincePrune = 0;
+
+function pruneStaleEntries(now: number): void {
+  for (const [userId, timestamps] of feedbackTimestamps) {
+    const recent = timestamps.filter((t) => now - t < ONE_DAY_MS);
+    if (recent.length === 0) feedbackTimestamps.delete(userId);
+    else if (recent.length !== timestamps.length) {
+      feedbackTimestamps.set(userId, recent);
+    }
+  }
+}
 
 function checkFeedbackRateLimit(
   userId: string,
 ): { allowed: true } | { allowed: false; retryAfterMs: number } {
   const now = Date.now();
+  if (++callsSincePrune >= PRUNE_INTERVAL) {
+    callsSincePrune = 0;
+    pruneStaleEntries(now);
+  }
+
   const existing = feedbackTimestamps.get(userId) ?? [];
-  // Keep only timestamps within the last 24 hours
   const recent = existing.filter((t) => now - t < ONE_DAY_MS);
 
   const lastHour = recent.filter((t) => now - t < ONE_HOUR_MS);

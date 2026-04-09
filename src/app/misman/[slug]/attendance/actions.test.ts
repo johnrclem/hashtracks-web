@@ -177,11 +177,8 @@ describe("removeAttendance", () => {
 
   it("returns error when attendance belongs to a kennel outside the roster scope", async () => {
     vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
       eventId: "event_foreign",
-    } as never);
-    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
-      kennelId: "kennel_foreign",
+      event: { kennelId: "kennel_foreign" },
     } as never);
 
     expect(await removeAttendance("kennel_1", "ka_1")).toEqual({
@@ -192,11 +189,8 @@ describe("removeAttendance", () => {
 
   it("removes attendance successfully", async () => {
     vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
-      id: "ka_1",
       eventId: "event_1",
-    } as never);
-    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
-      kennelId: "kennel_1",
+      event: { kennelId: "kennel_1" },
     } as never);
     vi.mocked(prisma.kennelAttendance.delete).mockResolvedValueOnce({} as never);
 
@@ -225,9 +219,7 @@ describe("updateAttendance", () => {
     vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
       id: "ka_1",
       eventId: "event_foreign",
-    } as never);
-    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
-      kennelId: "kennel_foreign",
+      event: { kennelId: "kennel_foreign" },
     } as never);
 
     const result = await updateAttendance("kennel_1", "ka_1", { paid: true });
@@ -238,9 +230,7 @@ describe("updateAttendance", () => {
     vi.mocked(prisma.kennelAttendance.findUnique).mockResolvedValueOnce({
       id: "ka_1",
       eventId: "event_1",
-    } as never);
-    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
-      kennelId: "kennel_1",
+      event: { kennelId: "kennel_1" },
     } as never);
 
     // Need to mock the update - import the actual function
