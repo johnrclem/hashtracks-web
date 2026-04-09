@@ -73,23 +73,45 @@ export function extractLabelNames(labels: GitHubIssue["labels"]): string[] {
   return labels.map((l) => (typeof l === "string" ? l : l.name));
 }
 
-/**
- * Resolve an issue's stream from its label set. The first matching stream
- * sub-label wins; missing → UNKNOWN.
- */
-export function resolveStream(labelNames: readonly string[]): AuditStream {
-  for (const name of labelNames) {
-    const key = parseStreamLabel(name);
-    if (key) return AuditStream[key];
-  }
-  return AuditStream.UNKNOWN;
+export interface StreamResolution {
+  stream: AuditStream;
+  /** True when the label set carried more than one stream sub-label. */
+  conflict: boolean;
 }
 
-/** Resolve an issue's kennelCode from its `kennel:<code>` label, or null. */
-export function resolveKennel(labelNames: readonly string[]): string | null {
+/**
+ * Resolve an issue's stream from its label set. Exactly one stream sub-label
+ * → that stream. Zero sub-labels → UNKNOWN. **More than one** sub-label →
+ * UNKNOWN + `conflict: true` so the caller can surface the misconfiguration
+ * in sync logs instead of silently bucketing the issue based on GitHub's
+ * (undefined) label order.
+ */
+export function resolveStream(labelNames: readonly string[]): StreamResolution {
+  const matches: AuditStream[] = [];
+  for (const name of labelNames) {
+    const key = parseStreamLabel(name);
+    if (key) matches.push(AuditStream[key]);
+  }
+  if (matches.length === 0) return { stream: AuditStream.UNKNOWN, conflict: false };
+  if (matches.length === 1) return { stream: matches[0], conflict: false };
+  return { stream: AuditStream.UNKNOWN, conflict: true };
+}
+
+/**
+ * Resolve an issue's kennelCode from its `kennel:<code>` label. Returns null
+ * when no label is present OR when the label's code does not correspond to a
+ * real kennel. The caller passes in a set of known codes from a single
+ * Kennel.findMany() round trip; unknown codes return null rather than being
+ * blindly written to `AuditIssue.kennelCode` (which is a FK — blind writes
+ * fail with a constraint violation and drop the issue from the mirror).
+ */
+export function resolveKennel(
+  labelNames: readonly string[],
+  knownKennelCodes: ReadonlySet<string>,
+): string | null {
   for (const name of labelNames) {
     const code = parseKennelLabel(name);
-    if (code) return code;
+    if (code && knownKennelCodes.has(code)) return code;
   }
   return null;
 }
@@ -263,6 +285,13 @@ export async function syncAuditIssues(): Promise<SyncResult> {
     });
     const priorByNumber = new Map(priors.map((p) => [p.githubNumber, p]));
 
+    // Known-kennel set for the kennel-label resolver. Loaded once so the
+    // per-issue loop can reject unknown codes in O(1) and never write a
+    // broken FK into AuditIssue.kennelCode. See codex review on the label-
+    // sync plan for the underlying failure mode.
+    const kennelRows = await tx.kennel.findMany({ select: { kennelCode: true } });
+    const knownKennelCodes = new Set(kennelRows.map((k) => k.kennelCode));
+
     const allMirrored = await tx.auditIssue.findMany({ select: { id: true, githubNumber: true } });
     const fetchedNumbers = new Set(githubNumbers);
     const staleIds = allMirrored.filter((m) => !fetchedNumbers.has(m.githubNumber)).map((m) => m.id);
@@ -273,8 +302,14 @@ export async function syncAuditIssues(): Promise<SyncResult> {
     for (const issue of issues) {
       try {
         const labelNames = extractLabelNames(issue.labels);
-        const stream = resolveStream(labelNames);
-        const kennelCode = resolveKennel(labelNames);
+        const streamResolution = resolveStream(labelNames);
+        const { stream } = streamResolution;
+        if (streamResolution.conflict) {
+          result.errors.push(
+            `#${issue.number}: multi-stream label conflict — bucketed as UNKNOWN`,
+          );
+        }
+        const kennelCode = resolveKennel(labelNames, knownKennelCodes);
         const githubCreatedAt = new Date(issue.created_at);
         const githubClosedAt = issue.closed_at ? new Date(issue.closed_at) : null;
 
