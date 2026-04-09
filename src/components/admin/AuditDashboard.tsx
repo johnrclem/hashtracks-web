@@ -34,7 +34,11 @@ import {
   type SuppressionRow,
   type DeepDiveCandidate,
   type DeepDiveCoverage,
+  type StreamTrendPoint,
+  type StreamOpenCounts,
+  type RecentOpenIssue,
 } from "@/app/admin/audit/actions";
+import { AuditStreamPanel } from "@/components/admin/AuditStreamPanel";
 import { buildDeepDivePrompt } from "@/lib/admin/deep-dive-prompt";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -86,6 +90,9 @@ interface Props {
   deepDiveQueue: DeepDiveCandidate[];
   deepDiveCoverage: DeepDiveCoverage;
   harelinePrompt: string | null;
+  streamTrends: StreamTrendPoint[];
+  streamOpenCounts: StreamOpenCounts[];
+  recentOpenIssues: RecentOpenIssue[];
 }
 
 const CATEGORY_LINES: { key: keyof TrendPoint; label: string; color: string }[] = [
@@ -108,6 +115,9 @@ export function AuditDashboard({
   deepDiveQueue,
   deepDiveCoverage,
   harelinePrompt,
+  streamTrends,
+  streamOpenCounts,
+  recentOpenIssues,
 }: Props) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -141,6 +151,13 @@ export function AuditDashboard({
 
   return (
     <div className="space-y-10">
+      {/* ── Stream attribution ─────────────────────────────────── */}
+      <AuditStreamPanel
+        streamTrends={streamTrends}
+        openCounts={streamOpenCounts}
+        recentOpenIssues={recentOpenIssues}
+      />
+
       {/* ── Overview ───────────────────────────────────────────── */}
       <section className="space-y-5">
         <div className="flex items-center justify-between gap-4">

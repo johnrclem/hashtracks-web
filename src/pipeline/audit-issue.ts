@@ -5,6 +5,7 @@
  */
 import type { AuditGroup } from "./audit-runner";
 import { formatGroupIssueTitle, formatGroupIssueBody } from "./audit-format";
+import { AUDIT_LABEL, ALERT_LABEL, STREAM_LABELS, kennelLabel } from "@/lib/audit-labels";
 
 /**
  * Rules where the fix is running a backfill/re-scrape, not a code change.
@@ -64,7 +65,7 @@ export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
 async function createIssueForGroup(token: string, title: string, group: AuditGroup): Promise<string | null> {
   const body = formatGroupIssueBody(group);
   const isCodeFix = !DATA_REMEDIATION_RULES.has(group.rule);
-  const labels = ["audit", "alert"];
+  const labels = [AUDIT_LABEL, ALERT_LABEL, STREAM_LABELS.AUTOMATED, kennelLabel(group.kennelCode)];
 
   const headers = {
     Authorization: `Bearer ${token}`,

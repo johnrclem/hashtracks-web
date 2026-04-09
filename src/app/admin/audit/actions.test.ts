@@ -30,6 +30,20 @@ vi.mock("@/generated/prisma/client", () => ({
       }
     },
   },
+  // Mirror the Prisma-generated enums so getStreamTrends/getOpenIssueCountsByStream
+  // can reference AuditStream.* / AuditIssueEventType.* at module init time.
+  AuditStream: {
+    AUTOMATED: "AUTOMATED",
+    CHROME_EVENT: "CHROME_EVENT",
+    CHROME_KENNEL: "CHROME_KENNEL",
+    UNKNOWN: "UNKNOWN",
+  },
+  AuditIssueEventType: {
+    OPENED: "OPENED",
+    CLOSED: "CLOSED",
+    REOPENED: "REOPENED",
+    RELABELED: "RELABELED",
+  },
 }));
 
 import { getAdminUser } from "@/lib/auth";
