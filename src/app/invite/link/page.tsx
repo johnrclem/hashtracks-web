@@ -9,22 +9,49 @@ interface Props {
   searchParams: Promise<{ token?: string }>;
 }
 
+/** Centered notice card used by every error/info branch on this page. */
+function InviteNotice({
+  title,
+  body,
+  ctaHref,
+  ctaLabel,
+  tone = "neutral",
+}: {
+  title: string;
+  body: React.ReactNode;
+  ctaHref: string;
+  ctaLabel: string;
+  tone?: "neutral" | "destructive";
+}) {
+  const card =
+    tone === "destructive"
+      ? "rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center"
+      : "rounded-lg border p-6 text-center";
+  return (
+    <div className="mx-auto max-w-md space-y-6 py-12">
+      <div className={card}>
+        <h1 className="text-xl font-bold">{title}</h1>
+        <p className="mt-2 text-muted-foreground">{body}</p>
+        <Button asChild className="mt-4" variant="outline">
+          <Link href={ctaHref}>{ctaLabel}</Link>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default async function ProfileLinkInvitePage({ searchParams }: Props) {
   const { token } = await searchParams;
 
   if (!token) {
     return (
-      <div className="mx-auto max-w-md space-y-6 py-12">
-        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center">
-          <h1 className="text-xl font-bold">Invalid Link</h1>
-          <p className="mt-2 text-muted-foreground">
-            No invite token provided. Check your invite link and try again.
-          </p>
-          <Button asChild className="mt-4" variant="outline">
-            <Link href="/">Go to HashTracks</Link>
-          </Button>
-        </div>
-      </div>
+      <InviteNotice
+        title="Invalid Link"
+        body="No invite token provided. Check your invite link and try again."
+        ctaHref="/"
+        ctaLabel="Go to HashTracks"
+        tone="destructive"
+      />
     );
   }
 
@@ -47,52 +74,37 @@ export default async function ProfileLinkInvitePage({ searchParams }: Props) {
 
   if (!hasher) {
     return (
-      <div className="mx-auto max-w-md space-y-6 py-12">
-        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center">
-          <h1 className="text-xl font-bold">Invite Not Found</h1>
-          <p className="mt-2 text-muted-foreground">
-            This invite link is invalid or has already been used.
-            Contact the kennel manager for a new link.
-          </p>
-          <Button asChild className="mt-4" variant="outline">
-            <Link href="/">Go to HashTracks</Link>
-          </Button>
-        </div>
-      </div>
+      <InviteNotice
+        title="Invite Not Found"
+        body="This invite link is invalid or has already been used. Contact the kennel manager for a new link."
+        ctaHref="/"
+        ctaLabel="Go to HashTracks"
+        tone="destructive"
+      />
     );
   }
 
   // Check expiry
   if (hasher.profileInviteExpiresAt && hasher.profileInviteExpiresAt <= new Date()) {
     return (
-      <div className="mx-auto max-w-md space-y-6 py-12">
-        <div className="rounded-lg border p-6 text-center">
-          <h1 className="text-xl font-bold">Invite Expired</h1>
-          <p className="mt-2 text-muted-foreground">
-            This invite link has expired. Ask the kennel manager for a new one.
-          </p>
-          <Button asChild className="mt-4" variant="outline">
-            <Link href="/">Go to HashTracks</Link>
-          </Button>
-        </div>
-      </div>
+      <InviteNotice
+        title="Invite Expired"
+        body="This invite link has expired. Ask the kennel manager for a new one."
+        ctaHref="/"
+        ctaLabel="Go to HashTracks"
+      />
     );
   }
 
   // Check if already linked
   if (hasher.userLink && hasher.userLink.status === "CONFIRMED") {
     return (
-      <div className="mx-auto max-w-md space-y-6 py-12">
-        <div className="rounded-lg border p-6 text-center">
-          <h1 className="text-xl font-bold">Already Linked</h1>
-          <p className="mt-2 text-muted-foreground">
-            This roster entry is already linked to an account.
-          </p>
-          <Button asChild className="mt-4" variant="outline">
-            <Link href="/profile">Go to Profile</Link>
-          </Button>
-        </div>
-      </div>
+      <InviteNotice
+        title="Already Linked"
+        body="This roster entry is already linked to an account."
+        ctaHref="/profile"
+        ctaLabel="Go to Profile"
+      />
     );
   }
 
@@ -174,19 +186,19 @@ export default async function ProfileLinkInvitePage({ searchParams }: Props) {
 
     if (result.outcome === "already-linked") {
       return (
-        <div className="mx-auto max-w-md space-y-6 py-12">
-          <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center">
-            <h1 className="text-xl font-bold">Already Connected</h1>
-            <p className="mt-2 text-muted-foreground">
+        <InviteNotice
+          title="Already Connected"
+          body={
+            <>
               Your account is already linked to{" "}
               <strong>{result.hashName}</strong> in this roster group. Contact
               the kennel manager if this is incorrect.
-            </p>
-            <Button asChild className="mt-4" variant="outline">
-              <Link href="/profile">Go to Profile</Link>
-            </Button>
-          </div>
-        </div>
+            </>
+          }
+          ctaHref="/profile"
+          ctaLabel="Go to Profile"
+          tone="destructive"
+        />
       );
     }
 
