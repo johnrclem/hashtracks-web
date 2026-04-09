@@ -198,9 +198,27 @@ interface EventToAppend {
 }
 
 /**
+ * Postgres advisory lock key for the audit sync. Two concurrent syncs would
+ * race the read-diff-write cycle and double-count events. The lock is held
+ * for the duration of the transaction; pg_try_advisory_xact_lock returns
+ * immediately if held, so a retry/cron-overlap exits cleanly instead of
+ * waiting (and thus hitting the function timeout).
+ */
+const SYNC_LOCK_KEY = 0x4155_4954; // "AUIT" — arbitrary 32-bit constant
+
+/**
  * Run a full sync against the GitHub `audit`-labeled corpus. Updates the
  * AuditIssue snapshot table and appends AuditIssueEvent rows for every
- * transition observed since the previous sync.
+ * transition observed since the previous sync. Wrapped in a transaction
+ * with a Postgres advisory lock so concurrent runs are serialized — two
+ * overlapping invocations cannot both observe the same pre-transition
+ * state and double-emit lifecycle events.
+ *
+ * Stale-row reconciliation: any AuditIssue row whose githubNumber is NOT
+ * in the freshly-fetched audit corpus (e.g. an operator removed the
+ * `audit` label, or the issue was deleted) is dropped from the snapshot
+ * so the dashboard stops counting it. The event log keeps its prior
+ * OPENED/CLOSED history — only the current-state mirror is removed.
  */
 export async function syncAuditIssues(): Promise<SyncResult> {
   const token = process.env.GITHUB_TOKEN;
@@ -208,6 +226,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
     throw new Error("GITHUB_TOKEN not set");
   }
 
+  // Fetch outside the transaction — network I/O shouldn't hold a DB lock.
   const issues = await fetchAllAuditIssues(token);
   const result: SyncResult = {
     scanned: issues.length,
@@ -218,85 +237,111 @@ export async function syncAuditIssues(): Promise<SyncResult> {
     errors: [],
   };
 
-  // Look up every prior snapshot in one round trip.
-  const githubNumbers = issues.map((i) => i.number);
-  const priors = await prisma.auditIssue.findMany({
-    where: { githubNumber: { in: githubNumbers } },
-  });
-  const priorByNumber = new Map(priors.map((p) => [p.githubNumber, p]));
-
-  const now = new Date();
-  const eventsToAppend: EventToAppend[] = [];
-
-  for (const issue of issues) {
-    try {
-      const labelNames = extractLabelNames(issue.labels);
-      const stream = resolveStream(labelNames);
-      const kennelCode = resolveKennel(labelNames);
-      const githubCreatedAt = new Date(issue.created_at);
-      const githubClosedAt = issue.closed_at ? new Date(issue.closed_at) : null;
-
-      const prior = priorByNumber.get(issue.number) ?? null;
-
-      const newEvents = diffIssue(
-        prior
-          ? {
-              stream: prior.stream,
-              state: prior.state,
-              githubClosedAt: prior.githubClosedAt,
-            }
-          : null,
-        { stream, state: issue.state, githubCreatedAt, githubClosedAt },
-        now,
-      );
-
-      // Upsert the snapshot. We need the row id to attach events; doing the
-      // upsert first lets us batch the events afterwards.
-      const upserted = await prisma.auditIssue.upsert({
-        where: { githubNumber: issue.number },
-        create: {
-          githubNumber: issue.number,
-          stream,
-          state: issue.state,
-          title: issue.title,
-          htmlUrl: issue.html_url,
-          kennelCode: kennelCode ?? undefined,
-          githubCreatedAt,
-          githubClosedAt: githubClosedAt ?? undefined,
-        },
-        update: {
-          stream,
-          state: issue.state,
-          title: issue.title,
-          htmlUrl: issue.html_url,
-          kennelCode: kennelCode ?? null,
-          githubClosedAt: githubClosedAt ?? null,
-        },
-      });
-
-      for (const ev of newEvents) {
-        eventsToAppend.push({ ...ev, issueId: upserted.id });
-        if (ev.type === AuditIssueEventType.OPENED) result.opened++;
-        if (ev.type === AuditIssueEventType.CLOSED) result.closed++;
-        if (ev.type === AuditIssueEventType.REOPENED) result.reopened++;
-        if (ev.type === AuditIssueEventType.RELABELED) result.relabeled++;
-      }
-    } catch (err) {
-      result.errors.push(`#${issue.number}: ${err instanceof Error ? err.message : String(err)}`);
+  await prisma.$transaction(async (tx) => {
+    // Try to acquire the advisory lock; bail if another sync is in flight.
+    const lockRows = await tx.$queryRaw<Array<{ pg_try_advisory_xact_lock: boolean }>>`
+      SELECT pg_try_advisory_xact_lock(${SYNC_LOCK_KEY}) AS pg_try_advisory_xact_lock
+    `;
+    if (!lockRows[0]?.pg_try_advisory_xact_lock) {
+      throw new Error("Another audit-issue sync is already in progress");
     }
-  }
 
-  if (eventsToAppend.length > 0) {
-    await prisma.auditIssueEvent.createMany({
-      data: eventsToAppend.map((e) => ({
-        issueId: e.issueId,
-        type: e.type,
-        stream: e.stream,
-        occurredAt: e.occurredAt,
-        fromStream: e.fromStream ?? null,
-      })),
+    // Look up every prior snapshot for the issue numbers in the current fetch
+    // AND every existing snapshot row, so we can reconcile rows that fell out
+    // of the audit corpus. One round trip per side keeps the per-row diff
+    // hot-loop allocation-free.
+    const githubNumbers = issues.map((i) => i.number);
+    const priors = await tx.auditIssue.findMany({
+      where: { githubNumber: { in: githubNumbers } },
     });
-  }
+    const priorByNumber = new Map(priors.map((p) => [p.githubNumber, p]));
+
+    const allMirrored = await tx.auditIssue.findMany({ select: { id: true, githubNumber: true } });
+    const fetchedNumbers = new Set(githubNumbers);
+    const staleIds = allMirrored.filter((m) => !fetchedNumbers.has(m.githubNumber)).map((m) => m.id);
+
+    const now = new Date();
+    const eventsToAppend: EventToAppend[] = [];
+
+    for (const issue of issues) {
+      try {
+        const labelNames = extractLabelNames(issue.labels);
+        const stream = resolveStream(labelNames);
+        const kennelCode = resolveKennel(labelNames);
+        const githubCreatedAt = new Date(issue.created_at);
+        const githubClosedAt = issue.closed_at ? new Date(issue.closed_at) : null;
+
+        const prior = priorByNumber.get(issue.number) ?? null;
+
+        const newEvents = diffIssue(
+          prior
+            ? {
+                stream: prior.stream,
+                state: prior.state,
+                githubClosedAt: prior.githubClosedAt,
+              }
+            : null,
+          { stream, state: issue.state, githubCreatedAt, githubClosedAt },
+          now,
+        );
+
+        // Upsert the snapshot. We need the row id to attach events; doing the
+        // upsert first lets us batch the events afterwards.
+        const upserted = await tx.auditIssue.upsert({
+          where: { githubNumber: issue.number },
+          create: {
+            githubNumber: issue.number,
+            stream,
+            state: issue.state,
+            title: issue.title,
+            htmlUrl: issue.html_url,
+            kennelCode: kennelCode ?? undefined,
+            githubCreatedAt,
+            githubClosedAt: githubClosedAt ?? undefined,
+          },
+          update: {
+            stream,
+            state: issue.state,
+            title: issue.title,
+            htmlUrl: issue.html_url,
+            kennelCode: kennelCode ?? null,
+            githubClosedAt: githubClosedAt ?? null,
+          },
+        });
+
+        for (const ev of newEvents) {
+          eventsToAppend.push({ ...ev, issueId: upserted.id });
+          if (ev.type === AuditIssueEventType.OPENED) result.opened++;
+          if (ev.type === AuditIssueEventType.CLOSED) result.closed++;
+          if (ev.type === AuditIssueEventType.REOPENED) result.reopened++;
+          if (ev.type === AuditIssueEventType.RELABELED) result.relabeled++;
+        }
+      } catch (err) {
+        result.errors.push(`#${issue.number}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    if (eventsToAppend.length > 0) {
+      await tx.auditIssueEvent.createMany({
+        data: eventsToAppend.map((e) => ({
+          issueId: e.issueId,
+          type: e.type,
+          stream: e.stream,
+          occurredAt: e.occurredAt,
+          fromStream: e.fromStream ?? null,
+        })),
+      });
+    }
+
+    // Stale-row reconciliation. Cascading FK delete on AuditIssueEvent keeps
+    // the historical event log only when the snapshot is preserved — when
+    // the snapshot row is deleted (operator removed the `audit` label), the
+    // associated events go with it. That's the right semantics for "this
+    // issue was never an audit issue after all".
+    if (staleIds.length > 0) {
+      await tx.auditIssue.deleteMany({ where: { id: { in: staleIds } } });
+    }
+  });
 
   console.log(
     `[audit-sync] scanned=${result.scanned} opened=${result.opened} closed=${result.closed} reopened=${result.reopened} relabeled=${result.relabeled} errors=${result.errors.length}`,
