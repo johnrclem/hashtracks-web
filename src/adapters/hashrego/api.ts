@@ -12,6 +12,26 @@ import { safeFetch } from "../safe-fetch";
 const BASE_URL = "https://hashrego.com";
 const DEFAULT_TIMEOUT_MS = 5_000;
 
+// Single ISO 8601 datetime regex (no subseconds) with timezone offset or Z
+// suffix. Used by both api.ts (for whole-row validation) and adapter.ts
+// (for apiToIndexEntry conversion). Centralized to keep the format contract
+// in one place.
+export const HASHREGO_ISO_DATETIME_RE =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):\d{2}([+-]\d{2}:\d{2}|Z)$/;
+
+/** Build the JSON kennel-events URL for a slug. */
+export function kennelEventsUrl(slug: string): string {
+  return `${BASE_URL}/api/kennels/${encodeURIComponent(slug)}/events/`;
+}
+
+/** The HTML global events index URL (used by Step 1 of the adapter). */
+export const HASHREGO_EVENTS_INDEX_URL = `${BASE_URL}/events`;
+
+/** Build the HTML event detail URL for a slug (used by Step 3 + fallback). */
+export function eventDetailUrl(slug: string): string {
+  return `${BASE_URL}/events/${slug}`;
+}
+
 /**
  * `/api/kennels/{slug}/events/` list response item.
  * Fields verified via curl on 2026-04-08.
@@ -89,7 +109,7 @@ export async function fetchKennelEvents(
   kennelSlug: string,
   opts: { timeoutMs: number } = { timeoutMs: DEFAULT_TIMEOUT_MS },
 ): Promise<HashRegoKennelEvent[]> {
-  const url = `${BASE_URL}/api/kennels/${encodeURIComponent(kennelSlug)}/events/`;
+  const url = kennelEventsUrl(kennelSlug);
   let res: Response;
   try {
     res = await safeFetch(url, {

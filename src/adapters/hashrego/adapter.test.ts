@@ -41,6 +41,24 @@ function buildApiRow(overrides: Partial<HashRegoKennelEvent> = {}): HashRegoKenn
   };
 }
 
+/** Type guard + assertion: pull `errorDetails.fetch` and fail loudly if absent. */
+function fetchErrorsOf(
+  result: { errorDetails?: { fetch?: Array<{ url?: string; status?: number; message: string }> } },
+): Array<{ url?: string; status?: number; message: string }> {
+  const list = result.errorDetails?.fetch;
+  expect(list, "expected errorDetails.fetch to be populated").toBeDefined();
+  return list ?? [];
+}
+
+/** Type guard + assertion: pull `errorDetails.parse` and fail loudly if absent. */
+function parseErrorsOf(
+  result: { errorDetails?: { parse?: Array<{ row: number; section?: string; error: string; rawText?: string }> } },
+): Array<{ row: number; section?: string; error: string; rawText?: string }> {
+  const list = result.errorDetails?.parse;
+  expect(list, "expected errorDetails.parse to be populated").toBeDefined();
+  return list ?? [];
+}
+
 // ── parseHashRegoDate ──
 
 describe("parseHashRegoDate", () => {
@@ -684,9 +702,15 @@ describe("HashRegoAdapter", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     mockedFetchKennelEvents.mockReset();
-    // Default: an unmocked call returns an empty array (legitimate "no events").
-    // Individual tests override with mockResolvedValueOnce / mockRejectedValueOnce.
-    mockedFetchKennelEvents.mockResolvedValue([]);
+    // Default: throw on any unexpected fetchKennelEvents call. Tests that
+    // expect Step 2b activity must opt in via mockResolvedValueOnce or
+    // mockImplementationOnce. A permissive empty-array default would let
+    // Step 1/Step 3 routing regressions silently pass as "no events".
+    mockedFetchKennelEvents.mockImplementation(async (slug: string) => {
+      throw new Error(
+        `Unexpected fetchKennelEvents call for ${slug} — test should opt in if Step 2b is expected`,
+      );
+    });
     // Ensure tests use direct fetch path regardless of env
     delete process.env.RESIDENTIAL_PROXY_URL;
     delete process.env.RESIDENTIAL_PROXY_KEY;
@@ -860,9 +884,9 @@ describe("HashRegoAdapter", () => {
     expect(result.events).toHaveLength(0);
     // Per-slug errors stay in errorDetails.fetch[], never push to top-level errors[]
     expect(result.errors).toHaveLength(0);
-    expect(result.errorDetails?.fetch).toBeDefined();
-    expect(result.errorDetails!.fetch![0].message).toContain("network");
-    expect(result.errorDetails!.fetch![0].url).toContain("/api/kennels/NYCH3/events/");
+    const fetchErrors = fetchErrorsOf(result);
+    expect(fetchErrors[0].message).toContain("network");
+    expect(fetchErrors[0].url).toContain("/api/kennels/NYCH3/events/");
   });
 
   it("continues past API failures to reach other slugs with events", async () => {
@@ -893,8 +917,7 @@ describe("HashRegoAdapter", () => {
     expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
     expect((result.diagnosticContext?.kennelPageEventsFound as number)).toBeGreaterThan(0);
     // And the 502 was recorded in fetch errors
-    expect(result.errorDetails?.fetch).toBeDefined();
-    expect(result.errorDetails!.fetch![0].status).toBe(502);
+    expect(fetchErrorsOf(result)[0].status).toBe(502);
   });
 
   it("filters events by days window", async () => {
@@ -1017,11 +1040,11 @@ describe("HashRegoAdapter", () => {
     expect(result.diagnosticContext?.kennelPageEventsFound).toBe(9);
     expect(result.events).toHaveLength(9);
     // Parse error recorded in errorDetails.parse with proper row index.
-    expect(result.errorDetails?.parse).toBeDefined();
-    expect(result.errorDetails!.parse!).toHaveLength(1);
-    expect(result.errorDetails!.parse![0].row).toBe(4);
-    expect(result.errorDetails!.parse![0].section).toBe("NYCH3");
-    expect(result.errorDetails!.parse![0].error).toMatch(/start_time/);
+    const parseErrors = parseErrorsOf(result);
+    expect(parseErrors).toHaveLength(1);
+    expect(parseErrors[0].row).toBe(4);
+    expect(parseErrors[0].section).toBe("NYCH3");
+    expect(parseErrors[0].error).toMatch(/start_time/);
     // CRITICAL: row parse failures must push to top-level errors[] so the
     // scrape pipeline's reconcile gate (errors.length === 0) blocks
     // cancellation of the existing canonical event for the dropped row.
@@ -1029,8 +1052,7 @@ describe("HashRegoAdapter", () => {
     // The errors[] entry must EXACTLY match the ParseError.error text so AI
     // recovery (scrape.ts:87) can match-and-clean it when the row is
     // successfully recovered. A slug-level summary would never match.
-    const parseErrorText = result.errorDetails!.parse![0].error;
-    expect(result.errors).toContain(parseErrorText);
+    expect(result.errors).toContain(parseErrors[0].error);
   });
 
   it("whole-response parse drift (non-array body) marks scrape failed", async () => {
@@ -1056,8 +1078,7 @@ describe("HashRegoAdapter", () => {
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.errors.some((e) => e.includes("parse") && e.includes("NYCH3"))).toBe(true);
     // And the fetch is still recorded for diagnostics
-    expect(result.errorDetails?.fetch).toBeDefined();
-    expect(result.errorDetails!.fetch![0].message).toContain("parse");
+    expect(fetchErrorsOf(result)[0].message).toContain("parse");
     expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(1);
   });
 
@@ -1081,9 +1102,9 @@ describe("HashRegoAdapter", () => {
     const source = buildSource();
     const result = await adapter.fetch(source, { days: 365, kennelSlugs: ["NYCH3"] });
 
-    const parseErr = result.errorDetails!.parse![0];
+    const parseErr = parseErrorsOf(result)[0];
     expect(parseErr.rawText).toBeDefined();
-    const raw = JSON.parse(parseErr.rawText!);
+    const raw: Record<string, unknown> = JSON.parse(parseErr.rawText ?? "{}");
     // Whitelist: only these keys
     expect(Object.keys(raw).sort()).toEqual(
       ["current_price", "host_kennel_slug", "is_over", "slug", "start_time"],
@@ -1095,15 +1116,13 @@ describe("HashRegoAdapter", () => {
   });
 
   it("worst-case budget: slow successful calls hit budget_exhausted cleanly", async () => {
-    vi.useRealTimers();
+    // Fake timers + advanceTimersByTimeAsync simulate 200 slugs × 4s/call
+    // (= 80s wall-clock) inside the test runner without actually waiting. The
+    // adapter's budget logic uses Date.now(), which vi.useFakeTimers() does
+    // advance, so the 45s STEP2B_BUDGET trips identically to a real run.
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
 
-    // 200 missing slugs × 4s each at BATCH_SIZE=10 = 20 batches × 4s = 80s max.
-    // STEP2B_BUDGET_MS=45s will trip around batch 11-12. Remaining slugs
-    // surface as kennelPagesSkipped. This proves (a) the cap is time-based,
-    // not count-based, (b) concurrency stays within BATCH_SIZE, and
-    // (c) stopReason is set cleanly.
     const missingSlugs = Array.from({ length: 200 }, (_, i) => `SLOW${i}`);
 
     let activeCalls = 0;
@@ -1118,19 +1137,32 @@ describe("HashRegoAdapter", () => {
 
     const adapter = new HashRegoAdapter();
     const source = buildSource();
-    const start = Date.now();
-    const result = await adapter.fetch(source, { days: 365, kennelSlugs: missingSlugs });
-    const wallClock = Date.now() - start;
+    const startTick = Date.now();
+    let settled = false;
+    const promise = adapter
+      .fetch(source, { days: 365, kennelSlugs: missingSlugs })
+      .finally(() => {
+        settled = true;
+      });
+    // Drive the fake clock forward in 1s steps until the promise resolves.
+    // Cap at 90s simulated to prevent runaway. Each 1s tick lets pending
+    // setTimeout(4000) callbacks fire and lets the next batch launch when
+    // the prior one settles.
+    for (let elapsed = 0; elapsed < 90_000 && !settled; elapsed += 1_000) {
+      await vi.advanceTimersByTimeAsync(1_000);
+    }
+    const result = await promise;
+    const simulatedWall = Date.now() - startTick;
 
-    // Budget should fire between 40s and 55s (45s ± one batch)
-    expect(wallClock).toBeGreaterThanOrEqual(40_000);
-    expect(wallClock).toBeLessThan(60_000);
+    // Budget should fire between 40s and 55s of SIMULATED time (45s ± one batch).
+    expect(simulatedWall).toBeGreaterThanOrEqual(40_000);
+    expect(simulatedWall).toBeLessThan(60_000);
     expect(result.diagnosticContext?.kennelPagesStopReason).toBe("budget_exhausted");
     expect((result.diagnosticContext?.kennelPagesChecked as string[]).length).toBeLessThan(200);
     expect((result.diagnosticContext?.kennelPagesSkipped as number)).toBeGreaterThan(50);
     // Concurrency cap must hold throughout
     expect(maxActive).toBeLessThanOrEqual(10);
-  }, 70_000);
+  });
 
   it("falls back to direct fetch when proxy env vars not set", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");

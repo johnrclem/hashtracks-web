@@ -21,6 +21,10 @@ import { PrismaClient } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
 import { HashRegoAdapter } from "@/adapters/hashrego/adapter";
 
+/**
+ * Resolve the HASHREGO source, pull every eligible KennelDiscovery slug,
+ * run the adapter against the live API, and assert the fix invariants.
+ */
 async function main() {
   const pool = createScriptPool();
   const adapter = new PrismaPg(pool);
@@ -87,11 +91,13 @@ async function main() {
   console.log("\n=== Assertions ===");
   const checked = (dc?.kennelPagesChecked as string[])?.length ?? 0;
   const stop = dc?.kennelPagesStopReason as string | null;
+  const skipped = dc?.kennelPagesSkipped as number;
   const pageFetchErrors = dc?.kennelPageFetchErrors as number;
   const pageEventsFound = dc?.kennelPageEventsFound as number;
   const ok =
     result.events.length > 0 &&
-    stop !== "max_pages" &&
+    stop === null &&
+    skipped === 0 &&
     result.errors.length === 0 &&
     checked > 10 &&
     pageEventsFound > 0 &&
@@ -99,8 +105,9 @@ async function main() {
     !!sample.date &&
     !!sample.kennelTag;
   console.log(`eventsProduced > 0:              ${result.events.length > 0 ? "✅" : "❌"}`);
-  console.log(`stopReason !== "max_pages":      ${stop !== "max_pages" ? "✅" : "❌"}`);
-  console.log(`top-level errors empty (Path C): ${result.errors.length === 0 ? "✅" : "❌"}`);
+  console.log(`stopReason === null:             ${stop === null ? "✅" : `❌ (${stop})`}`);
+  console.log(`kennelPagesSkipped === 0:        ${skipped === 0 ? "✅" : `❌ (${skipped})`}`);
+  console.log(`top-level errors empty:          ${result.errors.length === 0 ? "✅" : "❌"}`);
   console.log(`kennelPagesChecked > 10:         ${checked > 10 ? `✅ (${checked})` : "❌"}`);
   console.log(`kennelPageEventsFound > 0:       ${pageEventsFound > 0 ? "✅" : "❌"}`);
   console.log(`sample has date + kennelTag:     ${sample && sample.date && sample.kennelTag ? "✅" : "❌"}`);

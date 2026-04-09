@@ -19,7 +19,11 @@ import {
 } from "./parser";
 import {
   fetchKennelEvents,
+  kennelEventsUrl,
+  eventDetailUrl,
+  HASHREGO_EVENTS_INDEX_URL,
   HashRegoApiError,
+  HASHREGO_ISO_DATETIME_RE,
   type HashRegoKennelEvent,
 } from "./api";
 
@@ -66,7 +70,7 @@ export class HashRegoAdapter implements SourceAdapter {
     const maxAttempts = 1 + INDEX_FETCH_RETRIES;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const res = await safeFetch("https://hashrego.com/events", {
+        const res = await safeFetch(HASHREGO_EVENTS_INDEX_URL, {
           headers: { "User-Agent": USER_AGENT },
           useResidentialProxy: true,
           signal: AbortSignal.timeout(30_000),
@@ -81,7 +85,7 @@ export class HashRegoAdapter implements SourceAdapter {
           continue;
         }
         const msg = `Index fetch failed: HTTP ${res.status} (after ${maxAttempts} attempts)`;
-        errorDetails.fetch = [{ url: "https://hashrego.com/events", status: res.status, message: msg }];
+        errorDetails.fetch = [{ url: HASHREGO_EVENTS_INDEX_URL, status: res.status, message: msg }];
         return { events: [], errors: [msg], errorDetails };
       } catch (err) {
         if (attempt < maxAttempts) {
@@ -89,7 +93,7 @@ export class HashRegoAdapter implements SourceAdapter {
           continue;
         }
         const msg = `Index fetch error: ${err}`;
-        errorDetails.fetch = [{ url: "https://hashrego.com/events", message: msg }];
+        errorDetails.fetch = [{ url: HASHREGO_EVENTS_INDEX_URL, message: msg }];
         return { events: [], errors: [msg], errorDetails };
       }
     }
@@ -150,7 +154,7 @@ export class HashRegoAdapter implements SourceAdapter {
         if (outcome.kind === "fail") {
           const status = outcome.error.status;
           (errorDetails.fetch ??= []).push({
-            url: `https://hashrego.com/api/kennels/${slug}/events/`,
+            url: kennelEventsUrl(slug),
             status: status === 0 ? undefined : status,
             message: outcome.error.message,
           });
@@ -255,7 +259,7 @@ async function fetchAndParseDetail(
   errorDetails: ErrorDetails,
 ): Promise<RawEventData[]> {
   try {
-    const detailUrl = `https://hashrego.com/events/${entry.slug}`;
+    const detailUrl = eventDetailUrl(entry.slug);
     const detailRes = await safeFetch(detailUrl, {
       headers: { "User-Agent": USER_AGENT },
     });
@@ -286,16 +290,12 @@ async function fetchAndParseDetail(
       rawText: `Slug: ${entry.slug}\nTitle: ${entry.title ?? "unknown"}\nDate: ${entry.startDate ?? "unknown"}`.slice(0, 2000),
       partialData: {
         kennelTag: entry.kennelSlug,
-        sourceUrl: `https://hashrego.com/events/${entry.slug}`,
+        sourceUrl: eventDetailUrl(entry.slug),
       },
     });
     return createFromIndex(entry);
   }
 }
-
-// ISO 8601 datetime (no subseconds) with timezone offset or Z suffix.
-const ISO_DATETIME_RE =
-  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):\d{2}([+-]\d{2}:\d{2}|Z)$/;
 
 /**
  * Convert a JSON kennel-events API row into the legacy IndexEntry shape so
@@ -318,7 +318,7 @@ export function apiToIndexEntry(api: HashRegoKennelEvent, kennelSlug: string): I
 
   // Split the ISO string rather than using `new Date()` to avoid local-TZ
   // drift — the API already encodes the intended wall-clock time.
-  const match = api.start_time.match(ISO_DATETIME_RE);
+  const match = api.start_time.match(HASHREGO_ISO_DATETIME_RE);
   if (!match) {
     throw new HashRegoApiError(
       kennelSlug,
@@ -362,10 +362,23 @@ function safeApiRowSample(row: Partial<HashRegoKennelEvent>): string {
   });
 }
 
+/**
+ * Step 2b call outcome. `ok` carries the converted IndexEntries and any
+ * row-level parse failures (partial success). `fail` carries a single
+ * whole-call error (transport, auth, rate-limit, server, or whole-response
+ * parse drift).
+ */
 type Step2bOutcome =
   | { kind: "ok"; entries: IndexEntry[]; rowParseErrors: ParseError[] }
   | { kind: "fail"; error: HashRegoApiError };
 
+/**
+ * Fetch a kennel's events from the JSON API and convert each row into an
+ * IndexEntry. Network/HTTP failures return a `fail` outcome (the whole
+ * kennel call is dropped). Row-level parse failures are accumulated into
+ * `rowParseErrors` so a single bad row doesn't lose the other events from
+ * the same kennel.
+ */
 async function fetchAndConvertKennelEvents(
   slug: string,
   timeoutMs: number,
@@ -396,9 +409,7 @@ async function fetchAndConvertKennelEvents(
       // event won't match the existing canonical Hash Rego event → false
       // CANCELLED on the next reconcile pass.
       const rowSlug = typeof row?.slug === "string" ? row.slug : undefined;
-      const sourceUrl = rowSlug
-        ? `https://hashrego.com/events/${rowSlug}`
-        : undefined;
+      const sourceUrl = rowSlug ? eventDetailUrl(rowSlug) : undefined;
       rowParseErrors.push({
         row: index,
         section: slug,
@@ -421,7 +432,7 @@ function createFromIndex(entry: IndexEntry): RawEventData[] {
   if (!date) return [];
 
   const time = parseHashRegoTime(entry.startTime);
-  const hashRegoUrl = `https://hashrego.com/events/${entry.slug}`;
+  const hashRegoUrl = eventDetailUrl(entry.slug);
 
   return [
     {

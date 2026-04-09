@@ -131,15 +131,17 @@ describe("fetchKennelEvents", () => {
   it("Network error → throws network (preserves cause)", async () => {
     const cause = new Error("ECONNREFUSED");
     mockedSafeFetch.mockRejectedValue(cause);
+    let caught: unknown;
     try {
       await fetchKennelEvents("EWH3");
-      expect.fail("expected throw");
     } catch (err) {
-      expect(err).toBeInstanceOf(HashRegoApiError);
-      expect((err as HashRegoApiError).kind).toBe("network");
-      expect((err as HashRegoApiError).slug).toBe("EWH3");
-      expect((err as Error & { cause?: unknown }).cause).toBe(cause);
+      caught = err;
     }
+    expect(caught).toBeInstanceOf(HashRegoApiError);
+    if (!(caught instanceof HashRegoApiError)) return; // narrows for TS
+    expect(caught.kind).toBe("network");
+    expect(caught.slug).toBe("EWH3");
+    expect(caught.cause).toBe(cause);
   });
 
   it("AbortSignal timeout → throws network without leaking controller", async () => {
@@ -167,12 +169,15 @@ describe("fetchKennelEvents", () => {
     mockedSafeFetch.mockResolvedValue(jsonResponse([]));
     await fetchKennelEvents("EWH3", { timeoutMs: 50 });
     const [, opts] = mockedSafeFetch.mock.calls[0];
-    const signal = opts?.signal as AbortSignal | undefined;
-    expect(signal).toBeDefined();
-    expect(signal!.aborted).toBe(false);
+    const rawSignal = opts?.signal;
+    expect(rawSignal).toBeDefined();
+    if (!(rawSignal instanceof AbortSignal)) return; // narrows for TS
+    expect(rawSignal.aborted).toBe(false);
     await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(signal!.aborted).toBe(true);
+    expect(rawSignal.aborted).toBe(true);
     // The abort reason should be a TimeoutError DOMException, not a manual abort.
-    expect((signal!.reason as DOMException).name).toBe("TimeoutError");
+    expect(rawSignal.reason).toBeInstanceOf(DOMException);
+    if (!(rawSignal.reason instanceof DOMException)) return;
+    expect(rawSignal.reason.name).toBe("TimeoutError");
   });
 });
