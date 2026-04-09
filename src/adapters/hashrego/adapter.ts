@@ -153,7 +153,8 @@ export class HashRegoAdapter implements SourceAdapter {
         kennelPagesChecked.push(slug);
         if (outcome.kind === "fail") {
           const status = outcome.error.status;
-          (errorDetails.fetch ??= []).push({
+          errorDetails.fetch ??= [];
+          errorDetails.fetch.push({
             url: kennelEventsUrl(slug),
             status: status === 0 ? undefined : status,
             message: outcome.error.message,
@@ -177,7 +178,8 @@ export class HashRegoAdapter implements SourceAdapter {
           }
         }
         if (outcome.rowParseErrors.length > 0) {
-          (errorDetails.parse ??= []).push(...outcome.rowParseErrors);
+          errorDetails.parse ??= [];
+          errorDetails.parse.push(...outcome.rowParseErrors);
           // Push each row's parse error text into top-level errors[] using
           // the SAME string as the ParseError.error field. AI recovery
           // (src/pipeline/scrape.ts:87) cleans up errors[] entries that
@@ -283,7 +285,8 @@ async function fetchAndParseDetail(
     // would fail to match the existing canonical event and cancel it.
     const msg = `Error processing ${entry.slug}: ${err}`;
     errors.push(msg);
-    (errorDetails.parse ??= []).push({
+    errorDetails.parse ??= [];
+    errorDetails.parse.push({
       row: 0,
       section: entry.slug,
       error: msg,
@@ -306,6 +309,13 @@ async function fetchAndParseDetail(
  * Throws HashRegoApiError("parse") on any missing/unparseable required field.
  * Never returns null and never invents a date.
  */
+/** Convert a 24-hour hour to its 12-hour clock counterpart. */
+function to12Hour(hour24: number): number {
+  if (hour24 === 0) return 12;
+  if (hour24 > 12) return hour24 - 12;
+  return hour24;
+}
+
 export function apiToIndexEntry(api: HashRegoKennelEvent, kennelSlug: string): IndexEntry {
   if (!api?.slug || !api?.event_name || !api?.start_time) {
     throw new HashRegoApiError(
@@ -318,8 +328,8 @@ export function apiToIndexEntry(api: HashRegoKennelEvent, kennelSlug: string): I
 
   // Split the ISO string rather than using `new Date()` to avoid local-TZ
   // drift — the API already encodes the intended wall-clock time.
-  const match = api.start_time.match(HASHREGO_ISO_DATETIME_RE);
-  if (!match) {
+  const match = HASHREGO_ISO_DATETIME_RE.exec(api.start_time);
+  if (match === null) {
     throw new HashRegoApiError(
       kennelSlug,
       0,
@@ -330,10 +340,10 @@ export function apiToIndexEntry(api: HashRegoKennelEvent, kennelSlug: string): I
 
   const [, yyyy, mm, dd, hh, min] = match;
   const year2 = yyyy.slice(-2);
-  const hourNum = parseInt(hh, 10);
-  const minNum = parseInt(min, 10);
+  const hourNum = Number.parseInt(hh, 10);
+  const minNum = Number.parseInt(min, 10);
   const ampm = hourNum >= 12 ? "PM" : "AM";
-  const hour12 = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum;
+  const hour12 = to12Hour(hourNum);
   const timeStr = `${hour12}:${String(minNum).padStart(2, "0")} ${ampm}`;
 
   return {

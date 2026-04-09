@@ -303,9 +303,10 @@ describe("apiToIndexEntry", () => {
       const parsedDate = parseHashRegoDate(entry.startDate);
       expect(parsedDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
-      const isoMatch = row.start_time.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+      const isoMatch = /^(\d{4})-(\d{2})-(\d{2})T/.exec(row.start_time);
       expect(isoMatch).not.toBeNull();
-      const [, y, m, d] = isoMatch!;
+      if (isoMatch === null) continue; // narrows for TS
+      const [, y, m, d] = isoMatch;
       expect(parsedDate).toBe(`${y}-${m}-${d}`);
     }
   });
@@ -1106,7 +1107,7 @@ describe("HashRegoAdapter", () => {
     expect(parseErr.rawText).toBeDefined();
     const raw: Record<string, unknown> = JSON.parse(parseErr.rawText ?? "{}");
     // Whitelist: only these keys
-    expect(Object.keys(raw).sort()).toEqual(
+    expect(Object.keys(raw).sort((a, b) => a.localeCompare(b))).toEqual(
       ["current_price", "host_kennel_slug", "is_over", "slug", "start_time"],
     );
     // Explicit PII absence

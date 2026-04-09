@@ -124,7 +124,9 @@ describe("attemptAiRecovery", () => {
     // ParseError has its own partialData.kennelTag.
     const result = await attemptAiRecovery(errors, "WRONG_KENNEL");
     expect(result.succeeded).toBe(2);
-    const tags = result.results.map((r) => r.recovered.kennelTag).sort();
+    const tags = result.results
+      .map((r) => r.recovered.kennelTag)
+      .sort((a, b) => a.localeCompare(b));
     expect(tags).toEqual(["BFMH3", "NYCH3"]);
   });
 

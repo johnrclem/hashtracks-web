@@ -104,13 +104,17 @@ async function main() {
     sample !== undefined &&
     !!sample.date &&
     !!sample.kennelTag;
-  console.log(`eventsProduced > 0:              ${result.events.length > 0 ? "✅" : "❌"}`);
-  console.log(`stopReason === null:             ${stop === null ? "✅" : `❌ (${stop})`}`);
-  console.log(`kennelPagesSkipped === 0:        ${skipped === 0 ? "✅" : `❌ (${skipped})`}`);
-  console.log(`top-level errors empty:          ${result.errors.length === 0 ? "✅" : "❌"}`);
-  console.log(`kennelPagesChecked > 10:         ${checked > 10 ? `✅ (${checked})` : "❌"}`);
-  console.log(`kennelPageEventsFound > 0:       ${pageEventsFound > 0 ? "✅" : "❌"}`);
-  console.log(`sample has date + kennelTag:     ${sample && sample.date && sample.kennelTag ? "✅" : "❌"}`);
+  function check(pass: boolean, detail?: string): string {
+    const icon = pass ? "✅" : "❌";
+    return detail ? `${icon} ${detail}` : icon;
+  }
+  console.log(`eventsProduced > 0:              ${check(result.events.length > 0)}`);
+  console.log(`stopReason === null:             ${check(stop === null, stop === null ? undefined : `(${stop})`)}`);
+  console.log(`kennelPagesSkipped === 0:        ${check(skipped === 0, skipped === 0 ? undefined : `(${skipped})`)}`);
+  console.log(`top-level errors empty:          ${check(result.errors.length === 0)}`);
+  console.log(`kennelPagesChecked > 10:         ${check(checked > 10, `(${checked})`)}`);
+  console.log(`kennelPageEventsFound > 0:       ${check(pageEventsFound > 0)}`);
+  console.log(`sample has date + kennelTag:     ${check(!!sample?.date && !!sample?.kennelTag)}`);
   console.log(`\n  (kennelPageFetchErrors: ${pageFetchErrors} — per-slug not_found is expected if the DB has drifted from the live API; check errorDetails.fetch[] for kinds)`);
 
   await pool.end();

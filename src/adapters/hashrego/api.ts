@@ -73,10 +73,8 @@ export class HashRegoApiError extends Error {
     detail?: string,
     options?: { cause?: unknown },
   ) {
-    super(
-      `Hash Rego API ${kind} error for ${slug}: HTTP ${status}${detail ? ` — ${detail}` : ""}`,
-      options,
-    );
+    const detailSuffix = detail ? ` — ${detail}` : "";
+    super(`Hash Rego API ${kind} error for ${slug}: HTTP ${status}${detailSuffix}`, options);
     this.name = "HashRegoApiError";
   }
 }
@@ -107,8 +105,9 @@ const STATUS_KIND: Record<number, HashRegoApiErrorKind> = {
  */
 export async function fetchKennelEvents(
   kennelSlug: string,
-  opts: { timeoutMs: number } = { timeoutMs: DEFAULT_TIMEOUT_MS },
+  opts?: { timeoutMs: number },
 ): Promise<HashRegoKennelEvent[]> {
+  const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const url = kennelEventsUrl(kennelSlug);
   let res: Response;
   try {
@@ -117,7 +116,7 @@ export async function fetchKennelEvents(
         "User-Agent": USER_AGENT,
         Accept: "application/json",
       },
-      signal: AbortSignal.timeout(opts.timeoutMs),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
     throw new HashRegoApiError(kennelSlug, 0, "network", String(err), { cause: err });
