@@ -505,7 +505,7 @@ function deduplicateAddressPrefix(location: string): string {
  * Sanitize location names: filter placeholders (TBA/TBD) and bare URLs.
  * Returns null for locations that are not meaningful display text.
  */
-export function sanitizeLocation(location: string | undefined): string | null {
+export function sanitizeLocation(location: string | null | undefined): string | null {
   if (!location) return null;
   let t = location.trim();
   if (!t) return null;
@@ -777,9 +777,16 @@ async function upsertCanonicalEvent(
           ...(event.locationUrl !== undefined
             ? { locationAddress: sanitizeLocationUrl(event.locationUrl) }
             : {}),
-          startTime: event.startTime ?? existingEvent.startTime,
-          endTime: event.endTime ?? existingEvent.endTime,
-          cost: event.cost ?? existingEvent.cost,
+          // Gate on !== undefined so adapters can clear fields with explicit null (#530)
+          ...(event.startTime !== undefined
+            ? { startTime: event.startTime ?? null }
+            : {}),
+          ...(event.endTime !== undefined
+            ? { endTime: event.endTime ?? null }
+            : {}),
+          ...(event.cost !== undefined
+            ? { cost: event.cost ?? null }
+            : {}),
           dateUtc,
           timezone,
           // Preserve first source's URL; subsequent sources get EventLinks

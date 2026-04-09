@@ -555,11 +555,11 @@ export function stripPlaceholder(value: string | undefined | null): string | und
  * Returns the original description if no suffix is provided.
  */
 export function appendDescriptionSuffix(
-  description: string | undefined,
+  description: string | null | undefined,
   suffix: string | undefined,
 ): string | undefined {
   const trimmedSuffix = suffix?.trim();
-  if (!trimmedSuffix) return description;
+  if (!trimmedSuffix) return description ?? undefined;
   return description ? `${description}\n\n${trimmedSuffix}` : trimmedSuffix;
 }
 

@@ -6,16 +6,16 @@ export interface RawEventData {
   kennelTag: string; // Kennel identifier — use kennelCode (e.g. "nych3", "bfm") for stable resolution
   runNumber?: number;
   title?: string;
-  description?: string;
+  description?: string | null; // null = explicit clear signal for re-scrapes
   hares?: string;
-  location?: string;
+  location?: string | null; // null = explicit clear signal for re-scrapes
   locationStreet?: string; // Full street address (multi-line address blocks)
   locationUrl?: string; // Google Maps or other maps URL
   latitude?: number;
   longitude?: number;
-  startTime?: string; // HH:MM (local time)
-  endTime?: string; // HH:MM (local time) — present when source provides a real end
-  cost?: string; // Free-form cost text (currency, qualifiers, etc.)
+  startTime?: string | null; // HH:MM (local time); null = explicit clear signal
+  endTime?: string | null; // HH:MM (local time); null = explicit clear signal
+  cost?: string | null; // Free-form cost text; null = explicit clear signal
   sourceUrl?: string;
   externalLinks?: { url: string; label: string }[]; // Additional links (creates EventLink records)
   seriesId?: string; // Groups multi-day events (e.g., Hash Rego event slug)
