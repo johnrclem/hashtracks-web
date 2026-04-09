@@ -765,6 +765,149 @@ describe("location preservation on update", () => {
   });
 });
 
+describe("time/cost field clearing on update (#530)", () => {
+  // startTime
+  it("preserves existing startTime when new source has undefined startTime", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, startTime: "18:00" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ startTime: undefined }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).not.toHaveProperty("startTime");
+  });
+
+  it("overwrites existing startTime when new source provides a string startTime", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, startTime: "18:00" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ startTime: "19:30" }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data.startTime).toBe("19:30");
+  });
+
+  it("clears existing startTime when source explicitly provides null", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, startTime: "18:00" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ startTime: null }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).toHaveProperty("startTime");
+    expect(updateCall.data.startTime).toBeNull();
+  });
+
+  // endTime
+  it("preserves existing endTime when new source has undefined endTime", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, endTime: "20:00" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ endTime: undefined }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).not.toHaveProperty("endTime");
+  });
+
+  it("overwrites existing endTime when new source provides a string endTime", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, endTime: "20:00" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ endTime: "21:30" }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data.endTime).toBe("21:30");
+  });
+
+  it("clears existing endTime when source explicitly provides null", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, endTime: "20:00" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ endTime: null }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).toHaveProperty("endTime");
+    expect(updateCall.data.endTime).toBeNull();
+  });
+
+  // cost
+  it("preserves existing cost when new source has undefined cost", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, cost: "$5" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ cost: undefined }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).not.toHaveProperty("cost");
+  });
+
+  it("overwrites existing cost when new source provides a string cost", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, cost: "$5" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ cost: "$10" }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data.cost).toBe("$10");
+  });
+
+  it("clears existing cost when source explicitly provides null", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, cost: "$5" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ cost: null }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).toHaveProperty("cost");
+    expect(updateCall.data.cost).toBeNull();
+  });
+});
+
 describe("sanitizeLocationUrl", () => {
   it("filters Google My Maps viewer URLs from locationAddress on create", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);

@@ -777,9 +777,15 @@ async function upsertCanonicalEvent(
           ...(event.locationUrl !== undefined
             ? { locationAddress: sanitizeLocationUrl(event.locationUrl) }
             : {}),
-          startTime: event.startTime ?? existingEvent.startTime,
-          endTime: event.endTime ?? existingEvent.endTime,
-          cost: event.cost ?? existingEvent.cost,
+          ...(event.startTime !== undefined
+            ? { startTime: event.startTime ?? null }
+            : {}),
+          ...(event.endTime !== undefined
+            ? { endTime: event.endTime ?? null }
+            : {}),
+          ...(event.cost !== undefined
+            ? { cost: event.cost ?? null }
+            : {}),
           dateUtc,
           timezone,
           // Preserve first source's URL; subsequent sources get EventLinks

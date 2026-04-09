@@ -162,7 +162,7 @@ export async function previewSourceConfig(
       runNumber: e.runNumber,
       location: e.location,
       hares: e.hares,
-      startTime: e.startTime,
+      startTime: e.startTime ?? undefined,
       resolved: tagResolution.get(e.kennelTag)?.matched ?? false,
       resolvedKennelId: tagResolution.get(e.kennelTag)?.kennelId ?? undefined,
     }));
