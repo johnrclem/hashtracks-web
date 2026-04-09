@@ -1,8 +1,12 @@
 /**
  * Shared adapter utilities — deduplicates common parsing logic across adapters.
+ *
+ * NOTE: This module is imported by client components (via
+ * html-scraper/generic.ts → SourceOnboardingWizard). It must not pull in
+ * Node built-ins like `node:dns`. DNS-based SSRF validation lives in
+ * `./ssrf-dns.ts` (server-only).
  */
 
-import { lookup as dnsLookup } from "node:dns/promises";
 import * as cheerio from "cheerio";
 import * as chrono from "chrono-node";
 import he from "he";
@@ -87,8 +91,9 @@ export const MONTHS_ZERO: Record<string, number> = {
 
 /**
  * Check if an IPv4 address (as 4 octets) falls within private/reserved ranges.
+ * Exported for reuse by `./ssrf-dns.ts` (DNS-based rebinding protection).
  */
-function isPrivateIPv4(a: number, b: number, c: number, d: number): boolean {
+export function isPrivateIPv4(a: number, b: number, c: number, d: number): boolean {
   return (
     a === 127 ||                                  // loopback 127.0.0.0/8
     a === 10 ||                                   // private  10.0.0.0/8
@@ -103,7 +108,7 @@ function isPrivateIPv4(a: number, b: number, c: number, d: number): boolean {
 }
 
 /** Resolve IPv4-mapped IPv6 addresses to their IPv4 equivalent. */
-function resolveIPv4Mapped(bare: string): string {
+export function resolveIPv4Mapped(bare: string): string {
   const v4MappedDotted = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i.exec(bare);
   if (v4MappedDotted) return v4MappedDotted[1];
 
@@ -133,7 +138,7 @@ function checkIntegerIP(ip: string): void {
 }
 
 /** Check if an IPv6 address is in a private/reserved range. */
-function checkIPv6Private(bare: string): void {
+export function checkIPv6Private(bare: string): void {
   if (!bare.includes(":")) return;
   if (
     bare === "::1" || bare === "::0" || bare === "::" ||
@@ -162,29 +167,6 @@ function checkAmbiguousDottedQuad(ip: string): void {
 }
 
 /**
- * Return true if a DNS-resolved address is in a private/reserved range.
- * Handles both IPv4 and IPv4-mapped IPv6 answers plus IPv6 loopback /
- * unique-local / link-local ranges.
- */
-function isDnsResolvedPrivate(address: string, family: number): boolean {
-  const lower = address.toLowerCase();
-  const candidate = family === 6 ? resolveIPv4Mapped(lower) : lower;
-  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(candidate);
-  if (v4) {
-    const [, a, b, c, d] = v4.map(Number);
-    return isPrivateIPv4(a, b, c, d);
-  }
-  if (family === 6) {
-    try {
-      checkIPv6Private(lower);
-    } catch {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
  * Validate a source URL is safe for server-side fetching (SSRF prevention).
  * Blocks non-HTTP protocols, localhost, private IPs (including alternate
  * representations like decimal, hex, octal, IPv4-mapped IPv6), and cloud
@@ -194,8 +176,7 @@ function isDnsResolvedPrivate(address: string, family: number): boolean {
  * hostname string. It does NOT resolve DNS and therefore does NOT protect
  * against DNS rebinding or domains that resolve directly to private IPs.
  * Callers that issue an outbound request should use
- * `validateSourceUrlWithDns()` (async) instead, which adds DNS-based
- * re-validation of every resolved address.
+ * `validateSourceUrlWithDns()` from `./ssrf-dns` instead.
  */
 export function validateSourceUrl(url: string): void {
   const parsed = new URL(url);
@@ -226,45 +207,6 @@ export function validateSourceUrl(url: string): void {
 
   checkIntegerIP(ipToCheck);
   checkIPv6Private(bare);
-}
-
-/**
- * Async variant of `validateSourceUrl` that additionally resolves the
- * hostname and re-validates every A/AAAA record. Prevents DNS rebinding
- * and domains that resolve to private IPs (e.g., rebind.network).
- *
- * If the hostname is already a literal IP, the sync check is sufficient
- * and no DNS lookup is performed. For non-IP hostnames, all resolved
- * addresses must be public or the function throws.
- */
-export async function validateSourceUrlWithDns(url: string): Promise<void> {
-  validateSourceUrl(url);
-
-  const parsed = new URL(url);
-  const hostname = parsed.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
-
-  // If it's already a literal IP (dotted-quad, IPv6, integer, or hex), the
-  // sync check already covered it — no DNS lookup needed.
-  if (
-    /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.test(hostname) ||
-    hostname.includes(":") ||
-    /^(?:0x[\da-f]+|\d+)$/i.test(hostname)
-  ) {
-    return;
-  }
-
-  let addresses: Array<{ address: string; family: number }>;
-  try {
-    addresses = await dnsLookup(hostname, { all: true });
-  } catch {
-    throw new Error("Blocked URL: DNS resolution failed");
-  }
-
-  for (const { address, family } of addresses) {
-    if (isDnsResolvedPrivate(address, family)) {
-      throw new Error("Blocked URL: DNS resolved to private/reserved IP");
-    }
-  }
 }
 
 export { buildUrlVariantCandidates };

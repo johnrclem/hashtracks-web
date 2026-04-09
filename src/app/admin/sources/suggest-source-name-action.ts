@@ -2,7 +2,7 @@
 
 import he from "he";
 import { getAdminUser } from "@/lib/auth";
-import { validateSourceUrlWithDns } from "@/adapters/utils";
+import { validateSourceUrlWithDns } from "@/adapters/ssrf-dns";
 
 export type SuggestNameResult =
   | { suggestedName: string; source: "api" | "page-meta" | "heuristic" }

@@ -10,13 +10,13 @@ import {
   stripHtmlTags,
   buildUrlVariantCandidates,
   validateSourceUrl,
-  validateSourceUrlWithDns,
   chronoParseDate,
   isPlaceholder,
   stripPlaceholder,
   extractAddressWithAi,
   stripNonEnglishCountry,
 } from "./utils";
+import { validateSourceUrlWithDns } from "./ssrf-dns";
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),

@@ -6,7 +6,7 @@
  * Follows the same pattern as safeFetch() residential proxy integration.
  */
 
-import { validateSourceUrlWithDns } from "@/adapters/utils";
+import { validateSourceUrlWithDns } from "@/adapters/ssrf-dns";
 
 export interface RenderOptions {
   /** URL of the page to render */

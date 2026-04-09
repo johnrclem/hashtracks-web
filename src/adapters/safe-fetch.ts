@@ -7,7 +7,7 @@
  * DNS-rebinding protection: `validateSourceUrlWithDns` resolves each
  * hostname and re-validates every A/AAAA record against private ranges.
  */
-import { validateSourceUrlWithDns } from "./utils";
+import { validateSourceUrlWithDns } from "./ssrf-dns";
 
 // Re-export the sync variant for callers that imported it here historically.
 export { validateSourceUrl } from "./utils";
