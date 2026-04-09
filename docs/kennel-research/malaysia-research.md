@@ -1,7 +1,14 @@
 # Malaysia Kennel Research
 
 **Researched:** 2026-04-08
-**Status:** Plan-mode output. Copy to `docs/kennel-research/malaysia-research.md` after exiting plan mode.
+**Shipped:** 2026-04-08 via PR #570 — Phase 1 "KL + Penang founder pack" landed 7 kennels, 5 unique adapters (2 of which are shared: goHash covers Penang H3 + HHH Penang, Yii GridView covers PH3 + KL Full Moon), and the Malaysia country + KL + Selangor + Penang regions. **Mother Hash (1938) is now the first hash kennel in the world onboarded to HashTracks.**
+
+**Post-Chrome-verification revisions to this doc:**
+- **Mother Hash reclassified as Tier 2 (scrapeable)**, not Tier 3 STATIC_SCHEDULE. The Google Sites page renders two upcoming runs with fully structured labeled fields (Run #, Date, Hare, Run site, GPS, Google Maps, Waze); `stripHtmlTags(html, "\n")` yields one "Label: value" per line.
+- **KL Harriettes dropped from Phase 1**: the Vue + Strapi admin API at `admin.klharriettes.org/api/runs/*` returned 401 with every header combination attempted — it's gated behind member auth, not public as initially assumed. Deferred to Phase 2.
+- **KL Mountain Bike Hash dropped**: Wix calendar stale (only 1 event in 2025, 2026 empty). Skip until they update their calendar system.
+- **Penang International Hounds dropped**: domain hijacked — `penang-hounds.com` now serves an architecture firm's website.
+- **PH3 + KL Full Moon + KL Junior H3 shipped with `enabled: false`**: all three Malaysia-hosted origins (`ph3.org`, `klfullmoonhash.com`, `www.kljhhh.org`) were unreachable during the build window from multiple international vantages (local + Jina Reader). Unit tests passed against captured HTML. Flip `enabled: true` after the first successful post-merge scrape.
 **Significance:** The birthplace of hashing. Mother Hash (Kuala Lumpur H3, founded 30 Nov 1938) is the **first hash kennel ever** — every other kennel in the world, including Singapore's Father Hash (HHHS, 1962), descends from it. Malaysia has by far the densest hashing ecosystem on earth: ~200+ currently-active kennels across 13 states.
 
 ## Why Malaysia matters
