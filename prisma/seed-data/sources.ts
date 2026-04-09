@@ -3369,5 +3369,52 @@ export const SOURCES = [
       },
       kennelCodes: ["capital-h3-au"],
     },
+
+    // ─── Australia Phase 1b: Sydney + Adelaide + Gold Coast ───
+    {
+      name: "Sydney H3 Hareline",
+      url: "https://www.sh3.link/?page_id=9470",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      kennelCodes: ["sh3-au"],
+    },
+    {
+      name: "Adelaide H3 admin-ajax",
+      url: "https://ah3.com.au/wp-admin/admin-ajax.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      kennelCodes: ["ah3-au"],
+    },
+    {
+      name: "Gold Coast H3 Hareline",
+      url: "https://www.goldcoasthash.org/hareline/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      kennelCodes: ["gch3-au"],
+    },
+    {
+      name: "Sydney Larrikins Upcoming Runs",
+      url: "https://sydney.larrikins.org/sydney-south-habour-hhh-tuesday-beers/upcoming-larrikin-runs/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      kennelCodes: ["larrikins-au"],
+    },
+    {
+      name: "Sydney Thirsty H3 Upcoming Runs",
+      url: "https://www.sth3.org/upcoming-runs",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      kennelCodes: ["sth3-au"],
+    },
   ];
 

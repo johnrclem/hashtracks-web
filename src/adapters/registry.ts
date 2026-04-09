@@ -74,6 +74,11 @@ import { YiiHarelineAdapter } from "./html-scraper/yii-hareline";
 import { KljH3Adapter } from "./html-scraper/klj-h3";
 import { GoHashAdapter } from "./html-scraper/gohash";
 import { KjHarimauAdapter } from "./html-scraper/kj-harimau";
+import { Sh3AuAdapter } from "./html-scraper/sh3-au";
+import { AdelaideH3Adapter } from "./html-scraper/adelaide-h3";
+import { GoldCoastH3Adapter } from "./html-scraper/gold-coast-h3";
+import { LarrikinsAdapter } from "./html-scraper/larrikins";
+import { SydneyThirstyH3Adapter } from "./html-scraper/sydney-thirsty-h3";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -178,6 +183,12 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /penanghash3\.org/i, name: "GoHashAdapter", factory: () => new GoHashAdapter() },
   { pattern: /hashhouseharrietspenang\.com/i, name: "GoHashAdapter", factory: () => new GoHashAdapter() },
   { pattern: /khhhkj\.blogspot\.com/i, name: "KjHarimauAdapter", factory: () => new KjHarimauAdapter() },
+  // ── Australia (Phase 1b: Sydney + Adelaide + Gold Coast) ──
+  { pattern: /sh3\.link/i, name: "Sh3AuAdapter", factory: () => new Sh3AuAdapter() },
+  { pattern: /ah3\.com\.au/i, name: "AdelaideH3Adapter", factory: () => new AdelaideH3Adapter() },
+  { pattern: /goldcoasthash\.org/i, name: "GoldCoastH3Adapter", factory: () => new GoldCoastH3Adapter() },
+  { pattern: /sydney\.larrikins\.org/i, name: "LarrikinsAdapter", factory: () => new LarrikinsAdapter() },
+  { pattern: /sth3\.org/i, name: "SydneyThirstyH3Adapter", factory: () => new SydneyThirstyH3Adapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */
