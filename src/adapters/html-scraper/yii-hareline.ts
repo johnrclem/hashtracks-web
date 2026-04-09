@@ -96,7 +96,12 @@ export function parseYiiHarelineDate(raw: string): string | null {
  */
 export function extractMaxYiiPage(html: string): number {
   let max = 1;
-  const re = /[?&]page=(\d+)/g;
+  // Match `?page=N`, `&page=N`, and the HTML-entity-encoded `&amp;page=N`.
+  // Some Yii deployments (e.g. KL Full Moon) serve pagination links with
+  // encoded ampersands inside `href="..."` attributes; without the
+  // `&amp;` branch the adapter silently reports maxPage=1 and misses
+  // every pagination link.
+  const re = /(?:[?&]|&amp;)page=(\d+)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
     const n = Number.parseInt(m[1], 10);

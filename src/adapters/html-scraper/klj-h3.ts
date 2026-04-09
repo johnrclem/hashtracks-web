@@ -132,6 +132,68 @@ export function cleanKljTitle(title: string): string {
 /**
  * KL Junior H3 WordPress adapter.
  */
+/** A minimal WordPress post shape that `parseKljPost()` needs. */
+export interface KljPostInput {
+  title: string; // plain text (not HTML)
+  content: string; // HTML body
+  url: string;
+  date: string; // ISO publish date for fallback year resolution
+}
+
+/** Result of attempting to convert a KLJ WP post into a RawEventData. */
+export type ParseKljPostResult =
+  | { ok: true; event: RawEventData }
+  | { ok: false; reason: "not-run-post" | "no-date"; title: string };
+
+/**
+ * Convert a single KLJ WordPress post into a RawEventData. Returns a
+ * discriminated result so both the recurring adapter and the one-shot
+ * historical backfill can share this logic AND surface the same errors.
+ *
+ * Exported for reuse — do NOT duplicate this transform in backfill scripts.
+ */
+export function parseKljPost(post: KljPostInput): ParseKljPostResult {
+  const rawTitle = post.title;
+  if (!TITLE_RUN_NUMBER_RE.test(rawTitle)) {
+    return { ok: false, reason: "not-run-post", title: rawTitle };
+  }
+
+  const runNumMatch = TITLE_RUN_NUMBER_RE.exec(rawTitle);
+  const runNumber = runNumMatch ? Number.parseInt(runNumMatch[1], 10) : undefined;
+
+  const body = parseKljBody(post.content);
+  const date = body.date ?? parseKljTitleDate(rawTitle, post.date);
+  if (!date) return { ok: false, reason: "no-date", title: rawTitle };
+
+  const title = cleanKljTitle(rawTitle) || undefined;
+  const description = body.registration
+    ? `Registration: ${body.registration}`
+    : undefined;
+
+  // Merge hares + coHares into a single normalized field so the
+  // fingerprint is stable across scrapes regardless of WP post-body
+  // ordering. body.coHares is a secondary list in the post body.
+  const mergedHares = [body.hares, body.coHares]
+    .filter((s): s is string => !!s && s.length > 0)
+    .join(", ");
+
+  return {
+    ok: true,
+    event: {
+      date,
+      kennelTag: KENNEL_TAG,
+      runNumber,
+      title,
+      hares: normalizeHaresField(mergedHares),
+      location:
+        body.runSite && !isPlaceholder(body.runSite) ? body.runSite : undefined,
+      startTime: body.startTime ?? DEFAULT_START_TIME,
+      sourceUrl: post.url,
+      description,
+    },
+  };
+}
+
 export class KljH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -155,53 +217,29 @@ export class KljH3Adapter implements SourceAdapter {
     const events: RawEventData[] = [];
     for (let i = 0; i < wpResult.posts.length; i++) {
       const post = wpResult.posts[i];
-      const rawTitle = post.title;
-      if (!TITLE_RUN_NUMBER_RE.test(rawTitle)) continue; // skip non-run posts
-
-      const runNumMatch = TITLE_RUN_NUMBER_RE.exec(rawTitle);
-      const runNumber = runNumMatch ? Number.parseInt(runNumMatch[1], 10) : undefined;
-
-      const body = parseKljBody(post.content);
-      const date = body.date ?? parseKljTitleDate(rawTitle, post.date);
-      if (!date) {
-        errors.push(`KLJ post "${rawTitle.slice(0, 80)}" has no parseable date`);
-        errorDetails.parse = [
-          ...(errorDetails.parse ?? []),
-          {
-            row: i,
-            section: "post",
-            field: "date",
-            error: "No parseable date in title or body",
-            rawText: `Title: ${rawTitle}`.slice(0, 500),
-          },
-        ];
+      const result = parseKljPost({
+        title: post.title,
+        content: post.content,
+        url: post.url,
+        date: post.date,
+      });
+      if (result.ok) {
+        events.push(result.event);
         continue;
       }
-
-      const title = cleanKljTitle(rawTitle) || undefined;
-      const description = body.registration
-        ? `Registration: ${body.registration}`
-        : undefined;
-
-      // Merge hares + coHares into a single normalized field so the
-      // fingerprint is stable across scrapes regardless of WP post-body
-      // ordering. body.coHares is a secondary list in the post body.
-      const mergedHares = [body.hares, body.coHares]
-        .filter((s): s is string => !!s && s.length > 0)
-        .join(", ");
-
-      events.push({
-        date,
-        kennelTag: KENNEL_TAG,
-        runNumber,
-        title,
-        hares: normalizeHaresField(mergedHares),
-        location:
-          body.runSite && !isPlaceholder(body.runSite) ? body.runSite : undefined,
-        startTime: body.startTime ?? DEFAULT_START_TIME,
-        sourceUrl: post.url,
-        description,
-      });
+      if (result.reason === "not-run-post") continue; // expected, silent
+      // no-date: surface as a parse error
+      errors.push(`KLJ post "${result.title.slice(0, 80)}" has no parseable date`);
+      errorDetails.parse = [
+        ...(errorDetails.parse ?? []),
+        {
+          row: i,
+          section: "post",
+          field: "date",
+          error: "No parseable date in title or body",
+          rawText: `Title: ${result.title}`.slice(0, 500),
+        },
+      ];
     }
 
     const days = options?.days ?? source.scrapeDays ?? 365;

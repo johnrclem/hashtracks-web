@@ -1,11 +1,11 @@
 /**
- * One-shot historical backfill for Petaling H3 (PH3, Malaysia).
+ * One-shot historical backfill for any Yii GridView hareline kennel.
  *
- * Petaling H3 publishes its full hareline (1,160+ runs back to 2003) at
- * https://ph3.org/index.php?r=site/hareline as a paginated Yii GridView.
- * The recurring YiiHarelineAdapter fetches only the LAST page (most recent
- * runs); this script walks every page and inserts every historical
- * RawEvent in one shot.
+ * Parameterized via the `YII_BACKFILL_PRESET` env var so the same script
+ * covers every Yii-hosted hash kennel HashTracks onboards. The recurring
+ * `YiiHarelineAdapter` fetches only the last few pages on each run; this
+ * script walks every page and inserts every historical RawEvent in one
+ * shot.
  *
  * **Idempotency + strict partitioning:** this script only inserts rows
  * where `date < <cutoff>`, and the recurring adapter's date-window filter
@@ -16,8 +16,14 @@
  * against any RawEvents already in the DB for the same source.
  *
  * Usage:
- *   1. Dry run first:  npx tsx scripts/backfill-ph3-history.ts
- *   2. Execute:        BACKFILL_APPLY=1 npx tsx scripts/backfill-ph3-history.ts
+ *   # PH3 dry run:
+ *   set -a && source .env && set +a
+ *   BACKFILL_ALLOW_SELF_SIGNED_CERT=1 YII_BACKFILL_PRESET=ph3 npx tsx scripts/backfill-yii-history.ts
+ *
+ *   # KL Full Moon apply:
+ *   BACKFILL_APPLY=1 BACKFILL_ALLOW_SELF_SIGNED_CERT=1 YII_BACKFILL_PRESET=klfm npx tsx scripts/backfill-yii-history.ts
+ *
+ *   # Add a new preset by extending the PRESETS map below.
  */
 
 import "dotenv/config";
@@ -35,12 +41,33 @@ import { safeFetch } from "@/adapters/safe-fetch";
 import { generateFingerprint } from "@/pipeline/fingerprint";
 import type { RawEventData } from "@/adapters/types";
 
-const BASE_URL = "https://ph3.org/index.php?r=site/hareline";
-const SOURCE_NAME = "Petaling H3 Hareline";
-const CONFIG: YiiHarelineConfig = {
-  kennelTag: "ph3-my",
-  startTime: "16:00",
+interface YiiBackfillPreset {
+  baseUrl: string;
+  sourceName: string;
+  config: YiiHarelineConfig;
+}
+
+const PRESETS: Record<string, YiiBackfillPreset> = {
+  ph3: {
+    baseUrl: "https://ph3.org/index.php?r=site/hareline",
+    sourceName: "Petaling H3 Hareline",
+    config: { kennelTag: "ph3-my", startTime: "16:00" },
+  },
+  klfm: {
+    baseUrl: "https://klfullmoonhash.com/index.php?r=site/hareline",
+    sourceName: "KL Full Moon H3 Hareline",
+    config: { kennelTag: "klfmh3", startTime: "18:00" },
+  },
 };
+
+const presetKey = process.env.YII_BACKFILL_PRESET;
+if (!presetKey || !PRESETS[presetKey]) {
+  console.error(
+    `YII_BACKFILL_PRESET is required. Available presets: ${Object.keys(PRESETS).join(", ")}`,
+  );
+  process.exit(1);
+}
+const { baseUrl: BASE_URL, sourceName: SOURCE_NAME, config: CONFIG } = PRESETS[presetKey];
 
 /** Fetch a single Yii hareline page and return parsed events. */
 async function fetchPage(pageNum: number): Promise<RawEventData[]> {
