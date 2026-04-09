@@ -6,9 +6,9 @@ export interface RawEventData {
   kennelTag: string; // Kennel identifier — use kennelCode (e.g. "nych3", "bfm") for stable resolution
   runNumber?: number;
   title?: string;
-  description?: string | null; // null = explicit clear signal for re-scrapes
+  description?: string;
   hares?: string;
-  location?: string | null; // null = explicit clear signal for re-scrapes
+  location?: string;
   locationStreet?: string; // Full street address (multi-line address blocks)
   locationUrl?: string; // Google Maps or other maps URL
   latitude?: number;

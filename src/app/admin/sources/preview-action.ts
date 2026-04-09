@@ -160,7 +160,7 @@ export async function previewSourceConfig(
       title: e.title,
       description: e.description?.substring(0, 500) || undefined,
       runNumber: e.runNumber,
-      location: e.location ?? undefined,
+      location: e.location,
       hares: e.hares,
       startTime: e.startTime ?? undefined,
       resolved: tagResolution.get(e.kennelTag)?.matched ?? false,
