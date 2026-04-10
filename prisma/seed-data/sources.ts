@@ -119,6 +119,13 @@ export const SOURCES = [
           ["Philly Hash|hashphilly|Philly H3", "philly-h3"],
         ],
         defaultKennelTag: "philly-h3",
+        // Drop BFM-only events that leak into this shared calendar. BFM has
+        // its own BFM Google Calendar + BFM Website sources (trust 8), so
+        // skipping rather than re-routing avoids cross-kennel duplicates on
+        // the Philly hareline. Anchored to start-of-title so a hypothetical
+        // joint trail like "Philly H3 & BFM co-host" is still kept here.
+        // Closes #582.
+        skipPatterns: ["^Ben Franklin Mob H3\\b", "^BFM\\b"],
       },
       kennelCodes: ["philly-h3"],
     },
@@ -1645,6 +1652,12 @@ export const SOURCES = [
           ["Cherry City|Cherry Cherry City", "cch3-or"],
         ],
         defaultKennelTag: "oh3",
+        // Drop N2H3 / NNH3 events that leak into this shared aggregator.
+        // N2H3 has its own No Name H3 Calendar source (trust 8), so skipping
+        // here avoids cross-kennel duplicates on the Oregon H3 hareline.
+        // Anchored so joint co-host titles with the local kennel stay put.
+        // Closes #584.
+        skipPatterns: ["^NNH3\\b", "^N2H3\\b", "^No Name\\b"],
       },
       kennelCodes: ["oh3", "tgif", "cch3-or"],
     },

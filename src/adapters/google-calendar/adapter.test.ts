@@ -652,6 +652,82 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
     );
     expect(result).not.toBeNull();
   });
+
+  // Regression tests for #582 / #584 — the production skipPatterns are
+  // anchored to start-of-title so a joint/co-host trail whose title mentions
+  // the foreign kennel as a secondary token is NOT dropped.
+  describe("anchored start-of-title patterns (#582 Philly→BFM, #584 Oregon→N2H3)", () => {
+    const PHILLY_SKIP = [/^Ben Franklin Mob H3\b/i, /^BFM\b/i];
+    const OREGON_SKIP = [/^NNH3\b/i, /^N2H3\b/i, /^No Name\b/i];
+
+    it("drops a pure BFM-titled event from the Philly calendar", () => {
+      const result = buildRawEventFromGCalItem(
+        { ...baseItem, summary: "Ben Franklin Mob H3" },
+        { defaultKennelTag: "philly-h3" },
+        undefined,
+        undefined,
+        PHILLY_SKIP,
+      );
+      expect(result).toBeNull();
+    });
+
+    it("drops a 'BFM #123' prefixed event from the Philly calendar", () => {
+      const result = buildRawEventFromGCalItem(
+        { ...baseItem, summary: "BFM #1234: Trail Name" },
+        { defaultKennelTag: "philly-h3" },
+        undefined,
+        undefined,
+        PHILLY_SKIP,
+      );
+      expect(result).toBeNull();
+    });
+
+    it("KEEPS a mixed-title joint event under Philly H3 (co-host, not BFM-only)", () => {
+      const result = buildRawEventFromGCalItem(
+        { ...baseItem, summary: "Philly H3 & BFM joint co-host trail" },
+        { defaultKennelTag: "philly-h3" },
+        undefined,
+        undefined,
+        PHILLY_SKIP,
+      );
+      expect(result).not.toBeNull();
+      expect(result!.kennelTag).toBe("philly-h3");
+    });
+
+    it("drops a pure N2H3-titled event from the Oregon calendar", () => {
+      const result = buildRawEventFromGCalItem(
+        { ...baseItem, summary: "N2H3 #769 The Matzo Ball Hash!" },
+        { defaultKennelTag: "oh3" },
+        undefined,
+        undefined,
+        OREGON_SKIP,
+      );
+      expect(result).toBeNull();
+    });
+
+    it("drops an NNH3-prefixed event from the Oregon calendar", () => {
+      const result = buildRawEventFromGCalItem(
+        { ...baseItem, summary: "NNH3 #769 The Matzo Ball Hash!" },
+        { defaultKennelTag: "oh3" },
+        undefined,
+        undefined,
+        OREGON_SKIP,
+      );
+      expect(result).toBeNull();
+    });
+
+    it("KEEPS an OH3 event whose description mentions N2H3 (e.g. meetup reference)", () => {
+      const result = buildRawEventFromGCalItem(
+        { ...baseItem, summary: "OH3 #1500 — meet at the No Name H3 bar" },
+        { defaultKennelTag: "oh3" },
+        undefined,
+        undefined,
+        OREGON_SKIP,
+      );
+      expect(result).not.toBeNull();
+      expect(result!.kennelTag).toBe("oh3");
+    });
+  });
 });
 
 // ── extractTitleFromDescription ──

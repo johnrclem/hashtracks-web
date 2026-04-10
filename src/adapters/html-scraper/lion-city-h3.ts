@@ -1,8 +1,7 @@
-import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { fetchWordPressPosts } from "../wordpress-api";
-import { MONTHS, applyDateWindow, decodeEntities, formatAmPmTime } from "../utils";
+import { MONTHS, applyDateWindow, decodeEntities, formatAmPmTime, stripHtmlTags } from "../utils";
 
 const DEFAULT_URL = "https://lioncityhhh.com";
 const KENNEL_TAG = "lch3";
@@ -81,8 +80,15 @@ export function parseLionCityDateLine(
  * date so the body date "Friday, 03 April" gets resolved to the right year.
  */
 export function parseLionCityBody(html: string, referenceDate: Date): ParsedBody {
-  const $ = cheerio.load(html);
-  const text = $("body").length ? $("body").text() : $.text();
+  // Use stripHtmlTags(html, "\n") so <p> / <br> boundaries become newlines
+  // BEFORE text extraction. The per-field regexes below are newline-
+  // terminated (`[^\n]+?(?:\n|$)`), so preserving block boundaries at this
+  // layer lets them stop at the right place. Prior approach (cheerio
+  // $("body").text()) flattened <p> gaps to whitespace and caused the
+  // hares field to include the next paragraph's link label
+  // ("🏃‍♂️ Map – Run") on posts where the hares and the map link lived
+  // in sibling <p> elements. Closes #583.
+  const text = stripHtmlTags(html, "\n");
   const cleaned = text.replaceAll("\u00a0", " ");
 
   const result: ParsedBody = parseLionCityDateLine(cleaned, referenceDate);

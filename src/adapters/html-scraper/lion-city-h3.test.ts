@@ -57,6 +57,21 @@ describe("parseLionCityBody", () => {
     const out = parseLionCityBody(html, ref);
     expect(out.date).toBe("2026-01-02");
   });
+
+  it("does not leak the next-paragraph link label into hares when fields live in sibling <p> elements (#583)", () => {
+    // On posts where the hare names and the Map link sit in separate
+    // <p> elements, the prior $("body").text() flattened the boundary
+    // into a space and the hare regex captured the next paragraph's
+    // link text "🏃‍♂️ Map – Run" as part of the hares.
+    const html = `<p>Date: Friday, 03 April, 6 pm sharp.</p>
+<p>Hare(s): Sex Pit, Big Head and Infamous Pasi</p>
+<p>🏃‍♂️ <a href="https://maps.google.com/?q=xyz">Map – Run</a> Location: J0132 off-street car park – Jln Penjara</p>
+<p>🍻 Map – On On: The usual spot</p>`;
+    const out = parseLionCityBody(html, ref);
+    expect(out.hares).toBe("Sex Pit, Big Head and Infamous Pasi");
+    expect(out.location).toBe("J0132 off-street car park – Jln Penjara");
+    expect(out.onAfter).toBe("The usual spot");
+  });
 });
 
 describe("buildLionCityEvent", () => {
