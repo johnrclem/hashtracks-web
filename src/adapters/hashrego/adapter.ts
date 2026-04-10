@@ -1,25 +1,39 @@
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import type {
+  SourceAdapter,
+  RawEventData,
+  ScrapeResult,
+  ErrorDetails,
+  ParseError,
+} from "../types";
 import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { browserRender } from "@/lib/browser-render";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import {
   parseEventsIndex,
-  parseKennelEventsPage,
   parseEventDetail,
   splitToRawEvents,
   parseHashRegoDate,
   parseHashRegoTime,
   type IndexEntry,
 } from "./parser";
+import {
+  fetchKennelEvents,
+  kennelEventsUrl,
+  eventDetailUrl,
+  HASHREGO_EVENTS_INDEX_URL,
+  HashRegoApiError,
+  HASHREGO_ISO_DATETIME_RE,
+  type HashRegoKennelEvent,
+} from "./api";
 
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 500;
 const LOOKBACK_DAYS = 7;
 const INDEX_FETCH_RETRIES = 2;
-const MAX_KENNEL_PAGES = 10;
 const STEP2B_BUDGET_MS = 45_000;
+const MAX_REQUEST_TIMEOUT_MS = 5_000;
+const MIN_REQUEST_TIMEOUT_MS = 800;
 import { USER_AGENT } from "./constants";
 
 /**
@@ -56,7 +70,7 @@ export class HashRegoAdapter implements SourceAdapter {
     const maxAttempts = 1 + INDEX_FETCH_RETRIES;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const res = await safeFetch("https://hashrego.com/events", {
+        const res = await safeFetch(HASHREGO_EVENTS_INDEX_URL, {
           headers: { "User-Agent": USER_AGENT },
           useResidentialProxy: true,
           signal: AbortSignal.timeout(30_000),
@@ -71,7 +85,7 @@ export class HashRegoAdapter implements SourceAdapter {
           continue;
         }
         const msg = `Index fetch failed: HTTP ${res.status} (after ${maxAttempts} attempts)`;
-        errorDetails.fetch = [{ url: "https://hashrego.com/events", status: res.status, message: msg }];
+        errorDetails.fetch = [{ url: HASHREGO_EVENTS_INDEX_URL, status: res.status, message: msg }];
         return { events: [], errors: [msg], errorDetails };
       } catch (err) {
         if (attempt < maxAttempts) {
@@ -79,7 +93,7 @@ export class HashRegoAdapter implements SourceAdapter {
           continue;
         }
         const msg = `Index fetch error: ${err}`;
-        errorDetails.fetch = [{ url: "https://hashrego.com/events", message: msg }];
+        errorDetails.fetch = [{ url: HASHREGO_EVENTS_INDEX_URL, message: msg }];
         return { events: [], errors: [msg], errorDetails };
       }
     }
@@ -106,49 +120,79 @@ export class HashRegoAdapter implements SourceAdapter {
       kennelSlugs.has(e.kennelSlug.toUpperCase()) && isInDateWindow(e.startDate),
     );
 
-    // Step 2b: Fetch kennel-specific event pages for slugs absent from the global index entirely
+    // Step 2b: Fetch kennel events from the JSON API for slugs absent from
+    // the global HTML index. Bounded-concurrent batches with remaining-budget-
+    // aware per-call timeouts so the outer cron timeout stays safe when the
+    // API is degraded.
     const globalIndexSlugs = new Set(allEntries.map((e) => e.kennelSlug.toUpperCase()));
     const missingSlugs = [...kennelSlugs].filter((s) => !globalIndexSlugs.has(s));
     const kennelPagesChecked: string[] = [];
     let kennelPageEventsFound = 0;
     const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
-    const currentYear = now.getUTCFullYear();
     let kennelPageFetchErrors = 0;
     let kennelPagesStopReason: string | null = null;
 
-    for (let i = 0; i < missingSlugs.length; i++) {
-      if (i >= MAX_KENNEL_PAGES) { kennelPagesStopReason = "max_pages"; break; }
-      if (Date.now() - fetchStart > STEP2B_BUDGET_MS) { kennelPagesStopReason = "budget_exhausted"; break; }
-      if (i > 0) {
-        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+    for (let i = 0; i < missingSlugs.length; i += BATCH_SIZE) {
+      const remaining = STEP2B_BUDGET_MS - (Date.now() - fetchStart);
+      if (remaining < MIN_REQUEST_TIMEOUT_MS) {
+        kennelPagesStopReason = "budget_exhausted";
+        break;
       }
-      const slug = missingSlugs[i];
-      kennelPagesChecked.push(slug);
-      const kennelUrl = `https://hashrego.com/kennels/${slug}/events`;
-      try {
-        // Kennel pages are Angular SPAs — need browser rendering to get the table
-        const html = await browserRender({
-          url: kennelUrl,
-          waitFor: "table.table-striped tbody tr",
-          timeout: 8_000,
-        });
-        const kennelEntries = parseKennelEventsPage(html, slug, currentYear);
+      // Halve remaining so the next iteration of this loop has breathing room
+      // to fire the budget guard cleanly instead of racing the outer cron.
+      const perCallTimeout = Math.min(MAX_REQUEST_TIMEOUT_MS, Math.floor(remaining / 2));
+      const batch = missingSlugs.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map(async (slug) => ({
+          slug,
+          outcome: await fetchAndConvertKennelEvents(slug, perCallTimeout),
+        })),
+      );
 
-        const filtered = kennelEntries.filter((e) =>
-          !existingSlugs.has(e.slug) && isInDateWindow(e.startDate),
-        );
-
-        for (const entry of filtered) {
-          existingSlugs.add(entry.slug);
-          matchingEntries.push(entry);
+      for (const { slug, outcome } of results) {
+        kennelPagesChecked.push(slug);
+        if (outcome.kind === "fail") {
+          const status = outcome.error.status;
+          errorDetails.fetch ??= [];
+          errorDetails.fetch.push({
+            url: kennelEventsUrl(slug),
+            status: status === 0 ? undefined : status,
+            message: outcome.error.message,
+          });
+          kennelPageFetchErrors++;
+          // Whole-response parse drift (malformed JSON, non-array body) is a
+          // data-loss path: the entire kennel call returns no events even
+          // though the HTTP fetch succeeded. Match Step 3 parse-surface
+          // semantics by pushing to errors[] so the scrape is marked failed
+          // and reconcile is blocked.
+          if (outcome.error.kind === "parse") {
+            errors.push(outcome.error.message);
+          }
+          continue;
         }
-        kennelPageEventsFound += filtered.length;
-      } catch (err) {
-        const msg = `Kennel page error for ${slug}: ${err}`;
-        (errorDetails.fetch ??= []).push(
-          { url: kennelUrl, message: msg },
-        );
-        kennelPageFetchErrors++;
+        for (const entry of outcome.entries) {
+          if (!existingSlugs.has(entry.slug) && isInDateWindow(entry.startDate)) {
+            existingSlugs.add(entry.slug);
+            matchingEntries.push(entry);
+            kennelPageEventsFound++;
+          }
+        }
+        if (outcome.rowParseErrors.length > 0) {
+          errorDetails.parse ??= [];
+          errorDetails.parse.push(...outcome.rowParseErrors);
+          // Push each row's parse error text into top-level errors[] using
+          // the SAME string as the ParseError.error field. AI recovery
+          // (src/pipeline/scrape.ts:87) cleans up errors[] entries that
+          // exact/prefix match a recovered ParseError.error, so per-row
+          // pushes round-trip cleanly through the recovery path. A
+          // slug-level summary message would not match any individual
+          // ParseError.error and would linger in errors[] after recovery,
+          // keeping the scrape FAILED and reconcile blocked even after the
+          // dropped row was successfully restored.
+          for (const pe of outcome.rowParseErrors) {
+            errors.push(pe.error);
+          }
+        }
       }
     }
 
@@ -217,7 +261,7 @@ async function fetchAndParseDetail(
   errorDetails: ErrorDetails,
 ): Promise<RawEventData[]> {
   try {
-    const detailUrl = `https://hashrego.com/events/${entry.slug}`;
+    const detailUrl = eventDetailUrl(entry.slug);
     const detailRes = await safeFetch(detailUrl, {
       headers: { "User-Agent": USER_AGENT },
     });
@@ -234,13 +278,159 @@ async function fetchAndParseDetail(
     const parsed = parseEventDetail(detailHtml, entry.slug, entry);
     return splitToRawEvents(parsed, entry.slug);
   } catch (err) {
+    // Use the same string in both errors[] and ParseError.error so AI
+    // recovery (scrape.ts:87) can match-and-clean the errors[] entry on
+    // successful recovery. partialData.kennelTag/sourceUrl give the
+    // recovered event a stable reconcile key — without sourceUrl, reconcile
+    // would fail to match the existing canonical event and cancel it.
     const msg = `Error processing ${entry.slug}: ${err}`;
     errors.push(msg);
-    (errorDetails.parse ??= []).push(
-      { row: 0, section: entry.slug, error: String(err), rawText: `Slug: ${entry.slug}\nTitle: ${entry.title ?? "unknown"}\nDate: ${entry.startDate ?? "unknown"}`.slice(0, 2000) },
-    );
+    errorDetails.parse ??= [];
+    errorDetails.parse.push({
+      row: 0,
+      section: entry.slug,
+      error: msg,
+      rawText: `Slug: ${entry.slug}\nTitle: ${entry.title ?? "unknown"}\nDate: ${entry.startDate ?? "unknown"}`.slice(0, 2000),
+      partialData: {
+        kennelTag: entry.kennelSlug,
+        sourceUrl: eventDetailUrl(entry.slug),
+      },
+    });
     return createFromIndex(entry);
   }
+}
+
+/**
+ * Convert a JSON kennel-events API row into the legacy IndexEntry shape so
+ * downstream helpers (parseHashRegoDate, parseHashRegoTime, createFromIndex)
+ * work unchanged. CRITICAL: startDate must be "MM/DD/YY" and startTime must
+ * be "h:mm AM/PM" — the legacy wire format — or the consumers drop the row.
+ *
+ * Throws HashRegoApiError("parse") on any missing/unparseable required field.
+ * Never returns null and never invents a date.
+ */
+/** Convert a 24-hour hour to its 12-hour clock counterpart. */
+function to12Hour(hour24: number): number {
+  if (hour24 === 0) return 12;
+  if (hour24 > 12) return hour24 - 12;
+  return hour24;
+}
+
+export function apiToIndexEntry(api: HashRegoKennelEvent, kennelSlug: string): IndexEntry {
+  if (!api?.slug || !api?.event_name || !api?.start_time) {
+    throw new HashRegoApiError(
+      kennelSlug,
+      0,
+      "parse",
+      `missing required field on row ${api?.slug ?? "<no slug>"}`,
+    );
+  }
+
+  // Split the ISO string rather than using `new Date()` to avoid local-TZ
+  // drift — the API already encodes the intended wall-clock time.
+  const match = HASHREGO_ISO_DATETIME_RE.exec(api.start_time);
+  if (match === null) {
+    throw new HashRegoApiError(
+      kennelSlug,
+      0,
+      "parse",
+      `unparseable start_time "${api.start_time}" on row ${api.slug}`,
+    );
+  }
+
+  const [, yyyy, mm, dd, hh, min] = match;
+  const year2 = yyyy.slice(-2);
+  const hourNum = Number.parseInt(hh, 10);
+  const minNum = Number.parseInt(min, 10);
+  const ampm = hourNum >= 12 ? "PM" : "AM";
+  const hour12 = to12Hour(hourNum);
+  const timeStr = `${hour12}:${String(minNum).padStart(2, "0")} ${ampm}`;
+
+  return {
+    slug: api.slug,
+    // Query slug is authoritative — avoids API casing inconsistencies.
+    kennelSlug,
+    title: api.event_name,
+    startDate: `${mm}/${dd}/${year2}`,
+    startTime: timeStr,
+    type: "",
+    cost: api.current_price != null ? `$${api.current_price}` : "",
+  };
+}
+
+/**
+ * Non-PII field whitelist for error diagnostics. See seletar-h3.ts safeRowSample
+ * for the equivalent pattern on the other adapter that handles user-supplied data.
+ */
+function safeApiRowSample(row: Partial<HashRegoKennelEvent>): string {
+  return JSON.stringify({
+    slug: row.slug,
+    host_kennel_slug: row.host_kennel_slug,
+    start_time: row.start_time,
+    current_price: row.current_price,
+    is_over: row.is_over,
+  });
+}
+
+/**
+ * Step 2b call outcome. `ok` carries the converted IndexEntries and any
+ * row-level parse failures (partial success). `fail` carries a single
+ * whole-call error (transport, auth, rate-limit, server, or whole-response
+ * parse drift).
+ */
+type Step2bOutcome =
+  | { kind: "ok"; entries: IndexEntry[]; rowParseErrors: ParseError[] }
+  | { kind: "fail"; error: HashRegoApiError };
+
+/**
+ * Fetch a kennel's events from the JSON API and convert each row into an
+ * IndexEntry. Network/HTTP failures return a `fail` outcome (the whole
+ * kennel call is dropped). Row-level parse failures are accumulated into
+ * `rowParseErrors` so a single bad row doesn't lose the other events from
+ * the same kennel.
+ */
+async function fetchAndConvertKennelEvents(
+  slug: string,
+  timeoutMs: number,
+): Promise<Step2bOutcome> {
+  let rows: HashRegoKennelEvent[];
+  try {
+    rows = await fetchKennelEvents(slug, { timeoutMs });
+  } catch (err) {
+    return {
+      kind: "fail",
+      error:
+        err instanceof HashRegoApiError
+          ? err
+          : new HashRegoApiError(slug, 0, "network", String(err)),
+    };
+  }
+
+  const entries: IndexEntry[] = [];
+  const rowParseErrors: ParseError[] = [];
+  rows.forEach((row, index) => {
+    try {
+      entries.push(apiToIndexEntry(row, slug));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      // Build a deterministic sourceUrl from the row's slug if we have it.
+      // CRITICAL: reconcile.ts keys on (kennelId, date, sourceUrl). If AI
+      // recovery emits an event with an empty sourceUrl, the recovered
+      // event won't match the existing canonical Hash Rego event → false
+      // CANCELLED on the next reconcile pass.
+      const rowSlug = typeof row?.slug === "string" ? row.slug : undefined;
+      const sourceUrl = rowSlug ? eventDetailUrl(rowSlug) : undefined;
+      rowParseErrors.push({
+        row: index,
+        section: slug,
+        error: message,
+        rawText: safeApiRowSample(row ?? {}),
+        partialData: { kennelTag: slug, sourceUrl },
+      });
+    }
+  });
+
+  return { kind: "ok", entries, rowParseErrors };
 }
 
 /**
@@ -252,7 +442,7 @@ function createFromIndex(entry: IndexEntry): RawEventData[] {
   if (!date) return [];
 
   const time = parseHashRegoTime(entry.startTime);
-  const hashRegoUrl = `https://hashrego.com/events/${entry.slug}`;
+  const hashRegoUrl = eventDetailUrl(entry.slug);
 
   return [
     {

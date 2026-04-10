@@ -74,10 +74,18 @@ async function runAiRecovery(
       scrapeResult.events.push(result.recovered);
     }
 
-    const recoveredRows = new Set(aiRecovery.results.map((r) => r.parseError.row));
+    // Key cleanup by ParseError object identity. Multi-kennel adapters
+    // (HASHREGO Step 2b, SFH3, Phoenix) emit per-section row indexes that
+    // can collide on (section, row) tuples, and a single source row can
+    // also emit multiple ParseError objects with the same indices. Object
+    // identity is the only safe key: we only drop the exact records the
+    // recovery results point at.
+    const recoveredErrors = new Set(
+      aiRecovery.results.map((r) => r.parseError),
+    );
     if (scrapeResult.errorDetails?.parse) {
       scrapeResult.errorDetails.parse = scrapeResult.errorDetails.parse.filter(
-        (e) => !recoveredRows.has(e.row),
+        (e) => !recoveredErrors.has(e),
       );
     }
     const recoveredErrorPrefixes = aiRecovery.results.map(
