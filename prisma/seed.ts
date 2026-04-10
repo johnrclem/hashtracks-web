@@ -174,6 +174,9 @@ async function ensureRegionRecords(prisma: any) {
     // KL vs Selangor — see reference_kl_federal_territory memory.
     "Western Australia": ["Perth, WA"],
     "Northern Territory": ["Darwin, NT"],
+    "New South Wales": ["Sydney, NSW"],
+    "South Australia": ["Adelaide, SA"],
+    "Queensland": ["Gold Coast, QLD"],
     // ── Malaysia (Phase 1: KL + Penang founder pack) ──
     // Kuala Lumpur is a Federal Territory, NOT part of Selangor — KL is
     // administratively state-equivalent. Selangor surrounds KL but KL

@@ -446,5 +446,11 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "perth-h3": ["Perth H3", "PerthH3", "Perth Hash", "Perth HHH", "Perth Hash House Harriers", "PH3 Perth"],
     "top-end-h3": ["Top End H3", "Top End Hash", "Darwin H3", "Darwin Hash", "Top End Hash House Harriers", "Darwin HHH", "TEH3", "TopEndHash"],
     "capital-h3-au": ["Capital H3", "Capital Hash", "Canberra H3", "Canberra Hash", "Capital Hash House Harriers", "Canberra HHH", "ACT Hash", "CapitalHash"],
+    // Australia (Phase 1b — Sydney + Adelaide + Gold Coast)
+    "sh3-au": ["Sydney H3", "Sydney Hash", "Sydney HHH", "Sydney Hash House Harriers", "Posh Hash", "SH3 Sydney", "SH3 Posh"],
+    "ah3-au": ["Adelaide H3", "Adelaide Hash", "Adelaide HHH", "Adelaide Hash House Harriers", "AH3 Adelaide", "AdelaideHash"],
+    "gch3-au": ["Gold Coast H3", "Gold Coast Hash", "Gold Coast HHH", "Gold Coast Hash House Harriers", "GCH3", "GoldCoastHash"],
+    "larrikins-au": ["Sydney Larrikins", "Larrikins H3", "Larrikins Hash", "Sydney South Harbour HHH", "SSHHHH", "Tuesday Beers", "Larrikin Run"],
+    "sth3-au": ["Sydney Thirsty H3", "Sydney Thirsty", "Thirsty H3", "Thirsty Hash", "STH3", "Sydney Thirsty Hash House Harriers"],
   };
 
