@@ -2402,6 +2402,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
   // (state-equivalent), and Canberra is effectively the entire
   // territory. Kennels in Canberra attach to "Australian Capital
   // Territory" directly. Same pattern as "Kuala Lumpur, MY".
+  // ── Australia Phase 2: Victoria ──
+  {
+    name: "Victoria",
+    country: "Australia",
+    level: "STATE_PROVINCE",
+    timezone: "Australia/Melbourne",
+    abbrev: "Vic",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#a16207",
+    centroidLat: -37.81,
+    centroidLng: 144.96,
+    aliases: ["Victoria, Australia"],
+  },
+  {
+    name: "Melbourne, VIC",
+    country: "Australia",
+    timezone: "Australia/Melbourne",
+    abbrev: "MEL",
+    colorClasses: "bg-yellow-200 text-yellow-800",
+    pinColor: "#854d0e",
+    centroidLat: -37.8136,
+    centroidLng: 144.9631,
+    aliases: ["Melbourne", "Melbourne, Australia"],
+  },
   // ── Malaysia — the birthplace of hashing (Mother Hash, KL, 1938) ──
   {
     name: "Malaysia",
@@ -2464,6 +2488,110 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 5.4164,
     centroidLng: 100.3327,
     aliases: ["Penang Island", "Penang, Malaysia", "George Town"],
+  },
+  // ── Malaysia Phase 2: Sarawak, Sabah, Perak, Johor + city metros ──
+  {
+    name: "Sarawak",
+    country: "Malaysia",
+    level: "STATE_PROVINCE",
+    timezone: "Asia/Kuching",
+    abbrev: "SWK",
+    colorClasses: "bg-green-100 text-green-700",
+    pinColor: "#15803d",
+    centroidLat: 2.3,
+    centroidLng: 111.8,
+    aliases: ["Sarawak, MY"],
+  },
+  {
+    name: "Kuching, MY",
+    country: "Malaysia",
+    timezone: "Asia/Kuching",
+    abbrev: "KCH",
+    colorClasses: "bg-green-200 text-green-800",
+    pinColor: "#166534",
+    centroidLat: 1.5497,
+    centroidLng: 110.3444,
+    aliases: ["Kuching", "Kuching, Malaysia"],
+  },
+  {
+    name: "Sabah",
+    country: "Malaysia",
+    level: "STATE_PROVINCE",
+    timezone: "Asia/Kuching",
+    abbrev: "SBH",
+    colorClasses: "bg-green-100 text-green-700",
+    pinColor: "#15803d",
+    centroidLat: 5.3,
+    centroidLng: 116.7,
+    aliases: ["Sabah, MY"],
+  },
+  {
+    name: "Kota Kinabalu, MY",
+    country: "Malaysia",
+    timezone: "Asia/Kuching",
+    abbrev: "KK",
+    colorClasses: "bg-green-200 text-green-800",
+    pinColor: "#166534",
+    centroidLat: 5.9804,
+    centroidLng: 116.0735,
+    aliases: ["Kota Kinabalu", "Kota Kinabalu, Malaysia", "KK"],
+  },
+  {
+    name: "Perak",
+    country: "Malaysia",
+    level: "STATE_PROVINCE",
+    timezone: "Asia/Kuala_Lumpur",
+    abbrev: "PRK",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#047857",
+    centroidLat: 4.6,
+    centroidLng: 101.1,
+    aliases: ["Perak, MY"],
+  },
+  {
+    name: "Ipoh, MY",
+    country: "Malaysia",
+    timezone: "Asia/Kuala_Lumpur",
+    abbrev: "IPH",
+    colorClasses: "bg-emerald-200 text-emerald-800",
+    pinColor: "#065f46",
+    centroidLat: 4.5975,
+    centroidLng: 101.0901,
+    aliases: ["Ipoh", "Ipoh, Malaysia"],
+  },
+  {
+    name: "Johor",
+    country: "Malaysia",
+    level: "STATE_PROVINCE",
+    timezone: "Asia/Kuala_Lumpur",
+    abbrev: "JHR",
+    colorClasses: "bg-green-100 text-green-700",
+    pinColor: "#15803d",
+    centroidLat: 1.9,
+    centroidLng: 103.7,
+    aliases: ["Johor, MY"],
+  },
+  {
+    name: "Johor Bahru, MY",
+    country: "Malaysia",
+    timezone: "Asia/Kuala_Lumpur",
+    abbrev: "JB",
+    colorClasses: "bg-green-200 text-green-800",
+    pinColor: "#166534",
+    centroidLat: 1.4927,
+    centroidLng: 103.7414,
+    aliases: ["Johor Bahru", "JB", "Johor Bahru, Malaysia"],
+  },
+  {
+    name: "Butterworth, MY",
+    country: "Malaysia",
+    timezone: "Asia/Kuala_Lumpur",
+    abbrev: "BWN",
+    colorClasses: "bg-emerald-200 text-emerald-800",
+    pinColor: "#065f46",
+    centroidLat: 5.3987,
+    centroidLng: 100.3649,
+    aliases: ["Butterworth", "Butterworth, Malaysia"],
   },
 ];
 
@@ -2665,7 +2793,7 @@ export function inferCountry(name: string): string {
   if (/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/.test(lower)) return "Sweden";
   if (/\b(norway|oslo|bergen|stavanger)\b/.test(lower)) return "Norway";
   if (/\b(singapore)\b/.test(lower)) return "Singapore";
-  if (/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|pulau pinang|george town|selangor|johor|sabah|sarawak|melaka|malacca|ipoh|kuching|kota kinabalu|miri|kelana jaya)\b/.test(lower)) return "Malaysia";
+  if (/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|pulau pinang|george town|selangor|johor|sabah|sarawak|melaka|malacca|ipoh|kuching|kota kinabalu|miri|kelana jaya|butterworth|kluang)\b/.test(lower)) return "Malaysia";
   return "USA";
 }
 
@@ -2878,6 +3006,16 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Penang Island, MY": "Penang",
   "Selangor": "Selangor",
   "Penang": "Penang",
+  // Malaysia Phase 2 — Sarawak, Sabah, Perak, Johor states + metros
+  "Sarawak": "Sarawak",
+  "Kuching, MY": "Sarawak",
+  "Sabah": "Sabah",
+  "Kota Kinabalu, MY": "Sabah",
+  "Perak": "Perak",
+  "Ipoh, MY": "Perak",
+  "Johor": "Johor",
+  "Johor Bahru, MY": "Johor",
+  "Butterworth, MY": "Penang",
   // Australia — ACT is a Federal Territory (state-equivalent), NOT part
   // of NSW. WA and NT each own one metro (Perth / Darwin). ACT has no
   // separate metro — kennels attach directly to the state.
@@ -2887,11 +3025,13 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "New South Wales": "New South Wales",
   "South Australia": "South Australia",
   "Queensland": "Queensland",
+  "Victoria": "Victoria",
   "Perth, WA": "Western Australia",
   "Darwin, NT": "Northern Territory",
   "Sydney, NSW": "New South Wales",
   "Adelaide, SA": "South Australia",
   "Gold Coast, QLD": "Queensland",
+  "Melbourne, VIC": "Victoria",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */
@@ -3007,6 +3147,16 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Penang": "Malaysia",
   "Kuala Lumpur, MY": "Malaysia",
   "Penang Island, MY": "Malaysia",
+  // Malaysia Phase 2 — Sarawak, Sabah, Perak, Johor + metros
+  "Sarawak": "Malaysia",
+  "Kuching, MY": "Malaysia",
+  "Sabah": "Malaysia",
+  "Kota Kinabalu, MY": "Malaysia",
+  "Perak": "Malaysia",
+  "Ipoh, MY": "Malaysia",
+  "Johor": "Malaysia",
+  "Johor Bahru, MY": "Malaysia",
+  "Butterworth, MY": "Malaysia",
   // Australia — both states and metros need entries (per
   // feedback_country_group_map memory). ACT has no separate metro.
   "Western Australia": "Australia",
@@ -3015,11 +3165,13 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "New South Wales": "Australia",
   "South Australia": "Australia",
   "Queensland": "Australia",
+  "Victoria": "Australia",
   "Perth, WA": "Australia",
   "Darwin, NT": "Australia",
   "Sydney, NSW": "Australia",
   "Adelaide, SA": "Australia",
   "Gold Coast, QLD": "Australia",
+  "Melbourne, VIC": "Australia",
 };
 
 /** Get the country for a state group name (for 3-level region hierarchy). */
