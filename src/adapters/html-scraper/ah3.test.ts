@@ -113,10 +113,15 @@ describe("parseEventSection — DOM-based event parsing", () => {
   const content = $(".entry-content");
   const hrs = content.find("hr").toArray();
 
+  /** Walk sibling nodes between hrs[idx] and hrs[idx+1] (or end of content).
+   *  Uses .at() for the index lookup so eslint-plugin-security doesn't flag
+   *  the dynamic access as an object-injection sink. */
   function getSection(idx: number) {
+    const hr = hrs.at(idx);
+    if (!hr) throw new Error(`No <hr> at index ${idx}`);
+    const nextHr = hrs.at(idx + 1) ?? null;
     const sectionNodes: import("domhandler").AnyNode[] = [];
-    let node: import("domhandler").AnyNode | null = (hrs[idx] as import("domhandler").Element).nextSibling;
-    const nextHr = idx + 1 < hrs.length ? hrs[idx + 1] : null;
+    let node: import("domhandler").AnyNode | null = (hr as import("domhandler").Element).nextSibling;
     while (node && node !== nextHr) {
       sectionNodes.push(node);
       node = node.nextSibling;

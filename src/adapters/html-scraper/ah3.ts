@@ -39,6 +39,10 @@ import { fetchHTMLPage, decodeEntities, stripHtmlTags, filterEventsByWindow } fr
 
 const KENNEL_TAG = "ah3-nl";
 
+/** IDs below this threshold on `<p id="N">` elements are WordPress
+ *  placeholders (e.g. id="1" for special events), not real run numbers. */
+const MIN_VALID_RUN_NUMBER = 100;
+
 // ── Regex patterns ──
 
 /** Match run number and optional hare(s): "Run № 1476 by War 'n Piece & MiaB" */
@@ -102,7 +106,7 @@ export function parseEventSection(
   // (special events). Skip placeholder ids like "1".
   if (runNumber == null && pId) {
     const parsed = parseInt(pId, 10);
-    if (Number.isFinite(parsed) && parsed >= 100) {
+    if (Number.isFinite(parsed) && parsed >= MIN_VALID_RUN_NUMBER) {
       runNumber = parsed;
     }
   }
@@ -250,10 +254,16 @@ export function extractEventsFromDOM(
       const event = parseEventSection($section, $, sourceUrl);
       if (event) events.push(event);
     } catch (err) {
+      // Include the section's outer HTML in the error so the AI parse-recovery
+      // pipeline can attempt re-extraction from the raw source material.
+      const nextNode = (hrs[i] as Element | undefined)?.nextSibling;
+      const sectionSnippet = nextNode
+        ? ($.html(nextNode as AnyNode)?.slice(0, 2000) ?? "")
+        : "";
       errors.push({
         row: i,
         error: String(err),
-        rawText: `Section ${i} after <hr>`,
+        rawText: sectionSnippet || `Section ${i} after <hr>`,
       });
     }
   }
