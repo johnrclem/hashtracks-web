@@ -3044,7 +3044,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "sekkong-h3", shortName: "Sek Kong H3", fullName: "Sek Kong Hash House Harriers",
       region: "Hong Kong", country: "Hong Kong",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
-      scheduleNotes: undefined,
+      scheduleNotes: "",
       description: "Hong Kong's Sek Kong hash, running trails in the New Territories. Extensive run history dating back decades.",
       latitude: 22.4350, longitude: 114.0850,
     },
