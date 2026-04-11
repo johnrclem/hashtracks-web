@@ -202,9 +202,15 @@ describe("syncKennelDiscovery", () => {
     const result = await syncKennelDiscovery();
 
     // Takes the updateTerminalDiscovery path — profile data refreshed,
-    // but no re-scoring, no SourceKennel deletion, no SourceKennel upsert.
+    // no re-scoring, no SourceKennel deletion.
     expect(prisma.sourceKennel.deleteMany).not.toHaveBeenCalled();
-    expect(prisma.sourceKennel.upsert).not.toHaveBeenCalled();
+    // Self-healing: the SourceKennel link is re-ensured via upsert (no-op
+    // when the row already exists, creates it if manually removed).
+    expect(prisma.sourceKennel.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { sourceId_kennelId: { sourceId: "src-hashrego", kennelId: "k1" } },
+      }),
+    );
     // Discovery record updated with fresh profile data via the terminal path
     expect(prisma.kennelDiscovery.update).toHaveBeenCalledWith(
       expect.objectContaining({
