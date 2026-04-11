@@ -533,11 +533,30 @@ export function buildRawEventFromGCalItem(
     const descTitle = titleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }
-  // Strip only the hare-name capture group from the title, preserving the rest (e.g., "AH3 #2269")
+  // Strip the hare-name capture group from the title, preserving the rest.
+  // Handles both prefix patterns (hares at start: "Hare1 & Hare2 - AH3 #2269")
+  // and suffix patterns (hares at end: "AH3 #1833 - Location - Hare Name").
+  // The prior code assumed prefix-only and did title.slice(captureGroup.length),
+  // which mangled titles when the capture group was at the end.
   if (haresFromTitle && compiledTitleHarePattern) {
     const titleMatch = compiledTitleHarePattern.exec(title);
-    if (titleMatch?.index === 0 && titleMatch[1]) {
-      const cleaned = title.slice(titleMatch[1].length).trimStart();
+    if (titleMatch && titleMatch[1]) {
+      const hareText = titleMatch[1];
+      // Determine whether the capture group sits at the start or end of the
+      // title using exact boundary checks. Prior code used lastIndexOf which
+      // breaks when the hare text appears twice (e.g. "Alice - Event with Alice").
+      const isPrefixCapture = title.startsWith(hareText);
+      const isSuffixCapture = title.endsWith(hareText);
+      let cleaned: string;
+      if (isPrefixCapture) {
+        // Prefix wins when hare text appears at both ends (e.g. "Alice AH3 #2269 - Event with Alice")
+        cleaned = title.slice(hareText.length).trimStart();
+      } else if (isSuffixCapture) {
+        cleaned = title.slice(0, -hareText.length).replace(/\s*[-–—]\s*$/, "").trim();
+      } else {
+        // Capture is mid-title — don't mangle; leave the title as-is.
+        cleaned = title;
+      }
       if (cleaned) title = cleaned;
     }
   }

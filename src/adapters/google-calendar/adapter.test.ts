@@ -431,6 +431,63 @@ describe("titleHarePattern — hare extraction from summary", () => {
     expect(result!.title).toBe("AH3 #2269");
   });
 
+  it("handles SUFFIX-style titleHarePattern (hares at end of title, not start) (#575)", () => {
+    // Aloha H3 titles: "AH3 #1833 - Manoa Valley District Park - International Dicklomat"
+    // The prior prefix-only cleanup stripped characters from the WRONG end,
+    // producing "y District Park - International Dicklomat". The fix uses
+    // startsWith/endsWith to detect suffix captures and strips from the end.
+    const suffixRE = /^AH3\s*#\d+.*-\s+(.+)$/i;
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "AH3 #1833 - Manoa Valley District Park - International Dicklomat",
+        start: { dateTime: "2026-04-18T14:00:00-10:00" },
+      }),
+      { defaultKennelTag: "ah3-hi", titleHarePattern: String.raw`^AH3\s*#\d+.*-\s+(.+)$` },
+      undefined, undefined, undefined,
+      suffixRE,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("International Dicklomat");
+    expect(result!.title).toBe("AH3 #1833 - Manoa Valley District Park");
+    expect(result!.title).not.toContain("Dicklomat");
+  });
+
+  it("handles SUFFIX-style pattern with extra dashes (EARLY START note)", () => {
+    const suffixRE = /^AH3\s*#\d+.*-\s+(.+)$/i;
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "AH3 #1828 - **EARLY START** - Kailua District Park - Green Machine",
+        start: { dateTime: "2026-03-14T10:00:00-10:00" },
+      }),
+      { defaultKennelTag: "ah3-hi", titleHarePattern: String.raw`^AH3\s*#\d+.*-\s+(.+)$` },
+      undefined, undefined, undefined,
+      suffixRE,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Green Machine");
+    expect(result!.title).toBe("AH3 #1828 - **EARLY START** - Kailua District Park");
+  });
+
+  it("handles prefix capture when hare text appears later in the title too", () => {
+    // Regression: "Alice - Event with Alice" — the hare "Alice" appears at
+    // both the start and later. startsWith/endsWith correctly identifies this
+    // as a prefix capture and strips from the front.
+    const prefixRE = /^(.+?)\s+AH3\s+#/i;
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Alice AH3 #2269 - Event with Alice",
+        start: { dateTime: "2026-04-18T14:00:00-05:00" },
+      }),
+      { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` },
+      undefined, undefined, undefined,
+      prefixRE,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Alice");
+    // Title should strip from the front, not the back
+    expect(result!.title).toBe("AH3 #2269 - Event with Alice");
+  });
+
   it("description hares take priority over title hares", () => {
     const result = buildRawEventFromGCalItem(
       testGCalEvent({
