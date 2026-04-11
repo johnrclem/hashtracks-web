@@ -1,6 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   planKennelLabelSync,
+  ensureKennelLabel,
+  deleteKennelLabel,
   type GitHubLabel,
 } from "./kennel-label-sync";
 
@@ -128,5 +130,171 @@ describe("planKennelLabelSync", () => {
     if (agnewsUpdate && agnewsUpdate.kind === "update") {
       expect(agnewsUpdate.description).toBe("Audit kennel attribution — Agnews");
     }
+  });
+});
+
+// ── Per-kennel lifecycle hooks ──
+
+type FetchMock = ReturnType<typeof vi.fn>;
+
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function emptyResponse(status: number): Response {
+  return new Response(null, { status });
+}
+
+describe("ensureKennelLabel", () => {
+  const ORIGINAL_TOKEN = process.env.GITHUB_TOKEN;
+  let fetchMock: FetchMock;
+
+  beforeEach(() => {
+    process.env.GITHUB_TOKEN = "test-token";
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    process.env.GITHUB_TOKEN = ORIGINAL_TOKEN;
+  });
+
+  it("creates the label when GitHub returns 404", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(404, { message: "Not Found" }))
+      .mockResolvedValueOnce(jsonResponse(201, { name: "kennel:agnews" }));
+    const outcome = await ensureKennelLabel("agnews", "Agnews");
+    expect(outcome).toEqual({ ok: true, action: "created" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [, postCall] = fetchMock.mock.calls;
+    expect(postCall[1].method).toBe("POST");
+    const body = JSON.parse(postCall[1].body as string);
+    expect(body).toEqual({
+      name: "kennel:agnews",
+      color: "d0e8ff",
+      description: "Audit kennel attribution — Agnews",
+    });
+  });
+
+  it("patches a drifted canonical label (description stale)", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          name: "kennel:agnews",
+          color: "d0e8ff",
+          description: "Audit kennel attribution — OldName",
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(200, { name: "kennel:agnews" }));
+    const outcome = await ensureKennelLabel("agnews", "Agnews");
+    expect(outcome).toEqual({ ok: true, action: "updated" });
+    const [, patchCall] = fetchMock.mock.calls;
+    expect(patchCall[1].method).toBe("PATCH");
+  });
+
+  it("skips when the label is already canonical", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        name: "kennel:agnews",
+        color: "d0e8ff",
+        description: "Audit kennel attribution — Agnews",
+      }),
+    );
+    const outcome = await ensureKennelLabel("agnews", "Agnews");
+    expect(outcome).toEqual({ ok: true, action: "skipped" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves externally owned labels alone", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        name: "kennel:agnews",
+        color: "ff0000",
+        description: "Triage queue — blocker",
+      }),
+    );
+    const outcome = await ensureKennelLabel("agnews", "Agnews");
+    expect(outcome).toEqual({ ok: true, action: "external" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns invalid without hitting the network for bad kennelCodes", async () => {
+    const outcome = await ensureKennelLabel("Bad Code!", "Bad");
+    expect(outcome).toEqual({ ok: true, action: "invalid" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns missing-token when GITHUB_TOKEN is unset", async () => {
+    delete process.env.GITHUB_TOKEN;
+    const outcome = await ensureKennelLabel("agnews", "Agnews");
+    expect(outcome).toEqual({ ok: true, action: "missing-token" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("captures errors from failed GETs without throwing", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(500, { message: "boom" }));
+    const outcome = await ensureKennelLabel("agnews", "Agnews");
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.action).toBe("error");
+      expect(outcome.error).toMatch(/500/);
+    }
+  });
+});
+
+describe("deleteKennelLabel", () => {
+  const ORIGINAL_TOKEN = process.env.GITHUB_TOKEN;
+  let fetchMock: FetchMock;
+
+  beforeEach(() => {
+    process.env.GITHUB_TOKEN = "test-token";
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    process.env.GITHUB_TOKEN = ORIGINAL_TOKEN;
+  });
+
+  it("returns deleted on 204", async () => {
+    fetchMock.mockResolvedValueOnce(emptyResponse(204));
+    const outcome = await deleteKennelLabel("agnews");
+    expect(outcome).toEqual({ ok: true, action: "deleted" });
+    const [[, init]] = fetchMock.mock.calls;
+    expect(init.method).toBe("DELETE");
+  });
+
+  it("treats 404 as idempotent absent", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(404, { message: "Not Found" }));
+    const outcome = await deleteKennelLabel("agnews");
+    expect(outcome).toEqual({ ok: true, action: "absent" });
+  });
+
+  it("captures 500 errors without throwing", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(500, { message: "boom" }));
+    const outcome = await deleteKennelLabel("agnews");
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.action).toBe("error");
+      expect(outcome.error).toMatch(/500/);
+    }
+  });
+
+  it("returns invalid for bad kennelCodes without touching the network", async () => {
+    const outcome = await deleteKennelLabel("Bad!");
+    expect(outcome).toEqual({ ok: true, action: "invalid" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns missing-token when GITHUB_TOKEN is unset", async () => {
+    delete process.env.GITHUB_TOKEN;
+    const outcome = await deleteKennelLabel("agnews");
+    expect(outcome).toEqual({ ok: true, action: "missing-token" });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -26,6 +26,22 @@ import {
   type StreamLabelName,
 } from "@/lib/audit-labels";
 
+/** Outcome of a per-kennel label lifecycle call. Never throws to callers. */
+export type KennelLabelOutcome =
+  | {
+      ok: true;
+      action:
+        | "created"
+        | "updated"
+        | "skipped"
+        | "external"
+        | "deleted"
+        | "absent"
+        | "invalid"
+        | "missing-token";
+    }
+  | { ok: false; action: "error"; error: string };
+
 const FETCH_TIMEOUT_MS = 15_000;
 const PAGE_SIZE = 100;
 const MAX_PAGES = 20;
@@ -82,7 +98,6 @@ function isOwnedLabel(label: GitHubLabel, ownershipPrefix: string): boolean {
   return desc.startsWith(ownershipPrefix);
 }
 
-/** Single diff that handles both kennel and stream labels. */
 function diffLabel(
   canonical: CanonicalLabel,
   existing: GitHubLabel | undefined,
@@ -140,6 +155,19 @@ export async function fetchAllLabels(token: string): Promise<GitHubLabel[]> {
   return out;
 }
 
+/** Build the canonical label spec for a single kennel. */
+function buildKennelCanonical(
+  kennelCode: string,
+  shortName: string | null,
+): CanonicalLabel {
+  return {
+    name: kennelLabel(kennelCode),
+    color: KENNEL_LABEL_COLOR,
+    description: `${KENNEL_DESCRIPTION_PREFIX} — ${shortName ?? kennelCode}`,
+    ownershipPrefix: KENNEL_DESCRIPTION_PREFIX,
+  };
+}
+
 /** Build the canonical label list for every kennel + every audit stream. */
 function buildCanonicalLabels(
   kennels: ReadonlyArray<{ kennelCode: string; shortName: string | null }>,
@@ -151,12 +179,7 @@ function buildCanonicalLabels(
       invalid.push(k.kennelCode);
       continue;
     }
-    canonical.push({
-      name: kennelLabel(k.kennelCode),
-      color: KENNEL_LABEL_COLOR,
-      description: `${KENNEL_DESCRIPTION_PREFIX} — ${k.shortName ?? k.kennelCode}`,
-      ownershipPrefix: KENNEL_DESCRIPTION_PREFIX,
-    });
+    canonical.push(buildKennelCanonical(k.kennelCode, k.shortName));
   }
   for (const [name, meta] of Object.entries(STREAM_LABEL_META) as Array<
     [StreamLabelName, { color: string; description: string }]
@@ -315,4 +338,135 @@ export async function syncKennelLabels(opts: { apply: boolean }): Promise<SyncLa
   );
 
   return plan;
+}
+
+// ── Per-kennel lifecycle hooks (create/delete fast path) ──
+//
+// These wrap a single label GET/POST/PATCH/DELETE so the admin kennel CRUD
+// actions can eagerly canonicalize (or clean up) a label without waiting for
+// the nightly full sync. They never throw — the daily cron is authoritative
+// and will reconcile any drift.
+
+/** GET a single label by name. 404 returns null. Throws on other failures. */
+export async function fetchLabel(
+  token: string,
+  name: string,
+): Promise<GitHubLabel | null> {
+  const repo = getValidatedRepo();
+  const res = await fetch(
+    `https://api.github.com/repos/${repo}/labels/${encodeURIComponent(name)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+      },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`GET /labels/${name} ${res.status}: ${await res.text()}`);
+  }
+  return (await res.json()) as GitHubLabel;
+}
+
+/** DELETE a label by name. 204 and 404 both succeed. */
+async function deleteLabel(
+  token: string,
+  name: string,
+): Promise<"deleted" | "absent"> {
+  assertSafeLabelName(name);
+  const repo = getValidatedRepo();
+  const res = await fetch(
+    `https://api.github.com/repos/${repo}/labels/${encodeURIComponent(name)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+      },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    },
+  );
+  if (res.status === 404) return "absent";
+  if (!res.ok) {
+    throw new Error(`DELETE /labels/${name} ${res.status}: ${await res.text()}`);
+  }
+  return "deleted";
+}
+
+/**
+ * Ensure the canonical `kennel:<code>` label exists for a newly created
+ * kennel. Never throws — returns a structured outcome so the caller can log.
+ */
+export async function ensureKennelLabel(
+  kennelCode: string,
+  shortName: string | null,
+): Promise<KennelLabelOutcome> {
+  if (!isValidKennelCode(kennelCode)) {
+    return { ok: true, action: "invalid" };
+  }
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) {
+    return { ok: true, action: "missing-token" };
+  }
+  const canonical = buildKennelCanonical(kennelCode, shortName);
+  try {
+    const existing = await fetchLabel(token, canonical.name);
+    const action = diffLabel(canonical, existing ?? undefined);
+    if (action.kind === "create") {
+      await writeLabel(
+        "POST",
+        token,
+        canonical.name,
+        canonical.color,
+        canonical.description,
+      );
+      return { ok: true, action: "created" };
+    }
+    if (action.kind === "update") {
+      await writeLabel(
+        "PATCH",
+        token,
+        canonical.name,
+        canonical.color,
+        canonical.description,
+      );
+      return { ok: true, action: "updated" };
+    }
+    if (action.kind === "external") {
+      console.warn(
+        `[ensureKennelLabel] ${canonical.name} externally owned, leaving alone:`,
+        action.description,
+      );
+      return { ok: true, action: "external" };
+    }
+    return { ok: true, action: "skipped" };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, action: "error", error: message };
+  }
+}
+
+/**
+ * Delete the `kennel:<code>` label for a deleted kennel. Never throws —
+ * returns a structured outcome so the caller can log.
+ */
+export async function deleteKennelLabel(
+  kennelCode: string,
+): Promise<KennelLabelOutcome> {
+  if (!isValidKennelCode(kennelCode)) {
+    return { ok: true, action: "invalid" };
+  }
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) {
+    return { ok: true, action: "missing-token" };
+  }
+  try {
+    const result = await deleteLabel(token, kennelLabel(kennelCode));
+    return { ok: true, action: result };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, action: "error", error: message };
+  }
 }

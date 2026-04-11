@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { fuzzyMatch } from "@/lib/fuzzy";
 import { toSlug, toKennelCode } from "@/lib/kennel-utils";
 import { generateAliases } from "@/lib/auto-aliases";
+import { ensureKennelLabel, deleteKennelLabel } from "@/pipeline/kennel-label-sync";
 
 function extractProfileFields(formData: FormData) {
   const result: Record<string, string | number | boolean | null> = {};
@@ -199,6 +200,17 @@ export async function createKennel(formData: FormData, force: boolean = false) {
     },
   });
 
+  // Fast-path canonicalize the `kennel:<code>` GitHub label so audit issues
+  // filed before the next daily sync get correct color/description. Failures
+  // are non-fatal — the daily cron reconciles drift.
+  const labelOutcome = await ensureKennelLabel(kennelCode, shortName);
+  if (!labelOutcome.ok) {
+    console.warn("[createKennel] label sync failed", {
+      kennelCode,
+      error: labelOutcome.error,
+    });
+  }
+
   revalidatePath("/admin/kennels");
   revalidatePath("/kennels");
   return { success: true };
@@ -355,6 +367,16 @@ export async function deleteKennel(kennelId: string) {
     prisma.sourceKennel.deleteMany({ where: { kennelId } }),
     prisma.kennel.delete({ where: { id: kennelId } }),
   ]);
+
+  // Clean up orphaned `kennel:<code>` GitHub label. Non-fatal — an orphan
+  // label is cosmetic only.
+  const delOutcome = await deleteKennelLabel(kennel.kennelCode);
+  if (!delOutcome.ok) {
+    console.warn("[deleteKennel] label cleanup failed", {
+      kennelCode: kennel.kennelCode,
+      error: delOutcome.error,
+    });
+  }
 
   console.log("[admin-audit] deleteKennel", JSON.stringify({
     adminId: admin.id,
