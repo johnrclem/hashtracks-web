@@ -3050,6 +3050,10 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "lh3-ks",
+        // Drop KCH3 events that leak into this calendar. KCH3 has its own
+        // source via HashRego (trust 8). Anchored so joint titles stay put.
+        // Closes #608.
+        skipPatterns: ["^KCH3\\b"],
       },
       kennelCodes: ["lh3-ks"],
     },
