@@ -3575,7 +3575,7 @@ export const SOURCES = [
       config: {
         sheetId: "1ActKq1DoLoUA2WfUM7Q4JF3SASG7SEG-lGjy4byIf_Q",
         gid: 425141890,
-        columns: { date: 0, runNumber: 2, hares: 3, title: 4 },
+        columns: { date: 0, runNumber: 1, hares: 2, description: 3 },
         kennelTagRules: { default: "rs2h3" },
       },
       kennelCodes: ["rs2h3"],
@@ -3609,9 +3609,9 @@ export const SOURCES = [
         sheetId: "1x2bYuq0S68oBbxynEfuiXqdeyCX_GqJ6upudlqNLrvg",
         gid: 1625878211,
         columns: { runNumber: 0, date: 2, hares: 3, location: 4, description: 5 },
-        kennelTagRules: { default: "sekkongh3" },
+        kennelTagRules: { default: "sekkong-h3" },
       },
-      kennelCodes: ["sekkongh3"],
+      kennelCodes: ["sekkong-h3"],
     },
     // --- LSW (HTML table scraper) ---
     {

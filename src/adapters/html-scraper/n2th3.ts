@@ -3,7 +3,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { fetchWordPressComPosts, type WordPressComPage } from "../wordpress-api";
-import { chronoParseDate, parse12HourTime, decodeEntities, isPlaceholder, googleMapsSearchUrl } from "../utils";
+import { applyDateWindow, chronoParseDate, parse12HourTime, decodeEntities, isPlaceholder, googleMapsSearchUrl } from "../utils";
 
 const SITE_DOMAIN = "n2th3.org";
 const KENNEL_TAG = "n2th3";
@@ -147,8 +147,8 @@ export class N2TH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
   async fetch(
-    _source: Source,
-    _options?: { days?: number },
+    source: Source,
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const fetchStart = Date.now();
 
@@ -185,17 +185,21 @@ export class N2TH3Adapter implements SourceAdapter {
 
     const fetchDurationMs = Date.now() - fetchStart;
 
-    return {
-      events,
-      errors,
-      errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
-      diagnosticContext: {
-        fetchMethod: "wordpress-com-api",
-        postsFound: found,
-        postsFetched: posts.length,
-        eventsParsed: events.length,
-        fetchDurationMs,
+    const days = options?.days ?? source.scrapeDays ?? 365;
+    return applyDateWindow(
+      {
+        events,
+        errors,
+        errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
+        diagnosticContext: {
+          fetchMethod: "wordpress-com-api",
+          postsFound: found,
+          postsFetched: posts.length,
+          eventsParsed: events.length,
+          fetchDurationMs,
+        },
       },
-    };
+      days,
+    );
   }
 }

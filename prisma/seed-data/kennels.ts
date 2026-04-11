@@ -696,7 +696,7 @@ export const KENNELS: KennelSeed[] = [
     // London, UK
     {
       kennelCode: "lh3", shortName: "London H3", fullName: "London Hash House Harriers", region: "London", country: "UK",
-      website: "https://www.londonhash.org", foundedYear: 1975,
+      website: "https://www.londonhash.org", foundedYear: 1970,
       scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Summer: sometimes Monday evenings at 7pm",
       instagramHandle: "@london_hash_house_harriers",
@@ -3034,7 +3034,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 22.2783, longitude: 114.1747,
     },
     {
-      kennelCode: "sekkongh3", shortName: "Sek Kong H3", fullName: "Sek Kong Hash House Harriers",
+      kennelCode: "sekkong-h3", shortName: "Sek Kong H3", fullName: "Sek Kong Hash House Harriers",
       region: "Hong Kong", country: "Hong Kong",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
       scheduleNotes: "Multiple archive tabs with decades of run history.",
@@ -3063,7 +3063,7 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/kowloonhash",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Historic-kennel STATIC_SCHEDULE exception. Founded 1970s, run #2891+. Facebook-only — no scrapeable web source.",
-      foundedYear: 1975,
+      foundedYear: 1970,
       description: "One of Hong Kong's oldest hash kennels, running since the 1970s. Weekly Monday evening runs in Kowloon. Run #2891+ visible in Google snippets.",
       latitude: 22.3200, longitude: 114.1700,
     },

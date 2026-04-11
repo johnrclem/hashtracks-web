@@ -1,9 +1,7 @@
-import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { generateStructureHash } from "@/pipeline/structure-hash";
-import { isPlaceholder } from "../utils";
+import { fetchHTMLPage, applyDateWindow, isPlaceholder } from "../utils";
 
 const KENNEL_TAG = "lsw-h3";
 const DEFAULT_START_TIME = "18:30"; // Wednesdays in HK, typical evening start
@@ -88,38 +86,17 @@ export class LswH3Adapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://www.datadesignfactory.com/lsw/hareline.htm";
 
+    const page = await fetchHTMLPage(baseUrl);
+    if (!page.ok) return page.result;
+
+    const { $, structureHash, fetchDurationMs } = page;
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-
-    let html: string;
-    const fetchStart = Date.now();
-    try {
-      const response = await fetch(baseUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        },
-      });
-      if (!response.ok) {
-        const message = `HTTP ${response.status}: ${response.statusText}`;
-        errorDetails.fetch = [{ url: baseUrl, status: response.status, message }];
-        return { events: [], errors: [message], errorDetails };
-      }
-      html = await response.text();
-    } catch (err) {
-      const message = `Fetch failed: ${err}`;
-      errorDetails.fetch = [{ url: baseUrl, message }];
-      return { events: [], errors: [message], errorDetails };
-    }
-    const fetchDurationMs = Date.now() - fetchStart;
-
-    const structureHash = generateStructureHash(html);
-    const $ = cheerio.load(html);
 
     let rowsParsed = 0;
 
@@ -150,16 +127,20 @@ export class LswH3Adapter implements SourceAdapter {
       rowsParsed++;
     });
 
-    return {
-      events,
-      errors,
-      structureHash,
-      errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
-      diagnosticContext: {
-        rowsFound: rowsParsed,
-        eventsParsed: events.length,
-        fetchDurationMs,
+    const days = options?.days ?? source.scrapeDays ?? 365;
+    return applyDateWindow(
+      {
+        events,
+        errors,
+        structureHash,
+        errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
+        diagnosticContext: {
+          rowsFound: rowsParsed,
+          eventsParsed: events.length,
+          fetchDurationMs,
+        },
       },
-    };
+      days,
+    );
   }
 }

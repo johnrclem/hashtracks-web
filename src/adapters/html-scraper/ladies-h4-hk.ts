@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { chronoParseDate, isPlaceholder, fetchBrowserRenderedPage } from "../utils";
+import { applyDateWindow, chronoParseDate, isPlaceholder, fetchBrowserRenderedPage } from "../utils";
 
 const KENNEL_TAG = "lh4-hk";
 const DEFAULT_START_TIME = "18:45"; // Weekly Tuesdays 6:45pm per research
@@ -41,7 +41,7 @@ export function parseLadiesH4Row(
     date,
     kennelTag: KENNEL_TAG,
     runNumber: runNumber && runNumber > 0 ? runNumber : undefined,
-    title: runNumber ? `Ladies H4 Run #${runNumber}` : undefined,
+    title: runNumber ? `Ladies H4 Run #${runNumber}` : "Ladies H4 Run",
     hares: validHares,
     location,
     startTime: DEFAULT_START_TIME,
@@ -63,7 +63,7 @@ export class LadiesH4HkAdapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const harelineUrl = source.url || "https://hkladiesh4.wixsite.com/hklh4/hareline";
 
@@ -110,16 +110,20 @@ export class LadiesH4HkAdapter implements SourceAdapter {
       rowsParsed++;
     });
 
-    return {
-      events,
-      errors,
-      structureHash,
-      errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
-      diagnosticContext: {
-        rowsFound: rowsParsed,
-        eventsParsed: events.length,
-        fetchDurationMs,
+    const days = options?.days ?? source.scrapeDays ?? 365;
+    return applyDateWindow(
+      {
+        events,
+        errors,
+        structureHash,
+        errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
+        diagnosticContext: {
+          rowsFound: rowsParsed,
+          eventsParsed: events.length,
+          fetchDurationMs,
+        },
       },
-    };
+      days,
+    );
   }
 }
