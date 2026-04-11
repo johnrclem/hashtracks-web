@@ -33,7 +33,7 @@ import type {
   ParseError,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, decodeEntities, stripHtmlTags, filterEventsByWindow } from "../utils";
+import { fetchHTMLPage, decodeEntities, stripHtmlTags, filterEventsByWindow, chronoParseDate, parse12HourTime, normalizeHaresField } from "../utils";
 
 // ── Constants ──
 
@@ -271,6 +271,102 @@ export function extractEventsFromDOM(
   return { events, errors };
 }
 
+/**
+ * Parse a date from the /previous/ gallery tile format:
+ *   "Saturday, Apr 4th, 2026 2:45PM"
+ * Strips ordinal suffixes then delegates to chronoParseDate + parse12HourTime.
+ */
+export function parseGalleryDate(text: string): { date: string; startTime?: string } | null {
+  const cleaned = text.replace(/(\d+)(?:st|nd|rd|th)/gi, "$1");
+  const date = chronoParseDate(cleaned);
+  if (!date) return null;
+  return { date, startTime: parse12HourTime(cleaned) };
+}
+
+/**
+ * Extract events from the /previous/ page's Harrier Central gallery grid.
+ * Each event is an `<a class="harrier-gallery-tile-link">` with structured
+ * `<p><strong>Label:</strong> Value</p>` fields inside.
+ */
+export function extractEventsFromGallery(
+  $: cheerio.CheerioAPI,
+  sourceUrl: string,
+): { events: RawEventData[]; errors: ParseError[] } {
+  const events: RawEventData[] = [];
+  const errors: ParseError[] = [];
+
+  $(".harrier-gallery-tile-link").each(function (i) {
+    try {
+      const $tile = $(this);
+
+      // Per-event detail URL — preserves same-day event identity for
+      // reconciliation and merge disambiguation. The tile's href is a
+      // relative /rundetail?... path with a publiceventid query param.
+      const tileHref = $tile.attr("href");
+      const eventSourceUrl = tileHref
+        ? new URL(tileHref, "https://ah3.nl").href
+        : sourceUrl;
+
+      // Title from <h3> or image alt
+      const title = $tile.find("h3").first().text().trim()
+        || $tile.find("img").first().attr("alt")?.trim()
+        || undefined;
+
+      // Parse labeled fields from <p><strong>Label:</strong> text</p>
+      const fields = new Map<string, string>();
+      $tile.find("p").each(function () {
+        const label = $(this).find("strong").first().text().replace(/:$/, "").trim().toLowerCase();
+        if (!label) return;
+        // Get text after the <strong> — clone the <p>, remove the <strong>, take remaining text
+        const $p = $(this).clone();
+        $p.find("strong").first().remove();
+        const value = decodeEntities($p.text()).trim();
+        if (value) fields.set(label, value);
+      });
+
+      // Treat missing required fields as structured parse errors instead of
+      // silent drops — a silent drop from a successful scrape can drive
+      // reconciliation to cancel canonical events it didn't see.
+      if (!title) {
+        errors.push({ row: i, error: "Missing title", rawText: $tile.text().slice(0, 500) });
+        return;
+      }
+      const dateText = fields.get("date");
+      if (!dateText) {
+        errors.push({ row: i, error: `Missing date for "${title}"`, rawText: $tile.text().slice(0, 500) });
+        return;
+      }
+      const dateParsed = parseGalleryDate(dateText);
+      if (!dateParsed) {
+        errors.push({ row: i, error: `Unparseable date: "${dateText}"`, rawText: $tile.text().slice(0, 500) });
+        return;
+      }
+
+      const location = fields.get("location") || undefined;
+      const hares = normalizeHaresField(fields.get("hares"));
+      const descRaw = fields.get("description") || undefined;
+      const description = descRaw
+        ? stripHtmlTags(decodeEntities(descRaw)).trim() || undefined
+        : undefined;
+
+      events.push({
+        date: dateParsed.date,
+        kennelTag: KENNEL_TAG,
+        title,
+        hares,
+        location,
+        description,
+        startTime: dateParsed.startTime,
+        sourceUrl: eventSourceUrl,
+      });
+    } catch (err) {
+      errors.push({ row: i, error: String(err), rawText: $(this).text().slice(0, 500) });
+    }
+  });
+
+  return { events, errors };
+}
+
 // ── Adapter class ──
 
 export class AH3Adapter implements SourceAdapter {
@@ -316,14 +412,17 @@ export class AH3Adapter implements SourceAdapter {
     }
 
     // ── 2. Fetch previous page ──
+    // The /previous/ page uses a Harrier Central gallery grid (not <hr> sections),
+    // so we use the gallery parser instead of the DOM-based <hr> splitter.
     const previous = await fetchHTMLPage(previousUrl);
     if (previous.ok) {
       totalFetchMs += previous.fetchDurationMs;
 
-      const { events: previousEvents, errors: previousErrors } = extractEventsFromDOM(
-        previous.$,
-        previousUrl,
-      );
+      // Detect which parser to use: gallery grid vs <hr> sections
+      const hasGallery = previous.$(".harrier-gallery-tile-link").length > 0;
+      const { events: previousEvents, errors: previousErrors } = hasGallery
+        ? extractEventsFromGallery(previous.$, previousUrl)
+        : extractEventsFromDOM(previous.$, previousUrl);
 
       for (const ev of previousEvents) {
         if (ev.runNumber && seenRunNumbers.has(ev.runNumber)) continue;

@@ -4,6 +4,8 @@ import type { Source } from "@/generated/prisma/client";
 import {
   parseEventSection,
   extractEventsFromDOM,
+  extractEventsFromGallery,
+  parseGalleryDate,
   AH3Adapter,
 } from "./ah3";
 
@@ -197,6 +199,81 @@ describe("extractEventsFromDOM", () => {
     const $ = cheerio.load("<html><body>No content</body></html>");
     const { events } = extractEventsFromDOM($, SOURCE_URL);
     expect(events).toHaveLength(0);
+  });
+});
+
+// ── Gallery parser (/previous/ page) ──
+
+describe("parseGalleryDate", () => {
+  it("parses 'Saturday, Apr 4th, 2026 2:45PM'", () => {
+    const result = parseGalleryDate("Saturday, Apr 4th, 2026 2:45PM");
+    expect(result).toEqual({ date: "2026-04-04", startTime: "14:45" });
+  });
+
+  it("parses 'Sunday, Mar 8th, 2026 2:45PM'", () => {
+    const result = parseGalleryDate("Sunday, Mar 8th, 2026 2:45PM");
+    expect(result).toEqual({ date: "2026-03-08", startTime: "14:45" });
+  });
+
+  it("handles 1st/2nd/3rd ordinals", () => {
+    expect(parseGalleryDate("Saturday, Jun 1st, 2025 2:45PM")?.date).toBe("2025-06-01");
+    expect(parseGalleryDate("Sunday, Aug 2nd, 2025 2:45PM")?.date).toBe("2025-08-02");
+    expect(parseGalleryDate("Saturday, May 3rd, 2025 2:45PM")?.date).toBe("2025-05-03");
+  });
+
+  it("returns null for empty string", () => {
+    expect(parseGalleryDate("")).toBeNull();
+  });
+});
+
+describe("extractEventsFromGallery", () => {
+  const GALLERY_HTML = `<html><body><div class="entry-content">
+<div class="harrier-gallery-grid">
+<a class="harrier-gallery-tile-link" href="/rundetail?publiceventid=abc">
+  <div class="harrier-gallery-tile">
+    <div class="harrier-gallery-image"><img alt="The A to Birthday Run"></div>
+    <h3>The A to Birthday Run</h3>
+    <p><strong>Date:</strong> Saturday, Apr 4th, 2026 2:45PM</p>
+    <p><strong>Location:</strong> Haarlem Railway Station</p>
+    <p><strong>Hares:</strong> War 'n Piece &amp; MiaB</p>
+    <p><strong>Description:</strong><br>&lt;b&gt;Saturday&lt;/b&gt; Birthday run from Haarlem.</p>
+  </div>
+</a>
+<a class="harrier-gallery-tile-link" href="/rundetail?publiceventid=def">
+  <div class="harrier-gallery-tile">
+    <h3>No Run</h3>
+    <p><strong>Date:</strong> Sunday, May 5th, 2024 2:45PM</p>
+  </div>
+</a>
+</div>
+</div></body></html>`;
+
+  it("extracts events from gallery tiles with all fields", () => {
+    const $ = cheerio.load(GALLERY_HTML);
+    const { events, errors } = extractEventsFromGallery($, PREVIOUS_URL);
+    expect(errors).toHaveLength(0);
+    expect(events).toHaveLength(2);
+
+    expect(events[0].title).toBe("The A to Birthday Run");
+    expect(events[0].date).toBe("2026-04-04");
+    expect(events[0].startTime).toBe("14:45");
+    expect(events[0].location).toBe("Haarlem Railway Station");
+    expect(events[0].hares).toBe("War 'n Piece & MiaB");
+    expect(events[0].description).toContain("Birthday run from Haarlem");
+    expect(events[0].description).not.toContain("<b>");
+    expect(events[0].kennelTag).toBe("ah3-nl");
+    // sourceUrl should come from the tile's per-event href, not the listing page
+    expect(events[0].sourceUrl).toContain("publiceventid=abc");
+  });
+
+  it("handles tiles with minimal fields (no location, hares, description)", () => {
+    const $ = cheerio.load(GALLERY_HTML);
+    const { events } = extractEventsFromGallery($, PREVIOUS_URL);
+    expect(events[1].title).toBe("No Run");
+    expect(events[1].date).toBe("2024-05-05");
+    expect(events[1].hares).toBeUndefined();
+    expect(events[1].location).toBeUndefined();
+    expect(events[1].description).toBeUndefined();
   });
 });
 
