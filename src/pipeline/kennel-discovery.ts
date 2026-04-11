@@ -303,8 +303,15 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
       const profile = profiles.get(kennel.slug);
       const prev = discoveryPrevMap.get(kennel.slug);
       const existingStatus = prev?.status;
+      // MATCHED is semi-terminal: once a discovery auto-matches above 0.95
+      // and creates a SourceKennel link, subsequent syncs must NOT re-score
+      // it. Fuzzy scores naturally fluctuate near the threshold as the
+      // candidate pool evolves, causing MATCHED↔NEW flip-flops that delete
+      // and recreate SourceKennel rows every cycle. Only explicit admin
+      // actions (dismiss, confirm, unlink) should change the state.
       const isTerminal = existingStatus === "ADDED" ||
-        existingStatus === "LINKED" || existingStatus === "DISMISSED";
+        existingStatus === "LINKED" || existingStatus === "DISMISSED" ||
+        existingStatus === "MATCHED";
 
       const schedule = profile
         ? buildScheduleString(profile.trail_frequency, profile.trail_day) || kennel.schedule
@@ -355,28 +362,6 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
       } else {
         newKennels++;
         if (match.status === "MATCHED") autoMatched++;
-      }
-
-      // Clean up stale SourceKennel rows when an auto-match is downgraded
-      // (re-scored below threshold) or retargeted to a different kennel. We
-      // only clean up rows whose *previous* status was MATCHED — LINKED /
-      // ADDED are admin-confirmed and never get clobbered by sync. The
-      // isTerminal early-return above already skips those from this branch,
-      // but this predicate makes the invariant explicit.
-      const wasAutoLinked = prev?.status === "MATCHED" && prev.matchedKennelId !== null;
-      const newMatchedId = match.status === "MATCHED" ? match.matchedKennelId : null;
-      if (
-        hashRegoSourceId &&
-        wasAutoLinked &&
-        prev!.matchedKennelId !== newMatchedId
-      ) {
-        try {
-          await prisma.sourceKennel.deleteMany({
-            where: { sourceId: hashRegoSourceId, kennelId: prev!.matchedKennelId! },
-          });
-        } catch (err) {
-          errors.push(`Error clearing stale link for ${kennel.slug}: ${err}`);
-        }
       }
 
       if (match.status === "MATCHED" && match.matchedKennelId) {

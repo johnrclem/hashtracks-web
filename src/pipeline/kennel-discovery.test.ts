@@ -184,47 +184,37 @@ describe("syncKennelDiscovery", () => {
     expect(prisma.kennelAlias.create).not.toHaveBeenCalled();
   });
 
-  it("downgrade: previously MATCHED that now re-scores below threshold deletes stale SourceKennel", async () => {
-    // Previous state: MATCHED → k1
+  it("MATCHED is semi-terminal: subsequent sync updates profile but preserves SourceKennel", async () => {
+    // A previously MATCHED discovery must NOT be re-scored on subsequent
+    // syncs. Fuzzy scores fluctuate near the 0.95 threshold, causing
+    // MATCHED↔NEW flip-flops that delete and recreate SourceKennel rows
+    // every cycle (the root cause of the Apr 8–10 slug degradation).
     vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue([
       { externalSlug: "EWH3", status: "MATCHED", matchedKennelId: "k1" },
     ] as never);
-    // Current scrape: same slug, but candidate pool is empty so no match
     vi.mocked(parseKennelDirectory).mockReturnValue([
-      buildDiscovered({ slug: "EWH3", name: "Nothing matches this" }),
+      buildDiscovered({ slug: "EWH3", name: "Everyday Is Wednesday H3" }),
     ]);
+    // Even with an empty candidate pool (which would fail re-scoring),
+    // the MATCHED discovery must not be re-scored or have its link deleted.
     vi.mocked(prisma.kennel.findMany).mockResolvedValue([] as never);
 
-    await syncKennelDiscovery();
+    const result = await syncKennelDiscovery();
 
-    expect(prisma.sourceKennel.deleteMany).toHaveBeenCalledWith({
-      where: { sourceId: "src-hashrego", kennelId: "k1" },
-    });
+    // Takes the updateTerminalDiscovery path — profile data refreshed,
+    // but no re-scoring, no SourceKennel deletion, no SourceKennel upsert.
+    expect(prisma.sourceKennel.deleteMany).not.toHaveBeenCalled();
     expect(prisma.sourceKennel.upsert).not.toHaveBeenCalled();
-  });
-
-  it("retarget: previously MATCHED to k1 now MATCHED to k2 deletes k1 and upserts k2", async () => {
-    vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue([
-      { externalSlug: "EWH3", status: "MATCHED", matchedKennelId: "k1" },
-    ] as never);
-    vi.mocked(parseKennelDirectory).mockReturnValue([
-      buildDiscovered({ slug: "EWH3", name: "Everyday Is Wednesday H3", latitude: 38.9, longitude: -77.04 }),
-    ]);
-    // Candidate is k2, not k1
-    vi.mocked(prisma.kennel.findMany).mockResolvedValue([
-      { id: "k2", shortName: "EWH3", fullName: "Everyday Is Wednesday H3", country: "USA", regionRef: { centroidLat: 38.9, centroidLng: -77.04 } },
-    ] as never);
-
-    await syncKennelDiscovery();
-
-    expect(prisma.sourceKennel.deleteMany).toHaveBeenCalledWith({
-      where: { sourceId: "src-hashrego", kennelId: "k1" },
-    });
-    expect(prisma.sourceKennel.upsert).toHaveBeenCalledWith(
+    // Discovery record updated with fresh profile data via the terminal path
+    expect(prisma.kennelDiscovery.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { sourceId_kennelId: { sourceId: "src-hashrego", kennelId: "k2" } },
+        where: {
+          externalSource_externalSlug: { externalSource: "HASHREGO", externalSlug: "EWH3" },
+        },
+        data: expect.objectContaining({ lastSeenAt: expect.any(Date) }),
       }),
     );
+    expect(result.updated).toBe(1);
   });
 
   it("LINKED preserved: previously LINKED discovery is never touched by sync", async () => {
