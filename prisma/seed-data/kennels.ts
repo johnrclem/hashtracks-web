@@ -1062,6 +1062,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "avlh3", shortName: "Asheville H3", fullName: "Asheville Hash House Harriers", region: "Asheville, NC",
       website: "https://avlh3.wordpress.com/",
       facebookUrl: "https://www.facebook.com/groups/avlh3/",
+      logoUrl: "https://avlh3.wordpress.com/wp-content/uploads/2019/08/avlh3-logo.jpg",
       contactEmail: "avlh3.mm@gmail.com",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly", scheduleTime: "2:00 PM",
       hashCash: "$8", foundedYear: 2008,
@@ -1500,7 +1501,10 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "augh3", shortName: "AUGH3", fullName: "Augusta Underground Hash House Harriers", region: "Augusta, GA",
-      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      facebookUrl: "https://www.facebook.com/augustaundergroundH3",
+      contactEmail: "fuzzyundergroundh3@gmail.com",
+      hashCash: "$5",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
       description: "Alternate Saturday runs in the Augusta area.",
     },
     // --- Macon ---
