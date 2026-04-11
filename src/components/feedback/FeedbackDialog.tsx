@@ -24,6 +24,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
+const triggerClass = "text-foreground/80 transition-colors hover:text-foreground";
+
 export function FeedbackDialog() {
   const { user } = useUser();
   const pathname = usePathname();
@@ -46,13 +48,10 @@ export function FeedbackDialog() {
     }
   }, [state]);
 
-  // Signed-out users see a button that opens the Clerk sign-in modal
   if (!user) {
     return (
       <SignInButton mode="modal">
-        <button className="text-foreground/80 transition-colors hover:text-foreground">
-          Send Feedback
-        </button>
+        <button className={triggerClass}>Send Feedback</button>
       </SignInButton>
     );
   }
@@ -60,9 +59,7 @@ export function FeedbackDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="text-foreground/80 transition-colors hover:text-foreground">
-          Send Feedback
-        </button>
+        <button className={triggerClass}>Send Feedback</button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
