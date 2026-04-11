@@ -81,6 +81,7 @@ export function parseAdelaideEvent(
   return {
     date,
     kennelTag: KENNEL_TAG,
+    title,
     runNumber,
     hares,
     startTime,
