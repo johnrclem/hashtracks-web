@@ -533,11 +533,24 @@ export function buildRawEventFromGCalItem(
     const descTitle = titleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }
-  // Strip only the hare-name capture group from the title, preserving the rest (e.g., "AH3 #2269")
+  // Strip the hare-name capture group from the title, preserving the rest.
+  // Handles both prefix patterns (hares at start: "Hare1 & Hare2 - AH3 #2269")
+  // and suffix patterns (hares at end: "AH3 #1833 - Location - Hare Name").
+  // The prior code assumed prefix-only and did title.slice(captureGroup.length),
+  // which mangled titles when the capture group was at the end.
   if (haresFromTitle && compiledTitleHarePattern) {
     const titleMatch = compiledTitleHarePattern.exec(title);
-    if (titleMatch?.index === 0 && titleMatch[1]) {
-      const cleaned = title.slice(titleMatch[1].length).trimStart();
+    if (titleMatch && titleMatch[1]) {
+      const hareText = titleMatch[1];
+      const captureStart = title.lastIndexOf(hareText);
+      let cleaned: string;
+      if (captureStart <= 0) {
+        // Prefix pattern: strip hare names from the start
+        cleaned = title.slice(hareText.length).trimStart();
+      } else {
+        // Suffix pattern: strip hare names + preceding separator from the end
+        cleaned = title.slice(0, captureStart).replace(/\s*[-–]\s*$/, "").trim();
+      }
       if (cleaned) title = cleaned;
     }
   }

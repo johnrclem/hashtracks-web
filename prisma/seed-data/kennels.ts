@@ -1979,6 +1979,8 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "ah3-hi", shortName: "AH3", fullName: "Aloha Hash House Harriers", region: "Honolulu, HI",
       website: "https://alohah3.com",
       facebookUrl: "https://www.facebook.com/AlohaH3/",
+      logoUrl: "https://alohah3.com/wp-content/uploads/2023/10/FB-Link-Sharing-Photo-homepage.png",
+      contactEmail: "alohahhh@gmail.com",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
       foundedYear: 1991, hashCash: "$5",
       description: "Oahu's flagship weekly Saturday hash. Hashing in paradise since 1991.",

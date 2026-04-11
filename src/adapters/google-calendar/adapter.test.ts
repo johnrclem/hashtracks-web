@@ -431,6 +431,44 @@ describe("titleHarePattern — hare extraction from summary", () => {
     expect(result!.title).toBe("AH3 #2269");
   });
 
+  it("handles SUFFIX-style titleHarePattern (hares at end of title, not start) (#575)", () => {
+    // Aloha H3 titles: "AH3 #1833 - Manoa Valley District Park - International Dicklomat"
+    // The prior prefix-only cleanup stripped characters from the WRONG end,
+    // producing "y District Park - International Dicklomat". The fix uses
+    // lastIndexOf to detect suffix captures and strips from the end instead.
+    const suffixRE = /^AH3\s*#\d+.*-\s+([^-]+)$/i;
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "AH3 #1833 - Manoa Valley District Park - International Dicklomat",
+        start: { dateTime: "2026-04-18T14:00:00-10:00" },
+      }),
+      { defaultKennelTag: "ah3-hi", titleHarePattern: String.raw`^AH3\s*#\d+.*-\s+([^-]+)$` },
+      undefined, undefined, undefined,
+      suffixRE,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("International Dicklomat");
+    // Title should have the hares stripped from the END, preserving the rest
+    expect(result!.title).toBe("AH3 #1833 - Manoa Valley District Park");
+    expect(result!.title).not.toContain("Dicklomat");
+  });
+
+  it("handles SUFFIX-style pattern with extra dashes (EARLY START note)", () => {
+    const suffixRE = /^AH3\s*#\d+.*-\s+([^-]+)$/i;
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "AH3 #1828 - **EARLY START** - Kailua District Park - Green Machine",
+        start: { dateTime: "2026-03-14T10:00:00-10:00" },
+      }),
+      { defaultKennelTag: "ah3-hi", titleHarePattern: String.raw`^AH3\s*#\d+.*-\s+([^-]+)$` },
+      undefined, undefined, undefined,
+      suffixRE,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Green Machine");
+    expect(result!.title).toBe("AH3 #1828 - **EARLY START** - Kailua District Park");
+  });
+
   it("description hares take priority over title hares", () => {
     const result = buildRawEventFromGCalItem(
       testGCalEvent({

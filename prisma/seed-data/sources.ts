@@ -2111,6 +2111,14 @@ export const SOURCES = [
           ["\\bH5\\b|Honolulu H[45]", "h5-hi"],
         ],
         defaultKennelTag: "ah3-hi",
+        // Upcoming AH3 events encode hares in the title as the last
+        // dash-separated segment: "AH3 #1833 - Location - Hare Name".
+        // The greedy .* before the last ` - ` handles titles with extra
+        // dashes (e.g. "AH3 #1828 - **EARLY START** - Location - Hare").
+        // Only fires when the description body has no hares yet (upcoming
+        // events before the organizer fills in the full description).
+        // Closes #575.
+        titleHarePattern: "^AH3\\s*#\\d+.*-\\s+([^-]+)$",
       },
       kennelCodes: ["ah3-hi", "h5-hi"],
     },
