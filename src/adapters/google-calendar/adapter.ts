@@ -298,7 +298,7 @@ export function extractTimeFromDescription(description: string): string | undefi
 
 /** Default hare extraction patterns for Google Calendar descriptions. */
 const DEFAULT_HARE_PATTERNS = [
-  /(?:^|\n)[ \t]*Hare(?:\s*&\s*Co-Hares?)?\(?s?\)?:[ \t]*(.+)/im,  // Hare:, Hares:, Hare(s):, Hare & Co-Hares:
+  /(?:^|\n)[ \t]*H{1,3}are(?:\s*&\s*Co-Hares?)?\(?s?\)?:[ \t]*(.+)/im,  // Hare:, Hares:, HHHares: (Asheville's "HHH" = Hash House Harriers convention)
   /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.+)/im,  // Who:, WHO (hares):, Who(hare):
   /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon, name starts uppercase/special)
 ];
