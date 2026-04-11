@@ -26,8 +26,15 @@ import { Button } from "@/components/ui/button";
 
 const triggerClass = "text-foreground/80 transition-colors hover:text-foreground";
 
+/**
+ * Footer/menu trigger for submitting user feedback.
+ *
+ * Renders for all visitors. Signed-out users get a sign-in modal on click;
+ * signed-in users get the feedback form dialog. While Clerk is still loading
+ * auth state we render nothing to avoid flashing the wrong trigger.
+ */
 export function FeedbackDialog() {
-  const { user } = useUser();
+  const { isLoaded, isSignedIn } = useUser();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -48,10 +55,13 @@ export function FeedbackDialog() {
     }
   }, [state]);
 
-  if (!user) {
+  // Wait for Clerk so signed-in users never briefly see the sign-in CTA
+  if (!isLoaded) return null;
+
+  if (!isSignedIn) {
     return (
       <SignInButton mode="modal">
-        <button className={triggerClass}>Send Feedback</button>
+        <button type="button" className={triggerClass}>Send Feedback</button>
       </SignInButton>
     );
   }
@@ -59,7 +69,7 @@ export function FeedbackDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className={triggerClass}>Send Feedback</button>
+        <button type="button" className={triggerClass}>Send Feedback</button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
