@@ -3429,5 +3429,129 @@ export const SOURCES = [
       scrapeDays: 180,
       kennelCodes: ["sth3-au"],
     },
+
+    // ===== AUSTRALIA — Victoria =====
+    // Melbourne New Moon H3 — Meetup source (existing adapter handles it)
+    {
+      name: "Melbourne New Moon Meetup",
+      url: "https://www.meetup.com/melbourne-new-moon-running-group/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        groupUrlname: "melbourne-new-moon-running-group",
+        kennelTag: "mel-new-moon",
+      },
+      kennelCodes: ["mel-new-moon"],
+    },
+
+    // ===== MALAYSIA Phase 2 — Historic Regional STATIC_SCHEDULE kennels =====
+    // Six historically significant Malaysian kennels (1960s-1970s founding dates)
+    // verified active per the malaysiahash.com directory but with zero scrapeable
+    // web sources (Facebook/phone-only). Historic-kennel STATIC_SCHEDULE exception
+    // applies per feedback_sourceless_kennels memory.
+    {
+      name: "Kuching H3 Static Schedule",
+      url: "https://www.malaysiahash.com/#kuching",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "kuching-h3",
+        rrule: "FREQ=WEEKLY;BYDAY=SA",
+        startTime: "17:00",
+        defaultTitle: "Kuching H3 Weekly Run",
+        defaultLocation: "Kuching, Sarawak, Malaysia",
+        defaultDescription: "Weekly Saturday evening trail. Founded 1963, one of Malaysia's oldest hash kennels. Check the malaysiahash.com directory for contact details.",
+      },
+      kennelCodes: ["kuching-h3"],
+    },
+    {
+      name: "KK H3 Static Schedule",
+      url: "https://www.malaysiahash.com/#kota-kinabalu",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "kk-h3",
+        rrule: "FREQ=WEEKLY;BYDAY=SA",
+        startTime: "17:00",
+        defaultTitle: "KK H3 Weekly Run",
+        defaultLocation: "Kota Kinabalu, Sabah, Malaysia",
+        defaultDescription: "Weekly Saturday evening trail. Founded 1964, one of Sabah's earliest hash kennels. Check the malaysiahash.com directory for contact details.",
+      },
+      kennelCodes: ["kk-h3"],
+    },
+    {
+      name: "Ipoh H3 Static Schedule",
+      url: "https://www.malaysiahash.com/#ipoh",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "ipoh-h3",
+        rrule: "FREQ=WEEKLY;BYDAY=SA",
+        startTime: "17:00",
+        defaultTitle: "Ipoh H3 Weekly Run",
+        defaultLocation: "Ipoh, Perak, Malaysia",
+        defaultDescription: "Weekly Saturday evening trail. Founded 1965, one of Malaysia's oldest hash kennels. Check the malaysiahash.com directory for contact details.",
+      },
+      kennelCodes: ["ipoh-h3"],
+    },
+    {
+      name: "JB H3 Static Schedule",
+      url: "https://www.facebook.com/tjbhhh",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "jb-h3",
+        rrule: "FREQ=WEEKLY;BYDAY=SA",
+        startTime: "17:00",
+        defaultTitle: "JB H3 Weekly Run",
+        defaultLocation: "Johor Bahru, Johor, Malaysia",
+        defaultDescription: "Weekly Saturday evening trail. Founded 1969, the oldest hash kennel in Johor. See Facebook page at facebook.com/tjbhhh for trail details.",
+      },
+      kennelCodes: ["jb-h3"],
+    },
+    {
+      name: "Butterworth H3 Static Schedule",
+      url: "https://www.malaysiahash.com/#butterworth",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "butterworth-h3",
+        rrule: "FREQ=WEEKLY;BYDAY=SA",
+        startTime: "17:00",
+        defaultTitle: "Butterworth H3 Weekly Run",
+        defaultLocation: "Butterworth, Penang, Malaysia",
+        defaultDescription: "Weekly Saturday evening trail on mainland Penang. Founded 1980. Check the malaysiahash.com directory for contact details.",
+      },
+      kennelCodes: ["butterworth-h3"],
+    },
+    {
+      name: "Kluang H3 Static Schedule",
+      url: "https://www.malaysiahash.com/#kluang",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "kluang-h3",
+        rrule: "FREQ=WEEKLY;BYDAY=SA",
+        startTime: "17:00",
+        defaultTitle: "Kluang H3 Weekly Run",
+        defaultLocation: "Kluang, Johor, Malaysia",
+        defaultDescription: "Weekly Saturday evening trail. Founded 1967, one of Malaysia's oldest hash kennels. Check the malaysiahash.com directory for contact details.",
+      },
+      kennelCodes: ["kluang-h3"],
+    },
   ];
 

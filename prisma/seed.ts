@@ -183,7 +183,14 @@ async function ensureRegionRecords(prisma: any) {
     // itself is its own top-level region. Kennels in KL proper attach
     // to the Kuala Lumpur state region; suburb kennels (Petaling Jaya,
     // Kelana Jaya, etc.) attach to Selangor.
-    "Penang": ["Penang Island, MY"],
+    "Penang": ["Penang Island, MY", "Butterworth, MY"],
+    // Malaysia Phase 2 — Sarawak, Sabah, Perak, Johor
+    "Sarawak": ["Kuching, MY"],
+    "Sabah": ["Kota Kinabalu, MY"],
+    "Perak": ["Ipoh, MY"],
+    "Johor": ["Johor Bahru, MY"],
+    // Australia Phase 2 — Victoria
+    "Victoria": ["Melbourne, VIC"],
   };
 
   let stateLinked = 0;

@@ -452,5 +452,14 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "gch3-au": ["Gold Coast H3", "Gold Coast Hash", "Gold Coast HHH", "Gold Coast Hash House Harriers", "GCH3", "GoldCoastHash"],
     "larrikins-au": ["Sydney Larrikins", "Larrikins H3", "Larrikins Hash", "Sydney South Harbour HHH", "SSHHHH", "Tuesday Beers", "Larrikin Run"],
     "sth3-au": ["Sydney Thirsty H3", "Sydney Thirsty", "Thirsty H3", "Thirsty Hash", "STH3", "Sydney Thirsty Hash House Harriers"],
+    // Australia — Victoria
+    "mel-new-moon": ["Melbourne New Moon H3", "Melbourne New Moon", "New Moon H3 Melbourne", "MNMH3", "Melbourne Moon Hash"],
+    // Malaysia Phase 2 — Historic Regionals
+    "kuching-h3": ["Kuching H3", "Kuching Hash", "Kuching HHH", "KuchingH3"],
+    "kk-h3": ["KK H3", "Kota Kinabalu H3", "KK Hash", "Kota Kinabalu Hash", "KKH3"],
+    "ipoh-h3": ["Ipoh H3", "Ipoh Hash", "Ipoh HHH", "IpohH3"],
+    "jb-h3": ["JB H3", "Johor Bahru H3", "JB Hash", "Johor Hash", "JBH3", "JBHHH"],
+    "butterworth-h3": ["Butterworth H3", "Penang Butterworth H3", "Butterworth Hash", "BWH3"],
+    "kluang-h3": ["Kluang H3", "Kluang Hash", "Kluang HHH"],
   };
 
