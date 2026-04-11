@@ -53,6 +53,9 @@ export function parseRunBlocks(html: string): RunBlock[] {
 
       // Replace <br> with newlines so date/time don't concatenate
       $block.find("br").replaceWith("\n");
+      // Insert newlines at table-cell boundaries so "Who" row value doesn't
+      // run into the "What Else" row label in .text() output. Closes #609.
+      $block.find("td, th").before("\n");
       // Insert space after inline elements to prevent "Name1Name2" concatenation
       $block.find("span, a, strong, em, b, i").after(" ");
       const text = $block.text().trim();
