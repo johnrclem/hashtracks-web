@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import {
-  parseEventBlock,
-  extractEvents,
-  htmlToText,
+  parseEventSection,
+  extractEventsFromDOM,
   AH3Adapter,
 } from "./ah3";
 
@@ -58,174 +58,169 @@ function mockFetchResponses(upcomingHtml: string, previousHtml: string) {
   });
 }
 
-// ── Unit tests: parseEventBlock ──
+// Real HTML fixture — mirrors the structure of ah3.nl/nextruns/
+const FIXTURE_HTML = `<html><body><div class="entry-content">
+<style>mark { background-color: lightgrey; color: black; }</style>
+<hr class="wp-block-separator"/>
+<div style='text-align:center'><font size=5><b>
+<p id=1477>Do Not Eat Yellow Snow !</b></font></p>
+<p>Run № <b> 1477 </b>by <b>  Golden Showers  </b><br/>
+<b>Sunday 12 April, 2026</b> at <b>12:45</b> hrs<br/>
+<b>Near Station Lelylaan</b><br/>
+9M5R+65, Amsterdam, 1077 XS, <a href="https://maps.google.com"><button>Map</button></a></p>
+<div style='line-height:30px'>
+<p>An early run at 13:00 hrs. Golden Showers is our hare and he has to rush to the airport.</p>
+<p><i>Logistics: Bag Drop and Beer will be on Corelis Lelylaan.</i></p>
+<small>___good_to_know<br/>
+Bag Drop – Yes<br/>
+BeerMeister – Slippery Edge<br/>
+Hash Cash – €5<br/>
+On After – We discuss before/during/after the run/circle<br/>
+</small></div>
+</div>
+<hr class="wp-block-separator"/>
+<div style='text-align:center'><font size=5><b>
+<p id=1478>Tulip Hash</b></font></p>
+<p>Run № <b> 1478 </b>by <b>  Cumming Home  </b><br/>
+<b>Saturday 18 April, 2026</b> at <b>14:45</b> hrs<br/>
+<b>somewhere</b></p>
+<div style='line-height:30px'>
+<p>Cumming Home makes us find tulips everywhere from a completely virginal run site.</p>
+<small>___good_to_know<br/>
+Bag Drop – Yes<br/>
+Hash Cash – €5<br/>
+On After – BBQ probably<br/>
+</small></div>
+</div>
+<hr class="wp-block-separator"/>
+<div style='text-align:center'><font size=5><b>
+<p id=1479>NOT The KoningsDag Run</b></font></p>
+<p>Run № <b> 1479 </b>by <b>  Hard Drive, Pink Panter  </b><br/>
+<b>Sunday 26 April, 2026</b> at <b>14:45</b> hrs<br/>
+<b>Hard Drive&#8217;s Shenanigans &#038; Mischief Center</b><br/>
+Brouwersgracht 72-2, Amsterdam, 1013 GX, <a href="#"><button>Map</button></a></p>
+<div style='line-height:30px'>
+<p>The World looks a lot better through orange glasses.</p>
+</div>
+</div>
+<hr class="wp-block-separator"/>
+</div></body></html>`;
 
-describe("parseEventBlock", () => {
-  it("parses a full event block with title, run number, hares, date, location", () => {
-    const text = `The A to Birthday Run
-Run № 1476 by War 'n Piece & MiaB
-Saturday 04 April, 2026 at 14:45 hrs
-Haarlem Railway Station
-Stationsplein , Haarlem, 2011 LR, Noord-Holland Map`;
+// ── Unit tests: parseEventSection ──
 
-    const event = parseEventBlock(text, SOURCE_URL);
+describe("parseEventSection — DOM-based event parsing", () => {
+  const $ = cheerio.load(FIXTURE_HTML);
+  const content = $(".entry-content");
+  const hrs = content.find("hr").toArray();
+
+  /** Walk sibling nodes between hrs[idx] and hrs[idx+1] (or end of content).
+   *  Uses .at() for the index lookup so eslint-plugin-security doesn't flag
+   *  the dynamic access as an object-injection sink. */
+  function getSection(idx: number) {
+    const hr = hrs.at(idx);
+    if (!hr) throw new Error(`No <hr> at index ${idx}`);
+    const nextHr = hrs.at(idx + 1) ?? null;
+    const sectionNodes: import("domhandler").AnyNode[] = [];
+    let node: import("domhandler").AnyNode | null = (hr as import("domhandler").Element).nextSibling;
+    while (node && node !== nextHr) {
+      sectionNodes.push(node);
+      node = node.nextSibling;
+    }
+    return $(sectionNodes);
+  }
+
+  it("extracts title from <p id=NNNN> (not from the previous block's good_to_know text) (#559)", () => {
+    const event = parseEventSection(getSection(0), $, SOURCE_URL);
     expect(event).not.toBeNull();
-    expect(event!.date).toBe("2026-04-04");
-    expect(event!.runNumber).toBe(1476);
-    expect(event!.hares).toBe("War 'n Piece & MiaB");
-    expect(event!.startTime).toBe("14:45");
-    expect(event!.location).toBe("Haarlem Railway Station");
-    expect(event!.locationStreet).toBe("Stationsplein , Haarlem, 2011 LR, Noord-Holland");
-    expect(event!.title).toBe("AH3 #1476 — The A to Birthday Run");
-    expect(event!.kennelTag).toBe("ah3-nl");
-  });
-
-  it("parses event with early start time", () => {
-    const text = `Do Not Eat Yellow Snow !
-Run № 1477 by Golden Showers
-Sunday 12 April, 2026 at 12:45 hrs
-Near Station Zuid
-Prinses Amaliaplein , Amsterdam, 1077 XS,`;
-
-    const event = parseEventBlock(text, SOURCE_URL);
-    expect(event).not.toBeNull();
-    expect(event!.date).toBe("2026-04-12");
-    expect(event!.startTime).toBe("12:45");
-    expect(event!.runNumber).toBe(1477);
-    expect(event!.hares).toBe("Golden Showers");
-  });
-
-  it("handles event without hares (Click if you want to hare)", () => {
-    const text = `May The Third Be With You
-Run № 1480 Click if you want to hare this run
-Sunday 03 May, 2026 at 14:45 hrs
-somewhere`;
-
-    const event = parseEventBlock(text, SOURCE_URL);
-    expect(event).not.toBeNull();
-    expect(event!.runNumber).toBe(1480);
-    expect(event!.hares).toBeUndefined();
-    expect(event!.location).toBeUndefined(); // "somewhere" should be stripped
-    expect(event!.date).toBe("2026-05-03");
-  });
-
-  it("returns null for blocks without a run number", () => {
-    const text = `Some random text
-without any run number or date.`;
-
-    expect(parseEventBlock(text, SOURCE_URL)).toBeNull();
-  });
-
-  it("returns null for blocks without a date", () => {
-    const text = `Run № 1476 by Someone
-No date here, just text.`;
-
-    expect(parseEventBlock(text, SOURCE_URL)).toBeNull();
-  });
-
-  it("skips leftover good_to_know instructions and picks correct title", () => {
-    const text = `Bag Drop – NO ( but lockers inside the station )
-The A to Birthday Run
-Run № 1476 by War 'n Piece & MiaB
-Saturday 04 April, 2026 at 14:45 hrs
-Haarlem Railway Station`;
-
-    const event = parseEventBlock(text, SOURCE_URL);
-    expect(event).not.toBeNull();
-    expect(event!.title).toBe("AH3 #1476 — The A to Birthday Run");
+    expect(event!.title).toBe("AH3 #1477 — Do Not Eat Yellow Snow !");
+    expect(event!.title).not.toContain("On After");
     expect(event!.title).not.toContain("Bag Drop");
   });
 
-  it("parses title-less event (just run number)", () => {
-    const text = `Run № 1481 by Slippery Edge
-Sunday 10 May, 2026 at 14:45 hrs
-somewhere`;
+  it("extracts run number, hares, date/time, location", () => {
+    const event = parseEventSection(getSection(0), $, SOURCE_URL);
+    expect(event!.runNumber).toBe(1477);
+    expect(event!.hares).toBe("Golden Showers");
+    expect(event!.date).toBe("2026-04-12");
+    expect(event!.startTime).toBe("12:45");
+    expect(event!.location).toBe("Near Station Lelylaan");
+    expect(event!.kennelTag).toBe("ah3-nl");
+  });
 
-    const event = parseEventBlock(text, SOURCE_URL);
-    expect(event).not.toBeNull();
-    expect(event!.title).toBe("AH3 #1481");
-    expect(event!.hares).toBe("Slippery Edge");
+  it("extracts description text between header and ___good_to_know (#563)", () => {
+    const event = parseEventSection(getSection(0), $, SOURCE_URL);
+    expect(event!.description).toContain("Golden Showers is our hare");
+    // Description includes the logistics paragraph (it's body text, not metadata)
+    expect(event!.description).toContain("Logistics");
+    // But the ___good_to_know metadata block is excluded
+    expect(event!.description).not.toContain("___good_to_know");
+    expect(event!.description).not.toContain("BeerMeister");
+    // "Bag Drop – Yes" is metadata; "Bag Drop and Beer" is description — both
+    // contain "Bag Drop" but only the metadata line should be excluded
+    expect(event!.description).not.toContain("Bag Drop – Yes");
+  });
+
+  it("strips 'somewhere' placeholder from location", () => {
+    const event = parseEventSection(getSection(1), $, SOURCE_URL);
+    expect(event!.location).toBeUndefined();
+  });
+
+  it("parses the second event correctly (after the first block's good_to_know)", () => {
+    const event = parseEventSection(getSection(1), $, SOURCE_URL);
+    expect(event!.title).toBe("AH3 #1478 — Tulip Hash");
+    expect(event!.runNumber).toBe(1478);
+    expect(event!.hares).toBe("Cumming Home");
+    expect(event!.date).toBe("2026-04-18");
+    expect(event!.description).toContain("tulips everywhere");
+  });
+
+  it("extracts street address with postal code", () => {
+    const event = parseEventSection(getSection(2), $, SOURCE_URL);
+    expect(event!.location).toContain("Shenanigans");
+    expect(event!.locationStreet).toContain("Brouwersgracht 72-2");
+    expect(event!.locationStreet).toContain("1013 GX");
   });
 });
 
-// ── Unit tests: extractEvents ──
+// ── extractEventsFromDOM ──
 
-describe("extractEvents", () => {
-  it("splits text on ___good_to_know markers and parses each block", () => {
-    const text = `The A to Birthday Run
-Run № 1476 by War 'n Piece & MiaB
-Saturday 04 April, 2026 at 14:45 hrs
-Haarlem Railway Station
-
-___good_to_know
-Bag Drop – NO
-Hash Cash – €5
-
-Do Not Eat Yellow Snow !
-Run № 1477 by Golden Showers
-Sunday 12 April, 2026 at 12:45 hrs
-Near Station Zuid
-
-___good_to_know
-Bag Drop – Probably not`;
-
-    const { events, errors } = extractEvents(text, SOURCE_URL);
+describe("extractEventsFromDOM", () => {
+  it("finds all 3 events in the fixture", () => {
+    const $ = cheerio.load(FIXTURE_HTML);
+    const { events, errors } = extractEventsFromDOM($, SOURCE_URL);
     expect(errors).toHaveLength(0);
-    expect(events).toHaveLength(2);
-    expect(events[0].runNumber).toBe(1476);
-    expect(events[1].runNumber).toBe(1477);
+    expect(events).toHaveLength(3);
+    expect(events.map((e) => e.runNumber)).toEqual([1477, 1478, 1479]);
   });
 
-  it("skips blocks without run numbers", () => {
-    const text = `Some intro text about Amsterdam H3.
-___good_to_know
-Run № 1476 by War 'n Piece & MiaB
-Saturday 04 April, 2026 at 14:45 hrs
-Haarlem Railway Station
-___good_to_know
-More footer text`;
-
-    const { events } = extractEvents(text, SOURCE_URL);
-    expect(events).toHaveLength(1);
-    expect(events[0].runNumber).toBe(1476);
+  it("returns empty when .entry-content is missing", () => {
+    const $ = cheerio.load("<html><body>No content</body></html>");
+    const { events } = extractEventsFromDOM($, SOURCE_URL);
+    expect(events).toHaveLength(0);
   });
 });
 
-// ── Unit tests: htmlToText ──
+// ── Special event without Run № line ──
 
-describe("htmlToText", () => {
-  it("extracts text from .entry-content with br→newline conversion", async () => {
-    const $ = (await import("cheerio")).load(
-      `<div class="entry-content"><p>Run № <b>1476</b> by <b>War</b><br/>Saturday 04 April, 2026 at 14:45 hrs</p></div>`,
-    );
-    const text = htmlToText($);
-    expect(text).toContain("Run № 1476 by War");
-    expect(text).toContain("Saturday 04 April, 2026 at 14:45 hrs");
-  });
+describe("special events without Run №", () => {
+  const SPECIAL_HTML = `<html><body><div class="entry-content">
+<hr/>
+<p id="1">A Very Special FILTH Bicycle Hash</p>
+<p><b>Saturday 29 August, 2026</b> at <b>12:00</b> hrs<br/>
+<b>Central Station</b></p>
+<p>Bring your bicycle for an adventure.</p>
+<hr/>
+</div></body></html>`;
 
-  it("returns empty string when .entry-content is missing", async () => {
-    const $ = (await import("cheerio")).load(`<div>No entry content</div>`);
-    expect(htmlToText($)).toBe("");
-  });
-
-  it("strips <style> tags so CSS rules don't appear as text", async () => {
-    const $ = (await import("cheerio")).load(
-      `<div class="entry-content"><style>mark { background-color: lightgrey; color: black; }</style><p>The A to Birthday Run</p></div>`,
-    );
-    const text = htmlToText($);
-    expect(text).not.toContain("background-color");
-    expect(text).not.toContain("mark {");
-    expect(text).toContain("The A to Birthday Run");
-  });
-
-  it("strips CSS rules that leak outside <style> tags (malformed HTML)", async () => {
-    const $ = (await import("cheerio")).load(
-      `<div class="entry-content">mark { background-color: lightgrey; color: black; }<p>The A to Birthday Run</p></div>`,
-    );
-    const text = htmlToText($);
-    expect(text).not.toContain("background-color");
-    expect(text).not.toContain("mark {");
-    expect(text).toContain("The A to Birthday Run");
+  it("parses events without Run № using the <p id> title and skips placeholder IDs", () => {
+    const $ = cheerio.load(SPECIAL_HTML);
+    const { events } = extractEventsFromDOM($, SOURCE_URL);
+    expect(events).toHaveLength(1);
+    // id="1" is a placeholder — runNumber should be undefined
+    expect(events[0].runNumber).toBeUndefined();
+    expect(events[0].title).toBe("A Very Special FILTH Bicycle Hash");
+    expect(events[0].date).toBe("2026-08-29");
+    expect(events[0].description).toContain("Bring your bicycle");
   });
 });
 
@@ -239,34 +234,28 @@ describe("AH3Adapter", () => {
   });
 
   it("fetches upcoming + previous pages and deduplicates by run number", async () => {
-    const upcomingHtml = `<html><body><div class="entry-content">
-<h1>Run A</h1>
-<p>Run № <b>1476</b> by <b>War &#039;n Piece</b><br/>
-<b>Saturday 04 April, 2026</b> at <b>14:45</b> hrs<br/>
-<b>Haarlem Station</b></p>
-<p>___good_to_know</p>
-</div></body></html>`;
-
+    const upcomingHtml = FIXTURE_HTML;
     const previousHtml = `<html><body><div class="entry-content">
-<h1>Run A Repeat</h1>
-<p>Run № <b>1476</b> by <b>War &#039;n Piece</b><br/>
-<b>Saturday 04 April, 2026</b> at <b>14:45</b> hrs<br/>
-<b>Haarlem Station</b></p>
-<p>___good_to_know</p>
-<h1>Run B</h1>
+<hr/>
+<p id=1477>Do Not Eat Yellow Snow !</p>
+<p>Run № <b>1477</b> by <b>Golden Showers</b><br/>
+<b>Sunday 12 April, 2026</b> at <b>12:45</b> hrs<br/>
+<b>Station</b></p>
+<hr/>
+<p id=1475>Old Run</p>
 <p>Run № <b>1475</b> by <b>Old Hare</b><br/>
 <b>Saturday 28 March, 2026</b> at <b>14:45</b> hrs<br/>
 <b>Central Station</b></p>
-<p>___good_to_know</p>
+<hr/>
 </div></body></html>`;
 
     mockFetchResponses(upcomingHtml, previousHtml);
 
     const result = await adapter.fetch(makeSource());
     expect(result.errors).toHaveLength(0);
-    // Run 1476 appears in both, should only appear once (from upcoming)
-    const run1476 = result.events.filter((e) => e.runNumber === 1476);
-    expect(run1476).toHaveLength(1);
+    // Run 1477 appears in both, should only appear once (from upcoming)
+    const run1477 = result.events.filter((e) => e.runNumber === 1477);
+    expect(run1477).toHaveLength(1);
     // Run 1475 only in previous
     const run1475 = result.events.filter((e) => e.runNumber === 1475);
     expect(run1475).toHaveLength(1);
@@ -287,14 +276,6 @@ describe("AH3Adapter", () => {
   });
 
   it("continues with upcoming events if previous page fails", async () => {
-    const upcomingHtml = `<html><body><div class="entry-content">
-<h1>Run A</h1>
-<p>Run № <b>1476</b> by <b>Hare</b><br/>
-<b>Saturday 04 April, 2026</b> at <b>14:45</b> hrs<br/>
-<b>Station</b></p>
-<p>___good_to_know</p>
-</div></body></html>`;
-
     let callCount = 0;
     mockedSafeFetch.mockImplementation(async () => {
       callCount++;
@@ -303,7 +284,7 @@ describe("AH3Adapter", () => {
           ok: true,
           status: 200,
           statusText: "OK",
-          text: () => Promise.resolve(upcomingHtml),
+          text: () => Promise.resolve(FIXTURE_HTML),
           headers: new Headers(),
         } as Response;
       }
@@ -317,7 +298,7 @@ describe("AH3Adapter", () => {
     });
 
     const result = await adapter.fetch(makeSource());
-    expect(result.events).toHaveLength(1);
+    expect(result.events).toHaveLength(3);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("Previous page fetch failed");
   });
