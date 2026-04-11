@@ -6,6 +6,7 @@
 import type { AuditGroup } from "./audit-runner";
 import { formatGroupIssueTitle, formatGroupIssueBody } from "./audit-format";
 import { AUDIT_LABEL, ALERT_LABEL, STREAM_LABELS, kennelLabel } from "@/lib/audit-labels";
+import { prisma } from "@/lib/db";
 
 /**
  * Rules where the fix is running a backfill/re-scrape, not a code change.
@@ -39,7 +40,7 @@ export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
   }
 
   const today = new Date().toISOString().split("T")[0];
-  const existingTitles = await getExistingAuditIssueTitles(token);
+  const existingTitles = await getExistingAuditIssueTitles();
 
   const urls: string[] = [];
   for (const group of groups) {
@@ -99,24 +100,16 @@ async function createIssueForGroup(token: string, title: string, group: AuditGro
   }
 }
 
-/** Fetch titles of all open audit issues for deduplication. */
-async function getExistingAuditIssueTitles(token: string): Promise<string[]> {
+/** Query titles of all open audit issues from the local AuditIssue mirror for deduplication. */
+async function getExistingAuditIssueTitles(): Promise<string[]> {
   try {
-    const res = await fetch(
-      `https://api.github.com/repos/${getRepo()}/issues?state=open&labels=audit&per_page=100`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github+json",
-        },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      },
-    );
-    if (!res.ok) return [];
-    const issues = (await res.json()) as { title: string }[];
-    return issues.map(i => i.title);
+    const openIssues = await prisma.auditIssue.findMany({
+      where: { state: "open", delistedAt: null },
+      select: { title: true },
+    });
+    return openIssues.map((i: { title: string }) => i.title);
   } catch (err) {
-    console.error("[audit-issue] Failed to check for existing audit issues:", err);
+    console.error("[audit-issue] Failed to query AuditIssue mirror:", err);
     return [];
   }
 }
