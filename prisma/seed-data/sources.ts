@@ -2118,7 +2118,7 @@ export const SOURCES = [
         // Only fires when the description body has no hares yet (upcoming
         // events before the organizer fills in the full description).
         // Closes #575.
-        titleHarePattern: "^AH3\\s*#\\d+.*-\\s+([^-]+)$",
+        titleHarePattern: "^AH3\\s*#\\d+.*-\\s+(.+)$",
       },
       kennelCodes: ["ah3-hi", "h5-hi"],
     },

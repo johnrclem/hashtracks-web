@@ -542,14 +542,20 @@ export function buildRawEventFromGCalItem(
     const titleMatch = compiledTitleHarePattern.exec(title);
     if (titleMatch && titleMatch[1]) {
       const hareText = titleMatch[1];
-      const captureStart = title.lastIndexOf(hareText);
+      // Determine whether the capture group sits at the start or end of the
+      // title using exact boundary checks. Prior code used lastIndexOf which
+      // breaks when the hare text appears twice (e.g. "Alice - Event with Alice").
+      const isPrefixCapture = title.startsWith(hareText);
+      const isSuffixCapture = title.endsWith(hareText);
       let cleaned: string;
-      if (captureStart <= 0) {
-        // Prefix pattern: strip hare names from the start
+      if (isPrefixCapture) {
+        // Prefix wins when hare text appears at both ends (e.g. "Alice AH3 #2269 - Event with Alice")
         cleaned = title.slice(hareText.length).trimStart();
+      } else if (isSuffixCapture) {
+        cleaned = title.slice(0, -hareText.length).replace(/\s*[-–—]\s*$/, "").trim();
       } else {
-        // Suffix pattern: strip hare names + preceding separator from the end
-        cleaned = title.slice(0, captureStart).replace(/\s*[-–]\s*$/, "").trim();
+        // Capture is mid-title — don't mangle; leave the title as-is.
+        cleaned = title;
       }
       if (cleaned) title = cleaned;
     }

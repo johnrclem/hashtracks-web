@@ -1,6 +1,10 @@
 -- Aloha H3 kennel profile enrichment (#574, #579).
 -- Adds logo URL (WordPress og:image) and contact email from alohah3.com.
 -- Uses COALESCE so admin-curated values are not overwritten.
+-- Wrapped in an explicit transaction so the UPDATE + verification are
+-- all-or-nothing even in autocommit contexts.
+
+BEGIN;
 
 UPDATE "Kennel"
 SET "logoUrl" = COALESCE(NULLIF(BTRIM("logoUrl"), ''), 'https://alohah3.com/wp-content/uploads/2023/10/FB-Link-Sharing-Photo-homepage.png'),
@@ -30,3 +34,5 @@ BEGIN
     RAISE EXCEPTION 'ah3-hi contactEmail is still null/empty after update';
   END IF;
 END $$;
+
+COMMIT;
