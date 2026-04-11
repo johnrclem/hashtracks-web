@@ -79,6 +79,9 @@ import { AdelaideH3Adapter } from "./html-scraper/adelaide-h3";
 import { GoldCoastH3Adapter } from "./html-scraper/gold-coast-h3";
 import { LarrikinsAdapter } from "./html-scraper/larrikins";
 import { SydneyThirstyH3Adapter } from "./html-scraper/sydney-thirsty-h3";
+import { N2TH3Adapter } from "./html-scraper/n2th3";
+import { LswH3Adapter } from "./html-scraper/lsw-h3";
+import { LadiesH4HkAdapter } from "./html-scraper/ladies-h4-hk";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -189,6 +192,10 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /goldcoasthash\.org/i, name: "GoldCoastH3Adapter", factory: () => new GoldCoastH3Adapter() },
   { pattern: /sydney\.larrikins\.org/i, name: "LarrikinsAdapter", factory: () => new LarrikinsAdapter() },
   { pattern: /sth3\.org/i, name: "SydneyThirstyH3Adapter", factory: () => new SydneyThirstyH3Adapter() },
+  // ── Hong Kong (Phase 1) ──
+  { pattern: /n2th3\.org|n2th3\.wordpress/i, name: "N2TH3Adapter", factory: () => new N2TH3Adapter() },
+  { pattern: /datadesignfactory\.com\/lsw/i, name: "LswH3Adapter", factory: () => new LswH3Adapter() },
+  { pattern: /hkladiesh4\.wixsite/i, name: "LadiesH4HkAdapter", factory: () => new LadiesH4HkAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

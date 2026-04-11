@@ -2250,6 +2250,19 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 103.82,
     aliases: ["SG", "Republic of Singapore"],
   },
+  // ── Hong Kong ──
+  {
+    name: "Hong Kong",
+    country: "Hong Kong",
+    level: "COUNTRY",
+    timezone: "Asia/Hong_Kong",
+    abbrev: "HK",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#dc2626",
+    centroidLat: 22.3193,
+    centroidLng: 114.1694,
+    aliases: ["HK", "Hong Kong SAR"],
+  },
   // ── Australia (Phase 1a: Perth + Darwin + Canberra) ──
   {
     name: "Australia",
@@ -2793,6 +2806,7 @@ export function inferCountry(name: string): string {
   if (/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/.test(lower)) return "Sweden";
   if (/\b(norway|oslo|bergen|stavanger)\b/.test(lower)) return "Norway";
   if (/\b(singapore)\b/.test(lower)) return "Singapore";
+  if (/\b(hong kong|kowloon|lantau|new territories|wan\s?chai|sai kung|sek kong)\b/.test(lower)) return "Hong Kong";
   if (/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|pulau pinang|george town|selangor|johor|sabah|sarawak|melaka|malacca|ipoh|kuching|kota kinabalu|miri|kelana jaya|butterworth|kluang)\b/.test(lower)) return "Malaysia";
   return "USA";
 }
@@ -3141,6 +3155,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Sweden": "Sweden",
   "Norway": "Norway",
   "Singapore": "Singapore",
+  "Hong Kong": "Hong Kong",
   // Malaysia — state groups (per feedback_country_group_map memory: both
   // state names AND metro names need explicit entries).
   "Selangor": "Malaysia",
@@ -3218,6 +3233,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   AU: "Australia",
   CA: "Canada",
   SG: "Singapore",
+  HK: "Hong Kong",
   MY: "Malaysia",
 };
 
