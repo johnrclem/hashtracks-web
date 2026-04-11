@@ -2378,6 +2378,8 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "ah3-nl", shortName: "AH3", fullName: "Amsterdam Hash House Harriers", region: "Amsterdam", country: "Netherlands",
       website: "https://ah3.nl",
+      facebookUrl: "https://www.facebook.com/groups/AmsterdamH3",
+      logoUrl: "https://ah3.nl/wp-content/uploads/2022/03/cropped-Amsterdam-original-192x192.png",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:45 PM", scheduleFrequency: "Weekly",
       hashCash: "€5",
       description: "Amsterdam's weekly hash, usually Sundays at 14:45. Trails through parks, streets, and hidden gems, 6-10 km. Annual Canal Hash on boats through UNESCO canals.",
