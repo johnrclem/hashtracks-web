@@ -5,22 +5,24 @@
  *   1. /nextruns/  — upcoming events
  *   2. /previous/  — historical/past events
  *
- * Both pages use the same WordPress format: an `.entry-content` div with
- * event blocks separated by `___good_to_know` markers. Each block contains:
- *   - An event title (<h1>)
- *   - Run number + hare(s) on a "Run № NNNN by Hare Name" line
- *   - Date/time: "Saturday 04 April, 2026 at 14:45 hrs"
- *   - Location: venue name (bold) followed by address line
+ * DOM-based parsing: each event sits between consecutive `<hr>` elements
+ * inside `.entry-content`. Within each section:
+ *   - `<p id="NNNN">Title</p>` carries the event title (id is usually the
+ *     run number but can be a placeholder like "1" for special events)
+ *   - "Run № NNNN by Hare Name" line carries the authoritative run number
+ *     and optional hare(s). Not every event has this line (special events
+ *     like pub crawls omit it).
+ *   - "Saturday 04 April, 2026 at 14:45 hrs" line — date + time
+ *   - Bold venue name followed by an address line — location
+ *   - Free-text paragraphs between the header and `___good_to_know` — description
  *
- * Blocks without hares that contain "Click if you want to hare this run"
- * are still included (they have a date and run number), but hares will be
- * undefined.
- *
- * Deduplication: upcoming events take priority over previous events
- * when the same run number appears in both.
+ * Deduplication: upcoming events take priority over previous events when
+ * the same run number appears in both.
  */
 
 import * as cheerio from "cheerio";
+import type { Cheerio } from "cheerio";
+import type { AnyNode, Element } from "domhandler";
 import * as chrono from "chrono-node";
 import type { Source } from "@/generated/prisma/client";
 import type {
@@ -31,7 +33,7 @@ import type {
   ParseError,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, decodeEntities, filterEventsByWindow } from "../utils";
+import { fetchHTMLPage, decodeEntities, stripHtmlTags, filterEventsByWindow } from "../utils";
 
 // ── Constants ──
 
@@ -46,46 +48,75 @@ const RUN_NUMBER_RE = /Run\s*[№#]\s*(\d{4,5})\s*(?:by\s+(.+))?/i;
 const DATE_TIME_RE =
   /(?:Sunday|Saturday|Monday|Tuesday|Wednesday|Thursday|Friday)\s+(\d{1,2}\s+\w+,?\s+\d{4})\s+at\s+(\d{1,2}):(\d{2})\s*hrs/i;
 
-/** Block separator: ___good_to_know */
-const BLOCK_SEPARATOR = "___good_to_know";
+/** Block metadata marker — everything after this is structured metadata
+ *  (Bag Drop, BeerMeister, Hash Cash, On After) not event description. */
+const GOOD_TO_KNOW_RE = /___good_to_know/i;
 
 // ── Exported helpers (for unit testing) ──
 
 /**
- * Parse a single event block (text between ___good_to_know dividers) into RawEventData.
- * Returns null if the block doesn't contain a valid run number + date.
+ * Parse a single `<hr>`-delimited section of the .entry-content into
+ * RawEventData. Returns null if the section lacks a valid date. Uses the
+ * `<p[id]>` element for the title and the `id` attribute as a fallback
+ * run number when the "Run №" line is absent.
  */
-export function parseEventBlock(
-  text: string,
+export function parseEventSection(
+  $section: Cheerio<AnyNode>,
+  $: cheerio.CheerioAPI,
   sourceUrl: string,
 ): RawEventData | null {
-  // Extract run number and optional hares
-  const runMatch = RUN_NUMBER_RE.exec(text);
-  if (!runMatch) return null;
-  const runNumber = parseInt(runMatch[1], 10);
+  // ── Title from <p id="NNNN"> ──
+  // find() only matches descendants; filter() matches the top-level nodes
+  // themselves. We need both: the real HTML wraps events in a <div> (so
+  // find works), but test fixtures may have <p id> as a direct sibling
+  // (so filter is the fallback).
+  let titleP = $section.find("p[id]").first();
+  if (titleP.length === 0) titleP = $section.filter("p[id]").first();
+  const title = titleP.length > 0
+    ? decodeEntities(titleP.text()).trim()
+    : undefined;
+  const pId = titleP.length > 0 ? titleP.attr("id") : undefined;
 
-  // Extract hares (if present and not just a "Click to hare" button)
+  // ── Convert section HTML to text with block-boundary newlines ──
+  // $section is a cheerio collection of sibling nodes (text + elements).
+  // .html() only returns the first node's innerHTML; we need the full
+  // outer HTML of every node in the collection.
+  const sectionHtml = $section.toArray().map((n) => $.html(n)).join("");
+  const text = stripHtmlTags(sectionHtml, "\n").replaceAll("\u00a0", " ");
+
+  // ── Run number + hares from "Run №" line ──
+  const runMatch = RUN_NUMBER_RE.exec(text);
+  let runNumber: number | undefined;
   let hares: string | undefined;
-  if (runMatch[2]) {
-    const hareTrimmed = runMatch[2].trim();
-    // Skip CTA-only "hare" text
-    if (!/Click if you want to hare/i.test(hareTrimmed)) {
-      hares = hareTrimmed;
+  if (runMatch) {
+    runNumber = parseInt(runMatch[1], 10);
+    if (runMatch[2]) {
+      const hareTrimmed = runMatch[2].trim();
+      if (!/Click if you want to hare/i.test(hareTrimmed)) {
+        hares = hareTrimmed;
+      }
     }
   }
 
-  // Extract date and time
+  // Fallback: use the <p id="NNNN"> id as run number when Run № is absent
+  // (special events). Skip placeholder ids like "1".
+  if (runNumber == null && pId) {
+    const parsed = parseInt(pId, 10);
+    if (Number.isFinite(parsed) && parsed >= 100) {
+      runNumber = parsed;
+    }
+  }
+
+  // ── Date + time ──
   const dtMatch = DATE_TIME_RE.exec(text);
   if (!dtMatch) return null;
 
-  const dateStr = dtMatch[1]; // e.g., "04 April, 2026"
+  const dateStr = dtMatch[1];
   const hours = dtMatch[2];
   const minutes = dtMatch[3];
 
-  // Parse the date portion with chrono
   const parsed = chrono.en.parse(dateStr);
   if (parsed.length === 0) return null;
-
   const result = parsed[0].start;
   const year = result.get("year");
   const month = result.get("month");
@@ -95,51 +126,77 @@ export function parseEventBlock(
   const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   const startTime = `${hours.padStart(2, "0")}:${minutes}`;
 
-  // Title is the line immediately before "Run №" — searching backwards avoids
-  // picking up leftover good_to_know instruction text from the previous block.
+  // ── Location: first bold text after the date line ──
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-  let title: string | undefined;
-  const runLineIdx = lines.findIndex((l) => RUN_NUMBER_RE.test(l));
-  if (runLineIdx > 0) {
-    const candidate = lines[runLineIdx - 1];
-    if (candidate.length > 1 && !/^[_\-=]+$/.test(candidate)) {
-      title = candidate;
-    }
-  }
-
-  // Extract location: lines after the date line
   let location: string | undefined;
   let locationStreet: string | undefined;
 
   const dateLineIdx = lines.findIndex((l) => DATE_TIME_RE.test(l));
   if (dateLineIdx >= 0) {
-    // The line immediately after the date is the venue name
     const venueLine = lines[dateLineIdx + 1];
     if (venueLine && !/Map\s*$/.test(venueLine) && !/Let us know/.test(venueLine)) {
       location = venueLine
         .replace(/Map\s*$/, "")
-        .replace(/\s+$/, "")
         .trim();
-      // Skip "somewhere" placeholder
       if (/^somewhere$/i.test(location)) {
         location = undefined;
       }
     }
-
-    // The line after venue might be a street address (contains comma + postal code)
     const addressLine = lines[dateLineIdx + 2];
     if (addressLine && /\d{4}\s*[A-Z]{2}/.test(addressLine)) {
       locationStreet = addressLine
         .replace(/Map\s*$/, "")
-        .replace(/\s+$/, "")
         .trim();
     }
   }
 
-  // Build event title
+  // ── Description: text between the event header and ___good_to_know ──
+  // Start scanning from dateLineIdx + 1 (after the date line) and filter
+  // out structural lines (venue, address, WhatsApp, buttons, images).
+  // Description is whatever free-text paragraphs remain before the
+  // ___good_to_know marker. The +3 hard-coded offset from the prior
+  // version was too aggressive — it skipped the description start when
+  // the address line was absent.
+  let description: string | undefined;
+  const goodToKnowIdx = lines.findIndex((l) => GOOD_TO_KNOW_RE.test(l));
+  const descStartIdx = dateLineIdx >= 0 ? dateLineIdx + 1 : -1;
+  if (descStartIdx > 0) {
+    const descEndIdx = goodToKnowIdx > descStartIdx ? goodToKnowIdx : lines.length;
+    const descLines = lines.slice(descStartIdx, descEndIdx).filter((l) => {
+      // Skip venue name (already captured as location)
+      if (location && l === location) return false;
+      // Skip address line (already captured as locationStreet)
+      if (/^\d{4}\s*[A-Z]{2}/.test(l)) return false;
+      if (locationStreet && l.includes(locationStreet)) return false;
+      // Skip plus-codes (e.g. "9M5R+65, Amsterdam, 1077 XS")
+      if (/^[A-Z0-9]{4}\+[A-Z0-9]+/.test(l)) return false;
+      // Skip non-description noise
+      if (/^Let us know/i.test(l)) return false;
+      if (/^WhatsApp$/i.test(l)) return false;
+      if (/^RSVP$/i.test(l)) return false;
+      if (/^Map$/i.test(l)) return false;
+      if (/^Contact\b/i.test(l)) return false;
+      if (/^somewhere$/i.test(l)) return false;
+      if (/^–\s*$/.test(l)) return false;
+      if (l.length < 3) return false;
+      return true;
+    });
+    const descText = descLines.join("\n").trim();
+    if (descText.length > 5) {
+      description = descText;
+    }
+  }
+
+  // ── Build event title ──
   const eventTitle = title
-    ? `AH3 #${runNumber} — ${title}`
-    : `AH3 #${runNumber}`;
+    ? runNumber
+      ? `AH3 #${runNumber} — ${title}`
+      : title
+    : runNumber
+      ? `AH3 #${runNumber}`
+      : undefined;
+
+  if (!eventTitle) return null;
 
   return {
     date,
@@ -150,70 +207,58 @@ export function parseEventBlock(
     location,
     locationStreet,
     startTime,
+    description,
     sourceUrl,
   };
 }
 
 /**
- * Extract all event blocks from page text.
- * Splits on ___good_to_know markers plus <hr> separators, then parses each block.
+ * Extract all events from a page's DOM by splitting on `<hr>` elements.
+ * Each `<hr>` marks the boundary between events in the .entry-content.
  */
-export function extractEvents(
-  pageText: string,
+export function extractEventsFromDOM(
+  $: cheerio.CheerioAPI,
   sourceUrl: string,
 ): { events: RawEventData[]; errors: ParseError[] } {
   const events: RawEventData[] = [];
   const errors: ParseError[] = [];
+  const content = $(".entry-content");
+  if (content.length === 0) return { events, errors };
 
-  // Split on ___good_to_know markers (which appear within blocks after the event data)
-  // and also on horizontal rule separators
-  const blocks = pageText.split(/___good_to_know/i);
+  // Remove <style> blocks that leak CSS rules into .text()
+  content.find("style").remove();
 
-  for (let i = 0; i < blocks.length; i++) {
-    const block = blocks[i].trim();
-    if (!block || block.length < 20) continue;
+  // Split content into sections by <hr>. We wrap each section's content
+  // between consecutive <hr> elements into a virtual container for parsing.
+  const hrs = content.find("hr").toArray();
+  if (hrs.length === 0) return { events, errors };
 
-    // A single block may contain content from the previous event's ___good_to_know
-    // section AND the next event's header. We need to find the run number line.
-    if (!RUN_NUMBER_RE.test(block)) continue;
-
+  for (let i = 0; i < hrs.length; i++) {
     try {
-      const event = parseEventBlock(block, sourceUrl);
+      // Collect all sibling nodes between this <hr> and the next (or end)
+      const sectionNodes: AnyNode[] = [];
+      let node: AnyNode | null = (hrs[i] as Element).nextSibling;
+      const nextHr = i + 1 < hrs.length ? hrs[i + 1] : null;
+      while (node && node !== nextHr) {
+        sectionNodes.push(node);
+        node = node.nextSibling;
+      }
+      if (sectionNodes.length === 0) continue;
+
+      // Wrap in a cheerio object for querying
+      const $section = $(sectionNodes);
+      const event = parseEventSection($section, $, sourceUrl);
       if (event) events.push(event);
     } catch (err) {
       errors.push({
         row: i,
         error: String(err),
-        rawText: block.slice(0, 2000),
+        rawText: `Section ${i} after <hr>`,
       });
     }
   }
 
   return { events, errors };
-}
-
-/**
- * Convert raw HTML from AH3's .entry-content into line-separated text.
- * Replaces <br>, <h1>, <hr>, and block-level tags with newlines.
- */
-export function htmlToText($: cheerio.CheerioAPI): string {
-  const content = $(".entry-content");
-  if (content.length === 0) return "";
-
-  content.find("style").remove();
-
-  // Replace <br> with newlines
-  content.find("br").replaceWith("\n");
-  // Replace block-level tags with newlines for clean text extraction
-  content.find("h1").each(function () {
-    $(this).replaceWith("\n" + $(this).text() + "\n");
-  });
-
-  let text = decodeEntities(content.text());
-  // Strip leaked CSS rules (e.g. "mark { background-color: lightgrey; color: black; }")
-  // that may survive style-tag removal due to malformed HTML
-  text = text.replace(/[a-z-]+\s*\{[^{}]*:[^{}]*\}/gi, "");
-  return text;
 }
 
 // ── Adapter class ──
@@ -226,7 +271,6 @@ export class AH3Adapter implements SourceAdapter {
     options?: { days?: number },
   ): Promise<ScrapeResult> {
     const upcomingUrl = source.url || "https://ah3.nl/nextruns/";
-    // Honor source.scrapeDays via options.days (default 365)
     const days = options?.days ?? source.scrapeDays ?? 365;
     const config = (source.config ?? {}) as Record<string, unknown>;
     const previousUrl =
@@ -246,9 +290,8 @@ export class AH3Adapter implements SourceAdapter {
     const structureHash = upcoming.structureHash;
     totalFetchMs += upcoming.fetchDurationMs;
 
-    const upcomingText = htmlToText(upcoming.$);
-    const { events: upcomingEvents, errors: upcomingErrors } = extractEvents(
-      upcomingText,
+    const { events: upcomingEvents, errors: upcomingErrors } = extractEventsFromDOM(
+      upcoming.$,
       upcomingUrl,
     );
 
@@ -267,13 +310,11 @@ export class AH3Adapter implements SourceAdapter {
     if (previous.ok) {
       totalFetchMs += previous.fetchDurationMs;
 
-      const previousText = htmlToText(previous.$);
-      const { events: previousEvents, errors: previousErrors } = extractEvents(
-        previousText,
+      const { events: previousEvents, errors: previousErrors } = extractEventsFromDOM(
+        previous.$,
         previousUrl,
       );
 
-      // Deduplicate: upcoming events take priority
       for (const ev of previousEvents) {
         if (ev.runNumber && seenRunNumbers.has(ev.runNumber)) continue;
         allEvents.push(ev);
@@ -285,7 +326,6 @@ export class AH3Adapter implements SourceAdapter {
         );
       }
     } else {
-      // Non-fatal: previous page failure shouldn't block upcoming events
       allErrors.push(`Previous page fetch failed: ${previous.result.errors[0]}`);
     }
 
