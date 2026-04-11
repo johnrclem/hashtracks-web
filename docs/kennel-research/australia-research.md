@@ -4,7 +4,7 @@
 **Shipped:** 2026-04-09/10 via PRs #594 (Phase 1a: 3 config-only) + #598 (Phase 1b: 5 HTML scrapers) — 8 kennels across 6 states/territories (WA, NT, ACT, NSW, SA, QLD). ~133 events across Perth, Darwin, Canberra, Sydney (×3), Adelaide, Gold Coast.
 
 **Post-Chrome-verification corrections (3 rounds):**
-- All 4 Meetup group URLs were wrong; 2 groups don't exist. Meetup REST API is globally dead (issue #595). All Meetup kennels dropped.
+- All 4 Meetup group URLs were wrong; 2 Australian groups don't exist on Meetup and 2 had wrong URLs (issue #595). All 4 Australian Meetup kennels dropped.
 - 3 domain URLs were wrong (capitalhash.org.au → .com, goldcoasthash.com → .org, sshh3.com → sydney.larrikins.org)
 - Both iCal URLs used wrong query param patterns (fixed to Tribe and Events Manager variants)
 - Capital Hash Google Calendar ID was correct but Base64-encoded in the iframe — needed `atob()` decode to verify
