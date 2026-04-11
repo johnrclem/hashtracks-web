@@ -22,6 +22,9 @@ const FETCH_TIMEOUT_MS = 10_000;
 const DEFAULT_REPO = "johnrclem/hashtracks-web";
 const MAX_ISSUES_PER_RUN = 3;
 
+/** If the mirror's most recent syncedAt is older than this, fall back to GitHub API. */
+const MIRROR_STALE_MS = 25 * 60 * 60 * 1000; // 25 hours
+
 /** Get the GitHub repository slug from env or fall back to default. */
 function getRepo(): string {
   return process.env.GITHUB_REPOSITORY ?? DEFAULT_REPO;
@@ -40,7 +43,7 @@ export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
   }
 
   const today = new Date().toISOString().split("T")[0];
-  const existingTitles = await getExistingAuditIssueTitles();
+  const existingTitles = await getExistingAuditIssueTitles(token);
 
   const urls: string[] = [];
   for (const group of groups) {
@@ -100,16 +103,53 @@ async function createIssueForGroup(token: string, title: string, group: AuditGro
   }
 }
 
-/** Query titles of all open audit issues from the local AuditIssue mirror for deduplication. */
-async function getExistingAuditIssueTitles(): Promise<string[]> {
+/**
+ * Query titles of all open audit issues for deduplication.
+ *
+ * Primary source: local AuditIssue mirror (fast, no external call).
+ * Fallback: GitHub API when the mirror is stale (no sync within {@link MIRROR_STALE_MS})
+ * or when the DB query fails. This prevents duplicate filings when the audit cron
+ * runs before the mirror sync has caught up.
+ */
+async function getExistingAuditIssueTitles(token: string): Promise<string[]> {
   try {
-    const openIssues = await prisma.auditIssue.findMany({
-      where: { state: "open", delistedAt: null },
-      select: { title: true },
+    const latest = await prisma.auditIssue.aggregate({
+      _max: { syncedAt: true },
     });
-    return openIssues.map((i: { title: string }) => i.title);
+    const lastSync = latest._max.syncedAt;
+    if (lastSync && Date.now() - lastSync.getTime() < MIRROR_STALE_MS) {
+      const openIssues = await prisma.auditIssue.findMany({
+        where: { state: "open", delistedAt: null },
+        select: { title: true },
+      });
+      return openIssues.map((i: { title: string }) => i.title);
+    }
+    console.log("[audit-issue] Mirror stale or empty — falling back to GitHub API");
   } catch (err) {
-    console.error("[audit-issue] Failed to query AuditIssue mirror:", err);
+    console.error("[audit-issue] Mirror query failed — falling back to GitHub API:", err);
+  }
+
+  return fetchAuditIssueTitlesFromGitHub(token);
+}
+
+/** Fetch open audit issue titles directly from the GitHub API (fallback path). */
+async function fetchAuditIssueTitlesFromGitHub(token: string): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${getRepo()}/issues?state=open&labels=audit&per_page=100`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+        },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      },
+    );
+    if (!res.ok) return [];
+    const issues = (await res.json()) as { title: string }[];
+    return issues.map((i) => i.title);
+  } catch (err) {
+    console.error("[audit-issue] GitHub API fallback also failed:", err);
     return [];
   }
 }
