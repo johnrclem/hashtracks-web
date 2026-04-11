@@ -1500,7 +1500,10 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "augh3", shortName: "AUGH3", fullName: "Augusta Underground Hash House Harriers", region: "Augusta, GA",
-      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      facebookUrl: "https://www.facebook.com/augustaundergroundH3",
+      contactEmail: "fuzzyundergroundh3@gmail.com",
+      hashCash: "$5",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
       description: "Alternate Saturday runs in the Augusta area.",
     },
     // --- Macon ---

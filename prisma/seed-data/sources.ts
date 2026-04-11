@@ -1259,7 +1259,7 @@ export const SOURCES = [
     },
     {
       name: "AUGH3 Static Schedule",
-      url: "https://www.facebook.com/groups/augustaundergroundhash",
+      url: "https://www.facebook.com/augustaundergroundH3",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
