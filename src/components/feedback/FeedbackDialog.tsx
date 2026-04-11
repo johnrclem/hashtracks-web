@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignInButton } from "@clerk/nextjs";
 import { submitFeedback } from "@/app/feedback/actions";
 import { toast } from "sonner";
 import {
@@ -46,8 +46,16 @@ export function FeedbackDialog() {
     }
   }, [state]);
 
-  // Don't render for signed-out users
-  if (!user) return null;
+  // Signed-out users see a button that opens the Clerk sign-in modal
+  if (!user) {
+    return (
+      <SignInButton mode="modal">
+        <button className="text-foreground/80 transition-colors hover:text-foreground">
+          Send Feedback
+        </button>
+      </SignInButton>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
