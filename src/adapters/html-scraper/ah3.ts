@@ -33,7 +33,7 @@ import type {
   ParseError,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, decodeEntities, stripHtmlTags, filterEventsByWindow, chronoParseDate, parse12HourTime } from "../utils";
+import { fetchHTMLPage, decodeEntities, stripHtmlTags, filterEventsByWindow, chronoParseDate, parse12HourTime, normalizeHaresField } from "../utils";
 
 // ── Constants ──
 
@@ -277,7 +277,7 @@ export function extractEventsFromDOM(
  * Strips ordinal suffixes then delegates to chronoParseDate + parse12HourTime.
  */
 export function parseGalleryDate(text: string): { date: string; startTime?: string } | null {
-  const cleaned = text.replace(/(\d+)(?:st|nd|rd|th)\b/gi, "$1");
+  const cleaned = text.replace(/(\d+)(?:st|nd|rd|th)/gi, "$1");
   const date = chronoParseDate(cleaned);
   if (!date) return null;
   return { date, startTime: parse12HourTime(cleaned) };
@@ -319,7 +319,7 @@ export function extractEventsFromGallery(
         if (!label) return;
         // Get text after the <strong> — clone the <p>, remove the <strong>, take remaining text
         const $p = $(this).clone();
-        $p.find("strong").remove();
+        $p.find("strong").first().remove();
         const value = decodeEntities($p.text()).trim();
         if (value) fields.set(label, value);
       });
@@ -343,7 +343,7 @@ export function extractEventsFromGallery(
       }
 
       const location = fields.get("location") || undefined;
-      const hares = fields.get("hares") || undefined;
+      const hares = normalizeHaresField(fields.get("hares"));
       const descRaw = fields.get("description") || undefined;
       const description = descRaw
         ? stripHtmlTags(decodeEntities(descRaw)).trim() || undefined
