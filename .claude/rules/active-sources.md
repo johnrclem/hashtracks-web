@@ -1,12 +1,12 @@
 ---
-description: Active data sources catalog — 176 sources across 26+ regions
+description: Active data sources catalog — 184 sources across 26+ regions
 globs:
   - src/adapters/**
   - prisma/seed.ts
   - src/pipeline/**
 ---
 
-# Active Sources (176)
+# Active Sources (184)
 
 ## NYC / NJ / Philly (8 sources)
 - **hashnyc.com** -> HTML_SCRAPER -> 11 NYC-area kennels
@@ -205,6 +205,16 @@ globs:
 ## Arkansas (2 sources)
 - **Little Rock H3 Static Schedule (Sunday)** -> STATIC_SCHEDULE -> lrh3 (weekly Sunday 15:00, historic exception, FB-posted locations)
 - **Little Rock H3 Static Schedule (Wednesday)** -> STATIC_SCHEDULE -> lrh3 (weekly Wednesday 19:00, historic exception, FB-posted locations)
+
+## Australia (8 sources — Phase 1a config-only + Phase 1b HTML scrapers)
+- **Perth H3 Hareline** -> ICAL_FEED (The Events Calendar / Tribe plugin) -> perth-h3 (weekly Monday, WA)
+- **Top End Hash Hareline** -> ICAL_FEED (Events Manager plugin) -> top-end-h3 (weekly Friday, Darwin NT)
+- **Capital Hash Calendar** -> GOOGLE_CALENDAR -> capital-h3-au (weekly Monday, Canberra ACT)
+- **Sydney H3 Website** -> HTML_SCRAPER (WordPress Cheerio, labeled `<p>` blocks) -> sh3-au (founded 1967, "Posh Hash", NSW)
+- **Adelaide H3 AJAX Calendar** -> HTML_SCRAPER (wp-admin/admin-ajax.php JSON, Ajax Event Calendar plugin) -> ah3-au (weekly Monday, SA)
+- **Gold Coast H3 Hareline** -> HTML_SCRAPER (WordPress HTML table) -> gch3-au (weekly Sunday, QLD)
+- **Sydney Larrikins Hareline** -> HTML_SCRAPER (SSR DataTables table, 19 future runs) -> larrikins-au (weekly Tuesday, NSW)
+- **Sydney Thirsty H3 Website** -> HTML_SCRAPER (Google Sites Cheerio, em-dash-delimited `<p>` blocks) -> sth3-au (weekly Thursday, NSW)
 
 ## Malaysia (7 sources — Phase 1: KL + Penang founder pack)
 - **Mother Hash Website** -> HTML_SCRAPER (Google Sites, labeled-field parse) -> motherh3 (weekly Monday 18:00, **1938 — first hash kennel in the world**)

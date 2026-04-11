@@ -1,6 +1,17 @@
 # Australia Kennel Research
 
 **Researched:** 2026-04-08
+**Shipped:** 2026-04-09/10 via PRs #594 (Phase 1a: 3 config-only) + #598 (Phase 1b: 5 HTML scrapers) — 8 kennels across 6 states/territories (WA, NT, ACT, NSW, SA, QLD). ~133 events across Perth, Darwin, Canberra, Sydney (×3), Adelaide, Gold Coast.
+
+**Post-Chrome-verification corrections (3 rounds):**
+- All 4 Meetup group URLs were wrong; 2 Australian groups don't exist on Meetup and 2 had wrong URLs (issue #595). All 4 Australian Meetup kennels dropped.
+- 3 domain URLs were wrong (capitalhash.org.au → .com, goldcoasthash.com → .org, sshh3.com → sydney.larrikins.org)
+- Both iCal URLs used wrong query param patterns (fixed to Tribe and Events Manager variants)
+- Capital Hash Google Calendar ID was correct but Base64-encoded in the iframe — needed `atob()` decode to verify
+- Sydney Thirsty was NOT on Meetup — real site is sth3.org (Google Sites, Cheerio-works)
+- Round 3 verified Adelaide admin-ajax.php JSON API (no auth), Gold Coast hareline is future-only HTML table, Larrikins DataTables is SSR (not AJAX), Sydney H3 page structure is `.entry.clr > p` with WYSIWYG-mangled `<strong>` tags (must use `.text()` not raw HTML)
+- Codex caught multi-day AGPU blocks dropped by Sydney Thirsty parser (fixed with array return type)
+
 **Significance:** Australia is one of the world's largest hash scenes outside the US/UK. The official Australian HHH directory at **hhh.asn.au** enumerates **~220 kennels** across all states and territories. Perth in particular is historically called the "Hash Megacentre" with 20+ active metro kennels.
 
 ## Why Australia matters
