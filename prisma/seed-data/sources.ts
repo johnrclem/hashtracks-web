@@ -3553,5 +3553,162 @@ export const SOURCES = [
       },
       kennelCodes: ["kluang-h3"],
     },
+    // ===== HONG KONG =====
+    // --- N2TH3 (WordPress.com Public API) ---
+    {
+      name: "N2TH3 WordPress Blog",
+      url: "https://n2th3.org",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["n2th3"],
+    },
+    // --- RS2H3 (Google Sheets) ---
+    {
+      name: "RS2H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/1ActKq1DoLoUA2WfUM7Q4JF3SASG7SEG-lGjy4byIf_Q",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        sheetId: "1ActKq1DoLoUA2WfUM7Q4JF3SASG7SEG-lGjy4byIf_Q",
+        gid: 425141890,
+        columns: { date: 0, runNumber: 2, hares: 3, title: 4 },
+        kennelTagRules: { default: "rs2h3" },
+      },
+      kennelCodes: ["rs2h3"],
+    },
+    // --- Wanchai H3 (Google Sheets) ---
+    {
+      name: "Wanchai H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/11XWd6UBa0bX176z6AvvnCiduhnlkFmvgzgmn57qOB2Q",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        sheetId: "11XWd6UBa0bX176z6AvvnCiduhnlkFmvgzgmn57qOB2Q",
+        gid: 81026820,
+        columns: { runNumber: 2, date: 4, hares: 5, location: 6, description: 8 },
+        kennelTagRules: { default: "wanchai-h3" },
+        startTimeRules: { default: "18:30" },
+      },
+      kennelCodes: ["wanchai-h3"],
+    },
+    // --- Sek Kong H3 (Google Sheets) ---
+    {
+      name: "Sek Kong H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/1x2bYuq0S68oBbxynEfuiXqdeyCX_GqJ6upudlqNLrvg",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        sheetId: "1x2bYuq0S68oBbxynEfuiXqdeyCX_GqJ6upudlqNLrvg",
+        gid: 1625878211,
+        columns: { runNumber: 0, date: 2, hares: 3, location: 4, description: 5 },
+        kennelTagRules: { default: "sekkongh3" },
+      },
+      kennelCodes: ["sekkongh3"],
+    },
+    // --- LSW (HTML table scraper) ---
+    {
+      name: "LSW Hareline",
+      url: "https://www.datadesignfactory.com/lsw/hareline.htm",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["lsw-h3"],
+    },
+    // --- Ladies H4 (Wix browser-render) ---
+    // DISABLED pending live verification: Wix requires the NAS
+    // browser-render service (fetchBrowserRenderedPage) which wasn't
+    // reachable during the build. Flip enabled=true after confirming
+    // the first scrape returns valid events.
+    {
+      name: "Ladies H4 Hareline",
+      url: "https://hkladiesh4.wixsite.com/hklh4/hareline",
+      type: "HTML_SCRAPER" as const,
+      enabled: false,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["lh4-hk"],
+    },
+    // --- Kowloon H3 (STATIC_SCHEDULE) ---
+    {
+      name: "Kowloon H3 Static Schedule",
+      url: "https://www.facebook.com/kowloonhash",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "kowloon-h3",
+        rrule: "FREQ=WEEKLY;BYDAY=MO",
+        startTime: "18:00",
+        defaultTitle: "Kowloon H3 Weekly Run",
+        defaultLocation: "Kowloon, Hong Kong",
+        defaultDescription: "Weekly Monday evening trail. Check the Facebook page at https://www.facebook.com/kowloonhash for run details.",
+      },
+      kennelCodes: ["kowloon-h3"],
+    },
+    // --- HKFH3 (STATIC_SCHEDULE) ---
+    {
+      name: "HKFH3 Static Schedule",
+      url: "https://www.facebook.com/hkfullhousehash",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "hkfh3",
+        rrule: "FREQ=MONTHLY;BYDAY=FR;BYSETPOS=1",
+        startTime: "19:00",
+        defaultTitle: "HKFH3 Monthly Run",
+        defaultLocation: "Hong Kong",
+        defaultDescription: "Monthly Friday evening trail (exact cadence uncertain — at least monthly per available evidence). Check Facebook for run details and start location.",
+      },
+      kennelCodes: ["hkfh3"],
+    },
+    // --- Free China H3 (STATIC_SCHEDULE) ---
+    {
+      name: "Free China H3 Static Schedule",
+      url: "https://www.facebook.com/groups/freechinah3",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "fch3-hk",
+        rrule: "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=1",
+        startTime: "13:00",
+        defaultTitle: "Free China H3 Monthly Run",
+        defaultLocation: "Jaffe Rd & Fenwick St junction, Wan Chai, Hong Kong",
+        defaultDescription: "Monthly Saturday afternoon trail. Founded 1994. Meet at Jaffe Rd & Fenwick St junction. Check Facebook for run details.",
+      },
+      kennelCodes: ["fch3-hk"],
+    },
+    // --- Hebe H3 (STATIC_SCHEDULE) ---
+    {
+      name: "Hebe H3 Static Schedule",
+      url: "https://www.facebook.com/hebehash",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "hebe-h3",
+        rrule: "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3",
+        startTime: "15:00",
+        defaultTitle: "Hebe H3 Monthly Run",
+        defaultLocation: "Sai Kung, Hong Kong",
+        defaultDescription: "Monthly Saturday afternoon trail in the Sai Kung area. Founded 2019. Check Facebook for run details.",
+      },
+      kennelCodes: ["hebe-h3"],
+    },
   ];
 

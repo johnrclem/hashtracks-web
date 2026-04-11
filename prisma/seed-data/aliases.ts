@@ -461,5 +461,16 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "jb-h3": ["JB H3", "Johor Bahru H3", "JB Hash", "Johor Hash", "JBH3", "JBHHH"],
     "butterworth-h3": ["Butterworth H3", "Penang Butterworth H3", "Butterworth Hash", "BWH3"],
     "kluang-h3": ["Kluang H3", "Kluang Hash", "Kluang HHH"],
+    // Hong Kong
+    "n2th3": ["N2TH3", "Northern New Territories H3", "Northern New Territories Hash", "N2T", "NNTH3"],
+    "rs2h3": ["RS2H3", "Royal Southside H3", "Royal Southside Hash", "Royal South Side"],
+    "wanchai-h3": ["Wanchai H3", "Wan Chai H3", "Wanchai Hash", "Wan Chai Hash", "WCH3 HK"],
+    "sekkongh3": ["Sek Kong H3", "Sek Kong Hash", "SKHH3", "SK H3"],
+    "lsw-h3": ["LSW", "Little Sai Wan H3", "Little Sai Wan Hash", "LSW H3", "LSWH3"],
+    "lh4-hk": ["Ladies H4", "HK Ladies H4", "Ladies Hash HK", "HKLH4", "Hong Kong Ladies Hash"],
+    "kowloon-h3": ["Kowloon H3", "Kowloon Hash", "KH3", "Kowloon HHH"],
+    "hkfh3": ["HKFH3", "HK Full House", "Full House H3", "Hong Kong Full House Hash"],
+    "fch3-hk": ["Free China H3", "Free China Hash", "FCH3 HK", "Free China HHH"],
+    "hebe-h3": ["Hebe H3", "Hebe Hash", "Hebe HHH", "Hebe Haven Hash"],
   };
 
