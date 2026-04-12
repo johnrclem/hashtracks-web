@@ -35,14 +35,12 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
   const initials = getKennelInitials(result.kennelName);
 
   return (
-    <Link
-      href={`/hareline/${result.eventId}`}
+    <div
       className="
         travel-tier-confirmed
-        group relative block overflow-hidden rounded-xl border border-border
+        group relative overflow-hidden rounded-xl border border-border
         bg-card transition-all duration-200
         hover:-translate-y-0.5 hover:border-[var(--tier-accent-border)] hover:shadow-lg
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
       "
     >
       {/* Tier accent top border */}
@@ -61,8 +59,13 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h3 className="truncate font-display text-base font-medium">
-                {result.kennelName}
-                {result.runNumber ? ` · Run #${result.runNumber}` : ""}
+                <Link
+                  href={`/hareline/${result.eventId}`}
+                  className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-sm"
+                >
+                  {result.kennelName}
+                  {result.runNumber ? ` · Run #${result.runNumber}` : ""}
+                </Link>
               </h3>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                 <span>{dateFormatted}</span>
@@ -116,6 +119,6 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
           ))}
         </div>
       )}
-    </Link>
+    </div>
   );
 }

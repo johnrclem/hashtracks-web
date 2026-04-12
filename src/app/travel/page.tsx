@@ -205,6 +205,26 @@ async function TravelResultsServer({
     };
 
     if (results.emptyState !== "none") {
+      // Determine which results to show based on empty state type:
+      // - no_confirmed: show likely/possible from the primary search (they exist)
+      // - no_nearby: show broader results (primary radius was empty)
+      // - no_coverage / error: show nothing
+      const hasResultsToShow =
+        results.emptyState === "no_confirmed" ||
+        (results.emptyState === "no_nearby" && serializedResults.broaderResults);
+
+      const resultsToRender =
+        results.emptyState === "no_confirmed"
+          ? serializedResults
+          : results.emptyState === "no_nearby" && serializedResults.broaderResults
+            ? {
+                ...serializedResults,
+                confirmed: serializedResults.broaderResults.confirmed,
+                likely: serializedResults.broaderResults.likely,
+                possible: serializedResults.broaderResults.possible,
+              }
+            : null;
+
       return (
         <>
           <TripSummary
@@ -221,14 +241,8 @@ async function TravelResultsServer({
             radiusKm={radiusKm}
             broaderRadiusKm={results.meta.broaderRadiusKm}
           />
-          {/* Show broader results below the empty state message if available */}
-          {serializedResults.broaderResults && (
-            <TravelResults results={{
-              ...serializedResults,
-              confirmed: serializedResults.broaderResults.confirmed,
-              likely: serializedResults.broaderResults.likely,
-              possible: serializedResults.broaderResults.possible,
-            }} />
+          {hasResultsToShow && resultsToRender && (
+            <TravelResults results={resultsToRender} />
           )}
         </>
       );
