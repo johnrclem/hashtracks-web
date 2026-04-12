@@ -108,7 +108,7 @@ export function parseHangoverBody(text: string): {
     .replace(/\r/g, "") // Normalize Windows newlines.
     .replace(/\s+/g, " ") // Collapse inconsistent spacing from extracted HTML text.
     // Put labeled fields on their own logical lines so downstream field regexes are reliable.
-    .replace(/\s+(Date|When|Hare(?:\(s\)|s)?|Trail Start|Start|Location|Where|Hash Cash|Cost|Directions|Trail Type|On[- ]?After|On On(?: Brunch)?)\s*:/gi, "\n$1: ")
+    .replace(/\s+(Date|When|Hare(?:\(s\)|s)?|Trail Start|Start|Location|Where|Hash Cash|Cost|Directions|Trail (?:Type|Length)|On[- ]?After|On On(?: Brunch)?|Metro Accessibility|D.Erections|Parking|Shiggy Rating|Dog Friendly|Stroller Friendly)\s*:/gi, "\n$1: ")
     // Normalize compact "Pack Away at" / "Hare Away at" variants into a line boundary.
     .replace(/\s+(Pack Away|Hares? Away)\s+at\s+/gi, "\n$1 at ")
     // Normalize distance labels so Eagle/Turkey/Penguin can be extracted independently.
