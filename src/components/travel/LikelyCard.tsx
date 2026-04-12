@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SignalHigh, SignalMedium, ExternalLink, Info } from "lucide-react";
+import { SignalHigh, SignalMedium, ExternalLink, Info, MapPin } from "lucide-react";
 import { formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { getKennelInitials } from "@/lib/travel/format";
@@ -84,6 +84,13 @@ export function LikelyCard({ result }: LikelyCardProps) {
                   {result.distanceKm.toFixed(1)} km
                 </span>
               </div>
+              {/* Region hint — projected trails don't have specific locations */}
+              {result.kennelRegion && (
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/60">
+                  <MapPin className="h-3 w-3 flex-shrink-0" />
+                  <span>{result.kennelRegion} area</span>
+                </div>
+              )}
             </div>
           </div>
 

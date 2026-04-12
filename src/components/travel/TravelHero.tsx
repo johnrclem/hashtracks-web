@@ -51,9 +51,9 @@ export function TravelHero() {
 
   return (
     <section className="relative overflow-hidden">
-      {/* Decorative backdrop with parallax */}
+      {/* Decorative backdrop with parallax — denser map lines + more visible pins */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.15] dark:opacity-[0.25]"
+        className="pointer-events-none absolute inset-0 opacity-[0.2] dark:opacity-[0.35]"
         aria-hidden="true"
         style={{ transform: `translateY(${scrollY * -0.15}px)` }}
       >
@@ -62,26 +62,37 @@ export function TravelHero() {
           preserveAspectRatio="xMidYMid slice"
           className="h-full w-full"
         >
+          {/* Continent-like strokes — slightly thicker for visibility */}
           <g
             stroke="currentColor"
-            strokeWidth="0.8"
+            strokeWidth="1"
             fill="none"
-            opacity="0.5"
+            opacity="0.4"
             className="text-muted-foreground"
           >
-            <path d="M180 200 Q260 180 340 210 T500 230 Q580 240 640 220 L700 240 L760 230 Q820 250 880 240 T1020 260 Q1100 270 1180 260" />
-            <path d="M150 340 Q220 320 290 330 T440 350 Q520 360 580 350 Q640 340 720 360 T890 380 Q960 390 1040 380 L1120 370" />
-            <path d="M200 460 Q270 450 340 470 T490 490 Q560 500 620 480 T780 500 Q850 490 920 480" />
+            <path d="M120 180 Q200 160 300 190 T480 210 Q560 225 640 200 L720 220 L800 210 Q880 235 960 225 T1120 250 Q1200 260 1280 250" />
+            <path d="M80 310 Q160 290 250 300 T420 325 Q510 340 590 330 Q680 315 760 340 T940 360 Q1020 375 1100 365 L1200 355" />
+            <path d="M160 440 Q240 430 320 450 T480 475 Q560 490 640 470 T820 495 Q900 485 980 475 L1060 465" />
+            <path d="M250 560 Q330 545 420 565 T590 580 Q680 595 760 575 L850 570" />
           </g>
-          {/* Kennel pins at destinations */}
+          {/* Kennel pins with subtle glow rings */}
           <g>
-            <circle cx="380" cy="230" r="4" className="fill-emerald-500/60" />
-            <circle cx="720" cy="220" r="4" className="fill-sky-500/60" />
-            <circle cx="1050" cy="260" r="4" className="fill-amber-500/60" />
-            <circle cx="480" cy="390" r="4" className="fill-emerald-500/60" />
-            <circle cx="820" cy="410" r="4" className="fill-violet-500/60" />
-            <circle cx="290" cy="360" r="4" className="fill-sky-500/60" />
-            <circle cx="640" cy="380" r="4" className="fill-rose-500/60" />
+            <circle cx="350" cy="210" r="6" className="fill-emerald-500/20" />
+            <circle cx="350" cy="210" r="3" className="fill-emerald-500/70" />
+            <circle cx="740" cy="205" r="6" className="fill-sky-500/20" />
+            <circle cx="740" cy="205" r="3" className="fill-sky-500/70" />
+            <circle cx="1100" cy="250" r="6" className="fill-amber-500/20" />
+            <circle cx="1100" cy="250" r="3" className="fill-amber-500/70" />
+            <circle cx="460" cy="350" r="6" className="fill-emerald-500/20" />
+            <circle cx="460" cy="350" r="3" className="fill-emerald-500/70" />
+            <circle cx="850" cy="380" r="6" className="fill-violet-500/20" />
+            <circle cx="850" cy="380" r="3" className="fill-violet-500/70" />
+            <circle cx="270" cy="330" r="6" className="fill-sky-500/20" />
+            <circle cx="270" cy="330" r="3" className="fill-sky-500/70" />
+            <circle cx="640" cy="355" r="6" className="fill-rose-500/20" />
+            <circle cx="640" cy="355" r="3" className="fill-rose-500/70" />
+            <circle cx="550" cy="470" r="6" className="fill-amber-500/20" />
+            <circle cx="550" cy="470" r="3" className="fill-amber-500/70" />
           </g>
         </svg>
       </div>
@@ -100,7 +111,7 @@ export function TravelHero() {
       </svg>
 
       {/* Content */}
-      <div className="relative mx-auto flex min-h-[65vh] max-w-5xl flex-col items-center justify-center px-4 py-20">
+      <div className="relative mx-auto flex min-h-[70vh] max-w-5xl flex-col items-center justify-center px-4 py-24">
         {/* Staggered headline — explicit two-line structure */}
         <h1 className="text-center font-display text-4xl font-medium tracking-tight sm:text-5xl lg:text-6xl">
           <span className="block">
@@ -128,7 +139,7 @@ export function TravelHero() {
         </h1>
 
         <p
-          className="travel-animate mt-5 max-w-xl text-center text-lg text-muted-foreground"
+          className="travel-animate mt-6 max-w-lg text-center text-base leading-relaxed text-muted-foreground/80"
           style={{
             opacity: 0,
             animation: "travel-word-reveal 500ms ease-out forwards",
@@ -141,7 +152,7 @@ export function TravelHero() {
 
         {/* Boarding pass form */}
         <div
-          className="travel-animate mt-10 w-full max-w-4xl"
+          className="travel-animate mt-12 w-full max-w-4xl"
           style={{
             opacity: 0,
             animation: "travel-card-enter 600ms ease-out forwards",

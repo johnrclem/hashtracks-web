@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BadgeCheck, ExternalLink } from "lucide-react";
+import { BadgeCheck, ExternalLink, MapPin, Users } from "lucide-react";
 import { formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { getConditionEmoji } from "@/lib/weather-display";
@@ -18,6 +18,7 @@ interface ConfirmedCardProps {
     runNumber: number | null;
     haresText: string | null;
     locationName: string | null;
+    locationCity: string | null;
     distanceKm: number;
     sourceLinks: { url: string; label: string; type: string }[];
     weather: { highTempC: number; conditionType: string } | null;
@@ -82,6 +83,26 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
                     : `${result.distanceKm.toFixed(1)} km`}
                 </span>
               </div>
+
+              {/* Location + hares — visible without clicking */}
+              {(result.locationName || result.locationCity) && (
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground/70">
+                  <MapPin className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">
+                    {result.locationName
+                      ? `${result.locationName}${result.locationCity ? ` · ${result.locationCity}` : ""}`
+                      : result.locationCity}
+                  </span>
+                </div>
+              )}
+              {result.haresText && (
+                <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground/60">
+                  <Users className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">
+                    Hares: {result.haresText}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-shrink-0 items-center gap-2">
@@ -102,9 +123,9 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
         </div>
       </div>
 
-      {/* Source links — visible on hover/focus */}
+      {/* Source links — always visible for travelers */}
       {result.sourceLinks.length > 0 && (
-        <div className="flex gap-2 border-t border-border/50 px-4 py-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        <div className="flex gap-2 border-t border-border/50 px-4 py-2">
           {result.sourceLinks.slice(0, 3).map((link) => (
             <a
               key={link.url}

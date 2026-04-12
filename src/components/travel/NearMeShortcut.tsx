@@ -48,27 +48,38 @@ export function NearMeShortcut() {
   }
 
   return (
-    <div className="mt-6 text-center">
+    <div
+      className="travel-animate mt-8 text-center"
+      style={{
+        opacity: 0,
+        animation: "travel-word-reveal 400ms ease-out forwards",
+        animationDelay: "800ms",
+      }}
+    >
       <button
         type="button"
         onClick={handleClick}
         disabled={geoState.status === "loading"}
         className="
-          inline-flex items-center gap-2 rounded-full border border-border
-          px-5 py-2.5 text-sm text-muted-foreground transition-all
-          hover:border-foreground/20 hover:bg-card hover:text-foreground
+          group inline-flex items-center gap-2.5 rounded-full
+          border border-border/50 bg-card/50 backdrop-blur-sm
+          px-6 py-3 text-[13px] font-medium text-muted-foreground
+          shadow-sm transition-all duration-300
+          hover:border-emerald-500/30 hover:bg-card hover:text-foreground
+          hover:shadow-md
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
           disabled:opacity-50
         "
       >
         {geoState.status === "loading" ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
         ) : (
-          <Crosshair className="h-4 w-4" />
+          <Crosshair className="h-3.5 w-3.5 transition-colors group-hover:text-emerald-500" />
         )}
         {geoState.status === "loading"
           ? "Finding your location…"
-          : "Or hash near me right now →"}
+          : "Or hash near me right now"}
+        <span className="text-muted-foreground/40 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-emerald-500/60">→</span>
       </button>
     </div>
   );
