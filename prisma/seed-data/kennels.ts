@@ -1293,9 +1293,11 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "b2b-h3", shortName: "B2BH3", fullName: "Bay 2 Beaches Hash House Harriers", region: "Tampa Bay, FL",
       facebookUrl: "https://www.facebook.com/groups/1387039994854156",
+      logoUrl: "https://www.jollyrogerh3.com/B2BH3%20Logo.jpg",
+      foundedYear: 2014,
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Monthly",
       scheduleNotes: "1st Sunday afternoon of each month.",
-      description: "Monthly Sunday runs in the Tampa Bay area.",
+      description: "Monthly multi-activity hash encompassing the Tampa Bay area and Pinellas Beaches. First Sunday of each month — running, paddling, cycling, kegball, and Hash Challenges. BYOB.",
     },
     {
       kennelCode: "lh3-fl", shortName: "Lakeland H3", fullName: "Lakeland Hash House Harriers", region: "Tampa Bay, FL",

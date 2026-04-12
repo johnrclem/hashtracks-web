@@ -2638,6 +2638,11 @@ export const SOURCES = [
           ["RDH3|Rabid", "rdh3"],
         ],
         defaultKennelTag: "ch3-dk",
+        // RDH3 events embed hares in the title: "RDH3 134 Walkers. Hare: Lust Jucie".
+        // The pattern only fires when the description has no hares. Empty "Hare:"
+        // (upcoming/TBA events) produce an empty capture group → skipped.
+        // CH3/CH4 don't use this format so the pattern won't match their titles.
+        titleHarePattern: "[.]\\s*Hare:\\s*(.+)$",
       },
       kennelCodes: ["ch3-dk", "ch4-dk", "rdh3"],
     },
