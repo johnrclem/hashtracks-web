@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MapPin, Calendar, Compass, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
+import { DestinationInput } from "./DestinationInput";
 
 interface TravelSearchFormProps {
   variant: "hero" | "compact";
@@ -129,18 +130,21 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
           {/* Destination section */}
           <fieldset className="border-b border-dashed border-border p-5 md:border-b-0 md:border-r">
             <legend className="sr-only">Destination</legend>
-            <input
-              type="text"
+            <DestinationInput
               value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              placeholder="Where are you going?"
-              aria-label="Destination"
-              className="
-                w-full bg-transparent font-display text-lg font-medium
-                placeholder:text-muted-foreground/40
-                focus:outline-none
-              "
               autoFocus={variant === "hero"}
+              onChange={(place) => {
+                setDestination(place.label);
+                setLatitude(place.latitude);
+                setLongitude(place.longitude);
+                if (place.timezone) setTimezone(place.timezone);
+              }}
+              onClear={() => {
+                setDestination("");
+                setLatitude(0);
+                setLongitude(0);
+                setTimezone("");
+              }}
             />
             {timezone && (
               <p className="mt-1 text-xs text-muted-foreground">

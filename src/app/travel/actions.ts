@@ -13,7 +13,7 @@
 
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { haversineDistance } from "@/lib/geo";
+import { haversineDistance, geocodeAddress } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import type { ActionResult } from "@/lib/actions";
 
@@ -352,6 +352,33 @@ export async function resolveDestinationTimezone(
   } catch {
     return { error: "Time Zone API timeout or network error" };
   }
+}
+
+// ============================================================================
+// geocodeDestination
+// ============================================================================
+
+/**
+ * Server-side geocoding fallback for destination input. Uses the Google
+ * Geocoding API (already enabled) when the client-side Places Autocomplete
+ * isn't available (e.g., Places API (New) not enabled in GCP project).
+ *
+ * No auth required — called during form interaction.
+ */
+export async function geocodeDestination(
+  query: string,
+): Promise<ActionResult<{ label: string; latitude: number; longitude: number }>> {
+  if (!query.trim()) return { error: "Empty query" };
+
+  const result = await geocodeAddress(query);
+  if (!result) return { error: "Could not find that location" };
+
+  return {
+    success: true,
+    label: result.formattedAddress ?? query,
+    latitude: result.lat,
+    longitude: result.lng,
+  };
 }
 
 // ============================================================================
