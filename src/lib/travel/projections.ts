@@ -304,7 +304,6 @@ export function buildEvidenceTimeline(
   const TWELVE_WEEKS_MS = 12 * 7 * 24 * 60 * 60 * 1000;
   const windowStart = new Date(referenceDate.getTime() - TWELVE_WEEKS_MS);
 
-  // Initialize 12 weeks as false
   const weeks: boolean[] = new Array(12).fill(false);
 
   let totalEvents = 0;

@@ -33,6 +33,7 @@ import {
   listSavedSearches,
   viewTravelSearch,
   getDestinationKennelCount,
+  resolveDestinationTimezone,
 } from "./actions";
 
 const validParams = {
@@ -264,5 +265,35 @@ describe("getDestinationKennelCount", () => {
   it("returns 0 for invalid coordinates", async () => {
     const result = await getDestinationKennelCount(NaN, NaN, 50);
     expect(result.count).toBe(0);
+  });
+
+  it("clamps radius to 250km max", async () => {
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([
+      { latitude: 40.0, longitude: -74.0, regionRef: null },
+    ] as never);
+
+    // 10000km radius should be clamped to 250km — NYC kennel is ~1200km from Atlanta
+    const result = await getDestinationKennelCount(33.749, -84.388, 10000);
+    expect(result.count).toBe(0); // NYC is beyond 250km from Atlanta
+  });
+});
+
+describe("resolveDestinationTimezone", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns error for invalid coordinates", async () => {
+    const result = await resolveDestinationTimezone(NaN, NaN);
+    expect("error" in result && result.error).toBe("Invalid coordinates");
+  });
+
+  it("returns error when API key is not configured", async () => {
+    const originalKey = process.env.GOOGLE_CALENDAR_API_KEY;
+    delete process.env.GOOGLE_CALENDAR_API_KEY;
+    try {
+      const result = await resolveDestinationTimezone(33.749, -84.388);
+      expect("error" in result && result.error).toBe("Time Zone API not configured");
+    } finally {
+      if (originalKey) process.env.GOOGLE_CALENDAR_API_KEY = originalKey;
+    }
   });
 });

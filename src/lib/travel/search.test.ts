@@ -9,8 +9,6 @@ vi.mock("@/lib/weather", () => ({
 }));
 
 import { executeTravelSearch, type TravelSearchParams } from "./search";
-import type { DailyWeather } from "@/lib/weather";
-import { getEventDayWeather } from "@/lib/weather";
 
 // ============================================================================
 // Mock Prisma client factory

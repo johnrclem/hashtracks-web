@@ -145,7 +145,7 @@ interface NearbyKennel {
   facebookUrl: string | null;
   instagramHandle: string | null;
   distanceKm: number;
-  regionRef: { pinColor: string } | null;
+  regionRef: { pinColor: string; centroidLat: number | null; centroidLng: number | null } | null;
 }
 
 // ============================================================================
@@ -189,7 +189,6 @@ export async function executeTravelSearch(
     };
   }
 
-  // Build lookup maps
   const kennelMap = new Map(nearbyKennels.map((k) => [k.id, k]));
 
   // Steps 3–5 + 8: Three independent DB queries run in parallel (saves ~2 round-trips)
