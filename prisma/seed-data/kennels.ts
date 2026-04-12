@@ -517,9 +517,11 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "barh3", shortName: "BARH3", fullName: "Bay Area Rabble Hash", region: "San Francisco, CA",
       twitterHandle: "@BARH3",
-      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Bar-to-bar live hare hash starting at various BART stations",
-      description: "Weekly Wednesday evening bar-to-bar live hare hash. Starts at BART stations across the Bay Area.",
+      hashCash: "Free",
+      foundedYear: 2009,
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Bar-to-bar live hare hash starting at various BART stations.",
+      description: "Biweekly Wednesday evening bar-to-bar live hare hash. Starts at BART stations across the Bay Area. Free hash cash.",
     },
     {
       kennelCode: "marinh3", shortName: "MarinH3", fullName: "Marin Hash House Harriers", region: "Marin County, CA",
