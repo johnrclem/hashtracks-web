@@ -85,6 +85,12 @@ import { LadiesH4HkAdapter } from "./html-scraper/ladies-h4-hk";
 import { Cah3Adapter } from "./html-scraper/cah3";
 import { Crh3Adapter } from "./html-scraper/crh3";
 import { BkkHarriettesAdapter } from "./html-scraper/bkk-harriettes";
+import { PhuketHHHAdapter } from "./html-scraper/phuket-hhh";
+import { ChiangMaiHHHAdapter } from "./html-scraper/chiangmai-hhh";
+import { BangkokHashAdapter } from "./html-scraper/bangkokhash";
+import { PattayaH3Adapter } from "./html-scraper/pattaya-h3";
+import { BangkokBikersAdapter } from "./html-scraper/bangkok-bikers";
+import { BangkokH3Adapter } from "./html-scraper/bangkok-h3";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -203,6 +209,12 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /cah3\.net/i, name: "Cah3Adapter", factory: () => new Cah3Adapter() },
   { pattern: /chiangraihhh\.blogspot/i, name: "Crh3Adapter", factory: () => new Crh3Adapter() },
   { pattern: /bangkokharriettes\.wordpress/i, name: "BkkHarriettesAdapter", factory: () => new BkkHarriettesAdapter() },
+  { pattern: /phuket-hhh\.com/i, name: "PhuketHHHAdapter", factory: () => new PhuketHHHAdapter() },
+  { pattern: /chiangmaihhh\.com/i, name: "ChiangMaiHHHAdapter", factory: () => new ChiangMaiHHHAdapter() },
+  { pattern: /bangkokhash\.com/i, name: "BangkokHashAdapter", factory: () => new BangkokHashAdapter() },
+  { pattern: /pattayah3\.com/i, name: "PattayaH3Adapter", factory: () => new PattayaH3Adapter() },
+  { pattern: /bangkokbikehash\.org/i, name: "BangkokBikersAdapter", factory: () => new BangkokBikersAdapter() },
+  { pattern: /bangkokhhh\.org/i, name: "BangkokH3Adapter", factory: () => new BangkokH3Adapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

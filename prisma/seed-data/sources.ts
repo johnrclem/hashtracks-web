@@ -3771,5 +3771,138 @@ export const SOURCES = [
       config: {},
       kennelCodes: ["bkk-harriettes"],
     },
+    // --- Bangkok Thursday Hash (Joomla + PHP API) ---
+    {
+      name: "Bangkok Thursday Hash",
+      url: "https://www.bangkokhash.com/thursday/index.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { subSite: "thursday", hashClub: "BTH3", apiBase: "/H222k3" },
+      kennelCodes: ["bth3", "bfmh3"],
+    },
+    // --- Bangkok Full Moon Hash (Joomla + PHP API) ---
+    {
+      name: "Bangkok Full Moon Hash",
+      url: "https://www.bangkokhash.com/fullmoon/index.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { subSite: "fullmoon", hashClub: "BFMH3", apiBase: "/H222k3" },
+      kennelCodes: ["bfmh3"],
+    },
+    // --- Siam Sunday Hash (Joomla + PHP API) ---
+    {
+      name: "Siam Sunday Hash",
+      url: "https://www.bangkokhash.com/siamsunday/index.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { subSite: "siamsunday", hashClub: "S2H3", apiBase: "/H220j" },
+      kennelCodes: ["s2h3"],
+    },
+    // --- Phuket HHH Shared Hareline ---
+    {
+      name: "Phuket HHH Hareline",
+      url: "http://www.phuket-hhh.com/hareline.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {},
+      kennelCodes: ["phhh", "phuket-tinmen", "iron-pussy", "phuket-pooying"],
+    },
+    // --- Chiang Mai CH3 Hareline ---
+    {
+      name: "Chiang Mai CH3 Hareline",
+      url: "http://www.chiangmaihhh.com/ch3-hareline/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { harelineKey: "ch3" },
+      kennelCodes: ["ch3-cm"],
+    },
+    // --- Chiang Mai CGH3 Hareline ---
+    {
+      name: "Chiang Mai CGH3 Hareline",
+      url: "http://www.chiangmaihhh.com/cgh3-hareline/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { harelineKey: "cgh3" },
+      kennelCodes: ["cgh3"],
+    },
+    // --- Chiang Mai CH4 Hareline ---
+    {
+      name: "Chiang Mai CH4 Hareline",
+      url: "http://www.chiangmaihhh.com/ch4-hareline/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { harelineKey: "ch4" },
+      kennelCodes: ["ch4-cm"],
+    },
+    // --- Chiang Mai CSH3 Hareline ---
+    {
+      name: "Chiang Mai CSH3 Hareline",
+      url: "http://www.chiangmaihhh.com/csh3-hareline/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { harelineKey: "csh3" },
+      kennelCodes: ["csh3"],
+    },
+    // --- Chiang Mai CBH3 Hareline ---
+    {
+      name: "Chiang Mai CBH3 Hareline",
+      url: "http://www.chiangmaihhh.com/cbh3-hareline/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { harelineKey: "cbh3" },
+      kennelCodes: ["cbh3-cm"],
+    },
+    // --- Pattaya H3 Hareline ---
+    {
+      name: "Pattaya H3 Hareline",
+      url: "https://www.pattayah3.com/PH3/php/HareLine/HareLine.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {},
+      kennelCodes: ["pattaya-h3"],
+    },
+    // --- Bangkok H3 (Wix — disabled, needs browser render) ---
+    {
+      name: "Bangkok H3 Website",
+      url: "https://www.bangkokhhh.org",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 5,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      enabled: false,
+      config: {},
+      kennelCodes: ["bkk-h3"],
+    },
+    // --- Bangkok Bikers ---
+    {
+      name: "Bangkok Bikers Website",
+      url: "http://www.bangkokbikehash.org",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 5,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {},
+      kennelCodes: ["bhhb"],
+    },
   ];
 
