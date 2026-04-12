@@ -150,6 +150,8 @@ async function ensureRegionRecords(prisma: any) {
       "San Antonio, TX", "Corpus Christi, TX", "El Paso",
     ],
     "New Mexico": ["Albuquerque, NM"],
+    "Nevada": ["Las Vegas, NV", "Reno, NV"],
+    "Utah": ["Salt Lake City, UT"],
     "Arizona": ["Phoenix, AZ", "Tucson, AZ"],
     "Colorado": ["Denver, CO", "Boulder, CO", "Fort Collins, CO", "Colorado Springs, CO"],
     // ── US West Coast ──

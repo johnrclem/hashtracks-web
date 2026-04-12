@@ -492,5 +492,13 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "bkk-h3": ["BKK H3", "Bangkok H3", "Bangkok Hash", "Bangkok HHH", "BH3 Bangkok"],
     "pattaya-h3": ["Pattaya H3", "PH3", "Pattaya Hash", "Pattaya HHH"],
     "bhhb": ["BHHB", "Bangkok Bikers", "Bangkok Bike Hash", "Bangkok Hash House Bikers"],
+    // Nevada + Utah
+    "lv-h3": ["Las Vegas H3", "Las Vegas Hash", "LVHHH", "Las Vegas HHH", "LV H3"],
+    "ass-h3": ["ASS H3", "ASSH3", "Atomic Shit Show", "Atomic Shit Show H3", "Atomic Shit Show HHH"],
+    "reno-h3": ["Reno H3", "RenoH3", "Reno Hash", "Reno HHH"],
+    "wasatch-h3": ["Wasatch H3", "WasatchH3", "Wasatch Hash", "Wasatch HHH", "SLC H3"],
+    "lds-h3": ["LDS H3", "LDSH3", "Lotsa Damn Shiggy", "Lotsa Damn Shiggy H3"],
+    "slosh-h3": ["SLOSH", "SLOSH H3", "Salt Lake Old School", "Salt Lake Old School H3"],
+    "slut-h3": ["SL,UT Discovery", "SLUT Discovery", "SL UT Discovery", "SLUT H3", "SL,UT H3"],
   };
 
