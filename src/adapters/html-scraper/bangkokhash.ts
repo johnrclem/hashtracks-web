@@ -162,12 +162,14 @@ export function parseHarelineApiHtml(
     const infoDiv = $entry.find("div").eq(1);
     const infoText = infoDiv.text().trim();
 
-    // Check if this is a Fullmoon entry
+    // Check if this is a Fullmoon entry — route to fullmoonTag if set
+    // (Thursday subsite cross-lists FM runs), otherwise fall back to the
+    // current kennel (the FM subsite itself is the target).
     const fullmoonMatch = /Fullmoon-(\d+)/i.exec(infoText);
-    if (fullmoonMatch && fullmoonTag) {
+    if (fullmoonMatch) {
       events.push({
         date,
-        kennelTag: fullmoonTag,
+        kennelTag: fullmoonTag ?? kennelTag,
         runNumber: Number.parseInt(fullmoonMatch[1], 10),
         startTime: "18:30",
         sourceUrl,
@@ -253,8 +255,11 @@ export class BangkokHashAdapter implements SourceAdapter {
       const apiDurationMs = Date.now() - apiStart;
 
       if (response.ok) {
-        const json = await response.json() as string[];
-        const harelineHtml = json[1] ?? "";
+        const json: unknown = await response.json();
+        if (!Array.isArray(json) || json.length < 2 || typeof json[1] !== "string") {
+          errors.push("Hareline API returned unexpected payload shape");
+        } else {
+        const harelineHtml = json[1];
         const apiEvents = parseHarelineApiHtml(harelineHtml, kennelTag, fullmoonTag, defaultTime, baseUrl);
 
         // Deduplicate: prefer the article's next-run event (richer data) over API data
@@ -268,6 +273,7 @@ export class BangkokHashAdapter implements SourceAdapter {
         }
 
         fetchDurationMs += apiDurationMs;
+        } // close else (valid json array)
       } else {
         errors.push(`Hareline API returned ${response.status}`);
       }

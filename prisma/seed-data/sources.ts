@@ -3779,7 +3779,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { subSite: "thursday", hashClub: "BTH3", apiBase: "/H222k3" },
+      config: { subSite: "thursday" },
       kennelCodes: ["bth3", "bfmh3"],
     },
     // --- Bangkok Full Moon Hash (Joomla + PHP API) ---
@@ -3790,7 +3790,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { subSite: "fullmoon", hashClub: "BFMH3", apiBase: "/H222k3" },
+      config: { subSite: "fullmoon" },
       kennelCodes: ["bfmh3"],
     },
     // --- Siam Sunday Hash (Joomla + PHP API) ---
@@ -3801,7 +3801,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { subSite: "siamsunday", hashClub: "S2H3", apiBase: "/H220j" },
+      config: { subSite: "siamsunday" },
       kennelCodes: ["s2h3"],
     },
     // --- Phuket HHH Shared Hareline ---
@@ -3894,10 +3894,14 @@ export const SOURCES = [
       kennelCodes: ["bkk-h3"],
     },
     // --- Bangkok Bikers ---
+    // DISABLED: adapter fetches /hash_weekends/upcoming but selectors
+    // (#next-hash, .hash-weekend, .ride-card) are unverified guesses.
+    // Needs live Chrome verification before enabling.
     {
       name: "Bangkok Bikers Website",
       url: "http://www.bangkokbikehash.org",
       type: "HTML_SCRAPER" as const,
+      enabled: false,
       trustLevel: 5,
       scrapeFreq: "daily",
       scrapeDays: 365,

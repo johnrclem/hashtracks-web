@@ -55,7 +55,7 @@ describe("parseChiangMaiLine", () => {
   it("parses CBH3 format: 'Sunday 26 April – CBH3 – Run # 281 – Misfortune and Bare Bum'", () => {
     const event = parseChiangMaiLine(
       "Sunday 26 April \u2013 CBH3 \u2013 Run # 281 \u2013 Misfortune and Bare Bum",
-      "cbh3",
+      "cbh3-cm",
       SOURCE_URL,
     );
     expect(event).not.toBeNull();

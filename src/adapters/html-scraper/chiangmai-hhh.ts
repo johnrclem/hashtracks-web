@@ -55,6 +55,7 @@ export function parseChiangMaiLine(
   line: string,
   kennelTag: string,
   sourceUrl: string,
+  referenceYear?: number,
 ): RawEventData | null {
   const cleaned = decodeEntities(line).replace(/\u2013|\u2014/g, "-").trim();
   if (!cleaned) return null;
@@ -85,12 +86,10 @@ export function parseChiangMaiLine(
     .replace(/[-–—]+/g, " ")
     .trim();
 
-  // The hareline pages have month headers (e.g. "<b>April 2026</b>") but
-  // individual lines are yearless ("Saturday April 11"). chrono defaults
-  // to the current year which is correct for the current/next-month
-  // hareline. The adapter's applyDateWindow() filter handles anything
-  // that falls outside the configured window.
-  const date = chronoParseDate(dateText, "en-GB");
+  // Use the year from the preceding month header (e.g. "April 2026") as
+  // a reference so yearless dates resolve correctly across Dec/Jan boundary.
+  const refDate = referenceYear ? new Date(Date.UTC(referenceYear, 0, 1)) : undefined;
+  const date = chronoParseDate(dateText, "en-GB", refDate);
   if (!date) return null;
 
   return {
@@ -138,18 +137,21 @@ export class ChiangMaiHHHAdapter implements SourceAdapter {
     const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
 
     let linesParsed = 0;
+    let currentYear: number | undefined;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      // Skip month headings like "April 2026"
+      // Extract year from month headings like "April 2026" — pass to
+      // parseChiangMaiLine so yearless dates resolve correctly.
+      const yearMatch = /\b(20\d{2})\b/.exec(line);
       if (/^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}$/i.test(line)) {
+        if (yearMatch) currentYear = Number.parseInt(yearMatch[1], 10);
         continue;
       }
 
       try {
-        const event = parseChiangMaiLine(line, kennelTag, baseUrl);
+        const event = parseChiangMaiLine(line, kennelTag, baseUrl, currentYear);
         if (event) {
-          event.startTime = defaultTime;
-          events.push(event);
+          events.push({ ...event, startTime: defaultTime });
         }
       } catch (err) {
         errors.push(`Error parsing line ${i}: ${err}`);

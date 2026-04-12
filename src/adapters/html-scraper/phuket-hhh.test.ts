@@ -5,8 +5,6 @@ const DEFAULT_KENNEL_MAP: Record<string, string> = {
   pooying: "phuket-pooying",
   tinmen: "phuket-tinmen",
   ironpussy: "iron-pussy",
-  bike: "phuket-bike",
-  kamalakoma: "kamala-koma",
 };
 
 describe("parsePhuketDateCell", () => {

@@ -3169,7 +3169,7 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.bangkokhash.com/siamsunday/index.php",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Biweekly",
       scheduleTime: "4:30 PM",
-      scheduleNotes: "2nd and 4th Sundays of each month. Bus pickup 3:50 PM from McDonalds Thapae Gate equivalent in BKK.",
+      scheduleNotes: "2nd and 4th Sundays of each month. Bus pickup details announced weekly on the Bangkok Hash website.",
       description: "Bangkok's biweekly Sunday hash, running on the 2nd and 4th Sundays. Part of the bangkokhash.com network.",
       latitude: 13.76, longitude: 100.5,
     },
