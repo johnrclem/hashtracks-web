@@ -2032,7 +2032,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     abbrev: "NV",
     colorClasses: "bg-amber-100 text-amber-700",
     pinColor: "#d97706",
-    centroidLat: 38.80,
+    centroidLat: 38.8,
     centroidLng: -116.42,
     aliases: ["NV"],
   },

@@ -55,12 +55,17 @@ export class LVH3Adapter implements SourceAdapter {
     const baseUrl = source.url || "https://lvh3.org";
     const config = (source.config ?? {}) as Record<string, unknown>;
     const kennelPatterns = (config.kennelPatterns as [string, string][] | undefined) ?? [];
-    const defaultKennelTag = (config.defaultKennelTag as string) ?? "lv-h3";
 
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
-    const result = await fetchTribeEvents(baseUrl, { perPage: 50, maxEvents: 200 });
+    // Pass a startDate far enough back to include historical events
+    // within the adapter's date window. The window filter (applyDateWindow)
+    // handles the actual bound — this just ensures the API returns enough.
+    const days = options?.days ?? source.scrapeDays ?? 365;
+    const startMs = Date.now() - days * 24 * 60 * 60 * 1000;
+    const startDate = new Date(startMs).toISOString().slice(0, 10);
+    const result = await fetchTribeEvents(baseUrl, { perPage: 50, maxEvents: 500, startDate });
     if (result.error) {
       errorDetails.fetch = [
         { url: baseUrl, status: result.error.status, message: result.error.message },
@@ -98,12 +103,14 @@ export class LVH3Adapter implements SourceAdapter {
       );
     }
 
-    if (events.length === 0 && errors.length === 0) {
-      errors.push("LVH3 adapter parsed 0 events — possible site format drift");
+    // Check raw parsed count (before category/date filtering) — if the
+    // API returned events but they were all filtered, that's expected
+    // behavior, not format drift.
+    if (result.events.length === 0 && errors.length === 0) {
+      errors.push("LVH3 adapter parsed 0 events from Tribe API — possible site format drift");
       errorDetails.parse = [{ row: 0, error: "Zero events parsed" }];
     }
 
-    const days = options?.days ?? source.scrapeDays ?? 365;
     return applyDateWindow(
       {
         events,

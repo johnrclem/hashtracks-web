@@ -3963,9 +3963,15 @@ export const SOURCES = [
           ["^wasatch", "wasatch-h3"],
           ["^LDS", "lds-h3"],
           ["^SLOSH", "slosh-h3"],
-          ["^SL,?\\s*UT", "slut-h3"],
+          // Match both "SL, UT" and escaped "SL\\, UT" from Google Calendar
+          ["^SL[,\\\\]+\\s*UT", "slut-h3"],
+          // Whoreman umbrella events (campouts, RDRs, specials)
+          ["^WH3", "wasatch-h3"],
+          ["^[Ww]horeman", "wasatch-h3"],
         ],
-        defaultKennelTag: "wasatch-h3",
+        // null default — unmatched events are skipped rather than
+        // silently misrouted to wasatch-h3
+        defaultKennelTag: null,
       },
       kennelCodes: ["wasatch-h3", "lds-h3", "slosh-h3", "slut-h3"],
     },
