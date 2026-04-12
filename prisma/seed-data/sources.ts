@@ -3917,5 +3917,63 @@ export const SOURCES = [
       config: {},
       kennelCodes: ["bhhb"],
     },
+
+    // ── Nevada + Utah (US gap fill) ──
+
+    // Las Vegas H3 — Tribe Events Calendar REST API at lvh3.org
+    // Covers LVH3 + ASS H3 via WordPress category routing
+    {
+      name: "Las Vegas H3 Events",
+      url: "https://lvh3.org",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        kennelPatterns: [["lvhhh", "lv-h3"], ["assh3", "ass-h3"]],
+        defaultKennelTag: "lv-h3",
+      },
+      kennelCodes: ["lv-h3", "ass-h3"],
+    },
+
+    // Reno H3 — Google Calendar
+    {
+      name: "Reno H3 Calendar",
+      url: "renoh3misman@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "every_6h",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "reno-h3",
+      },
+      kennelCodes: ["reno-h3"],
+    },
+
+    // Whoreman H3 (SLC umbrella) — Google Calendar covers 4 Utah kennels
+    {
+      name: "Whoreman H3 Calendar",
+      url: "4c78e8fc64a9536fa1f839765faf0eb6169e19aaa485fa40cb423795ebdfe7cb@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "every_6h",
+      scrapeDays: 365,
+      config: {
+        kennelPatterns: [
+          ["^wasatch", "wasatch-h3"],
+          ["^LDS", "lds-h3"],
+          ["^SLOSH", "slosh-h3"],
+          // Match both "SL, UT" and escaped "SL\\, UT" from Google Calendar
+          ["^SL[,\\\\]+\\s*UT", "slut-h3"],
+          // Whoreman umbrella events (campouts, RDRs, specials)
+          ["^WH3", "wasatch-h3"],
+          ["^[Ww]horeman", "wasatch-h3"],
+        ],
+        // null default — unmatched events are skipped rather than
+        // silently misrouted to wasatch-h3
+        defaultKennelTag: null,
+      },
+      kennelCodes: ["wasatch-h3", "lds-h3", "slosh-h3", "slut-h3"],
+    },
   ];
 

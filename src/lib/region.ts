@@ -2023,6 +2023,65 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -92.29,
     aliases: ["Little Rock"],
   },
+  // ── Nevada ──
+  {
+    name: "Nevada",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Los_Angeles",
+    abbrev: "NV",
+    colorClasses: "bg-amber-100 text-amber-700",
+    pinColor: "#d97706",
+    centroidLat: 38.8,
+    centroidLng: -116.42,
+    aliases: ["NV"],
+  },
+  {
+    name: "Las Vegas, NV",
+    country: "USA",
+    timezone: "America/Los_Angeles",
+    abbrev: "LV",
+    colorClasses: "bg-amber-200 text-amber-800",
+    pinColor: "#b45309",
+    centroidLat: 36.17,
+    centroidLng: -115.14,
+    aliases: ["Las Vegas", "Las Vegas, Nevada"],
+  },
+  {
+    name: "Reno, NV",
+    country: "USA",
+    timezone: "America/Los_Angeles",
+    abbrev: "RNO",
+    colorClasses: "bg-amber-200 text-amber-800",
+    pinColor: "#92400e",
+    centroidLat: 39.53,
+    centroidLng: -119.81,
+    aliases: ["Reno", "Reno, Nevada"],
+  },
+  // ── Utah ──
+  {
+    name: "Utah",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Denver",
+    abbrev: "UT",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#dc2626",
+    centroidLat: 39.32,
+    centroidLng: -111.09,
+    aliases: ["UT"],
+  },
+  {
+    name: "Salt Lake City, UT",
+    country: "USA",
+    timezone: "America/Denver",
+    abbrev: "SLC",
+    colorClasses: "bg-red-200 text-red-800",
+    pinColor: "#b91c1c",
+    centroidLat: 40.76,
+    centroidLng: -111.89,
+    aliases: ["Salt Lake City", "SLC", "Salt Lake City, Utah"],
+  },
   // ── Canada ──
   {
     name: "Canada",
@@ -3088,6 +3147,11 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Morgantown, WV": "West Virginia",
   // Arkansas
   "Little Rock, AR": "Arkansas",
+  // Nevada
+  "Las Vegas, NV": "Nevada",
+  "Reno, NV": "Nevada",
+  // Utah
+  "Salt Lake City, UT": "Utah",
   // Canada
   "Montreal, QC": "Quebec",
   "Ottawa, ON": "Ontario",
@@ -3228,6 +3292,8 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Indiana": "United States",
   "West Virginia": "United States",
   "Arkansas": "United States",
+  "Nevada": "United States",
+  "Utah": "United States",
   // Canada
   "Alberta": "Canada",
   "Ontario": "Canada",
