@@ -46,6 +46,7 @@ export interface KennelContext {
 export interface ConfirmedEventRef {
   kennelId: string;
   date: Date; // UTC noon
+  startTime?: string | null;
 }
 
 export interface ProjectedTrail {
@@ -253,17 +254,12 @@ export function scoreConfidence(
 
 /**
  * Remove projected trails where a CONFIRMED event already exists for the
- * same kennel + date. Uses date-only keying (not startTime) because a
- * confirmed event for a kennel on a date means we know what's happening —
- * the projection is redundant regardless of whether the times match exactly.
+ * same kennel + date (+ startTime when available).
  *
- * This is intentionally more aggressive than the inter-projection dedup
- * (which uses startTime to preserve legitimate different-time runs from
- * multiple rules). The asymmetry exists because:
- * - Two projections for the same kennel+date can represent distinct schedule
- *   rules (morning hash vs evening hash) — keep both.
- * - A confirmed event + a projection for the same kennel+date are almost
- *   certainly the same trail — suppress the projection.
+ * Strategy: when BOTH the confirmed event and the projection have a startTime,
+ * use (kennelId, date, startTime) so a confirmed afternoon run doesn't suppress
+ * a projected evening run. When either side lacks a startTime, fall back to
+ * (kennelId, date) — conservative, since we can't distinguish time slots.
  *
  * Only deduplicates against events with status=CONFIRMED (not TENTATIVE).
  */
@@ -271,16 +267,35 @@ export function deduplicateAgainstConfirmed(
   projections: ProjectedTrail[],
   confirmedEvents: ConfirmedEventRef[],
 ): ProjectedTrail[] {
-  const confirmedKeys = new Set<string>();
+  // Two key sets: one with startTime for precise matching, one date-only for fallback
+  const confirmedWithTime = new Set<string>();
+  const confirmedDateOnly = new Set<string>();
   for (const evt of confirmedEvents) {
     const dateKey = evt.date.toISOString().slice(0, 10);
-    confirmedKeys.add(`${evt.kennelId}:${dateKey}`);
+    if (evt.startTime) {
+      confirmedWithTime.add(`${evt.kennelId}:${dateKey}:${evt.startTime}`);
+    } else {
+      // No startTime on confirmed event → suppress all projections for this kennel+date
+      confirmedDateOnly.add(`${evt.kennelId}:${dateKey}`);
+    }
   }
 
   return projections.filter((proj) => {
     if (!proj.date) return true;
     const dateKey = proj.date.toISOString().slice(0, 10);
-    return !confirmedKeys.has(`${proj.kennelId}:${dateKey}`);
+    const kennelDate = `${proj.kennelId}:${dateKey}`;
+
+    // If any confirmed event for this kennel+date had no startTime, suppress all
+    if (confirmedDateOnly.has(kennelDate)) return false;
+
+    // If projection has a startTime, check for exact match
+    if (proj.startTime) {
+      return !confirmedWithTime.has(`${kennelDate}:${proj.startTime}`);
+    }
+
+    // Projection has no startTime — suppress if any confirmed event exists for this date
+    return confirmedWithTime.size === 0 ||
+      ![...confirmedWithTime].some((k) => k.startsWith(kennelDate + ":"));
   });
 }
 

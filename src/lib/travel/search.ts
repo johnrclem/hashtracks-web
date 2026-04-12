@@ -245,6 +245,7 @@ export async function executeTravelSearch(
   const confirmedRefs = confirmedEvents.map((e) => ({
     kennelId: e.kennelId,
     date: e.date,
+    startTime: e.startTime,
   }));
   const dedupedProjections = deduplicateAgainstConfirmed(scoredProjections, confirmedRefs);
 

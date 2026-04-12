@@ -329,8 +329,10 @@ export async function resolveDestinationTimezone(
   }
 
   try {
+    // Use full-precision coordinates for the API call to get an accurate result.
+    // Only the cache key is rounded — the API sees the real destination.
     const timestamp = Math.floor(Date.now() / 1000);
-    const url = `https://maps.googleapis.com/maps/api/timezone/json?location=${roundedLat},${roundedLng}&timestamp=${timestamp}&key=${apiKey}`;
+    const url = `https://maps.googleapis.com/maps/api/timezone/json?location=${latitude},${longitude}&timestamp=${timestamp}&key=${apiKey}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) {
       return { error: "Time Zone API request failed" };
@@ -369,10 +371,15 @@ function validateSearchParams(params: SaveTravelSearchParams): string | null {
   }
 
   // Validate date strings
+  // Strict YYYY-MM-DD validation: parse components and round-trip to reject
+  // impossible dates like 2026-02-31 (JS silently normalizes to March 3)
+  const startValid = isValidDateString(params.startDate);
+  if (!startValid) return "Invalid start date";
+  const endValid = isValidDateString(params.endDate);
+  if (!endValid) return "Invalid end date";
+
   const startDate = parseUtcNoonDate(params.startDate);
   const endDate = parseUtcNoonDate(params.endDate);
-  if (isNaN(startDate.getTime())) return "Invalid start date";
-  if (isNaN(endDate.getTime())) return "Invalid end date";
   if (endDate < startDate) return "End date must be on or after start date";
 
   return null;
@@ -395,4 +402,25 @@ function formatTripName(label: string, startDate: Date, endDate: Date): string {
     : endDate.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
   return `${label} · ${startStr}–${endStr}`;
+}
+
+/**
+ * Validate a YYYY-MM-DD string strictly. JS Date normalizes impossible dates
+ * (e.g., Feb 31 → Mar 3) instead of rejecting them. This round-trips the parsed
+ * components back to a string and checks for equality.
+ */
+function isValidDateString(dateStr: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  if (!match) return false;
+  const [, yStr, mStr, dStr] = match;
+  const y = parseInt(yStr, 10);
+  const m = parseInt(mStr, 10);
+  const d = parseInt(dStr, 10);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  return (
+    date.getUTCFullYear() === y &&
+    date.getUTCMonth() === m - 1 &&
+    date.getUTCDate() === d
+  );
 }

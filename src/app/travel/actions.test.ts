@@ -110,6 +110,22 @@ describe("saveTravelSearch", () => {
     });
     expect("error" in result && result.error).toContain("date");
   });
+
+  it("rejects impossible calendar dates like Feb 31", async () => {
+    const result = await saveTravelSearch({
+      ...validParams,
+      startDate: "2026-02-31",
+    });
+    expect("error" in result && result.error).toContain("date");
+  });
+
+  it("rejects month 13", async () => {
+    const result = await saveTravelSearch({
+      ...validParams,
+      startDate: "2026-13-01",
+    });
+    expect("error" in result && result.error).toContain("date");
+  });
 });
 
 describe("deleteTravelSearch", () => {
