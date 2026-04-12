@@ -3112,12 +3112,12 @@ export const KENNELS: KennelSeed[] = [
       latitude: 13.76, longitude: 100.5,
     },
     {
-      kennelCode: "cah3", shortName: "Cha-Am H3", fullName: "Cha-Am Hash House Harriers",
+      kennelCode: "cah3", shortName: "H2H3 / Cha-Am H3", fullName: "Hua Hin H3 & Cha-Am Hash House Harriers",
       region: "Hua Hin", country: "Thailand",
       website: "https://cah3.net",
-      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
-      scheduleNotes: "Monthly Saturday runs in the Hua Hin / Cha-Am area. Run announcements on cah3.net with run number, date, hares, and location.",
-      description: "Cha-Am's monthly hash in the Hua Hin/Prachuap Khiri Khan coastal region. Each run is a WordPress blog post with full details.",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Alternating Saturdays between Hua Hin (H2H3, founded 8 Jul 2000) and Cha-Am (CAH3, founded 13 Aug 2005). cah3.net WordPress covers both kennels as one combined feed. 100 baht adults / 50 baht kids.",
+      description: "Combined Hua Hin and Cha-Am hash kennel — two sister organizations that alternate Saturdays in Thailand's Prachuap Khiri Khan coastal region. Modeled as one kennel because the WordPress source at cah3.net publishes both without distinguishing titles. Split into separate kennels requires Chrome-verified title-pattern analysis.",
       latitude: 12.8, longitude: 99.97,
     },
     {

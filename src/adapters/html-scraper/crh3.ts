@@ -162,6 +162,12 @@ export class Crh3Adapter implements SourceAdapter {
 
     const events: RawEventData[] = [];
     let filteredOut = 0;
+    // Dedupe by (date, runNumber) — Blogger returns newest-first, so the
+    // first post per run# is the most recent (announcement). Later posts
+    // with the same run# are typically run reports/recaps and must NOT
+    // create additional events.
+    const seenRuns = new Set<string>();
+    let duplicatesSkipped = 0;
     for (let i = 0; i < bloggerResult.posts.length; i++) {
       const post = bloggerResult.posts[i];
       const result = parseCrh3Post({
@@ -171,6 +177,12 @@ export class Crh3Adapter implements SourceAdapter {
         published: post.published,
       });
       if (result.ok) {
+        const dedupKey = `${result.event.date}|${result.event.runNumber ?? ""}`;
+        if (seenRuns.has(dedupKey)) {
+          duplicatesSkipped++;
+          continue;
+        }
+        seenRuns.add(dedupKey);
         events.push(result.event);
         continue;
       }
@@ -202,6 +214,7 @@ export class Crh3Adapter implements SourceAdapter {
           blogId: bloggerResult.blogId,
           postsFound: bloggerResult.posts.length,
           postsFilteredOut: filteredOut,
+          duplicatesSkipped,
           eventsParsed: events.length,
           fetchDurationMs: bloggerResult.fetchDurationMs,
         },
