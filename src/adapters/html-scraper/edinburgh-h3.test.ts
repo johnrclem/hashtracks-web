@@ -106,6 +106,26 @@ ON INN The Oxford Bar`;
       expect(run!.onInn).toBe("The Oxford Bar");
     });
 
+    it("does not let ON INN prose overwrite real hare names (#659)", () => {
+      // The ON INN section can contain "Hare will provide soup..." which
+      // matches /^Hares?/ but is prose, not the hare field. The first-match
+      // guard ensures the real "Hares Ankle Grinder & Flying Boats" sticks
+      // and the later prose line is ignored.
+      const block = `Run No. 2305
+Date 12th April 2026
+Hares Ankle Grinder & Flying Boats
+Venue Meldon Hills car park
+Time 11:00
+ON INN: An informal affair at Dean Cottage
+Hare will provide soup, sandwiches, beer and bubbles.`;
+
+      const run = parseRunBlock(block);
+
+      expect(run).not.toBeNull();
+      expect(run!.hares).toBe("Ankle Grinder & Flying Boats");
+      expect(run!.hares).not.toContain("soup");
+    });
+
     it("returns null for empty text", () => {
       expect(parseRunBlock("")).toBeNull();
       expect(parseRunBlock("   \n  \n  ")).toBeNull();
