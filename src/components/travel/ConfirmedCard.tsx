@@ -108,7 +108,6 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
               className="flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-accent"
             >
               <ExternalLink className="h-3 w-3" />
