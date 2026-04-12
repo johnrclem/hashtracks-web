@@ -314,9 +314,12 @@ export function buildRawEventFromApollo(
     }
   }
 
-  // Extract hares from description (Meetup events often have "HARE:" or "Hare(s):" in the body).
+  // Extract hares from description. Meetup descriptions often use Markdown
+  // bold (**HHHARES**: ...) which survives stripHtmlTags because it's not
+  // HTML. Strip ** and ## markers before feeding to extractHares so the
+  // label regex can match cleanly.
   const descForHares = ev.description
-    ? stripHtmlTags(ev.description, "\n")
+    ? stripHtmlTags(ev.description, "\n").replace(/\*{1,2}|#{1,3}\s*/g, "")
     : undefined;
   const hares = descForHares ? extractHaresFromDescription(descForHares) : undefined;
   const cleanedDesc = cleanMeetupDescription(ev.description);
