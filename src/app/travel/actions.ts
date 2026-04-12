@@ -358,10 +358,18 @@ export async function resolveDestinationTimezone(
 // geocodeDestination
 // ============================================================================
 
+// In-memory geocode cache — same pattern as kennel count and timezone caches.
+// Normalized query key prevents abuse from slight variations.
+const geocodeCache = new Map<string, { result: { label: string; latitude: number; longitude: number }; expiresAt: number }>();
+const GEOCODE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
 /**
  * Server-side geocoding fallback for destination input. Uses the Google
  * Geocoding API (already enabled) when the client-side Places Autocomplete
  * isn't available (e.g., Places API (New) not enabled in GCP project).
+ *
+ * Cached in memory for 1 hour keyed by normalized query. On Vercel
+ * serverless this is ephemeral (warm-instance lifetime).
  *
  * No auth required — called during form interaction.
  */
@@ -370,15 +378,23 @@ export async function geocodeDestination(
 ): Promise<ActionResult<{ label: string; latitude: number; longitude: number }>> {
   if (!query.trim()) return { error: "Empty query" };
 
+  const cacheKey = query.trim().toLowerCase();
+  const cached = geocodeCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { success: true, ...cached.result };
+  }
+
   const result = await geocodeAddress(query);
   if (!result) return { error: "Could not find that location" };
 
-  return {
-    success: true,
+  const geo = {
     label: result.formattedAddress ?? query,
     latitude: result.lat,
     longitude: result.lng,
   };
+  geocodeCache.set(cacheKey, { result: geo, expiresAt: Date.now() + GEOCODE_CACHE_TTL_MS });
+
+  return { success: true, ...geo };
 }
 
 // ============================================================================

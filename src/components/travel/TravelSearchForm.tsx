@@ -95,7 +95,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
   return (
     <div className="travel-animate">
       {/* Margin labels above the card border */}
-      <div className="mb-2 grid grid-cols-3 gap-0 px-1 md:grid-cols-[2.4fr_1.4fr_1fr]">
+      <div className="mb-2 grid grid-cols-3 gap-0 px-1 md:grid-cols-[2.4fr_1.4fr_1fr_auto]">
         <div className="flex items-center gap-2 pl-5 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
           <MapPin className="h-3 w-3" />
           Destination

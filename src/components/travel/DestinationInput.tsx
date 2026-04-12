@@ -134,14 +134,14 @@ function DestinationAutocomplete({
         setInputValue(label);
         setIsResolved(true);
 
-        // Resolve timezone server-side
-        let timezone: string | undefined;
-        const tzResult = await resolveDestinationTimezone(lat, lng);
-        if ("timezone" in tzResult) {
-          timezone = tzResult.timezone;
-        }
-
-        onChange({ label, latitude: lat, longitude: lng, placeId: suggestion.placeId, timezone });
+        // Report place immediately so the form enables Search, then
+        // resolve timezone async and update when it arrives
+        onChange({ label, latitude: lat, longitude: lng, placeId: suggestion.placeId });
+        resolveDestinationTimezone(lat, lng).then((tzResult) => {
+          if ("timezone" in tzResult) {
+            onChange({ label, latitude: lat, longitude: lng, placeId: suggestion.placeId, timezone: tzResult.timezone });
+          }
+        });
       } catch {
         // Place details failed — fall back to server-side geocoding
         await fallbackGeocode(suggestion.description);
