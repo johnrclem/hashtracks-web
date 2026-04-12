@@ -512,7 +512,7 @@ export function stripNonEnglishCountry(location: string): string {
 // ---------------------------------------------------------------------------
 
 const PLACEHOLDER_RE =
-  /^(?:tbd|tba|tbc|n\/a|none|null|needed|required|registration|sign[\s\-_]*up!?|volunteer|\?{1,3})$/i;
+  /^(?:tbd|tba|tbc|n\/a|none|null|needed|required|registration|sign[\s\-_]*up!?|volunteer|\?{1,3}|hares?\s+needed\b.*|needs?\s+(?:a\s+)?hares?\b.*)$/i;
 
 /**
  * Field labels that frequently appear next to a colon in event descriptions
