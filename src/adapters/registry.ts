@@ -82,6 +82,9 @@ import { SydneyThirstyH3Adapter } from "./html-scraper/sydney-thirsty-h3";
 import { N2TH3Adapter } from "./html-scraper/n2th3";
 import { LswH3Adapter } from "./html-scraper/lsw-h3";
 import { LadiesH4HkAdapter } from "./html-scraper/ladies-h4-hk";
+import { Cah3Adapter } from "./html-scraper/cah3";
+import { Crh3Adapter } from "./html-scraper/crh3";
+import { BkkHarriettesAdapter } from "./html-scraper/bkk-harriettes";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -196,6 +199,10 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /n2th3\.org|n2th3\.wordpress/i, name: "N2TH3Adapter", factory: () => new N2TH3Adapter() },
   { pattern: /datadesignfactory\.com\/lsw/i, name: "LswH3Adapter", factory: () => new LswH3Adapter() },
   { pattern: /hkladiesh4\.wixsite/i, name: "LadiesH4HkAdapter", factory: () => new LadiesH4HkAdapter() },
+  // ── Thailand (Phase 1a) ──
+  { pattern: /cah3\.net/i, name: "Cah3Adapter", factory: () => new Cah3Adapter() },
+  { pattern: /chiangraihhh\.blogspot/i, name: "Crh3Adapter", factory: () => new Crh3Adapter() },
+  { pattern: /bangkokharriettes\.wordpress/i, name: "BkkHarriettesAdapter", factory: () => new BkkHarriettesAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

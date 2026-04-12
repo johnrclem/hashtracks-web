@@ -2250,6 +2250,85 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 103.82,
     aliases: ["SG", "Republic of Singapore"],
   },
+  // ── Thailand ──
+  {
+    name: "Thailand",
+    country: "Thailand",
+    level: "COUNTRY",
+    timezone: "Asia/Bangkok",
+    abbrev: "TH",
+    colorClasses: "bg-orange-100 text-orange-700",
+    pinColor: "#ea580c",
+    centroidLat: 15.87,
+    centroidLng: 100.99,
+    aliases: ["TH", "Kingdom of Thailand"],
+  },
+  {
+    name: "Bangkok",
+    country: "Thailand",
+    timezone: "Asia/Bangkok",
+    abbrev: "BKK",
+    colorClasses: "bg-orange-100 text-orange-700",
+    pinColor: "#ea580c",
+    centroidLat: 13.76,
+    centroidLng: 100.50,
+    aliases: ["Bangkok, Thailand", "Bangkok, TH"],
+  },
+  {
+    name: "Pattaya",
+    country: "Thailand",
+    timezone: "Asia/Bangkok",
+    abbrev: "PYA",
+    colorClasses: "bg-orange-100 text-orange-700",
+    pinColor: "#ea580c",
+    centroidLat: 12.93,
+    centroidLng: 100.88,
+    aliases: ["Pattaya, Thailand", "Pattaya, TH"],
+  },
+  {
+    name: "Chiang Mai",
+    country: "Thailand",
+    timezone: "Asia/Bangkok",
+    abbrev: "CNX",
+    colorClasses: "bg-orange-100 text-orange-700",
+    pinColor: "#ea580c",
+    centroidLat: 18.79,
+    centroidLng: 98.98,
+    aliases: ["Chiang Mai, Thailand", "Chiang Mai, TH"],
+  },
+  {
+    name: "Phuket",
+    country: "Thailand",
+    timezone: "Asia/Bangkok",
+    abbrev: "HKT",
+    colorClasses: "bg-orange-100 text-orange-700",
+    pinColor: "#ea580c",
+    centroidLat: 7.88,
+    centroidLng: 98.39,
+    aliases: ["Phuket, Thailand", "Phuket, TH"],
+  },
+  {
+    name: "Hua Hin",
+    country: "Thailand",
+    timezone: "Asia/Bangkok",
+    abbrev: "HHN",
+    colorClasses: "bg-orange-100 text-orange-700",
+    pinColor: "#ea580c",
+    centroidLat: 12.57,
+    centroidLng: 99.96,
+    aliases: ["Hua Hin, Thailand", "Hua Hin, TH"],
+  },
+  {
+    name: "Chiang Rai",
+    country: "Thailand",
+    timezone: "Asia/Bangkok",
+    abbrev: "CEI",
+    colorClasses: "bg-orange-100 text-orange-700",
+    pinColor: "#ea580c",
+    centroidLat: 19.91,
+    centroidLng: 99.83,
+    aliases: ["Chiang Rai, Thailand", "Chiang Rai, TH"],
+  },
   // ── Hong Kong ──
   {
     name: "Hong Kong",
@@ -2806,6 +2885,7 @@ export function inferCountry(name: string): string {
   if (/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/.test(lower)) return "Sweden";
   if (/\b(norway|oslo|bergen|stavanger)\b/.test(lower)) return "Norway";
   if (/\b(singapore)\b/.test(lower)) return "Singapore";
+  if (/\b(thailand|bangkok|pattaya|chiang mai|chiang rai|phuket|hua hin|samui|krabi)\b/.test(lower)) return "Thailand";
   if (/\b(hong kong|kowloon|lantau|new territories|wan\s?chai|sai kung|sek kong)\b/.test(lower)) return "Hong Kong";
   if (/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|pulau pinang|george town|selangor|johor|sabah|sarawak|melaka|malacca|ipoh|kuching|kota kinabalu|miri|kelana jaya|butterworth|kluang)\b/.test(lower)) return "Malaysia";
   return "USA";
@@ -2969,6 +3049,15 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Tokyo": "Japan",
   "Kansai": "Japan",
   "Okinawa": "Japan",
+  // Thailand
+  "Bangkok": "Thailand",
+  "Pattaya": "Thailand",
+  "Chiang Mai": "Thailand",
+  "Phuket": "Thailand",
+  "Hua Hin": "Thailand",
+  "Chiang Rai": "Thailand",
+  "Koh Samui": "Thailand",
+  "Krabi": "Thailand",
   // Belgium
   "Brussels": "Belgium",
   // Louisiana
@@ -3155,6 +3244,15 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Sweden": "Sweden",
   "Norway": "Norway",
   "Singapore": "Singapore",
+  "Thailand": "Thailand",
+  "Bangkok": "Thailand",
+  "Pattaya": "Thailand",
+  "Chiang Mai": "Thailand",
+  "Phuket": "Thailand",
+  "Hua Hin": "Thailand",
+  "Chiang Rai": "Thailand",
+  "Koh Samui": "Thailand",
+  "Krabi": "Thailand",
   "Hong Kong": "Hong Kong",
   // Malaysia — state groups (per feedback_country_group_map memory: both
   // state names AND metro names need explicit entries).
@@ -3233,6 +3331,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   AU: "Australia",
   CA: "Canada",
   SG: "Singapore",
+  TH: "Thailand",
   HK: "Hong Kong",
   MY: "Malaysia",
 };
