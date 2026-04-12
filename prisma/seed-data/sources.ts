@@ -3768,7 +3768,6 @@ export const SOURCES = [
       trustLevel: 5,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      enabled: false,
       config: {},
       kennelCodes: ["bkk-harriettes"],
     },

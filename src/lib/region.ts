@@ -3056,6 +3056,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Phuket": "Thailand",
   "Hua Hin": "Thailand",
   "Chiang Rai": "Thailand",
+  "Koh Samui": "Thailand",
+  "Krabi": "Thailand",
   // Belgium
   "Brussels": "Belgium",
   // Louisiana
@@ -3249,6 +3251,8 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Phuket": "Thailand",
   "Hua Hin": "Thailand",
   "Chiang Rai": "Thailand",
+  "Koh Samui": "Thailand",
+  "Krabi": "Thailand",
   "Hong Kong": "Hong Kong",
   // Malaysia — state groups (per feedback_country_group_map memory: both
   // state names AND metro names need explicit entries).

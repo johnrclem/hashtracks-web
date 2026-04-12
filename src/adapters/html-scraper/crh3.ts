@@ -23,10 +23,16 @@ import {
  * contains date, location, and hare info in plain text. Monthly 3rd Saturday.
  */
 
+/** Parse ISO string as UTC for chrono reference date anchoring. */
+function utcRef(iso: string | undefined): Date | undefined {
+  if (!iso) return undefined;
+  return new Date(iso.endsWith("Z") ? iso : iso + "Z");
+}
+
 const KENNEL_TAG = "crh3";
 const DEFAULT_START_TIME = "15:00"; // 3rd Saturday monthly, 3:00 PM start per Chrome research
-/** Matches CRH3 run posts with or without a run number. */
-const RUN_TITLE_RE = /CRH3\s*#?\s*\d*/i;
+/** Matches CRH3 run posts — requires at least one digit to avoid matching run reports. */
+const RUN_TITLE_RE = /CRH3\s*#?\s*\d+/i;
 /** Extracts the run number if present. */
 const RUN_NUMBER_RE = /CRH3\s*#?\s*(\d+)/i;
 
@@ -44,7 +50,7 @@ export function parseCrh3Title(title: string, publishDateIso: string): {
 
   // Strip "CRH3#NNN" or "CRH3" prefix and try to parse remaining text as a date
   const stripped = decoded.replace(/CRH3\s*#?\s*\d*\s*/i, "").trim();
-  const refDate = new Date(publishDateIso);
+  const refDate = utcRef(publishDateIso);
   const date = chronoParseDate(stripped, "en-GB", refDate, { forwardDate: true })
     ?? chronoParseDate(decoded, "en-GB", refDate, { forwardDate: true });
 
@@ -61,7 +67,7 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   hares?: string;
   location?: string;
 } {
-  const text = stripHtmlTags(bodyHtml, "\n")
+  const text = decodeEntities(stripHtmlTags(bodyHtml, "\n"))
     // Strip emoji characters that might interfere with regex
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, " ");
 
@@ -82,7 +88,7 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   const location = grab("Location|Run\\s*Site|Meeting");
 
   // Try to find a date in the body
-  const refDate = new Date(publishDateIso);
+  const refDate = utcRef(publishDateIso);
   const date = chronoParseDate(text, "en-GB", refDate, { forwardDate: true }) ?? undefined;
 
   return { date, hares, location };

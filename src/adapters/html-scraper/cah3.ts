@@ -11,6 +11,12 @@ import {
   stripHtmlTags,
 } from "../utils";
 
+/** Parse ISO string as UTC for chrono reference date anchoring. */
+function utcRef(iso: string | undefined): Date | undefined {
+  if (!iso) return undefined;
+  return new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
+}
+
 /**
  * Cha-Am Hash House Harriers (CAH3) adapter.
  *
@@ -50,7 +56,7 @@ export function parseCah3Title(title: string, publishDateIso: string): {
   const stripped = decoded.replace(/^Run\s*#?\s*\d+\s*[:\-–]?\s*/i, "").trim();
 
   // Parse date from the remaining title text using the publish date as reference
-  const refDate = new Date(publishDateIso);
+  const refDate = utcRef(publishDateIso);
   const date = chronoParseDate(stripped, "en-GB", refDate, { forwardDate: true })
     ?? chronoParseDate(decoded, "en-GB", refDate, { forwardDate: true });
 
@@ -71,7 +77,7 @@ export function parseCah3Body(bodyHtml: string): {
   startTime?: string;
   date?: string;
 } {
-  const text = stripHtmlTags(bodyHtml, "\n");
+  const text = decodeEntities(stripHtmlTags(bodyHtml, "\n"));
   const labels = "(?:Hares?|Location|Time|Date|Start|Run\\s*Site|On\\s*After|Meeting\\s*Point)";
   const stop = `(?=\\n|${labels}\\s*:|$)`;
 
@@ -89,7 +95,9 @@ export function parseCah3Body(bodyHtml: string): {
   let startTime: string | undefined;
   if (timeRaw) {
     const normalized = timeRaw.replace(/a\.m\./gi, "am").replace(/p\.m\./gi, "pm");
-    startTime = parse12HourTime(normalized);
+    const parsed = parse12HourTime(normalized);
+    if (parsed) startTime = parsed;
+    else if (/^\d{1,2}:\d{2}$/.test(normalized.trim())) startTime = normalized.trim();
   }
 
   const dateRaw = grab("Date");
@@ -115,10 +123,10 @@ export type ParseCah3PostResult =
  * Parse a single CAH3 WordPress post into RawEventData.
  *
  * CAH3 posts often don't have a date in the title (e.g. "Run 533: Saurkrap's
- * Cat Sanctuary Run") or body. The WordPress publish date IS the run
- * announcement date and is typically within a few days of the actual run.
- * When no date can be parsed from title or body, we fall back to the post's
- * publish date.
+ * Cat Sanctuary Run") or body. When no date can be parsed from title or body,
+ * the post is skipped (returns `no-date`) rather than using the WordPress
+ * publish date, which is the announcement date and may be several days
+ * before the actual Saturday run.
  *
  * Exported for unit testing.
  */
@@ -139,7 +147,7 @@ export function parseCah3Post(post: Cah3PostInput): ParseCah3PostResult {
   if (!date) return { ok: false, reason: "no-date", title: rawTitle };
 
   // Try to extract a Google Maps link from the body as locationUrl
-  const mapsMatch = /href="(https?:\/\/(?:maps\.app\.goo\.gl|(?:www\.)?google\.com\/maps)[^"]+)"/i.exec(post.content);
+  const mapsMatch = /href=["']?(https?:\/\/(?:maps\.app\.goo\.gl|(?:www\.)?google\.com\/maps)[^"'\s>]+)/i.exec(post.content);
   const locationUrl = mapsMatch?.[1];
 
   return {

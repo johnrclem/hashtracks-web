@@ -3109,7 +3109,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
       scheduleNotes: "Monthly Saturday runs. Trail details posted on Meetup (Bangkok Weekend Walk Run Adventure Group).",
       description: "Bangkok's Saturday hash, running monthly trails around the city. Active Meetup group with 768+ members.",
-      latitude: 13.76, longitude: 100.50,
+      latitude: 13.76, longitude: 100.5,
     },
     {
       kennelCode: "cah3", shortName: "Cha-Am H3", fullName: "Cha-Am Hash House Harriers",
@@ -3118,7 +3118,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
       scheduleNotes: "Monthly Saturday runs in the Hua Hin / Cha-Am area. Run announcements on cah3.net with run number, date, hares, and location.",
       description: "Cha-Am's monthly hash in the Hua Hin/Prachuap Khiri Khan coastal region. Each run is a WordPress blog post with full details.",
-      latitude: 12.80, longitude: 99.97,
+      latitude: 12.8, longitude: 99.97,
     },
     {
       kennelCode: "crh3", shortName: "Chiang Rai H3", fullName: "Chiang Rai Hash House Harriers",
@@ -3136,7 +3136,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Wednesday runs. Blog has only 3 posts (they reuse/overwrite a single 'Next Run' post with updated details).",
       description: "Bangkok's women's hash, running weekly Wednesday trails. One of the longest-running Harriettes chapters in Southeast Asia.",
-      latitude: 13.76, longitude: 100.50,
+      latitude: 13.76, longitude: 100.5,
     },
   ];
 

@@ -6,9 +6,16 @@ import { fetchWordPressComPosts, type WordPressComPage } from "../wordpress-api"
 import {
   applyDateWindow,
   chronoParseDate,
+  decodeEntities,
   normalizeHaresField,
   parse12HourTime,
 } from "../utils";
+
+/** Parse ISO string as UTC for chrono reference date anchoring. */
+function utcRef(iso: string | undefined): Date | undefined {
+  if (!iso) return undefined;
+  return new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
+}
 
 /**
  * Bangkok Harriettes Hash House Harriers adapter.
@@ -52,10 +59,16 @@ export function parseBkkHarriettesPost(
   post: WordPressComPage,
 ): RawEventData | null {
   const $ = cheerio.load(post.content);
-  const bodyText = $("body").text().trim();
+  const bodyText = decodeEntities($("body").text().trim());
+
+  // Hoist UTC-normalized refDate once — Bangkok Harriettes hardcode
+  // publish dates to 2000-01-01, so use post.modified (reflects when
+  // the "Next Run" post was last updated). UTC normalization avoids
+  // timezone-dependent year shifts around midnight.
+  const refDate = utcRef(post.modified) ?? utcRef(post.date);
 
   // Pattern 1: "Run no. NNNN on Wednesday 15 April at 17:30"
-  const runLineMatch = /Run\s*no\.?\s*(\d+)\s+on\s+(.+?)(?:\s+at\s+(\d{1,2}:\d{2}))?\s*$/im.exec(bodyText);
+  const runLineMatch = /Run\s*no\.?\s*(\d+)\s+on\s+(.+?)(?:\s+at\s+(\d{1,2}:\d{2}))?[.,]?\s*$/im.exec(bodyText);
 
   let date: string | null = null;
   let runNumber: number | undefined;
@@ -64,56 +77,50 @@ export function parseBkkHarriettesPost(
   if (runLineMatch) {
     runNumber = Number.parseInt(runLineMatch[1], 10);
     const dateStr = runLineMatch[2].trim();
-    // Anchor yearless dates to the post's modified timestamp (NOT the
-    // publish date — Bangkok Harriettes hardcode publish dates to
-    // 2000-01-01 because they reuse posts). The modified timestamp
-    // reflects when the "Next Run" post was last updated with new
-    // run details, giving chrono the correct year context.
-    const refDate = post.modified ? new Date(post.modified) : post.date ? new Date(post.date) : undefined;
     date = chronoParseDate(dateStr, "en-GB", refDate, { forwardDate: true });
     if (runLineMatch[3]) {
       const parsed = parse12HourTime(runLineMatch[3]);
       if (parsed) startTime = parsed;
-      else startTime = runLineMatch[3]; // already HH:MM
+      else if (/^\d{1,2}:\d{2}$/.test(runLineMatch[3].trim())) startTime = runLineMatch[3].trim();
     }
   }
 
   // Pattern 2: labeled "Date:" field (fallback for alternate format)
   if (!date) {
-    const dateMatch = /(?:^|\b)Date\s*[:\-]+\s*(.+?)(?:\n|$)/im.exec(bodyText);
+    const dateMatch = /(?:^|\b)Date\s*[:-]+\s*(.+?)(?:\n|$)/im.exec(bodyText);
     if (dateMatch) {
-      const refDate = post.modified ? new Date(post.modified) : post.date ? new Date(post.date) : undefined;
       date = chronoParseDate(dateMatch[1], "en-GB", refDate, { forwardDate: true });
     }
   }
 
   // Pattern 3: labeled "Run Number:" field (fallback)
   if (!runNumber) {
-    const numMatch = /Run\s*(?:Number|No|#)\s*[:\-]+\s*(\d+)/i.exec(bodyText);
+    const numMatch = /Run\s*(?:Number|No|#)\s*[:-]+\s*(\d+)/i.exec(bodyText);
     if (numMatch) runNumber = Number.parseInt(numMatch[1], 10);
   }
 
-  // Fallback: scan full body for any date
+  // Fallback: scan full body for any date — still anchor to refDate
   if (!date) {
-    date = chronoParseDate(bodyText, "en-GB");
+    date = chronoParseDate(bodyText, "en-GB", refDate, { forwardDate: true });
   }
   if (!date) return null;
 
   // Extract labeled fields: "Hare:-" and "Location:-"
-  const hareMatch = /Hares?\s*[:\-]+\s*(.+?)(?=\n|Location|$)/i.exec(bodyText);
+  const hareMatch = /Hares?\s*[:-]+\s*(.+?)(?=\n|Location|$)/i.exec(bodyText);
   const hares = hareMatch?.[1].trim() || undefined;
 
-  const locationMatch = /Location\s*[:\-]+\s*(.+?)(?=\n|Hare|$)/i.exec(bodyText);
+  const locationMatch = /Location\s*[:-]+\s*(.+?)(?=\n|Hare|$)/i.exec(bodyText);
   const locationRaw = locationMatch?.[1].trim() || undefined;
-  // Skip TBA/TBD locations
   const location = locationRaw && !/^tba|^tbd/i.test(locationRaw) ? locationRaw : undefined;
 
   // Time from labeled field (fallback if not in run line)
   if (startTime === DEFAULT_START_TIME) {
-    const timeMatch = /Time\s*[:\-]+\s*(.+?)(?:\n|$)/i.exec(bodyText);
+    const timeMatch = /Time\s*[:-]+\s*(.+?)(?:\n|$)/i.exec(bodyText);
     if (timeMatch) {
-      const parsed = parse12HourTime(timeMatch[1].replace(/\./g, ""));
+      const timeStr = timeMatch[1].replaceAll(".", "").trim();
+      const parsed = parse12HourTime(timeStr);
       if (parsed) startTime = parsed;
+      else if (/^\d{1,2}:\d{2}$/.test(timeStr)) startTime = timeStr;
     }
   }
 
