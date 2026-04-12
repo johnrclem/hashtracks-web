@@ -13,31 +13,33 @@ datasource db {
 // ── USERS ──
 
 model User {
-  id          String       @id @default(cuid())
-  clerkId     String       @unique
-  hashName    String?      // Public display name (primary identity)
-  nerdName    String?      // Real name (private by default)
-  email       String       @unique
-  bio         String?
-  timeDisplayPref TimeDisplayPref @default(EVENT_LOCAL)
-  homeKennels UserKennel[]
-  attendances Attendance[]
-  hareCredits EventHare[]
+  id                  String               @id @default(cuid())
+  clerkId             String               @unique
+  hashName            String? // Public display name (primary identity)
+  nerdName            String? // Real name (private by default)
+  email               String               @unique
+  bio                 String?
+  timeDisplayPref     TimeDisplayPref      @default(EVENT_LOCAL)
+  homeKennels         UserKennel[]
+  attendances         Attendance[]
+  hareCredits         EventHare[]
   // Misman relations
   kennelHasherLinks   KennelHasherLink[]
   mismanRequests      MismanRequest[]
-  recordedAttendances KennelAttendance[] @relation("RecordedAttendances")
-  sentInvites           MismanInvite[]     @relation("SentInvites")
-  acceptedInvites       MismanInvite[]     @relation("AcceptedInvites")
-  rosterGroupRequests   RosterGroupRequest[]
+  recordedAttendances KennelAttendance[]   @relation("RecordedAttendances")
+  sentInvites         MismanInvite[]       @relation("SentInvites")
+  acceptedInvites     MismanInvite[]       @relation("AcceptedInvites")
+  rosterGroupRequests RosterGroupRequest[]
   // Strava
   stravaConnection    StravaConnection?
   // Manual events
-  submittedEvents     Event[]          @relation("SubmittedEvents")
+  submittedEvents     Event[]              @relation("SubmittedEvents")
   // Kennel suggestions
   kennelRequests      KennelRequest[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  // Travel Mode saved searches
+  travelSearches      TravelSearch[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 }
 
 enum TimeDisplayPref {
@@ -59,44 +61,44 @@ model UserKennel {
 
 enum UserKennelRole {
   MEMBER // Subscribed hasher
-  ADMIN  // Can edit kennel details + all MISMAN permissions
+  ADMIN // Can edit kennel details + all MISMAN permissions
   MISMAN // Can manage roster + attendance for this kennel
 }
 
 // ── REGIONS ──
 
 enum RegionLevel {
-  COUNTRY          // USA, UK, Australia
-  STATE_PROVINCE   // New York, California (optional layer)
-  METRO            // New York City, San Francisco (leaf — where kennels live)
+  COUNTRY // USA, UK, Australia
+  STATE_PROVINCE // New York, California (optional layer)
+  METRO // New York City, San Francisco (leaf — where kennels live)
 }
 
 model Region {
-  id            String       @id @default(cuid())
-  name          String       @unique    // "New York City, NY", "London"
-  slug          String       @unique    // "new-york-city-ny", "london"
-  country       String       @default("USA")
-  level         RegionLevel  @default(METRO)
-  timezone      String                  // IANA: "America/New_York", "Europe/London"
-  abbrev        String                  // "NYC", "LDN"
-  colorClasses  String                  // Tailwind: "bg-blue-200 text-blue-800"
-  pinColor      String                  // Hex: "#2563eb"
-  centroidLat   Float?                  // Region center latitude
-  centroidLng   Float?                  // Region center longitude
+  id           String      @id @default(cuid())
+  name         String      @unique // "New York City, NY", "London"
+  slug         String      @unique // "new-york-city-ny", "london"
+  country      String      @default("USA")
+  level        RegionLevel @default(METRO)
+  timezone     String // IANA: "America/New_York", "Europe/London"
+  abbrev       String // "NYC", "LDN"
+  colorClasses String // Tailwind: "bg-blue-200 text-blue-800"
+  pinColor     String // Hex: "#2563eb"
+  centroidLat  Float? // Region center latitude
+  centroidLng  Float? // Region center longitude
 
   // Hierarchy (optional, max 3 levels: COUNTRY > STATE_PROVINCE > METRO)
-  parentId      String?
-  parent        Region?      @relation("RegionHierarchy", fields: [parentId], references: [id])
-  children      Region[]     @relation("RegionHierarchy")
+  parentId String?
+  parent   Region?  @relation("RegionHierarchy", fields: [parentId], references: [id])
+  children Region[] @relation("RegionHierarchy")
 
   // Relations
-  kennels             Kennel[]
-  sourceProposals     SourceProposal[]
-  kennelDiscoveries   KennelDiscovery[]
-  kennelRequests      KennelRequest[]
+  kennels           Kennel[]
+  sourceProposals   SourceProposal[]
+  kennelDiscoveries KennelDiscovery[]
+  kennelRequests    KennelRequest[]
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([parentId])
   @@index([country])
@@ -106,63 +108,65 @@ model Region {
 // ── KENNELS ──
 
 model Kennel {
-  id          String         @id @default(cuid())
-  kennelCode  String         @unique // Permanent identity — set once, never changes
-  shortName   String         // Display name (unique within region, not globally)
-  slug        String         @unique // URL-safe: "nych3", "bos-moon"
-  fullName    String         // "New York City Hash House Harriers"
-  region      String         // "New York City, NY" — denormalized from Region.name
-  regionId    String         // FK to Region (required)
-  regionRef   Region         @relation(fields: [regionId], references: [id])
-  country     String         @default("USA")
-  latitude    Float?         // Kennel-level coordinates for "Near Me" search
-  longitude   Float?         // Kennel-level coordinates for "Near Me" search
+  id          String  @id @default(cuid())
+  kennelCode  String  @unique // Permanent identity — set once, never changes
+  shortName   String // Display name (unique within region, not globally)
+  slug        String  @unique // URL-safe: "nych3", "bos-moon"
+  fullName    String // "New York City Hash House Harriers"
+  region      String // "New York City, NY" — denormalized from Region.name
+  regionId    String // FK to Region (required)
+  regionRef   Region  @relation(fields: [regionId], references: [id])
+  country     String  @default("USA")
+  latitude    Float? // Kennel-level coordinates for "Near Me" search
+  longitude   Float? // Kennel-level coordinates for "Near Me" search
   description String?
   website     String?
 
   // ── SCHEDULE ──
-  scheduleDayOfWeek  String?   // "Monday", "Saturday" (display string)
-  scheduleTime       String?   // "7:00 PM", "12:00 Noon" (display string)
-  scheduleFrequency  String?   // "Weekly", "Biweekly", "Monthly", "Full Moon"
-  scheduleNotes      String?   // Seasonal or special notes
+  scheduleDayOfWeek String? // "Monday", "Saturday" (display string)
+  scheduleTime      String? // "7:00 PM", "12:00 Noon" (display string)
+  scheduleFrequency String? // "Weekly", "Biweekly", "Monthly", "Full Moon"
+  scheduleNotes     String? // Seasonal or special notes
 
   // ── SOCIAL & CONTACT ──
-  facebookUrl        String?
-  instagramHandle    String?   // Handle only: "@londonhash"
-  twitterHandle      String?   // Handle only: "@sfh3"
-  discordUrl         String?
-  mailingListUrl     String?
-  contactEmail       String?
-  contactName        String?   // "Grand Master: Mudflap"
+  facebookUrl     String?
+  instagramHandle String? // Handle only: "@londonhash"
+  twitterHandle   String? // Handle only: "@sfh3"
+  discordUrl      String?
+  mailingListUrl  String?
+  contactEmail    String?
+  contactName     String? // "Grand Master: Mudflap"
 
   // ── DETAILS ──
-  hashCash           String?   // "$5", "Free", "$7/$10 visitor"
-  paymentLink        String?   // Venmo/PayPal/CashApp URL
-  foundedYear        Int?
-  logoUrl            String?
+  hashCash    String? // "$5", "Free", "$7/$10 visitor"
+  paymentLink String? // Venmo/PayPal/CashApp URL
+  foundedYear Int?
+  logoUrl     String?
 
   // ── FLAGS ──
-  dogFriendly        Boolean?  // null = unknown
-  walkersWelcome     Boolean?  // null = unknown
-  isHidden           Boolean   @default(false) // Hide from public directory/hareline
-  lastEventDate      DateTime? // Cached: MAX(event.date) for activity status computation
+  dogFriendly    Boolean? // null = unknown
+  walkersWelcome Boolean? // null = unknown
+  isHidden       Boolean   @default(false) // Hide from public directory/hareline
+  lastEventDate  DateTime? // Cached: MAX(event.date) for activity status computation
 
-  aliases     KennelAlias[]
-  sources     SourceKennel[]
-  events      Event[]
-  members     UserKennel[]
+  aliases           KennelAlias[]
+  sources           SourceKennel[]
+  events            Event[]
+  members           UserKennel[]
   // Misman relations
-  kennelHashers  KennelHasher[]
-  mismanRequests MismanRequest[]
-  mismanInvites  MismanInvite[]
-  rosterGroups   RosterGroupKennel[]
+  kennelHashers     KennelHasher[]
+  mismanRequests    MismanRequest[]
+  mismanInvites     MismanInvite[]
+  rosterGroups      RosterGroupKennel[]
   discoveries       KennelDiscovery[]
   sourceProposals   SourceProposal[]
-  auditLogs         AuditLog[]         @relation("AuditLogKennel")
-  auditSuppressions AuditSuppression[] @relation("AuditSuppressionKennel")
-  auditIssues       AuditIssue[]       @relation("AuditIssueKennel")
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  auditLogs         AuditLog[]          @relation("AuditLogKennel")
+  auditSuppressions AuditSuppression[]  @relation("AuditSuppressionKennel")
+  auditIssues       AuditIssue[]        @relation("AuditIssueKennel")
+  // Travel Mode
+  scheduleRules     ScheduleRule[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
   @@unique([shortName, regionId])
   @@index([regionId])
@@ -181,72 +185,72 @@ model KennelAlias {
 // ── SOURCES ──
 
 model Source {
-  id            String       @id @default(cuid())
-  name          String       // "HashNYC Website"
-  url           String       // "https://hashnyc.com"
+  id            String         @id @default(cuid())
+  name          String // "HashNYC Website"
+  url           String // "https://hashnyc.com"
   type          SourceType
-  config        Json?        // Adapter-specific config (CSS selectors, calendar ID, etc.)
-  trustLevel    Int          @default(5) // 1-10 scale
-  scrapeFreq    String       @default("daily") // "hourly", "daily", "weekly"
+  config        Json? // Adapter-specific config (CSS selectors, calendar ID, etc.)
+  trustLevel    Int            @default(5) // 1-10 scale
+  scrapeFreq    String         @default("daily") // "hourly", "daily", "weekly"
   lastScrapeAt  DateTime?
   lastSuccessAt DateTime?
-  healthStatus  SourceHealth @default(UNKNOWN)
-  scrapeDays    Int          @default(90) // Lookback window in days for cron
-  enabled       Boolean      @default(true) // False = skip in cron (temporary disable)
+  healthStatus  SourceHealth   @default(UNKNOWN)
+  scrapeDays    Int            @default(90) // Lookback window in days for cron
+  enabled       Boolean        @default(true) // False = skip in cron (temporary disable)
   kennels       SourceKennel[]
   rawEvents     RawEvent[]
   scrapeLogs    ScrapeLog[]
   alerts        Alert[]
   eventLinks    EventLink[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 enum SourceType {
-  HTML_SCRAPER    // hashnyc.com, hashnj.com
+  HTML_SCRAPER // hashnyc.com, hashnj.com
   GOOGLE_CALENDAR // bostonhash@gmail.com
-  GOOGLE_SHEETS   // Summit H3 spreadsheet
-  ICAL_FEED       // .ics URL
-  RSS_FEED        // RSS/Atom feed
-  JSON_API        // Generic JSON API
-  HASHREGO        // hashrego.com event pages
-  MEETUP          // meetup.com group events
-  STATIC_SCHEDULE    // Auto-generated events from schedule rules (Facebook-only kennels)
-  HARRIER_CENTRAL    // harriercentralpublicapi.azurewebsites.net REST API
-  MANUAL             // User-submitted events
+  GOOGLE_SHEETS // Summit H3 spreadsheet
+  ICAL_FEED // .ics URL
+  RSS_FEED // RSS/Atom feed
+  JSON_API // Generic JSON API
+  HASHREGO // hashrego.com event pages
+  MEETUP // meetup.com group events
+  STATIC_SCHEDULE // Auto-generated events from schedule rules (Facebook-only kennels)
+  HARRIER_CENTRAL // harriercentralpublicapi.azurewebsites.net REST API
+  MANUAL // User-submitted events
 }
 
 model ScrapeLog {
-  id            String       @id @default(cuid())
-  sourceId      String
-  status        ScrapeStatus @default(RUNNING)
-  startedAt     DateTime     @default(now())
-  completedAt   DateTime?
-  durationMs    Int?
-  eventsFound   Int          @default(0)
-  eventsCreated Int          @default(0)
-  eventsUpdated Int          @default(0)
-  eventsSkipped   Int          @default(0)
-  eventsCancelled Int          @default(0) // Events marked CANCELLED by reconciliation
-  unmatchedTags String[]
-  errors        String[]
-  forced        Boolean      @default(false)
+  id                String       @id @default(cuid())
+  sourceId          String
+  status            ScrapeStatus @default(RUNNING)
+  startedAt         DateTime     @default(now())
+  completedAt       DateTime?
+  durationMs        Int?
+  eventsFound       Int          @default(0)
+  eventsCreated     Int          @default(0)
+  eventsUpdated     Int          @default(0)
+  eventsSkipped     Int          @default(0)
+  eventsCancelled   Int          @default(0) // Events marked CANCELLED by reconciliation
+  unmatchedTags     String[]
+  errors            String[]
+  forced            Boolean      @default(false)
   // Quality metrics
-  fillRateTitle     Int?     // % of events with non-empty title (0-100)
-  fillRateLocation  Int?     // % of events with non-empty location
-  fillRateHares     Int?     // % of events with non-empty hares
-  fillRateStartTime Int?     // % of events with non-empty startTime
-  fillRateRunNumber Int?     // % of events with non-empty runNumber
-  structureHash     String?  // HTML structural fingerprint (HTML sources only)
+  fillRateTitle     Int? // % of events with non-empty title (0-100)
+  fillRateLocation  Int? // % of events with non-empty location
+  fillRateHares     Int? // % of events with non-empty hares
+  fillRateStartTime Int? // % of events with non-empty startTime
+  fillRateRunNumber Int? // % of events with non-empty runNumber
+  structureHash     String? // HTML structural fingerprint (HTML sources only)
   // Enhanced logging (Phase 2 + Phase 3)
-  errorDetails      Json?    // Structured error breakdown: {fetch: [], parse: [], merge: []}
-  sampleBlocked     Json?    // 3-5 example blocked events with reason + suggested action
-  sampleSkipped     Json?    // 3-5 example skipped events with reason + suggested action
-  fetchDurationMs   Int?     // Time for adapter.fetch() (HTTP + parsing)
-  mergeDurationMs   Int?     // Time for processRawEvents()
-  diagnosticContext Json?    // Per-adapter metadata (row counts, tabs, calendar IDs)
-  source        Source       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  alerts        Alert[]
+  errorDetails      Json? // Structured error breakdown: {fetch: [], parse: [], merge: []}
+  sampleBlocked     Json? // 3-5 example blocked events with reason + suggested action
+  sampleSkipped     Json? // 3-5 example skipped events with reason + suggested action
+  fetchDurationMs   Int? // Time for adapter.fetch() (HTTP + parsing)
+  mergeDurationMs   Int? // Time for processRawEvents()
+  diagnosticContext Json? // Per-adapter metadata (row counts, tabs, calendar IDs)
+  source            Source       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  alerts            Alert[]
 
   @@index([sourceId, startedAt])
 }
@@ -258,11 +262,11 @@ enum ScrapeStatus {
 }
 
 enum SourceHealth {
-  HEALTHY  // Last scrape succeeded
+  HEALTHY // Last scrape succeeded
   DEGRADED // Fewer events than expected
-  FAILING  // Last N scrapes failed
-  STALE    // No scrape attempted in >7 days
-  UNKNOWN  // Never scraped
+  FAILING // Last N scrapes failed
+  STALE // No scrape attempted in >7 days
+  UNKNOWN // Never scraped
 }
 
 model SourceKennel {
@@ -281,11 +285,11 @@ model SourceKennel {
 model RawEvent {
   id          String   @id @default(cuid())
   sourceId    String
-  rawData     Json     // Exact data as scraped — immutable
-  fingerprint String   // Hash of key fields for change detection
+  rawData     Json // Exact data as scraped — immutable
+  fingerprint String // Hash of key fields for change detection
   scrapedAt   DateTime @default(now())
   processed   Boolean  @default(false)
-  eventId     String?  // Link to canonical Event after processing
+  eventId     String? // Link to canonical Event after processing
   source      Source   @relation(fields: [sourceId], references: [id])
   event       Event?   @relation(fields: [eventId], references: [id])
 
@@ -294,44 +298,44 @@ model RawEvent {
 }
 
 model Event {
-  id              String      @id @default(cuid())
-  kennelId        String
-  date            DateTime    // Event date (UTC noon to avoid DST issues)
-  dateUtc         DateTime?   // Same moment in UTC (for cross-timezone queries)
-  timezone        String?     // IANA timezone (e.g., "America/New_York")
-  runNumber       Int?        // Kennel-specific sequential number
-  title           String?     // Trail/event name
-  description     String?
-  haresText       String?     // Display text: "Mudflap, Just Simon"
-  locationName    String?     // Start location name (venue or first line of address)
-  locationStreet  String?     // Full street address, e.g. "SRO Lounge, 1807 Fifth Ave, San Diego, CA 92101"
-  locationCity    String?     // Reverse-geocoded city, e.g. "Williamsport, MD"
-  locationAddress String?     // Maps URL for directions
-  latitude        Float?
-  longitude       Float?
-  startTime       String?     // Local time string "HH:MM" — NOT a timestamp
-  endTime         String?     // Local time string "HH:MM" — same convention as startTime
-  cost            String?     // Free-form: "$10", "$5 cash / $10 card", "Free for virgins"
-  sourceUrl       String?     // Link to original event page
-  trustLevel      Int         @default(5)
-  isSeriesParent  Boolean     @default(false)
-  parentEventId   String?
-  status          EventStatus @default(CONFIRMED)
+  id                String      @id @default(cuid())
+  kennelId          String
+  date              DateTime // Event date (UTC noon to avoid DST issues)
+  dateUtc           DateTime? // Same moment in UTC (for cross-timezone queries)
+  timezone          String? // IANA timezone (e.g., "America/New_York")
+  runNumber         Int? // Kennel-specific sequential number
+  title             String? // Trail/event name
+  description       String?
+  haresText         String? // Display text: "Mudflap, Just Simon"
+  locationName      String? // Start location name (venue or first line of address)
+  locationStreet    String? // Full street address, e.g. "SRO Lounge, 1807 Fifth Ave, San Diego, CA 92101"
+  locationCity      String? // Reverse-geocoded city, e.g. "Williamsport, MD"
+  locationAddress   String? // Maps URL for directions
+  latitude          Float?
+  longitude         Float?
+  startTime         String? // Local time string "HH:MM" — NOT a timestamp
+  endTime           String? // Local time string "HH:MM" — same convention as startTime
+  cost              String? // Free-form: "$10", "$5 cash / $10 card", "Free for virgins"
+  sourceUrl         String? // Link to original event page
+  trustLevel        Int         @default(5)
+  isSeriesParent    Boolean     @default(false)
+  parentEventId     String?
+  status            EventStatus @default(CONFIRMED)
   isManualEntry     Boolean     @default(false)
   submittedByUserId String?
   submittedBy       User?       @relation("SubmittedEvents", fields: [submittedByUserId], references: [id])
 
-  kennel      Kennel      @relation(fields: [kennelId], references: [id])
-  parentEvent Event?      @relation("EventSeries", fields: [parentEventId], references: [id])
-  childEvents Event[]     @relation("EventSeries")
-  rawEvents   RawEvent[]
-  hares       EventHare[]
-  attendances Attendance[]
-  eventLinks  EventLink[]
+  kennel            Kennel             @relation(fields: [kennelId], references: [id])
+  parentEvent       Event?             @relation("EventSeries", fields: [parentEventId], references: [id])
+  childEvents       Event[]            @relation("EventSeries")
+  rawEvents         RawEvent[]
+  hares             EventHare[]
+  attendances       Attendance[]
+  eventLinks        EventLink[]
   // Misman relations
   kennelAttendances KennelAttendance[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([date])
   @@index([kennelId, date])
@@ -342,8 +346,8 @@ model EventLink {
   id        String   @id @default(cuid())
   eventId   String
   url       String
-  label     String   // e.g., "Hash Rego", "Meetup", "Kennel Website"
-  sourceId  String?  // Which source created this link (nullable for manual)
+  label     String // e.g., "Hash Rego", "Meetup", "Kennel Website"
+  sourceId  String? // Which source created this link (nullable for manual)
   createdAt DateTime @default(now())
 
   event  Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -362,8 +366,8 @@ enum EventStatus {
 model EventHare {
   id         String         @id @default(cuid())
   eventId    String
-  hareName   String         // Display name (always populated)
-  userId     String?        // Optional link to User record
+  hareName   String // Display name (always populated)
+  userId     String? // Optional link to User record
   role       HareRole       @default(HARE)
   sourceType HareSourceType @default(SCRAPED)
   event      Event          @relation(fields: [eventId], references: [id])
@@ -380,8 +384,8 @@ enum HareRole {
 }
 
 enum HareSourceType {
-  SCRAPED      // From scraper pipeline (haresText parsing)
-  MISMAN_SYNC  // From misman attendance hare flag
+  SCRAPED // From scraper pipeline (haresText parsing)
+  MISMAN_SYNC // From misman attendance hare flag
 }
 
 // ── ATTENDANCE ──
@@ -394,12 +398,12 @@ model Attendance {
   participationLevel ParticipationLevel @default(RUN)
   stravaUrl          String?
   beezThere          Boolean            @default(false)
-  notes              String?            // User's personal notes
+  notes              String? // User's personal notes
   isVerified         Boolean            @default(false) // Verified by misman (v2)
-  verifiedBy         String?            // Misman user ID (v2)
+  verifiedBy         String? // Misman user ID (v2)
 
-  user    User    @relation(fields: [userId], references: [id])
-  event   Event   @relation(fields: [eventId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  event     Event    @relation(fields: [eventId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -409,16 +413,16 @@ model Attendance {
 enum AttendanceStatus {
   INTENDING // "I'm going" — pre-event RSVP
   CONFIRMED // "I was there" — post-event check-in
-  DECLINED  // "I wasn't there" — declined misman-recorded attendance
+  DECLINED // "I wasn't there" — declined misman-recorded attendance
 }
 
 enum ParticipationLevel {
-  RUN         // R - Standard trail participation
-  HARE        // H - Set the trail
-  BAG_HERO    // BH - Carried the beer
+  RUN // R - Standard trail participation
+  HARE // H - Set the trail
+  BAG_HERO // BH - Carried the beer
   DRINK_CHECK // DC - Manned a beer stop
-  BEER_MILE   // BM - Beer mile event
-  WALK        // W - Walk/Crawl
+  BEER_MILE // BM - Beer mile event
+  WALK // W - Walk/Crawl
   CIRCLE_ONLY // C - Circle only (no trail)
 }
 
@@ -430,14 +434,14 @@ model Alert {
   scrapeLogId  String?
   type         AlertType
   severity     AlertSeverity @default(WARNING)
-  title        String        // Short summary: "Event count dropped 65%"
-  details      String?       // Longer explanation with data
-  context      Json?         // Structured data that triggered this alert (type-specific shape)
-  repairLog    Json?         // Array of repair actions taken: [{action, timestamp, adminId, details, result}]
+  title        String // Short summary: "Event count dropped 65%"
+  details      String? // Longer explanation with data
+  context      Json? // Structured data that triggered this alert (type-specific shape)
+  repairLog    Json? // Array of repair actions taken: [{action, timestamp, adminId, details, result}]
   status       AlertStatus   @default(OPEN)
   snoozedUntil DateTime?
   resolvedAt   DateTime?
-  resolvedBy   String?       // User ID who resolved
+  resolvedBy   String? // User ID who resolved
   source       Source        @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   scrapeLog    ScrapeLog?    @relation(fields: [scrapeLogId], references: [id])
   createdAt    DateTime      @default(now())
@@ -448,27 +452,27 @@ model Alert {
 }
 
 enum AlertType {
-  EVENT_COUNT_ANOMALY   // Event count dropped >50% vs rolling avg
-  FIELD_FILL_DROP       // Field fill rate dropped significantly
-  STRUCTURE_CHANGE      // HTML structure fingerprint changed
-  SCRAPE_FAILURE        // Scrape failed entirely
-  CONSECUTIVE_FAILURES  // Multiple consecutive failures
-  UNMATCHED_TAGS        // New unmatched kennel tags appeared
+  EVENT_COUNT_ANOMALY // Event count dropped >50% vs rolling avg
+  FIELD_FILL_DROP // Field fill rate dropped significantly
+  STRUCTURE_CHANGE // HTML structure fingerprint changed
+  SCRAPE_FAILURE // Scrape failed entirely
+  CONSECUTIVE_FAILURES // Multiple consecutive failures
+  UNMATCHED_TAGS // New unmatched kennel tags appeared
   SOURCE_KENNEL_MISMATCH // Resolved kennel not linked to source
   EXCESSIVE_CANCELLATIONS // Too many events cancelled in one scrape
 }
 
 enum AlertSeverity {
-  INFO     // Noteworthy but not actionable
-  WARNING  // Needs review soon
+  INFO // Noteworthy but not actionable
+  WARNING // Needs review soon
   CRITICAL // Needs immediate attention
 }
 
 enum AlertStatus {
-  OPEN         // Needs attention
+  OPEN // Needs attention
   ACKNOWLEDGED // Admin has seen it but not resolved
-  SNOOZED      // Temporarily silenced
-  RESOLVED     // Addressed
+  SNOOZED // Temporarily silenced
+  RESOLVED // Addressed
 }
 
 // ── KENNEL REQUESTS ──
@@ -479,8 +483,8 @@ enum RequestSource {
 }
 
 enum SuggestionRelationship {
-  HASH_WITH    // "I hash with them"
-  ON_MISMAN    // "I'm on their mismanagement"
+  HASH_WITH // "I hash with them"
+  ON_MISMAN // "I'm on their mismanagement"
   FOUND_ONLINE // "I found them online"
 }
 
@@ -491,11 +495,11 @@ model KennelRequest {
   kennelName   String
   region       String?
   country      String?
-  sourceUrl    String?                 // Website, Facebook page, etc.
+  sourceUrl    String? // Website, Facebook page, etc.
   notes        String?
   relationship SuggestionRelationship?
-  email        String?                 // Optional contact email (anonymous submissions)
-  ipHash       String?                 // SHA-256 of submitter IP (rate limiting)
+  email        String? // Optional contact email (anonymous submissions)
+  ipHash       String? // SHA-256 of submitter IP (rate limiting)
   regionId     String?
   linkedRegion Region?                 @relation(fields: [regionId], references: [id])
   source       RequestSource?          @default(ADMIN)
@@ -518,9 +522,9 @@ enum RequestStatus {
 // ── MISMAN ENUMS ──
 
 enum HasherLinkStatus {
-  SUGGESTED  // System or misman suggested link; awaiting user confirmation
-  CONFIRMED  // User accepted the link
-  DISMISSED  // User dismissed the suggestion
+  SUGGESTED // System or misman suggested link; awaiting user confirmation
+  CONFIRMED // User accepted the link
+  DISMISSED // User dismissed the suggestion
 }
 
 enum ReferralSource {
@@ -535,27 +539,27 @@ enum ReferralSource {
 // ── KENNEL ROSTER ──
 
 model KennelHasher {
-  id             String   @id @default(cuid())
-  rosterGroupId  String   // Primary scope — every hasher belongs to a RosterGroup
-  kennelId       String?  // "Created via" metadata — which kennel's misman added this entry
-  hashName       String?  // Public display name (primary identifier)
-  nerdName       String?  // Real name (private, visible to misman only)
-  email          String?  // Contact email (private, visible to misman only)
-  phone          String?  // Mobile phone (private, visible to misman only)
-  notes          String?  // Internal misman notes
-  mergeLog       Json?    // Audit trail for merge operations
+  id            String  @id @default(cuid())
+  rosterGroupId String // Primary scope — every hasher belongs to a RosterGroup
+  kennelId      String? // "Created via" metadata — which kennel's misman added this entry
+  hashName      String? // Public display name (primary identifier)
+  nerdName      String? // Real name (private, visible to misman only)
+  email         String? // Contact email (private, visible to misman only)
+  phone         String? // Mobile phone (private, visible to misman only)
+  notes         String? // Internal misman notes
+  mergeLog      Json? // Audit trail for merge operations
 
   // Profile link invite (misman sends link to hasher to claim roster entry)
   profileInviteToken     String?   @unique // crypto token for profile link invite
-  profileInviteExpiresAt DateTime?          // token expiry
-  profileInvitedBy       String?            // misman userId who created invite
+  profileInviteExpiresAt DateTime? // token expiry
+  profileInvitedBy       String? // misman userId who created invite
 
-  rosterGroup RosterGroup         @relation(fields: [rosterGroupId], references: [id])
-  kennel      Kennel?             @relation(fields: [kennelId], references: [id])
+  rosterGroup RosterGroup        @relation(fields: [rosterGroupId], references: [id])
+  kennel      Kennel?            @relation(fields: [kennelId], references: [id])
   attendances KennelAttendance[]
   userLink    KennelHasherLink?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 
   // At least one of hashName or nerdName must be provided (enforced in app logic)
   @@index([rosterGroupId])
@@ -571,9 +575,9 @@ model KennelHasherLink {
   kennelHasherId String           @unique // One link per KennelHasher
   userId         String
   status         HasherLinkStatus @default(SUGGESTED)
-  suggestedBy    String?          // "system" or misman user ID who suggested
-  confirmedBy    String?          // User ID who confirmed (always the linked user)
-  dismissedBy    String?          // User ID or misman ID who dismissed
+  suggestedBy    String? // "system" or misman user ID who suggested
+  confirmedBy    String? // User ID who confirmed (always the linked user)
+  dismissedBy    String? // User ID or misman ID who dismissed
 
   kennelHasher KennelHasher @relation(fields: [kennelHasherId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id])
@@ -593,11 +597,11 @@ model KennelAttendance {
   haredThisTrail  Boolean         @default(false)
   isVirgin        Boolean         @default(false)
   isVisitor       Boolean         @default(false)
-  visitorLocation String?         // Where they're visiting from
+  visitorLocation String? // Where they're visiting from
   referralSource  ReferralSource? // How they found the hash
-  referralOther   String?         // Freetext when referralSource is OTHER
-  recordedBy      String          // Misman user ID who created this record
-  editLog         Json?           // Array of AuditLogEntry objects (edit history)
+  referralOther   String? // Freetext when referralSource is OTHER
+  recordedBy      String // Misman user ID who created this record
+  editLog         Json? // Array of AuditLogEntry objects (edit history)
 
   kennelHasher   KennelHasher @relation(fields: [kennelHasherId], references: [id])
   event          Event        @relation(fields: [eventId], references: [id])
@@ -617,13 +621,13 @@ model MismanRequest {
   id         String        @id @default(cuid())
   userId     String
   kennelId   String
-  message    String?       // "I'm the misman for GGFM, please grant access"
+  message    String? // "I'm the misman for GGFM, please grant access"
   status     RequestStatus @default(PENDING) // Reuses existing enum
-  resolvedBy String?       // User ID of admin or misman who approved/rejected
+  resolvedBy String? // User ID of admin or misman who approved/rejected
   resolvedAt DateTime?
 
-  user    User    @relation(fields: [userId], references: [id])
-  kennel  Kennel  @relation(fields: [kennelId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  kennel    Kennel   @relation(fields: [kennelId], references: [id])
   createdAt DateTime @default(now())
 
   // No unique constraint — allows re-requests after rejection.
@@ -634,11 +638,11 @@ model MismanRequest {
 // ── ROSTER GROUPS (Cross-Kennel Roster Sharing) ──
 
 model RosterGroup {
-  id             String              @id @default(cuid())
-  name           String              // "NYC Metro", "Philly Area"
-  kennels        RosterGroupKennel[]
-  kennelHashers  KennelHasher[]
-  createdAt      DateTime            @default(now())
+  id            String              @id @default(cuid())
+  name          String // "NYC Metro", "Philly Area"
+  kennels       RosterGroupKennel[]
+  kennelHashers KennelHasher[]
+  createdAt     DateTime            @default(now())
 }
 
 model RosterGroupKennel {
@@ -657,12 +661,12 @@ model RosterGroupKennel {
 model MismanInvite {
   id           String             @id @default(cuid())
   kennelId     String
-  inviterId    String             // Misman user ID who created the invite
-  inviteeEmail String?            // Optional: email of intended recipient (for future email integration)
+  inviterId    String // Misman user ID who created the invite
+  inviteeEmail String? // Optional: email of intended recipient (for future email integration)
   token        String             @unique // crypto.randomBytes(32), base64url-encoded
   status       MismanInviteStatus @default(PENDING)
-  expiresAt    DateTime           // Computed at creation: now() + configured duration
-  acceptedBy   String?            // User ID who redeemed the invite
+  expiresAt    DateTime // Computed at creation: now() + configured duration
+  acceptedBy   String? // User ID who redeemed the invite
   acceptedAt   DateTime?
   revokedAt    DateTime?
 
@@ -677,25 +681,25 @@ model MismanInvite {
 }
 
 enum MismanInviteStatus {
-  PENDING   // Link generated, not yet used
-  ACCEPTED  // Invitee redeemed it
-  EXPIRED   // Display-only — checked at read time, not actively written
-  REVOKED   // Inviter cancelled before use
+  PENDING // Link generated, not yet used
+  ACCEPTED // Invitee redeemed it
+  EXPIRED // Display-only — checked at read time, not actively written
+  REVOKED // Inviter cancelled before use
 }
 
 // ── ROSTER GROUP REQUESTS ──
 
 model RosterGroupRequest {
-  id            String        @id @default(cuid())
-  userId        String
-  proposedName  String        // e.g., "NYC Metro"
-  kennelIds     Json          // Array of kennel IDs they want grouped
-  message       String?       // Optional explanation
-  status        RequestStatus @default(PENDING)
-  resolvedBy    String?
-  resolvedAt    DateTime?
-  user          User          @relation(fields: [userId], references: [id])
-  createdAt     DateTime      @default(now())
+  id           String        @id @default(cuid())
+  userId       String
+  proposedName String // e.g., "NYC Metro"
+  kennelIds    Json // Array of kennel IDs they want grouped
+  message      String? // Optional explanation
+  status       RequestStatus @default(PENDING)
+  resolvedBy   String?
+  resolvedAt   DateTime?
+  user         User          @relation(fields: [userId], references: [id])
+  createdAt    DateTime      @default(now())
 
   @@index([status])
 }
@@ -703,47 +707,47 @@ model RosterGroupRequest {
 // ── STRAVA INTEGRATION ──
 
 model StravaConnection {
-  id            String    @id @default(cuid())
-  userId        String    @unique           // One Strava account per user
-  athleteId     String    @unique           // Strava athlete ID (stored as String to avoid BigInt serialization)
-  accessToken   String                      // Current access token (server-side only, never exposed to client)
-  refreshToken  String                      // Long-lived refresh token
-  expiresAt     DateTime                    // When accessToken expires
-  scope         String    @default("activity:read_all")
-  athleteData   Json?                       // Cached athlete profile (name, pic URL — user-scoped only per Strava API agreement)
-  lastSyncAt    DateTime?                   // Last successful activity sync
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  userId       String    @unique // One Strava account per user
+  athleteId    String    @unique // Strava athlete ID (stored as String to avoid BigInt serialization)
+  accessToken  String // Current access token (server-side only, never exposed to client)
+  refreshToken String // Long-lived refresh token
+  expiresAt    DateTime // When accessToken expires
+  scope        String    @default("activity:read_all")
+  athleteData  Json? // Cached athlete profile (name, pic URL — user-scoped only per Strava API agreement)
+  lastSyncAt   DateTime? // Last successful activity sync
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  activities    StravaActivity[]
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities StravaActivity[]
 
   @@index([userId])
 }
 
 model StravaActivity {
-  id                  String    @id @default(cuid())
-  stravaConnectionId  String
-  stravaActivityId    String    @unique      // Strava's activity ID (as String)
-  name                String                 // Activity name from Strava
-  sportType           String                 // "Run", "TrailRun", "Walk", "Hike", etc. (use sport_type, NOT deprecated type)
-  dateLocal           String                 // "YYYY-MM-DD" — extracted as string from start_date_local, NEVER parsed through new Date()
-  timeLocal           String?                // "HH:MM" — extracted as string from start_date_local
-  distanceMeters      Float                  // Distance in meters
-  movingTimeSecs      Int                    // Moving time in seconds
-  startLat            Float?                 // start_latlng[0] — null for privacy zones
-  startLng            Float?                 // start_latlng[1] — null for privacy zones
-  timezone            String?                // Strava timezone string
-  city                String?                // Reverse-geocoded city name (e.g. "Brooklyn, NY")
+  id                 String  @id @default(cuid())
+  stravaConnectionId String
+  stravaActivityId   String  @unique // Strava's activity ID (as String)
+  name               String // Activity name from Strava
+  sportType          String // "Run", "TrailRun", "Walk", "Hike", etc. (use sport_type, NOT deprecated type)
+  dateLocal          String // "YYYY-MM-DD" — extracted as string from start_date_local, NEVER parsed through new Date()
+  timeLocal          String? // "HH:MM" — extracted as string from start_date_local
+  distanceMeters     Float // Distance in meters
+  movingTimeSecs     Int // Moving time in seconds
+  startLat           Float? // start_latlng[0] — null for privacy zones
+  startLng           Float? // start_latlng[1] — null for privacy zones
+  timezone           String? // Strava timezone string
+  city               String? // Reverse-geocoded city name (e.g. "Brooklyn, NY")
 
   // Match tracking (V1: set on manual pick; V2: auto-suggest will populate these)
-  matchedAttendanceId String?               // Attendance record this was attached to
-  matchDismissed      Boolean   @default(false) // User dismissed this match suggestion (V2)
+  matchedAttendanceId String? // Attendance record this was attached to
+  matchDismissed      Boolean @default(false) // User dismissed this match suggestion (V2)
 
-  connection    StravaConnection @relation(fields: [stravaConnectionId], references: [id], onDelete: Cascade)
+  connection StravaConnection @relation(fields: [stravaConnectionId], references: [id], onDelete: Cascade)
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([stravaConnectionId, dateLocal])
   @@index([matchedAttendanceId])
@@ -753,39 +757,39 @@ model StravaActivity {
 // ── KENNEL DISCOVERY ──
 
 model KennelDiscovery {
-  id              String          @id @default(cuid())
-  externalSource  String          // "HASHREGO" (extensible for future discovery sources)
-  externalSlug    String          // Hash Rego slug: "EWH3", "BFMH3"
-  name            String          // Full name from API: "Everyday Is Wednesday H3"
-  location        String?         // "Washington, DC, USA"
-  latitude        Float?
-  longitude       Float?
-  schedule        String?         // "Weekly, Thursdays"
-  externalUrl     String?         // "https://hashrego.com/kennels/EWH3/"
+  id             String  @id @default(cuid())
+  externalSource String // "HASHREGO" (extensible for future discovery sources)
+  externalSlug   String // Hash Rego slug: "EWH3", "BFMH3"
+  name           String // Full name from API: "Everyday Is Wednesday H3"
+  location       String? // "Washington, DC, USA"
+  latitude       Float?
+  longitude      Float?
+  schedule       String? // "Weekly, Thursdays"
+  externalUrl    String? // "https://hashrego.com/kennels/EWH3/"
 
   // Rich profile data from /api/kennels/{slug}
-  website         String?         // "http://www.ewh3.com/"
-  contactEmail    String?         // "EWH3GMs@gmail.com"
-  yearStarted     Int?            // 1999
-  trailPrice      Int?            // 10 (in dollars)
-  logoUrl         String?         // S3 URL (may be temporary)
-  memberCount     Int?            // 283
-  paymentInfo     Json?           // {paypal: "email", venmo: "@handle", squareCash: "tag"}
+  website      String? // "http://www.ewh3.com/"
+  contactEmail String? // "EWH3GMs@gmail.com"
+  yearStarted  Int? // 1999
+  trailPrice   Int? // 10 (in dollars)
+  logoUrl      String? // S3 URL (may be temporary)
+  memberCount  Int? // 283
+  paymentInfo  Json? // {paypal: "email", venmo: "@handle", squareCash: "tag"}
 
   status          DiscoveryStatus @default(NEW)
   matchedKennelId String?
-  matchScore      Float?          // Best fuzzy match score (0–1)
-  matchCandidates Json?           // Top 3: [{id, shortName, score}]
-  regionId        String?         // Scope AI discoveries to a region
+  matchScore      Float? // Best fuzzy match score (0–1)
+  matchCandidates Json? // Top 3: [{id, shortName, score}]
+  regionId        String? // Scope AI discoveries to a region
   regionRef       Region?         @relation(fields: [regionId], references: [id])
 
-  lastSeenAt      DateTime        @default(now())
-  processedBy     String?
-  processedAt     DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  lastSeenAt  DateTime  @default(now())
+  processedBy String?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  matchedKennel   Kennel?         @relation(fields: [matchedKennelId], references: [id])
+  matchedKennel Kennel? @relation(fields: [matchedKennelId], references: [id])
 
   @@unique([externalSource, externalSlug])
   @@index([status])
@@ -794,9 +798,9 @@ model KennelDiscovery {
 
 enum DiscoveryStatus {
   NEW
-  MATCHED    // Auto-matched (high confidence ≥0.95)
-  ADDED      // Admin created a new kennel from this
-  LINKED     // Admin linked to existing kennel manually
+  MATCHED // Auto-matched (high confidence ≥0.95)
+  ADDED // Admin created a new kennel from this
+  LINKED // Admin linked to existing kennel manually
   DISMISSED
 }
 
@@ -810,27 +814,27 @@ enum ProposalStatus {
 }
 
 model SourceProposal {
-  id                String         @id @default(cuid())
-  regionId          String
-  kennelId          String?
-  url               String
-  sourceName        String?
-  discoveryMethod   String         // "WEB_SEARCH" | "KENNEL_WEBSITE" | "DISCOVERY_WEBSITE"
-  searchQuery       String?
-  detectedType      SourceType?
-  extractedConfig   Json?          // Full analysis result (GenericHtmlConfig, calendarId, etc.)
-  confidence        String?        // "high" | "medium" | "low"
-  explanation       String?
-  kennelName        String?
-  status            ProposalStatus @default(PENDING)
-  processedBy       String?
-  processedAt       DateTime?
-  createdSourceId   String?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id              String         @id @default(cuid())
+  regionId        String
+  kennelId        String?
+  url             String
+  sourceName      String?
+  discoveryMethod String // "WEB_SEARCH" | "KENNEL_WEBSITE" | "DISCOVERY_WEBSITE"
+  searchQuery     String?
+  detectedType    SourceType?
+  extractedConfig Json? // Full analysis result (GenericHtmlConfig, calendarId, etc.)
+  confidence      String? // "high" | "medium" | "low"
+  explanation     String?
+  kennelName      String?
+  status          ProposalStatus @default(PENDING)
+  processedBy     String?
+  processedAt     DateTime?
+  createdSourceId String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  region            Region         @relation(fields: [regionId], references: [id])
-  kennel            Kennel?        @relation(fields: [kennelId], references: [id])
+  region Region  @relation(fields: [regionId], references: [id])
+  kennel Kennel? @relation(fields: [kennelId], references: [id])
 
   @@unique([url, regionId])
   @@index([regionId, status])
@@ -850,21 +854,21 @@ model AuditLog {
   findingsCount Int
   groupsCount   Int
   issuesFiled   Int
-  findings      Json      // Full AuditFinding[] array
-  summary       Json      // { [category]: count }
-  kennelCode    String?   // Set for deep dives, null for hareline
+  findings      Json // Full AuditFinding[] array
+  summary       Json // { [category]: count }
+  kennelCode    String? // Set for deep dives, null for hareline
   kennel        Kennel?   @relation("AuditLogKennel", fields: [kennelCode], references: [kennelCode])
   createdAt     DateTime  @default(now())
 }
 
 model AuditSuppression {
   id         String   @id @default(cuid())
-  kennelCode String?  // null = global suppression for all kennels
+  kennelCode String? // null = global suppression for all kennels
   kennel     Kennel?  @relation("AuditSuppressionKennel", fields: [kennelCode], references: [kennelCode])
-  rule       String   // e.g., "location-region-appended"
-  reason     String   // Why it's suppressed
+  rule       String // e.g., "location-region-appended"
+  reason     String // Why it's suppressed
   createdAt  DateTime @default(now())
-  createdBy  String?  // User who created it
+  createdBy  String? // User who created it
 
   @@unique([kennelCode, rule])
 }
@@ -886,32 +890,32 @@ enum AuditStream {
   AUTOMATED
   CHROME_EVENT
   CHROME_KENNEL
-  UNKNOWN          // pre-cutover history that the backfill couldn't classify
+  UNKNOWN // pre-cutover history that the backfill couldn't classify
 }
 
 enum AuditIssueEventType {
   OPENED
   CLOSED
   REOPENED
-  RELABELED        // stream changed (manual operator relabel)
+  RELABELED // stream changed (manual operator relabel)
 }
 
 model AuditIssue {
-  id              String      @id @default(cuid())
-  githubNumber    Int         @unique
+  id              String            @id @default(cuid())
+  githubNumber    Int               @unique
   stream          AuditStream
-  state           String      // "open" | "closed"
+  state           String // "open" | "closed"
   title           String
   htmlUrl         String
   kennelCode      String?
-  kennel          Kennel?     @relation("AuditIssueKennel", fields: [kennelCode], references: [kennelCode])
-  githubCreatedAt DateTime    // GitHub issue.created_at
-  githubClosedAt  DateTime?   // GitHub issue.closed_at — current closure only
-  delistedAt      DateTime?   // non-null when the issue has fallen out of the audit corpus
-                              // (operator removed the `audit` label, issue deleted, etc.)
-                              // Preserves the AuditIssueEvent trail for historical trends
-                              // instead of the cascade-delete codex flagged as a data-loss risk.
-  syncedAt        DateTime    @updatedAt
+  kennel          Kennel?           @relation("AuditIssueKennel", fields: [kennelCode], references: [kennelCode])
+  githubCreatedAt DateTime // GitHub issue.created_at
+  githubClosedAt  DateTime? // GitHub issue.closed_at — current closure only
+  delistedAt      DateTime? // non-null when the issue has fallen out of the audit corpus
+  // (operator removed the `audit` label, issue deleted, etc.)
+  // Preserves the AuditIssueEvent trail for historical trends
+  // instead of the cascade-delete codex flagged as a data-loss risk.
+  syncedAt        DateTime          @updatedAt
   events          AuditIssueEvent[]
 
   @@index([stream, state])
@@ -920,16 +924,95 @@ model AuditIssue {
 }
 
 model AuditIssueEvent {
-  id          String              @id @default(cuid())
-  issueId     String
-  issue       AuditIssue          @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  type        AuditIssueEventType
-  stream      AuditStream         // stream at the moment the event fired
-  occurredAt  DateTime            // wall-clock time of the underlying transition
-  observedAt  DateTime            @default(now()) // when the sync detected it (also serves as the row's created-at audit field)
-  fromStream  AuditStream?        // for RELABELED events
+  id         String              @id @default(cuid())
+  issueId    String
+  issue      AuditIssue          @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  type       AuditIssueEventType
+  stream     AuditStream // stream at the moment the event fired
+  occurredAt DateTime // wall-clock time of the underlying transition
+  observedAt DateTime            @default(now()) // when the sync detected it (also serves as the row's created-at audit field)
+  fromStream AuditStream? // for RELABELED events
 
   @@index([type, occurredAt])
   @@index([stream, occurredAt])
   @@index([issueId, occurredAt])
+}
+
+// ── TRAVEL MODE ──
+//
+// Travel Mode lets users search for hash trails at a destination + date range.
+// Results combine confirmed events with projections derived from ScheduleRule patterns.
+// See docs/Requirements/travel_mode_prd_v5.md and ~/.claude/plans/majestic-baking-donut.md
+
+enum ScheduleConfidence {
+  HIGH // Proven RRULE from STATIC_SCHEDULE source or admin-validated
+  MEDIUM // Parsed from kennel display strings with specific day
+  LOW // Partial data, inferred, lunar, or imprecise monthly (possible activity)
+}
+
+enum ScheduleRuleSource {
+  STATIC_SCHEDULE // Backfilled from Source.config RRULE
+  SEED_DATA // Parsed from Kennel.scheduleDayOfWeek/Frequency strings
+  ADMIN // Manually entered via admin UI
+  INFERRED // Pattern-detected from event history
+}
+
+model ScheduleRule {
+  id              String             @id @default(cuid())
+  kennelId        String
+  rrule           String // RFC 5545 subset: "FREQ=WEEKLY;BYDAY=SA", "FREQ=LUNAR" sentinel for full moon
+  anchorDate      String? // YYYY-MM-DD for INTERVAL>1 phase alignment
+  startTime       String? // "HH:MM" 24hr
+  confidence      ScheduleConfidence @default(MEDIUM)
+  source          ScheduleRuleSource @default(SEED_DATA)
+  sourceReference String? // Source URL, seed field path, etc.
+  lastValidatedAt DateTime? // When the rule was last confirmed still accurate (drives confidence decay)
+  notes           String? // Free text context, e.g. "Phase alignment unknown"
+  isActive        Boolean            @default(true)
+  kennel          Kennel             @relation(fields: [kennelId], references: [id])
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  // Idempotency constraint: backfill + admin jobs must not create duplicate rules
+  // for the same (kennel, rrule, source) triple. Writers use upsert() to be idempotent
+  // across retries. A stronger NULL-aware index over (kennelId, rrule, anchorDate,
+  // startTime, source) is added as hand-written SQL in the migration file — see
+  // ScheduleRule_kennel_rrule_anchor_start_source_idx.
+  @@unique([kennelId, rrule, source], name: "ScheduleRule_kennel_rrule_source_key")
+  @@index([kennelId])
+  @@index([isActive, confidence])
+}
+
+model TravelSearch {
+  id           String              @id @default(cuid())
+  userId       String
+  name         String? // Auto-generated or user-provided label
+  status       String              @default("active") // "active" | "archived"
+  lastViewedAt DateTime? // Updated on revisit for sort order + "Fresh" status detection
+  user         User                @relation(fields: [userId], references: [id])
+  destinations TravelDestination[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([userId, status])
+  @@index([userId, lastViewedAt])
+}
+
+model TravelDestination {
+  id             String       @id @default(cuid())
+  travelSearchId String       @unique // MVP enforces exactly one destination per saved search — writers must update-in-place, not insert-new
+  label          String // Display string: "San Diego, CA, USA"
+  placeId        String? // Google Places ID (optional — free-text searches may not have one)
+  latitude       Float
+  longitude      Float
+  timezone       String? // IANA: "America/Los_Angeles" — from resolveDestinationTimezone()
+  radiusKm       Int          @default(50)
+  startDate      DateTime // UTC noon per date convention
+  endDate        DateTime // UTC noon per date convention
+  travelSearch   TravelSearch @relation(fields: [travelSearchId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  // Date range invariant: endDate >= startDate. Enforced via CHECK constraint
+  // in migration SQL since Prisma can't express CHECK constraints in schema.prisma.
+  // Application layer also validates as a second line of defense.
 }
