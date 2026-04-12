@@ -1,0 +1,75 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Crosshair, Loader2 } from "lucide-react";
+import { useGeolocation } from "@/hooks/useGeolocation";
+
+export function NearMeShortcut() {
+  const router = useRouter();
+  const [geoState, requestLocation] = useGeolocation();
+  const [navigating, setNavigating] = useState(false);
+
+  const handleClick = () => {
+    if (geoState.status === "granted") {
+      navigateToNearMe(geoState.lat, geoState.lng);
+      return;
+    }
+    requestLocation();
+  };
+
+  // Auto-navigate when geolocation resolves after the user clicks
+  if (geoState.status === "granted" && !navigating) {
+    navigateToNearMe(geoState.lat, geoState.lng);
+  }
+
+  function navigateToNearMe(lat: number, lng: number) {
+    setNavigating(true);
+    const today = new Date();
+    const twoWeeksOut = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+    const params = new URLSearchParams({
+      lat: lat.toString(),
+      lng: lng.toString(),
+      from: today.toISOString().slice(0, 10),
+      to: twoWeeksOut.toISOString().slice(0, 10),
+      q: "Near me",
+      r: "25",
+    });
+    router.push(`/travel?${params.toString()}`);
+  }
+
+  if (geoState.status === "denied") {
+    return (
+      <p className="mt-4 text-center text-xs text-muted-foreground/50">
+        Location access denied — search by city instead
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-6 text-center">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={geoState.status === "loading"}
+        className="
+          inline-flex items-center gap-2 rounded-full border border-border
+          px-5 py-2.5 text-sm text-muted-foreground transition-all
+          hover:border-foreground/20 hover:bg-card hover:text-foreground
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+          disabled:opacity-50
+        "
+      >
+        {geoState.status === "loading" ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Crosshair className="h-4 w-4" />
+        )}
+        {geoState.status === "loading"
+          ? "Finding your location…"
+          : "Or hash near me right now →"}
+      </button>
+    </div>
+  );
+}

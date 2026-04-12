@@ -7,6 +7,8 @@ import { TravelResults } from "@/components/travel/TravelResults";
 import { TravelResultsSkeleton } from "@/components/travel/TravelResultsSkeleton";
 import { TripSummary } from "@/components/travel/TripSummary";
 import { EmptyStates } from "@/components/travel/EmptyStates";
+import { TravelHero } from "@/components/travel/TravelHero";
+import { PopularDestinations } from "@/components/travel/PopularDestinations";
 
 interface TravelPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -54,26 +56,13 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
   const hasSearchParams =
     lat != null && lng != null && from != null && to != null;
 
-  // No search params → show landing state with search form
+  // No search params → show landing state with hero + popular destinations
   if (!hasSearchParams) {
     return (
-      <div className="mx-auto max-w-5xl">
-        <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 py-16">
-          <h1 className="font-display text-4xl font-medium tracking-tight sm:text-5xl lg:text-6xl">
-            Find your{" "}
-            <span className="bg-gradient-to-r from-emerald-500 to-sky-500 bg-clip-text italic font-normal text-transparent pr-[0.15em]">
-              trail
-            </span>
-          </h1>
-          <p className="mt-4 max-w-xl text-center text-lg text-muted-foreground">
-            Confirmed events, likely trails, and a few possibilities from
-            HashTracks&apos; coverage across 500+ kennels worldwide.
-          </p>
-          <div className="mt-10 w-full max-w-4xl">
-            <TravelSearchForm variant="hero" />
-          </div>
-        </div>
-      </div>
+      <>
+        <TravelHero />
+        <PopularDestinations />
+      </>
     );
   }
 
