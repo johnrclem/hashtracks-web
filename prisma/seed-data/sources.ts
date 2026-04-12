@@ -3722,5 +3722,55 @@ export const SOURCES = [
       },
       kennelCodes: ["hebe-h3"],
     },
+
+    // ── Thailand ──
+    // --- BSSH3 (Meetup) ---
+    {
+      name: "BSSH3 Meetup",
+      url: "https://www.meetup.com/bangkok-weekend-walk-run-adventure-group/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        groupUrlname: "bangkok-weekend-walk-run-adventure-group",
+        kennelTag: "bssh3",
+      },
+      kennelCodes: ["bssh3"],
+    },
+    // --- Cha-Am H3 (WordPress REST API) ---
+    {
+      name: "Cha-Am H3 Website",
+      url: "https://cah3.net",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {},
+      kennelCodes: ["cah3"],
+    },
+    // --- Chiang Rai H3 (Blogger API) ---
+    {
+      name: "Chiang Rai H3 Blog",
+      url: "https://chiangraihhh.blogspot.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {},
+      kennelCodes: ["crh3"],
+    },
+    // --- Bangkok Harriettes (WordPress.com Public API) ---
+    {
+      name: "Bangkok Harriettes Blog",
+      url: "https://bangkokharriettes.wordpress.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 5,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      enabled: false,
+      config: {},
+      kennelCodes: ["bkk-harriettes"],
+    },
   ];
 

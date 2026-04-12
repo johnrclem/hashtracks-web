@@ -3100,5 +3100,43 @@ export const KENNELS: KennelSeed[] = [
       description: "Hong Kong's Sai Kung-area hash, founded in 2019. Monthly Saturday afternoon trails in the scenic eastern New Territories.",
       latitude: 22.3813, longitude: 114.2707,
     },
+
+    // ── Thailand ──
+    {
+      kennelCode: "bssh3", shortName: "BSSH3", fullName: "Bangkok Sabai Saturday Hash House Harriers",
+      region: "Bangkok", country: "Thailand",
+      website: "https://bangkoksaturdayhash.com",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
+      scheduleNotes: "Monthly Saturday runs. Trail details posted on Meetup (Bangkok Weekend Walk Run Adventure Group).",
+      description: "Bangkok's Saturday hash, running monthly trails around the city. Active Meetup group with 768+ members.",
+      latitude: 13.76, longitude: 100.50,
+    },
+    {
+      kennelCode: "cah3", shortName: "Cha-Am H3", fullName: "Cha-Am Hash House Harriers",
+      region: "Hua Hin", country: "Thailand",
+      website: "https://cah3.net",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
+      scheduleNotes: "Monthly Saturday runs in the Hua Hin / Cha-Am area. Run announcements on cah3.net with run number, date, hares, and location.",
+      description: "Cha-Am's monthly hash in the Hua Hin/Prachuap Khiri Khan coastal region. Each run is a WordPress blog post with full details.",
+      latitude: 12.80, longitude: 99.97,
+    },
+    {
+      kennelCode: "crh3", shortName: "Chiang Rai H3", fullName: "Chiang Rai Hash House Harriers",
+      region: "Chiang Rai", country: "Thailand",
+      website: "https://chiangraihhh.blogspot.com",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
+      scheduleNotes: "Monthly 3rd Saturday runs. Trail announcements on chiangraihhh.blogspot.com with run number and details.",
+      description: "Chiang Rai's monthly hash in northern Thailand. Blog posts chronicle each run with emojis, freeform details, and run number in titles like 'CRH3#220'.",
+      latitude: 19.91, longitude: 99.83,
+    },
+    {
+      kennelCode: "bkk-harriettes", shortName: "BKK Harriettes", fullName: "Bangkok Harriettes Hash House Harriers",
+      region: "Bangkok", country: "Thailand",
+      website: "https://bangkokharriettes.wordpress.com",
+      scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Wednesday runs. Blog has only 3 posts (they reuse/overwrite a single 'Next Run' post with updated details).",
+      description: "Bangkok's women's hash, running weekly Wednesday trails. One of the longest-running Harriettes chapters in Southeast Asia.",
+      latitude: 13.76, longitude: 100.50,
+    },
   ];
 
