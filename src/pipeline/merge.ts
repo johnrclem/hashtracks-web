@@ -721,7 +721,8 @@ async function upsertCanonicalEvent(
       });
     }
 
-    // Update only if our source trust level >= existing
+    // Update only if our source trust level >= existing; lower-trust
+    // sources get the null-field enrichment path in the else branch.
     if (ctx.trustLevel >= existingEvent.trustLevel) {
       const coords = await resolveCoords(event, {
         latitude: existingEvent.latitude,
@@ -804,31 +805,33 @@ async function upsertCanonicalEvent(
       });
     }
 
-    // Lower-trust enrichment: when a source's trust is below the canonical
-    // event's, it can still fill NULL fields. This lets enrichment-only
-    // sources (e.g. a scribe/write-up page) provide description, hares,
-    // location, or start time that the primary source doesn't carry, without
-    // being able to overwrite fields the primary source already set.
-    if (ctx.trustLevel < existingEvent.trustLevel) {
+    // Lower-trust enrichment: fill NULL fields without overwriting non-null
+    // data set by the higher-trust primary source. Sanitizers that return
+    // null (e.g. placeholder "TBD" values) are excluded from the payload so
+    // we don't write null over null and trigger a redundant DB round-trip.
+    // dateUtc is intentionally NOT updated here — it stays at noon UTC by
+    // design (CLAUDE.md Appendix F.4); startTime is a display-only string.
+    else {
       const enrichData: Record<string, unknown> = {};
-      if (!existingEvent.description && event.description !== undefined && event.description) {
+      if (!existingEvent.description && event.description) {
         enrichData.description = event.description;
       }
-      if (!existingEvent.haresText && event.hares !== undefined && event.hares) {
-        enrichData.haresText = sanitizeHares(event.hares);
+      if (!existingEvent.haresText && event.hares) {
+        const sanitized = sanitizeHares(event.hares);
+        if (sanitized) enrichData.haresText = sanitized;
       }
-      if (!existingEvent.locationName && event.location !== undefined && event.location) {
-        enrichData.locationName = sanitizeLocation(event.location);
+      if (!existingEvent.locationName && event.location) {
+        const sanitized = sanitizeLocation(event.location);
+        if (sanitized) enrichData.locationName = sanitized;
       }
-      if (!existingEvent.startTime && event.startTime !== undefined && event.startTime) {
+      if (!existingEvent.startTime && event.startTime) {
         enrichData.startTime = event.startTime;
       }
       if (Object.keys(enrichData).length > 0) {
         await prisma.event.update({
           where: { id: existingEvent.id },
-          data: { ...enrichData, updatedAt: new Date() },
+          data: enrichData,
         });
-        ctx.result.updated++;
       }
     }
 
