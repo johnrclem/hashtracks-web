@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Crosshair, Loader2 } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -10,20 +10,7 @@ export function NearMeShortcut() {
   const [geoState, requestLocation] = useGeolocation();
   const [navigating, setNavigating] = useState(false);
 
-  const handleClick = () => {
-    if (geoState.status === "granted") {
-      navigateToNearMe(geoState.lat, geoState.lng);
-      return;
-    }
-    requestLocation();
-  };
-
-  // Auto-navigate when geolocation resolves after the user clicks
-  if (geoState.status === "granted" && !navigating) {
-    navigateToNearMe(geoState.lat, geoState.lng);
-  }
-
-  function navigateToNearMe(lat: number, lng: number) {
+  const navigateToNearMe = useCallback((lat: number, lng: number) => {
     setNavigating(true);
     const today = new Date();
     const twoWeeksOut = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
@@ -37,7 +24,22 @@ export function NearMeShortcut() {
       r: "25",
     });
     router.push(`/travel?${params.toString()}`);
-  }
+  }, [router]);
+
+  // Auto-navigate when geolocation resolves after the user clicks
+  useEffect(() => {
+    if (geoState.status === "granted" && !navigating) {
+      navigateToNearMe(geoState.lat, geoState.lng);
+    }
+  }, [geoState, navigating, navigateToNearMe]);
+
+  const handleClick = () => {
+    if (geoState.status === "granted") {
+      navigateToNearMe(geoState.lat, geoState.lng);
+      return;
+    }
+    requestLocation();
+  };
 
   if (geoState.status === "denied") {
     return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TravelSearchForm } from "./TravelSearchForm";
 import { NearMeShortcut } from "./NearMeShortcut";
 
@@ -9,14 +9,18 @@ import { NearMeShortcut } from "./NearMeShortcut";
  * Client component for staggered word reveal animation + scroll parallax.
  */
 export function TravelHero() {
-  const [scrollY, setScrollY] = useState(0);
+  const backdropRef = useRef<HTMLDivElement>(null);
 
+  // Scroll parallax via direct DOM mutation — avoids re-rendering the
+  // entire component tree (SVG, headline words, form) on every scroll frame
   useEffect(() => {
     let ticking = false;
     function onScroll() {
       if (!ticking) {
         requestAnimationFrame(() => {
-          setScrollY(window.scrollY);
+          if (backdropRef.current) {
+            backdropRef.current.style.transform = `translateY(${window.scrollY * -0.15}px)`;
+          }
           ticking = false;
         });
         ticking = true;
@@ -53,9 +57,9 @@ export function TravelHero() {
     <section className="relative overflow-hidden">
       {/* Decorative backdrop with parallax — denser map lines + more visible pins */}
       <div
+        ref={backdropRef}
         className="pointer-events-none absolute inset-0 opacity-[0.2] dark:opacity-[0.35]"
         aria-hidden="true"
-        style={{ transform: `translateY(${scrollY * -0.15}px)` }}
       >
         <svg
           viewBox="0 0 1400 700"
