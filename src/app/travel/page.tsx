@@ -69,7 +69,7 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
             Confirmed events, likely trails, and a few possibilities from
             HashTracks&apos; coverage across 500+ kennels worldwide.
           </p>
-          <div className="mt-10 w-full max-w-3xl">
+          <div className="mt-10 w-full max-w-4xl">
             <TravelSearchForm variant="hero" />
           </div>
         </div>

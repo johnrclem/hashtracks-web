@@ -95,7 +95,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
   return (
     <div className="travel-animate">
       {/* Margin labels above the card border */}
-      <div className="mb-2 grid grid-cols-3 gap-0 px-1 md:grid-cols-[1.8fr_1.4fr_1fr]">
+      <div className="mb-2 grid grid-cols-3 gap-0 px-1 md:grid-cols-[2.4fr_1.4fr_1fr]">
         <div className="flex items-center gap-2 pl-5 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
           <MapPin className="h-3 w-3" />
           Destination
@@ -117,7 +117,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
           handleSubmit();
         }}
         className="
-          travel-grain relative overflow-hidden rounded-xl border-[1.5px] border-border
+          travel-grain relative rounded-xl border-[1.5px] border-border
           bg-card shadow-lg transition-all duration-300
           focus-within:border-ring focus-within:shadow-xl
           md:-rotate-[0.5deg] md:focus-within:rotate-0
@@ -126,7 +126,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
         role="search"
         aria-label="Travel search"
       >
-        <div className="grid grid-cols-1 md:grid-cols-[1.8fr_1.4fr_1fr_auto]">
+        <div className="grid grid-cols-1 md:grid-cols-[2.4fr_1.4fr_1fr_auto]">
           {/* Destination section */}
           <fieldset className="border-b border-dashed border-border p-5 md:border-b-0 md:border-r">
             <legend className="sr-only">Destination</legend>

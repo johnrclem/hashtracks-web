@@ -221,7 +221,7 @@ function DestinationAutocomplete({
             if (suggestions.length > 0) setShowDropdown(true);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Where are you going?"
+          placeholder="City or destination"
           aria-label="Destination"
           aria-autocomplete="list"
           aria-expanded={showDropdown}
@@ -336,7 +336,7 @@ function DestinationInputFallback({
           if (!e.target.value.trim()) onClear();
         }}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(); } }}
-        placeholder="Where are you going?"
+        placeholder="City or destination"
         aria-label="Destination"
         autoFocus={autoFocus}
         className="
