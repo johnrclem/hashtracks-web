@@ -104,13 +104,28 @@ describe("processRawEvents", () => {
     expect(mockEventUpdate).toHaveBeenCalled();
   });
 
-  it("does not update when trust level is lower", async () => {
+  it("does not full-update when trust level is lower, but enriches NULL fields", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
+    // Existing event has trust 8; source trust is 5. All user-facing fields
+    // are null/undefined so the lower-trust enrichment path fills them.
     mockEventFindMany.mockResolvedValueOnce([{ id: "evt_1", trustLevel: 8 }] as never);
+    mockEventUpdate.mockResolvedValue({ id: "evt_1" } as never);
 
     const result = await processRawEvents("src_1", [buildRawEvent()]);
+    // updated is 1 (the matched-event counter at line 850). The enrichment
+    // path fires an update call but doesn't double-count.
     expect(result.updated).toBe(1);
-    expect(mockEventUpdate).not.toHaveBeenCalled();
+    // The enrichment update should contain description/hares/location/startTime
+    // but NOT title, runNumber, or other full-update-only fields.
+    const enrichCall = mockEventUpdate.mock.calls.find(
+      (call: unknown[]) => (call[0] as { data?: { description?: string } })?.data?.description,
+    );
+    expect(enrichCall).toBeDefined();
+    const enrichData = (enrichCall![0] as { data: Record<string, unknown> }).data;
+    expect(enrichData).toHaveProperty("description");
+    expect(enrichData).not.toHaveProperty("title");
+    expect(enrichData).not.toHaveProperty("runNumber");
+    expect(enrichData).not.toHaveProperty("trustLevel");
   });
 
   it("tracks unmatched kennel tags", async () => {

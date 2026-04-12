@@ -3237,6 +3237,10 @@ export const SOURCES = [
       name: "Calgary H3 Scribe",
       url: "https://scribe.onon.org/",
       type: "HTML_SCRAPER" as const,
+      // Trust 7 (below the Home adapter's 8): the merge pipeline's null-field
+      // enrichment path lets the Scribe fill description + hares on canonical
+      // events created by the Home adapter without being able to overwrite
+      // the Home's title, location, or other non-null fields. Closes #585.
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
