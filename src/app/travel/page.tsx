@@ -61,7 +61,7 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
         <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 py-16">
           <h1 className="font-display text-4xl font-medium tracking-tight sm:text-5xl lg:text-6xl">
             Find your{" "}
-            <span className="bg-gradient-to-r from-emerald-500 to-sky-500 bg-clip-text italic font-normal text-transparent">
+            <span className="bg-gradient-to-r from-emerald-500 to-sky-500 bg-clip-text italic font-normal text-transparent pr-[0.15em]">
               trail
             </span>
           </h1>
