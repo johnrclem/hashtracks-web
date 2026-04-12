@@ -28,15 +28,16 @@ For each event on the page, extract:
 - `attendees`: the attendee count if shown (null if not visible)
 
 **Step 3: Output the JSON array.**
-Output ONLY a JSON array of objects — no commentary, no markdown code fences, just raw JSON. Each object has the fields above. Example:
+Output a JSON array of objects. No markdown code fences — just raw JSON. Each object has the fields above. Example:
 
 [
   {"title": "AVL H3 Run #850 - Winter Trail", "date": "2026-01-10", "startTime": "14:00", "location": "Carrier Park", "url": "https://www.meetup.com/avlh3-on-on/events/305123456/", "attendees": 22},
   {"title": "AVL H3 Run #849 - New Year Hash", "date": "2026-01-03", "startTime": "14:00", "location": "Pack Square Park", "url": "https://www.meetup.com/avlh3-on-on/events/305123457/", "attendees": 18}
 ]
 
-**Step 4: Report progress.**
-After the JSON, on a new line write: "Extracted N events. Oldest: YYYY-MM-DD. Scroll more? (The page may have more events below.)"
+After the closing `]`, on a new line write: "Extracted N events. Oldest: YYYY-MM-DD. Scroll more?"
+
+The operator will strip this progress line before saving to the batch file. The import script only reads JSON.
 
 **Important:**
 - Extract ALL visible events, not just new ones — duplicates will be handled by the import script
@@ -48,7 +49,7 @@ After the JSON, on a new line write: "Extracted N events. Oldest: YYYY-MM-DD. Sc
 
 ## After each round
 
-1. Save the JSON output to a file: `scripts/data/avlh3-meetup-history-batch-N.json`
+1. Copy the JSON array from Chrome's output (everything from `[` to `]`, **excluding** the "Extracted N events..." progress line) and save to `scripts/data/avlh3-meetup-history-batch-N.json`
 2. If Claude reports more events are available, scroll further and run the prompt again
 3. When done (oldest event reached or no more events load), run the import script
 

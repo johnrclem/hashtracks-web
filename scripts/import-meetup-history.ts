@@ -26,6 +26,7 @@ import { processRawEvents } from "@/pipeline/merge";
 import { generateFingerprint } from "@/pipeline/fingerprint";
 import type { RawEventData } from "@/adapters/types";
 
+/** Shape of a single event row from the Chrome scrape JSON output. */
 interface MeetupHistoryRow {
   title: string;
   date: string;       // YYYY-MM-DD
@@ -35,6 +36,15 @@ interface MeetupHistoryRow {
   attendees?: number | null;
 }
 
+/** Extract run number from a Meetup event title (e.g. "#850" or "Run #850"). */
+function extractRunNumber(title: string): number | undefined {
+  const match = title.match(/#(\d{2,5})\b/);
+  if (!match) return undefined;
+  const num = parseInt(match[1], 10);
+  return Number.isFinite(num) && num >= 1 ? num : undefined;
+}
+
+/** Parse CLI arguments for --kennel and --source. */
 function parseArgs(): { kennelCode: string; sourceName: string } {
   const args = process.argv.slice(2);
   let kennelCode = "";
@@ -50,12 +60,52 @@ function parseArgs(): { kennelCode: string; sourceName: string } {
   return { kennelCode, sourceName };
 }
 
+/** Read all of stdin into a string. */
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
     chunks.push(chunk as Buffer);
   }
   return Buffer.concat(chunks).toString("utf-8");
+}
+
+/**
+ * Parse concatenated JSON arrays from stdin. Each batch file is a [...]
+ * array; when cat'd together they produce "]\n[" between files. We split
+ * on that boundary and parse each chunk independently, which avoids the
+ * fragile global-regex approach that could corrupt data containing "] ["
+ * inside string values.
+ */
+function parseJsonArrays(raw: string): MeetupHistoryRow[] {
+  const trimmed = raw.trim();
+
+  // Fast path: single file, single array
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // Fall through to multi-array parsing
+  }
+
+  // Multi-file: split on "]<whitespace>[" boundary, re-bracket each chunk
+  const allRows: MeetupHistoryRow[] = [];
+  const chunks = trimmed.split(/\]\s*\[/);
+  for (let i = 0; i < chunks.length; i++) {
+    let chunk = chunks[i];
+    // Re-add the brackets stripped by the split
+    if (i === 0) chunk = chunk + "]";
+    else if (i === chunks.length - 1) chunk = "[" + chunk;
+    else chunk = "[" + chunk + "]";
+
+    try {
+      const parsed = JSON.parse(chunk);
+      if (Array.isArray(parsed)) allRows.push(...parsed);
+    } catch (err) {
+      console.warn(`[chunk ${i}] Failed to parse: ${(err as Error).message}`);
+      console.warn(`  First 100 chars: ${chunk.slice(0, 100)}`);
+    }
+  }
+  return allRows;
 }
 
 async function main() {
@@ -70,25 +120,10 @@ async function main() {
     process.exit(1);
   }
 
-  // Parse concatenated JSON arrays. Each batch file is a [...] array.
-  // When cat'd together: "[...]\n[...]" → we wrap in an outer array and
-  // flatten, or just try parsing as-is first.
-  const allRows: MeetupHistoryRow[] = [];
-  const trimmed = raw.trim();
-  try {
-    // Try as a single JSON array first (one file)
-    const parsed = JSON.parse(trimmed);
-    if (Array.isArray(parsed)) allRows.push(...parsed);
-  } catch {
-    // Multiple files cat'd: "[...]\n[...]" → replace "][" boundary with ","
-    try {
-      const merged = "[" + trimmed.replace(/^\[/, "").replace(/\]$/, "").replace(/\]\s*\[/g, ",") + "]";
-      const parsed = JSON.parse(merged);
-      if (Array.isArray(parsed)) allRows.push(...parsed);
-    } catch (err) {
-      console.error(`Failed to parse JSON: ${(err as Error).message}`);
-      console.error(`First 200 chars: ${trimmed.slice(0, 200)}`);
-    }
+  const allRows = parseJsonArrays(raw);
+  if (allRows.length === 0) {
+    console.error("Parsed 0 rows from stdin — input may be malformed.");
+    process.exit(1);
   }
 
   console.log(`Parsed ${allRows.length} rows from stdin.`);
@@ -98,13 +133,13 @@ async function main() {
   let skipped = 0;
   for (const row of allRows) {
     if (!row.date || !row.title) { skipped++; continue; }
-    // Validate date format
     if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date)) { skipped++; continue; }
 
     events.push({
       date: row.date,
       kennelTag: kennelCode,
       title: row.title,
+      runNumber: extractRunNumber(row.title),
       startTime: row.startTime || undefined,
       location: row.location || undefined,
       sourceUrl: row.url || undefined,
@@ -129,11 +164,11 @@ async function main() {
   console.log(`Date range: ${unique[0].date} → ${unique.at(-1)!.date}`);
   console.log("\nFirst 3:");
   for (const ev of unique.slice(0, 3)) {
-    console.log(`  ${ev.date} | ${ev.title?.slice(0, 50)} | loc=${ev.location?.slice(0, 30) ?? "-"}`);
+    console.log(`  ${ev.date} #${ev.runNumber ?? "?"} | ${ev.title?.slice(0, 50)} | loc=${ev.location?.slice(0, 30) ?? "-"}`);
   }
   console.log("Last 3:");
   for (const ev of unique.slice(-3)) {
-    console.log(`  ${ev.date} | ${ev.title?.slice(0, 50)} | loc=${ev.location?.slice(0, 30) ?? "-"}`);
+    console.log(`  ${ev.date} #${ev.runNumber ?? "?"} | ${ev.title?.slice(0, 50)} | loc=${ev.location?.slice(0, 30) ?? "-"}`);
   }
 
   if (!apply) {
