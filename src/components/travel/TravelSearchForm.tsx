@@ -4,6 +4,7 @@ import { useState, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, Calendar, Compass, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatDateCompact, daysBetween } from "@/lib/travel/format";
 
 interface TravelSearchFormProps {
   variant: "hero" | "compact";
@@ -75,7 +76,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
         <Calendar className="h-4 w-4 text-muted-foreground" />
         <span className="font-mono text-sm text-muted-foreground">
           {startDate && endDate
-            ? `${formatShortDate(startDate)} → ${formatShortDate(endDate)}`
+            ? `${formatDateCompact(startDate)} → ${formatDateCompact(endDate)}`
             : "Dates"}
         </span>
         <span className="text-muted-foreground">·</span>
@@ -133,6 +134,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
               placeholder="Where are you going?"
+              aria-label="Destination"
               className="
                 w-full bg-transparent font-display text-lg font-medium
                 placeholder:text-muted-foreground/40
@@ -155,6 +157,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                aria-label="Start date"
                 className="w-full bg-transparent font-mono text-sm focus:outline-none"
               />
               <span className="text-muted-foreground">→</span>
@@ -162,6 +165,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                aria-label="End date"
                 className="w-full bg-transparent font-mono text-sm focus:outline-none"
               />
             </div>
@@ -181,6 +185,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
                   key={opt.value}
                   type="button"
                   onClick={() => setRadiusKm(opt.value)}
+                  aria-pressed={radiusKm === opt.value}
                   className={`
                     rounded-md px-2.5 py-1 text-xs font-medium transition-colors
                     ${
@@ -250,19 +255,3 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
   );
 }
 
-// ── Helpers ──
-
-function formatShortDate(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00Z");
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-function daysBetween(start: string, end: string): number {
-  const s = new Date(start + "T12:00:00Z");
-  const e = new Date(end + "T12:00:00Z");
-  return Math.round((e.getTime() - s.getTime()) / (24 * 60 * 60 * 1000));
-}

@@ -46,8 +46,7 @@ export function PossibleSection({ results }: PossibleSectionProps) {
         </span>
       </button>
 
-      {isOpen && (
-        <div id="possible-list" className="space-y-0 pb-4">
+      <div id="possible-list" className={`space-y-0 pb-4 ${isOpen ? "" : "hidden"}`}>
           {results.map((result) => (
             <div
               key={result.kennelId}
@@ -79,7 +78,6 @@ export function PossibleSection({ results }: PossibleSectionProps) {
             </div>
           ))}
         </div>
-      )}
     </div>
   );
 }

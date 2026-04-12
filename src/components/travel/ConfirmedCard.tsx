@@ -3,6 +3,7 @@ import { BadgeCheck, ExternalLink } from "lucide-react";
 import { formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { getConditionEmoji } from "@/lib/weather-display";
+import { getKennelInitials } from "@/lib/travel/format";
 
 interface ConfirmedCardProps {
   result: {
@@ -31,13 +32,7 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
     timeZone: "UTC",
   });
 
-  const initials = result.kennelName
-    .split(/\s+/)
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const initials = getKennelInitials(result.kennelName);
 
   return (
     <Link

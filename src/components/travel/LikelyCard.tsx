@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SignalHigh, SignalMedium, ExternalLink, Info } from "lucide-react";
 import { formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { getKennelInitials } from "@/lib/travel/format";
 import { ConfidenceMeter } from "./ConfidenceMeter";
 import { EvidenceTimeline } from "./EvidenceTimeline";
 
@@ -38,13 +39,7 @@ export function LikelyCard({ result }: LikelyCardProps) {
   const confidenceLabel =
     result.confidence === "high" ? "High confidence" : "Medium confidence";
 
-  const initials = result.kennelName
-    .split(/\s+/)
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const initials = getKennelInitials(result.kennelName);
 
   return (
     <div

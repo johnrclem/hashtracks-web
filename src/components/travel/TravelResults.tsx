@@ -76,12 +76,7 @@ const TIER_LABELS: Record<string, { title: string; description: string }> = {
  */
 export function TravelResults({ results }: TravelResultsProps) {
   const { confirmed, likely, possible } = results;
-  const allDated = [
-    ...confirmed.map((r) => ({ ...r, _sort: "a" as const })),
-    ...likely.map((r) => ({ ...r, _sort: "b" as const })),
-  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // Group by distance tier for narrative headers
   const tiers = ["nearby", "area", "drive"] as const;
   let cardIndex = 0;
 

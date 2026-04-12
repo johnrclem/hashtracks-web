@@ -2,6 +2,7 @@
 
 import { Heart, Share2, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatDateCompact, daysBetween } from "@/lib/travel/format";
 
 interface TripSummaryProps {
   destination: string;
@@ -22,8 +23,8 @@ export function TripSummary({
   likelyCount,
   possibleCount,
 }: TripSummaryProps) {
-  const startFormatted = formatDate(startDate);
-  const endFormatted = formatDate(endDate);
+  const startFormatted = formatDateCompact(startDate);
+  const endFormatted = formatDateCompact(endDate);
   const days = daysBetween(startDate, endDate);
   const tzAbbrev = timezone?.split("/").pop()?.replace(/_/g, " ");
 
@@ -91,16 +92,3 @@ export function TripSummary({
   );
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-function daysBetween(start: string, end: string): number {
-  const s = new Date(start + "T12:00:00Z");
-  const e = new Date(end + "T12:00:00Z");
-  return Math.max(1, Math.round((e.getTime() - s.getTime()) / (24 * 60 * 60 * 1000)));
-}
