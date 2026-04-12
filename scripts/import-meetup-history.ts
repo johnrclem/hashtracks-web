@@ -44,6 +44,13 @@ function extractRunNumber(title: string): number | undefined {
   return Number.isFinite(num) && num >= 1 ? num : undefined;
 }
 
+/** Skip titles that are clearly not real completed events. */
+const SKIP_TITLE_RE = /\bPOSTPONED\b|\bCANCEL(?:L?ED)\b|\bNEEDS?\s+(?:A\s+)?HARE\b/i;
+
+function isPlaceholderEvent(title: string): boolean {
+  return SKIP_TITLE_RE.test(title);
+}
+
 /** Parse CLI arguments for --kennel and --source. */
 function parseArgs(): { kennelCode: string; sourceName: string } {
   const args = process.argv.slice(2);
@@ -76,36 +83,43 @@ async function readStdin(): Promise<string> {
  * fragile global-regex approach that could corrupt data containing "] ["
  * inside string values.
  */
-function parseJsonArrays(raw: string): MeetupHistoryRow[] {
+interface ParseResult {
+  rows: MeetupHistoryRow[];
+  /** True when at least one chunk failed to parse. */
+  hadParseErrors: boolean;
+}
+
+function parseJsonArrays(raw: string): ParseResult {
   const trimmed = raw.trim();
 
   // Fast path: single file, single array
   try {
     const parsed = JSON.parse(trimmed);
-    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed)) return { rows: parsed, hadParseErrors: false };
   } catch {
     // Fall through to multi-array parsing
   }
 
   // Multi-file: split on "]<whitespace>[" boundary, re-bracket each chunk
-  const allRows: MeetupHistoryRow[] = [];
+  const rows: MeetupHistoryRow[] = [];
+  let hadParseErrors = false;
   const chunks = trimmed.split(/\]\s*\[/);
   for (let i = 0; i < chunks.length; i++) {
     let chunk = chunks[i];
-    // Re-add the brackets stripped by the split
     if (i === 0) chunk = chunk + "]";
     else if (i === chunks.length - 1) chunk = "[" + chunk;
     else chunk = "[" + chunk + "]";
 
     try {
       const parsed = JSON.parse(chunk);
-      if (Array.isArray(parsed)) allRows.push(...parsed);
+      if (Array.isArray(parsed)) rows.push(...parsed);
     } catch (err) {
-      console.warn(`[chunk ${i}] Failed to parse: ${(err as Error).message}`);
-      console.warn(`  First 100 chars: ${chunk.slice(0, 100)}`);
+      hadParseErrors = true;
+      console.error(`[chunk ${i}] Failed to parse: ${(err as Error).message}`);
+      console.error(`  First 100 chars: ${chunk.slice(0, 100)}`);
     }
   }
-  return allRows;
+  return { rows, hadParseErrors };
 }
 
 async function main() {
@@ -120,20 +134,29 @@ async function main() {
     process.exit(1);
   }
 
-  const allRows = parseJsonArrays(raw);
+  const { rows: allRows, hadParseErrors } = parseJsonArrays(raw);
   if (allRows.length === 0) {
     console.error("Parsed 0 rows from stdin — input may be malformed.");
     process.exit(1);
   }
+  if (hadParseErrors && apply) {
+    console.error("Aborting: at least one JSON chunk failed to parse. Fix the input before applying.");
+    process.exit(1);
+  }
 
-  console.log(`Parsed ${allRows.length} rows from stdin.`);
+  console.log(`Parsed ${allRows.length} rows from stdin.${hadParseErrors ? " (WARNING: some chunks failed — dry run only)" : ""}`);
 
-  // Convert to RawEventData
+  // Convert to RawEventData, filtering out placeholders/cancelled events
   const events: RawEventData[] = [];
   let skipped = 0;
+  let skippedPlaceholder = 0;
   for (const row of allRows) {
     if (!row.date || !row.title) { skipped++; continue; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date)) { skipped++; continue; }
+    if (isPlaceholderEvent(row.title)) {
+      skippedPlaceholder++;
+      continue;
+    }
 
     events.push({
       date: row.date,
@@ -156,7 +179,7 @@ async function main() {
     unique.push(event);
   }
 
-  console.log(`Valid: ${events.length}, unique: ${unique.length}, skipped: ${skipped}`);
+  console.log(`Valid: ${events.length}, unique: ${unique.length}, skipped: ${skipped}, placeholders filtered: ${skippedPlaceholder}`);
   if (unique.length === 0) { console.log("Nothing to import."); return; }
 
   // Sort by date for readable output

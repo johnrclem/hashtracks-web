@@ -804,6 +804,34 @@ async function upsertCanonicalEvent(
       });
     }
 
+    // Lower-trust enrichment: when a source's trust is below the canonical
+    // event's, it can still fill NULL fields. This lets enrichment-only
+    // sources (e.g. a scribe/write-up page) provide description, hares,
+    // location, or start time that the primary source doesn't carry, without
+    // being able to overwrite fields the primary source already set.
+    if (ctx.trustLevel < existingEvent.trustLevel) {
+      const enrichData: Record<string, unknown> = {};
+      if (!existingEvent.description && event.description !== undefined && event.description) {
+        enrichData.description = event.description;
+      }
+      if (!existingEvent.haresText && event.hares !== undefined && event.hares) {
+        enrichData.haresText = sanitizeHares(event.hares);
+      }
+      if (!existingEvent.locationName && event.location !== undefined && event.location) {
+        enrichData.locationName = sanitizeLocation(event.location);
+      }
+      if (!existingEvent.startTime && event.startTime !== undefined && event.startTime) {
+        enrichData.startTime = event.startTime;
+      }
+      if (Object.keys(enrichData).length > 0) {
+        await prisma.event.update({
+          where: { id: existingEvent.id },
+          data: { ...enrichData, updatedAt: new Date() },
+        });
+        ctx.result.updated++;
+      }
+    }
+
     // If this source provides a different sourceUrl, create an EventLink for it
     if (event.sourceUrl && existingEvent.sourceUrl && event.sourceUrl !== existingEvent.sourceUrl) {
       await prisma.eventLink.upsert({

@@ -3237,13 +3237,11 @@ export const SOURCES = [
       name: "Calgary H3 Scribe",
       url: "https://scribe.onon.org/",
       type: "HTML_SCRAPER" as const,
-      // Raised from 7 → 8 so the Scribe's description + hares fields can
-      // update canonical events created by the Home adapter (also trust 8).
-      // The Home adapter creates events first but has no description/hares;
-      // the Scribe provides them as enrichment. At trust 7 the merge
-      // pipeline's `trustLevel >= existingEvent.trustLevel` gate blocked
-      // the update, leaving description permanently null. Closes #585.
-      trustLevel: 8,
+      // Trust 7 (below the Home adapter's 8): the merge pipeline's null-field
+      // enrichment path lets the Scribe fill description + hares on canonical
+      // events created by the Home adapter without being able to overwrite
+      // the Home's title, location, or other non-null fields. Closes #585.
+      trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
       kennelCodes: ["ch3-ab"],

@@ -104,13 +104,22 @@ describe("processRawEvents", () => {
     expect(mockEventUpdate).toHaveBeenCalled();
   });
 
-  it("does not update when trust level is lower", async () => {
+  it("does not full-update when trust level is lower, but enriches NULL fields", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
+    // Existing event has trust 8; source trust is 5. All user-facing fields
+    // are null/undefined so the lower-trust enrichment path fills them.
     mockEventFindMany.mockResolvedValueOnce([{ id: "evt_1", trustLevel: 8 }] as never);
+    mockEventUpdate.mockResolvedValue({ id: "evt_1" } as never);
 
     const result = await processRawEvents("src_1", [buildRawEvent()]);
-    expect(result.updated).toBe(1);
-    expect(mockEventUpdate).not.toHaveBeenCalled();
+    // The enrichment path should have called update for NULL-field filling,
+    // but NOT for the full-update branch (which requires trust >= 8).
+    expect(result.updated).toBe(2); // RawEvent link + enrichment
+    // The update should only contain the enrichment fields, not title/runNumber/etc.
+    const enrichCall = mockEventUpdate.mock.calls.find(
+      (call: unknown[]) => (call[0] as { data?: { description?: string } })?.data?.description,
+    );
+    expect(enrichCall).toBeDefined();
   });
 
   it("tracks unmatched kennel tags", async () => {
