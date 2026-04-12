@@ -65,12 +65,16 @@ export function parseRunBlock(block: string): ParsedRun | null {
       continue;
     }
 
-    // Hares Name & Name
-    const haresMatch = /^Hares?\s+(.+)/i.exec(line);
-    if (haresMatch) {
-      const hares = stripPlaceholder(haresMatch[1]);
-      if (hares) result.hares = hares;
-      continue;
+    // Hares Name & Name — only take the FIRST match. The ON INN section
+    // can contain "Hare will provide soup..." which also matches /^Hare/
+    // and would overwrite the real hare names. Closes #659.
+    if (!result.hares) {
+      const haresMatch = /^Hares?\s+(.+)/i.exec(line);
+      if (haresMatch) {
+        const hares = stripPlaceholder(haresMatch[1]);
+        if (hares) result.hares = hares;
+        continue;
+      }
     }
 
     // Venue Location text (postcode)

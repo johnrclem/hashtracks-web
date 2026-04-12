@@ -36,8 +36,13 @@ const DEFAULT_START_TIME = "15:00";
 
 // ── Regex patterns ──
 
-/** Match run number: "Hash 2339" or "Hash 2339:" */
+/** Match run number + optional date + optional event name:
+ *  "Hash 2341:     11.04.26     Wood Anemone Hash" */
 const HASH_NUMBER_RE = /Hash\s+(\d{3,4})/i;
+/** Match event name on the same line as the Hash number + date:
+ *  "Hash 2341:     11.04.26     Wood Anemone Hash"
+ *  Uses [ \t]+ (horizontal whitespace only) so it doesn't jump to the next line. */
+const HASH_TITLE_RE = /Hash\s+\d{3,4}:?[ \t]+\d{2}\.\d{2}\.\d{2}[ \t]+([^\n]+)/i;
 
 /** Match European date: DD.MM.YY */
 const DATE_RE = /(\d{2})\.(\d{2})\.(\d{2})/;
@@ -105,14 +110,26 @@ export function parseEventBlock(
   const hareMatch = HARE_RE.exec(text);
   const hares = hareMatch ? hareMatch[1].trim() : undefined;
 
-  // Extract location
+  // Extract event name from the first line (after date): "Hash 2341: 11.04.26 Wood Anemone Hash"
+  const titleMatch = HASH_TITLE_RE.exec(text);
+  const eventName = titleMatch ? titleMatch[1].trim() : undefined;
+
+  // Extract location — strip trailing ": lat, lng" GPS coordinates that
+  // leave a dangling colon on the place name (e.g. "Kortenberg: 50.868, 4.562")
   const locMatch = LOCATION_RE.exec(text);
-  const location = locMatch ? locMatch[1].trim() : undefined;
+  let location = locMatch ? locMatch[1].trim() : undefined;
+  if (location) {
+    location = location.replace(/:\s*-?\d+\.\d+\s*,\s*-?\d+\.\d+\s*$/, "").trim();
+  }
+
+  const title = eventName
+    ? `BruH3 #${runNumber} — ${eventName}`
+    : `BruH3 #${runNumber}`;
 
   return {
     date,
     kennelTag: KENNEL_TAG,
-    title: `BruH3 #${runNumber}`,
+    title,
     runNumber,
     hares,
     location,
