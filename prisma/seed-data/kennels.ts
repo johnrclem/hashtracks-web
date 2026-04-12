@@ -130,6 +130,8 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "bobbh3", shortName: "B3H4", fullName: "Boston Ballbuster Hardcore Hash House Harriers", region: "Boston, MA",
+      website: "https://bostonhash.com/about/kennels",
+      instagramHandle: "@bostonh3",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
     },
     { kennelCode: "beantown", shortName: "Beantown", fullName: "Beantown City Hash House Harriers", region: "Boston, MA" },
@@ -378,8 +380,11 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bah3", shortName: "BAH3", fullName: "Baltimore Annapolis Hash House Harriers", region: "Baltimore, MD",
       website: "https://www.bah3.org",
+      logoUrl: "https://lh3.googleusercontent.com/sitesv/APaQ0SSucYaZkcO7GC7BlT8OXRH9YojrWGQqsXTQ0euCA3FIaQisokS_NqUzdXzeCozPE4ERZwS2xTQtpo4ofzFVYJh62L6agOS8aj261HbtJYpS4ng_ekpjln9XrFZBfWypgM-LEynRgLqSSlhP6XesBg_MS9q1hk0lkTiOunVD6A-dsngliBNQh8CzqdM=w16383",
+      contactEmail: "bahhh.gm@gmail.com",
+      foundedYear: 1994,
       scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
-      description: "Weekly Sunday 3 PM hash in the Baltimore/Annapolis area.",
+      description: "Weekly Sunday 3 PM hash in the Baltimore/Annapolis area. Annapolis hash created 1986, Baltimore 1990, merged as BAH3 in 1994.",
     },
     {
       kennelCode: "mvh3", shortName: "MVH3", fullName: "Mount Vernon Hash House Harriers", region: "Washington, DC",
