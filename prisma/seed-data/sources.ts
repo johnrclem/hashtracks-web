@@ -93,6 +93,19 @@ export const SOURCES = [
       kennelCodes: ["rumson"],
     },
     {
+      name: "Princeton NJ Hash Calendar",
+      url: "ciqlrdt0v691q1hhp79lidoh24@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelPatterns: [["^Regular Hash", "princeton-h3"], ["^MDL Hash", "princeton-h3"]],
+        defaultKennelTag: "princeton-h3",
+      },
+      kennelCodes: ["princeton-h3"],
+    },
+    {
       name: "BFM Google Calendar",
       url: "bfmhash@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
