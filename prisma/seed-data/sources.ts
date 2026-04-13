@@ -100,8 +100,11 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
+        // Shared NJ calendar also has Summit + Rumson placeholder events
+        // that don't get updated — only match Princeton's actual runs.
         kennelPatterns: [["^Regular Hash", "princeton-h3"], ["^MDL Hash", "princeton-h3"]],
-        defaultKennelTag: "princeton-h3",
+        // null default so Summit/Rumson/other placeholders are skipped
+        defaultKennelTag: null,
       },
       kennelCodes: ["princeton-h3"],
     },
