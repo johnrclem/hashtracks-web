@@ -25,6 +25,7 @@ import { prisma } from "@/lib/db";
 import { processRawEvents } from "@/pipeline/merge";
 import { generateFingerprint } from "@/pipeline/fingerprint";
 import type { RawEventData } from "@/adapters/types";
+import { SOURCES } from "@/../prisma/seed-data/sources";
 
 /** Shape of a single event row from the Chrome scrape JSON output. */
 interface MeetupHistoryRow {
@@ -34,6 +35,14 @@ interface MeetupHistoryRow {
   location?: string | null;
   url?: string | null;
   attendees?: number | null;
+}
+
+function todayIsoDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 /** Extract run number from a Meetup event title (e.g. "#850" or "Run #850"). */
@@ -52,19 +61,78 @@ function isPlaceholderEvent(title: string): boolean {
 }
 
 /** Parse CLI arguments for --kennel and --source. */
-function parseArgs(): { kennelCode: string; sourceName: string } {
+function parseArgs(): { kennelCode?: string; sourceName: string } {
   const args = process.argv.slice(2);
-  let kennelCode = "";
+  let kennelCode: string | undefined;
   let sourceName = "";
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--kennel" && args[i + 1]) kennelCode = args[++i];
     if (args[i] === "--source" && args[i + 1]) sourceName = args[++i];
   }
-  if (!kennelCode || !sourceName) {
-    console.error("Usage: ... | npx tsx scripts/import-meetup-history.ts --kennel <code> --source <name>");
+  if (!sourceName) {
+    console.error("Usage: ... | npx tsx scripts/import-meetup-history.ts --source <name> [--kennel <code>]");
     process.exit(1);
   }
   return { kennelCode, sourceName };
+}
+
+interface MeetupRoutingConfig {
+  kennelTag: string;
+  kennelPatterns?: [string, string][];
+}
+
+function compileKennelPatterns(
+  patterns?: [string, string][],
+): [RegExp, string][] | undefined {
+  if (!patterns) return undefined;
+  const compiled: [RegExp, string][] = [];
+  for (const [pattern, tag] of patterns) {
+    try {
+      compiled.push([new RegExp(pattern, "i"), tag]);
+    } catch (err) {
+      console.warn(`Skipping malformed kennel pattern "${pattern}": ${(err as Error).message}`);
+    }
+  }
+  return compiled.length > 0 ? compiled : undefined;
+}
+
+function resolveKennelTag(
+  title: string,
+  fallbackKennelTag: string,
+  compiledPatterns?: [RegExp, string][],
+): string {
+  if (!compiledPatterns) return fallbackKennelTag;
+  for (const [re, tag] of compiledPatterns) {
+    if (re.test(title)) return tag;
+  }
+  return fallbackKennelTag;
+}
+
+async function loadMeetupRoutingConfig(sourceName: string): Promise<MeetupRoutingConfig> {
+  const dbSource = await prisma.source.findFirst({
+    where: { name: sourceName },
+    select: { config: true, type: true },
+  });
+  if (dbSource?.type === "MEETUP" && dbSource.config && typeof dbSource.config === "object") {
+    const cfg = dbSource.config as Record<string, unknown>;
+    if (typeof cfg.kennelTag === "string" && cfg.kennelTag.trim()) {
+      return {
+        kennelTag: cfg.kennelTag,
+        kennelPatterns: Array.isArray(cfg.kennelPatterns) ? cfg.kennelPatterns as [string, string][] : undefined,
+      };
+    }
+  }
+
+  const seededSource = SOURCES.find((source) => source.name === sourceName && source.type === "MEETUP");
+  const seededConfig = seededSource?.config as Record<string, unknown> | undefined;
+  if (seededConfig && typeof seededConfig.kennelTag === "string" && seededConfig.kennelTag.trim()) {
+    return {
+      kennelTag: seededConfig.kennelTag,
+      kennelPatterns: Array.isArray(seededConfig.kennelPatterns) ? seededConfig.kennelPatterns as [string, string][] : undefined,
+    };
+  }
+
+  throw new Error(`Meetup source "${sourceName}" is missing a usable kennelTag config`);
 }
 
 /** Read all of stdin into a string. */
@@ -123,9 +191,19 @@ function parseJsonArrays(raw: string): ParseResult {
 }
 
 async function main() {
-  const { kennelCode, sourceName } = parseArgs();
+  const { kennelCode: kennelOverride, sourceName } = parseArgs();
   const apply = process.env.BACKFILL_APPLY === "1";
-  console.log(`Import Meetup history: kennel=${kennelCode} source="${sourceName}"`);
+  const today = todayIsoDate();
+  const routingConfig = await loadMeetupRoutingConfig(sourceName);
+  const defaultKennelCode = kennelOverride ?? routingConfig.kennelTag;
+  const compiledPatterns = compileKennelPatterns(routingConfig.kennelPatterns);
+
+  console.log(`Import Meetup history: kennel=${defaultKennelCode} source="${sourceName}"`);
+  if (kennelOverride) {
+    console.log(`Routing override: forcing kennel=${kennelOverride}`);
+  } else if (compiledPatterns) {
+    console.log(`Routing mode: default kennel=${defaultKennelCode} with ${compiledPatterns.length} kennelPatterns`);
+  }
   console.log(`Mode: ${apply ? "APPLY" : "DRY RUN"}\n`);
 
   const raw = await readStdin();
@@ -150,9 +228,14 @@ async function main() {
   const events: RawEventData[] = [];
   let skipped = 0;
   let skippedPlaceholder = 0;
+  let skippedFuture = 0;
   for (const row of allRows) {
     if (!row.date || !row.title) { skipped++; continue; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date)) { skipped++; continue; }
+    if (row.date > today) {
+      skippedFuture++;
+      continue;
+    }
     if (isPlaceholderEvent(row.title)) {
       skippedPlaceholder++;
       continue;
@@ -160,7 +243,9 @@ async function main() {
 
     events.push({
       date: row.date,
-      kennelTag: kennelCode,
+      kennelTag: kennelOverride
+        ? kennelOverride
+        : resolveKennelTag(row.title, defaultKennelCode, compiledPatterns),
       title: row.title,
       runNumber: extractRunNumber(row.title),
       startTime: row.startTime || undefined,
@@ -179,7 +264,7 @@ async function main() {
     unique.push(event);
   }
 
-  console.log(`Valid: ${events.length}, unique: ${unique.length}, skipped: ${skipped}, placeholders filtered: ${skippedPlaceholder}`);
+  console.log(`Valid: ${events.length}, unique: ${unique.length}, skipped: ${skipped}, future filtered: ${skippedFuture}, placeholders filtered: ${skippedPlaceholder}`);
   if (unique.length === 0) { console.log("Nothing to import."); return; }
 
   // Sort by date for readable output
