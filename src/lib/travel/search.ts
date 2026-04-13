@@ -11,6 +11,7 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import { haversineDistance } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
+import { safeUrl } from "@/lib/safe-url";
 import { getEventDayWeather, type DailyWeather } from "@/lib/weather";
 import {
   projectTrails,
@@ -494,6 +495,7 @@ function scoreProjections(
 }
 
 /** Build source links for a kennel from its social fields + event links. */
+/** Build source links, sanitizing all URLs to http/https only (XSS defense). */
 function buildSourceLinks(
   kennel?: NearbyKennel | null,
   eventLinks?: { url: string; label: string }[],
@@ -502,31 +504,29 @@ function buildSourceLinks(
   const links: SourceLink[] = [];
   if (!kennel) return links;
 
-  if (kennel.website) {
-    links.push({ url: kennel.website, label: "Kennel Website", type: "website" });
-  }
-  if (kennel.facebookUrl) {
-    links.push({ url: kennel.facebookUrl, label: "Facebook", type: "facebook" });
-  }
-  if (kennel.instagramHandle) {
-    const handle = kennel.instagramHandle.replace(/^@/, "");
-    links.push({ url: `https://instagram.com/${handle}`, label: "Instagram", type: "instagram" });
-  }
-
-  // Event-specific links (from EventLink records)
-  if (eventLinks) {
-    for (const link of eventLinks) {
-      // Avoid duplicating kennel-level links
-      if (links.some((l) => l.url === link.url)) continue;
-      const type = inferLinkType(link.url, link.label);
-      links.push({ url: link.url, label: link.label, type });
+  // Helper: only add if URL passes protocol allowlist (http/https)
+  function addIfSafe(url: string | null | undefined, label: string, type: SourceLink["type"]) {
+    const safe = safeUrl(url);
+    if (safe && !links.some((l) => l.url === safe)) {
+      links.push({ url: safe, label, type });
     }
   }
 
-  // Event source URL as fallback
-  if (eventSourceUrl && !links.some((l) => l.url === eventSourceUrl)) {
-    links.push({ url: eventSourceUrl, label: "Source", type: inferLinkType(eventSourceUrl) });
+  addIfSafe(kennel.website, "Kennel Website", "website");
+  addIfSafe(kennel.facebookUrl, "Facebook", "facebook");
+
+  if (kennel.instagramHandle) {
+    const handle = kennel.instagramHandle.replace(/^@/, "");
+    addIfSafe(`https://instagram.com/${handle}`, "Instagram", "instagram");
   }
+
+  if (eventLinks) {
+    for (const link of eventLinks) {
+      addIfSafe(link.url, link.label, inferLinkType(link.url, link.label));
+    }
+  }
+
+  addIfSafe(eventSourceUrl, "Source", inferLinkType(eventSourceUrl ?? ""));
 
   return links;
 }

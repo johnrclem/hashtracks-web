@@ -116,6 +116,24 @@ export function projectTrails(
     // HIGH/MEDIUM: parse RRULE and generate specific dates
     try {
       const parsed = parseRRule(rule.rrule);
+
+      // Belt-and-suspenders: interval-based rules (biweekly etc.) without an
+      // anchor produce unstable dates that shift with the search window. The
+      // backfill already downgrades these to LOW/CADENCE sentinels, but if one
+      // somehow reaches here as HIGH/MEDIUM, demote to possible activity.
+      if (parsed.interval > 1 && !rule.anchorDate) {
+        results.push({
+          kennelId: rule.kennelId,
+          date: null,
+          startTime: rule.startTime,
+          confidence: "low",
+          scheduleRuleId: rule.id,
+          explanation: generateExplanationFromRule(rule),
+          evidenceWindow: "",
+        });
+        continue;
+      }
+
       const dateStrings = generateOccurrences(
         parsed,
         windowStart,
