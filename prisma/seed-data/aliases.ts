@@ -81,6 +81,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "sfm": ["SFM", "SFM H3", "Summit Full Moon", "Summit Full Moon H3"],
     "asssh3": ["ASSSH3", "ASSS H3", "All Seasons Summit Shiggy"],
     "rumson": ["RH3", "Rumson H3", "Rumson Hash", "Rumson HHH"],
+    "princeton-h3": ["Princeton H3", "PHHH", "Princeton Hash", "Princeton HHH", "MDL Hash"],
     // Chicago area
     "ch3": ["Chicago Hash", "Chicago H3", "CHH3", "CH3"],
     "th3": ["Thirstday", "Thirstday Hash", "Thirstday H3", "Thursday Hash", "TH3"],

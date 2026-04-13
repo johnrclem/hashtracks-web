@@ -93,6 +93,22 @@ export const SOURCES = [
       kennelCodes: ["rumson"],
     },
     {
+      name: "Princeton NJ Hash Calendar",
+      url: "ciqlrdt0v691q1hhp79lidoh24@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        // Shared NJ calendar also has Summit + Rumson placeholder events
+        // that don't get updated — only match Princeton's actual runs.
+        kennelPatterns: [["^Regular Hash", "princeton-h3"], ["^MDL Hash", "princeton-h3"]],
+        // null default so Summit/Rumson/other placeholders are skipped
+        defaultKennelTag: null,
+      },
+      kennelCodes: ["princeton-h3"],
+    },
+    {
       name: "BFM Google Calendar",
       url: "bfmhash@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
