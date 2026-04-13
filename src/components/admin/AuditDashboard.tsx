@@ -757,6 +757,12 @@ function DeepDiveCard({
   const [completeOpen, setCompleteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => {
+    if (queue.some((k) => k.kennelCode === selectedCode)) return;
+    setSelectedCode(queue[0]?.kennelCode ?? "");
+    setCopied(false);
+  }, [queue, selectedCode]);
+
   const currentKennel = queue.find((k) => k.kennelCode === selectedCode) ?? queue[0];
 
   if (!currentKennel || queue.length === 0) {
@@ -779,10 +785,7 @@ function DeepDiveCard({
   const lastDived =
     currentKennel.lastDeepDiveAt === null
       ? "never"
-      : (currentKennel.lastDeepDiveAt instanceof Date
-          ? currentKennel.lastDeepDiveAt
-          : new Date(currentKennel.lastDeepDiveAt)
-        ).toISOString().split("T")[0];
+      : new Date(currentKennel.lastDeepDiveAt).toISOString().split("T")[0];
 
   return (
     <>
@@ -812,7 +815,7 @@ function DeepDiveCard({
               in last 90d · last dived {lastDived}
             </div>
           </div>
-          <div className="flex shrink-0 gap-2 pt-6">
+          <div className="flex shrink-0 items-center gap-2 self-center">
             <Button variant="outline" size="sm" onClick={handleCopy}>
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copied ? "Copied" : "Copy prompt"}
@@ -867,15 +870,24 @@ function DeepDiveCard({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {queue.slice(0, 15).map((k) => (
+                {queue.map((k) => (
                   <tr
                     key={k.kennelCode}
-                    className={`cursor-pointer transition-colors ${
+                    role="button"
+                    tabIndex={0}
+                    className={`cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
                       k.kennelCode === selectedCode
                         ? "bg-accent/50 border-l-2 border-l-purple-500"
                         : "hover:bg-accent/30"
                     }`}
                     onClick={() => { setSelectedCode(k.kennelCode); setCopied(false); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedCode(k.kennelCode);
+                        setCopied(false);
+                      }
+                    }}
                   >
                     <td className="px-5 py-2.5 font-medium">{k.shortName}</td>
                     <td className="px-5 py-2.5 text-muted-foreground">{k.region}</td>
@@ -926,6 +938,13 @@ function DeepDiveCompleteDialog({
   const [summary, setSummary] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!open) return;
+    setFindingsCount(0);
+    setSummary("");
+    setError(null);
+  }, [open, kennel.kennelCode]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
