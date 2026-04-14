@@ -45,6 +45,9 @@ interface SDH3Config {
   includeHistory?: boolean;
 }
 
+/** Raw GPS coordinate string — hares sometimes enter "(lat, lng)" as the address field. */
+const GPS_COORDS_RE = /^\s*\(\s*-?\d+\.\d+\s*,\s*-?\d+\.\d+\s*\)\s*$/;
+
 // ── Exported helpers (for unit testing) ──
 
 /**
@@ -150,6 +153,11 @@ export function parseEventFields(fieldsText: string): {
       case "address": {
         // Strip trail-type prefixes: "A": ..., "B": ..., "A Prime": ...
         location = value.replace(/^"[A-Za-z](?:\s+[A-Za-z]+)*"\s*:\s*/, "");
+        // Raw GPS coords (e.g. "(32.7201, -117.118)") are not a useful venue name — drop them.
+        if (GPS_COORDS_RE.test(location)) {
+          location = undefined;
+          break;
+        }
         // Collect continuation lines (street, city/state/zip) — lines without a label
         const addressLines = [location];
         for (let k = i + 1; k < lines.length; k++) {

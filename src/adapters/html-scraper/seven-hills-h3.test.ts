@@ -56,6 +56,15 @@ describe("parseSevenHillsPage", () => {
     expect(result?.title).toBe("Fall Classic");
   });
 
+  it("does not bleed When: label into title (#713)", () => {
+    // Source page glues fields: "TRAIL #2006 *~* Cuddle Shuttle Trail*~*When: Wednesday April 15..."
+    const body = "TRAIL #2006 *~* Cuddle Shuttle Trail*~*When: Wednesday April 15, 2026 @ 6pmStart: 123 Main St, Lynchburg, VA";
+    const result = parseSevenHillsPage(`<html><body>${body}</body></html>`);
+    expect(result?.title).toBeDefined();
+    expect(result?.title).not.toContain("When:");
+    expect(result?.date).toMatch(/^\d{4}-04-15$/);
+  });
+
   it("accepts dotted `p.m.` / `a.m.` ampm forms", () => {
     // `parse12HourTime` rejects dotted ampm, so without the dot-strip the
     // synthesized "2:00 p.m." would silently yield undefined.
