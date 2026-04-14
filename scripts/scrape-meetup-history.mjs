@@ -66,7 +66,39 @@ function parseArgs(argv) {
   return args;
 }
 
-function parseCardText(text, url) {
+function extractDateParts(dateLine) {
+  const match = dateLine.match(
+    /^[A-Za-z]{3},\s+([A-Za-z]{3})\s+(\d{1,2})(?:,\s+(\d{4}))?\s+·\s+(\d{1,2}:\d{2})\s+([AP]M)/,
+  );
+  if (!match) return null;
+
+  return {
+    month: MONTHS[match[1]],
+    day: Number(match[2]),
+    year: match[3] ? Number(match[3]) : null,
+    time: match[4],
+    ampm: match[5],
+  };
+}
+
+function normalizeLocation(rawLocation) {
+  const collapsed = rawLocation.replace(/\s+/g, " ").trim();
+  if (!collapsed || collapsed === "·") return null;
+
+  const withoutMapsUrl = collapsed.replace(
+    /^https?:\/\/(?:(?:goo\.gl\/maps|maps\.app\.goo\.gl|maps\.google\.com|www\.google\.com\/maps)[^\s,]*)\s*,?\s*/i,
+    "",
+  ).trim();
+
+  const uppercasedState = withoutMapsUrl.replace(
+    /,\s*([a-z]{2})\s*,\s*([a-z]{2}|[A-Z]{2})$/i,
+    (_, state, country) => `, ${state.toUpperCase()}, ${country.toUpperCase()}`,
+  );
+
+  return uppercasedState || null;
+}
+
+function parseCardText(text, url, fallbackYear = CURRENT_YEAR) {
   const rawLines = text.split("\n").map((line) => line.trim()).filter(Boolean);
   if (rawLines.length < 2) return null;
 
@@ -75,16 +107,14 @@ function parseCardText(text, url) {
 
   const title = (lines.shift() ?? "").replace(/\s+/g, " ").trim();
   const dateLine = lines.shift() ?? "";
-  const match = dateLine.match(
-    /^[A-Za-z]{3},\s+([A-Za-z]{3})\s+(\d{1,2})(?:,\s+(\d{4}))?\s+·\s+(\d{1,2}:\d{2})\s+([AP]M)/,
-  );
-  if (!match) return null;
+  const dateParts = extractDateParts(dateLine);
+  if (!dateParts) return null;
 
-  const year = match[3] ? Number(match[3]) : CURRENT_YEAR;
-  const month = MONTHS[match[1]];
-  const day = Number(match[2]);
-  let [hour, minute] = match[4].split(":").map(Number);
-  const ampm = match[5];
+  const year = dateParts.year ?? fallbackYear;
+  const month = dateParts.month;
+  const day = dateParts.day;
+  let [hour, minute] = dateParts.time.split(":").map(Number);
+  const ampm = dateParts.ampm;
   if (ampm === "PM" && hour !== 12) hour += 12;
   if (ampm === "AM" && hour === 12) hour = 0;
 
@@ -94,8 +124,7 @@ function parseCardText(text, url) {
     !/^\d+ attendees?$/i.test(lines[0]) &&
     !/^by\s+/i.test(lines[0])
   ) {
-    const normalized = lines[0].replace(/\s+/g, " ").trim();
-    if (normalized !== "·") location = normalized;
+    location = normalizeLocation(lines[0]);
   }
 
   let attendees = null;
@@ -137,8 +166,22 @@ async function collectRows(page, beforeDate, waitMs, maxRounds, stableRounds) {
 
     const next = [];
     const seen = new Set();
+    let inferredYear = CURRENT_YEAR;
+    let previousMonth = null;
     for (const item of items) {
-      const row = parseCardText(item.text, item.href);
+      const rawLines = item.text.split("\n").map((line) => line.trim()).filter(Boolean);
+      const dateLineIndex = /^(Cancelled|Canceled)$/i.test(rawLines[0]) ? 2 : 1;
+      const dateParts = extractDateParts(rawLines[dateLineIndex] ?? "");
+      if (!dateParts) continue;
+
+      if (dateParts.year != null) {
+        inferredYear = dateParts.year;
+      } else if (previousMonth != null && dateParts.month > previousMonth) {
+        inferredYear -= 1;
+      }
+      previousMonth = dateParts.month;
+
+      const row = parseCardText(item.text, item.href, inferredYear);
       if (!row || seen.has(row.url)) continue;
       seen.add(row.url);
       next.push(row);
@@ -197,7 +240,8 @@ try {
   page.setDefaultTimeout(45_000);
 
   await page.goto(args.url, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(5_000);
+  await page.waitForSelector('a[href*="/events/"]', { timeout: 15_000 });
+  await page.waitForTimeout(1_500);
 
   const rows = await collectRows(
     page,

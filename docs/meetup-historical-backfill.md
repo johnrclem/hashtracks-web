@@ -12,7 +12,7 @@ Use this workflow to backfill older events from any Meetup-backed kennel page in
 
 ## Reusable scraper
 
-The repo now includes [scrape-meetup-history.mjs](/Users/johnclem/.codex/worktrees/f085/hashtracks-web/scripts/scrape-meetup-history.mjs), a Playwright-based extractor that:
+The repo now includes [scrape-meetup-history.mjs](../scripts/scrape-meetup-history.mjs), a Playwright-based extractor that:
 
 - opens a Meetup `?type=past` page
 - scrolls to the bottom until the archive stops growing
