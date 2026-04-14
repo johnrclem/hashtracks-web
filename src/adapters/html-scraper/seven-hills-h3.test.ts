@@ -56,6 +56,23 @@ describe("parseSevenHillsPage", () => {
     expect(result?.title).toBe("Fall Classic");
   });
 
+  it("preserves day names that appear in the trail title", () => {
+    // DATE_SPLIT_RE injects \n before weekday words — a split-at-first-\n approach
+    // would truncate "Saturday Night Fever Trail" to nothing.
+    const body = "TRAIL #2015 Saturday Night Fever TrailSaturday April 11, 2026 @ 6pmStart: X, VA";
+    const result = parseSevenHillsPage(`<html><body>${body}</body></html>`);
+    expect(result?.title).toBe("Saturday Night Fever Trail");
+  });
+
+  it("does not bleed When: label into title (#713)", () => {
+    // Source page glues fields: "TRAIL #2006 *~* Cuddle Shuttle Trail*~*When: Wednesday April 15..."
+    const body = "TRAIL #2006 *~* Cuddle Shuttle Trail*~*When: Wednesday April 15, 2026 @ 6pmStart: 123 Main St, Lynchburg, VA";
+    const result = parseSevenHillsPage(`<html><body>${body}</body></html>`);
+    expect(result?.title).toBeDefined();
+    expect(result?.title).not.toContain("When:");
+    expect(result?.date).toMatch(/^\d{4}-04-15$/);
+  });
+
   it("accepts dotted `p.m.` / `a.m.` ampm forms", () => {
     // `parse12HourTime` rejects dotted ampm, so without the dot-strip the
     // synthesized "2:00 p.m." would silently yield undefined.

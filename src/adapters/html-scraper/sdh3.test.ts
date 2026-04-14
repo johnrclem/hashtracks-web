@@ -277,6 +277,14 @@ describe("parseEventFields", () => {
     const result = parseEventFields(text);
     expect(result.description).toContain("On After: The Pub on 5th");
   });
+
+  it("drops raw GPS coordinates from location (#714)", () => {
+    // Some hares enter coordinates directly as the address — not a useful venue name.
+    const text = "Address: (32.7201380, -117.1179840)";
+    const result = parseEventFields(text);
+    expect(result.location).toBeUndefined();
+    expect(result.locationStreet).toBeUndefined();
+  });
 });
 
 // ── parseHarelineEvents ──

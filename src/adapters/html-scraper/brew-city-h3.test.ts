@@ -78,6 +78,12 @@ describe("parseTitle", () => {
     expect(result.title).toBe("Moonlit Easter Egg Hunt Hash III");
   });
 
+  it("preserves leading emoji in trail name (#699)", () => {
+    const result = parseTitle("BCH3 Trail #363: 🌕 Cinco De Moonio Karto");
+    expect(result.runNumber).toBe(363);
+    expect(result.title).toBe("🌕 Cinco De Moonio Karto");
+  });
+
   it("parses trail number without name", () => {
     const result = parseTitle("BCH3 Trail #361");
     expect(result.runNumber).toBe(361);
@@ -174,9 +180,12 @@ describe("BrewCityH3Adapter", () => {
     expect(trail359).toBeDefined();
     expect(trail359!.date).toBe("2026-04-03");
     expect(trail359!.kennelTag).toBe("bch3");
-    expect(trail359!.title).toBe("Moonlit Easter Egg Hunt Hash III");
+    expect(trail359!.title).toBe("🌕 Moonlit Easter Egg Hunt Hash III");
     expect(trail359!.hares).toBe("Amber Alert");
-    expect(trail359!.location).toBe("5880 S Packard Ave, Cudahy, WI 53110");
+    // "Location:" header wins over On-Out abbreviated value (#698)
+    expect(trail359!.location).toBe("Dirty Dime Tavern");
+    // On-Out street address preserved as locationStreet when Location: header wins
+    expect(trail359!.locationStreet).toBe("5880 S Packard Ave, Cudahy, WI 53110");
     expect(trail359!.description).toContain("Hash cash: $8");
 
     // Second event: Easter Hash (no trail number)

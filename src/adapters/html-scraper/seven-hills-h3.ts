@@ -32,7 +32,7 @@ const TRAIL_NUMBER_RE = /TRAIL\s*#\s*(\d+)/i;
 /** Day names used for injecting a split before the date phrase. */
 const DATE_SPLIT_RE = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/g;
 /** Known field labels on the 7H4 page that need a preceding newline so value regexes don't run past them. */
-const FIELD_LABEL_SPLIT_RE = /(Start:|Hares?:|Beer\s*Meister:|Cost:|Shiggy\s*Level:|Special\s*Instructions:|On[\s-]*On)/g;
+const FIELD_LABEL_SPLIT_RE = /(When:|Start:|Hares?:|Beer\s*Meister:|Cost:|Shiggy\s*Level:|Special\s*Instructions:|On[\s-]*On)/g;
 /** "Saturday April 4, 2026 @ 2pm" — captures the leading date phrase. */
 const DATE_PHRASE_RE = /((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})/i;
 /** "@ 2pm" / "@ 2:30 PM" — minutes optional. Captured time is normalized into `HH:MM am/pm` before parsing. */
@@ -95,11 +95,18 @@ export function parseSevenHillsPage(html: string): ParsedTrail | null {
 
   // Trail name sits between "TRAIL #N" and the date phrase, decorated with emoji
   // and stray punctuation that we strip for display.
+  // Collapse injected \n separators back to spaces, then strip any trailing field
+  // label (e.g. "When: ") that FIELD_LABEL_SPLIT_RE may have placed before the date
+  // phrase. Splitting at \n[0] is wrong: DATE_SPLIT_RE also injects \n before day
+  // names, so a title like "Saturday Night Fever Trail" would be truncated.
   let title: string | undefined;
   const nameStart = trailMatch.index + trailMatch[0].length;
   const nameEnd = dateMatch.index;
   if (nameEnd > nameStart) {
-    const rawName = bodyText.slice(nameStart, nameEnd);
+    const rawName = bodyText.slice(nameStart, nameEnd)
+      .replaceAll(/\s+/g, " ")
+      .replace(/\s+(?:When|Start|Hares?|Beer\s*Meister|Cost|Shiggy\s*Level|Special\s*Instructions|On[\s-]*On):\s*$/i, "")
+      .trim();
     title = rawName
       .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
       .replace(/[~\-!]+/g, " ")

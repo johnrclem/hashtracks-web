@@ -47,10 +47,7 @@ export function parseTitle(text: string): { title: string; runNumber: number | u
   const trailMatch = /BCH3\s+Trail\s+#(\d+)(?::\s*(.+))?/i.exec(text);
   if (trailMatch) {
     const runNumber = Number.parseInt(trailMatch[1], 10);
-    const trailName = trailMatch[2]?.trim()
-      // Strip leading emoji from trail name
-      ?.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\uFE0F\u200D]+\s*/gu, "")
-      .trim();
+    const trailName = trailMatch[2]?.trim() || undefined;
     const title = trailName || `BCH3 Trail #${runNumber}`;
     return { title, runNumber };
   }
@@ -227,8 +224,13 @@ export class BrewCityH3Adapter implements SourceAdapter {
         const detailText = $p.text().trim();
         const details = detailText ? parseDetails(detailText) : {};
 
-        // Location: prefer On-Out address from details, fall back to label
-        const location = details.location || locationFromLabel || undefined;
+        // Prefer the explicit "Location:" header (full venue name) over On-Out (often abbreviated).
+        // When both are present and differ, keep On-Out as the street address.
+        const location = locationFromLabel || details.location || undefined;
+        const locationStreet =
+          locationFromLabel && details.location && details.location !== locationFromLabel
+            ? details.location
+            : undefined;
 
         const event: RawEventData = {
           date,
@@ -237,6 +239,7 @@ export class BrewCityH3Adapter implements SourceAdapter {
           runNumber,
           hares: details.hares,
           location,
+          locationStreet,
           startTime,
           description: details.description,
           sourceUrl: calendarUrl,
