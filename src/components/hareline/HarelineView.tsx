@@ -185,6 +185,22 @@ function getDefaultTimeFilter(v: ViewMode): TimeFilter {
 
 type ViewMode = "list" | "calendar" | "map";
 
+/**
+ * Determines the initial scope for the hareline.
+ * When a region filter is pre-applied (from the URL), default to "all" so the
+ * user sees every kennel in that region, not just ones they're subscribed to.
+ * An explicit ?scope= param always wins.
+ */
+export function computeInitialScope(
+  scopeParam: string | null,
+  regionsParam: string | null,
+  defaultScope: "my" | "all",
+): "my" | "all" {
+  if (scopeParam === "my" || scopeParam === "all") return scopeParam;
+  if (regionsParam && regionsParam.length > 0) return "all";
+  return defaultScope;
+}
+
 export function HarelineView({
   events,
   subscribedKennelIds,
@@ -214,12 +230,11 @@ export function HarelineView({
     return getDefaultTimeFilter(initialView);
   });
 
+  const initialRegions = parseList(searchParams.get("regions"));
   const [scope, setScopeState] = useState<"my" | "all">(
-    (searchParams.get("scope") as "my" | "all") || defaultScope,
+    computeInitialScope(searchParams.get("scope"), searchParams.get("regions"), defaultScope),
   );
-  const [selectedRegions, setSelectedRegionsState] = useState<string[]>(
-    parseList(searchParams.get("regions")),
-  );
+  const [selectedRegions, setSelectedRegionsState] = useState<string[]>(initialRegions);
   const [selectedKennels, setSelectedKennelsState] = useState<string[]>(
     parseList(searchParams.get("kennels")),
   );
