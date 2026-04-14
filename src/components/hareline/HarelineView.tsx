@@ -359,7 +359,12 @@ export function HarelineView({
     setSelectedRegionsState(v);
     setPrefApplied(null);
     resetListState();
-    syncUrl({ regions: v });
+    if (v.length > 0 && scope === "my") {
+      setScopeState("all");
+      syncUrl({ regions: v, scope: "all" });
+    } else {
+      syncUrl({ regions: v });
+    }
   }
   function setSelectedKennels(v: string[]) {
     setSelectedKennelsState(v);
@@ -485,10 +490,15 @@ export function HarelineView({
     (region: string) => {
       setSelectedRegionsState([region]);
       resetListState();
-      syncUrl({ regions: [region] });
+      if (scope === "my") {
+        setScopeState("all");
+        syncUrl({ regions: [region], scope: "all" });
+      } else {
+        syncUrl({ regions: [region] });
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [syncUrl],
+    [syncUrl, scope],
   );
 
   // Track when a stored preference was auto-applied (for return-visitor banner)
