@@ -66,6 +66,7 @@ export interface ConfirmedResult {
   runNumber: number | null;
   haresText: string | null;
   locationName: string | null;
+  locationStreet: string | null;
   locationCity: string | null;
   timezone: string | null;
   sourceUrl: string | null;
@@ -300,6 +301,7 @@ export async function executeTravelSearch(
       runNumber: event.runNumber,
       haresText: event.haresText,
       locationName: event.locationName,
+      locationStreet: event.locationStreet,
       locationCity: event.locationCity,
       timezone: event.timezone,
       sourceUrl: event.sourceUrl,
@@ -575,11 +577,15 @@ async function fetchWeatherParallel(
   searchLng: number,
   now: Date,
 ): Promise<Map<string, DailyWeather>> {
-  const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+  // Match Google Weather API's actual forecast horizon (10-day daily).
+  // The previous 5-day cut left plenty of trip-window events without
+  // weather even though the forecast is available.
+  const TEN_DAYS_MS = 10 * 24 * 60 * 60 * 1000;
   const weatherMap = new Map<string, DailyWeather>();
 
-  // Only fetch for events within 5 days
-  const eligible = events.filter((e) => e.date.getTime() - now.getTime() <= FIVE_DAYS_MS && e.date.getTime() >= now.getTime());
+  const eligible = events.filter(
+    (e) => e.date.getTime() - now.getTime() <= TEN_DAYS_MS && e.date.getTime() >= now.getTime(),
+  );
   if (eligible.length === 0) return weatherMap;
 
   const promises = eligible.map(async (event) => {

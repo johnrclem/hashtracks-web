@@ -32,6 +32,44 @@ export function daysBetween(start: string, end: string): number {
   return Math.max(1, Math.round((e.getTime() - s.getTime()) / (24 * 60 * 60 * 1000)));
 }
 
+/**
+ * Long-form day header used as a divider inside distance-tier sections:
+ * "Tuesday, April 14". Input is an ISO YYYY-MM-DD or ISO timestamp;
+ * defensive .slice(0, 10) accepts both. Rendered in UTC to match the
+ * UTC-noon date convention travel uses throughout.
+ */
+export function formatDayHeader(dateStr: string): string {
+  return new Date(dateStr.slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
+ * Humanize a distance with a walking-time approximation. Uses 5 km/h
+ * pedestrian pace — no routing service required, so the estimate is
+ * deterministic and offline-safe. Falls back to "short drive" past ~90
+ * minutes of walking so we never claim transit knowledge we don't have.
+ *
+ * Examples:
+ *   1.2 → "1.2 km · ~14 min walk"
+ *   <1  → "<1 km · ~1 min walk"
+ *   5.5 → "5.5 km · ~1 h walk"
+ *   12  → "12.0 km · short drive"
+ */
+export function formatDistanceWithWalk(distanceKm: number): string {
+  const kmLabel = distanceKm < 1 ? "<1 km" : `${distanceKm.toFixed(1)} km`;
+  const walkMin = Math.round((distanceKm / 5) * 60);
+  if (walkMin <= 30) return `${kmLabel} · ~${Math.max(1, walkMin)} min walk`;
+  if (walkMin <= 90) {
+    const h = Math.round(walkMin / 60);
+    return `${kmLabel} · ~${h} h walk`;
+  }
+  return `${kmLabel} · short drive`;
+}
+
 /** Extract 1-2 character initials from a kennel name for the insignia badge. */
 export function getKennelInitials(name: string): string {
   return name

@@ -64,6 +64,10 @@ export function TravelResultFilters({
             const selected = selectedDays.has(day);
             const count = dayCounts[day] ?? 0;
             const dates = datesByDay[day] ?? [];
+            // Show the first matching date on the chip itself ("Tue 4/14");
+            // tooltip lists every date so multi-week trips still surface all
+            // occurrences. Falls back to count when no date is available.
+            const firstDateLabel = dates.length > 0 ? shortMonthDay(dates[0]) : null;
             const tooltipLabel =
               dates.length > 0
                 ? dates.map((d) => formatDateCompact(d)).join(", ")
@@ -92,7 +96,13 @@ export function TravelResultFilters({
                 `}
               >
                 {day}
-                <span className="font-mono text-[10px] opacity-60">{count}</span>
+                {firstDateLabel ? (
+                  <span className="font-mono text-[10px] opacity-60 tabular-nums">
+                    {firstDateLabel}
+                  </span>
+                ) : (
+                  <span className="font-mono text-[10px] opacity-60">{count}</span>
+                )}
               </button>
             );
 
@@ -118,4 +128,10 @@ export function TravelResultFilters({
       )}
     </div>
   );
+}
+
+/** "M/D" format for chip date hints — slash-separated like the user thinks. */
+function shortMonthDay(isoDate: string): string {
+  const d = new Date(isoDate.slice(0, 10) + "T12:00:00Z");
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
 }

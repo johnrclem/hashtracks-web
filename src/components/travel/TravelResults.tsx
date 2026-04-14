@@ -9,6 +9,7 @@ import {
   type DayCode,
   type DistanceTier,
 } from "@/lib/travel/filters";
+import { formatDayHeader } from "@/lib/travel/format";
 import { ConfirmedCard } from "./ConfirmedCard";
 import { LikelyCard } from "./LikelyCard";
 import { PossibleSection } from "./PossibleSection";
@@ -30,6 +31,7 @@ interface SerializedConfirmed {
   runNumber: number | null;
   haresText: string | null;
   locationName: string | null;
+  locationStreet: string | null;
   locationCity: string | null;
   timezone: string | null;
   sourceUrl: string | null;
@@ -174,6 +176,7 @@ export function TravelResults({ results }: TravelResultsProps) {
         {renderedTiers.map(({ tier, confirmed: tc, likely: tl, shownPossible }) => {
           const total = tc.length + tl.length + shownPossible.length;
           const label = TIER_LABELS[tier];
+          const dayGroups = groupTierByDay(tc, tl, shownPossible);
 
           return (
             <section key={tier} className="mb-10">
@@ -184,37 +187,45 @@ export function TravelResults({ results }: TravelResultsProps) {
                 </span>
               </div>
 
-              <div className="flex flex-col gap-4">
-                {tc.map((result) => {
-                  const delay = cardIndex++ * 50;
-                  return (
-                    <AnimatedCard key={result.eventId} delay={delay}>
-                      <ConfirmedCard result={result} />
-                    </AnimatedCard>
-                  );
-                })}
-                {tl.map((result) => {
-                  const delay = cardIndex++ * 50;
-                  return (
-                    <AnimatedCard
-                      key={`${result.kennelId}-${result.date}`}
-                      delay={delay}
-                    >
-                      <LikelyCard result={result} />
-                    </AnimatedCard>
-                  );
-                })}
-
-                {shownPossible.length > 0 && (
-                  <div className="flex flex-col border-l-2 border-dashed border-border/60 pl-3">
-                    {shownPossible.map((result, i) => (
-                      <PossibleRow
-                        key={`${result.kennelId}-${result.date ?? "cadence"}-${i}`}
-                        result={result}
-                      />
-                    ))}
+              <div className="flex flex-col gap-6">
+                {dayGroups.map((group) => (
+                  <div key={group.dateKey ?? "cadence"} className="flex flex-col gap-3">
+                    <h3 className="font-display text-sm font-medium text-muted-foreground">
+                      {group.dateLabel}
+                    </h3>
+                    <div className="flex flex-col gap-4">
+                      {group.confirmed.map((result) => {
+                        const delay = cardIndex++ * 50;
+                        return (
+                          <AnimatedCard key={result.eventId} delay={delay}>
+                            <ConfirmedCard result={result} />
+                          </AnimatedCard>
+                        );
+                      })}
+                      {group.likely.map((result) => {
+                        const delay = cardIndex++ * 50;
+                        return (
+                          <AnimatedCard
+                            key={`${result.kennelId}-${result.date}`}
+                            delay={delay}
+                          >
+                            <LikelyCard result={result} />
+                          </AnimatedCard>
+                        );
+                      })}
+                      {group.possible.length > 0 && (
+                        <div className="flex flex-col border-l-2 border-dashed border-border/60 pl-3">
+                          {group.possible.map((result, i) => (
+                            <PossibleRow
+                              key={`${result.kennelId}-${result.date ?? "cadence"}-${i}`}
+                              result={result}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
             </section>
           );
@@ -247,4 +258,53 @@ function AnimatedCard({
       {children}
     </div>
   );
+}
+
+interface DayGroup {
+  dateKey: string | null;
+  dateLabel: string;
+  confirmed: SerializedConfirmed[];
+  likely: SerializedLikely[];
+  possible: SerializedPossible[];
+}
+
+/**
+ * Within a distance tier, group cards by day so travelers can scan "what's
+ * happening on each day" without re-reading raw dates. Null-date possibles
+ * (cadence-based, e.g. full-moon kennels) fall into a trailing
+ * "Cadence-based" group. Day keys sort chronologically; cadence group sorts
+ * last. This is the traveler's secondary reading axis — distance tier is
+ * still primary. A true day-first primary grouping ships with multi-city.
+ */
+function groupTierByDay(
+  confirmed: SerializedConfirmed[],
+  likely: SerializedLikely[],
+  possible: SerializedPossible[],
+): DayGroup[] {
+  const byDay = new Map<string | null, DayGroup>();
+  const touchGroup = (date: string | null): DayGroup => {
+    const key = date ? date.slice(0, 10) : null;
+    let group = byDay.get(key);
+    if (!group) {
+      group = {
+        dateKey: key,
+        dateLabel: key ? formatDayHeader(key) : "Cadence-based",
+        confirmed: [],
+        likely: [],
+        possible: [],
+      };
+      byDay.set(key, group);
+    }
+    return group;
+  };
+
+  for (const r of confirmed) touchGroup(r.date).confirmed.push(r);
+  for (const r of likely) touchGroup(r.date).likely.push(r);
+  for (const r of possible) touchGroup(r.date).possible.push(r);
+
+  return [...byDay.values()].sort((a, b) => {
+    if (a.dateKey === null) return 1;
+    if (b.dateKey === null) return -1;
+    return a.dateKey.localeCompare(b.dateKey);
+  });
 }

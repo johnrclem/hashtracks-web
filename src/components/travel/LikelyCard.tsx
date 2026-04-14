@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SignalHigh, SignalMedium, ExternalLink, Info, MapPin } from "lucide-react";
 import { formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
-import { getKennelInitials } from "@/lib/travel/format";
+import { formatDistanceWithWalk } from "@/lib/travel/format";
 import { KennelNameTooltip } from "@/components/shared/KennelNameTooltip";
 import { ConfidenceMeter } from "./ConfidenceMeter";
 import { EvidenceTimeline } from "./EvidenceTimeline";
@@ -41,62 +41,49 @@ export function LikelyCard({ result }: LikelyCardProps) {
   const confidenceLabel =
     result.confidence === "high" ? "High confidence" : "Medium confidence";
 
-  const initials = getKennelInitials(result.kennelName);
-
   return (
     <div
       className={`
         ${tierClass}
-        group relative overflow-hidden rounded-xl border border-border
+        group relative overflow-hidden rounded-xl
+        border border-border border-l-4 border-l-[var(--tier-accent)]
         bg-card transition-all duration-200
         hover:-translate-y-0.5 hover:border-[var(--tier-accent-border)] hover:shadow-lg
       `}
     >
-      {/* Tier accent top border */}
-      <div className="h-0.5 bg-[var(--tier-accent)]" />
-
       <div className="p-4">
         {/* Header row */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex gap-3">
-            {/* Kennel insignia */}
-            <div
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full font-display text-xs font-semibold text-white transition-transform group-hover:rotate-3"
-              style={{ backgroundColor: result.kennelPinColor ?? "oklch(0.56 0.165 235)" }}
-            >
-              {initials}
-            </div>
-            <div>
-              <KennelNameTooltip fullName={result.kennelFullName}>
-                <Link
-                  href={`/kennels/${result.kennelSlug}`}
-                  title={result.kennelFullName || undefined}
-                  className="font-display text-base font-medium hover:underline"
-                >
-                  {result.kennelName}
-                </Link>
-              </KennelNameTooltip>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                <span>Expected {dateFormatted}</span>
-                {result.startTime && (
-                  <>
-                    <span>·</span>
-                    <span>{formatTime(result.startTime)}</span>
-                  </>
-                )}
-                <span>·</span>
-                <span className="font-mono text-xs">
-                  {result.distanceKm.toFixed(1)} km
-                </span>
-              </div>
-              {/* Region hint — projected trails don't have specific locations */}
-              {result.kennelRegion && (
-                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/60">
-                  <MapPin className="h-3 w-3 flex-shrink-0" />
-                  <span>{result.kennelRegion} area</span>
-                </div>
+          <div className="min-w-0 flex-1">
+            <KennelNameTooltip fullName={result.kennelFullName}>
+              <Link
+                href={`/kennels/${result.kennelSlug}`}
+                title={result.kennelFullName || undefined}
+                className="font-display text-base font-medium hover:underline"
+              >
+                {result.kennelName}
+              </Link>
+            </KennelNameTooltip>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+              <span>Expected {dateFormatted}</span>
+              {result.startTime && (
+                <>
+                  <span>·</span>
+                  <span>{formatTime(result.startTime)}</span>
+                </>
               )}
+              <span>·</span>
+              <span className="font-mono text-xs">
+                {formatDistanceWithWalk(result.distanceKm)}
+              </span>
             </div>
+            {/* Region hint — projected trails don't have specific locations */}
+            {result.kennelRegion && (
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/60">
+                <MapPin className="h-3 w-3 flex-shrink-0" />
+                <span>{result.kennelRegion} area</span>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-shrink-0 items-center gap-2">
