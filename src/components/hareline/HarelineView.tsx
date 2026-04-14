@@ -185,6 +185,21 @@ function getDefaultTimeFilter(v: ViewMode): TimeFilter {
 
 type ViewMode = "list" | "calendar" | "map";
 
+/**
+ * When a region filter is pre-applied (from the URL), default to "all" so the
+ * user sees every kennel in that region, not just ones they're subscribed to.
+ * An explicit ?scope= param always wins.
+ */
+export function computeInitialScope(
+  scopeParam: string | null,
+  regionsParam: string | null,
+  defaultScope: "my" | "all",
+): "my" | "all" {
+  if (scopeParam === "my" || scopeParam === "all") return scopeParam;
+  if (regionsParam && regionsParam.length > 0) return "all";
+  return defaultScope;
+}
+
 export function HarelineView({
   events,
   subscribedKennelIds,
@@ -215,7 +230,7 @@ export function HarelineView({
   });
 
   const [scope, setScopeState] = useState<"my" | "all">(
-    (searchParams.get("scope") as "my" | "all") || defaultScope,
+    computeInitialScope(searchParams.get("scope"), searchParams.get("regions"), defaultScope),
   );
   const [selectedRegions, setSelectedRegionsState] = useState<string[]>(
     parseList(searchParams.get("regions")),
@@ -288,6 +303,12 @@ export function HarelineView({
         ...overrides,
       };
 
+      // When regions are active, the effective default scope is "all" (see computeInitialScope).
+      // We must persist an explicit scope=my to the URL so a page refresh doesn't
+      // re-promote it back to "all".
+      const effectiveRegions = state.regions as string[];
+      const effectiveDefaultScope = effectiveRegions.length > 0 ? "all" : defaultScope;
+
       for (const [key, val] of Object.entries(state)) {
         const str = Array.isArray(val) ? val.join("|") : val;
         // Only add non-default values to keep URL clean
@@ -295,7 +316,7 @@ export function HarelineView({
           (key === "time" && str === getDefaultTimeFilter(currentView)) ||
           (key === "view" && str === "list") ||
           (key === "density" && str === "medium") ||
-          (key === "scope" && str === defaultScope) ||
+          (key === "scope" && str === effectiveDefaultScope) ||
           str === "";
         if (!isDefault) {
           params.set(key, str);
@@ -344,7 +365,12 @@ export function HarelineView({
     setSelectedRegionsState(v);
     setPrefApplied(null);
     resetListState();
-    syncUrl({ regions: v });
+    if (v.length > 0 && scope === "my") {
+      setScopeState("all");
+      syncUrl({ regions: v, scope: "all" });
+    } else {
+      syncUrl({ regions: v });
+    }
   }
   function setSelectedKennels(v: string[]) {
     setSelectedKennelsState(v);
@@ -470,10 +496,14 @@ export function HarelineView({
     (region: string) => {
       setSelectedRegionsState([region]);
       resetListState();
-      syncUrl({ regions: [region] });
+      if (scope === "my") {
+        setScopeState("all");
+        syncUrl({ regions: [region], scope: "all" });
+      } else {
+        syncUrl({ regions: [region] });
+      }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [syncUrl],
+    [syncUrl, scope],
   );
 
   // Track when a stored preference was auto-applied (for return-visitor banner)
