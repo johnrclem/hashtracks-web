@@ -3,13 +3,11 @@
 import { Heart, Share2, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
-import { getTimezoneAbbreviation } from "@/lib/timezone";
 
 interface TripSummaryProps {
   destination: string;
   startDate: string;
   endDate: string;
-  timezone?: string;
   confirmedCount: number;
   likelyCount: number;
   possibleCount: number;
@@ -19,7 +17,6 @@ export function TripSummary({
   destination,
   startDate,
   endDate,
-  timezone,
   confirmedCount,
   likelyCount,
   possibleCount,
@@ -27,13 +24,6 @@ export function TripSummary({
   const startFormatted = formatDateCompact(startDate, { withWeekday: true });
   const endFormatted = formatDateCompact(endDate, { withWeekday: true });
   const days = daysBetween(startDate, endDate);
-  // Real "EDT" / "PST" abbreviation, derived from the destination's IANA tz
-  // at the trip start date so DST is handled correctly. Previous impl just
-  // pulled the IANA city segment ("New_York") which produced misleading
-  // text like "NEW YORK" for a Boston search.
-  const tzAbbrev = timezone
-    ? getTimezoneAbbreviation(new Date(startDate + "T12:00:00Z"), timezone)
-    : "";
 
   const handleShare = () => {
     void navigator.clipboard.writeText(window.location.href);
@@ -75,10 +65,10 @@ export function TripSummary({
         <span>{startFormatted} → {endFormatted}</span>
         <span>·</span>
         <span>{days} night{days !== 1 ? "s" : ""}</span>
-        {tzAbbrev && (
+        {destination && (
           <>
             <span>·</span>
-            <span>{tzAbbrev}</span>
+            <span>{destination}</span>
           </>
         )}
       </div>

@@ -2,7 +2,6 @@
 
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { SCHEDULE_DAYS } from "@/lib/days";
 import { formatDateCompact } from "@/lib/travel/format";
 import type { DayCode } from "@/lib/travel/filters";
 
@@ -32,7 +31,16 @@ export function TravelResultFilters({
   datesByDay,
   possibleCount,
 }: TravelResultFiltersProps) {
-  const dayChips = SCHEDULE_DAYS.filter((d) => availableDays.has(d));
+  // Sort chips by trip chronology (first matching date ascending), not
+  // by calendar weekday. For a Tue→Mon trip, the chips read left-to-right
+  // as the trip unfolds: Tue 4/14, Wed 4/15, ..., Mon 4/20. Calendar order
+  // (Sun first) would put the trip's last two days at the front of the row.
+  // ISO YYYY-MM-DD strings lex-sort chronologically, so no Date allocation.
+  const dayChips = [...availableDays].sort((a, b) => {
+    const aFirst = datesByDay[a]?.[0] ?? "";
+    const bFirst = datesByDay[b]?.[0] ?? "";
+    return aFirst.localeCompare(bFirst);
+  });
   const hasActiveDayFilter = selectedDays.size > 0;
 
   if (dayChips.length === 0 && possibleCount === 0) return null;

@@ -236,7 +236,6 @@ async function TravelResultsServer({
             destination={destination}
             startDate={startDate}
             endDate={endDate}
-            timezone={timezone}
             confirmedCount={results.confirmed.length}
             likelyCount={results.likely.length}
             possibleCount={results.possible.length}
@@ -259,7 +258,6 @@ async function TravelResultsServer({
           destination={destination}
           startDate={startDate}
           endDate={endDate}
-          timezone={timezone}
           confirmedCount={results.confirmed.length}
           likelyCount={results.likely.length}
           possibleCount={results.possible.length}
