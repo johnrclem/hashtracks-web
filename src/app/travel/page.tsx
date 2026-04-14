@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
+import { getOrCreateUser } from "@/lib/auth";
 import { executeTravelSearch } from "@/lib/travel/search";
 import { TravelSearchForm } from "@/components/travel/TravelSearchForm";
 import { TravelResults } from "@/components/travel/TravelResults";
@@ -147,18 +148,43 @@ async function TravelResultsServer({
     : undefined;
 
   try {
-    const results = await executeTravelSearch(prisma, {
-      latitude,
-      longitude,
-      radiusKm,
-      startDate,
-      endDate,
-      timezone,
-      filters: {
-        confidence: confidenceFilter,
-        distanceTier: distanceFilter,
-      },
-    });
+    const [results, user] = await Promise.all([
+      executeTravelSearch(prisma, {
+        latitude,
+        longitude,
+        radiusKm,
+        startDate,
+        endDate,
+        timezone,
+        filters: {
+          confidence: confidenceFilter,
+          distanceTier: distanceFilter,
+        },
+      }),
+      getOrCreateUser(),
+    ]);
+
+    // Authenticated users see "Going" badges on events they've RSVP'd to.
+    // Batch the attendance query to avoid N+1 — we only need events in the
+    // current result set, so the IN clause is tightly bounded.
+    const confirmedEventIds = [
+      ...results.confirmed,
+      ...(results.broaderResults?.confirmed ?? []),
+    ].map((r) => r.eventId);
+
+    const attendanceMap: Record<string, { status: string; participationLevel: string }> = {};
+    if (user && confirmedEventIds.length > 0) {
+      const attendances = await prisma.attendance.findMany({
+        where: { userId: user.id, eventId: { in: confirmedEventIds } },
+        select: { eventId: true, status: true, participationLevel: true },
+      });
+      for (const a of attendances) {
+        attendanceMap[a.eventId] = {
+          status: a.status,
+          participationLevel: a.participationLevel,
+        };
+      }
+    }
 
     // Serialize Date objects for client components
     const serializedResults = {
@@ -166,6 +192,7 @@ async function TravelResultsServer({
       confirmed: results.confirmed.map((r) => ({
         ...r,
         date: r.date.toISOString(),
+        attendance: attendanceMap[r.eventId] ?? null,
       })),
       likely: results.likely.map((r) => ({
         ...r,
@@ -180,6 +207,7 @@ async function TravelResultsServer({
             confirmed: results.broaderResults.confirmed.map((r) => ({
               ...r,
               date: r.date.toISOString(),
+              attendance: attendanceMap[r.eventId] ?? null,
             })),
             likely: results.broaderResults.likely.map((r) => ({
               ...r,

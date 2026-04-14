@@ -21,6 +21,7 @@ interface SerializedConfirmed {
   kennelId: string;
   kennelSlug: string;
   kennelName: string;
+  kennelFullName: string;
   kennelRegion: string;
   kennelPinColor: string | null;
   date: string;
@@ -42,6 +43,7 @@ interface SerializedConfirmed {
     conditionType: string;
     precipProbability: number;
   } | null;
+  attendance: { status: string; participationLevel: string } | null;
 }
 
 interface SerializedLikely {
@@ -49,6 +51,7 @@ interface SerializedLikely {
   kennelId: string;
   kennelSlug: string;
   kennelName: string;
+  kennelFullName: string;
   kennelRegion: string;
   kennelPinColor: string | null;
   date: string;
@@ -67,6 +70,7 @@ interface SerializedPossible {
   kennelId: string;
   kennelSlug: string;
   kennelName: string;
+  kennelFullName: string;
   kennelRegion: string;
   date: string | null;
   confidence: "low";
@@ -96,7 +100,7 @@ export function TravelResults({ results }: TravelResultsProps) {
   const [includePossible, setIncludePossible] = useState(false);
   const [selectedDays, setSelectedDays] = useState<Set<DayCode>>(new Set());
 
-  const { availableDays, dayCounts } = useMemo(
+  const { availableDays, dayCounts, datesByDay } = useMemo(
     () => computeDayCounts(confirmed, likely, possible),
     [confirmed, likely, possible],
   );
@@ -139,6 +143,7 @@ export function TravelResults({ results }: TravelResultsProps) {
         onClearDays={clearDays}
         availableDays={availableDays}
         dayCounts={dayCounts}
+        datesByDay={datesByDay}
         possibleCount={possible.length}
       />
 

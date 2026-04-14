@@ -1,8 +1,10 @@
 import { ExternalLink } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface PossibleRowData {
   kennelId: string;
   kennelName: string;
+  kennelFullName: string;
   distanceKm: number;
   explanation: string;
   sourceLinks: { url: string; label: string; type: string }[];
@@ -23,7 +25,18 @@ export function PossibleRow({ result }: { result: PossibleRowData }) {
   return (
     <div className="border-b border-border/60 py-3 last:border-b-0">
       <div className="text-sm font-medium text-muted-foreground">
-        {result.kennelName}
+        {result.kennelFullName ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span title={result.kennelFullName} className="cursor-help">
+                {result.kennelName}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{result.kennelFullName}</TooltipContent>
+          </Tooltip>
+        ) : (
+          result.kennelName
+        )}
       </div>
       <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground/70">
         <span>{cadence}</span>

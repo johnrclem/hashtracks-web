@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SignalHigh, SignalMedium, ExternalLink, Info, MapPin } from "lucide-react";
 import { formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getKennelInitials } from "@/lib/travel/format";
 import { ConfidenceMeter } from "./ConfidenceMeter";
 import { EvidenceTimeline } from "./EvidenceTimeline";
@@ -11,6 +12,7 @@ interface LikelyCardProps {
     kennelId: string;
     kennelSlug: string;
     kennelName: string;
+    kennelFullName: string;
     kennelRegion: string;
     kennelPinColor: string | null;
     date: string;
@@ -65,12 +67,20 @@ export function LikelyCard({ result }: LikelyCardProps) {
               {initials}
             </div>
             <div>
-              <Link
-                href={`/kennels/${result.kennelSlug}`}
-                className="font-display text-base font-medium hover:underline"
-              >
-                {result.kennelName}
-              </Link>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={`/kennels/${result.kennelSlug}`}
+                    title={result.kennelFullName || undefined}
+                    className="font-display text-base font-medium hover:underline"
+                  >
+                    {result.kennelName}
+                  </Link>
+                </TooltipTrigger>
+                {result.kennelFullName && (
+                  <TooltipContent>{result.kennelFullName}</TooltipContent>
+                )}
+              </Tooltip>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                 <span>Expected {dateFormatted}</span>
                 {result.startTime && (

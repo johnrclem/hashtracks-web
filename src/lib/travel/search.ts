@@ -57,6 +57,7 @@ export interface ConfirmedResult {
   kennelId: string;
   kennelSlug: string;
   kennelName: string;
+  kennelFullName: string;
   kennelRegion: string;
   kennelPinColor: string | null;
   date: Date;
@@ -79,6 +80,7 @@ export interface LikelyResult {
   kennelId: string;
   kennelSlug: string;
   kennelName: string;
+  kennelFullName: string;
   kennelRegion: string;
   kennelPinColor: string | null;
   date: Date;
@@ -97,6 +99,7 @@ export interface PossibleResult {
   kennelId: string;
   kennelSlug: string;
   kennelName: string;
+  kennelFullName: string;
   kennelRegion: string;
   date: Date | null;
   confidence: "low";
@@ -137,6 +140,7 @@ interface NearbyKennel {
   id: string;
   slug: string;
   shortName: string;
+  fullName: string;
   region: string;
   latitude: number | null;
   longitude: number | null;
@@ -287,6 +291,7 @@ export async function executeTravelSearch(
       kennelId: event.kennelId,
       kennelSlug: kennel?.slug ?? "",
       kennelName: kennel?.shortName ?? "",
+      kennelFullName: kennel?.fullName ?? "",
       kennelRegion: kennel?.region ?? "",
       kennelPinColor: kennel?.regionRef?.pinColor ?? null,
       date: event.date,
@@ -312,6 +317,7 @@ export async function executeTravelSearch(
       kennelId: proj.kennelId,
       kennelSlug: kennel?.slug ?? "",
       kennelName: kennel?.shortName ?? "",
+      kennelFullName: kennel?.fullName ?? "",
       kennelRegion: kennel?.region ?? "",
       kennelPinColor: kennel?.regionRef?.pinColor ?? null,
       date: proj.date,
@@ -336,6 +342,7 @@ export async function executeTravelSearch(
       kennelId: proj.kennelId,
       kennelSlug: kennel?.slug ?? "",
       kennelName: kennel?.shortName ?? "",
+      kennelFullName: kennel?.fullName ?? "",
       kennelRegion: kennel?.region ?? "",
       date: proj.date,
       confidence: "low" as const,
@@ -406,6 +413,7 @@ async function fetchAllVisibleKennels(prisma: PrismaClient) {
       id: true,
       slug: true,
       shortName: true,
+      fullName: true,
       region: true,
       latitude: true,
       longitude: true,

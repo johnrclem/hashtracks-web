@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { BadgeCheck, ExternalLink, MapPin, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getConditionEmoji, cToF } from "@/lib/weather-display";
 import { getKennelInitials } from "@/lib/travel/format";
 import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
+import { AttendanceBadge } from "@/components/logbook/AttendanceBadge";
 import {
   composeUtcStart,
   formatTimeInZone,
@@ -18,6 +20,7 @@ interface ConfirmedCardProps {
     eventId: string;
     kennelSlug: string;
     kennelName: string;
+    kennelFullName: string;
     kennelRegion: string;
     kennelPinColor: string | null;
     date: string;
@@ -37,8 +40,11 @@ interface ConfirmedCardProps {
       conditionType: string;
       precipProbability: number;
     } | null;
+    attendance: { status: string; participationLevel: string } | null;
   };
 }
+
+const RSVP_INTENDING_COLOR = "#3b82f6"; // blue-500 — matches hareline's EventCard
 
 export function ConfirmedCard({ result }: ConfirmedCardProps) {
   const { tempUnit } = useUnitsPreference();
@@ -70,7 +76,7 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
   const { title: headline } = getDisplayTitle({
     title: result.title,
     runNumber: result.runNumber,
-    kennel: { shortName: result.kennelName, fullName: "" },
+    kennel: { shortName: result.kennelName, fullName: result.kennelFullName },
   });
 
   const locationLine = getLocationDisplay({
@@ -103,12 +109,20 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h3 className="truncate font-display text-base font-medium">
-                <Link
-                  href={`/hareline/${result.eventId}`}
-                  className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-sm"
-                >
-                  {headline}
-                </Link>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={`/hareline/${result.eventId}`}
+                      title={result.kennelFullName || undefined}
+                      className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-sm"
+                    >
+                      {headline}
+                    </Link>
+                  </TooltipTrigger>
+                  {result.kennelFullName && (
+                    <TooltipContent>{result.kennelFullName}</TooltipContent>
+                  )}
+                </Tooltip>
               </h3>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                 <span>{dateFormatted}</span>
@@ -149,6 +163,20 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
 
             <div className="flex flex-shrink-0 items-center gap-2">
               {result.weather && <WeatherPill weather={result.weather} tempUnit={tempUnit} />}
+              {result.attendance?.status === "INTENDING" && (
+                <span className="flex items-center gap-1">
+                  <span
+                    className="h-2 w-2 animate-pulse rounded-full"
+                    style={{ backgroundColor: RSVP_INTENDING_COLOR }}
+                  />
+                  <Badge className="border-0 bg-blue-500/15 px-1.5 py-0 text-[10px] font-bold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                    Going
+                  </Badge>
+                </span>
+              )}
+              {result.attendance?.status === "CONFIRMED" && (
+                <AttendanceBadge level={result.attendance.participationLevel} size="sm" />
+              )}
               <Badge
                 variant="outline"
                 className="gap-1 border-[var(--tier-accent-border)] bg-[var(--tier-accent-bg)] text-[var(--tier-accent)]"

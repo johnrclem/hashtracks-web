@@ -1,7 +1,9 @@
 "use client";
 
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SCHEDULE_DAYS } from "@/lib/days";
+import { formatDateCompact } from "@/lib/travel/format";
 import type { DayCode } from "@/lib/travel/filters";
 
 interface TravelResultFiltersProps {
@@ -12,8 +14,10 @@ interface TravelResultFiltersProps {
   onClearDays: () => void;
   /** Days that have at least one result — only these chips are rendered */
   availableDays: Set<DayCode>;
-  /** Counts per day (only confirmed+likely, for chip badge) */
+  /** Counts per day (for chip badge) */
   dayCounts: Partial<Record<DayCode, number>>;
+  /** ISO date strings per day, ascending — used for chip tooltip content */
+  datesByDay: Partial<Record<DayCode, string[]>>;
   possibleCount: number;
 }
 
@@ -25,6 +29,7 @@ export function TravelResultFilters({
   onClearDays,
   availableDays,
   dayCounts,
+  datesByDay,
   possibleCount,
 }: TravelResultFiltersProps) {
   const dayChips = SCHEDULE_DAYS.filter((d) => availableDays.has(d));
@@ -58,12 +63,23 @@ export function TravelResultFilters({
           {dayChips.map((day) => {
             const selected = selectedDays.has(day);
             const count = dayCounts[day] ?? 0;
-            return (
+            const dates = datesByDay[day] ?? [];
+            const tooltipLabel =
+              dates.length > 0
+                ? dates.map((d) => formatDateCompact(d)).join(", ")
+                : null;
+
+            const chip = (
               <button
                 key={day}
                 type="button"
                 onClick={() => onToggleDay(day)}
                 aria-pressed={selected}
+                aria-label={
+                  tooltipLabel
+                    ? `${day} — ${count} result${count !== 1 ? "s" : ""} on ${tooltipLabel}`
+                    : `${day} — ${count} result${count !== 1 ? "s" : ""}`
+                }
                 className={`
                   inline-flex items-center gap-1 rounded-full border px-2.5 py-1
                   text-xs font-medium transition-all
@@ -78,6 +94,15 @@ export function TravelResultFilters({
                 {day}
                 <span className="font-mono text-[10px] opacity-60">{count}</span>
               </button>
+            );
+
+            return tooltipLabel ? (
+              <Tooltip key={day}>
+                <TooltipTrigger asChild>{chip}</TooltipTrigger>
+                <TooltipContent>{tooltipLabel}</TooltipContent>
+              </Tooltip>
+            ) : (
+              chip
             );
           })}
           {hasActiveDayFilter && (

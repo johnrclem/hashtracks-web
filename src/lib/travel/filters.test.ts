@@ -130,6 +130,19 @@ describe("computeDayCounts", () => {
     );
     expect(availableDays.size).toBe(0);
   });
+
+  it("returns dates-per-day for chip tooltips, sorted ascending + deduped", () => {
+    const NEXT_SAT = "2026-04-25T12:00:00.000Z"; // Saturday after SAT_APR_18
+    const { datesByDay } = computeDayCounts(
+      [{ date: SAT_APR_18 }, { date: SAT_APR_18 }], // duplicate Sat — should dedupe
+      [{ date: MON_APR_13 }],
+      [{ date: NEXT_SAT }, { date: null }], // null possibles contribute no date
+    );
+    expect(datesByDay.Sat).toEqual([SAT_APR_18, NEXT_SAT]);
+    expect(datesByDay.Mon).toEqual([MON_APR_13]);
+    // Days with no results don't appear
+    expect(datesByDay.Sun).toBeUndefined();
+  });
 });
 
 describe("groupResultsByTier", () => {

@@ -25,19 +25,31 @@ export function computeDayCounts(
   confirmed: { date: string }[],
   likely: { date: string }[],
   possible: { date: string | null }[] = [],
-): { availableDays: Set<DayCode>; dayCounts: Partial<Record<DayCode, number>> } {
+): {
+  availableDays: Set<DayCode>;
+  dayCounts: Partial<Record<DayCode, number>>;
+  datesByDay: Partial<Record<DayCode, string[]>>;
+} {
   const days = new Set<DayCode>();
   const counts: Partial<Record<DayCode, number>> = {};
-  const bump = (dow: DayCode) => {
+  const dates: Partial<Record<DayCode, Set<string>>> = {};
+  const record = (isoDate: string) => {
+    const dow = getDayCode(isoDate);
     days.add(dow);
     counts[dow] = (counts[dow] ?? 0) + 1;
+    (dates[dow] ??= new Set()).add(isoDate);
   };
-  for (const r of confirmed) bump(getDayCode(r.date));
-  for (const r of likely) bump(getDayCode(r.date));
+  for (const r of confirmed) record(r.date);
+  for (const r of likely) record(r.date);
   for (const r of possible) {
-    if (r.date) bump(getDayCode(r.date));
+    if (r.date) record(r.date);
   }
-  return { availableDays: days, dayCounts: counts };
+  // Sort + dedupe dates per day for a deterministic tooltip order.
+  const datesByDay: Partial<Record<DayCode, string[]>> = {};
+  for (const [dow, set] of Object.entries(dates) as [DayCode, Set<string>][]) {
+    datesByDay[dow] = [...set].sort();
+  }
+  return { availableDays: days, dayCounts: counts, datesByDay };
 }
 
 /** Empty set = pass all. date=null is a cadence-based possible — always passes. */
