@@ -25,6 +25,17 @@ export function formatDateCompact(
   });
 }
 
+/**
+ * UTC start-of-day. Used by trip-window date math (e.g. "is the trip past?",
+ * "does the trip start within 7 days?") so noon-stored dates compare cleanly
+ * against today regardless of the server's local clock.
+ */
+export function startOfUtcDay(date: Date = new Date()): Date {
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
 /** Count days between two YYYY-MM-DD strings. Returns at least 1. */
 export function daysBetween(start: string, end: string): number {
   const s = new Date(start + "T12:00:00Z");

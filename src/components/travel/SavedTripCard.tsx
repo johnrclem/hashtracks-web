@@ -17,7 +17,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
+import { buildTravelSearchUrl } from "@/lib/travel/url";
 import { deleteTravelSearch } from "@/app/travel/actions";
+
+/** Status of a saved trip relative to today. Shared with /travel/saved page. */
+export type SavedTripStatus = "soon" | "active";
 
 interface SavedTripCardProps {
   id: string;
@@ -30,12 +34,12 @@ interface SavedTripCardProps {
     startDate: Date;
     endDate: Date;
   };
-  status: "soon" | "active";
+  status: SavedTripStatus;
   /** When non-null, render live counts. Null = search failed; render without counts. */
   counts: { confirmed: number; likely: number; possible: number } | null;
 }
 
-const STATUS_META: Record<SavedTripCardProps["status"], { dot: string; label: string }> = {
+const STATUS_META: Record<SavedTripStatus, { dot: string; label: string }> = {
   soon: {
     dot: "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]",
     label: "Trip starts soon",
@@ -55,7 +59,15 @@ export function SavedTripCard({ id, destination, status, counts }: SavedTripCard
   const endStr = destination.endDate.toISOString().slice(0, 10);
   const nights = daysBetween(startStr, endStr);
 
-  const viewHref = buildTravelHref(destination);
+  const viewHref = buildTravelSearchUrl({
+    latitude: destination.latitude,
+    longitude: destination.longitude,
+    startDate: destination.startDate,
+    endDate: destination.endDate,
+    label: destination.label,
+    radiusKm: destination.radiusKm,
+    timezone: destination.timezone,
+  });
 
   const handleDelete = () => {
     startDelete(async () => {
@@ -200,20 +212,3 @@ function CountPill({
   );
 }
 
-/**
- * Build a `/travel?…` URL that re-runs the saved search. Mirrors the param
- * names that page.tsx parses, so the destination + dates + radius round-trip
- * cleanly.
- */
-function buildTravelHref(destination: SavedTripCardProps["destination"]): string {
-  const params = new URLSearchParams({
-    lat: destination.latitude.toString(),
-    lng: destination.longitude.toString(),
-    from: destination.startDate.toISOString().slice(0, 10),
-    to: destination.endDate.toISOString().slice(0, 10),
-    q: destination.label,
-    r: destination.radiusKm.toString(),
-  });
-  if (destination.timezone) params.set("tz", destination.timezone);
-  return `/travel?${params.toString()}`;
-}

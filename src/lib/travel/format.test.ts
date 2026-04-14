@@ -5,6 +5,7 @@ import {
   getKennelInitials,
   formatDistanceWithWalk,
   formatDayHeader,
+  startOfUtcDay,
 } from "./format";
 
 describe("formatDateCompact", () => {
@@ -33,6 +34,27 @@ describe("formatDateCompact", () => {
     expect(
       formatDateCompact("2026-04-14T12:00:00.000Z", { withWeekday: true }),
     ).toBe("Tue, Apr 14");
+  });
+});
+
+describe("startOfUtcDay", () => {
+  it("zeroes out hours/minutes/seconds/ms in UTC", () => {
+    const noon = new Date("2026-04-14T17:30:42.123Z");
+    const out = startOfUtcDay(noon);
+    expect(out.toISOString()).toBe("2026-04-14T00:00:00.000Z");
+  });
+
+  it("does not mutate the input Date", () => {
+    const original = new Date("2026-04-14T17:30:42.123Z");
+    const originalIso = original.toISOString();
+    startOfUtcDay(original);
+    expect(original.toISOString()).toBe(originalIso);
+  });
+
+  it("defaults to today when called with no argument", () => {
+    const out = startOfUtcDay();
+    expect(out.getUTCHours()).toBe(0);
+    expect(out.getUTCMinutes()).toBe(0);
   });
 });
 

@@ -6,7 +6,12 @@ import { prisma } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/auth";
 import { listSavedSearches, type SavedSearchSummary } from "@/app/travel/actions";
 import { executeTravelSearch } from "@/lib/travel/search";
-import { SavedTripCard } from "@/components/travel/SavedTripCard";
+import { startOfUtcDay } from "@/lib/travel/format";
+import { withConcurrency } from "@/lib/travel/url";
+import {
+  SavedTripCard,
+  type SavedTripStatus,
+} from "@/components/travel/SavedTripCard";
 import { SavedTripsEmpty } from "@/components/travel/SavedTripsEmpty";
 
 export const metadata: Metadata = {
@@ -16,9 +21,17 @@ export const metadata: Metadata = {
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
+/**
+ * Cap on parallel saved-trip searches. Each `executeTravelSearch` can fan
+ * out to 15 weather API calls; running many in parallel risks quota. With
+ * a typical user holding <5 saved trips this barely affects latency, and
+ * power users with 20+ trips degrade gracefully.
+ */
+const MAX_PARALLEL_TRIP_SEARCHES = 3;
+
 interface EnrichedSearch {
   search: SavedSearchSummary;
-  status: "soon" | "active";
+  status: SavedTripStatus;
   counts: { confirmed: number; likely: number; possible: number } | null;
   isPast: boolean;
 }
@@ -57,27 +70,28 @@ export default async function SavedTripsPage() {
     );
   }
 
-  // Run live searches in parallel. Each search is bounded (one trip window)
-  // and `executeTravelSearch` already parallelizes its internal DB calls,
-  // so 5 trips × ~800ms p95 collapses to ~800ms total via Promise.all.
-  // Per-trip try/catch — one failed trip doesn't blank the dashboard.
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  // Run live searches with bounded concurrency (see MAX_PARALLEL_TRIP_SEARCHES
+  // above). Per-trip try/catch ensures one failed search doesn't blank the
+  // dashboard; the affected card renders without counts gracefully.
+  const today = startOfUtcDay();
+  const soonCutoff = today.getTime() + SEVEN_DAYS_MS;
 
-  const enriched: EnrichedSearch[] = await Promise.all(
-    searches.map(async (search) => {
+  const enriched: EnrichedSearch[] = await withConcurrency(
+    searches,
+    MAX_PARALLEL_TRIP_SEARCHES,
+    async (search) => {
       const dest = search.destination;
       if (!dest) {
         // Defensive: a TravelSearch without any TravelDestination shouldn't
         // exist, but render the row inertly if it does.
-        return { search, status: "active" as const, counts: null, isPast: false };
+        return { search, status: "active", counts: null, isPast: false };
       }
 
       const isPast = dest.endDate.getTime() < today.getTime();
       const isSoon =
         !isPast &&
         dest.startDate.getTime() >= today.getTime() &&
-        dest.startDate.getTime() <= today.getTime() + SEVEN_DAYS_MS;
+        dest.startDate.getTime() <= soonCutoff;
 
       let counts: EnrichedSearch["counts"] = null;
       if (!isPast) {
@@ -97,17 +111,11 @@ export default async function SavedTripsPage() {
           };
         } catch (err) {
           console.error(`[saved trips] Search failed for ${search.id}`, err);
-          // counts stays null → card renders without counts gracefully
         }
       }
 
-      return {
-        search,
-        status: isSoon ? "soon" : "active",
-        counts,
-        isPast,
-      };
-    }),
+      return { search, status: isSoon ? "soon" : "active", counts, isPast };
+    },
   );
 
   const upcoming = enriched.filter((e) => !e.isPast);

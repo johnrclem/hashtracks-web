@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Crosshair, Loader2 } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { buildTravelSearchUrl } from "@/lib/travel/url";
 
 export function NearMeShortcut() {
   const router = useRouter();
@@ -14,16 +15,16 @@ export function NearMeShortcut() {
     setNavigating(true);
     const today = new Date();
     const twoWeeksOut = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
-
-    const params = new URLSearchParams({
-      lat: lat.toString(),
-      lng: lng.toString(),
-      from: today.toISOString().slice(0, 10),
-      to: twoWeeksOut.toISOString().slice(0, 10),
-      q: "Near me",
-      r: "25",
-    });
-    router.push(`/travel?${params.toString()}`);
+    router.push(
+      buildTravelSearchUrl({
+        latitude: lat,
+        longitude: lng,
+        startDate: today,
+        endDate: twoWeeksOut,
+        label: "Near me",
+        radiusKm: 25,
+      }),
+    );
   }, [router]);
 
   // Auto-navigate when geolocation resolves after the user clicks
