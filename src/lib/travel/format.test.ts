@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   formatDateCompact,
   daysBetween,
+  daysBetweenIsoDates,
   getKennelInitials,
   formatDistanceWithWalk,
   formatDayHeader,
@@ -96,6 +97,24 @@ describe("formatDayHeader", () => {
   it("renders long-form day headers in UTC", () => {
     expect(formatDayHeader("2026-04-14")).toBe("Tuesday, April 14");
     expect(formatDayHeader("2026-04-12T12:00:00.000Z")).toBe("Sunday, April 12");
+  });
+});
+
+describe("daysBetweenIsoDates", () => {
+  it("returns 0 for the same date", () => {
+    expect(daysBetweenIsoDates("2026-04-14", "2026-04-14")).toBe(0);
+  });
+
+  it("returns positive when end is after start", () => {
+    expect(daysBetweenIsoDates("2026-04-14", "2026-04-21")).toBe(7);
+  });
+
+  it("returns negative when end is before start", () => {
+    expect(daysBetweenIsoDates("2026-04-21", "2026-04-14")).toBe(-7);
+  });
+
+  it("handles month boundaries correctly", () => {
+    expect(daysBetweenIsoDates("2026-04-30", "2026-05-01")).toBe(1);
   });
 });
 

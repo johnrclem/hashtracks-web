@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { composeUtcStart, formatTimeInZone, isValidTimezone } from "./timezone";
+import {
+    composeUtcStart,
+    formatTimeInZone,
+    isValidTimezone,
+    todayInTimezone,
+} from "./timezone";
 
 describe("timezone utils", () => {
     describe("composeUtcStart", () => {
@@ -70,6 +75,35 @@ describe("timezone utils", () => {
         it("returns false for invalid zones", () => {
             expect(isValidTimezone("Fake/Timezone")).toBe(false);
             expect(isValidTimezone("EST")).toBe(false); // Only IANA formats
+        });
+    });
+
+    describe("todayInTimezone", () => {
+        it("returns YYYY-MM-DD format", () => {
+            const out = todayInTimezone("America/New_York");
+            expect(out).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        });
+
+        it("can yield a different day for east-vs-west when UTC is mid-day", () => {
+            // Boundary cases require a fixed clock, so just verify the
+            // fundamental property: at any instant, timezones at opposite
+            // ends of the world can return different YYYY-MM-DD values.
+            // E.g. when it's 11pm UTC on Apr 14, Honolulu is 1pm Apr 14,
+            // but Sydney is 9am Apr 15.
+            const honolulu = todayInTimezone("Pacific/Honolulu");
+            const sydney = todayInTimezone("Australia/Sydney");
+            // Both are valid YYYY-MM-DD; they may equal or differ by 1 day
+            // depending on when the test runs, so just assert format.
+            expect(honolulu).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+            expect(sydney).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        });
+
+        it("falls back to UTC for invalid or null timezone", () => {
+            const utc = todayInTimezone("UTC");
+            expect(todayInTimezone(null)).toBe(utc);
+            expect(todayInTimezone(undefined)).toBe(utc);
+            expect(todayInTimezone("Not/AReal/TZ")).toBe(utc);
+            expect(todayInTimezone("EST")).toBe(utc); // legacy abbrev rejected
         });
     });
 });

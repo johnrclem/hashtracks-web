@@ -44,6 +44,17 @@ export function daysBetween(start: string, end: string): number {
 }
 
 /**
+ * Signed day delta between two YYYY-MM-DD strings: `(end - start)` in days.
+ * Returns 0 for same day, positive for end-after-start, negative otherwise.
+ * Distinct from `daysBetween` which clamps to 1+ for trip-duration use.
+ */
+export function daysBetweenIsoDates(start: string, end: string): number {
+  const s = new Date(start + "T00:00:00Z").getTime();
+  const e = new Date(end + "T00:00:00Z").getTime();
+  return Math.round((e - s) / (24 * 60 * 60 * 1000));
+}
+
+/**
  * Long-form day header used as a divider inside distance-tier sections:
  * "Tuesday, April 14". Input is an ISO YYYY-MM-DD or ISO timestamp;
  * defensive .slice(0, 10) accepts both. Rendered in UTC to match the

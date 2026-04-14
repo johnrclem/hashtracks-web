@@ -6,8 +6,9 @@ import { prisma } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/auth";
 import { listSavedSearches, type SavedSearchSummary } from "@/app/travel/actions";
 import { executeTravelSearch } from "@/lib/travel/search";
-import { startOfUtcDay } from "@/lib/travel/format";
 import { withConcurrency } from "@/lib/travel/url";
+import { daysBetweenIsoDates } from "@/lib/travel/format";
+import { todayInTimezone } from "@/lib/timezone";
 import {
   SavedTripCard,
   type SavedTripStatus,
@@ -18,8 +19,6 @@ export const metadata: Metadata = {
   title: "Saved trips — HashTracks Travel",
   description: "Your saved travel searches with live result counts.",
 };
-
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Cap on parallel saved-trip searches. Each `executeTravelSearch` can fan
@@ -73,9 +72,6 @@ export default async function SavedTripsPage() {
   // Run live searches with bounded concurrency (see MAX_PARALLEL_TRIP_SEARCHES
   // above). Per-trip try/catch ensures one failed search doesn't blank the
   // dashboard; the affected card renders without counts gracefully.
-  const today = startOfUtcDay();
-  const soonCutoff = today.getTime() + SEVEN_DAYS_MS;
-
   const enriched: EnrichedSearch[] = await withConcurrency(
     searches,
     MAX_PARALLEL_TRIP_SEARCHES,
@@ -87,11 +83,18 @@ export default async function SavedTripsPage() {
         return { search, status: "active", counts: null, isPast: false };
       }
 
-      const isPast = dest.endDate.getTime() < today.getTime();
-      const isSoon =
-        !isPast &&
-        dest.startDate.getTime() >= today.getTime() &&
-        dest.startDate.getTime() <= soonCutoff;
+      // Compute past/soon in the destination's local day. UTC comparisons
+      // would mark a Hawaii trip ending 2026-04-14 as past at 2026-04-15
+      // 00:00 UTC — roughly 14 hours before local midnight at the
+      // destination. YYYY-MM-DD string comparison is exact for this since
+      // dates are stored at UTC noon (the date portion is unambiguous).
+      const today = todayInTimezone(dest.timezone);
+      const startStr = dest.startDate.toISOString().slice(0, 10);
+      const endStr = dest.endDate.toISOString().slice(0, 10);
+
+      const isPast = endStr < today;
+      const dayDelta = daysBetweenIsoDates(today, startStr);
+      const isSoon = !isPast && dayDelta >= 0 && dayDelta <= 7;
 
       let counts: EnrichedSearch["counts"] = null;
       if (!isPast) {
@@ -100,14 +103,21 @@ export default async function SavedTripsPage() {
             latitude: dest.latitude,
             longitude: dest.longitude,
             radiusKm: dest.radiusKm,
-            startDate: dest.startDate.toISOString().slice(0, 10),
-            endDate: dest.endDate.toISOString().slice(0, 10),
+            startDate: startStr,
+            endDate: endStr,
             timezone: dest.timezone ?? undefined,
           });
+          // Honor the search service's empty-state contract: when the primary
+          // radius came up empty, real results live in `broaderResults`.
+          // Reading top-level arrays only would underreport counts as zero.
+          const effective =
+            out.emptyState === "no_nearby" && out.broaderResults
+              ? out.broaderResults
+              : out;
           counts = {
-            confirmed: out.confirmed.length,
-            likely: out.likely.length,
-            possible: out.possible.length,
+            confirmed: effective.confirmed.length,
+            likely: effective.likely.length,
+            possible: effective.possible.length,
           };
         } catch (err) {
           console.error(`[saved trips] Search failed for ${search.id}`, err);
