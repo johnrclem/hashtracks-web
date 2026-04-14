@@ -358,11 +358,14 @@ export function extractHares(description: string, customPatterns?: string[] | Re
 const mapsUrl = googleMapsSearchUrl;
 
 /** Instruction phrases that indicate a GCal location field contains directions, not an address. */
-const NON_ADDRESS_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in|when:|why:|hare:|what:|who:|cost:)|\bstart\s+location\s*$/i;
+const NON_ADDRESS_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in|when:|why:|hare:|what:|who:|cost:)/i;
+/** Suffix phrase indicating the field is a placeholder like "DST start location". */
+const NON_ADDRESS_SUFFIX_RE = /\bstart\s+location\s*$/i;
 
 /** Returns true if text starts with instruction phrasing rather than an address. */
 function isNonAddressText(text: string): boolean {
-  return NON_ADDRESS_RE.test(text.trim());
+  const t = text.trim();
+  return NON_ADDRESS_RE.test(t) || NON_ADDRESS_SUFFIX_RE.test(t);
 }
 
 /** Config shape for Google Calendar sources */
