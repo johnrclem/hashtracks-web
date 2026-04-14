@@ -89,7 +89,7 @@ interface TravelResultsProps {
 }
 
 const TIER_LABELS: Record<DistanceTier, { title: string; description: string }> = {
-  nearby: { title: "Walking distance", description: "≤ 10 km" },
+  nearby: { title: "Close by", description: "≤ 10 km" },
   area: { title: "Across town", description: "10–25 km" },
   drive: { title: "Day trip material", description: "25+ km" },
 };

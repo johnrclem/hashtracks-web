@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BadgeCheck, ExternalLink, MapPin, Users } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ExternalLink, MapPin, Users } from "lucide-react";
 import { getConditionEmoji, cToF } from "@/lib/weather-display";
 import { getKennelInitials } from "@/lib/travel/format";
 import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
@@ -161,13 +160,6 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
               {result.attendance?.status === "CONFIRMED" && (
                 <AttendanceBadge level={result.attendance.participationLevel} size="sm" />
               )}
-              <Badge
-                variant="outline"
-                className="gap-1 border-[var(--tier-accent-border)] bg-[var(--tier-accent-bg)] text-[var(--tier-accent)]"
-              >
-                <BadgeCheck className="h-3 w-3" />
-                Confirmed
-              </Badge>
             </div>
           </div>
         </div>

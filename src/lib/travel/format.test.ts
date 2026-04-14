@@ -18,6 +18,16 @@ describe("formatDateCompact", () => {
     // interpreted at local midnight. UTC-noon keeps the day stable.
     expect(formatDateCompact("2026-04-12", { withWeekday: true })).toBe("Sun, Apr 12");
   });
+
+  it("accepts ISO-8601 timestamps without producing Invalid Date", () => {
+    // Regression: TravelResultFilters chip tooltips pass full ISO timestamps
+    // from datesByDay. Without the defensive slice the helper appended
+    // "T12:00:00Z" twice and rendered "Invalid Date" in tooltips/aria-labels.
+    expect(formatDateCompact("2026-04-14T12:00:00.000Z")).toBe("Apr 14");
+    expect(
+      formatDateCompact("2026-04-14T12:00:00.000Z", { withWeekday: true }),
+    ).toBe("Tue, Apr 14");
+  });
 });
 
 describe("daysBetween", () => {

@@ -356,9 +356,21 @@ export async function executeTravelSearch(
   // Step 14: Apply filters
   const filtered = applyFilters(confirmedResults, likelyResults, possibleResults, params.filters);
 
-  // Step 15: Rank (confirmed → likely by date+distance → possible)
-  filtered.confirmed.sort((a, b) => a.date.getTime() - b.date.getTime() || a.distanceKm - b.distanceKm);
-  filtered.likely.sort((a, b) => a.date.getTime() - b.date.getTime() || a.distanceKm - b.distanceKm);
+  // Step 15: Rank confirmed + likely by date → startTime → distance. The
+  // startTime tiebreaker matters within a tier on the same date: a traveler
+  // looking at Friday's "Nearby" section expects 6:15 PM before 7:30 PM.
+  // "HH:MM" strings lex-sort correctly; nulls sort last via ?? "" → empty
+  // string compares lower than any digit.
+  const byDateTimeDistance = <T extends { date: Date; startTime: string | null; distanceKm: number }>(
+    a: T,
+    b: T,
+  ) =>
+    a.date.getTime() - b.date.getTime() ||
+    (a.startTime ?? "").localeCompare(b.startTime ?? "") ||
+    a.distanceKm - b.distanceKm;
+
+  filtered.confirmed.sort(byDateTimeDistance);
+  filtered.likely.sort(byDateTimeDistance);
   filtered.possible.sort((a, b) => a.distanceKm - b.distanceKm);
 
   // Step 16: Determine empty state

@@ -7,12 +7,17 @@
  * `withWeekday: true`. UTC tz keeps the DOW consistent with the UTC-noon
  * convention used throughout Travel Mode — travelers should see the
  * destination's day, not their client's localized day.
+ *
+ * The leading .slice(0, 10) is defensive: some callers (TravelResultFilters
+ * chip tooltips) pass ISO-8601 timestamps like "2026-04-14T12:00:00.000Z".
+ * Without the slice, the helper appends "T12:00:00Z" again and produces
+ * Invalid Date. Slicing is idempotent for plain YYYY-MM-DD input.
  */
 export function formatDateCompact(
   dateStr: string,
   opts: { withWeekday?: boolean } = {},
 ): string {
-  return new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", {
+  return new Date(dateStr.slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-US", {
     ...(opts.withWeekday ? { weekday: "short" } : {}),
     month: "short",
     day: "numeric",
