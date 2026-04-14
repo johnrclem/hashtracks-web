@@ -236,8 +236,13 @@ async function ensureKennelRecords(prisma: any, kennels: KennelSeed[], toSlugFn:
           continue;
         }
         // Pre-check slug candidates to find an available one (avoids P2002 errors)
-        const slugCandidates = [toSlugFn(kennel.shortName), toSlugFn(kennel.kennelCode)];
-        for (let n = 2; slugCandidates.length < 10; n++) slugCandidates.push(`${toSlugFn(kennel.kennelCode)}-${n}`);
+        // Explicit slug in seed data takes priority; otherwise derive from shortName/kennelCode
+        const slugCandidates = kennel.slug
+          ? [kennel.slug]
+          : [toSlugFn(kennel.shortName), toSlugFn(kennel.kennelCode)];
+        if (!kennel.slug) {
+          for (let n = 2; slugCandidates.length < 10; n++) slugCandidates.push(`${toSlugFn(kennel.kennelCode)}-${n}`);
+        }
         let chosenSlug: string | null = null;
         for (const slug of slugCandidates) {
           const taken = await prisma.kennel.findUnique({ where: { slug }, select: { kennelCode: true, shortName: true } });
@@ -291,6 +296,10 @@ async function ensureKennelRecords(prisma: any, kennels: KennelSeed[], toSlugFn:
           if (record[k] === null || record[k] === undefined) {
             updates[k] = v;
           }
+        }
+        // Explicit slug override: update slug if seed specifies a different one
+        if (kennel.slug && record.slug !== kennel.slug) {
+          updates.slug = kennel.slug;
         }
         if (Object.keys(updates).length > 0) {
           record = await prisma.kennel.update({

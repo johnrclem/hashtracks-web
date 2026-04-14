@@ -26,6 +26,12 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["node-ical"],
+  async redirects() {
+    return [
+      // Disambiguate /kennels/ah3 slug collision between Aloha H3 (HI) and Amsterdam H3 (NL)
+      { source: "/kennels/ah3", destination: "/kennels/ah3-hi", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

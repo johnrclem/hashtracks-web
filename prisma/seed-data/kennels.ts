@@ -4,6 +4,7 @@ export interface KennelSeed {
   fullName: string;
   region: string;
   country?: string;
+  slug?: string;
   website?: string;
   scheduleDayOfWeek?: string;
   scheduleTime?: string;
@@ -134,7 +135,7 @@ export const KENNELS: KennelSeed[] = [
       instagramHandle: "@bostonh3",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
     },
-    { kennelCode: "beantown", shortName: "Beantown", fullName: "Beantown City Hash House Harriers", region: "Boston, MA" },
+    { kennelCode: "beantown", shortName: "Beantown", fullName: "Beantown City Hash House Harriers", region: "Boston, MA", hashCash: "$5", contactEmail: "HashCash@beantown.cityhash.org" },
     {
       kennelCode: "bos-moon", shortName: "Boston Moon", fullName: "Boston Moon Hash House Harriers", region: "Boston, MA",
       scheduleFrequency: "Full Moon",
@@ -1435,10 +1436,10 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "ah4", shortName: "Atlanta H4", fullName: "Atlanta Hash House Harriers & Harriettes", region: "Atlanta, GA",
       website: "https://board.atlantahash.com",
-      facebookUrl: "https://www.facebook.com/groups/atlantahash",
       scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Weekly",
       hashCash: "$10", foundedYear: 1978,
-      description: "Atlanta's original hash. Weekly Saturday runs since 1978.",
+      contactEmail: "info@atlantahash.com",
+      description: "Atlanta's original hash. Weekly Saturday runs.",
     },
     {
       kennelCode: "ph3-atl", shortName: "Pinelake H3", fullName: "Pinelake Hash House Harriers", region: "Atlanta, GA",
@@ -1996,7 +1997,7 @@ export const KENNELS: KennelSeed[] = [
     },
     // ===== HAWAII =====
     {
-      kennelCode: "ah3-hi", shortName: "AH3", fullName: "Aloha Hash House Harriers", region: "Honolulu, HI",
+      kennelCode: "ah3-hi", shortName: "AH3", fullName: "Aloha Hash House Harriers", region: "Honolulu, HI", slug: "ah3-hi",
       website: "https://alohah3.com",
       facebookUrl: "https://www.facebook.com/AlohaH3/",
       logoUrl: "https://alohah3.com/wp-content/uploads/2023/10/FB-Link-Sharing-Photo-homepage.png",
@@ -2398,7 +2399,7 @@ export const KENNELS: KennelSeed[] = [
 
     // ── Netherlands: Amsterdam ──
     {
-      kennelCode: "ah3-nl", shortName: "AH3", fullName: "Amsterdam Hash House Harriers", region: "Amsterdam", country: "Netherlands",
+      kennelCode: "ah3-nl", shortName: "AH3", fullName: "Amsterdam Hash House Harriers", region: "Amsterdam", country: "Netherlands", slug: "ah3-nl",
       website: "https://ah3.nl",
       facebookUrl: "https://www.facebook.com/groups/AmsterdamH3",
       logoUrl: "https://ah3.nl/wp-content/uploads/2022/03/cropped-Amsterdam-original-192x192.png",
@@ -2477,10 +2478,12 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bch3", shortName: "BCH3", fullName: "Brew City Hash House Harriers", region: "Milwaukee, WI",
       website: "https://www.brewcityh3.com",
-      facebookUrl: "https://www.facebook.com/brewcityh3",
-      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Biweekly",
+      facebookUrl: "https://www.facebook.com/groups/BrewCityH3/",
+      scheduleDayOfWeek: "Friday", scheduleFrequency: "Weekly",
       hashCash: "$7-8",
-      description: "Milwaukee's biweekly Thursday evening hash. Trail #359+.",
+      contactEmail: "Fido@BrewCityH3.com",
+      logoUrl: "https://static.wixstatic.com/media/5b98c7_0b8ba7cdd4114a479765ea7e0d64d4ea~mv2.png/v1/fill/w_657,h_534,al_c/5b98c7_0b8ba7cdd4114a479765ea7e0d64d4ea~mv2.png",
+      description: "Milwaukee's weekly Friday evening hash. Trail #359+.",
       latitude: 43.04, longitude: -87.91,
     },
 
