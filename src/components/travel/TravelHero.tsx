@@ -179,6 +179,18 @@ export function TravelHero() {
             </a>
           </div>
         )}
+
+        {/* Discoverability link to /travel/saved. Always rendered — the page
+            redirects unauth users to sign-in, so it doubles as a "sign in to
+            see saved trips" affordance for guests. */}
+        <div className="mt-2 text-center">
+          <a
+            href="/travel/saved"
+            className="text-xs text-muted-foreground/60 underline underline-offset-4 transition-colors hover:text-muted-foreground"
+          >
+            Your saved trips →
+          </a>
+        </div>
       </div>
     </section>
   );
