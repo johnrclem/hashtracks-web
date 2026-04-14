@@ -1,6 +1,19 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  computeDayCounts,
+  groupResultsByTier,
+  toggleDay as toggleDayInSet,
+  TIERS,
+  type DayCode,
+  type DistanceTier,
+} from "@/lib/travel/filters";
 import { ConfirmedCard } from "./ConfirmedCard";
 import { LikelyCard } from "./LikelyCard";
 import { PossibleSection } from "./PossibleSection";
+import { PossibleRow } from "./PossibleRow";
+import { TravelResultFilters } from "./TravelResultFilters";
 
 interface SerializedConfirmed {
   type: "confirmed";
@@ -21,7 +34,13 @@ interface SerializedConfirmed {
   distanceKm: number;
   distanceTier: "nearby" | "area" | "drive";
   sourceLinks: { url: string; label: string; type: string }[];
-  weather: { highTempC: number; lowTempC: number; condition: string; conditionType: string; precipProbability: number } | null;
+  weather: {
+    highTempC: number;
+    lowTempC: number;
+    condition: string;
+    conditionType: string;
+    precipProbability: number;
+  } | null;
 }
 
 interface SerializedLikely {
@@ -64,85 +83,155 @@ interface TravelResultsProps {
   };
 }
 
-const TIER_LABELS: Record<string, { title: string; description: string }> = {
+const TIER_LABELS: Record<DistanceTier, { title: string; description: string }> = {
   nearby: { title: "Walking distance", description: "≤ 10 km" },
   area: { title: "Across town", description: "10–25 km" },
   drive: { title: "Day trip material", description: "25+ km" },
 };
 
-/**
- * Server component rendering the three-tier result list.
- * Cards use CSS keyframe entrance animation with staggered delays.
- */
 export function TravelResults({ results }: TravelResultsProps) {
   const { confirmed, likely, possible } = results;
 
-  const tiers = ["nearby", "area", "drive"] as const;
+  const [includePossible, setIncludePossible] = useState(false);
+  const [selectedDays, setSelectedDays] = useState<Set<DayCode>>(new Set());
+
+  const { availableDays, dayCounts } = useMemo(
+    () => computeDayCounts(confirmed, likely, possible),
+    [confirmed, likely, possible],
+  );
+
+  const toggleDay = (day: DayCode) =>
+    setSelectedDays((prev) => toggleDayInSet(prev, day));
+
+  const clearDays = () => setSelectedDays(new Set());
+
+  const grouped = useMemo(
+    () => groupResultsByTier({ confirmed, likely, possible, selectedDays }),
+    [confirmed, likely, possible, selectedDays],
+  );
+
+  const renderedTiers = TIERS.map((tier) => ({
+    tier,
+    ...grouped[tier],
+    shownPossible: includePossible ? grouped[tier].possible : [],
+  })).filter(
+    (t) => t.confirmed.length + t.likely.length + t.shownPossible.length > 0,
+  );
+
+  // Flat possible list (after filter) used by the collapsed section when the
+  // "Include possible" toggle is off.
+  const filteredPossibleAll = [
+    ...grouped.nearby.possible,
+    ...grouped.area.possible,
+    ...grouped.drive.possible,
+  ];
+
   let cardIndex = 0;
 
   return (
-    <div className="mt-8 border-l border-[var(--destination-pin,oklch(0.65_0.18_42))] pl-6 lg:pl-8">
-      {tiers.map((tier) => {
-        const tierConfirmed = confirmed.filter((r) => r.distanceTier === tier);
-        const tierLikely = likely.filter((r) => r.distanceTier === tier);
-        const total = tierConfirmed.length + tierLikely.length;
-        if (total === 0) return null;
+    <div className="mt-2 border-l border-[var(--destination-pin,oklch(0.65_0.18_42))] pl-6 lg:pl-8">
+      <TravelResultFilters
+        includePossible={includePossible}
+        onIncludePossibleChange={setIncludePossible}
+        selectedDays={selectedDays}
+        onToggleDay={toggleDay}
+        onClearDays={clearDays}
+        availableDays={availableDays}
+        dayCounts={dayCounts}
+        possibleCount={possible.length}
+      />
 
-        const label = TIER_LABELS[tier];
-
-        return (
-          <section key={tier} className="mb-10">
-            <div className="mb-4 flex items-baseline gap-3 border-b border-border pb-2">
-              <h2 className="font-display text-lg font-medium">{label.title}</h2>
-              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                {total} trail{total !== 1 ? "s" : ""} · {label.description}
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              {tierConfirmed.map((result) => {
-                const delay = cardIndex * 50;
-                cardIndex++;
-                return (
-                  <div
-                    key={result.eventId}
-                    className="travel-animate"
-                    style={{
-                      opacity: 0,
-                      animation: `travel-card-enter 400ms ease-out forwards`,
-                      animationDelay: `${delay}ms`,
-                    }}
-                  >
-                    <ConfirmedCard result={result} />
-                  </div>
-                );
-              })}
-              {tierLikely.map((result) => {
-                const delay = cardIndex * 50;
-                cardIndex++;
-                return (
-                  <div
-                    key={`${result.kennelId}-${result.date}`}
-                    className="travel-animate"
-                    style={{
-                      opacity: 0,
-                      animation: `travel-card-enter 400ms ease-out forwards`,
-                      animationDelay: `${delay}ms`,
-                    }}
-                  >
-                    <LikelyCard result={result} />
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        );
-      })}
-
-      {/* Possible activity section */}
-      {possible.length > 0 && (
-        <PossibleSection results={possible} />
+      {renderedTiers.length === 0 && (
+        <div className="mt-10 text-center text-sm text-muted-foreground">
+          No results match the active filters.{" "}
+          <button
+            type="button"
+            onClick={() => {
+              clearDays();
+              setIncludePossible(false);
+            }}
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            Clear filters
+          </button>
+        </div>
       )}
+
+      <div className="mt-6">
+        {renderedTiers.map(({ tier, confirmed: tc, likely: tl, shownPossible }) => {
+          const total = tc.length + tl.length + shownPossible.length;
+          const label = TIER_LABELS[tier];
+
+          return (
+            <section key={tier} className="mb-10">
+              <div className="mb-4 flex items-baseline gap-3 border-b border-border pb-2">
+                <h2 className="font-display text-lg font-medium">{label.title}</h2>
+                <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                  {total} trail{total !== 1 ? "s" : ""} · {label.description}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {tc.map((result) => {
+                  const delay = cardIndex++ * 50;
+                  return (
+                    <AnimatedCard key={result.eventId} delay={delay}>
+                      <ConfirmedCard result={result} />
+                    </AnimatedCard>
+                  );
+                })}
+                {tl.map((result) => {
+                  const delay = cardIndex++ * 50;
+                  return (
+                    <AnimatedCard
+                      key={`${result.kennelId}-${result.date}`}
+                      delay={delay}
+                    >
+                      <LikelyCard result={result} />
+                    </AnimatedCard>
+                  );
+                })}
+
+                {shownPossible.length > 0 && (
+                  <div className="flex flex-col border-l-2 border-dashed border-border/60 pl-3">
+                    {shownPossible.map((result, i) => (
+                      <PossibleRow
+                        key={`${result.kennelId}-${result.date ?? "cadence"}-${i}`}
+                        result={result}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+
+      {!includePossible && filteredPossibleAll.length > 0 && (
+        <PossibleSection results={filteredPossibleAll} />
+      )}
+    </div>
+  );
+}
+
+function AnimatedCard({
+  delay,
+  children,
+}: {
+  delay: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="travel-animate"
+      style={{
+        opacity: 0,
+        animation: `travel-card-enter 400ms ease-out forwards`,
+        animationDelay: `${delay}ms`,
+      }}
+    >
+      {children}
     </div>
   );
 }

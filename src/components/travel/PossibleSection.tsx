@@ -1,16 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ExternalLink } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { PossibleRow, type PossibleRowData } from "./PossibleRow";
 
-interface PossibleResult {
-  kennelId: string;
-  kennelSlug: string;
-  kennelName: string;
+interface PossibleResult extends PossibleRowData {
   date: string | null;
-  distanceKm: number;
-  explanation: string;
-  sourceLinks: { url: string; label: string; type: string }[];
 }
 
 interface PossibleSectionProps {
@@ -47,37 +42,13 @@ export function PossibleSection({ results }: PossibleSectionProps) {
       </button>
 
       <div id="possible-list" className={`space-y-0 pb-4 ${isOpen ? "" : "hidden"}`}>
-          {results.map((result) => (
-            <div
-              key={result.kennelId}
-              className="border-b border-border py-3 last:border-b-0"
-            >
-              <div className="text-sm font-medium text-muted-foreground">
-                {result.kennelName}
-              </div>
-              <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground/70">
-                <span>{result.explanation.split("—")[0]?.trim() || "Timing varies"}</span>
-                <span>·</span>
-                <span>{result.distanceKm.toFixed(1)} km</span>
-              </div>
-              {result.sourceLinks.length > 0 && (
-                <div className="mt-1.5 text-xs italic text-muted-foreground/60">
-                  — check their{" "}
-                  <a
-                    href={result.sourceLinks[0].url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                  >
-                    {result.sourceLinks[0].label}
-                    <ExternalLink className="h-2.5 w-2.5" />
-                  </a>
-                  {" "}closer to your trip.
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        {results.map((result, i) => (
+          <PossibleRow
+            key={`${result.kennelId}-${result.date ?? "cadence"}-${i}`}
+            result={result}
+          />
+        ))}
+      </div>
     </div>
   );
 }

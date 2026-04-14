@@ -24,6 +24,9 @@ import {
   type KennelContext,
   type EvidenceTimeline,
 } from "./projections";
+import type { DistanceTier } from "./filters";
+
+export type { DistanceTier };
 
 // ============================================================================
 // Types
@@ -41,8 +44,6 @@ export interface TravelSearchParams {
     distanceTier?: DistanceTier[];
   };
 }
-
-export type DistanceTier = "nearby" | "area" | "drive";
 
 export interface SourceLink {
   url: string;
