@@ -3,12 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock Prisma
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 
-// Mock weather — return null by default, override per test
+// Mock weather — return empty by default, override per test
 vi.mock("@/lib/weather", () => ({
   getEventDayWeather: vi.fn().mockResolvedValue(null),
+  getWeatherForEvents: vi.fn().mockResolvedValue({}),
 }));
 
-import { executeTravelSearch, type TravelSearchParams } from "./search";
+import { executeTravelSearch, byDateTimeDistance, type TravelSearchParams } from "./search";
 
 // ============================================================================
 // Mock Prisma client factory
@@ -367,5 +368,50 @@ describe("executeTravelSearch", () => {
       const ninetyDaysFromNow = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
       expect(latestDate.getTime()).toBeLessThanOrEqual(ninetyDaysFromNow.getTime() + 24 * 60 * 60 * 1000);
     }
+  });
+});
+
+describe("byDateTimeDistance comparator", () => {
+  const sameDay = utcNoon("2026-04-17");
+
+  function entry(startTime: string | null, distanceKm: number, label: string) {
+    return { date: sameDay, startTime, distanceKm, label };
+  }
+
+  it("orders same-day events by startTime ascending", () => {
+    // Regression: previously `(a.startTime ?? "").localeCompare(...)` sorted
+    // earlier strings first (correctly), so 6:15 PM came before 7:30 PM —
+    // but only when both startTimes were non-null. The bug was specifically
+    // around null handling (next test).
+    const sorted = [entry("19:30", 1, "B"), entry("18:15", 1, "A")].sort(
+      byDateTimeDistance,
+    );
+    expect(sorted.map((e) => e.label)).toEqual(["A", "B"]);
+  });
+
+  it("sorts null startTime AFTER timed events on the same date", () => {
+    // Regression for the codex finding: `?? ""` would sort `""` before
+    // "00:00", bubbling untimed events to the top of a day. With the
+    // "99:99" sentinel they correctly fall to the bottom.
+    const sorted = [
+      entry(null, 1, "untimed"),
+      entry("18:00", 1, "evening"),
+      entry("06:15", 1, "morning"),
+    ].sort(byDateTimeDistance);
+    expect(sorted.map((e) => e.label)).toEqual(["morning", "evening", "untimed"]);
+  });
+
+  it("falls through to distance when date and startTime tie", () => {
+    const sorted = [
+      entry("18:00", 5.0, "far"),
+      entry("18:00", 1.2, "close"),
+    ].sort(byDateTimeDistance);
+    expect(sorted.map((e) => e.label)).toEqual(["close", "far"]);
+  });
+
+  it("orders different dates ascending regardless of startTime", () => {
+    const apr17 = { date: utcNoon("2026-04-17"), startTime: "23:00", distanceKm: 1 };
+    const apr18 = { date: utcNoon("2026-04-18"), startTime: "06:00", distanceKm: 1 };
+    expect([apr18, apr17].sort(byDateTimeDistance)).toEqual([apr17, apr18]);
   });
 });

@@ -12,7 +12,7 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { haversineDistance } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import { safeUrl } from "@/lib/safe-url";
-import { getEventDayWeather, type DailyWeather } from "@/lib/weather";
+import { getWeatherForEvents, type DailyWeather } from "@/lib/weather";
 import {
   projectTrails,
   scoreConfidence,
@@ -157,6 +157,35 @@ interface NearbyKennel {
 }
 
 // ============================================================================
+// Sort comparator
+// ============================================================================
+
+/**
+ * Comparator: date asc → startTime asc → distance asc.
+ *
+ * The startTime tiebreaker matters within a tier on the same date — a
+ * traveler scanning Friday's "Nearby" section expects 6:15 PM before 7:30
+ * PM. "HH:MM" strings lex-sort correctly. Nulls sort LAST via the "99:99"
+ * sentinel — empty string would sort BEFORE "00:00" and bubble untimed
+ * events to the top of the day, which is the opposite of what we want.
+ *
+ * Exported so the test suite can lock the contract independently of the
+ * full search flow (which requires a heavy Prisma mock).
+ */
+const timeKey = (t: string | null) => t ?? "99:99";
+
+export function byDateTimeDistance<T extends { date: Date; startTime: string | null; distanceKm: number }>(
+  a: T,
+  b: T,
+): number {
+  return (
+    a.date.getTime() - b.date.getTime() ||
+    timeKey(a.startTime).localeCompare(timeKey(b.startTime)) ||
+    a.distanceKm - b.distanceKm
+  );
+}
+
+// ============================================================================
 // Main search function
 // ============================================================================
 
@@ -274,8 +303,13 @@ export async function executeTravelSearch(
     (l) => l.kennelId,
   );
 
-  // Step 12: Fetch weather (parallelized, individual try/catch)
-  const weatherMap = await fetchWeatherParallel(confirmedEvents, kennelMap, latitude, longitude, now);
+  // Step 12: Fetch weather. Reuses the deduping/capped batch from
+  // src/lib/weather.ts: kennels in the same metro share one Google Weather
+  // API call (one call returns 10 days), and total calls are capped at
+  // MAX_WEATHER_API_CALLS (15). Earlier per-event Promise.all path could
+  // burst 20+ concurrent upstream requests for a dense trip after the
+  // 5→10 day window expansion; this avoids that.
+  const weatherRecord = await loadConfirmedWeather(confirmedEvents, kennelMap);
 
   // Step 13: Assign distance tiers + build result objects
   const confirmedResults: ConfirmedResult[] = confirmedEvents.map((event) => {
@@ -308,7 +342,7 @@ export async function executeTravelSearch(
       distanceKm,
       distanceTier: distanceTier(distanceKm),
       sourceLinks: buildSourceLinks(kennel, eventLinksByKennel.get(event.kennelId), event.sourceUrl),
-      weather: weatherMap.get(event.id) ?? null,
+      weather: weatherRecord[event.id] ?? null,
     };
   });
 
@@ -358,19 +392,7 @@ export async function executeTravelSearch(
   // Step 14: Apply filters
   const filtered = applyFilters(confirmedResults, likelyResults, possibleResults, params.filters);
 
-  // Step 15: Rank confirmed + likely by date → startTime → distance. The
-  // startTime tiebreaker matters within a tier on the same date: a traveler
-  // looking at Friday's "Nearby" section expects 6:15 PM before 7:30 PM.
-  // "HH:MM" strings lex-sort correctly; nulls sort last via ?? "" → empty
-  // string compares lower than any digit.
-  const byDateTimeDistance = <T extends { date: Date; startTime: string | null; distanceKm: number }>(
-    a: T,
-    b: T,
-  ) =>
-    a.date.getTime() - b.date.getTime() ||
-    (a.startTime ?? "").localeCompare(b.startTime ?? "") ||
-    a.distanceKm - b.distanceKm;
-
+  // Step 15: Rank confirmed + likely by date → startTime → distance.
   filtered.confirmed.sort(byDateTimeDistance);
   filtered.likely.sort(byDateTimeDistance);
   filtered.possible.sort((a, b) => a.distanceKm - b.distanceKm);
@@ -569,39 +591,40 @@ function inferLinkType(url: string, label?: string): SourceLink["type"] {
   return "website";
 }
 
-/** Fetch weather forecasts for confirmed events in parallel (individual try/catch). */
-async function fetchWeatherParallel(
+/**
+ * Fetch weather for confirmed events using the shared deduping/capped batch
+ * helper from src/lib/weather.ts. That helper:
+ *   - Groups events by location key (~10km coord grid OR region centroid),
+ *     so kennels in the same metro share ONE Google Weather API call (each
+ *     call returns 10 days of forecasts).
+ *   - Caps total upstream calls at MAX_WEATHER_API_CALLS (15) to avoid
+ *     quota exhaustion on dense trips.
+ *   - Filters internally to the 10-day forecast window.
+ *
+ * On any failure the helper returns {} for the affected location, so weather
+ * pills disappear gracefully without breaking the search.
+ */
+async function loadConfirmedWeather(
   events: { id: string; kennelId: string; date: Date; latitude: number | null; longitude: number | null }[],
   kennelMap: Map<string, NearbyKennel>,
-  searchLat: number,
-  searchLng: number,
-  now: Date,
-): Promise<Map<string, DailyWeather>> {
-  // Match Google Weather API's actual forecast horizon (10-day daily).
-  // The previous 5-day cut left plenty of trip-window events without
-  // weather even though the forecast is available.
-  const TEN_DAYS_MS = 10 * 24 * 60 * 60 * 1000;
-  const weatherMap = new Map<string, DailyWeather>();
-
-  const eligible = events.filter(
-    (e) => e.date.getTime() - now.getTime() <= TEN_DAYS_MS && e.date.getTime() >= now.getTime(),
-  );
-  if (eligible.length === 0) return weatherMap;
-
-  const promises = eligible.map(async (event) => {
-    try {
-      const kennel = kennelMap.get(event.kennelId);
-      const lat = event.latitude ?? kennel?.latitude ?? searchLat;
-      const lng = event.longitude ?? kennel?.longitude ?? searchLng;
-      const weather = await getEventDayWeather(lat, lng, event.date);
-      if (weather) weatherMap.set(event.id, weather);
-    } catch {
-      // Individual weather failures don't block the search
-    }
+): Promise<Record<string, DailyWeather>> {
+  if (events.length === 0) return {};
+  const enriched = events.map((e) => {
+    const kennel = kennelMap.get(e.kennelId);
+    return {
+      id: e.id,
+      date: e.date,
+      latitude: e.latitude ?? kennel?.latitude ?? null,
+      longitude: e.longitude ?? kennel?.longitude ?? null,
+      kennel: { region: kennel?.region ?? "" },
+    };
   });
-
-  await Promise.all(promises);
-  return weatherMap;
+  try {
+    return await getWeatherForEvents(enriched);
+  } catch (err) {
+    console.error("[travel] Weather batch failed; rendering without weather", err);
+    return {};
+  }
 }
 
 /** Apply user-selected filters to results. */
