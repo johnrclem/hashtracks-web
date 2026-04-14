@@ -128,6 +128,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "boh3", shortName: "Boston H3", fullName: "Boston Hash House Harriers", region: "Boston, MA",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:30 PM", scheduleFrequency: "Weekly",
+      logoUrl: "https://www.bostonhash.com/images/hash-logo.jpg",
     },
     {
       kennelCode: "bobbh3", shortName: "B3H4", fullName: "Boston Ballbuster Hardcore Hash House Harriers", region: "Boston, MA",
