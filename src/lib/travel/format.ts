@@ -37,6 +37,11 @@ export function daysBetween(start: string, end: string): number {
  * "Tuesday, April 14". Input is an ISO YYYY-MM-DD or ISO timestamp;
  * defensive .slice(0, 10) accepts both. Rendered in UTC to match the
  * UTC-noon date convention travel uses throughout.
+ *
+ * Deliberately omits the year (cf. `formatDateLong` in `src/lib/format.ts`,
+ * which renders "Tuesday, April 14, 2026"). Trip-bounded views always have
+ * a year established in the trip-summary stripe above; repeating it on
+ * every day header is noise.
  */
 export function formatDayHeader(dateStr: string): string {
   return new Date(dateStr.slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-US", {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { SourceLink } from "@/lib/travel/search";
 import {
   computeDayCounts,
   groupResultsByTier,
@@ -37,7 +38,7 @@ interface SerializedConfirmed {
   sourceUrl: string | null;
   distanceKm: number;
   distanceTier: "nearby" | "area" | "drive";
-  sourceLinks: { url: string; label: string; type: string }[];
+  sourceLinks: SourceLink[];
   weather: {
     highTempC: number;
     lowTempC: number;
@@ -64,7 +65,7 @@ interface SerializedLikely {
   explanation: string;
   evidenceWindow: string;
   evidenceTimeline: { weeks: boolean[]; totalEvents: number };
-  sourceLinks: { url: string; label: string; type: string }[];
+  sourceLinks: SourceLink[];
 }
 
 interface SerializedPossible {
@@ -79,7 +80,7 @@ interface SerializedPossible {
   distanceKm: number;
   distanceTier: "nearby" | "area" | "drive";
   explanation: string;
-  sourceLinks: { url: string; label: string; type: string }[];
+  sourceLinks: SourceLink[];
 }
 
 interface TravelResultsProps {

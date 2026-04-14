@@ -23,6 +23,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { SourceLink as SearchSourceLink } from "@/lib/travel/search";
 import {
   composeUtcStart,
   formatTimeInZone,
@@ -30,10 +31,12 @@ import {
 } from "@/lib/timezone";
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
 
+type SourceLinkType = SearchSourceLink["type"];
+
 interface SourceLink {
   url: string;
   label: string;
-  type: string;
+  type: SourceLinkType;
 }
 
 interface ConfirmedCardProps {
@@ -223,7 +226,7 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
 }
 
 /** Icon for a source link based on its type; falls back to a generic link. */
-function iconForSourceType(type: string) {
+function iconForSourceType(type: SourceLinkType) {
   switch (type) {
     case "facebook":
       return Facebook;
@@ -231,6 +234,9 @@ function iconForSourceType(type: string) {
       return Instagram;
     case "website":
       return Globe;
+    case "hashrego":
+    case "meetup":
+    case "other":
     default:
       return ExternalLink;
   }
