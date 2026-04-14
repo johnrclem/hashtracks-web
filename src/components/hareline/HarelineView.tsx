@@ -303,6 +303,12 @@ export function HarelineView({
         ...overrides,
       };
 
+      // When regions are active, the effective default scope is "all" (see computeInitialScope).
+      // We must persist an explicit scope=my to the URL so a page refresh doesn't
+      // re-promote it back to "all".
+      const effectiveRegions = state.regions as string[];
+      const effectiveDefaultScope = effectiveRegions.length > 0 ? "all" : defaultScope;
+
       for (const [key, val] of Object.entries(state)) {
         const str = Array.isArray(val) ? val.join("|") : val;
         // Only add non-default values to keep URL clean
@@ -310,7 +316,7 @@ export function HarelineView({
           (key === "time" && str === getDefaultTimeFilter(currentView)) ||
           (key === "view" && str === "list") ||
           (key === "density" && str === "medium") ||
-          (key === "scope" && str === defaultScope) ||
+          (key === "scope" && str === effectiveDefaultScope) ||
           str === "";
         if (!isDefault) {
           params.set(key, str);
