@@ -95,13 +95,18 @@ export function parseSevenHillsPage(html: string): ParsedTrail | null {
 
   // Trail name sits between "TRAIL #N" and the date phrase, decorated with emoji
   // and stray punctuation that we strip for display.
-  // Take only the first "line" — FIELD_LABEL_SPLIT_RE injects \n before every known
-  // label, so anything after the first \n in this slice is a field label, not a title.
+  // Collapse injected \n separators back to spaces, then strip any trailing field
+  // label (e.g. "When: ") that FIELD_LABEL_SPLIT_RE may have placed before the date
+  // phrase. Splitting at \n[0] is wrong: DATE_SPLIT_RE also injects \n before day
+  // names, so a title like "Saturday Night Fever Trail" would be truncated.
   let title: string | undefined;
   const nameStart = trailMatch.index + trailMatch[0].length;
   const nameEnd = dateMatch.index;
   if (nameEnd > nameStart) {
-    const rawName = bodyText.slice(nameStart, nameEnd).split("\n")[0];
+    const rawName = bodyText.slice(nameStart, nameEnd)
+      .replaceAll(/\s+/g, " ")
+      .replace(/\s+(?:When|Start|Hares?|Beer\s*Meister|Cost|Shiggy\s*Level|Special\s*Instructions|On[\s-]*On):\s*$/i, "")
+      .trim();
     title = rawName
       .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
       .replace(/[~\-!]+/g, " ")

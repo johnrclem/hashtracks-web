@@ -225,7 +225,12 @@ export class BrewCityH3Adapter implements SourceAdapter {
         const details = detailText ? parseDetails(detailText) : {};
 
         // Prefer the explicit "Location:" header (full venue name) over On-Out (often abbreviated).
+        // When both are present and differ, keep On-Out as the street address.
         const location = locationFromLabel || details.location || undefined;
+        const locationStreet =
+          locationFromLabel && details.location && details.location !== locationFromLabel
+            ? details.location
+            : undefined;
 
         const event: RawEventData = {
           date,
@@ -234,6 +239,7 @@ export class BrewCityH3Adapter implements SourceAdapter {
           runNumber,
           hares: details.hares,
           location,
+          locationStreet,
           startTime,
           description: details.description,
           sourceUrl: calendarUrl,

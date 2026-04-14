@@ -184,6 +184,8 @@ describe("BrewCityH3Adapter", () => {
     expect(trail359!.hares).toBe("Amber Alert");
     // "Location:" header wins over On-Out abbreviated value (#698)
     expect(trail359!.location).toBe("Dirty Dime Tavern");
+    // On-Out street address preserved as locationStreet when Location: header wins
+    expect(trail359!.locationStreet).toBe("5880 S Packard Ave, Cudahy, WI 53110");
     expect(trail359!.description).toContain("Hash cash: $8");
 
     // Second event: Easter Hash (no trail number)
