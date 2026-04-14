@@ -53,6 +53,18 @@ describe("parseNextRunArticle", () => {
     expect(event!.locationUrl).toBe("https://maps.app.goo.gl/LF88EQZtSPZkdt826");
   });
 
+  it("falls back to Station when Run Site starts with 'Google Map:'", () => {
+    const html = `
+<div class="item-content">
+  <p><strong>Date</strong>: 16-Apr-2026<br>
+  <strong>Station</strong>: BTS Chong Nonsi<br>
+  <strong>Run Site</strong>: Google Map: https://maps.app.goo.gl/HHfhEm6<br>
+  <strong>Hare</strong>: Jessticles</p>
+</div>`;
+    const event = parseNextRunArticle(html, "bth3", "18:30", "https://www.bangkokhash.com/thursday/index.php");
+    expect(event!.location).toBe("BTS Chong Nonsi");
+  });
+
   it("returns null for empty article", () => {
     const event = parseNextRunArticle("<div></div>", "bth3", "18:30", "https://example.com");
     expect(event).toBeNull();
@@ -113,5 +125,15 @@ describe("parseHarelineApiHtml", () => {
   it("handles empty hareline", () => {
     const events = parseHarelineApiHtml("", "bth3", "bfmh3", "18:30", "https://example.com");
     expect(events).toEqual([]);
+  });
+
+  it("filters 'On On' boilerplate from hare field", () => {
+    const html = `
+<div style='padding: 0px;'>
+  <div style='font-weight: bold; background: #b3d9ff;'>01-May-2026 <span>Friday</span></div>
+  <div style='font-size: 10pt;'><label style='width: 100px;'>Run #101</label>On On Q</div>
+</div>`;
+    const events = parseHarelineApiHtml(html, "bfmh3", null, "18:30", "https://example.com");
+    expect(events[0].hares).toBeUndefined();
   });
 });

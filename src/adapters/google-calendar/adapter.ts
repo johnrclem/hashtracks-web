@@ -122,7 +122,7 @@ const TITLE_PURE_TIME_RE = /^\d{1,2}:\d{2}\s*[ap]m$/i;
 const TITLE_SCHEDULE_LINE_RE = /:\s*\d{1,2}:\d{2}\s*(?:am|pm)/i;
 
 // Pre-compiled regexes for extractLocationFromDescription
-const LOCATION_LABEL_RE = /(?:^|\n)\s*(?:WHERE|Location|Start\s+Address|Address|Meet(?:ing)?\s*(?:spot|point|at)?)\s*:\s*(.+)/im;
+const LOCATION_LABEL_RE = /(?:^|\n)\s*(?:WHERE|Location|On[\s-]Start|Start\s+Address|Address|Meet(?:ing)?\s*(?:spot|point|at)?)\s*:\s*(.+)/im;
 // Fallback: bare label (no colon) with value on subsequent line, optionally after a URL line
 const LOCATION_BARE_LABEL_RE = /(?:^|\n)\s*(?:WHERE|LOCATION)\s*\n(?:\s*https?:\/\/\S+\s*\n)?\s*(.+)/im;
 // Secondary fallback: "Start:" as location label (lower priority — often contains time, not location)
@@ -280,6 +280,7 @@ export function extractLocationFromDescription(description: string): string | un
 
   if (location.length < 3) return undefined;
   if (isPlaceholder(location)) return undefined;
+  if (isNonAddressText(location)) return undefined;
   if (LOCATION_TIME_ONLY_RE.test(location)) return undefined;
 
   return location;
@@ -358,10 +359,13 @@ const mapsUrl = googleMapsSearchUrl;
 
 /** Instruction phrases that indicate a GCal location field contains directions, not an address. */
 const NON_ADDRESS_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in|when:|why:|hare:|what:|who:|cost:)/i;
+/** Suffix phrase indicating the field is a placeholder like "DST start location". */
+const NON_ADDRESS_SUFFIX_RE = /\bstart\s+location\s*$/i;
 
 /** Returns true if text starts with instruction phrasing rather than an address. */
 function isNonAddressText(text: string): boolean {
-  return NON_ADDRESS_RE.test(text.trim());
+  const t = text.trim();
+  return NON_ADDRESS_RE.test(t) || NON_ADDRESS_SUFFIX_RE.test(t);
 }
 
 /** Config shape for Google Calendar sources */

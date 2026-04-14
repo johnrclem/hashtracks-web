@@ -10,6 +10,7 @@ import {
   chronoParseDate,
   parse12HourTime,
   fetchBrowserRenderedPage,
+  HARE_BOILERPLATE_RE,
   isPlaceholder,
 } from "../utils";
 
@@ -54,7 +55,8 @@ export function parseMakesweatEvent(
   if (descText) {
     const hareMatch = descText.match(/Hares?\s*[-–—]\s*(.+?)(?:\n|$)/i);
     if (hareMatch) {
-      hares = hareMatch[1].trim();
+      const raw = hareMatch[1].trim();
+      hares = HARE_BOILERPLATE_RE.test(raw) ? undefined : raw;
     }
   }
 

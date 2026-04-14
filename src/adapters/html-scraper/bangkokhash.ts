@@ -8,6 +8,7 @@ import {
   chronoParseDate,
   decodeEntities,
   fetchHTMLPage,
+  HARE_BOILERPLATE_RE,
   normalizeHaresField,
   stripHtmlTags,
 } from "../utils";
@@ -103,7 +104,10 @@ export function parseNextRunArticle(
   const titleMatch = /Run\s*#?\s*(\d+)/i.exec(text);
   const runNumber = titleMatch ? Number.parseInt(titleMatch[1], 10) : undefined;
 
-  const locationCandidate = locationRaw ?? runSite ?? station ?? restaurant ?? undefined;
+  // Strip "Google Map:" prefix from runSite — when the kennel uses that as the label it's not
+  // a useful venue name. Fall back to station (BTS stop etc.) when runSite is just a map label.
+  const runSiteClean = runSite && !/^Google\s*Map/i.test(runSite) ? runSite : undefined;
+  const locationCandidate = locationRaw ?? runSiteClean ?? station ?? restaurant ?? undefined;
   // Filter out empty/placeholder values
   const location = locationCandidate && locationCandidate.length > 1 ? locationCandidate : undefined;
   const locationUrl = googleMap && /^https?:\/\//.test(googleMap) ? googleMap : undefined;
@@ -184,7 +188,7 @@ export function parseHarelineApiHtml(
     let hares: string | undefined;
     if (runMatch) {
       const afterRun = infoText.slice(runMatch.index + runMatch[0].length).trim();
-      if (afterRun && !/^$/.test(afterRun)) {
+      if (afterRun && !HARE_BOILERPLATE_RE.test(afterRun)) {
         hares = normalizeHaresField(afterRun);
       }
     }
