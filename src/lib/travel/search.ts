@@ -505,12 +505,15 @@ function buildSourceLinks(
   const links: SourceLink[] = [];
   if (!kennel) return links;
 
-  // Helper: only add if URL passes protocol allowlist (http/https)
+  // Only add if URL passes the protocol allowlist AND the label is non-empty
+  // after trim. Empty/whitespace labels come from DB rows (EventLink.label)
+  // and render as "check their  closer to your trip" — silently broken UI.
   function addIfSafe(url: string | null | undefined, label: string, type: SourceLink["type"]) {
     const safe = safeUrl(url);
-    if (safe && !links.some((l) => l.url === safe)) {
-      links.push({ url: safe, label, type });
-    }
+    const cleanLabel = label.trim();
+    if (!safe || !cleanLabel) return;
+    if (links.some((l) => l.url === safe)) return;
+    links.push({ url: safe, label: cleanLabel, type });
   }
 
   addIfSafe(kennel.website, "Kennel Website", "website");

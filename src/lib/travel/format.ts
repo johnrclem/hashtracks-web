@@ -2,9 +2,18 @@
  * Shared formatting helpers for Travel Mode components.
  */
 
-/** Format a YYYY-MM-DD string as "Apr 14" (month + day, no weekday). */
-export function formatDateCompact(dateStr: string): string {
+/**
+ * Format a YYYY-MM-DD string as "Apr 14" by default, or "Mon, Apr 14" with
+ * `withWeekday: true`. UTC tz keeps the DOW consistent with the UTC-noon
+ * convention used throughout Travel Mode — travelers should see the
+ * destination's day, not their client's localized day.
+ */
+export function formatDateCompact(
+  dateStr: string,
+  opts: { withWeekday?: boolean } = {},
+): string {
   return new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", {
+    ...(opts.withWeekday ? { weekday: "short" } : {}),
     month: "short",
     day: "numeric",
     timeZone: "UTC",

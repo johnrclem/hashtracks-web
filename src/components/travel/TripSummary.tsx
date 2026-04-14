@@ -23,8 +23,8 @@ export function TripSummary({
   likelyCount,
   possibleCount,
 }: TripSummaryProps) {
-  const startFormatted = formatDateCompact(startDate);
-  const endFormatted = formatDateCompact(endDate);
+  const startFormatted = formatDateCompact(startDate, { withWeekday: true });
+  const endFormatted = formatDateCompact(endDate, { withWeekday: true });
   const days = daysBetween(startDate, endDate);
   const tzAbbrev = timezone?.split("/").pop()?.replace(/_/g, " ");
 
@@ -64,8 +64,10 @@ export function TripSummary({
         )}
       </p>
 
-      <div className="mt-4 flex items-center gap-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs uppercase tracking-wider text-muted-foreground">
         <span>{startFormatted} → {endFormatted}</span>
+        <span>·</span>
+        <span>{days} night{days !== 1 ? "s" : ""}</span>
         {tzAbbrev && (
           <>
             <span>·</span>

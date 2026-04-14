@@ -77,7 +77,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
         <Calendar className="h-4 w-4 text-muted-foreground" />
         <span className="font-mono text-sm text-muted-foreground">
           {startDate && endDate
-            ? `${formatDateCompact(startDate)} → ${formatDateCompact(endDate)}`
+            ? `${formatDateCompact(startDate, { withWeekday: true })} → ${formatDateCompact(endDate, { withWeekday: true })}`
             : "Dates"}
         </span>
         <span className="text-muted-foreground">·</span>

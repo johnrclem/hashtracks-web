@@ -14,7 +14,10 @@ export interface PossibleRowData {
  * when the "Include possible" filter toggle is on.
  */
 export function PossibleRow({ result }: { result: PossibleRowData }) {
-  const primaryLink = result.sourceLinks[0];
+  // Skip links that render as blank "— check their  closer to your trip" —
+  // buildSourceLinks trims labels at the source, but defense-in-depth in case
+  // a future caller bypasses that helper.
+  const primaryLink = result.sourceLinks.find((l) => l.label.trim());
   const cadence = result.explanation.split("—")[0]?.trim() || "Timing varies";
 
   return (

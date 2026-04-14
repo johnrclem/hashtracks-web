@@ -158,6 +158,7 @@ export default async function EventDetailPage({
   });
 
   const breadcrumbDate = event.date.toLocaleDateString("en-US", {
+    weekday: "short",
     month: "short",
     day: "numeric",
     timeZone: "UTC",
