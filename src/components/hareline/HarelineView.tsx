@@ -497,7 +497,6 @@ export function HarelineView({
         syncUrl({ regions: [region] });
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [syncUrl, scope],
   );
 
