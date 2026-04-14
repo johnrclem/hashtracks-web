@@ -30,6 +30,7 @@ interface SerializedConfirmed {
   haresText: string | null;
   locationName: string | null;
   locationCity: string | null;
+  timezone: string | null;
   sourceUrl: string | null;
   distanceKm: number;
   distanceTier: "nearby" | "area" | "drive";

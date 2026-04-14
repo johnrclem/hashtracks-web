@@ -66,6 +66,7 @@ export interface ConfirmedResult {
   haresText: string | null;
   locationName: string | null;
   locationCity: string | null;
+  timezone: string | null;
   sourceUrl: string | null;
   distanceKm: number;
   distanceTier: DistanceTier;
@@ -295,6 +296,7 @@ export async function executeTravelSearch(
       haresText: event.haresText,
       locationName: event.locationName,
       locationCity: event.locationCity,
+      timezone: event.timezone,
       sourceUrl: event.sourceUrl,
       distanceKm,
       distanceTier: distanceTier(distanceKm),
