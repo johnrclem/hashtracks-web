@@ -147,7 +147,14 @@ export function TravelResults({ results }: TravelResultsProps) {
         possibleCount={possible.length}
       />
 
-      {renderedTiers.length === 0 && (
+      {/*
+        Only show the "no matches" banner when the filter has truly hidden
+        everything — including the collapsed PossibleSection below. Without
+        this check, a search that surfaces only low-confidence possibles
+        would stack "No results match the active filters" directly on top
+        of "Possible activity · N kennels".
+      */}
+      {renderedTiers.length === 0 && filteredPossibleAll.length === 0 && (
         <div className="mt-10 text-center text-sm text-muted-foreground">
           No results match the active filters.{" "}
           <button

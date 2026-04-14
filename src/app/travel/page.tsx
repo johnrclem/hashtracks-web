@@ -148,43 +148,31 @@ async function TravelResultsServer({
     : undefined;
 
   try {
-    const [results, user] = await Promise.all([
-      executeTravelSearch(prisma, {
-        latitude,
-        longitude,
-        radiusKm,
-        startDate,
-        endDate,
-        timezone,
-        filters: {
-          confidence: confidenceFilter,
-          distanceTier: distanceFilter,
-        },
-      }),
-      getOrCreateUser(),
-    ]);
+    const results = await executeTravelSearch(prisma, {
+      latitude,
+      longitude,
+      radiusKm,
+      startDate,
+      endDate,
+      timezone,
+      filters: {
+        confidence: confidenceFilter,
+        distanceTier: distanceFilter,
+      },
+    });
 
-    // Authenticated users see "Going" badges on events they've RSVP'd to.
-    // Batch the attendance query to avoid N+1 — we only need events in the
-    // current result set, so the IN clause is tightly bounded.
+    // "Going" badge enrichment is strictly optional. Failures inside
+    // getOrCreateUser() (Clerk outages, analytics side-effects, non-P2002
+    // Prisma errors) must NOT take down the entire travel page — a signed-in
+    // user should still see their search results if their user-sync hiccups.
+    // Run search first, then try to decorate with attendance. On any failure
+    // in the enrichment path, log and fall back to attendance: null.
     const confirmedEventIds = [
       ...results.confirmed,
       ...(results.broaderResults?.confirmed ?? []),
     ].map((r) => r.eventId);
 
-    const attendanceMap: Record<string, { status: string; participationLevel: string }> = {};
-    if (user && confirmedEventIds.length > 0) {
-      const attendances = await prisma.attendance.findMany({
-        where: { userId: user.id, eventId: { in: confirmedEventIds } },
-        select: { eventId: true, status: true, participationLevel: true },
-      });
-      for (const a of attendances) {
-        attendanceMap[a.eventId] = {
-          status: a.status,
-          participationLevel: a.participationLevel,
-        };
-      }
-    }
+    const attendanceMap = await loadAttendanceMap(confirmedEventIds);
 
     // Serialize Date objects for client components
     const serializedResults = {
@@ -281,5 +269,36 @@ async function TravelResultsServer({
     );
   } catch {
     return <EmptyStates variant="error" />;
+  }
+}
+
+/**
+ * Best-effort attendance lookup for "Going" badge decoration.
+ *
+ * Isolated from the main search path so that Clerk outages, user-sync side
+ * effects inside getOrCreateUser(), or transient Prisma errors on the
+ * attendance query cannot take down the travel page. Any failure here
+ * yields an empty map and the cards render without badges, which is the
+ * same experience a signed-out user gets today.
+ */
+async function loadAttendanceMap(
+  confirmedEventIds: string[],
+): Promise<Record<string, { status: string; participationLevel: string }>> {
+  if (confirmedEventIds.length === 0) return {};
+  try {
+    const user = await getOrCreateUser();
+    if (!user) return {};
+    const attendances = await prisma.attendance.findMany({
+      where: { userId: user.id, eventId: { in: confirmedEventIds } },
+      select: { eventId: true, status: true, participationLevel: true },
+    });
+    const map: Record<string, { status: string; participationLevel: string }> = {};
+    for (const a of attendances) {
+      map[a.eventId] = { status: a.status, participationLevel: a.participationLevel };
+    }
+    return map;
+  } catch (err) {
+    console.error("[travel] Failed to load attendance map; rendering without Going badges", err);
+    return {};
   }
 }
