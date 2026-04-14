@@ -665,13 +665,48 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - [ ] Shows: kennel name, next run date, distance, activity status
 - [ ] CTA: "See full schedule" → hareline filtered to that kennel
 
-### Travel Mode Search (Promoted from future enhancement)
+### Travel Mode Search (Phases 1–6 SHIPPED)
 
 **Why:** "Hash tourism" is a passionate segment — the Facebook group has users searching for runs during marathons, business trips, and intentional "hash every state" projects. They need: destination + date range → matching events.
 
-- [ ] "Runs in [City/Region] between [Date A] and [Date B]"
-- [ ] Input: destination + date range → output: matching events with map
-- [ ] Pairs with Log Unlisted Run for runs found while traveling
+**Status:** MVP shipped on the `Travel` worktree. Schema (ScheduleRule, TravelSearch, TravelDestination), backfill (315 rules), projection engine, search service, server actions, full UI (landing hero, boarding-pass form, trip summary, traveler-first cards, inline filters, day-grouped tier sections, Going badge, kennel-name tooltips, humanized walking distance, batched weather), and two browser-audit polish passes are all in. Phase 7 (saved trips dashboard) and Phase 8 (public route + analytics events + sign-in banner) remain.
+
+- [x] "Runs in [City/Region] between [Date A] and [Date B]" — `/travel?lat=…&from=…&to=…`
+- [x] Input: destination + date range → output: matching events grouped by distance tier + day
+- [x] Confidence-scored projections from kennel schedule rules (high / medium / low)
+- [x] Inline filter chips: "Include possible" + day-of-week with chronological ordering
+- [x] "Going" RSVP badge (decoupled from search path so auth/analytics failures don't take down the page)
+- [ ] **Phase 7:** Saved trips dashboard (`/travel/saved` + SavedTripCard)
+- [ ] **Phase 8:** Public route registration + analytics events + sign-in banner
+- [ ] Pairs with Log Unlisted Run for runs found while traveling (separate effort)
+
+### Travel Mode follow-ups (deferred from polish passes)
+
+Surfaced by browser audits + adversarial reviews during the Travel Mode build. Captured here so they don't get lost between phases.
+
+**Pipeline-layer fixes (NOT travel UI):**
+
+- [ ] **Event dedup at merge pipeline.** The merge pipeline can produce multiple canonical Event rows for the same real-world run when two sources disagree on time/location. Travel and hareline can pick different rows → discrepancies in displayed times and missing locations on travel cards. Fix belongs in `src/pipeline/merge.ts` — enforce uniqueness by `(kennelId, date, startTime)` or collapse near-duplicates by trust level. Tier 2 of polish #2 partially mitigates by threading more location fields through travel; the real fix is at the pipeline.
+
+- [ ] **`FREQ=LUNAR` projection for full-moon kennels.** Today these kennels emit `date: null` "possible activity" entries because lunar dates aren't computed. Implement deterministic full-moon date calc in `src/lib/travel/projections.ts` so they surface as proper dated likelies (e.g. "🌕 Expected Thu Apr 17 — full moon"). Don't hack it in the UI.
+
+- [ ] **Monthly-no-nth cadence prediction.** Kennels with `"Monthly"` frequency but no nth-week info also emit `date: null`. Building a confidence-weighted prediction (e.g. "usually 2nd Saturday based on last 12 months") requires analyzing event history — projection-engine work, not UI.
+
+**Travel UX deferred:**
+
+- [ ] **Day-first primary grouping / multi-city itineraries.** Today travel groups by distance tier with day-headers as sub-grouping (polish #2 stopgap). True day-first as primary needs multi-city design — handling travel days between destinations, etc. Memory note `project_travel_day_by_day_view.md` tracks this.
+
+- [ ] **Humanized transit time beyond walking.** Polish #2 added `~15 min walk` for short distances; longer distances fall back to "short drive" because we can't approximate transit without routing data. Real estimates would need Google Directions API. Candidate feature, not a bug.
+
+- [ ] **Hare-name display when long.** Travel's `.truncate` crops multi-hare strings. Real fix is a two-row display or responsive `line-clamp-2`. Defer until card layout settles further.
+
+**Code-quality / hygiene:**
+
+- [ ] **Source-link icon set standardization.** Some kennels surface website + FB + IG; others only "Source." Data-driven. Surface-area-wide fix needs a kennel-record audit + admin UX for completeness — not a UI bug.
+
+- [ ] **Promote `RegionBadge` to `src/components/shared/`.** Travel imports it from `src/components/hareline/RegionBadge.tsx` today (third caller). Move when a non-travel, non-hareline caller appears (saved trips dashboard? admin region list?).
+
+- [ ] **Travel card re-renders on filter state.** `TravelResults` re-executes `getDisplayTitle` and `getFullLocationDisplay` per card per filter toggle. Wrap `ConfirmedCard` in `React.memo` with prop equality if profiling shows visible jank on chip click. Don't memoize speculatively.
 
 ### "No Kennel Here" Interest Registration (Future)
 - [ ] Users register interest for locations with no coverage
