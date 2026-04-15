@@ -168,6 +168,14 @@ export function TravelResults({ destination, results }: TravelResultsProps) {
     ...grouped.drive.possible,
   ];
 
+  // Total possibles surfaced alongside confirmed/likely when the toggle is on.
+  // Drives the small acknowledgment line below the filter chips — explicit
+  // effect-feedback without elevating low-confidence data to the headline.
+  const shownPossibleTotal = renderedTiers.reduce(
+    (sum, t) => sum + t.shownPossible.length,
+    0,
+  );
+
   let cardIndex = 0;
 
   return (
@@ -183,6 +191,12 @@ export function TravelResults({ destination, results }: TravelResultsProps) {
         datesByDay={datesByDay}
         possibleCount={possible.length}
       />
+
+      {includePossible && shownPossibleTotal > 0 && (
+        <p className="mt-2 text-xs italic text-muted-foreground">
+          +{shownPossibleTotal} possible trail{shownPossibleTotal !== 1 ? "s" : ""} showing alongside confirmed results.
+        </p>
+      )}
 
       {/*
         Only show the "no matches" banner when the filter has truly hidden
@@ -230,7 +244,11 @@ export function TravelResults({ destination, results }: TravelResultsProps) {
                     </h3>
                     <div className="flex flex-col gap-4">
                       {group.confirmed.map((result) => {
-                        const delay = cardIndex++ * 50;
+                        // Clamp stagger at 30 cards (1500ms total). Dense result
+                        // sets (50+ kennels) would otherwise push the tail to
+                        // 2.5s+, giving compositor oddities room to hide cards.
+                        const delay = Math.min(cardIndex, 30) * 50;
+                        cardIndex++;
                         return (
                           <AnimatedCard key={result.eventId} delay={delay}>
                             <ConfirmedCard result={result} />
@@ -238,7 +256,8 @@ export function TravelResults({ destination, results }: TravelResultsProps) {
                         );
                       })}
                       {group.likely.map((result) => {
-                        const delay = cardIndex++ * 50;
+                        const delay = Math.min(cardIndex, 30) * 50;
+                        cardIndex++;
                         return (
                           <AnimatedCard
                             key={`${result.kennelId}-${result.date}`}
