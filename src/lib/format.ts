@@ -109,10 +109,11 @@ export function toggleArrayItem<T>(array: T[], value: T): T[] {
  * Do NOT use this for region params — use parseRegionParam instead.
  */
 export function parseList(value: string | null): string[] {
-  if (!value) return [];
-  if (value.includes("|")) return value.split("|").filter(Boolean);
-  if (value.includes(",")) return value.split(",").map(s => s.trim()).filter(Boolean);
-  return [value];
+  const trimmed = value?.trim();
+  if (!trimmed) return [];
+  if (trimmed.includes("|")) return trimmed.split("|").map(s => s.trim()).filter(Boolean);
+  if (trimmed.includes(",")) return trimmed.split(",").map(s => s.trim()).filter(Boolean);
+  return [trimmed];
 }
 
 /**
@@ -120,9 +121,10 @@ export function parseList(value: string | null): string[] {
  * contain commas (e.g. "Boston, MA"). Pipe is the only multi-value delimiter.
  */
 export function parseRegionParam(value: string | null): string[] {
-  if (!value) return [];
-  if (value.includes("|")) return value.split("|").filter(Boolean);
-  return [value];
+  const trimmed = value?.trim();
+  if (!trimmed) return [];
+  if (trimmed.includes("|")) return trimmed.split("|").map(s => s.trim()).filter(Boolean);
+  return [trimmed];
 }
 
 /**

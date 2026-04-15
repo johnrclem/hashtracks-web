@@ -307,11 +307,17 @@ describe("parseList", () => {
   it("returns [] for empty string", () => {
     expect(parseList("")).toEqual([]);
   });
+  it("returns [] for whitespace-only string", () => {
+    expect(parseList("   ")).toEqual([]);
+  });
   it("returns single plain value", () => {
     expect(parseList("Mon")).toEqual(["Mon"]);
   });
   it("splits pipe-delimited plain values", () => {
     expect(parseList("Mon|Tue")).toEqual(["Mon", "Tue"]);
+  });
+  it("trims whitespace around pipe-delimited segments", () => {
+    expect(parseList("Mon | Tue")).toEqual(["Mon", "Tue"]);
   });
   it("splits comma-delimited values (legacy days/kennels backward compat)", () => {
     expect(parseList("Mon,Tue")).toEqual(["Mon", "Tue"]);
@@ -325,11 +331,17 @@ describe("parseRegionParam", () => {
   it("returns [] for empty string", () => {
     expect(parseRegionParam("")).toEqual([]);
   });
+  it("returns [] for whitespace-only string", () => {
+    expect(parseRegionParam("   ")).toEqual([]);
+  });
   it("returns single region name with comma intact", () => {
     expect(parseRegionParam("Boston, MA")).toEqual(["Boston, MA"]);
   });
   it("splits pipe-delimited region names containing commas", () => {
     expect(parseRegionParam("Boston, MA|Cambridge, MA")).toEqual(["Boston, MA", "Cambridge, MA"]);
+  });
+  it("trims whitespace around pipe-delimited region segments", () => {
+    expect(parseRegionParam("Boston, MA | NYC")).toEqual(["Boston, MA", "NYC"]);
   });
   it("returns single plain value", () => {
     expect(parseRegionParam("NYC")).toEqual(["NYC"]);
