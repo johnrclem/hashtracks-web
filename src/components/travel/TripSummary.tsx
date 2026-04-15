@@ -13,7 +13,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
-import { buildIcsContent } from "@/lib/calendar";
+import { buildMultiEventIcs } from "@/lib/calendar";
 import { capture } from "@/lib/analytics";
 import { saveTravelSearch } from "@/app/travel/actions";
 
@@ -126,7 +126,19 @@ export function TripSummary({
 
   const handleExport = () => {
     if (confirmedEvents.length === 0) return;
-    const ics = buildMultiEventIcs(confirmedEvents);
+    const ics = buildMultiEventIcs(
+      confirmedEvents.map((e) => ({
+        title: e.title,
+        date: e.date,
+        startTime: e.startTime,
+        timezone: e.timezone,
+        haresText: e.haresText,
+        locationName: e.locationName,
+        sourceUrl: e.sourceUrl,
+        kennel: { shortName: e.kennelName },
+        runNumber: e.runNumber,
+      })),
+    );
     const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -226,40 +238,6 @@ export function TripSummary({
       </div>
     </section>
   );
-}
-
-/**
- * Combine N events into a single VCALENDAR. `buildIcsContent` from
- * `src/lib/calendar.ts` already emits a complete VCALENDAR wrapping ONE
- * VEVENT; we extract the VEVENT blocks and fuse them into a single
- * calendar so users get one file with all their confirmed trails.
- */
-function buildMultiEventIcs(events: ExportableConfirmedEvent[]): string {
-  const lines: string[] = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//HashTracks//Travel//EN",
-    "CALSCALE:GREGORIAN",
-  ];
-  for (const e of events) {
-    const single = buildIcsContent({
-      title: e.title,
-      date: e.date,
-      startTime: e.startTime,
-      timezone: e.timezone,
-      haresText: e.haresText,
-      locationName: e.locationName,
-      sourceUrl: e.sourceUrl,
-      kennel: { shortName: e.kennelName },
-      runNumber: e.runNumber,
-    });
-    // Extract the inner VEVENT block. buildIcsContent wraps one VEVENT in
-    // its own VCALENDAR — strip the envelope so we can fuse multiples.
-    const match = /BEGIN:VEVENT[\s\S]*?END:VEVENT/.exec(single);
-    if (match) lines.push(match[0]);
-  }
-  lines.push("END:VCALENDAR");
-  return lines.join("\r\n");
 }
 
 function slugifyForFilename(s: string): string {

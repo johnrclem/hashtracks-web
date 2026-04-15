@@ -85,8 +85,13 @@ export function buildGoogleCalendarUrl(event: CalendarEvent): string {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
-/** Generate an iCalendar (.ics) file string for downloading/importing into calendar apps. */
-export function buildIcsContent(event: CalendarEvent): string {
+/**
+ * Build the iCalendar VEVENT block for a single event — no VCALENDAR
+ * envelope. Exposed so multi-event builders (e.g. Travel Mode's Export
+ * Calendar) can fuse N VEVENTs under one VCALENDAR without regex-parsing
+ * the single-event output.
+ */
+export function buildVeventBlock(event: CalendarEvent): string {
   const title = buildTitle(event);
   const details = buildDetails(event);
   const { ymd, allDay, start, end } = parseDateParts(event.date, event.startTime);
@@ -95,9 +100,6 @@ export function buildIcsContent(event: CalendarEvent): string {
   const stamp = now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 
   const lines = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//HashTracks//Event Export//EN",
     "BEGIN:VEVENT",
     `DTSTAMP:${stamp}`,
     `UID:${ymd}-${Date.now()}@hashtracks`,
@@ -107,14 +109,12 @@ export function buildIcsContent(event: CalendarEvent): string {
   if (allDay) {
     lines.push(`DTSTART;VALUE=DATE:${ymd}`);
     lines.push(`DTEND;VALUE=DATE:${incrementDate(ymd)}`);
+  } else if (event.timezone) {
+    lines.push(`DTSTART;TZID=${event.timezone}:${ymd}T${start}`);
+    lines.push(`DTEND;TZID=${event.timezone}:${ymd}T${end}`);
   } else {
-    if (event.timezone) {
-      lines.push(`DTSTART;TZID=${event.timezone}:${ymd}T${start}`);
-      lines.push(`DTEND;TZID=${event.timezone}:${ymd}T${end}`);
-    } else {
-      lines.push(`DTSTART:${ymd}T${start}`);
-      lines.push(`DTEND:${ymd}T${end}`);
-    }
+    lines.push(`DTSTART:${ymd}T${start}`);
+    lines.push(`DTEND:${ymd}T${end}`);
   }
 
   if (event.locationName) {
@@ -124,8 +124,35 @@ export function buildIcsContent(event: CalendarEvent): string {
     lines.push(`DESCRIPTION:${escapeIcs(details)}`);
   }
 
-  lines.push("END:VEVENT", "END:VCALENDAR");
+  lines.push("END:VEVENT");
   return lines.join("\r\n");
+}
+
+/** Generate a complete iCalendar (.ics) file string for a single event. */
+export function buildIcsContent(event: CalendarEvent): string {
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//HashTracks//Event Export//EN",
+    buildVeventBlock(event),
+    "END:VCALENDAR",
+  ].join("\r\n");
+}
+
+/**
+ * Generate an iCalendar (.ics) file string wrapping N events under a
+ * single VCALENDAR envelope. Used by Travel Mode's Export Calendar button
+ * to bundle a whole trip's confirmed events into one download.
+ */
+export function buildMultiEventIcs(events: CalendarEvent[]): string {
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//HashTracks//Travel//EN",
+    "CALSCALE:GREGORIAN",
+    ...events.map(buildVeventBlock),
+    "END:VCALENDAR",
+  ].join("\r\n");
 }
 
 /** Escape special characters per the iCalendar (RFC 5545) spec. */

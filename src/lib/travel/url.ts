@@ -33,6 +33,46 @@ function toYmd(d: string | Date): string {
   return (d instanceof Date ? d.toISOString() : d).slice(0, 10);
 }
 
+export interface TravelContext {
+  destination: string;
+  startDate: string;
+  endDate: string;
+  /** True when the redirect_url carries `saved=1` — signals post-auth auto-save. */
+  isSave: boolean;
+}
+
+/**
+ * Parse a Travel Mode `redirect_url` like `/travel?q=Boston,+MA&from=…&to=…`
+ * back into a structured context. Used by the contextual sign-in banner
+ * to render "Save your trip to Boston, MA" above the Clerk form.
+ *
+ * Returns null when the URL is malformed, doesn't target `/travel`, or
+ * lacks the required q/from/to params. The exact-or-prefix path check
+ * keeps `/travellers` and friends from triggering a false match.
+ */
+export function parseTravelRedirect(redirectUrl: string | null): TravelContext | null {
+  if (!redirectUrl) return null;
+  try {
+    // Relative URL — use a dummy origin; only path + search matter.
+    const url = new URL(redirectUrl, "https://hashtracks.local");
+    const isTravelPath =
+      url.pathname === "/travel" || url.pathname.startsWith("/travel/");
+    if (!isTravelPath) return null;
+    const destination = url.searchParams.get("q");
+    const startDate = url.searchParams.get("from");
+    const endDate = url.searchParams.get("to");
+    if (!destination || !startDate || !endDate) return null;
+    return {
+      destination,
+      startDate,
+      endDate,
+      isSave: url.searchParams.get("saved") === "1",
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Run `fn` over `items` with at most `limit` calls in flight at once.
  * Used by the saved-trips dashboard to bound the weather-API fan-out:

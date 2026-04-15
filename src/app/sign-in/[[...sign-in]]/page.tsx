@@ -1,6 +1,7 @@
 import { SignIn } from "@clerk/nextjs";
 import { MapPin } from "lucide-react";
 import { formatDateCompact } from "@/lib/travel/format";
+import { parseTravelRedirect, type TravelContext } from "@/lib/travel/url";
 
 interface SignInPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -29,40 +30,6 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       <SignIn />
     </div>
   );
-}
-
-export interface TravelContext {
-  destination: string;
-  startDate: string;
-  endDate: string;
-  isSave: boolean;
-}
-
-/**
- * Extract Travel-Mode context from a `redirect_url` like
- * `/travel?lat=…&q=Boston,+MA,+USA&from=2026-04-12&to=2026-04-20&saved=1`.
- * Returns null when the redirect doesn't target `/travel` or lacks the
- * required params — falls through to the generic heading.
- */
-export function parseTravelRedirect(redirectUrl: string | null): TravelContext | null {
-  if (!redirectUrl) return null;
-  try {
-    // Relative URL — use a dummy origin; only path + search matter.
-    const url = new URL(redirectUrl, "https://hashtracks.local");
-    if (!url.pathname.startsWith("/travel")) return null;
-    const destination = url.searchParams.get("q");
-    const startDate = url.searchParams.get("from");
-    const endDate = url.searchParams.get("to");
-    if (!destination || !startDate || !endDate) return null;
-    return {
-      destination,
-      startDate,
-      endDate,
-      isSave: url.searchParams.get("saved") === "1",
-    };
-  } catch {
-    return null;
-  }
 }
 
 function TravelContextHeader({

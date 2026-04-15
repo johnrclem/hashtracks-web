@@ -105,9 +105,12 @@ export function TravelResults({ destination, results }: TravelResultsProps) {
   const [includePossible, setIncludePossible] = useState(false);
   const [selectedDays, setSelectedDays] = useState<Set<DayCode>>(new Set());
 
-  // Fire once per result-set mount. Ref guard protects against React Strict
-  // Mode's double-mount in dev. The dep is the stable counts tuple so a
-  // filter toggle that doesn't change search results won't re-fire.
+  // Fire once per unique search result set. The string key captures every
+  // distinct result shape (destination + counts), and the useEffect only
+  // re-runs when that key changes — client-side filter toggles that don't
+  // change the underlying results won't re-fire. The ref guard is a
+  // defense-in-depth against React Strict Mode's double-mount in dev, which
+  // would otherwise double-fire on the very first render.
   const viewedRef = useRef("");
   const viewedKey = `${destination}|${confirmed.length}|${likely.length}|${possible.length}`;
   useEffect(() => {
