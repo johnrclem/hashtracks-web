@@ -151,6 +151,22 @@ describe("parseMakesweatEvent", () => {
     expect(event!.location).toBeUndefined();
   });
 
+  it("filters CTA hare text as undefined (#726)", () => {
+    // Source description: "Hare Needed! Please contact Full Load" — the "Hare" prefix
+    // with dash separator is how Makesweat formats the field, producing a CTA as the value
+    const ctaHtml = `<div class="ms_event makesweatevent-99999">
+      <div class="ms_eventtitle">City Hash R*n #1920 @ TBA</div>
+      <div class="ms_event_startdate">Tue 21st Apr 26</div>
+      <div class="ms_eventstart">7:00pm</div>
+      <div class="ms_eventdescription">Hare - Hare Needed! Please contact Full Load
+Pub - TBA</div>
+      <div class="ms_venue_name">TBA</div>
+    </div>`;
+    const $cta = cheerio.load(ctaHtml);
+    const event = parseMakesweatEvent($cta, $cta(".ms_event").eq(0), "https://makesweat.com/cityhash#hashes");
+    expect(event?.hares).toBeUndefined();
+  });
+
   it("extracts Makesweat ID from class attribute", () => {
     expect(extractMakesweatId(cards.eq(0))).toBe("12345");
   });

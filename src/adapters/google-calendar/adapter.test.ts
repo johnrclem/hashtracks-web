@@ -12,6 +12,7 @@ import {
   extractLocationFromDescription,
   extractTimeFromDescription,
   buildRawEventFromGCalItem,
+  normalizeGCalDescription,
 } from "./adapter";
 import type { RawEventData } from "../types";
 
@@ -1773,5 +1774,39 @@ describe("applyInlineHarelineBackfill (#498)", () => {
       makeEvent({ date: "2026-09-01" }), // empty too
     ];
     expect(applyInlineHarelineBackfill(events, pattern, { now })).toBe(0);
+  });
+});
+
+// ── normalizeGCalDescription ──
+
+describe("normalizeGCalDescription", () => {
+  it("strips Harrier Central boilerplate prefix from GCal-synced descriptions (#724)", () => {
+    const raw = "Morgantown H3\nLocation: WVU Coliseum\nDescription: In case yall don't know, I'm conquering a marathon in each state!";
+    const result = normalizeGCalDescription(raw);
+    expect(result.description).toBe("In case yall don't know, I'm conquering a marathon in each state!");
+    expect(result.description).not.toContain("Morgantown H3");
+    expect(result.description).not.toContain("Location:");
+    expect(result.description).not.toContain("Description:");
+  });
+
+  it("strips HC boilerplate when description spans multiple lines", () => {
+    const raw = "Tokyo H3\nLocation: Waseda Station\nDescription: Meet at the west exit.\nBring cash.";
+    const result = normalizeGCalDescription(raw);
+    expect(result.description).toBe("Meet at the west exit.\nBring cash.");
+    expect(result.description).not.toContain("Tokyo H3");
+  });
+
+  it("does not alter normal GCal descriptions without HC boilerplate", () => {
+    const raw = "A beautiful trail through the park\nHare: Indiana Bones\nWhere: Central Park";
+    const result = normalizeGCalDescription(raw);
+    expect(result.description).toContain("A beautiful trail through the park");
+    expect(result.description).toContain("Hare: Indiana Bones");
+  });
+
+  it("does not strip when Location: appears mid-description (not in HC header position)", () => {
+    const raw = "Trail notes\nLocation: Central Park — meet at the fountain\nBring water";
+    const result = normalizeGCalDescription(raw);
+    // No "Description:" label after Location:, so it is NOT the HC boilerplate pattern
+    expect(result.description).toContain("Trail notes");
   });
 });
