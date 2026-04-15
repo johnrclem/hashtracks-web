@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { POPULAR_DESTINATIONS } from "@/lib/travel/popular-destinations";
+import { capture } from "@/lib/analytics";
+import { buildTravelSearchUrl } from "@/lib/travel/url";
 
 export function PopularDestinations() {
   const router = useRouter();
@@ -28,15 +30,19 @@ export function PopularDestinations() {
             key={dest.slug}
             type="button"
             onClick={() => {
-              const params = new URLSearchParams({
-                lat: dest.latitude.toString(),
-                lng: dest.longitude.toString(),
-                from: fromStr,
-                to: toStr,
-                q: dest.city,
-                r: "50",
+              capture("travel_popular_destination_clicked", {
+                destinationSlug: dest.slug,
               });
-              router.push(`/travel?${params.toString()}`);
+              router.push(
+                buildTravelSearchUrl({
+                  latitude: dest.latitude,
+                  longitude: dest.longitude,
+                  startDate: fromStr,
+                  endDate: toStr,
+                  label: dest.city,
+                  radiusKm: 50,
+                }),
+              );
             }}
             className="
               travel-animate group relative overflow-hidden rounded-lg

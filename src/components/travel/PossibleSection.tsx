@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { capture } from "@/lib/analytics";
 import { PossibleRow, type PossibleRowData } from "./PossibleRow";
 
 interface PossibleResult extends PossibleRowData {
@@ -21,7 +22,12 @@ export function PossibleSection({ results }: PossibleSectionProps) {
     <div className="mt-8 border-l-2 border-dashed border-border pl-5">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen((prev) => {
+            if (!prev) capture("travel_possible_section_expanded", {});
+            return !prev;
+          });
+        }}
         className="
           flex w-full items-center justify-between py-3
           text-muted-foreground transition-colors hover:text-foreground

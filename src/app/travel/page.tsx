@@ -293,7 +293,7 @@ async function TravelResultsServer({
             broaderRadiusKm={results.meta.broaderRadiusKm}
           />
           {hasResultsToShow && resultsToRender && (
-            <TravelResults results={resultsToRender} />
+            <TravelResults destination={destination} results={resultsToRender} />
           )}
         </>
       );
@@ -313,7 +313,7 @@ async function TravelResultsServer({
             timezone={timezone}
           />
         )}
-        <TravelResults results={serializedResults} />
+        <TravelResults destination={destination} results={serializedResults} />
       </>
     );
   } catch {

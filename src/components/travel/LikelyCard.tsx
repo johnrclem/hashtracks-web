@@ -1,8 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { SignalHigh, SignalMedium, ExternalLink, Info, MapPin } from "lucide-react";
 import { formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceWithWalk } from "@/lib/travel/format";
+import { capture } from "@/lib/analytics";
 import { KennelNameTooltip } from "@/components/shared/KennelNameTooltip";
 import { ConfidenceMeter } from "./ConfidenceMeter";
 import { EvidenceTimeline } from "./EvidenceTimeline";
@@ -59,6 +62,12 @@ export function LikelyCard({ result }: LikelyCardProps) {
               <Link
                 href={`/kennels/${result.kennelSlug}`}
                 title={result.kennelFullName || undefined}
+                onClick={() =>
+                  capture("travel_result_clicked", {
+                    resultType: "likely",
+                    kennelSlug: result.kennelSlug,
+                  })
+                }
                 className="font-display text-base font-medium hover:underline"
               >
                 {result.kennelName}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Crosshair, Loader2 } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { buildTravelSearchUrl } from "@/lib/travel/url";
+import { capture } from "@/lib/analytics";
 
 export function NearMeShortcut() {
   const router = useRouter();
@@ -35,6 +36,7 @@ export function NearMeShortcut() {
   }, [geoState, navigating, navigateToNearMe]);
 
   const handleClick = () => {
+    capture("travel_near_me_clicked", {});
     if (geoState.status === "granted") {
       navigateToNearMe(geoState.lat, geoState.lng);
       return;

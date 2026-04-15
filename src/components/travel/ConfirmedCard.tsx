@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { getConditionEmoji, cToF } from "@/lib/weather-display";
 import { formatDistanceWithWalk } from "@/lib/travel/format";
+import { capture } from "@/lib/analytics";
 import { getDisplayTitle, getFullLocationDisplay } from "@/lib/event-display";
 import { AttendanceBadge } from "@/components/logbook/AttendanceBadge";
 import { KennelNameTooltip } from "@/components/shared/KennelNameTooltip";
@@ -111,11 +112,21 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
 
   const href = `/hareline/${result.eventId}`;
 
-  const handleCardClick = () => router.push(href);
+  const fireResultClick = () =>
+    capture("travel_result_clicked", {
+      resultType: "confirmed",
+      kennelSlug: result.kennelSlug,
+    });
+
+  const handleCardClick = () => {
+    fireResultClick();
+    router.push(href);
+  };
   const handleCardKeyDown = (e: React.KeyboardEvent) => {
     if (e.target !== e.currentTarget) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
+      fireResultClick();
       router.push(href);
     }
   };
@@ -181,7 +192,10 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
             )}
           </div>
           {result.sourceLinks.length > 0 && (
-            <SourceLinkIcons links={result.sourceLinks.slice(0, 4)} />
+            <SourceLinkIcons
+              links={result.sourceLinks.slice(0, 4)}
+              kennelSlug={result.kennelSlug}
+            />
           )}
         </div>
 
@@ -242,7 +256,13 @@ function iconForSourceType(type: SourceLinkType) {
   }
 }
 
-function SourceLinkIcons({ links }: { links: SourceLink[] }) {
+function SourceLinkIcons({
+  links,
+  kennelSlug,
+}: {
+  links: SourceLink[];
+  kennelSlug: string;
+}) {
   return (
     <div className="flex flex-shrink-0 items-center gap-1.5">
       {links.map((link) => {
@@ -254,7 +274,13 @@ function SourceLinkIcons({ links }: { links: SourceLink[] }) {
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  capture("travel_source_link_clicked", {
+                    kennelSlug,
+                    linkType: link.type,
+                  });
+                }}
                 aria-label={link.label}
                 className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >

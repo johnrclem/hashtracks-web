@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { capture } from "@/lib/analytics";
+import { daysBetween } from "@/lib/travel/format";
 import { saveTravelSearch } from "@/app/travel/actions";
 
 interface TravelAutoSaveProps {
@@ -49,6 +51,10 @@ export function TravelAutoSave({
         timezone,
       });
       if ("success" in result && result.success) {
+        capture("travel_saved_search_created", {
+          destination,
+          dateRangeDays: daysBetween(startDate, endDate),
+        });
         toast.success("Saved to your trips", {
           description: "View all your saved trips any time.",
         });

@@ -193,6 +193,7 @@ function Section({
             <SavedTripCard
               key={entry.search.id}
               id={entry.search.id}
+              createdAt={entry.search.createdAt}
               destination={entry.search.destination}
               status={entry.status}
               counts={entry.counts}

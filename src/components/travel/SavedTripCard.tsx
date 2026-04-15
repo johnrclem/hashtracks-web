@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
 import { buildTravelSearchUrl } from "@/lib/travel/url";
+import { capture } from "@/lib/analytics";
 import { deleteTravelSearch } from "@/app/travel/actions";
 
 /** Status of a saved trip relative to today. Shared with /travel/saved page. */
@@ -25,6 +26,7 @@ export type SavedTripStatus = "soon" | "active";
 
 interface SavedTripCardProps {
   id: string;
+  createdAt: Date;
   destination: {
     label: string;
     latitude: number;
@@ -50,7 +52,13 @@ const STATUS_META: Record<SavedTripStatus, { dot: string; label: string }> = {
   },
 };
 
-export function SavedTripCard({ id, destination, status, counts }: SavedTripCardProps) {
+export function SavedTripCard({
+  id,
+  createdAt,
+  destination,
+  status,
+  counts,
+}: SavedTripCardProps) {
   const router = useRouter();
   const [isDeleting, startDelete] = useTransition();
   const [open, setOpen] = useState(false);
@@ -149,7 +157,21 @@ export function SavedTripCard({ id, destination, status, counts }: SavedTripCard
 
         <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
           <Button asChild size="sm" className="gap-2">
-            <Link href={viewHref}>
+            <Link
+              href={viewHref}
+              onClick={() => {
+                const daysSinceCreated = Math.max(
+                  0,
+                  Math.round(
+                    (Date.now() - createdAt.getTime()) / (24 * 60 * 60 * 1000),
+                  ),
+                );
+                capture("travel_saved_search_viewed", {
+                  searchId: id,
+                  daysSinceCreated,
+                });
+              }}
+            >
               View trip
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>

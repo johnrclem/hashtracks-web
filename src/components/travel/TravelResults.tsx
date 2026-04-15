@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SourceLink } from "@/lib/travel/search";
+import { capture } from "@/lib/analytics";
 import {
   computeDayCounts,
   groupResultsByTier,
@@ -84,6 +85,7 @@ interface SerializedPossible {
 }
 
 interface TravelResultsProps {
+  destination: string;
   results: {
     confirmed: SerializedConfirmed[];
     likely: SerializedLikely[];
@@ -97,21 +99,50 @@ const TIER_LABELS: Record<DistanceTier, { title: string; description: string }> 
   drive: { title: "Day trip material", description: "25+ km" },
 };
 
-export function TravelResults({ results }: TravelResultsProps) {
+export function TravelResults({ destination, results }: TravelResultsProps) {
   const { confirmed, likely, possible } = results;
 
   const [includePossible, setIncludePossible] = useState(false);
   const [selectedDays, setSelectedDays] = useState<Set<DayCode>>(new Set());
+
+  // Fire once per result-set mount. Ref guard protects against React Strict
+  // Mode's double-mount in dev. The dep is the stable counts tuple so a
+  // filter toggle that doesn't change search results won't re-fire.
+  const viewedRef = useRef("");
+  const viewedKey = `${destination}|${confirmed.length}|${likely.length}|${possible.length}`;
+  useEffect(() => {
+    if (viewedRef.current === viewedKey) return;
+    viewedRef.current = viewedKey;
+    capture("travel_search_results_viewed", {
+      destination,
+      confirmedCount: confirmed.length,
+      likelyCount: likely.length,
+      possibleCount: possible.length,
+    });
+  }, [viewedKey, destination, confirmed.length, likely.length, possible.length]);
 
   const { availableDays, dayCounts, datesByDay } = useMemo(
     () => computeDayCounts(confirmed, likely, possible),
     [confirmed, likely, possible],
   );
 
-  const toggleDay = (day: DayCode) =>
+  const toggleDay = (day: DayCode) => {
+    capture("travel_filter_applied", { filterType: "dow", value: day });
     setSelectedDays((prev) => toggleDayInSet(prev, day));
+  };
 
-  const clearDays = () => setSelectedDays(new Set());
+  const clearDays = () => {
+    capture("travel_filter_applied", { filterType: "dow", value: "clear" });
+    setSelectedDays(new Set());
+  };
+
+  const handleIncludePossibleChange = (next: boolean) => {
+    capture("travel_filter_applied", {
+      filterType: "include_possible",
+      value: next ? "on" : "off",
+    });
+    setIncludePossible(next);
+  };
 
   const grouped = useMemo(
     () => groupResultsByTier({ confirmed, likely, possible, selectedDays }),
@@ -140,7 +171,7 @@ export function TravelResults({ results }: TravelResultsProps) {
     <div className="mt-2 border-l border-[var(--destination-pin,oklch(0.65_0.18_42))] pl-6 lg:pl-8">
       <TravelResultFilters
         includePossible={includePossible}
-        onIncludePossibleChange={setIncludePossible}
+        onIncludePossibleChange={handleIncludePossibleChange}
         selectedDays={selectedDays}
         onToggleDay={toggleDay}
         onClearDays={clearDays}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MapPin, Calendar, Compass, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
+import { capture } from "@/lib/analytics";
 import { DestinationInput } from "./DestinationInput";
 
 interface TravelSearchFormProps {
@@ -44,6 +45,11 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
+    capture("travel_search_submitted", {
+      destination,
+      radiusKm,
+      dateRangeDays: daysBetween(startDate, endDate),
+    });
     const params = new URLSearchParams({
       lat: latitude.toString(),
       lng: longitude.toString(),

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
 import { buildIcsContent } from "@/lib/calendar";
+import { capture } from "@/lib/analytics";
 import { saveTravelSearch } from "@/app/travel/actions";
 
 /** Minimal shape required to build a VEVENT from a confirmed search result. */
@@ -68,7 +69,9 @@ export function TripSummary({
   const days = daysBetween(startDate, endDate);
 
   const handleSave = () => {
+    capture("travel_save_clicked", { isAuthenticated });
     if (!isAuthenticated) {
+      capture("travel_auth_prompt_shown", {});
       // Preserve the current search URL + signal auto-save to run post-auth.
       // The /travel page detects `saved=1` on mount and invokes
       // saveTravelSearch itself, so Clerk's redirect back to this URL
@@ -94,6 +97,10 @@ export function TripSummary({
       });
       if ("success" in result && result.success) {
         setSavedId(result.id);
+        capture("travel_saved_search_created", {
+          destination,
+          dateRangeDays: daysBetween(startDate, endDate),
+        });
         toast.success("Saved to your trips", {
           description: "View all your saved trips any time.",
         });
@@ -108,6 +115,7 @@ export function TripSummary({
   const handleShare = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
+      capture("travel_share_clicked", { destination });
       toast.success("Link copied", {
         description: "Share it with your hasher friends.",
       });
@@ -128,6 +136,10 @@ export function TripSummary({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    capture("travel_calendar_exported", {
+      destination,
+      eventCount: confirmedEvents.length,
+    });
   };
 
   return (
