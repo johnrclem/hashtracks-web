@@ -184,7 +184,7 @@ describe("rsvp", () => {
   it("returns error for past events", async () => {
     mockEventFind.mockResolvedValueOnce({ id: "evt_1", date: utcNoonDate(-1) } as never);
     const result = await rsvp("evt_1");
-    expect(result).toEqual({ error: "Can only RSVP to future events" });
+    expect(result).toEqual({ error: "Can only RSVP to today's or future events" });
   });
 
   it("allows RSVP for today's event (same-day future event)", async () => {

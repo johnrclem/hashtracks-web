@@ -139,7 +139,7 @@ export async function rsvp(eventId: string) {
   // Validate event is today or in the future
   const todayUtcNoon = getTodayUtcNoon();
   if (event.date.getTime() < todayUtcNoon) {
-    return { error: "Can only RSVP to future events" };
+    return { error: "Can only RSVP to today's or future events" };
   }
 
   // Toggle: if already INTENDING, remove it
