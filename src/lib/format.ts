@@ -103,25 +103,33 @@ export function toggleArrayItem<T>(array: T[], value: T): T[] {
 // ── URL param helpers (shared by KennelDirectory + HarelineView) ──
 
 /**
- * Parse a pipe-separated URL param into an array of non-empty strings.
- * Uses `|` as the delimiter because region names can contain commas
- * (e.g. "Houston, TX") which broke the old comma-delimited format.
+ * Parse a pipe-or-comma-separated URL param into an array of non-empty strings.
+ * Pipe is the current format; comma is accepted for backward compat with legacy
+ * bookmarked URLs for params whose values never contain commas (e.g. days, kennels).
+ * Do NOT use this for region params — use parseRegionParam instead.
  */
 export function parseList(value: string | null): string[] {
   if (!value) return [];
-  // Pipe is the primary delimiter (new format)
   if (value.includes("|")) return value.split("|").filter(Boolean);
-  // Comma fallback for legacy URLs (days, kennels — values don't contain commas)
   if (value.includes(",")) return value.split(",").map(s => s.trim()).filter(Boolean);
-  // Single value
-  return [value].filter(Boolean);
+  return [value];
+}
+
+/**
+ * Parse a region URL param without splitting on commas, since region names
+ * contain commas (e.g. "Boston, MA"). Pipe is the only multi-value delimiter.
+ */
+export function parseRegionParam(value: string | null): string[] {
+  if (!value) return [];
+  if (value.includes("|")) return value.split("|").filter(Boolean);
+  return [value];
 }
 
 /**
  * Parse region URL param with backward compat — resolves old name strings to slugs.
  */
 export function parseRegionList(value: string | null): string[] {
-  const raw = parseList(value);
+  const raw = parseRegionParam(value);
   return raw.map((v) => regionNameToSlug(v) ?? v);
 }
 

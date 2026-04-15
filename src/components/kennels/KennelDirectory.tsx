@@ -16,7 +16,7 @@ import { groupRegionsByState, expandRegionSelections, regionAbbrev, resolveCount
 import { LocationPrompt } from "@/components/hareline/LocationPrompt";
 import { RegionQuickChips } from "@/components/hareline/RegionQuickChips";
 import { getLocationPref, resolveLocationDefault, clearLocationPref } from "@/lib/location-pref";
-import { parseList } from "@/lib/format";
+import { parseList, parseRegionParam } from "@/lib/format";
 import { getActivityStatus } from "@/lib/activity-status";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
@@ -40,7 +40,7 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
   // Initialize state from URL params
   const [search, setSearchState] = useState(searchParams.get("q") ?? "");
   const [selectedRegions, setSelectedRegionsState] = useState<string[]>(
-    parseList(searchParams.get("regions")),
+    parseRegionParam(searchParams.get("regions")),
   );
   const [selectedDays, setSelectedDaysState] = useState<string[]>(
     parseList(searchParams.get("days")),
