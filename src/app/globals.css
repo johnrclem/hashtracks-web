@@ -221,9 +221,29 @@
   }
 }
 
+/* REQUIRED stamp shown next to a boarding-pass field margin label when
+   the user submits with that field empty. Rotates -2deg + fades in so it
+   reads as a physical rubber stamp rather than a generic error toast. */
+@keyframes travel-stamp-required {
+  from {
+    opacity: 0;
+    transform: rotate(-2deg) scale(1.15);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-2deg) scale(1);
+  }
+}
+
+.travel-stamp-required {
+  animation: travel-stamp-required 180ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-origin: center;
+}
+
 /* Reduce all travel animations for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .travel-animate {
+  .travel-animate,
+  .travel-stamp-required {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

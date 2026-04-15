@@ -6,6 +6,7 @@ import { MapPin, Calendar, Compass, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
 import { capture } from "@/lib/analytics";
+import { resolveRefCode } from "@/lib/travel/iata";
 import { DestinationInput } from "./DestinationInput";
 
 interface TravelSearchFormProps {
@@ -41,10 +42,22 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
   const [timezone, setTimezone] = useState(initialValues?.timezone ?? "");
   const [isExpanded, setIsExpanded] = useState(variant === "hero");
 
+  // Per-field invalid flags — drive the REQUIRED rubber stamps. Flipped
+  // true on attempted-submit-while-empty; cleared the moment the user
+  // provides that field. Starts false so landing form is pristine.
+  const [destInvalid, setDestInvalid] = useState(false);
+  const [datesInvalid, setDatesInvalid] = useState(false);
+
   const canSubmit = destination && startDate && endDate && latitude !== 0;
 
   const handleSubmit = useCallback(() => {
-    if (!canSubmit) return;
+    if (!canSubmit) {
+      // Boarding-pass aesthetic: the form visibly refuses, not silently.
+      // Stamp REQUIRED next to the missing section's margin label.
+      setDestInvalid(!destination || latitude === 0);
+      setDatesInvalid(!startDate || !endDate);
+      return;
+    }
     capture("travel_search_submitted", {
       destination,
       radiusKm,
@@ -100,15 +113,20 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
   // ── Hero / Expanded variant: boarding pass form ──
   return (
     <div className="travel-animate">
-      {/* Margin labels above the card border */}
+      {/* Margin labels above the card border. REQUIRED stamps flip on when
+          submit is attempted with an empty field — diegetic to the
+          boarding-pass metaphor (the form visibly refuses) rather than
+          a generic toast. Clears when the user fills the field. */}
       <div className="mb-2 grid grid-cols-3 gap-0 px-1 md:grid-cols-[2.4fr_1.4fr_1fr_auto]">
         <div className="flex items-center gap-2 pl-5 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
           <MapPin className="h-3 w-3" />
           Destination
+          {destInvalid && <RequiredStamp />}
         </div>
         <div className="hidden items-center gap-2 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70 md:flex">
           <Calendar className="h-3 w-3" />
           Dates
+          {datesInvalid && <RequiredStamp />}
         </div>
         <div className="hidden items-center gap-2 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70 md:flex">
           <Compass className="h-3 w-3" />
@@ -144,6 +162,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
                 setLatitude(place.latitude);
                 setLongitude(place.longitude);
                 if (place.timezone) setTimezone(place.timezone);
+                setDestInvalid(false);
               }}
               onClear={() => {
                 setDestination("");
@@ -166,7 +185,10 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  if (e.target.value && endDate) setDatesInvalid(false);
+                }}
                 aria-label="Start date"
                 className="w-full bg-transparent font-mono text-sm focus:outline-none"
               />
@@ -174,7 +196,10 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
               <input
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  if (startDate && e.target.value) setDatesInvalid(false);
+                }}
                 aria-label="End date"
                 className="w-full bg-transparent font-mono text-sm focus:outline-none"
               />
@@ -228,7 +253,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
             </div>
             <Button
               type="submit"
-              disabled={!canSubmit || isPending}
+              disabled={isPending}
               className="
                 group gap-2 rounded-lg px-6 uppercase tracking-wider
                 transition-colors
@@ -246,7 +271,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
         <span>
           ISSUED {new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "2-digit" }).toUpperCase()} · HASHTRACKS
         </span>
-        <span>REF HT-{destination ? destination.slice(0, 3).toUpperCase() : "XXX"}</span>
+        <span>REF HT-{resolveRefCode(destination)}</span>
       </div>
 
       {/* Collapse button when in expanded compact mode */}
@@ -262,6 +287,24 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Rubber-stamp "REQUIRED" marker that appears next to a field's margin
+ * label when a user attempts submit while that field is empty. Rotated,
+ * red, monospace — reads as a gate-stamp on a physical boarding pass.
+ * Fades in via the globals.css `travel-stamp-required` keyframe.
+ */
+function RequiredStamp() {
+  return (
+    <span
+      role="status"
+      aria-live="polite"
+      className="travel-stamp-required ml-2 inline-flex items-center rounded-sm border border-red-600/60 px-1 py-[1px] font-mono text-[9px] font-bold uppercase tracking-wider text-red-600"
+    >
+      Required
+    </span>
   );
 }
 
