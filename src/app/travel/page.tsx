@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/auth";
 import { executeTravelSearch } from "@/lib/travel/search";
+import { findExistingSavedSearch } from "@/app/travel/actions";
 import { TravelSearchForm } from "@/components/travel/TravelSearchForm";
 import { TravelResults } from "@/components/travel/TravelResults";
 import { TravelResultsSkeleton } from "@/components/travel/TravelResultsSkeleton";
@@ -172,6 +173,19 @@ async function TravelResultsServer({
     const user = await safeGetUser();
     const isAuthenticated = user != null;
 
+    // SSR check: has this user already saved a trip with these exact search
+    // params? Coords-based match so label variation doesn't false-negative.
+    // Runs only when authed; null for guests (the "unsaved" default).
+    const initialSavedId = isAuthenticated
+      ? await findExistingSavedSearch({
+          latitude,
+          longitude,
+          radiusKm,
+          startDate,
+          endDate,
+        })
+      : null;
+
     const confirmedEventIds = [
       ...results.confirmed,
       ...(results.broaderResults?.confirmed ?? []),
@@ -231,6 +245,7 @@ async function TravelResultsServer({
       radiusKm,
       timezone,
       isAuthenticated,
+      initialSavedId,
       confirmedCount: exportableConfirmed.length,
       likelyCount: results.likely.length + (results.broaderResults?.likely.length ?? 0),
       possibleCount: results.possible.length + (results.broaderResults?.possible.length ?? 0),

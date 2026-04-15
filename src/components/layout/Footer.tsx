@@ -4,6 +4,7 @@ import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 
 const exploreLinks = [
   { href: "/hareline", label: "The Hareline" },
+  { href: "/travel", label: "Travel Mode" },
   { href: "/kennels", label: "Kennel Directory" },
   { href: "/logbook", label: "My Logbook" },
   { href: "/for-misman", label: "For Kennel Organizers" },

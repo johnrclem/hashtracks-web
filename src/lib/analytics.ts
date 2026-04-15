@@ -191,6 +191,8 @@ interface AnalyticsEventMap {
   travel_auth_prompt_shown: Record<string, never>;
   travel_saved_search_created: TravelSavedSearchCreatedProps;
   travel_saved_search_viewed: TravelSavedSearchViewedProps;
+  travel_saved_search_updated: Record<string, never>;
+  travel_saved_search_removed: Record<string, never>;
   travel_possible_section_expanded: Record<string, never>;
   travel_share_clicked: TravelShareClickedProps;
   travel_calendar_exported: TravelCalendarExportedProps;

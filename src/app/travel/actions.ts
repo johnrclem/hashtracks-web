@@ -32,6 +32,60 @@ interface SaveTravelSearchParams {
   endDate: string;   // YYYY-MM-DD
 }
 
+interface FindExistingSearchParams {
+  latitude: number;
+  longitude: number;
+  radiusKm: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+}
+
+// ============================================================================
+// findExistingSavedSearch
+// ============================================================================
+
+/**
+ * Look up an existing saved search for the current user that matches the
+ * given coords + radius + date window. Used by /travel page SSR to flip
+ * the Save Trip button to a Saved state when a user revisits a trip they
+ * already saved. Identity is coords-based (not label) so "San Diego, CA"
+ * vs "San Diego, California" with the same coords still matches.
+ *
+ * Returns the TravelSearch id or null. Never throws; returns null on any
+ * failure (auth, db, etc.) so the page renders the unsaved state as a
+ * safe fallback — the Save button still works.
+ */
+export async function findExistingSavedSearch(
+  params: FindExistingSearchParams,
+): Promise<string | null> {
+  try {
+    const user = await getOrCreateUser();
+    if (!user) return null;
+    const startDate = parseUtcNoonDate(params.startDate);
+    const endDate = parseUtcNoonDate(params.endDate);
+    const match = await prisma.travelSearch.findFirst({
+      where: {
+        userId: user.id,
+        status: "active",
+        destinations: {
+          some: {
+            latitude: params.latitude,
+            longitude: params.longitude,
+            radiusKm: params.radiusKm,
+            startDate,
+            endDate,
+          },
+        },
+      },
+      select: { id: true },
+    });
+    return match?.id ?? null;
+  } catch (err) {
+    console.error("[travel] findExistingSavedSearch failed", err);
+    return null;
+  }
+}
+
 // ============================================================================
 // saveTravelSearch
 // ============================================================================

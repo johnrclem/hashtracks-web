@@ -14,6 +14,7 @@ vi.mock("@/lib/db", () => {
   const travelSearch = {
     create: vi.fn(),
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
   };
@@ -30,6 +31,7 @@ import { prisma } from "@/lib/db";
 import {
   saveTravelSearch,
   deleteTravelSearch,
+  findExistingSavedSearch,
   listSavedSearches,
   viewTravelSearch,
   getDestinationKennelCount,
@@ -247,6 +249,68 @@ describe("viewTravelSearch", () => {
 
     const result = await viewTravelSearch("ts-1");
     expect("error" in result && result.error).toBe("Not authorized");
+  });
+});
+
+describe("findExistingSavedSearch", () => {
+  const BASE = {
+    latitude: 42.35,
+    longitude: -71.06,
+    radiusKm: 50,
+    startDate: "2026-04-14",
+    endDate: "2026-04-20",
+  };
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns the matching search id when found", async () => {
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
+      id: "ts-42",
+    } as never);
+    const result = await findExistingSavedSearch(BASE);
+    expect(result).toBe("ts-42");
+  });
+
+  it("returns null when no match exists", async () => {
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce(null);
+    const result = await findExistingSavedSearch(BASE);
+    expect(result).toBeNull();
+  });
+
+  it("scopes the lookup to the current user and active status", async () => {
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce(null);
+    await findExistingSavedSearch(BASE);
+    const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
+    expect(call?.where).toMatchObject({
+      userId: "user-1",
+      status: "active",
+    });
+  });
+
+  it("matches on coords + radius + dates via destinations.some", async () => {
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce(null);
+    await findExistingSavedSearch(BASE);
+    const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
+    expect(call?.where?.destinations?.some).toMatchObject({
+      latitude: BASE.latitude,
+      longitude: BASE.longitude,
+      radiusKm: BASE.radiusKm,
+    });
+  });
+
+  it("returns null for unauthenticated users", async () => {
+    vi.mocked(getOrCreateUser).mockResolvedValueOnce(null);
+    const result = await findExistingSavedSearch(BASE);
+    expect(result).toBeNull();
+    expect(prisma.travelSearch.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("swallows errors and returns null so the page renders as unsaved", async () => {
+    vi.mocked(prisma.travelSearch.findFirst).mockRejectedValueOnce(
+      new Error("db down"),
+    );
+    const result = await findExistingSavedSearch(BASE);
+    expect(result).toBeNull();
   });
 });
 

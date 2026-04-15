@@ -2,13 +2,13 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Calendar, Hash, BookOpen, User, MoreHorizontal } from "lucide-react";
+import { Calendar, Plane, BookOpen, User, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 import { MobileMoreSheet } from "@/components/layout/MobileMoreSheet";
 
 const tabs = [
   { href: "/hareline", label: "Hareline", icon: Calendar },
-  { href: "/kennels", label: "Kennels", icon: Hash },
+  { href: "/travel", label: "Travel", icon: Plane },
   { href: "/logbook", label: "Logbook", icon: BookOpen },
   { href: "/profile", label: "Profile", icon: User },
 ] as const;
@@ -21,7 +21,7 @@ export function MobileBottomNav() {
   const effectivePath = pathname === "/" ? "/hareline" : pathname;
   const isActive = (href: string) =>
     effectivePath === href || effectivePath.startsWith(`${href}/`);
-  const isMoreActive = pathname.startsWith("/misman") || pathname.startsWith("/admin") || pathname.startsWith("/about") || pathname.startsWith("/for-misman");
+  const isMoreActive = pathname.startsWith("/kennels") || pathname.startsWith("/misman") || pathname.startsWith("/admin") || pathname.startsWith("/about") || pathname.startsWith("/for-misman");
 
   return (
     <>

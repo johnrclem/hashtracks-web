@@ -9,14 +9,26 @@ import {
   Calendar as CalendarIcon,
   BadgeCheck,
   ArrowRight,
+  ChevronDown,
+  RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
 import { buildMultiEventIcs } from "@/lib/calendar";
 import { capture } from "@/lib/analytics";
 import { stashSaveIntent } from "@/lib/travel/save-intent";
-import { saveTravelSearch } from "@/app/travel/actions";
+import {
+  deleteTravelSearch,
+  saveTravelSearch,
+} from "@/app/travel/actions";
 
 /** Minimal shape required to build a VEVENT from a confirmed search result. */
 export interface ExportableConfirmedEvent {
@@ -40,6 +52,8 @@ interface TripSummaryProps {
   radiusKm: number;
   timezone?: string;
   isAuthenticated: boolean;
+  /** SSR-computed: id of an existing saved trip matching these params, or null. */
+  initialSavedId: string | null;
   confirmedCount: number;
   likelyCount: number;
   possibleCount: number;
@@ -56,6 +70,7 @@ export function TripSummary({
   radiusKm,
   timezone,
   isAuthenticated,
+  initialSavedId,
   confirmedCount,
   likelyCount,
   possibleCount,
@@ -63,7 +78,8 @@ export function TripSummary({
 }: TripSummaryProps) {
   const router = useRouter();
   const [isSaving, startSave] = useTransition();
-  const [savedId, setSavedId] = useState<string | null>(null);
+  const [isMutating, startMutation] = useTransition();
+  const [savedId, setSavedId] = useState<string | null>(initialSavedId);
 
   const startFormatted = formatDateCompact(startDate, { withWeekday: true });
   const endFormatted = formatDateCompact(endDate, { withWeekday: true });
@@ -115,6 +131,50 @@ export function TripSummary({
         });
       } else {
         toast.error("Couldn't save this trip", {
+          description: "error" in result ? result.error : "Please try again.",
+        });
+      }
+    });
+  };
+
+  const handleUpdate = () => {
+    if (!savedId) return;
+    startMutation(async () => {
+      const result = await saveTravelSearch({
+        label: destination,
+        latitude,
+        longitude,
+        radiusKm,
+        startDate,
+        endDate,
+        timezone,
+      });
+      if ("success" in result && result.success) {
+        // saveTravelSearch allows duplicates (v1 scope), so a new id comes
+        // back. Track that id as the "current" saved record for this trip.
+        setSavedId(result.id);
+        capture("travel_saved_search_updated", {});
+        toast.success("Trip updated", {
+          description: "This trip is saved with the latest search params.",
+        });
+      } else {
+        toast.error("Couldn't update this trip", {
+          description: "error" in result ? result.error : "Please try again.",
+        });
+      }
+    });
+  };
+
+  const handleRemove = () => {
+    if (!savedId) return;
+    startMutation(async () => {
+      const result = await deleteTravelSearch(savedId);
+      if ("success" in result && result.success) {
+        setSavedId(null);
+        capture("travel_saved_search_removed", {});
+        toast.success("Removed from saved trips");
+      } else {
+        toast.error("Couldn't remove this trip", {
           description: "error" in result ? result.error : "Please try again.",
         });
       }
@@ -211,13 +271,11 @@ export function TripSummary({
 
       <div className="mt-6 flex flex-wrap gap-3">
         {savedId ? (
-          <Button asChild variant="default" size="sm" className="gap-2">
-            <Link href="/travel/saved">
-              <BadgeCheck className="h-4 w-4" />
-              Saved — view all trips
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          </Button>
+          <SavedStateButton
+            isMutating={isMutating}
+            onUpdate={handleUpdate}
+            onRemove={handleRemove}
+          />
         ) : (
           <Button
             variant="default"
@@ -246,6 +304,73 @@ export function TripSummary({
         </Button>
       </div>
     </section>
+  );
+}
+
+/**
+ * Split button for the Saved state: outlined-badge primary reads as status,
+ * chevron trigger reveals Update/Remove actions. Distinct from the filled
+ * primary "Save Trip" CTA so a user scanning the card can tell at a glance
+ * whether this trip is already saved.
+ */
+function SavedStateButton({
+  isMutating,
+  onUpdate,
+  onRemove,
+}: {
+  isMutating: boolean;
+  onUpdate: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="inline-flex items-stretch rounded-md border border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300">
+      <Link
+        href="/travel/saved"
+        className="
+          inline-flex items-center gap-2 rounded-l-md pl-3 pr-2.5
+          text-sm font-medium transition-colors
+          hover:bg-emerald-500/10
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:z-10
+        "
+      >
+        <BadgeCheck className="h-4 w-4" />
+        <span>
+          Saved <span className="text-muted-foreground/60">·</span> Your trips
+        </span>
+        <ArrowRight className="h-3 w-3" />
+      </Link>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="Saved trip actions"
+            disabled={isMutating}
+            className="
+              flex items-center justify-center rounded-r-md border-l border-emerald-500/30
+              px-2 transition-colors hover:bg-emerald-500/10
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:z-10
+              disabled:opacity-50
+            "
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onUpdate} disabled={isMutating}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            Update with current params
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={onRemove}
+            disabled={isMutating}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Remove from saved
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 
