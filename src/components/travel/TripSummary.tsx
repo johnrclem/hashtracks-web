@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
 import { buildMultiEventIcs } from "@/lib/calendar";
 import { capture } from "@/lib/analytics";
+import { stashSaveIntent } from "@/lib/travel/save-intent";
 import { saveTravelSearch } from "@/app/travel/actions";
 
 /** Minimal shape required to build a VEVENT from a confirmed search result. */
@@ -72,10 +73,18 @@ export function TripSummary({
     capture("travel_save_clicked", { isAuthenticated });
     if (!isAuthenticated) {
       capture("travel_auth_prompt_shown", {});
-      // Preserve the current search URL + signal auto-save to run post-auth.
-      // The /travel page detects `saved=1` on mount and invokes
-      // saveTravelSearch itself, so Clerk's redirect back to this URL
-      // completes the round-trip without the user clicking Save again.
+      // Stash the save intent in sessionStorage so TravelAutoSave can
+      // verify on return — a bare ?saved=1 in a crafted or shared URL
+      // without a matching intent must NOT trigger a write.
+      stashSaveIntent({
+        label: destination,
+        latitude,
+        longitude,
+        radiusKm,
+        startDate,
+        endDate,
+        timezone,
+      });
       const here = new URL(window.location.href);
       here.searchParams.set("saved", "1");
       const redirectUrl = here.pathname + here.search;
