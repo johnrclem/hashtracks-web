@@ -3,7 +3,8 @@
 /**
  * Travel Mode server actions.
  *
- * - saveTravelSearch: persist a search (auth required)
+ * - saveTravelSearch: persist a search (auth required, idempotent on coord identity)
+ * - updateTravelSearch: mutate an existing saved search in-place
  * - deleteTravelSearch: soft-delete / archive (auth + ownership)
  * - listSavedSearches: user's active searches
  * - viewTravelSearch: update lastViewedAt + return search
@@ -103,6 +104,28 @@ export async function saveTravelSearch(
   const startDate = parseUtcNoonDate(params.startDate);
   const endDate = parseUtcNoonDate(params.endDate);
 
+  // Idempotency: if this user already has an active saved search matching
+  // the same coords + radius + date window, return its id instead of
+  // creating a duplicate. Covers double-clicks, post-sign-in auto-save
+  // retries, and any caller that didn't first call findExistingSavedSearch.
+  const existing = await prisma.travelSearch.findFirst({
+    where: {
+      userId: user.id,
+      status: "active",
+      destinations: {
+        some: {
+          latitude: params.latitude,
+          longitude: params.longitude,
+          radiusKm: params.radiusKm,
+          startDate,
+          endDate,
+        },
+      },
+    },
+    select: { id: true },
+  });
+  if (existing) return { success: true, id: existing.id };
+
   // Auto-generate name: "Atlanta, GA · Apr 14–21"
   const name = formatTripName(params.label, startDate, endDate);
 
@@ -126,6 +149,65 @@ export async function saveTravelSearch(
   });
 
   return { success: true, id: search.id };
+}
+
+// ============================================================================
+// updateTravelSearch
+// ============================================================================
+
+/**
+ * Mutate an existing saved search in-place. Used by TripSummary's
+ * "Update with current params" dropdown when a user tweaks dates/radius/
+ * destination label for an already-saved trip and wants to keep the same
+ * TravelSearch id (so dashboard ordering and `lastViewedAt` are stable).
+ *
+ * TravelDestination.travelSearchId is `@unique`, so the update is a
+ * replace-in-place: delete the existing destination row, create a new one
+ * under the same parent. The parent's `name` is refreshed to reflect the
+ * new params.
+ */
+export async function updateTravelSearch(
+  id: string,
+  params: SaveTravelSearchParams,
+): Promise<ActionResult<{ id: string }>> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const validation = validateSearchParams(params);
+  if (validation) return { error: validation };
+
+  const search = await prisma.travelSearch.findUnique({
+    where: { id },
+    select: { userId: true },
+  });
+  if (!search) return { error: "Search not found" };
+  if (search.userId !== user.id) return { error: "Not authorized" };
+
+  const startDate = parseUtcNoonDate(params.startDate);
+  const endDate = parseUtcNoonDate(params.endDate);
+  const name = formatTripName(params.label, startDate, endDate);
+
+  await prisma.travelSearch.update({
+    where: { id },
+    data: {
+      name,
+      destinations: {
+        deleteMany: {},
+        create: {
+          label: params.label,
+          placeId: params.placeId ?? null,
+          latitude: params.latitude,
+          longitude: params.longitude,
+          timezone: params.timezone ?? null,
+          radiusKm: params.radiusKm,
+          startDate,
+          endDate,
+        },
+      },
+    },
+  });
+
+  return { success: true, id };
 }
 
 // ============================================================================

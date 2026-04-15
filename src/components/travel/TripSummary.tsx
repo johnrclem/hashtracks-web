@@ -28,6 +28,7 @@ import { stashSaveIntent } from "@/lib/travel/save-intent";
 import {
   deleteTravelSearch,
   saveTravelSearch,
+  updateTravelSearch,
 } from "@/app/travel/actions";
 
 /** Minimal shape required to build a VEVENT from a confirmed search result. */
@@ -140,7 +141,10 @@ export function TripSummary({
   const handleUpdate = () => {
     if (!savedId) return;
     startMutation(async () => {
-      const result = await saveTravelSearch({
+      // Route through the explicit update-by-id path so the existing
+      // TravelSearch row is mutated in-place — preserves its id,
+      // createdAt, and dashboard position rather than creating a duplicate.
+      const result = await updateTravelSearch(savedId, {
         label: destination,
         latitude,
         longitude,
@@ -150,9 +154,6 @@ export function TripSummary({
         timezone,
       });
       if ("success" in result && result.success) {
-        // saveTravelSearch allows duplicates (v1 scope), so a new id comes
-        // back. Track that id as the "current" saved record for this trip.
-        setSavedId(result.id);
         capture("travel_saved_search_updated", {});
         toast.success("Trip updated", {
           description: "This trip is saved with the latest search params.",

@@ -102,7 +102,7 @@ export function buildVeventBlock(event: CalendarEvent): string {
   const lines = [
     "BEGIN:VEVENT",
     `DTSTAMP:${stamp}`,
-    `UID:${ymd}-${Date.now()}@hashtracks`,
+    `UID:${ymd}-${hashStableUid(event)}@hashtracks`,
     `SUMMARY:${escapeIcs(title)}`,
   ];
 
@@ -153,6 +153,33 @@ export function buildMultiEventIcs(events: CalendarEvent[]): string {
     ...events.map(buildVeventBlock),
     "END:VCALENDAR",
   ].join("\r\n");
+}
+
+/**
+ * Deterministic per-event UID component derived from stable event fields.
+ * Using `Date.now()` here (the prior approach) produced identical UIDs when
+ * a multi-event export built several VEVENTs within the same millisecond —
+ * calendar clients treat UID as event identity, so collisions caused
+ * imports to overwrite or collapse entries. The hash covers the fields
+ * that make an event distinct (kennel + date + time + title + location +
+ * run number) and is implemented as FNV-1a 32-bit so we pull in no crypto
+ * dependency on the client bundle.
+ */
+export function hashStableUid(event: CalendarEvent): string {
+  const seed = [
+    event.date.slice(0, 10),
+    event.startTime ?? "allday",
+    event.title ?? "",
+    event.locationName ?? "",
+    event.kennel.shortName,
+    event.runNumber?.toString() ?? "",
+  ].join("|");
+  let h = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
 }
 
 /** Escape special characters per the iCalendar (RFC 5545) spec. */

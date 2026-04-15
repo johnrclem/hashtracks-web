@@ -30,6 +30,7 @@ import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
   saveTravelSearch,
+  updateTravelSearch,
   deleteTravelSearch,
   findExistingSavedSearch,
   listSavedSearches,
@@ -127,6 +128,77 @@ describe("saveTravelSearch", () => {
       startDate: "2026-13-01",
     });
     expect("error" in result && result.error).toContain("date");
+  });
+
+  it("is idempotent — returns existing id without creating when coord+dates match", async () => {
+    // Codex flagged that `saveTravelSearch` always called `create`, so the
+    // post-sign-in auto-save path (plus any double-click) could accumulate
+    // duplicate active rows for the same trip. Guard: findFirst short-circuits.
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
+      id: "ts-existing",
+    } as never);
+
+    const result = await saveTravelSearch(validParams);
+    expect("error" in result).toBe(false);
+    expect("id" in result && result.id).toBe("ts-existing");
+    expect(prisma.travelSearch.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateTravelSearch", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("replaces destination in-place and keeps the same id", async () => {
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
+      userId: "user-1",
+    } as never);
+    vi.mocked(prisma.travelSearch.update).mockResolvedValue({} as never);
+
+    const result = await updateTravelSearch("ts-1", validParams);
+    expect("error" in result).toBe(false);
+    expect("id" in result && result.id).toBe("ts-1");
+
+    // update() called on the parent with nested destinations deleteMany+create
+    const call = vi.mocked(prisma.travelSearch.update).mock.calls[0][0];
+    expect(call?.where).toEqual({ id: "ts-1" });
+    expect(call?.data?.destinations).toMatchObject({
+      deleteMany: {},
+      create: expect.objectContaining({ label: validParams.label }),
+    });
+    // No new TravelSearch row created — dashboard position preserved.
+    expect(prisma.travelSearch.create).not.toHaveBeenCalled();
+  });
+
+  it("returns error for wrong owner", async () => {
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
+      userId: "other-user",
+    } as never);
+
+    const result = await updateTravelSearch("ts-1", validParams);
+    expect("error" in result && result.error).toBe("Not authorized");
+    expect(prisma.travelSearch.update).not.toHaveBeenCalled();
+  });
+
+  it("returns error for non-existent search", async () => {
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue(null);
+    const result = await updateTravelSearch("ts-nonexistent", validParams);
+    expect("error" in result && result.error).toBe("Search not found");
+  });
+
+  it("returns error when not authenticated", async () => {
+    vi.mocked(getOrCreateUser).mockResolvedValueOnce(null);
+    const result = await updateTravelSearch("ts-1", validParams);
+    expect("error" in result && result.error).toBe("Not authenticated");
+    expect(prisma.travelSearch.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("validates params before touching the db", async () => {
+    const result = await updateTravelSearch("ts-1", {
+      ...validParams,
+      startDate: "not-a-date",
+    });
+    expect("error" in result && result.error).toContain("date");
+    expect(prisma.travelSearch.findUnique).not.toHaveBeenCalled();
   });
 });
 

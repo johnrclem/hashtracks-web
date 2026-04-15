@@ -7,6 +7,7 @@ import {
   incrementDate,
   buildGoogleCalendarUrl,
   buildIcsContent,
+  buildMultiEventIcs,
 } from "./calendar";
 import { buildCalendarEvent } from "@/test/factories";
 
@@ -174,12 +175,41 @@ describe("buildIcsContent", () => {
   it("includes DTSTAMP and UID", () => {
     const ics = buildIcsContent(buildCalendarEvent());
     expect(ics).toMatch(/DTSTAMP:\d{8}T\d{6}Z/);
-    expect(ics).toMatch(/UID:20260214-\d+@hashtracks/);
+    // UID now embeds a deterministic 8-hex-char hash of the event's stable
+    // fields rather than Date.now(), so multi-event exports stay collision-free.
+    expect(ics).toMatch(/UID:20260214-[0-9a-f]{8}@hashtracks/);
   });
 
   it("escapes special chars in SUMMARY", () => {
     const e = buildCalendarEvent({ title: "Trail; fun, times" });
     const ics = buildIcsContent(e);
     expect(ics).toContain("Trail\\; fun\\, times");
+  });
+});
+
+describe("buildMultiEventIcs", () => {
+  // Regression: `Date.now()` UIDs collided when multiple VEVENTs were built
+  // in the same millisecond, letting calendar clients drop or overwrite
+  // events on import. Deterministic per-event hashes keep each UID distinct.
+  it("emits unique UIDs for distinct same-day events", () => {
+    const a = buildCalendarEvent({ title: "Morning trail", startTime: "09:00" });
+    const b = buildCalendarEvent({ title: "Evening trail", startTime: "18:00" });
+    const c = buildCalendarEvent({
+      title: "Morning trail",
+      startTime: "09:00",
+      kennel: { shortName: "BH3" },
+    });
+
+    const ics = buildMultiEventIcs([a, b, c]);
+    const uids = [...ics.matchAll(/UID:([^\r\n]+)/g)].map((m) => m[1]);
+    expect(uids).toHaveLength(3);
+    expect(new Set(uids).size).toBe(3);
+  });
+
+  it("produces stable UIDs across repeated exports of the same event", () => {
+    const e = buildCalendarEvent();
+    const first = buildMultiEventIcs([e]).match(/UID:([^\r\n]+)/)?.[1];
+    const second = buildMultiEventIcs([e]).match(/UID:([^\r\n]+)/)?.[1];
+    expect(first).toBe(second);
   });
 });
