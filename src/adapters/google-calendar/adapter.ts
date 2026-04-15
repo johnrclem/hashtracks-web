@@ -443,11 +443,14 @@ function extractDateTimeFromGCalItem(start: { dateTime?: string; date?: string }
 }
 
 /** Strip HTML from description, preserving newlines, and truncate. */
-function normalizeGCalDescription(rawDesc: string | undefined): { rawDescription: string | undefined; description: string | undefined } {
+export function normalizeGCalDescription(rawDesc: string | undefined): { rawDescription: string | undefined; description: string | undefined } {
   if (!rawDesc) return { rawDescription: undefined, description: undefined };
   let rawDescription = stripHtmlTags(decodeEntities(rawDesc), "\n");
   // Strip mailto: link artifacts: "text (mailto:email)" → "text"
   rawDescription = rawDescription.replace(/\s*\(mailto:[^)]+\)/g, "");
+  // Strip Harrier Central auto-generated header from GCal-synced events:
+  // "{KennelName}\nLocation: {venue}\nDescription: {actual text}" → "{actual text}"
+  rawDescription = rawDescription.replace(/^[^\n]*\nLocation:[^\n]*\nDescription:\s*/i, "");
   const description = rawDescription
     ? rawDescription.replace(/[ \t]+/g, " ").trim().substring(0, 2000) || undefined
     : undefined;
