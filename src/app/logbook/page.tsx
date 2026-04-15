@@ -79,7 +79,7 @@ export default async function LogbookPage() {
   ).size;
   const todayUtcNoon = getTodayUtcNoon();
   const goingCount = entries.filter(
-    (e) => e.attendance.status === "INTENDING" && new Date(e.event.date).getTime() > todayUtcNoon
+    (e) => e.attendance.status === "INTENDING" && new Date(e.event.date).getTime() >= todayUtcNoon
   ).length;
 
   const description = `${confirmedCount} ${confirmedCount === 1 ? "run" : "runs"} logged${

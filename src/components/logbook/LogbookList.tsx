@@ -89,10 +89,10 @@ export function filterLogbookEntries(
   });
 }
 
-/** Check whether a logbook entry represents a future RSVP. */
+/** Check whether a logbook entry represents an upcoming RSVP (today or future). */
 function isUpcomingEntry(entry: LogbookEntry, todayUtcNoon: number): boolean {
   return entry.attendance.status === "INTENDING"
-    && new Date(entry.event.date).getTime() > todayUtcNoon;
+    && new Date(entry.event.date).getTime() >= todayUtcNoon;
 }
 
 /** Derive a status label for accessibility (screen reader row summary). */

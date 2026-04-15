@@ -136,10 +136,10 @@ export async function rsvp(eventId: string) {
   });
   if (!event) return { error: "Event not found" };
 
-  // Validate event is in the future — today's events can be checked in, not RSVP'd
+  // Validate event is today or in the future
   const todayUtcNoon = getTodayUtcNoon();
-  if (event.date.getTime() <= todayUtcNoon) {
-    return { error: "Can only RSVP to future events" };
+  if (event.date.getTime() < todayUtcNoon) {
+    return { error: "Can only RSVP to today's or future events" };
   }
 
   // Toggle: if already INTENDING, remove it
