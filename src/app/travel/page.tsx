@@ -10,6 +10,7 @@ import { TripSummary } from "@/components/travel/TripSummary";
 import { EmptyStates } from "@/components/travel/EmptyStates";
 import { TravelHero } from "@/components/travel/TravelHero";
 import { PopularDestinations } from "@/components/travel/PopularDestinations";
+import { TravelAutoSave } from "@/components/travel/TravelAutoSave";
 
 interface TravelPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -107,6 +108,7 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
           destination={q ?? ""}
           timezone={tz}
           filterParams={params}
+          pendingAutoSave={getParam(params, "saved") === "1"}
         />
       </Suspense>
     </div>
@@ -127,6 +129,7 @@ async function TravelResultsServer({
   destination,
   timezone,
   filterParams,
+  pendingAutoSave,
 }: {
   latitude: number;
   longitude: number;
@@ -136,6 +139,7 @@ async function TravelResultsServer({
   destination: string;
   timezone?: string;
   filterParams: Record<string, string | string[] | undefined>;
+  pendingAutoSave: boolean;
 }) {
   const cf = getParam(filterParams, "cf");
   const df = getParam(filterParams, "df");
@@ -161,18 +165,19 @@ async function TravelResultsServer({
       },
     });
 
-    // "Going" badge enrichment is strictly optional. Failures inside
-    // getOrCreateUser() (Clerk outages, analytics side-effects, non-P2002
-    // Prisma errors) must NOT take down the entire travel page — a signed-in
-    // user should still see their search results if their user-sync hiccups.
-    // Run search first, then try to decorate with attendance. On any failure
-    // in the enrichment path, log and fall back to attendance: null.
+    // Auth is optional — failures inside getOrCreateUser() (Clerk outages,
+    // analytics side-effects, non-P2002 Prisma errors) must NOT blank the
+    // page. Run once and reuse for both the isAuthenticated flag (Save
+    // Trip button) and attendance-map enrichment ("Going" badge).
+    const user = await safeGetUser();
+    const isAuthenticated = user != null;
+
     const confirmedEventIds = [
       ...results.confirmed,
       ...(results.broaderResults?.confirmed ?? []),
     ].map((r) => r.eventId);
 
-    const attendanceMap = await loadAttendanceMap(confirmedEventIds);
+    const attendanceMap = await loadAttendanceMap(user, confirmedEventIds);
 
     // Serialize Date objects for client components
     const serializedResults = {
@@ -209,6 +214,44 @@ async function TravelResultsServer({
         : undefined,
     };
 
+    // Events exposed to TripSummary for Export Calendar .ics generation.
+    // Use broaderResults when the primary radius came up empty — mirrors
+    // the no_nearby render contract the results component already follows.
+    const exportableConfirmed =
+      results.emptyState === "no_nearby" && serializedResults.broaderResults
+        ? serializedResults.broaderResults.confirmed
+        : serializedResults.confirmed;
+
+    const tripSummaryProps = {
+      destination,
+      startDate,
+      endDate,
+      latitude,
+      longitude,
+      radiusKm,
+      timezone,
+      isAuthenticated,
+      confirmedCount: exportableConfirmed.length,
+      likelyCount: results.likely.length + (results.broaderResults?.likely.length ?? 0),
+      possibleCount: results.possible.length + (results.broaderResults?.possible.length ?? 0),
+      confirmedEvents: exportableConfirmed.map((r) => ({
+        date: r.date,
+        startTime: r.startTime,
+        timezone: r.timezone,
+        title: r.title,
+        runNumber: r.runNumber,
+        haresText: r.haresText,
+        locationName: r.locationName,
+        sourceUrl: r.sourceUrl,
+        kennelName: r.kennelName,
+      })),
+    };
+
+    // Auto-save only fires for authenticated users returning from the
+    // Save-Trip sign-in redirect with saved=1. Guests reaching this path
+    // somehow shouldn't trigger the server action (it'll fail auth anyway).
+    const autoSave = pendingAutoSave && isAuthenticated;
+
     if (results.emptyState !== "none") {
       // Determine which results to show based on empty state type:
       // - no_confirmed: show likely/possible from the primary search (they exist)
@@ -232,14 +275,18 @@ async function TravelResultsServer({
 
       return (
         <>
-          <TripSummary
-            destination={destination}
-            startDate={startDate}
-            endDate={endDate}
-            confirmedCount={results.confirmed.length}
-            likelyCount={results.likely.length}
-            possibleCount={results.possible.length}
-          />
+          <TripSummary {...tripSummaryProps} />
+          {autoSave && (
+            <TravelAutoSave
+              destination={destination}
+              startDate={startDate}
+              endDate={endDate}
+              latitude={latitude}
+              longitude={longitude}
+              radiusKm={radiusKm}
+              timezone={timezone}
+            />
+          )}
           <EmptyStates
             variant={results.emptyState}
             radiusKm={radiusKm}
@@ -254,14 +301,18 @@ async function TravelResultsServer({
 
     return (
       <>
-        <TripSummary
-          destination={destination}
-          startDate={startDate}
-          endDate={endDate}
-          confirmedCount={results.confirmed.length}
-          likelyCount={results.likely.length}
-          possibleCount={results.possible.length}
-        />
+        <TripSummary {...tripSummaryProps} />
+        {autoSave && (
+          <TravelAutoSave
+            destination={destination}
+            startDate={startDate}
+            endDate={endDate}
+            latitude={latitude}
+            longitude={longitude}
+            radiusKm={radiusKm}
+            timezone={timezone}
+          />
+        )}
         <TravelResults results={serializedResults} />
       </>
     );
@@ -271,21 +322,31 @@ async function TravelResultsServer({
 }
 
 /**
- * Best-effort attendance lookup for "Going" badge decoration.
- *
- * Isolated from the main search path so that Clerk outages, user-sync side
- * effects inside getOrCreateUser(), or transient Prisma errors on the
- * attendance query cannot take down the travel page. Any failure here
- * yields an empty map and the cards render without badges, which is the
- * same experience a signed-out user gets today.
+ * Best-effort user fetch. Isolated in its own try/catch so Clerk outages,
+ * user-sync side effects, or transient Prisma errors inside getOrCreateUser
+ * don't blank the travel page. Returns null on any failure — the page then
+ * renders the signed-out experience, which is a graceful degradation.
+ */
+async function safeGetUser(): Promise<Awaited<ReturnType<typeof getOrCreateUser>>> {
+  try {
+    return await getOrCreateUser();
+  } catch (err) {
+    console.error("[travel] getOrCreateUser failed; rendering as guest", err);
+    return null;
+  }
+}
+
+/**
+ * Attendance map powering the "Going" badge. Accepts a pre-fetched user so
+ * the page only calls getOrCreateUser once (shared with the isAuthenticated
+ * check for the Save Trip button).
  */
 async function loadAttendanceMap(
+  user: Awaited<ReturnType<typeof getOrCreateUser>>,
   confirmedEventIds: string[],
 ): Promise<Record<string, { status: string; participationLevel: string }>> {
-  if (confirmedEventIds.length === 0) return {};
+  if (!user || confirmedEventIds.length === 0) return {};
   try {
-    const user = await getOrCreateUser();
-    if (!user) return {};
     const attendances = await prisma.attendance.findMany({
       where: { userId: user.id, eventId: { in: confirmedEventIds } },
       select: { eventId: true, status: true, participationLevel: true },
