@@ -56,7 +56,10 @@ export function parseMakesweatEvent(
     const hareMatch = descText.match(/Hares?\s*[-–—]\s*(.+?)(?:\n|$)/i);
     if (hareMatch) {
       const raw = hareMatch[1].trim();
-      hares = HARE_BOILERPLATE_RE.test(raw) ? undefined : raw;
+      const isCta = HARE_BOILERPLATE_RE.test(raw)
+        || /^(?:hare\s+)?needed\b/i.test(raw)
+        || /^please\s+contact\b/i.test(raw);
+      hares = isCta ? undefined : raw;
     }
   }
 
