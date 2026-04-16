@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { EventCard, type HarelineEvent } from "./EventCard";
-import { getDayOfWeek, formatDateLong, parseList } from "@/lib/format";
+import { getDayOfWeek, formatDateLong, parseList, parseRegionParam } from "@/lib/format";
 import { FilterBar } from "@/components/shared/FilterBar";
 import { resolveCountryName } from "@/lib/region";
 import { EmptyState } from "./EmptyState";
@@ -233,7 +233,7 @@ export function HarelineView({
     computeInitialScope(searchParams.get("scope"), searchParams.get("regions"), defaultScope),
   );
   const [selectedRegions, setSelectedRegionsState] = useState<string[]>(
-    parseList(searchParams.get("regions")),
+    parseRegionParam(searchParams.get("regions")),
   );
   const [selectedKennels, setSelectedKennelsState] = useState<string[]>(
     parseList(searchParams.get("kennels")),
