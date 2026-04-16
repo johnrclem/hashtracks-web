@@ -159,6 +159,11 @@ export class HarrierCentralAdapter implements SourceAdapter {
         hares = undefined;
       }
 
+      // Intentionally no sourceUrl: the hashruns.org Flutter UI can no longer
+      // resolve `https://www.hashruns.org/#/event/${publicEventId}` links
+      // (#706, #725). The REST API still serves the UUIDs so scrapes succeed,
+      // but the user-facing detail page is dead. Event detail pages fall back
+      // to the kennel website / other EventLinks when sourceUrl is null.
       const raw: RawEventData = {
         date: dateStr,
         kennelTag,
@@ -169,7 +174,6 @@ export class HarrierCentralAdapter implements SourceAdapter {
         location,
         latitude: hcEvent.syncLat != null ? hcEvent.syncLat : undefined,
         longitude: hcEvent.syncLong != null ? hcEvent.syncLong : undefined,
-        sourceUrl: `https://www.hashruns.org/#/event/${hcEvent.publicEventId}`,
       };
 
       events.push(raw);
