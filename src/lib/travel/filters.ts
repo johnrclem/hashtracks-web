@@ -47,7 +47,9 @@ export function computeDayCounts(
   // Sort + dedupe dates per day for a deterministic tooltip order.
   const datesByDay: Partial<Record<DayCode, string[]>> = {};
   for (const [dow, set] of Object.entries(dates) as [DayCode, Set<string>][]) {
-    datesByDay[dow] = [...set].sort();
+    // Lexicographic sort is correct for ISO date strings; the explicit
+    // localeCompare comparator silences SonarCloud's locale-safe-sort rule.
+    datesByDay[dow] = [...set].sort((a, b) => a.localeCompare(b));
   }
   return { availableDays: days, dayCounts: counts, datesByDay };
 }

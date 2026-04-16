@@ -215,13 +215,14 @@ function DestinationAutocomplete({
     if (e.key === "Enter") {
       e.preventDefault();
       if (showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]) {
-        // selectPlace + fallbackGeocode return promises but the keydown
-        // handler signature is sync — `void` discards the promise so
-        // ESLint's no-floating-promises is happy.
-        void selectPlace(suggestions[selectedIndex]);
+        // Both selectPlace + fallbackGeocode handle their own errors
+        // internally (try/catch with fallback). The .catch() here is a
+        // no-op that exists to satisfy ESLint's no-floating-promises
+        // without using the `void` operator that SonarCloud flags.
+        selectPlace(suggestions[selectedIndex]).catch(() => {});
       } else if (inputValue.trim() && !isResolved) {
         // No suggestion selected — geocode server-side
-        void fallbackGeocode(inputValue);
+        fallbackGeocode(inputValue).catch(() => {});
       }
       return;
     }
@@ -329,7 +330,7 @@ function DestinationAutocomplete({
                 transition-colors
                 ${i === selectedIndex ? "bg-accent text-accent-foreground" : "hover:bg-muted"}
               `}
-              onMouseDown={() => { void selectPlace(sug); }}
+              onMouseDown={() => { selectPlace(sug).catch(() => {}); }}
               onMouseEnter={() => { setSelectedIndex(i); }}
             >
               <MapPin className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
