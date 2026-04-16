@@ -9,7 +9,7 @@
  */
 
 import type { PrismaClient } from "@/generated/prisma/client";
-import { MAX_RADIUS_KM } from "@/app/travel/actions";
+import { MAX_RADIUS_KM } from "@/lib/travel/limits";
 import { haversineDistance } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import { safeUrl } from "@/lib/safe-url";

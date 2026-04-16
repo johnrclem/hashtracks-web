@@ -21,8 +21,10 @@ import { parseUtcNoonDate } from "@/lib/date";
 import type { ActionResult } from "@/lib/actions";
 import { MAX_RADIUS_KM } from "@/lib/travel/limits";
 
-// Re-export so existing callers (page.tsx) don't need to update their imports.
-export { MAX_RADIUS_KM };
+// Don't re-export MAX_RADIUS_KM here — Next.js's `"use server"` boundary
+// rejects any non-async export ("A 'use server' file can only export
+// async functions, found number"). Callers (page.tsx, search.ts) import
+// it from `@/lib/travel/limits` directly.
 
 /**
  * Maximum number of saved trips returned by listSavedSearches. Keeps the
