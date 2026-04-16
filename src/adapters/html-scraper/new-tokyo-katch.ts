@@ -185,6 +185,17 @@ function extractTableRows($: CheerioAPI): { headers: string[]; rows: string[][] 
 // Event building
 // ---------------------------------------------------------------------------
 
+/**
+ * Detect a REMARK column value that signals this is an overseas trip — NTKH4
+ * runs an annual "Overseas Run" outside Japan. Returning an empty string tells
+ * the merge pipeline to drop the kennel's country bias entirely, so a venue
+ * like "Taoyuan" resolves to Taiwan instead of a Tokyo neighborhood. Issue #741.
+ */
+export function overseasCountryOverride(remark: string | undefined): string | undefined {
+  if (!remark) return undefined;
+  return /overseas/i.test(remark) ? "" : undefined;
+}
+
 function buildRawEvent(parsed: ParsedNtkRun, sourceUrl: string): RawEventData {
   const title = parsed.runNumber
     ? `${DISPLAY_NAME} #${parsed.runNumber}`
@@ -193,6 +204,8 @@ function buildRawEvent(parsed: ParsedNtkRun, sourceUrl: string): RawEventData {
   const descParts: string[] = [];
   if (parsed.line) descParts.push(`Line: ${parsed.line}`);
   if (parsed.remark) descParts.push(`Remark: ${parsed.remark}`);
+
+  const countryOverride = overseasCountryOverride(parsed.remark);
 
   return {
     date: parsed.date,
@@ -203,6 +216,7 @@ function buildRawEvent(parsed: ParsedNtkRun, sourceUrl: string): RawEventData {
     location: parsed.location,
     sourceUrl,
     description: descParts.length > 0 ? descParts.join("\n") : undefined,
+    ...(countryOverride !== undefined ? { countryOverride } : {}),
   };
 }
 

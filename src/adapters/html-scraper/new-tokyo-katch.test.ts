@@ -2,6 +2,7 @@ import {
   parseNtkDate,
   parseNtkRow,
   buildColumnMap,
+  overseasCountryOverride,
   NewTokyoKatchAdapter,
 } from "./new-tokyo-katch";
 import type { Source } from "@/generated/prisma/client";
@@ -161,6 +162,55 @@ describe("NewTokyoKatchAdapter", () => {
       const run = parseNtkRow(cells, columnMap);
       expect(run).not.toBeNull();
       expect(run!.hares).toBe("Hash Master");
+    });
+  });
+
+  describe("overseasCountryOverride", () => {
+    it("returns '' (no-bias sentinel) for REMARK containing 'Overseas' (#741)", () => {
+      expect(overseasCountryOverride("Annual Overseas Run")).toBe("");
+      expect(overseasCountryOverride("OVERSEAS trip")).toBe("");
+    });
+
+    it("returns undefined for domestic REMARK", () => {
+      expect(overseasCountryOverride("Bring rain gear")).toBeUndefined();
+      expect(overseasCountryOverride("Cherry blossom run")).toBeUndefined();
+    });
+
+    it("returns undefined for empty or missing remark", () => {
+      expect(overseasCountryOverride(undefined)).toBeUndefined();
+      expect(overseasCountryOverride("")).toBeUndefined();
+    });
+  });
+
+  describe("overseas row propagates countryOverride", () => {
+    it("emits countryOverride='' in RawEventData for an overseas row", async () => {
+      const mockHtml = `<!DOCTYPE html><html><body>
+        <table>
+          <thead>
+            <tr><th>DATE</th><th>RUN</th><th>VENUE</th><th>LINE</th><th>HARE</th><th>SWEEP</th><th>REMARK</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>17-Apr-2026</td><td>70</td><td>Taoyuan</td><td>TBC</td><td>TBC</td><td>TBC</td><td>Annual Overseas Run</td>
+            </tr>
+            <tr>
+              <td>24-Apr-2026</td><td>71</td><td>Shibuya</td><td>Ginza Line</td><td>Sushi Roll</td><td></td><td>Bring rain gear</td>
+            </tr>
+          </tbody>
+        </table>
+      </body></html>`;
+      const { browserRender } = await import("@/lib/browser-render");
+      vi.mocked(browserRender).mockResolvedValue(mockHtml);
+      const adapter = new NewTokyoKatchAdapter();
+      const result = await adapter.fetch({
+        id: "test",
+        url: "https://newtokyohash.wixsite.com/newtokyokatchhash/hareline",
+        config: {},
+      } as unknown as Source, { days: 365 });
+      const overseas = result.events.find((e) => e.runNumber === 70);
+      const domestic = result.events.find((e) => e.runNumber === 71);
+      expect(overseas?.countryOverride).toBe("");
+      expect(domestic?.countryOverride).toBeUndefined();
     });
   });
 

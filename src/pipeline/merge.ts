@@ -20,6 +20,24 @@ function countryToRegionBias(country?: string | null): string | undefined {
 }
 
 /**
+ * Resolve the region bias Google Geocoding should use for an event. Prefers the
+ * per-event `countryOverride` when the adapter set one (e.g. an annual overseas
+ * trip leaving the kennel's home country). An empty-string override means "no
+ * bias" — intentionally skip the kennel's default.
+ */
+function resolveRegionBias(
+  event: RawEventData,
+  kennelCountry: string | null | undefined,
+): string | undefined {
+  if (event.countryOverride !== undefined) {
+    return event.countryOverride === ""
+      ? undefined
+      : countryToRegionBias(event.countryOverride);
+  }
+  return countryToRegionBias(kennelCountry);
+}
+
+/**
  * Sanitize raw event fields: decode HTML entities in text fields.
  * Applied at the top of processNewRawEvent() so all downstream sanitizers receive clean text.
  */
@@ -623,10 +641,13 @@ async function resolveCoords(
     const geocoded = await geocodeAddress(event.location, regionBias ? { regionBias } : undefined);
     if (geocoded) {
       // Validate geocoded result against kennel coords or region centroid (if available)
-      // Skip geocode if result is >200km from reference point — likely wrong city/state
+      // Skip geocode if result is >200km from reference point — likely wrong city/state.
+      // Adapters set `countryOverride` on per-event overseas trips (e.g. NTKH4 annual
+      // Taoyuan run) to opt out of the kennel-proximity check, which would otherwise
+      // reject the correct far-away pin.
       const valLat = kennelCoords?.latitude ?? kennelCoords?.regionCentroidLat;
       const valLng = kennelCoords?.longitude ?? kennelCoords?.regionCentroidLng;
-      if (valLat != null && valLng != null) {
+      if (valLat != null && valLng != null && event.countryOverride === undefined) {
         const dist = haversineDistance(geocoded.lat, geocoded.lng, valLat, valLng);
         if (dist > 200) {
           console.warn(`Geocode validation: "${event.location}" resolved ${dist.toFixed(0)}km from kennel — skipping`);
@@ -728,7 +749,7 @@ async function upsertCanonicalEvent(
         latitude: existingEvent.latitude,
         longitude: existingEvent.longitude,
         locationAddress: existingEvent.locationAddress,
-      }, ctx.shortUrlCache, kennelData, countryToRegionBias(kennelData.country));
+      }, ctx.shortUrlCache, kennelData, resolveRegionBias(event, kennelData.country));
 
       const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
 
@@ -854,7 +875,7 @@ async function upsertCanonicalEvent(
     if (shouldRestore) ctx.result.restored++;
   } else {
     // Create new canonical Event
-    const coords = await resolveCoords(event, undefined, ctx.shortUrlCache, kennelData, countryToRegionBias(kennelData.country));
+    const coords = await resolveCoords(event, undefined, ctx.shortUrlCache, kennelData, resolveRegionBias(event, kennelData.country));
     // Reverse-geocode city when coords are available (suppress when address already has state).
     // Canonical-location sources skip this entirely — see shouldSkipReverseGeocode.
     const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
