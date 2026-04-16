@@ -3,15 +3,15 @@
 import { useRouter } from "next/navigation";
 import { POPULAR_DESTINATIONS } from "@/lib/travel/popular-destinations";
 import { capture } from "@/lib/analytics";
-import { buildTravelSearchUrl } from "@/lib/travel/url";
+import { buildTravelSearchUrl, localYmd } from "@/lib/travel/url";
 
 export function PopularDestinations() {
   const router = useRouter();
 
   const today = new Date();
   const twoWeeksOut = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
-  const fromStr = toDateString(today);
-  const toStr = toDateString(twoWeeksOut);
+  const fromStr = localYmd(today);
+  const toStr = localYmd(twoWeeksOut);
 
   return (
     <section className="mx-auto max-w-5xl px-4 pb-20 pt-8">
@@ -83,8 +83,4 @@ export function PopularDestinations() {
       </div>
     </section>
   );
-}
-
-function toDateString(d: Date): string {
-  return d.toISOString().slice(0, 10);
 }

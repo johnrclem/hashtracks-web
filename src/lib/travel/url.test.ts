@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   buildTravelSearchUrl,
+  localYmd,
   parseTravelRedirect,
+  utcYmd,
   withConcurrency,
 } from "./url";
 
@@ -27,12 +29,14 @@ describe("buildTravelSearchUrl", () => {
     expect(params.get("tz")).toBe("America/New_York");
   });
 
-  it("accepts Date objects (slices to YYYY-MM-DD)", () => {
+  it("accepts pre-formatted YYYY-MM-DD strings (sliced if longer)", () => {
+    // ISO timestamps slice cleanly; matches the existing string-passthrough
+    // shape that callers like /travel/saved use when reading raw params.
     const url = buildTravelSearchUrl({
       latitude: 0,
       longitude: 0,
-      startDate: new Date("2026-04-14T12:00:00.000Z"),
-      endDate: new Date("2026-04-20T12:00:00.000Z"),
+      startDate: "2026-04-14T12:00:00.000Z",
+      endDate: "2026-04-20T12:00:00.000Z",
       label: "x",
     });
     const params = new URL(url, "https://x").searchParams;
@@ -65,23 +69,37 @@ describe("buildTravelSearchUrl", () => {
     expect(new URL(url, "https://x").searchParams.has("tz")).toBe(false);
   });
 
-  it("preserves the LOCAL calendar day when given a Date near midnight", () => {
-    // Codex/Bot finding: the previous toYmd went through toISOString()
-    // which converts to UTC, shifting the day for callers east of UTC at
-    // late-evening local time. NearMeShortcut + PopularDestinations both
-    // pass `new Date()` for the trip start — must read as today, not tomorrow.
-    // Constructed in local time (any tz) at 11:30 PM:
-    const lateNight = new Date(2026, 3, 14, 23, 30, 0); // 2026-04-14T23:30 local
-    const url = buildTravelSearchUrl({
-      latitude: 0,
-      longitude: 0,
-      startDate: lateNight,
-      endDate: lateNight,
-      label: "x",
-    });
-    const parsed = new URL(url, "https://x");
-    expect(parsed.searchParams.get("from")).toBe("2026-04-14");
-    expect(parsed.searchParams.get("to")).toBe("2026-04-14");
+});
+
+describe("localYmd", () => {
+  it("formats a Date using LOCAL calendar accessors", () => {
+    // 11:30 PM local on 2026-04-14, regardless of the runner's timezone.
+    // Local accessors return the local calendar day (intended for
+    // NearMeShortcut + PopularDestinations callers that want "today").
+    const lateNight = new Date(2026, 3, 14, 23, 30, 0);
+    expect(localYmd(lateNight)).toBe("2026-04-14");
+  });
+
+  it("zero-pads single-digit month + day", () => {
+    expect(localYmd(new Date(2026, 0, 5, 12, 0, 0))).toBe("2026-01-05");
+  });
+});
+
+describe("utcYmd", () => {
+  it("formats a Date using UTC accessors (preserves stored calendar day)", () => {
+    // Persisted UTC-noon date: 2026-04-14T12:00:00Z. UTC accessors
+    // return the calendar day the user originally saved, even when the
+    // runner is in UTC+13/UTC+14 where local accessors would return
+    // 2026-04-15.
+    const utcNoon = new Date("2026-04-14T12:00:00.000Z");
+    expect(utcYmd(utcNoon)).toBe("2026-04-14");
+  });
+
+  it("preserves UTC day even at UTC midnight", () => {
+    // 2026-04-14T00:00:00Z: in UTC-5 this is 2026-04-13 19:00 local
+    // (yesterday). UTC accessor must still return 2026-04-14.
+    const utcMidnight = new Date("2026-04-14T00:00:00.000Z");
+    expect(utcYmd(utcMidnight)).toBe("2026-04-14");
   });
 });
 

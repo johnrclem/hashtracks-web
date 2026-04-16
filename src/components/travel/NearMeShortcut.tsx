@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Crosshair, Loader2 } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { buildTravelSearchUrl } from "@/lib/travel/url";
+import { buildTravelSearchUrl, localYmd } from "@/lib/travel/url";
 import { capture } from "@/lib/analytics";
 
 export function NearMeShortcut() {
@@ -20,8 +20,8 @@ export function NearMeShortcut() {
       buildTravelSearchUrl({
         latitude: lat,
         longitude: lng,
-        startDate: today,
-        endDate: twoWeeksOut,
+        startDate: localYmd(today),
+        endDate: localYmd(twoWeeksOut),
         label: "Near me",
         radiusKm: 25,
       }),

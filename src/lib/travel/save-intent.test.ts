@@ -140,4 +140,28 @@ describe("stashSaveIntent + consumeSaveIntent", () => {
     store.set("hashtracks:travel-save-intent", JSON.stringify("plain string"));
     expect(consumeSaveIntent(EXAMPLE)).toBe(false);
   });
+
+  it("rejects payloads with non-finite timestamp (NaN/Infinity hardening)", () => {
+    // JSON.parse can't produce NaN/Infinity from valid JSON, but the
+    // shape guard now also blocks them via Number.isFinite — defense
+    // in depth against any future call site that bypasses the parser
+    // (CodeRabbit hardening suggestion).
+    const store = installSessionStorage();
+    // We have to inject NaN at runtime since JSON.stringify(NaN) === "null".
+    store.set("hashtracks:travel-save-intent", JSON.stringify({
+      signature: signatureForIntent(EXAMPLE),
+      timestamp: 0,
+    }));
+    // Spy: monkey-patch JSON.parse to return non-finite for this one call.
+    const realParse = JSON.parse;
+    JSON.parse = (() => ({
+      signature: signatureForIntent(EXAMPLE),
+      timestamp: Number.POSITIVE_INFINITY,
+    })) as typeof JSON.parse;
+    try {
+      expect(consumeSaveIntent(EXAMPLE)).toBe(false);
+    } finally {
+      JSON.parse = realParse;
+    }
+  });
 });

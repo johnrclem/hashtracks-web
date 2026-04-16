@@ -360,6 +360,11 @@ function DestinationInputFallback({
 }: DestinationInputProps) {
   const [inputValue, setInputValue] = useState(value);
   const [isLoading, setIsLoading] = useState(false);
+  // Track the most recently resolved label so we can detect post-resolve
+  // edits and clear stale parent coords. Without this, "Boston" → typo
+  // edit to "Bostono" would keep Boston's lat/lng in parent state and
+  // submit a stale-coord search (Codex finding).
+  const [resolvedLabel, setResolvedLabel] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!inputValue.trim()) return;
@@ -381,6 +386,8 @@ function DestinationInputFallback({
         longitude: result.longitude,
         timezone,
       });
+      setInputValue(result.label);
+      setResolvedLabel(result.label);
     }
     setIsLoading(false);
   };
@@ -391,8 +398,20 @@ function DestinationInputFallback({
         type="text"
         value={inputValue}
         onChange={(e) => {
-          setInputValue(e.target.value);
-          if (!e.target.value.trim()) onClear();
+          const next = e.target.value;
+          setInputValue(next);
+          if (!next.trim()) {
+            setResolvedLabel(null);
+            onClear();
+            return;
+          }
+          // Edited a previously resolved value — clear stale coords in
+          // parent so a stale-coord search can't fire against the new
+          // label.
+          if (resolvedLabel !== null && next !== resolvedLabel) {
+            setResolvedLabel(null);
+            onClear();
+          }
         }}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(); } }}
         placeholder="City or destination"

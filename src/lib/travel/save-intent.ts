@@ -102,5 +102,11 @@ export function consumeSaveIntent(params: SaveIntentParams): boolean {
 function isStoredIntent(value: unknown): value is StoredIntent {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
-  return typeof v.signature === "string" && typeof v.timestamp === "number";
+  // Number.isFinite excludes NaN/Infinity. JSON.parse can't produce
+  // them from valid JSON, but a tampered value or future call site that
+  // bypasses the parser shouldn't slip past the TTL gate via NaN
+  // arithmetic (Date.now() - NaN = NaN, which is falsy in TTL compare).
+  return typeof v.signature === "string"
+    && typeof v.timestamp === "number"
+    && Number.isFinite(v.timestamp);
 }

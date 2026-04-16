@@ -17,9 +17,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
-import { buildTravelSearchUrl } from "@/lib/travel/url";
+import { buildTravelSearchUrl, utcYmd } from "@/lib/travel/url";
 import { capture } from "@/lib/analytics";
-import { deleteTravelSearch } from "@/app/travel/actions";
+import { deleteTravelSearch, viewTravelSearch } from "@/app/travel/actions";
 
 /** Status of a saved trip relative to today. Shared with /travel/saved page. */
 export type SavedTripStatus = "soon" | "active";
@@ -63,15 +63,18 @@ export function SavedTripCard({
   const [isDeleting, startDelete] = useTransition();
   const [open, setOpen] = useState(false);
 
-  const startStr = destination.startDate.toISOString().slice(0, 10);
-  const endStr = destination.endDate.toISOString().slice(0, 10);
+  // Persisted dates are UTC-noon by storage convention; format with UTC
+  // accessors so the saved calendar day round-trips cleanly even in
+  // UTC+13/UTC+14 (where local accessors would shift to next-day).
+  const startStr = utcYmd(destination.startDate);
+  const endStr = utcYmd(destination.endDate);
   const nights = daysBetween(startStr, endStr);
 
   const viewHref = buildTravelSearchUrl({
     latitude: destination.latitude,
     longitude: destination.longitude,
-    startDate: destination.startDate,
-    endDate: destination.endDate,
+    startDate: startStr,
+    endDate: endStr,
     label: destination.label,
     radiusKm: destination.radiusKm,
     timezone: destination.timezone,
@@ -172,6 +175,13 @@ export function SavedTripCard({
                 capture("travel_saved_search_viewed", {
                   searchId: id,
                   daysSinceCreated,
+                });
+                // Update lastViewedAt so the dashboard's recency sort
+                // picks this trip up. Don't await — let the navigation
+                // start immediately; the server action is a single
+                // column update with no UI dependency.
+                viewTravelSearch(id).catch((err) => {
+                  console.error("[travel] viewTravelSearch failed", err);
                 });
               }}
             >

@@ -205,8 +205,12 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
                 type="date"
                 value={startDate}
                 onChange={(e) => {
-                  setStartDate(e.target.value);
-                  if (e.target.value && endDate) setDatesInvalid(false);
+                  const next = e.target.value;
+                  setStartDate(next);
+                  // Only clear the invalid flag when the resulting range
+                  // is actually valid (both fields filled AND start <= end).
+                  // Inverted ranges otherwise slip past with the stamp gone.
+                  if (next && endDate && next <= endDate) setDatesInvalid(false);
                 }}
                 aria-label="Start date"
                 className="w-full bg-transparent font-mono text-sm focus:outline-none"
@@ -216,14 +220,15 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
                 type="date"
                 value={endDate}
                 onChange={(e) => {
-                  setEndDate(e.target.value);
-                  if (startDate && e.target.value) setDatesInvalid(false);
+                  const next = e.target.value;
+                  setEndDate(next);
+                  if (startDate && next && startDate <= next) setDatesInvalid(false);
                 }}
                 aria-label="End date"
                 className="w-full bg-transparent font-mono text-sm focus:outline-none"
               />
             </div>
-            {startDate && endDate && (
+            {startDate && endDate && startDate <= endDate && (
               <p className="mt-1 text-xs text-muted-foreground">
                 {daysBetween(startDate, endDate)} nights
               </p>

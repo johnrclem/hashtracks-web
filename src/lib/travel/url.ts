@@ -6,10 +6,16 @@
 export interface TravelSearchUrlParams {
   latitude: number;
   longitude: number;
-  /** YYYY-MM-DD (or ISO timestamp; sliced internally). */
-  startDate: string | Date;
-  /** YYYY-MM-DD (or ISO timestamp; sliced internally). */
-  endDate: string | Date;
+  /**
+   * Pre-formatted YYYY-MM-DD. Callers pick local-vs-UTC semantics
+   * upfront via `localYmd()` or `utcYmd()` — passing a raw `Date` was
+   * ambiguous (NearMeShortcut wants local "today"; SavedTripCard's
+   * persisted UTC-noon dates need UTC-day to roundtrip cleanly in
+   * UTC+13/UTC+14 timezones). String type forces the choice.
+   */
+  startDate: string;
+  /** Pre-formatted YYYY-MM-DD; see startDate. */
+  endDate: string;
   /** Display label shown in the destination input ("Boston, MA, USA", "Near me"). */
   label: string;
   radiusKm?: number;
@@ -20,8 +26,8 @@ export function buildTravelSearchUrl(p: TravelSearchUrlParams): string {
   const params = new URLSearchParams({
     lat: p.latitude.toString(),
     lng: p.longitude.toString(),
-    from: toYmd(p.startDate),
-    to: toYmd(p.endDate),
+    from: p.startDate.slice(0, 10),
+    to: p.endDate.slice(0, 10),
     q: p.label,
   });
   if (p.radiusKm != null) params.set("r", p.radiusKm.toString());
@@ -30,20 +36,27 @@ export function buildTravelSearchUrl(p: TravelSearchUrlParams): string {
 }
 
 /**
- * Convert a Date or pre-formatted YYYY-MM-DD string to YYYY-MM-DD,
- * preserving the LOCAL calendar day. The previous implementation went
- * through `toISOString()` which converts to UTC and shifts the day for
- * any caller that's east-of-UTC at late-evening local time (e.g.,
- * `new Date()` at 11:30 PM EST returned tomorrow's date). Travel UX
- * callers (NearMeShortcut, PopularDestinations) want the user's local
- * calendar day — picking the trip-start window from that vantage point.
- * Pre-formatted strings pass through unchanged.
+ * Format a `Date` as YYYY-MM-DD using LOCAL calendar accessors.
+ * Right for callers that built the Date from `new Date()` and want the
+ * user's local "today" — NearMeShortcut + PopularDestinations.
  */
-function toYmd(d: string | Date): string {
-  if (typeof d === "string") return d.slice(0, 10);
+export function localYmd(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Format a `Date` as YYYY-MM-DD using UTC accessors. Right for
+ * persisted UTC-noon dates (Prisma's TravelDestination.startDate /
+ * .endDate) — preserves the saved calendar day even for users in
+ * UTC+13 / UTC+14 where local accessors would shift to next-day.
+ */
+export function utcYmd(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
 

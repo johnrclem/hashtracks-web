@@ -14,12 +14,14 @@ import { TravelHero } from "@/components/travel/TravelHero";
 import { PopularDestinations } from "@/components/travel/PopularDestinations";
 import { TravelAutoSave } from "@/components/travel/TravelAutoSave";
 
+type SearchParamsRecord = Record<string, string | string[] | undefined>;
+
 interface TravelPageProps {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<SearchParamsRecord>;
 }
 
 function getParam(
-  params: Record<string, string | string[] | undefined>,
+  params: SearchParamsRecord,
   key: string,
 ): string | undefined {
   const val = params[key];
@@ -366,19 +368,37 @@ async function loadAttendanceMap(
 
 /**
  * Parse the URL filter params (`cf=high|medium`, `df=nearby|area`) into
- * the typed shape `executeTravelSearch` expects. Extracted from
- * TravelResultsServer to keep that function under SonarCloud's cognitive
- * complexity threshold of 15.
+ * the typed shape `executeTravelSearch` expects. Validates each value
+ * against an allow-set so a crafted `?cf=xyz` is silently dropped rather
+ * than propagated downstream as a malformed enum.
  */
-function parseFilterParams(filterParams: Record<string, string | string[] | undefined>): {
-  confidenceFilter: ("high" | "medium" | "low")[] | undefined;
-  distanceFilter: ("nearby" | "area" | "drive")[] | undefined;
+type ConfidenceLevel = "high" | "medium" | "low";
+type DistanceBucket = "nearby" | "area" | "drive";
+
+const ALLOWED_CONFIDENCE = new Set<ConfidenceLevel>(["high", "medium", "low"]);
+const ALLOWED_DISTANCE = new Set<DistanceBucket>(["nearby", "area", "drive"]);
+
+function parseFilterParams(filterParams: SearchParamsRecord): {
+  confidenceFilter: ConfidenceLevel[] | undefined;
+  distanceFilter: DistanceBucket[] | undefined;
 } {
   const cf = getParam(filterParams, "cf");
   const df = getParam(filterParams, "df");
+  const confidenceFilter = cf
+    ? cf.split("|").filter((v): v is ConfidenceLevel =>
+        ALLOWED_CONFIDENCE.has(v as ConfidenceLevel),
+      )
+    : undefined;
+  const distanceFilter = df
+    ? df.split("|").filter((v): v is DistanceBucket =>
+        ALLOWED_DISTANCE.has(v as DistanceBucket),
+      )
+    : undefined;
   return {
-    confidenceFilter: cf ? (cf.split("|") as ("high" | "medium" | "low")[]) : undefined,
-    distanceFilter: df ? (df.split("|") as ("nearby" | "area" | "drive")[]) : undefined,
+    // An empty filtered array would suppress every result; treat as
+    // "no filter" instead so a malformed query falls back gracefully.
+    confidenceFilter: confidenceFilter && confidenceFilter.length > 0 ? confidenceFilter : undefined,
+    distanceFilter: distanceFilter && distanceFilter.length > 0 ? distanceFilter : undefined,
   };
 }
 
