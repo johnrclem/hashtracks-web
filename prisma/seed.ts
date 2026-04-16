@@ -619,6 +619,11 @@ async function main() {
   console.log("\n━━━ Seeding ScheduleRules for Travel Mode ━━━");
   const { created, updated, errored } = await runScheduleRuleBackfill(prisma);
   console.log(`  ✓ Created: ${created}, Updated: ${updated}${errored ? `, Errored: ${errored}` : ""}`);
+  if (errored > 0) {
+    throw new Error(
+      `ScheduleRule backfill had ${errored} upsert error(s) — investigate before considering seed successful.`,
+    );
+  }
 
   console.log("\nSeed complete!");
   await prisma.$disconnect();

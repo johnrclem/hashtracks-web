@@ -142,10 +142,19 @@ export async function withConcurrency<T, R>(
 ): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let next = 0;
+  // Without this guard, a single fn rejection rejects Promise.all but leaves
+  // other workers churning through the queue — wasted upstream calls and
+  // post-throw side effects we never observe.
+  let aborted = false;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) {
+    while (!aborted && next < items.length) {
       const i = next++;
-      results[i] = await fn(items[i], i);
+      try {
+        results[i] = await fn(items[i], i);
+      } catch (err) {
+        aborted = true;
+        throw err;
+      }
     }
   });
   await Promise.all(workers);

@@ -191,16 +191,17 @@ function DestinationAutocomplete({
         const selectionKey = `${lat},${lng}`;
         currentSelectionRef.current = selectionKey;
         onChange({ label, latitude: lat, longitude: lng, placeId: suggestion.placeId });
-        resolveDestinationTimezone(lat, lng)
-          .then((tzResult) => {
+        void (async () => {
+          try {
+            const tzResult = await resolveDestinationTimezone(lat, lng);
             if (currentSelectionRef.current !== selectionKey) return;
             if ("timezone" in tzResult) {
               onChange({ label, latitude: lat, longitude: lng, placeId: suggestion.placeId, timezone: tzResult.timezone });
             }
-          })
-          .catch((err) => {
+          } catch (err) {
             console.error("[travel] timezone lookup failed", err);
-          });
+          }
+        })();
       } catch {
         // Place details failed — fall back to server-side geocoding
         await fallbackGeocode(suggestion.description);

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/auth";
 import { executeTravelSearch } from "@/lib/travel/search";
@@ -15,6 +16,8 @@ import { PopularDestinations } from "@/components/travel/PopularDestinations";
 import { TravelAutoSave } from "@/components/travel/TravelAutoSave";
 
 type SearchParamsRecord = Record<string, string | string[] | undefined>;
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 interface TravelPageProps {
   searchParams: Promise<SearchParamsRecord>;
@@ -81,7 +84,17 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
   const requestedRadius = r ? Number.parseInt(r, 10) : 50;
   const radiusKm = Math.max(1, Math.min(MAX_RADIUS_KM, requestedRadius || 50));
 
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+  // YYYY-MM-DD shape check + chronological order. Without this a crafted
+  // ?from=foo URL falls through to parseUtcNoonDate and produces NaN-typed
+  // Dates that downstream `executeTravelSearch` treats as "now" via the
+  // 90-day horizon math — confusing UX and a noisy Sentry error.
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    !ISO_DATE_RE.test(from) ||
+    !ISO_DATE_RE.test(to) ||
+    from > to
+  ) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-16">
         <EmptyStates variant="error" />
@@ -271,44 +284,7 @@ async function TravelResultsServer({
     // somehow shouldn't trigger the server action (it'll fail auth anyway).
     const autoSave = pendingAutoSave && isAuthenticated;
 
-    if (results.emptyState !== "none") {
-      // Determine which results to show based on empty state type:
-      // - no_confirmed: show likely/possible from the primary search (they exist)
-      // - no_nearby: show broader results (primary radius was empty)
-      // - no_coverage / error: show nothing
-      const hasResultsToShow =
-        results.emptyState === "no_confirmed" ||
-        (results.emptyState === "no_nearby" && serializedResults.broaderResults);
-
-      const resultsToRender = selectResultsToRender(results.emptyState, serializedResults);
-
-      return (
-        <>
-          <TripSummary {...tripSummaryProps} />
-          {autoSave && (
-            <TravelAutoSave
-              destination={destination}
-              startDate={startDate}
-              endDate={endDate}
-              latitude={latitude}
-              longitude={longitude}
-              radiusKm={radiusKm}
-              timezone={timezone}
-            />
-          )}
-          <EmptyStates
-            variant={results.emptyState}
-            radiusKm={radiusKm}
-            broaderRadiusKm={results.meta.broaderRadiusKm}
-          />
-          {hasResultsToShow && resultsToRender && (
-            <TravelResults destination={destination} results={resultsToRender} />
-          )}
-        </>
-      );
-    }
-
-    return (
+    const tripHeader = (
       <>
         <TripSummary {...tripSummaryProps} />
         {autoSave && (
@@ -322,10 +298,35 @@ async function TravelResultsServer({
             timezone={timezone}
           />
         )}
+      </>
+    );
+
+    if (results.emptyState !== "none") {
+      const resultsToRender = selectResultsToRender(results.emptyState, serializedResults);
+
+      return (
+        <>
+          {tripHeader}
+          <EmptyStates
+            variant={results.emptyState}
+            broaderRadiusKm={results.meta.broaderRadiusKm}
+          />
+          {resultsToRender && (
+            <TravelResults destination={destination} results={resultsToRender} />
+          )}
+        </>
+      );
+    }
+
+    return (
+      <>
+        {tripHeader}
         <TravelResults destination={destination} results={serializedResults} />
       </>
     );
-  } catch {
+  } catch (err) {
+    console.error("[travel] TravelResultsServer threw", err);
+    Sentry.captureException(err);
     return <EmptyStates variant="error" />;
   }
 }

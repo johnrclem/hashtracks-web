@@ -51,12 +51,9 @@ import {
 } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
 
-/**
- * Module-level flags set by main() from process.argv before calling the
- * pass functions. Seed-time callers use runScheduleRuleBackfill(), which
- * accepts verbose as a parameter and never reads argv.
- */
-let verbose = false;
+interface BackfillOptions {
+  verbose?: boolean;
+}
 
 // ============================================================================
 // Parsing helpers
@@ -265,8 +262,15 @@ function frequencyToRRulePrefix(frequency: string): string | null {
   // "1st & 3rd" patterns — used by "Biweekly (1st & 3rd Saturdays)"
   if (/1st.*3rd|first.*third/.test(f)) return "FREQ=MONTHLY;BYDAY=1&3";
 
-  // Biweekly patterns — with or without hyphen
-  if (/\bbi[- ]?weekly\b/.test(f) || /\balternating\b/.test(f)) {
+  // Biweekly — "Biweekly", "Bi-weekly", "Alternating", "Every other Saturday",
+  // "Every 2 weeks". Must run before the looser /^every/ branch below or
+  // "every other" gets misclassified as plain WEEKLY.
+  if (
+    /\bbi[- ]?weekly\b/.test(f) ||
+    /\balternating\b/.test(f) ||
+    /\bevery[- ]other\b/.test(f) ||
+    /\bevery\s+2\s+weeks?\b/.test(f)
+  ) {
     return "FREQ=WEEKLY;INTERVAL=2";
   }
 
@@ -384,9 +388,10 @@ function processSourceKennel(
   config: StaticScheduleConfig,
   rrule: string,
   planned: PlannedRule[],
+  options: BackfillOptions,
 ): boolean {
   if (kennel.isHidden) {
-    if (verbose) console.log(`  ⊘ ${src.name} → ${kennel.shortName} — hidden kennel, skipping`);
+    if (options.verbose) console.log(`  ⊘ ${src.name} → ${kennel.shortName} — hidden kennel, skipping`);
     return false;
   }
   planned.push({
@@ -407,6 +412,7 @@ function processSourceKennel(
 export async function runStaticSchedulePass(
   prisma: PrismaClientLike,
   planned: PlannedRule[],
+  options: BackfillOptions = {},
 ): Promise<{ count: number; skipped: number }> {
   console.log("━━━ Pass 1: STATIC_SCHEDULE sources → HIGH confidence ━━━");
 
@@ -428,15 +434,15 @@ export async function runStaticSchedulePass(
     const rawRrule = config.rrule?.trim();
     if (!rawRrule) {
       skipped++;
-      if (verbose) console.log(`  ⊘ ${src.name} — missing rrule in config`);
+      if (options.verbose) console.log(`  ⊘ ${src.name} — missing rrule in config`);
       continue;
     }
     const rrule = normalizeRRule(rawRrule);
-    if (verbose && rrule !== rawRrule) {
+    if (options.verbose && rrule !== rawRrule) {
       console.log(`  ↻ ${src.name} — normalized ${rawRrule} → ${rrule}`);
     }
     for (const { kennel } of src.kennels) {
-      if (processSourceKennel(src, kennel, config, rrule, planned)) {
+      if (processSourceKennel(src, kennel, config, rrule, planned, options)) {
         count++;
       } else {
         skipped++;
@@ -454,6 +460,7 @@ export async function runStaticSchedulePass(
 export async function runKennelDisplayPass(
   prisma: PrismaClientLike,
   planned: PlannedRule[],
+  options: BackfillOptions = {},
 ): Promise<{ count: number; skipped: number; total: number }> {
   console.log("━━━ Pass 2: Kennel display strings → MEDIUM/LOW ━━━");
 
@@ -478,7 +485,7 @@ export async function runKennelDisplayPass(
       skipped++;
       const reason = `${k.scheduleFrequency} / ${k.scheduleDayOfWeek ?? "null"}`;
       skipReasons.set(reason, (skipReasons.get(reason) ?? 0) + 1);
-      if (verbose) {
+      if (options.verbose) {
         console.log(
           `  ⊘ ${k.shortName} — unparseable: freq=${JSON.stringify(k.scheduleFrequency)} day=${JSON.stringify(k.scheduleDayOfWeek)}`,
         );
@@ -506,8 +513,8 @@ export async function runKennelDisplayPass(
   if (skipped > 0) {
     console.log("  Top skip reasons:");
     const sortedReasons = [...skipReasons.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
-    for (const [reason, count] of sortedReasons) {
-      console.log(`    ${count}× ${reason}`);
+    for (const [reason, occurrences] of sortedReasons) {
+      console.log(`    ${occurrences}× ${reason}`);
     }
   }
   console.log("");
@@ -518,7 +525,7 @@ export async function runKennelDisplayPass(
  * Print the dry-run plan summary (counts by confidence + source). Pure
  * function over the `planned` array.
  */
-function printPlanSummary(planned: PlannedRule[]): void {
+function printPlanSummary(planned: PlannedRule[], options: BackfillOptions = {}): void {
   console.log("━━━ Plan summary ━━━");
   console.log(`  Total rules to upsert: ${planned.length}`);
   const byConfidence = planned.reduce<Record<string, number>>((acc, r) => {
@@ -532,7 +539,7 @@ function printPlanSummary(planned: PlannedRule[]): void {
   }, {});
   console.log(`  By source: ${JSON.stringify(bySource)}\n`);
 
-  if (verbose) {
+  if (options.verbose) {
     console.log("━━━ First 20 planned rules ━━━");
     for (const r of planned.slice(0, 20)) {
       console.log(
@@ -658,23 +665,28 @@ async function deactivateStaleRules(
 }
 
 /**
- * Seed-friendly entrypoint. Runs both passes + applyUpserts against an
- * already-wired Prisma client. Skips printPlanSummary + deactivateStaleRules
- * — a fresh seed has no stale rules to retire and its log output is too
- * verbose for the seed console.
+ * Seed-friendly entrypoint. Runs both passes, applies upserts, and (when
+ * no upserts errored) deactivates stale autogenerated rules so a re-seed
+ * after dropping a kennel.scheduleFrequency leaves no zombie isActive rules.
+ * Skips printPlanSummary — too chatty for seed console.
  */
 export async function runScheduleRuleBackfill(
   prisma: PrismaClientLike,
+  options: BackfillOptions = {},
 ): Promise<{ created: number; updated: number; errored: number }> {
   const planned: PlannedRule[] = [];
-  await runStaticSchedulePass(prisma, planned);
-  await runKennelDisplayPass(prisma, planned);
-  return applyUpserts(prisma, planned);
+  await runStaticSchedulePass(prisma, planned, options);
+  await runKennelDisplayPass(prisma, planned, options);
+  const result = await applyUpserts(prisma, planned);
+  await deactivateStaleRules(prisma, planned, result.errored);
+  return result;
 }
 
 async function main() {
   const dryRun = !process.argv.includes("--apply");
-  verbose = process.argv.includes("--verbose");
+  const options: BackfillOptions = {
+    verbose: process.argv.includes("--verbose"),
+  };
 
   const pool = createScriptPool();
   const adapter = new PrismaPg(pool);
@@ -683,9 +695,9 @@ async function main() {
   console.log(dryRun ? "🔍 DRY RUN — no changes will be made\n" : "✏️  APPLYING changes\n");
 
   const planned: PlannedRule[] = [];
-  await runStaticSchedulePass(prisma, planned);
-  await runKennelDisplayPass(prisma, planned);
-  printPlanSummary(planned);
+  await runStaticSchedulePass(prisma, planned, options);
+  await runKennelDisplayPass(prisma, planned, options);
+  printPlanSummary(planned, options);
 
   if (dryRun) {
     console.log("Dry run complete. Re-run with --apply to upsert rules.");

@@ -4,7 +4,6 @@ import Link from "next/link";
 
 interface EmptyStatesProps {
   variant: "no_coverage" | "no_confirmed" | "no_nearby" | "out_of_horizon" | "error";
-  radiusKm?: number;
   broaderRadiusKm?: number;
 }
 
@@ -36,7 +35,9 @@ const STATES: Record<
     icon: Compass,
     headline: "Nothing within range — but the region is active.",
     body: (props) =>
-      `We expanded the search to ${props.broaderRadiusKm ?? "a wider"} km. Worth a drive?`,
+      props.broaderRadiusKm != null
+        ? `We expanded the search to ${props.broaderRadiusKm} km. Worth a drive?`
+        : "We expanded the search to a wider area. Worth a drive?",
   },
   out_of_horizon: {
     icon: Clock,
@@ -54,7 +55,7 @@ const STATES: Record<
   },
 };
 
-export function EmptyStates(props: EmptyStatesProps) {
+export function EmptyStates(props: Readonly<EmptyStatesProps>) {
   const state = STATES[props.variant];
   const Icon = state.icon;
 
