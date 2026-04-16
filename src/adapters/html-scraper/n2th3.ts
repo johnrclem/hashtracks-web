@@ -152,7 +152,7 @@ export class N2TH3Adapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const fetchStart = Date.now();
 
-    const { posts, found, error, fetchDurationMs: apiFetchMs } = await fetchWordPressComPosts(
+    const { posts, found, error, fetchDurationMs: _apiFetchMs } = await fetchWordPressComPosts(
       SITE_DOMAIN,
       { number: 20 },
     );

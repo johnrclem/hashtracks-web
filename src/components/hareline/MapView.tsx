@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useRef, useCallback, type RefObject } fro
 import { useRouter } from "next/navigation";
 import { APIProvider, Map, MapControl, ControlPosition, useMap } from "@vis.gl/react-google-maps";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, LocateFixed, Search, X } from "lucide-react";
+import { ChevronDown, ChevronUp, LocateFixed, Search } from "lucide-react";
 import { getEventCoords, getRegionColor } from "@/lib/geo";
 import { useMapColorScheme } from "@/hooks/useMapColorScheme";
 import { ClusteredMarkers, type EventWithCoords } from "./ClusteredMarkers";

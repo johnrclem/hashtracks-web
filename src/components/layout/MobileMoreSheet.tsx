@@ -5,8 +5,8 @@ import { useUser, useClerk } from "@clerk/nextjs";
 import { Globe, Thermometer, Info, Shield, Users, Hash, LogOut, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
-import { useUnitsPreference, type TempUnit } from "@/components/providers/units-preference-provider";
-import type { TimeDisplayPref } from "@/generated/prisma/client";
+import { useUnitsPreference, type TempUnit as _TempUnit } from "@/components/providers/units-preference-provider";
+import type { TimeDisplayPref as _TimeDisplayPref } from "@/generated/prisma/client";
 import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {

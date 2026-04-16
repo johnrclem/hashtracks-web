@@ -119,7 +119,7 @@ export default async function ResearchPage() {
     ]),
   );
 
-  const serializedSuggestions = kennelSuggestions.map(({ linkedRegion, createdAt, resolvedAt, updatedAt, ...rest }) => ({
+  const serializedSuggestions = kennelSuggestions.map(({ linkedRegion, createdAt, resolvedAt, updatedAt: _updatedAt, ...rest }) => ({
     ...rest,
     regionName: linkedRegion?.name ?? rest.region ?? null,
     regionAbbrev: linkedRegion?.abbrev ?? null,

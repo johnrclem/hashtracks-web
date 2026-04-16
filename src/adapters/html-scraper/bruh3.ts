@@ -16,7 +16,7 @@
  * when the same run number appears in both.
  */
 
-import * as cheerio from "cheerio";
+import * as _cheerio from "cheerio";
 import * as chrono from "chrono-node";
 import type { Source } from "@/generated/prisma/client";
 import type {
