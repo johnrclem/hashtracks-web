@@ -128,8 +128,7 @@ function DestinationAutocomplete({
   );
 
   // Server-side geocoding fallback (Enter key or Places failure).
-  // Declared before selectPlace so it can sit in selectPlace's dep array
-  // without TDZ issues.
+  // Defined before selectPlace because selectPlace references it.
   const fallbackGeocode = useCallback(
     async (query: string) => {
       if (!query.trim()) return;

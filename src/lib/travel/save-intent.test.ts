@@ -54,10 +54,9 @@ describe("signatureForIntent", () => {
   });
 
   it("treats missing timezone as empty string", () => {
-    const { timezone: _drop, ...noTz } = EXAMPLE;
-    // The `_` prefix on `_drop` matches @typescript-eslint/no-unused-vars'
-    // ignore pattern, so the prior `void _drop` line is no longer needed.
-    expect(_drop).toBeDefined();
+    // Discard `timezone` via rest spread; the `_` prefix matches
+    // @typescript-eslint/no-unused-vars' ignore pattern.
+    const { timezone: _, ...noTz } = EXAMPLE;
     expect(signatureForIntent(noTz)).toBe(signatureForIntent({ ...noTz, timezone: undefined }));
   });
 

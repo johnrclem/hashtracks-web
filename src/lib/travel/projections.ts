@@ -136,7 +136,7 @@ function projectScheduledRule(
       windowEnd,
       rule.anchorDate ?? undefined,
     );
-    const explanation = generateExplanationFromRule(rule);
+    const explanation = generateExplanationFromRule(rule, parsed);
     const confidence = rule.confidence === "HIGH" ? "high" : "medium";
     const evidenceWindow = rule.confidence === "HIGH"
       ? "Based on a known schedule source"
@@ -424,17 +424,21 @@ function explainParsedRRule(parsed: ReturnType<typeof parseRRule>, startTime: st
   return null;
 }
 
-export function generateExplanationFromRule(rule: ScheduleRuleInput): string {
+export function generateExplanationFromRule(
+  rule: ScheduleRuleInput,
+  // Optional: callers that already parsed the rrule (projectScheduledRule)
+  // can pass the result to avoid a second parse. parseRRule is cheap but
+  // skipping it is free.
+  parsed?: ReturnType<typeof parseRRule>,
+): string {
   const { rrule, startTime, notes, confidence } = rule;
 
-  // Non-parseable sentinels (LUNAR, CADENCE) get hand-tuned copy.
   const sentinelExplanation = explainSentinel(rrule, startTime);
   if (sentinelExplanation) return sentinelExplanation;
 
-  // Parseable RRULEs get the WEEKLY / MONTHLY treatment.
   try {
-    const parsed = parseRRule(rrule);
-    const parsedExplanation = explainParsedRRule(parsed, startTime);
+    const parsedRRule = parsed ?? parseRRule(rrule);
+    const parsedExplanation = explainParsedRRule(parsedRRule, startTime);
     if (parsedExplanation) return parsedExplanation;
   } catch {
     // Falls through to the generic copy below.

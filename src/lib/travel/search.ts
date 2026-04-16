@@ -9,6 +9,7 @@
  */
 
 import type { PrismaClient } from "@/generated/prisma/client";
+import { MAX_RADIUS_KM } from "@/app/travel/actions";
 import { haversineDistance } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import { safeUrl } from "@/lib/safe-url";
@@ -208,7 +209,7 @@ export async function executeTravelSearch(
   let broader: NearbyKennel[] = [];
   let broaderRadiusKm: number | undefined;
   if (primary.length === 0) {
-    broaderRadiusKm = Math.min(radiusKm * 3, 250);
+    broaderRadiusKm = Math.min(radiusKm * 3, MAX_RADIUS_KM);
     broader = filterByRadius(allKennels, latitude, longitude, broaderRadiusKm);
   }
 

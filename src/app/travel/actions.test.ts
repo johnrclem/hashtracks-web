@@ -161,26 +161,16 @@ describe("saveTravelSearch", () => {
     expect("error" in result && result.error).toContain("date");
   });
 
-  it("is idempotent — returns existing id without creating when coord+dates match", async () => {
-    // Inside the transaction the findFirst short-circuit returns the
-    // existing row; no create runs.
-    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
-      id: "ts-existing",
-    } as never);
-
-    const result = await saveTravelSearch(validParams);
-    expect("error" in result).toBe(false);
-    expect("id" in result && result.id).toBe("ts-existing");
-    expect(prisma.travelSearch.create).not.toHaveBeenCalled();
-  });
-
-  it("recovers from a P2002 race by returning the winner's id", async () => {
-    // Codex #1: a concurrent caller could insert a duplicate active row
-    // before our findFirst saw it. The new dedup unique index turns that
-    // race into a P2002 — we catch it, refetch the winning row, and
-    // return its id so the loser sees idempotent semantics.
+  it("is idempotent — recovers via P2002 catch when an active trip already matches", async () => {
+    // The DB partial-unique index on TravelDestination
+    // (userId, lat, lng, radius, dates) WHERE status='ACTIVE' is the
+    // sole dedup mechanism. saveTravelSearch attempts the insert, the
+    // unique throws P2002 on collision, and we refetch the winner so
+    // the user sees the existing id (idempotent semantics from their POV).
+    // Covers double-clicks, post-sign-in auto-save retries, and concurrent
+    // cross-tab saves uniformly.
     const p2002 = new Prisma.PrismaClientKnownRequestError(
-      "Unique constraint failed on TravelDestination_user_dedup",
+      "Unique constraint failed on TravelDestination_user_dedup_active",
       { code: "P2002", clientVersion: "test" },
     );
     vi.mocked(prisma.$transaction).mockRejectedValueOnce(p2002);

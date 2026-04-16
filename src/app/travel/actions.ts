@@ -19,6 +19,10 @@ import { prisma } from "@/lib/db";
 import { haversineDistance, geocodeAddress } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import type { ActionResult } from "@/lib/actions";
+import { MAX_RADIUS_KM } from "@/lib/travel/limits";
+
+// Re-export so existing callers (page.tsx) don't need to update their imports.
+export { MAX_RADIUS_KM };
 
 /**
  * Maximum number of saved trips returned by listSavedSearches. Keeps the
@@ -115,68 +119,42 @@ export async function saveTravelSearch(
   const endDate = parseUtcNoonDate(params.endDate);
   const name = formatTripName(params.label, startDate, endDate);
 
-  // Atomic dedup. Three layers of defense against duplicate active rows
-  // for the same trip (Codex flagged the original findFirst+create race):
+  // Atomic dedup via the DB partial-unique on TravelDestination
+  // (userId, lat, lng, radius, dates) WHERE status='ACTIVE'. We attempt
+  // the insert directly — on collision (concurrent caller, double-click,
+  // refresh-after-save) P2002 fires, we refetch the winner, and return
+  // its id so the race loser sees idempotent semantics. Two writes on
+  // the happy path; happy path of an already-saved trip costs 1 read.
   //
-  //   1. Read-then-write inside a single Prisma transaction.
-  //   2. DB-enforced partial-unique on TravelDestination
-  //      (userId, lat, lng, radius, dates) WHERE status = 'ACTIVE'. The
-  //      partial filter means archived rows don't hold the slot — re-saving
-  //      after archive works without depending on the application path
-  //      cleaning up the destination row.
-  //   3. P2002 catch path: re-fetch the winning row and return its id so
-  //      the race loser sees the same outcome as the winner (idempotent).
-  //
-  // The destination row is created in a separate insert (not nested) because
-  // TravelDestination uses a compound FK back to TravelSearch(id, userId)
-  // for tenant-isolation safety — Prisma's nested-create input excludes
-  // the userId column for compound FKs.
-  const matchFilter = {
-    userId: user.id,
-    status: TravelSearchStatus.ACTIVE,
-    destinations: {
-      some: {
-        latitude: params.latitude,
-        longitude: params.longitude,
-        radiusKm: params.radiusKm,
-        startDate,
-        endDate,
-      },
-    },
-  };
-
+  // Destination is a separate insert (not nested) because TravelDestination
+  // uses a compound FK to TravelSearch(id, userId) for tenant isolation —
+  // Prisma's nested-create input excludes the userId column.
   try {
     return await prisma.$transaction(async (tx) => {
-      const existing = await tx.travelSearch.findFirst({
-        where: matchFilter,
-        select: { id: true },
-      });
-      if (existing) return { success: true as const, id: existing.id };
-
       const search = await tx.travelSearch.create({
         data: { userId: user.id, name },
       });
       await tx.travelDestination.create({
-        data: {
-          travelSearchId: search.id,
-          userId: user.id,
-          status: TravelSearchStatus.ACTIVE,
-          label: params.label,
-          placeId: params.placeId ?? null,
-          latitude: params.latitude,
-          longitude: params.longitude,
-          timezone: params.timezone ?? null,
-          radiusKm: params.radiusKm,
-          startDate,
-          endDate,
-        },
+        data: buildDestinationData(search.id, user.id, params, startDate, endDate),
       });
       return { success: true as const, id: search.id };
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       const winner = await prisma.travelSearch.findFirst({
-        where: matchFilter,
+        where: {
+          userId: user.id,
+          status: TravelSearchStatus.ACTIVE,
+          destinations: {
+            some: {
+              latitude: params.latitude,
+              longitude: params.longitude,
+              radiusKm: params.radiusKm,
+              startDate,
+              endDate,
+            },
+          },
+        },
         select: { id: true },
       });
       if (winner) return { success: true, id: winner.id };
@@ -227,25 +205,20 @@ export async function updateTravelSearch(
 
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.travelDestination.deleteMany({ where: { travelSearchId: id } });
-      await tx.travelSearch.update({
-        where: { id },
-        data: { name, status: TravelSearchStatus.ACTIVE },
-      });
+      // deleteMany on the destination and update on the parent are
+      // independent (different rows, no FK dep). Run them in parallel
+      // before the create — which must follow because the partial-unique
+      // index would reject the new destination while the old one was
+      // still ACTIVE.
+      await Promise.all([
+        tx.travelDestination.deleteMany({ where: { travelSearchId: id } }),
+        tx.travelSearch.update({
+          where: { id },
+          data: { name, status: TravelSearchStatus.ACTIVE },
+        }),
+      ]);
       await tx.travelDestination.create({
-        data: {
-          travelSearchId: id,
-          userId: user.id,
-          status: TravelSearchStatus.ACTIVE,
-          label: params.label,
-          placeId: params.placeId ?? null,
-          latitude: params.latitude,
-          longitude: params.longitude,
-          timezone: params.timezone ?? null,
-          radiusKm: params.radiusKm,
-          startDate,
-          endDate,
-        },
+        data: buildDestinationData(id, user.id, params, startDate, endDate),
       });
     });
   } catch (err) {
@@ -435,13 +408,6 @@ export async function viewTravelSearch(
 // a single form interaction session.
 const kennelCountCache = new Map<string, { count: number; expiresAt: number }>();
 const KENNEL_COUNT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-/**
- * Hard cap on radiusKm everywhere — validation, kennel-count preview, and
- * the URL-boundary clamp on /travel. Kept in this module so the value
- * lives next to the validation that enforces it.
- */
-export const MAX_RADIUS_KM = 250;
 
 /**
  * Lightweight kennel count for the radius selector preview.
@@ -646,6 +612,34 @@ function validateSearchParams(params: SaveTravelSearchParams): string | null {
   if (endDate < startDate) return "End date must be on or after start date";
 
   return null;
+}
+
+/**
+ * Shared shape for the TravelDestination create payload. Used by both
+ * saveTravelSearch (new trip) and updateTravelSearch (replace destination
+ * on edit) — keeping the create data in one place means a future field
+ * addition can't drift between the two sites.
+ */
+function buildDestinationData(
+  travelSearchId: string,
+  userId: string,
+  params: SaveTravelSearchParams,
+  startDate: Date,
+  endDate: Date,
+) {
+  return {
+    travelSearchId,
+    userId,
+    status: TravelSearchStatus.ACTIVE,
+    label: params.label,
+    placeId: params.placeId ?? null,
+    latitude: params.latitude,
+    longitude: params.longitude,
+    timezone: params.timezone ?? null,
+    radiusKm: params.radiusKm,
+    startDate,
+    endDate,
+  };
 }
 
 /** Format a trip name like "Atlanta, GA · Apr 14–21" */

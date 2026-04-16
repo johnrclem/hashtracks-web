@@ -302,13 +302,9 @@ export function normalizeRRule(rrule: string): string {
     if (key && value) parts[key] = value;
   }
 
-  // Fold BYSETPOS into BYDAY only when BYDAY contains a single weekday
-  // token. With multiple tokens (e.g. BYDAY=SA,FR + BYSETPOS=3), the
-  // semantics are ambiguous: does it mean "the 3rd occurrence among
-  // {Sat, Fri}" or "3rd Sat AND 3rd Fri"? Leave such rules untouched
-  // and let parseRRule decide whether to accept or reject them
-  // (CodeRabbit). The single-token form is the only one we definitively
-  // safely fold into the BYDAY=3SA shape used downstream.
+  // Fold BYSETPOS only when BYDAY has a single weekday token. Multi-day
+  // BYDAY + BYSETPOS is ambiguous ("3rd of {Sat,Fri}" vs "3rd Sat AND
+  // 3rd Fri") — leave it for parseRRule to accept or reject.
   if (parts.BYSETPOS && parts.BYDAY && !parts.BYDAY.includes(",")) {
     const pos = parts.BYSETPOS; // e.g., "1", "3", "-1"
     const day = parts.BYDAY;    // e.g., "SA", "FR"
