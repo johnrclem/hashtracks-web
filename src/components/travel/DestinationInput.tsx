@@ -92,14 +92,20 @@ function DestinationAutocomplete({
             includedPrimaryTypes: ["(cities)"],
           });
 
-        const mapped = results
-          .filter((s) => s.placePrediction != null)
-          .map((s) => ({
-            placeId: s.placePrediction!.placeId,
-            mainText: s.placePrediction!.mainText?.text ?? "",
-            secondaryText: s.placePrediction!.secondaryText?.text ?? "",
-            description: s.placePrediction!.text?.text ?? "",
-          }));
+        // Map first, then filter out anything without a placeId. Avoids
+        // non-null assertions on `s.placePrediction!.…` (Codacy flagged
+        // four sites) and keeps the resulting array typed without the
+        // `!` operator.
+        const mapped = results.flatMap((s) => {
+          const pred = s.placePrediction;
+          if (!pred?.placeId) return [];
+          return [{
+            placeId: pred.placeId,
+            mainText: pred.mainText?.text ?? "",
+            secondaryText: pred.secondaryText?.text ?? "",
+            description: pred.text?.text ?? "",
+          }];
+        });
 
         setSuggestions(mapped);
         setShowDropdown(mapped.length > 0);
@@ -208,10 +214,13 @@ function DestinationAutocomplete({
     if (e.key === "Enter") {
       e.preventDefault();
       if (showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]) {
-        selectPlace(suggestions[selectedIndex]);
+        // selectPlace + fallbackGeocode return promises but the keydown
+        // handler signature is sync — `void` discards the promise so
+        // ESLint's no-floating-promises is happy.
+        void selectPlace(suggestions[selectedIndex]);
       } else if (inputValue.trim() && !isResolved) {
         // No suggestion selected — geocode server-side
-        fallbackGeocode(inputValue);
+        void fallbackGeocode(inputValue);
       }
       return;
     }
@@ -314,8 +323,8 @@ function DestinationAutocomplete({
                 transition-colors
                 ${i === selectedIndex ? "bg-accent text-accent-foreground" : "hover:bg-muted"}
               `}
-              onMouseDown={() => selectPlace(sug)}
-              onMouseEnter={() => setSelectedIndex(i)}
+              onMouseDown={() => { void selectPlace(sug); }}
+              onMouseEnter={() => { setSelectedIndex(i); }}
             >
               <MapPin className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
               <div className="min-w-0">

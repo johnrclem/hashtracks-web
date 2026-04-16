@@ -85,7 +85,7 @@ export function TravelResultFilters({
               <button
                 key={day}
                 type="button"
-                onClick={() => onToggleDay(day)}
+                onClick={() => { onToggleDay(day); }}
                 aria-pressed={selected}
                 aria-label={
                   tooltipLabel

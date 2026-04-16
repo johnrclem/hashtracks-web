@@ -90,7 +90,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
   if (variant === "compact" && !isExpanded) {
     return (
       <button
-        onClick={() => setIsExpanded(true)}
+        onClick={() => { setIsExpanded(true); }}
         className="
           flex w-full items-center gap-3 rounded-full border border-border
           bg-card px-6 py-3 text-left transition-colors hover:bg-accent
@@ -229,7 +229,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => setRadiusKm(opt.value)}
+                  onClick={() => { setRadiusKm(opt.value); }}
                   aria-pressed={radiusKm === opt.value}
                   className={`
                     rounded-md px-2.5 py-1 text-xs font-medium transition-colors
@@ -289,7 +289,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
         <div className="mt-3 text-center">
           <button
             type="button"
-            onClick={() => setIsExpanded(false)}
+            onClick={() => { setIsExpanded(false); }}
             className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
           >
             Collapse
