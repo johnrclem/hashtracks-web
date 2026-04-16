@@ -73,10 +73,22 @@ const RRULE_DAY_TO_NAME: Record<string, string> = {
   TH: "Thursday", FR: "Friday", SA: "Saturday",
 };
 
+// "last" is RRULE's special nth value (-1) — handled out-of-band in
+// nthLabel() so the lookup table can stay typed as Record<number, string>.
+// Previously had `"-1": "last"` as a stringy key, which TS coerced silently
+// but failed lookups via numeric index — `NTH_LABELS[-1]` returned undefined.
 const NTH_LABELS: Record<number, string> = {
-  1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth",
-  "-1": "last",
+  1: "first",
+  2: "second",
+  3: "third",
+  4: "fourth",
+  5: "fifth",
 };
+
+function nthLabel(n: number): string {
+  if (n === -1) return "last";
+  return NTH_LABELS[n] ?? `${n}th`;
+}
 
 // ============================================================================
 // Core projection
@@ -408,8 +420,7 @@ export function generateExplanationFromRule(rule: ScheduleRuleInput): string {
       const dayStr = dayNumberToName(parsed.byDay.day);
       const timeStr = startTime ? ` at ${formatTime(startTime)}` : "";
       if (parsed.byDay.nth) {
-        const nthLabel = NTH_LABELS[parsed.byDay.nth] ?? `${parsed.byDay.nth}th`;
-        return `Monthly on the ${nthLabel} ${dayStr}${timeStr}`;
+        return `Monthly on the ${nthLabel(parsed.byDay.nth)} ${dayStr}${timeStr}`;
       }
       return `Monthly on a ${dayStr}${timeStr}`;
     }
