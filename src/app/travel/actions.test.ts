@@ -198,6 +198,14 @@ describe("saveTravelSearch", () => {
     expect("error" in result && result.error).toContain("Radius too large");
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
+
+  it("rejects fractional radiusKm before reaching Prisma's Int column", async () => {
+    // Codex: TravelDestination.radiusKm is an Int, so 12.5 throws at
+    // write time as a 500. Catch it at validation as a user-facing error.
+    const result = await saveTravelSearch({ ...validParams, radiusKm: 12.5 });
+    expect("error" in result && result.error).toContain("whole number");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
 });
 
 describe("updateTravelSearch", () => {

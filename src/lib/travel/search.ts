@@ -295,13 +295,12 @@ export async function executeTravelSearch(
     (p) => p.confidence === "low" || p.date === null,
   );
 
-  // Step 11: Build source links for each kennel
-  const eventLinksByKennel = groupBy(
-    confirmedEvents.flatMap((e) =>
-      e.eventLinks.map((link) => ({ kennelId: e.kennelId, ...link })),
-    ),
-    (l) => l.kennelId,
-  );
+  // Step 11 was: build a per-kennel aggregate of eventLinks. Removed:
+  // when kennel X had multiple confirmed events in the window, every
+  // result card got the same union of every event's links — wrong
+  // attribution. Each confirmed result now reads its own event.eventLinks
+  // directly (loaded at step 4); likely/possible results have no event so
+  // they continue to get the kennel's own social links only.
 
   // Step 12: Fetch weather. Reuses the deduping/capped batch from
   // src/lib/weather.ts: kennels in the same metro share one Google Weather
@@ -341,7 +340,7 @@ export async function executeTravelSearch(
       sourceUrl: event.sourceUrl,
       distanceKm,
       distanceTier: distanceTier(distanceKm),
-      sourceLinks: buildSourceLinks(kennel, eventLinksByKennel.get(event.kennelId), event.sourceUrl),
+      sourceLinks: buildSourceLinks(kennel, event.eventLinks, event.sourceUrl),
       weather: weatherRecord[event.id] ?? null,
     };
   });

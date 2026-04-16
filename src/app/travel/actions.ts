@@ -12,7 +12,7 @@
  * - resolveDestinationTimezone: Google Time Zone API lookup
  */
 
-import { Prisma, type TravelSearchStatus } from "@/generated/prisma/client";
+import { Prisma, TravelSearchStatus } from "@/generated/prisma/client";
 
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -77,7 +77,7 @@ export async function findExistingSavedSearch(
     const match = await prisma.travelSearch.findFirst({
       where: {
         userId: user.id,
-        status: "ACTIVE",
+        status: TravelSearchStatus.ACTIVE,
         destinations: {
           some: {
             latitude: params.latitude,
@@ -133,7 +133,7 @@ export async function saveTravelSearch(
   // the userId column for compound FKs.
   const matchFilter = {
     userId: user.id,
-    status: "ACTIVE" as TravelSearchStatus,
+    status: TravelSearchStatus.ACTIVE,
     destinations: {
       some: {
         latitude: params.latitude,
@@ -160,7 +160,7 @@ export async function saveTravelSearch(
         data: {
           travelSearchId: search.id,
           userId: user.id,
-          status: "ACTIVE",
+          status: TravelSearchStatus.ACTIVE,
           label: params.label,
           placeId: params.placeId ?? null,
           latitude: params.latitude,
@@ -230,13 +230,13 @@ export async function updateTravelSearch(
       await tx.travelDestination.deleteMany({ where: { travelSearchId: id } });
       await tx.travelSearch.update({
         where: { id },
-        data: { name, status: "ACTIVE" },
+        data: { name, status: TravelSearchStatus.ACTIVE },
       });
       await tx.travelDestination.create({
         data: {
           travelSearchId: id,
           userId: user.id,
-          status: "ACTIVE",
+          status: TravelSearchStatus.ACTIVE,
           label: params.label,
           placeId: params.placeId ?? null,
           latitude: params.latitude,
@@ -293,9 +293,9 @@ export async function deleteTravelSearch(
   await prisma.$transaction([
     prisma.travelDestination.updateMany({
       where: { travelSearchId: id },
-      data: { status: "ARCHIVED" },
+      data: { status: TravelSearchStatus.ARCHIVED },
     }),
-    prisma.travelSearch.update({ where: { id }, data: { status: "ARCHIVED" } }),
+    prisma.travelSearch.update({ where: { id }, data: { status: TravelSearchStatus.ARCHIVED } }),
   ]);
 
   return { success: true };
@@ -331,7 +331,7 @@ export async function listSavedSearches(): Promise<
   const searches = await prisma.travelSearch.findMany({
     where: {
       userId: user.id,
-      status: "ACTIVE",
+      status: TravelSearchStatus.ACTIVE,
     },
     include: {
       destinations: {
@@ -435,7 +435,13 @@ export async function viewTravelSearch(
 // a single form interaction session.
 const kennelCountCache = new Map<string, { count: number; expiresAt: number }>();
 const KENNEL_COUNT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const MAX_RADIUS_KM = 250;
+
+/**
+ * Hard cap on radiusKm everywhere — validation, kennel-count preview, and
+ * the URL-boundary clamp on /travel. Kept in this module so the value
+ * lives next to the validation that enforces it.
+ */
+export const MAX_RADIUS_KM = 250;
 
 /**
  * Lightweight kennel count for the radius selector preview.
@@ -620,6 +626,11 @@ function validateSearchParams(params: SaveTravelSearchParams): string | null {
   // larger than the search would ever respect at runtime.
   if (params.radiusKm > MAX_RADIUS_KM) {
     return `Radius too large (max ${MAX_RADIUS_KM} km)`;
+  }
+  // Prisma's Int column rejects fractions at write time — surfaces as a
+  // 500 instead of a user-facing error message. Catch the shape here.
+  if (!Number.isInteger(params.radiusKm)) {
+    return "Radius must be a whole number";
   }
 
   // Validate date strings

@@ -305,8 +305,14 @@ export function normalizeRRule(rrule: string): string {
     if (key && value) parts[key] = value;
   }
 
-  // If BYSETPOS is present alongside BYDAY, merge them
-  if (parts.BYSETPOS && parts.BYDAY) {
+  // Fold BYSETPOS into BYDAY only when BYDAY contains a single weekday
+  // token. With multiple tokens (e.g. BYDAY=SA,FR + BYSETPOS=3), the
+  // semantics are ambiguous: does it mean "the 3rd occurrence among
+  // {Sat, Fri}" or "3rd Sat AND 3rd Fri"? Leave such rules untouched
+  // and let parseRRule decide whether to accept or reject them
+  // (CodeRabbit). The single-token form is the only one we definitively
+  // safely fold into the BYDAY=3SA shape used downstream.
+  if (parts.BYSETPOS && parts.BYDAY && !parts.BYDAY.includes(",")) {
     const pos = parts.BYSETPOS; // e.g., "1", "3", "-1"
     const day = parts.BYDAY;    // e.g., "SA", "FR"
     parts.BYDAY = `${pos}${day}`;

@@ -127,6 +127,45 @@ function DestinationAutocomplete({
     [fetchSuggestions],
   );
 
+  // Server-side geocoding fallback (Enter key or Places failure).
+  // Declared before selectPlace so it can sit in selectPlace's dep array
+  // without TDZ issues.
+  const fallbackGeocode = useCallback(
+    async (query: string) => {
+      if (!query.trim()) return;
+      setIsLoading(true);
+
+      const geoResult = await geocodeDestination(query);
+      if ("error" in geoResult) {
+        setIsLoading(false);
+        return;
+      }
+
+      setInputValue(geoResult.label);
+      setIsResolved(true);
+
+      // Mirror selectPlace's stale-callback guard: if the user picks a
+      // different place between this geocode and the await resolving,
+      // bail before reporting the now-outdated selection.
+      const selectionKey = `${geoResult.latitude},${geoResult.longitude}`;
+      currentSelectionRef.current = selectionKey;
+
+      let timezone: string | undefined;
+      try {
+        const tzResult = await resolveDestinationTimezone(geoResult.latitude, geoResult.longitude);
+        if ("timezone" in tzResult) timezone = tzResult.timezone;
+      } catch (err) {
+        console.error("[travel] timezone lookup failed", err);
+      }
+
+      if (currentSelectionRef.current === selectionKey) {
+        onChange({ label: geoResult.label, latitude: geoResult.latitude, longitude: geoResult.longitude, timezone });
+      }
+      setIsLoading(false);
+    },
+    [onChange],
+  );
+
   const selectPlace = useCallback(
     async (suggestion: (typeof suggestions)[number]) => {
       if (!placesLib) return;
@@ -170,44 +209,7 @@ function DestinationAutocomplete({
         setIsLoading(false);
       }
     },
-    [onChange, placesLib],
-  );
-
-  // Server-side geocoding fallback (Enter key or Places failure)
-  const fallbackGeocode = useCallback(
-    async (query: string) => {
-      if (!query.trim()) return;
-      setIsLoading(true);
-
-      const geoResult = await geocodeDestination(query);
-      if ("error" in geoResult) {
-        setIsLoading(false);
-        return;
-      }
-
-      setInputValue(geoResult.label);
-      setIsResolved(true);
-
-      // Mirror selectPlace's stale-callback guard: if the user picks a
-      // different place between this geocode and the await resolving,
-      // bail before reporting the now-outdated selection.
-      const selectionKey = `${geoResult.latitude},${geoResult.longitude}`;
-      currentSelectionRef.current = selectionKey;
-
-      let timezone: string | undefined;
-      try {
-        const tzResult = await resolveDestinationTimezone(geoResult.latitude, geoResult.longitude);
-        if ("timezone" in tzResult) timezone = tzResult.timezone;
-      } catch (err) {
-        console.error("[travel] timezone lookup failed", err);
-      }
-
-      if (currentSelectionRef.current === selectionKey) {
-        onChange({ label: geoResult.label, latitude: geoResult.latitude, longitude: geoResult.longitude, timezone });
-      }
-      setIsLoading(false);
-    },
-    [onChange],
+    [onChange, placesLib, fallbackGeocode],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -260,6 +262,11 @@ function DestinationAutocomplete({
           onKeyDown={handleKeyDown}
           placeholder="City or destination"
           aria-label="Destination"
+          // Combobox pattern (WAI-ARIA 1.2): the input opens a listbox of
+          // place suggestions. role="combobox" makes the implicit pattern
+          // explicit so jsx-a11y's role-supports-aria-props understands
+          // why aria-expanded / aria-controls are valid here.
+          role="combobox"
           aria-autocomplete="list"
           aria-expanded={showDropdown}
           aria-controls="destination-listbox"

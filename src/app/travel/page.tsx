@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/auth";
 import { executeTravelSearch } from "@/lib/travel/search";
-import { findExistingSavedSearch } from "@/app/travel/actions";
+import { findExistingSavedSearch, MAX_RADIUS_KM } from "@/app/travel/actions";
 import { TravelSearchForm } from "@/components/travel/TravelSearchForm";
 import { TravelResults } from "@/components/travel/TravelResults";
 import { TravelResultsSkeleton } from "@/components/travel/TravelResultsSkeleton";
@@ -72,7 +72,11 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
   // Has search params → execute search and show results
   const latitude = Number.parseFloat(lat);
   const longitude = Number.parseFloat(lng);
-  const radiusKm = r ? Number.parseInt(r, 10) : 50;
+  // Clamp at the page boundary so a URL like ?r=99999 cannot turn the
+  // primary kennel pass into an effectively-global scan (CodeRabbit).
+  // Floor to a whole number — Prisma's Int column rejects fractions.
+  const requestedRadius = r ? Number.parseInt(r, 10) : 50;
+  const radiusKm = Math.max(1, Math.min(MAX_RADIUS_KM, requestedRadius || 50));
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return (

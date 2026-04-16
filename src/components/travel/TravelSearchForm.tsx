@@ -170,7 +170,12 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
                 setLatitude(place.latitude);
                 setLongitude(place.longitude);
                 setCoordsResolved(true);
-                if (place.timezone) setTimezone(place.timezone);
+                // Always reset timezone before applying any new value —
+                // otherwise the prior selection's tz lingers when the new
+                // place's async tz lookup fails or hasn't returned yet
+                // (Codex). DestinationInput's currentSelectionRef guards
+                // against late callbacks; this guards against stale state.
+                setTimezone(place.timezone ?? "");
                 setDestInvalid(false);
               }}
               onClear={() => {

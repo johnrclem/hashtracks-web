@@ -317,6 +317,33 @@ describe("executeTravelSearch", () => {
     expect(links.find((l) => l.type === "hashrego")).toBeDefined();
   });
 
+  it("scopes event links to each event, not the kennel-wide pool", async () => {
+    // Codex + CodeRabbit flagged: when kennel X has multiple confirmed
+    // events in the window, every result card was getting the same union
+    // of every event's links — wrong attribution to unrelated URLs.
+    const eventA: MockEvent = {
+      ...testEvent,
+      id: "event-a",
+      date: new Date("2026-04-15T12:00:00Z"),
+      eventLinks: [{ url: "https://hashrego.com/events/aaa", label: "Hash Rego" }],
+    };
+    const eventB: MockEvent = {
+      ...testEvent,
+      id: "event-b",
+      date: new Date("2026-04-22T12:00:00Z"),
+      eventLinks: [{ url: "https://hashrego.com/events/bbb", label: "Hash Rego" }],
+    };
+    const prisma = createMockPrisma([testKennel], [eventA, eventB], []);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    const aLinks = result.confirmed.find((c) => c.eventId === "event-a")?.sourceLinks ?? [];
+    const bLinks = result.confirmed.find((c) => c.eventId === "event-b")?.sourceLinks ?? [];
+    expect(aLinks.find((l) => l.url.endsWith("/aaa"))).toBeDefined();
+    expect(aLinks.find((l) => l.url.endsWith("/bbb"))).toBeUndefined();
+    expect(bLinks.find((l) => l.url.endsWith("/bbb"))).toBeDefined();
+    expect(bLinks.find((l) => l.url.endsWith("/aaa"))).toBeUndefined();
+  });
+
   it("assigns correct distance tiers", async () => {
     // Kennel at ~5km (nearby), ~15km (area), ~30km (drive)
     const kennels: MockKennel[] = [

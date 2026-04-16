@@ -201,4 +201,14 @@ describe("normalizeRRule", () => {
   it("preserves INTERVAL when present alongside BYSETPOS conversion", () => {
     expect(normalizeRRule("FREQ=MONTHLY;INTERVAL=2;BYDAY=SA;BYSETPOS=1")).toBe("FREQ=MONTHLY;INTERVAL=2;BYDAY=1SA");
   });
+
+  it("does NOT fold BYSETPOS into BYDAY when BYDAY has multiple weekdays", () => {
+    // CodeRabbit: BYSETPOS semantics with multi-day BYDAY are ambiguous —
+    // "3rd of {Sat, Fri}" vs "3rd Sat AND 3rd Fri." Leave the rule
+    // untouched so parseRRule can decide rather than silently producing
+    // a wrong fold like BYDAY=3SA,FR.
+    expect(normalizeRRule("FREQ=MONTHLY;BYDAY=SA,FR;BYSETPOS=3")).toBe(
+      "FREQ=MONTHLY;BYDAY=SA,FR;BYSETPOS=3",
+    );
+  });
 });
