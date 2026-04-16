@@ -21,11 +21,15 @@ const EXAMPLE: SaveIntentParams = {
 // isolation — keeps tests focused on the logic, not the environment.
 function installSessionStorage() {
   const store = new Map<string, string>();
+  // Storage methods are typed `: void`. The earlier `(k, v) => void store.set(...)`
+  // form silenced any "unused return value" lint by syntactically discarding
+  // the Map's chainable return. Braced shorthand achieves the same shape
+  // without the void operator that SonarCloud flags.
   const ss = {
     getItem: (k: string) => store.get(k) ?? null,
-    setItem: (k: string, v: string) => void store.set(k, v),
-    removeItem: (k: string) => void store.delete(k),
-    clear: () => void store.clear(),
+    setItem: (k: string, v: string) => { store.set(k, v); },
+    removeItem: (k: string) => { store.delete(k); },
+    clear: () => { store.clear(); },
   };
   Object.defineProperty(globalThis, "sessionStorage", {
     value: ss,
@@ -51,7 +55,9 @@ describe("signatureForIntent", () => {
 
   it("treats missing timezone as empty string", () => {
     const { timezone: _drop, ...noTz } = EXAMPLE;
-    void _drop;
+    // The `_` prefix on `_drop` matches @typescript-eslint/no-unused-vars'
+    // ignore pattern, so the prior `void _drop` line is no longer needed.
+    expect(_drop).toBeDefined();
     expect(signatureForIntent(noTz)).toBe(signatureForIntent({ ...noTz, timezone: undefined }));
   });
 

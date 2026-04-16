@@ -1,3 +1,11 @@
+-- NOTE on duplicate string literals: SonarCloud flags `'ACTIVE'` as
+-- "duplicated 3 times." Postgres SQL has no native const declaration
+-- (CREATE FUNCTION returning the constant would be overkill for a
+-- one-time migration). The literal corresponds to the
+-- `TravelSearchStatus.ACTIVE` enum variant — the same value referenced
+-- twice in this file (DEFAULT clause + partial-unique WHERE) and once
+-- below in the index name. Inlined for readability.
+--
 -- Travel Mode dedup: address codex adversarial findings on the prior
 -- design (travel_dedup_index_and_status_enum). Three structural issues:
 --

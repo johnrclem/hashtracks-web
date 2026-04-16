@@ -95,6 +95,69 @@ function nthLabel(n: number): string {
 // ============================================================================
 
 /**
+ * Standard "possible activity" projection — used for LOW-confidence rules,
+ * unanchored interval rules that drift, and unparseable RRULEs.
+ */
+function projectAsLowConfidence(rule: ScheduleRuleInput): ProjectedTrail {
+  return {
+    kennelId: rule.kennelId,
+    date: null,
+    startTime: rule.startTime,
+    confidence: "low",
+    scheduleRuleId: rule.id,
+    explanation: generateExplanationFromRule(rule),
+    evidenceWindow: "",
+  };
+}
+
+/**
+ * Date-specific projection for a HIGH/MEDIUM rule. May still demote to a
+ * single low-confidence record if the rule has an interval > 1 without an
+ * anchor (drift hazard), or fail back to low if parseRRule throws.
+ */
+function projectScheduledRule(
+  rule: ScheduleRuleInput,
+  windowStart: Date,
+  windowEnd: Date,
+): ProjectedTrail[] {
+  try {
+    const parsed = parseRRule(rule.rrule!);
+
+    // Interval-based rules without an anchor produce unstable dates that
+    // shift with the search window; demote to possible activity. The
+    // backfill already filters these, but defense in depth.
+    if (parsed.interval > 1 && !rule.anchorDate) {
+      return [projectAsLowConfidence(rule)];
+    }
+
+    const dateStrings = generateOccurrences(
+      parsed,
+      windowStart,
+      windowEnd,
+      rule.anchorDate ?? undefined,
+    );
+    const explanation = generateExplanationFromRule(rule);
+    const confidence = rule.confidence === "HIGH" ? "high" : "medium";
+    const evidenceWindow = rule.confidence === "HIGH"
+      ? "Based on a known schedule source"
+      : "Based on known schedule pattern";
+
+    return dateStrings.map((dateStr) => ({
+      kennelId: rule.kennelId,
+      date: new Date(dateStr + "T12:00:00Z"),
+      startTime: rule.startTime,
+      confidence,
+      scheduleRuleId: rule.id,
+      explanation,
+      evidenceWindow,
+    }));
+  } catch {
+    // Unparseable rrule — surface as possible activity rather than crashing.
+    return [projectAsLowConfidence(rule)];
+  }
+}
+
+/**
  * Generate projected trails from schedule rules for a date window.
  *
  * HIGH/MEDIUM rules produce date-specific projections via the RRULE engine.
@@ -106,78 +169,12 @@ export function projectTrails(
   windowEnd: Date,
 ): ProjectedTrail[] {
   const results: ProjectedTrail[] = [];
-
   for (const rule of rules) {
     if (!rule.rrule) continue;
-
-    // LOW-confidence rules are not date-projectable (CADENCE sentinels,
-    // FREQ=LUNAR, etc.). Emit as "possible activity" with no specific date.
     if (rule.confidence === "LOW") {
-      results.push({
-        kennelId: rule.kennelId,
-        date: null,
-        startTime: rule.startTime,
-        confidence: "low",
-        scheduleRuleId: rule.id,
-        explanation: generateExplanationFromRule(rule),
-        evidenceWindow: "",
-      });
-      continue;
-    }
-
-    // HIGH/MEDIUM: parse RRULE and generate specific dates
-    try {
-      const parsed = parseRRule(rule.rrule);
-
-      // Belt-and-suspenders: interval-based rules (biweekly etc.) without an
-      // anchor produce unstable dates that shift with the search window. The
-      // backfill already downgrades these to LOW/CADENCE sentinels, but if one
-      // somehow reaches here as HIGH/MEDIUM, demote to possible activity.
-      if (parsed.interval > 1 && !rule.anchorDate) {
-        results.push({
-          kennelId: rule.kennelId,
-          date: null,
-          startTime: rule.startTime,
-          confidence: "low",
-          scheduleRuleId: rule.id,
-          explanation: generateExplanationFromRule(rule),
-          evidenceWindow: "",
-        });
-        continue;
-      }
-
-      const dateStrings = generateOccurrences(
-        parsed,
-        windowStart,
-        windowEnd,
-        rule.anchorDate ?? undefined,
-      );
-
-      for (const dateStr of dateStrings) {
-        results.push({
-          kennelId: rule.kennelId,
-          date: new Date(dateStr + "T12:00:00Z"),
-          startTime: rule.startTime,
-          confidence: rule.confidence === "HIGH" ? "high" : "medium",
-          scheduleRuleId: rule.id,
-          explanation: generateExplanationFromRule(rule),
-          evidenceWindow: rule.confidence === "HIGH"
-            ? "Based on a known schedule source"
-            : "Based on known schedule pattern",
-        });
-      }
-    } catch {
-      // If parseRRule fails (unexpected rrule format), treat as LOW —
-      // don't crash the search, just emit as possible activity.
-      results.push({
-        kennelId: rule.kennelId,
-        date: null,
-        startTime: rule.startTime,
-        confidence: "low",
-        scheduleRuleId: rule.id,
-        explanation: generateExplanationFromRule(rule),
-        evidenceWindow: "",
-      });
+      results.push(projectAsLowConfidence(rule));
+    } else {
+      results.push(...projectScheduledRule(rule, windowStart, windowEnd));
     }
   }
 
@@ -379,61 +376,70 @@ export function buildEvidenceTimeline(
  * - "Biweekly schedule — check closer to your trip"
  * - "Full moon schedule"
  */
-export function generateExplanationFromRule(rule: ScheduleRuleInput): string {
-  const { rrule, startTime, notes, confidence } = rule;
+/** Format helper: "" or " at 7:30 PM" */
+function timeSuffix(startTime: string | null | undefined): string {
+  return startTime ? ` at ${formatTime(startTime)}` : "";
+}
 
-  // Non-parseable sentinels — use notes or a generic description
+/** Explanation strings for the non-parseable CADENCE / LUNAR sentinels. */
+function explainSentinel(rrule: string, startTime: string | null | undefined): string | null {
   if (rrule === "FREQ=LUNAR") {
     return "Full moon schedule — check kennel sources for exact dates";
   }
   if (rrule.startsWith("CADENCE=BIWEEKLY")) {
     const day = extractDayFromSentinel(rrule);
     const dayName = day ? RRULE_DAY_TO_NAME[day] : null;
-    const timeStr = startTime ? ` at ${formatTime(startTime)}` : "";
     return dayName
-      ? `Usually runs on alternating ${dayName}s${timeStr} — verify closer to your trip`
+      ? `Usually runs on alternating ${dayName}s${timeSuffix(startTime)} — verify closer to your trip`
       : "Alternating schedule — verify closer to your trip";
   }
   if (rrule.startsWith("CADENCE=MONTHLY")) {
     const day = extractDayFromSentinel(rrule);
     const dayName = day ? RRULE_DAY_TO_NAME[day] : null;
-    const timeStr = startTime ? ` at ${formatTime(startTime)}` : "";
     return dayName
-      ? `Monthly on a ${dayName}${timeStr} — specific week unknown`
+      ? `Monthly on a ${dayName}${timeSuffix(startTime)} — specific week unknown`
       : "Monthly schedule — timing varies";
   }
+  return null;
+}
 
-  // Parseable RRULE — try to describe it
+/** Explanation strings for parsed RRULEs (WEEKLY / MONTHLY-by-day / MONTHLY-by-monthday). */
+function explainParsedRRule(parsed: ReturnType<typeof parseRRule>, startTime: string | null | undefined): string | null {
+  const ts = timeSuffix(startTime);
+  if (parsed.freq === "WEEKLY" && parsed.byDay) {
+    const dayStr = dayNumberToName(parsed.byDay.day);
+    return parsed.interval > 1
+      ? `Usually runs every other ${dayStr}${ts}`
+      : `Usually runs on ${dayStr}s${ts}`;
+  }
+  if (parsed.freq === "MONTHLY" && parsed.byDay) {
+    const dayStr = dayNumberToName(parsed.byDay.day);
+    return parsed.byDay.nth
+      ? `Monthly on the ${nthLabel(parsed.byDay.nth)} ${dayStr}${ts}`
+      : `Monthly on a ${dayStr}${ts}`;
+  }
+  if (parsed.freq === "MONTHLY" && parsed.byMonthDay) {
+    return `Monthly on the ${ordinal(parsed.byMonthDay)}${ts}`;
+  }
+  return null;
+}
+
+export function generateExplanationFromRule(rule: ScheduleRuleInput): string {
+  const { rrule, startTime, notes, confidence } = rule;
+
+  // Non-parseable sentinels (LUNAR, CADENCE) get hand-tuned copy.
+  const sentinelExplanation = explainSentinel(rrule, startTime);
+  if (sentinelExplanation) return sentinelExplanation;
+
+  // Parseable RRULEs get the WEEKLY / MONTHLY treatment.
   try {
     const parsed = parseRRule(rrule);
-
-    if (parsed.freq === "WEEKLY" && parsed.byDay) {
-      const dayStr = dayNumberToName(parsed.byDay.day);
-      const timeStr = startTime ? ` at ${formatTime(startTime)}` : "";
-      if (parsed.interval > 1) {
-        return `Usually runs every other ${dayStr}${timeStr}`;
-      }
-      return `Usually runs on ${dayStr}s${timeStr}`;
-    }
-
-    if (parsed.freq === "MONTHLY" && parsed.byDay) {
-      const dayStr = dayNumberToName(parsed.byDay.day);
-      const timeStr = startTime ? ` at ${formatTime(startTime)}` : "";
-      if (parsed.byDay.nth) {
-        return `Monthly on the ${nthLabel(parsed.byDay.nth)} ${dayStr}${timeStr}`;
-      }
-      return `Monthly on a ${dayStr}${timeStr}`;
-    }
-
-    if (parsed.freq === "MONTHLY" && parsed.byMonthDay) {
-      const timeStr = startTime ? ` at ${formatTime(startTime)}` : "";
-      return `Monthly on the ${ordinal(parsed.byMonthDay)}${timeStr}`;
-    }
+    const parsedExplanation = explainParsedRRule(parsed, startTime);
+    if (parsedExplanation) return parsedExplanation;
   } catch {
-    // Fallback for any parsing failure
+    // Falls through to the generic copy below.
   }
 
-  // Generic fallback
   if (confidence === "LOW" && notes) return notes;
   return "Schedule pattern detected — verify closer to your trip";
 }

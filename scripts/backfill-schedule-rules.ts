@@ -204,39 +204,36 @@ export function parseFrequencyDay(
  * Also inspects scheduleFrequency prose for secondary days
  * like "Every Wednesday and Saturday".
  */
+/** Parse the scheduleDayOfWeek display field — "Saturday", "Sunday / Monday", or "Varies". */
+function parseDayOfWeekField(dayOfWeek: string | null | undefined): string[] {
+  if (!dayOfWeek) return [];
+  const normalized = dayOfWeek.trim();
+  if (normalized.toLowerCase() === "varies") return [];
+  const segments = normalized.includes("/") ? normalized.split("/") : [normalized];
+  const tokens: string[] = [];
+  for (const seg of segments) {
+    const token = DAY_MAP[seg.trim()];
+    if (token) tokens.push(token);
+  }
+  return tokens;
+}
+
+/** Scan freeform frequency prose for day-name mentions (e.g. "Every Wednesday and Saturday"). */
+function extractDaysFromFrequencyProse(frequency: string): string[] {
+  const tokens: string[] = [];
+  for (const { token, re } of DAY_REGEXES) {
+    if (re.test(frequency)) tokens.push(token);
+  }
+  return tokens;
+}
+
 function parseDays(
   dayOfWeek: string | null | undefined,
   frequency: string,
 ): string[] {
   const days = new Set<string>();
-
-  // Primary field: scheduleDayOfWeek
-  if (dayOfWeek) {
-    const normalized = dayOfWeek.trim();
-    if (normalized.toLowerCase() === "varies") {
-      // "Varies" → skip
-    } else if (normalized.includes("/")) {
-      // "Sunday / Monday"
-      for (const part of normalized.split("/")) {
-        const token = DAY_MAP[part.trim()];
-        if (token) days.add(token);
-      }
-    } else {
-      const token = DAY_MAP[normalized];
-      if (token) days.add(token);
-    }
-  }
-
-  // Secondary: check frequency prose for explicit day names (e.g.
-  // "Every Wednesday and Saturday"). Uses precompiled DAY_REGEXES to
-  // avoid per-iteration RegExp construction (the previous form was a
-  // ReDoS scanner trip even though the inputs are hardcoded).
-  for (const { token, re } of DAY_REGEXES) {
-    if (re.test(frequency)) {
-      days.add(token);
-    }
-  }
-
+  for (const t of parseDayOfWeekField(dayOfWeek)) days.add(t);
+  for (const t of extractDaysFromFrequencyProse(frequency)) days.add(t);
   return [...days].sort((a, b) => a.localeCompare(b));
 }
 

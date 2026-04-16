@@ -196,7 +196,7 @@ describe("groupResultsByTier", () => {
       selectedDays: new Set<DayCode>(["Sat"]),
     });
 
-    const kept = out.nearby.possible.map((r) => r.kennelId).sort();
+    const kept = out.nearby.possible.map((r) => r.kennelId).sort((a, b) => a.localeCompare(b));
     expect(kept).toEqual(["k-cadence", "k-dated-sat"]);
   });
 
