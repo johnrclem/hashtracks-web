@@ -15,7 +15,11 @@
 --    deletes the destination row to free the unique slot for re-save.
 
 -- 1. TravelSearchStatus enum
-CREATE TYPE "TravelSearchStatus" AS ENUM ('ACTIVE', 'ARCHIVED');
+-- 'ACTIVE' / 'ARCHIVED' literals appear several times below; SonarCloud
+-- flags this as duplicated-literal but Postgres has no native const
+-- mechanism (a CREATE FUNCTION wrapper for a one-time migration would
+-- be overkill). Per-line NOSONAR markers below suppress the noise.
+CREATE TYPE "TravelSearchStatus" AS ENUM ('ACTIVE', 'ARCHIVED'); -- NOSONAR
 
 -- 2. Convert TravelSearch.status from TEXT to TravelSearchStatus.
 --    Empty table at this point in the rollout, so the USING clause is
@@ -24,12 +28,12 @@ ALTER TABLE "TravelSearch"
   ALTER COLUMN "status" DROP DEFAULT,
   ALTER COLUMN "status" TYPE "TravelSearchStatus" USING (
     CASE UPPER("status")
-      WHEN 'ACTIVE'   THEN 'ACTIVE'::"TravelSearchStatus"
-      WHEN 'ARCHIVED' THEN 'ARCHIVED'::"TravelSearchStatus"
-      ELSE 'ACTIVE'::"TravelSearchStatus"
+      WHEN 'ACTIVE'   THEN 'ACTIVE'::"TravelSearchStatus" -- NOSONAR
+      WHEN 'ARCHIVED' THEN 'ARCHIVED'::"TravelSearchStatus" -- NOSONAR
+      ELSE 'ACTIVE'::"TravelSearchStatus" -- NOSONAR
     END
   ),
-  ALTER COLUMN "status" SET DEFAULT 'ACTIVE';
+  ALTER COLUMN "status" SET DEFAULT 'ACTIVE'; -- NOSONAR
 
 -- 3. Add userId to TravelDestination (denormalized from TravelSearch.userId).
 --    NOT NULL is safe because the table is empty.

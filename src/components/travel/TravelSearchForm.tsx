@@ -192,7 +192,7 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
             />
             {timezone && (
               <p className="mt-1 text-xs text-muted-foreground">
-                {destination.split(",").slice(-1)[0]?.trim()} · {timezone.split("/").pop()?.replace(/_/g, " ")}
+                {destination.split(",").slice(-1)[0]?.trim()} · {timezone.split("/").pop()?.replaceAll("_", " ")}
               </p>
             )}
           </fieldset>

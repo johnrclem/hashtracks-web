@@ -509,7 +509,7 @@ describe("getDestinationKennelCount", () => {
     vi.mocked(prisma.kennel.findMany).mockResolvedValue([
       { latitude: 33.75, longitude: -84.39, regionRef: null },  // ~1km from Atlanta
       { latitude: 34.05, longitude: -84.39, regionRef: null },  // ~33km from Atlanta
-      { latitude: 40.0, longitude: -74.0, regionRef: null },    // ~1200km (NYC area)
+      { latitude: 40, longitude: -74, regionRef: null },    // ~1200km (NYC area)
     ] as never);
 
     const result = await getDestinationKennelCount(33.749, -84.388, 50);
@@ -537,7 +537,7 @@ describe("getDestinationKennelCount", () => {
 
   it("clamps radius to 250km max", async () => {
     vi.mocked(prisma.kennel.findMany).mockResolvedValue([
-      { latitude: 40.0, longitude: -74.0, regionRef: null },
+      { latitude: 40, longitude: -74, regionRef: null },
     ] as never);
 
     // 10000km radius should be clamped to 250km — NYC kennel is ~1200km from Atlanta

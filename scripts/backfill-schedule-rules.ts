@@ -356,6 +356,50 @@ type StaticScheduleConfig = {
  * sources. Mutates `planned` in place. Extracted from main() so each pass
  * has a manageable cognitive complexity (SonarCloud cap = 15).
  */
+/**
+ * Inner-loop helper for runStaticSchedulePass — extracted to keep the
+ * outer function under SonarCloud's cognitive-complexity cap of 15.
+ * Returns true if a rule was pushed, false if the kennel was skipped.
+ */
+interface StaticSourceMeta {
+  name: string;
+  url: string | null;
+  lastSuccessAt: Date | null;
+  lastScrapeAt: Date | null;
+}
+
+interface StaticKennelMeta {
+  id: string;
+  shortName: string;
+  isHidden: boolean;
+}
+
+function processSourceKennel(
+  src: StaticSourceMeta,
+  kennel: StaticKennelMeta,
+  config: StaticScheduleConfig,
+  rrule: string,
+  planned: PlannedRule[],
+): boolean {
+  if (kennel.isHidden) {
+    if (verbose) console.log(`  ⊘ ${src.name} → ${kennel.shortName} — hidden kennel, skipping`);
+    return false;
+  }
+  planned.push({
+    kennelId: kennel.id,
+    kennelDisplay: kennel.shortName,
+    rrule,
+    anchorDate: config.anchorDate?.trim() || null,
+    startTime: config.startTime?.trim() || null,
+    confidence: "HIGH",
+    source: "STATIC_SCHEDULE",
+    sourceReference: src.url || src.name,
+    lastValidatedAt: src.lastSuccessAt ?? src.lastScrapeAt ?? null,
+    notes: null,
+  });
+  return true;
+}
+
 async function runStaticSchedulePass(
   prisma: PrismaClientLike,
   planned: PlannedRule[],
@@ -388,24 +432,11 @@ async function runStaticSchedulePass(
       console.log(`  ↻ ${src.name} — normalized ${rawRrule} → ${rrule}`);
     }
     for (const { kennel } of src.kennels) {
-      if (kennel.isHidden) {
-        if (verbose) console.log(`  ⊘ ${src.name} → ${kennel.shortName} — hidden kennel, skipping`);
+      if (processSourceKennel(src, kennel, config, rrule, planned)) {
+        count++;
+      } else {
         skipped++;
-        continue;
       }
-      planned.push({
-        kennelId: kennel.id,
-        kennelDisplay: kennel.shortName,
-        rrule,
-        anchorDate: config.anchorDate?.trim() || null,
-        startTime: config.startTime?.trim() || null,
-        confidence: "HIGH",
-        source: "STATIC_SCHEDULE",
-        sourceReference: src.url || src.name,
-        lastValidatedAt: src.lastSuccessAt ?? src.lastScrapeAt ?? null,
-        notes: null,
-      });
-      count++;
     }
   }
   console.log(`  ✓ ${count} rules planned (${skipped} sources skipped)\n`);
