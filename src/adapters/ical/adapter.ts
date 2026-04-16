@@ -4,6 +4,7 @@ import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix, isPlaceholder } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { enrichSFH3Events } from "../html-scraper/sfh3-detail-enrichment";
+import { enrichBerlinH3Events } from "../html-scraper/berlin-h3-detail-enrichment";
 import { sync as icalSync } from "node-ical";
 import type { VEvent, ParameterValue, DateWithTimeZone } from "node-ical";
 
@@ -15,9 +16,11 @@ export interface ICalSourceConfig {
   harePatterns?: string[];             // regex strings to extract hares from descriptions
   runNumberPatterns?: string[];        // regex strings to extract run numbers from descriptions
   locationPatterns?: string[];         // regex strings to extract location from descriptions (overrides default LOCATION_PATTERNS)
+  costPatterns?: string[];             // regex strings to extract cost from descriptions (e.g. wordpress-hash-event-api "Hash Cash: 5€")
   titleHarePattern?: string;           // regex to extract hare names from SUMMARY when description has none
   descriptionSuffix?: string;          // static text appended to every event description
   enrichSFH3Details?: boolean;         // fetch sfh3.com/runs/{id} detail pages for canonical title + Comment field
+  enrichBerlinH3Details?: boolean;     // fetch berlin-h3.eu event pages for Hares field from wp-event-manager
 }
 
 /**
@@ -87,6 +90,9 @@ const LOCATION_PATTERNS = [
   /(?:^|\n)\s*Where:\s*([^\n]+)/im,
   /(?:^|\n)\s*Location:\s*([^\n]+)/im,
   /(?:^|\n)\s*Start(?:ing)?\s*(?:Location)?:\s*([^\n]+)/im,
+];
+const COST_PATTERNS = [
+  /(?:^|\n)\s*Hash\s*Cash:\s*([^\n]+)/im,
 ];
 const MAPS_URL_PATTERN =
   /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.com|goo\.gl\/maps)\S*/i;
@@ -165,6 +171,17 @@ export function extractLocationFromDescription(description: string, customPatter
   return extractFieldFromDescription(description, customPatterns ?? LOCATION_PATTERNS, {
     maxLength: 300,
     stripUrls: true,
+  });
+}
+
+/**
+ * Extract a cost/hash-cash value from an iCal DESCRIPTION field.
+ * Accepts pre-compiled RegExp[] for custom patterns; falls back to default COST_PATTERNS.
+ * Short maxLength (100) guards against picking up multi-line paragraphs.
+ */
+export function extractCostFromDescription(description: string, customPatterns?: RegExp[]): string | undefined {
+  return extractFieldFromDescription(description, customPatterns ?? COST_PATTERNS, {
+    maxLength: 100,
   });
 }
 
@@ -342,6 +359,7 @@ function buildRawEventFromVEvent(
   compiledRunNumberPatterns?: RegExp[],
   compiledTitleHarePattern?: RegExp,
   compiledLocationPatterns?: RegExp[],
+  compiledCostPatterns?: RegExp[],
 ): RawEventData | null {
   if (vevent.status === "CANCELLED") return null;
 
@@ -388,6 +406,8 @@ function buildRawEventFromVEvent(
     runNumber = extractRunNumberFromDescription(description, compiledRunNumberPatterns);
   }
 
+  const cost = description ? extractCostFromDescription(description, compiledCostPatterns) : undefined;
+
   return {
     date: dateStr,
     kennelTag: parsed.kennelTag,
@@ -399,6 +419,7 @@ function buildRawEventFromVEvent(
     locationUrl,
     startTime,
     endTime,
+    cost,
     sourceUrl: paramValue(vevent.url) ?? undefined,
   };
 }
@@ -462,6 +483,9 @@ export class ICalAdapter implements SourceAdapter {
     const compiledLocationPatterns = config?.locationPatterns?.length
       ? compilePatterns(config.locationPatterns)
       : undefined;
+    const compiledCostPatterns = config?.costPatterns?.length
+      ? compilePatterns(config.costPatterns)
+      : undefined;
     const compiledTitleHarePattern = config?.titleHarePattern
       ? compilePatterns([config.titleHarePattern], "i")[0]
       : undefined;
@@ -500,7 +524,7 @@ export class ICalAdapter implements SourceAdapter {
           continue;
         }
 
-        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns, compiledTitleHarePattern, compiledLocationPatterns);
+        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns, compiledTitleHarePattern, compiledLocationPatterns, compiledCostPatterns);
         if (event) events.push(event);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -541,6 +565,21 @@ export class ICalAdapter implements SourceAdapter {
         // Single summary line in `errors` — per-fetch details live in errorDetails.fetch
         // and the count is in diagnosticContext.enrichmentFailures.
         errors.push(`enrichment: ${enrichResult.failures.length} detail-page fetch(es) failed`);
+      }
+    }
+
+    // Berlin H3 enrichment: the .ics DESCRIPTION lacks structured Hares — the
+    // wp-event-manager event page has them as <strong>Hares -</strong> {name}.
+    if (config?.enrichBerlinH3Details) {
+      const enrichResult = await enrichBerlinH3Events(events, { now: new Date(fetchStart) });
+      enrichmentEnriched = (enrichmentEnriched ?? 0) + enrichResult.enriched;
+      enrichmentFailures = (enrichmentFailures ?? 0) + enrichResult.failures.length;
+      if (enrichResult.failures.length > 0) {
+        errorDetails.fetch ??= [];
+        for (const failure of enrichResult.failures) {
+          errorDetails.fetch.push({ url: failure.url, message: failure.message });
+        }
+        errors.push(`berlin-h3 enrichment: ${enrichResult.failures.length} detail-page fetch(es) failed`);
       }
     }
 

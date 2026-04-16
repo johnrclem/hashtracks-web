@@ -224,6 +224,7 @@ export function validateSourceConfig(
   validatePatternArray(obj, "harePatterns", errors);
   validatePatternArray(obj, "runNumberPatterns", errors);
   validatePatternArray(obj, "locationPatterns", errors);
+  validatePatternArray(obj, "costPatterns", errors);
 
   // Single-pattern validation (titleHarePattern is a string, not an array)
   if ("titleHarePattern" in obj && obj.titleHarePattern !== undefined) {

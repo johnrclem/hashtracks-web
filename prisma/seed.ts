@@ -28,7 +28,7 @@ function toSlug(shortName: string): string {
 const PROFILE_FIELDS = new Set([
   "website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency",
   "scheduleNotes", "hashCash", "facebookUrl", "instagramHandle",
-  "twitterHandle", "discordUrl", "contactEmail", "foundedYear", "description",
+  "twitterHandle", "discordUrl", "mailingListUrl", "contactEmail", "foundedYear", "description",
   "logoUrl", "latitude", "longitude",
 ]);
 

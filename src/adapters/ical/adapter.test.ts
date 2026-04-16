@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractMapsUrlFromDescription, paramValue } from "./adapter";
+import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractCostFromDescription, extractMapsUrlFromDescription, paramValue } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
 import type { ParameterValue } from "node-ical";
 
@@ -331,6 +331,36 @@ describe("extractLocationFromDescription", () => {
   it("handles multiline description with location in the middle", () => {
     const desc = String.raw`Hare: Captain Hash\n\nWhere: Fells Point\n\nBring $5`;
     expect(extractLocationFromDescription(desc)).toBe("Fells Point");
+  });
+});
+
+describe("extractCostFromDescription", () => {
+  it("extracts 'Hash Cash: 5€' (wordpress-hash-event-api format)", () => {
+    expect(extractCostFromDescription("Hash Cash: 5€")).toBe("5€");
+  });
+
+  it("extracts from multi-line description with ICS newlines", () => {
+    const desc = String.raw`Bring a torch\n\nHash Cash: 5€\n\nOn On On: Pub`;
+    expect(extractCostFromDescription(desc)).toBe("5€");
+  });
+
+  it("handles dollar-sign costs", () => {
+    expect(extractCostFromDescription("Hash Cash: $7")).toBe("$7");
+  });
+
+  it("returns undefined when no cost pattern", () => {
+    expect(extractCostFromDescription("Hares: Symphomaniac")).toBeUndefined();
+  });
+
+  it("allows custom patterns to replace defaults", () => {
+    expect(
+      extractCostFromDescription("Cost: £4", [/Cost:\s*(.+)/i]),
+    ).toBe("£4");
+  });
+
+  it("drops matches exceeding maxLength (100 chars)", () => {
+    const longValue = "a".repeat(150);
+    expect(extractCostFromDescription(`Hash Cash: ${longValue}`)).toBeUndefined();
   });
 });
 
@@ -734,6 +764,114 @@ END:VCALENDAR`;
     expect(result.events[0].location).not.toBe("None");
     expect(result.events[0].location).toBe("S Julius Leber Brücke");
     expect(result.events[0].date).toBe("2026-04-03");
+  });
+
+  it("populates cost from 'Hash Cash:' in description (Berlin H3 format)", async () => {
+    const icsWithCost = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:com.test.bh3-1
+DTSTART;TZID=Europe/Berlin:20260321T145000
+DTEND;TZID=Europe/Berlin:20260321T174500
+SUMMARY:Berlin H3 Run 2329
+DESCRIPTION:Hash Cash: 5€\\nOn On On: The Pub
+LOCATION:S Schönhauser Allee
+DTSTAMP:20260201T000000Z
+END:VEVENT
+END:VCALENDAR`;
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(icsWithCost, { status: 200 }),
+    );
+
+    const source = buildMockSource({
+      config: {
+        kennelPatterns: [["Full Moon Run", "bh3fm"]],
+        defaultKennelTag: "berlinh3",
+      },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].cost).toBe("5€");
+    expect(result.events[0].kennelTag).toBe("berlinh3");
+  });
+
+  it("enriches Berlin H3 events with Hares from wp-event-manager detail page", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-01T00:00:00Z"));
+    const icsBerlin = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:com.test.bh3fm-enrich
+DTSTART;TZID=Europe/Berlin:20260403T184500
+DTEND;TZID=Europe/Berlin:20260403T214500
+SUMMARY:Full Moon Run 148
+DESCRIPTION:Hash Cash: 5€
+LOCATION:None
+URL:https://www.berlin-h3.eu/event/full-moon-run-148/
+DTSTAMP:20260201T000000Z
+END:VEVENT
+END:VCALENDAR`;
+
+    const detailHtml = `<html><body>
+      <p class="wpem-additional-info-block-title"><strong>Hares -</strong> Symphomaniac</p>
+      <p class="wpem-additional-info-block-title"><strong>Cost -</strong> 5 EUR</p>
+    </body></html>`;
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/event/full-moon-run-148")) {
+        return new Response(detailHtml, { status: 200 });
+      }
+      return new Response(icsBerlin, { status: 200 });
+    });
+
+    const source = buildMockSource({
+      config: {
+        kennelPatterns: [["Full Moon Run", "bh3fm"]],
+        defaultKennelTag: "berlinh3",
+        enrichBerlinH3Details: true,
+      },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].kennelTag).toBe("bh3fm");
+    expect(result.events[0].hares).toBe("Symphomaniac");
+    expect(result.events[0].cost).toBe("5€");
+    expect(result.diagnosticContext!.enrichmentEnriched).toBe(1);
+    vi.useRealTimers();
+  });
+
+  it("skips Berlin H3 enrichment when flag is off", async () => {
+    const icsBerlin = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:com.test.bh3fm-off
+DTSTART;TZID=Europe/Berlin:20260403T184500
+SUMMARY:Full Moon Run 148
+URL:https://www.berlin-h3.eu/event/full-moon-run-148/
+DTSTAMP:20260201T000000Z
+END:VEVENT
+END:VCALENDAR`;
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(icsBerlin, { status: 200 }),
+    );
+
+    const source = buildMockSource({
+      config: {
+        kennelPatterns: [["Full Moon Run", "bh3fm"]],
+        defaultKennelTag: "berlinh3",
+      },
+    });
+    await adapter.fetch(source, { days: 9999 });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it("enriches SFH3 events: preserves descriptive titles, appends Comment when enrichSFH3Details=true", async () => {

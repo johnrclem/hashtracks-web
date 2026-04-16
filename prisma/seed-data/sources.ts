@@ -445,6 +445,7 @@ export const SOURCES = [
       config: {
         kennelPatterns: [["Full Moon Run", "bh3fm"]],
         defaultKennelTag: "berlinh3",
+        enrichBerlinH3Details: true,
       },
       kennelCodes: ["berlinh3", "bh3fm"],
     },
