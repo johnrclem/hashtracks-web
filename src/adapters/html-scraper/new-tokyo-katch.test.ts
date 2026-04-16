@@ -176,6 +176,11 @@ describe("NewTokyoKatchAdapter", () => {
       expect(overseasCountryOverride("Cherry blossom run")).toBeUndefined();
     });
 
+    it("matches 'overseas' only as a whole word", () => {
+      // Word-boundary anchors avoid matching 'overseasoned' or similar substrings.
+      expect(overseasCountryOverride("overseasoned")).toBeUndefined();
+    });
+
     it("returns undefined for empty or missing remark", () => {
       expect(overseasCountryOverride(undefined)).toBeUndefined();
       expect(overseasCountryOverride("")).toBeUndefined();

@@ -31,7 +31,7 @@ async function main() {
   console.log(dryRun ? "🔍 DRY RUN — no changes will be made\n" : "✏️  APPLYING changes\n");
 
   const affected = await prisma.event.findMany({
-    where: { sourceUrl: { contains: "hashruns.org" } },
+    where: { sourceUrl: { contains: "hashruns.org/#/event/" } },
     select: { id: true, sourceUrl: true, kennel: { select: { shortName: true } } },
   });
 
@@ -53,7 +53,7 @@ async function main() {
   }
 
   const res = await prisma.event.updateMany({
-    where: { sourceUrl: { contains: "hashruns.org" } },
+    where: { sourceUrl: { contains: "hashruns.org/#/event/" } },
     data: { sourceUrl: null },
   });
   console.log(`\n✅ Nulled sourceUrl on ${res.count} Event(s).`);

@@ -353,6 +353,22 @@ describe("rescrapeFromAlert", () => {
 
     expect(mockScrape).toHaveBeenCalledWith("src_1", { force: false, days: 1825 });
   });
+
+  it("rejects non-finite days (NaN, Infinity) and falls back to default", async () => {
+    mockAlertFind.mockResolvedValueOnce(baseAlert() as never);
+    mockScrape.mockResolvedValueOnce({
+      success: true,
+      eventsFound: 0,
+      created: 0,
+      updated: 0,
+      errors: [],
+    } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    await rescrapeFromAlert("alert_1", false, Number.NaN);
+
+    expect(mockScrape).toHaveBeenCalledWith("src_1", { force: false, days: undefined });
+  });
 });
 
 // ── createAliasFromAlert ──

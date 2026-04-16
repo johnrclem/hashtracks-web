@@ -193,7 +193,7 @@ function extractTableRows($: CheerioAPI): { headers: string[]; rows: string[][] 
  */
 export function overseasCountryOverride(remark: string | undefined): string | undefined {
   if (!remark) return undefined;
-  return /overseas/i.test(remark) ? "" : undefined;
+  return /\boverseas\b/i.test(remark) ? "" : undefined;
 }
 
 function buildRawEvent(parsed: ParsedNtkRun, sourceUrl: string): RawEventData {

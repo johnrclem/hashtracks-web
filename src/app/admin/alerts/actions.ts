@@ -190,7 +190,8 @@ export async function rescrapeFromAlert(alertId: string, force = false, days?: n
   if (!admin) return { error: "Unauthorized" };
 
   // Clamp days to the same range the cron endpoint enforces — 1..1825.
-  const clampedDays = days != null
+  // Reject NaN/Infinity up front so a non-finite value can't poison buildDateWindow().
+  const clampedDays = days != null && Number.isFinite(days)
     ? Math.max(1, Math.min(1825, Math.floor(days)))
     : undefined;
 
