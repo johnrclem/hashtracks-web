@@ -343,24 +343,25 @@ interface PlannedRule {
   notes: string | null;
 }
 
-async function main() {
-  const pool = createScriptPool();
-  const adapter = new PrismaPg(pool);
-  const prisma = new PrismaClient({ adapter } as never);
+type PrismaClientLike = InstanceType<typeof PrismaClient>;
 
-  console.log(dryRun ? "🔍 DRY RUN — no changes will be made\n" : "✏️  APPLYING changes\n");
+type StaticScheduleConfig = {
+  rrule?: string;
+  anchorDate?: string;
+  startTime?: string;
+  kennelTag?: string;
+};
 
-  const planned: PlannedRule[] = [];
-
-  // ----- Pass 1: STATIC_SCHEDULE sources -----
+/**
+ * Pass 1 of the backfill: collect HIGH-confidence rules from STATIC_SCHEDULE
+ * sources. Mutates `planned` in place. Extracted from main() so each pass
+ * has a manageable cognitive complexity (SonarCloud cap = 15).
+ */
+async function runStaticSchedulePass(
+  prisma: PrismaClientLike,
+  planned: PlannedRule[],
+): Promise<{ count: number; skipped: number }> {
   console.log("━━━ Pass 1: STATIC_SCHEDULE sources → HIGH confidence ━━━");
-
-  type StaticConfig = {
-    rrule?: string;
-    anchorDate?: string;
-    startTime?: string;
-    kennelTag?: string;
-  };
 
   const staticSources = await prisma.source.findMany({
     where: { type: "STATIC_SCHEDULE", enabled: true },
@@ -373,28 +374,24 @@ async function main() {
     },
   });
 
-  let pass1Count = 0;
-  let pass1Skipped = 0;
+  let count = 0;
+  let skipped = 0;
   for (const src of staticSources) {
-    const config = (src.config ?? {}) as StaticConfig;
+    const config = (src.config ?? {}) as StaticScheduleConfig;
     const rawRrule = config.rrule?.trim();
     if (!rawRrule) {
-      pass1Skipped++;
+      skipped++;
       if (verbose) console.log(`  ⊘ ${src.name} — missing rrule in config`);
       continue;
     }
-    // Normalize BYSETPOS → BYDAY nth form so parseRRule can handle it
     const rrule = normalizeRRule(rawRrule);
     if (verbose && rrule !== rawRrule) {
       console.log(`  ↻ ${src.name} — normalized ${rawRrule} → ${rrule}`);
     }
-    // One static source can link to multiple kennels (rare), but in practice
-    // STATIC_SCHEDULE has 1:1 linkage. Create a rule for each linked kennel.
-    // Filter out hidden kennels — they should not appear in Travel results.
     for (const { kennel } of src.kennels) {
       if (kennel.isHidden) {
         if (verbose) console.log(`  ⊘ ${src.name} → ${kennel.shortName} — hidden kennel, skipping`);
-        pass1Skipped++;
+        skipped++;
         continue;
       }
       planned.push({
@@ -409,19 +406,25 @@ async function main() {
         lastValidatedAt: src.lastSuccessAt ?? src.lastScrapeAt ?? null,
         notes: null,
       });
-      pass1Count++;
+      count++;
     }
   }
-  console.log(`  ✓ ${pass1Count} rules planned (${pass1Skipped} sources skipped)\n`);
+  console.log(`  ✓ ${count} rules planned (${skipped} sources skipped)\n`);
+  return { count, skipped };
+}
 
-  // ----- Pass 2: Kennel display strings -----
+/**
+ * Pass 2 of the backfill: derive MEDIUM/LOW rules from per-kennel display
+ * strings (Kennel.scheduleDayOfWeek/Frequency). Mutates `planned` in place.
+ */
+async function runKennelDisplayPass(
+  prisma: PrismaClientLike,
+  planned: PlannedRule[],
+): Promise<{ count: number; skipped: number; total: number }> {
   console.log("━━━ Pass 2: Kennel display strings → MEDIUM/LOW ━━━");
 
   const kennels = await prisma.kennel.findMany({
-    where: {
-      scheduleFrequency: { not: null },
-      isHidden: false,
-    },
+    where: { scheduleFrequency: { not: null }, isHidden: false },
     select: {
       id: true,
       shortName: true,
@@ -432,13 +435,13 @@ async function main() {
     },
   });
 
-  let pass2Count = 0;
-  let pass2Skipped = 0;
+  let count = 0;
+  let skipped = 0;
   const skipReasons = new Map<string, number>();
   for (const k of kennels) {
     const parsed = parseFrequencyDay(k.scheduleFrequency, k.scheduleDayOfWeek);
     if (parsed.length === 0) {
-      pass2Skipped++;
+      skipped++;
       const reason = `${k.scheduleFrequency} / ${k.scheduleDayOfWeek ?? "null"}`;
       skipReasons.set(reason, (skipReasons.get(reason) ?? 0) + 1);
       if (verbose) {
@@ -454,7 +457,7 @@ async function main() {
         kennelId: k.id,
         kennelDisplay: k.shortName,
         rrule: rule.rrule,
-        anchorDate: null, // display-string-derived rules have no anchor
+        anchorDate: null,
         startTime,
         confidence: rule.confidence,
         source: "SEED_DATA",
@@ -462,11 +465,11 @@ async function main() {
         lastValidatedAt: null,
         notes: rule.notes ?? null,
       });
-      pass2Count++;
+      count++;
     }
   }
-  console.log(`  ✓ ${pass2Count} rules planned from ${kennels.length} kennels (${pass2Skipped} unparseable)`);
-  if (pass2Skipped > 0) {
+  console.log(`  ✓ ${count} rules planned from ${kennels.length} kennels (${skipped} unparseable)`);
+  if (skipped > 0) {
     console.log("  Top skip reasons:");
     const sortedReasons = [...skipReasons.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
     for (const [reason, count] of sortedReasons) {
@@ -474,25 +477,25 @@ async function main() {
     }
   }
   console.log("");
+  return { count, skipped, total: kennels.length };
+}
 
-  // ----- Dry run summary -----
+/**
+ * Print the dry-run plan summary (counts by confidence + source). Pure
+ * function over the `planned` array.
+ */
+function printPlanSummary(planned: PlannedRule[]): void {
   console.log("━━━ Plan summary ━━━");
   console.log(`  Total rules to upsert: ${planned.length}`);
-  const byConfidence = planned.reduce(
-    (acc, r) => {
-      acc[r.confidence] = (acc[r.confidence] ?? 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
+  const byConfidence = planned.reduce<Record<string, number>>((acc, r) => {
+    acc[r.confidence] = (acc[r.confidence] ?? 0) + 1;
+    return acc;
+  }, {});
   console.log(`  By confidence: ${JSON.stringify(byConfidence)}`);
-  const bySource = planned.reduce(
-    (acc, r) => {
-      acc[r.source] = (acc[r.source] ?? 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
+  const bySource = planned.reduce<Record<string, number>>((acc, r) => {
+    acc[r.source] = (acc[r.source] ?? 0) + 1;
+    return acc;
+  }, {});
   console.log(`  By source: ${JSON.stringify(bySource)}\n`);
 
   if (verbose) {
@@ -504,18 +507,18 @@ async function main() {
     }
     console.log("");
   }
+}
 
-  if (dryRun) {
-    console.log("Dry run complete. Re-run with --apply to upsert rules.");
-    await prisma.$disconnect();
-    await pool.end();
-    return;
-  }
-
-  // ----- Apply -----
+/**
+ * Apply the planned rules via upserts on the natural key (kennelId, rrule,
+ * source). Returns counts for the run summary; main() keys off `errored`
+ * for the cleanup gate.
+ */
+async function applyUpserts(
+  prisma: PrismaClientLike,
+  planned: PlannedRule[],
+): Promise<{ created: number; updated: number; errored: number }> {
   console.log("━━━ Applying upserts ━━━");
-  // Snapshot ids that existed BEFORE this run so we can accurately distinguish
-  // created-vs-updated without relying on createdAt timestamp heuristics.
   const preExistingIds = new Set(
     (await prisma.scheduleRule.findMany({ select: { id: true } })).map((r) => r.id),
   );
@@ -524,11 +527,6 @@ async function main() {
   let errored = 0;
   for (const r of planned) {
     try {
-      // Use the natural-key unique constraint for idempotent upsert.
-      // Note: since (kennelId, rrule, source) is the unique key, upserts
-      // with different anchorDate/startTime for the same triple will
-      // REPLACE the old values — intentional, since the new data is
-      // considered canonical (e.g. a STATIC_SCHEDULE source was updated).
       const result = await prisma.scheduleRule.upsert({
         where: {
           ScheduleRule_kennel_rrule_source_key: {
@@ -555,15 +553,13 @@ async function main() {
           sourceReference: r.sourceReference,
           lastValidatedAt: r.lastValidatedAt,
           notes: r.notes,
-          isActive: true, // reactivate if previously deactivated
+          isActive: true,
         },
       });
       if (preExistingIds.has(result.id)) {
         updated++;
       } else {
         created++;
-        // Add to set so the second Rumson iteration (which upserts onto the
-        // row we just created) correctly reports as updated, not created.
         preExistingIds.add(result.id);
       }
     } catch (err) {
@@ -574,25 +570,25 @@ async function main() {
   console.log(`  ✓ Created: ${created}`);
   console.log(`  ✓ Updated: ${updated}`);
   if (errored > 0) console.log(`  ✗ Errored: ${errored}`);
+  return { created, updated, errored };
+}
 
-  // ----- Deactivate stale autogenerated rules -----
-  // SAFETY: only run cleanup if ALL upserts succeeded. If any errored,
-  // we might be missing a planned key that should exist — deactivating
-  // based on an incomplete key set would silently remove the last known-good
-  // rule for that kennel. Fail closed: skip deactivation on partial failure.
+/**
+ * Mark autogenerated rules whose natural key isn't in the current plan
+ * as inactive. Skips when `errored > 0` so a partial-failure run can't
+ * silently deactivate the last known-good rule for a kennel.
+ */
+async function deactivateStaleRules(
+  prisma: PrismaClientLike,
+  planned: PlannedRule[],
+  errored: number,
+): Promise<void> {
   if (errored > 0) {
     console.log(`\n⚠ Skipping stale-rule deactivation — ${errored} upsert error(s) occurred.`);
     console.log("  Fix the errors and re-run to enable cleanup.\n");
-    await prisma.$disconnect();
-    await pool.end();
-    process.exit(1);
+    return;
   }
 
-  // Build the set of natural keys that this run produced. Any existing
-  // autogenerated rule (STATIC_SCHEDULE or SEED_DATA) whose key is NOT
-  // in this set is stale — the underlying data changed or the kennel was
-  // hidden. Deactivate it (set isActive=false) rather than deleting, so
-  // admin can inspect/reactivate if needed. ADMIN rules are untouched.
   console.log("\n━━━ Deactivating stale autogenerated rules ━━━");
 
   const currentKeys = new Set(
@@ -625,9 +621,36 @@ async function main() {
     console.log(`  ✓ No stale rules found`);
   }
   console.log("");
+}
+
+async function main() {
+  const pool = createScriptPool();
+  const adapter = new PrismaPg(pool);
+  const prisma = new PrismaClient({ adapter } as never) as PrismaClientLike;
+
+  console.log(dryRun ? "🔍 DRY RUN — no changes will be made\n" : "✏️  APPLYING changes\n");
+
+  const planned: PlannedRule[] = [];
+  await runStaticSchedulePass(prisma, planned);
+  await runKennelDisplayPass(prisma, planned);
+  printPlanSummary(planned);
+
+  if (dryRun) {
+    console.log("Dry run complete. Re-run with --apply to upsert rules.");
+    await prisma.$disconnect();
+    await pool.end();
+    return;
+  }
+
+  const { errored } = await applyUpserts(prisma, planned);
+  await deactivateStaleRules(prisma, planned, errored);
 
   await prisma.$disconnect();
   await pool.end();
+
+  // Fail closed if any upsert errored — earlier behavior exited with 1
+  // after the deactivation skip log.
+  if (errored > 0) process.exit(1);
 }
 
 // Only run main() when this file is executed directly (not when imported by

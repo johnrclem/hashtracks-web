@@ -142,15 +142,7 @@ async function TravelResultsServer({
   filterParams: Record<string, string | string[] | undefined>;
   pendingAutoSave: boolean;
 }) {
-  const cf = getParam(filterParams, "cf");
-  const df = getParam(filterParams, "df");
-
-  const confidenceFilter = cf
-    ? (cf.split("|") as ("high" | "medium" | "low")[])
-    : undefined;
-  const distanceFilter = df
-    ? (df.split("|") as ("nearby" | "area" | "drive")[])
-    : undefined;
+  const { confidenceFilter, distanceFilter } = parseFilterParams(filterParams);
 
   try {
     const results = await executeTravelSearch(prisma, {
@@ -276,17 +268,7 @@ async function TravelResultsServer({
         results.emptyState === "no_confirmed" ||
         (results.emptyState === "no_nearby" && serializedResults.broaderResults);
 
-      const resultsToRender =
-        results.emptyState === "no_confirmed"
-          ? serializedResults
-          : results.emptyState === "no_nearby" && serializedResults.broaderResults
-            ? {
-                ...serializedResults,
-                confirmed: serializedResults.broaderResults.confirmed,
-                likely: serializedResults.broaderResults.likely,
-                possible: serializedResults.broaderResults.possible,
-              }
-            : null;
+      const resultsToRender = selectResultsToRender(results.emptyState, serializedResults);
 
       return (
         <>
@@ -375,4 +357,49 @@ async function loadAttendanceMap(
     console.error("[travel] Failed to load attendance map; rendering without Going badges", err);
     return {};
   }
+}
+
+/**
+ * Parse the URL filter params (`cf=high|medium`, `df=nearby|area`) into
+ * the typed shape `executeTravelSearch` expects. Extracted from
+ * TravelResultsServer to keep that function under SonarCloud's cognitive
+ * complexity threshold of 15.
+ */
+function parseFilterParams(filterParams: Record<string, string | string[] | undefined>): {
+  confidenceFilter: ("high" | "medium" | "low")[] | undefined;
+  distanceFilter: ("nearby" | "area" | "drive")[] | undefined;
+} {
+  const cf = getParam(filterParams, "cf");
+  const df = getParam(filterParams, "df");
+  return {
+    confidenceFilter: cf ? (cf.split("|") as ("high" | "medium" | "low")[]) : undefined,
+    distanceFilter: df ? (df.split("|") as ("nearby" | "area" | "drive")[]) : undefined,
+  };
+}
+
+/**
+ * Pick which result set to render based on emptyState. Replaces a
+ * three-level nested ternary in TravelResultsServer (SonarCloud "no
+ * nested ternary"). Returns null when no result set is appropriate
+ * (no_coverage / error path).
+ */
+function selectResultsToRender<T extends {
+  broaderResults?: { confirmed: T["confirmed"]; likely: T["likely"]; possible: T["possible"] };
+  confirmed: unknown;
+  likely: unknown;
+  possible: unknown;
+}>(
+  emptyState: string,
+  serialized: T,
+): T | null {
+  if (emptyState === "no_confirmed") return serialized;
+  if (emptyState === "no_nearby" && serialized.broaderResults) {
+    return {
+      ...serialized,
+      confirmed: serialized.broaderResults.confirmed,
+      likely: serialized.broaderResults.likely,
+      possible: serialized.broaderResults.possible,
+    };
+  }
+  return null;
 }
