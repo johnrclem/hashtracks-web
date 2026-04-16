@@ -170,33 +170,49 @@ describe("parseTravelRedirect", () => {
     expect(parseTravelRedirect("/travel?q=Boston&from=2026-04-12")).toBeNull();
   });
 
-  it("extracts destination + dates when /travel params are present", () => {
+  it("returns kind='continuing' with destination + dates when /travel params are present and saved=1 is absent", () => {
     expect(
       parseTravelRedirect(
         "/travel?lat=42.3&lng=-71.0&q=Boston%2C+MA%2C+USA&from=2026-04-12&to=2026-04-20",
       ),
     ).toEqual({
+      kind: "continuing",
       destination: "Boston, MA, USA",
       startDate: "2026-04-12",
       endDate: "2026-04-20",
-      isSave: false,
     });
   });
 
-  it("flags isSave when saved=1 is present", () => {
+  it("returns kind='save' when saved=1 is present", () => {
     expect(
       parseTravelRedirect(
         "/travel?q=Boston&from=2026-04-12&to=2026-04-20&saved=1",
-      )?.isSave,
-    ).toBe(true);
+      ),
+    ).toEqual({
+      kind: "save",
+      destination: "Boston",
+      startDate: "2026-04-12",
+      endDate: "2026-04-20",
+    });
   });
 
-  it("accepts /travel/saved paths (exact-or-/travel/-prefix)", () => {
-    const out = parseTravelRedirect(
-      "/travel/saved?q=Boston&from=2026-04-12&to=2026-04-20",
-    );
-    expect(out).not.toBeNull();
-    expect(out?.destination).toBe("Boston");
+  it("returns kind='saved-trips' for the /travel/saved dashboard route", () => {
+    // P1 #5: previously /travel/saved was swallowed by the /travel prefix
+    // check and emitted either null (no q=) or a destination-flavored
+    // context — so "Your saved trips →" redirected guests to a generic
+    // sign-in banner. kind: "saved-trips" makes the intent explicit.
+    expect(parseTravelRedirect("/travel/saved")).toEqual({
+      kind: "saved-trips",
+    });
+  });
+
+  it("treats q/from/to on /travel/saved as saved-trips (dashboard trumps search)", () => {
+    // Defensive: if anything ever crafts `/travel/saved?q=…`, honor the
+    // dashboard-route intent rather than rendering destination copy that
+    // doesn't match where the user is headed post-auth.
+    expect(
+      parseTravelRedirect("/travel/saved?q=Boston&from=2026-04-12&to=2026-04-20"),
+    ).toEqual({ kind: "saved-trips" });
   });
 
   it("returns null for malformed URLs", () => {

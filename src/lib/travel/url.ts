@@ -60,28 +60,56 @@ export function utcYmd(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export interface TravelContext {
-  destination: string;
-  startDate: string;
-  endDate: string;
-  /** True when the redirect_url carries `saved=1` — signals post-auth auto-save. */
-  isSave: boolean;
-}
+/**
+ * Discriminated union of intents a Travel Mode sign-in redirect can
+ * carry. Three variants, one per user-visible entry path:
+ *
+ *   "save"        — redirect_url is `/travel?q=…&saved=1`: user clicked
+ *                   Save Trip while signed out. Post-auth we finish the
+ *                   save via TravelAutoSave + the stashed intent.
+ *   "continuing"  — redirect_url is `/travel?q=…` (no saved=1): user
+ *                   was browsing a specific destination. Post-auth we
+ *                   drop them back on the same results page.
+ *   "saved-trips" — redirect_url is `/travel/saved`: user clicked "Your
+ *                   saved trips →" from the landing page. No destination
+ *                   context; sign-in banner just names the destination.
+ *
+ * null means the redirect isn't Travel-related at all — sign-in renders
+ * the generic "Welcome back to HashTracks" header.
+ */
+export type TravelContext =
+  | { kind: "save"; destination: string; startDate: string; endDate: string }
+  | { kind: "continuing"; destination: string; startDate: string; endDate: string }
+  | { kind: "saved-trips" };
 
 /**
- * Parse a Travel Mode `redirect_url` like `/travel?q=Boston,+MA&from=…&to=…`
- * back into a structured context. Used by the contextual sign-in banner
- * to render "Save your trip to Boston, MA" above the Clerk form.
+ * Parse a Travel Mode `redirect_url` back into a structured context.
+ * Used by the contextual sign-in banner to render destination-specific
+ * copy above the Clerk form. Returns null when the URL is malformed,
+ * doesn't target a Travel route, or lacks required params.
  *
- * Returns null when the URL is malformed, doesn't target `/travel`, or
- * lacks the required q/from/to params. The exact-or-prefix path check
- * keeps `/travellers` and friends from triggering a false match.
+ * The exact-or-prefix path check keeps `/travellers` and friends from
+ * triggering false matches.
  */
 export function parseTravelRedirect(redirectUrl: string | null): TravelContext | null {
   if (!redirectUrl) return null;
   try {
     // Relative URL — use a dummy origin; only path + search matter.
     const url = new URL(redirectUrl, "https://hashtracks.local");
+
+    // /travel/saved — saved-trips dashboard. Anyone redirected here is
+    // coming from the "Your saved trips →" landing-page flow, NOT from
+    // a per-destination Save-Trip flow. No destination context needed.
+    if (
+      url.pathname === "/travel/saved" ||
+      url.pathname.startsWith("/travel/saved/")
+    ) {
+      return { kind: "saved-trips" };
+    }
+
+    // /travel — results/search route. Needs q + from + to to carry
+    // meaningful context; without them the banner can't name a
+    // destination and we fall through to generic welcome copy.
     const isTravelPath =
       url.pathname === "/travel" || url.pathname.startsWith("/travel/");
     if (!isTravelPath) return null;
@@ -89,11 +117,12 @@ export function parseTravelRedirect(redirectUrl: string | null): TravelContext |
     const startDate = url.searchParams.get("from");
     const endDate = url.searchParams.get("to");
     if (!destination || !startDate || !endDate) return null;
+    const isSave = url.searchParams.get("saved") === "1";
     return {
+      kind: isSave ? "save" : "continuing",
       destination,
       startDate,
       endDate,
-      isSave: url.searchParams.get("saved") === "1",
     };
   } catch {
     return null;
